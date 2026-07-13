@@ -6,13 +6,16 @@
 /// <reference types="vitest/globals" />
 
 import { raceTimeout } from '../../../../../base/common/async.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IPositronPlotMetadata, PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotOpenTarget, PlotsDisplayLocation } from '../../../../services/positronPlots/common/positronPlots.js';
+import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotOpenTarget, PlotsDisplayLocation, POSITRON_PLOTS_VIEW_ID } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ACTIVE_GROUP, AUX_WINDOW_GROUP, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
+import { LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { PositronPlotCommProxy } from '../../../../services/languageRuntime/common/positronPlotCommProxy.js';
@@ -20,6 +23,7 @@ import { IntrinsicSize, PlotUnit } from '../../../../services/languageRuntime/co
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyFill } from '../../../../services/positronPlots/common/sizingPolicyFill.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 
 describe('Positron - Plots Service', () => {
@@ -433,6 +437,58 @@ describe('Positron - Plots Service', () => {
 
 		it('copy editor plot: rejects when the plot id is unknown', async () => {
 			await expect(plotsService.copyEditorPlotToClipboard('missing')).rejects.toThrow('Plot not found');
+		});
+	});
+
+	// Notebook consoles surface their static image outputs in the Plots pane,
+	// but passively -- the plot appears without the pane being raised. Plain
+	// notebooks (no attached console) stay out of the pane entirely.
+	describe('notebook console plots', () => {
+		const SHOW_NOTEBOOK_CONSOLES_KEY = 'console.showNotebookConsoles';
+
+		// A static image output message, of the shape a runtime emits for a plot.
+		function staticImageMessage(id: string) {
+			return { id, kind: RuntimeOutputKind.StaticImage, data: { 'image/png': 'dGVzdA==' } };
+		}
+
+		async function startNotebookSession() {
+			return startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, {
+				sessionMode: LanguageRuntimeSessionMode.Notebook,
+				notebookUri: URI.parse('untitled:notebook.ipynb'),
+			});
+		}
+
+		it('notebook console: surfaces static plots passively (does not raise the pane)', async () => {
+			// A notebook session gets a console when notebook consoles are enabled.
+			const configurationService = ctx.instantiationService.get(IConfigurationService) as TestConfigurationService;
+			await configurationService.setUserConfiguration(SHOW_NOTEBOOK_CONSOLES_KEY, true);
+			const openViewSpy = vi.spyOn(ctx.instantiationService.get(IViewsService), 'openView');
+
+			const session = await startNotebookSession();
+			session.receiveOutputMessage(staticImageMessage('notebook-plot-1'));
+
+			// The plot shows up in the Plots pane, but the pane is never raised.
+			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['notebook-plot-1']);
+			expect(openViewSpy).not.toHaveBeenCalledWith(POSITRON_PLOTS_VIEW_ID, false);
+		});
+
+		it('plain notebook (no console): keeps plots out of the pane', async () => {
+			// notebook consoles disabled (the default), so this notebook has no console.
+			const session = await startNotebookSession();
+			session.receiveOutputMessage(staticImageMessage('notebook-plot-1'));
+
+			expect(plotsService.positronPlotInstances.length).toBe(0);
+		});
+
+		it('console: surfaces static plots and raises the pane', async () => {
+			const openViewSpy = vi.spyOn(ctx.instantiationService.get(IViewsService), 'openView');
+
+			// startTestLanguageRuntimeSession defaults to a console session.
+			const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+			session.receiveOutputMessage(staticImageMessage('console-plot-1'));
+
+			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['console-plot-1']);
+			expect(openViewSpy).toHaveBeenCalledWith(POSITRON_PLOTS_VIEW_ID, false);
 		});
 	});
 });

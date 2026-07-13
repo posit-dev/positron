@@ -867,11 +867,37 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			}
 		}));
 
-		// Configure console-specific behavior.
-		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+		// Configure console-specific behavior. This applies to regular console
+		// sessions as well as notebook sessions that have a console attached
+		// ("notebook consoles"). Notebook consoles surface their static plots in
+		// the Plots pane too, but passively: the pane is populated without being
+		// raised. Plain notebooks (no console) render their plots inline in the
+		// notebook and are excluded below.
+		const isConsole = session.metadata.sessionMode === LanguageRuntimeSessionMode.Console;
+		const isNotebook = session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
+		if (isConsole || isNotebook) {
+			// Determines whether this session's plots should be surfaced in the
+			// Plots pane, and whether adding them should raise the pane. Console
+			// sessions always do and raise the pane; notebook sessions only do so
+			// once a console is attached, and never raise the pane. This is
+			// evaluated per message because a notebook console may attach after
+			// the session starts.
+			const getPlotsPaneBehavior = (): { surface: boolean; raisePane: boolean } => {
+				if (isConsole) {
+					return { surface: true, raisePane: true };
+				}
+				const hasConsole = this._runtimeSessionService.getActiveSession(session.sessionId)?.hasConsole ?? false;
+				return { surface: hasConsole, raisePane: false };
+			};
+
 			// Listen for static plots being emitted, and register each one with
 			// the plots service.
 			const handleDidReceiveRuntimeMessageOutput = (message: ILanguageRuntimeMessageOutput) => {
+				const { surface, raisePane } = getPlotsPaneBehavior();
+				if (!surface) {
+					return;
+				}
+
 				// Check to see if we we already have a plot client for this
 				// message ID. If so, we don't need to do anything.
 				if (this.hasPlot(session.sessionId, message.id)) {
@@ -889,22 +915,27 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				if (message.output_id) {
 					const existingPlot = this.getPlotForOutput(session.sessionId, message.output_id);
 					if (existingPlot) {
-						this.replacePlot(existingPlot.id, plot);
+						this.replacePlot(existingPlot.id, plot, raisePane);
 						return;
 					}
 				}
 
 				// This is a new plot, register it with the plots service.
 				if (plot instanceof StaticPlotClient) {
-					this.registerNewPlotClient(plot);
+					this.registerNewPlotClient(plot, raisePane);
 				} else if (plot instanceof NotebookOutputPlotClient) {
-					this.registerWebviewPlotClient(plot);
+					this.registerWebviewPlotClient(plot, raisePane);
 				}
 			};
 			this._register(session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
 			this._register(session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
 
 			this._register(session.onDidReceiveRuntimeMessageUpdateOutput((message) => {
+				const { surface, raisePane } = getPlotsPaneBehavior();
+				if (!surface) {
+					return;
+				}
+
 				// Create a plot from the output message.
 				const plot = this.createPlot(message, session);
 				if (!plot) {
@@ -915,7 +946,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				// Update the plot with the given output ID, if one exists.
 				const existingPlot = this.getPlotForOutput(session.sessionId, message.output_id);
 				if (existingPlot) {
-					this.replacePlot(existingPlot.id, plot);
+					this.replacePlot(existingPlot.id, plot, raisePane);
 				}
 			}));
 		}
@@ -1214,8 +1245,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * Replaces a plot with a new one and fires the appropriate UI events.
 	 * @param id The ID of the plot to replace.
 	 * @param newPlot The new plot.
+	 * @param raisePane Whether to raise the Plots pane. Defaults to true; pass
+	 *   false to replace the plot passively (e.g. for notebook consoles).
 	 */
-	private replacePlot(id: string, newPlot: IPositronPlotClient) {
+	private replacePlot(id: string, newPlot: IPositronPlotClient, raisePane: boolean = true) {
 		const index = this._plots.findIndex(plot => plot.id === id);
 		if (index < 0) {
 			throw new Error(`Could not replace unknown plot: ${id}`);
@@ -1232,7 +1265,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._onDidRemovePlot.fire(id);
 		this._onDidEmitPlot.fire(newPlot);
 		this._onDidSelectPlot.fire(newPlot.id);
-		this._showPlotsPane();
+		if (raisePane) {
+			this._showPlotsPane();
+		}
 	}
 
 	saveViewPlot(): void {
@@ -1426,7 +1461,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._showPlotsPane();
 	}
 
-	private registerWebviewPlotClient(plotClient: IPositronPlotClient) {
+	private registerWebviewPlotClient(plotClient: IPositronPlotClient, raisePane: boolean = true) {
 		if (plotClient instanceof WebviewPlotClient) {
 			// Ensure that the number of active webview plots does not exceed the maximum.
 			this._register(plotClient.onDidActivate(() => {
@@ -1458,7 +1493,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			}));
 		}
 
-		this.registerNewPlotClient(plotClient);
+		this.registerNewPlotClient(plotClient, raisePane);
 	}
 
 	/**
@@ -1466,13 +1501,17 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * appropriate events.
 	 *
 	 * @param client The plot client to register
+	 * @param raisePane Whether to raise the Plots pane. Defaults to true; pass
+	 *   false to add the plot passively (e.g. for notebook consoles).
 	 */
-	private registerNewPlotClient(client: IPositronPlotClient) {
+	private registerNewPlotClient(client: IPositronPlotClient, raisePane: boolean = true) {
 		this._plots.unshift(client);
 		this._onDidEmitPlot.fire(client);
 		this._onDidSelectPlot.fire(client.id);
 		this._register(client);
-		this._showPlotsPane();
+		if (raisePane) {
+			this._showPlotsPane();
+		}
 	}
 
 	public async openEditor(plotId: string, groupType?: number, metadata?: IPositronPlotMetadata): Promise<void> {

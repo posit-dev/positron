@@ -10,9 +10,13 @@
 }
 
 .activity-output-plot img {
-	max-height: 50px;
+	/*
+	 * Show the plot at its natural size, capped at 300px tall. max-height never
+	 * upscales, so small plots stay their real height and never exceed the plot's
+	 * actual height.
+	 */
+	max-height: 300px;
 	max-width: 100%;
-	border: 1px solid transparent;
 	border-radius: 4px;
 	cursor: pointer;
 	padding: 5px;
@@ -29,6 +33,13 @@
 	display: block;
 }
 
+/*
+ * Use an inset outline (not a border) for the hover indicator. An outline does
+ * not participate in layout, so revealing it on hover cannot shift the plot or
+ * any surrounding console content. outline-offset keeps it inside the element so
+ * it isn't clipped by the container's overflow: hidden.
+ */
 .activity-output-plot:hover img {
-	border: 1px solid var(--vscode-tab-border);
+	outline: 1px solid var(--vscode-tab-border);
+	outline-offset: -1px;
 }
