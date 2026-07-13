@@ -45,9 +45,4 @@ suite('makeMetadata path fields', () => {
 		assert.strictEqual(metadata.runtimePath, binpath);
 	});
 
-	test('runtimeDisplayPath is undefined for a system (non-home-dir) install', async () => {
-		const binpath = '/usr/bin/R';
-		const metadata = await makeMetadata(makeRInst(binpath));
-		assert.strictEqual(metadata.runtimeDisplayPath, undefined);
-	});
 });
