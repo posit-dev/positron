@@ -107,7 +107,7 @@ Source: `test/e2e/pages/dialog-contextMenu.ts`.
 
 ## Other Page Objects
 
-`app.workbench.*` has ~49 properties total (editors, explorer, layouts, modals, toasts, quickaccess, quickInput, connections, help, terminal, viewer, settings, debug, scm, search, outline, output, problems, testExplorer, clipboard, assistant, and more). See "Finding the Exact Source" below to look up any of them.
+`app.workbench.*` has ~49 properties total (editors, explorer, layouts, modals, toasts, quickaccess, quickInput, connections, help, terminal, viewer, userSettings, debug, scm, search, outline, output, problems, testExplorer, clipboard, assistant, and more). See "Finding the Exact Source" below to look up any of them.
 
 ## Page Object Pattern
 

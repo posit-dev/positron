@@ -554,30 +554,9 @@ Reports include:
 - Step-by-step execution
 - Error messages with context
 
-## Fixture vs. POM Confusion
+## Settings & Pre-Launch Configuration
 
-### 27. Confusing the `settings` Fixture with `app.workbench.settings`
-
-The `settings` fixture (test function parameter) and `app.workbench.settings` (the `UserSettings` POM) are different objects. Both happen to have a `.remove()` method, which makes it easy to grab the wrong one. Methods that take a settings argument, like `notebooksPositron.enablePositronNotebooks(settings)`, expect the **fixture**, not the workbench POM.
-
-**WRONG:**
-```typescript
-test('example', async ({ app }) => {
-	const { notebooksPositron, settings } = app.workbench;
-	await notebooksPositron.enablePositronNotebooks(settings);  // BREAKS -- app.workbench.settings, wrong type
-});
-```
-
-**CORRECT:**
-```typescript
-test('example', async ({ app, settings }) => {
-	await app.workbench.notebooksPositron.enablePositronNotebooks(settings);  // settings fixture
-});
-```
-
-The `settings` fixture has `.set()`, `.clear()`, `.remove()`, with reload options (see `references/fixtures.md`). The `app.workbench.settings` POM (`UserSettings`) has `.mergeSetting()`, `.getSettings()`, `.remove()`. Don't mix them up.
-
-### 28. `enablePositronNotebooks` Needs the Settings Fixture and Triggers a Reload
+### 27. `enablePositronNotebooks` Needs the Settings Fixture and Triggers a Reload
 
 `notebooksPositron.enablePositronNotebooks(settings)` takes the `settings` fixture and internally calls `settings.set(..., { reload: 'web' })` -- it always reloads the window to make the setting take effect.
 
@@ -597,9 +576,9 @@ test('example', async ({ app, settings }) => {
 
 To avoid the reload cost, set `positron.notebook.enabled` via `settingsFile.append()` in a `beforeApp` worker fixture instead, so it's applied before the app starts (see the "Custom Test Setup Files" example in `references/fixtures.md`).
 
-### 29. Setting Config Mid-Test When Pre-Launch Would Do
+### 28. Setting Config Mid-Test When Pre-Launch Would Do
 
-More generally than #28: any `settings.set(...)` after the app has launched costs a reload, and for discovery/session-gating settings a reload can be flaky (it doesn't always re-run every cold-launch code path).
+More generally than #27: any `settings.set(...)` after the app has launched costs a reload, and for discovery/session-gating settings a reload can be flaky (it doesn't always re-run every cold-launch code path).
 
 **WRONG:**
 ```typescript
