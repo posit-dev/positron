@@ -46,30 +46,30 @@ test.describe('Feature Name - Subsection', {
 	});
 
 	// Test-scoped setup (runs before each test)
-	test.beforeEach(async function ({ app }) {
+	test.beforeEach(async ({ app }) => {
 		await app.workbench.layouts.enterLayout('fullSizedPanel');
 	});
 
 	// Test-scoped cleanup (runs after each test)
-	test.afterEach(async function ({ app, hotKeys }) {
+	test.afterEach(async ({ app, hotKeys }) => {
 		await app.workbench.dataExplorer.filters.clearAll();
 		await hotKeys.closeAllEditors();
 	});
 
 	// Worker-scoped cleanup (runs after all tests in file)
-	test.afterAll(async function ({ cleanup }) {
+	test.afterAll(async ({ cleanup }) => {
 		await cleanup.removeTestFiles(['generated-file.txt']);
 	});
 
 	// Test with auto-started interpreter
-	test('Test with Python', async function ({ app, python }) {
+	test('Test with Python', async ({ app, python }) => {
 		// Python interpreter automatically started before this runs
 		await app.workbench.console.executeCode('Python', 'print("hello")');
 		await app.workbench.console.waitForConsoleContents('hello');
 	});
 
 	// Test with manual session management
-	test('Test with manual session', async function ({ app, sessions }) {
+	test('Test with manual session', async ({ app, sessions }) => {
 		await sessions.start('python');
 		// ... test logic
 	});
@@ -78,7 +78,7 @@ test.describe('Feature Name - Subsection', {
 	test('Specific platform test', {
 		tag: [tags.WIN],  // Only on Windows
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1234' }]
-	}, async function ({ app, r }) {
+	}, async ({ app, r }) => {
 		// R-specific test
 	});
 });
@@ -197,36 +197,30 @@ Run before/after each test. Use for:
 - Clearing state
 
 ```typescript
-test.beforeEach(async function ({ app }) {
+test.beforeEach(async ({ app }) => {
 	await app.workbench.layouts.enterLayout('fullSizedPanel');
 });
 
-test.afterEach(async function ({ hotKeys }) {
+test.afterEach(async ({ hotKeys }) => {
 	await hotKeys.closeAllEditors();
 });
 ```
 
-## Function Syntax Requirement
+## Function Syntax for Tests and Hooks
 
-**IMPORTANT**: Use `function` syntax (not arrow functions) for tests and hooks:
+Arrow functions are preferred -- shorter, and the standard Playwright style:
 
 ```typescript
-// CORRECT - function syntax
-test('my test', async function ({ app, python }) {
-	// ...
-});
-
-test.beforeEach(async function ({ app }) {
-	// ...
-});
-
-// INCORRECT - arrow function
 test('my test', async ({ app, python }) => {
+	// ...
+});
+
+test.beforeEach(async ({ app }) => {
 	// ...
 });
 ```
 
-While arrow functions often work, `function` syntax is the established pattern in the codebase and ensures proper fixture access.
+Fixtures are delivered via the destructured parameter either way (never via `this`), so `function` syntax works identically and you'll see it throughout the existing test suite -- match a file's existing style if you're editing one rather than mixing both in the same file.
 
 ## Test Tags
 
@@ -269,7 +263,7 @@ test.describe('Console', {
 // Per-test tags (override or add to describe tags)
 test('Special test', {
 	tag: [tags.WIN]  // Only Windows
-}, async function ({ app }) { ... });
+}, async ({ app }) => { ... });
 ```
 
 ## Test Annotations
@@ -282,7 +276,7 @@ test('Flaky test', {
 		{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1234' },
 		{ type: 'fixme', description: 'Flaky on CI - timing issue' }
 	]
-}, async function ({ app }) { ... });
+}, async ({ app }) => { ... });
 ```
 
 ## Using test.step
@@ -292,7 +286,7 @@ Most POM action/verification methods already wrap themselves in `test.step` inte
 Reserve `test.step` for raw Playwright sequences that aren't already a POM call:
 
 ```typescript
-test('Complete workflow', async function ({ app, python, page }) {
+test('Complete workflow', async ({ app, python, page }) => {
 	// No extra test.step needed -- each of these already wraps itself
 	await app.workbench.console.executeCode('Python', 'df = pd.DataFrame(...)');
 	await app.workbench.variables.doubleClickVariableRow('df');
@@ -320,7 +314,7 @@ Tests in the same file share an app instance. Ensure:
 - Don't leave state that affects other tests
 
 ```typescript
-test.afterEach(async function ({ hotKeys, app }) {
+test.afterEach(async ({ hotKeys, app }) => {
 	// Reset UI state
 	await hotKeys.closeAllEditors();
 	await app.workbench.layouts.enterLayout('stacked');

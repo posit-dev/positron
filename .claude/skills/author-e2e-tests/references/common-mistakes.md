@@ -23,7 +23,7 @@ The custom `_test.setup` provides all Positron fixtures. Using the raw Playwrigh
 **WRONG:**
 ```typescript
 test.describe('Console Tests', () => {
-	test('my test', async function ({ app }) {
+	test('my test', async ({ app }) => {
 		// ...
 	});
 });
@@ -36,7 +36,7 @@ test.use({
 });
 
 test.describe('Console Tests', () => {
-	test('my test', async function ({ app }) {
+	test('my test', async ({ app }) => {
 		// ...
 	});
 });
@@ -47,31 +47,17 @@ Without `suiteId`:
 - Logs won't be organized by test file
 - beforeAll/afterAll won't work as expected
 
-### 3. Arrow Functions Instead of Function Syntax
+### 3. Arrow vs. `function` Syntax -- Not a Real Mistake
 
-**WRONG:**
+Both work identically with Playwright fixtures (delivered via a destructured parameter, never `this`), so there's nothing to get wrong here. Arrow functions are preferred going forward -- shorter, and standard Playwright style:
+
 ```typescript
 test('my test', async ({ app, python }) => {
 	// ...
 });
-
-test.beforeEach(async ({ app }) => {
-	// ...
-});
 ```
 
-**CORRECT:**
-```typescript
-test('my test', async function ({ app, python }) {
-	// ...
-});
-
-test.beforeEach(async function ({ app }) {
-	// ...
-});
-```
-
-The codebase consistently uses `function` syntax. While arrow functions sometimes work, they can cause issues with fixture access and this-binding.
+Plenty of existing tests use `function` syntax instead; that's fine too, and worth matching if you're editing one of those files rather than mixing styles within it.
 
 ### 4. Forgetting Tags for Cross-Platform Tests
 
@@ -101,11 +87,11 @@ Without platform tags:
 
 **WRONG (misunderstanding):**
 ```typescript
-test('test 1', async function ({ python }) {
+test('test 1', async ({ python }) => {
 	// Python starts
 });
 
-test('test 2', async function ({ app }) {
+test('test 2', async ({ app }) => {
 	// Assuming Python is still running - IT'S NOT GUARANTEED
 	await app.workbench.console.executeCode('Python', 'x = 1');
 });
@@ -113,13 +99,13 @@ test('test 2', async function ({ app }) {
 
 **CORRECT:**
 ```typescript
-test('test 2', async function ({ app, python }) {
+test('test 2', async ({ app, python }) => {
 	// python fixture ensures Python is running
 	await app.workbench.console.executeCode('Python', 'x = 1');
 });
 
 // Or use sessions for manual control
-test('test 2', async function ({ app, sessions }) {
+test('test 2', async ({ app, sessions }) => {
 	await sessions.start('python', { reuse: true });
 	await app.workbench.console.executeCode('Python', 'x = 1');
 });
@@ -129,7 +115,7 @@ test('test 2', async function ({ app, sessions }) {
 
 **WRONG:**
 ```typescript
-test('my test', async function ({ settings }) {
+test('my test', async ({ settings }) => {
 	await settings.set({ 'key': 'value' });  // Settings is worker-scoped!
 });
 ```
@@ -147,7 +133,7 @@ test.beforeAll(async ({ settings }) => {
 
 **WRONG:**
 ```typescript
-test('test', async function ({ page, sessions }) {
+test('test', async ({ page, sessions }) => {
 	await sessions.start('python');
 	// page is derived from app, but you might not have app in scope
 });
@@ -155,13 +141,13 @@ test('test', async function ({ page, sessions }) {
 
 **CORRECT:**
 ```typescript
-test('test', async function ({ app, sessions }) {
+test('test', async ({ app, sessions }) => {
 	await sessions.start('python');
 	const page = app.code.driver.currentPage;  // Access page from app
 });
 
 // Or use page fixture directly
-test('test', async function ({ page, sessions }) {
+test('test', async ({ page, sessions }) => {
 	await sessions.start('python');
 	await expect(page.getByText('Python')).toBeVisible();
 });
@@ -295,12 +281,12 @@ page.getByRole('tab', { name: 'Console', exact: true })
 **WRONG:**
 ```typescript
 test.describe('Tests', () => {
-	test('test 1', async function ({ app }) {
+	test('test 1', async ({ app }) => {
 		await app.workbench.variables.doubleClickVariableRow('df');
 		// Opens data explorer tab
 	});
 
-	test('test 2', async function ({ app }) {
+	test('test 2', async ({ app }) => {
 		// Data explorer tab still open - may interfere
 	});
 });
@@ -309,15 +295,15 @@ test.describe('Tests', () => {
 **CORRECT:**
 ```typescript
 test.describe('Tests', () => {
-	test.afterEach(async function ({ hotKeys }) {
+	test.afterEach(async ({ hotKeys }) => {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('test 1', async function ({ app }) {
+	test('test 1', async ({ app }) => {
 		await app.workbench.variables.doubleClickVariableRow('df');
 	});
 
-	test('test 2', async function ({ app }) {
+	test('test 2', async ({ app }) => {
 		// Clean slate
 	});
 });
@@ -327,18 +313,18 @@ test.describe('Tests', () => {
 
 **WRONG:**
 ```typescript
-test('step 1 - create file', async function ({ app }) {
+test('step 1 - create file', async ({ app }) => {
 	// Creates file
 });
 
-test('step 2 - use file', async function ({ app }) {
+test('step 2 - use file', async ({ app }) => {
 	// Assumes file from test 1 exists - BAD
 });
 ```
 
 **CORRECT:**
 ```typescript
-test('complete workflow', async function ({ app }) {
+test('complete workflow', async ({ app }) => {
 	await test.step('Create file', async () => {
 		// Create file
 	});
@@ -349,7 +335,7 @@ test('complete workflow', async function ({ app }) {
 });
 
 // Or use beforeEach to set up state
-test.beforeEach(async function ({ app }) {
+test.beforeEach(async ({ app }) => {
 	// Create file for each test
 });
 ```
@@ -360,7 +346,7 @@ Most POM action/verification methods (e.g. `console.executeCode`, `variables.dou
 
 **WRONG:**
 ```typescript
-test('full workflow', async function ({ app, python }) {
+test('full workflow', async ({ app, python }) => {
 	await test.step('Create dataframe', async () => {
 		await app.workbench.console.executeCode('Python', 'df = create_df()');  // Already wraps itself
 	});
@@ -373,7 +359,7 @@ test('full workflow', async function ({ app, python }) {
 
 **CORRECT:**
 ```typescript
-test('full workflow', async function ({ app, python }) {
+test('full workflow', async ({ app, python }) => {
 	// No outer test.step -- each POM call already reports its own step
 	await app.workbench.console.executeCode('Python', 'df = create_df()');
 	await app.workbench.variables.doubleClickVariableRow('df');
@@ -413,7 +399,7 @@ await button.click();
 
 **WRONG:**
 ```typescript
-test('execute code', async function ({ sessions, app }) {
+test('execute code', async ({ sessions, app }) => {
 	await sessions.start('python');
 	await app.workbench.console.executeCode('Python', 'x = 1');
 	// May fail if console not ready
@@ -422,13 +408,13 @@ test('execute code', async function ({ sessions, app }) {
 
 **CORRECT:**
 ```typescript
-test('execute code', async function ({ python, app }) {
+test('execute code', async ({ python, app }) => {
 	// python fixture waits for ready state
 	await app.workbench.console.executeCode('Python', 'x = 1');
 });
 
 // Or manually wait
-test('execute code', async function ({ sessions, app }) {
+test('execute code', async ({ sessions, app }) => {
 	await sessions.start('python');
 	await app.workbench.console.waitForReady('>>>');
 	await app.workbench.console.executeCode('Python', 'x = 1');
@@ -576,7 +562,7 @@ The `settings` fixture (test function parameter) and `app.workbench.settings` (t
 
 **WRONG:**
 ```typescript
-test('example', async function ({ app }) {
+test('example', async ({ app }) => {
 	const { notebooksPositron, settings } = app.workbench;
 	await notebooksPositron.enablePositronNotebooks(settings);  // BREAKS -- app.workbench.settings, wrong type
 });
@@ -584,7 +570,7 @@ test('example', async function ({ app }) {
 
 **CORRECT:**
 ```typescript
-test('example', async function ({ app, settings }) {
+test('example', async ({ app, settings }) => {
 	await app.workbench.notebooksPositron.enablePositronNotebooks(settings);  // settings fixture
 });
 ```
@@ -597,14 +583,14 @@ The `settings` fixture has `.set()`, `.clear()`, `.remove()`, with reload option
 
 **WRONG:**
 ```typescript
-test('example', async function ({ app }) {
+test('example', async ({ app }) => {
 	await app.workbench.notebooksPositron.enablePositronNotebooks();  // Missing required settings argument
 });
 ```
 
 **CORRECT:**
 ```typescript
-test('example', async function ({ app, settings }) {
+test('example', async ({ app, settings }) => {
 	await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
 });
 ```
@@ -650,7 +636,7 @@ Before submitting a test, verify:
 
 - [ ] Imports from `../_test.setup`
 - [ ] Has `test.use({ suiteId: __filename })`
-- [ ] Uses `function` syntax (not arrow functions)
+- [ ] Uses arrow functions for test callbacks (preferred), or matches the file's existing style consistently
 - [ ] Has appropriate tags (`tags.WEB`, `tags.WIN`, feature tag)
 - [ ] Settings known before the test runs are applied pre-launch (`beforeApp`/`settingsFile`), not via a mid-test `settings.set()` reload
 - [ ] All assertions have explicit timeouts for async operations

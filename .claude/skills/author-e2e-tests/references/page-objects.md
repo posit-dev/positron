@@ -9,7 +9,7 @@ Documentation of page objects available via `app.workbench.*`.
 Page objects encapsulate UI interactions. Access them through the `app.workbench` property:
 
 ```typescript
-test('example', async function ({ app }) {
+test('example', async ({ app }) => {
 	const { console, variables, dataExplorer, plots } = app.workbench;
 
 	await console.executeCode('Python', 'x = 1');

@@ -35,16 +35,16 @@ test.describe('Feature Name', {
 	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.FEATURE_TAG]
 }, () => {
 
-	test.beforeEach(async function ({ app }) {
+	test.beforeEach(async ({ app }) => {
 		// Optional setup for each test
 	});
 
-	test.afterEach(async function ({ app, hotKeys }) {
+	test.afterEach(async ({ app, hotKeys }) => {
 		// Cleanup after each test
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Test description', async function ({ app, python }) {
+	test('Test description', async ({ app, python }) => {
 		// Test implementation
 	});
 });
@@ -53,8 +53,9 @@ test.describe('Feature Name', {
 **MANDATORY REQUIREMENTS:**
 1. Import from `../_test.setup` - NOT from `@playwright/test`
 2. Set `suiteId: __filename` - Required for app isolation
-3. Use `function` syntax for tests (not arrow functions) - Required for fixtures
-4. Add appropriate tags for platform filtering
+3. Add appropriate tags for platform filtering
+
+Arrow functions are preferred for test callbacks -- shorter, and the standard style for Playwright. Fixtures are delivered via a destructured parameter either way, so there's no technical difference from `function` syntax; you'll still see plenty of existing tests written with `function`, which is fine to match if you're editing one of those files.
 
 ## Quick Reference: Available Fixtures
 
@@ -110,7 +111,7 @@ await expect(locator).toHaveCount(3, { timeout: 15000 });
 // Retry pattern for flaky operations
 await expect(async () => {
 	await someAction();
-	await expect(resultLocator).toBeVisible();
+	await expect(resultLocator).toBeVisible({ timeout: 2000 }); // fail quickly
 }).toPass({ timeout: 15000 });
 ```
 
@@ -120,11 +121,11 @@ See `references/assertions.md` for complete assertion patterns.
 
 **Feature tags** (what the test covers):
 - `tags.CONSOLE`, `tags.DATA_EXPLORER`, `tags.NOTEBOOKS`, `tags.PLOTS`, `tags.VARIABLES`
-- `tags.CRITICAL` - High priority tests
+- `tags.CRITICAL` - High priority tests, must be stable and not flaky, run on every PR
 
 **Platform tags** (where the test runs):
-- `tags.WEB` - Enable web browser testing
-- `tags.WIN` - Enable Windows testing
+- `tags.WEB` - Enable test to run against Positron Web (Chromium)
+- `tags.WIN` - Enable test to run against Positron electron on Windows
 - Default: Linux/Electron only
 
 ```typescript
@@ -148,14 +149,13 @@ All performance/metric tests must include `tags.PERFORMANCE` in their tag list.
 **Critical (will break tests):**
 1. **Wrong imports** - use `../_test.setup`, not `@playwright/test`
 2. **Missing `suiteId`** - must have `test.use({ suiteId: __filename })`
-3. **Arrow functions** - use `function` syntax, not `async ({ app }) =>`
-4. **Missing platform tags** - add `tags.WEB`, `tags.WIN` for cross-platform
+3. **Missing platform tags** - add `tags.WEB`, `tags.WIN` for cross-platform
 
 **Quality issues:**
-5. **No timeout on assertions** - use `{ timeout: 30000 }` for async operations
-6. **No `test.step()`** - wrap complex multi-action sequences for better reports
+4. **No timeout on assertions** - use `{ timeout: 30000 }` for async operations
+5. **No `test.step()`** - wrap complex multi-action sequences for better reports
 
-See `references/common-mistakes.md` for 29 detailed gotchas with code examples.
+See `references/common-mistakes.md` for detailed gotchas with code examples.
 
 ## Running Tests
 

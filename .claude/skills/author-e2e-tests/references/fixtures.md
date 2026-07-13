@@ -15,7 +15,7 @@ Fixtures have two scopes:
 The main application instance. Provides access to all page objects.
 
 ```typescript
-test('example', async function ({ app }) {
+test('example', async ({ app }) => {
 	// Access workbench page objects
 	await app.workbench.console.executeCode('Python', 'x = 1');
 	await app.workbench.variables.doubleClickVariableRow('x');
@@ -33,7 +33,7 @@ test('example', async function ({ app }) {
 Shorthand for `app.code.driver.currentPage`. Direct Playwright Page access.
 
 ```typescript
-test('example', async function ({ page }) {
+test('example', async ({ page }) => {
 	// Direct locator access
 	await page.getByLabel('Start Interpreter').click();
 	await expect(page.getByText('Python')).toBeVisible();
@@ -45,7 +45,7 @@ test('example', async function ({ page }) {
 Session/interpreter management.
 
 ```typescript
-test('example', async function ({ sessions }) {
+test('example', async ({ sessions }) => {
 	// Start specific interpreter
 	await sessions.start('python');
 	await sessions.start('r');
@@ -68,7 +68,7 @@ test('example', async function ({ sessions }) {
 Auto-starts Python interpreter before test runs.
 
 ```typescript
-test('Python test', async function ({ app, python }) {
+test('Python test', async ({ app, python }) => {
 	// Python interpreter already started
 	// Console is ready with >>> prompt
 	await app.workbench.console.executeCode('Python', 'print("hello")');
@@ -80,7 +80,7 @@ test('Python test', async function ({ app, python }) {
 Auto-starts R interpreter before test runs.
 
 ```typescript
-test('R test', async function ({ app, r }) {
+test('R test', async ({ app, r }) => {
 	// R interpreter already started
 	// Console is ready with > prompt
 	await app.workbench.console.executeCode('R', 'print("hello")');
@@ -94,7 +94,7 @@ test('R test', async function ({ app, r }) {
 Opens a file from the workspace.
 
 ```typescript
-test('example', async function ({ openFile }) {
+test('example', async ({ openFile }) => {
 	// Path relative to qa-example-content
 	await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 
@@ -108,7 +108,7 @@ test('example', async function ({ openFile }) {
 Opens a data file (for data explorer).
 
 ```typescript
-test('example', async function ({ openDataFile }) {
+test('example', async ({ openDataFile }) => {
 	await openDataFile('workspaces/large_r_notebook/spotify.ipynb');
 });
 ```
@@ -118,7 +118,7 @@ test('example', async function ({ openDataFile }) {
 Opens a folder.
 
 ```typescript
-test('example', async function ({ openFolder }) {
+test('example', async ({ openFolder }) => {
 	await openFolder('qa-example-content/workspaces/r_testing');
 });
 ```
@@ -130,7 +130,7 @@ test('example', async function ({ openFolder }) {
 Execute code in the console.
 
 ```typescript
-test('example', async function ({ executeCode }) {
+test('example', async ({ executeCode }) => {
 	// Basic execution
 	await executeCode('Python', 'print("hello")');
 	await executeCode('R', 'print("world")');
@@ -149,7 +149,7 @@ test('example', async function ({ executeCode }) {
 Run a VS Code command via quick access.
 
 ```typescript
-test('example', async function ({ runCommand }) {
+test('example', async ({ runCommand }) => {
 	// Run command
 	await runCommand('workbench.action.files.save');
 
@@ -163,7 +163,7 @@ test('example', async function ({ runCommand }) {
 Save the current file to a new path via the "Save As" dialog.
 
 ```typescript
-test('example', async function ({ saveFileAs, app }) {
+test('example', async ({ saveFileAs, app }) => {
 	await saveFileAs(join(app.workspacePathOrFolder, 'newfile.txt'));
 });
 ```
@@ -236,7 +236,7 @@ test.beforeAll(async ({ vsCodeSettings }) => {
 Keyboard shortcuts and UI actions.
 
 ```typescript
-test('example', async function ({ hotKeys }) {
+test('example', async ({ hotKeys }) => {
 	// Editor actions
 	await hotKeys.copy();
 	await hotKeys.paste();
@@ -270,7 +270,7 @@ test('example', async function ({ hotKeys }) {
 Package management utilities.
 
 ```typescript
-test('example', async function ({ packages }) {
+test('example', async ({ packages }) => {
 	// Install package
 	await packages.manage('snowflake', 'install');
 
@@ -284,7 +284,7 @@ test('example', async function ({ packages }) {
 Test cleanup utilities.
 
 ```typescript
-test.afterAll(async function ({ cleanup }) {
+test.afterAll(async ({ cleanup }) => {
 	// Remove files created during test
 	await cleanup.removeTestFiles(['output.txt', 'generated.csv']);
 });
@@ -295,7 +295,7 @@ test.afterAll(async function ({ cleanup }) {
 Opens DevTools before test.
 
 ```typescript
-test('debug test', async function ({ devTools, app }) {
+test('debug test', async ({ devTools, app }) => {
 	// DevTools already open
 	// Useful for debugging
 });
@@ -306,7 +306,7 @@ test('debug test', async function ({ devTools, app }) {
 Restarts the app before test runs.
 
 ```typescript
-test('fresh app test', async function ({ restartApp: app }) {
+test('fresh app test', async ({ restartApp: app }) => {
 	// App has been restarted
 	// Fresh state
 });
@@ -317,7 +317,7 @@ test('fresh app test', async function ({ restartApp: app }) {
 Record performance metrics. There is no generic `.record()` -- each domain has its own namespaced recorder:
 
 ```typescript
-test('performance test', async function ({ metric, app }) {
+test('performance test', async ({ metric, app }) => {
 	await metric.dataExplorer.loadData(async () => {
 		await app.workbench.dataExplorer.grid.getData();
 	}, 'my-target-name');
@@ -339,7 +339,7 @@ See `test/e2e/utils/metrics/` for the full signature of each recorder.
 Shorthand for `app.workbench.assistant` (Positron Assistant page object).
 
 ```typescript
-test('example', async function ({ assistant }) {
+test('example', async ({ assistant }) => {
 	// Equivalent to app.workbench.assistant
 });
 ```
@@ -349,7 +349,7 @@ test('example', async function ({ assistant }) {
 Logging utilities.
 
 ```typescript
-test('example', async function ({ app, logger }) {
+test('example', async ({ app, logger }) => {
 	logger.log('Starting test operation');
 	await app.workbench.console.executeCode('Python', 'x = 1');
 	logger.log('Operation completed');
@@ -363,7 +363,7 @@ test('example', async function ({ app, logger }) {
 Execute commands in Docker container. Only available in the `e2e-workbench`, `e2e-jupyter`, `e2e-remote-ssh`, and `e2e-connect` projects.
 
 ```typescript
-test('docker test', async function ({ runDockerCommand }) {
+test('docker test', async ({ runDockerCommand }) => {
 	const result = await runDockerCommand('ls -la', 'List files');
 	// result.stdout, result.stderr, result.exitCode
 });
@@ -466,7 +466,7 @@ test.beforeAll(async ({ settings }) => {
 });
 
 // Test-scoped for per-test setup
-test.beforeEach(async function ({ app }) => {
+test.beforeEach(async ({ app }) => {
 	await app.workbench.layouts.enterLayout('stacked');
 });
 ```
@@ -474,7 +474,7 @@ test.beforeEach(async function ({ app }) => {
 ### Combine Related Fixtures
 
 ```typescript
-test('complete workflow', async function ({ app, python, hotKeys, executeCode }) {
+test('complete workflow', async ({ app, python, hotKeys, executeCode }) => {
 	await executeCode('Python', 'df = pd.DataFrame(...)');
 	await app.workbench.variables.doubleClickVariableRow('df');
 	await hotKeys.closeSecondarySidebar();
@@ -486,12 +486,12 @@ test('complete workflow', async function ({ app, python, hotKeys, executeCode })
 
 ```typescript
 // Prefer this - interpreter auto-started
-test('Python test', async function ({ app, python }) {
+test('Python test', async ({ app, python }) => {
 	// Ready to execute code
 });
 
 // Over this - manual start
-test('Python test', async function ({ app, sessions }) {
+test('Python test', async ({ app, sessions }) => {
 	await sessions.start('python');  // Extra step
 });
 ```
