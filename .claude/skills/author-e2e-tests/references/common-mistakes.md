@@ -115,7 +115,7 @@ Most POM methods named `expectTo...`, `verify...`, or `waitFor...` are built on 
 ```typescript
 await expect(async () => {
 	await menuTrigger.click();
-	await expect(menuItem).toBeVisible();
+	await expect(menuItem).toBeVisible({ timeout: 1000 });  // Fail fast so toPass can actually retry
 }).toPass({ timeout: 5000 });
 ```
 

@@ -84,10 +84,11 @@ await expect(button).toBeDisabled();
 The most important pattern for handling timing issues:
 
 ```typescript
-// Retry until assertion passes
+// Retry until assertion passes -- inner timeout must be short so each
+// attempt fails fast and toPass actually gets to retry within its own budget
 await expect(async () => {
 	await someAction();
-	await expect(result).toBeVisible();
+	await expect(result).toBeVisible({ timeout: 2000 });
 }).toPass({ timeout: 15000 });
 
 // With multiple assertions
@@ -318,7 +319,7 @@ await app.workbench.explorer.verifyExplorerFilesExist([
 ```typescript
 await expect(async () => {
 	await button.click();
-	await expect(dialog).toBeVisible();
+	await expect(dialog).toBeVisible({ timeout: 2000 });
 }).toPass({ timeout: 10000 });
 ```
 
@@ -327,7 +328,7 @@ await expect(async () => {
 ```typescript
 await expect(async () => {
 	await menuTrigger.click();
-	await expect(menuItem).toBeVisible();
+	await expect(menuItem).toBeVisible({ timeout: 1000 });
 }).toPass({ timeout: 5000 });
 
 await menuItem.click();
@@ -340,7 +341,7 @@ await expect(async () => {
 	if (!await dialog.isVisible()) {
 		await triggerButton.click();
 	}
-	await expect(dialog).toBeVisible();
+	await expect(dialog).toBeVisible({ timeout: 1000 });
 }).toPass({ timeout: 5000 });
 ```
 
