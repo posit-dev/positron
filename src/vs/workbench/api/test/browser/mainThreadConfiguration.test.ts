@@ -18,6 +18,7 @@ import { IEnvironmentService } from '../../../../platform/environment/common/env
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 // --- Start Positron ---
 import { ILogService, NullLogService } from '../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry } from '../../../common/configuration.js';
 // --- End Positron ---
 
@@ -271,6 +272,7 @@ suite('MainThreadConfiguration', function () {
 			const logService = new NullLogService();
 			warnSpy = sinon.spy(logService, 'warn');
 			instantiationService.stub(ILogService, logService);
+			instantiationService.stub(INotificationService, { notify: () => { } });
 			instantiationService.stub(IWorkspaceContextService, <IWorkspaceContextService>{ getWorkbenchState: () => WorkbenchState.FOLDER });
 		});
 
@@ -284,13 +286,14 @@ suite('MainThreadConfiguration', function () {
 			testObject.$registerConfigurationMigrations(OWNER_EXT, [{ key: OWNED_KEY, migrateTo: 'extHostConfigMigration.newKey' }]);
 
 			assert.ok(registerSpy.calledOnce, 'registerConfigurationMigrations should be called once');
-			const [migrations] = registerSpy.args[0] as [Array<{ key: string; migrateFn: (v: unknown) => unknown }>];
+			const [migrations] = registerSpy.args[0] as [Array<{ key: string; migrateFn: (v: unknown, accessor: (k: string) => unknown) => unknown }>];
 			assert.strictEqual(migrations.length, 1);
 			assert.strictEqual(migrations[0].key, OWNED_KEY);
-			const result = migrations[0].migrateFn('testValue');
+			// accessor returns undefined → new key not yet set → migration copies value
+			const result = migrations[0].migrateFn('testValue', () => undefined);
 			assert.deepStrictEqual(result, [
-				['extHostConfigMigration.newKey', { value: 'testValue' }],
 				[OWNED_KEY, { value: undefined }],
+				['extHostConfigMigration.newKey', { value: 'testValue' }],
 			]);
 		});
 

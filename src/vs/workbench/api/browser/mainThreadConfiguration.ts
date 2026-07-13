@@ -76,8 +76,8 @@ export class MainThreadConfiguration implements MainThreadConfigurationShape {
 		});
 
 		const policyConflicts = approved.filter(migration => {
-			const oldPolicyValue = this.configurationService.inspect(migration.key).policyValue;
-			const newPolicyValue = this.configurationService.inspect(migration.migrateTo).policyValue;
+			const oldPolicyValue = this.configurationService.inspect(migration.key)?.policyValue;
+			const newPolicyValue = this.configurationService.inspect(migration.migrateTo)?.policyValue;
 			return oldPolicyValue !== undefined && newPolicyValue === undefined;
 		});
 
