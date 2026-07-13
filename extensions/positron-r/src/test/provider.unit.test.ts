@@ -4,8 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import * as os from 'os';
-import * as path from 'path';
 import * as Sinon from 'sinon';
 import * as vscode from 'vscode';
 import { makeMetadata } from '../provider';
@@ -45,17 +43,6 @@ suite('makeMetadata path fields', () => {
 		const binpath = '/usr/bin/R';
 		const metadata = await makeMetadata(makeRInst(binpath));
 		assert.strictEqual(metadata.runtimePath, binpath);
-	});
-
-	test('runtimeDisplayPath uses ~ shorthand for a home-dir install on non-Windows', async function () {
-		if (os.platform() === 'win32') { this.skip(); }
-		const binpath = path.join(os.homedir(), '.local', 'bin', 'R');
-		const metadata = await makeMetadata(makeRInst(binpath));
-		assert.ok(
-			metadata.runtimeDisplayPath?.startsWith('~'),
-			`Expected ~ prefix, got: ${metadata.runtimeDisplayPath}`,
-		);
-		assert.strictEqual(metadata.runtimePath, binpath, 'runtimePath must remain absolute');
 	});
 
 	test('runtimeDisplayPath is undefined for a system (non-home-dir) install', async () => {

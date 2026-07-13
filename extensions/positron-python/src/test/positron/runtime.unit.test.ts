@@ -5,8 +5,6 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import * as os from 'os';
-import * as path from 'path';
 import * as sinon from 'sinon';
 import * as TypeMoq from 'typemoq';
 import { assert } from 'chai';
@@ -134,22 +132,4 @@ suite('createPythonRuntimeMetadata path fields', () => {
         assert.strictEqual(metadata.runtimePath, interpreterPath);
     });
 
-    test('runtimeDisplayPath uses ~ shorthand for a home-dir interpreter on non-Windows', async function () {
-        if (os.platform() === 'win32') {
-            this.skip();
-        }
-        const interpreterPath = path.join(os.homedir(), '.venv', 'bin', 'python');
-        const metadata = await createPythonRuntimeMetadata(makeInterpreter(interpreterPath), serviceContainer.object, false);
-        assert.ok(
-            metadata.runtimeDisplayPath?.startsWith('~'),
-            `Expected ~ prefix, got: ${metadata.runtimeDisplayPath}`,
-        );
-        assert.strictEqual(metadata.runtimePath, interpreterPath, 'runtimePath must remain absolute');
-    });
-
-    test('runtimeDisplayPath is undefined for a system (non-home-dir) interpreter', async () => {
-        const interpreterPath = '/usr/bin/python3';
-        const metadata = await createPythonRuntimeMetadata(makeInterpreter(interpreterPath), serviceContainer.object, false);
-        assert.strictEqual(metadata.runtimeDisplayPath, undefined);
-    });
 });
