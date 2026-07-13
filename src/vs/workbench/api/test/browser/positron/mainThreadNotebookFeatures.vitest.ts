@@ -9,14 +9,20 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { constObservable } from '../../../../../base/common/observable.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { isEqual } from '../../../../../base/common/resources.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
+import { IVisibleEditorPane } from '../../../../common/editor.js';
+import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IPositronNotebookService } from '../../../../contrib/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance } from '../../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronNotebookCodeCell, NotebookCellOutputs } from '../../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { SelectionState, SelectionStateMachine } from '../../../../contrib/positronNotebook/browser/selectionMachine.js';
+import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../../../contrib/positronNotebook/common/positronNotebookCommon.js';
 import { MainThreadNotebookFeatures } from '../../../browser/positron/mainThreadNotebookFeatures.js';
 
 const { mockRasterizeSvgToPng } = vi.hoisted(() => ({ mockRasterizeSvgToPng: vi.fn() }));
@@ -107,6 +113,114 @@ describe('MainThreadNotebookFeatures $getCellOutputs SVG handling', () => {
 		const outputs = await features.$getCellOutputs(NOTEBOOK_URI, 0);
 
 		expect(outputs).toEqual([{ mimeType: 'image/svg+xml', data: SVG_TEXT }]);
+		features.dispose();
+	});
+});
+
+describe('MainThreadNotebookFeatures $getActiveNotebookContext', () => {
+	createTestContainer().build();
+
+	const TEXT_FILE_EDITOR_PANE_ID = 'workbench.editors.files.textFileEditor';
+	const TEXT_FILE_EDITOR_INPUT_ID = 'workbench.editors.files.fileEditorInput';
+
+	/** A notebook instance stub with no cells, no kernel, and no selection. */
+	function createNotebookInstance(uriString: string): IPositronNotebookInstance {
+		return stubInterface<IPositronNotebookInstance>({
+			uri: URI.parse(uriString),
+			cells: constObservable([]),
+			kernel: constObservable(undefined),
+			selectionStateMachine: stubInterface<SelectionStateMachine>({
+				state: constObservable({ type: SelectionState.NoCells }),
+			}),
+		});
+	}
+
+	/** An editor input stub as it appears in the editor service's MRU list. */
+	function createEditorInput(typeId: string, uriString: string): EditorInput {
+		return stubInterface<EditorInput>({
+			typeId,
+			resource: URI.parse(uriString),
+		});
+	}
+
+	/**
+	 * Builds a MainThreadNotebookFeatures against a stubbed editor state: the
+	 * given active pane, editors in most-recently-active order, and the open
+	 * Positron notebook instances.
+	 */
+	function createContextFeatures(options: {
+		activeEditorPane: IVisibleEditorPane | undefined;
+		mruEditors: EditorInput[];
+		instances: IPositronNotebookInstance[];
+	}): MainThreadNotebookFeatures {
+		const editorService = stubInterface<IEditorService>({
+			activeEditorPane: options.activeEditorPane,
+			getEditors: () => options.mruEditors.map((editor, groupId) => ({ groupId, editor })),
+		});
+		const notebookService = stubInterface<IPositronNotebookService>({
+			listInstances: (uri?: URI) => options.instances.filter(instance => !uri || isEqual(instance.uri, uri)),
+		});
+		return new MainThreadNotebookFeatures(
+			stubInterface<IExtHostContext>(),
+			editorService,
+			notebookService,
+			stubInterface<ILogService>(),
+			stubInterface<IConfigurationService>(),
+			stubInterface<IRuntimeSessionService>({ getNotebookSessionForNotebookUri: () => undefined }),
+		);
+	}
+
+	it('resolves an open Positron notebook when it is not the active editor pane (#14762)', async () => {
+		const notebookUri = 'file:///test/notebook.ipynb';
+		const notebook = createNotebookInstance(notebookUri);
+		// Focus is elsewhere: the user is typing in another editor (chat
+		// editor, split group, another file tab) while the notebook stays
+		// open in its own tab.
+		const features = createContextFeatures({
+			activeEditorPane: stubInterface<IVisibleEditorPane>({ getId: () => TEXT_FILE_EDITOR_PANE_ID }),
+			mruEditors: [
+				createEditorInput(TEXT_FILE_EDITOR_INPUT_ID, 'file:///test/script.py'),
+				createEditorInput(POSITRON_NOTEBOOK_EDITOR_INPUT_ID, notebookUri),
+			],
+			instances: [notebook],
+		});
+
+		const context = await features.$getActiveNotebookContext();
+
+		expect(context?.uri).toBe(notebookUri);
+		features.dispose();
+	});
+
+	it('resolves the most recently active notebook when multiple are open and none is active', async () => {
+		const olderUri = 'file:///test/older.ipynb';
+		const recentUri = 'file:///test/recent.ipynb';
+		// Registration order (older first) deliberately differs from MRU
+		// order (recent first): the fallback must follow the editor
+		// service's most-recently-active order, not instance registration.
+		const features = createContextFeatures({
+			activeEditorPane: stubInterface<IVisibleEditorPane>({ getId: () => TEXT_FILE_EDITOR_PANE_ID }),
+			mruEditors: [
+				createEditorInput(TEXT_FILE_EDITOR_INPUT_ID, 'file:///test/script.py'),
+				createEditorInput(POSITRON_NOTEBOOK_EDITOR_INPUT_ID, recentUri),
+				createEditorInput(POSITRON_NOTEBOOK_EDITOR_INPUT_ID, olderUri),
+			],
+			instances: [createNotebookInstance(olderUri), createNotebookInstance(recentUri)],
+		});
+
+		const context = await features.$getActiveNotebookContext();
+
+		expect(context?.uri).toBe(recentUri);
+		features.dispose();
+	});
+
+	it('resolves undefined when no Positron notebook is open anywhere', async () => {
+		const features = createContextFeatures({
+			activeEditorPane: stubInterface<IVisibleEditorPane>({ getId: () => TEXT_FILE_EDITOR_PANE_ID }),
+			mruEditors: [createEditorInput(TEXT_FILE_EDITOR_INPUT_ID, 'file:///test/script.py')],
+			instances: [],
+		});
+
+		expect(await features.$getActiveNotebookContext()).toBeUndefined();
 		features.dispose();
 	});
 });
