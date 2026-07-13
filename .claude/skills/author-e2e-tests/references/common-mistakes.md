@@ -97,36 +97,46 @@ test.beforeAll(async ({ settings }) => {
 
 ## Assertion Mistakes
 
-### 6. Missing Timeouts on Async Assertions
+### 6. Timeout Overrides -- Only When You Know Better Than the Default
 
-The default assertion timeout (5s) is often too short for interpreter startup, code execution, data loading, or network operations -- pass an explicit `timeout`.
+The configured default assertion timeout is already 15s (`expect.timeout` in `playwright.config.ts`), which covers most UI visibility checks -- you don't need to add `{ timeout: ... }` to every assertion.
+
+Override it deliberately: raise it for operations known to be slower than typical UI (interpreter startup, code execution, data loading, network calls -- see the Timeout Guidelines table in `references/assertions.md` for recommended values per operation), or lower it for an assertion that should genuinely fail fast.
 
 ```typescript
-await expect(locator).toBeVisible({ timeout: 30000 });
+// Default 15s is fine for a normal UI check -- no override needed
+await expect(locator).toBeVisible();
+
+// Override upward for a known-slow operation
+await expect(locator).toBeVisible({ timeout: 60000 });  // e.g. large data load
 ```
 
-### 7. Not Using toPass for Flaky Operations
+**Anti-pattern:** don't reflexively add a large timeout (e.g. `{ timeout: 60000 }`) to every assertion "just in case." That delays failure detection when something is actually broken and slows down the whole suite on a real regression.
 
-**WRONG:**
-```typescript
-await hotKeys.clearPlots();
-await app.workbench.plots.waitForNoPlots();
-// May fail if clear didn't work first time
-```
+### 7. Wrapping an Already-Retrying Call in toPass
 
-**CORRECT:**
+Most POM methods named `expectTo...`, `verify...`, or `waitFor...` are built on Playwright's web-first assertions (`expect(...).toBeVisible({ timeout })` and similar), which already poll/retry internally until their own timeout elapses. Wrapping one in an outer `toPass()` is redundant -- raise its `timeout` option instead if it needs more time.
+
 ```typescript
+// Redundant -- waitForNoPlots already retries internally via its own timeout
 await expect(async () => {
 	await hotKeys.clearPlots();
 	await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
 }).toPass({ timeout: 15000 });
+
+// Just call it, with a longer timeout if needed
+await hotKeys.clearPlots();
+await app.workbench.plots.waitForNoPlots({ timeout: 15000 });
 ```
 
-Use `toPass` for:
-- Clear/cleanup operations
-- Menu interactions
-- Dialog triggers
-- Any operation that may need retry
+`toPass` earns its place when the **action itself** -- not just the resulting state -- might need to be reissued, e.g. a click that occasionally doesn't register and needs retrying along with the check:
+
+```typescript
+await expect(async () => {
+	await menuTrigger.click();
+	await expect(menuItem).toBeVisible();
+}).toPass({ timeout: 5000 });
+```
 
 ### 8. Wrong Element Count Assertion
 
@@ -551,7 +561,7 @@ Before submitting a test, verify:
 - [ ] Uses arrow functions for test callbacks (preferred), or matches the file's existing style consistently
 - [ ] Has appropriate tags (`tags.WEB`, `tags.WIN`, feature tag)
 - [ ] Settings known before the test runs are applied pre-launch (`beforeApp`/`settingsFile`), not via a mid-test `settings.set()` reload
-- [ ] All assertions have explicit timeouts for async operations
+- [ ] Timeout overrides exist only where an operation is known to be slower (or should fail faster) than the 15s default -- not added reflexively to every assertion
 - [ ] Uses `toPass` for potentially flaky operations
 - [ ] Has cleanup in `afterEach`
 - [ ] Uses environment variables for interpreter versions

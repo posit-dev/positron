@@ -98,8 +98,11 @@ See `references/page-objects.md` for usage idioms and "Finding the Exact Source"
 ## Quick Reference: Assertions
 
 ```typescript
-// Visibility with timeout
-await expect(locator).toBeVisible({ timeout: 30000 });
+// Default 15s timeout covers most UI checks -- no override needed
+await expect(locator).toBeVisible();
+
+// Override only for a known-slow operation (see references/assertions.md)
+await expect(locator).toBeVisible({ timeout: 60000 });
 
 // Text content
 await expect(locator).toHaveText('expected');
@@ -152,7 +155,7 @@ All performance/metric tests must include `tags.PERFORMANCE` in their tag list.
 3. **Missing platform tags** - add `tags.WEB`, `tags.WIN` for cross-platform
 
 **Quality issues:**
-4. **No timeout on assertions** - use `{ timeout: 30000 }` for async operations
+4. **Timeout overrides added reflexively** - the 15s default covers most UI checks; only override for a known-slow (or known-fast) operation
 5. **No `test.step()`** - wrap complex multi-action sequences for better reports
 
 See `references/common-mistakes.md` for detailed gotchas with code examples.

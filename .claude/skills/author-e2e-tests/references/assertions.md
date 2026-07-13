@@ -167,7 +167,7 @@ await locator.waitFor({ state: 'detached' });
 
 ### Default Timeouts
 
-- **Assertion timeout**: 15 seconds (Playwright default)
+- **Assertion timeout**: 15 seconds (`expect.timeout` in `playwright.config.ts` -- not Playwright's own built-in default of 5s)
 - **Action timeout**: 30 seconds (in page objects)
 - **Test timeout**: 2 minutes (configured in playwright.config.ts)
 
@@ -313,6 +313,8 @@ await app.workbench.explorer.verifyExplorerFilesExist([
 
 ## Retry Patterns for Flaky Operations
 
+`toPass` retries its whole callback, so it's for cases where the **action** might need to be reissued, not just the resulting state re-checked. Most POM `expectTo...`/`verify...`/`waitFor...` methods already retry internally via their own `timeout` option (they're built on `expect(...).toBeVisible({ timeout })` and similar) -- wrapping one of those alone in `toPass` is redundant; raise its `timeout` instead. Reach for `toPass` when a raw action (a click, a keypress) occasionally doesn't register and needs to be retried along with the check.
+
 ### Click with Retry
 
 ```typescript
@@ -320,15 +322,6 @@ await expect(async () => {
 	await button.click();
 	await expect(dialog).toBeVisible();
 }).toPass({ timeout: 10000 });
-```
-
-### Clear with Retry (for plots, editors, etc.)
-
-```typescript
-await expect(async () => {
-	await hotKeys.clearPlots();
-	await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
-}).toPass({ timeout: 15000 });
 ```
 
 ### Menu Interaction with Retry
