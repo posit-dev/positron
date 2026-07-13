@@ -210,7 +210,10 @@ export default defineConfig<CustomTestOptions>({
 				headless: false,
 				useExternalServer: false,
 			},
-			grep: /@:connect/
+			// Word-boundary guard: a bare /@:connect/ regex substring-matches
+			// '@:connections', pulling the connections suite (Postgres/Snowflake)
+			// into this Connect-only lane. Require a non-tag char (or end) after.
+			grep: /@:connect(?![\w-])/
 		},
 		{
 			name: 'e2e-remote-ssh',

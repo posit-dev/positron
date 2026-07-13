@@ -10,6 +10,7 @@ import { ITextModel } from '../../../../../editor/common/model.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -23,7 +24,7 @@ import { NotebookTextModel } from '../../../notebook/common/model/notebookTextMo
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { IQuartoDocumentModelService } from '../../../positronQuarto/browser/quartoDocumentModelService.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_KEY } from '../../../positronQuarto/common/positronQuartoConfig.js';
+import { QUARTO_INLINE_OUTPUT_ENABLED_KEY } from '../../../positronQuarto/common/positronQuartoConfig.js';
 import { IQuartoDocumentModel, QuartoCodeCell } from '../../../positronQuarto/common/quartoTypes.js';
 import { MissingPackagesService } from '../../browser/missingPackagesServiceImpl.js';
 import { IMissingPackagesService } from '../../common/missingPackagesService.js';
@@ -131,7 +132,7 @@ describe('MissingPackagesService', () => {
 	});
 
 	// Drives `usingQuartoInlineOutput`; flipped per test.
-	let quartoInlineOutputEnabled = false;
+	const configService = new TestConfigurationService();
 
 	const ctx = createTestContainer()
 		.stub(IRuntimeSessionService, {
@@ -174,9 +175,7 @@ describe('MissingPackagesService', () => {
 		.stub(IQuartoDocumentModelService, {
 			getModel: () => quartoModel,
 		})
-		.stub(IConfigurationService, {
-			getValue: (key?: unknown) => (key === POSITRON_QUARTO_INLINE_OUTPUT_KEY ? quartoInlineOutputEnabled : undefined),
-		})
+		.stub(IConfigurationService, configService)
 		.stub(ILogService, new NullLogService())
 		.build();
 
@@ -187,7 +186,7 @@ describe('MissingPackagesService', () => {
 	beforeEach(() => {
 		modelLanguageId = 'python';
 		modelContent = 'import requests';
-		quartoInlineOutputEnabled = false;
+		configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, false);
 		pythonSessionState = RuntimeState.Idle;
 	});
 
@@ -481,7 +480,7 @@ describe('MissingPackagesService', () => {
 	});
 
 	it('analyzes an inline-output quarto document via its per-document session', async () => {
-		quartoInlineOutputEnabled = true;
+		await configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, true);
 		modelLanguageId = 'quarto';
 		modelContent = '```{r}\nlibrary(leaflet)\n```\n```{python}\nimport requests\n```';
 		const service = createService();

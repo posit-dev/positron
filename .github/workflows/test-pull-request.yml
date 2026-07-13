@@ -32,6 +32,7 @@ jobs:
       workbench_stable_tag_found: ${{ steps.pr-tags.outputs.workbench_stable_tag_found }}
       jupyter_tag_found: ${{ steps.pr-tags.outputs.jupyter_tag_found }}
       remote_ssh_tag_found: ${{ steps.pr-tags.outputs.remote_ssh_tag_found }}
+      connect_tag_found: ${{ steps.pr-tags.outputs.connect_tag_found }}
 
     steps:
       - uses: actions/checkout@v7
@@ -294,6 +295,24 @@ jobs:
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "remote-ssh"
+      upload_logs: false
+      allow_soft_fail: false
+    secrets: inherit
+
+  build-connect:
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.connect_tag_found == 'true' }}
+    name: build
+    uses: ./.github/workflows/build-connect-linux.yml
+    secrets: inherit
+
+  e2e-connect:
+    needs: [pr-tags, build-connect]
+    if: ${{ needs.pr-tags.outputs.connect_tag_found == 'true' }}
+    name: e2e
+    uses: ./.github/workflows/test-e2e-connect.yml
+    with:
+      display_name: "connect"
       upload_logs: false
       allow_soft_fail: false
     secrets: inherit
