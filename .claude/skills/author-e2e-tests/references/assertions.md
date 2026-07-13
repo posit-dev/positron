@@ -100,11 +100,7 @@ await expect(async () => {
 }).toPass({ timeout: 30000 });
 ```
 
-**When to use `toPass`:**
-- Operations that may need retries (clicking, typing)
-- Actions that have race conditions
-- Cleanup operations that may not work first time
-- Any operation where timing is unpredictable
+**When to use `toPass`:** when the action itself -- not just the resulting state -- might need to be reissued (a click or keypress that occasionally doesn't register). Most POM `expectTo...`/`verify...`/`waitFor...` methods already retry internally via their own `timeout`; wrapping one of those alone in `toPass` is redundant (see "Retry Patterns for Flaky Operations" below).
 
 ### expect.poll
 
@@ -293,15 +289,15 @@ await app.workbench.dataExplorer.grid.verifyTableData([
 ### Verify Variable Exists
 
 ```typescript
-await app.workbench.variables.waitForVariable('df');
-await app.workbench.variables.waitForVariableValue('x', '42');
+await app.workbench.variables.expectVariableToBe('x', '42');
+await app.workbench.variables.expectVariableToNotExist('df');
 ```
 
 ### Verify Editor Tab
 
 ```typescript
 await app.workbench.editors.verifyTab('Data: df', { isVisible: true });
-await app.workbench.editors.verifyTab('script.py', { isActive: true });
+await app.workbench.editors.verifyTab('script.py', { isSelected: true });
 ```
 
 ### Verify Files Created
@@ -367,7 +363,7 @@ await locator.waitFor({ state: 'hidden', timeout: 10000 });
 
 ```typescript
 // Verify no error toast
-await app.workbench.toasts.verifyNoToasts();
+await app.workbench.toasts.expectNotToBeVisible();
 
 // Verify no console error
 await app.workbench.console.waitForConsoleContents('Error', {

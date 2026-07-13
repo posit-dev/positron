@@ -39,6 +39,8 @@ test.describe('Feature Name - Subsection', {
 }, () => {
 
 	// Worker-scoped setup (runs once before all tests in file)
+	// If this setting is known up front, prefer applying it pre-launch instead
+	// (see "Custom Test Setup Files" in references/fixtures.md) -- avoids a reload
 	test.beforeAll(async ({ settings }) => {
 		await settings.set({
 			'some.setting': true
