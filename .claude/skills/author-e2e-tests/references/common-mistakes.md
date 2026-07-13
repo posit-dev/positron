@@ -387,7 +387,7 @@ test('full workflow', async function ({ app, python }) {
 });
 ```
 
-Not every POM method self-wraps -- e.g. `console.waitForReady` and `plots.waitForNoPlots` don't. Check the method's source in `test/e2e/pages/` if you're unsure.
+Not every POM method self-wraps -- e.g. `console.waitForReady` and `plots.waitForNoPlots` don't. If you're unsure, grep the method's body in `test/e2e/pages/` for `test.step(`.
 
 ## Timing Mistakes
 

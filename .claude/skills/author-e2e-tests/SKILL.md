@@ -92,7 +92,7 @@ await variables.doubleClickVariableRow('df');
 await dataExplorer.grid.verifyTableData([{ col: 'value' }]);
 ```
 
-See `references/page-objects.md` for usage idioms, and `references/generated/<pomName>.md` (start from `references/generated/index.md`) for the exact, always-current method signatures -- generated from `test/e2e/pages/*.ts` by `scripts/generate-pom-reference.ts`. Regenerate with `npm run e2e-gen-pom-reference` if any POM source file is newer than the generated output. **Never guess or paraphrase a method name -- copy it from the generated reference.**
+See `references/page-objects.md` for usage idioms. For exact method signatures, run `npm run e2e-gen-pom-reference` (a couple of seconds, git-ignored output) then read `references/generated/<pomName>.md` (start from `references/generated/index.md`). **Never guess or paraphrase a method name -- copy it from the generated reference.**
 
 ## Quick Reference: Assertions
 
@@ -187,7 +187,7 @@ For detailed information, read the bundled reference docs:
 - **`references/test-structure.md`** - Complete test file structure and organization
 - **`references/fixtures.md`** - All available fixtures and their usage
 - **`references/page-objects.md`** - Page object usage idioms (curated, not exhaustive)
-- **`references/generated/`** - Auto-generated, always-current POM method signatures (start from `index.md`)
+- **`references/generated/`** - Not committed (git-ignored). Run `npm run e2e-gen-pom-reference` to generate POM method signatures fresh, then start from `index.md`
 - **`references/assertions.md`** - Assertion patterns and waiting strategies
 - **`references/common-mistakes.md`** - Comprehensive list of gotchas to avoid
 

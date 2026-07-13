@@ -2,7 +2,7 @@
 
 Documentation of page objects available via `app.workbench.*`.
 
-**For the authoritative, always-current method list, read `references/generated/<pomName>.md`** (or `references/generated/index.md` for the full list of POMs). Those files are generated directly from `test/e2e/pages/*.ts` by `scripts/generate-pom-reference.ts` -- regenerate with `npm run e2e-gen-pom-reference` if any file under `test/e2e/pages/` is newer than the generated output. This page is a curated set of common usage idioms, not an exhaustive method list. Don't guess a method name from here -- check the generated reference first.
+**For the authoritative method list, run `npm run e2e-gen-pom-reference` (a couple of seconds) then read `references/generated/<pomName>.md`** (or `references/generated/index.md` for the full list of POMs). That directory is git-ignored and generated fresh from `test/e2e/pages/*.ts` by `scripts/generate-pom-reference.ts` each time -- there's nothing to keep in sync, just regenerate before reading. This page is a curated set of common usage idioms, not an exhaustive method list. Don't guess a method name from here -- generate and check the reference first.
 
 ## Page Object Architecture
 
@@ -111,7 +111,7 @@ See `references/generated/index.md` for the complete, generated list of all `app
 
 ## Page Object Pattern
 
-Most action/verification methods wrap their body in `test.step(...)`, but not all of them (e.g. `console.waitForReady`, `plots.waitForNoPlots` don't). Each entry in `references/generated/<pom>.md` states `(wraps in test.step: yes/no)` -- check it before adding an outer `test.step` around a call. Wrapping a call that already wraps itself produces a redundant nested step in the report (see `references/common-mistakes.md` #16).
+Most action/verification methods wrap their body in `test.step(...)`, but not all of them (e.g. `console.waitForReady`, `plots.waitForNoPlots` don't). Before adding an outer `test.step` around a POM call, check whether it already wraps itself -- see `references/common-mistakes.md` #16 for how, and why double-wrapping is a problem.
 
 ```typescript
 export class MyPageObject {
@@ -132,6 +132,5 @@ export class MyPageObject {
 
 ## Finding Available Methods
 
-1. Read `references/generated/<pomName>.md` for the exact signature (start from `references/generated/index.md` if you don't know the file name).
-2. If it looks stale (a file under `test/e2e/pages/` is newer than the generated output), run `npm run e2e-gen-pom-reference` to refresh it.
-3. For anything the generated reference doesn't answer -- parameter shapes it can't express, retry/wait internals -- read the source in `test/e2e/pages/` directly.
+1. Run `npm run e2e-gen-pom-reference`, then read `references/generated/<pomName>.md` for the exact signature (start from `references/generated/index.md` if you don't know the file name).
+2. For anything the generated reference doesn't answer -- parameter shapes it can't express, retry/wait internals -- read the source in `test/e2e/pages/` directly.
