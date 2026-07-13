@@ -20,16 +20,8 @@ The custom `_test.setup` provides all Positron fixtures. Using the raw Playwrigh
 
 ### 2. Missing suiteId
 
-**WRONG:**
-```typescript
-test.describe('Console Tests', () => {
-	test('my test', async ({ app }) => {
-		// ...
-	});
-});
-```
+Every test file must start with `test.use({ suiteId: __filename })`. Without it, tests may share app instances incorrectly, logs won't be organized by test file, and `beforeAll`/`afterAll` won't work as expected.
 
-**CORRECT:**
 ```typescript
 test.use({
 	suiteId: __filename
@@ -42,33 +34,10 @@ test.describe('Console Tests', () => {
 });
 ```
 
-Without `suiteId`:
-- Tests may share app instances incorrectly
-- Logs won't be organized by test file
-- beforeAll/afterAll won't work as expected
+### 3. Forgetting Tags for Cross-Platform Tests
 
-### 3. Arrow vs. `function` Syntax -- Not a Real Mistake
+Without platform tags, a test only runs on Linux/Electron -- add `tags.WEB` to also run in web browser mode, `tags.WIN` for Windows.
 
-Both work identically with Playwright fixtures (delivered via a destructured parameter, never `this`), so there's nothing to get wrong here. Arrow functions are preferred going forward -- shorter, and standard Playwright style:
-
-```typescript
-test('my test', async ({ app, python }) => {
-	// ...
-});
-```
-
-Plenty of existing tests use `function` syntax instead; that's fine too, and worth matching if you're editing one of those files rather than mixing styles within it.
-
-### 4. Forgetting Tags for Cross-Platform Tests
-
-**WRONG:**
-```typescript
-test.describe('Console Tests', () => {
-	// Only runs on Linux/Electron
-});
-```
-
-**CORRECT:**
 ```typescript
 test.describe('Console Tests', {
 	tag: [tags.WEB, tags.WIN, tags.CONSOLE]
@@ -77,13 +46,9 @@ test.describe('Console Tests', {
 });
 ```
 
-Without platform tags:
-- `tags.WEB` - test won't run in web browser mode
-- `tags.WIN` - test won't run on Windows
-
 ## Fixture Mistakes
 
-### 5. Using `python`/`r` Fixture Without Understanding Scope
+### 4. Using `python`/`r` Fixture Without Understanding Scope
 
 **WRONG (misunderstanding):**
 ```typescript
@@ -111,7 +76,7 @@ test('test 2', async ({ app, sessions }) => {
 });
 ```
 
-### 6. Wrong Settings Fixture Scope
+### 5. Wrong Settings Fixture Scope
 
 **WRONG:**
 ```typescript
@@ -129,51 +94,17 @@ test.beforeAll(async ({ settings }) => {
 
 `settings` is worker-scoped (shared across tests in a file). Setting it per-test can cause unexpected behavior.
 
-### 7. Mixing Up Fixture Dependencies
-
-**WRONG:**
-```typescript
-test('test', async ({ page, sessions }) => {
-	await sessions.start('python');
-	// page is derived from app, but you might not have app in scope
-});
-```
-
-**CORRECT:**
-```typescript
-test('test', async ({ app, sessions }) => {
-	await sessions.start('python');
-	const page = app.code.driver.currentPage;  // Access page from app
-});
-
-// Or use page fixture directly
-test('test', async ({ page, sessions }) => {
-	await sessions.start('python');
-	await expect(page.getByText('Python')).toBeVisible();
-});
-```
-
 ## Assertion Mistakes
 
-### 8. Missing Timeouts on Async Assertions
+### 6. Missing Timeouts on Async Assertions
 
-**WRONG:**
-```typescript
-await expect(locator).toBeVisible();  // Uses default 5s timeout
-```
+The default assertion timeout (5s) is often too short for interpreter startup, code execution, data loading, or network operations -- pass an explicit `timeout`.
 
-**CORRECT:**
 ```typescript
 await expect(locator).toBeVisible({ timeout: 30000 });
 ```
 
-Default timeout is often too short for:
-- Interpreter startup
-- Code execution
-- Data loading
-- Network operations
-
-### 9. Not Using toPass for Flaky Operations
+### 7. Not Using toPass for Flaky Operations
 
 **WRONG:**
 ```typescript
@@ -196,7 +127,7 @@ Use `toPass` for:
 - Dialog triggers
 - Any operation that may need retry
 
-### 10. Wrong Element Count Assertion
+### 8. Wrong Element Count Assertion
 
 **WRONG:**
 ```typescript
@@ -218,7 +149,7 @@ await expect(locator).toHaveCount(0, { timeout: 5000 });
 
 ## Locator Mistakes
 
-### 11. Using Unstable Selectors
+### 9. Using Unstable Selectors
 
 **WRONG:**
 ```typescript
@@ -241,7 +172,7 @@ Prefer (in order):
 3. Text content
 4. Stable class names
 
-### 12. Not Scoping Locators
+### 10. Not Scoping Locators
 
 **WRONG:**
 ```typescript
@@ -261,7 +192,7 @@ await page.getByRole('button', { name: 'OK' })
 	.click();
 ```
 
-### 13. Forgetting Exact Match
+### 11. Forgetting Exact Match
 
 **WRONG:**
 ```typescript
@@ -276,7 +207,7 @@ page.getByRole('tab', { name: 'Console', exact: true })
 
 ## Test Structure Mistakes
 
-### 14. No Cleanup in afterEach
+### 12. No Cleanup in afterEach
 
 **WRONG:**
 ```typescript
@@ -309,7 +240,7 @@ test.describe('Tests', () => {
 });
 ```
 
-### 15. Tests Depending on Order
+### 13. Tests Depending on Order
 
 **WRONG:**
 ```typescript
@@ -340,7 +271,7 @@ test.beforeEach(async ({ app }) => {
 });
 ```
 
-### 16. Double-Wrapping POM Calls in test.step
+### 14. Double-Wrapping POM Calls in test.step
 
 Most POM action/verification methods (e.g. `console.executeCode`, `variables.doubleClickVariableRow`, `dataExplorer.grid.verifyTableData`) already wrap their own body in `test.step(...)` internally. Wrapping one of them in another `test.step` produces a redundant nested step in the report, not a clearer one.
 
@@ -377,7 +308,7 @@ Not every POM method self-wraps -- e.g. `console.waitForReady` and `plots.waitFo
 
 ## Timing Mistakes
 
-### 17. Hard-Coded Waits
+### 15. Hard-Coded Waits
 
 **WRONG:**
 ```typescript
@@ -395,7 +326,7 @@ await page.waitForLoadState('networkidle');
 await button.click();
 ```
 
-### 18. Not Waiting for Console Ready
+### 16. Not Waiting for Console Ready
 
 **WRONG:**
 ```typescript
@@ -421,7 +352,7 @@ test('execute code', async ({ sessions, app }) => {
 });
 ```
 
-### 19. Race Conditions with UI State
+### 17. Race Conditions with UI State
 
 **WRONG:**
 ```typescript
@@ -438,7 +369,7 @@ const content = await dialogContent.textContent();
 
 ## Environment Mistakes
 
-### 20. Hardcoding Interpreter Versions
+### 18. Hardcoding Interpreter Versions
 
 **WRONG:**
 ```typescript
@@ -453,7 +384,7 @@ await notebooks.selectInterpreter('R', process.env.POSITRON_R_VER_SEL!);
 
 Environment variables ensure tests work across different CI environments.
 
-### 21. Platform-Specific Code Without Guards
+### 19. Platform-Specific Code Without Guards
 
 **WRONG:**
 ```typescript
@@ -472,7 +403,7 @@ if (process.platform === 'darwin') {
 await hotKeys.copy();
 ```
 
-### 22. Headless-Only Operations
+### 20. Headless-Only Operations
 
 **WRONG:**
 ```typescript
@@ -490,7 +421,7 @@ if (!headless) {
 
 ## Page Object Mistakes
 
-### 23. Direct Page Manipulation Instead of POM
+### 21. Direct Page Manipulation Instead of POM
 
 **WRONG:**
 ```typescript
@@ -513,7 +444,7 @@ Page objects encapsulate:
 - Retry logic
 - Platform handling
 
-### 24. Not Checking Page Object Methods First
+### 22. Not Checking Page Object Methods First
 
 Before writing custom locator code, check the POM's source file in `test/e2e/pages/` for an existing method (see `references/page-objects.md`, "Finding the Exact Source", for how to locate it from `app.workbench.<name>`). Most common operations are already implemented -- copy the exact method name from source rather than guessing or paraphrasing it.
 
@@ -528,7 +459,7 @@ await app.workbench.notebooks.selectInterpreter(...)
 
 ## Debugging Mistakes
 
-### 25. Not Using --headed or --debug
+### 23. Not Using --headed or --debug
 
 When tests fail, always try:
 
@@ -540,7 +471,7 @@ npx playwright test my-test.test.ts --headed
 npx playwright test my-test.test.ts --debug
 ```
 
-### 26. Not Checking Test Reports
+### 24. Not Checking Test Reports
 
 After failures:
 
@@ -556,7 +487,7 @@ Reports include:
 
 ## Settings & Pre-Launch Configuration
 
-### 27. `enablePositronNotebooks` Needs the Settings Fixture and Triggers a Reload
+### 25. `enablePositronNotebooks` Needs the Settings Fixture and Triggers a Reload
 
 `notebooksPositron.enablePositronNotebooks(settings)` takes the `settings` fixture and internally calls `settings.set(..., { reload: 'web' })` -- it always reloads the window to make the setting take effect.
 
@@ -576,9 +507,9 @@ test('example', async ({ app, settings }) => {
 
 To avoid the reload cost, set `positron.notebook.enabled` via `settingsFile.append()` in a `beforeApp` worker fixture instead, so it's applied before the app starts (see the "Custom Test Setup Files" example in `references/fixtures.md`).
 
-### 28. Setting Config Mid-Test When Pre-Launch Would Do
+### 26. Setting Config Mid-Test When Pre-Launch Would Do
 
-More generally than #27: any `settings.set(...)` after the app has launched costs a reload, and for discovery/session-gating settings a reload can be flaky (it doesn't always re-run every cold-launch code path).
+More generally than #25: any `settings.set(...)` after the app has launched costs a reload, and for discovery/session-gating settings a reload can be flaky (it doesn't always re-run every cold-launch code path).
 
 **WRONG:**
 ```typescript
