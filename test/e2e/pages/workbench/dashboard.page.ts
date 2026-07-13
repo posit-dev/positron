@@ -371,8 +371,21 @@ export class DashboardPage {
 	 * @param projectName The project name to quit
 	 */
 	async quitSession(projectName = 'test-files'): Promise<void> {
-		await this.projectCheckbox(projectName).check();
-		await this.quitButton.click();
+		// A prior teardown that failed to quit can leave a session behind, so more
+		// than one row for the same project may be present. Selecting by the shared
+		// "select <project>" checkbox name then matches multiple elements, which is
+		// a strict-mode violation for `.check()` -- so nothing gets quit and the
+		// leaked sessions accumulate until new sessions can no longer launch. The
+		// workbench lane runs serially (workers=1), so it's safe to check every
+		// matching row and quit them all, which also sweeps up any leaked session.
+		const checkboxes = this.projectCheckbox(projectName);
+		const count = await checkboxes.count();
+		for (let i = 0; i < count; i++) {
+			await checkboxes.nth(i).check();
+		}
+		if (count > 0) {
+			await this.quitButton.click();
+		}
 	}
 
 	// #endregion
