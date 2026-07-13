@@ -13,7 +13,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { isEqual } from '../../../../../base/common/resources.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
-import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { EditorsOrder, IVisibleEditorPane } from '../../../../common/editor.js';
@@ -150,10 +150,20 @@ describe('MainThreadNotebookFeatures $getActiveNotebookContext', () => {
 	 * given active pane, editors in most-recently-active order, and the open
 	 * Positron notebook instances.
 	 */
+	/** A foreground session stub attached to the given notebook. */
+	function createForegroundNotebookSession(uriString: string): ILanguageRuntimeSession {
+		return stubInterface<ILanguageRuntimeSession>({
+			metadata: stubInterface<IRuntimeSessionMetadata>({
+				notebookUri: URI.parse(uriString),
+			}),
+		});
+	}
+
 	function createContextFeatures(options: {
 		activeEditorPane: IVisibleEditorPane | undefined;
 		mruEditors: EditorInput[];
 		instances: IPositronNotebookInstance[];
+		foregroundSession?: ILanguageRuntimeSession;
 	}): MainThreadNotebookFeatures {
 		const editorService = stubInterface<IEditorService>({
 			activeEditorPane: options.activeEditorPane,
@@ -172,7 +182,10 @@ describe('MainThreadNotebookFeatures $getActiveNotebookContext', () => {
 			notebookService,
 			stubInterface<ILogService>(),
 			stubInterface<IConfigurationService>(),
-			stubInterface<IRuntimeSessionService>({ getNotebookSessionForNotebookUri: () => undefined }),
+			stubInterface<IRuntimeSessionService>({
+				getNotebookSessionForNotebookUri: () => undefined,
+				foregroundSession: options.foregroundSession,
+			}),
 		);
 	}
 
@@ -216,6 +229,47 @@ describe('MainThreadNotebookFeatures $getActiveNotebookContext', () => {
 		const context = await features.$getActiveNotebookContext();
 
 		expect(context?.uri).toBe(recentUri);
+		features.dispose();
+	});
+
+	it('prefers the foreground session\'s notebook over a more recently active notebook editor', async () => {
+		const attachedUri = 'file:///test/attached.ipynb';
+		const recentUri = 'file:///test/recent.ipynb';
+		// The user's session (what the interpreter picker shows, and what the
+		// assistant's notebook mode is keyed on) is attached to one notebook
+		// while another notebook's editor was touched more recently: the
+		// attached notebook wins.
+		const features = createContextFeatures({
+			activeEditorPane: stubInterface<IVisibleEditorPane>({ getId: () => TEXT_FILE_EDITOR_PANE_ID }),
+			mruEditors: [
+				createEditorInput(POSITRON_NOTEBOOK_EDITOR_INPUT_ID, recentUri),
+				createEditorInput(POSITRON_NOTEBOOK_EDITOR_INPUT_ID, attachedUri),
+			],
+			instances: [createNotebookInstance(attachedUri), createNotebookInstance(recentUri)],
+			foregroundSession: createForegroundNotebookSession(attachedUri),
+		});
+
+		const context = await features.$getActiveNotebookContext();
+
+		expect(context?.uri).toBe(attachedUri);
+		features.dispose();
+	});
+
+	it('falls back to the most recently active notebook editor when the foreground notebook is closed', async () => {
+		const closedUri = 'file:///test/closed.ipynb';
+		const openUri = 'file:///test/open.ipynb';
+		// The foreground session's notebook editor was closed (its session may
+		// still be running); resolution must not target a closed notebook.
+		const features = createContextFeatures({
+			activeEditorPane: stubInterface<IVisibleEditorPane>({ getId: () => TEXT_FILE_EDITOR_PANE_ID }),
+			mruEditors: [createEditorInput(POSITRON_NOTEBOOK_EDITOR_INPUT_ID, openUri)],
+			instances: [createNotebookInstance(openUri)],
+			foregroundSession: createForegroundNotebookSession(closedUri),
+		});
+
+		const context = await features.$getActiveNotebookContext();
+
+		expect(context?.uri).toBe(openUri);
 		features.dispose();
 	});
 

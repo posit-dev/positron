@@ -3786,8 +3786,9 @@ declare module 'positron' {
 		 * Get context about the active notebook.
 		 *
 		 * When no Positron notebook is the active editor pane (e.g. focus is
-		 * in another editor or view), falls back to the most recently active
-		 * Positron notebook that is still open.
+		 * in another editor or view), falls back to the open notebook attached
+		 * to the foreground session, then to the most recently active Positron
+		 * notebook that is still open.
 		 *
 		 * Resolves with `undefined` when no notebook is open. Rejects with an
 		 * actionable error when the active editor holds a notebook in an

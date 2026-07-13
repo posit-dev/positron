@@ -93,8 +93,9 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 	/**
 	 * Gets the context information for the currently active notebook. When no
-	 * Positron notebook is the active editor pane, falls back to the most
-	 * recently active Positron notebook that is still open.
+	 * Positron notebook is the active editor pane, falls back to the open
+	 * notebook attached to the foreground session, then to the most recently
+	 * active Positron notebook that is still open.
 	 * @returns The notebook context DTO, or undefined if no notebook is open.
 	 */
 	async $getActiveNotebookContext(): Promise<INotebookContextDTO | undefined> {
@@ -111,10 +112,10 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 				throw new Error(unsupportedEditorMessage);
 			}
 			// A Positron notebook can be open without being the active editor
-			// pane (focus in a chat editor, a split group, or another tab).
-			// Fall back to the most recently active open notebook so assistant
-			// tools can still find it (#14762).
-			instance = this._getMostRecentlyActiveNotebookInstance();
+			// pane (a Data Explorer or plot editor took the pane, focus moved
+			// to another tab mid-turn). Fall back to an open notebook so
+			// assistant tools can still find it (#14762).
+			instance = this._getFallbackNotebookInstance();
 			if (!instance) {
 				return undefined;
 			}
@@ -715,12 +716,21 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	}
 
 	/**
-	 * Finds the open Positron notebook instance whose editor was most
-	 * recently active, regardless of which editor pane currently has focus.
+	 * Finds an open Positron notebook instance when none is the active editor
+	 * pane. Prefers the notebook attached to the foreground session (what the
+	 * interpreter picker shows, and what assistant notebook mode is keyed on),
+	 * then falls back to the notebook whose editor was most recently active.
 	 * @returns The notebook instance, or undefined if no Positron notebook
 	 * editor is open.
 	 */
-	private _getMostRecentlyActiveNotebookInstance(): IPositronNotebookInstance | undefined {
+	private _getFallbackNotebookInstance(): IPositronNotebookInstance | undefined {
+		const foregroundNotebookUri = this._runtimeSessionService.foregroundSession?.metadata.notebookUri;
+		if (foregroundNotebookUri) {
+			const instances = this._positronNotebookService.listInstances(foregroundNotebookUri);
+			if (instances.length > 0) {
+				return instances[0];
+			}
+		}
 		for (const { editor } of this._editorService.getEditors(EditorsOrder.MOST_RECENTLY_ACTIVE)) {
 			if (editor.typeId !== POSITRON_NOTEBOOK_EDITOR_INPUT_ID || !editor.resource) {
 				continue;
