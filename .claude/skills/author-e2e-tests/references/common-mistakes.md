@@ -48,30 +48,23 @@ test.describe('Console Tests', {
 
 ## Fixture Mistakes
 
-### 4. Using `python`/`r` Fixture Without Understanding Scope
+### 4. Assuming an Interpreter Persists Across Tests
 
-**WRONG (misunderstanding):**
+`python`/`r` are test-scoped -- they don't carry over from one `test()` block to the next, even in the same file.
+
+**WRONG:**
 ```typescript
-test('test 1', async ({ python }) => {
-	// Python starts
-});
+test('test 1', async ({ python }) => { ... });
 
 test('test 2', async ({ app }) => {
-	// Assuming Python is still running - IT'S NOT GUARANTEED
-	await app.workbench.console.executeCode('Python', 'x = 1');
+	await app.workbench.console.executeCode('Python', 'x = 1');  // Assumes Python is still running -- not guaranteed
 });
 ```
 
 **CORRECT:**
 ```typescript
 test('test 2', async ({ app, python }) => {
-	// python (or 'r') fixture ensures Python/R is running
-});
-
-// Or use sessions for manual control or if you need to capture session id or name
-test('test 2', async ({ app, sessions }) => {
-	const pythonSession = await sessions.start('python', { reuse: true });
-	await sessions.expectSessionPickerToBe(pythonSession.name);
+	await app.workbench.console.executeCode('Python', 'x = 1');
 });
 ```
 
@@ -116,18 +109,6 @@ await expect(locator).toBeVisible({ timeout: 60000 });  // e.g. large data load
 ### 7. Wrapping an Already-Retrying Call in toPass
 
 Most POM methods named `expectTo...`, `verify...`, or `waitFor...` are built on Playwright's web-first assertions (`expect(...).toBeVisible({ timeout })` and similar), which already poll/retry internally until their own timeout elapses. Wrapping one in an outer `toPass()` is redundant -- raise its `timeout` option instead if it needs more time.
-
-```typescript
-// Redundant -- waitForNoPlots already retries internally via its own timeout
-await expect(async () => {
-	await hotKeys.clearPlots();
-	await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
-}).toPass({ timeout: 15000 });
-
-// Just call it, with a longer timeout if needed
-await hotKeys.clearPlots();
-await app.workbench.plots.waitForNoPlots({ timeout: 15000 });
-```
 
 `toPass` earns its place when the **action itself** -- not just the resulting state -- might need to be reissued, e.g. a click that occasionally doesn't register and needs retrying along with the check:
 
@@ -360,8 +341,7 @@ test('execute code', async ({ sessions, app }) => {
 ```typescript
 test('execute code', async ({ python, app }) => {
 	// python fixture waits for ready state
-	const pythonSession = await app.workbench.console.executeCode('Python', 'x = 1');
-	await sessions.expectSessionPickerToBe(pythonSession.name);
+	await app.workbench.console.executeCode('Python', 'x = 1');
 });
 
 // Or manually wait
