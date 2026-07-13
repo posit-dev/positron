@@ -18,10 +18,12 @@ services:
       - CONNECT_TENSORFLOW_ENABLED=false
     privileged: true
     volumes:
-      # Persistent data volume: the bootstrap key stays valid across runs, so a
-      # saved publisher keychain credential keeps working (see PLAN.md section 6).
+      # Connect's data dir. Treated as ephemeral: run.sh wipes this volume on
+      # every start, so state never carries over between runs.
+      # NOTE: do NOT add a bare `- /var/lib/rstudio-connect` entry here -- an
+      # anonymous volume at the same target shadows connect-data, giving each
+      # container two competing data dirs.
       - connect-data:/var/lib/rstudio-connect
-      - /var/lib/rstudio-connect
       - ./connect/rstudio-connect.gcfg:/etc/rstudio-connect/rstudio-connect.gcfg:ro
       - ./connect/connect.lic:/var/lib/rstudio-connect/connect.lic:ro
     healthcheck:

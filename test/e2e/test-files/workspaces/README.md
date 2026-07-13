@@ -14,6 +14,9 @@ A collection of Projects for testing and demos.  Please keep these organized and
 * chinook-db-py : Simple python project to view data in SQLite db chinook.db
 * chinook-db-r : Simple R project to view data in SQLite db chinook.db
    - requires `connections` package
+* connect-pins-r : Simple R project that publishes a couple of pins with dummy data to a Posit Connect server, then reads them back and prints their contents.
+   - requires `pins` package
+   - reads CONNECT_SERVER and CONNECT_API_KEY from the environment (set by the connect e2e test)
 * generate-data-frames-py : Simple project for generating large data frames with Python
 * generate-data-frames-r : Simple project for generating large data frames with R
 * quarto_basic : Simple quarto project for integration testing
