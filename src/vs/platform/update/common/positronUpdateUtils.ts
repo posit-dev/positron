@@ -76,49 +76,55 @@ export function reportableLanguages(
 }
 
 /**
- * Serializes the languages used today into a storable record, for persisting
- * across launches. Returns undefined for an empty set so a day with no usage
- * yet never overwrites (clobbers) a previously stored day's languages.
- * @param languages The languages used today, or an empty array.
- * @param now The current time in milliseconds since the epoch.
- * @returns The JSON string to store, or undefined if there is nothing to store.
+ * Parses a stored record's JSON back into a record. Returns undefined for a
+ * missing, corrupt, or structurally invalid value so callers can treat "nothing
+ * usable stored" uniformly.
+ * @param stored The raw stored record JSON, or undefined if none is stored.
+ * @returns The parsed record, or undefined.
  */
-export function serializeActiveLanguageRecord(languages: string[], now: number): string | undefined {
-	if (languages.length === 0) {
+export function parseActiveLanguageRecord(stored: string | undefined): IActiveLanguageRecord | undefined {
+	if (!stored) {
 		return undefined;
 	}
-	const record: IActiveLanguageRecord = { day: toUtcDay(now), languages };
-	return JSON.stringify(record);
+	try {
+		const record = JSON.parse(stored) as IActiveLanguageRecord;
+		if (typeof record?.day === 'string' && Array.isArray(record?.languages)) {
+			return record;
+		}
+		return undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 /**
- * Resolves the languages to report on an update check: the current session's
- * usage if any code has run today, otherwise the most recent stored day within
- * the retention window. This lets the check carry a faithful signal even at cold
- * start, when it typically fires before any code has run this session.
- * @param activeLanguages The languages used so far in the current session today.
+ * Merges the languages used into the stored record for today, returning the JSON
+ * to persist. Multiple windows share one main-process update service and each
+ * pushes only its own languages, so this unions with the existing same-day
+ * record rather than overwriting (e.g. R in one window and Python in another
+ * both count toward today). A stored record from an earlier day is reset rather
+ * than extended, so today's report reflects only today's usage. Returns
+ * undefined when the merged set is empty, so a usage-free push never overwrites
+ * (clobbers) a previously stored day's languages.
  * @param stored The raw stored record JSON, or undefined if none is stored.
+ * @param languages The languages to merge in, or an empty array.
  * @param now The current time in milliseconds since the epoch.
- * @param maxAgeDays The oldest a stored day may be and still be reported.
- * @returns The languages to report, or an empty array.
+ * @returns The JSON string to store, or undefined if there is nothing to store.
  */
-export function resolveReportableLanguages(
-	activeLanguages: string[],
+export function mergeActiveLanguageRecord(
 	stored: string | undefined,
-	now: number,
-	maxAgeDays: number
-): string[] {
-	if (activeLanguages.length > 0) {
-		return activeLanguages;
+	languages: string[],
+	now: number
+): string | undefined {
+	const today = toUtcDay(now);
+	const existing = parseActiveLanguageRecord(stored);
+	const merged = new Set<string>(existing?.day === today ? existing.languages : []);
+	for (const language of languages) {
+		merged.add(language);
 	}
-	if (!stored) {
-		return [];
+	if (merged.size === 0) {
+		return undefined;
 	}
-	let record: IActiveLanguageRecord;
-	try {
-		record = JSON.parse(stored) as IActiveLanguageRecord;
-	} catch {
-		return [];
-	}
-	return reportableLanguages(record, now, maxAgeDays);
+	const record: IActiveLanguageRecord = { day: today, languages: [...merged].sort() };
+	return JSON.stringify(record);
 }
