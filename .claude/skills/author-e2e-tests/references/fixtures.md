@@ -467,12 +467,9 @@ import { test, expect, tags } from '../_test.setup';
 
 ### Use Appropriate Scope
 
-```typescript
-// Worker-scoped for expensive operations (app startup, settings)
-test.beforeAll(async ({ settings }) => {
-	await settings.set({ 'key': 'value' });
-});
+Worker-scoped fixtures (like `settings`) run once per file; test-scoped fixtures run fresh per test. See `references/common-mistakes.md` #5 for the settings-scope pitfall specifically.
 
+```typescript
 // Test-scoped for per-test setup
 test.beforeEach(async ({ app }) => {
 	await app.workbench.layouts.enterLayout('stacked');
