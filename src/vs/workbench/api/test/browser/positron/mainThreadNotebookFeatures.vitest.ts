@@ -16,7 +16,7 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
-import { IVisibleEditorPane } from '../../../../common/editor.js';
+import { EditorsOrder, IVisibleEditorPane } from '../../../../common/editor.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IPositronNotebookService } from '../../../../contrib/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance } from '../../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
@@ -157,7 +157,11 @@ describe('MainThreadNotebookFeatures $getActiveNotebookContext', () => {
 	}): MainThreadNotebookFeatures {
 		const editorService = stubInterface<IEditorService>({
 			activeEditorPane: options.activeEditorPane,
-			getEditors: () => options.mruEditors.map((editor, groupId) => ({ groupId, editor })),
+			// Order-sensitive: only the most-recently-active query sees the
+			// editors, so a regression to another EditorsOrder fails here.
+			getEditors: (order: EditorsOrder) => order === EditorsOrder.MOST_RECENTLY_ACTIVE
+				? options.mruEditors.map((editor, groupId) => ({ groupId, editor }))
+				: [],
 		});
 		const notebookService = stubInterface<IPositronNotebookService>({
 			listInstances: (uri?: URI) => options.instances.filter(instance => !uri || isEqual(instance.uri, uri)),
