@@ -153,16 +153,9 @@ page.locator('[style*="z-index: 1"]')
 **CORRECT:**
 ```typescript
 page.getByRole('button', { name: 'Submit' })
-page.getByLabel('Button Name')
-page.getByTestId('specific-element')
-page.locator('.well-named-class').filter({ hasText: 'Expected' })
 ```
 
-Prefer (in order), matching [Playwright's own guidance](https://playwright.dev/docs/best-practices#use-locators):
-1. Accessible roles/labels (`getByRole`, `getByLabel`) -- verifies real user-facing/accessible behavior
-2. Test IDs -- reliable, but doesn't verify accessibility and needs manual upkeep
-3. Text content
-4. Stable class names
+See `references/assertions.md`'s "Preferred Selectors" for the full priority order and rationale.
 
 ### 10. Not Scoping Locators
 
