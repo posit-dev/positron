@@ -86,11 +86,14 @@ describe('selectNewLanguageRuntime', () => {
 	}
 
 	function registerRuntime(metadata: ILanguageRuntimeMetadata): ILanguageRuntimeMetadata {
-		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(metadata));
+		const runtimeService = ctx.get(ILanguageRuntimeService);
+		ctx.disposables.add(runtimeService.registerRuntime(metadata));
 		if (!preferredByLanguage.has(metadata.languageId)) {
 			preferredByLanguage.set(metadata.languageId, metadata);
 		}
-		return metadata;
+		// registerRuntime enriches the metadata into a new object (e.g. adds
+		// runtimeDisplayPath); return the stored instance the picker resolves to.
+		return runtimeService.getRegisteredRuntime(metadata.runtimeId) ?? metadata;
 	}
 
 	function pickItemById(id: string): IQuickPickItem | undefined {
@@ -440,7 +443,8 @@ describe('selectNewLanguageRuntime', () => {
 				.find((item): item is IQuickPickItem => item.type !== 'separator' && item.label === 'Install Python via uv')!;
 			pick.accept(installItem);
 
-			await expect(promise).resolves.toEqual(installedRuntime);
+			// The picker resolves to the enriched, registered instance.
+			await expect(promise).resolves.toEqual(runtimeService.getRegisteredRuntime(installedRuntime.runtimeId));
 			expect(contribution.onSelect).toHaveBeenCalledWith('install-uv');
 			expect(rediscoverAllRuntimes).toHaveBeenCalledWith(/* quiet */ true);
 		});

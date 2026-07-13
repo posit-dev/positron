@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as fs from 'fs-extra';

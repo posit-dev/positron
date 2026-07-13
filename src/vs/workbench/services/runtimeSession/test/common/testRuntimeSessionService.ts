@@ -94,7 +94,11 @@ export function createTestLanguageRuntimeMetadata(
 	const manager = TestRuntimeSessionManager.instance;
 	disposables.add(runtimeSessionService.registerSessionManager(manager));
 
-	return runtime;
+	// Return the registered metadata instance rather than the local literal.
+	// registerRuntime enriches the metadata (e.g. adds runtimeDisplayPath) and
+	// stores that enriched object, which is what sessions reference; returning
+	// it keeps reference equality intact for callers.
+	return languageRuntimeService.getRegisteredRuntime(runtime.runtimeId) ?? runtime;
 }
 
 export interface IStartTestLanguageRuntimeSessionOptions {
