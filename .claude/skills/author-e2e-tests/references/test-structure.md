@@ -287,27 +287,28 @@ test('Flaky test', {
 
 ## Using test.step
 
-Wrap logical groups of actions in `test.step` for better reporting:
+Most POM action/verification methods already wrap themselves in `test.step` internally (see `references/page-objects.md`). Wrapping one of those calls in another `test.step` produces a redundant nested step in the report -- check the method's source before adding a wrapper.
+
+Reserve `test.step` for raw Playwright sequences that aren't already a POM call:
 
 ```typescript
-test('Complete workflow', async function ({ app, python }) {
-	await test.step('Create dataframe', async () => {
-		await app.workbench.console.executeCode('Python', 'df = pd.DataFrame(...)');
-	});
+test('Complete workflow', async function ({ app, python, page }) {
+	// No extra test.step needed -- each of these already wraps itself
+	await app.workbench.console.executeCode('Python', 'df = pd.DataFrame(...)');
+	await app.workbench.variables.doubleClickVariableRow('df');
+	await app.workbench.editors.verifyTab('Data: df', { isVisible: true });
+	await app.workbench.dataExplorer.grid.verifyTableData([...]);
 
-	await test.step('Open in data explorer', async () => {
-		await app.workbench.variables.doubleClickVariableRow('df');
-		await app.workbench.editors.verifyTab('Data: df', { isVisible: true });
-	});
-
-	await test.step('Verify data', async () => {
-		await app.workbench.dataExplorer.grid.verifyTableData([...]);
+	// DO wrap a raw multi-line Playwright sequence that isn't already a POM call
+	await test.step('Dismiss the confirmation dialog', async () => {
+		await page.getByRole('button', { name: 'Delete' }).click();
+		await expect(page.getByRole('dialog')).toBeHidden({ timeout: 5000 });
 	});
 });
 ```
 
 Benefits:
-- Test report shows each step
+- Test report shows each step without duplication
 - Easier to identify where failures occur
 - Self-documenting test structure
 

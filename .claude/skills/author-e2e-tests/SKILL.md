@@ -92,7 +92,7 @@ await variables.doubleClickVariableRow('df');
 await dataExplorer.grid.verifyTableData([{ col: 'value' }]);
 ```
 
-See `references/page-objects.md` for complete page object documentation.
+See `references/page-objects.md` for usage idioms, and `references/generated/<pomName>.md` (start from `references/generated/index.md`) for the exact, always-current method signatures -- generated from `test/e2e/pages/*.ts` by `scripts/generate-pom-reference.ts`. Regenerate with `npm run e2e-gen-pom-reference` if any POM source file is newer than the generated output. **Never guess or paraphrase a method name -- copy it from the generated reference.**
 
 ## Quick Reference: Assertions
 
@@ -155,7 +155,7 @@ All performance/metric tests must include `tags.PERFORMANCE` in their tag list.
 5. **No timeout on assertions** - use `{ timeout: 30000 }` for async operations
 6. **No `test.step()`** - wrap complex multi-action sequences for better reports
 
-See `references/common-mistakes.md` for 26 detailed gotchas with code examples.
+See `references/common-mistakes.md` for 28 detailed gotchas with code examples.
 
 ## Running Tests
 
@@ -186,7 +186,8 @@ For detailed information, read the bundled reference docs:
 - **`references/test-setup.md`** - How to configure the local machine environment to run tests
 - **`references/test-structure.md`** - Complete test file structure and organization
 - **`references/fixtures.md`** - All available fixtures and their usage
-- **`references/page-objects.md`** - Page object patterns and available POMs
+- **`references/page-objects.md`** - Page object usage idioms (curated, not exhaustive)
+- **`references/generated/`** - Auto-generated, always-current POM method signatures (start from `index.md`)
 - **`references/assertions.md`** - Assertion patterns and waiting strategies
 - **`references/common-mistakes.md`** - Comprehensive list of gotchas to avoid
 

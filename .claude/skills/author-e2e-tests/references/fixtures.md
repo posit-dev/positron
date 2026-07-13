@@ -154,7 +154,17 @@ test('example', async function ({ runCommand }) {
 	await runCommand('workbench.action.files.save');
 
 	// With options
-	await runCommand('some.command', { keepOpen: true });
+	await runCommand('some.command', { keepOpen: true, exactMatch: true });
+});
+```
+
+### saveFileAs (Test-scoped)
+
+Save the current file to a new path via the "Save As" dialog.
+
+```typescript
+test('example', async function ({ saveFileAs, app }) {
+	await saveFileAs(join(app.workspacePathOrFolder, 'newfile.txt'));
 });
 ```
 
@@ -175,7 +185,7 @@ test.beforeAll(async ({ settings }) => {
 
 	// With options
 	await settings.set({ 'key': 'value' }, {
-		reload: true,       // Reload window after setting
+		reload: true,       // Reload window after setting; also accepts 'web'
 		waitMs: 1000,       // Wait after setting
 		waitForReady: true, // Wait for app ready
 		keepOpen: false     // Close settings UI
@@ -191,24 +201,31 @@ test.beforeAll(async ({ settings }) => {
 
 ### settingsFile (Worker-scoped)
 
-Direct settings file access. Use for settings that need to be set before app starts.
+Direct settings file access, for settings that need to be set before the app starts (i.e. from a `beforeApp` worker fixture, before `app.beforeAll`). Both `settingsFile` and `vsCodeSettings` are instances of the same `SettingsFile` class; `settingsFile` points at the user data dir, `vsCodeSettings` at VS Code's own settings path.
 
 ```typescript
 test.beforeAll(async ({ settingsFile }) => {
-	// Write settings directly to file
-	await settingsFile.write({
+	// Merge settings directly into the file -- there is no .write(), only .append()
+	await settingsFile.append({
 		'positron.notebook.enabled': true
 	});
+
+	// Other methods
+	await settingsFile.exists();
+	await settingsFile.ensureExists();
+	await settingsFile.backupIfExists();
+	await settingsFile.restoreFromBackup();
+	await settingsFile.delete();
 });
 ```
 
 ### vsCodeSettings (Worker-scoped)
 
-Access VS Code's settings file (separate from user data dir settings).
+Access VS Code's settings file (separate from user data dir settings). Same API as `settingsFile` above (`.append()`, not `.write()`).
 
 ```typescript
 test.beforeAll(async ({ vsCodeSettings }) => {
-	await vsCodeSettings.write({ 'key': 'value' });
+	await vsCodeSettings.append({ 'key': 'value' });
 });
 ```
 
@@ -234,8 +251,7 @@ test('example', async function ({ hotKeys }) {
 	// Sidebar actions
 	await hotKeys.showSecondarySidebar();
 	await hotKeys.closeSecondarySidebar();
-	await hotKeys.showPrimarySidebar();
-	await hotKeys.closePrimarySidebar();
+	await hotKeys.closePrimarySidebar();  // No corresponding showPrimarySidebar()
 
 	// Panel actions
 	await hotKeys.toggleBottomPanel();
@@ -298,14 +314,33 @@ test('fresh app test', async function ({ restartApp: app }) {
 
 ### metric (Test-scoped)
 
-Record performance metrics.
+Record performance metrics. There is no generic `.record()` -- each domain has its own namespaced recorder:
 
 ```typescript
 test('performance test', async function ({ metric, app }) {
-	await metric.record('operation-name', async () => {
-		// Operation to measure
+	await metric.dataExplorer.loadData(async () => {
+		await app.workbench.dataExplorer.grid.getData();
+	}, 'my-target-name');
+
+	await metric.console.executeCode(async () => {
 		await app.workbench.console.executeCode('Python', code);
-	});
+	}, 'my-target-name');
+
+	// Also available: metric.dataExplorer.{filter, sort, toCode},
+	// metric.notebooks.{runCell, renderOnOpen, renderOnNavBack, renderOnColdOpen},
+	// metric.sessions.start, metric.assistant.evalResponse
+});
+```
+
+See `test/e2e/utils/metrics/` for the full signature of each recorder.
+
+### assistant (Test-scoped)
+
+Shorthand for `app.workbench.assistant` (Positron Assistant page object).
+
+```typescript
+test('example', async function ({ assistant }) {
+	// Equivalent to app.workbench.assistant
 });
 ```
 
@@ -325,7 +360,7 @@ test('example', async function ({ app, logger }) {
 
 ### runDockerCommand
 
-Execute commands in Docker container. Only available in e2e-workbench and e2e-remote-ssh projects.
+Execute commands in Docker container. Only available in the `e2e-workbench`, `e2e-jupyter`, `e2e-remote-ssh`, and `e2e-connect` projects.
 
 ```typescript
 test('docker test', async function ({ runDockerCommand }) {
@@ -340,7 +375,7 @@ Some fixtures depend on others:
 
 ```
 app
- ├── currentPage (derived from app.code.driver.currentPage)
+ ├── page (derived from app.code.driver.currentPage)
  ├── sessions (derived from app.workbench.sessions)
  ├── hotKeys (derived from app.workbench.hotKeys)
  ├── executeCode (uses app.workbench.console)
@@ -353,29 +388,40 @@ settingsFile → userDataDir → options
 
 ## Custom Test Setup Files
 
-Some test categories have their own `_test.setup.ts` that extends base fixtures:
+Some test categories have their own `_test.setup.ts` that extends base fixtures with worker-scoped options, applied via the `beforeApp` fixture (runs before the app starts, so settings changes don't need a reload).
 
 **Example: `test/e2e/tests/notebooks-positron/_test.setup.ts`**
 
 ```typescript
-import { test as base, expect, tags } from '../_test.setup';
+import { test as base, TestFixtures, WorkerFixtures } from '../_test.setup';
 
-// Extend base test with notebook-specific settings
-export const test = base.extend({
-	beforeApp: async ({ settingsFile }, use) => {
-		// Enable Positron notebooks before app starts
-		await settingsFile.write({
-			'positron.notebook.enabled': true,
-			'workbench.editorAssociations': {
-				'*.ipynb': 'workbench.editor.positronNotebook'
+interface NotebooksPositronTestFixtures extends TestFixtures { }
+interface NotebooksPositronWorkerFixtures extends WorkerFixtures {
+	enablePositronNotebooks: boolean;
+	extraSettings: Record<string, unknown> | undefined;
+}
+
+export const test = base.extend<NotebooksPositronTestFixtures, NotebooksPositronWorkerFixtures>({
+	enablePositronNotebooks: [true, { scope: 'worker', option: true }],
+	extraSettings: [undefined, { scope: 'worker', option: true }],
+
+	beforeApp: [
+		async ({ enablePositronNotebooks, extraSettings, settingsFile }, use) => {
+			if (enablePositronNotebooks) {
+				await settingsFile.append({ 'positron.notebook.enabled': true });
 			}
-		});
-		await use();
-	}
+			if (extraSettings) {
+				// Opt in per-suite with test.use({ extraSettings: { ... } })
+				await settingsFile.append(extraSettings);
+			}
+			await use();
+		},
+		{ scope: 'worker' }
+	],
 });
-
-export { expect, tags };
 ```
+
+Note this file does not re-export `expect`/`tags` -- import those from the base `_test.setup` directly if needed.
 
 Use the local `_test.setup` when testing specific features:
 

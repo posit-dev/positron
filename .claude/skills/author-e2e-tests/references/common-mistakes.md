@@ -354,40 +354,40 @@ test.beforeEach(async function ({ app }) {
 });
 ```
 
-### 16. Not Using test.step for Complex Tests
+### 16. Double-Wrapping POM Calls in test.step
+
+Most POM action/verification methods (e.g. `console.executeCode`, `variables.doubleClickVariableRow`, `dataExplorer.grid.verifyTableData`) already wrap their own body in `test.step(...)` internally. Wrapping one of them in another `test.step` produces a redundant nested step in the report, not a clearer one.
 
 **WRONG:**
 ```typescript
 test('full workflow', async function ({ app, python }) {
-	await app.workbench.console.executeCode('Python', 'x = 1');
-	await app.workbench.console.executeCode('Python', 'y = 2');
-	await app.workbench.console.executeCode('Python', 'df = create_df()');
-	await app.workbench.variables.doubleClickVariableRow('df');
-	await app.workbench.dataExplorer.grid.verifyTableData(expected);
+	await test.step('Create dataframe', async () => {
+		await app.workbench.console.executeCode('Python', 'df = create_df()');  // Already wraps itself
+	});
+
+	await test.step('Open in data explorer', async () => {
+		await app.workbench.variables.doubleClickVariableRow('df');  // Already wraps itself
+	});
 });
 ```
 
 **CORRECT:**
 ```typescript
 test('full workflow', async function ({ app, python }) {
-	await test.step('Set up variables', async () => {
-		await app.workbench.console.executeCode('Python', 'x = 1');
-		await app.workbench.console.executeCode('Python', 'y = 2');
-	});
+	// No outer test.step -- each POM call already reports its own step
+	await app.workbench.console.executeCode('Python', 'df = create_df()');
+	await app.workbench.variables.doubleClickVariableRow('df');
+	await app.workbench.dataExplorer.grid.verifyTableData(expected);
 
-	await test.step('Create dataframe', async () => {
-		await app.workbench.console.executeCode('Python', 'df = create_df()');
-	});
-
-	await test.step('Open in data explorer', async () => {
-		await app.workbench.variables.doubleClickVariableRow('df');
-	});
-
-	await test.step('Verify data', async () => {
-		await app.workbench.dataExplorer.grid.verifyTableData(expected);
+	// Reserve test.step for raw Playwright sequences that aren't already a POM call
+	await test.step('Dismiss the confirmation dialog', async () => {
+		await page.getByRole('button', { name: 'Delete' }).click();
+		await expect(page.getByRole('dialog')).toBeHidden({ timeout: 5000 });
 	});
 });
 ```
+
+Not every POM method self-wraps -- e.g. `console.waitForReady` and `plots.waitForNoPlots` don't. Check the method's source in `test/e2e/pages/` if you're unsure.
 
 ## Timing Mistakes
 
@@ -529,12 +529,9 @@ Page objects encapsulate:
 
 ### 24. Not Checking Page Object Methods First
 
-Before writing custom locator code, check if a page object method exists:
+Before writing custom locator code, check `references/generated/<pomName>.md` (or `references/generated/index.md` to find the right file) for an existing method. Most common operations are already implemented -- copy the exact method name from there rather than guessing or paraphrasing it.
 
 ```typescript
-// Check test/e2e/pages/*.ts for available methods
-// Most common operations are already implemented
-
 // Instead of custom code, use:
 await app.workbench.console.executeCode(...)
 await app.workbench.variables.doubleClickVariableRow(...)
@@ -571,6 +568,49 @@ Reports include:
 - Step-by-step execution
 - Error messages with context
 
+## Fixture vs. POM Confusion
+
+### 27. Confusing the `settings` Fixture with `app.workbench.settings`
+
+The `settings` fixture (test function parameter) and `app.workbench.settings` (the `UserSettings` POM) are different objects. Both happen to have a `.remove()` method, which makes it easy to grab the wrong one. Methods that take a settings argument, like `notebooksPositron.enablePositronNotebooks(settings)`, expect the **fixture**, not the workbench POM.
+
+**WRONG:**
+```typescript
+test('example', async function ({ app }) {
+	const { notebooksPositron, settings } = app.workbench;
+	await notebooksPositron.enablePositronNotebooks(settings);  // BREAKS -- app.workbench.settings, wrong type
+});
+```
+
+**CORRECT:**
+```typescript
+test('example', async function ({ app, settings }) {
+	await app.workbench.notebooksPositron.enablePositronNotebooks(settings);  // settings fixture
+});
+```
+
+The `settings` fixture has `.set()`, `.clear()`, `.remove()`, with reload options (see `references/fixtures.md`). The `app.workbench.settings` POM (`UserSettings`) has `.mergeSetting()`, `.getSettings()`, `.remove()`. Don't mix them up.
+
+### 28. `enablePositronNotebooks` Needs the Settings Fixture and Triggers a Reload
+
+`notebooksPositron.enablePositronNotebooks(settings)` takes the `settings` fixture and internally calls `settings.set(..., { reload: 'web' })` -- it always reloads the window to make the setting take effect.
+
+**WRONG:**
+```typescript
+test('example', async function ({ app }) {
+	await app.workbench.notebooksPositron.enablePositronNotebooks();  // Missing required settings argument
+});
+```
+
+**CORRECT:**
+```typescript
+test('example', async function ({ app, settings }) {
+	await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
+});
+```
+
+To avoid the reload cost, set `positron.notebook.enabled` via `settingsFile.append()` in a `beforeApp` worker fixture instead, so it's applied before the app starts (see the "Custom Test Setup Files" example in `references/fixtures.md`).
+
 ## Summary: Pre-Submit Checklist
 
 Before submitting a test, verify:
@@ -583,6 +623,6 @@ Before submitting a test, verify:
 - [ ] Uses `toPass` for potentially flaky operations
 - [ ] Has cleanup in `afterEach`
 - [ ] Uses environment variables for interpreter versions
-- [ ] Uses page object methods instead of raw locators where possible
-- [ ] Test steps are wrapped in `test.step()` for complex tests
+- [ ] Uses page object methods instead of raw locators where possible, with method names copied from `references/generated/<pomName>.md` (not guessed)
+- [ ] Raw Playwright sequences (not already a POM call) are wrapped in `test.step()`; POM calls that already self-wrap are not double-wrapped
 - [ ] Test is independent (doesn't rely on other tests)

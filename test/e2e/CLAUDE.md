@@ -3,9 +3,9 @@
 For comprehensive e2e test guidance, use the `author-e2e-tests` skill which provides:
 - Test file structure and templates
 - Available fixtures (`python`, `r`, `sessions`, `executeCode`, etc.)
-- Page object documentation (`app.workbench.*`)
+- Page object documentation (`app.workbench.*`), with auto-generated, always-current method signatures under `references/generated/`
 - Assertion and waiting patterns
-- 26 common mistakes to avoid
+- 28 common mistakes to avoid
 
 ## Quick Commands
 
