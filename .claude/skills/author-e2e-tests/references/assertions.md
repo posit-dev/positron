@@ -199,19 +199,21 @@ await expect(async () => {
 
 ## Locator Strategies
 
-### Preferred Selectors (Most to Least Reliable)
+### Preferred Selectors (Most to Least Preferred)
 
-1. **Test IDs** (most stable)
-```typescript
-page.getByTestId('restart-session')
-page.getByTestId('data-grid-cell-0-0')
-```
+Matches [Playwright's own guidance](https://playwright.dev/docs/best-practices#use-locators): prefer selectors that verify real user-facing/accessible behavior over ones that don't.
 
-2. **Accessible Labels**
+1. **Accessible Labels and Roles**
 ```typescript
 page.getByLabel('Clear console')
 page.getByRole('button', { name: 'Execute' })
 page.getByRole('tab', { name: 'Console', exact: true })
+```
+
+2. **Test IDs** (reliable, but doesn't verify accessibility and needs manual upkeep)
+```typescript
+page.getByTestId('restart-session')
+page.getByTestId('data-grid-cell-0-0')
 ```
 
 3. **Text Content**
