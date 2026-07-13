@@ -177,6 +177,13 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	// This prevents infinite loops when listening for model changes.
 	private _cachedOutputsLoaded = false;
 
+	// Cells whose re-execution has started but not yet produced a replacement
+	// output. The previously cached output is kept until the first new output
+	// arrives (mirroring the view zone's "recomputing" behavior), so an
+	// execution that is interrupted before producing output -- e.g. cancelled by
+	// a window reload -- does not destroy the still-valid persisted cache.
+	private readonly _cellsAwaitingRecomputeOutput = new Set<string>();
+
 	// Stash outputs per document URI across model changes (tab switches).
 	// Unlike the disk cache, stashed outputs preserve data explorer MIME items
 	// so the inline data explorer can reconnect to a live comm when switching back.
@@ -281,6 +288,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._outputsByCell.clear();
 			this._contentHashByCellId.clear();
 			this._executionInfoByCell.clear();
+			this._cellsAwaitingRecomputeOutput.clear();
 
 			// Clear previous output handling subscriptions to prevent duplicates
 			this._outputHandlingDisposables.clear();
@@ -397,10 +405,14 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 					// Clear our internal output tracking since new outputs will replace
 					this._outputsByCell.delete(cellId);
 					this._contentHashByCellId.delete(cellId);
-					// Clear from cache
-					if (this._documentUri) {
-						this._cacheService.clearCellOutputs(this._documentUri, cellId);
-					}
+					// Defer clearing the persisted cache until the first new output
+					// actually arrives (see _handleOutput). Clearing it here would
+					// destroy the still-valid cached output if the execution is
+					// interrupted before producing anything -- for example when a
+					// window reload cancels an in-flight execution during shutdown,
+					// which otherwise leaves an empty entry that the shutdown flush
+					// writes out as a deletion.
+					this._cellsAwaitingRecomputeOutput.add(cellId);
 				}
 
 				// When execution finishes (Idle, Completed, or Error), if still in
@@ -420,6 +432,17 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 					});
 				}
 
+				// A re-execution finished without producing a replacement output.
+				// Only drop the previously cached output if the run completed
+				// cleanly (the cell genuinely produces nothing now). If it ended in
+				// error -- which includes cancellation, e.g. by a window reload --
+				// keep the cache so the last good output survives the reload.
+				if (executionFinished && this._cellsAwaitingRecomputeOutput.delete(cellId)) {
+					if (currentState === CellExecutionState.Completed && this._documentUri) {
+						this._cacheService.clearCellOutputs(this._documentUri, cellId);
+					}
+				}
+
 				// When execution finishes and there is no view zone yet,
 				// create one to show the status bar
 				if (executionFinished && !viewZone) {
@@ -435,16 +458,21 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				}
 
 				// When state goes to Idle (e.g. after cancellation), hide
-				// status-only view zones since there's nothing meaningful to show
-				if (currentState === CellExecutionState.Idle && viewZone?.isRecomputing) {
-					viewZone.clearOutputs();
-					this._viewZones.delete(cellId);
-					this._executionInfoByCell.delete(cellId);
-					this._onDidChangeOutputs.fire({
-						cellId,
-						documentUri: this._documentUri!,
-						outputs: [],
-					});
+				// status-only view zones since there's nothing meaningful to show.
+				// The execution was interrupted rather than completed, so leave the
+				// persisted cache alone.
+				if (currentState === CellExecutionState.Idle) {
+					this._cellsAwaitingRecomputeOutput.delete(cellId);
+					if (viewZone?.isRecomputing) {
+						viewZone.clearOutputs();
+						this._viewZones.delete(cellId);
+						this._executionInfoByCell.delete(cellId);
+						this._onDidChangeOutputs.fire({
+							cellId,
+							documentUri: this._documentUri!,
+							outputs: [],
+						});
+					}
 				}
 			}
 		}));
@@ -532,6 +560,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		this._disposeAllViewZones();
 		this._outputsByCell.clear();
 		this._executionInfoByCell.clear();
+		this._cellsAwaitingRecomputeOutput.clear();
 	}
 
 	/**
@@ -961,6 +990,14 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 	private _handleOutput(cellId: string, output: ICellOutput): void {
 		this._logService.debug('[QuartoOutputContribution] Received output for cell', cellId);
+
+		// First replacement output of a re-execution: now that new output is
+		// actually arriving, drop the previously cached output for this cell so
+		// the new run replaces it instead of appending. This is deferred from
+		// execution start so an interrupted run never destroys the old cache.
+		if (this._cellsAwaitingRecomputeOutput.delete(cellId) && this._documentUri) {
+			this._cacheService.clearCellOutputs(this._documentUri, cellId);
+		}
 
 		// Store output
 		const outputs = this._outputsByCell.get(cellId) ?? [];
