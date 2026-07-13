@@ -105,15 +105,20 @@ await expect(async () => {
 
 ### expect.poll
 
-Poll a function until condition is met:
+`expect.poll` retries a function call and checks its *return value* against a matcher -- it can't reissue a UI action the way `toPass` retries a whole callback (see above). Reach for it in the narrow case `toPass`/web-first assertions don't cover:
+
+- **A matcher a Locator assertion doesn't have.** `toHaveCount` only checks an exact number; there's no built-in "count greater than N". Polling `locator.all()` and asserting with `toBeGreaterThan` fills that gap.
+- **A non-Locator value.** Reading app state via a plain async function (an API call, a computed value, `page.evaluate`) rather than something backed by a DOM element.
+
+If your check *is* a Locator assertion (`toBeVisible`, `toHaveText`, etc.), use `expect(locator)...` directly -- it already retries internally, and `expect.poll` around it is redundant. If the thing that needs retrying is an action (click, keypress) rather than just the value being checked, use `toPass`.
 
 ```typescript
-// Poll for count
+// Count comparison -- no toHaveCount equivalent for "greater than"
 await expect.poll(async () => {
 	return (await locator.all()).length;
 }).toBeGreaterThan(2);
 
-// Poll for value
+// Non-Locator value (e.g. an API call or computed state)
 await expect.poll(async () => {
 	return await getValue();
 }, { timeout: 30000 }).toBe('expected');
