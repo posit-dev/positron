@@ -23,6 +23,8 @@ import { rasterizeSvgToPng } from '../../../contrib/positronNotebook/browser/svg
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../../contrib/positronNotebook/common/positronNotebookConfig.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { EditorsOrder } from '../../../common/editor.js';
+import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../../contrib/positronNotebook/common/positronNotebookCommon.js';
 
 /**
  * Main thread implementation of notebook features for extension host communication.
@@ -90,12 +92,14 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	}
 
 	/**
-	 * Gets the context information for the currently active notebook.
-	 * @returns The notebook context DTO, or undefined if no notebook is active.
+	 * Gets the context information for the currently active notebook. When no
+	 * Positron notebook is the active editor pane, falls back to the most
+	 * recently active Positron notebook that is still open.
+	 * @returns The notebook context DTO, or undefined if no notebook is open.
 	 */
 	async $getActiveNotebookContext(): Promise<INotebookContextDTO | undefined> {
 		// Use existing helper function instead of service method
-		const instance = getNotebookInstanceFromActiveEditorPane(this._editorService);
+		let instance = getNotebookInstanceFromActiveEditorPane(this._editorService);
 		if (!instance) {
 			// A notebook may be open, but in the built-in editor rather than the
 			// Positron Notebook Editor that this API operates on. Surface an
@@ -106,7 +110,14 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			if (unsupportedEditorMessage) {
 				throw new Error(unsupportedEditorMessage);
 			}
-			return undefined;
+			// A Positron notebook can be open without being the active editor
+			// pane (focus in a chat editor, a split group, or another tab).
+			// Fall back to the most recently active open notebook so assistant
+			// tools can still find it (#14762).
+			instance = this._getMostRecentlyActiveNotebookInstance();
+			if (!instance) {
+				return undefined;
+			}
 		}
 
 		// Get current state from observables
@@ -701,6 +712,25 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			throw new Error(`No text model found for notebook: ${notebookUri}`);
 		}
 		return instance.textModel;
+	}
+
+	/**
+	 * Finds the open Positron notebook instance whose editor was most
+	 * recently active, regardless of which editor pane currently has focus.
+	 * @returns The notebook instance, or undefined if no Positron notebook
+	 * editor is open.
+	 */
+	private _getMostRecentlyActiveNotebookInstance(): IPositronNotebookInstance | undefined {
+		for (const { editor } of this._editorService.getEditors(EditorsOrder.MOST_RECENTLY_ACTIVE)) {
+			if (editor.typeId !== POSITRON_NOTEBOOK_EDITOR_INPUT_ID || !editor.resource) {
+				continue;
+			}
+			const instances = this._positronNotebookService.listInstances(editor.resource);
+			if (instances.length > 0) {
+				return instances[0];
+			}
+		}
+		return undefined;
 	}
 
 	/**

@@ -22,7 +22,9 @@ import { IPositronNotebookService } from '../../../../contrib/positronNotebook/b
 import { IPositronNotebookInstance } from '../../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronNotebookCodeCell, NotebookCellOutputs } from '../../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { SelectionState, SelectionStateMachine } from '../../../../contrib/positronNotebook/browser/selectionMachine.js';
+import { UNSUPPORTED_NOTEBOOK_EDITOR_MESSAGE } from '../../../../contrib/positronNotebook/browser/notebookUtils.js';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../../../contrib/positronNotebook/common/positronNotebookCommon.js';
+import { NOTEBOOK_EDITOR_ID } from '../../../../contrib/notebook/common/notebookCommon.js';
 import { MainThreadNotebookFeatures } from '../../../browser/positron/mainThreadNotebookFeatures.js';
 
 const { mockRasterizeSvgToPng } = vi.hoisted(() => ({ mockRasterizeSvgToPng: vi.fn() }));
@@ -221,6 +223,21 @@ describe('MainThreadNotebookFeatures $getActiveNotebookContext', () => {
 		});
 
 		expect(await features.$getActiveNotebookContext()).toBeUndefined();
+		features.dispose();
+	});
+
+	it('surfaces the unsupported-editor error when the built-in notebook editor is active, even if a Positron notebook is open elsewhere', async () => {
+		// The user is looking at a notebook in the built-in editor; falling
+		// back to a different open Positron notebook would make assistant
+		// tools operate on the wrong notebook.
+		const notebookUri = 'file:///test/notebook.ipynb';
+		const features = createContextFeatures({
+			activeEditorPane: stubInterface<IVisibleEditorPane>({ getId: () => NOTEBOOK_EDITOR_ID }),
+			mruEditors: [createEditorInput(POSITRON_NOTEBOOK_EDITOR_INPUT_ID, notebookUri)],
+			instances: [createNotebookInstance(notebookUri)],
+		});
+
+		await expect(features.$getActiveNotebookContext()).rejects.toThrow(UNSUPPORTED_NOTEBOOK_EDITOR_MESSAGE);
 		features.dispose();
 	});
 });
