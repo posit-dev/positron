@@ -579,7 +579,7 @@
     "semver": "^7.6.0",
     "shell-quote": "^1.8.4",
     "stream-to-pull-stream": "^1.7.3",
-    "tar": "^7.5.11",
+    "tar": "^7.5.19",
     "text-table": "^0.2.0",
     "yargs": "^17.7.2"
   },
