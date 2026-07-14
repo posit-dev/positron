@@ -1,141 +1,46 @@
 # Page Objects
 
-Documentation of page objects available via `app.workbench.*`.
-
-**For the authoritative method list, read the POM's source file directly** (see "Finding the Exact Source" below). This page is a curated set of common usage idioms, not an exhaustive method list -- don't guess a method name from here.
-
-## Page Object Architecture
-
-Page objects encapsulate UI interactions. Access them through the `app.workbench` property:
+UI interactions are wrapped in page objects, reached through `app.workbench.*`:
 
 ```typescript
 test('example', async ({ app }) => {
-	const { console, variables, dataExplorer, plots } = app.workbench;
-
+	const { console, variables, dataExplorer } = app.workbench;
 	await console.executeCode('Python', 'x = 1');
 	await variables.doubleClickVariableRow('x');
 });
 ```
 
-## Console (`app.workbench.console`)
-
-```typescript
-await console.executeCode('Python', 'print("hello")');
-await console.executeCode('Python', code, { timeout: 60000, waitForReady: true, maximizeConsole: true });
-await console.waitForConsoleContents('expected text');
-await console.waitForReady('>>>');
-```
-
-Source: `test/e2e/pages/console.ts`.
-
-## Variables (`app.workbench.variables`)
-
-```typescript
-await variables.doubleClickVariableRow('df');   // Opens in data explorer
-await variables.expandVariable('my_list');
-await variables.expectVariableToBe('x', '42');  // Python shows 'x', R shows "x" -- match the actual quote style
-await variables.expectVariableToNotExist('df');
-```
-
-Source: `test/e2e/pages/variables.ts`.
-
-## Data Explorer (`app.workbench.dataExplorer`)
-
-```typescript
-await dataExplorer.grid.verifyTableData([{ 'Name': 'Alice', 'Age': '30' }]);
-await dataExplorer.grid.sortColumnBy(1, 'Sort Ascending');   // Takes a column INDEX, not a name
-await dataExplorer.filters.add({ columnName: 'Name', condition: 'contains', value: 'Alice' });
-await dataExplorer.summaryPanel.show();
-```
-
-Sub-objects: `grid`, `filters`, `summaryPanel`, `convertToCodeModal`, `editorActionBar` -- all in the same source file. Source: `test/e2e/pages/dataExplorer.ts`.
-
-## Plots (`app.workbench.plots`)
-
-```typescript
-await plots.waitForCurrentPlot();
-await plots.expectPlotThumbnailsCountToBe(3);
-await plots.nextPlotButton.click();   // A Locator, not a nextPlot() method
-await plots.savePlotFromPlotsPane({ name: 'my-plot', format: 'PNG' });
-```
-
-Source: `test/e2e/pages/plots.ts`.
-
-## Notebooks (`app.workbench.notebooks`)
-
-Shared notebook operations (works with both VS Code and Positron notebooks). Positron-specific actions like `addCell` live on `app.workbench.notebooksPositron` instead.
-
-```typescript
-await notebooks.openNotebook(path);
-await notebooks.selectInterpreter('Python');   // Defaults to POSITRON_PY_VER_SEL; pass availableRuntimes['pythonAlt'].version for a non-default
-await notebooks.executeActiveCell();
-await notebooks.runAllCells();
-await notebooks.assertCellOutput('expected', 0);   // Assertion, not a getter -- no getCellOutput/waitForCellOutput
-```
-
-Source: `test/e2e/pages/notebooks.ts` (shared) and `test/e2e/pages/notebooksPositron.ts` (Positron-specific).
-
-## Sessions (`app.workbench.sessions`)
-
-```typescript
-await sessions.start('python');
-await sessions.expectAllSessionsToBeReady();
-const active = await sessions.getActiveSessions();   // Plural, returns an array
-```
-
-Source: `test/e2e/pages/sessions.ts`.
-
-## HotKeys (`app.workbench.hotKeys`)
-
-Also available as the `hotKeys` fixture -- see `references/fixtures.md`.
-
-```typescript
-await hotKeys.copy();
-await hotKeys.closeAllEditors();
-await hotKeys.stackedLayout();
-```
-
-Source: `test/e2e/pages/hotKeys.ts`.
-
-## Context Menu (`app.workbench.contextMenu`)
-
-```typescript
-await contextMenu.triggerAndClick({ menuTrigger: someLocator, menuItemLabel: 'Menu Item' });
-```
-
-Source: `test/e2e/pages/dialog-contextMenu.ts`.
-
-## Other Page Objects
-
-`app.workbench.*` has ~49 properties total (editors, explorer, layouts, modals, toasts, quickaccess, quickInput, connections, help, terminal, viewer, userSettings, debug, scm, search, outline, output, problems, testExplorer, clipboard, assistant, and more). See "Finding the Exact Source" below to look up any of them.
-
-## Page Object Pattern
-
-Most action/verification methods wrap their body in `test.step(...)`, but not all of them (e.g. `console.waitForReady`, `plots.waitForNoPlots` don't). Before adding an outer `test.step` around a POM call, check whether it already wraps itself -- see `references/common-mistakes.md` #9 for how, and why double-wrapping is a problem.
-
-```typescript
-export class MyPageObject {
-	someButton: Locator;
-
-	constructor(private code: Code, ...) {
-		this.someButton = this.code.driver.currentPage.getByTestId('some-button');
-	}
-
-	// Actions/verifications are typically wrapped in test.step for report readability
-	async doSomething(): Promise<void> {
-		return test.step('Do something', async () => {
-			await this.someButton.click();
-		});
-	}
-}
-```
+This file is **not** a method catalog. Method names change, and a stale list
+will point you at something that no longer exists, so grep the source for the
+authoritative signatures (below). Any method named on this page is illustrative,
+there to show an idiom or a gotcha; never copy a name from here without
+confirming it in the source.
 
 ## Finding the Exact Source
 
-`test/e2e/infra/workbench.ts` is the index: every `app.workbench.*` property is declared there as `readonly propName: TypeName`, with `TypeName` imported from its source file right at the top of the same file. To find or verify a method:
+`test/e2e/infra/workbench.ts` is the index: every `app.workbench.*` property is declared there as `readonly propName: TypeName`, with `TypeName` imported from its source file at the top of the same file. To find or verify a method:
 
-1. Grep `workbench.ts` for the property name, e.g. `grep -n "readonly assistant" test/e2e/infra/workbench.ts` -- note the `TypeName`.
-2. Grep the same file for that `TypeName`'s import, e.g. `grep -n "import { Assistant }" test/e2e/infra/workbench.ts` -- that's the source path.
-3. Read or grep that file directly (e.g. `grep -n "async " test/e2e/pages/<file>.ts`) for the exact method signature.
+1. Grep `workbench.ts` for the property to get its `TypeName`, e.g. `grep -n "readonly assistant" test/e2e/infra/workbench.ts`.
+2. Grep the same file for that type's import to get the source path, e.g. `grep -n "import { Assistant }" test/e2e/infra/workbench.ts`.
+3. Grep that source file for the method, e.g. `grep -n "async " test/e2e/pages/<file>.ts`.
 
-Never guess or paraphrase a method name from this skill's prose -- copy it from the source file.
+## What `app.workbench` exposes
+
+Roughly 49 page objects, including `console`, `variables`, `dataExplorer`, `plots`, `notebooks` / `notebooksPositron`, `sessions`, `hotKeys`, `contextMenu`, `editors`, `explorer`, `layouts`, `modals`, `toasts`, `quickaccess`, `quickInput`, `connections`, `help`, `terminal`, `viewer`, `userSettings`, `debug`, `scm`, `search`, `outline`, `output`, `problems`, `testExplorer`, `clipboard`, and `assistant`. Use the lookup above for any of them.
+
+A few structural notes:
+
+- `dataExplorer` has sub-objects (`grid`, `filters`, `summaryPanel`, `convertToCodeModal`, `editorActionBar`), all in `pages/dataExplorer.ts`.
+- `notebooks` is shared (VS Code and Positron notebooks); Positron-only actions like `addCell` live on `notebooksPositron`.
+- `hotKeys` is also exposed as the `hotKeys` fixture (see `references/fixtures.md`).
+
+## Non-obvious gotchas
+
+Behavioral surprises that grepping a signature won't reveal (illustrative; confirm against source):
+
+- `dataExplorer.grid.sortColumnBy(1, 'Sort Ascending')` takes a column **index**, not a name.
+- `variables.expectVariableToBe('x', '42')`: match the actual quote style (Python shows `'x'`, R shows `"x"`).
+- `plots.nextPlotButton` / `previousPlotButton` are Locators, not `nextPlot()` methods.
+- `notebooks.assertCellOutput('expected', 0)` is an assertion, not a getter; there is no `getCellOutput` / `waitForCellOutput`.
+- `sessions.getActiveSessions()` is plural and returns an array.
+- Most POM methods wrap their body in `test.step` internally, but some (`console.waitForReady`, `plots.waitForNoPlots`) don't; see `references/common-mistakes.md` #9 before adding an outer `test.step`.
