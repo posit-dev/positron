@@ -26,7 +26,7 @@ confirming it in the source.
 
 ## What `app.workbench` exposes
 
-Roughly 49 page objects, including `console`, `variables`, `dataExplorer`, `plots`, `notebooks` / `notebooksPositron`, `sessions`, `hotKeys`, `contextMenu`, `editors`, `explorer`, `layouts`, `modals`, `toasts`, `quickaccess`, `quickInput`, `connections`, `help`, `terminal`, `viewer`, `userSettings`, `debug`, `scm`, `search`, `outline`, `output`, `problems`, `testExplorer`, `clipboard`, and `assistant`. Use the lookup above for any of them.
+Many page objects. The core ones the examples use: `console`, `variables`, `dataExplorer`, `plots`, `notebooks` / `notebooksPositron`, `sessions`, `hotKeys`. For the complete, current set, grep the `readonly` declarations in `test/e2e/infra/workbench.ts` (the lookup above) rather than trusting a hardcoded list here.
 
 A few structural notes:
 

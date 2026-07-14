@@ -38,14 +38,9 @@ test.describe('Feature Name - Subsection', {
 	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.FEATURE_TAG]
 }, () => {
 
-	// Worker-scoped setup (runs once before all tests in file)
-	// If this setting is known up front, prefer applying it pre-launch instead
-	// (see "Custom Test Setup Files" in references/fixtures.md) -- avoids a reload
-	test.beforeAll(async ({ settings }) => {
-		await settings.set({
-			'some.setting': true
-		});
-	});
+	// Worker-scoped setup runs once per file. For settings known up front, apply
+	// them pre-launch instead of here (see "Custom Test Setup Files" in
+	// references/fixtures.md) so there's no reload.
 
 	// Test-scoped setup (runs before each test)
 	test.beforeEach(async ({ app }) => {
@@ -88,43 +83,7 @@ test.describe('Feature Name - Subsection', {
 
 Replace "<CURRENT YEAR>" with the current year.
 
-## Import Rules
-
-### Always Import from _test.setup
-
-```typescript
-// CORRECT
-import { test, expect, tags } from '../_test.setup';
-
-// WRONG - Do not import from @playwright/test
-import { test, expect } from '@playwright/test';
-```
-
-The `_test.setup` provides:
-- Custom `test` object with all Positron fixtures
-- Re-exported `expect` from Playwright
-- `tags` enum for test filtering
-
-### Other Common Imports
-
-```typescript
-import { join } from 'path';  // For file paths
-```
-
-## suiteId Requirement
-
-**MANDATORY**: Every test file MUST set `suiteId`:
-
-```typescript
-test.use({
-	suiteId: __filename
-});
-```
-
-This ensures:
-- Each test file gets a fresh app instance
-- Logs are organized by test file
-- beforeAll/afterAll hooks run correctly per file
+The template's two required lines -- importing `test`/`expect`/`tags` from `../_test.setup` (not `@playwright/test`) and `test.use({ suiteId: __filename })` -- are mandatory for every file. SKILL.md lists them under "MANDATORY REQUIREMENTS"; `references/common-mistakes.md` #1 and #2 explain what breaks without them.
 
 ## Hook Scopes
 
