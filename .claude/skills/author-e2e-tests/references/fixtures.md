@@ -1,6 +1,6 @@
 # Test Fixtures
 
-Complete documentation of all available fixtures in Positron's e2e test system.
+Curated reference for the user-facing fixtures, with their scope and gotchas. The authoritative list and types live in the `TestFixtures` / `WorkerFixtures` interfaces in `test/e2e/tests/_test.setup.ts` (grep there for the current set; it also contains internal plumbing fixtures a test never consumes directly).
 
 ## Fixture Scopes
 
@@ -233,35 +233,13 @@ test.beforeAll(async ({ vsCodeSettings }) => {
 
 ### hotKeys (Test-scoped)
 
-Keyboard shortcuts and UI actions.
+Keyboard shortcuts and UI actions (editor, layout, sidebar, panel, execution, plots). `hotKeys` is a page object (`HotKeys` type), so grep `test/e2e/pages/hotKeys.ts` for the current method list rather than relying on a hardcoded one here (see `references/page-objects.md`, "Finding the Exact Source").
 
 ```typescript
 test('example', async ({ hotKeys }) => {
-	// Editor actions
 	await hotKeys.copy();
-	await hotKeys.paste();
-	await hotKeys.selectAll();
 	await hotKeys.closeAllEditors();
-
-	// Layout actions
 	await hotKeys.stackedLayout();
-	await hotKeys.notebookLayout();
-	await hotKeys.fullSizeSecondarySidebar();
-
-	// Sidebar actions
-	await hotKeys.showSecondarySidebar();
-	await hotKeys.closeSecondarySidebar();
-	await hotKeys.closePrimarySidebar();  // No corresponding showPrimarySidebar()
-
-	// Panel actions
-	await hotKeys.toggleBottomPanel();
-	await hotKeys.focusConsole();
-
-	// Execution control
-	await hotKeys.sendInterrupt();
-
-	// Plots
-	await hotKeys.clearPlots();
 });
 ```
 
@@ -322,25 +300,15 @@ test('fresh app test', async ({ restartApp: app }) => {
 
 ### metric (Test-scoped)
 
-Record performance metrics. There is no generic `.record()` -- each domain has its own namespaced recorder:
+Record performance metrics. There is no generic `.record()`; each domain has its own namespaced recorder (`metric.dataExplorer.*`, `metric.console.*`, `metric.notebooks.*`, `metric.sessions.*`, `metric.assistant.*`). Grep `test/e2e/utils/metrics/` for the current recorders and their signatures.
 
 ```typescript
 test('performance test', async ({ metric, app }) => {
 	await metric.dataExplorer.loadData(async () => {
 		await app.workbench.dataExplorer.grid.getData();
 	}, 'my-target-name');
-
-	await metric.console.executeCode(async () => {
-		await app.workbench.console.executeCode('Python', code);
-	}, 'my-target-name');
-
-	// Also available: metric.dataExplorer.{filter, sort, toCode},
-	// metric.notebooks.{runCell, renderOnOpen, renderOnNavBack, renderOnColdOpen},
-	// metric.sessions.start, metric.assistant.evalResponse
 });
 ```
-
-See `test/e2e/utils/metrics/` for the full signature of each recorder.
 
 ### assistant (Test-scoped)
 

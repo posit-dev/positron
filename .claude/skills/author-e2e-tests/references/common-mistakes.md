@@ -107,11 +107,7 @@ Reach for the `BETTER` form only when the value isn't known until the test runs 
 
 ### 6. Override Timeouts Only When You Know Better Than the Default
 
-The configured default assertion timeout is already 15s (`expect.timeout` in `playwright.config.ts`), which covers most UI visibility checks -- you don't need to add `{ timeout: ... }` to every assertion.
-
-Override it deliberately: raise it for operations known to be slower than typical UI (interpreter startup and session/kernel init run ~30-45s, code execution and large data loads up to ~60s), or lower it for an assertion that should genuinely fail fast. In practice the POM methods already carry these budgets, so you mostly hit this only when waiting on a raw locator a POM doesn't cover.
-
-**Anti-pattern:** don't reflexively add a large timeout (e.g. `{ timeout: 60000 }`) to every assertion "just in case." That delays failure detection when something is actually broken and slows down the whole suite on a real regression.
+The 15s default (`expect.timeout` in `playwright.config.ts`) covers most UI checks, so don't add `{ timeout: ... }` to every assertion. Raise it only for genuinely slower operations (interpreter/kernel startup, large data loads) or lower it to fail fast; POM methods already carry these budgets, so you mostly need this on raw locators. Reflexively padding every assertion with a big timeout just hides real failures and slows the suite.
 
 ### 7. Wrapping an Already-Retrying Call in toPass
 
@@ -328,36 +324,10 @@ await app.workbench.notebooks.selectInterpreter(...)
 
 ### 16. Setting Config Mid-Test When Pre-Launch Would Do
 
-Any `settings.set(...)` after the app has launched costs a reload, and for discovery/session-gating settings a reload can be flaky (it doesn't always re-run every cold-launch code path).
+Even a correctly-scoped `test.beforeAll` + `settings.set(...)` reloads the window, and for discovery/session-gating settings that reload can be flaky (it doesn't always re-run every cold-launch code path). Prefer pre-launch (the BEST form in #5). Two shortcuts beyond the single-file `beforeApp` shown there:
 
-**WRONG:**
-```typescript
-test.beforeAll(async ({ settings }) => {
-	await settings.set({ 'some.gating.setting': true }, { reload: true });
-});
-```
-
-**CORRECT -- setting is already a base worker option** (check `test/e2e/tests/_test.setup.ts` for `useLegacyNotebookEditor`, `enableDataConnections`, `enableFoundryAssistant`):
-```typescript
-test.use({ useLegacyNotebookEditor: true });   // No custom setup file needed
-```
-
-**CORRECT -- no existing option covers it, isolated to one file:**
-```typescript
-import { test as base, expect, tags, TestFixtures, WorkerFixtures } from '../_test.setup';
-
-const test = base.extend<TestFixtures, WorkerFixtures>({
-	beforeApp: [
-		async ({ settingsFile }, use) => {
-			await settingsFile.append({ 'some.gating.setting': true });
-			await use();
-		},
-		{ scope: 'worker' }
-	],
-});
-```
-
-**CORRECT -- applies to a whole feature directory:** put either form above in a `_test.setup.ts` in that directory (see `test/e2e/tests/notebook/_test.setup.ts` for overriding an existing option, `test/e2e/tests/notebooks-positron/_test.setup.ts` for defining a new one) and have every file in the directory import `test` from `./_test.setup.js` instead of `../_test.setup`.
+- **Setting is already a base worker option:** just `test.use({ useLegacyNotebookEditor: true })` (see `test/e2e/tests/_test.setup.ts` for available options like `enableDataConnections`, `enableFoundryAssistant`).
+- **Applies to a whole feature directory:** put the `beforeApp` override in that directory's `_test.setup.ts` (see `test/e2e/tests/notebooks-positron/_test.setup.ts`) and have its files import `test` from `./_test.setup.js`.
 
 ## Summary: Pre-Submit Checklist
 
@@ -371,7 +341,6 @@ Before submitting a test, verify:
 - [ ] Timeout overrides exist only where an operation is known to be slower (or should fail faster) than the 15s default -- not added reflexively to every assertion
 - [ ] Uses `toPass` for potentially flaky operations
 - [ ] Has cleanup in `afterEach`
-- [ ] Uses environment variables for interpreter versions
 - [ ] Uses page object methods instead of raw locators where possible, with method names copied from source in `test/e2e/pages/` (not guessed)
 - [ ] Raw Playwright sequences (not already a POM call) are wrapped in `test.step()`; POM calls that already self-wrap are not double-wrapped
 - [ ] Test is independent (doesn't rely on other tests)
