@@ -42,24 +42,14 @@ test('example', async ({ page }) => {
 
 ### sessions (Test-scoped)
 
-Session/interpreter management.
+Session/interpreter management; the same object as `app.workbench.sessions` (`Sessions` type). Grep `test/e2e/pages/sessions.ts` for the current methods rather than trusting a list here (see `references/page-objects.md`, "Finding the Exact Source").
+
+The interpreter keys these methods take are the keys of `availableRuntimes`, exported from that same file: `python`, `pythonAlt`, `pythonHidden`, `pythonReticulate`, `r`, `rAlt`, `rHidden`. Each resolves to whatever interpreter the environment provisioned, so pass a key, never a hardcoded version string (see `references/common-mistakes.md` #11).
 
 ```typescript
 test('example', async ({ sessions }) => {
-	// Start specific interpreter
 	await sessions.start('python');
-	await sessions.start('r');
-	await sessions.start('pythonAlt');  // Alternate Python version
-	await sessions.start('rAlt');       // Alternate R version
-
-	// Start with options
-	await sessions.start('python', { reuse: true });
-
-	// Wait for all sessions to be ready
-	await sessions.expectAllSessionsToBeReady({ timeout: 15000 });
-
-	// Check session status
-	await sessions.expectStatusToBe('session-id', 'idle');
+	await sessions.start('pythonAlt');  // alternate Python version
 });
 ```
 
@@ -172,61 +162,30 @@ test('example', async ({ saveFileAs, app }) => {
 
 ### settings (Worker-scoped)
 
-Manage user settings.
+Manage user settings through the Settings UI (`Settings` type). Grep `test/e2e/pages/userSettings.ts` for the current methods and their options.
+
+Because it's worker-scoped, set it in `test.beforeAll`, not per test -- see `references/common-mistakes.md` #5 for the scope pitfall. Better still, when the value is known up front, apply it pre-launch via `settingsFile` (see #16 and "Custom Test Setup Files" below) so there's no window reload.
 
 ```typescript
 test.beforeAll(async ({ settings }) => {
-	// Set settings
-	await settings.set({
-		'editor.fontSize': 14,
-		'files.autoSave': 'off',
-		'positron.notebook.enabled': true
-	});
-
-	// With options
-	await settings.set({ 'key': 'value' }, {
-		reload: true,       // Reload window after setting; also accepts 'web'
-		waitMs: 1000,       // Wait after setting
-		waitForReady: true, // Wait for app ready
-		keepOpen: false     // Close settings UI
-	});
-
-	// Clear all custom settings
-	await settings.clear();
-
-	// Remove specific settings
-	await settings.remove(['editor.fontSize', 'files.autoSave']);
+	await settings.set({ 'editor.fontSize': 14 });
 });
 ```
 
-### settingsFile (Worker-scoped)
+### settingsFile / vsCodeSettings (Worker-scoped)
 
-Direct settings file access, for settings that need to be set before the app starts (i.e. from a `beforeApp` worker fixture, before `app.beforeAll`). Both `settingsFile` and `vsCodeSettings` are instances of the same `SettingsFile` class; `settingsFile` points at the user data dir, `vsCodeSettings` at VS Code's own settings path.
+Direct settings-file access, for settings that must be in place before the app starts (i.e. from a `beforeApp` worker fixture, before `app` is created). Both are instances of the same `SettingsFile` class -- grep `test/e2e/pages/utils/settingsFile.ts` for the current methods. `settingsFile` points at the user data dir; `vsCodeSettings` at VS Code's own settings path.
 
-```typescript
-test.beforeAll(async ({ settingsFile }) => {
-	// Merge settings directly into the file -- there is no .write(), only .append()
-	await settingsFile.append({
-		'positron.notebook.enabled': true
-	});
-
-	// Other methods
-	await settingsFile.exists();
-	await settingsFile.ensureExists();
-	await settingsFile.backupIfExists();
-	await settingsFile.restoreFromBackup();
-	await settingsFile.delete();
-});
-```
-
-### vsCodeSettings (Worker-scoped)
-
-Access VS Code's settings file (separate from user data dir settings). Same API as `settingsFile` above (`.append()`, not `.write()`).
+Gotcha: there is no `.write()` -- `.append()` merges into the existing file.
 
 ```typescript
-test.beforeAll(async ({ vsCodeSettings }) => {
-	await vsCodeSettings.append({ 'key': 'value' });
-});
+beforeApp: [
+	async ({ settingsFile }, use) => {
+		await settingsFile.append({ 'positron.notebook.enabled': true });
+		await use();
+	},
+	{ scope: 'worker' }
+],
 ```
 
 ## Utility Fixtures
