@@ -158,9 +158,17 @@ docker compose exec -T test bash -lc \
   "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/run-e2e.sh test/e2e/tests/<area>/<file>.test.ts --workers=1"
 ```
 
-The numbered steps document what `ci-lab-up.sh` does and are the fallback when a phase fails; you
-don't run them by hand on the happy path. All `docker compose` commands run from
-`<worktree>/.devcontainer/ci-arm` so Compose finds the right project's `docker-compose.yml` and `.env`.
+All `docker compose` commands run from `<worktree>/.devcontainer/ci-arm` so Compose finds the right
+project's `docker-compose.yml` and `.env`.
+
+**Reproducing a CI-only flake? Run the *whole* spec at `--workers=1`** (as the command above does).
+Positron doesn't split a single spec file across workers, so its tests run in order and share app
+state. A test that only fails in CI often passes in isolation (a single `--grep`) yet fails because an
+earlier test in the same file left state behind -- don't conclude "can't reproduce" from an isolated
+run.
+
+<details>
+<summary><strong>Manual step-by-step</strong> -- what <code>ci-lab-up.sh</code> automates, and the fallback when a phase fails</summary>
 
 1. **Set the workspace env vars** (normally run by the `initializeCommand` hook):
 
@@ -292,16 +300,8 @@ Gotchas specific to this path:
   `ci-lab-up.sh` does this check for you -- prefer it over running the build step by hand.
 - **No `devcontainer` CLI required** -- this is plain `docker compose`, useful since the CLI isn't
   installed by default on the host.
-- **Reproducing a CI-only flake? Run the *whole* spec at `--workers=1`.** Positron doesn't split a
-  single spec file across workers, so its tests run in order and share app state. A test that only
-  fails in CI often passes in isolation (a single `--grep`) yet fails because an earlier test in the
-  same file left state behind. Don't conclude "can't reproduce" from the isolated run -- run the
-  entire spec file in order before deciding:
 
-  ```bash
-  docker compose exec test bash -lc \
-    "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/run-e2e.sh test/e2e/tests/<area>/<file>.test.ts --workers=1"
-  ```
+</details>
 
 ## Reference
 
