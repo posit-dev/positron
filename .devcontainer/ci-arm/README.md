@@ -139,22 +139,25 @@ Debug **e2e tests** straight from the test files via the gutter run/debug icons,
 No Dev Containers UI -- drive the stack from the host with `docker compose`, once [Setup](#setup)'s
 steps 1-2 are done (worktree created, secrets added). The build runs through this path too.
 
-**Two commands.** From the worktree:
+**Two commands:**
 
-```bash
-cd <worktree>/.devcontainer/ci-arm
-./ci-lab-up.sh [<branch>]   # idempotent: initialize, compose up, build if cold, per-start setup
-```
+1. **Bring the lab up** (idempotent: initialize, compose up, build if cold, per-start setup):
 
-`ci-lab-up.sh` detects cold/warm/hot itself; with a `<branch>` it also checks out that branch and
-reconciles deps + `out/`. A cold build is ~10 min -- run it in the background; clean exit = ready.
-Then run a spec in the container (from the same `.devcontainer/ci-arm` dir, so Compose finds this
-project's `docker-compose.yml` and `.env`):
+   ```bash
+   cd <worktree>/.devcontainer/ci-arm
+   ./ci-lab-up.sh [<branch>]
+   ```
 
-```bash
-docker compose exec -T test bash -lc \
-  "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/run-e2e.sh test/e2e/tests/<area>/<file>.test.ts --workers=1"
-```
+   `ci-lab-up.sh` detects cold/warm/hot itself; with a `<branch>` it also checks out that branch and
+   reconciles deps + `out/`. A cold build is ~10 min -- run it in the background; clean exit = ready.
+
+2. **Run a spec** in the container (from the same `.devcontainer/ci-arm` dir, so Compose finds this
+   project's `docker-compose.yml` and `.env`):
+
+   ```bash
+   docker compose exec -T test bash -lc \
+     "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/run-e2e.sh test/e2e/tests/<area>/<file>.test.ts --workers=1"
+   ```
 
 **Reproducing a CI-only flake? Run the *whole* spec at `--workers=1`** (as the command above does).
 Positron doesn't split a single spec file across workers, so its tests run in order and share app
