@@ -87,7 +87,7 @@ describe('selectNewLanguageRuntime', () => {
 
 	async function registerRuntime(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata> {
 		const runtimeService = ctx.get(ILanguageRuntimeService);
-		ctx.disposables.add(await runtimeService.registerRuntime(metadata));
+		ctx.disposables.add(runtimeService.registerRuntime(metadata));
 		if (!preferredByLanguage.has(metadata.languageId)) {
 			preferredByLanguage.set(metadata.languageId, metadata);
 		}
@@ -430,7 +430,7 @@ describe('selectNewLanguageRuntime', () => {
 				getItems: async () => [{ id: 'install-uv', label: 'Install Python via uv' }],
 				onSelect: vi.fn(async () => {
 					// Simulate the contribution registering a new runtime as part of onSelect.
-					ctx.disposables.add(await runtimeService.registerRuntime(installedRuntime));
+					ctx.disposables.add(runtimeService.registerRuntime(installedRuntime));
 					return installedRuntime.runtimeId;
 				}),
 			};
@@ -444,8 +444,6 @@ describe('selectNewLanguageRuntime', () => {
 			pick.accept(installItem);
 
 			// The picker resolves to the enriched, registered instance.
-			// Await the promise first so onSelect (which awaits registerRuntime) has completed
-			// before calling getRegisteredRuntime, otherwise the runtime won't be registered yet.
 			const result = await promise;
 			expect(result).toEqual(runtimeService.getRegisteredRuntime(installedRuntime.runtimeId));
 			expect(contribution.onSelect).toHaveBeenCalledWith('install-uv');

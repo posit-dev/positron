@@ -19,7 +19,14 @@ import { getRuntimeDisplayPath, ILanguageRuntimeMetadata, LanguageRuntimeSession
 
 const TEST_USER_HOME = URI.file('/home/testuser');
 const pathServiceStub = stubInterface<IPathService>({
-	userHome: vi.fn().mockResolvedValue(TEST_USER_HOME),
+	// Handle both overloads: preferLocal:true returns URI synchronously;
+	// preferLocal:false (or absent) returns Promise<URI>.
+	userHome: vi.fn().mockImplementation((options?: { preferLocal?: boolean }) => {
+		if (options?.preferLocal === true) {
+			return TEST_USER_HOME;
+		}
+		return Promise.resolve(TEST_USER_HOME);
+	}),
 });
 
 /**
@@ -89,7 +96,7 @@ describe('Positron - LanguageRuntimeService', () => {
 			});
 
 			// Register the runtime.
-			const runtimeDisposable = await languageRuntimeService.registerRuntime(metadata);
+			const runtimeDisposable = languageRuntimeService.registerRuntime(metadata);
 
 			// Check that the onDidRegisterRuntime event was fired.
 			let timedOut = false;
@@ -111,17 +118,17 @@ describe('Positron - LanguageRuntimeService', () => {
 			runtimeDisposable.dispose();
 		});
 
-		it('enriches runtimeDisplayPath via tildify on registration', async () => {
+		it('enriches runtimeDisplayPath via tildify on registration', () => {
 			const languageRuntimeService = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
 
 			// A path under the test user home should be tildified.
 			const underHome = makeTestMetadata({ runtimeId: 'tilde-1', runtimePath: '/home/testuser/bin/R' });
-			await languageRuntimeService.registerRuntime(underHome);
+			languageRuntimeService.registerRuntime(underHome);
 			expect(languageRuntimeService.registeredRuntimes[0].runtimeDisplayPath).toBe('~/bin/R');
 
 			// A system path should be left unchanged.
 			const system = makeTestMetadata({ runtimeId: 'tilde-2', runtimePath: '/usr/bin/R' });
-			await languageRuntimeService.registerRuntime(system);
+			languageRuntimeService.registerRuntime(system);
 			expect(languageRuntimeService.registeredRuntimes[1].runtimeDisplayPath).toBe('/usr/bin/R');
 		});
 	});
@@ -134,9 +141,9 @@ describe('Positron - LanguageRuntimeService', () => {
 			.stub(IPathService, pathServiceStub)
 			.build();
 
-		it('fires with the runtimeId and removes the runtime when unregistered', async () => {
+		it('fires with the runtimeId and removes the runtime when unregistered', () => {
 			const languageRuntimeService = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
-			await languageRuntimeService.registerRuntime(makeTestMetadata({ runtimeId: 'py-1' }));
+			languageRuntimeService.registerRuntime(makeTestMetadata({ runtimeId: 'py-1' }));
 
 			const unregistered: string[] = [];
 			ctx.disposables.add(languageRuntimeService.onDidUnregisterRuntime(id => unregistered.push(id)));
@@ -158,9 +165,9 @@ describe('Positron - LanguageRuntimeService', () => {
 			expect(unregistered).toEqual([]);
 		});
 
-		it('fires when the registration disposable is disposed', async () => {
+		it('fires when the registration disposable is disposed', () => {
 			const languageRuntimeService = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
-			const registration = await languageRuntimeService.registerRuntime(makeTestMetadata({ runtimeId: 'py-1' }));
+			const registration = languageRuntimeService.registerRuntime(makeTestMetadata({ runtimeId: 'py-1' }));
 
 			const unregistered: string[] = [];
 			ctx.disposables.add(languageRuntimeService.onDidUnregisterRuntime(id => unregistered.push(id)));
@@ -187,7 +194,7 @@ describe('Positron - LanguageRuntimeService', () => {
 			.stub(IPathService, pathServiceStub)
 			.build();
 
-		it('cannot register a runtime when the language is disabled in configuration', async () => {
+		it('cannot register a runtime when the language is disabled in configuration', () => {
 			const languageRuntimeService = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
 
 			// Create mock metadata for a runtime with the disabled language.
@@ -197,7 +204,7 @@ describe('Positron - LanguageRuntimeService', () => {
 			});
 
 			// Attempt to register the runtime - this should throw an error.
-			await expect(languageRuntimeService.registerRuntime(metadata)).rejects.toThrow();
+			expect(() => languageRuntimeService.registerRuntime(metadata)).toThrow();
 
 			// Verify that no runtimes were registered.
 			expect(languageRuntimeService.registeredRuntimes.length).toBe(0);

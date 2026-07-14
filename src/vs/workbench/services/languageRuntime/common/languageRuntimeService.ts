@@ -1200,7 +1200,7 @@ export interface ILanguageRuntimeService {
 	 *
 	 * @returns A disposable that can be used to unregister the runtime
 	 */
-	registerRuntime(runtime: ILanguageRuntimeMetadata): Promise<IDisposable>;
+	registerRuntime(runtime: ILanguageRuntimeMetadata): IDisposable;
 
 	/**
 	 * Get the metadata for a previously registered language runtime

@@ -40,6 +40,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// Map of picker contributions by handle
 	private readonly _pickerContributions = new Map<number, IRuntimePickerContribution>();
 
+	// Cached user home path (remote-aware). Populated eagerly in the constructor
+	// so registerRuntime can run synchronously.
+	private _cachedUserHome: string | undefined;
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -61,6 +65,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._startupPhase = observableValue(
 			'runtime-startup-phase', RuntimeStartupPhase.Initializing);
 		this.onDidChangeRuntimeStartupPhase = Event.fromObservable(this._startupPhase);
+
+		// Kick off the remote-aware home resolution eagerly. By the time any
+		// extension activates and calls registerRuntime, this Promise has
+		// already resolved (workbench startup completes before extensions run).
+		this._pathService.userHome({ preferLocal: false }).then(uri => {
+			this._cachedUserHome = uri.fsPath;
+		});
 	}
 
 	/**
@@ -116,7 +127,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 *
 	 * @returns A disposable that unregisters the runtime
 	 */
-	async registerRuntime(metadata: ILanguageRuntimeMetadata): Promise<IDisposable> {
+	registerRuntime(metadata: ILanguageRuntimeMetadata): IDisposable {
 		// If the runtime has already been registered, return early.
 		if (this._registeredRuntimesByRuntimeId.has(metadata.runtimeId)) {
 			return this._register(toDisposable(() => { }));
@@ -139,7 +150,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Preserve a caller-supplied runtimeDisplayPath; only compute when absent.
 		let runtimeDisplayPath = metadata.runtimeDisplayPath;
 		if (!runtimeDisplayPath) {
-			const userHome = (await this._pathService.userHome({ preferLocal: false })).fsPath;
+			// Use the cached remote-aware home if available; fall back to the
+			// local home (preferLocal: true is synchronous) on the rare chance
+			// registerRuntime is called before the constructor Promise resolves.
+			const userHome = this._cachedUserHome
+				?? this._pathService.userHome({ preferLocal: true }).fsPath;
 			runtimeDisplayPath = tildify(metadata.runtimePath, userHome);
 		}
 		const enriched: ILanguageRuntimeMetadata = {

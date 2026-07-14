@@ -62,10 +62,10 @@ export function createRuntimeServices(
 	return instantiationService;
 }
 
-export async function createTestLanguageRuntimeMetadata(
+export function createTestLanguageRuntimeMetadata(
 	instantiationService: TestInstantiationService,
 	disposables: Pick<DisposableStore, 'add'>,
-): Promise<ILanguageRuntimeMetadata> {
+): ILanguageRuntimeMetadata {
 	const languageRuntimeService = instantiationService.get(ILanguageRuntimeService);
 	const runtimeSessionService = instantiationService.get(IRuntimeSessionService);
 
@@ -88,7 +88,7 @@ export async function createTestLanguageRuntimeMetadata(
 		sessionLocation: LanguageRuntimeSessionLocation.Browser,
 		startupBehavior: LanguageRuntimeStartupBehavior.Implicit,
 	};
-	disposables.add(await languageRuntimeService.registerRuntime(runtime));
+	disposables.add(languageRuntimeService.registerRuntime(runtime));
 
 	// Register the test runtime manager.
 	const manager = TestRuntimeSessionManager.instance;
@@ -115,7 +115,7 @@ export async function startTestLanguageRuntimeSession(
 	options?: IStartTestLanguageRuntimeSessionOptions,
 ): Promise<TestLanguageRuntimeSession> {
 	// Get or create the runtime.
-	const runtime = options?.runtime ?? await createTestLanguageRuntimeMetadata(instantiationService, disposables);
+	const runtime = options?.runtime ?? createTestLanguageRuntimeMetadata(instantiationService, disposables);
 
 	// Start the session.
 	const runtimeSessionService = instantiationService.get(IRuntimeSessionService);

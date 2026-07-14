@@ -1163,7 +1163,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					this._discoveryCache.invalidate(bucket.extensionId, bucket.languageId, entry.metadata.runtimePath);
 					continue;
 				}
-				await this._languageRuntimeService.registerRuntime(entry.metadata);
+				this._languageRuntimeService.registerRuntime(entry.metadata);
 				this._discoveryCache.sessionCounters.foregroundHits++;
 
 				const fp = probe.fingerprint;
@@ -1519,7 +1519,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					`[Runtime startup] Cached runtime drifted; ` +
 					`replacing ${formatLanguageRuntimeMetadata(task.metadata)} ` +
 					`with ${formatLanguageRuntimeMetadata(validated)}`);
-				await this._languageRuntimeService.registerRuntime(validated);
+				this._languageRuntimeService.registerRuntime(validated);
 			}
 			// If the validator redirected the runtime to a different binary --
 			// e.g. R's validateMetadata re-resolves a `current: true` entry to
@@ -1801,7 +1801,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Register the runtime with the language runtime service.
 			// Pre-registering prevents the runtime from being unnecessarily
 			// validated later.
-			this._register(await this._languageRuntimeService.registerRuntime(runtime));
+			this._register(this._languageRuntimeService.registerRuntime(runtime));
 
 			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
 				// Start the runtime immediately if it has Immediate startup
