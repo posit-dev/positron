@@ -557,5 +557,33 @@ describe('Positron - Plots Service', () => {
 			plotsService.selectPlot('console-plot-1');
 			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['console-plot-1']);
 		});
+
+		// The recreate cache is bounded (see MaxSurfacedPlotMessages), so a
+		// long-running session doesn't retain every plot's message and session
+		// forever. The oldest entries are evicted once the bound is exceeded.
+		it('notebook console: bounds the recreate cache to the most recent plots', async () => {
+			const configurationService = ctx.instantiationService.get(IConfigurationService) as TestConfigurationService;
+			await configurationService.setUserConfiguration(SHOW_NOTEBOOK_CONSOLES_KEY, true);
+
+			const session = await startNotebookSession();
+
+			// Emit more plots than the cache retains (33 exceeds the 32-entry bound).
+			const total = 33;
+			for (let i = 0; i < total; i++) {
+				session.receiveOutputMessage(staticImageMessage(`nb-plot-${i}`));
+			}
+
+			// The user clears the Plots pane.
+			plotsService.removeAllPlots();
+			expect(plotsService.positronPlotInstances.length).toBe(0);
+
+			// The oldest plot was evicted from the cache and can't be recreated.
+			plotsService.selectPlot('nb-plot-0');
+			expect(plotsService.positronPlotInstances.length).toBe(0);
+
+			// The most recent plot is still cached and is recreated on reselection.
+			plotsService.selectPlot(`nb-plot-${total - 1}`);
+			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual([`nb-plot-${total - 1}`]);
+		});
 	});
 });

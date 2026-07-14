@@ -60,6 +60,13 @@ const MaxRecentExecutions = 10;
 /** The maximum number of plots with an active webview. */
 const MaxActiveWebviewPlots = 5;
 
+/**
+ * The maximum number of surfaced plot messages to retain for recreation. Bounded
+ * so a long-running session emitting many plots doesn't accumulate their message
+ * payloads (which include image data) and sessions without limit.
+ */
+const MaxSurfacedPlotMessages = 32;
+
 /** Time in milliseconds after which webview plots are deactivated if they're not selected. */
 const WebviewPlotInactiveTimeout = 120_000;
 
@@ -207,6 +214,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * pane; clicking that preview reselects the plot by id, so we keep the
 	 * originating message around to recreate the plot on demand (see
 	 * {@link selectPlot}).
+	 *
+	 * Bounded to the most recent {@link MaxSurfacedPlotMessages} entries (via
+	 * {@link rememberSurfacedPlotMessage}) so the retained message payloads and
+	 * sessions don't accumulate without limit.
 	 */
 	private readonly _surfacedPlotMessages = new Map<string, { message: ILanguageRuntimeMessageOutput; session: ILanguageRuntimeSession }>();
 
@@ -925,12 +936,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				// Remember the originating message so the plot can be recreated
 				// if the user clears the Plots pane and later reselects it from
 				// the console (see selectPlot).
-				this._surfacedPlotMessages.set(plot.id, { message, session });
+				this.rememberSurfacedPlotMessage(plot.id, message, session);
 
 				// If the runtime specified an output ID, update the plot with the given output ID, if one exists.
 				if (message.output_id) {
 					const existingPlot = this.getPlotForOutput(session.sessionId, message.output_id);
 					if (existingPlot) {
+						// Evict the replaced plot's entry so it doesn't linger as
+						// a stale entry (the replacement was remembered above).
+						this._surfacedPlotMessages.delete(existingPlot.id);
 						this.replacePlot(existingPlot.id, plot, raisePane);
 						return;
 					}
@@ -964,8 +978,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				if (existingPlot) {
 					// Remember the originating message so the plot can be
 					// recreated if the user clears the Plots pane and later
-					// reselects it from the console (see selectPlot).
-					this._surfacedPlotMessages.set(plot.id, { message, session });
+					// reselects it from the console (see selectPlot). The
+					// replaced plot's own entry (keyed by existingPlot.id) is
+					// evicted here so it doesn't linger as a stale entry.
+					this._surfacedPlotMessages.delete(existingPlot.id);
+					this.rememberSurfacedPlotMessage(plot.id, message, session);
 					this.replacePlot(existingPlot.id, plot, raisePane);
 				}
 			}));
@@ -1176,6 +1193,29 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			return;
 		}
 		this._onDidSelectPlot.fire(id);
+	}
+
+	/**
+	 * Remembers the originating message for a surfaced plot so it can be
+	 * recreated on demand (see {@link recreateSurfacedPlot}), evicting the oldest
+	 * entry when the cache exceeds {@link MaxSurfacedPlotMessages}. Re-inserting
+	 * an existing id refreshes its recency.
+	 *
+	 * @param id The id of the plot (the originating message id).
+	 * @param message The runtime message that produced the plot.
+	 * @param session The session that emitted the message.
+	 */
+	private rememberSurfacedPlotMessage(id: string, message: ILanguageRuntimeMessageOutput, session: ILanguageRuntimeSession): void {
+		// Delete first so a re-inserted id moves to the end (most recent) of the
+		// Map's insertion order, which is what eviction below relies on.
+		this._surfacedPlotMessages.delete(id);
+		this._surfacedPlotMessages.set(id, { message, session });
+		if (this._surfacedPlotMessages.size > MaxSurfacedPlotMessages) {
+			const oldest = this._surfacedPlotMessages.keys().next().value;
+			if (oldest !== undefined) {
+				this._surfacedPlotMessages.delete(oldest);
+			}
+		}
 	}
 
 	/**
