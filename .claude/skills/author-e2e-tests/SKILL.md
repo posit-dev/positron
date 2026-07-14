@@ -59,8 +59,6 @@ test.describe('Feature Name', {
 2. Set `suiteId: __filename` - Required for app isolation
 3. Add appropriate tags for platform filtering
 
-Arrow functions are preferred for test callbacks -- shorter, and the standard style for Playwright. Fixtures are delivered via a destructured parameter either way, so there's no technical difference from `function` syntax; you'll still see plenty of existing tests written with `function`, which is fine to match if you're editing one of those files.
-
 ## Quick Reference: Available Fixtures
 
 | Fixture | Use Case |
