@@ -44,7 +44,7 @@ require_cli() {
 }
 
 # Resolve a Connect license: prefer a connect.lic in this dir, else reuse the
-# shared wb-local one (same precedence the old run.sh used).
+# shared wb-local one.
 resolve_license() {
 	if [ -f "connect/connect.lic" ]; then
 		echo "${SCRIPT_DIR}/connect/connect.lic"
