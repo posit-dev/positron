@@ -491,6 +491,8 @@ export enum DataConnectionNodeKind {
 	GroupColumns = 'group-columns',
 	GroupIndexes = 'group-indexes',
 	Index = 'index',
+	// A pin on a Posit Connect server (positron-data-driver-pins).
+	Pin = 'pin',
 }
 
 /**
