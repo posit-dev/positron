@@ -705,19 +705,14 @@ export const selectNewLanguageRuntime = async (
 
 		quickPick.show();
 
-		// Populate contributed items (e.g. positron-python's "Install Python...")
-		// WITHOUT blocking the initial show(). getItems() is an extension-host RPC
-		// that enumerates interpreters, and right after a window reload it can take
-		// seconds to resolve while the extension host is still activating. Awaiting
-		// it before show() (as this previously did) left the picker invisible the
-		// whole time -- clicking the session button appeared to do nothing at all.
-		// Show the runtimes immediately, then fold contributed items in when they
-		// arrive. When startup isn't Complete yet this is skipped and the
-		// onDidChangeRuntimeStartupPhase handler above performs the fetch instead.
+		// Fold in contributed items after show() rather than awaiting them first:
+		// getItems() is an extension-host RPC that can hang for seconds right after
+		// a window reload, which would leave the picker invisible until it resolves.
+		// When startup isn't Complete yet, the onDidChangeRuntimeStartupPhase
+		// handler above does the fetch instead.
 		if (languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
 			fetchContributedItems().then(() => {
-				// The user may have dismissed the picker before the fetch resolved;
-				// disposing tears down the quick pick, so don't rebuild a dead one.
+				// Skip if the user dismissed the picker while the fetch was pending.
 				if (!disposables.isDisposed) {
 					rebuildItems();
 				}
