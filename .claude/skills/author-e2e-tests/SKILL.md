@@ -122,14 +122,7 @@ See `references/assertions.md` for retry-mechanism choice (`toPass` vs `expect.p
 
 ## Quick Reference: Test Tags
 
-**Feature tags** (what the test covers):
-- `tags.CONSOLE`, `tags.DATA_EXPLORER`, `tags.NOTEBOOKS`, `tags.PLOTS`, `tags.VARIABLES`
-- `tags.CRITICAL` - High priority tests, must be stable and not flaky, run on every PR
-
-**Platform tags** (where the test runs):
-- `tags.WEB` - Enable test to run against Positron Web (Chromium)
-- `tags.WIN` - Enable test to run against Positron electron on Windows
-- Default: Linux/Electron only
+Tag every `test.describe` via the `tag` array. Available tags are the `FeatureTags` (what the test covers) and `PlatformTags` (where it runs) enums in `test/e2e/infra/test-runner/test-tags.ts` -- read those for the current set. A test with no platform tag runs only on Linux/Electron; add `tags.WEB` / `tags.WIN` to broaden.
 
 ```typescript
 test.describe('Console Tests', {

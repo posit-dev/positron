@@ -89,64 +89,13 @@ The template's two required lines -- importing `test`/`expect`/`tags` from `../_
 
 Because the `app` is worker-scoped, `beforeAll`/`afterAll` run **once per test file** (not once globally): use them for worker-scoped fixtures like `settings` and for `cleanup`. `beforeEach`/`afterEach` run per test: use them for UI-state reset (`hotKeys.closeAllEditors()`, `layouts.enterLayout(...)`). See the template above for both in context.
 
-## Function Syntax for Tests and Hooks
-
-Arrow functions are preferred -- shorter, and the standard Playwright style:
-
-```typescript
-test('my test', async ({ app, python }) => {
-	// ...
-});
-
-test.beforeEach(async ({ app }) => {
-	// ...
-});
-```
-
-Fixtures are delivered via the destructured parameter either way (never via `this`), so `function` syntax works identically and you'll see it throughout the existing test suite -- match a file's existing style if you're editing one rather than mixing both in the same file.
-
 ## Test Tags
 
-### Feature Tags
-
-Indicate what feature the test covers:
+Tag each `test.describe` via the `tag` array, and override per-test where needed. The available tags are the `FeatureTags` (what the test covers) and `PlatformTags` (where it runs) enums in `test/e2e/infra/test-runner/test-tags.ts` -- read those rather than a hardcoded list here. A test with no platform tag runs only on Linux/Electron; add `tags.WEB` / `tags.WIN` to broaden.
 
 ```typescript
-tags.CONSOLE          // Console/REPL functionality
-tags.DATA_EXPLORER    // Data Explorer
-tags.NOTEBOOKS        // Jupyter notebooks
-tags.PLOTS            // Plotting
-tags.VARIABLES        // Variables pane
-tags.CONNECTIONS      // Database connections
-tags.HELP             // Help system
-tags.INTERPRETER      // Interpreter management
-tags.CRITICAL         // Critical path tests (high priority)
-```
-
-### Platform Tags
-
-Control which platforms/projects run the test:
-
-```typescript
-tags.WEB      // Enable web browser testing
-tags.WIN      // Enable Windows testing
-tags.WORKBENCH // Enable Posit Workbench testing
-```
-
-**Default behavior**: Tests without platform tags only run on Linux/Electron.
-
-### Applying Tags
-
-```typescript
-// Describe-level tags (apply to all tests in block)
-test.describe('Console', {
-	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.CONSOLE]
-}, () => { ... });
-
-// Per-test tags (override or add to describe tags)
-test('Special test', {
-	tag: [tags.WIN]  // Only Windows
-}, async ({ app }) => { ... });
+// Describe-level tags apply to every test in the block; a per-test `tag` overrides/adds
+test.describe('Console', { tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.CONSOLE] }, () => { ... });
 ```
 
 ## Test Annotations
