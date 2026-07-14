@@ -1,16 +1,6 @@
 # Common Mistakes and Gotchas
 
-Positron-specific mistakes when writing e2e tests.
-
-The standard Playwright pitfalls still apply, but this file doesn't repeat them:
-
-- unstable CSS / `nth-child` selectors (prefer role/label; see `references/assertions.md`, "Preferred Selectors")
-- unscoped locators
-- `getByText` without `{ exact: true }`
-- hard-coded `waitForTimeout`
-- reading state before awaiting an assertion
-- order-dependent tests
-- the `--headed` / `--debug` / `show-report` debugging flags
+This file focuses on Positron-specific mistakes when writing e2e tests:
 
 ## Critical Mistakes
 
@@ -60,7 +50,7 @@ test.describe('Console Tests', {
 
 ### 4. Assuming an Interpreter Persists Across Tests
 
-`python`/`r` are test-scoped -- they don't carry over from one `test()` block to the next, even in the same file.
+`python`/`r` are test-scoped - they don't carry over from one `test()` block to the next, even in the same file.
 
 **WRONG:**
 ```typescript
@@ -80,6 +70,8 @@ test('test 2', async ({ app, python }) => {
 
 ### 5. Wrong Settings Fixture Scope
 
+`settings` is worker-scoped (shared across tests in a file), so setting it per-test can cause unexpected behavior.
+
 **WRONG:**
 ```typescript
 test('my test', async ({ settings }) => {
@@ -87,16 +79,29 @@ test('my test', async ({ settings }) => {
 });
 ```
 
-**CORRECT:**
+**BETTER:** set it once in `test.beforeAll`:
 ```typescript
 test.beforeAll(async ({ settings }) => {
 	await settings.set({ 'key': 'value' });
 });
 ```
 
-`settings` is worker-scoped (shared across tests in a file). Setting it per-test can cause unexpected behavior.
+**BEST:** if you already know the value up front, apply it before the app launches (via a `beforeApp` worker fixture) so there's no reload at all:
+```typescript
+import { test as base, expect, tags, TestFixtures, WorkerFixtures } from '../_test.setup';
 
-**Better still:** if you already know the setting's value, apply it before the app launches so there's no reload at all (see #16). Only set it in `test.beforeAll` with `settings.set()` when the value isn't known until the test runs (for example, computed from something set up earlier in the worker) and no pre-launch fixture can express it.
+const test = base.extend<TestFixtures, WorkerFixtures>({
+	beforeApp: [
+		async ({ settingsFile }, use) => {
+			await settingsFile.append({ 'key': 'value' });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
+```
+
+Reach for the `BETTER` form only when the value isn't known until the test runs (for example, computed from something set up earlier in the worker) and no pre-launch fixture can express it. See #16 for more pre-launch variations.
 
 ## Assertion Mistakes
 

@@ -1,9 +1,7 @@
 # Assertions and Waiting Patterns
 
-Standard Playwright works the way [playwright.dev](https://playwright.dev/docs/best-practices)
-documents it, so this file doesn't repeat it: web-first assertions,
-`locator.waitFor` and the other wait primitives, soft assertions, `page.pause()`
-debugging, and role/label/text selectors over CSS. Assume all of that.
+We follow standard Playwright best practices, documented at
+[playwright.dev](https://playwright.dev/docs/best-practices).
 
 This file covers only the Positron-specific parts and the calls that are easy to
 get wrong:
@@ -24,6 +22,9 @@ by **what** needs retrying: the checked value, or the action that produces it.
 
 ### toPass: retry an action and its check
 
+Use it when the action itself might not take - a click, a keypress, a menu
+trigger. The whole callback (action + assertion) is retried together.
+
 ```typescript
 // Inner timeout must be SHORT so each attempt fails fast and toPass
 // actually gets to retry within its own budget.
@@ -33,14 +34,10 @@ await expect(async () => {
 }).toPass({ timeout: 10000 });
 ```
 
-Use it when the action itself might not take -- a click, a keypress, a menu
-trigger. The whole callback (action + assertion) is retried together.
-
 ### expect.poll: retry a value against a matcher
 
-`expect.poll` retries a function and checks its *return value*. It can't reissue
-a UI action; it only re-reads. Reach for it in the narrow cases web-first
-assertions don't cover:
+Use it for the narrow cases where web-first assertions aren’t enough. `expect.poll` retries a function
+and asserts on its return value—it can re-read state, but it can’t reissue a UI action.
 
 ```typescript
 // A matcher Locator assertions lack -- toHaveCount has no "greater than"
@@ -63,8 +60,6 @@ because other skill files point at this as the canonical order.
 
 ## Positron assertion helpers
 
-Most Positron assertions go through POM methods (`waitForConsoleContents`,
-`verifyTableData`, `expectVariableToBe`, `verifyTab`,
-`verifyExplorerFilesExist`, ...) rather than raw locators. See
+Most Positron assertions go through POM methods rather than raw locators. See
 [page-objects.md](page-objects.md) for usage idioms, and read the POM source for
-the authoritative method list -- don't guess a method name.
+the authoritative method list - don't guess a method name.
