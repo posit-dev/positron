@@ -114,7 +114,7 @@ export const ConfigureDataConnectionParameters = ({
 										id={fieldId}
 										placeholder={parameter.placeholder}
 										type='text'
-										value={parameterFieldStates[parameter.id].value as string}
+										value={(parameterFieldStates[parameter.id].value as string) ?? ''}
 										onChange={e => onParameterChanged(parameter.id, e.target.value)}
 									/>
 									<Button className='browse-button' onPressed={() => onBrowseFile(parameter.id)}>
