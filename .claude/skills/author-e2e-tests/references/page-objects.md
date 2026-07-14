@@ -67,7 +67,7 @@ Shared notebook operations (works with both VS Code and Positron notebooks). Pos
 
 ```typescript
 await notebooks.openNotebook(path);
-await notebooks.selectInterpreter('Python', process.env.POSITRON_PY_VER_SEL!);
+await notebooks.selectInterpreter('Python');   // Defaults to POSITRON_PY_VER_SEL; pass availableRuntimes['pythonAlt'].version for a non-default
 await notebooks.executeActiveCell();
 await notebooks.runAllCells();
 await notebooks.assertCellOutput('expected', 0);   // Assertion, not a getter -- no getCellOutput/waitForCellOutput

@@ -1,11 +1,16 @@
 # Common Mistakes and Gotchas
 
-Positron-specific mistakes when writing e2e tests. Standard Playwright pitfalls
-apply as usual and aren't repeated here -- unstable CSS/`nth-child` selectors
-(prefer role/label; see `references/assertions.md` "Preferred Selectors"),
-unscoped locators, `getByText` without `{ exact: true }`, hard-coded
-`waitForTimeout`, reading state before awaiting an assertion, order-dependent
-tests, and the `--headed` / `--debug` / `show-report` debugging flags.
+Positron-specific mistakes when writing e2e tests.
+
+The standard Playwright pitfalls still apply, but this file doesn't repeat them:
+
+- unstable CSS / `nth-child` selectors (prefer role/label; see `references/assertions.md`, "Preferred Selectors")
+- unscoped locators
+- `getByText` without `{ exact: true }`
+- hard-coded `waitForTimeout`
+- reading state before awaiting an assertion
+- order-dependent tests
+- the `--headed` / `--debug` / `show-report` debugging flags
 
 ## Critical Mistakes
 
@@ -91,31 +96,23 @@ test.beforeAll(async ({ settings }) => {
 
 `settings` is worker-scoped (shared across tests in a file). Setting it per-test can cause unexpected behavior.
 
-**Even better, when the setting is known up front:** apply it before the app launches instead of in `test.beforeAll`, so there's no reload at all -- see #17. Reach for `test.beforeAll` + `settings.set()` when the value can't be known until runtime (e.g. computed from something set up earlier in the worker) and a pre-launch fixture genuinely can't express it.
+**Better still:** if you already know the setting's value, apply it before the app launches so there's no reload at all (see #17). Only set it in `test.beforeAll` with `settings.set()` when the value isn't known until the test runs (for example, computed from something set up earlier in the worker) and no pre-launch fixture can express it.
 
 ## Assertion Mistakes
 
-### 6. Timeout Overrides -- Only When You Know Better Than the Default
+### 6. Override Timeouts Only When You Know Better Than the Default
 
 The configured default assertion timeout is already 15s (`expect.timeout` in `playwright.config.ts`), which covers most UI visibility checks -- you don't need to add `{ timeout: ... }` to every assertion.
 
 Override it deliberately: raise it for operations known to be slower than typical UI (interpreter startup, code execution, data loading, network calls -- see the timeout budgets table in `references/assertions.md` for recommended values per operation), or lower it for an assertion that should genuinely fail fast.
 
-```typescript
-// Default 15s is fine for a normal UI check -- no override needed
-await expect(locator).toBeVisible();
-
-// Override upward for a known-slow operation
-await expect(locator).toBeVisible({ timeout: 60000 });  // e.g. large data load
-```
-
 **Anti-pattern:** don't reflexively add a large timeout (e.g. `{ timeout: 60000 }`) to every assertion "just in case." That delays failure detection when something is actually broken and slows down the whole suite on a real regression.
 
 ### 7. Wrapping an Already-Retrying Call in toPass
 
-Most POM methods named `expectTo...`, `verify...`, or `waitFor...` are built on Playwright's web-first assertions (`expect(...).toBeVisible({ timeout })` and similar), which already poll/retry internally until their own timeout elapses. Wrapping one in an outer `toPass()` is redundant -- raise its `timeout` option instead if it needs more time.
+Most POM methods named `expectTo...`, `verify...`, or `waitFor...` are built on Playwright's web-first assertions (`expect(...).toBeVisible({ timeout })` and the like), so they already retry on their own until their timeout runs out. Wrapping one in an outer `toPass()` adds nothing; if it needs more time, raise its `timeout` instead.
 
-`toPass` earns its place when the **action itself** -- not just the resulting state -- might need to be reissued, e.g. a click that occasionally doesn't register and needs retrying along with the check:
+Use `toPass` only when the action itself might need to run again, not just the check. The classic case is a click that occasionally doesn't register, where `toPass` retries the click and the assertion together:
 
 ```typescript
 await expect(async () => {
@@ -234,18 +231,25 @@ test('execute code', async ({ sessions, app }) => {
 
 ### 11. Hardcoding Interpreter Versions
 
+A hardcoded version string breaks in CI environments that provision a different interpreter.
+
 **WRONG:**
 ```typescript
 await notebooks.selectInterpreter('Python', 'Python 3.11.5');
 ```
 
-**CORRECT:**
+**CORRECT, for the default interpreter:** omit the version. `selectInterpreter` already defaults it to `POSITRON_PY_VER_SEL` / `POSITRON_R_VER_SEL`, so you rarely need to pass anything:
 ```typescript
-await notebooks.selectInterpreter('Python', process.env.POSITRON_PY_VER_SEL!);
-await notebooks.selectInterpreter('R', process.env.POSITRON_R_VER_SEL!);
+await notebooks.selectInterpreter('Python');
+await notebooks.selectInterpreter('R');
 ```
 
-Environment variables ensure tests work across different CI environments.
+**CORRECT, for a specific non-default interpreter:** pull the version from `availableRuntimes` (exported by `test/e2e/pages/sessions.ts`) instead of writing a raw string. Its keys (`python`, `pythonAlt`, `pythonHidden`, `r`, `rAlt`, `rHidden`) resolve to whatever the environment actually provisioned:
+```typescript
+import { availableRuntimes } from '../../pages/sessions.js';
+
+await notebooks.selectInterpreter('Python', availableRuntimes['pythonAlt'].version);
+```
 
 ### 12. Hand-Rolling Platform Key Combos Instead of Using hotKeys
 
