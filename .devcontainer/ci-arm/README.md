@@ -141,6 +141,27 @@ agent (or any terminal-only workflow) can drive the same stack directly with `do
 `docker exec`, once [Setup](#setup)'s steps 1-2 are done (worktree created, secrets added) -- the
 build itself can happen through this path too, no Dev Containers UI required.
 
+**Happy path -- two commands.** On the host, from the worktree:
+
+```bash
+cd <worktree>/.devcontainer/ci-arm
+./ci-lab-up.sh [<branch>]   # idempotent: initialize, compose up, build if cold, per-start setup
+```
+
+`ci-lab-up.sh` collapses the numbered steps below into one command that can't be run half-way or out
+of order -- it detects cold/warm/hot itself, and with a `<branch>` it also checks out that branch and
+reconciles deps + `out/`. A cold build is ~10 min, so run it in the background and wait for it to
+exit (clean exit = ready). Then run a spec inside the container:
+
+```bash
+docker compose exec -T test bash -lc \
+  "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/run-e2e.sh test/e2e/tests/<area>/<file>.test.ts --workers=1"
+```
+
+The numbered steps document what `ci-lab-up.sh` does and are the fallback when a phase fails; you
+don't run them by hand on the happy path. All `docker compose` commands run from
+`<worktree>/.devcontainer/ci-arm` so Compose finds the right project's `docker-compose.yml` and `.env`.
+
 1. **Set the workspace env vars** (normally run by the `initializeCommand` hook):
 
    ```bash
@@ -268,6 +289,7 @@ Gotchas specific to this path:
 - **Don't skip the cold/warm/hot check.** Running `post-create.sh` on an already-built container just
   wastes ~10 minutes (it's idempotent-safe but not idempotent-fast); skipping it on a truly cold
   container fails every later step with confusing missing-module errors instead of one clear one.
+  `ci-lab-up.sh` does this check for you -- prefer it over running the build step by hand.
 - **No `devcontainer` CLI required** -- this is plain `docker compose`, useful since the CLI isn't
   installed by default on the host.
 - **Reproducing a CI-only flake? Run the *whole* spec at `--workers=1`.** Positron doesn't split a
