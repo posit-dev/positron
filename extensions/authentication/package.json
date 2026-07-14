@@ -24,9 +24,13 @@
 		"onCommand:authentication.migrateApiKey"
 	],
 	"main": "./out/extension.js",
+	"scripts": {
+		"postinstall": "npm --prefix ../../ai-lib/packages/ai-config run build"
+	},
 	"dependencies": {
 		"@aws-sdk/credential-providers": "^3.734.0",
 		"@aws-sdk/types": "^3.734.0",
+		"ai-config": "file:../../ai-lib/packages/ai-config",
 		"google-auth-library": "^9.15.1"
 	},
 	"devDependencies": {
