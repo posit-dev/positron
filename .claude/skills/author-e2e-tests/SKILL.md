@@ -19,6 +19,10 @@ Load this skill when:
 - Working with page objects
 - Choosing correct selectors and assertions
 
+## Start Here: Read a Neighbor Test
+
+Before writing anything, open an existing test in `test/e2e/tests/<feature>/` for the area you're working on and skim it. The reference docs below tell you how to verify a method and why a pattern exists; the existing tests show you what a correct test actually looks like, including the flake-avoiding details that live in no doc, such as which panes overlap the view under test, how cell/output values render (numeric grid cells come back as strings, for instance), and which tags a suite in that area carries. Copy the closest neighbor's structure, then adjust it. Use the reference docs to confirm each method name against source and to understand the gotchas.
+
 ## Critical: Test File Structure
 
 Every test file MUST follow this structure:
@@ -51,7 +55,7 @@ test.describe('Feature Name', {
 ```
 
 **MANDATORY REQUIREMENTS:**
-1. Import from `../_test.setup` - NOT from `@playwright/test`
+1. Import from `../_test.setup` - NOT from `@playwright/test`. Import only what the file uses: `test` and `tags` always, `expect` only if you write raw assertions (a file whose assertions all go through POM methods doesn't import `expect`, and an unused import fails lint).
 2. Set `suiteId: __filename` - Required for app isolation
 3. Add appropriate tags for platform filtering
 

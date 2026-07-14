@@ -83,7 +83,7 @@ test.describe('Feature Name - Subsection', {
 
 Replace "<CURRENT YEAR>" with the current year.
 
-The template's two required lines -- importing `test`/`expect`/`tags` from `../_test.setup` (not `@playwright/test`) and `test.use({ suiteId: __filename })` -- are mandatory for every file. SKILL.md lists them under "MANDATORY REQUIREMENTS"; `references/common-mistakes.md` #1 and #2 explain what breaks without them.
+The template's two required lines -- importing from `../_test.setup` (not `@playwright/test`) and `test.use({ suiteId: __filename })` -- are mandatory for every file. Import only what the file uses: `test` and `tags` always, `expect` only when you write raw assertions (drop it when every assertion goes through a POM method, or the unused import fails lint). SKILL.md lists the requirements under "MANDATORY REQUIREMENTS"; `references/common-mistakes.md` #1 and #2 explain what breaks without them.
 
 ## Hook Scopes
 
