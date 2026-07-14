@@ -9,7 +9,6 @@ This file covers only the Positron-specific parts and the calls that are easy to
 get wrong:
 
 - which retry mechanism to use (`toPass` vs `expect.poll` vs a plain web-first assertion)
-- Positron's timeout budgets
 - where to find the POM assertion helpers
 
 ## Choosing a retry mechanism
@@ -22,10 +21,6 @@ by **what** needs retrying: the checked value, or the action that produces it.
 | Checking a Locator's state (visible, text, count, ...) | `expect(locator).toBe...({ timeout })` -- already retries internally |
 | The **action** might need reissuing (a click/keypress that occasionally doesn't register), not just the state re-checked | `toPass` |
 | A matcher a Locator assertion lacks (e.g. "count greater than N"), or a non-Locator value (API call, `page.evaluate`, computed state) | `expect.poll` |
-
-Do **not** wrap a single web-first assertion (or a POM `expectTo...`/`verify...`/
-`waitFor...` method, which is built on one) in `toPass` or `expect.poll` -- it
-already retries via its own `timeout`. Raise that `timeout` instead.
 
 ### toPass: retry an action and its check
 
@@ -54,20 +49,6 @@ await expect.poll(async () => (await locator.all()).length).toBeGreaterThan(2);
 // A non-Locator value (API call, computed state, page.evaluate)
 await expect.poll(async () => await getValue(), { timeout: 30000 }).toBe('expected');
 ```
-
-## Positron timeout budgets
-
-Domain-specific values that Playwright's defaults don't anticipate. Defaults live
-in `playwright.config.ts` (assertion + action timeout 15s, test timeout 2min).
-
-| Operation | Timeout | Reason |
-|-----------|---------|--------|
-| UI visibility | 15000ms | Default, most UI appears quickly |
-| Console ready | 30000ms | Interpreter startup can be slow |
-| Code execution | 30000-60000ms | Depends on code complexity |
-| Data loading | 60000ms | Large datasets take time |
-| Network operations | 30000ms | API calls, downloads |
-| Session startup | 45000ms | Kernel initialization |
 
 ## Preferred Selectors
 

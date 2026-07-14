@@ -104,7 +104,7 @@ test.beforeAll(async ({ settings }) => {
 
 The configured default assertion timeout is already 15s (`expect.timeout` in `playwright.config.ts`), which covers most UI visibility checks -- you don't need to add `{ timeout: ... }` to every assertion.
 
-Override it deliberately: raise it for operations known to be slower than typical UI (interpreter startup, code execution, data loading, network calls -- see the timeout budgets table in `references/assertions.md` for recommended values per operation), or lower it for an assertion that should genuinely fail fast.
+Override it deliberately: raise it for operations known to be slower than typical UI (interpreter startup and session/kernel init run ~30-45s, code execution and large data loads up to ~60s), or lower it for an assertion that should genuinely fail fast. In practice the POM methods already carry these budgets, so you mostly hit this only when waiting on a raw locator a POM doesn't cover.
 
 **Anti-pattern:** don't reflexively add a large timeout (e.g. `{ timeout: 60000 }`) to every assertion "just in case." That delays failure detection when something is actually broken and slows down the whole suite on a real regression.
 
