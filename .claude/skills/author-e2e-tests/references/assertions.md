@@ -1,15 +1,16 @@
 # Assertions and Waiting Patterns
 
-Standard Playwright applies: web-first assertions (`toBeVisible`, `toHaveText`,
-`toHaveCount`, `toHaveAttribute`, ...), wait primitives (`locator.waitFor`,
-`page.waitForURL`, ...), locator strategies, soft assertions, and `page.pause()`
-debugging all work as documented at
-[playwright.dev](https://playwright.dev/docs/best-practices). Prefer
-role/label/text selectors over CSS, same as Playwright's own guidance.
+Standard Playwright works the way [playwright.dev](https://playwright.dev/docs/best-practices)
+documents it, so this file doesn't repeat it: web-first assertions,
+`locator.waitFor` and the other wait primitives, soft assertions, `page.pause()`
+debugging, and role/label/text selectors over CSS. Assume all of that.
 
-This file covers only what's Positron-specific or a common judgment error:
-choosing a retry mechanism, Positron's timeout budgets, and where to find the
-POM assertion helpers.
+This file covers only the Positron-specific parts and the calls that are easy to
+get wrong:
+
+- which retry mechanism to use (`toPass` vs `expect.poll` vs a plain web-first assertion)
+- Positron's timeout budgets
+- where to find the POM assertion helpers
 
 ## Choosing a retry mechanism
 
@@ -26,7 +27,7 @@ Do **not** wrap a single web-first assertion (or a POM `expectTo...`/`verify...`
 `waitFor...` method, which is built on one) in `toPass` or `expect.poll` -- it
 already retries via its own `timeout`. Raise that `timeout` instead.
 
-### toPass -- retry an action + its check
+### toPass: retry an action and its check
 
 ```typescript
 // Inner timeout must be SHORT so each attempt fails fast and toPass
@@ -40,7 +41,7 @@ await expect(async () => {
 Use it when the action itself might not take -- a click, a keypress, a menu
 trigger. The whole callback (action + assertion) is retried together.
 
-### expect.poll -- retry a value against a matcher
+### expect.poll: retry a value against a matcher
 
 `expect.poll` retries a function and checks its *return value*. It can't reissue
 a UI action; it only re-reads. Reach for it in the narrow cases web-first
