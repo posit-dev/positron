@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { buildUpdateUrl, IActiveLanguageRecord, reportableLanguages, resolveReportableLanguages, serializeActiveLanguageRecord } from '../../common/positronUpdateUtils.js';
+import { buildUpdateUrl, IActiveLanguageRecord, mergeActiveLanguageRecord, parseActiveLanguageRecord, reportableLanguages } from '../../common/positronUpdateUtils.js';
 
 describe('buildUpdateUrl', function () {
 	const baseUrl = 'https://updates.example.com/releases/darwin/arm64/releases.json';
@@ -105,42 +105,55 @@ describe('active-language reporting (service logic)', function () {
 	const maxAgeDays = 7;
 	const now = Date.parse('2026-07-11T09:00:00Z');
 
-	describe('serializeActiveLanguageRecord', function () {
-		it('does not store an empty set, so a usage-free day cannot clobber a stored day', () => {
-			expect(serializeActiveLanguageRecord([], now)).toBeUndefined();
+	describe('mergeActiveLanguageRecord', function () {
+		it('stores the day and languages for a non-empty set', () => {
+			const stored = mergeActiveLanguageRecord(undefined, ['python', 'r'], now);
+			expect(JSON.parse(stored!)).toEqual({ day: '2026-07-11', languages: ['python', 'r'] });
 		});
 
-		it('stores the day and languages for a non-empty set', () => {
-			const stored = serializeActiveLanguageRecord(['python', 'r'], now);
-			expect(JSON.parse(stored!)).toEqual({ day: '2026-07-11', languages: ['python', 'r'] });
+		it('does not store an empty set, so a usage-free day cannot clobber a stored day', () => {
+			expect(mergeActiveLanguageRecord(undefined, [], now)).toBeUndefined();
+		});
+
+		it('unions a new language into the same day (e.g. R and Python in separate windows)', () => {
+			// One window reports R, another reports Python on the same day; both count.
+			const afterR = mergeActiveLanguageRecord(undefined, ['r'], now);
+			const afterPython = mergeActiveLanguageRecord(afterR, ['python'], now);
+			expect(JSON.parse(afterPython!)).toEqual({ day: '2026-07-11', languages: ['python', 'r'] });
+		});
+
+		it('preserves the stored day when a window reports nothing', () => {
+			const afterR = mergeActiveLanguageRecord(undefined, ['r'], now);
+			expect(mergeActiveLanguageRecord(afterR, [], now)).toEqual(afterR);
+		});
+
+		it('resets to only the new day when the stored record is from an earlier day', () => {
+			const yesterday = mergeActiveLanguageRecord(undefined, ['r'], now);
+			const nextDay = Date.parse('2026-07-12T09:00:00Z');
+			const today = mergeActiveLanguageRecord(yesterday, ['python'], nextDay);
+			expect(JSON.parse(today!)).toEqual({ day: '2026-07-12', languages: ['python'] });
 		});
 	});
 
-	describe('resolveReportableLanguages', function () {
-		it('prefers the live session set over the stored record', () => {
-			const stored = serializeActiveLanguageRecord(['r'], now);
-			expect(resolveReportableLanguages(['python'], stored, now, maxAgeDays)).toEqual(['python']);
+	describe('parseActiveLanguageRecord', function () {
+		it('returns undefined when nothing is stored', () => {
+			expect(parseActiveLanguageRecord(undefined)).toBeUndefined();
 		});
 
-		it('falls back to the stored record when the live set is empty', () => {
-			const stored = serializeActiveLanguageRecord(['python'], now);
-			expect(resolveReportableLanguages([], stored, now, maxAgeDays)).toEqual(['python']);
+		it('returns undefined when the stored record is corrupt JSON', () => {
+			expect(parseActiveLanguageRecord('{not valid json')).toBeUndefined();
 		});
 
-		it('returns empty when the live set is empty and nothing is stored', () => {
-			expect(resolveReportableLanguages([], undefined, now, maxAgeDays)).toEqual([]);
-		});
-
-		it('returns empty when the stored record is corrupt JSON', () => {
-			expect(resolveReportableLanguages([], '{not valid json', now, maxAgeDays)).toEqual([]);
+		it('returns undefined when the stored record is missing required fields', () => {
+			expect(parseActiveLanguageRecord('{"day":"2026-07-11"}')).toBeUndefined();
 		});
 	});
 
 	it('round-trips a stored day into the next launch report', () => {
-		// Session 1 persists today's usage; session 2 launches the next day with
-		// no live usage yet and reports what was stored.
-		const stored = serializeActiveLanguageRecord(['python', 'r'], now);
+		// Session 1 persists today's usage; session 2 launches the next day with no
+		// live usage yet and reports what was stored.
+		const stored = mergeActiveLanguageRecord(undefined, ['python', 'r'], now);
 		const nextDay = Date.parse('2026-07-12T09:00:00Z');
-		expect(resolveReportableLanguages([], stored, nextDay, maxAgeDays)).toEqual(['python', 'r']);
+		expect(reportableLanguages(parseActiveLanguageRecord(stored), nextDay, maxAgeDays)).toEqual(['python', 'r']);
 	});
 });
