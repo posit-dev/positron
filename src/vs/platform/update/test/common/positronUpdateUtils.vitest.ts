@@ -96,6 +96,11 @@ describe('reportableLanguages', function () {
 		const record: IActiveLanguageRecord = { day: 'not-a-date', languages: ['python'] };
 		expect(reportableLanguages(record, now, maxAgeDays)).toEqual([]);
 	});
+
+	it('returns empty when the record is dated in the future (clock skew)', () => {
+		const record: IActiveLanguageRecord = { day: '2026-07-12', languages: ['python'] };
+		expect(reportableLanguages(record, now, maxAgeDays)).toEqual([]);
+	});
 });
 
 // The read/write decision the update service delegates to. These exercise the
@@ -132,6 +137,15 @@ describe('active-language reporting (service logic)', function () {
 			const nextDay = Date.parse('2026-07-12T09:00:00Z');
 			const today = mergeActiveLanguageRecord(yesterday, ['python'], nextDay);
 			expect(JSON.parse(today!)).toEqual({ day: '2026-07-12', languages: ['python'] });
+		});
+
+		it('does not clobber an earlier stored day when the new day has no usage yet', () => {
+			// A new UTC day dawns before any code runs: the empty push must leave
+			// yesterday's stored languages intact (returns undefined, so the caller
+			// skips the write) rather than resetting them to nothing.
+			const yesterday = mergeActiveLanguageRecord(undefined, ['r'], now);
+			const nextDay = Date.parse('2026-07-12T09:00:00Z');
+			expect(mergeActiveLanguageRecord(yesterday, [], nextDay)).toBeUndefined();
 		});
 	});
 
