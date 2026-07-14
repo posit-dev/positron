@@ -136,30 +136,25 @@ Debug **e2e tests** straight from the test files via the gutter run/debug icons,
 
 ### Claude Workflows (CLI-only, headless)
 
-Everything in [User Workflows](#user-workflows-vs-code-ui) assumes VS Code's Dev Containers UI. An
-agent (or any terminal-only workflow) can drive the same stack directly with `docker compose` +
-`docker exec`, once [Setup](#setup)'s steps 1-2 are done (worktree created, secrets added) -- the
-build itself can happen through this path too, no Dev Containers UI required.
+No Dev Containers UI -- drive the stack from the host with `docker compose`, once [Setup](#setup)'s
+steps 1-2 are done (worktree created, secrets added). The build runs through this path too.
 
-**Happy path -- two commands.** On the host, from the worktree:
+**Two commands.** From the worktree:
 
 ```bash
 cd <worktree>/.devcontainer/ci-arm
 ./ci-lab-up.sh [<branch>]   # idempotent: initialize, compose up, build if cold, per-start setup
 ```
 
-`ci-lab-up.sh` is one command that can't be run half-way or out of order -- it detects cold/warm/hot
-itself, and with a `<branch>` it also checks out that branch and reconciles deps + `out/`. A cold
-build is ~10 min, so run it in the background and wait for it to exit (clean exit = ready). Then run a
-spec inside the container:
+`ci-lab-up.sh` detects cold/warm/hot itself; with a `<branch>` it also checks out that branch and
+reconciles deps + `out/`. A cold build is ~10 min -- run it in the background; clean exit = ready.
+Then run a spec in the container (from the same `.devcontainer/ci-arm` dir, so Compose finds this
+project's `docker-compose.yml` and `.env`):
 
 ```bash
 docker compose exec -T test bash -lc \
   "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/run-e2e.sh test/e2e/tests/<area>/<file>.test.ts --workers=1"
 ```
-
-All `docker compose` commands run from `<worktree>/.devcontainer/ci-arm` so Compose finds the right
-project's `docker-compose.yml` and `.env`.
 
 **Reproducing a CI-only flake? Run the *whole* spec at `--workers=1`** (as the command above does).
 Positron doesn't split a single spec file across workers, so its tests run in order and share app
