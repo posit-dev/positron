@@ -135,7 +135,7 @@ jobs:
           echo "$CONNECT_LICENSE" > /tmp/connect.lic
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 20
 
