@@ -1066,7 +1066,7 @@ describe('RuntimeStartupService - affiliation healing', () => {
 		.stub(IRuntimeDiscoveryCache, {})
 		.build();
 
-	it('heals a stale ~-prefixed runtimePath in stored affiliation when the runtime registers', () => {
+	it('heals a stale ~-prefixed runtimePath in stored affiliation when the runtime registers', async () => {
 		const runtimeId = 'r-stale-path-test';
 		const languageId = 'r';
 		const staleRuntimePath = '~/local/lib/R/bin/R';
@@ -1099,7 +1099,7 @@ describe('RuntimeStartupService - affiliation healing', () => {
 			startupBehavior: LanguageRuntimeStartupBehavior.Manual,
 		};
 		// Registering the runtime fires onDidRegisterRuntime, which heals the stored affiliation.
-		ctx.get(ILanguageRuntimeService).registerRuntime(freshMd);
+		await ctx.get(ILanguageRuntimeService).registerRuntime(freshMd);
 
 		// The stored affiliation must now carry the absolute path.
 		const stored = JSON.parse(ctx.get(IStorageService).get(storageKey, scope)!);

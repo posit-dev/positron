@@ -764,7 +764,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		if (!languageRuntime) {
 			this._logService.debug(`[Reconnect ${sessionMetadata.sessionId}]: ` +
 				`Registering runtime ${runtimeMetadata.runtimeName}`);
-			this._languageRuntimeService.registerRuntime(runtimeMetadata);
+			await this._languageRuntimeService.registerRuntime(runtimeMetadata);
 		}
 
 		const runningSessionId = this.validateRuntimeSessionStart(
@@ -1715,7 +1715,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				}
 
 				// Register the newly validated runtime.
-				this._languageRuntimeService.registerRuntime(validated);
+				await this._languageRuntimeService.registerRuntime(validated);
 
 				// Replace the metadata we were given with the validated metadata.
 				metadata = validated;

@@ -1731,9 +1731,9 @@ export class MainThreadLanguageRuntime
 	}
 
 	// Called by the extension host to register a language runtime
-	$registerLanguageRuntime(metadata: ILanguageRuntimeMetadata): void {
+	async $registerLanguageRuntime(metadata: ILanguageRuntimeMetadata): Promise<void> {
 		this._registeredRuntimes.set(metadata.runtimeId, metadata);
-		this._languageRuntimeService.registerRuntime(metadata);
+		await this._languageRuntimeService.registerRuntime(metadata);
 	}
 
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined> {

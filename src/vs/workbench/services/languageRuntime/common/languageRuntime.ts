@@ -116,7 +116,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 *
 	 * @returns A disposable that unregisters the runtime
 	 */
-	registerRuntime(metadata: ILanguageRuntimeMetadata): IDisposable {
+	async registerRuntime(metadata: ILanguageRuntimeMetadata): Promise<IDisposable> {
 		// If the runtime has already been registered, return early.
 		if (this._registeredRuntimesByRuntimeId.has(metadata.runtimeId)) {
 			return this._register(toDisposable(() => { }));
@@ -136,10 +136,15 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 		// Enrich metadata with a workbench-computed display path (~-shortened
 		// on non-Windows; absolute path unchanged on Windows or system paths).
-		const userHome = this._pathService.userHome({ preferLocal: true }).fsPath;
+		// Preserve a caller-supplied runtimeDisplayPath; only compute when absent.
+		let runtimeDisplayPath = metadata.runtimeDisplayPath;
+		if (!runtimeDisplayPath) {
+			const userHome = (await this._pathService.userHome({ preferLocal: false })).fsPath;
+			runtimeDisplayPath = tildify(metadata.runtimePath, userHome);
+		}
 		const enriched: ILanguageRuntimeMetadata = {
 			...metadata,
-			runtimeDisplayPath: tildify(metadata.runtimePath, userHome),
+			runtimeDisplayPath,
 		};
 
 		// Add the runtime to the registered runtimes.
