@@ -104,42 +104,8 @@ Positron uses Playwright's standard `annotation` array to link tests to issues (
 
 ## Using test.step
 
-Most POM action/verification methods already wrap themselves in `test.step` internally (see `references/page-objects.md`). Wrapping one of those calls in another `test.step` produces a redundant nested step in the report -- check the method's source before adding a wrapper.
-
-Reserve `test.step` for raw Playwright sequences that aren't already a POM call:
-
-```typescript
-test('Complete workflow', async ({ app, python, page }) => {
-	// No extra test.step needed -- each of these already wraps itself
-	await app.workbench.console.executeCode('Python', 'df = pd.DataFrame(...)');
-	await app.workbench.variables.doubleClickVariableRow('df');
-	await app.workbench.editors.verifyTab('Data: df', { isVisible: true });
-	await app.workbench.dataExplorer.grid.verifyTableData([...]);
-
-	// DO wrap a raw multi-line Playwright sequence that isn't already a POM call
-	await test.step('Dismiss the confirmation dialog', async () => {
-		await page.getByRole('button', { name: 'Delete' }).click();
-		await expect(page.getByRole('dialog')).toBeHidden({ timeout: 5000 });
-	});
-});
-```
-
-Benefits:
-- Test report shows each step without duplication
-- Easier to identify where failures occur
-- Self-documenting test structure
+Most POM action/verification methods already wrap themselves in `test.step` internally, so wrapping a POM call in another `test.step` just adds a redundant nested step. Reserve `test.step` for raw Playwright sequences that aren't already a POM call. See `references/common-mistakes.md` #9 for the full pattern and the methods that don't self-wrap.
 
 ## Parallel Test Considerations
 
-Tests in the same file share an app instance. Ensure:
-- Tests don't depend on order
-- Cleanup properly in afterEach
-- Don't leave state that affects other tests
-
-```typescript
-test.afterEach(async ({ hotKeys, app }) => {
-	// Reset UI state
-	await hotKeys.closeAllEditors();
-	await app.workbench.layouts.enterLayout('stacked');
-});
-```
+Tests in the same file share one app instance (worker-scoped), so they must not depend on run order. Reset UI state in `afterEach` (see #8 in `references/common-mistakes.md`) so state from one test doesn't leak into the next.

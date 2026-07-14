@@ -101,7 +101,7 @@ const test = base.extend<TestFixtures, WorkerFixtures>({
 });
 ```
 
-Reach for the `BETTER` form only when the value isn't known until the test runs (for example, computed from something set up earlier in the worker) and no pre-launch fixture can express it. See #16 for more pre-launch variations.
+Reach for the `BETTER` form only when the value isn't known until the test runs (for example, computed from something set up earlier in the worker) and no pre-launch fixture can express it. See `references/fixtures.md`, "Custom Test Setup Files", for more pre-launch variations.
 
 ## Assertion Mistakes
 
@@ -324,10 +324,7 @@ await app.workbench.notebooks.selectInterpreter(...)
 
 ### 16. Setting Config Mid-Test When Pre-Launch Would Do
 
-Even a correctly-scoped `test.beforeAll` + `settings.set(...)` reloads the window, and for discovery/session-gating settings that reload can be flaky (it doesn't always re-run every cold-launch code path). Prefer pre-launch (the BEST form in #5). Two shortcuts beyond the single-file `beforeApp` shown there:
-
-- **Setting is already a base worker option:** just `test.use({ useLegacyNotebookEditor: true })` (see `test/e2e/tests/_test.setup.ts` for available options like `enableDataConnections`, `enableFoundryAssistant`).
-- **Applies to a whole feature directory:** put the `beforeApp` override in that directory's `_test.setup.ts` (see `test/e2e/tests/notebooks-positron/_test.setup.ts`) and have its files import `test` from `./_test.setup.js`.
+Even a correctly-scoped `test.beforeAll` + `settings.set(...)` reloads the window, and for discovery/session-gating settings that reload can be flaky (it doesn't always re-run every cold-launch code path). Apply settings you know up front before the app launches instead. `references/fixtures.md`, "Custom Test Setup Files", covers the pre-launch options end to end: an existing base worker option via `test.use(...)`, a directory-wide `_test.setup.ts`, or a custom `beforeApp` override.
 
 ## Summary: Pre-Submit Checklist
 
