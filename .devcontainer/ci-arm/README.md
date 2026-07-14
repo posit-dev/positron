@@ -243,11 +243,14 @@ build itself can happen through this path too, no Dev Containers UI required.
    docker compose exec test bash -lc "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/post-start.sh"
    ```
 
-7. **Run a test directly**, e.g. a single e2e spec:
+7. **Run an e2e spec.** Use the `run-e2e.sh` helper rather than calling `npx playwright test` by
+   hand -- it sets everything a headless run needs (the four interpreter version vars read from
+   `devcontainer.json`, `GITHUB_ACTIONS=true` so image-comparison tests actually compare, `DISPLAY`,
+   and a default `--project e2e-electron`) and passes the rest straight through to Playwright:
 
    ```bash
-   docker compose exec -e DISPLAY=:10 test bash -lc \
-     "cd \$POSITRON_WORKSPACE_PATH && npx playwright test test/e2e/tests/search/search.test.ts --project e2e-electron"
+   docker compose exec test bash -lc \
+     "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/run-e2e.sh test/e2e/tests/search/search.test.ts"
    ```
 
    All `docker compose` commands above must run from `<worktree>/.devcontainer/ci-arm` (step 1's
@@ -255,20 +258,12 @@ build itself can happen through this path too, no Dev Containers UI required.
 
 Gotchas specific to this path:
 
-- **No `containerEnv` injection -- export all four interpreter versions.** Values from
-  `devcontainer.json`'s `containerEnv` block are applied by the Dev Containers extension, not by plain
-  `docker compose`. The e2e suite's `test/e2e/tests/_test.setup.ts` *throws* unless all four are set,
-  so every headless test run must export them explicitly -- not just the one interpreter under test:
+- **No `containerEnv` injection.** `devcontainer.json`'s `containerEnv` block (the four interpreter
+  version selectors, etc.) is applied by the Dev Containers extension, not by plain `docker compose`,
+  and the e2e suite's `test/e2e/tests/_test.setup.ts` *throws* unless all four are set --
   `POSITRON_PY_VER_SEL`, `POSITRON_R_VER_SEL`, `POSITRON_PY_ALT_VER_SEL`, `POSITRON_R_ALT_VER_SEL`.
-  Discover the installed versions first (`pyenv versions` for Python; `ls /opt/R` for R), then pass
-  each one:
-
-  ```bash
-  docker compose exec \
-    -e POSITRON_PY_VER_SEL=3.13.0 -e POSITRON_R_VER_SEL=4.5.2 \
-    -e POSITRON_PY_ALT_VER_SEL=3.10.12 -e POSITRON_R_ALT_VER_SEL=4.4.2 \
-    -e DISPLAY=:10 test bash -lc "cd \$POSITRON_WORKSPACE_PATH && npx playwright test ..."
-  ```
+  `run-e2e.sh` (step 7) reads them from `devcontainer.json` and exports them for you, so prefer it
+  over exporting by hand: the canonical values live in one place and stay correct if the pins change.
 - **Don't skip the cold/warm/hot check.** Running `post-create.sh` on an already-built container just
   wastes ~10 minutes (it's idempotent-safe but not idempotent-fast); skipping it on a truly cold
   container fails every later step with confusing missing-module errors instead of one clear one.
@@ -281,8 +276,8 @@ Gotchas specific to this path:
   entire spec file in order before deciding:
 
   ```bash
-  docker compose exec -e DISPLAY=:10 test bash -lc \
-    "cd \$POSITRON_WORKSPACE_PATH && npx playwright test test/e2e/tests/<area>/<file>.test.ts --project e2e-electron --workers=1"
+  docker compose exec test bash -lc \
+    "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/run-e2e.sh test/e2e/tests/<area>/<file>.test.ts --workers=1"
   ```
 
 ## Reference
@@ -379,6 +374,7 @@ already mixed, see [Gotchas](#gotchas) for the fix.
 | **Positron CI: Reinstall interpreters** | restore the Linux `pet`/`ark`/`kcserver` binaries after a native build clobbered them (Python/R fail to start; the Doctor flags it) |
 | **Positron CI: Rebuild** | re-runs the whole cold build (idempotent) |
 | **Positron CI: Get QA content** | provision test-files for manual repro; linked at `~/test-files` |
+| **Positron CI: e2e (current spec)** | runs the open spec via `run-e2e.sh` (interpreter vars + `GITHUB_ACTIONS` set, whole file at `--workers=1`) - the CI-faithful path for reproducing flakes |
 | **Positron CI: Watch (src)** | incremental compiler for the edit-debug loop; reload the window after "Finished compilation" |
 | *Run and Debug ->* **Positron CI: Debug (Electron)** / **(Web)** | debug Positron source - desktop app / browser build (see Debug above) |
 
