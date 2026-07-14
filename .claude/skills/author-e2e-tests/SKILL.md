@@ -132,11 +132,11 @@ test.describe('Console Tests', {
 
 ## Performance / Metric Tests
 
-Performance/metric tests live in a `performance/` subdirectory under their feature directory (e.g. `tests/data-explorer/performance/`, `tests/console/performance/`). They use `metric.*` timing wrappers (e.g. `metric.console.executeCode`, `metric.dataExplorer.loadData`) and must capture only the **user-observable action** — not test scaffolding.
+Performance/metric tests live in a `performance/` subdirectory under their feature directory (e.g. `tests/data-explorer/performance/`, `tests/console/performance/`). They use `metric.*` timing wrappers (e.g. `metric.console.executeCode`, `metric.dataExplorer.loadData`) and must capture only the **user-observable action**, not test scaffolding.
 
 **Recipe:** All setup (focus, staging code, pre-checks) happens before the timer. Inside the timer: only the bare trigger (e.g. `page.keyboard.press('Enter')`) and the wait for completion.
 
-**Why not use POM submit methods inside the timer?** Many POM methods hide fixed delays. For example, `sendEnterKey()` contains a `waitForTimeout(500)` and a `focus()` call — wrapping it inside a metric inflates every measurement by ~600ms of synthetic noise. Before using any POM method inside a timer, check its source for `waitForTimeout`, artificial focus calls, or retry loops. For the trigger keypress, prefer `page.keyboard.press()` directly.
+**Why not use POM submit methods inside the timer?** Many POM methods hide fixed delays. For example, `sendEnterKey()` contains a `waitForTimeout(500)` and a `focus()` call, so wrapping it inside a metric inflates every measurement by ~600ms of synthetic noise. Before using any POM method inside a timer, check its source for `waitForTimeout`, artificial focus calls, or retry loops. For the trigger keypress, prefer `page.keyboard.press()` directly.
 
 All performance/metric tests must include `tags.PERFORMANCE` in their tag list.
 

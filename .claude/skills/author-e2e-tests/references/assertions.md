@@ -22,7 +22,7 @@ by **what** needs retrying: the checked value, or the action that produces it.
 
 ### toPass: retry an action and its check
 
-Use it when the action itself might not take - a click, a keypress, a menu
+Use it when the action itself might not register: a click, a keypress, a menu
 trigger. The whole callback (action + assertion) is retried together.
 
 ```typescript
@@ -36,8 +36,8 @@ await expect(async () => {
 
 ### expect.poll: retry a value against a matcher
 
-Use it for the narrow cases where web-first assertions aren’t enough. `expect.poll` retries a function
-and asserts on its return value—it can re-read state, but it can’t reissue a UI action.
+Use it for the narrow cases where web-first assertions aren't enough. `expect.poll` retries a function
+and asserts on its return value: it can re-read state, but it can't reissue a UI action.
 
 ```typescript
 // A matcher Locator assertions lack -- toHaveCount has no "greater than"
@@ -62,4 +62,4 @@ because other skill files point at this as the canonical order.
 
 Most Positron assertions go through POM methods rather than raw locators. See
 [page-objects.md](page-objects.md) for usage idioms, and read the POM source for
-the authoritative method list - don't guess a method name.
+the authoritative method list; don't guess a method name.
