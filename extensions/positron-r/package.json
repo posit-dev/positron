@@ -14,6 +14,9 @@
     "Debuggers"
   ],
   "main": "./out/extension.js",
+  "enabledApiProposals": [
+    "customEditorPriority"
+  ],
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
@@ -840,7 +843,11 @@
       {
         "viewType": "positron-r.rdataLoader",
         "displayName": "%r.customEditor.rdataLoader.displayName%",
-        "priority": "default",
+        "priority": {
+          "editor": "default",
+          "diff": "option",
+          "merge": "option"
+        },
         "selector": [
           {
             "filenamePattern": "*.RData"
@@ -859,7 +866,11 @@
       {
         "viewType": "positron-r.rdsLoader",
         "displayName": "%r.customEditor.rdsLoader.displayName%",
-        "priority": "default",
+        "priority": {
+          "editor": "default",
+          "diff": "option",
+          "merge": "option"
+        },
         "selector": [
           {
             "filenamePattern": "*.rds"
