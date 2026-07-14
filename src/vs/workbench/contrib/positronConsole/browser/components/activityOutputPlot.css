@@ -13,7 +13,8 @@
 	/*
 	 * Show the plot at its natural size, capped at 300px tall. max-height never
 	 * upscales, so small plots stay their real height and never exceed the plot's
-	 * actual height.
+	 * actual height. Notebook consoles override this cap with an inline
+	 * max-height driven by the `console.notebookPlotPreviewHeight` setting.
 	 */
 	max-height: 300px;
 	max-width: 100%;

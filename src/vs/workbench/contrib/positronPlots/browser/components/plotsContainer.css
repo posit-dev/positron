@@ -53,6 +53,17 @@
 	opacity: 1;
 }
 
+/* Decorative origin label (non-navigable origins, e.g. notebooks): keep the
+   badge appearance but drop the clickable affordance. */
+.plots-container .plot-info-header .plot-origin-file.decorative {
+	cursor: default;
+}
+
+.plots-container .plot-info-header .plot-origin-file.decorative:hover {
+	background-color: transparent;
+	opacity: 0.8;
+}
+
 .plots-container .plot-info-header .plot-name {
 	font-size: 12px;
 	color: var(--vscode-foreground);

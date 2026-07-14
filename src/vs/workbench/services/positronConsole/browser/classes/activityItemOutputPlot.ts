@@ -41,6 +41,10 @@ export class ActivityItemOutputPlot extends ActivityItem {
 	 * @param data The data.
 	 * @param onSelected A callback that is invoked when the item is selected.
 	 * @param outputId The optional identifier of the output associated with this activity item.
+	 * @param isNotebookConsolePlot Whether this plot was emitted by a notebook
+	 *   and previewed in its console. When true, the preview height (and whether
+	 *   the preview is shown at all) is governed by the
+	 *   `console.notebookPlotPreviewHeight` setting.
 	 */
 	constructor(
 		id: string,
@@ -49,6 +53,7 @@ export class ActivityItemOutputPlot extends ActivityItem {
 		readonly data: ILanguageRuntimeMessageOutputData,
 		readonly onSelected: () => void,
 		readonly outputId?: string,
+		readonly isNotebookConsolePlot: boolean = false,
 	) {
 		// Call the base class's constructor.
 		super(id, parentId, when);

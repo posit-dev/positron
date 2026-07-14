@@ -28,7 +28,7 @@ import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/co
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { openPlotOriginFile } from '../plotUtils.js';
+import { isPlotOriginNavigable, openPlotOriginFile } from '../plotUtils.js';
 
 /**
  * PlotContainerProps interface.
@@ -149,6 +149,13 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		} catch {
 			return undefined;
 		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [currentPlotInstance, metadataVersion]);
+
+	// Whether the origin can be navigated to. When it can't (e.g. notebooks),
+	// the origin file is shown as a decorative label rather than a button.
+	const originNavigable = useMemo(() => {
+		return isPlotOriginNavigable(currentPlotInstance?.metadata.origin);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentPlotInstance, metadataVersion]);
 
@@ -471,7 +478,9 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		return <div className='plot-info-header' style={{ height: PlotInfoHeaderPx }}>
 			<span className='plot-info-text'>
 				{sessionName && <button className='plot-session-name' onClick={navigateToCode}>{sessionName}</button>}
-				{originFileName && <button className='plot-origin-file' onClick={navigateToOrigin}>{originFileName}</button>}
+				{originFileName && (originNavigable
+					? <button className='plot-origin-file' onClick={navigateToOrigin}>{originFileName}</button>
+					: <span className='plot-origin-file decorative'>{originFileName}</span>)}
 				{plotName && <span className='plot-name'>{plotName}</span>}
 			</span>
 		</div>;
