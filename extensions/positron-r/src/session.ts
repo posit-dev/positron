@@ -20,6 +20,7 @@ import { ArkComm } from './ark-comm';
 import { RPackageManager } from './packages';
 import { listMissingRPackages } from './missingPackages';
 import { RMetadataExtra } from './r-installation';
+import { warnOnArkVersionMismatch } from './arkVersionCheck';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -379,6 +380,11 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.Other;
 			}
 		}
+
+		// Warn (once per session) if the running Ark doesn't match the commit
+		// pinned by the submodule. No-op in packaged builds and during local
+		// Ark development.
+		warnOnArkVersionMismatch(runtimeInfo);
 
 		return runtimeInfo;
 	}

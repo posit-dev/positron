@@ -500,6 +500,16 @@ declare module 'positron' {
 		 * Used to detect architecture mismatches with the system.
 		 */
 		interpreterArch?: LanguageRuntimeArchitecture;
+
+		/**
+		 * The runtime's full build version, if it reports one. Distinct from
+		 * `implementation_version`: this may carry extra build metadata (e.g.
+		 * `0.1.252+14.6618e9a`) used to detect version mismatches.
+		 */
+		build_version?: string;
+
+		/** The short git commit hash the runtime was built from, if known. */
+		commit?: string;
 	}
 
 	/**
