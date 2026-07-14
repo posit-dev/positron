@@ -490,5 +490,36 @@ describe('Positron - Plots Service', () => {
 			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['console-plot-1']);
 			expect(openViewSpy).toHaveBeenCalledWith(POSITRON_PLOTS_VIEW_ID, false);
 		});
+
+		// A plot preview stays in the console after the user clears the Plots
+		// pane. Clicking it selects the plot by id (see the console's
+		// onDidSelectPlot flow); since the plot is gone, the service recreates
+		// it from the original message and re-adds it to the pane, selected.
+		it('notebook console: reselecting a cleared plot re-adds it to the pane', async () => {
+			const configurationService = ctx.instantiationService.get(IConfigurationService) as TestConfigurationService;
+			await configurationService.setUserConfiguration(SHOW_NOTEBOOK_CONSOLES_KEY, true);
+
+			const session = await startNotebookSession();
+			session.receiveOutputMessage(staticImageMessage('notebook-plot-1'));
+			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['notebook-plot-1']);
+
+			// The user clears the Plots pane.
+			plotsService.removeAllPlots();
+			expect(plotsService.positronPlotInstances.length).toBe(0);
+
+			// Reselecting the cleared plot restores it.
+			plotsService.selectPlot('notebook-plot-1');
+			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['notebook-plot-1']);
+			expect(plotsService.selectedPlotId).toBe('notebook-plot-1');
+		});
+
+		it('reselecting a plot that is still in the pane does not duplicate it', async () => {
+			const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+			session.receiveOutputMessage(staticImageMessage('console-plot-1'));
+			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['console-plot-1']);
+
+			plotsService.selectPlot('console-plot-1');
+			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['console-plot-1']);
+		});
 	});
 });

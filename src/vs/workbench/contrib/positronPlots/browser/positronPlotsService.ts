@@ -199,6 +199,16 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	private readonly _recentExecutions = new Map<string, string>();
 	private readonly _recentExecutionIds = new Array<string>();
 
+	/**
+	 * A map of plot id to the runtime message (and its session) that produced a
+	 * plot surfaced in the Plots pane from a console or notebook console. A
+	 * console keeps showing a plot preview even after the user clears the Plots
+	 * pane; clicking that preview reselects the plot by id, so we keep the
+	 * originating message around to recreate the plot on demand (see
+	 * {@link selectPlot}).
+	 */
+	private readonly _surfacedPlotMessages = new Map<string, { message: ILanguageRuntimeMessageOutput; session: ILanguageRuntimeSession }>();
+
 	/** The current plot rendering settings. */
 	private readonly _plotsRenderSettings: ISettableObservable<PlotRenderSettings>;
 
@@ -911,6 +921,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					return;
 				}
 
+				// Remember the originating message so the plot can be recreated
+				// if the user clears the Plots pane and later reselects it from
+				// the console (see selectPlot).
+				this._surfacedPlotMessages.set(plot.id, { message, session });
+
 				// If the runtime specified an output ID, update the plot with the given output ID, if one exists.
 				if (message.output_id) {
 					const existingPlot = this.getPlotForOutput(session.sessionId, message.output_id);
@@ -946,6 +961,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				// Update the plot with the given output ID, if one exists.
 				const existingPlot = this.getPlotForOutput(session.sessionId, message.output_id);
 				if (existingPlot) {
+					// Remember the originating message so the plot can be
+					// recreated if the user clears the Plots pane and later
+					// reselects it from the console (see selectPlot).
+					this._surfacedPlotMessages.set(plot.id, { message, session });
 					this.replacePlot(existingPlot.id, plot, raisePane);
 				}
 			}));
@@ -1134,7 +1153,40 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param index The ID of the plot to select.
 	 */
 	selectPlot(id: string): void {
+		// If the plot is no longer in the pane (e.g. the user cleared the Plots
+		// pane after a console or notebook console emitted it, but its preview
+		// is still shown in the console), recreate it from the originating
+		// message so the click still has somewhere to navigate. Recreating adds
+		// it back to the pane and selects it.
+		if (!this._plots.some(plot => plot.id === id) && this.recreateSurfacedPlot(id)) {
+			return;
+		}
 		this._onDidSelectPlot.fire(id);
+	}
+
+	/**
+	 * Recreates a previously surfaced plot from its originating message and
+	 * re-adds it to the Plots pane, selected. Used when a console plot preview
+	 * is clicked but the plot has been cleared from the pane.
+	 *
+	 * @param id The id of the plot to recreate.
+	 * @returns true if the plot was recreated; false if there is no cached
+	 *   message for the id.
+	 */
+	private recreateSurfacedPlot(id: string): boolean {
+		const cached = this._surfacedPlotMessages.get(id);
+		if (!cached) {
+			return false;
+		}
+		const plot = this.createPlot(cached.message, cached.session);
+		if (plot instanceof StaticPlotClient) {
+			this.registerNewPlotClient(plot);
+			return true;
+		} else if (plot instanceof NotebookOutputPlotClient) {
+			this.registerWebviewPlotClient(plot);
+			return true;
+		}
+		return false;
 	}
 
 	/**
