@@ -376,18 +376,14 @@ cmd_up() {
 	if [ -f "${SCRIPT_DIR}/connect.lic" ]; then
 		cp "${SCRIPT_DIR}/connect.lic" "${SCRIPT_DIR}/connect/connect.lic"
 	fi
-	# 'test' depends on connect being healthy; a missing license or config makes
-	# connect exit and the wait loop below just times out. Warn clearly up front.
-	# (rstudio-connect.gcfg is committed, but a missing bind-mount source becomes
-	# an empty dir and breaks connect, so check it too.)
+	# 'test' depends on connect being healthy; a missing license makes connect exit
+	# and the wait loop below just times out. Warn clearly up front. (Connect's
+	# config comes from the image defaults plus the CONNECT_* env in the compose --
+	# no gcfg bind-mount to check.)
 	if [ ! -f "${SCRIPT_DIR}/connect/connect.lic" ]; then
 		echo "WARNING: no Connect license at ${SCRIPT_DIR}/connect.lic -- the connect container" >&2
 		echo "         will not become healthy and 'test' won't start (startup will time out)." >&2
 		echo "         Add connect.lic (see docker/environments/workbench-dev/README-positron-workbench.md)." >&2
-	fi
-	if [ ! -f "${SCRIPT_DIR}/connect/rstudio-connect.gcfg" ]; then
-		echo "WARNING: ${SCRIPT_DIR}/connect/rstudio-connect.gcfg is missing -- connect will fail to start." >&2
-		echo "         It is committed to the repo; restore with: git checkout docker/environments/workbench-dev/connect/rstudio-connect.gcfg" >&2
 	fi
 	# --remove-orphans clears a leftover container from a prior run under a
 	# different service name that would otherwise hold the same ports.

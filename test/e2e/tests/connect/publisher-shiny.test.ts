@@ -17,14 +17,18 @@ let pythonVersion: string;
 // the local (e2e-connect) run needs no env setup; the Workbench run keeps using
 // POSIT_WORKBENCH_PASSWORD.
 let connectUserPassword: string;
-const connectServer = 'http://connect:3939';
+// Resolved in beforeAll: the local (with-connect) run publishes Connect on
+// localhost:3939; the Workbench web run reaches `connect:3939` on the compose
+// network.
+let connectServer!: string;
 
 test.describe('Publisher - Shiny', { tag: [tags.WORKBENCH, tags.CONNECT, tags.PUBLISHER] }, () => {
 
 	test.beforeAll('Get connect API key', async function ({ app, runDockerCommand, hotKeys }) {
 
-		// Local electron run (connect-local stack) vs the Workbench web run.
+		// Local electron run (with-connect) vs the Workbench web run.
 		const isLocal = test.info().project.name === 'e2e-connect';
+		connectServer = isLocal ? 'http://localhost:3939' : 'http://connect:3939';
 
 		connectUserPassword = process.env.POSIT_WORKBENCH_PASSWORD || 'testpassword';
 
@@ -47,15 +51,22 @@ test.describe('Publisher - Shiny', { tag: [tags.WORKBENCH, tags.CONNECT, tags.PU
 			await app.workbench.publisher.clearSavedCredentials();
 		}
 
-		// Ensure the PAM/system user1 exists with the current password on EVERY
-		// run. The system account lives in the connect container filesystem (reset
-		// when the container is recreated), while the Connect DB user record lives
-		// in the persistent connect-data volume -- so gating this on the Connect
-		// user existing leaves the PAM password unset/stale and sign-in fails.
-		// groupadd/useradd are guarded so they're idempotent; chpasswd always runs.
-		await runDockerCommand(`docker exec connect bash -c 'getent group user1g >/dev/null 2>&1 || sudo groupadd -g 1100 user1g'`, 'Ensure group user1g');
-		await runDockerCommand(`docker exec connect bash -c 'id -u user1 >/dev/null 2>&1 || sudo useradd --create-home --shell /bin/bash --home-dir /home/user1 -u 1100 -g 1100 user1'`, 'Ensure user user1');
-		await runDockerCommand(`docker exec connect bash -c 'echo "user1":"${connectUserPassword}" | sudo chpasswd'`, 'Set password for user1');
+		// Both runs authenticate via PAM, so a system user1 must exist in the
+		// Connect container with the current password on EVERY run (the system
+		// account lives in the container filesystem, reset when the container is
+		// recreated). groupadd/useradd are guarded so they're idempotent; chpasswd
+		// always runs.
+		//
+		// Both lanes run the same ghcr Connect image: docker exec runs as root (no
+		// sudo) and the image ships the PAM service file under extras/ but not in
+		// /etc/pam.d, so install it first. The container is targeted by id locally
+		// (with-connect names it randomly) and by the fixed `connect` name on the
+		// Workbench compose network.
+		const container = isLocal ? app.workbench.positConnect.resolveContainerId() : 'connect';
+		await runDockerCommand(`docker exec ${container} bash -c 'cp /opt/rstudio-connect/extras/pam/rstudio-connect /etc/pam.d/rstudio-connect'`, 'Install PAM service file');
+		await runDockerCommand(`docker exec ${container} bash -c 'getent group user1g >/dev/null 2>&1 || groupadd -g 1100 user1g'`, 'Ensure group user1g');
+		await runDockerCommand(`docker exec ${container} bash -c 'id -u user1 >/dev/null 2>&1 || useradd --create-home --shell /bin/bash --home-dir /home/user1 -u 1100 -g 1100 user1'`, 'Ensure user user1');
+		await runDockerCommand(`docker exec ${container} bash -c 'echo "user1":"${connectUserPassword}" | chpasswd'`, 'Set password for user1');
 
 		const user1Present = await app.workbench.positConnect.getUserId('user1');
 		if (!user1Present) {
@@ -190,7 +201,7 @@ test.describe('Publisher - Shiny', { tag: [tags.WORKBENCH, tags.CONNECT, tags.PU
 			await app.code.driver.currentPage.fill('input[name="password"]', connectUserPassword);
 			await app.code.driver.currentPage.locator('[data-automation="login-panel-submit"]').click();
 
-			await app.code.driver.currentPage.locator('[data-automation="content-table__row__display-name"]').first().click();
+			await app.code.driver.currentPage.locator('[data-automation="content-item-title"]').first().click();
 
 			const headerLocator = app.code.driver.currentPage.frameLocator('#contentIFrame').locator('h1');
 			await expect(headerLocator).toHaveText('Restaurant tipping', { timeout: 20000 });

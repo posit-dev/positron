@@ -13,21 +13,21 @@ test.use({
 // The Connect API key resolved in beforeAll and injected into the R session so
 // the pins board can authenticate.
 let connectApiKey: string;
-// Connect's URL as seen from the R session. The service name resolves in both
-// runs: in the Workbench web run R runs in a container on the compose network,
-// and the local electron run relies on an /etc/hosts entry mapping `connect` to
-// 127.0.0.1 (the same mapping the publisher already depends on locally).
-const connectServer = 'http://connect:3939';
+// Connect's URL as seen from the R session, resolved in beforeAll. The local
+// electron run (with-connect) publishes Connect on localhost:3939; the Workbench
+// web run has R in a container on the compose network reaching `connect:3939`.
+let connectServer!: string;
 
 test.describe('Pins - R', { tag: [tags.WORKBENCH, tags.CONNECT] }, () => {
 
 	test.beforeAll('Get connect API key', async function ({ app, runDockerCommand }) {
 
-		// Local electron run (connect-local stack) vs the Workbench web run.
+		// Local electron run (with-connect) vs the Workbench web run.
 		const isLocal = test.info().project.name === 'e2e-connect';
+		connectServer = isLocal ? 'http://localhost:3939' : 'http://connect:3939';
 
 		// Skip the suite when Connect isn't up (e.g. the full local suite is run
-		// without the connect-local stack started).
+		// without the local Connect started).
 		test.skip(!(await app.workbench.positConnect.isReachable()), 'Posit Connect is not reachable at http://localhost:3939');
 
 		// Resolve the publisher API key: env -> local token file -> Workbench volume.
