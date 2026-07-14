@@ -148,10 +148,10 @@ cd <worktree>/.devcontainer/ci-arm
 ./ci-lab-up.sh [<branch>]   # idempotent: initialize, compose up, build if cold, per-start setup
 ```
 
-`ci-lab-up.sh` collapses the numbered steps below into one command that can't be run half-way or out
-of order -- it detects cold/warm/hot itself, and with a `<branch>` it also checks out that branch and
-reconciles deps + `out/`. A cold build is ~10 min, so run it in the background and wait for it to
-exit (clean exit = ready). Then run a spec inside the container:
+`ci-lab-up.sh` is one command that can't be run half-way or out of order -- it detects cold/warm/hot
+itself, and with a `<branch>` it also checks out that branch and reconciles deps + `out/`. A cold
+build is ~10 min, so run it in the background and wait for it to exit (clean exit = ready). Then run a
+spec inside the container:
 
 ```bash
 docker compose exec -T test bash -lc \
@@ -167,141 +167,25 @@ state. A test that only fails in CI often passes in isolation (a single `--grep`
 earlier test in the same file left state behind -- don't conclude "can't reproduce" from an isolated
 run.
 
-<details>
-<summary><strong>Manual step-by-step</strong> -- what <code>ci-lab-up.sh</code> automates, and the fallback when a phase fails</summary>
+**How it works, and when it breaks.** `ci-lab-up.sh` chains `initialize.sh` -> `docker compose up -d`
+-> cold-or-ready detection -> `post-create.sh` if cold (~10 min) -> the idempotent `post-start.sh`
+(display, VNC, postgres). A `<branch>` argument also checks out that branch and reconciles deps +
+`out/`. When a phase fails, read its log (`/tmp/post-create.log`, `/tmp/compile.log`) and the script's
+`=== ci-lab-up: <phase> ===` echoes, then rerun that phase. Three non-obvious things it handles:
 
-1. **Set the workspace env vars** (normally run by the `initializeCommand` hook):
-
-   ```bash
-   cd <worktree>/.devcontainer/ci-arm
-   ./initialize.sh   # writes POSITRON_WORKSPACE_PATH / POSITRON_GIT_COMMON_DIR into .env
-   ```
-
-2. **Point the worktree at the target branch** (skip this on a fresh worktree; it matters once the lab
-   is long-lived and reused across sessions). Don't assume the checked-out source matches whatever
-   you're currently investigating -- fetch and check out explicitly:
-
-   ```bash
-   cd <worktree>
-   git fetch origin <branch>
-   git checkout <branch>
-   ```
-
-   Switching branches can leave two things stale, both of which the Doctor's Build row already checks:
-
-   - **Dependencies.** Compare `package-lock.json`'s hash against the one recorded at the last install:
-
-     ```bash
-     docker compose exec test bash -lc \
-       "cd \$POSITRON_WORKSPACE_PATH && [ \"\$(sha256sum package-lock.json | awk '{print \$1}')\" = \"\$(cat .build/.ci-arm-state/deps.sha 2>/dev/null)\" ] && echo OK || echo DRIFTED"
-     ```
-
-     A `DRIFTED` result means reinstall, via the same `reinstall-deps.sh` script the **Positron CI:
-     Reinstall deps** task calls:
-
-     ```bash
-     docker compose exec test bash -lc \
-       "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/reinstall-deps.sh root"
-     ```
-
-     Repeat with `e2e` instead of `root` (**Positron CI: Reinstall e2e deps**) against
-     `test/e2e/package-lock.json` / `e2e-deps.sha` if the target branch also touched e2e's own deps.
-
-   - **Compiled output.** `out/` is bind-mounted and reflects whichever branch was last built here, so
-     recompile after switching:
-
-     ```bash
-     docker compose exec -d test bash -lc \
-       "cd \$POSITRON_WORKSPACE_PATH && npm exec -- npm-run-all --max_old_space_size=4095 -lp compile > /tmp/compile.log 2>&1"
-     ```
-
-     This is incremental -- the same thing the **Watch** task does -- so it's much faster than the
-     first-time build in step 5 below.
-
-3. **Bring up the stack.** `initialize.sh` (step 1) pins `COMPOSE_PROJECT_NAME` to this checkout's own
-   directory name, so its containers/volumes never collide with another checkout's -- the remaining
-   steps use `docker compose exec <service>` instead of a hardcoded container name, so they resolve
-   correctly regardless of what that project name is:
-
-   ```bash
-   docker compose up -d
-   ```
-
-4. **Check whether the build is cold, warm, or hot** before doing anything else -- don't assume:
-
-   ```bash
-   docker compose exec test bash -lc \
-     "test -f \$POSITRON_WORKSPACE_PATH/.build/.ci-arm-state/complete && echo WARM_OR_HOT || echo COLD"
-   ```
-
-   - **COLD** (fresh worktree, or after `reset.sh`): no `node_modules`/`.build` yet -> run the
-     first-time build (step 5) before anything else.
-   - **WARM** (built before, containers just recreated by step 3): skip straight to step 6.
-   - **HOT** (containers were already running, e.g. from an earlier session): skip both step 5 and 6's
-     `post-start.sh` call and go straight to step 7.
-
-   If step 7 fails with a `Cannot find module` or missing `out/main.js` error despite a "warm"
-   reading, treat it as effectively cold: rerun step 2's dependency-drift check and compile command,
-   or fall back to step 5.
-
-5. **First-time build only.** This mirrors `post-create.sh`'s dep install / compile / Electron build /
-   Playwright install / license setup -- the same script Dev Containers runs, just invoked directly.
-   It takes roughly 10 minutes and is not something to block a foreground shell on:
-
-   ```bash
-   docker compose exec -d test bash -lc \
-     "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/post-create.sh > /tmp/post-create.log 2>&1"
-   ```
-
-   `-d` detaches immediately, so this returns right away instead of holding the shell for
-   10 minutes. Poll for completion instead of guessing at a fixed sleep -- check every minute or two,
-   not continuously, and read the log on failure:
-
-   ```bash
-   docker compose exec test bash -lc \
-     "test -f \$POSITRON_WORKSPACE_PATH/.build/.ci-arm-state/complete && echo DONE || tail -5 /tmp/post-create.log"
-   ```
-
-   The marker file (`.build/.ci-arm-state/complete`, written by `mark-build-state.sh`) is the same
-   completion signal step 4 checks -- once it's there, move on to step 6.
-
-6. **Per-start setup** (display, VNC, postgres reachability -- idempotent, safe to always run except
-   on an already-HOT container):
-
-   ```bash
-   docker compose exec test bash -lc "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/post-start.sh"
-   ```
-
-7. **Run an e2e spec.** Unlike the UI, `docker compose exec` doesn't inject `containerEnv`, so the
-   helper re-supplies it: use `run-e2e.sh` rather than calling `npx playwright test` by hand -- it sets
-   the four interpreter version vars (read from `devcontainer.json`), `DISPLAY`, a default
-   `--project e2e-electron`, and `GITHUB_ACTIONS=true` (harmless for the tests that don't read it; it's
-   what makes image-comparison tests actually compare). Everything else passes straight through to Playwright:
-
-   ```bash
-   docker compose exec test bash -lc \
-     "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/run-e2e.sh test/e2e/tests/search/search.test.ts"
-   ```
-
-   All `docker compose` commands above must run from `<worktree>/.devcontainer/ci-arm` (step 1's
-   directory) so Compose finds the right project's `docker-compose.yml` and `.env`.
-
-Gotchas specific to this path:
-
-- **No `containerEnv` injection.** `devcontainer.json`'s `containerEnv` block (the four interpreter
-  version selectors, etc.) is applied by the Dev Containers extension, not by plain `docker compose`,
-  and the e2e suite's `test/e2e/tests/_test.setup.ts` *throws* unless all four are set --
-  `POSITRON_PY_VER_SEL`, `POSITRON_R_VER_SEL`, `POSITRON_PY_ALT_VER_SEL`, `POSITRON_R_ALT_VER_SEL`.
-  `run-e2e.sh` (step 7) reads them from `devcontainer.json` and exports them for you, so prefer it
-  over exporting by hand: the canonical values live in one place and stay correct if the pins change.
-- **Don't skip the cold/warm/hot check.** Running `post-create.sh` on an already-built container just
-  wastes ~10 minutes (it's idempotent-safe but not idempotent-fast); skipping it on a truly cold
-  container fails every later step with confusing missing-module errors instead of one clear one.
-  `ci-lab-up.sh` does this check for you -- prefer it over running the build step by hand.
-- **No `devcontainer` CLI required** -- this is plain `docker compose`, useful since the CLI isn't
-  installed by default on the host.
-
-</details>
+- **"Ready" checks artifacts, not just the marker.** Detection keys off `.build/.ci-arm-state/complete`
+  *and* `out/main.js` + a populated `node_modules` -- a container can read built yet still fail a run
+  with `Cannot find module`. That case is treated as cold; reinstall + recompile (or rerun
+  `ci-lab-up.sh <branch>`).
+- **No `containerEnv` over plain `docker compose`.** The four interpreter version selectors in
+  `devcontainer.json`'s `containerEnv` are injected by the Dev Containers extension, not by
+  `docker compose exec`, and the e2e suite throws without them. That's why runs go through
+  `run-e2e.sh`, which reads the pins and exports them (plus `DISPLAY`, `--project e2e-electron`,
+  `GITHUB_ACTIONS=true`, which is what makes image-comparison tests actually compare).
+- **Branch switches stale deps and `out/`.** `out/` is bind-mounted and reflects whichever branch was
+  last built here. Passing `<branch>` to `ci-lab-up.sh` reconciles both (sha-compare against
+  `.build/.ci-arm-state/*.sha`, then `reinstall-deps.sh` / incremental compile as needed) -- prefer it
+  over a bare `git checkout`.
 
 ## Reference
 
@@ -436,8 +320,8 @@ It removes this project's dev container, its data volumes (root + e2e + remote `
   - **Mid-session (messier).** `git checkout` in the open container, then reload the window and let
     **Watch** recompile (restart any running Positron/debug). Note Watch recompiles but does *not*
     check dependency drift -- rely on the Doctor's **Build** row to flag stale deps.
-  - **Headless.** [Claude Workflows](#claude-workflows-cli-only-headless)'s step 2 does the same
-    thing over the CLI, including the dependency-drift check Watch doesn't handle.
+  - **Headless.** `ci-lab-up.sh <branch>` (see [Claude Workflows](#claude-workflows-cli-only-headless))
+    does the same thing over the CLI, including the dependency-drift check Watch doesn't handle.
 
   Whichever path you take, keep the **Doctor** open: its Build and Interpreters rows tell you what
   went stale and which task fixes it.
@@ -445,7 +329,7 @@ It removes this project's dev container, its data volumes (root + e2e + remote `
   it.** Compose's project name defaults to the directory *basename* holding `docker-compose.yml`,
   which is `ci-arm` for every checkout of this repo (they all have the same `.devcontainer/ci-arm`
   layout); without a fix, two checkouts would silently share one set of containers and volumes
-  instead of erroring. `initialize.sh` (Setup step 3 / CLI-only step 1) closes this by pinning
+  instead of erroring. `initialize.sh` (Setup step 3, and the first thing `ci-lab-up.sh` runs) closes this by pinning
   `COMPOSE_PROJECT_NAME` to the checkout's own directory name, so `docker compose up -d` always
   creates that checkout's own containers. The one sharp edge: a checkout whose `.env` predates this
   fix (no `COMPOSE_PROJECT_NAME` line) still defaults to the shared `ci-arm` name until
