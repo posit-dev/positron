@@ -255,15 +255,35 @@ build itself can happen through this path too, no Dev Containers UI required.
 
 Gotchas specific to this path:
 
-- **No `containerEnv` injection.** Values from `devcontainer.json`'s `containerEnv` block (interpreter
-  versions like `POSITRON_PY_VER_SEL`) are applied by the Dev Containers extension, not by plain
-  `docker compose`. Tests that depend on a specific interpreter version need those exported
-  explicitly (`docker compose exec -e POSITRON_PY_VER_SEL=... ...`).
+- **No `containerEnv` injection -- export all four interpreter versions.** Values from
+  `devcontainer.json`'s `containerEnv` block are applied by the Dev Containers extension, not by plain
+  `docker compose`. The e2e suite's `test/e2e/tests/_test.setup.ts` *throws* unless all four are set,
+  so every headless test run must export them explicitly -- not just the one interpreter under test:
+  `POSITRON_PY_VER_SEL`, `POSITRON_R_VER_SEL`, `POSITRON_PY_ALT_VER_SEL`, `POSITRON_R_ALT_VER_SEL`.
+  Discover the installed versions first (`pyenv versions` for Python; `ls /opt/R` for R), then pass
+  each one:
+
+  ```bash
+  docker compose exec \
+    -e POSITRON_PY_VER_SEL=3.13.0 -e POSITRON_R_VER_SEL=4.5.2 \
+    -e POSITRON_PY_ALT_VER_SEL=3.10.12 -e POSITRON_R_ALT_VER_SEL=4.4.2 \
+    -e DISPLAY=:10 test bash -lc "cd \$POSITRON_WORKSPACE_PATH && npx playwright test ..."
+  ```
 - **Don't skip the cold/warm/hot check.** Running `post-create.sh` on an already-built container just
   wastes ~10 minutes (it's idempotent-safe but not idempotent-fast); skipping it on a truly cold
   container fails every later step with confusing missing-module errors instead of one clear one.
 - **No `devcontainer` CLI required** -- this is plain `docker compose`, useful since the CLI isn't
   installed by default on the host.
+- **Reproducing a CI-only flake? Run the *whole* spec at `--workers=1`.** Positron doesn't split a
+  single spec file across workers, so its tests run in order and share app state. A test that only
+  fails in CI often passes in isolation (a single `--grep`) yet fails because an earlier test in the
+  same file left state behind. Don't conclude "can't reproduce" from the isolated run -- run the
+  entire spec file in order before deciding:
+
+  ```bash
+  docker compose exec -e DISPLAY=:10 test bash -lc \
+    "cd \$POSITRON_WORKSPACE_PATH && npx playwright test test/e2e/tests/<area>/<file>.test.ts --project e2e-electron --workers=1"
+  ```
 
 ## Reference
 
