@@ -28,7 +28,7 @@ import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/co
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { isPlotOriginNavigable, openPlotOriginFile } from '../plotUtils.js';
+import { isNavigableSourceUri, openPlotOriginFile, openPlotSource } from '../plotUtils.js';
 
 /**
  * PlotContainerProps interface.
@@ -149,13 +149,6 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		} catch {
 			return undefined;
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [currentPlotInstance, metadataVersion]);
-
-	// Whether the origin can be navigated to. When it can't (e.g. notebooks),
-	// the origin file is shown as a decorative label rather than a button.
-	const originNavigable = useMemo(() => {
-		return isPlotOriginNavigable(currentPlotInstance?.metadata.origin);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentPlotInstance, metadataVersion]);
 
@@ -387,22 +380,44 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	}
 
 	/**
-	 * Navigates to the code that generated the current plot.
+	 * Navigates to the source of the current plot from the session-name button.
+	 *
+	 * For a notebook session backed by a text-navigable document (e.g. a Quarto
+	 * `.qmd`), this opens that document, revealing the source range if the plot
+	 * carries one. For notebook documents (`.ipynb`) and regular console
+	 * sessions, it reveals the generating execution in the Positron Console
+	 * instead (or activates the session if the execution is unknown).
 	 */
-	const navigateToCode = () => {
+	const navigateToCode = async () => {
 		if (!currentPlotInstance) {
 			return;
 		}
-		// If we have an execution ID, reveal the execution in the Positron
-		// Console; otherwise, just activate the session.
+		const sessionId = currentPlotInstance.metadata.session_id;
+
+		// A notebook session's document URI is always available (unlike a
+		// per-plot origin, which static plots may lack), so prefer it when it
+		// points at editable source text such as a Quarto .qmd.
+		const notebookUri = services.runtimeSessionService.getSession(sessionId)?.metadata.notebookUri;
+		if (notebookUri && isNavigableSourceUri(notebookUri)) {
+			await openPlotSource(
+				notebookUri,
+				currentPlotInstance.metadata.origin,
+				services.editorService,
+				services.logService
+			);
+			return;
+		}
+
+		// Otherwise, if we have an execution ID, reveal the execution in the
+		// Positron Console; failing that, just activate the session.
 		if (currentPlotInstance.metadata.execution_id) {
 			services.positronConsoleService.revealExecution(
-				currentPlotInstance.metadata.session_id,
+				sessionId,
 				currentPlotInstance.metadata.execution_id
 			);
 		} else {
 			services.positronConsoleService.setActivePositronConsoleSession(
-				currentPlotInstance.metadata.session_id
+				sessionId
 			);
 		}
 	};
@@ -478,9 +493,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		return <div className='plot-info-header' style={{ height: PlotInfoHeaderPx }}>
 			<span className='plot-info-text'>
 				{sessionName && <button className='plot-session-name' onClick={navigateToCode}>{sessionName}</button>}
-				{originFileName && (originNavigable
-					? <button className='plot-origin-file' onClick={navigateToOrigin}>{originFileName}</button>
-					: <span className='plot-origin-file decorative'>{originFileName}</span>)}
+				{originFileName && <button className='plot-origin-file' onClick={navigateToOrigin}>{originFileName}</button>}
 				{plotName && <span className='plot-name'>{plotName}</span>}
 			</span>
 		</div>;
