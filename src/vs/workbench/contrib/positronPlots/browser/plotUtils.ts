@@ -8,7 +8,31 @@ import { URI } from '../../../../base/common/uri.js';
 import { Range } from '../../../../editor/common/core/range.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { PlotOrigin } from '../../../services/languageRuntime/common/positronPlotComm.js';
+
+/**
+ * Builds a plot origin from a code location, so a plot can be linked back to
+ * the source that produced it.
+ *
+ * Both representations use 0-based line and character offsets, so the fields
+ * map across directly; only the URI is serialized to a string (the shape
+ * {@link PlotOrigin} uses).
+ *
+ * @param location The code location that produced the plot.
+ * @returns A plot origin referencing the same document and range.
+ */
+export function plotOriginFromCodeLocation(location: ICodeLocation): PlotOrigin {
+	return {
+		uri: location.uri.toString(),
+		range: {
+			start_line: location.range.start.line,
+			start_character: location.range.start.character,
+			end_line: location.range.end.line,
+			end_character: location.range.end.character,
+		},
+	};
+}
 
 /**
  * Determines whether a document URI can be navigated to as editable source

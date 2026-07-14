@@ -48,6 +48,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { PositronPlotCommProxy } from '../../../services/languageRuntime/common/positronPlotCommProxy.js';
 import { PlotResult } from '../../../services/languageRuntime/common/positronPlotComm.js';
 import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
+import { plotOriginFromCodeLocation } from './plotUtils.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { joinPath } from '../../../../base/common/resources.js';
@@ -997,13 +998,26 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Get the code that generated this update.
 		const code = this._recentExecutions.get(message.parent_id) ?? '';
 
+		// Unlike comm-backed dynamic plots (whose origin comes from the backend
+		// via fetchAndUpdateMetadata), plots created directly from an output
+		// message carry no origin. Recover it from the code location the session
+		// recorded for the originating execution, so the plot can link back to
+		// its source (e.g. a Quarto chunk in a .qmd).
+		const codeLocation = session.getExecutionCodeLocation?.(message.parent_id);
+		const origin = codeLocation ? plotOriginFromCodeLocation(codeLocation) : undefined;
+
+		let plot: IPositronPlotClient | undefined;
 		if (message.kind === RuntimeOutputKind.StaticImage) {
-			return StaticPlotClient.fromMessage(this._storageService, session.sessionId, message, code);
+			plot = StaticPlotClient.fromMessage(this._storageService, session.sessionId, message, code);
 		} else if (message.kind === RuntimeOutputKind.PlotWidget) {
-			return new NotebookOutputPlotClient(this._notebookOutputWebviewService, session, message, code);
+			plot = new NotebookOutputPlotClient(this._notebookOutputWebviewService, session, message, code);
 		}
 
-		return undefined;
+		if (plot && origin) {
+			plot.metadata.origin = origin;
+		}
+
+		return plot;
 	}
 
 	/**

@@ -194,6 +194,10 @@ export async function buildRuntimeOpenEventResource(
 	);
 }
 
+// The maximum number of recent execution code locations to retain per session.
+// Bounded so a long-running session doesn't accumulate them without limit.
+const MAX_EXECUTION_CODE_LOCATIONS = 32;
+
 // Adapter class; presents an ILanguageRuntime interface that connects to the
 // extension host proxy to supply language features.
 class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILanguageRuntimeSession {
@@ -225,6 +229,13 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	private _clients: Map<string, ExtHostRuntimeClientInstance<any, any>> =
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		new Map<string, ExtHostRuntimeClientInstance<any, any>>();
+
+	/**
+	 * A bounded map of execution id to the source code location that was
+	 * attributed to that execution, so outputs (e.g. plots) can be linked back
+	 * to their source. Insertion order is used to evict the oldest entries.
+	 */
+	private readonly _executionCodeLocations = new Map<string, ICodeLocation>();
 
 	/** Lamport clock, used for event ordering */
 	private _eventClock = 0;
@@ -590,7 +601,23 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 			codeLocation = attribution.metadata?.codeLocation;
 		}
 
+		// Remember the code location for this execution so outputs (e.g. plots)
+		// can be linked back to their source (see getExecutionCodeLocation).
+		if (codeLocation) {
+			this._executionCodeLocations.set(id, codeLocation);
+			if (this._executionCodeLocations.size > MAX_EXECUTION_CODE_LOCATIONS) {
+				const oldest = this._executionCodeLocations.keys().next().value;
+				if (oldest !== undefined) {
+					this._executionCodeLocations.delete(oldest);
+				}
+			}
+		}
+
 		this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior, codeLocation, undefined, executionMetadata);
+	}
+
+	getExecutionCodeLocation(executionId: string): ICodeLocation | undefined {
+		return this._executionCodeLocations.get(executionId);
 	}
 
 	isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus> {
