@@ -204,6 +204,9 @@ jobs:
 
       - name: Teardown
         if: always()
+        env:
+          CONTAINER_ID: ${{ steps.connect.outputs.CONTAINER_ID }}
         run: |
-          # Stop the ephemeral Connect container started by with-connect.
-          docker stop "${{ steps.connect.outputs.CONTAINER_ID }}" || true
+          # Stop the ephemeral Connect container via with-connect's own helper
+          # (--stop reads the CONTAINER_ID env var).
+          with-connect --stop || true

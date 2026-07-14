@@ -6,10 +6,10 @@ required. This is the electron coverage for the connect tests; the web/chromium
 coverage still runs under the Workbench CI (`@:workbench`).
 
 Connect is stood up by [`with-connect`](https://github.com/posit-dev/with-connect),
-a first-party CLI that runs Connect in Docker and hands back a freshly
-bootstrapped API key. The [`with-connect.sh`](with-connect.sh) wrapper here
-adapts it to what the tests expect (Connect on `localhost:3939`, the key written
-to `./.tokens/connect_bootstrap_token`).
+a first-party CLI that runs Connect in Docker (on `localhost:3939` by default)
+and hands back a freshly bootstrapped API key. The [`with-connect.sh`](with-connect.sh)
+wrapper here runs it with our license and PAM settings and writes the resolved
+key to `./.tokens/connect_bootstrap_token`, where the test resolver reads it.
 
 The tests live in [`test/e2e/tests/connect/`](../../../test/e2e/tests/connect/)
 and run under the `e2e-connect` Playwright project.
