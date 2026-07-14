@@ -483,8 +483,14 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			return null;
 		}
 
+		// Suppress the origin-file button when it would duplicate the session
+		// name (e.g. a notebook session whose name is its document's file name).
+		// In that case the session-name button already links back to the same
+		// source, so a second identical button is redundant.
+		const showOriginFile = !!originFileName && originFileName !== sessionName;
+
 		// If no info to display, show a placeholder to maintain consistent height
-		if (!sessionName && !plotName && !originFileName) {
+		if (!sessionName && !plotName && !showOriginFile) {
 			return <div className='plot-info-header'>
 				<span className='plot-info-text'>&nbsp;</span>
 			</div>;
@@ -493,7 +499,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		return <div className='plot-info-header' style={{ height: PlotInfoHeaderPx }}>
 			<span className='plot-info-text'>
 				{sessionName && <button className='plot-session-name' onClick={navigateToCode}>{sessionName}</button>}
-				{originFileName && <button className='plot-origin-file' onClick={navigateToOrigin}>{originFileName}</button>}
+				{showOriginFile && <button className='plot-origin-file' onClick={navigateToOrigin}>{originFileName}</button>}
 				{plotName && <span className='plot-name'>{plotName}</span>}
 			</span>
 		</div>;
