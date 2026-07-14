@@ -112,7 +112,13 @@ down (and the report), leaving core services up.
 #### Run tests
 
 Click the run icon in the gutter on any spec (if it's missing, check the selected Playwright project), or
-from the terminal: `npx playwright test --project e2e-electron --grep @:search`.
+from the terminal: `npx playwright test --project e2e-electron --grep @:search`. Nothing extra to set up
+here -- the interpreter version vars and `DISPLAY` come from `devcontainer.json`'s `containerEnv`, so the
+gutter button and a plain `npx playwright test` just work.
+
+One gotcha: image-comparison tests (e.g. `plots.test.ts`) only compare when `GITHUB_ACTIONS=true` and
+silently skip the assertion otherwise. Most tests don't read it, so it's off by default; export it for
+those runs: `GITHUB_ACTIONS=true npx playwright test --project e2e-electron --grep @:plots`.
 
 Headed runs (`e2e-electron` and `e2e-chromium`) render on the headless display. Open the noVNC link in the **Doctor** to view it live. Use the **Report** task to serve the report at any time.
 
@@ -243,10 +249,11 @@ build itself can happen through this path too, no Dev Containers UI required.
    docker compose exec test bash -lc "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/post-start.sh"
    ```
 
-7. **Run an e2e spec.** Use the `run-e2e.sh` helper rather than calling `npx playwright test` by
-   hand -- it sets everything a headless run needs (the four interpreter version vars read from
-   `devcontainer.json`, `GITHUB_ACTIONS=true` so image-comparison tests actually compare, `DISPLAY`,
-   and a default `--project e2e-electron`) and passes the rest straight through to Playwright:
+7. **Run an e2e spec.** Unlike the UI, `docker compose exec` doesn't inject `containerEnv`, so the
+   helper re-supplies it: use `run-e2e.sh` rather than calling `npx playwright test` by hand -- it sets
+   the four interpreter version vars (read from `devcontainer.json`), `DISPLAY`, a default
+   `--project e2e-electron`, and `GITHUB_ACTIONS=true` (harmless for the tests that don't read it; it's
+   what makes image-comparison tests actually compare). Everything else passes straight through to Playwright:
 
    ```bash
    docker compose exec test bash -lc \
