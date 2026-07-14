@@ -465,38 +465,5 @@ import { test, expect, tags } from '../_test.setup';
 
 ## Best Practices
 
-### Use Appropriate Scope
-
-Worker-scoped fixtures (like `settings`) run once per file; test-scoped fixtures run fresh per test. See `references/common-mistakes.md` #5 for the settings-scope pitfall specifically.
-
-```typescript
-// Test-scoped for per-test setup
-test.beforeEach(async ({ app }) => {
-	await app.workbench.layouts.enterLayout('stacked');
-});
-```
-
-### Combine Related Fixtures
-
-```typescript
-test('complete workflow', async ({ app, python, hotKeys, executeCode }) => {
-	await executeCode('Python', 'df = pd.DataFrame(...)');
-	await app.workbench.variables.doubleClickVariableRow('df');
-	await hotKeys.closeSecondarySidebar();
-	await app.workbench.dataExplorer.grid.verifyTableData([...]);
-});
-```
-
-### Use Interpreter Fixtures for Interpreter-Dependent Tests
-
-```typescript
-// Prefer this - interpreter auto-started
-test('Python test', async ({ app, python }) => {
-	// Ready to execute code
-});
-
-// Over this - manual start
-test('Python test', async ({ app, sessions }) => {
-	await sessions.start('python');  // Extra step
-});
-```
+- **Match fixture scope to purpose.** Worker-scoped fixtures (like `settings`) run once per file; test-scoped fixtures run fresh per test. See `references/common-mistakes.md` #5 for the settings-scope pitfall.
+- **Prefer the `python`/`r` interpreter fixtures over a manual `sessions.start('python')`** when a test just needs a ready interpreter -- they auto-start it and wait for the console to be ready, saving a step and the ready-wait.

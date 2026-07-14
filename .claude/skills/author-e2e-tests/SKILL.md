@@ -118,7 +118,7 @@ await expect(async () => {
 }).toPass({ timeout: 15000 });
 ```
 
-See `references/assertions.md` for complete assertion patterns.
+See `references/assertions.md` for retry-mechanism choice (`toPass` vs `expect.poll` vs web-first), Positron timeout budgets, and selector priority.
 
 ## Quick Reference: Test Tags
 
@@ -190,8 +190,8 @@ For detailed information, read the bundled reference docs:
 - **`references/test-structure.md`** - Complete test file structure and organization
 - **`references/fixtures.md`** - All available fixtures and their usage
 - **`references/page-objects.md`** - Page object usage idioms (curated, not exhaustive)
-- **`references/assertions.md`** - Assertion patterns and waiting strategies
-- **`references/common-mistakes.md`** - Comprehensive list of gotchas to avoid
+- **`references/assertions.md`** - Retry-mechanism choice, timeout budgets, selector priority (Positron-specific; standard Playwright assertions assumed)
+- **`references/common-mistakes.md`** - Positron-specific gotchas to avoid
 
 ## Key Architecture Principles
 

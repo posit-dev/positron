@@ -126,87 +126,9 @@ This ensures:
 - Logs are organized by test file
 - beforeAll/afterAll hooks run correctly per file
 
-## Test Organization
-
-### Describe Blocks
-
-Use `test.describe` to group related tests:
-
-```typescript
-test.describe('Console Input', {
-	tag: [tags.WEB, tags.WIN, tags.CONSOLE]
-}, () => {
-	// Tests for console input functionality
-});
-
-// Nested describes for sub-features
-test.describe('Console History', () => {
-	test.describe('Navigation', () => {
-		// History navigation tests
-	});
-
-	test.describe('Search', () => {
-		// History search tests
-	});
-});
-```
-
-### Test Naming
-
-Use descriptive names that indicate:
-1. The interpreter/language (if applicable)
-2. What is being tested
-3. Expected outcome
-
-```typescript
-// Good names
-test('Python - Can execute multi-line code in console');
-test('R - Verify plot renders with correct dimensions');
-test('Verify data explorer filters work with numeric columns');
-
-// Bad names
-test('test1');
-test('console works');
-test('execute code');
-```
-
 ## Hook Scopes
 
-### Worker-Scoped (beforeAll/afterAll)
-
-Run once per test file. Use for:
-- Setting up user settings
-- Creating shared resources
-- Final cleanup
-
-```typescript
-test.beforeAll(async ({ settings }) => {
-	// Runs once before all tests in this file
-	await settings.set({ 'editor.fontSize': 14 });
-});
-
-test.afterAll(async ({ cleanup }) => {
-	// Runs once after all tests in this file
-	await cleanup.removeTestFiles(['output.txt']);
-});
-```
-
-### Test-Scoped (beforeEach/afterEach)
-
-Run before/after each test. Use for:
-- UI state reset
-- Closing editors
-- Clearing state
-
-```typescript
-test.beforeEach(async ({ app }) => {
-	await app.workbench.layouts.enterLayout('fullSizedPanel');
-});
-
-test.afterEach(async ({ hotKeys }) => {
-	await hotKeys.closeAllEditors();
-});
-```
+Because the `app` is worker-scoped, `beforeAll`/`afterAll` run **once per test file** (not once globally): use them for worker-scoped fixtures like `settings` and for `cleanup`. `beforeEach`/`afterEach` run per test: use them for UI-state reset (`hotKeys.closeAllEditors()`, `layouts.enterLayout(...)`). See the template above for both in context.
 
 ## Function Syntax for Tests and Hooks
 
@@ -270,16 +192,7 @@ test('Special test', {
 
 ## Test Annotations
 
-Add metadata to tests for tracking:
-
-```typescript
-test('Flaky test', {
-	annotation: [
-		{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1234' },
-		{ type: 'fixme', description: 'Flaky on CI - timing issue' }
-	]
-}, async ({ app }) => { ... });
-```
+Positron uses Playwright's standard `annotation` array to link tests to issues (`{ type: 'issue', description: '<url>' }`) and mark known-flaky ones (`{ type: 'fixme', description: '...' }`), passed as the second argument to `test(...)` alongside `tag`.
 
 ## Using test.step
 

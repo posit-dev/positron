@@ -1,179 +1,63 @@
 # Assertions and Waiting Patterns
 
-Complete guide to assertions, waits, and reliability patterns in Positron e2e tests.
+Standard Playwright applies: web-first assertions (`toBeVisible`, `toHaveText`,
+`toHaveCount`, `toHaveAttribute`, ...), wait primitives (`locator.waitFor`,
+`page.waitForURL`, ...), locator strategies, soft assertions, and `page.pause()`
+debugging all work as documented at
+[playwright.dev](https://playwright.dev/docs/best-practices). Prefer
+role/label/text selectors over CSS, same as Playwright's own guidance.
 
-## Basic Assertions
+This file covers only what's Positron-specific or a common judgment error:
+choosing a retry mechanism, Positron's timeout budgets, and where to find the
+POM assertion helpers.
 
-### Visibility Assertions
+## Choosing a retry mechanism
 
-```typescript
-// Element visible
-await expect(locator).toBeVisible();
-await expect(locator).toBeVisible({ timeout: 30000 });
+Three tools retry, and picking the wrong one is the most common mistake. Decide
+by **what** needs retrying: the checked value, or the action that produces it.
 
-// Element hidden/not visible
-await expect(locator).toBeHidden();
-await expect(locator).not.toBeVisible();
-await expect(locator).toBeHidden({ timeout: 15000 });
-```
+| Situation | Use |
+|-----------|-----|
+| Checking a Locator's state (visible, text, count, ...) | `expect(locator).toBe...({ timeout })` -- already retries internally |
+| The **action** might need reissuing (a click/keypress that occasionally doesn't register), not just the state re-checked | `toPass` |
+| A matcher a Locator assertion lacks (e.g. "count greater than N"), or a non-Locator value (API call, `page.evaluate`, computed state) | `expect.poll` |
 
-### Text Assertions
+Do **not** wrap a single web-first assertion (or a POM `expectTo...`/`verify...`/
+`waitFor...` method, which is built on one) in `toPass` or `expect.poll` -- it
+already retries via its own `timeout`. Raise that `timeout` instead.
 
-```typescript
-// Exact text match
-await expect(locator).toHaveText('exact text');
-await expect(locator).toHaveText('exact text', { timeout: 15000 });
-
-// Contains text
-await expect(locator).toContainText('partial');
-await expect(locator).toContainText(/regex pattern/);
-
-// Multiple elements text
-await expect(locator).toHaveText(['item1', 'item2', 'item3']);
-```
-
-### Count Assertions
+### toPass -- retry an action + its check
 
 ```typescript
-// Exact count
-await expect(locator).toHaveCount(3);
-await expect(locator).toHaveCount(3, { timeout: 15000 });
-
-// At least one
-await expect(locator).toHaveCount(1);
-
-// None (element doesn't exist)
-await expect(locator).toHaveCount(0);
-```
-
-### Attribute Assertions
-
-```typescript
-// Has attribute with value
-await expect(locator).toHaveAttribute('aria-label', 'Expected Label');
-await expect(locator).toHaveAttribute('data-state', 'active');
-
-// Attribute matches regex
-await expect(locator).toHaveAttribute('aria-label', /Python/);
-
-// Has class
-await expect(locator).toHaveClass(/selected/);
-await expect(locator).toHaveClass('my-class');
-```
-
-### Value Assertions
-
-```typescript
-// Input value
-await expect(input).toHaveValue('expected value');
-await expect(input).toHaveValue(/partial/);
-
-// Checkbox/Radio checked
-await expect(checkbox).toBeChecked();
-await expect(checkbox).not.toBeChecked();
-
-// Element enabled/disabled
-await expect(button).toBeEnabled();
-await expect(button).toBeDisabled();
-```
-
-## Waiting Patterns
-
-### Wait for Condition with toPass
-
-The most important pattern for handling timing issues:
-
-```typescript
-// Retry until assertion passes -- inner timeout must be short so each
-// attempt fails fast and toPass actually gets to retry within its own budget
+// Inner timeout must be SHORT so each attempt fails fast and toPass
+// actually gets to retry within its own budget.
 await expect(async () => {
-	await someAction();
-	await expect(result).toBeVisible({ timeout: 2000 });
-}).toPass({ timeout: 15000 });
-
-// With multiple assertions
-await expect(async () => {
-	const count = await locator.count();
-	expect(count).toBeGreaterThan(0);
-
-	const text = await locator.first().textContent();
-	expect(text).toContain('expected');
-}).toPass({ timeout: 30000 });
+	await button.click();
+	await expect(dialog).toBeVisible({ timeout: 2000 });
+}).toPass({ timeout: 10000 });
 ```
 
-**When to use `toPass`:** when the action itself -- not just the resulting state -- might need to be reissued (a click or keypress that occasionally doesn't register). Most POM `expectTo...`/`verify...`/`waitFor...` methods already retry internally via their own `timeout`; wrapping one of those alone in `toPass` is redundant (see "Retry Patterns for Flaky Operations" below).
+Use it when the action itself might not take -- a click, a keypress, a menu
+trigger. The whole callback (action + assertion) is retried together.
 
-### expect.poll
+### expect.poll -- retry a value against a matcher
 
-`expect.poll` retries a function call and checks its *return value* against a matcher -- it can't reissue a UI action the way `toPass` retries a whole callback (see above). Reach for it in the narrow case `toPass`/web-first assertions don't cover:
-
-- **A matcher a Locator assertion doesn't have.** `toHaveCount` only checks an exact number; there's no built-in "count greater than N". Polling `locator.all()` and asserting with `toBeGreaterThan` fills that gap.
-- **A non-Locator value.** Reading app state via a plain async function (an API call, a computed value, `page.evaluate`) rather than something backed by a DOM element.
-
-If your check *is* a Locator assertion (`toBeVisible`, `toHaveText`, etc.), use `expect(locator)...` directly -- it already retries internally, and `expect.poll` around it is redundant. If the thing that needs retrying is an action (click, keypress) rather than just the value being checked, use `toPass`.
+`expect.poll` retries a function and checks its *return value*. It can't reissue
+a UI action; it only re-reads. Reach for it in the narrow cases web-first
+assertions don't cover:
 
 ```typescript
-// Count comparison -- no toHaveCount equivalent for "greater than"
-await expect.poll(async () => {
-	return (await locator.all()).length;
-}).toBeGreaterThan(2);
+// A matcher Locator assertions lack -- toHaveCount has no "greater than"
+await expect.poll(async () => (await locator.all()).length).toBeGreaterThan(2);
 
-// Non-Locator value (e.g. an API call or computed state)
-await expect.poll(async () => {
-	return await getValue();
-}, { timeout: 30000 }).toBe('expected');
-
-// Poll with intervals
-await expect.poll(async () => {
-	return await checkStatus();
-}, {
-	timeout: 60000,
-	intervals: [1000, 2000, 5000]  // Check at 1s, 2s, 5s intervals
-}).toBe('ready');
+// A non-Locator value (API call, computed state, page.evaluate)
+await expect.poll(async () => await getValue(), { timeout: 30000 }).toBe('expected');
 ```
 
-### Wait for Network/State
+## Positron timeout budgets
 
-```typescript
-// Wait for navigation
-await page.waitForURL('**/expected-path');
-
-// Wait for load state
-await page.waitForLoadState('domcontentloaded');
-await page.waitForLoadState('networkidle');
-
-// Wait for response
-await page.waitForResponse(response =>
-	response.url().includes('/api/data') && response.status() === 200
-);
-```
-
-### Wait for Element State
-
-```typescript
-// Wait for element to exist
-await locator.waitFor();
-await locator.waitFor({ state: 'attached' });
-
-// Wait for element to be visible
-await locator.waitFor({ state: 'visible', timeout: 30000 });
-
-// Wait for element to be hidden
-await locator.waitFor({ state: 'hidden' });
-
-// Wait for element to be detached from DOM
-await locator.waitFor({ state: 'detached' });
-```
-
-## Timeout Guidelines
-
-### Default Timeouts
-
-- **Assertion timeout**: 15 seconds (`expect.timeout` in `playwright.config.ts` -- not Playwright's own built-in default of 5s)
-- **Action timeout**: 30 seconds (in page objects)
-- **Test timeout**: 2 minutes (configured in playwright.config.ts)
-
-### Recommended Timeout Values
+Domain-specific values that Playwright's defaults don't anticipate. Defaults live
+in `playwright.config.ts` (assertion + action timeout 15s, test timeout 2min).
 
 | Operation | Timeout | Reason |
 |-----------|---------|--------|
@@ -184,243 +68,21 @@ await locator.waitFor({ state: 'detached' });
 | Network operations | 30000ms | API calls, downloads |
 | Session startup | 45000ms | Kernel initialization |
 
-### Setting Timeouts
+## Preferred Selectors
 
-```typescript
-// Per-assertion timeout
-await expect(locator).toBeVisible({ timeout: 30000 });
+Same priority as [Playwright's guidance](https://playwright.dev/docs/best-practices#use-locators)
+-- prefer selectors that verify real user-facing/accessible behavior. Listed here
+because other skill files point at this as the canonical order.
 
-// Per-action timeout
-await locator.click({ timeout: 10000 });
+1. **Accessible labels and roles** -- `getByRole('button', { name: 'Execute' })`, `getByLabel('Clear console')`
+2. **Test IDs** -- `getByTestId('data-grid-cell-0-0')`. Reliable, but doesn't verify accessibility and needs manual upkeep.
+3. **Text content** -- `getByText('Python')`, `filter({ hasText: 'expected' })`
+4. **CSS selectors** -- `page.locator('.monaco-workbench')`. Least stable; use only when nothing above fits.
 
-// toPass timeout
-await expect(async () => {
-	// ...
-}).toPass({ timeout: 15000 });
-```
+## Positron assertion helpers
 
-## Locator Strategies
-
-### Preferred Selectors (Most to Least Preferred)
-
-Matches [Playwright's own guidance](https://playwright.dev/docs/best-practices#use-locators): prefer selectors that verify real user-facing/accessible behavior over ones that don't.
-
-1. **Accessible Labels and Roles**
-```typescript
-page.getByLabel('Clear console')
-page.getByRole('button', { name: 'Execute' })
-page.getByRole('tab', { name: 'Console', exact: true })
-```
-
-2. **Test IDs** (reliable, but doesn't verify accessibility and needs manual upkeep)
-```typescript
-page.getByTestId('restart-session')
-page.getByTestId('data-grid-cell-0-0')
-```
-
-3. **Text Content**
-```typescript
-page.getByText('Python')
-page.getByText(/started/)
-locator.filter({ hasText: 'expected' })
-```
-
-4. **CSS Selectors** (less stable, but sometimes necessary)
-```typescript
-page.locator('.monaco-workbench')
-page.locator('[id="workbench.panel.positronSession"]')
-```
-
-### Combining Locators
-
-```typescript
-// Filter by text
-page.locator('.console-instance').filter({ hasText: 'Python' })
-
-// Chain locators
-page.locator('.variable-item').locator('.name-column')
-
-// Has descendant
-page.locator('.cell').filter({ has: page.getByText('output') })
-
-// Nth element
-page.locator('.item').nth(0)
-page.locator('.item').first()
-page.locator('.item').last()
-```
-
-### Frame Locators (Webviews)
-
-```typescript
-// Single frame
-page.frameLocator('.webview').locator('.content')
-
-// Nested frames
-page.frameLocator('.webview').frameLocator('#active-frame').locator('.output')
-```
-
-## Common Assertion Patterns
-
-### Verify Console Output
-
-```typescript
-// Wait for specific text
-await app.workbench.console.waitForConsoleContents('expected output');
-
-// Wait for regex match
-await app.workbench.console.waitForConsoleContents(/Python.*started/);
-
-// Wait for exact count of matches
-await app.workbench.console.waitForConsoleContents('success', {
-	expectedCount: 2,
-	timeout: 30000
-});
-
-// Verify text does NOT appear
-await app.workbench.console.waitForConsoleContents('error', {
-	expectedCount: 0,
-	timeout: 5000
-});
-```
-
-### Verify Data Explorer Contents
-
-```typescript
-await app.workbench.dataExplorer.grid.verifyTableData([
-	{ 'Name': 'Alice', 'Age': '30', 'City': 'NYC' },
-	{ 'Name': 'Bob', 'Age': '25', 'City': 'LA' }
-], 60000);
-```
-
-### Verify Variable Exists
-
-```typescript
-await app.workbench.variables.expectVariableToBe('x', '42');
-await app.workbench.variables.expectVariableToNotExist('df');
-```
-
-### Verify Editor Tab
-
-```typescript
-await app.workbench.editors.verifyTab('Data: df', { isVisible: true });
-await app.workbench.editors.verifyTab('script.py', { isSelected: true });
-```
-
-### Verify Files Created
-
-```typescript
-await app.workbench.explorer.verifyExplorerFilesExist([
-	'output.csv',
-	'plot.png'
-]);
-```
-
-## Retry Patterns for Flaky Operations
-
-`toPass` retries its whole callback, so it's for cases where the **action** might need to be reissued, not just the resulting state re-checked. Most POM `expectTo...`/`verify...`/`waitFor...` methods already retry internally via their own `timeout` option (they're built on `expect(...).toBeVisible({ timeout })` and similar) -- wrapping one of those alone in `toPass` is redundant; raise its `timeout` instead. Reach for `toPass` when a raw action (a click, a keypress) occasionally doesn't register and needs to be retried along with the check.
-
-### Click with Retry
-
-```typescript
-await expect(async () => {
-	await button.click();
-	await expect(dialog).toBeVisible({ timeout: 2000 });
-}).toPass({ timeout: 10000 });
-```
-
-### Menu Interaction with Retry
-
-```typescript
-await expect(async () => {
-	await menuTrigger.click();
-	await expect(menuItem).toBeVisible({ timeout: 1000 });
-}).toPass({ timeout: 5000 });
-
-await menuItem.click();
-```
-
-### Dialog with Retry
-
-```typescript
-await expect(async () => {
-	if (!await dialog.isVisible()) {
-		await triggerButton.click();
-	}
-	await expect(dialog).toBeVisible({ timeout: 1000 });
-}).toPass({ timeout: 5000 });
-```
-
-## Negative Assertions
-
-### Element Should NOT Appear
-
-```typescript
-// Check element doesn't exist
-await expect(locator).toHaveCount(0);
-
-// Check element hidden
-await expect(locator).toBeHidden({ timeout: 5000 });
-
-// Wait for disappearance
-await locator.waitFor({ state: 'hidden', timeout: 10000 });
-```
-
-### Error Should NOT Occur
-
-```typescript
-// Verify no error toast
-await app.workbench.toasts.expectNotToBeVisible();
-
-// Verify no console error
-await app.workbench.console.waitForConsoleContents('Error', {
-	expectedCount: 0,
-	timeout: 5000
-});
-```
-
-## Soft Assertions
-
-For non-critical checks that shouldn't fail the test:
-
-```typescript
-// Soft assertion (continues even if fails)
-await expect.soft(locator).toBeVisible();
-await expect.soft(locator).toHaveText('expected');
-
-// Check if any soft assertions failed
-expect(test.info().errors).toHaveLength(0);
-```
-
-## Debugging Failed Assertions
-
-### Add Context to Assertions
-
-```typescript
-// Custom error message
-await expect(locator, 'Dialog should be visible after clicking button').toBeVisible();
-
-// Using test.step for context
-await test.step('Open settings dialog', async () => {
-	await settingsButton.click();
-	await expect(settingsDialog).toBeVisible();
-});
-```
-
-### Screenshots on Failure
-
-Automatic - Playwright captures screenshots on assertion failure.
-
-### Manual Debugging
-
-```typescript
-// Pause execution
-await page.pause();
-
-// Log locator info
-console.log(await locator.count());
-console.log(await locator.textContent());
-console.log(await locator.isVisible());
-
-// Take manual screenshot
-await page.screenshot({ path: 'debug.png' });
-```
+Most Positron assertions go through POM methods (`waitForConsoleContents`,
+`verifyTableData`, `expectVariableToBe`, `verifyTab`,
+`verifyExplorerFilesExist`, ...) rather than raw locators. See
+[page-objects.md](page-objects.md) for usage idioms, and read the POM source for
+the authoritative method list -- don't guess a method name.

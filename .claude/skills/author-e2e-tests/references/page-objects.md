@@ -111,7 +111,7 @@ Source: `test/e2e/pages/dialog-contextMenu.ts`.
 
 ## Page Object Pattern
 
-Most action/verification methods wrap their body in `test.step(...)`, but not all of them (e.g. `console.waitForReady`, `plots.waitForNoPlots` don't). Before adding an outer `test.step` around a POM call, check whether it already wraps itself -- see `references/common-mistakes.md` #14 for how, and why double-wrapping is a problem.
+Most action/verification methods wrap their body in `test.step(...)`, but not all of them (e.g. `console.waitForReady`, `plots.waitForNoPlots` don't). Before adding an outer `test.step` around a POM call, check whether it already wraps itself -- see `references/common-mistakes.md` #9 for how, and why double-wrapping is a problem.
 
 ```typescript
 export class MyPageObject {
