@@ -396,6 +396,7 @@
 					"order": 9
 				},
 				"positron.assistant.models.overrides.anthropic": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.anthropic.description%",
@@ -438,6 +439,7 @@
 					]
 				},
 				"positron.assistant.models.overrides.amazonBedrock": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.amazonBedrock.description%",
@@ -474,6 +476,7 @@
 					}
 				},
 				"positron.assistant.models.overrides.snowflakeCortex": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.snowflakeCortex.description%",
@@ -516,6 +519,7 @@
 					]
 				},
 				"positron.assistant.models.overrides.msFoundry": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.msFoundry.description%",
@@ -548,6 +552,7 @@
 					}
 				},
 				"positron.assistant.models.overrides.openAI": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.openAI.description%",
@@ -588,6 +593,7 @@
 					]
 				},
 				"positron.assistant.models.overrides.customProvider": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.customProvider.description%",
@@ -633,6 +639,7 @@
 					]
 				},
 				"positron.assistant.models.overrides.positAI": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.positAI.description%",
@@ -665,6 +672,7 @@
 					}
 				},
 				"positron.assistant.models.overrides.google": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.google.description%",

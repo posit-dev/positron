@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { log } from '../log';
 import {
 	buildProvidersConfigFromSettings,
+	InferCapabilitiesFn,
 	MigrationSettingsReader,
 } from './providersJson';
 
@@ -23,6 +24,8 @@ export interface RunMigrationOptions {
 	configPath?: string;
 	/** Override the settings source (tests). */
 	reader?: MigrationSettingsReader;
+	/** Override capability inference (tests). */
+	inferCapabilities?: InferCapabilitiesFn;
 }
 
 /** Reads explicitly-set GLOBAL values only; defaults and workspace scopes are ignored. */
@@ -33,11 +36,25 @@ export function createGlobalSettingsReader(): MigrationSettingsReader {
 	};
 }
 
+/**
+ * Zero-value capability synthesizer for presence checks. Capabilities only
+ * shape the values written into custom models, never whether a setting
+ * migrates, so hasMigratableSettings can stay synchronous instead of
+ * dynamically importing ai-config's real inferModelCapabilities.
+ */
+const PRESENCE_CHECK_CAPABILITIES: InferCapabilitiesFn = () => ({
+	maxContextLength: 0,
+	supportsTools: false,
+	supportsImages: false,
+	supportsToolResultImages: false,
+	supportsWebSearch: false,
+});
+
 /** True when the settings hold values the migration would actually write (empty values are filtered). */
 export function hasMigratableSettings(
 	reader: MigrationSettingsReader = createGlobalSettingsReader()
 ): boolean {
-	return buildProvidersConfigFromSettings(reader) !== undefined;
+	return buildProvidersConfigFromSettings(reader, PRESENCE_CHECK_CAPABILITIES) !== undefined;
 }
 
 /**
@@ -85,7 +102,8 @@ export async function userProvidersFileIsPopulated(configPath?: string): Promise
  */
 export async function runMigration(opts: RunMigrationOptions): Promise<MigrationResult> {
 	const reader = opts.reader ?? createGlobalSettingsReader();
-	const mapped = buildProvidersConfigFromSettings(reader);
+	const { mutateProvidersConfig, inferModelCapabilities } = await import('ai-config/node');
+	const mapped = buildProvidersConfigFromSettings(reader, opts.inferCapabilities ?? inferModelCapabilities);
 	if (!mapped) {
 		log.info('[migration] No provider settings to migrate');
 		return { outcome: 'nothing-to-migrate' };
@@ -96,7 +114,6 @@ export async function runMigration(opts: RunMigrationOptions): Promise<Migration
 		return { outcome: 'skipped-populated' };
 	}
 
-	const { mutateProvidersConfig } = await import('ai-config/node');
 	let skippedPopulated = false;
 	await mutateProvidersConfig(
 		current => {
