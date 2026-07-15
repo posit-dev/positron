@@ -63,13 +63,27 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 			.map(owner => createOwnerNode(this, owner, pinsByOwner.get(owner)!));
 	}
 
-	/** Lists the visible pins, fetching once and caching for the life of the connection. */
+	/**
+	 * Lists the visible pins, fetching once and caching for the life of the connection. A failed
+	 * enumeration (timeout, network blip) is not cached: the rejected promise is dropped so a later
+	 * expand retries, rather than replaying the same failure until the connection is recreated.
+	 */
 	async listPins(): Promise<PinInfo[]> {
 		this._ensureConnected();
-		if (!this._pinsPromise) {
-			this._pinsPromise = this._client.listPins();
+		let pinsPromise = this._pinsPromise;
+		if (!pinsPromise) {
+			pinsPromise = this._client.listPins();
+			this._pinsPromise = pinsPromise;
+			try {
+				await pinsPromise;
+			} catch (err) {
+				// Only the creator clears the cache; concurrent callers that awaited the same promise
+				// just see the rejection. A subsequent expand starts a fresh fetch.
+				this._pinsPromise = undefined;
+				throw err;
+			}
 		}
-		return this._pinsPromise;
+		return pinsPromise;
 	}
 
 	/** Resolves a pin's storage type for the badge, memoized and resilient to metadata failures. */

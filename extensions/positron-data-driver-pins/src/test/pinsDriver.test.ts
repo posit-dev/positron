@@ -127,6 +127,30 @@ suite('Pins Connection tree', () => {
 		});
 	});
 
+	test('retries pin enumeration after a failed fetch instead of caching the rejection', async () => {
+		let applicationsAttempts = 0;
+		const failFirstFetch = (async (input: string | URL): Promise<Response> => {
+			const url = typeof input === 'string' ? input : input.toString();
+			if (url.includes('/__api__/applications')) {
+				applicationsAttempts++;
+				// Fail the first enumeration (as a timeout/network blip would), then succeed.
+				if (applicationsAttempts === 1) {
+					throw new Error('network blip');
+				}
+				return new Response(applications, { status: 200 });
+			}
+			return new Response('', { status: 404 });
+		}) as typeof fetch;
+
+		const conn = new PinsConnection(new ConnectClient('https://c.example.com', 'key', failFirstFetch));
+
+		// First expand fails...
+		await assert.rejects(() => conn.getChildren(), /network blip/);
+		// ...but the failure isn't cached, so a second expand retries and succeeds.
+		const owners = await conn.getChildren();
+		assert.deepStrictEqual(owners.map(o => o.name), ['julia', 'tim']);
+	});
+
 	test('browsing after disconnect throws', async () => {
 		const conn = connection();
 		await conn.disconnect();
