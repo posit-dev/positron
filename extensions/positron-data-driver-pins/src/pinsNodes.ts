@@ -14,12 +14,10 @@ import { PinInfo } from './connectClient.js';
 const MAX_METADATA_CONCURRENCY = 8;
 
 /**
- * The capabilities the node factories need from the connection: enumerating pins and resolving a
- * pin's storage type (for the type badge). Implemented by PinsConnection.
+ * The capability the node factories need from the connection: resolving a pin's storage type (for
+ * the type badge). Implemented by PinsConnection.
  */
 export interface IPinsBrowseHost {
-	/** Lists all pins visible to the connection, grouped later by owner. */
-	listPins(): Promise<PinInfo[]>;
 	/**
 	 * Resolves a pin's storage type (e.g. 'parquet', 'csv') for the type badge, or undefined when it
 	 * cannot be determined. Resilient: a failure to read a pin's metadata yields undefined rather

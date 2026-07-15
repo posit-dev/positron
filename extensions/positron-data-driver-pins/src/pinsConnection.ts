@@ -12,15 +12,13 @@ import { createOwnerNode, IPinsBrowseHost } from './pinsNodes.js';
  * A live connection to a Posit Connect server's pins, implementing the DataConnection interface.
  *
  * There is no persistent socket: each browse action is a stateless HTTPS request carrying the API
- * key. The connection caches the single pin enumeration (so grouping and re-expansion don't refetch
- * it) and memoizes per-pin type lookups.
+ * key. Each top-level browse re-enumerates the pins (the connection is torn down and rebuilt when
+ * its tree entry is collapsed and re-expanded, so there is nothing to cache across); per-pin type
+ * lookups are memoized because an owner node can be collapsed and re-expanded without disconnecting.
  */
 export class PinsConnection implements positron.DataConnection, IPinsBrowseHost {
 	/** Set once disconnected, so browsing after disconnect fails cleanly. */
 	private _disconnected = false;
-
-	/** The cached pin enumeration, shared across owner grouping and re-expansion. */
-	private _pinsPromise?: Promise<PinInfo[]>;
 
 	/** Per-pin type lookups, keyed by GUID, so a pin's `data.txt` is fetched at most once. */
 	private readonly _typeCache = new Map<string, Promise<string | undefined>>();
@@ -45,7 +43,7 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 	 */
 	async getChildren(): Promise<positron.DataConnectionNode[]> {
 		this._ensureConnected();
-		const pins = await this.listPins();
+		const pins = await this._client.listPins();
 
 		const pinsByOwner = new Map<string, PinInfo[]>();
 		for (const pin of pins) {
@@ -61,29 +59,6 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 		return [...pinsByOwner.keys()]
 			.sort((a, b) => a.localeCompare(b))
 			.map(owner => createOwnerNode(this, owner, pinsByOwner.get(owner)!));
-	}
-
-	/**
-	 * Lists the visible pins, fetching once and caching for the life of the connection. A failed
-	 * enumeration (timeout, network blip) is not cached: the rejected promise is dropped so a later
-	 * expand retries, rather than replaying the same failure until the connection is recreated.
-	 */
-	async listPins(): Promise<PinInfo[]> {
-		this._ensureConnected();
-		let pinsPromise = this._pinsPromise;
-		if (!pinsPromise) {
-			pinsPromise = this._client.listPins();
-			this._pinsPromise = pinsPromise;
-			try {
-				await pinsPromise;
-			} catch (err) {
-				// Only the creator clears the cache; concurrent callers that awaited the same promise
-				// just see the rejection. A subsequent expand starts a fresh fetch.
-				this._pinsPromise = undefined;
-				throw err;
-			}
-		}
-		return pinsPromise;
 	}
 
 	/** Resolves a pin's storage type for the badge, memoized and resilient to metadata failures. */
@@ -107,7 +82,6 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 	/** Marks the connection disconnected and drops cached state. No socket to close. */
 	async disconnect(): Promise<void> {
 		this._disconnected = true;
-		this._pinsPromise = undefined;
 		this._typeCache.clear();
 	}
 
