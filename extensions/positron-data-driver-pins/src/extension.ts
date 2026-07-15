@@ -5,17 +5,46 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { Logger } from './logging.js';
 import { createPinsDriver } from './pinsDriver.js';
+
+/**
+ * Builds a {@link Logger} backed by an output channel that is created on first use. Deferring
+ * creation keeps the "Posit Connect Pins" channel out of the Output panel until the driver
+ * actually logs something (i.e. the first connection attempt), so activating the extension by
+ * opening the Data Connections pane doesn't add an empty channel.
+ *
+ * @param name The output channel name.
+ * @param context The extension context; the channel is registered for disposal once created.
+ */
+function createLazyChannelLogger(name: string, context: vscode.ExtensionContext): Logger {
+	let channel: vscode.LogOutputChannel | undefined;
+	const channelFor = () => {
+		if (!channel) {
+			channel = vscode.window.createOutputChannel(name, { log: true });
+			context.subscriptions.push(channel);
+		}
+		return channel;
+	};
+	return {
+		trace: message => channelFor().trace(message),
+		debug: message => channelFor().debug(message),
+		info: message => channelFor().info(message),
+		warn: message => channelFor().warn(message),
+		error: message => channelFor().error(message),
+	};
+}
 
 /**
  * Activates the extension by registering the Posit Connect pins data connection driver.
  * @param context The extension context.
  */
 export function activate(context: vscode.ExtensionContext) {
-	// A dedicated log channel so connect/browse activity and errors are discoverable in the Output
-	// panel (Output -> "Posit Connect Pins"). Set its level to Trace to see individual requests.
-	const logger = vscode.window.createOutputChannel('Posit Connect Pins', { log: true });
-	context.subscriptions.push(logger);
+	// Log to a per-driver output channel, created on first use. The "Data Connections: " prefix is a
+	// shared convention across the data connection drivers so their channels cluster together in the
+	// Output dropdown (e.g. "Data Connections: PostgreSQL"). Set the channel's level to Trace (via
+	// its gear menu) to see individual requests.
+	const logger = createLazyChannelLogger('Data Connections: Posit Connect Pins', context);
 
 	const driver = createPinsDriver(context, logger);
 	context.subscriptions.push(positron.dataConnections.registerDriver(driver));
