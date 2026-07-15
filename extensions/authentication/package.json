@@ -741,24 +741,6 @@
 					"items": {
 						"type": "string"
 					}
-				},
-				"positron.assistant.models.include": {
-					"type": "array",
-					"default": [],
-					"markdownDescription": "%configuration.models.include.description%",
-					"items": {
-						"type": "string"
-					},
-					"examples": [
-						[
-							"claude",
-							"gpt"
-						],
-						[
-							"Claude Sonnet 4.5",
-							"GPT-4o"
-						]
-					]
 				}
 			}
 		}
