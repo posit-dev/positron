@@ -15,15 +15,18 @@ pick, in one command.
 
 ## Quick start
 
-1. `gh auth login` once (or export a `GITHUB_TOKEN` PAT, which takes
-   precedence). Pulling the container images needs the `read:packages` scope,
-   but you don't have to figure that out up front: if the token you're using is
-   missing it, `npm run pwb` tells you exactly how to add it.
+1. Login once, when prompted for a password, enter your **GitHub Personal Access Token**, not your GitHub password. The token needs `read:packages` scope.
+
+   ```bash
+   docker login ghcr.io -u <your_github_username>
+   ```
+
 2. Drop `workbench.lic` and `connect.lic` into `docker/environments/pwb-local/`.
-3. `npm run pwb`.
+3. Create `.env` from `.env.example`. Secrets are in 1Password.
+4. `npm run pwb`.
 
 First run asks which Positron and Workbench you want, installs them, and brings
-the stack up. Open http://localhost:8787 and log in as `user1`.
+the stack up. Open http://localhost:8787 and log in as `user1` and password as set in `WB_PASSWORD`.
 
 ## Commands
 
