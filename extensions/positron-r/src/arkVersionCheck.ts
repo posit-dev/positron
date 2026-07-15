@@ -7,9 +7,12 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as fs from 'fs';
 import * as path from 'path';
-import { execFileSync } from 'child_process';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR } from './constants';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Whether the Ark version-mismatch warning has been shown this session. The
@@ -31,9 +34,9 @@ const arkSubmoduleDir = path.join(EXTENSION_ROOT_DIR, 'ark');
 const submoduleCommitFile = path.join(EXTENSION_ROOT_DIR, 'resources', 'ark', 'SUBMODULE_COMMIT');
 
 /**
- * Timeout for the git calls. These are local, fast operations, but the check
- * runs synchronously on the session-start path, so we cap it defensively rather
- * than risk blocking startup if git hangs.
+ * Timeout for the git calls. These are local, fast operations, and the check
+ * runs asynchronously off the session-start path, but we cap them defensively
+ * rather than risk leaving a git process hanging around.
  */
 const GIT_TIMEOUT_MS = 5_000;
 
@@ -84,9 +87,12 @@ interface ExpectedCommit {
  * names that path and points at the kernel path setting instead (and skips the
  * local-development suppression, since the binary was chosen explicitly).
  *
+ * Runs asynchronously and is invoked fire-and-forget from the session-start
+ * path, so the git subprocesses it may spawn never slow down boot.
+ *
  * @param runtimeInfo The runtime info returned by the Ark kernel on start.
  */
-export function warnOnArkVersionMismatch(runtimeInfo: positron.LanguageRuntimeInfo): void {
+export async function warnOnArkVersionMismatch(runtimeInfo: positron.LanguageRuntimeInfo): Promise<void> {
 	if (hasWarnedArkVersionMismatch) {
 		return;
 	}
@@ -105,7 +111,7 @@ export function warnOnArkVersionMismatch(runtimeInfo: positron.LanguageRuntimeIn
 		return;
 	}
 
-	const expected = readExpectedCommit();
+	const expected = await readExpectedCommit();
 	if (!expected) {
 		return;
 	}
@@ -128,7 +134,7 @@ export function warnOnArkVersionMismatch(runtimeInfo: positron.LanguageRuntimeIn
 	// on Ark and expects a mismatch. This suppression needs git, so it only
 	// applies when the expected commit came from the submodule; a release bundle
 	// has no local Ark development to guard.
-	if (!customKernelPath && expected.source === 'git' && !isSubmoduleAncestorOfMain()) {
+	if (!customKernelPath && expected.source === 'git' && !(await isSubmoduleAncestorOfMain())) {
 		LOGGER.debug(
 			`Ark version check: running commit ${runningCommit} differs from submodule ` +
 			`HEAD ${expected.commit.slice(0, 7)}, but HEAD looks like local Ark development; ` +
@@ -181,7 +187,7 @@ async function showMismatchWarning(
 		message = vscode.l10n.t(
 			'The running Ark R kernel ({0}) was built from a different commit ({1}) than the one ' +
 			'Positron expects ({2}). This version of Ark may not be compatible with your version ' +
-			'of Positron.'
+			'of Positron.',
 			running,
 			runningCommit,
 			expectedCommit);
@@ -202,11 +208,11 @@ async function showMismatchWarning(
  * `SUBMODULE_COMMIT` sidecar (release builds). Returns undefined when neither is
  * available.
  */
-function readExpectedCommit(): ExpectedCommit | undefined {
+async function readExpectedCommit(): Promise<ExpectedCommit | undefined> {
 	// Dev build: the live submodule HEAD is authoritative.
-	if (fs.existsSync(path.join(arkSubmoduleDir, '.git'))) {
+	if (await fileExists(path.join(arkSubmoduleDir, '.git'))) {
 		try {
-			return { commit: git(['rev-parse', 'HEAD']), source: 'git' };
+			return { commit: await git(['rev-parse', 'HEAD']), source: 'git' };
 		} catch (err) {
 			LOGGER.debug(`Ark version check: could not read submodule HEAD: ${err}`);
 			// Fall through to the sidecar.
@@ -215,7 +221,7 @@ function readExpectedCommit(): ExpectedCommit | undefined {
 
 	// Release build (or git unavailable): the sidecar written at install time.
 	try {
-		const sidecar = fs.readFileSync(submoduleCommitFile, 'utf8').trim();
+		const sidecar = (await fs.promises.readFile(submoduleCommitFile, 'utf8')).trim();
 		if (sidecar) {
 			return { commit: sidecar, source: 'sidecar' };
 		}
@@ -226,17 +232,26 @@ function readExpectedCommit(): ExpectedCommit | undefined {
 	return undefined;
 }
 
+/** Whether a path exists, without throwing. */
+async function fileExists(filePath: string): Promise<boolean> {
+	try {
+		await fs.promises.access(filePath);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 /**
  * Whether the submodule HEAD is an ancestor of Ark's `origin/main` (i.e. it has
  * no local commits on top). Returns false on any git error so an unknowable
  * state stays silent.
  */
-function isSubmoduleAncestorOfMain(): boolean {
+async function isSubmoduleAncestorOfMain(): Promise<boolean> {
 	try {
 		// Exits 0 when HEAD is an ancestor of origin/main, 1 otherwise.
-		execFileSync('git', ['merge-base', '--is-ancestor', 'HEAD', 'origin/main'], {
+		await execFileAsync('git', ['merge-base', '--is-ancestor', 'HEAD', 'origin/main'], {
 			cwd: arkSubmoduleDir,
-			stdio: 'ignore',
 			timeout: GIT_TIMEOUT_MS,
 		});
 		return true;
@@ -246,10 +261,11 @@ function isSubmoduleAncestorOfMain(): boolean {
 }
 
 /** Run a git command in the submodule and return its trimmed stdout. */
-function git(args: string[]): string {
-	return execFileSync('git', args, {
+async function git(args: string[]): Promise<string> {
+	const { stdout } = await execFileAsync('git', args, {
 		cwd: arkSubmoduleDir,
 		encoding: 'utf8',
 		timeout: GIT_TIMEOUT_MS,
-	}).trim();
+	});
+	return stdout.trim();
 }

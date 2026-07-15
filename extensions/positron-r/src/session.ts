@@ -383,8 +383,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 		// Warn (once per session) if the running Ark doesn't match the commit
 		// pinned by the submodule. No-op in packaged builds and during local
-		// Ark development.
-		warnOnArkVersionMismatch(runtimeInfo);
+		// Ark development. Fire-and-forget so the git calls it may make never
+		// slow down session start.
+		void warnOnArkVersionMismatch(runtimeInfo);
 
 		return runtimeInfo;
 	}
