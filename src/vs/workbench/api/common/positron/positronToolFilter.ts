@@ -85,11 +85,6 @@ export function getEnabledTools(
 			continue;
 		}
 
-		// Skip Positron-only tools when there is no Positron participant.
-		if (tool.name.startsWith('positron') && positronParticipantId === undefined) {
-			continue;
-		}
-
 		switch (tool.name) {
 			// The execute code tool is only available in the Chat pane in agent
 			// mode; the other panes have no affordance for confirming executions
