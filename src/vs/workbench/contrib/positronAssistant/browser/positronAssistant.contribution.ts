@@ -24,6 +24,7 @@ import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../service
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { NextEditSuggestionsStatusBarEntry } from './nextEditSuggestionsStatusBar.js';
 import { CommitMessageMenuContribution, registerCommitMessageGeneration } from './commitMessageAction.js';
+import { CopilotActivationContribution } from './copilotActivation.js';
 
 // Register the `ai.enabled` main switch for Positron's AI features.
 import '../common/positronAIConfiguration.js';
@@ -121,3 +122,8 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronAssistantContribution, LifecyclePhase.Restored);
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(NextEditSuggestionsStatusBarEntry, LifecyclePhase.Restored);
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(CommitMessageMenuContribution, LifecyclePhase.Restored);
+
+// Activate the bundled Copilot extension via `onCopilotEnabled` while AI
+// features are enabled. Registered at `Eventually` to preserve the deferred
+// timing the extension had under `onStartupFinished`.
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(CopilotActivationContribution, LifecyclePhase.Eventually);
