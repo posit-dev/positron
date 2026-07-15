@@ -68,6 +68,32 @@ suite('buildProvidersConfigFromSettings', () => {
 		assert.strictEqual(result?.config.providers?.deepseek?.enabled, false);
 	});
 
+	test('every migratable setting maps to config the real ai-config schema accepts', async () => {
+		const values: Record<string, unknown> = {};
+		for (const key of MIGRATABLE_SETTING_KEYS) {
+			if (key === 'authentication.aws.credentials') {
+				values[key] = { AWS_PROFILE: 'default', AWS_REGION: 'us-east-1' };
+			} else if (key === 'authentication.googleVertex.credentials') {
+				values[key] = { GOOGLE_VERTEX_PROJECT: 'proj', GOOGLE_VERTEX_LOCATION: 'us-central1' };
+			} else if (key === 'authentication.snowflake.credentials') {
+				values[key] = { SNOWFLAKE_ACCOUNT: 'MYORG-MYACCT' };
+			} else if (key.endsWith('.baseUrl')) {
+				values[key] = 'https://gateway.example.com';
+			} else if (key.endsWith('.customHeaders')) {
+				values[key] = { 'x-team': 'data-science' };
+			} else if (key.endsWith('.enable') || key.endsWith('.enabled')) {
+				values[key] = true;
+			} else {
+				assert.fail(`unhandled migratable key ${key}; add a branch with a realistic value`);
+			}
+		}
+		const result = buildProvidersConfigFromSettings(readerOf(values));
+		assert.ok(result, 'buildProvidersConfigFromSettings returned undefined');
+		assert.strictEqual(result.settingCount, MIGRATABLE_SETTING_KEYS.length);
+		const { providersConfigSchema } = await import('ai-config/node');
+		providersConfigSchema.parse(result.config);
+	});
+
 	test('MIGRATABLE_SETTING_KEYS covers a spot-check of each family', () => {
 		for (const key of [
 			'authentication.anthropic.baseUrl',
