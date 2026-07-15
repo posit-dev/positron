@@ -1,22 +1,25 @@
 ---
-name: fix-e2e-test
-description: Fix a specific flaky or failing Positron e2e test. Given a test name, surface its recent failure modes over a lookback window, pull the evidence (trace, screenshots, logs) for each distinct mode, and give a test-drift vs. product-regression read plus a concrete fix or bug repro. Test-centric counterpart to e2e-failure-analyzer (which is run-centric).
+name: triage-e2e-test
+description: Triage a specific Positron e2e test that is already failing or flaking in CI. Given a test name, surface its recent distinct failure modes from history, pull the evidence (trace, screenshots, logs) for each mode, give a test-drift vs. product-regression read, and land a concrete test fix or a product-bug repro. Test-centric counterpart to e2e-failure-analyzer (run-centric). For authoring a brand-new test, use author-e2e-tests.
 disable-model-invocation: true
 ---
 
-# Fix E2E Test
+# Triage E2E Test
 
 Test-centric triage: start from a test name (not a CI run), find its recent
-distinct failure modes, fetch the evidence for each, and decide fix-the-test vs.
-file-a-bug.
+distinct failure modes, fetch the evidence for each, and land on fix-the-test
+vs. file-a-bug with the action to match.
 
 ## When to Use
 
-- You picked up a specific flaky or failing e2e test to fix.
+- You picked up a specific e2e test that is already failing or flaking in CI.
 - You want its recent failure history and evidence without hunting for the runs
   by hand.
 
-For triaging a whole CI run instead, use `e2e-failure-analyzer` (run-centric).
+The test must already have CI failure history -- this skill reads what CI has
+recorded. For a brand-new test you are writing from scratch, use
+`author-e2e-tests` instead. For triaging a whole CI run rather than one test,
+use `e2e-failure-analyzer` (run-centric).
 
 ## Prerequisites
 
