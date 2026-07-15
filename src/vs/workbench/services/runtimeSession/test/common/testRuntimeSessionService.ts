@@ -31,6 +31,7 @@ import { TestLanguageRuntimeSession } from './testLanguageRuntimeSession.js';
 import { TestOpenerService, TestPositronModalDialogService, TestCommandService, TestRuntimeSessionManager, TestConfigurationResolverService, TestDirectoryFileService, TestPathService } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { TestExtensionService, TestStorageService, TestWorkspaceTrustManagementService, TestContextService } from '../../../../test/common/workbenchTestServices.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { IUpdateService } from '../../../../../platform/update/common/update.js';
 import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
 import { IConfigurationResolverService } from '../../../configurationResolver/common/configurationResolver.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
@@ -58,6 +59,7 @@ export function createRuntimeServices(
 	instantiationService.stub(ICommandService, new TestCommandService(instantiationService));
 	instantiationService.stub(IKeybindingService, new MockKeybindingService());
 	instantiationService.stub(INotificationService, new TestNotificationService());
+	instantiationService.stub(IUpdateService, { updateActiveLanguages: () => { } });
 	instantiationService.stub(IRuntimeSessionService, disposables.add(instantiationService.createInstance(RuntimeSessionService)));
 	return instantiationService;
 }

@@ -135,6 +135,14 @@ describe('QuartoKernelManager', () => {
 					}),
 				})];
 			},
+			// Backs the synchronous language lookup used by
+			// getPreferredRuntimeForDocument: a single visible editor whose
+			// model resolves to the tracked document URI.
+			get visibleTextEditorControls() {
+				return [{
+					getModel() { return { uri: docUri }; },
+				}] as unknown as IEditorService['visibleTextEditorControls'];
+			},
 			onDidCloseEditor: Event.None as Event<IEditorCloseEvent>,
 		});
 
@@ -258,6 +266,25 @@ describe('QuartoKernelManager', () => {
 
 		// Should start the R runtime, not the stale Python binding
 		expect(startedRuntimeIds).toEqual(['r-4.4']);
+	});
+
+	it('getPreferredRuntimeForDocument returns the preferred runtime when nothing has started', () => {
+		// No session, no persisted binding: the interpreter that would start is
+		// the preferred runtime for the document's language.
+		expect(kernelManager.getPreferredRuntimeForDocument(docUri)).toBe(pythonRuntime1);
+	});
+
+	it('getPreferredRuntimeForDocument reports the running runtime once a kernel is started', async () => {
+		await kernelManager.changeKernelForDocument(docUri, pythonRuntime2.runtimeId);
+		// A kernel is running, so the badge should name that runtime rather than
+		// the default preferred one.
+		expect(kernelManager.getPreferredRuntimeForDocument(docUri)).toBe(pythonRuntime2);
+	});
+
+	it('getPreferredRuntimeForDocument returns undefined when the language cannot be determined', () => {
+		// A URI with no matching visible editor yields no language, so there is
+		// no interpreter to name.
+		expect(kernelManager.getPreferredRuntimeForDocument(URI.file('/test/other.qmd'))).toBeUndefined();
 	});
 
 	it('changeKernelForDocument fires state change events', async () => {

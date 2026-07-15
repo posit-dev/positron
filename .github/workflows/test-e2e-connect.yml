@@ -1,10 +1,10 @@
 name: "Test: E2E Connect (Ubuntu)"
 
 # Electron-only connect/publisher e2e lane. Drives a plain local Positron desktop
-# (installed from the DEB built by build-connect-linux.yml) against a standalone
-# Posit Connect container brought up via the connect-local compose -- no Workbench.
-# Complementary to the e2e-workbench lane, which provides the web/chromium coverage
-# for the same tests. See docker/environments/connect-local/PLAN.md.
+# (installed from the DEB built by build-connect-linux.yml) against an ephemeral
+# Posit Connect stood up by the with-connect action (posit-dev/with-connect) --
+# no Workbench. Complementary to the e2e-workbench lane, which provides the
+# web/chromium coverage for the same tests.
 #
 # NOTE: new and intentionally NON-BLOCKING first (not wired into
 # test-merge.yml / test-full-suite.yml). Runs only when a PR is tagged @:connect.
@@ -78,11 +78,6 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           CONNECT_LICENSE: "op://Positron/Connect-lic-WB-Auto/notesPlain"
 
-      - name: Write Connect license
-        run: |
-          mkdir -p docker/environments/connect-local/connect
-          echo "$CONNECT_LICENSE" > docker/environments/connect-local/connect/connect.lic
-
       - name: Setup test dependencies and compile tests
         uses: ./.github/actions/setup-e2e-test-dependencies
 
@@ -137,33 +132,35 @@ jobs:
         with:
           tinytex: true
 
-      # --- Bring up standalone Posit Connect + bootstrap the publisher token.
-      # Uses the SAME connect-local compose + run.sh the local flow uses, so CI
-      # and local exercise one code path. run.sh brings connect up, waits for it
-      # to be healthy, and runs the one-shot token bootstrap, writing the token to
-      # docker/environments/connect-local/.tokens/connect_bootstrap_token. ---
-      - name: Start Connect and bootstrap token
-        run: |
-          cd docker/environments/connect-local
-          ./run.sh
+      # --- Bring up an ephemeral Posit Connect via the with-connect action and
+      # capture a freshly bootstrapped API key. Start-only mode (no `command`)
+      # leaves the container running for the test step and exposes its outputs.
+      # The e2e-connect run is "local" (project name e2e-connect), so the tests
+      # talk to Connect at http://localhost:3939 -- no /etc/hosts entry needed. ---
+      - name: Start Connect (with-connect)
+        id: connect
+        uses: posit-dev/with-connect@main
+        with:
+          version: release
+          license: ${{ env.CONNECT_LICENSE }}
+          # Switch to PAM auth (mirrors the Workbench lane) so the publisher tests
+          # can create a system user1 and sign in as a viewer, avoiding the built-in
+          # password provider's account-confirmation step. Env overrides (not a
+          # replacement gcfg) keep the image's own R/Python/Quarto config intact.
+          env: |
+            CONNECT_AUTHENTICATION_PROVIDER=pam
+            CONNECT_PAM_SERVICE=rstudio-connect
 
-      - name: Export Connect publisher API key
+      - name: Export Connect connection details
         run: |
-          TOKEN_FILE="docker/environments/connect-local/.tokens/connect_bootstrap_token"
-          # The one-shot token container runs as root, so the bootstrapped file is
-          # root-owned (mode 600) on the host -- read it with sudo.
-          if ! sudo test -s "$TOKEN_FILE"; then
-            echo "::error::Connect token was not bootstrapped at $TOKEN_FILE"
-            docker compose -f docker/environments/connect-local/docker-compose.yml logs connect || true
-            exit 1
-          fi
-          echo "CONNECT_PUBLISHER_API_KEY=$(sudo cat "$TOKEN_FILE")" >> "$GITHUB_ENV"
-
-      - name: Resolve Connect hostname
-        run: |
-          # The electron app publishes to the stored credential URL http://connect:3939;
-          # map that hostname to the published port on the host (see PLAN.md / README).
-          echo "127.0.0.1 connect" | sudo tee -a /etc/hosts
+          # Map with-connect's CONNECT_API_KEY *output* to CONNECT_PUBLISHER_API_KEY,
+          # the env var the tests resolve. Do NOT export CONNECT_API_KEY: that name
+          # belongs to the metrics reporter (test/e2e/utils/metrics), a different
+          # Connect -- reusing it here would collide.
+          echo "CONNECT_PUBLISHER_API_KEY=${{ steps.connect.outputs.CONNECT_API_KEY }}" >> "$GITHUB_ENV"
+          # The publisher tests docker-exec into the Connect container for PAM user
+          # setup; with-connect names it randomly, so pass the id through.
+          echo "CONNECT_CONTAINER_ID=${{ steps.connect.outputs.CONTAINER_ID }}" >> "$GITHUB_ENV"
 
       - name: Configure xvfb and dbus
         uses: ./.github/actions/setup-xvfb
@@ -207,6 +204,9 @@ jobs:
 
       - name: Teardown
         if: always()
+        env:
+          CONTAINER_ID: ${{ steps.connect.outputs.CONTAINER_ID }}
         run: |
-          cd docker/environments/connect-local
-          ./stop-containers.sh --wipe || true
+          # Stop the ephemeral Connect container via with-connect's own helper
+          # (--stop reads the CONTAINER_ID env var).
+          with-connect --stop || true

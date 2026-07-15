@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { FileFilter } from '../../../../../platform/dialogs/common/dialogs.js';
 import { IDataConnectionNodeDTO } from './dataConnectionDTOs.js';
 
 // --- Service-level interfaces ---
@@ -61,11 +62,13 @@ export interface IDataConnectionParameterBase {
  * Service-level data connection parameter. Mirrors the public API's DataConnectionParameter
  * discriminated union: `secret` lives only on `password` and `string` variants, and a `string`
  * marked `secret: true` cannot carry a `defaultValue`. The RPC layer converts
- * IDataConnectionParameterDTO → IDataConnectionParameter at the main-thread boundary.
+ * IDataConnectionParameterDTO → IDataConnectionParameter at the main-thread boundary; the `file`
+ * variant's filters dictionary becomes an ordered FileFilter array there so UI consumers can pass
+ * it straight to the file dialog service.
  */
 export type IDataConnectionParameter = IDataConnectionParameterBase & (
 	| { type: 'boolean'; defaultValue?: boolean }
-	| { type: 'file'; defaultValue?: string; placeholder?: string }
+	| { type: 'file'; defaultValue?: string; placeholder?: string; filters?: FileFilter[] }
 	| { type: 'number'; defaultValue?: number; placeholder?: string }
 	| { type: 'option'; options: string[]; defaultValue?: string; placeholder?: string }
 	| { type: 'password'; secret: true; placeholder?: string }

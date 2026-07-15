@@ -25,8 +25,12 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await sessions.start('python');
 		});
 
-		test.beforeEach(async function ({ hotKeys, sessions }) {
+		test.beforeEach(async function ({ app, hotKeys, sessions }) {
 			await hotKeys.stackedLayout();
+			// Clear plots left over from earlier tests so the history filmstrip is absent and a
+			// single plot renders at full height, matching the image-comparison baselines. Uses
+			// the action-bar button because the Cmd+L C keybinding does not clear headlessly.
+			await app.workbench.plots.clearAllPlots();
 		});
 
 		test.afterEach(async function ({ app, hotKeys }) {
@@ -51,9 +55,6 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.waitForCurrentPlot();
 
 			await app.workbench.toasts.closeAll();
-
-			// attempt to workaround a flake by letting plot settle
-			await app.code.driver.currentPage.waitForTimeout(1000);
 
 			const buffer = await app.workbench.plots.getCurrentPlotAsBuffer();
 			await compareImages({
@@ -95,9 +96,6 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.waitForCurrentStaticPlot();
 
 			await app.workbench.toasts.closeAll();
-
-			// attempt to workaround a flake by letting plot settle
-			await app.code.driver.currentPage.waitForTimeout(1000);
 
 			const buffer = await app.workbench.plots.getCurrentStaticPlotAsBuffer();
 			await compareImages({
@@ -392,8 +390,12 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await sessions.start('r');
 		});
 
-		test.beforeEach(async function ({ sessions, hotKeys }) {
+		test.beforeEach(async function ({ app, sessions, hotKeys }) {
 			await hotKeys.stackedLayout();
+			// Clear plots left over from earlier tests so the history filmstrip is absent and a
+			// single plot renders at full height, matching the image-comparison baselines. Uses
+			// the action-bar button because the Cmd+L C keybinding does not clear headlessly.
+			await app.workbench.plots.clearAllPlots();
 		});
 
 		test.afterEach(async function ({ app, hotKeys }) {
@@ -417,9 +419,6 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.waitForCurrentPlot();
 
 			await app.workbench.toasts.closeAll();
-
-			// attempt to workaround a flake by letting plot settle
-			await app.code.driver.currentPage.waitForTimeout(1000);
 
 			const buffer = await app.workbench.plots.getCurrentPlotAsBuffer();
 			await compareImages({

@@ -573,8 +573,6 @@ export const selectNewLanguageRuntime = async (
 		return items;
 	};
 
-	await fetchContributedItems();
-
 	const disposables = new DisposableStore();
 	const quickPick = disposables.add(quickInputService.createQuickPick<IQuickPickItem>({ useSeparators: true }));
 	quickPick.title = options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session');
@@ -706,6 +704,20 @@ export const selectNewLanguageRuntime = async (
 		}));
 
 		quickPick.show();
+
+		// Fold in contributed items after show() rather than awaiting them first:
+		// getItems() is an extension-host RPC that can hang for seconds right after
+		// a window reload, which would leave the picker invisible until it resolves.
+		// When startup isn't Complete yet, the onDidChangeRuntimeStartupPhase
+		// handler above does the fetch instead.
+		if (languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
+			fetchContributedItems().then(() => {
+				// Skip if the user dismissed the picker while the fetch was pending.
+				if (!disposables.isDisposed) {
+					rebuildItems();
+				}
+			});
+		}
 	});
 };
 

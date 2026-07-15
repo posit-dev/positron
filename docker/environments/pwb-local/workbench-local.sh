@@ -322,6 +322,12 @@ cmd_install() {
 		'
 	# Record the exact Workbench package URL so status can show the build.
 	docker exec -e WB_URL="${WB_URL}" test bash -c 'printf "%s\n" "$WB_URL" > /var/lib/wb-local-source' || true
+	# install-workbench.sh writes /var/lib/wb-local-credentials itself, only on a
+	# successful configure-datasources.sh run. Without --credentials there's
+	# nothing to configure, so clear any stale marker from a prior install here.
+	if [ -z "$creds" ]; then
+		docker exec test bash -c 'rm -f /var/lib/wb-local-credentials' || true
+	fi
 }
 
 cmd_up() {
@@ -376,18 +382,14 @@ cmd_up() {
 	if [ -f "${SCRIPT_DIR}/connect.lic" ]; then
 		cp "${SCRIPT_DIR}/connect.lic" "${SCRIPT_DIR}/connect/connect.lic"
 	fi
-	# 'test' depends on connect being healthy; a missing license or config makes
-	# connect exit and the wait loop below just times out. Warn clearly up front.
-	# (rstudio-connect.gcfg is committed, but a missing bind-mount source becomes
-	# an empty dir and breaks connect, so check it too.)
+	# 'test' depends on connect being healthy; a missing license makes connect exit
+	# and the wait loop below just times out. Warn clearly up front. (Connect's
+	# config comes from the image defaults plus the CONNECT_* env in the compose --
+	# no gcfg bind-mount to check.)
 	if [ ! -f "${SCRIPT_DIR}/connect/connect.lic" ]; then
 		echo "WARNING: no Connect license at ${SCRIPT_DIR}/connect.lic -- the connect container" >&2
 		echo "         will not become healthy and 'test' won't start (startup will time out)." >&2
-		echo "         Add connect.lic (see docker/environments/workbench-dev/README-positron-workbench.md)." >&2
-	fi
-	if [ ! -f "${SCRIPT_DIR}/connect/rstudio-connect.gcfg" ]; then
-		echo "WARNING: ${SCRIPT_DIR}/connect/rstudio-connect.gcfg is missing -- connect will fail to start." >&2
-		echo "         It is committed to the repo; restore with: git checkout docker/environments/workbench-dev/connect/rstudio-connect.gcfg" >&2
+		echo "         Add connect.lic (see docker/environments/pwb-local/README.md)." >&2
 	fi
 	# --remove-orphans clears a leftover container from a prior run under a
 	# different service name that would otherwise hold the same ports.
@@ -445,16 +447,23 @@ wb_source_build() {
 	docker exec test bash -c 'if [ -f /var/lib/wb-local-source ]; then basename "$(cat /var/lib/wb-local-source)"; fi' 2>/dev/null || true
 }
 
+# The configured managed-credential type (databricks/snowflake/azure), recorded
+# at install time. Empty if the stack was installed without --credentials.
+wb_credentials_type() {
+	docker exec test bash -c 'if [ -f /var/lib/wb-local-credentials ]; then cat /var/lib/wb-local-credentials; fi' 2>/dev/null || true
+}
+
 # Clean post-startup summary, with the same labels install-workbench.sh prints
 # so a resume reads the same as a fresh install. The header reflects real
 # readiness: this image's init script has no 'status' verb, so we check for the
 # running rserver process directly.
 wb_print_ready() {
-	local v wb pos src
+	local v wb pos src creds
 	v="$(wb_versions)"
 	wb="$(printf '%s' "$v" | cut -f1)"
 	pos="$(printf '%s' "$v" | cut -f2)"
 	src="$(wb_source_build)"
+	creds="$(wb_credentials_type)"
 	echo ''
 	if docker exec test bash -c 'pgrep -x rserver >/dev/null 2>&1'; then
 		# allow-any-unicode-next-line
@@ -465,6 +474,7 @@ wb_print_ready() {
 	printf 'Positron version:    %s\n' "$pos"
 	printf 'Workbench version:   %s\n' "$wb"
 	[ -n "$src" ] && printf 'Workbench build:     %s\n' "$src"
+	[ -n "$creds" ] && printf 'Credentials:         %s\n' "$creds"
 	printf 'Workbench URL:       %s  (user1 / WB_PASSWORD)\n' "http://localhost:8787"
 	printf 'Connect URL:         %s\n' "http://localhost:3939"
 	echo ''
@@ -528,11 +538,11 @@ VERSION PICKERS
              specific n-1/n-2 build.
 
 ACCESS
-  Workbench  http://localhost:8787   (user1 / WB_PASSWORD from docker/environments/workbench-dev/.env)
+  Workbench  http://localhost:8787   (user1 / WB_PASSWORD from docker/environments/pwb-local/.env)
   Connect    http://localhost:3939
 
-SETUP  (details: docker/environments/workbench-dev/README-positron-workbench.md)
-  gh auth login (once, include read:packages)   workbench.lic + connect.lic in docker/environments/workbench-dev/
+SETUP  (details: docker/environments/pwb-local/README.md)
+  gh auth login (once, include read:packages)   workbench.lic + connect.lic in docker/environments/pwb-local/
   GITHUB_TOKEN and docker login ghcr.io are derived from gh automatically.
   optional: fzf (arrow-key pickers; falls back to a numbered prompt)
 EOF
@@ -543,7 +553,7 @@ main() {
 	case "$sub" in
 		up)          cmd_up "$@" ;;
 		# Flag-style invocations (no explicit "up") route to cmd_up with the flag.
-		--reinstall|--ttl|--ttl=*|--no-ttl) cmd_up "$sub" "$@" ;;
+		--reinstall|--ttl|--ttl=*|--no-ttl|--credentials=*) cmd_up "$sub" "$@" ;;
 		status)      cmd_status "$@" ;;
 		logs)        cmd_logs "$@" ;;
 		shell)       cmd_shell "$@" ;;
