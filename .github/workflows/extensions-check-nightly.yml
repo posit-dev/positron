@@ -17,36 +17,59 @@ permissions:
   packages: read
 
 jobs:
-  extensions-linux:
-    name: 'extensions-linux'
-    timeout-minutes: 60
-    runs-on: ubuntu-latest-8x
-    container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
-      options: --user 0:0
-      # Static PAT is needed because the bot can't pass a token to the job for security reasons
-      credentials:
-        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
-        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
-
+  extensions-macos:
+    name: 'extensions-macos'
+    # This check runs on macOS (not Linux) on purpose: the bootstrap extension
+    # VSIXs are resolved from the marketplace at build/prelaunch time using the
+    # host's target platform, and the Linux marketplace query intermittently
+    # resolves prerelease versions (e.g. meta.pyrefly). macOS resolves the
+    # expected release versions. See the tracking issue for details.
+    timeout-minutes: 90
+    runs-on: macos-latest-xlarge
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+      LANG: "en_US.UTF-8"
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Setup build environment
-        uses: ./.github/actions/setup-build-env
+      # Minimal build only: bootstrap-extensions.test.ts launches Positron to let
+      # the bootstrap initializer install the extensions, then inspects their
+      # versions on disk. It does not run any Python or R code, so no interpreter
+      # setup is required.
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
         with:
-          distro: ubuntu
-          install-playwright: 'true'
-          github-token: ${{ github.token }}
+          node-version-file: .nvmrc
 
-      - name: Setup Xvfb
-        uses: ./.github/actions/setup-xvfb
+      - name: Install E2E test dependencies
+        run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
+
+      - name: Install node dependencies
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          npm_config_arch: arm64
+          # postinstall downloads PET/Ark/Kallichore from the GitHub API;
+          # authenticate so we get the per-repo rate limit instead of the
+          # anonymous per-IP one (which shared runner IPs routinely exhaust).
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+        run: npm ci --fetch-timeout 120000
+
+      - name: Compile Positron and Download Electron
+        env:
+          npm_config_arch: arm64
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+
+      # Downloads the bootstrap extension VSIXs into .build/bootstrapExtensions;
+      # this is the marketplace version resolution we are validating on macOS.
+      - name: Download bootstrap and built-in extensions (prelaunch)
+        run: npm run prelaunch
+
+      - name: Install Playwright browsers
+        run: npx playwright install
 
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
@@ -56,10 +79,6 @@ jobs:
       - name: 🧪 Run Playwright Tests (Electron)
         shell: bash
         env:
-          POSITRON_PY_VER_SEL: "3.10.12"
-          POSITRON_R_VER_SEL: 4.5.2
-          POSITRON_PY_ALT_VER_SEL: "3.13.0"
-          POSITRON_R_ALT_VER_SEL: 4.4.2
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           EXTENSIONS_FAIL_ON_MISMATCH: true
         run: |
@@ -77,8 +96,8 @@ jobs:
 
   auto-update:
     name: 'auto-update-extensions'
-    if: always() && needs.extensions-linux.result != 'cancelled'
-    needs: [extensions-linux]
+    if: always() && needs.extensions-macos.result != 'cancelled'
+    needs: [extensions-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -121,7 +140,7 @@ jobs:
           git reset --hard origin/main
 
       - name: Download mismatched extensions list
-        if: needs.extensions-linux.result == 'failure'
+        if: needs.extensions-macos.result == 'failure'
         continue-on-error: true
         uses: actions/download-artifact@v8
         with:
@@ -130,7 +149,7 @@ jobs:
 
       - name: Update extensions
         env:
-          TEST_RESULT: ${{ needs.extensions-linux.result }}
+          TEST_RESULT: ${{ needs.extensions-macos.result }}
         run: |
           MISMATCHED=()
           if [ "$TEST_RESULT" = "failure" ] && [ -s mismatched-extensions.txt ]; then
@@ -317,8 +336,8 @@ jobs:
             -d "$PAYLOAD"
 
   slack-notify:
-    if: always() && needs.extensions-linux.result == 'failure' && needs.auto-update.outputs.pr_url == '' && inputs.dryrun != true
-    needs: [extensions-linux, auto-update]
+    if: always() && needs.extensions-macos.result == 'failure' && needs.auto-update.outputs.pr_url == '' && inputs.dryrun != true
+    needs: [extensions-macos, auto-update]
     runs-on: ubuntu-latest
     steps:
       - name: Notify Slack
