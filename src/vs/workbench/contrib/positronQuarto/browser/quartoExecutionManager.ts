@@ -2221,9 +2221,6 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	}
 
 	/**
-	 * Get the text model for a document URI.
-	 */
-	/**
 	 * Pin any editor showing the given document.
 	 *
 	 * Quarto documents open as preview tabs, which are silently replaced when
@@ -2239,6 +2236,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		}
 	}
 
+	/**
+	 * Get the text model for a document URI.
+	 */
 	private async _getTextModel(documentUri: URI): Promise<ITextModel | undefined> {
 		const editors = this._editorService.findEditors(documentUri);
 		if (editors.length === 0) {
