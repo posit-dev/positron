@@ -114,6 +114,7 @@ export function createPinsDriver(context: vscode.ExtensionContext, logger: Logge
 				description: vscode.l10n.t('Create an API key from your Posit Connect account under "Manage Your API Keys".'),
 				type: positron.DataConnectionParameterType.Password,
 				secret: true,
+				required: true,
 			},
 		],
 	};

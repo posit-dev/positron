@@ -42,7 +42,10 @@ suite('Pins Driver', () => {
 		assert.strictEqual(serverUrl.type, positron.DataConnectionParameterType.String);
 		assert.strictEqual(serverUrl.required, true);
 		const apiKey = mechanism.parameters.find(p => p.id === 'apiKey')!;
-		// A Password parameter, which is always secret (and stored in secret storage by the framework).
+		// A required Password parameter, which is always secret (and stored in secret storage by the
+		// framework). Required matters beyond validation: the configure dialog appends "(optional)" to
+		// the label of any non-required field, which would break exact-label lookups in e2e tests.
+		assert.strictEqual(apiKey.required, true);
 		assert.strictEqual(apiKey.type, positron.DataConnectionParameterType.Password);
 		if (apiKey.type === positron.DataConnectionParameterType.Password) {
 			assert.strictEqual(apiKey.secret, true);
