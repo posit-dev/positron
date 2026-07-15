@@ -359,7 +359,7 @@ if [ -n "${CREDENTIALS}" ]; then
             log_error "Failed to configure data source: ${CREDENTIALS}"
         fi
     else
-        log_error "Skipping data source configuration (configure-datasources.sh not found)"
+        echo "Skipping data source configuration (configure-datasources.sh not found)"
     fi
 else
     echo "No --credentials specified - skipping data source configuration"
