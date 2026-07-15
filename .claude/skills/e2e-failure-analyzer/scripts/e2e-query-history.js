@@ -11,6 +11,8 @@
 //   --test-keys <keys>        Comma-separated test keys in "testName|||specPath" format
 //   --branch <branch>         Branch to filter history by (default: repo's default branch)
 //   --lookback-days <days>    Days of history, 1-30 (default: 5)
+//   --occurrences-per-pattern <N>  Representative occurrences per failure pattern (default: 0, omitted)
+//   --max-patterns <N>             Cap on distinct failure patterns returned (default: server default 3)
 //
 // Environment variables:
 //   E2E_INSIGHTS_API_KEY      API key for authentication [required]
@@ -33,6 +35,8 @@ let runId = null;
 let testKeys = null;
 let branch = null;
 let lookbackDays = null;
+let occurrencesPerPattern = null;
+let maxPatterns = null;
 
 for (let i = 0; i < args.length; i++) {
 	switch (args[i]) {
@@ -41,6 +45,8 @@ for (let i = 0; i < args.length; i++) {
 		case '--test-keys': testKeys = args[++i]; break;
 		case '--branch': branch = args[++i]; break;
 		case '--lookback-days': lookbackDays = args[++i]; break;
+		case '--occurrences-per-pattern': occurrencesPerPattern = args[++i]; break;
+		case '--max-patterns': maxPatterns = args[++i]; break;
 	}
 }
 
@@ -63,6 +69,8 @@ if (runId) params.set('workflow_run_id', runId);
 if (testKeys) params.set('test_keys', testKeys);
 if (branch) params.set('branch', branch);
 if (lookbackDays) params.set('lookback_days', lookbackDays);
+if (occurrencesPerPattern) params.set('occurrences_per_pattern', occurrencesPerPattern);
+if (maxPatterns) params.set('max_patterns', maxPatterns);
 
 const url = `${API_BASE_URL}/test-health?${params.toString()}`;
 
