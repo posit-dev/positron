@@ -322,6 +322,12 @@ cmd_install() {
 		'
 	# Record the exact Workbench package URL so status can show the build.
 	docker exec -e WB_URL="${WB_URL}" test bash -c 'printf "%s\n" "$WB_URL" > /var/lib/wb-local-source' || true
+	# install-workbench.sh writes /var/lib/wb-local-credentials itself, only on a
+	# successful configure-datasources.sh run. Without --credentials there's
+	# nothing to configure, so clear any stale marker from a prior install here.
+	if [ -z "$creds" ]; then
+		docker exec test bash -c 'rm -f /var/lib/wb-local-credentials' || true
+	fi
 }
 
 cmd_up() {
@@ -441,16 +447,23 @@ wb_source_build() {
 	docker exec test bash -c 'if [ -f /var/lib/wb-local-source ]; then basename "$(cat /var/lib/wb-local-source)"; fi' 2>/dev/null || true
 }
 
+# The configured managed-credential type (databricks/snowflake/azure), recorded
+# at install time. Empty if the stack was installed without --credentials.
+wb_credentials_type() {
+	docker exec test bash -c 'if [ -f /var/lib/wb-local-credentials ]; then cat /var/lib/wb-local-credentials; fi' 2>/dev/null || true
+}
+
 # Clean post-startup summary, with the same labels install-workbench.sh prints
 # so a resume reads the same as a fresh install. The header reflects real
 # readiness: this image's init script has no 'status' verb, so we check for the
 # running rserver process directly.
 wb_print_ready() {
-	local v wb pos src
+	local v wb pos src creds
 	v="$(wb_versions)"
 	wb="$(printf '%s' "$v" | cut -f1)"
 	pos="$(printf '%s' "$v" | cut -f2)"
 	src="$(wb_source_build)"
+	creds="$(wb_credentials_type)"
 	echo ''
 	if docker exec test bash -c 'pgrep -x rserver >/dev/null 2>&1'; then
 		# allow-any-unicode-next-line
@@ -461,6 +474,7 @@ wb_print_ready() {
 	printf 'Positron version:    %s\n' "$pos"
 	printf 'Workbench version:   %s\n' "$wb"
 	[ -n "$src" ] && printf 'Workbench build:     %s\n' "$src"
+	[ -n "$creds" ] && printf 'Credentials:         %s\n' "$creds"
 	printf 'Workbench URL:       %s  (user1 / WB_PASSWORD)\n' "http://localhost:8787"
 	printf 'Connect URL:         %s\n' "http://localhost:3939"
 	echo ''
@@ -539,7 +553,7 @@ main() {
 	case "$sub" in
 		up)          cmd_up "$@" ;;
 		# Flag-style invocations (no explicit "up") route to cmd_up with the flag.
-		--reinstall|--ttl|--ttl=*|--no-ttl) cmd_up "$sub" "$@" ;;
+		--reinstall|--ttl|--ttl=*|--no-ttl|--credentials=*) cmd_up "$sub" "$@" ;;
 		status)      cmd_status "$@" ;;
 		logs)        cmd_logs "$@" ;;
 		shell)       cmd_shell "$@" ;;

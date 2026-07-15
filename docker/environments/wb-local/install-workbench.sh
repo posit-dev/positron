@@ -344,14 +344,22 @@ if ! TAG=${POSITRON_TAG} ARCH_SUFFIX=${ARCH_SUFFIX} GITHUB_TOKEN=${GITHUB_TOKEN}
 fi
 
 # Configure data sources (one credential type: databricks, snowflake, or azure)
+CREDENTIALS_OK=false
 if [ -n "${CREDENTIALS}" ]; then
     echo "Configuring data source: ${CREDENTIALS}..."
+    # Clear any marker from a previous run before attempting this one, so a
+    # failed attempt here can never leave behind a stale success marker.
+    rm -f /var/lib/wb-local-credentials 2>/dev/null || true
     if [ -f "/tmp/configure-datasources.sh" ]; then
-        if ! /tmp/configure-datasources.sh "${CREDENTIALS}"; then
+        if /tmp/configure-datasources.sh "${CREDENTIALS}"; then
+            CREDENTIALS_OK=true
+            # Record success so a later 'npm run pwb -- status' can show it too.
+            printf '%s\n' "${CREDENTIALS}" > /var/lib/wb-local-credentials 2>/dev/null || true
+        else
             log_error "Failed to configure data source: ${CREDENTIALS}"
         fi
     else
-        echo "Skipping data source configuration (configure-datasources.sh not found)"
+        log_error "Skipping data source configuration (configure-datasources.sh not found)"
     fi
 else
     echo "No --credentials specified - skipping data source configuration"
@@ -403,6 +411,9 @@ POSITRON_FULL_VERSION="${POSITRON_VERSION}-${POSITRON_BUILD}"
 
 echo "Positron version:    ${POSITRON_FULL_VERSION}"
 echo "Workbench version:   ${WB_VERSION}"
+if [ "${CREDENTIALS_OK}" = true ]; then
+    echo "Credentials:         ${CREDENTIALS}"
+fi
 echo "Workbench URL:       http://localhost:8787"
 
 # Report any errors that occurred
