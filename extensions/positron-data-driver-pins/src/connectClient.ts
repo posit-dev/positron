@@ -11,8 +11,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 
 /**
  * The maximum number of pins the legacy applications endpoint returns in one request. This matches
- * what the pins packages request; servers with more than this many visible pins would truncate
- * (revisited if it becomes a problem -- see the enumeration open questions in the plan).
+ * what the pins packages request; servers with more than this many visible pins would truncate.
  */
 const PIN_LIST_COUNT = 1000;
 
