@@ -192,6 +192,25 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Describes what should happen when code is submitted for evaluation while
+	 * the target runtime is busy (i.e. not idle).
+	 */
+	export enum RuntimeBusyBehavior {
+		/**
+		 * The code should be queued and evaluated when the runtime next becomes
+		 * idle. This is the default behavior.
+		 */
+		Queue = 'queue',
+
+		/**
+		 * The evaluation should be rejected with an error instead of being
+		 * queued. Use this when running code against a stale view of the
+		 * session state is unacceptable and the caller would rather fail closed.
+		 */
+		Reject = 'reject',
+	}
+
+	/**
 	 * Possible reasons a language runtime could exit.
 	 */
 	export enum RuntimeExitReason {
@@ -1433,6 +1452,46 @@ declare module 'positron' {
 
 		/** The state of the runtime that changes during a user session */
 		getDynState(): Thenable<LanguageRuntimeDynState>;
+
+		/**
+		 * Returns the current runtime state of the session.
+		 *
+		 * This is a synchronous accessor that reflects the session's last known
+		 * runtime state. Unlike `onDidChangeRuntimeState` (which only emits on
+		 * transitions), this can be read at any time, making it suitable for
+		 * gating logic that must verify the session is idle before dispatching
+		 * work.
+		 */
+		getRuntimeState?(): RuntimeState;
+
+		/**
+		 * An event that fires when the session's runtime state changes.
+		 *
+		 * Unlike `getRuntimeState()` (which reports the last known state at any
+		 * time), this only emits on transitions. Pair the two: read
+		 * `getRuntimeState()` for the current value, and subscribe here to be
+		 * notified of subsequent changes.
+		 */
+		onDidChangeRuntimeState?: vscode.Event<RuntimeState>;
+
+		/**
+		 * An event that fires when the session's connection to the underlying
+		 * runtime is lost. This can happen if, for example, the transport to the
+		 * kernel supervisor drops while the runtime itself keeps running.
+		 *
+		 * When this fires, any previously observed runtime state may be stale.
+		 * Callers should treat the session's state as unknown until either the
+		 * runtime state changes or `onDidReconnect` fires.
+		 */
+		onDidDisconnect?: vscode.Event<void>;
+
+		/**
+		 * An event that fires when the session's connection to the underlying
+		 * runtime is re-established after an `onDidDisconnect`. Callers should
+		 * re-synchronize by reading `getRuntimeState()`, since transitions that
+		 * happened while disconnected may not have been observed.
+		 */
+		onDidReconnect?: vscode.Event<void>;
 
 		/**
 		 * Calls a method in the runtime and returns the result.
@@ -2826,13 +2885,19 @@ declare module 'positron' {
 		 *  not provided, an appropriate session will be chosen, and if no
 		 *  session for the desired language is running at all, a new session
 		 *  will be started.
+		 * @param whenBusy Determines what happens if the target runtime is busy
+		 *  when the evaluation is requested. Defaults to
+		 *  `RuntimeBusyBehavior.Queue`, which queues the code to run when the
+		 *  runtime next becomes idle. Use `RuntimeBusyBehavior.Reject` to have
+		 *  the returned Thenable reject with an error instead of queueing.
 		 * @returns A Thenable that resolves with the result of the code
 		 *  evaluation.
 		 */
 		export function evaluateCode(languageId: string,
 			code: string,
 			cancellationToken?: vscode.CancellationToken,
-			sessionId?: string): Thenable<EvalResult>;
+			sessionId?: string,
+			whenBusy?: RuntimeBusyBehavior): Thenable<EvalResult>;
 
 		/**
 		 * Executes a set of cells in a source document. The results are
