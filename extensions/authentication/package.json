@@ -25,7 +25,7 @@
 	],
 	"main": "./out/extension.js",
 	"scripts": {
-		"postinstall": "npm --prefix ../../ai-lib/packages/ai-config run build"
+		"postinstall": "node -e \"require('fs').rmSync('../../ai-lib/packages/ai-config/tsconfig.tsbuildinfo',{force:true})\" && npm --prefix ../../ai-lib/packages/ai-config exec --no -- tsc -b ../../ai-lib/packages/ai-config"
 	},
 	"dependencies": {
 		"@aws-sdk/credential-providers": "^3.734.0",
