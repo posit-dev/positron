@@ -112,10 +112,10 @@ suite('Pins Connection tree', () => {
 		assert.strictEqual(await connection().isReadOnly(), true);
 	});
 
-	test('groups pins by owner, sorted, rendered as schema nodes', async () => {
+	test('groups pins by owner, sorted, rendered as owner nodes', async () => {
 		const owners = await connection().getChildren();
 		assert.deepStrictEqual(owners.map(o => o.name), ['julia', 'tim']);
-		owners.forEach(o => assert.strictEqual(o.kind, positron.DataConnectionNodeKind.Schema));
+		owners.forEach(o => assert.strictEqual(o.kind, positron.DataConnectionNodeKind.Owner));
 	});
 
 	test('owner expands to pins sorted by name, badged with type, as leaves', async () => {

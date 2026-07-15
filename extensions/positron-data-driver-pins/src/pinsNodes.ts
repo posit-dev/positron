@@ -49,9 +49,8 @@ async function mapWithConcurrency<T, R>(items: readonly T[], limit: number, fn: 
 }
 
 /**
- * Creates an owner node: a grouping of one user's pins. Rendered with the schema icon, since an
- * owner is a namespace-like grouping. Expanding it lists that owner's pins, sorted by name, each
- * annotated with its storage type.
+ * Creates an owner node: a grouping of one user's pins, rendered with an account (person) icon.
+ * Expanding it lists that owner's pins, sorted by name, each annotated with its storage type.
  *
  * @param host The browse host used to resolve pin types on expansion.
  * @param ownerUsername The owner's username (the node's display name).
@@ -60,7 +59,7 @@ async function mapWithConcurrency<T, R>(items: readonly T[], limit: number, fn: 
 export function createOwnerNode(host: IPinsBrowseHost, ownerUsername: string, pins: readonly PinInfo[]): positron.DataConnectionNode {
 	return {
 		name: ownerUsername,
-		kind: positron.DataConnectionNodeKind.Schema,
+		kind: positron.DataConnectionNodeKind.Owner,
 		async getChildren() {
 			const sorted = [...pins].sort((a, b) => a.name.localeCompare(b.name));
 			const types = await mapWithConcurrency(sorted, MAX_METADATA_CONCURRENCY, pin => host.getPinType(pin));
