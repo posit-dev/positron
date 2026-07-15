@@ -2207,6 +2207,8 @@ declare module 'positron' {
 		GroupColumns = 'group-columns',
 		GroupIndexes = 'group-indexes',
 		Index = 'index',
+		// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
+		Owner = 'owner',
 		// A pin on a Posit Connect server (positron-data-driver-pins).
 		Pin = 'pin',
 	}
