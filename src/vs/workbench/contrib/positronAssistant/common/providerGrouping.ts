@@ -5,8 +5,8 @@
 
 import { IPositronLanguageModelSource } from './interfaces/positronAssistantService.js';
 
-/** Section identifiers, in fixed display order. */
-export type ProviderSectionId = 'needs-attention' | 'connected' | 'custom' | 'approved' | 'available';
+/** Section identifiers for the built-in provider groups, in fixed display order. */
+export type ProviderSectionId = 'connected' | 'needs-attention' | 'model-providers';
 
 /** A non-empty group of providers to render under one heading. */
 export interface ProviderSection {
@@ -14,10 +14,20 @@ export interface ProviderSection {
 	items: IPositronLanguageModelSource[];
 }
 
-const SECTION_ORDER: ProviderSectionId[] = ['needs-attention', 'connected', 'custom', 'approved', 'available'];
+const SECTION_ORDER: ProviderSectionId[] = ['connected', 'needs-attention', 'model-providers'];
+
+/**
+ * The OpenAI-compatible "Custom Provider" template. It has its own dedicated
+ * section in the modal (with an "Add custom provider" affordance), so it is
+ * excluded from the built-in provider groups.
+ */
+export const CUSTOM_PROVIDER_ID = 'openai-compatible';
 
 /** Only chat providers (and the copilot-auth completion provider) are shown, mirroring the legacy modal. */
 function isDisplayable(source: IPositronLanguageModelSource): boolean {
+	if (source.provider.id === CUSTOM_PROVIDER_ID) {
+		return false;
+	}
 	return source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot-auth');
 }
 
@@ -29,36 +39,18 @@ function sectionFor(source: IPositronLanguageModelSource): ProviderSectionId {
 	if (source.signedIn) {
 		return 'connected';
 	}
-	return 'available';
-}
-
-/** Sort rank within a section: Posit AI first, then stable, preview, experimental. */
-function sortRank(source: IPositronLanguageModelSource): number {
-	if (source.provider.id === 'posit-ai') {
-		return 0;
-	}
-	switch (source.provider.status) {
-		case 'preview':
-			return 2;
-		case 'experimental':
-			return 3;
-		default:
-			return 1;
-	}
+	return 'model-providers';
 }
 
 function compareSources(a: IPositronLanguageModelSource, b: IPositronLanguageModelSource): number {
-	const rankDiff = sortRank(a) - sortRank(b);
-	if (rankDiff !== 0) {
-		return rankDiff;
-	}
 	return a.provider.displayName.localeCompare(b.provider.displayName);
 }
 
 /**
  * Groups language model sources into ordered, non-empty sections for the
- * Configure LLM Providers modal. Custom and Approved sections have no backing
- * data yet and will simply be absent until sources land in those buckets.
+ * Configure LLM Providers modal: Connected, then Needs Attention, then Model
+ * Providers. Within a section, providers are sorted alphabetically by display
+ * name. The custom-provider template is handled by a separate section.
  */
 export function groupProviders(sources: IPositronLanguageModelSource[]): ProviderSection[] {
 	const buckets = new Map<ProviderSectionId, IPositronLanguageModelSource[]>();

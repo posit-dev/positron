@@ -35,23 +35,34 @@ describe('ProviderList', () => {
 
 	it('renders a heading per non-empty section', () => {
 		rtl.render(<ProviderList sources={[
-			source({ id: 'conn', displayName: 'Connected One', signedIn: true, status: 'ok', statusMessage: 'Signed in via GitHub' }),
+			source({ id: 'conn', displayName: 'Connected One', signedIn: true, status: 'ok' }),
 			source({ id: 'avail', displayName: 'Available One', signedIn: false }),
 		]} />);
-		expect(screen.getByText('Connected')).toBeInTheDocument();
-		expect(screen.getByText('Available Providers')).toBeInTheDocument();
+		expect(screen.getByText('Connected Providers')).toBeInTheDocument();
+		expect(screen.getByText('Model Providers')).toBeInTheDocument();
 	});
 
-	it('does not render empty section headings', () => {
+	it('does not render empty built-in section headings', () => {
 		rtl.render(<ProviderList sources={[source({ id: 'avail', signedIn: false })]} />);
-		expect(screen.queryByText('Connected')).not.toBeInTheDocument();
-		expect(screen.queryByText('Providers needing attention')).not.toBeInTheDocument();
+		expect(screen.queryByText('Connected Providers')).not.toBeInTheDocument();
+		expect(screen.queryByText('Needs Attention')).not.toBeInTheDocument();
+	});
+
+	it('always renders the Custom Provider section with an add button', () => {
+		rtl.render(<ProviderList sources={[source({ id: 'avail', signedIn: false })]} />);
+		expect(screen.getByText('Custom Provider')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /Add custom provider/ })).toBeInTheDocument();
+	});
+
+	it('shows the built-in description for a known provider', () => {
+		rtl.render(<ProviderList sources={[source({ id: 'anthropic-api', displayName: 'Anthropic', signedIn: false })]} />);
+		expect(screen.getByText('Access Claude models directly via Anthropic API')).toBeInTheDocument();
 	});
 
 	it('selects a row on click', async () => {
 		const user = userEvent.setup();
 		rtl.render(<ProviderList sources={[source({ id: 'a', displayName: 'Alpha', signedIn: false })]} />);
-		const row = screen.getByRole('button', { name: /Alpha/ });
+		const row = screen.getByRole('button', { name: 'Alpha' });
 		await user.click(row);
 		expect(row).toHaveClass('selected');
 	});
@@ -61,6 +72,6 @@ describe('ProviderList', () => {
 			source({ id: 'a', displayName: 'Alpha', signedIn: false }),
 			source({ id: 'b', displayName: 'Bravo', signedIn: false }),
 		]} />);
-		expect(screen.getByRole('button', { name: /Alpha/ })).toHaveClass('selected');
+		expect(screen.getByRole('button', { name: 'Alpha' })).toHaveClass('selected');
 	});
 });

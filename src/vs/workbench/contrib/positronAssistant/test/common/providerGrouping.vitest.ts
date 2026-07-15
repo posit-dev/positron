@@ -20,24 +20,32 @@ function source(overrides: Partial<IPositronLanguageModelSource> & { id: string 
 }
 
 describe('groupProviders', () => {
-	it('buckets signed-in error sources into needs-attention', () => {
+	it('orders sections connected, needs-attention, model-providers', () => {
+		const sections = groupProviders([
+			source({ id: 'avail', signedIn: false }),
+			source({ id: 'err', signedIn: true, status: 'error' }),
+			source({ id: 'conn', signedIn: true, status: 'ok' }),
+		]);
+		expect(sections.map(s => s.id)).toEqual(['connected', 'needs-attention', 'model-providers']);
+	});
+
+	it('buckets a signed-in error source into needs-attention', () => {
 		const sections = groupProviders([source({ id: 'a', signedIn: true, status: 'error' })]);
 		expect(sections).toHaveLength(1);
 		expect(sections[0].id).toBe('needs-attention');
-		expect(sections[0].items.map(i => i.provider.id)).toEqual(['a']);
 	});
 
-	it('buckets signed-in non-error into connected and signed-out into available', () => {
+	it('buckets a signed-in non-error source into connected and signed-out into model-providers', () => {
 		const sections = groupProviders([
 			source({ id: 'a', signedIn: true, status: 'ok' }),
 			source({ id: 'b', signedIn: false }),
 		]);
-		expect(sections.map(s => s.id)).toEqual(['connected', 'available']);
+		expect(sections.map(s => s.id)).toEqual(['connected', 'model-providers']);
 	});
 
 	it('omits empty sections', () => {
 		const sections = groupProviders([source({ id: 'b', signedIn: false })]);
-		expect(sections.map(s => s.id)).toEqual(['available']);
+		expect(sections.map(s => s.id)).toEqual(['model-providers']);
 	});
 
 	it('filters out non-chat sources except copilot-auth completion', () => {
@@ -49,13 +57,21 @@ describe('groupProviders', () => {
 		expect(sections[0].items.map(i => i.provider.id)).toEqual(['copilot-auth']);
 	});
 
-	it('sorts posit-ai first, then stable, preview, experimental, then alphabetical', () => {
+	it('excludes the custom-provider template (openai-compatible) from the built-in sections', () => {
 		const sections = groupProviders([
-			source({ id: 'zebra', signedIn: false }),
-			source({ id: 'exp', signedIn: false, provider: { id: 'exp', displayName: 'exp', settingName: 'exp', status: 'experimental' } }),
-			source({ id: 'posit-ai', signedIn: false }),
-			source({ id: 'alpha', signedIn: false }),
+			source({ id: 'openai-compatible', signedIn: false }),
+			source({ id: 'openai-api', signedIn: false }),
 		]);
-		expect(sections[0].items.map(i => i.provider.id)).toEqual(['posit-ai', 'alpha', 'zebra', 'exp']);
+		expect(sections).toHaveLength(1);
+		expect(sections[0].items.map(i => i.provider.id)).toEqual(['openai-api']);
+	});
+
+	it('sorts alphabetically by display name within a section', () => {
+		const sections = groupProviders([
+			source({ id: 'zebra', provider: { id: 'zebra', displayName: 'Zebra', settingName: 'zebra' }, signedIn: false }),
+			source({ id: 'posit-ai', provider: { id: 'posit-ai', displayName: 'Posit AI', settingName: 'positAI' }, signedIn: false }),
+			source({ id: 'alpha', provider: { id: 'alpha', displayName: 'Alpha', settingName: 'alpha' }, signedIn: false }),
+		]);
+		expect(sections[0].items.map(i => i.provider.displayName)).toEqual(['Alpha', 'Posit AI', 'Zebra']);
 	});
 });

@@ -6,7 +6,7 @@
 .provider-list {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: 20px;
 	overflow-y: auto;
 }
 
@@ -17,10 +17,18 @@
 }
 
 .provider-list-section-heading {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 11px;
 	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--vscode-descriptionForeground);
 	margin-bottom: 4px;
 }
 
+/* Provider row */
 .provider-list-item {
 	display: flex;
 	align-items: center;
@@ -28,10 +36,16 @@
 	padding: 8px;
 	border-radius: 4px;
 	cursor: pointer;
+	text-align: left;
 }
 
 .provider-list-item:hover {
 	background-color: var(--vscode-list-hoverBackground);
+}
+
+.provider-list-item:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
 }
 
 .provider-list-item.selected {
@@ -50,6 +64,7 @@
 	flex-direction: column;
 	gap: 2px;
 	min-width: 0;
+	flex: 1;
 }
 
 .provider-list-item-name {
@@ -58,37 +73,60 @@
 	gap: 8px;
 }
 
-.provider-list-item-label {
-	font-size: 11px;
-	padding: 1px 6px;
-	border-radius: 8px;
-	background-color: var(--vscode-badge-background);
-	color: var(--vscode-badge-foreground);
+.provider-list-item-display-name {
+	font-weight: 600;
 }
 
-.provider-list-item-status {
-	display: flex;
-	align-items: center;
-	gap: 6px;
+.provider-list-item-desc,
+.provider-list-custom-desc {
 	font-size: 12px;
 	color: var(--vscode-descriptionForeground);
 }
 
-.provider-list-item-status-dot {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
+.provider-list-item-error {
+	font-size: 12px;
+	color: var(--vscode-errorForeground);
+}
+
+/* Badges */
+.provider-list-item-badge {
+	font-size: 11px;
+	line-height: 1.4;
+	padding: 0 6px;
+	border-radius: 8px;
+	background-color: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	white-space: nowrap;
+}
+
+.provider-list-item-badge.error {
+	background-color: transparent;
+	color: var(--vscode-errorForeground);
+	border: 1px solid var(--vscode-errorForeground);
+}
+
+/* Action buttons */
+.provider-list-item-actions {
 	flex-shrink: 0;
 }
 
-.provider-list-item-status-dot.connected {
-	background-color: var(--vscode-testing-iconPassed, #388a34);
+.provider-list-item-action,
+.provider-list-add-custom {
+	padding: 3px 10px;
+	border-radius: 4px;
+	border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
+	background-color: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	cursor: pointer;
+	font-size: 12px;
 }
 
-.provider-list-item-status-dot.error {
-	background-color: var(--vscode-testing-iconFailed, #e51400);
+.provider-list-item-action:hover,
+.provider-list-add-custom:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
-.provider-list-item-status-dot.disconnected {
-	background-color: var(--vscode-descriptionForeground);
+.provider-list-add-custom {
+	align-self: flex-start;
+	margin-top: 4px;
 }
