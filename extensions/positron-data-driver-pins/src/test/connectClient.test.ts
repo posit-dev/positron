@@ -37,6 +37,12 @@ suite('normalizeServerUrl', () => {
 	test('leaves a path prefix intact', () => {
 		assert.strictEqual(normalizeServerUrl('https://example.com/connect/__api__/'), 'https://example.com/connect');
 	});
+
+	test('defaults a missing scheme to https and preserves an explicit one', () => {
+		assert.strictEqual(normalizeServerUrl('pub.demo.posit.team'), 'https://pub.demo.posit.team');
+		assert.strictEqual(normalizeServerUrl('connect.example.com/'), 'https://connect.example.com');
+		assert.strictEqual(normalizeServerUrl('http://localhost:3939'), 'http://localhost:3939');
+	});
 });
 
 suite('ConnectClient', () => {
