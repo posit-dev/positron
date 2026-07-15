@@ -180,8 +180,8 @@ async function showMismatchWarning(
 	} else {
 		message = vscode.l10n.t(
 			'The running Ark R kernel ({0}) was built from a different commit ({1}) than the one ' +
-			'Positron expects ({2}). R sessions should still work, but to run the pinned Ark, ' +
-			'reinstall it by running `npm install` (building it from source requires the Rust toolchain).',
+			'Positron expects ({2}). This version of Ark may not be compatible with your version ' +
+			'of Positron.'
 			running,
 			runningCommit,
 			expectedCommit);
