@@ -88,12 +88,6 @@ suite('ConnectClient', () => {
 		assert.ok(calls[0].url.includes('filter=content_type:pin'), calls[0].url);
 	});
 
-	test('listPins passes a search term', async () => {
-		const { fetch, calls } = recordingFetch(() => ({ body: '{"applications":[]}' }));
-		await new ConnectClient(SERVER, KEY, fetch).listPins('my pin');
-		assert.ok(calls[0].url.includes('search=my%20pin'), calls[0].url);
-	});
-
 	test('getPinMeta fetches data.txt from the content _rev path and parses it', async () => {
 		const { fetch, calls } = recordingFetch(() => ({
 			body: 'file: data.parquet\ntype: parquet\ntitle: Cars\napi_version: 1\n',

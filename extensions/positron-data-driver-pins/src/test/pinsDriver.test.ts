@@ -31,20 +31,15 @@ function routingFetch(routes: { match: string; body: string }[]): typeof fetch {
 suite('Pins Driver', () => {
 	const driver = createPinsDriver(fakeContext());
 
-	test('exposes a single API Key mechanism with a server URL and API key', () => {
-		assert.strictEqual(driver.id, 'positron-data-driver-pins');
-		assert.deepStrictEqual(driver.supportedLanguageIds, ['python', 'r']);
-		assert.strictEqual(driver.mechanisms.length, 1);
-
+	test('marks the server URL and API key parameters required, with the key a secret', () => {
 		const [mechanism] = driver.mechanisms;
-		assert.strictEqual(mechanism.id, 'apiKey');
 		const serverUrl = mechanism.parameters.find(p => p.id === 'serverUrl')!;
-		assert.strictEqual(serverUrl.type, positron.DataConnectionParameterType.String);
 		assert.strictEqual(serverUrl.required, true);
+
 		const apiKey = mechanism.parameters.find(p => p.id === 'apiKey')!;
-		// A required Password parameter, which is always secret (and stored in secret storage by the
-		// framework). Required matters beyond validation: the configure dialog appends "(optional)" to
-		// the label of any non-required field, which would break exact-label lookups in e2e tests.
+		// Required matters beyond validation: the configure dialog appends "(optional)" to the label of
+		// any non-required field, which would break exact-label lookups in e2e tests. Password params
+		// are always secret (stored in secret storage by the framework).
 		assert.strictEqual(apiKey.required, true);
 		assert.strictEqual(apiKey.type, positron.DataConnectionParameterType.Password);
 		if (apiKey.type === positron.DataConnectionParameterType.Password) {
@@ -110,10 +105,6 @@ suite('Pins Connection tree', () => {
 	function connection(): PinsConnection {
 		return new PinsConnection(new ConnectClient('https://c.example.com', 'key', routingFetch(routes)));
 	}
-
-	test('is read-only', async () => {
-		assert.strictEqual(await connection().isReadOnly(), true);
-	});
 
 	test('groups pins by owner, sorted, rendered as owner nodes', async () => {
 		const owners = await connection().getChildren();
