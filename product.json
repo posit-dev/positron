@@ -212,7 +212,7 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "1.1.1",
+			"version": "1.1.9002",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
