@@ -14,6 +14,7 @@ import { IPositronNotebookInstance } from '../../browser/IPositronNotebookInstan
 import { CellSelectionType, getActiveCell, SelectionState } from '../../browser/selectionMachine.js';
 import { ExecuteAndInsertBelowAction } from '../../browser/positronNotebook.contribution.js';
 import { createLabelledTestNotebook, createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
+import { singleKeybinding } from './keybindingTestUtils.js';
 
 /**
  * Verifies the Alt/Option+Enter notebook action (issue #12938): run the active
@@ -53,8 +54,8 @@ describe('ExecuteAndInsertBelowAction (Alt+Enter)', () => {
 	it('declares Alt+Enter keybinding scoped to editorFocused', () => {
 		const action = new ExecuteAndInsertBelowAction();
 		expect(action.desc.id).toBe('positronNotebook.cell.executeAndInsertBelow');
-		expect(action.desc.keybinding?.primary).toBe(KeyMod.Alt | KeyCode.Enter);
-		expect(action.desc.keybinding?.when).toBe(NotebookContextKeys.editorFocused);
+		expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyMod.Alt | KeyCode.Enter);
+		expect(singleKeybinding(action.desc.keybinding)?.when).toBe(NotebookContextKeys.editorFocused);
 	});
 
 	it('runs a non-last code cell and inserts a focused code cell directly below', async () => {

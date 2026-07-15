@@ -20,6 +20,19 @@ const decompress = promisify(zlib.brotliDecompress);
 
 const DefaultCachePath = process.env.VITEST ? path.resolve(__dirname, '..', 'simulation', 'cache') : path.resolve(__dirname, '..', 'test', 'simulation', 'cache');
 
+// --- Start Positron ---
+/**
+ * Whether the simulation test cache (base.sqlite) is present on disk. Positron
+ * strips the LFS-hosted simulation cache (see extensions/copilot/.gitattributes)
+ * because its blobs live on Microsoft's LFS server, which Positron CI cannot read.
+ * The Cache constructor throws when base.sqlite is missing, so cache-backed tests
+ * must skip when this returns false. Mirrors the existence check in `Cache`.
+ */
+export function isSimulationCacheAvailable(): boolean {
+	return fs.existsSync(path.join(DefaultCachePath, 'base.sqlite'));
+}
+// --- End Positron ---
+
 async function getGitRoot(cwd: string): Promise<string> {
 	const execAsync = promisify(exec);
 	const { stdout } = await execAsync('git rev-parse --show-toplevel', { cwd });

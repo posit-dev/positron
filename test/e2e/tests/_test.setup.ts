@@ -257,7 +257,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(fileOps.openDataFile);
 	},
 
-	// ex: await openFolder(path.join('qa-example-content/workspaces/r_testing'));
+	// ex: await openFolder(path.join('test-files/workspaces/r_testing'));
 	openFolder: async ({ app }, use) => {
 		const fileOps = FileOperationsFixture(app);
 		await use(fileOps.openFolder);
@@ -283,8 +283,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	runDockerCommand: async ({ }, use, testInfo) => {
 		await use(async (command: string, description: string) => {
-			if (testInfo.project.name !== 'e2e-workbench' && testInfo.project.name !== 'e2e-jupyter' && testInfo.project.name !== 'e2e-remote-ssh') {
-				throw new Error('runDockerCommand is only available in the e2e-workbench, e2e-jupyter & e2e-remote-ssh projects');
+			if (testInfo.project.name !== 'e2e-workbench' && testInfo.project.name !== 'e2e-jupyter' && testInfo.project.name !== 'e2e-remote-ssh' && testInfo.project.name !== 'e2e-connect') {
+				throw new Error('runDockerCommand is only available in the e2e-workbench, e2e-jupyter, e2e-remote-ssh & e2e-connect projects');
 			}
 			return runDockerCommand(command, description); // <-- return result
 		});

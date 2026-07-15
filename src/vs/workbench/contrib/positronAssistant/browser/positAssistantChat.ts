@@ -13,6 +13,11 @@ import { INotificationService } from '../../../../platform/notification/common/n
 // repositories cannot share a module).
 export const POSIT_NEW_CHAT_COMMAND = 'posit-assistant.newChat';
 
+// Context key set by the Posit Assistant extension when it has at least one
+// usable chat model. Like the command ID, the string is mirrored in the
+// extension.
+export const POSIT_HAS_CHAT_MODELS_KEY = 'posit-assistant.hasChatModels';
+
 /** A file attachment passed to the Posit Assistant newChat command. */
 export interface NewChatFile {
 	uri: string;

@@ -295,10 +295,10 @@ jobs:
           node-version: ${{ steps.restore-caches.outputs.node-version }}
           playwright-version: ${{ steps.restore-caches.outputs.playwright-version }}
 
-      - name: Download Python requirements file
+      - name: Stage Python requirements file
         id: download-python-reqs
         run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+          Copy-Item test/e2e/test-files/requirements.txt requirements.txt
           $hash = (Get-FileHash requirements.txt -Algorithm SHA256).Hash
           echo "requirements-hash=$hash" >> $env:GITHUB_OUTPUT
           echo "Python requirements hash: $hash"
@@ -355,10 +355,10 @@ jobs:
           rig default 4.4.0
           rig ls
 
-      - name: Download R DESCRIPTION file
+      - name: Stage R DESCRIPTION file
         id: download-r-desc
         run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          Copy-Item test/e2e/test-files/DESCRIPTION DESCRIPTION
           $hash = (Get-FileHash DESCRIPTION -Algorithm SHA256).Hash
           echo "description-hash=$hash" >> $env:GITHUB_OUTPUT
           echo "R DESCRIPTION hash: $hash"
@@ -463,7 +463,7 @@ jobs:
       # Postgres for the data-connection / connections e2e tests.
       #
       # GitHub Actions `services:` containers only work on Linux runners, and
-      # positron-postgres is a Linux/amd64 image, so a service block can't be
+      # positron-postgres is a Linux image, so a service block can't be
       # used here. Windows Server 2025 (the windows-latest image) ships WSL2,
       # which can run Linux containers. We install docker inside a WSL2 Ubuntu
       # distro and run the SAME image the Ubuntu job uses, keeping the
@@ -507,7 +507,7 @@ jobs:
           wsl -d Ubuntu -u root -- bash -c 'echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USER" --password-stdin'
           # POSTGRES_DB stays "postgres": the image's init scripts create the
           # "periodic" and "dvdrental" databases (and the "e2e" user) themselves.
-          wsl -d Ubuntu -u root -- bash -c 'docker run -d --name postgres -p 5432:5432 -e POSTGRES_USER="$E2E_POSTGRES_USER" -e POSTGRES_PASSWORD="$E2E_POSTGRES_PASSWORD" -e POSTGRES_DB=postgres ghcr.io/posit-dev/positron-postgres-amd64:142'
+          wsl -d Ubuntu -u root -- bash -c 'docker run -d --name postgres -p 5432:5432 -e POSTGRES_USER="$E2E_POSTGRES_USER" -e POSTGRES_PASSWORD="$E2E_POSTGRES_PASSWORD" -e POSTGRES_DB=postgres ghcr.io/posit-dev/positron-postgres:24.15.0'
           # Wait for the seeded "periodic" database to accept connections. Run
           # the loop in this step's bash and let each `wsl -- <cmd> <args>` pass
           # straight through to Linux: a complex program (loops, $(), ;) sent via
@@ -568,7 +568,7 @@ jobs:
           fi
 
           export SKIP_BOOTSTRAP=true
-          # Skip clone on qa-example-content if we already did the bootstrap test
+          # Skip re-provisioning test-files if we already did the bootstrap test
           if [ "${{ inputs.skip_extension_tests }}" != "true" ]; then
             export SKIP_CLONE=true
           else

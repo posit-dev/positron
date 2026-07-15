@@ -833,7 +833,9 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 		if (this.extensionManagementServerService.webExtensionManagementServer) {
 			return this.extensionManagementServerService.webExtensionManagementServer.extensionManagementService.getExtensionsControlManifest();
 		}
+		// --- Start PWB: do not contact the extension gallery for the control manifest (offline/enterprise) ---
 		return Promise.resolve({ malicious: [], deprecated: {}, search: [] });
+		// --- End PWB ---
 	}
 
 	private getServer(extension: ILocalExtension): IExtensionManagementServer | null {

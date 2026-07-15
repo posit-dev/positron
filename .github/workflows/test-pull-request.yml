@@ -32,9 +32,25 @@ jobs:
       workbench_stable_tag_found: ${{ steps.pr-tags.outputs.workbench_stable_tag_found }}
       jupyter_tag_found: ${{ steps.pr-tags.outputs.jupyter_tag_found }}
       remote_ssh_tag_found: ${{ steps.pr-tags.outputs.remote_ssh_tag_found }}
+      connect_tag_found: ${{ steps.pr-tags.outputs.connect_tag_found }}
 
     steps:
       - uses: actions/checkout@v7
+      # Install just enough for derive-test-change-tags.mjs's
+      # `playwright test --list` call. Gated to PRs that touch e2e test files.
+      # Shared with pr-e2e-comment.yml so the two derivation environments can't
+      # drift -- see the composite action for the full rationale.
+      - name: Set up e2e tag listing
+        uses: ./.github/actions/e2e-tag-listing-setup
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-repository: ${{ github.repository }}
+          pull-request-number: ${{ github.event.pull_request.number }}
+      # Guardrail for the tag-derivation scripts; fail fast before relying on them below.
+      - name: Unit test the tag-derivation helpers
+        run: bash scripts/test/pr-tags-lib-test.sh
+      - name: Validate test-tag-paths-map.json tags against test-tags.ts
+        run: bash scripts/check-test-tag-map.sh --tags-only
       - name: Parse Tags from PR Body
         id: pr-tags
         run: bash scripts/pr-tags-parse.sh
@@ -42,6 +58,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+      # The advisory comment (no-match / unmapped-dir warnings) is posted from
+      # the pr-e2e-comment workflow, folded into the single "E2E Tests" comment.
 
   e2e-ubuntu-electron:
     name: e2e
@@ -277,6 +295,24 @@ jobs:
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "remote-ssh"
+      upload_logs: false
+      allow_soft_fail: false
+    secrets: inherit
+
+  build-connect:
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.connect_tag_found == 'true' }}
+    name: build
+    uses: ./.github/workflows/build-connect-linux.yml
+    secrets: inherit
+
+  e2e-connect:
+    needs: [pr-tags, build-connect]
+    if: ${{ needs.pr-tags.outputs.connect_tag_found == 'true' }}
+    name: e2e
+    uses: ./.github/workflows/test-e2e-connect.yml
+    with:
+      display_name: "connect"
       upload_logs: false
       allow_soft_fail: false
     secrets: inherit

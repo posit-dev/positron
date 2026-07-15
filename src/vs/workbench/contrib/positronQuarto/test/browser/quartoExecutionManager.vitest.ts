@@ -11,7 +11,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
-import { CellExecutionState, ExecutionOutputEvent, ICellOutput } from '../../common/quartoExecutionTypes.js';
+import { CellExecutionState, ExecutionOutputEvent, ICellFragmentProgress, ICellOutput } from '../../common/quartoExecutionTypes.js';
 import { Range } from '../../../../../editor/common/core/range.js';
 import type { IInputBoundary } from '../../../../../editor/common/languages.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
@@ -35,7 +35,7 @@ import { ITerminalService } from '../../../terminal/browser/terminal.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { Event } from '../../../../../base/common/event.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY } from '../../common/positronQuartoConfig.js';
+import { QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY } from '../../common/positronQuartoConfig.js';
 
 const TestLanguageRuntimeMetadata: ILanguageRuntimeMetadata = {
 	base64EncodedIconSvg: '',
@@ -425,7 +425,7 @@ describe('QuartoExecutionManager', () => {
 		});
 
 		it('executes R code as one range when statement splitting is disabled', async () => {
-			await configurationService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY, false);
+			await configurationService.setUserConfiguration(QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY, false);
 
 			const result = await executeRCellWithBoundaries(
 				'test-r-splitting-disabled',
@@ -1009,6 +1009,164 @@ describe('QuartoExecutionManager', () => {
 			expect(outputsReceived.length, 'Should receive two outputs (stream + execute_result)').toBe(2);
 			expect(outputsReceived[1].items[0].mime).toBe('text/plain');
 			expect(outputsReceived[1].items[0].data).toBe('5');
+		});
+	});
+
+	describe('Fragment Progress', () => {
+		const quartoInputBoundarySelector = { language: 'r', scheme: 'inmemory', pattern: '**/quarto-input-boundaries/*' };
+
+		// A cell with three single-line statements at document lines 2, 3, and 4.
+		function setupThreeStatementCell(testId: string): { documentUri: URI; cell: QuartoCodeCell } {
+			const cell: QuartoCodeCell = {
+				id: testId,
+				index: 0,
+				language: 'r',
+				startLine: 1,
+				endLine: 5,
+				codeStartLine: 2,
+				codeEndLine: 4,
+				label: undefined,
+				options: '',
+				contentHash: testId,
+			};
+			const documentLines = ['```{r}', '1', '2', '3', '```'];
+			const mockModel = new MockQuartoDocumentModel([cell], documentLines, 'r');
+			mockDocumentModelService.setMockModel(mockModel);
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+			return { documentUri: URI.file(`/${testId}.qmd`), cell };
+		}
+
+		function registerLinewiseProvider(): void {
+			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register(quartoInputBoundarySelector, {
+				provideInputBoundaries() {
+					return [
+						{ range: { start: 0, end: 1 }, kind: 'complete' },
+						{ range: { start: 1, end: 2 }, kind: 'complete' },
+						{ range: { start: 2, end: 3 }, kind: 'complete' },
+					];
+				}
+			}));
+		}
+
+		// Project a progress snapshot to plain line-number pairs for easy assertion.
+		function project(progress: ICellFragmentProgress | undefined) {
+			if (!progress) {
+				return undefined;
+			}
+			const toPair = (r: Range) => [r.startLineNumber, r.endLineNumber];
+			return {
+				executed: progress.executed.map(toPair),
+				executing: progress.executing ? toPair(progress.executing) : undefined,
+				pending: progress.pending.map(toPair),
+			};
+		}
+
+		it('reports per-statement progress as each statement executes', async () => {
+			const { documentUri, cell } = setupThreeStatementCell('test-fragment-progress');
+			registerLinewiseProvider();
+
+			const progressEvents: string[] = [];
+			ctx.disposables.add(executionManager.onDidChangeFragmentProgress(e => progressEvents.push(e.cellId)));
+
+			const steps: unknown[] = [];
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+
+			for (let i = 0; i < 3; i++) {
+				const executionId = await mockKernelManager.waitForExecution();
+				steps.push(project(executionManager.getFragmentProgress(cell.id)));
+				mockSession.receiveStateMessage({
+					parent_id: executionId,
+					state: RuntimeOnlineState.Idle,
+				});
+				mockSession.setRuntimeState(RuntimeState.Ready);
+			}
+
+			await executionPromise;
+
+			// Progress advances statement by statement, then is cleared once the
+			// whole cell finishes.
+			expect(steps).toMatchInlineSnapshot(`
+				[
+				  {
+				    "executed": [],
+				    "executing": [
+				      2,
+				      2,
+				    ],
+				    "pending": [
+				      [
+				        3,
+				        3,
+				      ],
+				      [
+				        4,
+				        4,
+				      ],
+				    ],
+				  },
+				  {
+				    "executed": [
+				      [
+				        2,
+				        2,
+				      ],
+				    ],
+				    "executing": [
+				      3,
+				      3,
+				    ],
+				    "pending": [
+				      [
+				        4,
+				        4,
+				      ],
+				    ],
+				  },
+				  {
+				    "executed": [
+				      [
+				        2,
+				        2,
+				      ],
+				      [
+				        3,
+				        3,
+				      ],
+				    ],
+				    "executing": [
+				      4,
+				      4,
+				    ],
+				    "pending": [],
+				  },
+				]
+			`);
+			expect(executionManager.getFragmentProgress(cell.id)).toBeUndefined();
+			expect(progressEvents).toEqual([cell.id, cell.id, cell.id]);
+		});
+
+		it('does not report fragment progress when statement splitting is disabled', async () => {
+			await configurationService.setUserConfiguration(QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY, false);
+			const { documentUri, cell } = setupThreeStatementCell('test-no-split-progress');
+			registerLinewiseProvider();
+
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+			const executionId = await mockKernelManager.waitForExecution();
+
+			// The cell runs as a single range, so there is no per-statement
+			// progress and the gutter falls back to the whole-cell treatment.
+			expect(executionManager.getExecutionState(cell.id)).toBe(CellExecutionState.Running);
+			expect(executionManager.getFragmentProgress(cell.id)).toBeUndefined();
+
+			mockSession.receiveStateMessage({
+				parent_id: executionId,
+				state: RuntimeOnlineState.Idle,
+			});
+			mockSession.setRuntimeState(RuntimeState.Ready);
+			await executionPromise;
 		});
 	});
 

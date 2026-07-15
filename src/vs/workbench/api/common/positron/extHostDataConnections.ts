@@ -335,9 +335,13 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 				}
 				break;
 			case 'number':
+				dto.defaultValue = p.defaultValue;
+				dto.placeholder = p.placeholder;
+				break;
 			case 'file':
 				dto.defaultValue = p.defaultValue;
 				dto.placeholder = p.placeholder;
+				dto.filters = p.filters;
 				break;
 			case 'boolean':
 				dto.defaultValue = p.defaultValue;

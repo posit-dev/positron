@@ -18,7 +18,7 @@ const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
 // ignored — see posit-dev/assistant#1289 (fixed in #1293). Uses the `echo`
 // tool from @modelcontextprotocol/server-everything as a stable reference.
 test.describe.skip('Posit Assistant MCP', { // skipping while investigating failures
-	tag: [tags.POSIT_ASSISTANT, tags.ASSISTANT, tags.WEB, tags.WIN],
+	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
 }, () => {
 
 	for (const provider of POSIT_ASSISTANT_PROVIDERS) {
@@ -55,6 +55,8 @@ test.describe.skip('Posit Assistant MCP', { // skipping while investigating fail
 			test(`${provider} - Use echo tool from MCP server configured in .positai/settings.json`, async function ({ app }) {
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
+				await app.workbench.positAssistant.startNewConversation();
+				await app.workbench.positAssistant.selectProviderModel(provider);
 
 				// Unique marker so any positive match has to come from this run.
 				const marker = 'positron-mcp-echo-marker-7f31b9c4';
@@ -62,7 +64,7 @@ test.describe.skip('Posit Assistant MCP', { // skipping while investigating fail
 				await app.workbench.positAssistant.sendMessage(
 					`Call the "echo" tool from the "everything" MCP server with this exact message: ${marker}. Then reply with only the echoed text.`,
 					false,
-					{ newConversation: true },
+					{ newConversation: false },
 				);
 
 				await app.workbench.positAssistant.expectMcpToolConfirmVisible('everything', 'echo');

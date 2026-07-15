@@ -179,9 +179,7 @@ test.describe('Positron Notebooks: Find and Replace', {
 		await notebooksPositron.expectCellContentAtIndexToBe(0, 'hello = 1');
 	});
 
-	// Skipped until the  widget tooltip fix (#14198) merges -- the widget
-	// buttons do not show tooltips without it. Unskip after that PR lands.
-	test.skip('Verify search widget buttons show tooltips on hover', async function ({ app }) {
+	test('Verify search widget buttons show tooltips on hover', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
 		// Use a query with a match so every button is enabled (disabled

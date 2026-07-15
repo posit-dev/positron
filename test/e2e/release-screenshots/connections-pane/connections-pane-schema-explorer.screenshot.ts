@@ -76,7 +76,7 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
+		await overrideWorkspaceName(page, 'test-files', 'my-project');
 		await captureFullWindow(page, 'connections-pane-schema-explorer.png');
 	});
 });

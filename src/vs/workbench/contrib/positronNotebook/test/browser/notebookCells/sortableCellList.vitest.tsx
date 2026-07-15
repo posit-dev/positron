@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 import { IPositronNotebookCell } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';

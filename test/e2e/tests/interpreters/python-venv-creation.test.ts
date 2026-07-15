@@ -47,12 +47,12 @@ test.describe('Python Venv Auto-Creation', {
 	test.slow();
 
 	test('Clicking Yes creates venv', async function ({ app, openFolder }) {
-		const tempWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'qa-example-content', 'venv-creation-test');
+		const tempWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'test-files', 'venv-creation-test');
 		await fs.mkdir(tempWorkspace, { recursive: true });
 		await fs.writeFile(path.join(tempWorkspace, 'requirements.txt'), 'requests\n');
 
 		try {
-			await openFolder('qa-example-content/venv-creation-test');
+			await openFolder('test-files/venv-creation-test');
 			await app.workbench.sessions.expectNoStartUpMessaging();
 
 			const toast = app.workbench.toasts.toastNotification.filter({ hasText: /requirements\.txt/ });

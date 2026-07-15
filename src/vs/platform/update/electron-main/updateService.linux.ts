@@ -81,12 +81,16 @@ export class LinuxUpdateService extends AbstractUpdateService {
 	}
 
 	protected override async doDownloadUpdate(state: AvailableForDownload): Promise<void> {
-		// Use the download URL if available as we don't currently detect the package type that was
-		// installed and the website download page is more useful than the tarball generally.
-		if (this.productService.downloadUrl && this.productService.downloadUrl.length > 0) {
-			this.nativeHostMainService.openExternal(undefined, this.productService.downloadUrl);
-		} else if (state.update.url) {
+		// Send the user directly to the artifact advertised by the update feed. The feed URL is keyed
+		// to the installed package type (productService.packageType), so state.update.url already points
+		// at the correct .deb/.rpm/tarball for the version we detected. This is the version the check
+		// found, which matters for both channels: the website download page only serves `releases`, so
+		// dailies users have nowhere to land there, and even release users can be handed a build the page
+		// is not yet serving. Fall back to the generic download page only when the feed omits a URL.
+		if (state.update.url) {
 			this.nativeHostMainService.openExternal(undefined, state.update.url);
+		} else if (this.productService.downloadUrl && this.productService.downloadUrl.length > 0) {
+			this.nativeHostMainService.openExternal(undefined, this.productService.downloadUrl);
 		}
 
 		this.setState(State.Idle(UpdateType.Archive));

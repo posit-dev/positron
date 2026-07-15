@@ -11,7 +11,7 @@ import { safeSetInnerHtml } from '../../../../base/browser/domSanitize.js';
 import { allowedMarkdownHtmlTags, allowedMarkdownHtmlAttributes } from '../../../../base/browser/markdownRenderer.js';
 import { getWindow } from '../../../../base/browser/dom.js';
 import { MarkedKatexSupport } from '../../markdown/browser/markedKatexSupport.js';
-import { POSITRON_QUARTO_EQUATION_PREVIEW_KEY } from '../common/positronQuartoConfig.js';
+import { POSITRON_QUARTO_EQUATION_PREVIEW_KEY, QUARTO_EQUATION_PREVIEW_KEY, affectsQuartoConfig, getQuartoConfigValue } from '../common/positronQuartoConfig.js';
 import { IInlinePreviewItem, QuartoInlinePreviewContribution, QuartoInlinePreviewViewZone } from './quartoInlinePreview.js';
 
 type KatexModule = typeof import('katex').default;
@@ -266,7 +266,7 @@ export class QuartoEquationPreviewContribution extends QuartoInlinePreviewContri
 		super(editor);
 
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(POSITRON_QUARTO_EQUATION_PREVIEW_KEY)) {
+			if (affectsQuartoConfig(e, QUARTO_EQUATION_PREVIEW_KEY, POSITRON_QUARTO_EQUATION_PREVIEW_KEY)) {
 				this.onEnablementChanged();
 			}
 		}));
@@ -275,7 +275,8 @@ export class QuartoEquationPreviewContribution extends QuartoInlinePreviewContri
 	}
 
 	protected override isEnabled(): boolean {
-		return this._configurationService.getValue<boolean>(POSITRON_QUARTO_EQUATION_PREVIEW_KEY) ?? false;
+		// Registered default is true; pass true so an unset setting stays enabled.
+		return getQuartoConfigValue(this._configurationService, QUARTO_EQUATION_PREVIEW_KEY, POSITRON_QUARTO_EQUATION_PREVIEW_KEY, true);
 	}
 
 	protected override findItems(model: ITextModel): IInlinePreviewItem[] {

@@ -19,7 +19,7 @@ test.describe('Autocomplete with Notebook Console', {
 			{
 				'console.showNotebookConsoles': true,
 				'console.showNotebookConsoleActions': true,
-				'positron.quarto.inlineOutput.enabled': true,
+				'quarto.inlineOutput.enabled': true,
 				'workbench.editor.enablePreview': true,
 			}
 		);

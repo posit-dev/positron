@@ -43,6 +43,18 @@
 	grid-template-columns: [check] 22px [icon] 24px [title] 1fr [shortcut] min-content [end];
 }
 
+/*
+ * When no entry in the menu has an icon, collapse the icon column to 0px so labels aren't
+ * pushed right by an empty icon gutter. The check column (if any) is preserved.
+ */
+.custom-context-menu-items.no-icons .custom-context-menu-item {
+	grid-template-columns: [icon] 0px [title] 1fr [shortcut] min-content [end];
+}
+
+.custom-context-menu-items.no-icons .custom-context-menu-item.checkable {
+	grid-template-columns: [check] 22px [icon] 0px [title] 1fr [shortcut] min-content [end];
+}
+
 .custom-context-menu-item.destructive {
 	color: var(--vscode-errorForeground);
 }

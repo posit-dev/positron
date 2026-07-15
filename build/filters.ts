@@ -46,6 +46,10 @@ export const all = Object.freeze<string[]>([
 	// Excluded since it isn't shipping code
 	'!test/smoke/test-repo/**/*',
 	'!test/e2e/test-repo/**/*',
+
+	// Excluded since it's example content merged from qa-example-content
+	// (test fixtures/workspaces, not shipping source with our code style)
+	'!test/e2e/test-files/**/*',
 	// --- End Positron ---
 ]);
 
@@ -70,7 +74,7 @@ export const unicodeFilter = Object.freeze<string[]>([
 	'!build/win32/**',
 	'!extensions/markdown-language-features/notebook-out/*.js',
 	'!extensions/markdown-math/notebook-out/**',
-	'!extensions/mermaid-chat-features/chat-webview-out/**',
+	'!extensions/mermaid-markdown-features/chat-webview-out/**',
 	'!extensions/ipynb/notebook-out/**',
 	'!extensions/notebook-renderers/renderer-out/**',
 	'!extensions/php-language-features/src/features/phpGlobalFunctions.ts',
@@ -165,7 +169,7 @@ export const indentationFilter = Object.freeze<string[]>([
 	'!build/**/*.sh',
 	'!build/azure-pipelines/**/*.js',
 	'!build/azure-pipelines/**/*.config',
-	'!build/npm/gyp/custom-headers/*.patch',
+	'!build/npm/gyp/custom-headers/**',
 	'!**/Dockerfile',
 	'!**/Dockerfile.*',
 	'!**/*.Dockerfile',
@@ -173,7 +177,9 @@ export const indentationFilter = Object.freeze<string[]>([
 	'!**/*.tiff',
 
 	// except for built files
-	'!extensions/mermaid-chat-features/chat-webview-out/*.js',
+	'!extensions/mermaid-markdown-features/chat-webview-out/*.js',
+	'!extensions/mermaid-markdown-features/markdown-preview-out/*.js',
+	'!extensions/mermaid-markdown-features/notebook-out/*.js',
 	'!extensions/markdown-language-features/media/*.js',
 	'!extensions/markdown-language-features/notebook-out/*.js',
 	'!extensions/markdown-math/notebook-out/*.js',
@@ -228,7 +234,7 @@ export const copyrightFilter = Object.freeze<string[]>([
 	'!build/**/*.init',
 	'!build/darwin/patch-dmg.py',
 	'!build/linux/libcxx-fetcher.*',
-	'!build/npm/gyp/custom-headers/*.patch',
+	'!build/npm/gyp/custom-headers/**',
 	'!resources/linux/snap/snapcraft.yaml',
 	'!resources/win32/bin/code.js',
 	'!resources/completions/**',
@@ -240,6 +246,7 @@ export const copyrightFilter = Object.freeze<string[]>([
 	'!extensions/typescript-language-features/node-maintainer/**',
 	'!extensions/html-language-features/server/src/modes/typescript/*',
 	'!extensions/*/server/bin/*',
+	'!src/vs/platform/agentHost/node/codex/protocol/generated/**',
 	'!src/vs/editor/test/node/classification/typescript-test.ts',
 	'!src/vs/workbench/contrib/terminal/common/scripts/psreadline/**',
 
@@ -248,7 +255,9 @@ export const copyrightFilter = Object.freeze<string[]>([
 	`!**/*.jsonl`,
 	// --- End Positron ---
 
-	'!extensions/mermaid-chat-features/chat-webview-out/**',
+	'!extensions/mermaid-markdown-features/chat-webview-out/**',
+	'!extensions/mermaid-markdown-features/markdown-preview-out/**',
+	'!extensions/mermaid-markdown-features/notebook-out/**',
 
 	// extensions/copilot has its own code style
 	'!extensions/copilot/**',
@@ -274,20 +283,17 @@ export const tsFormattingFilter = Object.freeze<string[]>([
 	'!extensions/html-language-features/server/lib/jquery.d.ts',
 	'!extensions/terminal-suggest/src/shell/zshBuiltinsCache.ts',
 	'!extensions/terminal-suggest/src/shell/fishBuiltinsCache.ts',
+	'!src/vs/platform/agentHost/node/codex/protocol/generated/**',
 
 	// extensions/copilot has its own code style
 	'!extensions/copilot/**',
 ]);
 
 export const eslintFilter = Object.freeze<string[]>([
-	'**/*.js',
-	'**/*.cjs',
-	'**/*.mjs',
-	'**/*.ts',
-	// --- Start Positron ---
-	'**/*.tsx',
-	// --- End Positron ---
+	'**/*.{js,cjs,mjs}',
+	'**/*.{ts,tsx,mts,cts}',
 	'.eslint-plugin-local/**/*.ts',
+	'!src/vs/platform/agentHost/node/codex/protocol/generated/**',
 	...readFileSync(join(import.meta.dirname, '..', '.eslint-ignore'))
 		.toString()
 		.split(/\r\n|\n/)

@@ -15,13 +15,16 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { AuthenticationProviderInformation, AuthenticationSession, IAuthenticationService } from '../../../authentication/common/authentication.js';
 import { AbstractHeadlessLanguageModelService } from '../../browser/abstractHeadlessLanguageModelService.js';
 
-// A test subclass that hands the facade a fake engine -- the provider-bridge boundary.
+// A test subclass that hands the facade a fake engine -- the provider-bridge
+// boundary. Constructed directly (not via createInstance) with services pulled
+// from the container, so the test file avoids DI parameter decorators that the
+// vitest transformer cannot parse.
 class TestHeadlessLanguageModelService extends AbstractHeadlessLanguageModelService {
 	constructor(
 		private readonly _fakeEngine: IHeadlessLanguageModelEngine | undefined,
-		@IAuthenticationService authService: IAuthenticationService,
-		@IConfigurationService configService: IConfigurationService,
-		@ILogService logService: ILogService,
+		authService: IAuthenticationService,
+		configService: IConfigurationService,
+		logService: ILogService,
 	) {
 		super(authService, configService, logService);
 	}
@@ -153,7 +156,12 @@ describe('HeadlessLanguageModelService', () => {
 		.build();
 
 	function createService(engine: IHeadlessLanguageModelEngine | undefined): TestHeadlessLanguageModelService {
-		return ctx.disposables.add(ctx.instantiationService.createInstance(TestHeadlessLanguageModelService, engine));
+		return ctx.disposables.add(new TestHeadlessLanguageModelService(
+			engine,
+			ctx.get(IAuthenticationService),
+			ctx.get(IConfigurationService),
+			ctx.get(ILogService),
+		));
 	}
 
 	describe('availability', () => {

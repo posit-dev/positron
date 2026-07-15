@@ -35,7 +35,7 @@ test.describe('References', {
 
 		// Scope the workspace to the fixture folder so find-references can resolve
 		// `source()` from the right root.
-		await openFolder('qa-example-content/workspaces/references_tests/r');
+		await openFolder('test-files/workspaces/references_tests/r');
 
 		await app.workbench.sessions.start('r');
 		await openFile(join('workspaces', 'references_tests', 'r', helper));

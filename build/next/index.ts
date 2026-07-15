@@ -250,7 +250,8 @@ const commonResourcePatterns = [
 	'vs/workbench/browser/media/*.svg',
 	// --- End Positron ---
 	'vs/workbench/browser/parts/editor/media/letterpress*.svg',
-	'vs/sessions/contrib/chat/browser/media/*.svg'
+	'vs/sessions/contrib/chat/browser/media/*.svg',
+	'vs/sessions/contrib/welcome/browser/media/themePreviews/*.svg'
 ];
 
 // Resources for desktop target

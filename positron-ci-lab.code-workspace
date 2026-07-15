@@ -100,7 +100,7 @@
 				"label": "Positron CI: Reinstall deps",
 				"detail": "After a pull/branch-switch changed the root package-lock.json.",
 				"type": "shell",
-				"command": "npm ci --fetch-timeout 120000 && ./.devcontainer/ci-arm/mark-build-state.sh root",
+				"command": "./.devcontainer/ci-arm/reinstall-deps.sh root",
 				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
 				"problemMatcher": []
 			},
@@ -108,7 +108,7 @@
 				"label": "Positron CI: Reinstall e2e deps",
 				"detail": "After a pull/branch-switch changed test/e2e/package-lock.json (the Doctor flags e2e-deps drift separately from root deps).",
 				"type": "shell",
-				"command": "npm --prefix test/e2e ci --fetch-timeout 120000 && ./.devcontainer/ci-arm/mark-build-state.sh e2e",
+				"command": "./.devcontainer/ci-arm/reinstall-deps.sh e2e",
 				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
 				"problemMatcher": []
 			},
@@ -130,10 +130,23 @@
 			},
 			{
 				"label": "Positron CI: Get QA content",
-				"detail": "Fetch/refresh qa-example-content (the files the e2e tests open) for manual repro; linked at ~/qa-example-content so it's easy to open. Re-run to cycle it to the latest.",
+				"detail": "Provision test-files (the files the e2e tests open) for manual repro; linked at ~/test-files so it's easy to open. Re-run to refresh it from the current checkout.",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/get-qa-content.sh",
 				"presentation": { "panel": "dedicated", "reveal": "silent", "focus": false },
+				"problemMatcher": []
+			},
+			{
+				// Runs the currently open spec via run-e2e.sh, which sets everything a headless e2e run
+				// needs (all four interpreter version vars, GITHUB_ACTIONS so image-comparison tests
+				// actually compare, DISPLAY, --project e2e-electron). --workers=1 runs the whole file
+				// in order -- Positron doesn't split a spec across workers -- which is how CI-only flakes
+				// reproduce. Open the .test.ts first (${relativeFile} is the active editor).
+				"label": "Positron CI: e2e (current spec)",
+				"detail": "Run the open .test.ts CI-faithfully: interpreter vars + GITHUB_ACTIONS set, whole file in order at --workers=1. The setup for reproducing CI-only flakes. Open the spec first.",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/run-e2e.sh \"${relativeFile}\" --workers=1",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": true, "clear": true },
 				"problemMatcher": []
 			},
 			{

@@ -34,9 +34,12 @@ import { ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService
 import httpProxy from 'http-proxy';
 // eslint-disable-next-line no-duplicate-imports
 import { existsSync } from 'fs';
-import { kProxyRegex, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX, HAS_STATIC_ROUTE } from './pwbConstants.js';
-import { shouldUseSessionLessStaticRoute } from './positronStaticRoute.js';
+import { kProxyRegex, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX } from './pwbConstants.js';
 // --- End PWB ---
+// --- Start Positron ---
+import { HAS_STATIC_ROUTE } from './pwbConstants.js';
+import { shouldUseSessionLessStaticRoute } from './positronStaticRoute.js';
+// --- End Positron ---
 
 const textMimeType: { [ext: string]: string | undefined } = {
 	'.html': 'text/html',
@@ -479,6 +482,9 @@ export class WebClientServer {
 		// where the front-end reverse proxy only routes that prefix back to Workbench. Empty when mounted at root.
 		// Only used when running under Workbench -- standalone/dev falls back to session-scoped relative URLs below.
 		const sessionlessStaticRoute = posix.join(WORKBENCH_DEPLOYMENT_PREFIX, VSCODE_STATIC_PREFIX, this._productPath, STATIC_PATH);
+		// --- End PWB ---
+		// --- Start PWB ---
+		// const webExtensionRoute = posix.join(basePath, this._productPath, WEB_EXTENSION_PATH);
 		// --- End PWB ---
 
 		const resolveWorkspaceURI = (defaultLocation?: string) => defaultLocation && URI.file(resolve(defaultLocation)).with({ scheme: Schemas.vscodeRemote, authority: remoteAuthority });

@@ -573,8 +573,6 @@ export const selectNewLanguageRuntime = async (
 		return items;
 	};
 
-	await fetchContributedItems();
-
 	const disposables = new DisposableStore();
 	const quickPick = disposables.add(quickInputService.createQuickPick<IQuickPickItem>({ useSeparators: true }));
 	quickPick.title = options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session');
@@ -634,6 +632,12 @@ export const selectNewLanguageRuntime = async (
 	// Rebuild when a new runtime registers - covers late initial discovery
 	// and post-startup rediscovery.
 	disposables.add(languageRuntimeService.onDidRegisterRuntime(() => {
+		rebuildItems();
+	}));
+
+	// Rebuild when a runtime is unregistered - covers de-duplication collapsing
+	// a symlink alias or a deleted interpreter while the picker is open.
+	disposables.add(languageRuntimeService.onDidUnregisterRuntime(() => {
 		rebuildItems();
 	}));
 
@@ -700,6 +704,20 @@ export const selectNewLanguageRuntime = async (
 		}));
 
 		quickPick.show();
+
+		// Fold in contributed items after show() rather than awaiting them first:
+		// getItems() is an extension-host RPC that can hang for seconds right after
+		// a window reload, which would leave the picker invisible until it resolves.
+		// When startup isn't Complete yet, the onDidChangeRuntimeStartupPhase
+		// handler above does the fetch instead.
+		if (languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
+			fetchContributedItems().then(() => {
+				// Skip if the user dismissed the picker while the fetch was pending.
+				if (!disposables.isDisposed) {
+					rebuildItems();
+				}
+			});
+		}
 	});
 };
 
@@ -770,7 +788,6 @@ export class DuplicateActiveConsoleSessionAction extends Action2 {
 		// Access services
 		const commandService = accessor.get(ICommandService);
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
-		const notificationService = accessor.get(INotificationService);
 
 		// Get the current foreground session.
 		const currentSession = runtimeSessionService.foregroundSession;
@@ -778,24 +795,35 @@ export class DuplicateActiveConsoleSessionAction extends Action2 {
 			return;
 		}
 
-		if (currentSession.metadata.sessionMode !== LanguageRuntimeSessionMode.Console) {
-			notificationService.error(localize('positron.languageRuntime.duplicate.notConsole', 'Cannot duplicate session. The current session is not a console session.'));
-			return;
-		}
-
 		// Drive focus into the Positron console.
 		commandService.executeCommand('workbench.panel.positronConsole.focus');
 
-		// Duplicate the current session with the `startNewRuntimeSession` method.
-		await runtimeSessionService.startNewRuntimeSession(
-			currentSession.runtimeMetadata.runtimeId,
-			currentSession.dynState.sessionName,
-			currentSession.metadata.sessionMode,
-			undefined,
-			`Duplicated session: ${currentSession.dynState.sessionName}`,
-			RuntimeStartMode.Starting,
-			true
-		);
+		// Start a new console session using the current session's runtime
+		// information. When the current session is itself a console session,
+		// this duplicates it. When it's a non-console session (e.g. a notebook
+		// console), this starts a fresh console session in the same environment
+		// rather than treating it as an error.
+		if (currentSession.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+			await runtimeSessionService.startNewRuntimeSession(
+				currentSession.runtimeMetadata.runtimeId,
+				currentSession.dynState.sessionName,
+				LanguageRuntimeSessionMode.Console,
+				undefined,
+				`Duplicated session: ${currentSession.dynState.sessionName}`,
+				RuntimeStartMode.Starting,
+				true
+			);
+		} else {
+			await runtimeSessionService.startNewRuntimeSession(
+				currentSession.runtimeMetadata.runtimeId,
+				currentSession.runtimeMetadata.runtimeName,
+				LanguageRuntimeSessionMode.Console,
+				undefined,
+				`Started console session from notebook session: ${currentSession.dynState.sessionName}`,
+				RuntimeStartMode.Starting,
+				true
+			);
+		}
 	}
 }
 
@@ -1375,6 +1403,7 @@ export function registerLanguageRuntimeActions() {
 			const consoleService = accessor.get(IPositronConsoleService);
 			const notificationService = accessor.get(INotificationService);
 			const quickInputService = accessor.get(IQuickInputService);
+			const runtimeSessionService = accessor.get(IRuntimeSessionService);
 			let fromPrompt = false;
 
 			// TODO: Should this be a "Developer: " command?
@@ -1411,7 +1440,7 @@ export function registerLanguageRuntimeActions() {
 			// If no language ID is provided, try to get the language ID from
 			// the active session.
 			if (!args.langId) {
-				const foreground = accessor.get(IRuntimeSessionService).foregroundSession;
+				const foreground = runtimeSessionService.foregroundSession;
 				if (foreground) {
 					args.langId = foreground.runtimeMetadata.languageId;
 				} else {

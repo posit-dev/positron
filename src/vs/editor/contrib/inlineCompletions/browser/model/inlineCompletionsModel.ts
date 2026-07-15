@@ -34,7 +34,7 @@ import { ILanguageFeaturesService } from '../../../../common/services/languageFe
 import { IModelContentChangedEvent } from '../../../../common/textModelEvents.js';
 import { SnippetController2 } from '../../../snippet/browser/snippetController2.js';
 import { getEndPositionsAfterApplying, removeTextReplacementCommonSuffixPrefix } from '../utils.js';
-import { AnimatedValue, easeOutCubic, ObservableAnimatedValue } from './animation.js';
+import { AnimatedValue, easeOutCubic, ObservableAnimatedValue } from '../../../../../base/browser/animatedValue.js';
 import { computeGhostText } from './computeGhostText.js';
 import { GhostText, GhostTextOrReplacement, ghostTextOrReplacementEquals, ghostTextsOrReplacementsEqual } from './ghostText.js';
 import { InlineCompletionsSource } from './inlineCompletionsSource.js';
@@ -54,9 +54,20 @@ import { IDefaultAccountService } from '../../../../../platform/defaultAccount/c
 import { IDefaultAccount } from '../../../../../base/common/defaultAccount.js';
 import { Schemas } from '../../../../../base/common/network.js';
 import { getInlineCompletionsController } from '../controller/common.js';
+// --- Start Positron ---
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { observableConfigValue } from '../../../../../platform/observable/common/platformObservableUtils.js';
+// --- End Positron ---
 
 export class InlineCompletionsModel extends Disposable {
 	private readonly _source;
+	// --- Start Positron ---
+	// Positron's main AI switch. When off, no AI inline completion provider (Copilot,
+	// Posit Assistant, etc.) may run; see `getAvailableProviders`. Defaults to true,
+	// so an unset value leaves completions enabled. Assigned in the constructor since
+	// it needs the injected configuration service.
+	private readonly _aiEnabled;
+	// --- End Positron ---
 	private readonly _isActive = observableValue<boolean>(this, false);
 	private readonly _onlyRequestInlineEditsSignal = observableSignal(this);
 	private readonly _forceUpdateExplicitlySignal = observableSignal(this);
@@ -78,7 +89,7 @@ export class InlineCompletionsModel extends Disposable {
 			return false;
 		}
 
-		return isSuggestionInViewport(this._editor, state.inlineSuggestion);
+		return isSuggestionInViewport(this._editor, state.inlineSuggestion, reader);
 	});
 	public get isAcceptingPartially() { return this._isAcceptingPartially; }
 
@@ -121,8 +132,14 @@ export class InlineCompletionsModel extends Disposable {
 		@ICodeEditorService private readonly _codeEditorService: ICodeEditorService,
 		@IInlineCompletionsService private readonly _inlineCompletionsService: IInlineCompletionsService,
 		@IDefaultAccountService defaultAccountService: IDefaultAccountService,
+		// --- Start Positron ---
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		// --- End Positron ---
 	) {
 		super();
+		// --- Start Positron ---
+		this._aiEnabled = observableConfigValue<boolean>('ai.enabled', true, this._configurationService);
+		// --- End Positron ---
 		this._source = this._register(this._instantiationService.createInstance(InlineCompletionsSource, this.textModel, this._textModelVersionId, this._debounceValue, this.primaryPosition));
 		this.lastTriggerKind = this._source.inlineCompletions.map(this, v => v?.request?.context.triggerKind);
 
@@ -370,6 +387,9 @@ export class InlineCompletionsModel extends Disposable {
 		this._onlyRequestInlineEditsSignal.read(reader);
 		this._forceUpdateExplicitlySignal.read(reader);
 		this._fetchSpecificProviderSignal.read(reader);
+		// --- Start Positron ---
+		this._aiEnabled.read(reader); // re-run this fetch when `ai.enabled` toggles, so turning the switch off clears completions immediately
+		// --- End Positron ---
 		const shouldUpdate = ((this._enabled.read(reader) && this._selectedSuggestItem.read(reader)) || this._isActive.read(reader))
 			&& (!this._inlineCompletionsService.isSnoozing() || changeSummary.inlineCompletionTriggerKind === InlineCompletionTriggerKind.Explicit);
 		if (!shouldUpdate) {
@@ -460,6 +480,18 @@ export class InlineCompletionsModel extends Disposable {
 	// TODO: This is not an ideal implementation of excludesGroupIds, however as this is currently still behind proposed API
 	// and due to the time constraints, we are using a simplified approach
 	private getAvailableProviders(providers: InlineCompletionsProvider[]): InlineCompletionsProvider[] {
+		// --- Start Positron ---
+		// Positron's main AI switch turns off all AI inline completions: with no
+		// providers, nothing is fetched (Copilot, suggest-widget-context completions,
+		// and any AI augmentation of the selected suggest item all draw from these).
+		// The standard `editor.suggest.preview` ghost text (the inline preview of the
+		// selected IntelliSense item) is computed from the suggest selection, not from
+		// these providers, so it keeps working. The fetch derived reads `_aiEnabled`,
+		// so this recomputes when the switch toggles at runtime.
+		if (this._aiEnabled.get() === false) {
+			return [];
+		}
+		// --- End Positron ---
 		const suppressedProviderGroupIds = this._suppressedInlineCompletionGroupIds.get();
 		const unsuppressedProviders = providers.filter(provider => !(provider.groupId && suppressedProviderGroupIds.has(provider.groupId)));
 
@@ -1203,7 +1235,8 @@ export class InlineCompletionsModel extends Disposable {
 	 * Used for cross-file inline edits.
 	 */
 	public transplantCompletion(item: InlineSuggestionItem): void {
-		item.addRef();
+		// No explicit addRef needed: `seedWithCompletion` creates a new `InlineCompletionsState`
+		// which calls `addRef` on every item it holds and pairs it with `removeRef` in dispose.
 		transaction(tx => {
 			this._source.seedWithCompletion(item, tx);
 			this._isActive.set(true, tx);
@@ -1282,13 +1315,12 @@ class FadeoutDecoration extends Disposable {
 			}
 		})))));
 
-		const animation = new AnimatedValue(1, 0, 1000, easeOutCubic);
-		const val = new ObservableAnimatedValue(animation);
+		const val = new ObservableAnimatedValue(AnimatedValue.startNow(1, 0, 1000, easeOutCubic));
 
 		this._register(autorun(reader => {
 			const opacity = val.getValue(reader);
 			editor.getContainerDomNode().style.setProperty('--animation-opacity', opacity.toString());
-			if (animation.isFinished()) {
+			if (val.isFinished(reader)) {
 				this.dispose();
 			}
 		}));

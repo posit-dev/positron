@@ -146,11 +146,11 @@
 }
 
 .memory-usage-dropdown .usage-bar.positron {
-	background-color: var(--vscode-gauge-foreground);
+	background-color: var(--vscode-positronMemoryUsageBar-overheadForeground);
 }
 
 .memory-usage-dropdown .usage-bar.other {
-	background-color: var(--vscode-gauge-background);
+	background-color: var(--vscode-positronMemoryUsageBar-otherForeground);
 }
 
 .memory-usage-dropdown .usage-bar.free {
@@ -189,7 +189,7 @@
 }
 
 .memory-usage-dropdown .usage-bar.segmented .usage-bar-segment.positron {
-	background-color: var(--vscode-gauge-foreground);
+	background-color: var(--vscode-positronMemoryUsageBar-overheadForeground);
 }
 
 /* Low-memory state: non-kernel memory rendered with the error color. */

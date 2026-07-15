@@ -21,6 +21,7 @@
 	"include": [
 		"src/vs/**/*.vitest.ts",
 		"src/vs/**/*.vitest.tsx",
+		"src/*.vitest.ts",
 		"src/vs/test/vitest/**/*",
 		// Add files from the base tsconfig that we need for Vitest tests
 		"src/typings",

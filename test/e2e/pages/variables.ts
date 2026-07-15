@@ -245,6 +245,66 @@ export class Variables {
 	}
 
 	/**
+	 * Verify the non-kernel segments of the memory usage bar render with their
+	 * designated theme colors.
+	 *
+	 * Regression guard: the Positron-overhead (`.positron`) and other-processes
+	 * (`.other`) segments color themselves via registered Positron color tokens
+	 * (`--vscode-positronMemoryUsageBar-*`). A previous upstream merge removed the
+	 * upstream `--vscode-gauge-*` colors these segments used to reference, leaving
+	 * the CSS variables undefined so the segments fell back to a fully transparent
+	 * `background-color`. For each segment this asserts the segment's rendered
+	 * color (a) matches the resolved value of its designated token and (b) is not
+	 * transparent -- catching both a segment wired to the wrong token and an
+	 * undefined token (which leaves the background transparent). Assertions target
+	 * the segment's actual color and interpolate the observed value, so a failure
+	 * reports what the segment actually rendered. Comparing against the resolved
+	 * token (rather than a hard-coded color) keeps the check theme-independent.
+	 *
+	 * The caller must disable the low-memory state (both thresholds set to 0);
+	 * otherwise these segments are intentionally recolored to the error color.
+	 *
+	 * Uses `toBeAttached` (not `toBeVisible`) because a segment can occupy a
+	 * sub-pixel width in the compact toolbar bar while still carrying the color
+	 * under test.
+	 */
+	async expectMemoryBarSegmentsColored() {
+		await test.step('Verify memory bar segments render with their designated colors', async () => {
+			await this.focusVariablesView();
+
+			const segmentColors: Record<string, string> = {
+				positron: '--vscode-positronMemoryUsageBar-overheadForeground',
+				other: '--vscode-positronMemoryUsageBar-otherForeground',
+			};
+
+			for (const [segmentClass, cssVariable] of Object.entries(segmentColors)) {
+				const segment = this.memoryMeter.locator(`.memory-bar-segment.${segmentClass}`).first();
+				await expect(segment).toBeAttached({ timeout: 30000 });
+
+				const { actual, expected } = await segment.evaluate((el, variable) => {
+					const actual = window.getComputedStyle(el).backgroundColor;
+					// Resolve the expected token through a probe in the same
+					// custom-property scope, so both values share the browser's
+					// canonical rgb()/rgba() serialization and compare directly.
+					const parent = el.parentElement ?? el;
+					const probe = document.createElement('div');
+					probe.style.backgroundColor = `var(${variable})`;
+					parent.appendChild(probe);
+					const expected = window.getComputedStyle(probe).backgroundColor;
+					probe.remove();
+					return { actual, expected };
+				}, cssVariable);
+
+				// Assert against the segment's actual rendered color (not the probe)
+				// and interpolate the observed values, so a failure reports the real
+				// color the segment rendered rather than only the transparent sentinel.
+				expect(actual, `.memory-bar-segment.${segmentClass} should render ${cssVariable} (expected "${expected}", got "${actual}")`).toBe(expected);
+				expect(actual, `.memory-bar-segment.${segmentClass} (${cssVariable}) rendered a transparent background ("${actual}"); the color token likely did not resolve`).not.toBe('rgba(0, 0, 0, 0)');
+			}
+		});
+	}
+
+	/**
 	 * Open the memory usage dropdown by clicking the memory meter.
 	 * Does nothing if already open.
 	 */

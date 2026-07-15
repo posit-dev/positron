@@ -178,8 +178,17 @@ export abstract class AbstractFileDialogService implements IFileDialogService {
 	private skipDialogs(): boolean {
 		if (this.environmentService.enableSmokeTestDriver) {
 			this.logService.warn('DialogService: Dialog requested during smoke test.');
+			// --- Start Positron ---
+			// Mirror DialogService.skipDialogs (see dialogService.ts): smoke tests
+			// drive the app through the automation driver and cannot dismiss native
+			// modal dialogs. Skipping here makes showSaveConfirm resolve to DONT_SAVE
+			// so closing a dirty editor discards cleanly, instead of falling through
+			// to DialogService.prompt (which now throws during smoke tests) and
+			// vetoing the close. Without this, closing an unsaved notebook leaves its
+			// model alive and its untitled name reserved.
 			// Disabled for this release to unblock smoke tests
 			return true;
+			// --- End Positron ---
 		}
 		// integration tests
 		return this.environmentService.isExtensionDevelopment && !!this.environmentService.extensionTestsLocationURI;

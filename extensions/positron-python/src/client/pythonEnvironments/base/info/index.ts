@@ -224,6 +224,14 @@ export type PythonEnvInfo = _PythonEnvInfo & {
      */
     pythonRunCommand?: string[];
     identifiedUsingNativeLocator?: boolean;
+    // --- Start Positron ---
+    /**
+     * Other paths the native locator (PET) reports as equivalent to `executable`,
+     * e.g. the real interpreter a launcher-style shim (uv's Windows trampolines)
+     * spawns. Used to de-duplicate environments; not user-facing.
+     */
+    symlinks?: string[];
+    // --- End Positron ---
 };
 
 /**

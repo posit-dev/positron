@@ -1,6 +1,9 @@
 services:
   test:
-    image: ghcr.io/posit-dev/positron-ubuntu24-${POSITRON_CI_IMAGE_ARCH:-arm64}:127
+    # Multi-arch manifest: Docker resolves the host arch automatically (arm64 on
+    # Apple Silicon), so no per-arch tag is needed. POSITRON_CI_IMAGE_ARCH (passed
+    # into the container below) still selects the Electron build arch in post-create.sh.
+    image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
     init: true
     privileged: true
     command: /bin/sh -c "while sleep 1000; do :; done"
@@ -34,7 +37,7 @@ services:
       - ci-arm-net
 
   postgres:
-    image: ghcr.io/posit-dev/positron-postgres-${POSITRON_CI_IMAGE_ARCH:-arm64}:143
+    image: ghcr.io/posit-dev/positron-postgres:24.15.0
     env_file:
       - .env
     environment:

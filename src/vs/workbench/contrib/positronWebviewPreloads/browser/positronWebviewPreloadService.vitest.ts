@@ -22,7 +22,14 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 
 /** Minimal stub for IPositronNotebookInstance */
 function stubNotebookInstance(id: string, uri = URI.file('/workspace/notebook.ipynb')): IPositronNotebookInstance {
-	return stubInterface<IPositronNotebookInstance>({ getId: () => id, uri });
+	// attachNotebookInstance now reads textModel + onDidChangeModel; these PDF
+	// tests don't exercise reconciliation, so a model-less stub is enough.
+	return stubInterface<IPositronNotebookInstance>({
+		getId: () => id,
+		uri,
+		textModel: undefined,
+		onDidChangeModel: Event.None,
+	});
 }
 
 /** Counts raw HTML webview creations */

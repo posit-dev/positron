@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as l10n from '@vscode/l10n';
-import { commands, env, ExtensionContext, ExtensionMode, l10n as vscodeL10n, workspace } from 'vscode';
+import { commands, env, ExtensionContext, ExtensionMode, l10n as vscodeL10n } from 'vscode';
 import { isScenarioAutomation } from '../../../platform/env/common/envService';
 import { isProduction } from '../../../platform/env/common/packagejson';
 import { IIgnoreService } from '../../../platform/ignore/common/ignoreService';
@@ -14,6 +14,10 @@ import { IInstantiationServiceBuilder, InstantiationServiceBuilder } from '../..
 import { IInstantiationService } from '../../../util/vs/platform/instantiation/common/instantiation';
 import { CopilotExtensionApi } from '../../api/vscode/extensionApi';
 import { ContributionCollection, IExtensionContributionFactory } from '../../common/contributions';
+
+// --- Start Positron ---
+import { workspace } from 'vscode';
+// --- End Positron ---
 
 // ##################################################################################
 // ###                                                                            ###
