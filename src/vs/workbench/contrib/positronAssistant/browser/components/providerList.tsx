@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { localize } from '../../../../../nls.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { IPositronAssistantConfigurationService, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../common/interfaces/positronAssistantService.js';
+import { IPositronAssistantConfigurationService, IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js';
 import { IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
 import { groupProviders, ProviderSectionId } from '../../common/providerGrouping.js';
 import { syncAuthSessions } from '../languageModelSessionSync.js';
@@ -16,7 +16,6 @@ import { ProviderListItem } from './providerListItem.js';
 
 interface ProviderListProps {
 	sources: IPositronLanguageModelSource[];
-	options?: IShowLanguageModelConfigOptions;
 }
 
 /**
@@ -56,7 +55,6 @@ export const ProviderList = (props: ProviderListProps) => {
 
 	// Local copy of sources so live auth/config changes re-render the list.
 	const [sources, setSources] = useState<IPositronLanguageModelSource[]>(props.sources);
-	const [selectedProviderId, setSelectedProviderId] = useState<string | undefined>(props.options?.preselectedProviderId);
 
 	// Re-sync if the caller hands us a new sources array.
 	useEffect(() => setSources(props.sources), [props.sources]);
@@ -104,9 +102,7 @@ export const ProviderList = (props: ProviderListProps) => {
 							key={item.provider.id}
 							description={PROVIDER_DESCRIPTIONS[item.provider.id]}
 							section={section.id}
-							selected={item.provider.id === selectedProviderId}
 							source={item}
-							onSelect={() => setSelectedProviderId(item.provider.id)}
 						/>
 					))}
 				</div>
@@ -124,6 +120,7 @@ export const ProviderList = (props: ProviderListProps) => {
 				</p>
 				{/* Placeholder until the custom-provider flow lands (see #14818). */}
 				<button className='provider-list-add-custom' type='button'>
+					<span aria-hidden='true' className='codicon codicon-add' />
 					{localize('positron.configureLLMProvidersModal.addCustom', "Add custom provider")}
 				</button>
 			</div>

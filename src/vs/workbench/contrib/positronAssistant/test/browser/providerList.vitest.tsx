@@ -6,7 +6,6 @@
 /// <reference types="vitest/globals" />
 
 import { screen } from '@testing-library/react';
-import { userEvent } from '@testing-library/user-event';
 import { Event } from '../../../../../base/common/event.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -57,21 +56,5 @@ describe('ProviderList', () => {
 	it('shows the built-in description for a known provider', () => {
 		rtl.render(<ProviderList sources={[source({ id: 'anthropic-api', displayName: 'Anthropic', signedIn: false })]} />);
 		expect(screen.getByText('Access Claude models directly via Anthropic API')).toBeInTheDocument();
-	});
-
-	it('selects a row on click', async () => {
-		const user = userEvent.setup();
-		rtl.render(<ProviderList sources={[source({ id: 'a', displayName: 'Alpha', signedIn: false })]} />);
-		const row = screen.getByRole('button', { name: 'Alpha' });
-		await user.click(row);
-		expect(row).toHaveClass('selected');
-	});
-
-	it('preselects the provider from options', () => {
-		rtl.render(<ProviderList options={{ preselectedProviderId: 'a' }} sources={[
-			source({ id: 'a', displayName: 'Alpha', signedIn: false }),
-			source({ id: 'b', displayName: 'Bravo', signedIn: false }),
-		]} />);
-		expect(screen.getByRole('button', { name: 'Alpha' })).toHaveClass('selected');
 	});
 });

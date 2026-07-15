@@ -39,13 +39,13 @@ export const showConfigureLLMProvidersModal = (
 	sources: IPositronLanguageModelSource[],
 	_onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 	onClose: () => void,
-	options?: IShowLanguageModelConfigOptions,
+	_options?: IShowLanguageModelConfigOptions,
 ) => {
 	const renderer = new PositronModalReactRenderer();
 
 	renderer.render(
 		<div className='configure-llm-providers-modal'>
-			<ConfigureLLMProviders options={options} renderer={renderer} sources={sources} onClose={onClose} />
+			<ConfigureLLMProviders renderer={renderer} sources={sources} onClose={onClose} />
 		</div>
 	);
 };
@@ -53,7 +53,6 @@ export const showConfigureLLMProvidersModal = (
 interface ConfigureLLMProvidersProps {
 	renderer: PositronModalReactRenderer;
 	sources: IPositronLanguageModelSource[];
-	options?: IShowLanguageModelConfigOptions;
 	onClose: () => void;
 }
 
@@ -75,7 +74,7 @@ const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 		onCancel={onClose}
 	>
 		<VerticalStack>
-			<ProviderList options={props.options} sources={props.sources} />
+			<ProviderList sources={props.sources} />
 		</VerticalStack>
 	</OKModalDialog>;
 };

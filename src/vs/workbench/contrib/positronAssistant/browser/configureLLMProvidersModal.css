@@ -35,27 +35,25 @@
 	gap: 10px;
 	padding: 8px;
 	border-radius: 4px;
-	cursor: pointer;
 	text-align: left;
 }
 
-.provider-list-item:hover {
-	background-color: var(--vscode-list-hoverBackground);
+/* Rounded-square provider avatar (36x36, 6px radius per the design). */
+.provider-list-item-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 6px;
+	border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+	background-color: var(--vscode-editorWidget-background);
+	flex-shrink: 0;
 }
 
-.provider-list-item:focus-visible {
-	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: -1px;
-}
-
-.provider-list-item.selected {
-	background-color: var(--vscode-list-activeSelectionBackground);
-	color: var(--vscode-list-activeSelectionForeground);
-}
-
-.provider-list-item .language-model.icon {
-	width: 24px;
-	height: 24px;
+.provider-list-item-icon .language-model.icon {
+	width: 22px;
+	height: 22px;
 	flex-shrink: 0;
 }
 
@@ -112,6 +110,9 @@
 
 .provider-list-item-action,
 .provider-list-add-custom {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
 	padding: 3px 10px;
 	border-radius: 4px;
 	border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
@@ -119,6 +120,11 @@
 	color: var(--vscode-button-secondaryForeground);
 	cursor: pointer;
 	font-size: 12px;
+}
+
+.provider-list-item-action .codicon,
+.provider-list-add-custom .codicon {
+	font-size: 14px;
 }
 
 .provider-list-item-action:hover,

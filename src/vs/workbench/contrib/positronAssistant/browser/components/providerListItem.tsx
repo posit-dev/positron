@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React from 'react';
-
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { IPositronLanguageModelSource, LanguageModelAutoconfigureType } from '../../common/interfaces/positronAssistantService.js';
@@ -16,11 +14,10 @@ interface ProviderListItemProps {
 	source: IPositronLanguageModelSource;
 	/** Which section the row is rendered in; drives badges and the action label. */
 	section: ProviderSectionId;
-	selected: boolean;
 	/** One-line description shown for not-yet-connected providers. */
 	description?: string;
-	/** Selects the row. The connect/manage flows (see #14818/#14819) hang off selection. */
-	onSelect: () => void;
+	/** Invoked by the row's action button. The connect/manage flows (see #14818/#14819) hang off this. */
+	onAction?: () => void;
 }
 
 /** How a connected provider authenticated, shown as a badge. */
@@ -48,32 +45,20 @@ function actionLabel(section: ProviderSectionId): string {
 }
 
 /**
- * A single provider row: icon, name, status/maturity badges, and a per-section
- * action button. The whole row is selectable; the action button is a
- * placeholder that selects the row until the connect/manage flows land.
+ * A single provider row: a rounded-square provider icon, name, status/maturity
+ * badges, and a per-section action button (the only interactive element - the
+ * row itself is not clickable).
  */
 export const ProviderListItem = (props: ProviderListItemProps) => {
-	const { source, section, selected, description, onSelect } = props;
+	const { source, section, description, onAction } = props;
 	const maturityLabel = getStatusLabel(source.provider.status);
 	const authLabel = section === 'connected' ? authBadgeLabel(source) : undefined;
 
-	const onKeyDown = (e: React.KeyboardEvent) => {
-		if (e.key === 'Enter' || e.key === ' ') {
-			e.preventDefault();
-			onSelect();
-		}
-	};
-
 	return (
-		<div
-			aria-label={source.provider.displayName}
-			className={positronClassNames('provider-list-item', { selected })}
-			role='button'
-			tabIndex={0}
-			onClick={onSelect}
-			onKeyDown={onKeyDown}
-		>
-			<LanguageModelIcon logoUrl={source.provider.logoUrl} provider={source.provider.id} />
+		<div className='provider-list-item'>
+			<div className='provider-list-item-icon'>
+				<LanguageModelIcon logoUrl={source.provider.logoUrl} provider={source.provider.id} />
+			</div>
 			<div className='provider-list-item-text'>
 				<div className='provider-list-item-name'>
 					<span className='provider-list-item-display-name'>{source.provider.displayName}</span>
@@ -93,11 +78,8 @@ export const ProviderListItem = (props: ProviderListItemProps) => {
 				}
 			</div>
 			<div className='provider-list-item-actions'>
-				<button
-					className='provider-list-item-action'
-					type='button'
-					onClick={(e) => { e.stopPropagation(); onSelect(); }}
-				>
+				<button className='provider-list-item-action' type='button' onClick={onAction}>
+					{section === 'model-providers' && <span aria-hidden='true' className='codicon codicon-add' />}
 					{actionLabel(section)}
 				</button>
 			</div>
