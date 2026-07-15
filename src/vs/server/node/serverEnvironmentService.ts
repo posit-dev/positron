@@ -118,6 +118,7 @@ export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
 	// --- Start Positron ---
 	'license-key-file': { type: 'string', description: nls.localize('license-key-file', "Path to a file that contains the license key.") },
 	'license-key': { type: 'string', description: nls.localize('license-key', "A license key") },
+	'extension-host-max-old-space-size': { type: 'string', cat: 'o', args: 'MB', description: nls.localize('extension-host-max-old-space-size', "Caps the V8 old-space heap (in MB) of each extension-host process. Passed to the fork as '--max-old-space-size'. Without it V8 sizes the heap to a fraction of physical RAM, which keeps the ext-host RSS high. Lower values reduce memory at the risk of out-of-memory crashes under heavy workloads.") },
 	// --- End Positron ---
 
 	_: OPTIONS['_']
@@ -282,6 +283,7 @@ export interface ServerParsedArgs {
 	// authorized (licensed) source.
 	'license-key-file'?: string;
 	'license-key'?: string;
+	'extension-host-max-old-space-size'?: string;
 	// --- End Positron ---
 }
 
@@ -292,6 +294,9 @@ export interface IServerEnvironmentService extends INativeEnvironmentService {
 	readonly mcpResource: URI;
 	readonly args: ServerParsedArgs;
 	readonly reconnectionGraceTime: number;
+	// --- Start Positron ---
+	readonly extensionHostMaxOldSpaceSize: number | undefined;
+	// --- End Positron ---
 }
 
 export class ServerEnvironmentService extends NativeEnvironmentService implements IServerEnvironmentService {
@@ -304,7 +309,30 @@ export class ServerEnvironmentService extends NativeEnvironmentService implement
 	override get args(): ServerParsedArgs { return super.args as ServerParsedArgs; }
 	@memoize
 	get reconnectionGraceTime(): number { return parseGraceTime(this.args['reconnection-grace-time'], ProtocolConstants.ReconnectionGraceTime); }
+	// --- Start Positron ---
+	@memoize
+	get extensionHostMaxOldSpaceSize(): number | undefined { return parseMaxOldSpaceSize(this.args['extension-host-max-old-space-size']); }
+	// --- End Positron ---
 }
+
+// --- Start Positron ---
+/**
+ * Parses the `--extension-host-max-old-space-size` CLI value into a positive
+ * integer number of megabytes, or `undefined` when unset or invalid (in which
+ * case no heap cap is applied and V8 keeps its default sizing).
+ */
+function parseMaxOldSpaceSize(rawValue: string | undefined): number | undefined {
+	if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
+		return undefined;
+	}
+	const parsed = Number(rawValue);
+	if (!Number.isInteger(parsed) || parsed <= 0) {
+		console.log(`[extension-host-max-old-space-size] Invalid value '${rawValue}', ignoring (V8 default heap sizing will be used).`);
+		return undefined;
+	}
+	return parsed;
+}
+// --- End Positron ---
 
 function parseGraceTime(rawValue: string | undefined, fallback: number): number {
 	if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {

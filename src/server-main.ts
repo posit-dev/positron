@@ -60,6 +60,22 @@ const parsedArgs = minimist(process.argv.slice(2), {
 	}
 });
 
+// --- Start Positron ---
+// Let the ext-host V8 heap cap be set via env var, so a Workbench-launched
+// server can control it without editing the launch command line. Unlike the
+// VSCODE_SERVER_* args above (which server-main consumes itself), this option is
+// read downstream by the server environment service, which re-parses
+// process.argv from scratch -- so it has to be folded into argv here rather than
+// into the branch-selector parsedArgs. The explicit CLI flag wins because we
+// only default when it is unset.
+if (!parsedArgs['extension-host-max-old-space-size']) {
+	const envValue = process.env['VSCODE_SERVER_EXTENSION_HOST_MAX_OLD_SPACE_SIZE'];
+	if (envValue) {
+		process.argv.push('--extension-host-max-old-space-size', envValue);
+	}
+}
+// --- End Positron ---
+
 const extensionLookupArgs = ['list-extensions', 'locate-extension'];
 const extensionInstallArgs = ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'update-extensions'];
 

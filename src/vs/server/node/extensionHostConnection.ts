@@ -338,6 +338,20 @@ export class ExtensionHostConnection extends Disposable {
 			// Refs https://github.com/microsoft/vscode/issues/189805
 			opts.execArgv.unshift('--dns-result-order=ipv4first');
 
+			// --- Start Positron ---
+			// Cap the ext-host V8 old-space heap when the server was launched with
+			// `--extension-host-max-old-space-size`. Without this, V8 sizes the heap
+			// to a fraction of physical RAM, so freed extension objects don't shrink
+			// RSS and the ext-host process floors high in server mode. `NODE_OPTIONS`
+			// can't be used here because removeDangerousEnvVariables() strips it from
+			// the fork's environment, so the flag has to go on execArgv directly.
+			const maxOldSpaceSize = this._environmentService.extensionHostMaxOldSpaceSize;
+			if (maxOldSpaceSize !== undefined) {
+				opts.execArgv.unshift(`--max-old-space-size=${maxOldSpaceSize}`);
+				this._log(`Capping extension host old-space heap at ${maxOldSpaceSize} MB.`);
+			}
+			// --- End Positron ---
+
 			// Run Extension Host as fork of current process
 			const args = ['--type=extensionHost', `--transformURIs`];
 			const useHostProxy = this._environmentService.args['use-host-proxy'];
