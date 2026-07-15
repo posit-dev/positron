@@ -1,0 +1,94 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.provider-list {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	overflow-y: auto;
+}
+
+.provider-list-section {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.provider-list-section-heading {
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+
+.provider-list-item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.provider-list-item:hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
+.provider-list-item.selected {
+	background-color: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+.provider-list-item .language-model.icon {
+	width: 24px;
+	height: 24px;
+	flex-shrink: 0;
+}
+
+.provider-list-item-text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.provider-list-item-name {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.provider-list-item-label {
+	font-size: 11px;
+	padding: 1px 6px;
+	border-radius: 8px;
+	background-color: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+}
+
+.provider-list-item-status {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.provider-list-item-status-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.provider-list-item-status-dot.connected {
+	background-color: var(--vscode-testing-iconPassed, #388a34);
+}
+
+.provider-list-item-status-dot.error {
+	background-color: var(--vscode-testing-iconFailed, #e51400);
+}
+
+.provider-list-item-status-dot.disconnected {
+	background-color: var(--vscode-descriptionForeground);
+}

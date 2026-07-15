@@ -3,12 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './configureLLMProvidersModal.css';
+
 // Other dependencies.
 import { localize } from '../../../../nls.js';
 import { IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../common/interfaces/positronAssistantService.js';
 import { OKModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { VerticalStack } from '../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
+import { ProviderList } from './components/providerList.js';
 
 /**
  * Hidden feature switch that selects the new "Configure LLM Providers" modal
@@ -32,22 +36,24 @@ export const NEW_PROVIDER_MODAL_KEY = 'assistant.newProviderModal';
  * are interchangeable at the single call site that reads the feature switch.
  */
 export const showConfigureLLMProvidersModal = (
-	_sources: IPositronLanguageModelSource[],
+	sources: IPositronLanguageModelSource[],
 	_onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 	onClose: () => void,
-	_options?: IShowLanguageModelConfigOptions,
+	options?: IShowLanguageModelConfigOptions,
 ) => {
 	const renderer = new PositronModalReactRenderer();
 
 	renderer.render(
 		<div className='configure-llm-providers-modal'>
-			<ConfigureLLMProviders renderer={renderer} onClose={onClose} />
+			<ConfigureLLMProviders options={options} renderer={renderer} sources={sources} onClose={onClose} />
 		</div>
 	);
 };
 
 interface ConfigureLLMProvidersProps {
 	renderer: PositronModalReactRenderer;
+	sources: IPositronLanguageModelSource[];
+	options?: IShowLanguageModelConfigOptions;
 	onClose: () => void;
 }
 
@@ -69,9 +75,7 @@ const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 		onCancel={onClose}
 	>
 		<VerticalStack>
-			<p>
-				{localize('positron.configureLLMProvidersModal.placeholder', "This is the new provider configuration experience. It's still being built.")}
-			</p>
+			<ProviderList options={props.options} sources={props.sources} />
 		</VerticalStack>
 	</OKModalDialog>;
 };
