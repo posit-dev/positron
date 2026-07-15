@@ -44,6 +44,7 @@ import { log } from './log';
 import { migrateAwsSettings } from './migration/aws';
 import { migrateSnowflakeSettings } from './migration/snowflake';
 import { registerMigrateApiKeyCommand } from './migration/apiKey';
+import { registerProvidersJsonMigration } from './migration/providersJsonUi';
 import { AuthProviderLogger } from './authProviderLogger';
 import { applyPwbPositAIDefault } from './pwbDefaults';
 
@@ -143,6 +144,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		),
 	);
 	registerMigrateApiKeyCommand(context);
+	registerProvidersJsonMigration(context);
 
 	return { getLogs: () => log.formatEntriesForDiagnostics() };
 }

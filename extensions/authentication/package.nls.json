@@ -40,5 +40,6 @@
 	"configuration.aiExcludes.description": "A list of [glob patterns](https://aka.ms/vscode-glob-patterns) to exclude from AI features. Files matching these patterns will not have their contents sent to AI providers for inline completions or chat context. Patterns without a `/` will match against the filename only (e.g., `*.py` matches all Python files). Use `**/` prefix for explicit recursive matching.",
 	"configuration.models.include.description": "Enforce strict restrictions on which language models are available. When configured, **only models matching these patterns will be available**\u2014other models will be excluded entirely.\n\nMatching is case-insensitive and supports wildcards (`*`) and regular expressions for advanced filtering.\n\n**Note:** This setting does not affect GitHub Copilot models.\n\nExamples:\n- `claude`: Only Claude models are available\n- `GPT-4o`: Only this specific model is available\n- `^claude.*opus`: Only Claude Opus models (matched by regex) are available",
 	"commands.configureProviders.title": "Configure Language Model Providers",
+	"commands.migrateSettingsToProvidersJson.title": "Migrate AI Provider Settings to providers.json",
 	"commands.category": "Authentication"
 }

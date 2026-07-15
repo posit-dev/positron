@@ -84,6 +84,11 @@
 				"command": "authentication.configureProviders",
 				"title": "%commands.configureProviders.title%",
 				"category": "%commands.category%"
+			},
+			{
+				"command": "authentication.migrateSettingsToProvidersJson",
+				"title": "%commands.migrateSettingsToProvidersJson.title%",
+				"category": "%commands.category%"
 			}
 		],
 		"configuration": {
