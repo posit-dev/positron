@@ -12,7 +12,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onAiEnabled",
+    "onCopilotEnabled"
   ],
   "main": "./out/extension.js",
   "enabledApiProposals": [
