@@ -111,6 +111,16 @@ export interface IQuartoKernelManager {
 	changeKernelForDocument(documentUri: URI, runtimeId: string): Promise<ILanguageRuntimeSession | undefined>;
 
 	/**
+	 * Get the runtime that would be used to start a kernel for the document,
+	 * without starting one. Returns the persisted per-document binding when it
+	 * still matches the document's language, otherwise the preferred runtime
+	 * for that language. Synchronous and best-effort: relies on the document's
+	 * text model being loaded in a visible editor, and returns undefined when
+	 * the language or a matching runtime can't yet be determined.
+	 */
+	getPreferredRuntimeForDocument(documentUri: URI): ILanguageRuntimeMetadata | undefined;
+
+	/**
 	 * Get the primary language for a document.
 	 */
 	getDocumentLanguage(documentUri: URI): Promise<string | undefined>;
@@ -711,8 +721,42 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		return this._startKernelWithRetry(documentUri, undefined, runtime);
 	}
 
+	getPreferredRuntimeForDocument(documentUri: URI): ILanguageRuntimeMetadata | undefined {
+		// If a kernel is already running for the document, that runtime is what
+		// would be used, so report it directly.
+		const runningRuntime = this._documentKernels.get(documentUri)?.session?.runtimeMetadata;
+		if (runningRuntime) {
+			return runningRuntime;
+		}
+
+		const language = this._getDocumentLanguageSync(documentUri);
+		if (!language) {
+			return undefined;
+		}
+
+		return this._resolveRuntimeForLanguage(documentUri, language);
+	}
+
 	async getDocumentLanguage(documentUri: URI): Promise<string | undefined> {
 		return this._getDocumentLanguage(documentUri);
+	}
+
+	/**
+	 * Resolve which runtime should be used for a document with the given primary
+	 * language: the persisted per-document binding when it still matches the
+	 * language, otherwise the preferred runtime for that language. Does not
+	 * mutate any state.
+	 */
+	private _resolveRuntimeForLanguage(documentUri: URI, language: string): ILanguageRuntimeMetadata | undefined {
+		const persistedRuntimeId = this._kernelBindings.get(documentUri.toString());
+		if (persistedRuntimeId) {
+			const persisted = this._languageRuntimeService.registeredRuntimes
+				.find(r => r.runtimeId === persistedRuntimeId && r.languageId === language);
+			if (persisted) {
+				return persisted;
+			}
+		}
+		return this._runtimeStartupService.getPreferredRuntime(language);
 	}
 
 	/**
@@ -834,19 +878,16 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			// 3. Preferred runtime for the language
 			let runtime: ILanguageRuntimeMetadata | undefined = runtimeOverride;
 			if (!runtime) {
+				// Clear a stale persisted binding that no longer matches the
+				// current language so we don't keep it around; resolution then
+				// falls back to the preferred runtime.
 				const persistedRuntimeId = this._kernelBindings.get(documentUri.toString());
-				if (persistedRuntimeId) {
-					runtime = this._languageRuntimeService.registeredRuntimes
-						.find(r => r.runtimeId === persistedRuntimeId && r.languageId === language);
-					if (!runtime) {
-						// Persisted binding doesn't match the current language; clear it
-						this._kernelBindings.delete(documentUri.toString());
-						this._persistKernelBindings();
-					}
+				if (persistedRuntimeId && !this._languageRuntimeService.registeredRuntimes
+					.some(r => r.runtimeId === persistedRuntimeId && r.languageId === language)) {
+					this._kernelBindings.delete(documentUri.toString());
+					this._persistKernelBindings();
 				}
-			}
-			if (!runtime) {
-				runtime = this._runtimeStartupService.getPreferredRuntime(language);
+				runtime = this._resolveRuntimeForLanguage(documentUri, language);
 			}
 			if (!runtime) {
 				this._logService.warn(`[QuartoKernelManager] No runtime found for language: ${language}`);
