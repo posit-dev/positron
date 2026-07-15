@@ -1846,6 +1846,13 @@ export class MainThreadLanguageRuntime
 		}
 
 		this._proxySessionSubscriptions.set(sessionId, store);
+
+		// Push the current state now that the subscription is in place. The
+		// extension host seeds the proxy from a separate `$getSession` call, so
+		// a state change could have occurred between that read and the
+		// subscription being registered above. Forwarding the current state
+		// closes that gap; it's a no-op on the proxy if the state is unchanged.
+		this._proxy.$updateProxySessionState(sessionId, session.getRuntimeState());
 	}
 
 	/**
