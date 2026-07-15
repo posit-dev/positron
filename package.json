@@ -111,7 +111,7 @@
     "build-check": "./scripts/build-check.sh",
     "build-start": "./scripts/build-start.sh",
     "build-stop": "./scripts/build-stop.sh",
-    "pwb": "bash docker/environments/workbench-dev/workbench-local.sh",
+    "pwb": "bash docker/environments/pwb-local/workbench-local.sh",
     "arm:start": "bash -c \"cd docker/environments/arm-local && ./run-with-license.sh ubuntu24\"",
     "arm:start:rocky": "bash -c \"cd docker/environments/arm-local && ./run-with-license.sh rocky8\"",
     "arm:connect": "bash -c \"cd docker/environments/arm-local && ./connect.sh\"",

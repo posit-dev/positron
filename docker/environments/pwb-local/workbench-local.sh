@@ -389,7 +389,7 @@ cmd_up() {
 	if [ ! -f "${SCRIPT_DIR}/connect/connect.lic" ]; then
 		echo "WARNING: no Connect license at ${SCRIPT_DIR}/connect.lic -- the connect container" >&2
 		echo "         will not become healthy and 'test' won't start (startup will time out)." >&2
-		echo "         Add connect.lic (see docker/environments/workbench-dev/README.md)." >&2
+		echo "         Add connect.lic (see docker/environments/pwb-local/README.md)." >&2
 	fi
 	# --remove-orphans clears a leftover container from a prior run under a
 	# different service name that would otherwise hold the same ports.
@@ -538,11 +538,11 @@ VERSION PICKERS
              specific n-1/n-2 build.
 
 ACCESS
-  Workbench  http://localhost:8787   (user1 / WB_PASSWORD from docker/environments/workbench-dev/.env)
+  Workbench  http://localhost:8787   (user1 / WB_PASSWORD from docker/environments/pwb-local/.env)
   Connect    http://localhost:3939
 
-SETUP  (details: docker/environments/workbench-dev/README.md)
-  gh auth login (once, include read:packages)   workbench.lic + connect.lic in docker/environments/workbench-dev/
+SETUP  (details: docker/environments/pwb-local/README.md)
+  gh auth login (once, include read:packages)   workbench.lic + connect.lic in docker/environments/pwb-local/
   GITHUB_TOKEN and docker login ghcr.io are derived from gh automatically.
   optional: fzf (arrow-key pickers; falls back to a numbered prompt)
 EOF
