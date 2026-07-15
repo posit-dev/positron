@@ -13,18 +13,6 @@ test.use({
 test.describe('R Markdown', { tag: [tags.WEB, tags.R_MARKDOWN, tags.ARK] }, () => {
 	test.describe.configure({ mode: 'serial' }); // 2nd test depends on 1st test
 
-	test.afterAll(async function ({ cleanup }) {
-		// rendering leaves behind basicRmd.html, basicRmd_cache/, and basicRmd_files/
-		// in the shared test-files workspace; remove them so they don't pollute SCM
-		// status for later tests
-		const rmdDir = join('workspaces', 'basic-rmd-file');
-		await cleanup.removeTestFiles([
-			join(rmdDir, 'basicRmd.html'),
-			join(rmdDir, 'basicRmd_cache'),
-			join(rmdDir, 'basicRmd_files'),
-		]);
-	});
-
 	test('Verify can render R Markdown', async function ({ app, r }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
 		await app.workbench.quickaccess.runCommand('r.rmarkdownRender');
