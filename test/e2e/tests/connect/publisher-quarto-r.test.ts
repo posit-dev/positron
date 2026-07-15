@@ -4,40 +4,72 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { PermissionPayload } from '../../../pages/connect.js';
-import { test, tags, expect } from '../../_test.setup.js';
+import { PermissionPayload } from '../../pages/connect.js';
+import { test, tags, expect } from '../_test.setup.js';
 
 test.use({
 	suiteId: __filename
 });
 
 let userId: string;
-const connectServer = 'http://connect:3939';
+// Resolved in beforeAll: the password used both to set user1's PAM password in
+// the connect container and to sign in at the end. Falls back to a default so
+// the local (e2e-connect) run needs no env setup; the Workbench run keeps using
+// POSIT_WORKBENCH_PASSWORD.
+let connectUserPassword: string;
+// Resolved in beforeAll: the local (with-connect) run publishes Connect on
+// localhost:3939; the Workbench web run reaches `connect:3939` on the compose
+// network.
+let connectServer!: string;
 
-test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.PUBLISHER] }, () => {
+test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.CONNECT, tags.PUBLISHER] }, () => {
 
 	test.beforeAll('Get connect API key', async function ({ app, runDockerCommand, hotKeys }) {
 
-		// Read previously bootstrapped token from the shared volume
-		const { stdout } = await runDockerCommand(
-			`docker exec test bash -lc 'set -euo pipefail; [ -s /tokens/connect_bootstrap_token ] && cat /tokens/connect_bootstrap_token'`,
-			'Read Connect API key'
-		);
+		// Local electron run (with-connect) vs the Workbench web run.
+		const isLocal = test.info().project.name === 'e2e-connect';
+		connectServer = isLocal ? 'http://localhost:3939' : 'http://connect:3939';
 
-		const connectApiKey = stdout.trim();
-		if (!connectApiKey) {
-			throw new Error('Connect API key file was empty or missing at /tokens/connect_bootstrap_token');
+		connectUserPassword = process.env.POSIT_WORKBENCH_PASSWORD || 'testpassword';
+
+		// Skip the suite when Connect isn't up (e.g. the full local suite is run
+		// without the connect-local stack started).
+		test.skip(!(await app.workbench.positConnect.isReachable()), 'Posit Connect is not reachable at http://localhost:3939');
+
+		// Resolve the publisher API key: env -> local token file -> Workbench volume.
+		const connectApiKey = await app.workbench.positConnect.resolveApiKey(isLocal ? undefined : runDockerCommand);
+		app.workbench.positConnect.setConnectApiKey(connectApiKey);
+
+		if (!(await app.workbench.positConnect.isApiKeyValid())) {
+			throw new Error('Connect API key did not authenticate against http://localhost:3939');
 		}
 
-		app.workbench.positConnect.setConnectApiKey(connectApiKey);
+		// Local self-heal: if the connect-data volume was wiped and re-bootstrapped,
+		// a saved publisher credential holds a stale key -- clear it so the publish
+		// flow re-enters the fresh key.
+		if (isLocal && app.workbench.positConnect.recordKeyAndDetectRotation(connectApiKey)) {
+			await app.workbench.publisher.clearSavedCredentials();
+		}
+
+		// Both runs authenticate via PAM, so a system user1 must exist in the
+		// Connect container with the current password on EVERY run (the system
+		// account lives in the container filesystem, reset when the container is
+		// recreated). groupadd/useradd are guarded so they're idempotent; chpasswd
+		// always runs.
+		//
+		// Both lanes run the same ghcr Connect image: docker exec runs as root (no
+		// sudo) and the image ships the PAM service file under extras/ but not in
+		// /etc/pam.d, so install it first. The container is targeted by id locally
+		// (with-connect names it randomly) and by the fixed `connect` name on the
+		// Workbench compose network.
+		const container = isLocal ? app.workbench.positConnect.resolveContainerId() : 'connect';
+		await runDockerCommand(`docker exec ${container} bash -c 'cp /opt/rstudio-connect/extras/pam/rstudio-connect /etc/pam.d/rstudio-connect'`, 'Install PAM service file');
+		await runDockerCommand(`docker exec ${container} bash -c 'getent group user1g >/dev/null 2>&1 || groupadd -g 1100 user1g'`, 'Ensure group user1g');
+		await runDockerCommand(`docker exec ${container} bash -c 'id -u user1 >/dev/null 2>&1 || useradd --create-home --shell /bin/bash --home-dir /home/user1 -u 1100 -g 1100 user1'`, 'Ensure user user1');
+		await runDockerCommand(`docker exec ${container} bash -c 'echo "user1":"${connectUserPassword}" | chpasswd'`, 'Set password for user1');
 
 		const user1Present = await app.workbench.positConnect.getUserId('user1');
 		if (!user1Present) {
-
-			await runDockerCommand('docker exec connect sudo groupadd -g 1100 user1g', 'Create group user1g');
-			await runDockerCommand('docker exec connect sudo useradd --create-home --shell /bin/bash --home-dir /home/user1 -u 1100 -g 1100 user1', 'Create user user1');
-			await runDockerCommand(`docker exec connect bash -c \'echo "user1":"${process.env.POSIT_WORKBENCH_PASSWORD}" | sudo chpasswd\'`, 'Set password for user1');
-
 			userId = await app.workbench.positConnect.createUser();
 		} else {
 			userId = user1Present;
@@ -57,6 +89,12 @@ test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 
 		await test.step('Click on Publish button', async () => {
 			await app.workbench.editorActionBar.clickButton('Deploy with Posit Publisher');
+		});
+
+		// Quarto docs may first prompt for source-vs-rendered (macOS / some
+		// Publisher versions); select source code when asked. No-op otherwise.
+		await test.step('Select source code deployment (if prompted)', async () => {
+			await app.workbench.publisher.selectSourceCodeDeployment();
 		});
 
 		// Check if the publisher setup wizard appears (first run) or if we go straight to publisher UI (re-run)
@@ -144,10 +182,10 @@ test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 			await app.code.driver.currentPage.locator('[data-automation="signin"]').click();
 
 			await app.code.driver.currentPage.fill('input[name="username"]', 'user1');
-			await app.code.driver.currentPage.fill('input[name="password"]', process.env.POSIT_WORKBENCH_PASSWORD!);
+			await app.code.driver.currentPage.fill('input[name="password"]', connectUserPassword);
 			await app.code.driver.currentPage.locator('[data-automation="login-panel-submit"]').click();
 
-			await app.code.driver.currentPage.locator('[data-automation="content-table__row__display-name"]').first().click();
+			await app.code.driver.currentPage.locator('[data-automation="content-item-title"]').first().click();
 
 			const headerLocator = app.code.driver.currentPage.frameLocator('#contentIFrame').locator('h1');
 			await expect(headerLocator).toHaveText('Diamond sizes', { timeout: 20000 });

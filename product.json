@@ -96,10 +96,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.7.5",
+			"version": "2026.8.2",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "68fd34383f485992ae5348ebd5dff0d7d5c3ab79f463d19933df7219dbb11f57",
+			"sha256": "3100037ea45430b0ae11b02b469ed8b9454dcf9281fcf9a909fd5317a8973351",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -306,8 +306,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.6.5",
-			"sha256": "f5b8af4f6528024148a8f410e4dc1b9020c71da13838825cacb1ad803642f57c",
+			"version": "0.7.0",
+			"sha256": "fb26eeccbd3fe3f143f80802c1535b604b6d68ffae42c5f376769bc87377cf45",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -692,12 +692,7 @@
 		]
 	},
 	"trustedExtensionAuthAccess": {
-		"github": [
-			"GitHub.copilot-chat",
-			"positron.positron-assistant",
-			"posit.assistant",
-			"positron.authentication"
-		],
+		"github": [],
 		"github-enterprise": [
 			"GitHub.copilot-chat"
 		],

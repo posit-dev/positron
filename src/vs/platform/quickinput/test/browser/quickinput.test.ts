@@ -136,6 +136,27 @@ suite('QuickInput', () => { // https://github.com/microsoft/vscode/issues/147543
 		quickpick.hide();
 		assert.strictEqual(modalContent.inert, false);
 	});
+
+	test('quick input reparents into a native <dialog> modal so it renders above the top layer', () => {
+		// The native <dialog> renderer uses showModal(), placing the dialog in the browser top layer;
+		// the quick input must become a descendant of it to appear above and be focusable.
+		const dialog = document.createElement('dialog');
+		dialog.className = 'positron-modal-dialog';
+		dialog.setAttribute('open', '');
+		const modalContent = document.createElement('button');
+		dialog.appendChild(modalContent);
+		controller.container.appendChild(dialog);
+		store.add(toDisposable(() => dialog.remove()));
+
+		const quickpick = store.add(controller.createQuickPick());
+
+		quickpick.show();
+		assert.ok(dialog.querySelector('.quick-input-widget'), 'quick input should be reparented into the dialog');
+		assert.strictEqual(modalContent.inert, true);
+
+		quickpick.hide();
+		assert.strictEqual(modalContent.inert, false);
+	});
 	// --- End Positron ---
 
 	test('pick - basecase', async () => {

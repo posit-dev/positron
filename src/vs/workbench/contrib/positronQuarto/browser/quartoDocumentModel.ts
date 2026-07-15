@@ -142,6 +142,7 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 		return matches[0];
 	}
 
+
 	getCellCode(cell: QuartoCodeCell): string {
 		const lines: string[] = [];
 		for (let i = cell.codeStartLine; i <= cell.codeEndLine; i++) {
@@ -149,6 +150,7 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 		}
 		return lines.join('\n');
 	}
+
 
 	private _parseDocument(): void {
 		const content = this._textModel.getValue();

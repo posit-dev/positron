@@ -61,6 +61,9 @@ function createMockEntitlementService(opts?: {
 		previewFeaturesDisabled: false,
 		clientByokEnabled: false,
 		hasByokModels: false,
+		// --- Start Positron ---
+		isCompletionsOnlyMode: false,
+		// --- End Positron ---
 		onDidChangeSentiment: Event.None,
 		sentiment: {} as IChatSentiment,
 		sentimentObs: observableValue({}, {} as IChatSentiment) as IObservable<IChatSentiment>,

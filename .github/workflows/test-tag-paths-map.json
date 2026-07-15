@@ -23,6 +23,7 @@
   "src/vs/workbench/contrib/positronRuntimeSessions/": ["@:sessions"],
   "src/vs/workbench/contrib/positronSession/": ["@:sessions"],
 
+  "src/vs/workbench/services/chat/": ["@:assistant"],
   "src/vs/workbench/services/languageRuntime/": ["@:console", "@:interpreter"],
   "src/vs/workbench/services/runtimeSession/": ["@:sessions", "@:console", "@:interpreter"],
   "src/vs/workbench/services/runtimeStartup/": ["@:console", "@:interpreter"],
@@ -116,6 +117,7 @@
   "src/vs/platform/positronHeadlessLanguageModel/": ["@:positron-notebooks"],
   "src/vs/platform/positronIdleTracking/": [],
   "src/vs/platform/positronMemoryUsage/": ["@:variables"],
+  "src/vs/platform/update/": [],
   "src/vs/workbench/browser/parts/positronTopActionBar/": ["@:top-action-bar"],
   "src/vs/workbench/browser/positronAnsiRenderer/": ["@:console"],
   "src/vs/workbench/browser/positronDataExplorer/": ["@:data-explorer"],

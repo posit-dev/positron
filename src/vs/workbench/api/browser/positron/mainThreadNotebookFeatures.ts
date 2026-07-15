@@ -10,7 +10,7 @@ import { IPositronNotebookService } from '../../../contrib/positronNotebook/brow
 import { IPositronNotebookInstance, NotebookOperationType } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronNotebookCell, CellSelectionStatus, IPositronNotebookCodeCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { getNotebookInstanceFromActiveEditorPane } from '../../../contrib/positronNotebook/browser/notebookUtils.js';
+import { getNotebookInstanceFromActiveEditorPane, getUnsupportedNotebookEditorMessage } from '../../../contrib/positronNotebook/browser/notebookUtils.js';
 import { CellSelectionType, getSelectedCells } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CellKind, CellEditType, ICellDto2 } from '../../../contrib/notebook/common/notebookCommon.js';
@@ -97,6 +97,15 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		// Use existing helper function instead of service method
 		const instance = getNotebookInstanceFromActiveEditorPane(this._editorService);
 		if (!instance) {
+			// A notebook may be open, but in the built-in editor rather than the
+			// Positron Notebook Editor that this API operates on. Surface an
+			// actionable error telling the user how to switch editors, instead of
+			// a bare "no notebook is open" that callers cannot distinguish from
+			// having nothing open at all.
+			const unsupportedEditorMessage = getUnsupportedNotebookEditorMessage(this._editorService);
+			if (unsupportedEditorMessage) {
+				throw new Error(unsupportedEditorMessage);
+			}
 			return undefined;
 		}
 

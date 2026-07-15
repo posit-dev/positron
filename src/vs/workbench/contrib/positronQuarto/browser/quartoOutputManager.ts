@@ -24,8 +24,8 @@ import { dirname, basename, extname } from '../../../../base/common/resources.js
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
-import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
-import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, isQuartoDocument } from '../common/positronQuartoConfig.js';
+import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
+import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, affectsQuartoConfig, getQuartoConfigValue, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
@@ -33,6 +33,7 @@ import { ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, RuntimeOu
 import { IResourceUsageHistoryService } from '../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { ILabelService } from '../../../../platform/label/common/label.js';
 
 // Workspace storage key for collapsed inline outputs. Value is JSON:
 // `{ [documentUri]: string[] }` - each entry is the list of cell IDs whose
@@ -176,6 +177,13 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	// This prevents infinite loops when listening for model changes.
 	private _cachedOutputsLoaded = false;
 
+	// Cells whose re-execution has started but not yet produced a replacement
+	// output. The previously cached output is kept until the first new output
+	// arrives (mirroring the view zone's "recomputing" behavior), so an
+	// execution that is interrupted before producing output -- e.g. cancelled by
+	// a window reload -- does not destroy the still-valid persisted cache.
+	private readonly _cellsAwaitingRecomputeOutput = new Set<string>();
+
 	// Stash outputs per document URI across model changes (tab switches).
 	// Unlike the disk cache, stashed outputs preserve data explorer MIME items
 	// so the inline data explorer can reconnect to a live comm when switching back.
@@ -219,6 +227,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		@IResourceUsageHistoryService private readonly _resourceUsageHistoryService: IResourceUsageHistoryService,
 		@IHoverService private readonly _hoverService: IHoverService,
 		@IStorageService private readonly _storageService: IStorageService,
+		@ILabelService private readonly _labelService: ILabelService,
 	) {
 		super();
 
@@ -235,7 +244,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		this._documentUri = model?.uri;
 
 		// Get max lines configuration
-		this._maxLines = this._configurationService.getValue<number>(POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY) ?? 40;
+		this._maxLines = getQuartoConfigValue(this._configurationService, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, 40);
 
 		// Check if feature is enabled (context key checks both setting and extension installation)
 		this._featureEnabled = this._contextKeyService.getContextKeyValue<boolean>(QUARTO_INLINE_OUTPUT_ENABLED.key) ?? false;
@@ -249,8 +258,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 		// Listen for max lines configuration changes
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY)) {
-				this._maxLines = this._configurationService.getValue<number>(POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY) ?? 40;
+			if (affectsQuartoConfig(e, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY)) {
+				this._maxLines = getQuartoConfigValue(this._configurationService, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, 40);
 				// Update all existing view zones
 				for (const viewZone of this._viewZones.values()) {
 					viewZone.maxLines = this._maxLines;
@@ -279,6 +288,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._outputsByCell.clear();
 			this._contentHashByCellId.clear();
 			this._executionInfoByCell.clear();
+			this._cellsAwaitingRecomputeOutput.clear();
 
 			// Clear previous output handling subscriptions to prevent duplicates
 			this._outputHandlingDisposables.clear();
@@ -395,10 +405,14 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 					// Clear our internal output tracking since new outputs will replace
 					this._outputsByCell.delete(cellId);
 					this._contentHashByCellId.delete(cellId);
-					// Clear from cache
-					if (this._documentUri) {
-						this._cacheService.clearCellOutputs(this._documentUri, cellId);
-					}
+					// Defer clearing the persisted cache until the first new output
+					// actually arrives (see _handleOutput). Clearing it here would
+					// destroy the still-valid cached output if the execution is
+					// interrupted before producing anything -- for example when a
+					// window reload cancels an in-flight execution during shutdown,
+					// which otherwise leaves an empty entry that the shutdown flush
+					// writes out as a deletion.
+					this._cellsAwaitingRecomputeOutput.add(cellId);
 				}
 
 				// When execution finishes (Idle, Completed, or Error), if still in
@@ -418,6 +432,17 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 					});
 				}
 
+				// A re-execution finished without producing a replacement output.
+				// Only drop the previously cached output if the run completed
+				// cleanly (the cell genuinely produces nothing now). If it ended in
+				// error -- which includes cancellation, e.g. by a window reload --
+				// keep the cache so the last good output survives the reload.
+				if (executionFinished && this._cellsAwaitingRecomputeOutput.delete(cellId)) {
+					if (currentState === CellExecutionState.Completed && this._documentUri) {
+						this._cacheService.clearCellOutputs(this._documentUri, cellId);
+					}
+				}
+
 				// When execution finishes and there is no view zone yet,
 				// create one to show the status bar
 				if (executionFinished && !viewZone) {
@@ -433,16 +458,21 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				}
 
 				// When state goes to Idle (e.g. after cancellation), hide
-				// status-only view zones since there's nothing meaningful to show
-				if (currentState === CellExecutionState.Idle && viewZone?.isRecomputing) {
-					viewZone.clearOutputs();
-					this._viewZones.delete(cellId);
-					this._executionInfoByCell.delete(cellId);
-					this._onDidChangeOutputs.fire({
-						cellId,
-						documentUri: this._documentUri!,
-						outputs: [],
-					});
+				// status-only view zones since there's nothing meaningful to show.
+				// The execution was interrupted rather than completed, so leave the
+				// persisted cache alone.
+				if (currentState === CellExecutionState.Idle) {
+					this._cellsAwaitingRecomputeOutput.delete(cellId);
+					if (viewZone?.isRecomputing) {
+						viewZone.clearOutputs();
+						this._viewZones.delete(cellId);
+						this._executionInfoByCell.delete(cellId);
+						this._onDidChangeOutputs.fire({
+							cellId,
+							documentUri: this._documentUri!,
+							outputs: [],
+						});
+					}
 				}
 			}
 		}));
@@ -530,6 +560,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		this._disposeAllViewZones();
 		this._outputsByCell.clear();
 		this._executionInfoByCell.clear();
+		this._cellsAwaitingRecomputeOutput.clear();
 	}
 
 	/**
@@ -931,8 +962,42 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		this._logService.debug('[QuartoOutputContribution] Restored outputs from stash for', restoredCount, 'cells');
 	}
 
+	/**
+	 * Resolve the cell context (code, language, location) for quick-fix buttons.
+	 */
+	private _resolveCellContext(cellId: string): QuartoCellErrorContext | undefined {
+		if (!this._documentUri) {
+			return undefined;
+		}
+		const model = this._editor.getModel();
+		if (!model) {
+			return undefined;
+		}
+		const quartoModel = this._documentModelService.getModel(model);
+		const cell = quartoModel.getCellById(cellId);
+		if (!cell) {
+			return undefined;
+		}
+		return {
+			code: quartoModel.getCellCode(cell),
+			language: cell.language,
+			label: cell.label,
+			path: this._labelService.getUriLabel(this._documentUri, { relative: true }),
+			codeStartLine: cell.codeStartLine,
+			codeEndLine: cell.codeEndLine,
+		};
+	}
+
 	private _handleOutput(cellId: string, output: ICellOutput): void {
 		this._logService.debug('[QuartoOutputContribution] Received output for cell', cellId);
+
+		// First replacement output of a re-execution: now that new output is
+		// actually arriving, drop the previously cached output for this cell so
+		// the new run replaces it instead of appending. This is deferred from
+		// execution start so an interrupted run never destroys the old cache.
+		if (this._cellsAwaitingRecomputeOutput.delete(cellId) && this._documentUri) {
+			this._cacheService.clearCellOutputs(this._documentUri, cellId);
+		}
 
 		// Store output
 		const outputs = this._outputsByCell.get(cellId) ?? [];
@@ -948,6 +1013,9 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 			this._viewZones.set(cellId, viewZone);
 		}
+
+		// Enable quick-fix buttons with cell context (code, language, location)
+		viewZone.enableQuickFix(this._resolveCellContext(cellId));
 
 		// Add output to view zone
 		viewZone.addOutput(output);

@@ -2061,6 +2061,19 @@ declare module 'positron' {
 			type: DataConnectionParameterType.File;
 			defaultValue?: string;
 			placeholder?: string;
+
+			/**
+			 * File-type filters for the file picker opened by the field's Browse button, in the
+			 * same format as {@link vscode.OpenDialogOptions.filters}: each key is a human-readable
+			 * label and each value is a list of extensions without dots, for example:
+			 * ```ts
+			 * { 'SQLite Files': ['sqlite', 'sqlite3', 'db'] }
+			 * ```
+			 * Filters are shown in declaration order and the first one is the picker's default
+			 * selection. An "All Files" option is always appended, so drivers should not declare
+			 * one. When omitted, the picker shows "All Files" only.
+			 */
+			filters?: { [name: string]: string[] };
 		}
 		| {
 			type: DataConnectionParameterType.Number;
@@ -3848,8 +3861,15 @@ declare module 'positron' {
 		}
 
 		/**
-		 * Get context about the active notebook
-		 * @returns The notebook context or undefined if no notebook is active
+		 * Get context about the active notebook.
+		 *
+		 * Resolves with `undefined` when no notebook is open. Rejects with an
+		 * actionable error when a notebook is open but in an editor other than
+		 * the Positron Notebook Editor (e.g. the built-in/Jupyter notebook
+		 * editor), since the notebook API only operates on Positron Notebook
+		 * Editor instances; the error message explains how to switch editors.
+		 *
+		 * @returns The notebook context, or undefined if no notebook is active
 		 */
 		export function getContext(): Thenable<NotebookContext | undefined>;
 

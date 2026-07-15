@@ -8,9 +8,13 @@ format: html
 #| label: setup
 #| include: false
 
-library(tidyverse)
+# Use ggplot2 + dplyr directly rather than the tidyverse meta-package: tidyverse
+# hard-imports ragg, whose binary needs a system library (libwebpmux) the Connect
+# image doesn't ship, which breaks the server-side environment restore.
+library(ggplot2)
+library(dplyr)
 
-smaller <- diamonds |> 
+smaller <- diamonds |>
   filter(carat <= 2.5)
 ```
 

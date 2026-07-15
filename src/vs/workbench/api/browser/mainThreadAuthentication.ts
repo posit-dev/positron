@@ -360,14 +360,6 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 	private async loginPrompt(provider: IAuthenticationProvider, extensionName: string, recreatingSession: boolean, options?: AuthenticationInteractiveOptions): Promise<boolean> {
 		let message: string;
 
-		// --- Start Positron ---
-		// Always allow Positron Assistant to use GitHub authentication, without
-		// prompting the user.
-		if (extensionName === 'Positron Assistant' && provider.label === 'GitHub') {
-			return true;
-		}
-		// --- End Positron ---
-
 		// Check if the provider has a custom confirmation message
 		const customMessage = provider.confirmation?.(extensionName, recreatingSession);
 		if (customMessage) {
@@ -515,6 +507,23 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 			}
 
 			this.authenticationAccessService.updateAllowedExtensions(providerId, session.account.label, [{ id: extensionId, name: extensionName, allowed: true }]);
+
+			// --- Start Positron ---
+			// When the user signs in to GitHub through Positron's language model
+			// provider modal (the positron.authentication extension), also grant the
+			// AI extensions that rely on the GitHub session, so Copilot completions
+			// and chat work after this explicit consent. This replaces the static
+			// product.json trust-list entries that were removed so a GitHub sign-in
+			// for Git alone no longer powers Copilot. positron.authentication (the
+			// calling extension) is already granted just above.
+			if (providerId === 'github' && extensionId === 'positron.authentication') {
+				this.authenticationAccessService.updateAllowedExtensions(providerId, session.account.label, [
+					{ id: 'GitHub.copilot-chat', name: 'GitHub Copilot Chat', allowed: true },
+					{ id: 'posit.assistant', name: 'Posit Assistant', allowed: true },
+				]);
+			}
+			// --- End Positron ---
+
 			this.authenticationExtensionsService.updateNewSessionRequests(providerId, [session]);
 			this.authenticationExtensionsService.updateAccountPreference(extensionId, providerId, session.account);
 			return session;

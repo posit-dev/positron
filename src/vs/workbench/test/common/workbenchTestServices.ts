@@ -806,6 +806,9 @@ export class TestChatEntitlementService implements IChatEntitlementService {
 	readonly onDidChangeSentiment = Event.None;
 	readonly sentimentObs = observableValue({}, {});
 	readonly sentiment = {};
+	// --- Start Positron ---
+	readonly isCompletionsOnlyMode = false;
+	// --- End Positron ---
 
 	readonly onDidChangeEntitlement = Event.None;
 	entitlement: ChatEntitlement = ChatEntitlement.Unknown;

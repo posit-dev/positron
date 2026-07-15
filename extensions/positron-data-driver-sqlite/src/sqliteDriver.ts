@@ -90,6 +90,7 @@ export function createSQLiteDriver(
 						type: positron.DataConnectionParameterType.File,
 						required: true,
 						placeholder: databasePathPlaceholder,
+						filters: { [vscode.l10n.t('SQLite Files')]: ['sqlite', 'sqlite3', 'db'] },
 					},
 					{
 						id: 'readOnly',

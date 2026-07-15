@@ -261,7 +261,7 @@ export class HotKeys {
 		await this.code.driver.currentPage.waitForTimeout(3000);
 		await this.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
 		if (waitForReady) {
-			await expect(this.code.driver.currentPage.locator('text=/^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+			await expect(this.code.driver.currentPage.locator('text=/^Setting up|^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 		}
 	}
 

@@ -133,54 +133,10 @@ fetch_latest_wb_url() {
     echo "$url"
 }
 
-ensure_connect_token() {
-  local token_dir="/tokens"
-  local token_file="${token_dir}/connect_bootstrap_token"
-  local tmp_file="${token_dir}/.tmp_token"
-  local connect_url="${CONNECT_URL:-http://connect:3939}"
-
-  # Reuse if already present
-  if [ -s "$token_file" ]; then
-    echo "Bootstrap token already present at $token_file"
-    export CONNECT_TOKEN="$(cat "$token_file")"
-    return 0
-  fi
-
-  echo "Waiting for Posit Connect at ${connect_url}..."
-  local ok=0
-  for i in {1..60}; do
-    if curl -fsS "${connect_url}/__ping__" >/dev/null 2>&1 || curl -fsS "${connect_url}" >/dev/null 2>&1; then
-      ok=1; break
-    fi
-    sleep 1
-  done
-  if [ "$ok" -ne 1 ]; then
-    log_error "Connect not reachable at ${connect_url} after 60s"
-    return 1
-  fi
-
-  echo "Bootstrapping token with rsconnect..."
-  umask 077
-  mkdir -p "$token_dir"
-
-  # Correct command (no --secret)
-  if ! rsconnect bootstrap --server "${connect_url}" --raw > "$tmp_file"; then
-    log_error "rsconnect bootstrap failed"
-    # optional: print tool version for debugging
-    rsconnect --version || true
-    return 1
-  fi
-
-  # sanity-check non-empty
-  if ! [ -s "$tmp_file" ]; then
-    log_error "rsconnect returned empty token"
-    return 1
-  fi
-
-  mv "$tmp_file" "$token_file"
-  echo "Wrote bootstrap token to $token_file"
-  export CONNECT_TOKEN="$(cat "$token_file")"
-}
+# ensure_connect_token is defined in ensure-connect-token.sh (copied alongside
+# this script into /tmp). Sourcing it here keeps the Workbench flow and the
+# standalone connect-local bootstrap using the exact same logic.
+source "$(dirname "${BASH_SOURCE[0]}")/ensure-connect-token.sh"
 
 # Initial parameter setup - auto-detect architecture if not set
 if [ -z "${ARCH_SUFFIX:-}" ]; then
@@ -388,10 +344,18 @@ if ! TAG=${POSITRON_TAG} ARCH_SUFFIX=${ARCH_SUFFIX} GITHUB_TOKEN=${GITHUB_TOKEN}
 fi
 
 # Configure data sources (one credential type: databricks, snowflake, or azure)
+CREDENTIALS_OK=false
 if [ -n "${CREDENTIALS}" ]; then
     echo "Configuring data source: ${CREDENTIALS}..."
+    # Clear any marker from a previous run before attempting this one, so a
+    # failed attempt here can never leave behind a stale success marker.
+    rm -f /var/lib/wb-local-credentials 2>/dev/null || true
     if [ -f "/tmp/configure-datasources.sh" ]; then
-        if ! /tmp/configure-datasources.sh "${CREDENTIALS}"; then
+        if /tmp/configure-datasources.sh "${CREDENTIALS}"; then
+            CREDENTIALS_OK=true
+            # Record success so a later 'npm run pwb -- status' can show it too.
+            printf '%s\n' "${CREDENTIALS}" > /var/lib/wb-local-credentials 2>/dev/null || true
+        else
             log_error "Failed to configure data source: ${CREDENTIALS}"
         fi
     else
@@ -447,6 +411,9 @@ POSITRON_FULL_VERSION="${POSITRON_VERSION}-${POSITRON_BUILD}"
 
 echo "Positron version:    ${POSITRON_FULL_VERSION}"
 echo "Workbench version:   ${WB_VERSION}"
+if [ "${CREDENTIALS_OK}" = true ]; then
+    echo "Credentials:         ${CREDENTIALS}"
+fi
 echo "Workbench URL:       http://localhost:8787"
 
 # Report any errors that occurred

@@ -91,6 +91,113 @@ scan_added_platform_tags_across_files() {
 	echo "$win $web"
 }
 
+# patch_is_comment_or_whitespace_only <patch_text for ONE file>
+# Echoes "true" iff every added/removed line in the patch is blank,
+# whitespace-only, or a comment -- meaning the file's runtime behavior is
+# unchanged and a touched e2e test file does NOT need an auto-derived tag
+# (see #14798: a reworded comment shouldn't spin up that test's lane).
+#
+# Bias is deliberately toward "false" (keep tagging): the dangerous mistake is
+# skipping a real code change, so any changed line we can't prove is a comment
+# counts as code. An empty patch (gh omits .patch for pure renames) echoes
+# "false" for the same reason -- we can't see the change, so don't skip it.
+#
+# Comment forms recognized (after stripping leading whitespace): "//" line
+# comments, "/*" openers, and "*"-led block-comment continuations/closers
+# ("* detail", "*/"). Known boundary: a code line that begins with "*" after
+# indentation (e.g. a wrapped "* b" multiplication) would be misread as a
+# comment; this is vanishingly rare in e2e specs, and the author can always tag
+# the PR body manually if it ever bites.
+patch_is_comment_or_whitespace_only() {
+	local patch="$1"
+	# No patch text at all -> can't prove it's a no-op, so treat as code.
+	[[ -z "$patch" ]] && { echo false; return 0; }
+	printf '%s\n' "$patch" | awk '
+		/^\+\+\+/ || /^---/ { next }   # file headers, not content
+		/^@@/ { next }                 # hunk headers
+		/^[+-]/ {
+			line = substr($0, 2)               # drop the +/- marker
+			sub(/^[ \t]+/, "", line)           # strip leading whitespace
+			if (line == "") { next }           # blank / whitespace-only
+			if (line ~ /^\/\//) { next }       # // line comment
+			if (line ~ /^\/\*/) { next }       # /* block opener
+			if (line ~ /^\*/) { next }         # * continuation or */ closer
+			has_code = 1
+		}
+		END { print (has_code ? "false" : "true") }
+	'
+}
+
+# patch_is_tag_change_only <patch_text for ONE file>
+# Echoes "true" iff the change only edits tag metadata -- adding OR removing tags
+# in an array, or inserting/removing a simple `{ tag: [<literal array>] }`
+# options object -- while every non-tag token stays identical. Recategorizing a
+# test (e.g. #14731 consolidating @:posit-assistant, or #14681 backfilling
+# missing feature tags) doesn't change what the test does, so a touched test
+# needs no auto-derived feature tag. tags.WIN/WEB adds still enable their lanes
+# via scan_added_platform_tags, which runs separately.
+#
+# How it decides: it joins the removed (-) lines into one fragment and the added
+# (+) lines into another (comments/whitespace ignored), strips tag metadata from
+# each -- literal `tag: [ ... ]` clauses, `tags.X` tokens, and the empty braces
+# they leave behind -- plus whitespace and commas, then compares. Equal residual
+# means only tags moved.
+#
+# Deliberately conservative (bias toward "false" / keep tagging):
+#   - Only a LITERAL `tag: [ ... ]` array is stripped. A ternary
+#     (`tag: cond ? [...] : []`) or data-driven (`tags?: string[]`) pattern isn't
+#     tag-shaped to the matcher, so its residual differs and the file derives.
+#   - Any real code edited alongside the tags (a reworded describe title, a
+#     changed body line) changes the residual, so it won't be skipped.
+#   - At least one actual tags.X token must be involved, so a pure
+#     comment/whitespace change stays with patch_is_comment_or_whitespace_only
+#     (the predicates don't overlap) and a `tag: [...]` substring living inside a
+#     string literal isn't mistaken for a tag edit.
+# Known residual boundary: a changed line whose only difference is a tags.X token
+# inside a string literal would still normalize equal; that's rare enough to
+# accept, and the author can tag the PR body manually.
+# An empty patch echoes "false" for the same reason as the comment helper.
+patch_is_tag_change_only() {
+	local patch="$1"
+	[[ -z "$patch" ]] && { echo false; return 0; }
+	printf '%s\n' "$patch" | awk '
+		function norm(x) {
+			gsub(/tag:[ \t]*\[[^]]*\]/, "", x)  # literal tag: [ ... ] clause
+			gsub(/tags\.[A-Za-z0-9_]+/, "", x)   # stray tag tokens (e.g. data rows)
+			gsub(/[ \t]/, "", x)
+			gsub(/,/, "", x)
+			gsub(/\{\}/, "", x)                  # empty options object left behind
+			gsub(/\[\]/, "", x)                  # empty array left behind
+			return x
+		}
+		/^\+\+\+/ || /^---/ { next }
+		/^@@/ { next }
+		/^[+-]/ {
+			marker = substr($0, 1, 1)
+			line = substr($0, 2)
+			s = line; sub(/^[ \t]+/, "", s)
+			if (s == "") { next }              # blank / whitespace-only
+			if (s ~ /^\/\//) { next }          # // line comment
+			if (s ~ /^\/\*/) { next }          # /* block opener
+			if (s ~ /^\*/) { next }            # * continuation or */ closer
+			real_lines++
+			# Require an actual tags.X token, not just a "tag: [" substring: the
+			# latter also appears inside string literals (e.g. a getByText("tag:
+			# [x]") assertion), which would let a real code edit masquerade as a
+			# tag change. A genuine tag array always references tags.X on one side.
+			if (line ~ /tags\./) { tag_involved = 1 }
+			if (marker == "+") { added = added " " line } else { removed = removed " " line }
+		}
+		END {
+			ok = 1
+			if (real_lines == 0) { ok = 0 }        # nothing but comments/whitespace
+			if (!tag_involved) { ok = 0 }          # not a tag edit at all
+			if (norm(removed) != norm(added)) { ok = 0 }  # non-tag code must match
+			print (ok ? "true" : "false")
+		}
+	'
+}
+
 # is_infra_only <changed_files>
 # Echoes "true" iff EVERY changed file is an infra/doc/lockfile path (no feature
 # e2e coverage expected). Used only to suppress the no-match warning comment;
@@ -107,6 +214,22 @@ is_infra_only() {
 		esac
 	done <<< "$changed"
 	$any && echo true || echo false
+}
+
+# exclude_paths <all_paths> <paths_to_exclude>
+# Echoes the newline-separated lines of <all_paths> that do NOT appear
+# (whole-line exact) in <paths_to_exclude>, preserving order. Blank lines are
+# dropped. Used by pr-tags-parse.sh to remove no-op test files from the
+# changed-files list before deriving tags. When every path is excluded the
+# output is empty and the exit status is 0 -- callers depend on this: `grep -v`
+# exits 1 on no match, which under `set -e` would abort the whole tag step.
+exclude_paths() {
+	local all="$1" exclude="$2"
+	# Two-file awk: read the exclude list first (NR==FNR) into a set, then print
+	# lines of the all list not in it. Avoids `awk -v` (which rejects embedded
+	# newlines on BSD/macOS awk) and grep -v's exit-1-on-no-match.
+	awk 'NR==FNR { if ($0 != "") skip[$0] = 1; next } $0 != "" && !($0 in skip)' \
+		<(printf '%s\n' "$exclude") <(printf '%s\n' "$all")
 }
 
 # union_csv_tags <csv_a> <csv_b>
@@ -205,6 +328,29 @@ valid_enum_tags() {
 	grep -oE "'@:[a-zA-Z0-9_-]+'" "$enum_file" | tr -d "'" | sort -u
 }
 
+# feature_enum_tags <enum_file>
+# Echoes the newline-separated, unique @: tag strings declared in the
+# FeatureTags enum block of test-tags.ts -- the ONLY tags eligible for auto
+# test-change tag derivation. Platform/special tags (separate CI lanes,
+# author-controlled; @:win/@:web handled by scan_added_platform_tags) live in
+# other enum blocks and are deliberately excluded, so derivation never selects a
+# tag that widens the run without enabling its lane. Passed to
+# derive-test-change-tags.mjs as --feature-tags. Missing file echoes nothing.
+feature_enum_tags() {
+	local enum_file="$1"
+	[[ -f "$enum_file" ]] || return 0
+	awk '
+		/export enum FeatureTags[[:space:]]*\{/ { infeat = 1; next }
+		infeat && /\}/ { infeat = 0 }
+		infeat {
+			while (match($0, /@:[a-zA-Z0-9_-]+/)) {
+				print substr($0, RSTART, RLENGTH)
+				$0 = substr($0, RSTART + RLENGTH)
+			}
+		}
+	' "$enum_file" | sort -u
+}
+
 # split_valid_invalid_tags <csv_tags> <enum_file>
 # Splits a comma-separated tag list against the TestTags enum. Echoes
 # "<valid_csv>|<invalid_csv>" (pipe-separated so an empty side is still a
@@ -260,18 +406,21 @@ find_unmapped_positron_dirs() {
 	printf '%s\n' "${out[@]}" | awk 'NF && !seen[$0]++'
 }
 
-# build_tag_reasons <final_csv> <author_csv> <map_csv> <ark> <added_win> <added_web>
+# build_tag_reasons <final_csv> <author_csv> <map_csv> <ark> <added_win> <added_web> [<test_change_csv>]
 # Assigns each tag in <final_csv> (comma-separated, order-stable) a single source
 # code by precedence: required -> body -> files -> ark -> test-win -> test-web ->
-# auto. Booleans are the strings "true"/"false". Echoes comma-separated
-# "<tag>|<code>" pairs in <final_csv> order; empty final list echoes nothing.
-# Pure: presentation of an already-decided tag set, no gh / $GITHUB_OUTPUT.
+# test-changed -> auto. Booleans are the strings "true"/"false". Echoes
+# comma-separated "<tag>|<code>" pairs in <final_csv> order; empty final list
+# echoes nothing. <test_change_csv> defaults to empty (older 6-arg callers keep
+# working; those tags just fall through to "auto"). Pure: presentation of an
+# already-decided tag set, no gh / $GITHUB_OUTPUT.
 build_tag_reasons() {
-	local final="$1" author="$2" map="$3" ark="$4" added_win="$5" added_web="$6"
-	local tag code author_nl map_nl
+	local final="$1" author="$2" map="$3" ark="$4" added_win="$5" added_web="$6" test_change="${7:-}"
+	local tag code author_nl map_nl test_change_nl
 	local -a out=()
 	author_nl="${author//,/$'\n'}"
 	map_nl="${map//,/$'\n'}"
+	test_change_nl="${test_change//,/$'\n'}"
 	while IFS= read -r tag; do
 		[[ -z "$tag" ]] && continue
 		if [[ "$tag" == "@:critical" ]]; then
@@ -286,6 +435,8 @@ build_tag_reasons() {
 			code="test-win"
 		elif [[ "$tag" == "@:web" && "$added_web" == "true" ]]; then
 			code="test-web"
+		elif printf '%s\n' "$test_change_nl" | grep -qxF "$tag"; then
+			code="test-changed"
 		else
 			code="auto"
 		fi
@@ -319,6 +470,7 @@ render_why_these_tags() {
 			ark)      label="Ark submodule bump" ;;
 			test-win) label="New test (tags.WIN)" ;;
 			test-web) label="New test (tags.WEB)" ;;
+			test-changed) label="Touched test file" ;;
 			*)        label="Auto-selected" ;;
 		esac
 		rows="${rows}| \`${tag}\` | ${label} |"$'\n'

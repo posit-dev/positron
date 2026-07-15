@@ -1,6 +1,6 @@
 # Common Mistakes and Gotchas
 
-Comprehensive list of mistakes to avoid when writing Positron e2e tests.
+This file focuses on Positron-specific mistakes when writing e2e tests:
 
 ## Critical Mistakes
 
@@ -20,69 +20,24 @@ The custom `_test.setup` provides all Positron fixtures. Using the raw Playwrigh
 
 ### 2. Missing suiteId
 
-**WRONG:**
-```typescript
-test.describe('Console Tests', () => {
-	test('my test', async function ({ app }) {
-		// ...
-	});
-});
-```
+Every test file must start with `test.use({ suiteId: __filename })`. Without it, tests may share app instances incorrectly, logs won't be organized by test file, and `beforeAll`/`afterAll` won't work as expected.
 
-**CORRECT:**
 ```typescript
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Console Tests', () => {
-	test('my test', async function ({ app }) {
+	test('my test', async ({ app }) => {
 		// ...
 	});
 });
 ```
 
-Without `suiteId`:
-- Tests may share app instances incorrectly
-- Logs won't be organized by test file
-- beforeAll/afterAll won't work as expected
+### 3. Forgetting Tags for Cross-Platform Tests
 
-### 3. Arrow Functions Instead of Function Syntax
+Without platform tags, a test only runs on Linux/Electron -- add `tags.WEB` to also run in web browser mode, `tags.WIN` for Windows.
 
-**WRONG:**
-```typescript
-test('my test', async ({ app, python }) => {
-	// ...
-});
-
-test.beforeEach(async ({ app }) => {
-	// ...
-});
-```
-
-**CORRECT:**
-```typescript
-test('my test', async function ({ app, python }) {
-	// ...
-});
-
-test.beforeEach(async function ({ app }) {
-	// ...
-});
-```
-
-The codebase consistently uses `function` syntax. While arrow functions sometimes work, they can cause issues with fixture access and this-binding.
-
-### 4. Forgetting Tags for Cross-Platform Tests
-
-**WRONG:**
-```typescript
-test.describe('Console Tests', () => {
-	// Only runs on Linux/Electron
-});
-```
-
-**CORRECT:**
 ```typescript
 test.describe('Console Tests', {
 	tag: [tags.WEB, tags.WIN, tags.CONSOLE]
@@ -91,216 +46,95 @@ test.describe('Console Tests', {
 });
 ```
 
-Without platform tags:
-- `tags.WEB` - test won't run in web browser mode
-- `tags.WIN` - test won't run on Windows
-
 ## Fixture Mistakes
 
-### 5. Using `python`/`r` Fixture Without Understanding Scope
+### 4. Assuming an Interpreter Persists Across Tests
 
-**WRONG (misunderstanding):**
+`python`/`r` are test-scoped - they don't carry over from one `test()` block to the next, even in the same file.
+
+**WRONG:**
 ```typescript
-test('test 1', async function ({ python }) {
-	// Python starts
-});
+test('test 1', async ({ python }) => { ... });
 
-test('test 2', async function ({ app }) {
-	// Assuming Python is still running - IT'S NOT GUARANTEED
-	await app.workbench.console.executeCode('Python', 'x = 1');
+test('test 2', async ({ app }) => {
+	await app.workbench.console.executeCode('Python', 'x = 1');  // Assumes Python is still running -- not guaranteed
 });
 ```
 
 **CORRECT:**
 ```typescript
-test('test 2', async function ({ app, python }) {
-	// python fixture ensures Python is running
-	await app.workbench.console.executeCode('Python', 'x = 1');
-});
-
-// Or use sessions for manual control
-test('test 2', async function ({ app, sessions }) {
-	await sessions.start('python', { reuse: true });
+test('test 2', async ({ app, python }) => {
 	await app.workbench.console.executeCode('Python', 'x = 1');
 });
 ```
 
-### 6. Wrong Settings Fixture Scope
+### 5. Wrong Settings Fixture Scope
+
+`settings` is worker-scoped (shared across tests in a file), so setting it per-test can cause unexpected behavior.
 
 **WRONG:**
 ```typescript
-test('my test', async function ({ settings }) {
+test('my test', async ({ settings }) => {
 	await settings.set({ 'key': 'value' });  // Settings is worker-scoped!
 });
 ```
 
-**CORRECT:**
+**BETTER:** set it once in `test.beforeAll`:
 ```typescript
 test.beforeAll(async ({ settings }) => {
 	await settings.set({ 'key': 'value' });
 });
 ```
 
-`settings` is worker-scoped (shared across tests in a file). Setting it per-test can cause unexpected behavior.
-
-### 7. Mixing Up Fixture Dependencies
-
-**WRONG:**
+**BEST:** if you already know the value up front, apply it before the app launches (via a `beforeApp` worker fixture) so there's no reload at all:
 ```typescript
-test('test', async function ({ page, sessions }) {
-	await sessions.start('python');
-	// page is derived from app, but you might not have app in scope
+import { test as base, expect, tags, TestFixtures, WorkerFixtures } from '../_test.setup';
+
+const test = base.extend<TestFixtures, WorkerFixtures>({
+	beforeApp: [
+		async ({ settingsFile }, use) => {
+			await settingsFile.append({ 'key': 'value' });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
 });
 ```
 
-**CORRECT:**
-```typescript
-test('test', async function ({ app, sessions }) {
-	await sessions.start('python');
-	const page = app.code.driver.currentPage;  // Access page from app
-});
-
-// Or use page fixture directly
-test('test', async function ({ page, sessions }) {
-	await sessions.start('python');
-	await expect(page.getByText('Python')).toBeVisible();
-});
-```
+Reach for the `BETTER` form only when the value isn't known until the test runs (for example, computed from something set up earlier in the worker) and no pre-launch fixture can express it. See `references/fixtures.md`, "Custom Test Setup Files", for more pre-launch variations.
 
 ## Assertion Mistakes
 
-### 8. Missing Timeouts on Async Assertions
+### 6. Override Timeouts Only When You Know Better Than the Default
 
-**WRONG:**
-```typescript
-await expect(locator).toBeVisible();  // Uses default 5s timeout
-```
+The 15s default (`expect.timeout` in `playwright.config.ts`) covers most UI checks, so don't add `{ timeout: ... }` to every assertion. Raise it only for genuinely slower operations (interpreter/kernel startup, large data loads) or lower it to fail fast; POM methods already carry these budgets, so you mostly need this on raw locators. Reflexively padding every assertion with a big timeout just hides real failures and slows the suite.
 
-**CORRECT:**
-```typescript
-await expect(locator).toBeVisible({ timeout: 30000 });
-```
+### 7. Wrapping an Already-Retrying Call in toPass
 
-Default timeout is often too short for:
-- Interpreter startup
-- Code execution
-- Data loading
-- Network operations
+Most POM methods named `expectTo...`, `verify...`, or `waitFor...` are built on Playwright's web-first assertions (`expect(...).toBeVisible({ timeout })` and the like), so they already retry on their own until their timeout runs out. Wrapping one in an outer `toPass()` adds nothing; if it needs more time, raise its `timeout` instead.
 
-### 9. Not Using toPass for Flaky Operations
+Use `toPass` only when the action itself might need to run again, not just the check. The classic case is a click that occasionally doesn't register, where `toPass` retries the click and the assertion together:
 
-**WRONG:**
-```typescript
-await hotKeys.clearPlots();
-await app.workbench.plots.waitForNoPlots();
-// May fail if clear didn't work first time
-```
-
-**CORRECT:**
 ```typescript
 await expect(async () => {
-	await hotKeys.clearPlots();
-	await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
-}).toPass({ timeout: 15000 });
-```
-
-Use `toPass` for:
-- Clear/cleanup operations
-- Menu interactions
-- Dialog triggers
-- Any operation that may need retry
-
-### 10. Wrong Element Count Assertion
-
-**WRONG:**
-```typescript
-// Checking if element exists
-await expect(locator).toBeVisible();  // Fails if multiple match
-
-// Checking if element doesn't exist
-await expect(locator).not.toBeVisible();  // May pass if one is hidden
-```
-
-**CORRECT:**
-```typescript
-// Element should exist (one or more)
-await expect(locator).toHaveCount(1, { timeout: 15000 });
-
-// Element should not exist
-await expect(locator).toHaveCount(0, { timeout: 5000 });
-```
-
-## Locator Mistakes
-
-### 11. Using Unstable Selectors
-
-**WRONG:**
-```typescript
-page.locator('.monaco-list-row:nth-child(3)')
-page.locator('div > div > span.text')
-page.locator('[style*="z-index: 1"]')
-```
-
-**CORRECT:**
-```typescript
-page.getByTestId('specific-element')
-page.getByLabel('Button Name')
-page.getByRole('button', { name: 'Submit' })
-page.locator('.well-named-class').filter({ hasText: 'Expected' })
-```
-
-Prefer (in order):
-1. Test IDs
-2. Accessible roles/labels
-3. Text content
-4. Stable class names
-
-### 12. Not Scoping Locators
-
-**WRONG:**
-```typescript
-// Finds ALL buttons on page
-await page.getByRole('button', { name: 'OK' }).click();
-```
-
-**CORRECT:**
-```typescript
-// Scoped to specific dialog
-const dialog = page.locator('.my-dialog');
-await dialog.getByRole('button', { name: 'OK' }).click();
-
-// Or use filter
-await page.getByRole('button', { name: 'OK' })
-	.filter({ has: page.locator('.dialog-footer') })
-	.click();
-```
-
-### 13. Forgetting Exact Match
-
-**WRONG:**
-```typescript
-page.getByText('Console')  // Matches "Console", "Console Tab", "Active Console"
-```
-
-**CORRECT:**
-```typescript
-page.getByText('Console', { exact: true })
-page.getByRole('tab', { name: 'Console', exact: true })
+	await menuTrigger.click();
+	await expect(menuItem).toBeVisible({ timeout: 1000 });  // Fail fast so toPass can actually retry
+}).toPass({ timeout: 5000 });
 ```
 
 ## Test Structure Mistakes
 
-### 14. No Cleanup in afterEach
+### 8. No Cleanup in afterEach
 
 **WRONG:**
 ```typescript
 test.describe('Tests', () => {
-	test('test 1', async function ({ app }) {
+	test('test 1', async ({ app }) => {
 		await app.workbench.variables.doubleClickVariableRow('df');
 		// Opens data explorer tab
 	});
 
-	test('test 2', async function ({ app }) {
+	test('test 2', async ({ app }) => {
 		// Data explorer tab still open - may interfere
 	});
 });
@@ -309,111 +143,70 @@ test.describe('Tests', () => {
 **CORRECT:**
 ```typescript
 test.describe('Tests', () => {
-	test.afterEach(async function ({ hotKeys }) {
+	test.afterEach(async ({ hotKeys }) => {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('test 1', async function ({ app }) {
+	test('test 1', async ({ app }) => {
 		await app.workbench.variables.doubleClickVariableRow('df');
 	});
 
-	test('test 2', async function ({ app }) {
+	test('test 2', async ({ app }) => {
 		// Clean slate
 	});
 });
 ```
 
-### 15. Tests Depending on Order
+If tests edit workspace files, reset them in `afterAll` with `cleanup.discardAllChanges()` (`git reset --hard` + `git clean -fd` on the workspace) so edits don't leak into later test files:
+
+```typescript
+test.afterAll(async ({ cleanup }) => {
+	await cleanup.discardAllChanges();
+});
+```
+
+### 9. Double-Wrapping POM Calls in test.step
+
+Most POM action/verification methods (e.g. `console.executeCode`, `variables.doubleClickVariableRow`, `dataExplorer.grid.verifyTableData`) already wrap their own body in `test.step(...)` internally. Wrapping one of them in another `test.step` produces a redundant nested step in the report, not a clearer one.
 
 **WRONG:**
 ```typescript
-test('step 1 - create file', async function ({ app }) {
-	// Creates file
-});
-
-test('step 2 - use file', async function ({ app }) {
-	// Assumes file from test 1 exists - BAD
-});
-```
-
-**CORRECT:**
-```typescript
-test('complete workflow', async function ({ app }) {
-	await test.step('Create file', async () => {
-		// Create file
-	});
-
-	await test.step('Use file', async () => {
-		// Use file
-	});
-});
-
-// Or use beforeEach to set up state
-test.beforeEach(async function ({ app }) {
-	// Create file for each test
-});
-```
-
-### 16. Not Using test.step for Complex Tests
-
-**WRONG:**
-```typescript
-test('full workflow', async function ({ app, python }) {
-	await app.workbench.console.executeCode('Python', 'x = 1');
-	await app.workbench.console.executeCode('Python', 'y = 2');
-	await app.workbench.console.executeCode('Python', 'df = create_df()');
-	await app.workbench.variables.doubleClickVariableRow('df');
-	await app.workbench.dataExplorer.grid.verifyTableData(expected);
-});
-```
-
-**CORRECT:**
-```typescript
-test('full workflow', async function ({ app, python }) {
-	await test.step('Set up variables', async () => {
-		await app.workbench.console.executeCode('Python', 'x = 1');
-		await app.workbench.console.executeCode('Python', 'y = 2');
-	});
-
+test('full workflow', async ({ app, python }) => {
 	await test.step('Create dataframe', async () => {
-		await app.workbench.console.executeCode('Python', 'df = create_df()');
+		await app.workbench.console.executeCode('Python', 'df = create_df()');  // Already wraps itself
 	});
 
 	await test.step('Open in data explorer', async () => {
-		await app.workbench.variables.doubleClickVariableRow('df');
-	});
-
-	await test.step('Verify data', async () => {
-		await app.workbench.dataExplorer.grid.verifyTableData(expected);
+		await app.workbench.variables.doubleClickVariableRow('df');  // Already wraps itself
 	});
 });
 ```
 
-## Timing Mistakes
-
-### 17. Hard-Coded Waits
-
-**WRONG:**
-```typescript
-await page.waitForTimeout(5000);  // Just waiting...
-await button.click();
-```
-
 **CORRECT:**
 ```typescript
-await expect(button).toBeEnabled({ timeout: 5000 });
-await button.click();
+test('full workflow', async ({ app, python }) => {
+	// No outer test.step -- each POM call already reports its own step
+	await app.workbench.console.executeCode('Python', 'df = create_df()');
+	await app.workbench.variables.doubleClickVariableRow('df');
+	await app.workbench.dataExplorer.grid.verifyTableData(expected);
 
-// Or wait for specific state
-await page.waitForLoadState('networkidle');
-await button.click();
+	// Reserve test.step for raw Playwright sequences that aren't already a POM call
+	await test.step('Dismiss the confirmation dialog', async () => {
+		await page.getByRole('button', { name: 'Delete' }).click();
+		await expect(page.getByRole('dialog')).toBeHidden({ timeout: 5000 });
+	});
+});
 ```
 
-### 18. Not Waiting for Console Ready
+Not every POM method self-wraps -- e.g. `console.waitForReady` and `plots.waitForNoPlots` don't. If you're unsure, grep the method's body in `test/e2e/pages/` for `test.step(`.
+
+## Timing Mistakes
+
+### 10. Not Waiting for Console Ready
 
 **WRONG:**
 ```typescript
-test('execute code', async function ({ sessions, app }) {
+test('execute code', async ({ sessions, app }) => {
 	await sessions.start('python');
 	await app.workbench.console.executeCode('Python', 'x = 1');
 	// May fail if console not ready
@@ -422,52 +215,46 @@ test('execute code', async function ({ sessions, app }) {
 
 **CORRECT:**
 ```typescript
-test('execute code', async function ({ python, app }) {
+test('execute code', async ({ python, app }) => {
 	// python fixture waits for ready state
 	await app.workbench.console.executeCode('Python', 'x = 1');
 });
 
 // Or manually wait
-test('execute code', async function ({ sessions, app }) {
+test('execute code', async ({ sessions, app }) => {
 	await sessions.start('python');
 	await app.workbench.console.waitForReady('>>>');
 	await app.workbench.console.executeCode('Python', 'x = 1');
 });
 ```
 
-### 19. Race Conditions with UI State
-
-**WRONG:**
-```typescript
-await triggerButton.click();
-await dialogContent.textContent();  // Dialog may not be open yet
-```
-
-**CORRECT:**
-```typescript
-await triggerButton.click();
-await expect(dialog).toBeVisible({ timeout: 5000 });
-const content = await dialogContent.textContent();
-```
-
 ## Environment Mistakes
 
-### 20. Hardcoding Interpreter Versions
+### 11. Hardcoding Interpreter Versions
+
+A hardcoded version string breaks in CI environments that provision a different interpreter.
 
 **WRONG:**
 ```typescript
 await notebooks.selectInterpreter('Python', 'Python 3.11.5');
 ```
 
-**CORRECT:**
+**CORRECT, for the default interpreter:** omit the version. `selectInterpreter` already defaults it to `POSITRON_PY_VER_SEL` / `POSITRON_R_VER_SEL`, so you rarely need to pass anything:
 ```typescript
-await notebooks.selectInterpreter('Python', process.env.POSITRON_PY_VER_SEL!);
-await notebooks.selectInterpreter('R', process.env.POSITRON_R_VER_SEL!);
+await notebooks.selectInterpreter('Python');
+await notebooks.selectInterpreter('R');
 ```
 
-Environment variables ensure tests work across different CI environments.
+**CORRECT, for a specific non-default interpreter:** pull the version from `availableRuntimes` (exported by `test/e2e/pages/sessions.ts`) instead of writing a raw string. Its keys (`python`, `pythonAlt`, `pythonHidden`, `r`, `rAlt`, `rHidden`) resolve to whatever the environment actually provisioned:
+```typescript
+import { availableRuntimes } from '../../pages/sessions.js';
 
-### 21. Platform-Specific Code Without Guards
+await notebooks.selectInterpreter('Python', availableRuntimes['pythonAlt'].version);
+```
+
+### 12. Hand-Rolling Platform Key Combos Instead of Using hotKeys
+
+Don't branch on `process.platform` to pick `Meta` vs `Control` for keyboard shortcuts -- the `hotKeys` fixture (and POM methods) already handle the platform difference.
 
 **WRONG:**
 ```typescript
@@ -476,17 +263,10 @@ await page.keyboard.press('Meta+C');  // Only works on macOS
 
 **CORRECT:**
 ```typescript
-if (process.platform === 'darwin') {
-	await page.keyboard.press('Meta+C');
-} else {
-	await page.keyboard.press('Control+C');
-}
-
-// Or use hotKeys which handles this
 await hotKeys.copy();
 ```
 
-### 22. Headless-Only Operations
+### 13. Headless-Only Operations
 
 **WRONG:**
 ```typescript
@@ -504,7 +284,7 @@ if (!headless) {
 
 ## Page Object Mistakes
 
-### 23. Direct Page Manipulation Instead of POM
+### 14. Direct Page Manipulation Instead of POM
 
 **WRONG:**
 ```typescript
@@ -527,14 +307,11 @@ Page objects encapsulate:
 - Retry logic
 - Platform handling
 
-### 24. Not Checking Page Object Methods First
+### 15. Not Checking Page Object Methods First
 
-Before writing custom locator code, check if a page object method exists:
+Before writing custom locator code, check the POM's source file in `test/e2e/pages/` for an existing method (see `references/page-objects.md`, "Finding the Exact Source", for how to locate it from `app.workbench.<name>`). Most common operations are already implemented -- copy the exact method name from source rather than guessing or paraphrasing it.
 
 ```typescript
-// Check test/e2e/pages/*.ts for available methods
-// Most common operations are already implemented
-
 // Instead of custom code, use:
 await app.workbench.console.executeCode(...)
 await app.workbench.variables.doubleClickVariableRow(...)
@@ -543,33 +320,11 @@ await app.workbench.plots.waitForCurrentPlot()
 await app.workbench.notebooks.selectInterpreter(...)
 ```
 
-## Debugging Mistakes
+## Settings & Pre-Launch Configuration
 
-### 25. Not Using --headed or --debug
+### 16. Setting Config Mid-Test When Pre-Launch Would Do
 
-When tests fail, always try:
-
-```bash
-# See what's happening
-npx playwright test my-test.test.ts --headed
-
-# Step through interactively
-npx playwright test my-test.test.ts --debug
-```
-
-### 26. Not Checking Test Reports
-
-After failures:
-
-```bash
-npx playwright show-report
-```
-
-Reports include:
-- Screenshots at failure
-- Traces (if enabled)
-- Step-by-step execution
-- Error messages with context
+Even a correctly-scoped `test.beforeAll` + `settings.set(...)` reloads the window, and for discovery/session-gating settings that reload can be flaky (it doesn't always re-run every cold-launch code path). Apply settings you know up front before the app launches instead. `references/fixtures.md`, "Custom Test Setup Files", covers the pre-launch options end to end: an existing base worker option via `test.use(...)`, a directory-wide `_test.setup.ts`, or a custom `beforeApp` override.
 
 ## Summary: Pre-Submit Checklist
 
@@ -577,12 +332,12 @@ Before submitting a test, verify:
 
 - [ ] Imports from `../_test.setup`
 - [ ] Has `test.use({ suiteId: __filename })`
-- [ ] Uses `function` syntax (not arrow functions)
+- [ ] Uses arrow functions for test callbacks (preferred), or matches the file's existing style consistently
 - [ ] Has appropriate tags (`tags.WEB`, `tags.WIN`, feature tag)
-- [ ] All assertions have explicit timeouts for async operations
+- [ ] Settings known before the test runs are applied pre-launch (`beforeApp`/`settingsFile`), not via a mid-test `settings.set()` reload
+- [ ] Timeout overrides exist only where an operation is known to be slower (or should fail faster) than the 15s default -- not added reflexively to every assertion
 - [ ] Uses `toPass` for potentially flaky operations
 - [ ] Has cleanup in `afterEach`
-- [ ] Uses environment variables for interpreter versions
-- [ ] Uses page object methods instead of raw locators where possible
-- [ ] Test steps are wrapped in `test.step()` for complex tests
+- [ ] Uses page object methods instead of raw locators where possible, with method names copied from source in `test/e2e/pages/` (not guessed)
+- [ ] Raw Playwright sequences (not already a POM call) are wrapped in `test.step()`; POM calls that already self-wrap are not double-wrapped
 - [ ] Test is independent (doesn't rely on other tests)

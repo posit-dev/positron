@@ -14,6 +14,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Install just enough for derive-test-change-tags.mjs's
+      # `playwright test --list` call, so the comment reflects e2e test-change
+      # tags. Gated to PRs that touch e2e test files. Shared with the pr-tags
+      # job in test-pull-request.yml so the two derivation environments match.
+      - name: Set up e2e tag listing
+        uses: ./.github/actions/e2e-tag-listing-setup
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-repository: ${{ github.repository }}
+          pull-request-number: ${{ github.event.pull_request.number }}
+
       - name: Parse Tags from PR Body
         id: pr-tags
         run: bash scripts/pr-tags-parse.sh
