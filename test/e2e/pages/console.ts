@@ -42,7 +42,7 @@ export class Console {
 	constructor(private code: Code, private quickinput: QuickInput, private hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		// Standard Console Button Locators
 		this.restartButton = this.code.driver.currentPage.getByTestId('restart-session');
-		this.clearButton = this.code.driver.currentPage.getByLabel('Clear console');
+		this.clearButton = this.code.driver.currentPage.getByRole('button', { name: 'Clear Console' });
 		this.trashButton = this.code.driver.currentPage.getByTestId('trash-session');
 
 		// `+` Add Session Split Button Locators

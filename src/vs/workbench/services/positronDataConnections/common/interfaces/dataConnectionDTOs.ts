@@ -17,12 +17,26 @@
 export interface IDataConnectionParameterDTO {
 	id: string;
 	label: string;
+	description?: string;
 	secret?: boolean;
+	masked?: boolean; // only for secret 'string' type; defaults to true when omitted
 	required?: boolean;
 	type: string; // 'boolean' | 'file' | 'number' | 'option' | 'password' | 'string'
 	defaultValue?: string | number | boolean;
 	placeholder?: string;
 	options?: string[]; // only for 'option' type
+	filters?: Record<string, string[]>; // only for 'file' type; file-picker filters, label -> extensions
+}
+
+/**
+ * Serializable configuration mechanism definition. Carries the mechanism's identity and its own
+ * set of parameters.
+ */
+export interface IDataConnectionMechanismDTO {
+	id: string;
+	label: string;
+	description: string;
+	parameters: IDataConnectionParameterDTO[];
 }
 
 /**
@@ -35,7 +49,7 @@ export interface IDataConnectionDriverMetadataDTO {
 	name: string;
 	description: string;
 	iconSvg: string;
-	parameters: IDataConnectionParameterDTO[];
+	mechanisms: IDataConnectionMechanismDTO[];
 	supportedLanguageIds: string[];
 }
 
@@ -55,8 +69,25 @@ export interface IDataConnectionNodeDTO {
 	name: string;
 	kind: string; // DataConnectionNodeKind value
 	dataType?: string;
+	isPrimaryKey?: boolean;
 	hasGetChildren: boolean;
 	hasPreview: boolean;
+}
+
+/**
+ * Serializable form of a single named connection code variant (e.g. Python `sqlite3` vs
+ * `SQLAlchemy`). A generateConnectionCode call returns an ordered list of these; an empty list
+ * means code cannot be generated from the given parameters.
+ */
+export interface IDataConnectionCodeVariantDTO {
+	// A stable identifier for the variant, unique within the returned list.
+	id: string;
+
+	// A user-facing label for the variant.
+	label: string;
+
+	// The generated connection code for this variant.
+	code: string;
 }
 
 /**
@@ -67,6 +98,6 @@ export interface IDataConnectionDriverSummaryDTO {
 	id: string;
 	name: string;
 	description: string;
-	parameters: IDataConnectionParameterDTO[];
+	mechanisms: IDataConnectionMechanismDTO[];
 	supportedLanguageIds: string[];
 }

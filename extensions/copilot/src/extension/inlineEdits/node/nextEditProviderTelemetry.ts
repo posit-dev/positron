@@ -272,6 +272,12 @@ export class LlmNESTelemetryBuilder extends Disposable {
 		return this.editCollectingInfo?.originalSelectionLine;
 	}
 
+	/** Refresh the request bookmark so the telemetry `requestTime` lines up with the
+	 * moment the document/selection were snapshotted for prompt construction. */
+	public setRequestBookmark(bookmark: DebugRecorderBookmark): void {
+		this._requestBookmark = bookmark;
+	}
+
 	/**
 	 * @param _doc passing an observable document allows to track edits and selections
 	 */
@@ -282,7 +288,7 @@ export class LlmNESTelemetryBuilder extends Disposable {
 		private readonly _providerId: string,
 		private readonly _doc: IObservableDocument | undefined,
 		private readonly _debugRecorder?: DebugRecorder,
-		private readonly _requestBookmark?: DebugRecorderBookmark,
+		private _requestBookmark?: DebugRecorderBookmark,
 	) {
 		super();
 		this._startTime = Date.now();
@@ -753,6 +759,7 @@ class IdleDetector {
 			if (isFirstSelectionRun) {
 				isFirstSelectionRun = false;
 				for (const doc of docs) {
+					// eslint-disable-next-line local/code-no-observable-get-in-reactive-context
 					this._selectionSnapshots.set(doc.id.uri, doc.primarySelectionLine.get());
 				}
 				return;
@@ -770,6 +777,7 @@ class IdleDetector {
 			// Find the doc whose selection line actually changed from what we last saw
 			for (const doc of docs) {
 				const currentDocId = doc.id.uri;
+				// eslint-disable-next-line local/code-no-observable-get-in-reactive-context
 				const currentLine = doc.primarySelectionLine.get();
 				const previousLine = this._selectionSnapshots.get(currentDocId);
 

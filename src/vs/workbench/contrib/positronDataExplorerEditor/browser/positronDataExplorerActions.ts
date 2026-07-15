@@ -9,32 +9,29 @@ import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
+import { IsDevelopmentContext, IsWebContext } from '../../../../platform/contextkey/common/contextkeys.js';
+import { RemoteNameContext } from '../../../common/contextkeys.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { viewVariableItem } from '../../../services/positronDataExplorer/browser/positronDataExplorerViewVariableItem.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
-import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
-import { POSITRON_VARIABLES_VIEW_ID } from '../../positronVariables/browser/positronVariables.contribution.js';
 import { POSITRON_RUNTIME_LANGUAGE_IDS } from '../../languageRuntime/browser/languageRuntimeContextKeys.js';
-import { CellUri } from '../../notebook/common/notebookCommon.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
-import { Event } from '../../../../base/common/event.js';
-import { raceTimeout } from '../../../../base/common/async.js';
+import { IDataFrameResolutionServices, resolveDataFrameAtPosition } from './positronDataExplorerResolveDataFrame.js';
 import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { toLocalResource } from '../../../../base/common/resources.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
@@ -72,6 +69,7 @@ export const enum PositronDataExplorerCommandId {
 	SummaryOnRightAction = 'workbench.action.positronDataExplorer.summaryOnRight',
 	ClearColumnSortingAction = 'workbench.action.positronDataExplorer.clearColumnSorting',
 	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext',
+	OpenAsSpreadsheet = 'workbench.action.positronDataExplorer.openAsSpreadsheet',
 	ConvertToCodeAction = 'workbench.action.positronDataExplorer.convertToCode',
 	ConvertToCodeModalAction = 'workbench.action.positronDataExplorer.convertToCodeModal',
 	FileOptionsAction = 'workbench.action.positronDataExplorer.fileOptions',
@@ -79,6 +77,7 @@ export const enum PositronDataExplorerCommandId {
 	ShowRowContextMenuAction = 'workbench.action.positronDataExplorer.showRowContextMenu',
 	ShowCellContextMenuAction = 'workbench.action.positronDataExplorer.showCellContextMenu',
 	ViewDataFrameAtCursorAction = 'workbench.action.positronDataExplorer.viewDataFrameAtCursor',
+	ViewDataFrameByVariableAction = 'workbench.action.positronDataExplorer.viewDataFrameByVariable',
 }
 
 /**
@@ -887,6 +886,14 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 	 * Constructor.
 	 */
 	constructor() {
+		// This action applies to delimited text files (CSV/TSV) but not Excel
+		// workbooks, which are opened with the OS-native application instead via
+		// PositronDataExplorerOpenAsSpreadsheetAction.
+		const when = ContextKeyExpr.and(
+			POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+			POSITRON_DATA_EXPLORER_IS_PLAINTEXT,
+			POSITRON_DATA_EXPLORER_IS_XLSX.toNegated()
+		);
 		super({
 			id: PositronDataExplorerCommandId.OpenAsPlaintext,
 			title: {
@@ -899,26 +906,17 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 			},
 			category,
 			f1: true,
-			precondition: ContextKeyExpr.and(
-				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-				POSITRON_DATA_EXPLORER_IS_PLAINTEXT
-			),
+			precondition: when,
 			icon: Codicon.fileText,
 			menu: [
 				{
 					id: MenuId.EditorActionsLeft,
-					when: ContextKeyExpr.and(
-						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-						POSITRON_DATA_EXPLORER_IS_PLAINTEXT
-					)
+					when
 				},
 				{
 					id: MenuId.EditorTitle,
 					group: 'navigation',
-					when: ContextKeyExpr.and(
-						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-						POSITRON_DATA_EXPLORER_IS_PLAINTEXT
-					)
+					when
 				}
 			]
 		});
@@ -963,6 +961,81 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 				source: EditorOpenSource.USER
 			}
 		});
+	}
+}
+
+/**
+ * PositronDataExplorerOpenAsSpreadsheetAction action.
+ *
+ * Opens an Excel workbook (.xlsx) backing the Data Explorer with the OS-native
+ * application (typically Excel). Only available in the local desktop app;
+ * opening a file with the OS-native application is not possible in the
+ * web/server build, nor when connected to a remote, so the action is hidden in
+ * those cases.
+ */
+class PositronDataExplorerOpenAsSpreadsheetAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		const when = ContextKeyExpr.and(
+			POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+			POSITRON_DATA_EXPLORER_IS_XLSX,
+			IsWebContext.toNegated(),
+			RemoteNameContext.isEqualTo('')
+		);
+		super({
+			id: PositronDataExplorerCommandId.OpenAsSpreadsheet,
+			title: {
+				value: localize('positronDataExplorer.openAsSpreadsheet', 'Open as Spreadsheet'),
+				original: 'Open as Spreadsheet'
+			},
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: true,
+			},
+			category,
+			f1: true,
+			precondition: when,
+			icon: Codicon.githubProject,
+			menu: [
+				{
+					id: MenuId.EditorActionsLeft,
+					when
+				},
+				{
+					id: MenuId.EditorTitle,
+					group: 'navigation',
+					when
+				}
+			]
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Access the services we need.
+		const editorService = accessor.get(IEditorService);
+		const openerService = accessor.get(IOpenerService);
+
+		// Grab Data Explorer URI (scheme = positron-data-explorer)
+		const originalURI = EditorResourceAccessor.getOriginalUri(editorService.activeEditor);
+		if (!originalURI) {
+			return;
+		}
+
+		const backingUri = PositronDataExplorerUri.backingUri(originalURI);
+		if (!backingUri) {
+			return;
+		}
+
+		// Open the file with the OS-native application (Excel). On the desktop,
+		// the opener service routes external opens through the native host,
+		// which opens local files with their default application.
+		await openerService.open(backingUri, { openExternal: true });
 	}
 }
 
@@ -1204,34 +1277,6 @@ class PositronDataExplorerShowCellContextMenuAction extends Action2 {
 }
 
 /**
- * How long to wait for a freshly-created variables instance to receive its
- * initial variable list from the runtime. Bounded because the runtime is an
- * external process: it may be slow, busy, or unresponsive.
- */
-const VARIABLES_LIST_READY_TIMEOUT_MS = 2000;
-
-/**
- * Waits for the given variables instance to have at least one known variable,
- * up to {@link VARIABLES_LIST_READY_TIMEOUT_MS}. A no-op if the instance
- * already has variables cached. Returns whether the wait timed out so callers
- * can distinguish "the variable really isn't there" from "we gave up waiting".
- */
-const waitForVariables = async (
-	instance: IPositronVariablesInstance,
-): Promise<{ timedOut: boolean }> => {
-	if (instance.variableItems.length > 0) {
-		return { timedOut: false };
-	}
-	let timedOut = false;
-	await raceTimeout(
-		Event.toPromise(Event.once(instance.onDidChangeEntries)),
-		VARIABLES_LIST_READY_TIMEOUT_MS,
-		() => { timedOut = true; },
-	);
-	return { timedOut };
-};
-
-/**
  * PositronDataExplorerViewDataFrameAtCursorAction opens the Data Explorer
  * for the identifier at the editor cursor, if that identifier names a
  * viewable variable in the console session for the editor's language.
@@ -1280,12 +1325,14 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const editorService = accessor.get(IEditorService);
-		const languageService = accessor.get(ILanguageService);
-		const runtimeSessionService = accessor.get(IRuntimeSessionService);
-		const variablesService = accessor.get(IPositronVariablesService);
 		const dataExplorerService = accessor.get(IPositronDataExplorerService);
 		const notificationService = accessor.get(INotificationService);
-		const viewsService = accessor.get(IViewsService);
+		const services: IDataFrameResolutionServices = {
+			languageService: accessor.get(ILanguageService),
+			runtimeSessionService: accessor.get(IRuntimeSessionService),
+			variablesService: accessor.get(IPositronVariablesService),
+			viewsService: accessor.get(IViewsService),
+		};
 
 		const control = editorService.activeTextEditorControl;
 		if (!isCodeEditor(control)) {
@@ -1301,111 +1348,123 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 			return;
 		}
 
-		const word = model.getWordAtPosition(position);
-		if (!word) {
-			notificationService.info(localize(
-				'positron.viewDataFrameAtCursor.noSymbol',
-				"No symbol at cursor."
-			));
+		// Interactive invocation: open the Variables pane if needed and wait for
+		// a freshly-created instance to report its variables.
+		const resolution = await resolveDataFrameAtPosition(model, position, services, {
+			wait: true,
+			openVariablesViewIfNeeded: true,
+		});
+
+		switch (resolution.kind) {
+			case 'no-symbol':
+				notificationService.info(localize(
+					'positron.viewDataFrameAtCursor.noSymbol',
+					"No symbol at cursor."
+				));
+				return;
+			case 'no-session':
+				notificationService.info(localize(
+					'positron.viewDataFrameAtCursor.noSession',
+					"No active {0} session.",
+					resolution.languageName,
+				));
+				return;
+			case 'variables-unavailable':
+				notificationService.info(localize(
+					'positron.viewDataFrameAtCursor.variablesUnavailable',
+					"Variables for the active {0} session are not available yet.",
+					resolution.languageName,
+				));
+				return;
+			case 'not-found':
+				// If we timed out waiting for the first variable update, the
+				// symbol might actually be defined but the runtime hasn't
+				// reported it yet (e.g. a long-running chunk that assigns the
+				// variable and then keeps running). Tell the user that rather
+				// than flatly claiming the variable doesn't exist.
+				if (resolution.timedOut) {
+					notificationService.info(localize(
+						'positron.viewDataFrameAtCursor.variablesTimeout',
+						"The active {0} session is still loading variables. Try again in a moment.",
+						resolution.languageName,
+					));
+				} else {
+					notificationService.info(localize(
+						'positron.viewDataFrameAtCursor.notDefined',
+						"'{0}' is not a data frame defined in the active session.",
+						resolution.symbol,
+					));
+				}
+				return;
+			case 'not-viewable':
+				notificationService.info(localize(
+					'positron.viewDataFrameAtCursor.notViewable',
+					"'{0}' is not viewable in the Data Explorer.",
+					resolution.symbol,
+				));
+				return;
+			case 'ok':
+				await viewVariableItem(
+					resolution.sessionId,
+					resolution.item,
+					dataExplorerService,
+					notificationService,
+				);
+				return;
+		}
+	}
+}
+
+/**
+ * Arguments for {@link PositronDataExplorerViewDataFrameByVariableAction}.
+ */
+export interface IViewDataFrameByVariableArgs {
+	readonly sessionId: string;
+	readonly variableId: string;
+}
+
+/**
+ * PositronDataExplorerViewDataFrameByVariableAction opens the Data Explorer for
+ * an already-resolved variable, identified by its session and variable id. It
+ * is the command that triggers (the code action, and later a click gesture)
+ * invoke once they have resolved the symbol, so the open/focus logic lives in
+ * one place and nothing has to re-resolve "the active editor cursor".
+ */
+export class PositronDataExplorerViewDataFrameByVariableAction extends Action2 {
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.ViewDataFrameByVariableAction,
+			title: {
+				value: localize('positronDataExplorer.viewDataFrameByVariable', 'Open in Data Explorer'),
+				original: 'Open in Data Explorer'
+			},
+			category,
+			// Not a palette command: it requires arguments that only a caller
+			// (e.g. the code action) can supply.
+			f1: false,
+		});
+	}
+
+	async run(accessor: ServicesAccessor, args?: IViewDataFrameByVariableArgs): Promise<void> {
+		if (!args?.sessionId || !args?.variableId) {
 			return;
 		}
-		const symbol = word.word;
-		// Use the embedded language at the cursor position rather than the
-		// outer document's language, so this works inside R/Python chunks of
-		// language-embedded documents (e.g. Quarto).
-		const languageId = model.getLanguageIdAtPosition(
-			position.lineNumber,
-			position.column,
+		const variablesService = accessor.get(IPositronVariablesService);
+		const dataExplorerService = accessor.get(IPositronDataExplorerService);
+		const notificationService = accessor.get(INotificationService);
+
+		const instance = variablesService.positronVariablesInstances.find(
+			i => i.session.sessionId === args.sessionId,
 		);
-
-		// Notebook cells run in a per-notebook kernel session, which owns
-		// any variables defined by running the cells. Scripts use the
-		// language's console session instead.
-		//
-		// For scripts: getConsoleSessionForLanguage returns the foreground
-		// session (if it matches the language) or the last one brought to
-		// the foreground. A console can be running in the background
-		// without ever having been foregrounded -- fall back to scanning
-		// activeSessions in that case. Mirrors the lookup in
-		// PositronConsoleService.executeCode so "run code" and "view data
-		// frame" agree on which session to use.
-		const cellInfo = CellUri.parse(model.uri);
-		const session = cellInfo
-			? runtimeSessionService.getNotebookSessionForNotebookUri(cellInfo.notebook)
-			: runtimeSessionService.getConsoleSessionForLanguage(languageId)
-			?? runtimeSessionService.activeSessions.find(s =>
-				s.runtimeMetadata.languageId === languageId &&
-				s.metadata.sessionMode === LanguageRuntimeSessionMode.Console,
-			);
-		if (!session) {
-			notificationService.info(localize(
-				'positron.viewDataFrameAtCursor.noSession',
-				"No active {0} session.",
-				languageService.getLanguageName(languageId) ?? languageId,
-			));
-			return;
-		}
-
-		// Variables instances are created and populated lazily by the Variables
-		// pane. If the pane has never been shown, or is currently hidden, no
-		// instance will exist for this session. In that case open the pane
-		// (without stealing focus), which triggers instance creation, then
-		// retry the lookup.
-		const findInstance = (): IPositronVariablesInstance | undefined =>
-			variablesService.positronVariablesInstances.find(
-				instance => instance.session.sessionId === session.sessionId,
-			);
-		let variablesInstance = findInstance();
-		if (!variablesInstance) {
-			await viewsService.openView(POSITRON_VARIABLES_VIEW_ID, false);
-			variablesInstance = findInstance();
-		}
-		if (!variablesInstance) {
-			notificationService.info(localize(
-				'positron.viewDataFrameAtCursor.variablesUnavailable',
-				"Variables for the active {0} session are not available yet.",
-				languageService.getLanguageName(languageId) ?? languageId,
-			));
-			return;
-		}
-
-		// The variable list arrives asynchronously from the runtime, so a
-		// freshly-created instance may not yet have it.
-		const { timedOut } = await waitForVariables(variablesInstance);
-
-		const item = variablesInstance.variableItems.find(v => v.displayName === symbol);
+		const item = instance?.variableItems.find(v => v.id === args.variableId);
 		if (!item) {
-			// If we timed out waiting for the first variable update, the
-			// symbol might actually be defined but the runtime hasn't
-			// reported it yet (e.g. a long-running chunk that assigns the
-			// variable and then keeps running). Tell the user that rather
-			// than flatly claiming the variable doesn't exist.
-			if (timedOut) {
-				notificationService.info(localize(
-					'positron.viewDataFrameAtCursor.variablesTimeout',
-					"The active {0} session is still loading variables. Try again in a moment.",
-					languageService.getLanguageName(languageId) ?? languageId,
-				));
-			} else {
-				notificationService.info(localize(
-					'positron.viewDataFrameAtCursor.notDefined',
-					"'{0}' is not a data frame defined in the active session.",
-					symbol,
-				));
-			}
-			return;
-		}
-		if (!item.hasViewer) {
-			notificationService.info(localize(
-				'positron.viewDataFrameAtCursor.notViewable',
-				"'{0}' is not viewable in the Data Explorer.",
-				symbol,
-			));
+			// The variable went away between resolution and invocation (e.g. the
+			// session reset). Nothing to view.
 			return;
 		}
 
 		await viewVariableItem(
-			session.sessionId,
+			args.sessionId,
 			item,
 			dataExplorerService,
 			notificationService,
@@ -1425,6 +1484,7 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerSummaryOnRightAction);
 	registerAction2(PositronDataExplorerClearColumnSortingAction);
 	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
+	registerAction2(PositronDataExplorerOpenAsSpreadsheetAction);
 	registerAction2(PositronDataExplorerFileOptionsAction);
 	registerAction2(PositronDataExplorerConvertToCodeAction);
 	registerAction2(PositronDataExplorerConvertToCodeModalAction);
@@ -1432,4 +1492,5 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerShowRowContextMenuAction);
 	registerAction2(PositronDataExplorerShowCellContextMenuAction);
 	registerAction2(PositronDataExplorerViewDataFrameAtCursorAction);
+	registerAction2(PositronDataExplorerViewDataFrameByVariableAction);
 }

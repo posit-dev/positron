@@ -1,0 +1,11 @@
+---
+title: "Cell Metadata Test"
+---
+
+This file tests that cell options are passed as execution metadata.
+
+```{python}
+#| fig-width: 4
+#| fig-height: 3
+%_positron_exec_metadata
+```

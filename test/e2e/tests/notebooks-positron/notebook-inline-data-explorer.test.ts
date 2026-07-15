@@ -3,9 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { tags } from '../_test.setup';
+import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
-import { expect } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
@@ -114,13 +113,15 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 			await editors.verifyTab(/Untitled.*\.ipynb/, { isVisible: true, isSelected: true });
 		});
 
-		await test.step('Verify inline data explorer still visible after returning', async () => {
+		await test.step('Verify inline data explorer still shows data after returning (issue #13283)', async () => {
 			await inlineDataExplorer.expectToBeVisible();
-			// The inline view may show the grid (if the comm survived) or a
-			// disconnected/stale state (if the comm was disposed while the
-			// notebook tab was inactive). Either is acceptable -- the key
-			// assertion is that no error is shown and the container is intact.
+			// Closing the shared full Data Explorer tab must NOT tear down the
+			// embedded view's comm. The grid should reconnect and show data --
+			// not the "Data unavailable" disconnected state.
 			await inlineDataExplorer.expectNoError();
+			await expect(inlineDataExplorer.disconnectedState).not.toBeVisible();
+			await inlineDataExplorer.expectGridToBeReady();
+			await inlineDataExplorer.expectCellValue('Name', 0, 'Alice');
 		});
 	});
 

@@ -243,6 +243,7 @@ export interface IQuartoDocumentModel extends IDisposable {
 	 */
 	findCellByContentHash(hash: string, preferIndex?: number): QuartoCodeCell | undefined;
 
+
 	/**
 	 * Get code content for a cell.
 	 */

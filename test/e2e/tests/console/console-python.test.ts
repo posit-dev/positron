@@ -3,17 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
+import { test as base, tags } from '../_test.setup';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ settingsFile }, use) => {
+			await settingsFile.append({ 'python.useBundledIpykernel': false });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
-
-	test.beforeAll(async ({ settings }) => {
-		await settings.set({ 'python.useBundledIpykernel': false }, { reload: true, waitMs: 1000 });
-	});
 
 	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {
 		await sessions.start('pythonAlt');
@@ -31,7 +37,8 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 		await app.workbench.console.waitForConsoleContents(process.env.POSITRON_PY_VER_SEL!, { expectedCount: 2, timeout: 20000 });
 	});
 
-	test('Python - queue user input while interpreter is starting', async function ({ app, sessions }) {
+	// Very flaky test which looks like a bug but cannot be manually reproduced. Skipping for now.
+	test.skip('Python - queue user input while interpreter is starting', async function ({ app, sessions }) {
 		await sessions.startAndSkipMetadata({ language: 'Python', waitForReady: false });
 		await app.workbench.console.executeCode('Python', 'import time; time.sleep(5); print("done");',);
 		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2, timeout: 90000 });

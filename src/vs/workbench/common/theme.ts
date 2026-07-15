@@ -31,7 +31,8 @@ import { // eslint-disable-line no-duplicate-imports
 	textPreformatForeground,
 	selectBorder,
 	inputActiveOptionBackground,
-	inputActiveOptionBorder
+	inputActiveOptionBorder,
+	inputValidationInfoBorder
 } from '../../platform/theme/common/colorRegistry.js';
 // --- End Positron ---
 
@@ -1108,10 +1109,10 @@ export const POSITRON_MODAL_DIALOG_CONTRAST_BACKGROUND = registerColor('positron
 
 // Positron modal dialog border color.
 export const POSITRON_MODAL_DIALOG_BORDER = registerColor('positronModalDialog.border', {
-	dark: selectBorder,
-	light: selectBorder,
-	hcDark: selectBorder,
-	hcLight: selectBorder
+	dark: widgetBorder,
+	light: widgetBorder,
+	hcDark: widgetBorder,
+	hcLight: widgetBorder
 }, localize('positronModalDialog.border', "Positron modal dialog border color."));
 
 // Positron modal dialog separator color.
@@ -1977,6 +1978,17 @@ export const POSITRON_PACKAGES_BORDER_COLOR = registerColor('positronPackages.bo
 	hcLight: tableColumnsBorder
 }, localize('positronPackages.border', "Positron packages border color."));
 
+// Background of a package row briefly highlighted after install or update.
+// A translucent foreground tint rather than a lighten/darken of the selection:
+// `lighten` is multiplicative on HSL lightness (l + l*factor), so it can't lift
+// a pure-black base (e.g. the high-contrast dark selection), leaving no visible
+// flash. The foreground contrasts the background in every theme by definition,
+// so an alpha overlay always shifts the surface -- including a selected row,
+// keeping the flash distinct from the selection color.
+export const POSITRON_PACKAGES_RECENTLY_CHANGED_BACKGROUND_COLOR = registerColor('positronPackages.recentlyChangedBackground',
+	transparent(POSITRON_PACKAGES_FOREGROUND_COLOR, 0.25),
+	localize('positronPackages.recentlyChangedBackground', "Background of a package row briefly highlighted after it is installed or updated."));
+
 // < --- Positron Plots --- >
 
 // Positron plots background color.
@@ -2059,6 +2071,38 @@ export const POSITRON_NOTEBOOK_ACTION_BAR_BACKGROUND = registerColor('positronNo
 
 // Positron notebook cell action bar border and separator color.
 export const POSITRON_NOTEBOOK_ACTION_BAR_BORDER = registerColor('positronNotebook.actionBarBorder', editorWidgetBorder, localize('positronNotebook.actionBarBorder', "Positron notebook cell action bar border and separator color."));
+
+// Positron notebook cell tag pill border color. Defaults to the cell border so the
+// pills stay visible in themes where the widget border is transparent.
+export const POSITRON_NOTEBOOK_CELL_TAG_BORDER = registerColor('positronNotebook.cellTagBorder', POSITRON_NOTEBOOK_CELL_BORDER, localize('positronNotebook.cellTagBorder', "Positron notebook cell tag pill border color."));
+
+// Positron notebook cell tag hover accent color (text, border, and background wash
+// of the add-tag affordance on hover).
+export const POSITRON_NOTEBOOK_CELL_TAG_HOVER_FOREGROUND = registerColor('positronNotebook.cellTagHoverForeground', textLinkForeground, localize('positronNotebook.cellTagHoverForeground', "Positron notebook cell tag hover accent color."));
+
+// < --- Positron Memory Usage Bar --- >
+// The memory usage bar (Variables pane meter and its dropdown) previously reused
+// the upstream `gauge.*` colors, which were removed when the chat status dashboard
+// was refactored upstream. These Positron-owned colors replicate those values so
+// the bar's segments stay colored and do not depend on unstable upstream tokens.
+
+// Fill color for the Positron overhead segment (Positron platform + extension host)
+// of the memory usage bar.
+export const POSITRON_MEMORY_USAGE_BAR_OVERHEAD_FOREGROUND = registerColor('positronMemoryUsageBar.overheadForeground', {
+	dark: inputValidationInfoBorder,
+	light: inputValidationInfoBorder,
+	hcDark: contrastBorder,
+	hcLight: contrastBorder
+}, localize('positronMemoryUsageBar.overheadForeground', "Fill color for the Positron overhead segment of the memory usage bar."));
+
+// Fill color for the other-processes segment of the memory usage bar. Defaults to a
+// faded variant of the overhead color so the two segments stay visually related.
+export const POSITRON_MEMORY_USAGE_BAR_OTHER_FOREGROUND = registerColor('positronMemoryUsageBar.otherForeground', {
+	dark: transparent(POSITRON_MEMORY_USAGE_BAR_OVERHEAD_FOREGROUND, 0.3),
+	light: transparent(POSITRON_MEMORY_USAGE_BAR_OVERHEAD_FOREGROUND, 0.3),
+	hcDark: Color.white,
+	hcLight: Color.white
+}, localize('positronMemoryUsageBar.otherForeground', "Fill color for the other-processes segment of the memory usage bar."));
 
 // *************************************************************************************************
 // *************************************************************************************************

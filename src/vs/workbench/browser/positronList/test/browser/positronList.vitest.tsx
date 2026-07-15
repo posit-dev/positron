@@ -5,12 +5,10 @@
 
 /// <reference types="vitest/globals" />
 
-// React.
-import React from 'react';
 
 // Testing libraries.
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 
 // Other dependencies.
 import { isMacintosh } from '../../../../../base/common/platform.js';
@@ -113,8 +111,8 @@ describe('PositronListInstance', () => {
 		const instance = new PositronListInstance<string, string>({
 			itemRenderer: item => <div>{item}</div>,
 			sectionRenderer: section => <div>{section}</div>,
-			defaultItemHeight: ITEM_HEIGHT,
-			defaultSectionHeight: SECTION_HEIGHT,
+			itemHeight: ITEM_HEIGHT,
+			sectionHeight: SECTION_HEIGHT,
 		});
 		store.add(instance);
 		return instance;
@@ -203,8 +201,8 @@ describe('PositronList keyboard navigation', () => {
 		const common = {
 			itemRenderer: (item: string) => <div>{item}</div>,
 			sectionRenderer: (section: string) => <div>{section}</div>,
-			defaultItemHeight: ITEM_HEIGHT,
-			defaultSectionHeight: SECTION_HEIGHT,
+			itemHeight: ITEM_HEIGHT,
+			sectionHeight: SECTION_HEIGHT,
 		};
 		const instance = selectionFollowsCursor
 			? new PositronListInstance<string, string>({ ...common, selectionFollowsCursor: true })
@@ -339,8 +337,8 @@ describe('PositronList rendering', () => {
 		const instance = new PositronListInstance<string, string>({
 			itemRenderer: item => <div>{item}</div>,
 			sectionRenderer: section => <div>{section}</div>,
-			defaultItemHeight: ITEM_HEIGHT,
-			defaultSectionHeight: SECTION_HEIGHT,
+			itemHeight: ITEM_HEIGHT,
+			sectionHeight: SECTION_HEIGHT,
 		});
 		store.add(instance);
 		return instance;

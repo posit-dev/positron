@@ -193,6 +193,12 @@ export interface ILanguageRuntimeSession extends IDisposable {
 		executionMetadata?: Record<string, unknown>,
 	): void;
 
+	/**
+	 * Calls a runtime-specific method and returns the result.
+	 * Implementations may expose only a subset of methods.
+	 */
+	callMethod?(method: string, ...args: unknown[]): Thenable<unknown>;
+
 	/** Test a code fragment for completeness */
 	isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;
 
@@ -259,6 +265,16 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	 * Returns undefined if the runtime does not support package management.
 	 */
 	getPackageManager?(): ILanguageRuntimePackageManager;
+
+	/**
+	 * Statically analyze code (or a file) and return packages that are
+	 * referenced but NOT installed AND that can be installed in this session's
+	 * environment. Returns undefined if the runtime does not support this.
+	 *
+	 * @param target The code or file to analyze.
+	 * @param token Optional cancellation token.
+	 */
+	listMissingPackages?(target: IRuntimeMissingPackagesTarget, token?: CancellationToken): Promise<IRuntimeMissingPackage[]>;
 }
 
 export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata {
@@ -317,6 +333,23 @@ export interface ILanguageRuntimePackage {
 
 	/** Optional short description or summary. */
 	description?: string;
+
+	/**
+	 * The package's primary external URL (its homepage, falling back to its
+	 * repository, etc.). Chosen by the language runtime from whatever metadata
+	 * it has. The Packages pane validates it (http/https only) and surfaces it
+	 * via the row's external-link button.
+	 */
+	url?: string;
+
+	/** One-line title/summary, richer than `description`. From the detail RPC. */
+	title?: string;
+
+	/** Display-ready author/maintainer string (already normalized by the runtime). */
+	author?: string;
+
+	/** Source repository label or URL (e.g. "CRAN", or a Project-URL). */
+	sourceRepository?: string;
 }
 
 /**
@@ -327,6 +360,33 @@ export interface IPackageSpec {
 	name: string;
 	/** Optional version to install (if not specified, installs latest) */
 	version?: string;
+}
+
+/**
+ * Describes a package that is referenced by code but not installed in a
+ * session's environment, and that the session knows how to install.
+ */
+export interface IRuntimeMissingPackage {
+	/** Name to pass to installPackages (the installable/repository name). */
+	readonly name: string;
+
+	/**
+	 * The symbol as referenced in code, when it differs from `name` (e.g.
+	 * python import `cv2` -> install `opencv-python`). Used for display only.
+	 */
+	readonly referencedName?: string;
+}
+
+/**
+ * Describes the code to analyze for missing packages. Callers supply either
+ * raw code or the URI of a saved file (not both).
+ */
+export interface IRuntimeMissingPackagesTarget {
+	/** Raw code to analyze (notebook cells, quarto chunks, unsaved buffers). */
+	readonly code?: string;
+
+	/** URI of a saved file to analyze. The runtime may read/parse it directly. */
+	readonly uri?: string;
 }
 
 /**
@@ -394,6 +454,20 @@ export interface ILanguageRuntimePackageManager {
 		packageNames: string[],
 		token?: CancellationToken,
 	): Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined>;
+
+	/**
+	 * Fetch detailed metadata for a single package, called when the package
+	 * detail editor opens. Cheap, kernel-local fields only (title, author,
+	 * source repository, published date); never network or
+	 * expensive filesystem walks. Returns a partial package to merge over the
+	 * list entry, or undefined when unsupported / not found.
+	 * @param name Package name
+	 * @param token Optional cancellation token
+	 */
+	getPackageDetail?(
+		name: string,
+		token?: CancellationToken,
+	): Promise<Partial<ILanguageRuntimePackage> | undefined>;
 }
 
 /**
@@ -504,6 +578,9 @@ export interface IRuntimeSessionService {
 	// back to cached session info for an exited notebook session.
 	readonly onDidChangeForegroundSessionDisplayInfo: Event<IRuntimeSessionDisplayInfo | undefined>;
 
+	// An event that fires when a session's display state changes.
+	readonly onDidChangeDisplayRuntimeState: Event<{ sessionId: string; state: RuntimeState }>;
+
 	// The current display info for the foreground session. May contain
 	// session details from an exited session if an actual session is not
 	// available to be the foreground session.
@@ -532,6 +609,11 @@ export interface IRuntimeSessionService {
 	 * Gets a specific runtime session by session identifier.
 	 */
 	getSession(sessionId: string): ILanguageRuntimeSession | undefined;
+
+	/**
+	 * Gets the display state for a session. Returns undefined if the session is not active.
+	 */
+	getDisplayRuntimeState(sessionId: string): RuntimeState | undefined;
 
 	/**
 	 * Gets a currently active session for a runtime.

@@ -17,7 +17,7 @@ test.describe('Quarto - Python', { tag: [tags.WEB, tags.WIN, tags.QUARTO] }, () 
 
 		// This test verifies basic rendering of report in PDF after user clicks 'Preview'
 		await openFile(join('workspaces', 'quarto_python', 'report.qmd'));
-		await app.code.driver.currentPage.locator('.positron-action-bar').getByRole('button', { name: 'Preview' }).click();
+		await app.workbench.editorActionBar.clickButton('Preview');
 
 		// Viewer tab is targeted by corresponding iframe. It is assumed that the report fully loads once title 'Example Report' appears
 		const title = app.workbench.viewer.getViewerFrame().frameLocator('iframe').getByText('Example Report');

@@ -463,14 +463,6 @@ export class ChatListWidget extends Disposable {
 				this._settingChangeCounter++;
 				this.refresh();
 			}
-			// --- Start Positron ---
-			// Re-render chat items when token usage display settings change so that
-			// per-message token usage elements are shown/hidden dynamically.
-			if (e.affectsConfiguration('positron.assistant.showTokenUsage.enable') || e.affectsConfiguration('positron.assistant.approximateTokenCount')) {
-				this._settingChangeCounter++;
-				this.refresh();
-			}
-			// --- End Positron ---
 		}));
 	}
 
@@ -821,6 +813,33 @@ export class ChatListWidget extends Disposable {
 	 */
 	updateRendererOptions(options: IChatListItemRendererOptions): void {
 		this._renderer.updateOptions(options);
+	}
+
+	/**
+	 * Update the list/tree color overrides. Re-applies the same fan-out from
+	 * `listBackground`/`listForeground` to all interaction states that was
+	 * originally configured at construction time.
+	 */
+	setStyles(styles: IChatListWidgetStyles): void {
+		this._tree.updateOptions({
+			overrideStyles: {
+				listFocusBackground: styles.listBackground,
+				listInactiveFocusBackground: styles.listBackground,
+				listActiveSelectionBackground: styles.listBackground,
+				listFocusAndSelectionBackground: styles.listBackground,
+				listInactiveSelectionBackground: styles.listBackground,
+				listHoverBackground: styles.listBackground,
+				listBackground: styles.listBackground,
+				listFocusForeground: styles.listForeground,
+				listHoverForeground: styles.listForeground,
+				listInactiveFocusForeground: styles.listForeground,
+				listInactiveSelectionForeground: styles.listForeground,
+				listActiveSelectionForeground: styles.listForeground,
+				listFocusAndSelectionForeground: styles.listForeground,
+				listActiveSelectionIconForeground: undefined,
+				listInactiveSelectionIconForeground: undefined,
+			}
+		});
 	}
 
 	/**

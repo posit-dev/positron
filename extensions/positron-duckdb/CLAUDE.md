@@ -44,7 +44,7 @@ extensions/positron-duckdb/
 ├── package.nls.json      # Localized strings
 ├── src/
 │   ├── extension.ts      # Main extension logic
-│   ├── interfaces.ts     # Type definitions and RPC interfaces
+│   │                     # (protocol types come from the positron-data-explorer-protocol package)
 │   └── test/
 │       ├── extension.test.ts  # Unit tests
 │       ├── README.md         # Test instructions
@@ -119,11 +119,9 @@ The extension implements the full Data Explorer RPC protocol:
 - `ExportDataSelection`: Export data in various formats
 
 **IMPORTANT: Protocol Types Location**
-The standard Data Explorer protocol types are auto-generated from `positron/comms/data_explorer-backend-openrpc.json` into `src/vs/workbench/services/languageRuntime/common/positronDataExplorerComm.ts`. **Do NOT manually edit positronDataExplorerComm.ts** - changes must be made in the OpenRPC schema and regenerated.
+The Data Explorer protocol types are auto-generated from `positron/comms/data_explorer-backend-openrpc.json` by `positron/comms/generate-comms.ts` into two TypeScript outputs: the core comm (`src/vs/workbench/services/languageRuntime/common/positronDataExplorerComm.ts`) and the shared, extension-facing module (`extensions/positron-data-explorer-protocol/src/dataExplorerProtocol.ts`). This extension imports the protocol types from the `positron-data-explorer-protocol` package (a `file:` dependency); it no longer vendors its own `interfaces.ts`. **Do NOT manually edit either generated file** - change the OpenRPC schema and re-run the generator (`cd positron/comms && npx tsx generate-comms.ts data_explorer`).
 
-DuckDB-specific extensions to the protocol (like `SetDatasetImportOptions` for CSV import options) should be defined in:
-- `src/vs/workbench/services/positronDataExplorer/common/positronDataExplorerDuckDBBackend.ts` (core types)
-- `extensions/positron-duckdb/src/interfaces.ts` (extension types - must mirror the core types)
+DuckDB-specific extensions to the protocol (like `SetDatasetImportOptions` for CSV import options) live in the OpenRPC schema and flow through the generator to both outputs above.
 
 ## Supported Data Types
 
@@ -217,7 +215,8 @@ Set `DEBUG_LOG = true` in extension.ts for query logging
 ## Integration Points
 
 ### VSCode Extension API
-- Command registration: `positron-duckdb.runQuery`, `positron-duckdb.dataExplorerRpc`
+- Command registration: `positron-duckdb.runQuery`
+- Data Explorer backend registration via `positron.dataExplorer.registerRpcHandler('positron-duckdb', ...)` (typed ext-host channel); async UI events are pushed back through the returned session's `sendUiEvent`
 - File system watching for data file changes
 - URI handling for different data sources
 

@@ -1,0 +1,9 @@
+# Ignore environment variables file
+.env
+
+# Ignore license files
+*.lic
+
+# Ignore any backup files that might be created
+*.bak
+*~

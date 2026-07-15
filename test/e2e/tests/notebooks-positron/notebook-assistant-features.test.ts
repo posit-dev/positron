@@ -3,8 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
-import { tags } from '../_test.setup';
+import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
 test.use({
@@ -15,11 +14,11 @@ test.describe('Notebook Assistant: Feature Toggle', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT, tags.WIN]
 }, () => {
 
-	test('Notebook AI features hidden when assistant disabled', async function ({ app, settings }) {
+	test('Notebook AI features hidden when AI disabled', async function ({ app, settings }) {
 		const { notebooksPositron } = app.workbench;
 
-		// Disable assistant features
-		await settings.set({ 'positron.assistant.enable': false });
+		// Turn off the AI main switch, which gates all of Positron's AI features
+		await settings.set({ 'ai.enabled': false });
 
 		// Create a new notebook
 		await notebooksPositron.createNewNotebook();
@@ -35,11 +34,11 @@ test.describe('Notebook Assistant: Feature Toggle', {
 		await notebooksPositron.expectErrorAssistantButtonsVisible(false);
 	});
 
-	test.skip('Notebook AI features visible when assistant enabled', async function ({ app, settings }) {
+	test.skip('Notebook AI features visible when AI enabled', async function ({ app, settings }) {
 		const { notebooksPositron, assistant } = app.workbench;
 
-		// Enable assistant and sign in to echo provider
-		await settings.set({ 'positron.assistant.enable': true });
+		// Turn on the AI main switch, enable the assistant, and sign in to echo provider
+		await settings.set({ 'ai.enabled': true, 'positron.assistant.enable': true });
 		await assistant.loginModelProvider('echo');
 
 		// Create a new notebook with a cell that produces an error

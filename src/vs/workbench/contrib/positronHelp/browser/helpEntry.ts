@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,7 +12,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { PositronHelpFocused } from '../../../common/contextkeys.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { isLocalhost } from './utils.js';
+import { isLocalhost, tryParseUrl } from './utils.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { KeyEvent } from '../../webview/browser/webviewMessages.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
@@ -49,11 +49,15 @@ function generateNonce() {
 }
 
 /**
- * Shortens a URL.
+ * Shortens a URL by stripping its origin. Non-absolute URLs (e.g. the welcome
+ * page's 'welcome.html') have no origin and are returned unchanged.
  * @param url The URL.
  * @returns The shortened URL.
  */
-const shortenUrl = (url: string) => url.replace(new URL(url).origin, '');
+const shortenUrl = (url: string) => {
+	const origin = tryParseUrl(url)?.origin;
+	return origin ? url.replace(origin, '') : url;
+};
 
 /**
  * KeyboardMessage type.
@@ -516,10 +520,20 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 						// nor on the same origin as the help proxy hosting this entry. The
 						// same-origin check is what lets relative help links resolve internally
 						// when Positron Server is hosted at a non-localhost authority.
-						const url = new URL(message.url);
-						const sourceUrl = new URL(this.sourceUrl);
+						const url = tryParseUrl(message.url);
+						if (!url) {
+							// The navigation target isn't a valid absolute URL, so there's
+							// nothing to open. Log it rather than throwing out of the message
+							// handler. See issue #14810.
+							this._logService.error(`Positron Help received an invalid navigation URL: ${message.url}`);
+							break;
+						}
+						// The source URL isn't always an absolute URL (e.g. the welcome page's
+						// 'welcome.html'), so parse it defensively. When it has no origin,
+						// treat the target as cross-origin so external links open externally.
+						const sourceOrigin = tryParseUrl(this.sourceUrl)?.origin;
 						if (url.pathname.toLowerCase().endsWith('.pdf') ||
-							(!isLocalhost(url.hostname) && url.origin !== sourceUrl.origin)) {
+							(!isLocalhost(url.hostname) && url.origin !== sourceOrigin)) {
 							try {
 								await this._openerService.open(message.url, {
 									openExternal: true
@@ -574,15 +588,16 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 								id: 'positron-help-copy-selection'
 							});
 						} else {
-							// Emulate the key event.
-							this.emulateKeyEvent('keydown', { ...message });
+							// Emulate the key event. The reconstructed KeyboardEvent is synthetic,
+							// so it is not a trusted event.
+							this.emulateKeyEvent('keydown', { ...message, isTrusted: false });
 						}
 						break;
 					}
 
 					// positron-help-keyup message.
 					case 'positron-help-keyup':
-						this.emulateKeyEvent('keyup', { ...message });
+						this.emulateKeyEvent('keyup', { ...message, isTrusted: false });
 						break;
 
 					// positron-help-copy-selection message.
@@ -764,12 +779,6 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 					findValue: value
 				});
 			}
-
-			setTimeout(() => {
-				this._helpOverlayWebview?.postMessage({
-					id: 'positron-help-focus'
-				});
-			}, 100);
 		}
 	}
 

@@ -3,27 +3,33 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import * as nls from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
+import { EditorExtensions } from '../../../common/editor.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExtensions, ViewContainerLocation } from '../../../common/views.js';
+import { PackageEditor } from './packageEditor.js';
+import { PackageEditorInput } from './packageEditorInput.js';
 import { ILanguageRuntimePackage, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
+import { PACKAGE_METADATA_CACHE_ENABLED_SETTING, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING } from './packageMetadataCache.js';
 import { PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
 import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { PositronPackagesService } from './positronPackagesService.js';
@@ -96,7 +102,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			type: 'string',
 			enum: ['auto', 'pak', 'base'],
 			enumDescriptions: [
-				nls.localize('positron.packages.r.installer.auto', "Use pak if installed; otherwise prompt and fall back to base R."),
+				nls.localize('positron.packages.r.installer.auto', "Use pak if installed; otherwise use base R and offer to install pak."),
 				nls.localize('positron.packages.r.installer.pak', "Always use pak. Silently install it if missing."),
 				nls.localize('positron.packages.r.installer.base', "Always use base R."),
 			],
@@ -111,11 +117,48 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			scope: ConfigurationScope.RESOURCE,
 			markdownDescription: nls.localize('positron.packages.r.renvAutoSnapshot', "When using renv, automatically run `renv::snapshot()` in the Console after installing, updating, or removing packages to keep `renv.lock` in sync. The snapshot runs independently, so its success or failure does not affect the package operation."),
 			tags: ['preview'],
+		},
+		[PACKAGE_METADATA_CACHE_ENABLED_SETTING]: {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.APPLICATION,
+			description: nls.localize('positron.packages.metadataCache.enabled', "Cache package metadata (such as update availability) on disk so it appears immediately on a new session, while the latest data is fetched in the background."),
+			tags: ['preview'],
+		},
+		[PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING]: {
+			type: 'number',
+			default: PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT,
+			minimum: 1,
+			scope: ConfigurationScope.APPLICATION,
+			markdownDescription: nls.localize('positron.packages.metadataCache.maxAgeHours', "How long, in hours, cached package metadata is shown before it is refreshed in the background. Only applies when `#packages.metadataCache.enabled#` is enabled."),
+			tags: ['preview'],
+		},
+		'packages.confirmMissingOnRun': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.RESOURCE,
+			description: nls.localize('positron.packages.confirmMissingOnRun', "Before running a file or notebook, offer to install packages it references that are not installed."),
+			tags: ['preview'],
+		},
+		'packages.warnMissingInEditor': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.RESOURCE,
+			description: nls.localize('positron.packages.warnMissingInEditor', "Show a warning in the editor when the current file references packages that are not installed."),
+			tags: ['preview'],
+		},
+		'packages.suggestInstallOnError': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.RESOURCE,
+			description: nls.localize('positron.packages.suggestInstallOnError', "When a runtime error reports a missing package, suggest installing it beneath the error in the Console."),
+			tags: ['preview'],
 		}
 	}
 });
 
 export const PACKAGES_INSTALL_COMMAND_ID = 'positronPackages.installPackage';
+export const PACKAGES_OPEN_COMMAND_ID = 'positronPackages.openPackage';
 export const PACKAGES_UPDATE_COMMAND_ID = 'positronPackages.updatePackage';
 export const PACKAGES_UPDATE_ALL_COMMAND_ID = 'positronPackages.updateAllPackages';
 export const PACKAGES_UNINSTALL_COMMAND_ID = 'positronPackages.uninstallPackage';
@@ -193,37 +236,6 @@ function showRestartSessionNotification(
 	);
 }
 
-/**
- * Shows a notification suggesting the user restart their session after updating all packages.
- */
-function showRestartSessionNotificationForUpdateAll(
-	notifications: INotificationService,
-	runtimeSessionService: IRuntimeSessionService,
-	commandService: ICommandService,
-	packagesService: IPositronPackagesService
-): void {
-	const session = packagesService.activeSession;
-	if (!session) {
-		return;
-	}
-
-	const message = nls.localize(
-		'positronPackages.restartSessionUpdateAll',
-		'Packages were updated. A session restart may be required for changes to take effect.'
-	);
-
-	notifications.prompt(
-		Severity.Info,
-		message,
-		[{
-			label: nls.localize('positronPackages.restartSession', 'Restart Session'),
-			run: async () => {
-				await commandService.executeCommand('workbench.action.positronConsole.focusConsole');
-				await runtimeSessionService.restartSession(session.sessionId, 'Packages: Restart after package operation');
-			}
-		}]
-	);
-}
 class RefreshPackagesAction extends Action2 {
 	constructor() {
 		super({
@@ -285,7 +297,7 @@ class InstallPackageAction extends Action2 {
 			}
 		});
 	}
-	override async run(accessor: ServicesAccessor): Promise<void> {
+	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
 		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
 		const notifications = accessor.get<INotificationService>(INotificationService);
 		const progress = accessor.get<IProgressService>(IProgressService);
@@ -296,8 +308,8 @@ class InstallPackageAction extends Action2 {
 		const cts = new CancellationTokenSource();
 
 		try {
-			const performSearch = async (q: string) => {
-				return await service.searchPackages(q, cts.token);
+			const performSearch = async (q: string, token: CancellationToken) => {
+				return await service.searchPackages(q, token);
 			};
 
 			const performSearchVersions = async (pkg: string) => {
@@ -330,6 +342,18 @@ class InstallPackageAction extends Action2 {
 					}
 				}, () => cts.cancel());
 			};
+
+			// When a package name and version are both provided (e.g. the detail
+			// editor's Install button), install that version directly. Only a real
+			// string is treated as the package name -- menu invocations (e.g. the
+			// view-title overflow "Install Package") pass a context object as arg0,
+			// which must fall through to the search quick-pick.
+			const argPackage = typeof args.at(0) === 'string' ? args.at(0) as string : undefined;
+			const argVersion = typeof args.at(1) === 'string' ? args.at(1) as string : undefined;
+			if (argPackage && argVersion) {
+				await performInstall(argPackage, argVersion);
+				return;
+			}
 
 			await installPackage(accessor, performSearch, performSearchVersions, performInstall, cts);
 		} catch (error) {
@@ -468,8 +492,17 @@ class UpdatePackageAction extends Action2 {
 				}, () => cts.cancel());
 			};
 
-			const arg0 = args.at(0) as string | undefined;
-			await updatePackage(accessor, performSearch, performSearchVersions, performUpdate, arg0, cts);
+			// Only treat a real string as the package name (menu invocations pass a
+			// context object as arg0). When both a package name and a target version
+			// are given (e.g. the detail editor's Update button), update directly
+			// without prompting; otherwise fall through to the quick-pick flow.
+			const argPackage = typeof args.at(0) === 'string' ? args.at(0) as string : undefined;
+			const argVersion = typeof args.at(1) === 'string' ? args.at(1) as string : undefined;
+			if (argPackage && argVersion) {
+				await performUpdate(argPackage, argVersion);
+				return;
+			}
+			await updatePackage(accessor, performSearch, performSearchVersions, performUpdate, argPackage, cts);
 		} catch (error) {
 			notifications.error(cleanErrorMessage(error));
 			throw error;
@@ -512,13 +545,22 @@ class UpdateAllPackagesAction extends Action2 {
 				delay: 500
 			}, async () => {
 				try {
-					await service.updateAllPackages(cts.token);
-					showRestartSessionNotificationForUpdateAll(
-						notifications,
-						runtimeSessionService,
-						commandService,
-						service
-					);
+					const updated = await service.updateAllPackages(cts.token);
+					if (cts.token.isCancellationRequested) {
+						return;
+					}
+					if (updated.length === 0) {
+						notifications.info(nls.localize('positronPackages.allUpToDate', 'All packages are already up to date.'));
+					} else {
+						showRestartSessionNotification(
+							notifications,
+							runtimeSessionService,
+							commandService,
+							service,
+							nls.localize('positronPackages.operationUpdated', 'updated'),
+							updated
+						);
+					}
 				} catch (e) {
 					notifications.error(cleanErrorMessage(e));
 					throw e;
@@ -695,6 +737,38 @@ class TogglePackagesItemSizeAction extends Action2 {
 		service.setItemSize(service.itemSize === 'card' ? 'row' : 'card');
 	}
 }
+
+// Register the package detail editor pane.
+Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
+	EditorPaneDescriptor.create(
+		PackageEditor,
+		PackageEditor.ID,
+		nls.localize('positron.packageDetailEditor', "Package Detail Editor")
+	),
+	[
+		new SyncDescriptor(PackageEditorInput)
+	]
+);
+
+// Opens a package detail editor for the given package name.
+// `pinned` is false for preview (single-click) and true for a pinned tab (double-click).
+CommandsRegistry.registerCommand(PACKAGES_OPEN_COMMAND_ID,
+	async (accessor: ServicesAccessor, packageName: string, pinned: boolean) => {
+		const packagesService = accessor.get(IPositronPackagesService);
+		const editorService = accessor.get(IEditorService);
+		const instantiationService = accessor.get(IInstantiationService);
+
+		const instance = packagesService.activePackagesInstance;
+		if (!instance) {
+			return;
+		}
+		const input = instantiationService.createInstance(PackageEditorInput, {
+			languageId: instance.session.runtimeMetadata.languageId,
+			sessionId: instance.session.sessionId,
+			packageName,
+		});
+		await editorService.openEditor(input, { pinned });
+	});
 
 registerAction2(InstallPackageAction);
 registerAction2(RefreshPackagesAction);

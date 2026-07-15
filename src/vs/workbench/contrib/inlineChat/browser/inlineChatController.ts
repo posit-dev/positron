@@ -41,16 +41,11 @@ import { ILanguageModelChatMetadata, ILanguageModelChatSelector, ILanguageModels
 import { isNotebookContainingCellEditor as isNotebookWithCellEditor } from '../../notebook/browser/notebookEditor.js';
 import { INotebookEditorService } from '../../notebook/browser/services/notebookEditorService.js';
 import { CellUri } from '../../notebook/common/notebookCommon.js';
-import { CTX_INLINE_CHAT_FILE_BELONGS_TO_CHAT, CTX_INLINE_CHAT_TERMINATED, CTX_INLINE_CHAT_VISIBLE, InlineChatConfigKeys } from '../common/inlineChat.js';
+import { CTX_INLINE_CHAT_FILE_BELONGS_TO_CHAT, CTX_INLINE_CHAT_TERMINATED, CTX_INLINE_CHAT_VISIBLE, INLINE_CHAT_ID, InlineChatConfigKeys } from '../common/inlineChat.js';
 import { InlineChatAffordance } from './inlineChatAffordance.js';
 import { continueInPanelChat, IInlineChatSession, IInlineChatSessionService, rephraseInlineChat } from './inlineChatSessionService.js';
 import { EditorBasedInlineChatWidget } from './inlineChatWidget.js';
 import { InlineChatZoneWidget } from './inlineChatZoneWidget.js';
-
-// --- Start Positron ---
-import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
-import { updateLocationForPositronNotebooks } from './positronNotebookUtils.js';
-// --- End Positron ---
 
 export abstract class InlineChatRunOptions {
 
@@ -96,7 +91,7 @@ function getEditorId(editor: ICodeEditor, model: ITextModel): string {
 
 export class InlineChatController implements IEditorContribution {
 
-	static readonly ID = 'editor.contrib.inlineChatController';
+	static readonly ID = INLINE_CHAT_ID;
 
 	static get(editor: ICodeEditor): InlineChatController | undefined {
 		return editor.getContribution<InlineChatController>(InlineChatController.ID) ?? undefined;
@@ -149,9 +144,6 @@ export class InlineChatController implements IEditorContribution {
 		@ILogService logService: ILogService,
 		@IChatEditingService chatEditingService: IChatEditingService,
 		@IChatService chatService: IChatService,
-		// --- Start Positron ---
-		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
-		// --- End Positron ---
 	) {
 		this.#editor = editor;
 		this.#instaService = instaService;
@@ -237,12 +229,6 @@ export class InlineChatController implements IEditorContribution {
 				}
 			}
 
-			// --- Start Positron ---
-			// Check if this editor is part of a Positron notebook
-			if (!notebookEditor) {
-				updateLocationForPositronNotebooks(this.#editor, location, this._positronNotebookService);
-			}
-			// --- End Positron ---
 			const result = this.#instaService.createInstance(InlineChatZoneWidget,
 				location,
 				{

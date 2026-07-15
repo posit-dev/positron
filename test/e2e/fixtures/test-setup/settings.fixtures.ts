@@ -11,7 +11,7 @@ import { Application } from '../../infra';
 export type Settings = ReturnType<typeof SettingsFixture>;
 
 export function SettingsFixture(app: Application) {
-	const { settings } = app.workbench;
+	const { userSettings: settings } = app.workbench;
 
 	return {
 		set: async (

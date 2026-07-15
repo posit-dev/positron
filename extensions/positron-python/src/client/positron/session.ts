@@ -38,9 +38,10 @@ import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
 import { Architecture } from '../common/utils/platform';
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
-import { whenTimeout } from './util';
+import { getActiveInterpreterConfigTarget, whenTimeout } from './util';
 import { PackageManagerFactory } from './packages/packageManagerFactory';
 import { IPackageManager } from './packages/types';
+import { listMissingPythonPackages } from './missingPackages';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
 const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/;
@@ -359,6 +360,16 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         return this._packageManager;
     }
 
+    async listMissingPackages(
+        target: positron.RuntimeMissingPackagesTarget,
+        token?: vscode.CancellationToken,
+    ): Promise<positron.RuntimeMissingPackage[]> {
+        if (!this._packageManager) {
+            return [];
+        }
+        return listMissingPythonPackages(this, this._packageManager, target, token);
+    }
+
     private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {
         // Use the bundled ipykernel if requested.
         const didUseBundledIpykernel = await this._addBundledIpykernelToPythonPath(interpreter, kernelSpec);
@@ -512,11 +523,14 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         if (this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console && !this._isExternallyManaged) {
             // Update the active environment in the Python extension.
-            this._interpreterPathService.update(
-                undefined,
-                vscode.ConfigurationTarget.WorkspaceFolder,
-                interpreter.path,
-            );
+            // Storage-only: the session is already starting here, so the listener in
+            // PythonRuntimeManager must not start another one.
+            const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+            const { configTarget, folderUri } = getActiveInterpreterConfigTarget(workspaceService);
+            this._interpreterPathService.update(folderUri, configTarget, interpreter.path, {
+                startSession: false,
+                source: 'positron-session-start',
+            });
         }
 
         // Register for console width changes, if we haven't already

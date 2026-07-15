@@ -125,7 +125,15 @@ export class ActivatedEnvironmentLaunch implements IActivatedEnvironmentLaunch {
     private async setInterpeterInStorage(prefix: string) {
         const { workspaceFolders } = this.workspaceService;
         if (!workspaceFolders || workspaceFolders.length === 0) {
-            await this.pythonPathUpdaterService.updatePythonPath(prefix, ConfigurationTarget.Global, 'load');
+            await this.pythonPathUpdaterService.updatePythonPath(
+                prefix,
+                ConfigurationTarget.Global,
+                'load',
+                // --- Start Positron ---
+                undefined,
+                { startSession: false, source: 'load' },
+            );
+            // --- End Positron ---
         } else {
             await this.pythonPathUpdaterService.updatePythonPath(
                 prefix,

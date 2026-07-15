@@ -71,6 +71,24 @@ export class PlaywrightDriver {
 		private readonly whenLoaded: Promise<unknown>,
 		private readonly options: LaunchOptions
 	) {
+		// When custom tracing is on, the launch code opens the first trace chunk
+		// (the "startup" chunk) right before constructing this driver, so a chunk
+		// is already recording. Tracking this lets startTracing() avoid clobbering
+		// that startup chunk (a duplicate startChunk silently discards the open one).
+		this._tracingChunkOpen = !!(options.tracing && options.customTracing);
+	}
+
+	// Whether a trace chunk is currently recording (see startTracing/stopTracing).
+	private _tracingChunkOpen = false;
+
+	/**
+	 * Whether a trace chunk is currently recording. Used to export the startup chunk
+	 * when the app fixture's setup hangs (times out) rather than throws -- in that
+	 * case neither the fixture's catch nor its finally run, so the export happens in
+	 * afterAll instead (see _test.setup.ts).
+	 */
+	get isTracingChunkOpen(): boolean {
+		return this._tracingChunkOpen;
 	}
 
 	get browserContext(): playwright.BrowserContext {
@@ -370,8 +388,16 @@ export class PlaywrightDriver {
 			return; // tracing disabled
 		}
 
+		// A chunk is already recording (e.g. the startup chunk, or the chunk from a
+		// test whose teardown hasn't run yet). Re-opening would silently discard it,
+		// so leave the current chunk in place.
+		if (this._tracingChunkOpen) {
+			return;
+		}
+
 		try {
 			await measureAndLog(() => this.context.tracing.startChunk({ title: name }), `startTracing${name ? ` for ${name}` : ''}`, this.options.logger);
+			this._tracingChunkOpen = true;
 		} catch (error) {
 			// Tracing may not have initialized successfully on some browsers - ignore
 		}
@@ -395,6 +421,10 @@ export class PlaywrightDriver {
 			await measureAndLog(() => this.context.tracing.stopChunk({ path: persistPath }), `stopTracing${name ? ` for ${name}` : ''}`, this.options.logger);
 		} catch (error) {
 			// Ignore
+		} finally {
+			// The chunk is closed (or failed to close); either way it is no longer the
+			// active chunk, so the next startTracing() should open a fresh one.
+			this._tracingChunkOpen = false;
 		}
 	}
 
@@ -583,7 +613,79 @@ export class PlaywrightDriver {
 
 	async click(selector: string, xoffset?: number | undefined, yoffset?: number | undefined) {
 		const { x, y } = await this.getElementXY(selector, xoffset, yoffset);
-		await this.page.mouse.click(x + (xoffset ? xoffset : 0), y + (yoffset ? yoffset : 0));
+		// getElementXY already incorporates both offsets (relative to the element's
+		// top-left corner) when both are provided, so don't add them again.
+		if (xoffset !== undefined && yoffset !== undefined) {
+			await this.page.mouse.click(x, y);
+		} else {
+			await this.page.mouse.click(x + (xoffset ?? 0), y + (yoffset ?? 0));
+		}
+	}
+
+	/**
+	 * Click an element via Playwright's actionability-checked path, with a fallback
+	 * to a stable-coordinates click if Playwright refuses to interact.
+	 *
+	 * The primary path (`page.click`) is preferred because Playwright re-checks
+	 * `elementFromPoint(x, y)` immediately before dispatching, eliminating the
+	 * TOCTOU window where a sibling element could shift the target between the
+	 * position lookup and the click. The fallback only kicks in when a known
+	 * actionability error occurs — specifically when an overlay element intercepts
+	 * pointer events (the known case is Monaco's `.native-edit-context`, z-index: -10,
+	 * which `elementFromPoint` returns instead of the intended target). Other errors
+	 * (e.g. selector not found, detached element, timeout on a genuinely missing
+	 * element) are rethrown so real failures aren't silently masked.
+	 */
+	async robustClick(selector: string, timeoutMs: number = 2000): Promise<void> {
+		try {
+			await this.page.click(selector, { timeout: timeoutMs });
+			return;
+		} catch (err) {
+			if (!this.isPointerInterceptedError(err)) {
+				throw err;
+			}
+			try {
+				await this.clickAtStablePosition(selector);
+			} catch (fallbackErr) {
+				const orig = err instanceof Error ? err.message : String(err);
+				const fb = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+				throw new Error(`robustClick fallback failed for '${selector}'. Original page.click error: ${orig}. Fallback error: ${fb}`);
+			}
+		}
+	}
+
+	/**
+	 * Returns true when the error is an actionability failure caused by an overlay
+	 * element intercepting pointer events (e.g. Monaco's `.native-edit-context`).
+	 * These are the only errors for which the stable-coordinates fallback is safe.
+	 */
+	private isPointerInterceptedError(err: unknown): boolean {
+		const message = err instanceof Error ? err.message : String(err);
+		return message.includes('intercepts pointer events');
+	}
+
+	/**
+	 * Fallback for {@link robustClick}: polls the element's click position via
+	 * getElementXY until two consecutive samples (separated by `intervalMs`) return
+	 * identical coordinates, then dispatches a mouse click at those exact stable
+	 * coordinates. Clicking the already-sampled {x,y} eliminates the re-sample
+	 * window, making the race window as small as possible (just the CDP round-trip).
+	 */
+	private async clickAtStablePosition(selector: string, intervalMs: number = 100, timeoutMs: number = 5000): Promise<void> {
+		let last: { x: number; y: number } | undefined;
+		const start = Date.now();
+		while (true) {
+			const current = await this.getElementXY(selector);
+			if (last && last.x === current.x && last.y === current.y) {
+				await this.page.mouse.click(current.x, current.y);
+				return;
+			}
+			last = current;
+			if (Date.now() - start > timeoutMs) {
+				throw new Error(`Element position never stabilized for '${selector}' within ${timeoutMs}ms`);
+			}
+			await wait(intervalMs);
+		}
 	}
 
 	async setValue(selector: string, text: string) {

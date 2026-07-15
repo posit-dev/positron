@@ -8,7 +8,7 @@ import { Disposable, DisposableStore, MutableDisposable } from '../../../../../b
 import { localize } from '../../../../../nls.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { IStatusbarEntry, IStatusbarEntryAccessor, IStatusbarService, ShowTooltipCommand, StatusbarAlignment, StatusbarEntryKind } from '../../../../services/statusbar/browser/statusbar.js';
-import { ChatEntitlement, ChatEntitlementService, IChatEntitlementService, isProUser } from '../../../../services/chat/common/chatEntitlementService.js';
+import { ChatEntitlement, ChatEntitlementContextKeys, ChatEntitlementService, IChatEntitlementService, isProUser } from '../../../../services/chat/common/chatEntitlementService.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -18,69 +18,38 @@ import { IInlineCompletionsService } from '../../../../../editor/browser/service
 import { IChatSessionsService } from '../../common/chatSessionsService.js';
 import { ChatStatusDashboard } from './chatStatusDashboard.js';
 import { mainWindow } from '../../../../../base/browser/window.js';
-import { disposableWindowInterval } from '../../../../../base/browser/dom.js';
+import { $ as h, disposableWindowInterval } from '../../../../../base/browser/dom.js';
 import { isNewUser } from './chatStatus.js';
 import product from '../../../../../platform/product/common/product.js';
 import { isCompletionsEnabled } from '../../../../../editor/common/services/completionsEnablement.js';
-import { ChatConfiguration } from '../../common/constants.js';
-
-// --- Start Positron ---
+import { CHAT_SETUP_ACTION_ID } from '../actions/chatActions.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { IEditorGroupsService, IEditorPart } from '../../../../services/editor/common/editorGroupsService.js';
-import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
+import { isWeb } from '../../../../../base/common/platform.js';
+import { InEditorZenModeContext } from '../../../../common/contextkeys.js';
+import { ChatConfiguration } from '../../common/constants.js';
+// --- Start Positron ---
+import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
+// GitHub Copilot's provider enable setting (declared in the authentication
+// extension's package.json). When false, Copilot is off, so the status shows
+// the disabled state rather than "Signed out"/"Finish Setup". Literal because
+// the setting is owned by an extension, not a workbench constant.
+const COPILOT_PROVIDER_ENABLE_KEY = 'positron.assistant.provider.githubCopilot.enable';
 // --- End Positron ---
 
-// --- Start Positron ---
-// This is a wrapper around the ChatStatus class
-// which creates a ChatStatus instance for each editor part (window)\
-// See src/vs/workbench/contrib/languageStatus/browser/languageStatus.ts for inspiration
 export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribution {
+
 	static readonly ID = 'workbench.contrib.chatStatusBarEntry';
 
-	constructor(
-		@IEditorGroupsService private readonly editorGroupService: IEditorGroupsService,
-	) {
-		super();
-
-		for (const part of editorGroupService.parts) {
-			this.createChatStatus(part);
-		}
-
-		this._register(editorGroupService.onDidCreateAuxiliaryEditorPart(part => this.createChatStatus(part)));
-	}
-
-	private createChatStatus(part: IEditorPart): void {
-		const disposables = new DisposableStore();
-		this._register(
-			part.onWillDispose(() => {
-				if (!disposables.isDisposed) {
-					disposables.dispose();
-				}
-			})
-		);
-
-		const scopedInstantiationService = this.editorGroupService.getScopedInstantiationService(part);
-		disposables.add(scopedInstantiationService.createInstance(ChatStatus));
-	}
-}
-
-// Rename this class to avoid needing to modify other files that import it
-
-// export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribution {
-export class ChatStatus extends Disposable {
-	// --- End Positron ---
-	static readonly ID = 'workbench.contrib.chatStatusBarEntry';
+	private static readonly TITLE_BAR_CONTEXT_KEYS = new Set(['updateTitleBar', InEditorZenModeContext.key, ChatEntitlementContextKeys.hasByokModels.key]);
 
 	private entry: IStatusbarEntryAccessor | undefined = undefined;
 
 	private readonly activeCodeEditorListener = this._register(new MutableDisposable());
+	private readonly entryAnchor = h('span');
 
 	private runningSessionsCount: number;
 
 	constructor(
-		// --- Start Positron ---
-		@IContextKeyService private readonly contextKeyService: IContextKeyService,
-		// --- End Positron ---
 		@IChatEntitlementService private readonly chatEntitlementService: ChatEntitlementService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IStatusbarService private readonly statusbarService: IStatusbarService,
@@ -88,6 +57,7 @@ export class ChatStatus extends Disposable {
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IInlineCompletionsService private readonly completionsService: IInlineCompletionsService,
 		@IChatSessionsService private readonly chatSessionsService: IChatSessionsService,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 	) {
 		super();
 
@@ -99,32 +69,40 @@ export class ChatStatus extends Disposable {
 	}
 
 	private update(): void {
+		const sentiment = this.chatEntitlementService.sentiment;
 		// --- Start Positron ---
-		// Remove the Chat status if the active editor is not a code editor
-		if (!this.shouldShowStatus()) {
+		// When chat is hidden only because of `chat.disableAIFeatures`, keep the
+		// status entry so the user can still see and control inline completions.
+		// `isCompletionsOnlyMode` already implies `sentiment.hidden`, so we don't
+		// re-check it here.
+		/*
+		if (!sentiment.hidden) {
+			const props = this.getEntryProps();
+		*/
+		const completionsOnly = this.chatEntitlementService.isCompletionsOnlyMode;
+		if (!sentiment.hidden || completionsOnly) {
+			const props = this.getEntryProps(completionsOnly);
+			// --- End Positron ---
+			if (this.entry) {
+				this.entry.update(props);
+			} else {
+				this.entry = this.statusbarService.addEntry(props, 'chat.statusBarEntry', StatusbarAlignment.RIGHT, { location: { id: 'status.editor.mode', priority: 100.1 }, alignment: StatusbarAlignment.RIGHT });
+			}
+		} else {
 			this.entry?.dispose();
 			this.entry = undefined;
-			return;
 		}
-
-		// We only need the part that displays the status. No need to hide it based on the chat entitlement setting the right context keys
-		/*
-		const sentiment = this.chatEntitlementService.sentiment;
-		*/
-		// Removed outer if (!sentiment.hidden) ...
-		const props = this.getEntryProps();
-		if (this.entry) {
-			this.entry.update(props);
-		} else {
-			this.entry = this.statusbarService.addEntry(props, 'chat.statusBarEntry', StatusbarAlignment.RIGHT, { location: { id: 'status.editor.mode', priority: 100.1 }, alignment: StatusbarAlignment.RIGHT });
-		}
-		// --- End Positron ---
 	}
 
 	private registerListeners(): void {
 		this._register(this.chatEntitlementService.onDidChangeQuotaExceeded(() => this.update()));
 		this._register(this.chatEntitlementService.onDidChangeSentiment(() => this.update()));
 		this._register(this.chatEntitlementService.onDidChangeEntitlement(() => this.update()));
+		this._register(this.contextKeyService.onDidChangeContext(e => {
+			if (e.affectsSome(ChatStatusBarEntry.TITLE_BAR_CONTEXT_KEYS)) {
+				this.update();
+			}
+		}));
 
 		this._register(this.completionsService.onDidChangeIsSnoozing(() => this.update()));
 
@@ -139,18 +117,18 @@ export class ChatStatus extends Disposable {
 		this._register(this.editorService.onDidActiveEditorChange(() => this.onDidActiveEditorChange()));
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(product.defaultChatAgent?.completionsEnablementSetting) || e.affectsConfiguration(ChatConfiguration.SignInTitleBarEnabled)) {
+			if (e.affectsConfiguration(product.defaultChatAgent?.completionsEnablementSetting) || e.affectsConfiguration(ChatConfiguration.TitleBarSignInEnabled)
+				// --- Start Positron ---
+				// Toggling either the chat-hiding setting or the AI main switch adds or
+				// removes the completions-only entry, so re-run without a reload.
+				// Toggling the GitHub Copilot provider changes the disabled state below.
+				|| e.affectsConfiguration(ChatConfiguration.AIDisabled) || e.affectsConfiguration(AI_ENABLED_KEY)
+				|| e.affectsConfiguration(COPILOT_PROVIDER_ENABLE_KEY)
+				// --- End Positron ---
+			) {
 				this.update();
 			}
 		}));
-		// --- Start Positron ---
-		this._register(this.contextKeyService.onDidChangeContext(e => {
-			const expr = ChatContextKeys.inChatSession.isEqualTo(true);
-			if (e.affectsSome(new Set(expr.keys()))) {
-				this.update();
-			}
-		}));
-		// --- End Positron ---
 	}
 
 	private onDidActiveEditorChange(): void {
@@ -168,62 +146,89 @@ export class ChatStatus extends Disposable {
 	}
 
 	// --- Start Positron ---
-	private shouldShowStatus(): boolean {
-		// Hide the Chat status item if:
-		// - only plot or data explorer editors are open, and
-		// - the user is not in a chat session
-		const inChat = ChatContextKeys.inChatSession.getValue(this.contextKeyService);
-		const isEditor = !this.editorService.editors.every(editor => {
-			return editor.editorId === 'workbench.editor.positronPlots' ||
-				editor.editorId === 'workbench.editor.positronDataExplorer';
-		});
-		return inChat || isEditor;
+	// Builds the status dashboard tooltip. In completions-only mode (chat hidden,
+	// inline completions available) it passes `disableChatSections` so the dashboard
+	// suppresses the chat usage/setup rows and keeps the completions controls.
+	private createDashboardTooltip(completionsOnly = false): IStatusbarEntry['tooltip'] {
+		return {
+			element: (token: CancellationToken) => {
+				const store = new DisposableStore();
+				store.add(token.onCancellationRequested(() => {
+					store.dispose();
+				}));
+				const dashboardOptions = completionsOnly ? { disableChatSections: true } : undefined;
+				const elem = ChatStatusDashboard.instantiateInContents(this.instantiationService, store, dashboardOptions);
+
+				// todo@connor4312/@benibenj: workaround for #257923
+				store.add(disposableWindowInterval(mainWindow, () => {
+					if (!elem.isConnected) {
+						store.dispose();
+					}
+				}, 2000));
+
+				return elem;
+			}
+		};
 	}
 	// --- End Positron ---
 
-	private getEntryProps(): IStatusbarEntry {
-		// --- Start Positron ---
-		let text = '$(positron-assistant)';
-		let ariaLabel = localize('chatStatus', "Assistant Status");
+	// --- Start Positron ---
+	// `completionsOnly` gates out the chat-specific states below when chat is
+	// hidden but inline completions stay available.
+	private getEntryProps(completionsOnly = false): IStatusbarEntry {
 		// --- End Positron ---
+		let text = '$(copilot)';
+		let ariaLabel = localize('chatStatusAria', "Copilot status");
 		let kind: StatusbarEntryKind | undefined;
 
-		if (isNewUser(this.chatEntitlementService)) {
+		// --- Start Positron ---
+		// When the GitHub Copilot provider is disabled, Copilot (chat and inline
+		// completions) is off, so show the disabled state below rather than a
+		// sign-in/entitlement state ("Signed out", "Finish Setup"), which would be
+		// misleading.
+		const copilotProviderDisabled = this.configurationService.getValue(COPILOT_PROVIDER_ENABLE_KEY) === false;
+		// --- End Positron ---
+
+		// --- Start Positron ---
+		// In completions-only mode chat is hidden, so skip the chat-specific states
+		// (Finish Setup) and keep only the completions-relevant ones below. Also skip
+		// it when the Copilot provider is disabled (handled by the disabled state).
+		if (!completionsOnly && !copilotProviderDisabled && isNewUser(this.chatEntitlementService)) {
+			// --- End Positron ---
 			const entitlement = this.chatEntitlementService.entitlement;
 
-			// Finish Setup
+			// Sign In
 			if (
 				this.chatEntitlementService.sentiment.later ||	// user skipped setup
 				entitlement === ChatEntitlement.Available ||	// user is entitled
 				isProUser(entitlement) ||						// user is already pro
 				entitlement === ChatEntitlement.Free			// user is already free
 			) {
-				const finishSetup = localize('finishSetup', "Finish Setup");
-
-				// --- Start Positron ---
-				// text = `$(copilot) ${finishSetup}`;
-				// --- End Positron ---
-				ariaLabel = finishSetup;
-				kind = 'prominent';
+				return this.getSetupEntryProps();
 			}
 		} else {
-			const chatQuotaExceeded = this.chatEntitlementService.quotas.chat?.percentRemaining === 0;
-			const completionsQuotaExceeded = this.chatEntitlementService.quotas.completions?.percentRemaining === 0;
+			const quotas = this.chatEntitlementService.quotas;
+			const chatQuotaExceeded = quotas.chat?.percentRemaining === 0;
+			const completionsQuotaExceeded = quotas.completions?.percentRemaining === 0;
+			const isPooledQuotaDepleted = quotas.premiumChat?.unlimited && quotas.premiumChat.hasQuota === false;
 
 			// Disabled
-			if (this.chatEntitlementService.sentiment.disabled || this.chatEntitlementService.sentiment.untrusted) {
-				// --- Start Positron ---
-				// text = '$(copilot-unavailable)';
+			// --- Start Positron ---
+			// `copilotProviderDisabled` added: the Copilot provider being off maps to
+			// the disabled state, and (being first) takes precedence over the
+			// signed-out and quota states below.
+			if (copilotProviderDisabled || this.chatEntitlementService.sentiment.disabled || this.chatEntitlementService.sentiment.untrusted) {
 				// --- End Positron ---
+				text = '$(copilot-unavailable)';
 				ariaLabel = localize('copilotDisabledStatus', "Copilot disabled");
 			}
 
 			// Sessions in progress
-			else if (this.runningSessionsCount > 0) {
-				// --- Start Positron ---
-				// text = '$(copilot-in-progress)';
-				text = '$(positron-assistant-in-progress)';
+			// --- Start Positron ---
+			// Chat-specific state; skipped in completions-only mode.
+			else if (!completionsOnly && this.runningSessionsCount > 0) {
 				// --- End Positron ---
+				text = '$(copilot-in-progress)';
 				if (this.runningSessionsCount > 1) {
 					ariaLabel = localize('chatSessionsInProgressStatus', "{0} agent sessions in progress", this.runningSessionsCount);
 				} else {
@@ -231,88 +236,113 @@ export class ChatStatus extends Disposable {
 				}
 			}
 
-			// --- Start Positron ---
-			// Dial back the treatment of 'signed out' a little bit, since
-			// everyone is going to be 'signed out' by default unless they are
-			// signed in to Copilot
-			// Signed out
+			// Signed out — keep showing Sign-in affordance even when BYOK models are present
+			// so air-gapped users can still authenticate to unlock the full Copilot experience.
 			else if (this.chatEntitlementService.entitlement === ChatEntitlement.Unknown) {
-				const signedOutWarning = localize('notSignedIn', "Signed out");
-
-				// text = `${this.chatEntitlementService.anonymous ? '$(copilot)' : '$(copilot-not-connected)'} ${signedOutWarning}`;
-				// text = `$(copilot-not-connected)`;
-				ariaLabel = signedOutWarning;
-				// kind = 'prominent';
+				return this.getSetupEntryProps();
 			}
-			// --- End Positron ---
 
 			// Free Quota Exceeded
+			// --- Start Positron ---
+			// In completions-only mode only the completions quota matters, not chat quota.
+			/*
 			else if (this.chatEntitlementService.entitlement === ChatEntitlement.Free && (chatQuotaExceeded || completionsQuotaExceeded)) {
+			*/
+			else if (this.chatEntitlementService.entitlement === ChatEntitlement.Free && (completionsOnly ? completionsQuotaExceeded : (chatQuotaExceeded || completionsQuotaExceeded))) {
+				// --- End Positron ---
 				let quotaWarning: string;
 				if (chatQuotaExceeded && !completionsQuotaExceeded) {
 					quotaWarning = localize('chatQuotaExceededStatus', "Chat quota reached");
 				} else if (completionsQuotaExceeded && !chatQuotaExceeded) {
-					quotaWarning = localize('completionsQuotaExceededStatus', "Inline suggestions quota reached");
+					quotaWarning = localize('completionsQuotaExceededStatus', "Inline suggestions limit reached");
 				} else {
 					quotaWarning = localize('chatAndCompletionsQuotaExceededStatus', "Quota reached");
 				}
 
-				// --- Start Positron ---
-				// text = `$(copilot-warning) ${quotaWarning}`;
-				// --- End Positron ---
+				text = `$(copilot-warning) ${quotaWarning}`;
+				ariaLabel = quotaWarning;
+				kind = 'prominent';
+			}
+
+			// Pooled Entitlement Exhausted (Business/Enterprise)
+			else if ((this.chatEntitlementService.entitlement === ChatEntitlement.Business || this.chatEntitlementService.entitlement === ChatEntitlement.Enterprise) && isPooledQuotaDepleted) {
+				const quotaWarning = localize('chatAndCompletionsQuotaExceededStatus', "Quota reached");
+				text = `$(copilot-warning) ${quotaWarning}`;
 				ariaLabel = quotaWarning;
 				kind = 'prominent';
 			}
 
 			// Completions Disabled
 			else if (this.editorService.activeTextEditorLanguageId && !isCompletionsEnabled(this.configurationService, this.editorService.activeTextEditorLanguageId)) {
-				// --- Start Positron ---
-				// text = '$(copilot-unavailable)';
-				// --- End Positron ---
+				text = '$(copilot-unavailable)';
 				ariaLabel = localize('completionsDisabledStatus', "Inline suggestions disabled");
 			}
 
 			// Completions Snoozed
 			else if (this.completionsService.isSnoozing()) {
-				// --- Start Positron ---
-				// text = '$(copilot-snooze)';
-				// --- End Positron ---
+				text = '$(copilot-snooze)';
 				ariaLabel = localize('completionsSnoozedStatus', "Inline suggestions snoozed");
 			}
 		}
 
 		const baseResult = {
-			// --- Start Positron ---
-			name: localize('positronChatStatus', "Assistant Status"),
+			name: localize('chatStatus', "Copilot Status"),
 			text,
 			ariaLabel,
 			command: ShowTooltipCommand,
-			// Do not show status in all windows; allows us to create a new status item
-			// for each window manually
-			// showInAllWindows: true,
-			// --- End Positron ---
+			showInAllWindows: true,
 			kind,
-			tooltip: {
-				element: (token: CancellationToken) => {
-					const store = new DisposableStore();
-					store.add(token.onCancellationRequested(() => {
-						store.dispose();
-					}));
-					const elem = ChatStatusDashboard.instantiateInContents(this.instantiationService, store, undefined);
-
-					// todo@connor4312/@benibenj: workaround for #257923
-					store.add(disposableWindowInterval(mainWindow, () => {
-						if (!elem.isConnected) {
-							store.dispose();
-						}
-					}, 2000));
-
-					return elem;
-				}
-			}
+			content: this.entryAnchor,
+			// --- Start Positron ---
+			// In completions-only mode, suppress the chat usage/setup rows and keep the
+			// completions controls (settings, model, snooze, quota).
+			tooltip: this.createDashboardTooltip(completionsOnly)
+			// --- End Positron ---
 		} satisfies IStatusbarEntry;
 
 		return baseResult;
+	}
+
+	private getSetupEntryProps(): IStatusbarEntry {
+		const showSignInLabel = !this.isSignInTitleBarAffordanceVisible();
+		const signInLabel = localize('signIn', "Sign In");
+		return {
+			name: localize('chatStatus', "Copilot Status"),
+			text: showSignInLabel ? `$(copilot) ${signInLabel}` : '$(copilot)',
+			ariaLabel: showSignInLabel ? signInLabel : localize('chatStatusAria', "Copilot status"),
+			command: CHAT_SETUP_ACTION_ID,
+			showInAllWindows: true,
+			kind: undefined,
+			content: this.entryAnchor,
+		};
+	}
+
+	private isSignInTitleBarAffordanceVisible(): boolean {
+		if (isWeb) {
+			return false;
+		}
+
+		// Title bar sign-in button only shows when user is signed out
+		if (this.chatEntitlementService.entitlement !== ChatEntitlement.Unknown) {
+			return false;
+		}
+
+		if (this.chatEntitlementService.sentiment.hidden || this.chatEntitlementService.sentiment.disabledInWorkspace) {
+			return false;
+		}
+
+		const hasTitleBarUpdate = Boolean(this.contextKeyService.getContextKeyValue('updateTitleBar'));
+		if (hasTitleBarUpdate) {
+			return false;
+		}
+
+		const inZenMode = Boolean(this.contextKeyService.getContextKeyValue(InEditorZenModeContext.key));
+		if (inZenMode) {
+			return false;
+		}
+
+		const signInTitleBarEnabled = this.configurationService.getValue<boolean>(ChatConfiguration.TitleBarSignInEnabled) !== false;
+		return signInTitleBarEnabled;
 	}
 
 	override dispose(): void {

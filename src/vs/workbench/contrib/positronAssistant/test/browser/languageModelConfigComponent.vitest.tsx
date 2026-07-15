@@ -12,24 +12,28 @@ import { LanguageModelConfigComponent } from '../../browser/components/languageM
 import { AuthMethod, AuthStatus } from '../../browser/types.js';
 import { IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
 
+function makeSource(overrides?: Partial<Pick<IPositronLanguageModelSource, 'supportedOptions' | 'defaults'>> & { provider?: { id: string; displayName: string } }): IPositronLanguageModelSource {
+	const provider = overrides?.provider ?? { id: 'anthropic-api', displayName: 'Anthropic' };
+	return {
+		type: PositronLanguageModelType.Chat,
+		provider: { ...provider, settingName: provider.id },
+		supportedOptions: overrides?.supportedOptions ?? [],
+		defaults: overrides?.defaults ?? { model: '' },
+	};
+}
+
 describe('LanguageModelConfigComponent ProviderNotice', () => {
 	const ctx = createTestContainer().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	function renderNotice(provider: { id: string; displayName: string }): HTMLElement {
-		const source: IPositronLanguageModelSource = {
-			type: PositronLanguageModelType.Chat,
-			provider: { ...provider, settingName: provider.id },
-			supportedOptions: [],
-			defaults: { name: '', model: '' },
-		};
 		rtl.render(
 			<LanguageModelConfigComponent
 				authMethod={AuthMethod.NONE}
 				authStatus={AuthStatus.SIGNED_OUT}
 				closeDialog={() => { }}
-				config={{ type: PositronLanguageModelType.Chat, provider: provider.id, name: '', model: '' }}
-				source={source}
+				config={{ model: '' }}
+				source={makeSource({ provider, supportedOptions: [] })}
 				onCancel={() => { }}
 				onChange={() => { }}
 				onSignIn={() => { }}
@@ -94,32 +98,21 @@ describe('LanguageModelConfigComponent ProviderNotice', () => {
 	});
 });
 
-describe('LanguageModelConfigComponent BaseUrl', () => {
+describe('LanguageModelConfigComponent base-URL input', () => {
 	const ctx = createTestContainer().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function renderComponent(options: {
-		providerId: string;
-		authMethod: AuthMethod;
-		supportedOptions: IPositronLanguageModelSource['supportedOptions'];
-	}): void {
-		const source: IPositronLanguageModelSource = {
-			type: PositronLanguageModelType.Chat,
-			provider: {
-				id: options.providerId,
-				displayName: options.providerId,
-				settingName: options.providerId,
-			},
-			supportedOptions: options.supportedOptions,
-			defaults: { name: '', model: '' },
-		};
+	function renderConfig(supportedOptions: string[], options?: {
+		authMethod?: AuthMethod;
+		provider?: { id: string; displayName: string };
+	}) {
 		rtl.render(
 			<LanguageModelConfigComponent
-				authMethod={options.authMethod}
+				authMethod={options?.authMethod ?? AuthMethod.NONE}
 				authStatus={AuthStatus.SIGNED_OUT}
 				closeDialog={() => { }}
-				config={{ type: PositronLanguageModelType.Chat, provider: options.providerId, name: '', model: '' }}
-				source={source}
+				config={{ model: '' }}
+				source={makeSource({ supportedOptions, provider: options?.provider })}
 				onCancel={() => { }}
 				onChange={() => { }}
 				onSignIn={() => { }}
@@ -127,41 +120,40 @@ describe('LanguageModelConfigComponent BaseUrl', () => {
 		);
 	}
 
+	it('renders the base-URL input when supportedOptions includes baseUrl', () => {
+		renderConfig(['baseUrl']);
+
+		expect(screen.getByLabelText('Base URL')).toBeInTheDocument();
+	});
+
+	it('does not render the base-URL input when supportedOptions is empty', () => {
+		renderConfig([]);
+
+		expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
+	});
+
 	it('shows the base URL input under OAuth when the provider supports baseUrl', () => {
-		renderComponent({
-			providerId: 'some-provider',
-			authMethod: AuthMethod.OAUTH,
-			supportedOptions: ['oauth', 'apiKey', 'baseUrl'],
-		});
+		renderConfig(['oauth', 'apiKey', 'baseUrl'], { authMethod: AuthMethod.OAUTH });
 
 		expect(screen.getByLabelText('Base URL')).toBeInTheDocument();
 	});
 
 	it('hides the base URL input under OAuth when the provider does not support baseUrl', () => {
-		renderComponent({
-			providerId: 'some-provider',
-			authMethod: AuthMethod.OAUTH,
-			supportedOptions: ['oauth'],
-		});
+		renderConfig(['oauth'], { authMethod: AuthMethod.OAUTH });
 
 		expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
 	});
 
 	it('still shows the base URL input under API key auth', () => {
-		renderComponent({
-			providerId: 'some-provider',
-			authMethod: AuthMethod.API_KEY,
-			supportedOptions: ['apiKey', 'baseUrl'],
-		});
+		renderConfig(['apiKey', 'baseUrl'], { authMethod: AuthMethod.API_KEY });
 
 		expect(screen.getByLabelText('Base URL')).toBeInTheDocument();
 	});
 
 	it('labels the Databricks base URL input as Workspace URL', () => {
-		renderComponent({
-			providerId: 'databricks',
+		renderConfig(['oauth', 'apiKey', 'baseUrl'], {
 			authMethod: AuthMethod.OAUTH,
-			supportedOptions: ['oauth', 'apiKey', 'baseUrl'],
+			provider: { id: 'databricks', displayName: 'Databricks' },
 		});
 
 		expect(screen.getByLabelText('Workspace URL')).toBeInTheDocument();

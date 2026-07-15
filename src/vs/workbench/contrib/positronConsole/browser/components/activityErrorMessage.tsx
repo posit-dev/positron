@@ -15,7 +15,8 @@ import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { ConsoleQuickFix } from './activityErrorQuickFix.js';
-import { usePositronConfiguration, usePositronContextKey, usePositronExtensionInstalled } from '../../../../../base/browser/positronReactHooks.js';
+import { usePositronConfiguration, useContextKeyFromString, usePositronExtensionInstalled } from '../../../../../base/browser/positronReactHooks.js';
+import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {
@@ -35,17 +36,17 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	const [showTraceback, setShowTraceback] = useState(false);
 
 	// Configuration hooks.
-	const enableAssistantActions = usePositronConfiguration<boolean>('positron.assistant.consoleActions.enable');
+	// Main switch for Positron's AI features.
+	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
+	const enableAssistantActions = usePositronConfiguration<boolean>('console.assistantActions.enabled');
 	const positAssistantInstalled = usePositronExtensionInstalled('posit.assistant');
-	// Set by the built-in positron-assistant extension when any direct provider
-	// or vscode.lm model is available. Posit Assistant shares the same
-	// vscode.authentication credentials, so a true value here implies it has at
-	// least one usable provider too.
-	// TODO: When Positron Assistant is deprecated in favor of Posit Assistant,
-	// replace this with a signal owned by Posit Assistant (context key or
-	// equivalent) - this key goes away with the built-in extension.
-	const hasChatModels = usePositronContextKey<boolean>('positron-assistant.hasChatModels');
-	const showAssistantActions = enableAssistantActions && positAssistantInstalled && !!hasChatModels;
+	// Set by the Posit Assistant extension when it has at least one usable model
+	// (a configured cloud provider, a local provider, or a vscode.lm model such
+	// as Copilot). This is the authoritative, assistant-agnostic signal. The key
+	// string is mirrored in the Posit Assistant extension (the two repositories
+	// cannot share a module).
+	const hasChatModels = useContextKeyFromString<boolean>('posit-assistant.hasChatModels');
+	const showAssistantActions = aiEnabled && enableAssistantActions && positAssistantInstalled && !!hasChatModels;
 
 	// Traceback useEffect.
 	useEffect(() => {

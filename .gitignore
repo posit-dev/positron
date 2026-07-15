@@ -29,6 +29,7 @@ tags
 product.overrides.json
 *.snap.actual
 *.tsbuildinfo
+.eslintcache
 .vscode-test
 .chat-simulation-data
 vscode-telemetry-docs/
@@ -85,3 +86,9 @@ dist
 .github/skills/.local/
 .sbom-tmp/
 .sbom-tmp/
+
+# --- Start Positron ---
+# ci-arm dev container local secrets
+.devcontainer/ci-arm/.env
+.devcontainer/ci-arm/license.txt
+# --- End Positron ---

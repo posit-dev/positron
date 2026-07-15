@@ -12,6 +12,9 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, existsSync, writeFileSync, realpathSync } from 'node:fs';
 import { join, resolve as resolvePath, relative as relativePath, isAbsolute } from 'node:path';
+// Shared with the local `pete-local` skill so both paths emit identical skip
+// verdicts. Lives in the skill tree (also checked out by the workflow).
+import { renderSkipComment } from '../../../.claude/skills/pr-test-checker/scripts/context-core.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
@@ -53,35 +56,6 @@ function readJsonOrExit(path) {
 		console.error(`Failed to parse ${path}: ${err.message}`);
 		process.exit(1);
 	}
-}
-
-// --- Static comment for short-circuited skips -------------------------------
-
-function renderSkipComment(context) {
-	const { skip, pr } = context;
-	const reasonText = {
-		'empty-pr': 'No files changed.',
-		'title-prefix': 'PR title indicates a chore / dependency / docs bump.',
-		'docs-or-config-only': 'All changed files are docs, config, or lockfiles -- no source behavior to test.',
-	}[skip.reason] || skip.detail || 'Skipped by pre-filter.';
-
-	return [
-		'## PETE\'s assessment 🧪',
-		'',
-		`**Verdict:** 🟡 Not applicable -- ${reasonText}`,
-		'',
-		`### What changed`,
-		`${context.stats.fileCount} file(s), categorized as: ${formatCategoryCounts(context.stats.categoryCounts)}.`,
-		'',
-		'---',
-		`<sub>PETE (Positron Extreme Test Experiment): an LLM-based test-coverage advisor, currently in pilot. Nothing to test here! A pre-filter handled this PR, so we skipped the LLM check. Comment \`/recheck-tests\` if that's wrong.</sub>`,
-	].join('\n');
-}
-
-function formatCategoryCounts(counts) {
-	const entries = Object.entries(counts || {}).sort((a, b) => b[1] - a[1]);
-	if (entries.length === 0) { return '(none)'; }
-	return entries.map(([k, v]) => `${k} (${v})`).join(', ');
 }
 
 // --- Prompt building --------------------------------------------------------
@@ -352,7 +326,7 @@ async function main() {
 			'**Verdict:** ⚪ _Unknown_ -- the analyzer produced no markdown report. Check action logs.',
 			'',
 			'---',
-			'<sub>PETE (Positron Extreme Test Experiment): an LLM-based test-coverage advisor, currently in pilot. Run `/recheck-tests` to retry.</sub>',
+			'<sub>PETE (Positron Extreme Test Experiment): an LLM-based test-coverage advisor, currently in pilot. Comment `/pete` to retry.</sub>',
 		].join('\n');
 		writeFileSync(join(WORK_DIR, 'comment.md'), wrapWithMarker(fallback));
 		console.error('[analyzer] no markdown report produced; wrote fallback comment');

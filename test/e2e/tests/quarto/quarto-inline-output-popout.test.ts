@@ -5,7 +5,7 @@
 
 import { join } from 'path';
 import * as fs from 'fs';
-import { test, tags, expect } from '../_test.setup';
+import { test, tags, expect } from './_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -15,12 +15,6 @@ test.describe('Quarto - Inline Output: Popout', {
 	tag: [tags.WEB, tags.WIN, tags.QUARTO]
 }, () => {
 
-	test.beforeAll(async function ({ python, settings }) {
-		await settings.set({
-			'positron.quarto.inlineOutput.enabled': true
-		}, { reload: 'web' });
-	});
-
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
@@ -29,7 +23,7 @@ test.describe('Quarto - Inline Output: Popout', {
 		await cleanup.discardAllChanges();
 	});
 
-	test('Python - Verify save button saves plot to file', async function ({ app, openFile, page }) {
+	test('Python - Verify save button saves plot to file', async function ({ python, app, openFile, page }) {
 		const { editors, inlineQuarto, quickInput, toasts } = app.workbench;
 
 		// Set up a unique file name for the saved plot to avoid conflicts
@@ -45,8 +39,11 @@ test.describe('Quarto - Inline Output: Popout', {
 		await editors.clickTab('simple_plot.qmd');
 		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
 
-		// Save the plot
+		// Save the plot — hover directly on the (CSS-hidden) save button with
+		// force:true so the mouse lands at the button's position, triggering the
+		// :hover that reveals it; the subsequent click fires from the same spot.
 		await inlineQuarto.gotoLine(19);
+		await inlineQuarto.saveButton.hover({ force: true });
 		await inlineQuarto.saveButton.click();
 		await quickInput.waitForQuickInputOpened();
 		await quickInput.type(savedPlotPath);
@@ -64,7 +61,7 @@ test.describe('Quarto - Inline Output: Popout', {
 		expect(fileBuffer[1]).toBe(80);
 	});
 
-	test('Python - Verify popout button appears for plot output and opens image in new tab', async function ({ app, openFile }) {
+	test('Python - Verify popout button appears for plot output and opens image in new tab', async function ({ python, app, openFile }) {
 		const { editors, inlineQuarto } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready
@@ -84,7 +81,7 @@ test.describe('Quarto - Inline Output: Popout', {
 		await editors.verifyTab('.positron-temp-simple_plot_cell0.png', { isVisible: true, isSelected: true });
 	});
 
-	test('Python - Verify popout command opens text output in new editor', async function ({ app, openFile }) {
+	test('Python - Verify popout command opens text output in new editor', async function ({ python, app, openFile }) {
 		const { editors, inlineQuarto } = app.workbench;
 		const tab1 = 'text_output.qmd';
 		const tab2 = 'Hello World from Quarto inline output te';
@@ -125,7 +122,7 @@ test.describe('Quarto - Inline Output: Popout', {
 	test('Python - Verify popout button opens interactive HTML in viewer panel',
 		{
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12373' }]
-		}, async function ({ app, openFile }) {
+		}, async function ({ python, app, openFile }) {
 			const { editors, inlineQuarto, viewer, toasts } = app.workbench;
 
 			// Open a Quarto file and wait for the kernel to be ready
@@ -145,7 +142,7 @@ test.describe('Quarto - Inline Output: Popout', {
 			await toasts.expectToastWithTitleNotToAppear('Failed to open');
 		});
 
-	test('Python - Verify Open Output in New Tab command works', async function ({ app, openFile }) {
+	test('Python - Verify Open Output in New Tab command works', async function ({ python, app, openFile }) {
 		const { editors, inlineQuarto } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready
@@ -165,7 +162,7 @@ test.describe('Quarto - Inline Output: Popout', {
 		await editors.verifyTab('.positron-temp-simple_plot_cell0.png', { isVisible: true, isSelected: true });
 	});
 
-	test('Python - Verify HTML popout displays DataFrame in viewer without errors', async function ({ app, openFile }) {
+	test('Python - Verify HTML popout displays DataFrame in viewer without errors', async function ({ python, app, openFile }) {
 		const { editors, inlineQuarto, viewer, toasts } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready

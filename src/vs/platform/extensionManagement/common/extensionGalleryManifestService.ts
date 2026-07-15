@@ -22,44 +22,116 @@ export type ExtensionGalleryConfig = {
 };
 
 // --- Start Positron ---
-export const POSITRON_GALLERY_PRESETS: Record<string, ExtensionGalleryConfig> = {
-	'posit-p3m': {
-		serviceUrl: 'https://p3m.dev/openvsx/latest/vscode/gallery',
-		itemUrl: 'https://p3m.dev/openvsx/latest/vscode/item',
-		resourceUrlTemplate: 'https://p3m.dev/openvsx/latest/vscode/asset/{publisher}/{name}/{version}/Microsoft.VisualStudio.Code.WebResources/{path}',
-		controlUrl: '',
-		extensionUrlTemplate: 'https://p3m.dev/openvsx/latest/vscode/gallery/{publisher}/{name}/latest',
-		nlsBaseUrl: '',
-		publisherUrl: '',
-	},
-	'open-vsx': {
-		serviceUrl: 'https://open-vsx.org/vscode/gallery',
-		itemUrl: 'https://open-vsx.org/vscode/item',
-		resourceUrlTemplate: 'https://open-vsx.org/vscode/asset/{publisher}/{name}/{version}/Microsoft.VisualStudio.Code.WebResources/{path}',
-		controlUrl: '',
-		extensionUrlTemplate: 'https://open-vsx.org/vscode/gallery/{publisher}/{name}/latest',
-		nlsBaseUrl: '',
-		publisherUrl: '',
-	},
+
+/**
+ * Base URLs for the built-in gallery presets. Every gallery (preset or custom)
+ * is a single base URL run through deriveGalleryConfig, so the Open VSX URL
+ * scheme lives in exactly one place and presets and custom URLs cannot drift.
+ */
+export const POSITRON_GALLERY_PRESET_BASES: Record<string, string> = {
+	'posit-p3m': 'https://p3m.dev/openvsx/latest/vscode',
+	'open-vsx': 'https://open-vsx.org/vscode',
 };
+
+/**
+ * Derives a full gallery config from a base URL using the Open VSX URL scheme.
+ * Returns undefined (and warns) when the base fails canonicalization, so a
+ * malformed or unsafe value falls back to the product default rather than
+ * producing broken or secret-bearing gallery URLs. A blank/whitespace-only
+ * value returns undefined silently (it means "no custom URL", not an error).
+ */
+export function deriveGalleryConfig(
+	base: string,
+	warn: (message: string) => void = msg => console.warn(msg),
+): ExtensionGalleryConfig | undefined {
+	const trimmed = base.trim();
+	if (!trimmed) {
+		return undefined;
+	}
+	let url: URL;
+	try {
+		url = new URL(trimmed);
+	} catch {
+		// Do not echo the raw value: a programmatic or settings.json value could
+		// carry credentials past the settings-editor pattern.
+		warn('Ignoring custom gallery URL: not a valid URL.');
+		return undefined;
+	}
+	if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+		warn('Ignoring custom gallery URL: must use http or https.');
+		return undefined;
+	}
+	if (url.username || url.password || url.search || url.hash) {
+		warn('Ignoring custom gallery URL: credentials, query, and fragment are not allowed.');
+		return undefined;
+	}
+	// Canonical base: origin + pathname, trailing slashes stripped. By
+	// construction this carries no credentials/query/fragment, so it is safe
+	// to log and to show in notifications.
+	const b = `${url.origin}${url.pathname}`.replace(/\/+$/, '');
+	return {
+		serviceUrl: `${b}/gallery`,
+		itemUrl: `${b}/item`,
+		resourceUrlTemplate: `${b}/asset/{publisher}/{name}/{version}/Microsoft.VisualStudio.Code.WebResources/{path}`,
+		extensionUrlTemplate: `${b}/gallery/{publisher}/{name}/latest`,
+		controlUrl: '',
+		nlsBaseUrl: '',
+		publisherUrl: '',
+	};
+}
+
+/**
+ * The built-in presets, derived from their base URLs. Kept as a named export
+ * so existing consumers and tests continue to reference presets by config.
+ */
+export const POSITRON_GALLERY_PRESETS: Record<string, ExtensionGalleryConfig> =
+	Object.fromEntries(
+		Object.entries(POSITRON_GALLERY_PRESET_BASES).map(
+			([name, base]) => [name, deriveGalleryConfig(base)!]
+		)
+	);
 
 /**
  * Resolves the gallery config to use, applying the Positron precedence:
  * a successfully-parsed EXTENSIONS_GALLERY env var wins over the
  * `positron.extensions.gallerySource` setting, which wins over the default
- * product gallery. An env var that failed to parse should be passed as
- * undefined so the caller falls through to the preset.
+ * product gallery. When gallerySource is 'custom', the config is derived from
+ * customGalleryUrl, falling back to the product gallery when that URL is blank
+ * or fails canonicalization. An env var that failed to parse should be passed
+ * as undefined so the caller falls through to the preset/custom path.
  */
 export function resolvePositronGalleryConfig(
 	envGallery: ExtensionGalleryConfig | undefined,
 	gallerySource: string | undefined,
+	customGalleryUrl: string | undefined,
 	productGallery: ExtensionGalleryConfig | undefined,
 ): ExtensionGalleryConfig | undefined {
 	if (envGallery) {
 		return envGallery;
 	}
+	if (gallerySource === 'custom') {
+		return deriveGalleryConfig(customGalleryUrl ?? '') ?? productGallery;
+	}
 	const preset = gallerySource ? POSITRON_GALLERY_PRESETS[gallerySource] : undefined;
 	return preset ?? productGallery;
+}
+
+/**
+ * Whether two gallery resource URLs (or templates) target the same gallery host.
+ * Used to decide whether the product-default resource API is a safe fallback for
+ * the resolved gallery: it is only safe within the same host, so a non-default
+ * gallery never silently leaks to the default one. Returns false when either
+ * value is missing or not a parseable URL.
+ */
+export function sameGalleryHost(a: string | undefined, b: string | undefined): boolean {
+	if (!a || !b) {
+		return false;
+	}
+	try {
+		return new URL(a).origin === new URL(b).origin;
+	} catch {
+		return false;
+	}
 }
 
 // --- End Positron ---

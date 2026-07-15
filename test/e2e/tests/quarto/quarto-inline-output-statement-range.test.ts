@@ -4,7 +4,25 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, tags } from '../_test.setup';
+import { test as base, tags } from '../_test.setup';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ settingsFile }, use) => {
+			await settingsFile.append({
+				// Intentionally uses the deprecated `positron.quarto.*` alias to
+				// verify it still enables inline output end-to-end. The canonical
+				// `quarto.inlineOutput.enabled` key is exercised by the rest of the
+				// Quarto e2e suite.
+				'positron.quarto.inlineOutput.enabled': true,
+				'console.showNotebookConsoles': true,
+				'workbench.editor.enablePreview': false,
+			});
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
 
 test.use({
 	suiteId: __filename
@@ -13,14 +31,6 @@ test.use({
 test.describe('Quarto - Inline Output: Statement Range', {
 	tag: [tags.QUARTO, tags.ARK, tags.CONSOLE]
 }, () => {
-
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({
-			'positron.quarto.inlineOutput.enabled': true,
-			'console.showNotebookConsoles': true,
-			'workbench.editor.enablePreview': false,
-		}, { reload: 'web' });
-	});
 
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();

@@ -14,6 +14,7 @@ Use this skill when:
 - Updating an existing PR body with the correct format
 - You need the current list of e2e test tags for validation steps
 - You want to ensure your PR body follows Positron conventions
+- You want a test-coverage check (PETE) before opening the PR
 
 ## Prerequisites
 
@@ -44,7 +45,16 @@ I'll dynamically fetch the current e2e test tags from `test/e2e/infra/test-runne
 - Performance tags
 - Special tags (critical, soft-fail)
 
-### Step 3: Generate PR Body
+### Step 3: Evaluate Test Coverage (PETE)
+
+Before drafting Validation Steps, I'll run the local PETE preview (the `pete` skill, sharing its rubric with `.claude/skills/pr-test-checker/SKILL.md` -- the same one CI's PR Test Checker uses) against your working tree. This checks test coverage for the change the same way I already check test tags:
+- Flags substantive source changes with no unit/e2e coverage (verdict: Insufficient)
+- Surfaces existing e2e tests that already cover the change but whose `@:` tag is missing from the PR body -- these fold into the tag list from Step 2
+- Notes Windows/web deployment gaps worth calling out in Validation Steps
+
+If PETE reports **Insufficient**, I'll say so and suggest concrete additions (file path, runner, what to test) before we finalize the PR body -- I won't silently paper over a coverage gap with a generic "Validation Steps" section. This is a local preview only; it doesn't replace the official check, which now runs on demand in CI -- comment `/pete` (or `/recheck-tests`, `/rePETE`, `/re-pete`) on the PR once it's open to get the authoritative verdict.
+
+### Step 4: Generate PR Body
 
 Based on the PR type and context, I'll create a structured PR body with:
 
@@ -69,8 +79,9 @@ Based on the PR type and context, I'll create a structured PR body with:
    - Relevant e2e test tags based on affected areas
    - Testing instructions
    - Code examples if helpful
+   - A note on PETE's verdict from Step 3 if it was Insufficient
 
-### Step 4: Output Options
+### Step 5: Output Options
 
 Once the PR body is ready, you can choose:
 1. **Copy to clipboard** (Mac only) - I'll use `pbcopy`

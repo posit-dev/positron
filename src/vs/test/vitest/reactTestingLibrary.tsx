@@ -61,8 +61,10 @@ export function setupRTLRenderer(services?: TestServices | (() => TestServices))
 		/**
 		 * Render a React element wrapped in the full Positron provider tree.
 		 * Returns the full RTL RenderResult (getByText, getByRole, etc.).
+		 * @param options.container DOM node to render into. Use when the
+		 * component's behavior depends on its position in a larger DOM tree.
 		 */
-		render(element: ReactElement): RenderResult {
+		render(element: ReactElement, options?: { container?: HTMLElement }): RenderResult {
 			const resolvedServices = typeof services === 'function' ? services() : services;
 			// Provider tree for Positron React components. Add new providers
 			// here when a component under test needs a context that isn't
@@ -78,7 +80,7 @@ export function setupRTLRenderer(services?: TestServices | (() => TestServices))
 				)
 				: undefined;
 
-			return render(element, { wrapper });
+			return render(element, { wrapper, container: options?.container });
 		},
 	};
 }

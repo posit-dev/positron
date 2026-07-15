@@ -6,21 +6,21 @@
 import { localize } from '../../../../nls.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { raceTimeout } from '../../../../base/common/async.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
-import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
+import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEditorService } from '../../editor/common/editorService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { PositronDataExplorerUri } from '../common/positronDataExplorerUri.js';
-import { DataExplorerClientInstance, DataExplorerUiEvent } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { PositronDataExplorerInstance } from './positronDataExplorerInstance.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService.js';
-import { IPositronDataExplorerService } from './interfaces/positronDataExplorerService.js';
+import { IPositronDataExplorerService, OpenExtensionBackendPayload } from './interfaces/positronDataExplorerService.js';
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
 import { DataExplorerBackendRequest, PositronDataExplorerComm } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { PositronDataExplorerDuckDBBackend } from '../common/positronDataExplorerDuckDBBackend.js';
-import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
+import { PositronDataExplorerExtensionBackend } from '../common/positronDataExplorerExtensionBackend.js';
+import { IDataExplorerRpcTransport, IDataExplorerUiEventDto } from '../common/dataExplorerRpcTransport.js';
 import { URI } from '../../../../base/common/uri.js';
 import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -155,11 +155,17 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	private _variablePathToInstanceIdMap = new Map<string, string>();
 
 	/**
-	 * A registry for events routed to a data explorer via vscode's command system
+	 * A registry of frontend UI-event handlers, keyed by dataset identifier. Fed by
+	 * `routeUiEvent` from the typed Data Explorer channel.
 	 */
-	private _uiEventCommandHandlers = new Map<
-		string, (event: DataExplorerUiEvent) => void
+	private _uiEventHandlers = new Map<
+		string, (event: IDataExplorerUiEventDto) => void
 	>();
+
+	/**
+	 * The transport that reaches backend-providing extensions, registered by MainThreadDataExplorer.
+	 */
+	private _rpcTransport: IDataExplorerRpcTransport | undefined;
 
 	/**
 	 * The onDidRegisterInstance event emitter.
@@ -174,7 +180,6 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * Constructor.
 	 */
 	constructor(
-		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@ILogService private readonly _logService: ILogService,
@@ -209,21 +214,30 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			// console.log(`++++++++++ PositronDataExplorerService: onDidChangeRuntimeState from ${stateEvent.old_state} to ${stateEvent.new_state}`);
 		}));
 
-		// This is a temporary mechanism for extensions like positron-duckdb implementing
-		// a data explorer backend to be able to invoke the frontend methods
-		// (updates, async column profiles) normally invoked by a language runtime kernel
-		this._register(CommandsRegistry.registerCommand('positron-data-explorer.sendUiEvent',
-			(accessor: ServicesAccessor, event: DataExplorerUiEvent) => {
-				const handler = this._uiEventCommandHandlers.get(event.uri.toString());
+	}
 
-				// If not event handler registered, ignore for now
-				if (handler === undefined) {
-					return;
-				}
-
-				return handler(event);
+	/**
+	 * Registers the transport that core Data Explorer backends use to reach backend-providing
+	 * extensions. Called by MainThreadDataExplorer for the extension host's lifetime.
+	 * @param transport The transport.
+	 * @returns A disposable that clears the transport.
+	 */
+	registerRpcTransport(transport: IDataExplorerRpcTransport): IDisposable {
+		this._rpcTransport = transport;
+		return toDisposable(() => {
+			if (this._rpcTransport === transport) {
+				this._rpcTransport = undefined;
 			}
-		));
+		});
+	}
+
+	/**
+	 * Routes a frontend UI event (from a backend-providing extension, via the typed channel) to the
+	 * backend registered for its dataset. Unknown datasets are ignored.
+	 * @param event The UI event.
+	 */
+	routeUiEvent(event: IDataExplorerUiEventDto): void {
+		this._uiEventHandlers.get(event.uri)?.(event);
 	}
 
 	/**
@@ -361,12 +375,14 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * @param filePath Path to file to open with positron-duckdb extension
 	 */
 	async openWithDuckDB(uri: URI) {
-		const backend = new PositronDataExplorerDuckDBBackend(this._commandService, uri);
+		const transport = this._ensureRpcTransport();
+		const backend = new PositronDataExplorerDuckDBBackend(transport, uri);
 
 		// Associate UI events (like ReturnColumnProfiles) for this file path
 		// with this backend. We're presuming only one backend per file path, so
-		// if we need multiple backends per file path we can extend
-		this._uiEventCommandHandlers.set(uri.toString(), (event) => {
+		// if we need multiple backends per file path we can extend. Events are tagged with the
+		// dataset uri (the bare file uri for DuckDB), so route by that, not the clientId.
+		this._uiEventHandlers.set(backend.datasetUri, (event) => {
 			backend.handleUiEvent(event);
 		});
 
@@ -374,6 +390,54 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 
 		const client = new DataExplorerClientInstance(backend);
 		this.registerDataExplorerClient('duckdb', client);
+	}
+
+	/**
+	 * Opens a Data Explorer backed by a built-in extension over the typed channel. Used by data
+	 * connection drivers to preview a table or view without a backing file. If an explorer is
+	 * already open for the dataset, the existing editor is focused rather than opening a second one.
+	 * @param payload The provider id, dataset identifier, and display name.
+	 */
+	async openWithExtensionBackend(payload: OpenExtensionBackendPayload): Promise<void> {
+		const { providerId, datasetId, displayName } = payload;
+
+		// Only build and register a new backend the first time; subsequent calls just focus the
+		// already-open editor below.
+		if (!this._positronDataExplorerInstances.has(datasetId)) {
+			const transport = this._ensureRpcTransport();
+			const backend = new PositronDataExplorerExtensionBackend(transport, providerId, datasetId);
+
+			// Route async UI events (e.g. column profiles) for this dataset back to this backend.
+			this._uiEventHandlers.set(backend.datasetUri, (event) => {
+				backend.handleUiEvent(event);
+			});
+
+			const client = new DataExplorerClientInstance(backend);
+			this.registerDataExplorerClient(displayName, client);
+		}
+
+		const pinned = !DataExplorerPreviewEnabled(this._configurationService);
+		const editorPane = await this._editorService.openEditor({
+			resource: PositronDataExplorerUri.generate(datasetId),
+			options: { pinned }
+		});
+
+		if (!editorPane) {
+			this._notificationService.error(localize(
+				'positron.dataExplorer.couldNotOpenExtensionEditor',
+				"An editor could not be opened."
+			));
+		}
+	}
+
+	/**
+	 * Returns the registered RPC transport, throwing if the extension host has not connected yet.
+	 */
+	private _ensureRpcTransport(): IDataExplorerRpcTransport {
+		if (!this._rpcTransport) {
+			throw new Error('The Data Explorer RPC transport is not available.');
+		}
+		return this._rpcTransport;
 	}
 
 	//#endregion IPositronDataExplorerService Implementation
@@ -460,8 +524,11 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		this._register(
 			dataExplorerRuntime.onDidOpenDataExplorerClient(event => {
 				if (event.inlineOnly) {
-					// For inline-only data explorers, register without opening editor
-					this.registerDataExplorerClient(session.runtimeMetadata.languageName, event.client);
+					// For inline-only data explorers, register without opening editor.
+					// Mark as inline so an editor tab later opened against this shared
+					// comm (e.g. via the Variables pane or "Open in Data Explorer") does
+					// not dispose it on close -- see issue #13283.
+					this.registerDataExplorerClient(session.runtimeMetadata.languageName, event.client, true);
 				} else {
 					// Normal behavior: register and open editor
 					this.openEditor(session.runtimeMetadata.languageName, event.client);
@@ -523,10 +590,11 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * Registers a DataExplorerClientInstance so that it is available when the
 	 * PositronDataExplorerEditor is instantiated.
 	 */
-	private registerDataExplorerClient(languageName: string, client: DataExplorerClientInstance) {
+	private registerDataExplorerClient(languageName: string, client: DataExplorerClientInstance, inline: boolean = false) {
 		const instance = this._register(new PositronDataExplorerInstance(
 			languageName,
-			client
+			client,
+			inline
 		));
 
 		// Set the Positron data explorer client instance.

@@ -9,7 +9,7 @@
   "ms-toolsai.vscode-jupyter-cell-tags":        { "tags": ["@:positron-notebooks"] },
   "ms-toolsai.vscode-jupyter-slideshow":        { "tags": ["@:positron-notebooks"] },
   "posit.air-vscode":                           { "tags": ["@:ark"] },
-  "posit.assistant":                            { "tags": ["@:assistant", "@:posit-assistant"] },
+  "posit.assistant":                            { "tags": ["@:assistant"] },
   "posit.publisher":                            { "tags": ["@:workbench"] },
   "posit.shiny":                                { "tags": ["@:apps"] },
   "quarto.quarto":                              { "tags": ["@:quarto"] }

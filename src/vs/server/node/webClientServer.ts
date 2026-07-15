@@ -34,8 +34,12 @@ import { ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService
 import httpProxy from 'http-proxy';
 // eslint-disable-next-line no-duplicate-imports
 import { existsSync } from 'fs';
-import { kProxyRegex, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX, HAS_STATIC_ROUTE } from './pwbConstants.js';
+import { kProxyRegex, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX } from './pwbConstants.js';
 // --- End PWB ---
+// --- Start Positron ---
+import { HAS_STATIC_ROUTE } from './pwbConstants.js';
+import { shouldUseSessionLessStaticRoute } from './positronStaticRoute.js';
+// --- End Positron ---
 
 const textMimeType: { [ext: string]: string | undefined } = {
 	'.html': 'text/html',
@@ -195,6 +199,12 @@ export class WebClientServer {
 		// --- End PWB ---
 	}
 
+	// --- Start Positron ---
+	private get _useSessionLessStaticRoute(): boolean {
+		return shouldUseSessionLessStaticRoute(isWorkbench, HAS_STATIC_ROUTE, this._productService.quality);
+	}
+	// --- End Positron ---
+
 	/**
 	 * Handle web resources (i.e. only needed by the web client).
 	 * **NOTE**: This method is only invoked when the server has web bits.
@@ -208,7 +218,7 @@ export class WebClientServer {
 			// URL shape: /<product-label>-static/<quality>-<commit>/static/<path>  →  serve APP_ROOT/<path>
 			// Only active when running under Workbench; standalone/dev code-server keeps the
 			// session-scoped /static/ route below.
-			if (isWorkbench && HAS_STATIC_ROUTE && pathname.startsWith(VSCODE_STATIC_PREFIX) && pathname.charCodeAt(VSCODE_STATIC_PREFIX.length) === CharCode.Slash) {
+			if (this._useSessionLessStaticRoute && pathname.startsWith(VSCODE_STATIC_PREFIX) && pathname.charCodeAt(VSCODE_STATIC_PREFIX.length) === CharCode.Slash) {
 				const afterPrefix = pathname.substring(VSCODE_STATIC_PREFIX.length + 1); // strip "/<product-label>-static/"
 				const versionSlash = afterPrefix.indexOf('/');
 				if (versionSlash === -1) {
@@ -473,6 +483,9 @@ export class WebClientServer {
 		// Only used when running under Workbench -- standalone/dev falls back to session-scoped relative URLs below.
 		const sessionlessStaticRoute = posix.join(WORKBENCH_DEPLOYMENT_PREFIX, VSCODE_STATIC_PREFIX, this._productPath, STATIC_PATH);
 		// --- End PWB ---
+		// --- Start PWB ---
+		// const webExtensionRoute = posix.join(basePath, this._productPath, WEB_EXTENSION_PATH);
+		// --- End PWB ---
 
 		const resolveWorkspaceURI = (defaultLocation?: string) => defaultLocation && URI.file(resolve(defaultLocation)).with({ scheme: Schemas.vscodeRemote, authority: remoteAuthority });
 
@@ -489,7 +502,7 @@ export class WebClientServer {
 		const vscodeBase = relativePath(req.url!);
 		// When under Workbench, session-less URLs are absolute-from-root; otherwise keep the
 		// session-scoped relative form that works behind the default reverse proxy.
-		const useStaticRoute = isWorkbench && HAS_STATIC_ROUTE;
+		const useStaticRoute = this._useSessionLessStaticRoute;
 		const effectiveVsBase = useStaticRoute ? '' : vscodeBase;
 		const effectiveStaticRoute = useStaticRoute ? sessionlessStaticRoute : staticRoute;
 		// --- End PWB ---
@@ -568,6 +581,10 @@ export class WebClientServer {
 			disableExtension: this._environmentService.args['disable-extension'],
 			bootstrapExtensionsDir: this._environmentService.args['bootstrap-extensions-dir'],
 			positronDocsUrl,
+			// Forward EXTENSIONS_GALLERY so the browser can apply the same
+			// env-var-over-setting precedence and reporting as desktop. The
+			// browser cannot read the server process environment directly.
+			extensionsGalleryEnv: process.env['EXTENSIONS_GALLERY'],
 			// --- End Positron ---
 			productConfiguration,
 			callbackRoute: callbackRoute,

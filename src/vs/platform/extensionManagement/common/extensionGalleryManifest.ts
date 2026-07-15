@@ -101,4 +101,5 @@ export const ExtensionGalleryServiceUrlConfigKey = 'extensions.gallery.serviceUr
 
 // --- Start Positron ---
 export const PositronGallerySourceConfigKey = 'positron.extensions.gallerySource';
+export const PositronCustomGalleryUrlConfigKey = 'positron.extensions.customGalleryUrl';
 // --- End Positron ---

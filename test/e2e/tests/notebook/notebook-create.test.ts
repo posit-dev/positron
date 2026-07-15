@@ -4,9 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { tags } from '../_test.setup';
+import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
-import { expect } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
@@ -15,7 +14,7 @@ test.use({
 let newFileName: string;
 
 test.describe('Notebooks', {
-	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.NOTEBOOKS, tags.VARIABLES]
 }, () => {
 	test.describe('Python Notebooks', () => {
 		test.beforeAll(async function ({ app, settings }) {

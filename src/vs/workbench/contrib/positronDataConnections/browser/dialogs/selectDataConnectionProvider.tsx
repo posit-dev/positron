@@ -136,6 +136,22 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 		}
 	}, []);
 
+	// Resolves the given driver id and advances to the next step. Takes the id explicitly (rather than
+	// reading selectedDriverId) so callers like double-click can advance in the same tick they select,
+	// without waiting for the selection state update to flush.
+	const proceedWithDriver = useCallback((driverId: string) => {
+		// Get the driver. This can't fail. If it does, something is very wrong.
+		const driver = positronDataConnectionsService.driverManager.getDriver(driverId);
+		if (!driver) {
+			console.error(`Selected driver with id ${driverId} not found`);
+			setShowError(true);
+			return;
+		}
+
+		// Proceed to the next step with the selected driver.
+		onNext(driver);
+	}, [onNext, positronDataConnectionsService.driverManager]);
+
 	// Next handler.
 	const nextHandler = useCallback(() => {
 		// If no driver is selected, set the show error flag and do not proceed to the next step.
@@ -144,29 +160,14 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 			return;
 		}
 
-		// Get the selected driver. This can't fail. If it does, something is very wrong.
-		const driver = positronDataConnectionsService.driverManager.getDriver(selectedDriverId);
-		if (!driver) {
-			console.error(`Selected driver with id ${selectedDriverId} not found`);
-			setShowError(true);
-			return;
-		}
-
-		// Proceed to the next step with the selected driver.
-		onNext(driver);
-	}, [selectedDriverId, onNext, positronDataConnectionsService.driverManager]);
+		proceedWithDriver(selectedDriverId);
+	}, [selectedDriverId, proceedWithDriver]);
 
 	// Render.
 	return (
 		<PositronDynamicModalDialog
 			content={
 				<div className='select-data-connection-provider'>
-					<div className='select-provider-label'>
-						{localize(
-							'positron.selectDataConnectionProvider.selectProvider',
-							"Select a provider"
-						)}
-					</div>
 					<div className={positronClassNames(
 						'driver-grid-clip',
 						{ 'error': showError }
@@ -200,6 +201,12 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 													{ 'selected': selectedDriverId === driver.id }
 												)}
 												htmlFor={driverCardId}
+												onDoubleClick={() => {
+													// Double-click selects the driver and advances, mirroring Next.
+													setSelectedDriverId(driver.id);
+													setShowError(false);
+													proceedWithDriver(driver.id);
+												}}
 											>
 												<input
 													checked={selectedDriverId === driver.id}
@@ -238,8 +245,13 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 			renderer={props.renderer}
 			title={localize(
 				'positron.selectDataConnectionProvider.title',
-				"New Data Connection"
+				"Add Data Connection"
 			)}
+			titleDescription={localize(
+				'positron.selectDataConnectionProvider.selectProvider',
+				"Select a provider"
+			)}
+			titleSize='large'
 			width={492}
 			onCancel={cancelHandler}
 			onSubmit={nextHandler}

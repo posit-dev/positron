@@ -223,7 +223,15 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronMissingPackages",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/positronConnections",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/contrib/positronDataConnections",
 			"project": "vscode-workbench"
 		},
 		{
@@ -260,6 +268,18 @@
 		},
 		{
 			"name": "vs/workbench/contrib/positronRuntimeSessions",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/contrib/positronLicenseeInfo",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/contrib/positronWelcome",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/contrib/positronQuarto",
 			"project": "vscode-workbench"
 		},
 		{
@@ -547,6 +567,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/services/positronHeadlessLanguageModel",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/services/positronConnections",
 			"project": "vscode-workbench"
 		},
@@ -785,7 +809,11 @@
 			"project": "vscode-sessions"
 		},
 		{
-			"name": "vs/sessions/contrib/agentHost",
+			"name": "vs/sessions/contrib/providers",
+			"project": "vscode-sessions"
+		},
+		{
+			"name": "vs/sessions/contrib/providers/agentHost",
 			"project": "vscode-sessions"
 		},
 		{
@@ -805,7 +833,7 @@
 			"project": "vscode-sessions"
 		},
 		{
-			"name": "vs/sessions/contrib/copilotChatSessions",
+			"name": "vs/sessions/contrib/providers/copilotChatSessions",
 			"project": "vscode-sessions"
 		},
 		{
@@ -825,6 +853,10 @@
 			"project": "vscode-sessions"
 		},
 		{
+			"name": "vs/sessions/contrib/search",
+			"project": "vscode-sessions"
+		},
+		{
 			"name": "vs/sessions/contrib/policyBlocked",
 			"project": "vscode-sessions"
 		},
@@ -837,7 +869,7 @@
 			"project": "vscode-sessions"
 		},
 		{
-			"name": "vs/sessions/contrib/remoteAgentHost",
+			"name": "vs/sessions/contrib/providers/remoteAgentHost",
 			"project": "vscode-sessions"
 		},
 		{
@@ -850,6 +882,10 @@
 		},
 		{
 			"name": "vs/sessions/contrib/welcome",
+			"project": "vscode-sessions"
+		},
+		{
+			"name": "vs/sessions/contrib/aquarium",
 			"project": "vscode-sessions"
 		},
 		{

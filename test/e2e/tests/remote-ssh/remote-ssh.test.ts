@@ -3,8 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
-import { test, tags } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import { createWorkbenchFromPage, waitForAnyNewWindow } from '../../infra/workbench';
@@ -80,7 +79,15 @@ test.describe('Remote SSH', {
 
 
 		const pythonSession = await test.step(`Check that correct Python is being used`, async () => {
-			const pythonSession = await sshWorkbench.sessions.start('python');
+			// The remote host has both a base interpreter and the project venv at this
+			// version; startAndSkipMetadata deprioritizes base installs so the
+			// uv-managed /root/.venv is selected (verified by the assertion below).
+			// The version comes from POSITRON_PY_REMOTE_VER_SEL (set in the yml).
+			const pythonSessionId = await sshWorkbench.sessions.startAndSkipMetadata({
+				language: 'Python',
+				version: process.env.POSITRON_PY_REMOTE_VER_SEL,
+			});
+			const pythonSession = await sshWorkbench.sessions.getMetadata(pythonSessionId);
 			await sshWorkbench.console.pasteCodeToConsole('import sys; print(sys.executable)', true);
 			await sshWorkbench.console.waitForConsoleContents('/root/.venv/bin/python');
 
@@ -114,8 +121,19 @@ test.describe('Remote SSH', {
 			await sshWin.keyboard.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
 
 			await sshWorkbench.quickInput.waitForQuickInputOpened();
-			await sshWin.keyboard.press('Backspace'); // clear any pre-filled text
-			await sshWorkbench.quickInput.type('test.py');
+
+			// The remote Save As dialog asynchronously re-populates its path
+			// input with a suggested name derived from the file's first line,
+			// which can clobber a single type() before we click OK. Retry the
+			// type until "test.py" actually sticks. Use a short settle wait +
+			// short assertion timeout so toPass can re-type quickly if the
+			// value was reset (the default 15s expect timeout would block the
+			// loop and only allow a couple of attempts).
+			await expect(async () => {
+				await sshWorkbench.quickInput.type('test.py');
+				await sshWin.waitForTimeout(750); // let any async re-population land
+				await expect(sshWorkbench.quickInput.quickInput).toHaveValue('test.py', { timeout: 1000 });
+			}).toPass({ timeout: 30000 });
 
 			await expect(async () => {
 				await sshWorkbench.quickInput.clickOkButton();

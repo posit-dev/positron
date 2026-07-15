@@ -30,7 +30,7 @@ import { usePositronReactServicesContext } from '../../../../base/browser/positr
 import { useScrollObserver } from './notebookCells/useScrollObserver.js';
 import { ScreenReaderOnly } from '../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
-import { useContextKeyValue } from './useContextKeyValue.js';
+import { useScopedContextKey } from '../../../../base/browser/positronReactHooks.js';
 import { CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../editor/contrib/find/browser/findModel.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { IDeletionSentinel } from './IPositronNotebookInstance.js';
@@ -39,6 +39,7 @@ import { getSelectedCells } from './selectionMachine.js';
 import { startScrollRestorationLoop } from './scrollRestorationLoop.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import type { NotebookDisplayOptions, NotebookLayoutConfiguration } from '../../notebook/browser/notebookOptions.js';
+import { useScrollBeyondLastLinePadding } from './useScrollBeyondLastLinePadding.js';
 
 export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
@@ -58,9 +59,9 @@ export function PositronNotebookComponent() {
 	const [isScrolled, setIsScrolled] = React.useState(false);
 
 	// Track find widget visibility for scroll decoration
-	const isFindWidgetVisible = useContextKeyValue(
-		notebookInstance.scopedContextKeyService,
-		CONTEXT_FIND_WIDGET_VISIBLE
+	const isFindWidgetVisible = useScopedContextKey(
+		CONTEXT_FIND_WIDGET_VISIBLE,
+		notebookInstance.scopedContextKeyService
 	);
 
 	// Attach the container in the callback ref so it's available synchronously
@@ -142,6 +143,10 @@ export function PositronNotebookComponent() {
 		return getSelectedCells(notebookInstance.selectionStateMachine.state.get());
 	}, [notebookInstance]);
 
+	const scrollBeyondLastLinePadding = useScrollBeyondLastLinePadding(
+		notebookInstance.size,
+	);
+
 	return (
 		<div className='positron-notebook' style={{ ...fontStyles }}>
 			{showDecoration && (
@@ -151,7 +156,7 @@ export function PositronNotebookComponent() {
 					role='presentation'
 				/>
 			)}
-			<div ref={containerCallbackRef} className='positron-notebook-cells-container positron-notebook-scrollable'>
+			<div ref={containerCallbackRef} className='positron-notebook-cells-container positron-notebook-scrollable' style={{ paddingBlockEnd: scrollBeyondLastLinePadding }}>
 				<SortableCellList
 					cells={notebookCells}
 					getSelectedCells={getSelectedCellsCallback}

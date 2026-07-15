@@ -39,8 +39,13 @@ on:
         required: false
         default: true
         type: boolean
-      run_e2e_macos:
-        description: "E2E Tests / Electron (macOS)"
+      run_e2e_macos_arm64:
+        description: "E2E Tests / Electron (macOS arm64)"
+        required: false
+        default: false
+        type: boolean
+      run_e2e_macos_x64:
+        description: "E2E Tests / Electron (macOS x64)"
         required: false
         default: false
         type: boolean
@@ -111,7 +116,7 @@ jobs:
     if: ${{ inputs.commit != 'latest' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -137,15 +142,25 @@ jobs:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       skip_cache: ${{ inputs.commit != 'latest' }}
 
-  setup-macos:
-    name: setup-macos
+  setup-macos-arm64:
+    name: setup-macos-arm64
     needs: [validate-commit]
-    if: ${{ !failure() && !cancelled() && inputs.run_e2e_macos }}
+    if: ${{ !failure() && !cancelled() && inputs.run_e2e_macos_arm64 }}
     uses: ./.github/workflows/test-e2e-macos-build.yml
     secrets: inherit
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       arch: arm64
+
+  setup-macos-x64:
+    name: setup-macos-x64
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && inputs.run_e2e_macos_x64 }}
+    uses: ./.github/workflows/test-e2e-macos-build.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      arch: x64
 
   e2e-electron:
     name: e2e
@@ -186,22 +201,39 @@ jobs:
       max_failures: 6  # 20 max failures / 4 shards = 5, rounded to 6 to avoid premature failure of the entire suite
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
-  e2e-macos:
+  e2e-macos-arm64:
     name: e2e
-    needs: [setup-macos]
-    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_macos) }}
+    needs: [setup-macos-arm64]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_macos_arm64) }}
     uses: ./.github/workflows/test-e2e-macos-run.yml
     secrets: inherit
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       grep: ${{ inputs.grep || '' }}
       project: "e2e-macOS-ci"
-      display_name: "macos"
+      display_name: "macos-arm64"
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
       max_failures: 6  # 20 max failures / 4 shards = 5, rounded to 6 to avoid premature failure of the entire suite
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
       arch: arm64
+
+  e2e-macos-x64:
+    name: e2e
+    needs: [setup-macos-x64]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_macos_x64) }}
+    uses: ./.github/workflows/test-e2e-macos-run.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      grep: ${{ inputs.grep || '' }}
+      project: "e2e-macOS-ci"
+      display_name: "macos-x64"
+      shards: 4
+      matrix: '{"shard":[1,2,3,4]}'
+      max_failures: 6  # 20 max failures / 4 shards = 5, rounded to 6 to avoid premature failure of the entire suite
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
+      arch: x64
 
   e2e-chromium:
     name: e2e
@@ -381,12 +413,12 @@ jobs:
   slack-notify:
     if: always()
     needs:
-      [validate-commit, e2e-electron, e2e-windows, e2e-macos, e2e-chromium, e2e-rhel, e2e-chromium-rhel, e2e-suse, e2e-chromium-suse, e2e-sles, e2e-chromium-sles, e2e-debian, e2e-chromium-debian, unit-tests, ext-host-tests]
+      [validate-commit, e2e-electron, e2e-windows, e2e-macos-arm64, e2e-macos-x64, e2e-chromium, e2e-rhel, e2e-chromium-rhel, e2e-suse, e2e-chromium-suse, e2e-sles, e2e-chromium-sles, e2e-debian, e2e-chromium-debian, unit-tests, ext-host-tests]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         if: always()
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: .github/actions/notify-e2e-insights
 

@@ -28,6 +28,15 @@ export async function launch(options: LaunchOptions): Promise<{ electronProcess:
 		args.push('--enable-unsafe-swiftshader'); // minimize warnings related to GPU
 		args.push('--use-gl=swiftshader'); // minimize warnings related to GPU
 		args.push('--disable-gpu-compositing'); // minimize warnings related to GPU
+		// --- Start Positron ---
+		// The CI docker image has no OS keyring backend, so any secret-storage
+		// access pops a modal "An OS keyring couldn't be identified..." dialog
+		// that intercepts all input and cascades into widespread test failures.
+		// Use Chromium's basic (file-based) password store so Electron never
+		// probes for a system keyring. Set at launch time because the per-test
+		// argv.json approach runs after the app has already started.
+		args.push('--password-store=basic');
+		// --- End Positron ---
 	}
 
 	// Launch electron via playwright
@@ -42,7 +51,7 @@ export async function launch(options: LaunchOptions): Promise<{ electronProcess:
 }
 
 async function launchElectron(configuration: IElectronConfiguration, options: LaunchOptions) {
-	const { logger, tracing, snapshots } = options;
+	const { logger, tracing, customTracing, snapshots } = options;
 
 	if (!fs.existsSync(configuration.electronPath || '')) {
 		throw new Error(`Cannot find Positron at ${configuration.electronPath}. Please run Positron once first (scripts/code.sh, scripts\\code.bat) and try again.`);
@@ -68,6 +77,12 @@ async function launchElectron(configuration: IElectronConfiguration, options: La
 	if (tracing) {
 		try {
 			await measureAndLog(() => context.tracing.start({ screenshots: true, snapshots }), 'context.tracing.start()', logger);
+			// Open the first chunk now so startup is captured. A failure during startup
+			// lands in the trace exported by the app fixture; otherwise the per-test
+			// tracing fixture re-slices from here.
+			if (customTracing) {
+				await context.tracing.startChunk({ title: 'startup' });
+			}
 		} catch (error) {
 			logger.log(`Playwright (Electron): Failed to start playwright tracing (${error})`); // do not fail the build when this fails
 		}

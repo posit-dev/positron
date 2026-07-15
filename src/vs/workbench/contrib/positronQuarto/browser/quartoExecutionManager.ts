@@ -4,17 +4,24 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { Range } from '../../../../editor/common/core/range.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { ResourceMap } from '../../../../base/common/map.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { ITextModel } from '../../../../editor/common/model.js';
+import { IModelService } from '../../../../editor/common/services/model.js';
+import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
+import { ILanguageService } from '../../../../editor/common/languages/language.js';
+import type { IInputBoundary } from '../../../../editor/common/languages.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { QuartoCodeCell } from '../common/quartoTypes.js';
@@ -23,6 +30,8 @@ import {
 	CellExecutionState,
 	ExecutionStateChangeEvent,
 	ExecutionOutputEvent,
+	FragmentProgressChangeEvent,
+	ICellFragmentProgress,
 	ICellOutput,
 	ICellOutputItem,
 	ICellOutputWebviewMetadata,
@@ -30,14 +39,17 @@ import {
 	DEFAULT_EXECUTION_CONFIG,
 	DATA_EXPLORER_MIME_TYPE,
 } from '../common/quartoExecutionTypes.js';
+import { usingQuartoInlineOutputStatementSplitting } from '../common/positronQuartoConfig.js';
 import { RuntimeOnlineState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
-import { DeferredPromise, RunOnceScheduler, timeout } from '../../../../base/common/async.js';
+import { DeferredPromise, raceCancellationError, RunOnceScheduler, timeout } from '../../../../base/common/async.js';
 import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IMissingPackagesPreflightService } from '../../positronMissingPackages/browser/missingPackagesPreflightService.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { TerminalCapability, ICommandDetectionCapability } from '../../../../platform/terminal/common/capabilities/capabilities.js';
+import { PromptInputState, IPromptInputModel } from '../../../../platform/terminal/common/capabilities/commandDetection/promptInputModel.js';
 import { parseCellExecutionOptions, QuartoCellExecutionOptions, DEFAULT_CELL_EXECUTION_OPTIONS } from '../common/quartoExecutionOptions.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { getWindow } from '../../../../base/browser/dom.js';
@@ -81,11 +93,39 @@ interface ExecutionTracker {
 }
 
 /**
+ * The result of splitting a cell's code into executable fragments.
+ */
+interface QuartoCodeFragments {
+	/** The code fragments to execute, in order. */
+	readonly fragments: string[];
+	/**
+	 * 0-based [start, end) line offsets, relative to the first line of the
+	 * executed code range, for each fragment. Aligned with `fragments`. Only
+	 * present when the code was split into more than one fragment at statement
+	 * boundaries; undefined when the whole range is executed as one fragment
+	 * (in which case the whole-cell running treatment should be used).
+	 */
+	readonly lineRanges?: { readonly start: number; readonly end: number }[];
+}
+
+/**
  * Serialized queue state for ephemeral storage.
  */
 interface SerializedQueueState {
 	queuedCells: string[];
 	runningCell: string | undefined;
+}
+
+/**
+ * Returns true when runCommand is about to send Ctrl+C before the actual
+ * command -- specifically when the prompt model is already in Input state with
+ * non-empty value. When true, exactly one premature commandFinished event should
+ * be skipped before resolving the real command's completion promise.
+ *
+ * Exported for unit testing; mirrors the condition in terminalInstance.ts runCommand().
+ */
+export function shouldSkipFirstCommandFinished(promptModel: IPromptInputModel): boolean {
+	return promptModel.state === PromptInputState.Input && promptModel.value.length > 0;
 }
 
 /**
@@ -119,8 +159,17 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	/** Queued ranges by cell ID - multiple ranges can be queued within same cell */
 	private readonly _queuedRanges = new Map<string, Range[]>();
 
+	/**
+	 * Fragment-level execution progress by cell ID. Only populated when a cell's
+	 * code was split into individual statements via an input boundary provider.
+	 */
+	private readonly _fragmentProgress = new Map<string, ICellFragmentProgress>();
+
 	private readonly _onDidChangeExecutionState = this._register(new Emitter<ExecutionStateChangeEvent>());
 	readonly onDidChangeExecutionState: Event<ExecutionStateChangeEvent> = this._onDidChangeExecutionState.event;
+
+	private readonly _onDidChangeFragmentProgress = this._register(new Emitter<FragmentProgressChangeEvent>());
+	readonly onDidChangeFragmentProgress: Event<FragmentProgressChangeEvent> = this._onDidChangeFragmentProgress.event;
 
 	private readonly _onDidReceiveOutput = this._register(new Emitter<ExecutionOutputEvent>());
 	readonly onDidReceiveOutput: Event<ExecutionOutputEvent> = this._onDidReceiveOutput.event;
@@ -132,12 +181,18 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		@IQuartoKernelManager private readonly _kernelManager: IQuartoKernelManager,
 		@IQuartoDocumentModelService private readonly _documentModelService: IQuartoDocumentModelService,
 		@IEditorService private readonly _editorService: IEditorService,
+		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
 		@IEphemeralStateService private readonly _ephemeralStateService: IEphemeralStateService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
 		@IPositronConsoleService private readonly _consoleService: IPositronConsoleService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ITerminalService private readonly _terminalService: ITerminalService,
+		@IModelService private readonly _modelService: IModelService,
+		@ILanguageService private readonly _languageService: ILanguageService,
+		@ILanguageFeaturesService private readonly _languageFeaturesService: ILanguageFeaturesService,
+		@IMissingPackagesPreflightService private readonly _missingPackagesPreflightService: IMissingPackagesPreflightService,
 	) {
 		super();
 
@@ -165,11 +220,22 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			return;
 		}
 
+		// Running code pins the document tab so its preview editor (and any
+		// backing runtime session) isn't silently closed.
+		this._pinEditorForDocument(documentUri);
+
 		this._logService.debug(`[QuartoExecutionManager] Queueing ${cells.length} cells for execution`);
 
 		// Filter cells based on eval option when running multiple cells.
 		// When a single cell is executed, always execute regardless of eval option (explicit user action).
 		const isMultiCellExecution = cells.length > 1;
+
+		// On a run-all-style gesture (multiple cells), offer to install any
+		// missing packages first. Single-cell runs are explicit and skip this.
+		if (isMultiCellExecution &&
+			!await this._missingPackagesPreflightService.confirmBeforeRun(documentUri)) {
+			return;
+		}
 		let filteredCells = cells;
 		if (isMultiCellExecution) {
 			const textModel = await this._getTextModel(documentUri);
@@ -317,6 +383,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		if (codeRanges.length === 0) {
 			return;
 		}
+
+		// Running code pins the document tab so its preview editor (and any
+		// backing runtime session) isn't silently closed. See #14736.
+		this._pinEditorForDocument(documentUri);
 
 		this._logService.debug(`[QuartoExecutionManager] Queueing ${codeRanges.length} inline code ranges for execution`);
 
@@ -600,53 +670,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				const { execution, deferred, disposables, cts } = tracker;
 				const executionId = execution.executionId;
 
-				// Set up message handlers, passing options for error tracking
-				this._setupMessageHandlers(tracker, session, documentUri, () => {
-					hadError = true;
-				});
-
 				// Get just the code in the specified range
 				const code = await this._getCodeInRange(documentUri, codeRange);
 				if (!code) {
 					throw new Error('Could not get code in range');
 				}
-
-				// Execute the code
-				this._logService.debug(`[QuartoExecutionManager] Executing inline code in cell ${cell.id} with execution ID ${executionId}`);
-				const errorBehavior = options.error
-					? RuntimeErrorBehavior.Stop
-					: RuntimeErrorBehavior.Continue;
-				session.execute(
-					code,
-					executionId,
-					RuntimeCodeExecutionMode.Interactive,
-					errorBehavior,
-					undefined,
-					executionMetadata
-				);
-
-				// Fire the event signaling code execution.
-				const event: ILanguageRuntimeCodeExecutedEvent = {
-					executionId,
-					sessionId: session.sessionId,
-					attribution: {
-						source: CodeAttributionSource.Notebook,
-						metadata: {
-							cell: {
-								uri: cell.id,
-								notebook: {
-									uri: documentUri,
-								},
-							},
-						},
-					},
-					code,
-					languageId: cell.language,
-					runtimeName: session.runtimeMetadata.runtimeName,
-					errorBehavior,
-					mode: RuntimeCodeExecutionMode.Interactive,
-				};
-				this._onDidExecuteCode.fire(event);
 
 				// Set up timeout
 				const timeoutMs = DEFAULT_EXECUTION_CONFIG.executionTimeout;
@@ -666,16 +694,108 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					}));
 				}
 
-				// Wait for completion
-				await Promise.race([
-					deferred.p,
-					new Promise<void>((_, reject) => {
-						const cancellationListener = cts.token.onCancellationRequested(() => {
-							reject(new Error('Execution cancelled'));
-						});
-						disposables.add(cancellationListener);
-					}),
-				]);
+				const cancellationPromise = new Promise<void>((_, reject) => {
+					const cancellationListener = cts.token.onCancellationRequested(() => {
+						reject(new Error('Execution cancelled'));
+					});
+					disposables.add(cancellationListener);
+				});
+				cancellationPromise.catch(() => undefined);
+
+				const { fragments: codeFragments, lineRanges } = await this._getCodeFragments(cellLanguage, code, cts.token);
+				const errorBehavior = options.error
+					? RuntimeErrorBehavior.Stop
+					: RuntimeErrorBehavior.Continue;
+
+				// When the code was split into individual statements, compute the
+				// absolute document line range for each fragment so the gutter can
+				// show per-statement progress as execution advances.
+				const fragmentRanges = lineRanges?.map(({ start, end }) => new Range(
+					codeRange.startLineNumber + start, 1,
+					codeRange.startLineNumber + end - 1, 1,
+				));
+
+				for (let index = 0; index < codeFragments.length; index++) {
+					// Stop dispatching fragments if execution was cancelled between
+					// fragments (e.g. a cancellation that raced a fragment's idle).
+					if (cts.token.isCancellationRequested) {
+						break;
+					}
+
+					// Update per-fragment gutter progress: mark earlier fragments as
+					// executed, this one as executing, and the rest as pending.
+					if (fragmentRanges) {
+						this._setFragmentProgress(cell.id, fragmentRanges, index);
+					}
+
+					const fragment = codeFragments[index];
+					const fragmentExecutionId = codeFragments.length === 1
+						? executionId
+						: `${executionId}-${index + 1}`;
+					const fragmentDeferred = new DeferredPromise<void>();
+					const fragmentDisposables = new DisposableStore();
+					disposables.add(fragmentDisposables);
+
+					this._setupMessageHandlers(
+						tracker,
+						session,
+						documentUri,
+						() => {
+							hadError = true;
+						},
+						fragmentExecutionId,
+						() => fragmentDeferred.complete(),
+						fragmentDisposables
+					);
+
+					this._logService.debug(
+						`[QuartoExecutionManager] Executing inline code in cell ${cell.id} with execution ID ${fragmentExecutionId}`
+					);
+					session.execute(
+						fragment,
+						fragmentExecutionId,
+						RuntimeCodeExecutionMode.Interactive,
+						errorBehavior,
+						undefined,
+						executionMetadata
+					);
+
+					// Fire the event signaling code execution.
+					const event: ILanguageRuntimeCodeExecutedEvent = {
+						executionId: fragmentExecutionId,
+						sessionId: session.sessionId,
+						attribution: {
+							source: CodeAttributionSource.Notebook,
+							metadata: {
+								cell: {
+									uri: cell.id,
+									notebook: {
+										uri: documentUri,
+									},
+								},
+							},
+						},
+						code: fragment,
+						languageId: cell.language,
+						runtimeName: session.runtimeMetadata.runtimeName,
+						errorBehavior,
+						mode: RuntimeCodeExecutionMode.Interactive,
+					};
+					this._onDidExecuteCode.fire(event);
+
+					await Promise.race([
+						fragmentDeferred.p,
+						deferred.p,
+						cancellationPromise,
+					]);
+					fragmentDisposables.dispose();
+
+					if (hadError && options.error) {
+						break;
+					}
+				}
+
+				deferred.complete();
 
 				// Update state to completed or error based on whether runtime errors occurred
 				if (hadError) {
@@ -686,7 +806,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 				return hadError;
 			},
-			{ trackRunningCell: true, persistQueueState: true }
+			{ trackRunningCell: true, persistQueueState: true },
+			token
 		);
 	}
 
@@ -787,7 +908,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				}
 
 				return hadError;
-			}
+			},
+			undefined,
+			token
 		);
 	}
 
@@ -855,7 +978,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
 					return false;
 				}
-			}
+			},
+			undefined,
+			token
 		);
 	}
 
@@ -875,10 +1000,22 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	): Promise<number | undefined> {
 		const { cts } = tracker;
 
+		// runCommand sends Ctrl+C before our command when the prompt model is in Input
+		// state with non-empty value (can happen on a fresh terminal if the buffer
+		// position is misread during startup). That interrupt fires commandFinished for
+		// the aborted command before the real command runs. Skip exactly one event when
+		// that will happen -- see shouldSkipFirstCommandFinished for the full rationale.
+		let skipNextCommandFinished = shouldSkipFirstCommandFinished(commandDetection.promptInputModel);
+
 		// Set up promise to wait for command completion
 		const commandFinishedPromise = new DeferredPromise<import('../../../../platform/terminal/common/capabilities/capabilities.js').ITerminalCommand | undefined>();
 
 		disposables.add(commandDetection.onCommandFinished(command => {
+			if (skipNextCommandFinished) {
+				skipNextCommandFinished = false;
+				this._logService.debug(`[QuartoExecutionManager] Skipping premature Ctrl+C commandFinished`);
+				return;
+			}
 			this._logService.debug(`[QuartoExecutionManager] Terminal command finished`);
 			commandFinishedPromise.complete(command);
 		}));
@@ -1409,13 +1546,14 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		codeRange: Range,
 		executionIdSuffix: string,
 		executeFn: (tracker: ExecutionTracker) => Promise<boolean>,
-		options?: { trackRunningCell?: boolean; persistQueueState?: boolean }
+		options?: { trackRunningCell?: boolean; persistQueueState?: boolean },
+		parentToken?: CancellationToken
 	): Promise<boolean> {
 		let hadError = false;
 
 		const idPart = executionIdSuffix ? `-${executionIdSuffix}` : '';
 		const executionId = `${QUARTO_EXEC_PREFIX}${idPart}-${generateUuid()}`;
-		const cts = new CancellationTokenSource();
+		const cts = new CancellationTokenSource(parentToken);
 		const deferred = new DeferredPromise<void>();
 		const disposables = new DisposableStore();
 
@@ -1470,6 +1608,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				this._runningCells.delete(documentUri);
 			}
 			this._runningRanges.delete(cell.id);
+			this._fragmentProgress.delete(cell.id);
 			this._executionTrackers.delete(cell.id);
 			disposables.dispose();
 			cts.dispose();
@@ -1496,6 +1635,145 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			this._logService.warn(`[QuartoExecutionManager] Failed to get code in range:`, error);
 			return undefined;
 		}
+	}
+
+	/**
+	 * Split code into complete language inputs when the feature is enabled and
+	 * a language input boundary provider is available.
+	 */
+	private async _getCodeFragments(languageId: string, code: string, token: CancellationToken): Promise<QuartoCodeFragments> {
+		if (!usingQuartoInlineOutputStatementSplitting(this._configurationService)) {
+			return { fragments: [code] };
+		}
+
+		const result = await this._getCodeFragmentsFromInputBoundaryProvider(languageId, code, token);
+		if (!result) {
+			return { fragments: [code] };
+		}
+
+		// Only expose per-fragment line ranges (used for granular gutter
+		// progress) when the code was actually split into multiple statements.
+		// A single fragment covers the whole range, which is indistinguishable
+		// from the whole-cell running treatment.
+		if (result.fragments.length > 1) {
+			return result;
+		}
+		return { fragments: result.fragments };
+	}
+
+	/**
+	 * Ask a language provider for all input boundaries in one request and split
+	 * the code accordingly.
+	 */
+	private async _getCodeFragmentsFromInputBoundaryProvider(languageId: string, code: string, token: CancellationToken): Promise<QuartoCodeFragments | undefined> {
+		const model = this._modelService.createModel(
+			code,
+			this._languageService.createById(languageId),
+			URI.from({ scheme: 'inmemory', path: `/quarto-input-boundaries/${generateUuid()}` })
+		);
+
+		try {
+			const providers = this._languageFeaturesService.inputBoundaryProvider.ordered(model);
+			if (providers.length === 0) {
+				return undefined;
+			}
+
+			const range = model.getFullModelRange();
+			for (const provider of providers) {
+				let boundaries: IInputBoundary[] | undefined | null;
+				try {
+					boundaries = await raceCancellationError(Promise.resolve(provider.provideInputBoundaries(model, range, token)), token);
+				} catch (error) {
+					if (isCancellationError(error)) {
+						throw error;
+					}
+					this._logService.debug('[QuartoExecutionManager] Failed to query input boundaries; trying the next provider', error);
+					continue;
+				}
+
+				const fragments = this._getCodeFragmentsFromBoundaries(code, boundaries);
+				if (fragments) {
+					return fragments;
+				}
+				this._logService.debug('[QuartoExecutionManager] Ignoring malformed input boundaries; executing the full code range');
+				return undefined;
+			}
+		} finally {
+			model.dispose();
+		}
+
+		return undefined;
+	}
+
+	private _getCodeFragmentsFromBoundaries(code: string, boundaries: unknown): QuartoCodeFragments | undefined {
+		if (!Array.isArray(boundaries)) {
+			return undefined;
+		}
+
+		const lines = code.split('\n');
+		const fragments: string[] = [];
+		const lineRanges: { start: number; end: number }[] = [];
+		let sawValidBoundary = false;
+		let nextStart = 0;
+
+		for (const boundary of boundaries) {
+			if (!boundary || typeof boundary !== 'object') {
+				return undefined;
+			}
+
+			const kind = (boundary as IInputBoundary).kind;
+			if (kind !== 'whitespace' &&
+				kind !== 'complete' &&
+				kind !== 'incomplete' &&
+				kind !== 'invalid'
+			) {
+				return undefined;
+			}
+
+			const range = (boundary as IInputBoundary).range;
+			if (!range ||
+				!Number.isInteger(range.start) ||
+				!Number.isInteger(range.end) ||
+				range.start !== nextStart ||
+				range.start < 0 ||
+				range.end < range.start ||
+				range.end > lines.length
+			) {
+				return undefined;
+			}
+
+			if (kind !== 'whitespace' && range.start === range.end) {
+				return undefined;
+			}
+
+			sawValidBoundary = true;
+			nextStart = range.end;
+			if (kind === 'whitespace') {
+				continue;
+			}
+
+			const fragment = lines.slice(range.start, range.end).join('\n');
+			if (fragment.length > 0) {
+				fragments.push(fragment);
+				// Keep line ranges aligned with fragments so the gutter can map
+				// each fragment back to its lines within the executed range.
+				lineRanges.push({ start: range.start, end: range.end });
+			}
+		}
+
+		if (!sawValidBoundary) {
+			return undefined;
+		}
+
+		if (nextStart !== lines.length) {
+			return undefined;
+		}
+
+		if (fragments.length === 0) {
+			return { fragments: [code] };
+		}
+
+		return { fragments, lineRanges };
 	}
 
 	async cancelQueuedCell(documentUri: URI, cellId: string): Promise<void> {
@@ -1574,6 +1852,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 	getQueuedRanges(cellId: string): Range[] {
 		return [...(this._queuedRanges.get(cellId) ?? [])];
+	}
+
+	getFragmentProgress(cellId: string): ICellFragmentProgress | undefined {
+		return this._fragmentProgress.get(cellId);
 	}
 
 	getQueuedCells(documentUri: URI): string[] {
@@ -1697,16 +1979,19 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	 * @param session Runtime session
 	 * @param documentUri Document URI
 	 * @param onError Optional callback invoked when an error message is received
+	 * @param executionId Execution ID whose messages should be handled
+	 * @param onComplete Callback invoked when the execution becomes idle
+	 * @param disposables Store for the message handler disposables
 	 */
 	private _setupMessageHandlers(
 		tracker: ExecutionTracker,
 		session: ILanguageRuntimeSession,
 		documentUri: URI,
-		onError?: () => void
+		onError?: () => void,
+		executionId = tracker.execution.executionId,
+		onComplete: () => void = () => tracker.deferred.complete(),
+		disposables = tracker.disposables
 	): void {
-		const { execution, deferred, disposables } = tracker;
-		const executionId = execution.executionId;
-
 		// Handle output messages (display_data)
 		disposables.add(session.onDidReceiveRuntimeMessageOutput(message => {
 			if (message.parent_id !== executionId) {
@@ -1761,7 +2046,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			}
 			if (message.state === RuntimeOnlineState.Idle) {
 				this._logService.debug(`[QuartoExecutionManager] Execution completed for ${executionId}`);
-				deferred.complete();
+				onComplete();
 			}
 		}));
 	}
@@ -1936,6 +2221,22 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	}
 
 	/**
+	 * Pin any editor showing the given document.
+	 *
+	 * Quarto documents open as preview tabs, which are silently replaced when
+	 * the user opens another file. Running code signals the user intends to
+	 * work with the document, not just preview it -- and in inline output mode
+	 * it creates a backing runtime session -- so we pin the tab to prevent it
+	 * from being closed out from under a live session. This mirrors the
+	 * notebook behavior where running a cell pins the editor.
+	 */
+	private _pinEditorForDocument(documentUri: URI): void {
+		for (const { groupId, editor } of this._editorService.findEditors(documentUri)) {
+			this._editorGroupsService.getGroup(groupId)?.pinEditor(editor);
+		}
+	}
+
+	/**
 	 * Get the text model for a document URI.
 	 */
 	private async _getTextModel(documentUri: URI): Promise<ITextModel | undefined> {
@@ -2009,6 +2310,20 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				}
 			}
 		}
+	}
+
+	/**
+	 * Set the fragment-level execution progress for a cell and notify listeners.
+	 * The fragment at `executingIndex` is currently executing; earlier fragments
+	 * are considered executed and later ones pending.
+	 */
+	private _setFragmentProgress(cellId: string, fragmentRanges: Range[], executingIndex: number): void {
+		this._fragmentProgress.set(cellId, {
+			executed: fragmentRanges.slice(0, executingIndex),
+			executing: fragmentRanges[executingIndex],
+			pending: fragmentRanges.slice(executingIndex + 1),
+		});
+		this._onDidChangeFragmentProgress.fire({ cellId });
 	}
 
 	/**

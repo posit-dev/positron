@@ -38,7 +38,7 @@
 		"configuration": {
 			"title": "%configuration.title%",
 			"properties": {
-				"nextEditSuggestions.enable": {
+				"nextEditSuggestions.enabled": {
 					"type": "object",
 					"default": {
 						"*": true,
@@ -46,7 +46,10 @@
 						"markdown": false,
 						"scminput": false
 					},
-					"description": "%configuration.enable.description%",
+					"additionalProperties": {
+                    	"type": "boolean"
+                    },
+					"description": "%configuration.enabled.description%",
 					"tags": [
 						"preview"
 					]

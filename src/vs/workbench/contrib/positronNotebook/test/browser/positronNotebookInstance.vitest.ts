@@ -273,13 +273,87 @@ describe('PositronNotebookInstance', () => {
 		});
 	});
 
+	describe('left gutter alignment of code cells (lineNumbersMinChars)', () => {
+		function linesOf(n: number): string {
+			return Array.from({ length: n }, (_, i) => `line ${i}`).join('\n');
+		}
+
+		it('initial width is 2 when all cells have fewer than 100 lines', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[
+					[linesOf(5), 'python', CellKind.Code],
+					[linesOf(20), 'python', CellKind.Code],
+				],
+				ctx,
+			);
+			expect(notebook.getBaseCellEditorOptions('python').value.lineNumbersMinChars).toBe(2);
+		});
+
+		it('initial width scales to the widest cell', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[
+					[linesOf(5), 'python', CellKind.Code],
+					[linesOf(20), 'python', CellKind.Code],
+					[linesOf(150), 'python', CellKind.Code],
+				],
+				ctx,
+			);
+			expect(notebook.getBaseCellEditorOptions('python').value.lineNumbersMinChars).toBe(3);
+		});
+
+		it('returns the same options instance for repeated calls with the same language', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[[linesOf(5), 'python', CellKind.Code]],
+				ctx,
+			);
+			const a = notebook.getBaseCellEditorOptions('python');
+			const b = notebook.getBaseCellEditorOptions('python');
+			expect(a).toBe(b);
+		});
+
+		it('width updates when a cell crosses a digit boundary', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[
+					[linesOf(5), 'python', CellKind.Code],
+					[linesOf(9), 'python', CellKind.Code],
+				],
+				ctx,
+			);
+			expect(notebook.getBaseCellEditorOptions('python').value.lineNumbersMinChars).toBe(2);
+			// Edit in place via applyEdits (as production does) so the cell's
+			// shared text buffer reflects the new line count. setValue would
+			// replace the model's buffer and leave the cell's buffer stale.
+			const textModel = notebook.cells.get()[1].model.textModel!;
+			textModel.applyEdits([{ range: textModel.getFullModelRange(), text: linesOf(100) }]);
+			expect(notebook.getBaseCellEditorOptions('python').value.lineNumbersMinChars).toBe(3);
+		});
+	});
+
+	describe('identity', () => {
+		// This test was introduced when we added support for split editing.
+		// Split editing required the move from having a unique instance per
+		// editor input (and therefore URI) to sharing one editor input
+		// (and therefore URI) across multiple instances.
+		it('two instances for the same URI have distinct IDs', () => {
+			const uri = URI.parse('test:///same/notebook.ipynb');
+			const viewType = 'jupyter-notebook';
+
+			const a = ctx.disposables.add(ctx.instantiationService.createInstance(
+				TestPositronNotebookInstance, uri, viewType, undefined,
+			));
+			const b = ctx.disposables.add(ctx.instantiationService.createInstance(
+				TestPositronNotebookInstance, uri, viewType, undefined,
+			));
+
+			expect(a.getId()).not.toBe(b.getId());
+		});
+	});
+
 	describe('attachView', () => {
 		function createInstance(): TestPositronNotebookInstance {
-			const id = `attach-${Math.random().toString(36).slice(2)}`;
 			const notebook = ctx.disposables.add(ctx.instantiationService.createInstance(
 				TestPositronNotebookInstance,
-				id,
-				URI.parse(`test:///${id}.ipynb`),
+				URI.parse(`test:///attach-view.ipynb`),
 				'jupyter-notebook',
 				undefined,
 			));

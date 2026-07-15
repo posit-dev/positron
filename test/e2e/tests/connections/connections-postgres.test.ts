@@ -3,21 +3,27 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
-import { test, tags } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
 const viewLine = '.lines-content .view-line';
-const dbName = process.env.E2E_POSTGRES_DB || 'testdb';
+const dbName = 'periodic';
 const user = process.env.E2E_POSTGRES_USER || 'testuser';
 const password = process.env.E2E_POSTGRES_PASSWORD || 'testpassword';
 
 test.describe('Postgres DB Connection', {
-	tag: [tags.WEB, tags.CONNECTIONS, tags.WORKBENCH]
+	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH]
 }, () => {
+
+	// These tests require a running Postgres container, which is only available on the Windows
+	// and web CI rigs. The macOS CI project runs @:win-tagged tests too (see playwright.config.ts),
+	// but has no Postgres container, so skip the whole suite there.
+	test.beforeEach(function () {
+		test.skip(process.platform === 'darwin', 'No Postgres container available on macOS CI');
+	});
 
 	test('Python - Can establish a Postgres connection to a docker container', async function ({ app, hotKeys, python }) {
 

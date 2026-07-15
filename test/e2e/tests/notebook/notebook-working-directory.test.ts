@@ -51,7 +51,7 @@ test.describe('Notebook Working Directory Configuration', {
 		{
 			title: 'workspaceFolder works',
 			workingDirectory: '${workspaceFolder}',
-			expectedEnd: 'qa-example-content',
+			expectedEnd: 'test-files',
 		},
 	];
 

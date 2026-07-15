@@ -5,29 +5,17 @@
 
 import { expect } from '@playwright/test';
 import { join } from 'path';
-import { test as base } from '../../tests/_test.setup';
+import { test } from '../../tests/_test.setup';
 import { captureFullWindow } from '../_helpers/screenshot-utils';
 import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
 import { annotate, clearAnnotations } from '../_helpers/annotate-utils';
 
 const ANNOTATION_COLOR = '#dc2626';
 
-const test = base.extend({
-	beforeApp: [
-		async ({ settingsFile }, use) => {
-			settingsFile.append({ 'positron.notebook.enabled': true });
-			await use();
-		},
-		{ scope: 'worker' }
-	],
-});
-
+// The Positron notebook editor is enabled by default in the pre-release builds
+// these screenshots run against, so no settings override is needed here.
 test.use({
 	suiteId: __filename,
-});
-
-test.beforeAll(async ({ app }) => {
-	await app.workbench.assistant.loginModelProvider('anthropic-api');
 });
 
 test.afterEach(async ({ page, hotKeys, cleanup }) => {
@@ -61,7 +49,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
+		await overrideWorkspaceName(page, 'test-files', 'positron-demos-notebooks');
 		await annotate(page, [
 			{ selector: 'button[aria-label="Kernel Actions"]', label: '', color: ANNOTATION_COLOR, padding: 6 },
 		]);
@@ -93,7 +81,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
+		await overrideWorkspaceName(page, 'test-files', 'positron-demos-notebooks');
 		await annotate(page, [
 			{ selector: '.editor-action-bar-container button[aria-label="Ask Assistant"]', label: '', color: ANNOTATION_COLOR, padding: 3 },
 		]);
@@ -107,7 +95,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 * left having responded to "Tell me about this notebook", variables on right.
 	 */
 	test('Release Screenshot - positron-notebook.png', async ({ app, page, settings, python }) => {
-		const { notebooksPositron, variables, hotKeys, layouts, plots, quickaccess, quickInput, editors, positAssistant } = app.workbench;
+		const { notebooksPositron, variables, hotKeys, layouts, plots, quickaccess, quickInput, editors, positAssistant, assistant } = app.workbench;
 
 		await settings.set({
 			'positron.assistant.notebook.ghostCellSuggestions.enabled': false,
@@ -149,7 +137,8 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await quickInput.clickOkButton();
 		await editors.waitForActiveTab('explore-energy-data.ipynb', false);
 
-		// Open Posit Assistant chat on the left and ask about the notebook.
+		// Log in to the model provider and open Posit Assistant chat on the left.
+		await assistant.loginModelProvider('anthropic-api');
 		await positAssistant.open();
 		await positAssistant.waitForReady();
 		await positAssistant.sendMessageAndWait('Tell me about this notebook', { timeout: 90_000, newConversation: true });
@@ -172,7 +161,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 
 		// Capture screenshot
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks-2');
+		await overrideWorkspaceName(page, 'test-files', 'positron-demos-notebooks-2');
 		await captureFullWindow(page, 'positron-notebook.png');
 	});
 });

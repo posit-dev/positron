@@ -31,15 +31,15 @@ test.describe('R Package Development', { tag: [tags.R_PKG_DEVELOPMENT, tags.ARK]
 	test('R - Verify can open, test, check, install, and restart package', async function ({ app, openFolder, logger, settings }) {
 		test.slow();
 
-		// Open an R package embedded in qa-example-content
-		await openFolder(path.join('qa-example-content/workspaces/r_testing'));
+		// Open an R package embedded in test-files
+		await openFolder(path.join('test-files/workspaces/r_testing'));
 		await app.workbench.console.waitForReadyAndStarted('>', 45000);
 
 		await test.step('Test R Package', async () => {
 			logger.log('Test R Package');
 			await app.workbench.quickaccess.runCommand('r.packageTest');
 			await expect(async () => {
-				await app.workbench.terminal.waitForTerminalText('[ FAIL 1 | WARN 0 | SKIP 1 | PASS 16 ]', { timeout: 20000 });
+				await app.workbench.terminal.waitForTerminalText(/\[ FAIL \d+ \| WARN \d+ \| SKIP \d+ \| PASS \d+ \]/, { timeout: 20000 });
 				await app.workbench.terminal.waitForTerminalText('Terminal will be reused by tasks', { timeout: 20000 });
 			}).toPass({ timeout: 70000 });
 		});

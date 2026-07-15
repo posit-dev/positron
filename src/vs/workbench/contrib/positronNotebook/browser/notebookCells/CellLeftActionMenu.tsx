@@ -21,9 +21,6 @@ export function CellLeftActionMenu({ cell }: CellLeftActionMenuProps) {
 	// Observed values
 	const executionOrder = useDebouncedObservedValue(cell.lastExecutionOrder);
 
-	// Determine what to show
-	const showPending = executionOrder === undefined;
-
 	return (
 		<div
 			className='left-hand-action-container'
@@ -31,10 +28,8 @@ export function CellLeftActionMenu({ cell }: CellLeftActionMenuProps) {
 			<div
 				className='left-hand-action-container-bottom'
 			>
-				{/* Execution order badge */}
-				{showPending ? (
-					<span className='execution-order-badge'>-</span>
-				) : executionOrder !== undefined ? (
+				{/* Execution order badge (only shown once the cell has been executed) */}
+				{executionOrder !== undefined ? (
 					<div className='execution-order-badge-container'>
 						<span className='execution-order-badge-bracket'>[</span>
 						<span className='execution-order-badge'> {String(executionOrder)} </span>

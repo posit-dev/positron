@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { FileFilter } from '../../../../../platform/dialogs/common/dialogs.js';
 import { IDataConnectionNodeDTO } from './dataConnectionDTOs.js';
 
 // --- Service-level interfaces ---
@@ -40,6 +41,9 @@ export interface IDataConnectionProfile {
 	// The user-chosen name for this connection.
 	connectionName: string;
 
+	// The id of the mechanism this connection was configured with. One of the driver's mechanisms.
+	mechanismId: string;
+
 	// The parameter values for this connection.
 	parameterValues: DataConnectionParameterValues;
 }
@@ -50,6 +54,7 @@ export interface IDataConnectionProfile {
 export interface IDataConnectionParameterBase {
 	id: string;
 	label: string;
+	description?: string;
 	required?: boolean;
 }
 
@@ -57,17 +62,39 @@ export interface IDataConnectionParameterBase {
  * Service-level data connection parameter. Mirrors the public API's DataConnectionParameter
  * discriminated union: `secret` lives only on `password` and `string` variants, and a `string`
  * marked `secret: true` cannot carry a `defaultValue`. The RPC layer converts
- * IDataConnectionParameterDTO → IDataConnectionParameter at the main-thread boundary.
+ * IDataConnectionParameterDTO → IDataConnectionParameter at the main-thread boundary; the `file`
+ * variant's filters dictionary becomes an ordered FileFilter array there so UI consumers can pass
+ * it straight to the file dialog service.
  */
 export type IDataConnectionParameter = IDataConnectionParameterBase & (
 	| { type: 'boolean'; defaultValue?: boolean }
-	| { type: 'file'; defaultValue?: string; placeholder?: string }
+	| { type: 'file'; defaultValue?: string; placeholder?: string; filters?: FileFilter[] }
 	| { type: 'number'; defaultValue?: number; placeholder?: string }
 	| { type: 'option'; options: string[]; defaultValue?: string; placeholder?: string }
 	| { type: 'password'; secret: true; placeholder?: string }
 	| { type: 'string'; secret?: false; defaultValue?: string; placeholder?: string }
-	| { type: 'string'; secret: true; placeholder?: string }
+	| { type: 'string'; secret: true; masked?: boolean; placeholder?: string }
 );
+
+/**
+ * Type guard for a parameter that holds a secret value (e.g. a password). Secret parameters carry
+ * `secret: true`; non-secret parameters either omit the field or set it to `false`.
+ * @param parameter The parameter to test.
+ */
+export function isSecretParameter(parameter: IDataConnectionParameter): boolean {
+	return parameter.type === 'password' || (parameter.type === 'string' && parameter.secret === true);
+}
+
+/**
+ * Service-level configuration mechanism. Same shape as IDataConnectionMechanismDTO but with the
+ * richer discriminated parameter type so consumers get narrowed `parameter.type`.
+ */
+export interface IDataConnectionMechanism {
+	id: string;
+	label: string;
+	description: string;
+	parameters: IDataConnectionParameter[];
+}
 
 /**
  * Service-level driver metadata. Same shape as IDataConnectionDriverMetadataDTO but with the
@@ -78,8 +105,36 @@ export interface IDataConnectionDriverMetadata {
 	name: string;
 	description: string;
 	iconSvg: string;
-	parameters: IDataConnectionParameter[];
+	mechanisms: IDataConnectionMechanism[];
 	supportedLanguageIds: string[];
+}
+
+/**
+ * Resolves the mechanism a profile was configured with. Falls back to the driver's first mechanism
+ * when the id is missing or unknown: profiles persisted before mechanisms existed carry no
+ * mechanismId, and historically a driver had exactly one parameter set, which is now its first
+ * mechanism. Returns undefined only if the driver exposes no mechanisms.
+ * @param metadata The driver metadata to resolve against.
+ * @param mechanismId The profile's mechanism id, or undefined for a pre-mechanisms profile.
+ */
+export function resolveDataConnectionMechanism(metadata: IDataConnectionDriverMetadata, mechanismId: string | undefined): IDataConnectionMechanism | undefined {
+	return metadata.mechanisms.find(_ => _.id === mechanismId) ?? metadata.mechanisms[0];
+}
+
+/**
+ * Service-level form of a single named connection code variant. Same shape as
+ * IDataConnectionCodeVariantDTO; kept distinct so the in-process representation can evolve
+ * independently of the wire contract.
+ */
+export interface IDataConnectionCodeVariant {
+	// A stable identifier for the variant, unique within the returned list.
+	id: string;
+
+	// A user-facing label for the variant.
+	label: string;
+
+	// The generated connection code for this variant.
+	code: string;
 }
 
 /**
@@ -89,7 +144,31 @@ export interface IDataConnectionDriverMetadata {
 export interface IDataConnectionDriver {
 	readonly id: string;
 	readonly metadata: IDataConnectionDriverMetadata;
-	connect(params: DataConnectionParameterValues): Promise<IDataConnectionHandle>;
+	connect(mechanismId: string, params: DataConnectionParameterValues): Promise<IDataConnectionHandle>;
+
+	/**
+	 * Generates the available connection code variants for the given language using the selected
+	 * mechanism and the provided parameter values. Callers should only invoke this for drivers that
+	 * report at least one supported language (see
+	 * {@link IDataConnectionDriverMetadata.supportedLanguageIds}); the underlying driver rejects the
+	 * call when it does not implement code generation. Variants are returned in preference order
+	 * (first is the default); an empty array means code cannot be generated from the given parameters.
+	 * @param mechanismId The id of the mechanism the user selected.
+	 * @param languageId One of the driver's supported language ids.
+	 * @param params The current connection parameter values.
+	 */
+	generateConnectionCode(mechanismId: string, languageId: string, params: DataConnectionParameterValues): Promise<IDataConnectionCodeVariant[]>;
+
+	/**
+	 * Produces a display-safe, redacted form of a stored secret parameter value (e.g. masking the
+	 * password embedded in a connection string) for display in the configuration dialog. The cleartext
+	 * value is passed to the driver in the ext host; only the redacted result returns. Resolves to
+	 * undefined when the driver does not implement redaction.
+	 * @param mechanismId The id of the mechanism the connection was configured with.
+	 * @param parameterId The id of the parameter to redact.
+	 * @param value The stored cleartext parameter value.
+	 */
+	redactParameterValue(mechanismId: string, parameterId: string, value: string): Promise<string | undefined>;
 }
 
 /**

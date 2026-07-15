@@ -120,9 +120,16 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	private readonly _onDidChangeFileHasHeaderRowEmitter = this._register(new Emitter<boolean>());
 
 	/**
-	 * Tracks the current "has header row" state for delimited text files (default true).
+	 * Tracks the current "has header row" state for delimited text files and
+	 * Excel workbooks (default true).
 	 */
 	private _fileHasHeaderRow = true;
+
+	/**
+	 * Tracks the explicitly selected worksheet for Excel workbooks. Undefined
+	 * means the default (first) sheet; see {@link fileSelectedSheet}.
+	 */
+	private _fileSheetName: string | undefined;
 
 	/**
 	 * The number of editor panes currently showing this instance.
@@ -142,10 +149,13 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * @param _languageName The language name.
 	 * @param _dataExplorerClientInstance The DataExplorerClientInstance. The data explorer takes
 	 * ownership of the client instance and will dispose it when it is disposed.
+	 * @param _isInline Whether this instance backs an inline/embedded view (e.g. a notebook
+	 * cell output) whose comm is shared and runtime-owned.
 	 */
 	constructor(
 		private readonly _languageName: string,
-		private readonly _dataExplorerClientInstance: DataExplorerClientInstance
+		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
+		private readonly _isInline: boolean = false
 	) {
 		// Call the base class's constructor.
 		super();
@@ -244,6 +254,17 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	get dataExplorerClientInstance() {
 		return this._dataExplorerClientInstance;
+	}
+
+	/**
+	 * Gets whether this instance backs an inline/embedded view (e.g. a notebook
+	 * cell output). Inline comms are shared with the embedding view, whose
+	 * lifetime outlives any editor tab opened against the same comm; their
+	 * lifecycle is owned by the runtime (closed on cell re-execution or session
+	 * end). An editor tab must not dispose the client for an inline instance.
+	 */
+	get isInline() {
+		return this._isInline;
 	}
 
 	/**
@@ -449,10 +470,13 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
-	 * Toggles the "has header row" option and reloads the data.
-	 * Only applicable for delimited text files (CSV/TSV) opened with DuckDB backend.
+	 * Applies file import options (header row and, for Excel workbooks, the
+	 * worksheet to read) and reloads the data. Only applicable for files opened
+	 * with the DuckDB backend. Options are sent together because the backend
+	 * replaces the full set on each call.
+	 * @param options The file options to apply.
 	 */
-	async toggleFileHasHeaderRow(): Promise<void> {
+	async applyFileOptions(options: { hasHeaderRow: boolean; sheetName?: string }): Promise<void> {
 		const backendClient = this._dataExplorerClientInstance.backendClient;
 
 		// Check if this is a DuckDB backend
@@ -469,12 +493,10 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		// Import the DuckDB backend type and call the method
 		const duckdbBackend = backendClient as import('../common/positronDataExplorerDuckDBBackend.js').PositronDataExplorerDuckDBBackend;
 
-		// Toggle the state (default is true, so if not set, we're toggling from true to false)
-		const newHasHeaderRow = !this._fileHasHeaderRow;
-
 		try {
 			const result = await duckdbBackend.setDatasetImportOptions({
-				has_header_row: newHasHeaderRow
+				has_header_row: options.hasHeaderRow,
+				sheet_name: options.sheetName
 			});
 
 			if (result.error_message) {
@@ -485,11 +507,15 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 						result.error_message
 					)
 				);
-			} else {
-				// Success - update our tracked state
-				this._fileHasHeaderRow = newHasHeaderRow;
-				// Fire event so context key can be updated
-				this._onDidChangeFileHasHeaderRowEmitter.fire(newHasHeaderRow);
+				return;
+			}
+
+			// Success - update our tracked state.
+			this._fileSheetName = options.sheetName;
+			if (this._fileHasHeaderRow !== options.hasHeaderRow) {
+				this._fileHasHeaderRow = options.hasHeaderRow;
+				// Fire event so the header-row context key can be updated.
+				this._onDidChangeFileHasHeaderRowEmitter.fire(options.hasHeaderRow);
 			}
 		} catch (error) {
 			this._services.notificationService.error(
@@ -500,6 +526,17 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 				)
 			);
 		}
+	}
+
+	/**
+	 * Toggles the "has header row" option and reloads the data, preserving the
+	 * currently selected worksheet. Only applicable for files opened with DuckDB.
+	 */
+	async toggleFileHasHeaderRow(): Promise<void> {
+		await this.applyFileOptions({
+			hasHeaderRow: !this._fileHasHeaderRow,
+			sheetName: this.fileSelectedSheet
+		});
 	}
 
 	/**
@@ -583,10 +620,28 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
-	 * Gets the current "has header row" state for delimited text files.
+	 * Gets the current "has header row" state for delimited text files and Excel
+	 * workbooks.
 	 */
 	get fileHasHeaderRow() {
 		return this._fileHasHeaderRow;
+	}
+
+	/**
+	 * Gets the worksheet names available in the open Excel workbook, in workbook
+	 * order. Empty for non-Excel data sources.
+	 */
+	get fileAvailableSheets(): string[] {
+		return this._dataExplorerClientInstance.cachedBackendState?.available_sheets ?? [];
+	}
+
+	/**
+	 * Gets the currently selected worksheet for an Excel workbook. Defaults to
+	 * the first available sheet (which is what the backend reads when no sheet is
+	 * explicitly selected). Undefined when no sheets are known.
+	 */
+	get fileSelectedSheet(): string | undefined {
+		return this._fileSheetName ?? this.fileAvailableSheets[0];
 	}
 
 	/**

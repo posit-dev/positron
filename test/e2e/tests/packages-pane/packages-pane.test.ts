@@ -3,8 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
+import { test as base, tags, expect } from '../_test.setup';
 import { SessionRuntimes } from '../../pages/sessions.js';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ settingsFile }, use) => {
+			await settingsFile.append({ 'packages.enabled': true });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
 
 test.use({
 	suiteId: __filename
@@ -13,12 +23,6 @@ test.use({
 test.describe('Packages Pane', {
 	tag: [tags.PACKAGES_PANE, tags.WEB]
 }, () => {
-
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({
-			'packages.enabled': true
-		}, { reload: 'web' });
-	});
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.packages.clearFilter();
@@ -33,27 +37,37 @@ test.describe('Packages Pane', {
 	// python is uv; pythonAlt is pyenv
 	const pythonRuntimes: SessionRuntimes[] = ['python', 'pythonAlt'];
 
-	pythonRuntimes.forEach((runtime) => {
-		test(`Python - Install, search, and uninstall package (${runtime})`, { tag: [tags.WIN] },
-			async function ({ app, sessions }) {
-				const { packages } = app.workbench;
+	test.describe('Python - Install, search, and uninstall package', () => {
+		test.beforeAll(async function ({ app, openFolder }) {
+			await openFolder('test-files/workspaces/packages-pane-python');
+		});
 
-				await sessions.start(runtime);
+		pythonRuntimes.forEach((runtime) => {
+			test(`Python - Install, search, and uninstall package (${runtime})`, { tag: [tags.WIN] },
+				async function ({ app, sessions }) {
+					const { packages, toasts } = app.workbench;
 
-				await packages.verifyPackagesList();
+					await sessions.start(runtime);
 
-				// install package and verify it shows up in the list
-				await packages.installPackage('cowsay');
-				await packages.searchPackages('cowsay');
-				await packages.expectPackageInList('cowsay');
+					await packages.verifyPackagesList();
 
-				// uninstall package and verify it is removed from the list
-				await packages.uninstallPackage('cowsay');
-				await packages.expectPackageNotInList('cowsay');
-			});
+					// install package and verify it shows up in the list
+					await packages.installPackage('cowsay');
+					await packages.searchPackages('cowsay');
+					await packages.expectPackageInList('cowsay');
+
+					// uninstall package and verify it is removed from the list
+					await packages.uninstallPackage('cowsay');
+					await packages.expectPackageNotInList('cowsay');
+
+					await toasts.closeAll();
+				});
+		});
 	});
 
-	test('R - Install, search, and uninstall package', { tag: [tags.WIN] },
+	test('R - Install, search, and uninstall package', {
+		tag: [tags.WIN]
+	},
 		async function ({ app, r: _r }) {
 			const { packages } = app.workbench;
 
@@ -75,7 +89,7 @@ test.describe('Packages Pane', {
 
 			// Base is always attached
 			await packages.clickHelpButton('base');
-			await packages.expectHelpPaneToContainText('The R Base Package', 0);
+			await packages.expectHelpPaneToContainText('The R Base Package');
 		});
 
 		test('Python - Opens package help in Help pane', { tag: [tags.WEB] },
@@ -87,7 +101,20 @@ test.describe('Packages Pane', {
 				await packages.clickRefreshPackagesButton();
 
 				await packages.clickHelpButton('numpy');
-				await packages.expectHelpPaneToContainText('NumPy', 1);
+				await packages.expectHelpPaneToContainText('NumPy');
+			});
+	});
+
+	test.describe('URL button', () => {
+		test('Python - Shows external link for a package with a homepage', { tag: [tags.WEB] },
+			async function ({ app, python: _python }) {
+				const { packages } = app.workbench;
+
+				// numpy publishes a `Project-URL: Homepage` in its wheel metadata,
+				// so the kernel surfaces a `url` and the row renders the link button.
+				await packages.verifyPackagesList();
+				await packages.searchPackages('numpy');
+				await expect(packages.urlButton('numpy')).toBeVisible();
 			});
 	});
 });

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DeferredPromise } from '../../../../base/common/async.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -504,13 +505,22 @@ export class DataExplorerClientInstance extends Disposable {
 	/**
 	 * Request a batch of column profiles
 	 * @param profiles An array of profile types and colum indexes
+	 * @param token An optional cancellation token. When cancelled (e.g. the user scrolled the
+	 * summary to a new set of columns), this request is abandoned: the caller stops awaiting and the
+	 * pending RPC is dropped. The backend may still finish computing the batch, but its late result
+	 * is discarded by the onDidReturnColumnProfiles handler, which ignores unknown callback ids.
 	 * @returns A Promise<Array<ColumnProfileResult>> that resolves when the operation is complete.
 	 */
 	async getColumnProfiles(
-		profiles: Array<ColumnProfileRequest>
+		profiles: Array<ColumnProfileRequest>,
+		token?: CancellationToken
 	): Promise<Array<ColumnProfileResult>> {
 		if (profiles.length === 0) {
 			// Do not send backend a request if empty array passed
+			return [];
+		}
+		// If the request was already cancelled before it could be sent, skip it.
+		if (token?.isCancellationRequested) {
 			return [];
 		}
 		return this.runBackendTask(
@@ -524,7 +534,7 @@ export class DataExplorerClientInstance extends Disposable {
 
 				// Don't leave unfulfilled promise indefinitely; reject after one minute
 				// for now just in case
-				setTimeout(() => {
+				const timeoutHandle = setTimeout(() => {
 					// If the promise has already been resolved, do nothing.
 					if (promise.isSettled) {
 						return;
@@ -536,7 +546,21 @@ export class DataExplorerClientInstance extends Disposable {
 					this._asyncTasks.delete(callbackId);
 				}, timeout);
 
-				return promise.p;
+				// On cancellation, settle this request with an empty result and drop the pending RPC
+				// so the caller stops waiting. A late event for this callbackId is ignored.
+				const cancellationListener = token?.onCancellationRequested(() => {
+					if (!promise.isSettled) {
+						promise.complete([]);
+					}
+					this._asyncTasks.delete(callbackId);
+				});
+
+				try {
+					return await promise.p;
+				} finally {
+					clearTimeout(timeoutHandle);
+					cancellationListener?.dispose();
+				}
 			},
 			() => []
 		);

@@ -5,7 +5,11 @@
 
 import * as positron from 'positron';
 import { SqliteError, SqliteWorkerClient } from './sqliteWorkerClient.js';
-import { createRootNodes } from './sqliteNodes.js';
+import { createRootNodes, ISqlitePreviewHost } from './sqliteNodes.js';
+import { ISqliteDataExplorerHost, SQLITE_DATA_EXPLORER_PROVIDER_ID } from './sqliteDataExplorerRpcHandler.js';
+
+/** Monotonically increasing id so each connection's previewed datasets get a unique key. */
+let nextConnectionId = 1;
 
 /**
  * Maps a worker-reported open/probe error to a user-facing message, preserving
@@ -35,18 +39,26 @@ function describeOpenError(err: SqliteError, databasePath: string): string {
  * host. This class is a thin host-side facade over the worker client; schema
  * browsing is provided via getChildren().
  */
-export class SQLiteConnection implements positron.DataConnection {
+export class SQLiteConnection implements positron.DataConnection, ISqlitePreviewHost {
 	// The worker client, or undefined before connect()/after disconnect().
 	private _client: SqliteWorkerClient | undefined;
+
+	// Unique id for this connection, used to key its previewed datasets.
+	private readonly _connectionId = `sqlite-${nextConnectionId++}`;
+
+	// Dataset ids opened via previewObject(), so they can be released on disconnect.
+	private readonly _openedDatasets = new Set<string>();
 
 	/**
 	 * Constructor. Call connect() after constructing to open the database.
 	 * @param _databasePath Absolute path to the SQLite database file.
 	 * @param _readOnly Whether to open the database in read-only mode.
+	 * @param _dataExplorerHandler Hosts table views previewed in the Data Explorer.
 	 */
 	constructor(
 		private readonly _databasePath: string,
-		private readonly _readOnly: boolean
+		private readonly _readOnly: boolean,
+		private readonly _dataExplorerHandler: ISqliteDataExplorerHost
 	) { }
 
 	/**
@@ -69,12 +81,45 @@ export class SQLiteConnection implements positron.DataConnection {
 	}
 
 	/**
-	 * Returns top-level children: three category group nodes (Tables, Views, Indexes).
-	 * Each group defers its schema query until it is itself expanded.
+	 * Returns top-level children: two category group nodes (Tables, Views). Each group defers its
+	 * schema query until it is itself expanded.
 	 */
 	async getChildren(): Promise<positron.DataConnectionNode[]> {
 		this._ensureConnected();
-		return createRootNodes(this._client!);
+		return createRootNodes(this._client!, this);
+	}
+
+	/**
+	 * Opens the given table or view in the Data Explorer. Registers a table view with the RPC
+	 * handler under a stable per-connection dataset id, then asks Positron to open (or focus) the
+	 * explorer backed by this extension's RPC command.
+	 */
+	async previewObject(name: string, kind: 'table' | 'view'): Promise<void> {
+		this._ensureConnected();
+		const datasetId = `sqlite:${this._connectionId}:${kind}:${name}`;
+		await this._dataExplorerHandler.openTableView(datasetId, this._client!, name, kind);
+		this._openedDatasets.add(datasetId);
+		await positron.dataExplorer.open({
+			providerId: SQLITE_DATA_EXPLORER_PROVIDER_ID,
+			datasetId,
+			displayName: name,
+		});
+	}
+
+	/**
+	 * Opens a single column of the given table or view in the Data Explorer as a one-column grid.
+	 * Uses a dataset id distinct from the table's so both can be open at once.
+	 */
+	async previewColumn(tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
+		this._ensureConnected();
+		const datasetId = `sqlite:${this._connectionId}:column:${tableName}.${columnName}`;
+		await this._dataExplorerHandler.openColumnView(datasetId, this._client!, tableName, kind, columnName);
+		this._openedDatasets.add(datasetId);
+		await positron.dataExplorer.open({
+			providerId: SQLITE_DATA_EXPLORER_PROVIDER_ID,
+			datasetId,
+			displayName: `${tableName}.${columnName}`,
+		});
 	}
 
 	/** Returns whether this connection was opened in read-only mode. */
@@ -82,8 +127,12 @@ export class SQLiteConnection implements positron.DataConnection {
 		return this._readOnly;
 	}
 
-	/** Closes the database. Idempotent -- safe to call multiple times. */
+	/** Closes the database and releases any previewed table views. Idempotent. */
 	async disconnect(): Promise<void> {
+		for (const datasetId of this._openedDatasets) {
+			this._dataExplorerHandler.closeTableView(datasetId);
+		}
+		this._openedDatasets.clear();
 		this._client?.dispose();
 		this._client = undefined;
 	}

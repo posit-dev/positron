@@ -22,20 +22,39 @@ on:
 permissions:
   id-token: write
   contents: read
+  packages: read
 
 jobs:
   ext-host-tests:
     name: ext-host
     runs-on: ubuntu-latest-4x
     timeout-minutes: 60
+    # Run inside the shared CI image, which bakes in the system dependencies,
+    # Node (matching .nvmrc), and R 4.5.2 + test-files deps that this
+    # job used to install at runtime. See posit-dev/positron-ci-images.
+    container:
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
+      # --shm-size: Chromium/Electron exhausts the container's default 64MB
+      # /dev/shm under load (e.g. the web integration tests), which can surface
+      # as "Failed to fetch dynamically imported module". Size it up to match
+      # what the bare runner provided (verified against the CI image).
+      options: --user 0:0 --init --shm-size=2g
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
       _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false
+      HOME: /root
+      DOCKER_CONFIG: /tmp/.docker
+      R_LIBS_SITE: /usr/local/lib/R/site-library
+      R_LIBS_USER: /usr/local/lib/R/site-library
+      RETICULATE_PYTHON: /root/.venv/bin/python
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -45,17 +64,9 @@ jobs:
           git checkout ${{ inputs.commit }}
           git submodule update --init --recursive
 
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          package-manager-cache: false
-
       - name: 📦 Restore caches
         id: restore-caches
         uses: ./.github/actions/restore-build-caches
-
-      - name: Install system dependencies
-        uses: ./.github/actions/install-system-deps
 
       - name: Install node dependencies
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
@@ -101,17 +112,14 @@ jobs:
       - name: Compile Positron and Download Electron
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
 
-      - name: Install Playwright browsers and system dependencies
+      # System deps are baked into the container image, so install browsers only.
+      - name: Install Playwright browsers
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
-        run: npx playwright install --with-deps
+        run: npx playwright install
 
-      - name: Configure xvfb Service
-        run: |
-          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
-          sudo chmod +x /etc/init.d/xvfb
-          sudo update-rc.d xvfb defaults
-          sudo service xvfb start
+      - name: Setup Xvfb
+        uses: ./.github/actions/setup-xvfb
 
 
       # Downloads Builtin Extensions (needed for integration & e2e testing)
@@ -133,34 +141,11 @@ jobs:
           github-token: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      # one integration test needs this: Connections pane works for R
-      - name: Download R DESCRIPTION file
-        id: download-r-desc
-        run: |
-          curl -s https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-          HASH=$(sha256sum DESCRIPTION | awk '{print $1}')
-          echo "description-hash=$HASH" >> $GITHUB_OUTPUT
-          echo "R DESCRIPTION hash: $HASH"
-
-      - name: Restore R installation and packages cache
-        id: cache-r
-        uses: actions/cache/restore@v5
-        with:
-          path: |
-            ~/.local/share/rig
-            ~/.cache/R
-            /usr/local/lib/R/site-library
-            /opt/R
-          key: ${{ runner.os }}-r-4.5.2-${{ steps.download-r-desc.outputs.description-hash }}
-          restore-keys: |
-            ${{ runner.os }}-r-4.5.2-
-
-      - name: Setup R
-        if: ${{ steps.cache-r.outputs.cache-hit != 'true' }}
-        uses: ./.github/actions/install-r
-        with:
-          version: "4.5.2"
-          install_undetectable_interpreters: true
+      # R 4.5.2 and the test-files deps are baked into the container image. One
+      # integration test ("Connections pane works for R") reads a DESCRIPTION
+      # file from the repo root, so stage that from test-files.
+      - name: Stage R DESCRIPTION file
+        run: cp test/e2e/test-files/DESCRIPTION DESCRIPTION
 
       - name: Compile Integration Tests
         run: npm run --prefix test/integration/browser compile

@@ -8,6 +8,8 @@ import importlib.metadata
 import inspect
 import logging
 import os
+import platform
+import re
 import sys
 import types
 import webbrowser
@@ -16,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Unio
 from urllib.parse import urlparse
 
 from comm.base_comm import BaseComm
+from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 
 from ._vendor.pydantic import BaseModel
@@ -80,6 +83,67 @@ def _get_loaded_modules(kernel: "PositronIPyKernel", _params: List[JsonData]) ->
     ]
 
 
+def _get_missing_imports(
+    _kernel: "PositronIPyKernel", params: List[JsonData]
+) -> Optional[JsonData]:
+    """Return the subset of the given top-level module names that cannot be imported.
+
+    A module is considered present if it is already loaded or if an import spec
+    can be found for it (which covers standard-library modules and installed
+    distributions whose import name differs from their distribution name, e.g.
+    `sklearn` for scikit-learn). Anything else is reported as missing.
+
+    An optional second parameter is a list of extra import root directories to
+    search in addition to `sys.path`. The frontend passes the directory of the
+    file being analyzed so that local modules (e.g. a sibling `helper` package)
+    are recognized as importable, mirroring how running a file temporarily adds
+    its directory to `sys.path`. Without this, a local module would be
+    misreported as a missing, installable package.
+
+    The caller (the frontend analyzer) is responsible for mapping a missing
+    import name back to an installable distribution; this method only answers
+    the per-session "is it importable here?" question.
+    """
+    if not (isinstance(params, list) and len(params) >= 1 and isinstance(params[0], list)):
+        raise _InvalidParamsError(f"Expected a list of module names, got: {params}")
+
+    import importlib.machinery
+    import importlib.util
+
+    modules = [name for name in params[0] if isinstance(name, str)]
+    roots = (
+        [root for root in params[1] if isinstance(root, str)]
+        if len(params) >= 2 and isinstance(params[1], list)
+        else []
+    )
+
+    def is_importable(name: str) -> bool:
+        try:
+            if importlib.util.find_spec(name) is not None:
+                return True
+        except (ImportError, ValueError, ModuleNotFoundError):
+            # find_spec raises (rather than returning None) when a parent
+            # package is missing; treat that as not found (yet).
+            pass
+        # Also search the caller-provided roots, which are not on sys.path at
+        # analysis time but will be when the file is actually run.
+        if roots:
+            try:
+                if importlib.machinery.PathFinder.find_spec(name, roots) is not None:
+                    return True
+            except (ImportError, ValueError, ModuleNotFoundError):
+                pass
+        return False
+
+    missing: List[JsonData] = []
+    for name in modules:
+        if name in sys.modules:
+            continue
+        if not is_importable(name):
+            missing.append(name)
+    return missing
+
+
 def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> None:
     if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], int)):
         raise _InvalidParamsError(f"Expected an integer width, got: {params}")
@@ -135,6 +199,167 @@ def _import_names_for_dist(dist: importlib.metadata.Distribution, canonical: str
     return [canonical.replace("-", "_")]
 
 
+# `Project-URL` labels are free-form author text with no official vocabulary
+# (you see "Homepage", "Home", "Repository", "Source", "GitHub", ... with varied
+# casing), so we normalize each label and match it against this synonym table to
+# rank candidates when choosing the single best URL to surface.
+_URL_CATEGORY_BY_LABEL: Dict[str, str] = {
+    "home": "homepage",
+    "homepage": "homepage",
+    "repository": "repository",
+    "repo": "repository",
+    "source": "repository",
+    "sourcecode": "repository",
+    "code": "repository",
+    "github": "repository",
+    "gitlab": "repository",
+    "doc": "documentation",
+    "docs": "documentation",
+    "documentation": "documentation",
+}
+
+# Lower number = higher priority. Any URL that doesn't match a known category
+# still beats no URL at all, hence the fallback rank below.
+_URL_CATEGORY_PRIORITY: Dict[str, int] = {"homepage": 0, "repository": 1, "documentation": 2}
+_URL_FALLBACK_PRIORITY = 3
+
+
+def _normalize_url_label(label: str) -> str:
+    """Lowercase a Project-URL label and strip everything but alphanumerics."""
+    return "".join(char for char in label.lower() if char.isalnum())
+
+
+def _best_package_url(dist: importlib.metadata.Distribution) -> Optional[str]:
+    """Pick the single best external URL from a distribution's metadata.
+
+    Prefers the homepage, then the repository/source, then documentation, then
+    any other `Project-URL`. The legacy singular `Home-page` header counts as a
+    homepage candidate. Returns None when the distribution advertises no URL.
+    Core (the Packages pane) validates the scheme before opening it.
+    """
+    # PackageMetadata (the 3.14 protocol) doesn't expose .get(), but the runtime
+    # object (email.message.Message) always has it -- mirror the cast used by
+    # _get_packages_installed so both accessors type-check across Python versions.
+    metadata: Any = dist.metadata
+    best_url: Optional[str] = None
+    best_priority = _URL_FALLBACK_PRIORITY + 1
+    for entry in metadata.get_all("Project-URL") or []:
+        label, _, url = entry.partition(",")
+        url = url.strip()
+        if not url:
+            continue
+        category = _URL_CATEGORY_BY_LABEL.get(_normalize_url_label(label))
+        # Every value in `_URL_CATEGORY_BY_LABEL` is a key in `_URL_CATEGORY_PRIORITY`,
+        # so a recognized category always resolves; anything else is the fallback.
+        priority = _URL_CATEGORY_PRIORITY[category] if category else _URL_FALLBACK_PRIORITY
+        # Strict `<` keeps the first URL seen at a given priority (so the first
+        # repository wins over a later one, etc.).
+        if priority < best_priority:
+            best_url, best_priority = url, priority
+    # Only let the legacy `Home-page` win if no homepage-priority URL was already
+    # found in `Project-URL`; a homepage outranks a repository/other we may hold.
+    if best_priority > _URL_CATEGORY_PRIORITY["homepage"]:
+        home_page = metadata.get("Home-page")
+        if home_page and home_page.strip():
+            best_url = home_page.strip()
+    return best_url
+
+
+def _best_author(metadata: Any) -> Optional[str]:
+    """Normalize author/maintainer into a display string (names, no emails)."""
+    # Prefer the plain-name fields (no email to strip) over the RFC-style
+    # *-email fields, skipping empty / "UNKNOWN" placeholders in any field.
+    raw = None
+    for value in (
+        metadata.get("Author"),
+        metadata.get("Maintainer"),
+        metadata.get("Author-email"),
+        metadata.get("Maintainer-email"),
+    ):
+        if value and value.strip() and value.strip() != "UNKNOWN":
+            raw = value
+            break
+    if not raw:
+        return None
+    names = []
+    for part in raw.split(","):
+        part = part.strip()
+        name = part.split("<")[0].strip().strip('"')
+        names.append(name or part)
+    joined = ", ".join(n for n in names if n)
+    return joined or None
+
+
+def _source_repository(dist: importlib.metadata.Distribution) -> Optional[str]:
+    """Return the Source/Repository Project-URL if present."""
+    metadata: Any = dist.metadata
+    for entry in metadata.get_all("Project-URL") or []:
+        label, _, url = entry.partition(",")
+        if _normalize_url_label(label) in ("source", "repository", "sourcecode", "code"):
+            url = url.strip()
+            if url:
+                return url
+    return None
+
+
+def _primary_spdx(expr: str) -> str:
+    """The primary license id from a (possibly compound) SPDX expression.
+
+    e.g. "BSD-3-Clause AND 0BSD AND MIT" -> "BSD-3-Clause",
+    "(MIT OR Apache-2.0)" -> "MIT", "Apache-2.0 WITH LLVM-exception" -> "Apache-2.0".
+    """
+    first = re.split(r"\s+(?:AND|OR|WITH)\s+", expr.strip(), maxsplit=1)[0]
+    return first.strip().strip("()").strip()
+
+
+def _best_license(metadata: Any) -> Optional[str]:
+    """Best-effort short license string.
+
+    Prefers the primary id of the SPDX `License-Expression`, then a one-line
+    legacy `License` field, then an OSI license `Classifier`. Skips the legacy
+    `License` field when it holds the full multi-line license text rather than a
+    short name.
+    """
+    expr = metadata.get("License-Expression")
+    if expr and expr.strip():
+        primary = _primary_spdx(expr)
+        if primary:
+            return primary
+    legacy = metadata.get("License")
+    if legacy and legacy.strip() and legacy.strip() != "UNKNOWN" and "\n" not in legacy:
+        return legacy.strip()
+    for classifier in metadata.get_all("Classifier") or []:
+        if classifier.startswith("License :: "):
+            return classifier.split("::")[-1].strip()
+    return None
+
+
+def _get_package_detail(_kernel: "PositronIPyKernel", params: List[JsonData]) -> Optional[JsonData]:
+    if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], str)):
+        raise _InvalidParamsError(f"Expected a package name, got: {params}")
+    name = params[0]
+    try:
+        dist = importlib.metadata.distribution(name)
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+    metadata: Any = dist.metadata
+    detail: Dict[str, JsonData] = {"name": name}
+    summary = metadata.get("Summary")
+    if summary and summary != "UNKNOWN":
+        detail["title"] = summary
+    author = _best_author(metadata)
+    if author:
+        detail["author"] = author
+    repo = _source_repository(dist)
+    if repo:
+        detail["sourceRepository"] = repo
+    license_str = _best_license(metadata)
+    if license_str:
+        detail["license"] = license_str
+    return detail
+
+
 # Get all installed packages
 def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]) -> JsonData:
     # `attached` mirrors R's search()-membership semantics: true when the
@@ -164,7 +389,7 @@ def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]
             # runtime object (email.message.Message) always has it.
             metadata: Any = dist.metadata
             summary = metadata.get("Summary")
-            packages_dict[canonical] = {
+            entry: Dict[str, JsonData] = {
                 "id": f"{canonical}-{dist.version}",
                 "name": name,
                 "displayName": canonical,
@@ -172,14 +397,43 @@ def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]
                 "attached": attached,
                 "description": summary if summary and summary != "UNKNOWN" else "",
             }
+            url = _best_package_url(dist)
+            if url:
+                entry["url"] = url
+            packages_dict[canonical] = entry
     return sorted(packages_dict.values(), key=lambda p: p["displayName"])
+
+
+# Evaluate Requires-Python specifiers against this kernel's interpreter.
+def _check_requires_python(_kernel: "PositronIPyKernel", params: List[JsonData]) -> JsonData:
+    # params[0] is the list of distinct Requires-Python specifier strings the
+    # extension collected from a package's PyPI files. We answer, for each, whether
+    # this interpreter satisfies it, using the bundled `packaging` (the same PEP 440
+    # implementation pip relies on) against our own version. This keeps PEP 440
+    # semantics in the tool that owns them rather than re-implementing them in TS.
+    specs = params[0] if params else []
+    py_version = platform.python_version()
+    result: Dict[str, JsonData] = {}
+    if isinstance(specs, list):
+        for spec in specs:
+            if not isinstance(spec, str):
+                continue
+            try:
+                result[spec] = SpecifierSet(spec).contains(py_version, prereleases=True)
+            except Exception:
+                # Conservative: an unparseable specifier must not hide a version.
+                result[spec] = True
+    return result
 
 
 _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]] = {
     "setConsoleWidth": _set_console_width,
     "isModuleLoaded": _is_module_loaded,
     "getLoadedModules": _get_loaded_modules,
+    "getMissingImports": _get_missing_imports,
     "getPackagesInstalled": _get_packages_installed,
+    "getPackageDetail": _get_package_detail,
+    "checkRequiresPython": _check_requires_python,
 }
 
 

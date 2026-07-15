@@ -85,6 +85,13 @@ suite('ChatEditingService', function () {
 		const collection = new ServiceCollection();
 		collection.set(IWorkbenchAssignmentService, new NullWorkbenchAssignmentService());
 		collection.set(IChatAgentService, new SyncDescriptor(ChatAgentService));
+		// --- Start Positron ---
+		// ChatAgentService depends on IPositronAssistantConfigurationService, so it
+		// must be registered for the SyncDescriptor above to resolve.
+		collection.set(IPositronAssistantConfigurationService, new class extends mock<IPositronAssistantConfigurationService>() {
+			override copilotEnabled: boolean = true;
+		});
+		// --- End Positron ---
 		collection.set(IChatVariablesService, new MockChatVariablesService());
 		collection.set(IChatSlashCommandService, new class extends mock<IChatSlashCommandService>() { });
 		collection.set(IChatTransferService, new SyncDescriptor(ChatTransferService));
@@ -112,12 +119,6 @@ suite('ChatEditingService', function () {
 				return false;
 			}
 		});
-		// --- Start Positron ---
-		collection.set(IPositronAssistantConfigurationService, new class extends mock<IPositronAssistantConfigurationService>() {
-			override copilotEnabled: boolean = true;
-		});
-		// --- End Positron ---
-
 		const insta = store.add(store.add(workbenchInstantiationService(undefined, store)).createChild(collection));
 		store.add(insta.get(IEditorWorkerService) as TestWorkerService);
 		const value = insta.get(IChatEditingService);

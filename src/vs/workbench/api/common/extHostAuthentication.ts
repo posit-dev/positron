@@ -27,6 +27,11 @@ import { IExtHostProgress } from './extHostProgress.js';
 import { IProgressStep } from '../../../platform/progress/common/progress.js';
 import { CancellationError, isCancellationError } from '../../../base/common/errors.js';
 import { raceCancellationError, SequencerByKey } from '../../../base/common/async.js';
+import { XaaifyAuthProvider } from './extHostXaaAuthProvider.js';
+
+// --- Start Positron ---
+import { getOAuthRedirectUri, getRegistrationRedirectUri, parseAuthorizationCode } from './positron/extHostOAuthRedirect.js';
+// --- End Positron ---
 
 export interface IExtHostAuthentication extends ExtHostAuthentication { }
 export const IExtHostAuthentication = createDecorator<IExtHostAuthentication>('IExtHostAuthentication');
@@ -43,6 +48,7 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 	declare _serviceBrand: undefined;
 
 	protected readonly _dynamicAuthProviderCtor = DynamicAuthProvider;
+	protected readonly _xaaAuthProviderCtor = XaaifyAuthProvider(DynamicAuthProvider);
 
 	private _proxy: MainThreadAuthenticationShape;
 	private _authenticationProviders: Map<string, ProviderWithMetadata> = new Map<string, ProviderWithMetadata>();
@@ -264,7 +270,15 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 			const authorizationServer = URI.revive(authorizationServerComponents);
 			if (serverMetadata.registration_endpoint) {
 				try {
-					const registration = await fetchDynamicRegistration(serverMetadata, this._initData.environment.appName, resourceMetadata?.scopes_supported);
+					// --- Start Positron ---
+					// On web clients served from arbitrary hosts (e.g. Posit Workbench),
+					// also register the client's own /callback route so it can be used
+					// as the OAuth redirect URI (vscode.dev's redirect page refuses to
+					// forward to hosts outside its allowlist).
+					// const registration = await fetchDynamicRegistration(serverMetadata, this._initData.environment.appName, resourceMetadata?.scopes_supported);
+					const registrationRedirectUri = await getRegistrationRedirectUri(this._extHostUrls, this._initData.environment.appUriScheme, this._logService);
+					const registration = await fetchDynamicRegistration(serverMetadata, this._initData.environment.appName, resourceMetadata?.scopes_supported, registrationRedirectUri ? [registrationRedirectUri] : undefined);
+					// --- End Positron ---
 					clientId = registration.client_id;
 					clientSecret = registration.client_secret;
 				} catch (err) {
@@ -341,6 +355,75 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 		return provider.id;
 	}
 
+	async $registerXaaAuthProvider(
+		issuerComponents: UriComponents,
+		serverMetadata: IAuthorizationServerMetadata,
+		clientId: string | undefined,
+		clientSecret: string | undefined,
+		initialTokens: IAuthorizationToken[] | undefined
+	): Promise<string> {
+		const issuer = URI.revive(issuerComponents);
+		// XAA does not use Dynamic Client Registration — the IdP must already trust the requesting
+		// app for the target audience(s). Always require an admin-provisioned client_id (and
+		// typically client_secret).
+		if (!clientId) {
+			this._logService.info(`Prompting user for client registration details for XAA issuer ${issuer.toString()}`);
+			const clientDetails = await this._proxy.$promptForClientRegistration(issuer.toString());
+			if (!clientDetails) {
+				throw new Error('User did not provide client details');
+			}
+			clientId = clientDetails.clientId;
+			clientSecret = clientDetails.clientSecret;
+		}
+		const provider = new this._xaaAuthProviderCtor(
+			this._extHostWindow,
+			this._extHostUrls,
+			this._initData,
+			this._extHostProgress,
+			this._extHostLoggerService,
+			this._proxy,
+			issuer,
+			serverMetadata,
+			/* resourceMetadata */ undefined,
+			clientId,
+			clientSecret,
+			this._onDidDynamicAuthProviderTokensChange,
+			initialTokens || []
+		);
+
+		await this._providerOperations.queue(provider.id, async () => {
+			this._authenticationProviders.set(
+				provider.id,
+				{
+					label: provider.label,
+					provider,
+					disposable: Disposable.from(
+						provider,
+						provider.onDidChangeSessions(e => this._proxy.$sendDidChangeSessions(provider.id, e)),
+						provider.onDidChangeClientId(() => this._proxy.$sendDidChangeDynamicProviderInfo({
+							providerId: provider.id,
+							clientId: provider.clientId,
+							clientSecret: provider.clientSecret
+						}))
+					),
+					options: { supportsMultipleAccounts: true }
+				}
+			);
+
+			await this._proxy.$registerDynamicAuthenticationProvider({
+				id: provider.id,
+				label: provider.label,
+				supportsMultipleAccounts: true,
+				authorizationServer: issuerComponents,
+				resourceServer: undefined,
+				clientId: provider.clientId,
+				clientSecret: provider.clientSecret
+			});
+		});
+
+		return provider.id;
+	}
+
 	async $onDidChangeDynamicAuthProviderTokens(authProviderId: string, clientId: string, tokens: IAuthorizationToken[]): Promise<void> {
 		this._onDidDynamicAuthProviderTokensChange.fire({ authProviderId, clientId, tokens });
 	}
@@ -362,7 +445,7 @@ class TaskSingler<T> {
 }
 
 export class DynamicAuthProvider implements vscode.AuthenticationProvider {
-	readonly id: string;
+	id: string;
 	readonly label: string;
 
 	private _onDidChangeSessions = new Emitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
@@ -592,7 +675,11 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 		const authorizationUrl = new URL(this._serverMetadata.authorization_endpoint);
 		authorizationUrl.searchParams.append('client_id', this._clientId);
 		authorizationUrl.searchParams.append('response_type', 'code');
-		authorizationUrl.searchParams.append('state', state.toString());
+		// --- Start Positron ---
+		// toString(true) avoids double-encoding the `=` and `&` separators in the state.
+		// authorizationUrl.searchParams.append('state', state.toString());
+		authorizationUrl.searchParams.append('state', state.toString(true));
+		// --- End Positron ---
 		authorizationUrl.searchParams.append('code_challenge', codeChallenge);
 		authorizationUrl.searchParams.append('code_challenge_method', 'S256');
 		const scopeString = scopes.join(' ');
@@ -605,8 +692,10 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 			authorizationUrl.searchParams.append('resource', this._resourceMetadata.resource);
 		}
 
-		// Use a redirect URI that matches what was registered during dynamic registration
-		const redirectUri = 'https://vscode.dev/redirect';
+		// --- Start Positron ---
+		// const redirectUri = 'https://vscode.dev/redirect';
+		const redirectUri = getOAuthRedirectUri(state) ?? 'https://vscode.dev/redirect';
+		// --- End Positron ---
 		authorizationUrl.searchParams.append('redirect_uri', redirectUri);
 
 		const promise = this.waitForAuthorizationCode(callbackUri);
@@ -667,12 +756,12 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 		const result = await this._proxy.$waitForUriHandler(expectedState);
 		// Extract the code parameter directly from the query string. NOTE, URLSearchParams does not work here because
 		// it will decode the query string and we need to keep it encoded.
-		const codeMatch = /[?&]code=([^&]+)/.exec(result.query || '');
-		if (!codeMatch || codeMatch.length < 2) {
-			// No code parameter found in the query string
-			throw new Error('Authentication failed: No authorization code received');
-		}
-		return { code: codeMatch[1] };
+		// --- Start Positron ---
+		// const codeMatch = /[?&]code=([^&]+)/.exec(result.query || '');
+		// ...
+		// return { code: codeMatch[1] };
+		return { code: parseAuthorizationCode(result.query || '') };
+		// --- End Positron ---
 	}
 
 	protected async exchangeCodeForToken(code: string, codeVerifier: string, redirectUri: string): Promise<IAuthorizationTokenResponse> {
@@ -777,7 +866,13 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 
 	protected async _generateNewClientId(): Promise<void> {
 		try {
-			const registration = await fetchDynamicRegistration(this._serverMetadata, this._initData.environment.appName, this._resourceMetadata?.scopes_supported);
+			// --- Start Positron ---
+			// Match the redirect URIs used during initial registration; see
+			// $registerDynamicAuthProvider.
+			// const registration = await fetchDynamicRegistration(this._serverMetadata, this._initData.environment.appName, this._resourceMetadata?.scopes_supported);
+			const registrationRedirectUri = await getRegistrationRedirectUri(this._extHostUrls, this._initData.environment.appUriScheme, this._logger);
+			const registration = await fetchDynamicRegistration(this._serverMetadata, this._initData.environment.appName, this._resourceMetadata?.scopes_supported, registrationRedirectUri ? [registrationRedirectUri] : undefined);
+			// --- End Positron ---
 			this._clientId = registration.client_id;
 			this._clientSecret = registration.client_secret;
 			this._onDidChangeClientId.fire();
@@ -808,14 +903,14 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 	}
 }
 
-type IAuthorizationToken = IAuthorizationTokenResponse & {
+export type IAuthorizationToken = IAuthorizationTokenResponse & {
 	/**
 	 * The time when the token was created, in milliseconds since the epoch.
 	 */
 	created_at: number;
 };
 
-class TokenStore implements Disposable {
+export class TokenStore implements Disposable {
 	private readonly _tokensObservable: ISettableObservable<IAuthorizationToken[]>;
 	private readonly _sessionsObservable: IObservable<vscode.AuthenticationSession[]>;
 

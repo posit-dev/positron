@@ -85,7 +85,7 @@ jobs:
     steps:
       - name: Checkout
         if: always()
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: .github/actions/notify-e2e-insights
 

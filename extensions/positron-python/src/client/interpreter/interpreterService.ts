@@ -18,6 +18,9 @@ import {
     IDisposableRegistry,
     IInstaller,
     IInterpreterPathService,
+    // --- Start Positron ---
+    InterpreterConfigurationScope,
+    // --- End Positron ---
     Product,
 } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
@@ -28,9 +31,14 @@ import {
     IInterpreterDisplay,
     IInterpreterService,
     IInterpreterStatusbarVisibilityFilter,
+    // --- Start Positron ---
+    InterpreterChangeEvent,
+    // --- End Positron ---
     PythonEnvironmentsChangedEvent,
 } from './contracts';
-import { traceError, traceLog } from '../logging';
+// --- Start Positron ---
+import { traceError, traceInfo, traceLog } from '../logging';
+// --- End Positron ---
 import { Commands, PVSC_EXTENSION_ID, PYTHON_LANGUAGE } from '../common/constants';
 import { reportActiveInterpreterChanged } from '../environmentApi';
 import { IPythonExecutionFactory } from '../common/process/types';
@@ -69,9 +77,12 @@ export class InterpreterService implements Disposable, IInterpreterService {
         return this.pyenvs.getRefreshPromise(options);
     }
 
-    public get onDidChangeInterpreter(): Event<Uri | undefined> {
+    // --- Start Positron ---
+    // public get onDidChangeInterpreter(): Event<Uri | undefined> {
+    public get onDidChangeInterpreter(): Event<InterpreterChangeEvent> {
         return this.didChangeInterpreterEmitter.event;
     }
+    // --- End Positron ---
 
     public onDidChangeInterpreters: Event<PythonEnvironmentsChangedEvent>;
 
@@ -83,7 +94,11 @@ export class InterpreterService implements Disposable, IInterpreterService {
         return this.didChangeInterpreterConfigurationEmitter.event;
     }
 
-    public _pythonPathSetting: string | undefined = '';
+    // --- Start Positron ---
+    // Keyed by getWorkspaceFolderIdentifier(resource) so changes in one folder don't mask another.
+    // public _pythonPathSetting: string | undefined = '';
+    public _pythonPathSetting: Map<string, string> = new Map();
+    // --- End Positron ---
 
     private readonly didChangeInterpreterConfigurationEmitter = new EventEmitter<Uri | undefined>();
 
@@ -91,7 +106,10 @@ export class InterpreterService implements Disposable, IInterpreterService {
 
     private readonly interpreterPathService: IInterpreterPathService;
 
-    private readonly didChangeInterpreterEmitter = new EventEmitter<Uri | undefined>();
+    // --- Start Positron ---
+    // rivate readonly didChangeInterpreterEmitter = new EventEmitter<Uri | undefined>();
+    private readonly didChangeInterpreterEmitter = new EventEmitter<InterpreterChangeEvent>();
+    // --- End Positron ---
 
     private readonly didChangeInterpreterInformation = new EventEmitter<PythonEnvironment>();
 
@@ -174,8 +192,11 @@ export class InterpreterService implements Disposable, IInterpreterService {
                     this.didChangeInterpreterInformation.fire(interpreter);
                     for (const { path, workspaceFolder } of this.activeInterpreterPaths.values()) {
                         if (path === interpreter.path && !e.new) {
-                            // If the active environment got deleted, notify it.
-                            this.didChangeInterpreterEmitter.fire(workspaceFolder?.uri);
+                            // --- Start Positron ---
+                            // Active env was deleted externally. Storage-only fire - do not start
+                            // a replacement session.
+                            this.fireInterpreterChanged(workspaceFolder?.uri, false, 'active-env-deleted');
+                            // --- End Positron ---
                             reportActiveInterpreterChanged({
                                 path,
                                 resource: workspaceFolder,
@@ -197,7 +218,11 @@ export class InterpreterService implements Disposable, IInterpreterService {
                 }
             }),
         );
-        disposables.push(this.interpreterPathService.onDidChange((i) => this._onConfigChanged(i.uri)));
+        // --- Start Positron ---
+        // Thread the full scope (including startSession / source) through to _onConfigChanged so
+        // we can classify storage-update vs. user-intent fires at the emit point.
+        disposables.push(this.interpreterPathService.onDidChange((scope) => this._onConfigChanged(scope)));
+        // --- End Positron ---
     }
 
     public getInterpreters(resource?: Uri): PythonEnvironment[] {
@@ -258,7 +283,18 @@ export class InterpreterService implements Disposable, IInterpreterService {
         return this.pyenvs.getInterpreterDetails(pythonPath);
     }
 
-    public async _onConfigChanged(resource?: Uri): Promise<void> {
+    // --- Start Positron ---
+    // public async _onConfigChanged(resource?: Uri): Promise<void> {
+    //
+    // Accept an InterpreterConfigurationScope (or bare Uri for backwards-compatible test calls) so
+    // we can thread startSession / source through to listeners. Unit tests pass a bare Uri.
+    public async _onConfigChanged(scopeOrUri?: InterpreterConfigurationScope | Uri): Promise<void> {
+        const scope: InterpreterConfigurationScope =
+            scopeOrUri && 'configTarget' in scopeOrUri
+                ? scopeOrUri
+                : { uri: scopeOrUri, configTarget: undefined as never };
+        const resource = scope.uri;
+        // --- End Positron ---
         // Check if we actually changed our python path.
         // Config service also updates itself on interpreter config change,
         // so yielding control here to make sure it goes first and updates
@@ -266,9 +302,15 @@ export class InterpreterService implements Disposable, IInterpreterService {
         await sleep(1);
         const pySettings = this.configService.getSettings(resource);
         this.didChangeInterpreterConfigurationEmitter.fire(resource);
-        if (this._pythonPathSetting === '' || this._pythonPathSetting !== pySettings.pythonPath) {
-            this._pythonPathSetting = pySettings.pythonPath;
-            this.didChangeInterpreterEmitter.fire(resource);
+        // --- Start Positron ---
+        const workspaceKey = this.serviceContainer
+            .get<IWorkspaceService>(IWorkspaceService)
+            .getWorkspaceFolderIdentifier(resource);
+        const previousPath = this._pythonPathSetting.get(workspaceKey);
+        if (previousPath === undefined || previousPath !== pySettings.pythonPath) {
+            this._pythonPathSetting.set(workspaceKey, pySettings.pythonPath);
+            this.fireInterpreterChanged(resource, scope.startSession ?? true, scope.source ?? 'unspecified');
+            // --- End Positron ---
             const workspaceFolder = this.serviceContainer
                 .get<IWorkspaceService>(IWorkspaceService)
                 .getWorkspaceFolder(resource);
@@ -276,15 +318,36 @@ export class InterpreterService implements Disposable, IInterpreterService {
                 path: pySettings.pythonPath,
                 resource: workspaceFolder,
             });
-            const workspaceKey = this.serviceContainer
-                .get<IWorkspaceService>(IWorkspaceService)
-                .getWorkspaceFolderIdentifier(resource);
+            // --- Start Positron ---
+            // moved this up
+            // const workspaceKey = this.serviceContainer
+            //     .get<IWorkspaceService>(IWorkspaceService)
+            //     .getWorkspaceFolderIdentifier(resource);
+            // --- End Positron ---
             this.activeInterpreterPaths.set(workspaceKey, { path: pySettings.pythonPath, workspaceFolder });
             const interpreterDisplay = this.serviceContainer.get<IInterpreterDisplay>(IInterpreterDisplay);
             interpreterDisplay.refresh().catch((ex) => traceError('Python Extension: display.refresh', ex));
-            await this.ensureEnvironmentContainsPython(this._pythonPathSetting, workspaceFolder);
+            // --- Start Positron ---
+            // await this.ensureEnvironmentContainsPython(this._pythonPathSetting, workspaceFolder);
+            await this.ensureEnvironmentContainsPython(pySettings.pythonPath, workspaceFolder);
+            // --- End Positron ---
         }
     }
+
+    // --- Start Positron ---
+    /**
+     * Fire {@link didChangeInterpreterEmitter} with a classified payload. Tracing helps future
+     * regressions surface in positron-python logs without extra instrumentation.
+     */
+    private fireInterpreterChanged(resource: Uri | undefined, startSession: boolean, source: string): void {
+        traceInfo(
+            `onDidChangeInterpreter: source=${source}, startSession=${startSession}, resource=${
+                resource?.fsPath ?? 'undefined'
+            }`,
+        );
+        this.didChangeInterpreterEmitter.fire({ resource, startSession, source });
+    }
+    // --- End Positron ---
 
     @cache(-1, true)
     private async ensureEnvironmentContainsPython(pythonPath: string, workspaceFolder: WorkspaceFolder | undefined) {
@@ -308,8 +371,12 @@ export class InterpreterService implements Disposable, IInterpreterService {
                 .then(async () => {
                     // Fetch interpreter details so the cache is updated to include the newly installed Python.
                     await this.getInterpreterDetails(pythonPath);
-                    // Fire an event as the executable for the environment has changed.
-                    this.didChangeInterpreterEmitter.fire(workspaceFolder?.uri);
+                    // --- Start Positron ---
+                    // Storage-only fire. By the time this lands, the session has already been
+                    // requested via the caller that triggered the install (quickpick -> update() ->
+                    // _onConfigChanged).
+                    this.fireInterpreterChanged(workspaceFolder?.uri, false, 'install-complete');
+                    // --- End Positron ---
                     reportActiveInterpreterChanged({
                         path: pythonPath,
                         resource: workspaceFolder,

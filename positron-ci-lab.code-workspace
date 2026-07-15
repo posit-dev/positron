@@ -1,0 +1,276 @@
+{
+	// Positron CI dev-container workspace.
+	//
+	// Open THIS file (File > Open Workspace from File…) when you want to debug/run Positron inside
+	// the CI image, then "Dev Containers: Reopen in Container" → "Positron CI (ubuntu24-arm64)".
+	// It carries the CI tasks, the debug config, and the status-bar buttons — so they appear only in
+	// this workspace, and the repo's shared .vscode/ files stay untouched for everyone else.
+	//
+	// See .devcontainer/ci-arm/README.md for setup and the day-to-day workflow.
+	"folders": [
+		{ "path": "." }
+	],
+	"settings": {
+		// Make this window unmistakably the CI lab (vs a normal Positron checkout): a "CI LAB" prefix
+		// in the title text, plus a deep-blue status bar — that's where the CI task buttons live, so
+		// it's the natural spot to tint.
+		"window.title": "🧪 CI LAB${separator}${activeEditorShort}${separator}${rootName}",
+		"workbench.colorCustomizations": {
+			"statusBar.background": "#1e3a8a",
+			"statusBar.foreground": "#ffffff",
+			"statusBar.noFolderBackground": "#1e3a8a"
+		},
+		// Hide VS Code's auto-detected nested repos from Source Control. The R-kernel build clones
+		// the ark kernel source into extensions/positron-r/ark; it's a build artifact, not part of
+		// this branch, and listing it as a second repo just clutters the panel.
+		"git.ignoredRepositories": ["extensions/positron-r/ark"]
+	},
+	// The task-buttons extension (spencerwmiles.vscode-task-buttons) and its button definitions are
+	// both in devcontainer.json — the extension under customizations.vscode.extensions, and the
+	// button list under customizations.vscode.settings. Keeping them there (rather than here) means
+	// the buttons only appear when the workspace is open inside the container, not on the local host.
+	"tasks": {
+		"version": "2.0.0",
+		"tasks": [
+			{
+				"label": "Positron CI: Start server",
+				"detail": "Issues a license key (pdol) and serves Positron at http://localhost:8080/?tkn=dev-token",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/start-server.sh dev-token 8080",
+				"presentation": { "panel": "dedicated", "reveal": "never", "focus": false },
+				"problemMatcher": []
+			},
+			{
+				"label": "Positron CI: Desktop",
+				"detail": "Launch the Electron desktop app on the headless display; view via noVNC (or vnc://localhost:5900, password positron).",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/launch-electron.sh",
+				"presentation": { "panel": "dedicated", "reveal": "never", "focus": false },
+				"problemMatcher": []
+			},
+			{
+				"label": "Positron CI: VNC",
+				"detail": "Ensures the desktop/VNC is up; prints vnc://localhost:5900 (password positron).",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/start-vnc.sh",
+				"presentation": { "panel": "shared", "reveal": "always", "focus": false, "clear": true },
+				"problemMatcher": []
+			},
+			{
+				"label": "Positron CI: VNC logs",
+				"detail": "Dump VNC-stack diagnostics (processes, ports, memory/OOM, logs) for debugging when the VNC viewer keeps dropping. Run it right after a disconnect and paste the output.",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/vnc-doctor.sh",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": true, "clear": true },
+				"problemMatcher": []
+			},
+			{
+				"label": "Positron CI: Report",
+				"detail": "Serves the last run's trace/report at http://localhost:9323",
+				"type": "shell",
+				"command": "npx playwright show-report --host 0.0.0.0",
+				"presentation": { "panel": "dedicated", "reveal": "silent", "focus": false },
+				"problemMatcher": []
+			},
+			{
+				"label": "Positron CI: Logs",
+				"detail": "Tail the detached server + desktop logs. touch first so it opens cleanly before either is started; tail -F survives the logs being truncated on restart.",
+				"type": "shell",
+				"command": "touch /tmp/positron-server.log /tmp/positron-electron.log && tail -F /tmp/positron-server.log /tmp/positron-electron.log",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false, "clear": true },
+				"problemMatcher": []
+			},
+			{
+				"label": "Positron CI: Stop",
+				"detail": "Stops the on-demand processes (server, desktop, Playwright report); leaves Xvnc/noVNC/postgres up. Prints disconnect instructions if you're done for the day.",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/stop-services.sh",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": true },
+				"problemMatcher": []
+			},
+			{
+				"label": "Positron CI: Doctor",
+				"detail": "Live dashboard: build status + services + what's running. Auto-refreshes; any key refreshes, q quits.",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/build-doctor.sh --watch",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
+				"problemMatcher": []
+			},
+			{
+				"label": "Positron CI: Reinstall deps",
+				"detail": "After a pull/branch-switch changed the root package-lock.json.",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/reinstall-deps.sh root",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
+				"problemMatcher": []
+			},
+			{
+				"label": "Positron CI: Reinstall e2e deps",
+				"detail": "After a pull/branch-switch changed test/e2e/package-lock.json (the Doctor flags e2e-deps drift separately from root deps).",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/reinstall-deps.sh e2e",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
+				"problemMatcher": []
+			},
+			{
+				"label": "Positron CI: Reinstall interpreters",
+				"detail": "Restore the Linux pet/ark/kcserver binaries after a native build clobbered them (Python/R fail with 'Exec format error'; the Doctor's Interpreters row flags it).",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/reinstall-interpreters.sh",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
+				"problemMatcher": []
+			},
+			{
+				"label": "Positron CI: Rebuild",
+				"detail": "Re-run the whole cold build (idempotent). Use if the doctor reports the build is incomplete.",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/post-create.sh",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
+				"problemMatcher": []
+			},
+			{
+				"label": "Positron CI: Get QA content",
+				"detail": "Provision test-files (the files the e2e tests open) for manual repro; linked at ~/test-files so it's easy to open. Re-run to refresh it from the current checkout.",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/get-qa-content.sh",
+				"presentation": { "panel": "dedicated", "reveal": "silent", "focus": false },
+				"problemMatcher": []
+			},
+			{
+				// Runs the currently open spec via run-e2e.sh, which sets everything a headless e2e run
+				// needs (all four interpreter version vars, GITHUB_ACTIONS so image-comparison tests
+				// actually compare, DISPLAY, --project e2e-electron). --workers=1 runs the whole file
+				// in order -- Positron doesn't split a spec across workers -- which is how CI-only flakes
+				// reproduce. Open the .test.ts first (${relativeFile} is the active editor).
+				"label": "Positron CI: e2e (current spec)",
+				"detail": "Run the open .test.ts CI-faithfully: interpreter vars + GITHUB_ACTIONS set, whole file in order at --workers=1. The setup for reproducing CI-only flakes. Open the spec first.",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/run-e2e.sh \"${relativeFile}\" --workers=1",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": true, "clear": true },
+				"problemMatcher": []
+			},
+			{
+				// Prelaunch step for the "Positron CI: Debug (Electron)" compound. Same as the repo's
+				// "Ensure Prelaunch Dependencies" task (node build/lib/preLaunch.ts), but defined here
+				// under a unique name so the workspace-level launch compound can resolve it — a
+				// workspace launch config can't reference a folder-level (.vscode/tasks.json) task.
+				"label": "Positron CI: Prelaunch deps",
+				"detail": "Bootstraps Positron's build deps before debugging (repo's preLaunch.ts). No-op once built.",
+				"type": "shell",
+				"command": "npm run prelaunch",
+				"options": { "env": { "VSCODE_DEV": "1" } },
+				"presentation": { "reveal": "silent", "close": true },
+				"problemMatcher": []
+			},
+			{
+				// Incremental compiler for the edit-debug loop. Start it once per session; on save it
+				// recompiles src -> out so a running debug session picks up your changes after a window
+				// reload. Long-running (no exit), so it's isBackground and shown in its own panel.
+				"label": "Positron CI: Watch (src)",
+				"detail": "Recompile src -> out on save (npm run watch). Leave running; reload the Positron window after 'Finished compilation' to pick up edits.",
+				"type": "shell",
+				"command": "npm run watch",
+				"isBackground": true,
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
+				"problemMatcher": []
+			}
+		]
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				// Container-aware clone of the repo's "Launch Positron Internal" (.vscode/launch.json).
+				// The stock config can't launch Electron in this headless container: it runs as root
+				// with no --no-sandbox (Chromium aborts) and no software GL (nothing renders under
+				// Xvnc), so no renderer ever appears on :9222 and the debugger reports "Could not find
+				// any debuggable target". We add the same flags the e2e runner and launch-electron.sh
+				// use. Kept here (not the repo's .vscode/) so the shared launch.json stays untouched.
+				// Like the original, this carries --inspect-brk=5875 and is meant to run via the
+				// "Positron CI: Debug (Electron)" compound below, which attaches to (and releases) the main
+				// process — do not run it on its own or the main process will pause at startup.
+				"type": "chrome",
+				"request": "launch",
+				"name": "Positron CI: Launch (Electron)",
+				"runtimeExecutable": "${workspaceFolder}/scripts/code.sh",
+				"port": 9222,
+				"timeout": 0,
+				"env": {
+					"VSCODE_EXTHOST_WILL_SEND_SOCKET": null,
+					"VSCODE_SKIP_PRELAUNCH": "1",
+					"VSCODE_DEV_DEBUG_OBSERVABLES": "1"
+				},
+				"cleanUp": "wholeBrowser",
+				"killBehavior": "polite",
+				"runtimeArgs": [
+					"--inspect-brk=5875",
+					"--no-cached-data",
+					"--crash-reporter-directory=${workspaceFolder}/.profile-oss/crashes",
+					"--disable-features=CalculateNativeWinOcclusion",
+					"--disable-extension=vscode.vscode-api-tests",
+					// --- ci-arm: launch Electron headless, as root, under Xvnc with no GPU ---
+					"--no-sandbox",
+					"--disable-dev-shm-usage",
+					"--use-gl=swiftshader",
+					"--enable-unsafe-swiftshader",
+					"--disable-gpu-compositing"
+				],
+				"userDataDir": "${userHome}/.vscode-oss-dev",
+				"webRoot": "${workspaceFolder}",
+				"cascadeTerminateToConfigurations": ["Attach to Extension Host"],
+				"pauseForSourceMap": false,
+				"outFiles": ["${workspaceFolder}/out/**/*.js"],
+				"browserLaunchLocation": "workspace",
+				// Hidden from the Debug dropdown: it's only the launch member of the compound below.
+				// Run alone it hangs (--inspect-brk pauses the main process with nothing to attach).
+				// Use "Positron CI: Debug (Electron)" instead. (Repo hides its "Launch Positron Internal" too.)
+				"presentation": { "hidden": true }
+			},
+			{
+				// Web/browser debugging: debug the workbench frontend running in Chromium against the
+				// Positron *server* (vs the Electron desktop app above). The "Start server" prelaunch
+				// brings up the licensed server on :8080; this then launches Playwright's Chromium
+				// (resolved by chromium.sh) headed on Xvnc — view it in noVNC — pointed at that URL,
+				// with the same root/headless flags Electron needs. Breakpoints in workbench src bind
+				// via source maps. The repo's "Positron Server (Web, Chrome)" is the un-containerized
+				// equivalent. For most src debugging "Positron CI: Debug (Electron)" is simpler; use this for
+				// web-only / e2e-chromium behavior.
+				"type": "chrome",
+				"request": "launch",
+				"name": "Positron CI: Debug (Web)",
+				"url": "http://localhost:8080/?tkn=dev-token",
+				"preLaunchTask": "Positron CI: Start server",
+				"runtimeExecutable": "${workspaceFolder}/.devcontainer/ci-arm/chromium.sh",
+				"runtimeArgs": [
+					"--no-sandbox",
+					"--disable-dev-shm-usage",
+					"--use-gl=swiftshader",
+					"--enable-unsafe-swiftshader",
+					"--disable-gpu-compositing"
+				],
+				"perScriptSourcemaps": "yes",
+				"outFiles": [],
+				"webRoot": "${workspaceFolder}",
+				"browserLaunchLocation": "workspace"
+			}
+		],
+		"compounds": [
+			{
+				// Mirrors the repo's "Positron" compound, but launches via the container-aware config
+				// above. The "Attach to ..." members and the prelaunch task are the repo's own
+				// (.vscode/launch.json + tasks.json); referenced by name so they resolve against the
+				// workspace folder. Pick this from the Debug dropdown to set breakpoints in src.
+				"name": "Positron CI: Debug (Electron)",
+				"stopAll": true,
+				"configurations": [
+					"Positron CI: Launch (Electron)",
+					"Attach to Main Process",
+					"Attach to Extension Host",
+					"Attach to Shared Process",
+					"Attach to Agent Host Process"
+				],
+				"preLaunchTask": "Positron CI: Prelaunch deps"
+			}
+		]
+	}
+}

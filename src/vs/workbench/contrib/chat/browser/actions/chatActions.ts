@@ -34,6 +34,7 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 import product from '../../../../../platform/product/common/product.js';
+import { GitHubPaths, IDefaultAccountService } from '../../../../../platform/defaultAccount/common/defaultAccount.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { ActiveEditorContext } from '../../../../common/contextkeys.js';
 import { IViewDescriptorService, ViewContainerLocation } from '../../../../common/views.js';
@@ -50,12 +51,12 @@ import { IChatAgentResult, IChatAgentService } from '../../common/participants/c
 import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { ModifiedFileEntryState } from '../../common/editing/chatEditingService.js';
 import { IChatModel, IChatResponseModel } from '../../common/model/chatModel.js';
-import { ChatMode, IChatMode, IChatModeService } from '../../common/chatModes.js';
+import { ChatMode, IChatMode } from '../../common/chatModes.js';
 import { ElicitationState, IChatService, IChatToolInvocation } from '../../common/chatService/chatService.js';
 import { ISCMHistoryItemChangeRangeVariableEntry, ISCMHistoryItemChangeVariableEntry } from '../../common/attachments/chatVariableEntries.js';
 import { IChatRequestViewModel, IChatResponseViewModel, isRequestVM } from '../../common/model/chatViewModel.js';
 import { IChatWidgetHistoryService } from '../../common/widget/chatWidgetHistoryService.js';
-import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from '../../common/constants.js';
+import { ChatAgentLocation, ChatConfiguration, ChatModeKind, getDefaultNewChatSessionType } from '../../common/constants.js';
 import { AICustomizationManagementCommands } from '../aiCustomization/aiCustomizationManagement.js';
 import { ILanguageModelChatSelector, ILanguageModelsService } from '../../common/languageModels.js';
 import { CopilotUsageExtensionFeatureId } from '../../common/languageModelStats.js';
@@ -66,7 +67,7 @@ import { IChatEditorOptions } from '../widgetHosts/editor/chatEditor.js';
 import { ChatEditorInput, showClearEditingSessionConfirmation } from '../widgetHosts/editor/chatEditorInput.js';
 import { convertBufferToScreenshotVariable } from '../attachments/chatScreenshotContext.js';
 import { getChatSessionType, LocalChatSessionUri } from '../../common/model/chatUri.js';
-import { localChatSessionType } from '../../common/chatSessionsService.js';
+import { IChatSessionsService, localChatSessionType } from '../../common/chatSessionsService.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ChatViewPane } from '../widgetHosts/viewPane/chatViewPane.js';
 
@@ -90,7 +91,6 @@ export const INSERT_FORK_CONVERSATION_COMMAND_ID = 'workbench.action.chat.insert
 export const INSERT_TROUBLESHOOT_COMMAND_ID = 'workbench.action.chat.insertTroubleshootCommand';
 
 const defaultChat = {
-	manageSettingsUrl: product.defaultChatAgent?.manageSettingsUrl ?? '',
 	provider: product.defaultChatAgent?.provider ?? { enterprise: { id: '' } },
 	completionsAdvancedSetting: product.defaultChatAgent?.completionsAdvancedSetting ?? '',
 	completionsMenuCommand: product.defaultChatAgent?.completionsMenuCommand ?? '',
@@ -203,10 +203,14 @@ abstract class OpenChatGlobalAction extends Action2 {
 			icon: Codicon.chatSparkle,
 			f1: true,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide from command palette when AI features are disabled.
 			precondition: ContextKeyExpr.and(
 				ChatContextKeys.Setup.hidden.negate(),
 				ChatContextKeys.Setup.disabledInWorkspace.negate(),
-			)
+				ChatContextKeys.aiFeaturesEnabled,
+			),
+			// --- End Positron ---
 		});
 	}
 
@@ -220,7 +224,6 @@ abstract class OpenChatGlobalAction extends Action2 {
 		const chatAgentService = accessor.get(IChatAgentService);
 		const instaService = accessor.get(IInstantiationService);
 		const commandService = accessor.get(ICommandService);
-		const chatModeService = accessor.get(IChatModeService);
 		const fileService = accessor.get(IFileService);
 		const languageModelService = accessor.get(ILanguageModelsService);
 		const scmService = accessor.get(ISCMService);
@@ -238,7 +241,7 @@ abstract class OpenChatGlobalAction extends Action2 {
 			return;
 		}
 
-		const switchToMode = (opts?.mode ? chatModeService.findModeByName(opts?.mode) : undefined) ?? this.mode;
+		const switchToMode = opts?.mode ? chatWidget.input.currentChatModesObs.get().findModeByName(opts.mode) : this.mode;
 		if (switchToMode) {
 			await this.handleSwitchToMode(switchToMode, chatWidget, instaService, commandService);
 		}
@@ -644,7 +647,10 @@ export function registerChatActions() {
 				icon: Codicon.plus,
 				f1: true,
 				category: CHAT_CATEGORY,
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.CtrlCmd | KeyCode.KeyN,
@@ -752,7 +758,10 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.openToSide', "New Chat Editor to the Side"),
 				f1: true,
 				category: CHAT_CATEGORY,
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -769,7 +778,10 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.newChatWindow', "New Chat Window"),
 				f1: true,
 				category: CHAT_CATEGORY,
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				menu: [{
 					id: MenuId.ChatTitleBarMenu,
 					group: 'b_new',
@@ -793,7 +805,10 @@ export function registerChatActions() {
 			super({
 				id: 'workbench.action.chat.clearInputHistory',
 				title: localize2('interactiveSession.clearHistory.label', "Clear Input History"),
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				category: CHAT_CATEGORY,
 				f1: true,
 			});
@@ -915,7 +930,13 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.focusTodosView.label', "Toggle Focus Between TODOs and Input"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Agent),
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Agent),
+					ChatContextKeys.aiFeaturesEnabled,
+				),
+				// --- End Positron ---
 				keybinding: [{
 					weight: KeybindingWeight.WorkbenchContrib + 1,
 					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyT,
@@ -946,7 +967,13 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.focusQuestionCarousel.label', "Chat: Toggle Focus Between Question and Input"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ChatContextKeys.inChatSession,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.inChatSession,
+					ChatContextKeys.aiFeaturesEnabled,
+				),
+				// --- End Positron ---
 				keybinding: [{
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyA,
@@ -974,7 +1001,14 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.previousQuestion.label', "Chat: Previous Question"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ContextKeyExpr.and(ChatContextKeys.inChatSession, ChatContextKeys.Editing.hasQuestionCarousel),
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.inChatSession,
+					ChatContextKeys.Editing.hasQuestionCarousel,
+					ChatContextKeys.aiFeaturesEnabled,
+				),
+				// --- End Positron ---
 				keybinding: [{
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.Alt | KeyCode.KeyP,
@@ -998,7 +1032,14 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.nextQuestion.label', "Chat: Next Question"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ContextKeyExpr.and(ChatContextKeys.inChatSession, ChatContextKeys.Editing.hasQuestionCarousel),
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.inChatSession,
+					ChatContextKeys.Editing.hasQuestionCarousel,
+					ChatContextKeys.aiFeaturesEnabled,
+				),
+				// --- End Positron ---
 				keybinding: [{
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.Alt | KeyCode.KeyN,
@@ -1022,7 +1063,15 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.focusQuestionCarouselTerminal.label', "Chat: Focus Terminal from Question Carousel"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ContextKeyExpr.and(ChatContextKeys.inChatSession, ChatContextKeys.Editing.hasQuestionCarousel, ChatContextKeys.chatQuestionCarouselHasTerminal),
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.inChatSession,
+					ChatContextKeys.Editing.hasQuestionCarousel,
+					ChatContextKeys.chatQuestionCarouselHasTerminal,
+					ChatContextKeys.aiFeaturesEnabled,
+				),
+				// --- End Positron ---
 				keybinding: [{
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.Alt | KeyCode.KeyT,
@@ -1046,7 +1095,13 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.focusTip.label', "Chat: Toggle Focus Between Tip and Input"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ChatContextKeys.inChatSession,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.inChatSession,
+					ChatContextKeys.aiFeaturesEnabled,
+				),
+				// --- End Positron ---
 				keybinding: [{
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Slash,
@@ -1075,7 +1130,10 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.showContextUsage.label', "Show Context Window Usage"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1114,18 +1172,23 @@ export function registerChatActions() {
 		constructor() {
 			super({
 				id: 'workbench.action.chat.manageSettings',
-				title: localize2('manageChat', "Manage Chat"),
+				title: localize2('manageChat', "Manage Copilot Settings"),
 				category: CHAT_CATEGORY,
 				f1: true,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
 				precondition: ContextKeyExpr.and(
 					ContextKeyExpr.or(
 						ChatContextKeys.Entitlement.planFree,
 						ChatContextKeys.Entitlement.planEdu,
 						ChatContextKeys.Entitlement.planPro,
-						ChatContextKeys.Entitlement.planProPlus
+						ChatContextKeys.Entitlement.planProPlus,
+						ChatContextKeys.Entitlement.planMax
 					),
-					nonEnterpriseCopilotUsers
+					nonEnterpriseCopilotUsers,
+					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
 				),
+				// --- End Positron ---
 				menu: {
 					id: MenuId.ChatTitleBarMenu,
 					group: 'y_manage',
@@ -1137,7 +1200,8 @@ export function registerChatActions() {
 
 		override async run(accessor: ServicesAccessor): Promise<void> {
 			const openerService = accessor.get(IOpenerService);
-			openerService.open(URI.parse(defaultChat.manageSettingsUrl));
+			const defaultAccountService = accessor.get(IDefaultAccountService);
+			openerService.open(URI.parse(defaultAccountService.resolveGitHubUrl(GitHubPaths.copilotSettings)));
 		}
 	});
 
@@ -1149,7 +1213,10 @@ export function registerChatActions() {
 				title: localize2('showCopilotUsageExtensions', "Show Extensions using Copilot"),
 				f1: true,
 				category: EXTENSIONS_CATEGORY,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1254,7 +1321,10 @@ export function registerChatActions() {
 				title: localize2('resetTrustedTools', "Reset Tool Confirmations"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 		override run(accessor: ServicesAccessor): void {
@@ -1271,7 +1341,10 @@ export function registerChatActions() {
 				category: CHAT_CATEGORY,
 				icon: Codicon.sparkle,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1293,7 +1366,10 @@ export function registerChatActions() {
 				category: CHAT_CATEGORY,
 				icon: Codicon.sparkle,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1316,7 +1392,10 @@ export function registerChatActions() {
 				category: CHAT_CATEGORY,
 				icon: Codicon.sparkle,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1339,7 +1418,10 @@ export function registerChatActions() {
 				category: CHAT_CATEGORY,
 				icon: Codicon.sparkle,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1362,7 +1444,10 @@ export function registerChatActions() {
 				category: CHAT_CATEGORY,
 				icon: Codicon.sparkle,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1385,7 +1470,10 @@ export function registerChatActions() {
 				category: CHAT_CATEGORY,
 				icon: Codicon.sparkle,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1408,7 +1496,10 @@ export function registerChatActions() {
 				category: CHAT_CATEGORY,
 				icon: Codicon.repoForked,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1429,7 +1520,10 @@ export function registerChatActions() {
 				shortTitle: localize2('insertTroubleshootSlashCommand.short', "Insert /troubleshoot"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1450,7 +1544,10 @@ export function registerChatActions() {
 				shortTitle: localize('openChatFeatureSettings.short', "Chat Settings"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				menu: [{
 					id: CHAT_CONFIG_MENU_ID,
 					when: ContextKeyExpr.and(ChatContextKeys.enabled, ContextKeyExpr.equals('view', ChatViewId)),
@@ -1728,9 +1825,10 @@ export interface IClearEditingSessionConfirmationOptions {
  * the session type (e.g. Claude, Cloud, Background) for non-local sessions
  * in the sidebar.
  */
-export async function clearChatSessionPreservingType(widget: IChatWidget, viewsService: IViewsService, sessionType?: string): Promise<void> {
+export async function clearChatSessionPreservingType(widget: IChatWidget, viewsService: IViewsService, sessionType: string | undefined, configurationService: IConfigurationService, chatSessionsService: IChatSessionsService): Promise<void> {
 	const currentResource = widget.viewModel?.model.sessionResource;
-	const newSessionType = sessionType ?? (currentResource ? getChatSessionType(currentResource) : localChatSessionType);
+	const defaultType = getDefaultNewChatSessionType(configurationService, chatSessionsService);
+	const newSessionType = sessionType ?? (currentResource ? getChatSessionType(currentResource) : defaultType);
 	if (isIChatViewViewContext(widget.viewContext) && newSessionType !== localChatSessionType) {
 		// For the sidebar, we need to explicitly load a session with the same type
 		const newResource = URI.from({ scheme: newSessionType, path: `/untitled-${generateUuid()}` });
@@ -1793,7 +1891,10 @@ registerAction2(class EditToolApproval extends Action2 {
 			metadata: {
 				description: localize2('chat.editToolApproval.description', "Edit/manage the tool approval and confirmation preferences for AI chat agents."),
 			},
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide from command palette when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			f1: true,
 			category: CHAT_CATEGORY,
 		});

@@ -46,7 +46,7 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 	});
 
 	test('Verify Quarto can generate preview', async function ({ app }) {
-		await app.code.driver.currentPage.getByRole('button', { name: 'Preview' }).click();
+		await app.workbench.editorActionBar.clickButton('Preview');
 		const viewerFrame = app.workbench.viewer.getViewerFrame().frameLocator('iframe');
 
 		// verify preview displays
@@ -55,7 +55,7 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 
 	test('Quarto Shiny App renders correctly', async ({ app, openFile }) => {
 		await openFile(join('workspaces', 'quarto_shiny', 'mini-app.qmd'));
-		await app.code.driver.currentPage.getByRole('button', { name: 'Preview' }).click();
+		await app.workbench.editorActionBar.clickButton('Preview');
 		await app.code.driver.currentPage
 			.frameLocator('iframe[name]')
 			.frameLocator('#active-frame')
@@ -87,7 +87,7 @@ const fileExists = async (app: Application, file: string, runDockerCommand?: Doc
 	if (runDockerCommand && projectName) {
 		const containerName = projectName === 'e2e-jupyter' ? 'jupyter-test' : 'test';
 		const userName = projectName === 'e2e-jupyter' ? 'jupyter-admin' : 'user1';
-		const containerPath = `/home/${userName}/qa-example-content/workspaces/quarto_basic/${file}`;
+		const containerPath = `/home/${userName}/test-files/workspaces/quarto_basic/${file}`;
 		try {
 			const { stdout } = await runDockerCommand(
 				`docker exec ${containerName} bash -lc 'if test -f "${containerPath}"; then echo FOUND; else echo MISSING; fi'`,

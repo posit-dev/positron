@@ -1,6 +1,6 @@
 ---
 name: author-e2e-tests
-description: This skill should be used when writing, debugging, or maintaining Playwright e2e tests for Positron. Load this skill when creating new test files, adding test cases, fixing flaky tests, or understanding the test infrastructure.
+description: Use when writing, debugging, or maintaining Playwright e2e tests for Positron -- new test files, test cases, flaky-test fixes, test infrastructure, or performance/metric tests.
 ---
 
 # Positron Playwright E2E Testing
@@ -19,6 +19,10 @@ Load this skill when:
 - Working with page objects
 - Choosing correct selectors and assertions
 
+## Start Here: Read a Neighbor Test
+
+Before writing anything, open an existing test in `test/e2e/tests/<feature>/` for the area you're working on and skim it. The reference docs below tell you how to verify a method and why a pattern exists; the existing tests show you what a correct test actually looks like, including the flake-avoiding details that live in no doc, such as which panes overlap the view under test, how cell/output values render (numeric grid cells come back as strings, for instance), and which tags a suite in that area carries. Copy the closest neighbor's structure, then adjust it. Use the reference docs to confirm each method name against source and to understand the gotchas.
+
 ## Critical: Test File Structure
 
 Every test file MUST follow this structure:
@@ -35,26 +39,25 @@ test.describe('Feature Name', {
 	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.FEATURE_TAG]
 }, () => {
 
-	test.beforeEach(async function ({ app }) {
+	test.beforeEach(async ({ app }) => {
 		// Optional setup for each test
 	});
 
-	test.afterEach(async function ({ app, hotKeys }) {
+	test.afterEach(async ({ app, hotKeys }) => {
 		// Cleanup after each test
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Test description', async function ({ app, python }) {
+	test('Test description', async ({ app, python }) => {
 		// Test implementation
 	});
 });
 ```
 
 **MANDATORY REQUIREMENTS:**
-1. Import from `../_test.setup` - NOT from `@playwright/test`
+1. Import from `../_test.setup` - NOT from `@playwright/test`. Import only what the file uses: `test` and `tags` always, `expect` only if you write raw assertions (a file whose assertions all go through POM methods doesn't import `expect`, and an unused import fails lint).
 2. Set `suiteId: __filename` - Required for app isolation
-3. Use `function` syntax for tests (not arrow functions) - Required for fixtures
-4. Add appropriate tags for platform filtering
+3. Add appropriate tags for platform filtering
 
 ## Quick Reference: Available Fixtures
 
@@ -92,13 +95,16 @@ await variables.doubleClickVariableRow('df');
 await dataExplorer.grid.verifyTableData([{ col: 'value' }]);
 ```
 
-See `references/page-objects.md` for complete page object documentation.
+See `references/page-objects.md` for usage idioms and "Finding the Exact Source" for how to look up the exact signature directly from `test/e2e/pages/*.ts`. **Never guess or paraphrase a method name -- copy it from the source file.**
 
 ## Quick Reference: Assertions
 
 ```typescript
-// Visibility with timeout
-await expect(locator).toBeVisible({ timeout: 30000 });
+// Default 15s timeout covers most UI checks -- no override needed
+await expect(locator).toBeVisible();
+
+// Override only for a known-slow operation (see references/assertions.md)
+await expect(locator).toBeVisible({ timeout: 60000 });
 
 // Text content
 await expect(locator).toHaveText('expected');
@@ -110,22 +116,15 @@ await expect(locator).toHaveCount(3, { timeout: 15000 });
 // Retry pattern for flaky operations
 await expect(async () => {
 	await someAction();
-	await expect(resultLocator).toBeVisible();
+	await expect(resultLocator).toBeVisible({ timeout: 2000 }); // fail quickly
 }).toPass({ timeout: 15000 });
 ```
 
-See `references/assertions.md` for complete assertion patterns.
+See `references/assertions.md` for retry-mechanism choice (`toPass` vs `expect.poll` vs web-first) and selector priority.
 
 ## Quick Reference: Test Tags
 
-**Feature tags** (what the test covers):
-- `tags.CONSOLE`, `tags.DATA_EXPLORER`, `tags.NOTEBOOKS`, `tags.PLOTS`, `tags.VARIABLES`
-- `tags.CRITICAL` - High priority tests
-
-**Platform tags** (where the test runs):
-- `tags.WEB` - Enable web browser testing
-- `tags.WIN` - Enable Windows testing
-- Default: Linux/Electron only
+Tag every `test.describe` via the `tag` array. Available tags are the `FeatureTags` (what the test covers) and `PlatformTags` (where it runs) enums in `test/e2e/infra/test-runner/test-tags.ts` -- read those for the current set. A test with no platform tag runs only on Linux/Electron; add `tags.WEB` / `tags.WIN` to broaden.
 
 ```typescript
 test.describe('Console Tests', {
@@ -133,19 +132,28 @@ test.describe('Console Tests', {
 }, () => { ... });
 ```
 
+## Performance / Metric Tests
+
+Performance/metric tests live in a `performance/` subdirectory under their feature directory (e.g. `tests/data-explorer/performance/`, `tests/console/performance/`). They use `metric.*` timing wrappers (e.g. `metric.console.executeCode`, `metric.dataExplorer.loadData`) and must capture only the **user-observable action**, not test scaffolding.
+
+**Recipe:** All setup (focus, staging code, pre-checks) happens before the timer. Inside the timer: only the bare trigger (e.g. `page.keyboard.press('Enter')`) and the wait for completion.
+
+**Why not use POM submit methods inside the timer?** Many POM methods hide fixed delays. For example, `sendEnterKey()` contains a `waitForTimeout(500)` and a `focus()` call, so wrapping it inside a metric inflates every measurement by ~600ms of synthetic noise. Before using any POM method inside a timer, check its source for `waitForTimeout`, artificial focus calls, or retry loops. For the trigger keypress, prefer `page.keyboard.press()` directly.
+
+All performance/metric tests must include `tags.PERFORMANCE` in their tag list.
+
 ## Common Mistakes to Avoid
 
 **Critical (will break tests):**
 1. **Wrong imports** - use `../_test.setup`, not `@playwright/test`
 2. **Missing `suiteId`** - must have `test.use({ suiteId: __filename })`
-3. **Arrow functions** - use `function` syntax, not `async ({ app }) =>`
-4. **Missing platform tags** - add `tags.WEB`, `tags.WIN` for cross-platform
+3. **Missing platform tags** - add `tags.WEB`, `tags.WIN` for cross-platform
 
 **Quality issues:**
-5. **No timeout on assertions** - use `{ timeout: 30000 }` for async operations
-6. **No `test.step()`** - wrap complex multi-action sequences for better reports
+4. **Timeout overrides added reflexively** - the 15s default covers most UI checks; only override for a known-slow (or known-fast) operation
+5. **No `test.step()`** - wrap complex multi-action sequences for better reports
 
-See `references/common-mistakes.md` for 26 detailed gotchas with code examples.
+See `references/common-mistakes.md` for detailed gotchas with code examples.
 
 ## Running Tests
 
@@ -176,9 +184,9 @@ For detailed information, read the bundled reference docs:
 - **`references/test-setup.md`** - How to configure the local machine environment to run tests
 - **`references/test-structure.md`** - Complete test file structure and organization
 - **`references/fixtures.md`** - All available fixtures and their usage
-- **`references/page-objects.md`** - Page object patterns and available POMs
-- **`references/assertions.md`** - Assertion patterns and waiting strategies
-- **`references/common-mistakes.md`** - Comprehensive list of gotchas to avoid
+- **`references/page-objects.md`** - Page object usage idioms (curated, not exhaustive)
+- **`references/assertions.md`** - Retry-mechanism choice and selector priority (Positron-specific; standard Playwright assertions assumed)
+- **`references/common-mistakes.md`** - Positron-specific gotchas to avoid
 
 ## Key Architecture Principles
 

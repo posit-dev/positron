@@ -1,0 +1,19 @@
+---
+title: "Images and Equations"
+format: html
+---
+
+Here is an image of the Mandelbrot set:
+
+![The Mandlebrot Set](mandelbrot.jpg)
+
+And here is an image of the Julia set, or would be if I had an image of the Julia set, which I do not.
+
+![The Julia Set](julia.jpg)
+
+Speaking of the Mandelbrot set, here's the equation that governs it:
+
+$$
+z_{n+1} = z_n^2 + c
+$$
+

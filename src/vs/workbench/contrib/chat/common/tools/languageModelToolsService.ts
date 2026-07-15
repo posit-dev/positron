@@ -25,15 +25,10 @@ import { createDecorator } from '../../../../../platform/instantiation/common/in
 import { IProgress } from '../../../../../platform/progress/common/progress.js';
 import { ChatRequestToolReferenceEntry } from '../attachments/chatVariableEntries.js';
 import { IVariableReference } from '../chatModes.js';
-import { IChatExtensionsContent, IChatModifiedFilesConfirmationData, IChatSimpleToolInvocationData, IChatSubagentToolInvocationData, IChatTodoListContent, IChatToolInputInvocationData, IChatToolInvocation, type IChatTerminalToolInvocationData } from '../chatService/chatService.js';
+import { IChatExtensionsContent, IChatModifiedFilesConfirmationData, IChatSearchToolInvocationData, IChatSimpleToolInvocationData, IChatSubagentToolInvocationData, IChatTodoListContent, IChatToolInputInvocationData, IChatToolInvocation, type IChatTerminalToolInvocationData } from '../chatService/chatService.js';
 import { ILanguageModelChatMetadata, LanguageModelPartAudience } from '../languageModels.js';
 import { UserSelectedTools } from '../participants/chatAgents.js';
 import { PromptElementJSON, stringifyPromptElementJSON } from './promptTsxTypes.js';
-
-// --- Start Positron ---
-// eslint-disable-next-line no-duplicate-imports
-import { ILanguageModelChatMetadataAndIdentifier } from '../languageModels.js';
-// --- End Positron ---
 
 /**
  * Selector for matching language models by vendor, family, version, or id.
@@ -159,7 +154,7 @@ export namespace ToolDataSource {
 		if (source.type === 'internal') {
 			return { ordinal: 1, label: localize('builtin', 'Built-In') };
 		} else if (source.type === 'mcp') {
-			return { ordinal: 2, label: source.label };
+			return { ordinal: 2, label: source.serverLabel || source.label };
 		} else if (source.type === 'user') {
 			return { ordinal: 0, label: localize('user', 'User Defined') };
 		} else {
@@ -195,17 +190,31 @@ export interface IToolInvocation {
 	 * Lets us add some nicer UI to toolcalls that came from a sub-agent, but in the long run, this should probably just be rendered in a similar way to thinking text + tool call groups
 	 */
 	subAgentInvocationId?: string;
-	toolSpecificData?: IChatTerminalToolInvocationData | IChatToolInputInvocationData | IChatExtensionsContent | IChatTodoListContent | IChatSubagentToolInvocationData | IChatSimpleToolInvocationData | IChatModifiedFilesConfirmationData;
+	toolSpecificData?: IChatTerminalToolInvocationData | IChatToolInputInvocationData | IChatExtensionsContent | IChatTodoListContent | IChatSubagentToolInvocationData | IChatSimpleToolInvocationData | IChatSearchToolInvocationData | IChatModifiedFilesConfirmationData;
 	modelId?: string;
 	userSelectedTools?: UserSelectedTools;
 	/** The label of the custom button selected by the user during confirmation, if custom buttons were used. */
 	selectedCustomButton?: string;
 	/** Pre-tool-use hook result passed from the extension, if the hook was already executed externally. */
 	preToolUseResult?: IExternalPreToolUseHookResult;
+	/**
+	 * Optional W3C trace context `traceparent` value identifying the parent distributed
+	 * tracing span for this tool invocation. Forwarded to MCP tool implementations as
+	 * `_meta.traceparent` (MCP SEP-414).
+	 */
+	traceparent?: string;
+	/** Optional W3C trace context `tracestate` value paired with {@link traceparent}. */
+	tracestate?: string;
 }
 
 export interface IToolInvocationContext {
 	readonly sessionResource: URI;
+	/**
+	 * The working directory URI associated with this session.
+	 * Only set in the agents window context where each session can
+	 * have its own working directory that differs from the workspace folders.
+	 */
+	readonly workingDirectory?: URI;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -223,6 +232,11 @@ export interface IToolInvocationPreparationContext {
 	modelId?: string;
 	/** If set, tells the tool that it should include confirmation messages. */
 	forceConfirmationReason?: string;
+	/**
+	 * The working directory URI for the session, if set.
+	 * Used by tools to resolve relative paths and check file access.
+	 */
+	workingDirectory?: URI;
 }
 
 export type ToolInputOutputBase = {
@@ -381,7 +395,7 @@ export interface IPreparedToolInvocation {
 	confirmationMessages?: IToolConfirmationMessages;
 	presentation?: ToolInvocationPresentation;
 	icon?: ThemeIcon;
-	toolSpecificData?: IChatTerminalToolInvocationData | IChatToolInputInvocationData | IChatExtensionsContent | IChatTodoListContent | IChatSubagentToolInvocationData | IChatSimpleToolInvocationData | IChatModifiedFilesConfirmationData;
+	toolSpecificData?: IChatTerminalToolInvocationData | IChatToolInputInvocationData | IChatExtensionsContent | IChatTodoListContent | IChatSubagentToolInvocationData | IChatSimpleToolInvocationData | IChatSearchToolInvocationData | IChatModifiedFilesConfirmationData;
 }
 
 export interface IToolImpl {
@@ -487,10 +501,11 @@ export class ToolSetForModel {
 	constructor(
 		private readonly _toolSet: IToolSet,
 		private readonly model: ILanguageModelChatMetadata | undefined,
+		private readonly toolFilter?: (toolData: IToolData) => boolean,
 	) { }
 
 	public getTools(r?: IReader): Iterable<IToolData> {
-		return Iterable.filter(this._toolSet.getTools(r), toolData => toolMatchesModel(toolData, this.model));
+		return Iterable.filter(this._toolSet.getTools(r), toolData => toolMatchesModel(toolData, this.model) && (!this.toolFilter || this.toolFilter(toolData)));
 	}
 }
 
@@ -611,9 +626,6 @@ export interface ILanguageModelToolsService {
 
 	toFullReferenceNames(map: IToolAndToolSetEnablementMap): string[];
 	toToolReferences(variableReferences: readonly IVariableReference[]): ChatRequestToolReferenceEntry[];
-	// --- Start Positron ---
-	isToolEnabledForModel(toolId: string, selectedLanguageModel: ILanguageModelChatMetadataAndIdentifier | undefined): boolean;
-	// --- End Positron ---
 }
 
 

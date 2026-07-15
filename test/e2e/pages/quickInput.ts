@@ -91,6 +91,22 @@ export class QuickInput {
 		).toBeVisible({ timeout });
 	}
 
+	/**
+	 * Wait for the runtime quick pick to finish interpreter discovery before
+	 * interacting with the list. While discovery is in progress the picker sets
+	 * its input placeholder to "Discovering interpreters..." (see
+	 * languageRuntimeActions.ts) and lists only the interpreters found so far.
+	 * Selecting during this window races discovery: a version-string match can
+	 * land on a fast-discovered source (e.g. a uv base install) instead of the
+	 * intended interpreter. The placeholder is set synchronously before the
+	 * picker is shown, so this assertion cannot pass vacuously mid-discovery.
+	 */
+	async waitForInterpreterDiscoveryToComplete({ timeout = 30000 }: { timeout?: number } = {}): Promise<void> {
+		await expect(
+			this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT),
+		).not.toHaveAttribute('placeholder', /Discovering interpreters/i, { timeout });
+	}
+
 	async type(value: string): Promise<void> {
 		await this.code.driver.currentPage
 			.locator(QuickInput.QUICK_INPUT_INPUT)
@@ -158,21 +174,40 @@ export class QuickInput {
 
 	async selectQuickInputElementContaining(
 		text: string,
-		{ timeout, force = true }: { timeout?: number; force?: boolean } = {},
+		{ timeout, force = true, deprioritize }: { timeout?: number; force?: boolean; deprioritize?: string[] } = {},
 	): Promise<string> {
-		const firstMatch = this.code.driver.currentPage
-			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`)
-			.first();
+		const matches = this.code.driver.currentPage
+			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`);
 
-		const firstMatchResult =
-			(await firstMatch
+		// By default select the first matching row. When `deprioritize` is set and
+		// several rows share `text` (e.g. a project venv and a base pyenv both
+		// labeled "Python 3.10.12"), prefer the first row whose aria-label contains
+		// none of the deprioritized source markers. Falls back to the first match
+		// when every match is deprioritized (e.g. a platform where only the base
+		// interpreter is installed).
+		let target = matches.first();
+		if (deprioritize?.length) {
+			await expect(target).toBeVisible({ timeout });
+			const count = await matches.count();
+			for (let i = 0; i < count; i++) {
+				const row = matches.nth(i);
+				const ariaLabel = (await row.getAttribute('aria-label')) ?? '';
+				if (!deprioritize.some(source => ariaLabel.includes(source))) {
+					target = row;
+					break;
+				}
+			}
+		}
+
+		const targetResult =
+			(await target
 				.locator('.quick-input-list-row')
 				.nth(0)
 				.textContent({ timeout })) || '';
-		await firstMatch.click({ force, timeout });
+		await target.click({ force, timeout });
 		await this.code.driver.currentPage.mouse.move(0, 0);
 
-		return firstMatchResult.trim();
+		return targetResult.trim();
 	}
 
 	async selectQuickInputElementExact(

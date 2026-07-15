@@ -32,13 +32,12 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			type: 'boolean',
 			default: false,
 			markdownDescription: localize(
-				'dataConnections.enabled',
+				'positron.dataConnections.enabled',
 				'Enable the Data Connections panel. Requires a reload to take effect.'
 			),
 			tags: ['preview'],
 			scope: ConfigurationScope.APPLICATION,
-			// Hidden from the settings UI; users can still set it in settings.json.
-			included: false,
+			included: true,
 		},
 	},
 });
@@ -73,8 +72,8 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 			{
 				id: POSITRON_DATA_CONNECTIONS_VIEW_ID,
 				title: {
-					value: localize('positron.dataConnections', "Data"),
-					original: 'Data'
+					value: localize('positron.dataConnections', "Data Connections"),
+					original: 'Data Connections'
 				},
 				icon: positronDataConnectionsViewIcon,
 				order: 2,
@@ -93,7 +92,7 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 		Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
 			id: POSITRON_DATA_CONNECTIONS_VIEW_ID,
 			name: {
-				value: localize('positron.dataConnections', "Data"),
+				value: localize('positron.dataConnections', "Data Connections"),
 				original: 'Data Connections'
 			},
 			containerIcon: positronDataConnectionsViewIcon,

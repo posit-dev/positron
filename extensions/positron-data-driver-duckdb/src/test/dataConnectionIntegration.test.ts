@@ -55,9 +55,10 @@ suite('Data Connection Integration', () => {
 		return schema;
 	}
 
-	// Returns the named category group ('Tables' | 'Views') under a schema node.
-	async function getGroup(schema: positron.DataConnectionNode, groupName: string): Promise<positron.DataConnectionNode> {
-		const groups = await schema.getChildren!();
+	// Returns the named category group under a parent node: 'Tables'/'Views' under a schema, or
+	// 'Columns'/'Indexes' under a table or view.
+	async function getGroup(parent: positron.DataConnectionNode, groupName: string): Promise<positron.DataConnectionNode> {
+		const groups = await parent.getChildren!();
 		const group = groups.find(g => g.name === groupName);
 		assert.ok(group, `group '${groupName}' should exist`);
 		return group;
@@ -77,28 +78,28 @@ suite('Data Connection Integration', () => {
 			assert.strictEqual(duckdb.name, 'DuckDB');
 		});
 
-		test('DuckDB driver has expected parameters', async () => {
+		test('DuckDB driver has expected mechanisms and parameters', async () => {
 			// Get the drivers and find the DuckDB driver.
 			const drivers = await positron.dataConnections.getDrivers();
 			const duckdb = drivers.find(d => d.id === 'positron-data-driver-duckdb')!;
 
+			// Test the single 'file' mechanism.
+			assert.strictEqual(duckdb.mechanisms.length, 1);
+			const mechanism = duckdb.mechanisms.find(m => m.id === 'file')!;
+			assert.ok(mechanism);
+
 			// Test the parameters length.
-			assert.strictEqual(duckdb.parameters.length, 3);
+			assert.strictEqual(mechanism.parameters.length, 2);
 
 			// Check the path parameter.
-			const pathParam = duckdb.parameters.find(p => p.id === 'databasePath');
+			const pathParam = mechanism.parameters.find(p => p.id === 'databasePath');
 			assert.ok(pathParam);
 			assert.strictEqual(pathParam.type, 'file');
 
 			// Check the read only parameter.
-			const readOnlyParam = duckdb.parameters.find(p => p.id === 'readOnly');
+			const readOnlyParam = mechanism.parameters.find(p => p.id === 'readOnly');
 			assert.ok(readOnlyParam);
 			assert.strictEqual(readOnlyParam.type, 'boolean');
-
-			// Check the in-memory parameter.
-			const inMemoryParam = duckdb.parameters.find(p => p.id === 'inMemory');
-			assert.ok(inMemoryParam);
-			assert.strictEqual(inMemoryParam.type, 'boolean');
 		});
 	});
 
@@ -109,10 +110,9 @@ suite('Data Connection Integration', () => {
 			const dbPath = await createTestDb('connect.duckdb', 'CREATE TABLE t (x INTEGER);');
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
 				databasePath: dbPath,
 				readOnly: false,
-				inMemory: false,
 			});
 
 			// Test that connection worked.
@@ -129,32 +129,15 @@ suite('Data Connection Integration', () => {
 			const dbPath = await createTestDb('connect-ro.duckdb', 'CREATE TABLE t (x INTEGER);');
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
 				databasePath: dbPath,
 				readOnly: true,
-				inMemory: false,
 			});
 
 			// Test that connection worked.
 			assert.ok(conn);
 			assert.strictEqual(await conn.isConnected(), true);
 			assert.strictEqual(await conn.isReadOnly(), true);
-
-			// Disconnect.
-			await conn.disconnect();
-		});
-
-		test('connect to an in-memory database', async () => {
-			// Connect to an in-memory DB (no file path).
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
-				readOnly: false,
-				inMemory: true,
-			});
-
-			// Test that connection worked and is read-write.
-			assert.ok(conn);
-			assert.strictEqual(await conn.isConnected(), true);
-			assert.strictEqual(await conn.isReadOnly(), false);
 
 			// Disconnect.
 			await conn.disconnect();
@@ -169,10 +152,9 @@ suite('Data Connection Integration', () => {
 			`);
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
 				databasePath: dbPath,
 				readOnly: false,
-				inMemory: false,
 			});
 
 			// Browse to the main schema.
@@ -198,21 +180,20 @@ suite('Data Connection Integration', () => {
 				'CREATE TABLE products (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL, price DOUBLE, in_stock BOOLEAN);');
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
 				databasePath: dbPath,
 				readOnly: true,
-				inMemory: false,
 			});
 
-			// Browse to the products table.
+			// Browse to the products table; it expands to Columns and Indexes groups.
 			const schema = await getSchemaNode(conn);
 			const tables = await (await getGroup(schema, 'Tables')).getChildren!();
 			const productsNode = tables.find(t => t.name === 'products');
 			assert.ok(productsNode);
-			assert.ok(productsNode.getChildren);
+			assert.deepStrictEqual((await productsNode.getChildren!()).map(g => g.name), ['Columns', 'Indexes']);
 
 			// Get the fields and make sure there are 4.
-			const fields = await productsNode.getChildren!();
+			const fields = await (await getGroup(productsNode, 'Columns')).getChildren!();
 			assert.strictEqual(fields.length, 4);
 
 			// Check the id field.
@@ -239,10 +220,9 @@ suite('Data Connection Integration', () => {
 			const dbPath = await createTestDb('lifecycle.duckdb', 'CREATE TABLE t (x INTEGER);');
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
 				databasePath: dbPath,
 				readOnly: false,
-				inMemory: false,
 			});
 
 			// Test that the connection is connected.
@@ -260,10 +240,9 @@ suite('Data Connection Integration', () => {
 			const dbPath = await createTestDb('readwrite.duckdb', 'CREATE TABLE data (val VARCHAR);');
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
 				databasePath: dbPath,
 				readOnly: false,
-				inMemory: false,
 			});
 
 			// Test that the test DB is not read only.
@@ -291,10 +270,9 @@ suite('Data Connection Integration', () => {
 			// 3. Connect through the full stack:
 			//    ext host -> main thread service -> main thread adapter
 			//    -> RPC -> ext host $driverConnect -> DuckDBConnection
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
 				databasePath: dbPath,
 				readOnly: false,
-				inMemory: false,
 			});
 			assert.strictEqual(await conn.isConnected(), true);
 
@@ -307,7 +285,7 @@ suite('Data Connection Integration', () => {
 			const employeesNode = tables.find(n => n.name === 'employees')!;
 			assert.strictEqual(employeesNode.kind, positron.DataConnectionNodeKind.Table);
 
-			const fields = await employeesNode.getChildren!();
+			const fields = await (await getGroup(employeesNode, 'Columns')).getChildren!();
 			assert.strictEqual(fields.length, 4);
 			assert.strictEqual(fields[0].name, 'id');
 			assert.strictEqual(fields[0].dataType, 'INTEGER');
@@ -318,7 +296,7 @@ suite('Data Connection Integration', () => {
 			const views = await (await getGroup(schema, 'Views')).getChildren!();
 			const viewNode = views.find(n => n.name === 'department_count')!;
 			assert.strictEqual(viewNode.kind, positron.DataConnectionNodeKind.View);
-			const viewFields = await viewNode.getChildren!();
+			const viewFields = await (await getGroup(viewNode, 'Columns')).getChildren!();
 			assert.strictEqual(viewFields.length, 2);
 
 			// 5. Disconnect.

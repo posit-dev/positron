@@ -17,7 +17,7 @@ import { IExtensionService } from '../../../services/extensions/common/extension
 import { registerEditorContribution, EditorContributionInstantiation } from '../../../../editor/browser/editorExtensions.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { QuartoDocumentModelService, IQuartoDocumentModelService } from './quartoDocumentModelService.js';
-import { QuartoKernelManager, IQuartoKernelManager } from './quartoKernelManager.js';
+import { QuartoKernelManager, IQuartoKernelManager, QuartoKernelState } from './quartoKernelManager.js';
 import { QuartoExecutionManager, IQuartoExecutionManager } from './quartoExecutionManager.js';
 import { QuartoOutputManagerService, QuartoOutputContribution, IQuartoOutputManager } from './quartoOutputManager.js';
 import { QuartoOutputCacheService } from './quartoOutputCacheService.js';
@@ -25,17 +25,20 @@ import { IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
 import { QuartoExecutionDecorations } from './quartoExecutionDecorations.js';
 import { QuartoCellToolbarController } from './quartoCellToolbarController.js';
 import { QuartoImagePreviewContribution } from './quartoImagePreview.js';
+import { QuartoEquationPreviewContribution } from './quartoEquationPreview.js';
 import {
 	IS_QUARTO_DOCUMENT,
 	POSITRON_QUARTO_INLINE_OUTPUT_KEY,
 	QUARTO_INLINE_OUTPUT_ENABLED,
+	QUARTO_INLINE_OUTPUT_ENABLED_KEY,
 	QUARTO_KERNEL_BUSY,
 	QUARTO_KERNEL_RUNNING,
 	QUARTO_LANGUAGE_IDS,
+	affectsQuartoConfig,
 	isQuartoDocument,
 	isQuartoOrRmdFile,
+	usingQuartoInlineOutput,
 } from '../common/positronQuartoConfig.js';
-import { QuartoKernelState } from './quartoKernelManager.js';
 import { ILanguageRuntimeService, RuntimeStartupPhase } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { MenuId } from '../../../../platform/actions/common/actions.js';
 import { PositronActionBarWidgetRegistry } from '../../../../platform/positronActionBar/browser/positronActionBarWidgetRegistry.js';
@@ -56,6 +59,7 @@ import './media/quartoExecutionDecorations.css';
 import './media/quartoOutputViewZone.css';
 import './media/quartoToolbar.css';
 import './media/quartoImagePreview.css';
+import './media/quartoEquationPreview.css';
 
 // Register services
 registerSingleton(IQuartoDocumentModelService, QuartoDocumentModelService, InstantiationType.Delayed);
@@ -69,6 +73,7 @@ registerEditorContribution(QuartoExecutionDecorations.ID, QuartoExecutionDecorat
 registerEditorContribution(QuartoOutputContribution.ID, QuartoOutputContribution, EditorContributionInstantiation.AfterFirstRender);
 registerEditorContribution(QuartoCellToolbarController.ID, QuartoCellToolbarController, EditorContributionInstantiation.AfterFirstRender);
 registerEditorContribution(QuartoImagePreviewContribution.ID, QuartoImagePreviewContribution, EditorContributionInstantiation.AfterFirstRender);
+registerEditorContribution(QuartoEquationPreviewContribution.ID, QuartoEquationPreviewContribution, EditorContributionInstantiation.AfterFirstRender);
 
 /**
  * Extension ID for the Quarto extension.
@@ -114,7 +119,7 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 
 		// Listen for configuration changes
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY)) {
+			if (affectsQuartoConfig(e, QUARTO_INLINE_OUTPUT_ENABLED_KEY, POSITRON_QUARTO_INLINE_OUTPUT_KEY)) {
 				this._updateInlineOutputEnabled();
 			}
 		}));
@@ -198,7 +203,7 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 	}
 
 	private _updateInlineOutputEnabled(): void {
-		const settingEnabled = this._configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
+		const settingEnabled = usingQuartoInlineOutput(this._configurationService);
 		if (!settingEnabled) {
 			// If the setting is disabled, the feature is disabled regardless of extension status
 			this._inlineOutputEnabledKey.set(false);

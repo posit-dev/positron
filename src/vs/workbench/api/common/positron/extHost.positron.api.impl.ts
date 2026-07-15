@@ -34,9 +34,10 @@ import { ExtHostEditors } from '../extHostTextEditors.js';
 import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ExtHostConnections } from './extHostConnections.js';
 import { ExtHostDataConnections } from './extHostDataConnections.js';
+import { ExtHostDataExplorer } from './extHostDataExplorer.js';
 import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 import { IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
-import { IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { ExtHostEnvironment } from './extHostEnvironment.js';
 import { convertClipboardFiles, formatPathForCode, ResolvedBase } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
@@ -92,6 +93,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			extHostLanguageRuntime, extHostWorkspace, extHostQuickOpen, extHostCommands, extHostContextKeyService));
 	const extHostConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostConnections, new ExtHostConnections(rpcProtocol));
 	const extHostDataConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostDataConnections, new ExtHostDataConnections(rpcProtocol));
+	const extHostDataExplorer = rpcProtocol.set(ExtHostPositronContext.ExtHostDataExplorer, new ExtHostDataExplorer(rpcProtocol));
 	const extHostEnvironment = rpcProtocol.set(ExtHostPositronContext.ExtHostEnvironment, new ExtHostEnvironment(rpcProtocol));
 	const extHostNotebookFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostNotebookFeatures, new ExtHostNotebookFeatures(rpcProtocol));
 	const extHostLifecycle = rpcProtocol.set(ExtHostPositronContext.ExtHostLifecycle, new ExtHostLifecycle());
@@ -268,6 +270,11 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				provider: positron.StatementRangeProvider): vscode.Disposable {
 				return extHostLanguageFeatures.registerStatementRangeProvider(extension, selector, provider);
 			},
+			registerInputBoundaryProvider(
+				selector: vscode.DocumentSelector,
+				provider: positron.InputBoundaryProvider): vscode.Disposable {
+				return extHostLanguageFeatures.registerInputBoundaryProvider(extension, selector, provider);
+			},
 			registerHelpTopicProvider(
 				selector: vscode.DocumentSelector,
 				provider: positron.HelpTopicProvider): vscode.Disposable {
@@ -324,13 +331,34 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 
 			/**
-			 * Connects to a data connection driver with the given parameters.
+			 * Connects to a data connection driver using the selected mechanism and the given parameters.
 			 * @param driverId The driver identifier.
+			 * @param mechanismId The id of the mechanism to connect with. One of the driver's mechanisms.
 			 * @param parameters The parameter values for the connection.
 			 * @returns A DataConnection that can be used to browse and interact with the data source.
 			 */
-			connect(driverId: string, parameters: positron.DataConnectionParameterValues): Thenable<positron.DataConnection> {
-				return extHostDataConnections.connect(driverId, parameters);
+			connect(driverId: string, mechanismId: string, parameters: positron.DataConnectionParameterValues): Thenable<positron.DataConnection> {
+				return extHostDataConnections.connect(driverId, mechanismId, parameters);
+			},
+		};
+
+		const dataExplorer: typeof positron.dataExplorer = {
+			/**
+			 * Registers a Data Explorer RPC handler under a provider id.
+			 * @param providerId A stable identifier for the providing extension.
+			 * @param handler The handler that services RPC requests for this provider's datasets.
+			 * @returns A session for pushing UI events; dispose it to unregister the handler.
+			 */
+			registerRpcHandler(providerId: string, handler: positron.DataExplorerRpcHandler): positron.DataExplorerRpcSession {
+				return extHostDataExplorer.registerRpcHandler(providerId, handler);
+			},
+
+			/**
+			 * Opens (or focuses) a Data Explorer for a dataset served by a registered provider.
+			 * @param options The provider id, dataset identifier, and display name.
+			 */
+			open(options: { providerId: string; datasetId: string; displayName: string }): Thenable<void> {
+				return extHostDataExplorer.open(options);
 			},
 		};
 
@@ -444,8 +472,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getCurrentPlotUri(): Thenable<string | undefined> {
 				return extHostAiFeatures.getCurrentPlotUri();
 			},
-			showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>, options?: positron.ai.ShowLanguageModelConfigOptions): Thenable<void> {
-				return extHostAiFeatures.showLanguageModelConfig(sources, onAction, options);
+			showLanguageModelConfig(options?: positron.ai.ShowLanguageModelConfigOptions): Thenable<void> {
+				return extHostAiFeatures.showLanguageModelConfig(options);
 			},
 			registerChatAgent(agentData: positron.ai.ChatAgentData): Thenable<vscode.Disposable> {
 				return extHostAiFeatures.registerChatAgent(extension, agentData);
@@ -460,14 +488,21 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getChatExport(): Thenable<object | undefined> {
 				return extHostAiFeatures.getChatExport();
 			},
-			registerProviderMetadata(metadata: { id: string; displayName: string; settingName: string }): void {
-				return extHostAiFeatures.registerProviderMetadata(metadata);
+			registerProvider(source: positron.ai.LanguageModelSource, onAction?: (source: positron.ai.LanguageModelSource, config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>): vscode.Disposable {
+				return extHostAiFeatures.registerProvider(extension, source as IPositronLanguageModelSource, onAction as (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Thenable<void>);
 			},
-			addLanguageModelConfig(source: IPositronLanguageModelSource): void {
-				return extHostAiFeatures.addLanguageModelConfig(source);
+			updateProvider(id: string, update: Partial<positron.ai.LanguageModelSource>): void {
+				return extHostAiFeatures.updateProvider(id, update as Partial<IPositronLanguageModelSource>);
 			},
-			removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
-				return extHostAiFeatures.removeLanguageModelConfig(source);
+			getRegisteredProviders(): Thenable<positron.ai.LanguageModelSource[]> {
+				return extHostAiFeatures.getRegisteredProviders() as Thenable<positron.ai.LanguageModelSource[]>;
+			},
+			onDidChangeProviderConfig: (listener, thisArgs?, disposables?) => {
+				return extHostAiFeatures.onDidChangeProviderConfig(
+					source => listener.call(thisArgs, source as positron.ai.LanguageModelSource),
+					undefined,
+					disposables
+				);
 			},
 			areCompletionsEnabled(file: vscode.Uri): Promise<boolean> {
 				return extHostAiFeatures.areCompletionsEnabled(file);
@@ -597,6 +632,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			paths,
 			connections,
 			dataConnections,
+			dataExplorer,
 			ai,
 			notebooks,
 			CodeAttributionSource: extHostTypes.CodeAttributionSource,

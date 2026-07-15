@@ -7,6 +7,7 @@ import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Workbench } from '../infra/workbench';
 import { MetricTargetType, RecordMetric } from '../utils/metrics/metric-base.js';
+import { escapeRegExp } from '../utils/strings';
 
 const HEADER_TITLES = '.data-grid-column-header .title';
 const DATA_GRID_ROWS = '.data-explorer-panel .right-column .data-grid-rows-container';
@@ -104,6 +105,20 @@ export class EditorActionBar {
 		await this.workbench.editorActionBar.clickButton(buttonLabel);
 	}
 
+	/**
+	 * Action: Select a worksheet from the Excel worksheet picker in the editor action bar.
+	 * The picker is only shown for multi-sheet workbooks (e.g. .xlsx files).
+	 * @param sheetName the name of the worksheet to select
+	 */
+	async selectWorksheet(sheetName: string): Promise<void> {
+		await this.workbench.contextMenu.triggerAndClick({
+			menuTrigger: this.code.driver.currentPage.getByLabel('Select Worksheet', { exact: true }),
+			menuItemLabel: sheetName,
+			menuItemType: 'menuitemcheckbox',
+			exact: true,
+		});
+	}
+
 	// --- Verifications ---
 	async expectToHaveButton(buttonName: string, isVisible: boolean = true) {
 		await test.step(`Expect action bar to have button: ${buttonName}`, async () => {
@@ -113,6 +128,31 @@ export class EditorActionBar {
 			} else {
 				await expect(button).not.toBeVisible();
 			}
+		});
+	}
+
+	/**
+	 * Verify: the Excel worksheet picker shows the expected selected worksheet.
+	 * @param sheetName the worksheet name expected to be displayed
+	 */
+	async expectSelectedWorksheetToBe(sheetName: string) {
+		await test.step(`Expect selected worksheet: ${sheetName}`, async () => {
+			const selector = this.code.driver.currentPage.getByLabel('Select Worksheet', { exact: true });
+			await expect(selector).toContainText(sheetName);
+		});
+	}
+
+	/**
+	 * Verify: whether the Excel worksheet picker is present in the editor action bar.
+	 * The picker is hidden for single-sheet workbooks and non-Excel sources.
+	 * @param isVisible whether the worksheet picker is expected to be visible
+	 */
+	async expectWorksheetSelectorVisible(isVisible: boolean) {
+		await test.step(`Expect worksheet selector to be ${isVisible ? 'visible' : 'not visible'}`, async () => {
+			const selector = this.code.driver.currentPage.getByLabel('Select Worksheet', { exact: true });
+			isVisible
+				? await expect(selector).toBeVisible()
+				: await expect(selector).not.toBeVisible();
 		});
 	}
 
@@ -159,7 +199,7 @@ export class Filters {
 			// at the end of the name and requires either string-start or
 			// whitespace before it - so 'dep_time' matches "<icon> dep_time"
 			// without also matching "<icon> sched_dep_time".
-			const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			const escaped = escapeRegExp(value);
 			return this.code.driver.currentPage
 				.locator('.positron-modal-popup')
 				.getByRole('button', { name: new RegExp(`(?:^|\\s)${escaped}$`) });
@@ -615,6 +655,34 @@ export class DataGrid {
 			const cells = this.code.driver.currentPage.locator('.data-grid-row-cell');
 			const cell = cellIndex !== undefined ? cells.nth(cellIndex) : cells.last();
 			await expect(cell).toHaveText(expectedContent);
+		});
+	}
+
+	/**
+	 * Verify that a cell with the exact given text is (or is not) present in the data grid.
+	 * Useful when column headers are unknown or unreliable (e.g. spreadsheets with sparse
+	 * header rows), where keyed row lookups via `getData` are not dependable.
+	 * @param text the exact cell text to look for
+	 * @param isVisible whether a cell with that text is expected to be visible
+	 */
+	async expectCellWithTextToBeVisible(text: string, isVisible = true): Promise<void> {
+		await test.step(`Verify grid cell with text "${text}" is ${isVisible ? 'visible' : 'not visible'}`, async () => {
+			const cell = this.code.driver.currentPage.locator(DATA_GRID_ROWS).getByText(text, { exact: true });
+			isVisible
+				? await expect(cell.first()).toBeVisible()
+				: await expect(cell).toHaveCount(0);
+		});
+	}
+
+	/**
+	 * Verify that some column header contains the given (substring) text.
+	 * Useful for spreadsheets whose first row is a title that the backend surfaces
+	 * as a column header.
+	 * @param text the substring expected to appear in a column header
+	 */
+	async expectColumnHeaderToContainText(text: string): Promise<void> {
+		await test.step(`Verify a column header contains: "${text}"`, async () => {
+			await expect(this.columnHeaders.filter({ hasText: text }).first()).toBeVisible();
 		});
 	}
 

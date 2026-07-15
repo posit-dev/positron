@@ -3,13 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import gulp from 'gulp';
 import * as util from './lib/util.ts';
 import * as date from './lib/date.ts';
-import * as task from './lib/task.ts';
+import * as task from './lib/gulp/task.ts';
 import * as compilation from './lib/compilation.ts';
 // --- Start Positron ---
 import { getESMPackageDependencies } from './lib/esm-package-dependencies.ts';
+import { gulp } from './lib/gulp/facade.ts';
 
 // ESM package dependencies copy task for production builds - copies from .build/ to out-build/.
 const copyESMPackageDependenciesTask = task.define('copy-esm-package-dependencies-for-build', () => {
@@ -36,7 +36,7 @@ function makeCompileBuildTask(disableMangle: boolean) {
 // standard font that lacks Positron icons.
 export const compileBuildWithoutManglingTask = task.define('compile-build-without-mangling', makeCompileBuildTask(true));
 // --- End Positron ---
-gulp.task(compileBuildWithoutManglingTask);
+task.task(compileBuildWithoutManglingTask);
 
 // CI compile, including nls and inline sources in sourcemaps, mangling, minification, for build
 // --- Start Positron ---
@@ -45,4 +45,4 @@ gulp.task(compileBuildWithoutManglingTask);
 // standard font that lacks Positron icons.
 export const compileBuildWithManglingTask = task.define('compile-build-with-mangling', makeCompileBuildTask(false));
 // --- End Positron ---
-gulp.task(compileBuildWithManglingTask);
+task.task(compileBuildWithManglingTask);

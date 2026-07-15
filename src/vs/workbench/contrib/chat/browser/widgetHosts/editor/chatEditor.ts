@@ -114,14 +114,7 @@ export class ChatEditor extends AbstractEditorWithViewState<IChatEditorViewState
 							return true;
 						},
 						referencesExpandedWhenEmptyResponse: false,
-						// --- Start Positron ---
-						/*
 						progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask,
-						*/
-						// Always show progress message at bottom of response to make it more apparent
-						// in all modes.
-						progressMessageAtBottomOfResponse: true,
-						// --- End Positron ---
 					},
 					enableImplicitContext: true,
 					enableWorkingSet: 'explicit',
@@ -234,7 +227,7 @@ export class ChatEditor extends AbstractEditorWithViewState<IChatEditorViewState
 
 		if (chatSessionType !== localChatSessionType) {
 			try {
-				await raceCancellationError(this.chatSessionsService.canResolveChatSession(input.resource.scheme), token);
+				await raceCancellationError(this.chatSessionsService.canResolveChatSession(chatSessionType), token);
 				const contributions = this.chatSessionsService.getAllChatSessionContributions();
 				const contribution = contributions.find(c => c.type === chatSessionType);
 				if (contribution) {

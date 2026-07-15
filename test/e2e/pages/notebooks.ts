@@ -9,6 +9,8 @@ import { QuickAccess } from './quickaccess';
 import { basename } from 'path';
 import test, { expect, FrameLocator, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
+import { DEPRIORITIZED_PYTHON_SOURCES } from './sessions';
+import { escapeRegExp } from '../utils/strings';
 
 const KERNEL_DROPDOWN = 'a.kernel-label';
 const KERNEL_LABEL = '.codicon-notebook-kernel-select';
@@ -90,7 +92,9 @@ export class Notebooks {
 			await this.quickinput.waitForQuickInputOpened();
 			await this.code.driver.currentPage.getByText('Select Environment...').click();
 			await this.quickinput.type(desiredKernel);
-			await this.quickinput.selectQuickInputElementContaining(`${kernelGroup} ${desiredKernel}`);
+			await this.quickinput.selectQuickInputElementContaining(`${kernelGroup} ${desiredKernel}`, {
+				deprioritize: kernelGroup === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
+			});
 			await this.quickinput.waitForQuickInputClosed();
 
 			// Wait for kernel initialization
@@ -257,8 +261,4 @@ export class Notebooks {
 		await this.hotKeys.executeNotebookCell();
 		await expect(this.code.driver.currentPage.getByRole('button', { name: 'Go To' })).not.toBeVisible({ timeout: 30000 });
 	}
-}
-
-function escapeRegExp(str: string): string {
-	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

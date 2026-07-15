@@ -319,7 +319,7 @@ export async function showToolsPicker(
 					itemType: 'bucket',
 					ordinal: BucketOrdinal.Mcp,
 					id: key,
-					label: source.label,
+					label: source.serverLabel || source.label,
 					checked: undefined,
 					collapsed,
 					children,
@@ -395,16 +395,6 @@ export async function showToolsPicker(
 			}
 			const toolSetChecked = toolsEntries.get(toolSet.id) === true;
 			if (toolSet.source.type === 'mcp') {
-				// --- Start Positron ---
-				// Check if any tools in this MCP toolset are enabled for the selected model
-				const modelAndIdentifier = model ? { metadata: model, identifier: model.id } : undefined;
-				const hasEnabledTools = [...toolSet.getTools()].some(tool =>
-					toolsService.isToolEnabledForModel(tool.id, modelAndIdentifier)
-				);
-				if (!hasEnabledTools) {
-					continue;
-				}
-				// --- End Positron ---
 				// bucket represents the toolset
 				bucket.toolset = toolSet;
 				if (toolSetChecked) {

@@ -98,14 +98,14 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(inputs.matrix) }}
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:138
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
       options: --user 0:0 --init
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:138
+        image: ghcr.io/posit-dev/positron-postgres:24.15.0
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -114,7 +114,7 @@ jobs:
         env:
           POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
-          POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
+          POSTGRES_DB: postgres
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -126,7 +126,6 @@ jobs:
       AWS_S3_BUCKET: positron-test-reports
       E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
       E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
-      E2E_POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
@@ -137,7 +136,7 @@ jobs:
       DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
       DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -164,6 +163,8 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
           OPENAI_KEY: "op://Positron/OpenAI/credential"
+          MS_FOUNDRY_KEY: "op://Positron/MS-Foundry-East2TestAI/credential"
+          MS_FOUNDRY_BASE_URL: "op://Positron/MS-Foundry-East2TestAI/hostname"
           POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
           POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
           POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
@@ -204,29 +205,8 @@ jobs:
         with:
           cache-hit: 'true'  # Always download since using extracted build artifact
 
-      - name: Seed system tmp cache from bundled cache
+      - name: Validate bundled license
         run: |
-          if [ -d /__w/positron/test/e2e/qa-example-content-cache ]; then
-            rm -rf /tmp/qa-example-content-cache || true
-            # Move instead of copy to avoid duplication
-            mv /__w/positron/test/e2e/qa-example-content-cache /tmp/qa-example-content-cache || true
-            if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
-              echo "✓ Seeded /tmp/qa-example-content-cache"
-            fi
-          fi
-
-      - name: Validate bundled QA cache
-        run: |
-          echo "Checking for seeded QA cache at /tmp/qa-example-content-cache/.cached-commit"
-          if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
-            echo "✓ Cached commit found: $(cat /tmp/qa-example-content-cache/.cached-commit)"
-          else
-            echo "✗ Cached commit missing at /tmp/qa-example-content-cache/.cached-commit"
-            echo "Contents of /tmp:"; ls -la /tmp || true
-            echo "Contents of extracted workspace (/__w/positron/test/e2e):"; ls -la /__w/positron/test/e2e || true
-            exit 1
-          fi
-
           if [ "${{ inputs.install_license }}" = "true" ]; then
             LICENSE_PATH="/__w/positron/positron-license/pdol/target/debug/pdol_rsa"
             echo "Checking for Positron license at $LICENSE_PATH"
@@ -364,7 +344,7 @@ jobs:
     needs: [e2e-ubuntu-run]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v6
         with:
@@ -456,6 +436,7 @@ jobs:
 
       - name: Upload HTML report to S3
         if: always()
+        continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}

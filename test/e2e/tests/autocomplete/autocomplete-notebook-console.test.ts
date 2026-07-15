@@ -8,163 +8,127 @@ import { test, tags, expect } from '../_test.setup';
 
 test.use({
 	suiteId: __filename,
-	useLegacyNotebookEditor: true
 });
 
 test.describe('Autocomplete with Notebook Console', {
-	tag: [tags.CONSOLE, tags.EDITOR, tags.NOTEBOOKS]
+	tag: [tags.CONSOLE, tags.EDITOR, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
-	test.afterEach(async function ({ hotKeys, settings }) {
-		await settings.remove([
-			'console.showNotebookConsoles',
-			'positron.quarto.inlineOutput.enabled',
-			'workbench.editor.enablePreview',
-		]);
+	test.beforeAll(async function ({ settings }) {
+		await settings.set(
+			{
+				'console.showNotebookConsoles': true,
+				'console.showNotebookConsoleActions': true,
+				'quarto.inlineOutput.enabled': true,
+				'workbench.editor.enablePreview': true,
+			}
+		);
+	});
+
+	test.beforeEach(async function ({ hotKeys }) {
+		await hotKeys.closeSecondarySidebar();
+	});
+
+	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Python - Autocomplete in script works after opening notebook console', async function ({ app, runCommand, openFile, sessions, hotKeys }) {
-		const { editors, console, notebooks } = app.workbench;
-		const page = app.code.driver.currentPage;
+	test('Python - Autocomplete in script works after opening notebook console', async function ({ app, page, openFile, sessions, python }) {
+		const { editors, console, notebooksPositron } = app.workbench;
 		const keyboard = page.keyboard;
 
-		// Start a Python console session and import pandas
-		await sessions.start(['python']);
-		await hotKeys.closeSecondarySidebar();
+		// Import pandas into Python session
 		await console.typeToConsole('import pandas as pd', true, 0);
 		await sessions.expectAllSessionsToBeReady();
 
-		await test.step('Open a Python script and verify autocomplete works initially', async () => {
-			// Open an existing Python file from the workspace
-			await openFile(join('workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
-			await editors.waitForEditorFocus('flights-data-frame.py');
+		// Open an existing Python file from the workspace
+		await openFile(join('workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
+		await editors.waitForEditorFocus('flights-data-frame.py');
 
-			// Type at end of file to trigger autocomplete
-			await keyboard.press('End');
-			await keyboard.press('Enter');
-			await keyboard.type('pd.DataF', { delay: 250 });
-			await editors.expectSuggestionListCount(1);
-			await keyboard.press('Escape');
-		});
+		// Type at end of file to trigger autocomplete
+		await keyboard.press('End');
+		await keyboard.press('Enter');
+		await keyboard.type('pd.DataF', { delay: 250 });
+		await editors.expectSuggestionListCount(1);
+		await keyboard.press('Escape');
 
-		await test.step('Create notebook, execute a cell, and open its console', async () => {
-			await notebooks.createNewNotebook();
-			await notebooks.selectInterpreter('Python');
+		// Create new notebook and execute a cell
+		await notebooksPositron.newNotebook({ codeCells: 1 });
+		await notebooksPositron.executeCodeInCell();
 
-			// Execute a cell to start the kernel session
-			await notebooks.addCodeToCellAtIndex(0, 'print("hello")');
-			await notebooks.executeCodeInCell();
+		// Click on the notebook console tab to trigger the foreground session change
+		await sessions.select('Untitled-1.ipynb');
 
-			// Show the notebook console
-			await runCommand('workbench.action.positronConsole.showNotebookConsole');
+		// Switch back to the Python script tab
+		await editors.selectTab('flights-data-frame.py');
 
-			// Click on the notebook console tab to trigger the foreground session change
-			await sessions.select('Untitled-1.ipynb');
-		});
+		// Go to end of file and add a new line for autocomplete
+		await keyboard.press('End');
+		await keyboard.press('Enter');
+		await keyboard.type('pd.DataF', { delay: 250 });
 
-		await test.step('Switch back to script and verify autocomplete still works', async () => {
-			// Switch back to the Python script tab
-			await editors.selectTab('flights-data-frame.py');
-
-			// Go to end of file and add a new line for autocomplete
-			await keyboard.press('End');
-			await keyboard.press('Enter');
-			await keyboard.type('pd.DataF', { delay: 250 });
-
-			// Autocomplete should still work after the notebook console was opened
-			await expect(async () => {
-				await expect(editors.suggestionList).toHaveCount(1, { timeout: 5000 });
-			}).toPass({ timeout: 30000 });
-		});
+		// Autocomplete should still work after the notebook console was opened
+		await editors.expectSuggestionListCount(1, { retryTimeout: 30000 });
 	});
 
 	test('R - Autocomplete in script works after opening notebook console', {
 		tag: [tags.ARK]
-	}, async function ({ app, runCommand, openFile, sessions, hotKeys }) {
-		const { editors, console, notebooks } = app.workbench;
-		const page = app.code.driver.currentPage;
+	}, async function ({ app, page, openFile, sessions, r }) {
+		const { editors, console, notebooksPositron } = app.workbench;
 		const keyboard = page.keyboard;
 
-		// Start an R console session and load arrow
-		await sessions.start(['r']);
-		await hotKeys.closeSecondarySidebar();
+		// Load arrow in R session
 		await console.typeToConsole('library(arrow)', true, 0);
 		await sessions.expectAllSessionsToBeReady();
 
-		await test.step('Open an R script and verify autocomplete works initially', async () => {
-			// Open an existing R file from the workspace
-			await openFile(join('workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
-			await editors.waitForEditorFocus('flights-data-frame.r');
+		// Open an existing R file from the workspace
+		await openFile(join('workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
+		await editors.waitForEditorFocus('flights-data-frame.r');
 
-			// Type at end of file to trigger autocomplete
-			await keyboard.press('End');
-			await keyboard.press('Enter');
-			await keyboard.type('read_p', { delay: 250 });
-			await editors.expectSuggestionListCount(4);
-			await keyboard.press('Escape');
-		});
+		// Type at end of file to trigger autocomplete
+		await keyboard.press('End');
+		await keyboard.press('Enter');
+		await keyboard.type('read_p', { delay: 250 });
+		await editors.expectSuggestionListCount(4);
+		await keyboard.press('Escape');
 
-		await test.step('Create notebook, execute a cell, and open its console', async () => {
-			await notebooks.createNewNotebook();
-			await notebooks.selectInterpreter('R');
+		// Create a new notebook with one code cell and run it
+		await notebooksPositron.newNotebook({ codeCells: 1 });
+		await notebooksPositron.executeCodeInCell();
 
-			// Execute a cell to start the kernel session
-			await notebooks.addCodeToCellAtIndex(0, 'print("hello")');
-			await notebooks.executeCodeInCell();
+		// Click on the notebook console tab to trigger the foreground session change
+		await sessions.select('Untitled-1.ipynb');
 
-			// Show the notebook console
-			await runCommand('workbench.action.positronConsole.showNotebookConsole');
+		// Switch back to the R script tab
+		await editors.selectTab('flights-data-frame.r');
 
-			// Click on the notebook console tab to trigger the foreground session change
-			await sessions.select('Untitled-1.ipynb');
-		});
+		// Go to end of file and add a new line for autocomplete
+		await keyboard.press('End');
+		await keyboard.press('Enter');
+		await keyboard.type('read_p', { delay: 250 });
 
-		await test.step('Switch back to script and verify autocomplete still works', async () => {
-			// Switch back to the R script tab
-			await editors.selectTab('flights-data-frame.r');
+		// Autocomplete should still work after the notebook console was opened
+		await editors.expectSuggestionListCount(4, { retryTimeout: 30000 });
 
-			// Go to end of file and add a new line for autocomplete
-			await keyboard.press('End');
-			await keyboard.press('Enter');
-			await keyboard.type('read_p', { delay: 250 });
-
-			// Autocomplete should still work after the notebook console was opened
-			await expect(async () => {
-				await expect(editors.suggestionList).toHaveCount(4, { timeout: 5000 });
-			}).toPass({ timeout: 30000 });
-		});
 	});
 
 	test('R - Notebook console autocomplete uses notebook session not console session', {
 		tag: [tags.ARK, tags.QUARTO]
-	}, async function ({ app, openFile, sessions, hotKeys, settings }) {
+	}, async function ({ app, page, openFile, sessions, r }) {
 		const { console, inlineQuarto, editors } = app.workbench;
-		const page = app.code.driver.currentPage;
 		const keyboard = page.keyboard;
 
-		await test.step('Enable inline output and notebook consoles', async () => {
-			await settings.set({
-				'positron.quarto.inlineOutput.enabled': true,
-				'console.showNotebookConsoles': true,
-				'workbench.editor.enablePreview': false,
-			}, { reload: true, waitMs: 1000 });
-		});
-
-		// Start an R console session and define a variable
-		await sessions.start(['r']);
-		await hotKeys.closeSecondarySidebar();
+		// Define a variable in the R console
 		await console.executeCode('R', 'quux1234 <- faithful');
 		await sessions.expectAllSessionsToBeReady();
 
-		await test.step('Open Quarto file and run cell to start notebook session', async () => {
-			await openFile(join('workspaces', 'quarto_inline_output', 'console_test.rmd'));
-			await editors.waitForActiveTab('console_test.rmd');
-			await inlineQuarto.expectKernelStatusVisible();
+		// Open a Quarto file and run a cell to start the notebook session
+		await openFile(join('workspaces', 'quarto_inline_output', 'console_test.rmd'));
+		await editors.waitForActiveTab('console_test.rmd');
+		await inlineQuarto.expectKernelStatusVisible();
 
-			// Run the cell to start the Quarto kernel session
-			await inlineQuarto.runCellAndWaitForOutput({ cellLine: 11, outputLine: 14 });
-		});
+		// Run the cell to start the Quarto kernel session
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 11, outputLine: 14 });
 
 		await test.step('Define a variable in the notebook session', async () => {
 			// Define quux2345 by adding it to the existing code cell
@@ -206,47 +170,33 @@ test.describe('Autocomplete with Notebook Console', {
 
 	test('R - Autocomplete in Quarto uses Quarto LSP after switching to console', {
 		tag: [tags.ARK, tags.QUARTO]
-	}, async function ({ app, runCommand, openFile, sessions, hotKeys, settings }) {
+	}, async function ({ app, page, openFile, sessions }) {
 		const { editors, inlineQuarto } = app.workbench;
-		const page = app.code.driver.currentPage;
 		const keyboard = page.keyboard;
 		const suggestionList = page.locator('.suggest-widget .monaco-list-row');
 
-		await test.step('Enable inline output and notebook consoles', async () => {
-			await settings.set({
-				'positron.quarto.inlineOutput.enabled': true,
-				'console.showNotebookConsoles': true,
-				'workbench.editor.enablePreview': false,
-			}, { reload: true, waitMs: 1000 });
-		});
-
 		// Start an R console session
 		const [rSession] = await sessions.start(['r']);
-		await hotKeys.closeSecondarySidebar();
 		await sessions.expectAllSessionsToBeReady();
 
-		await test.step('Open Quarto file, run cell, and keep file open', async () => {
-			// Open the simple R rmd file - it defines x, y, and df
-			await openFile(join('workspaces', 'quarto_inline_output', 'simple_r.rmd'));
-			await editors.waitForActiveTab('simple_r.rmd');
-			await inlineQuarto.expectKernelStatusVisible();
+		// Open the simple R rmd file - it defines x, y, and df
+		await openFile(join('workspaces', 'quarto_inline_output', 'simple_r.rmd'));
+		await editors.waitForActiveTab('simple_r.rmd');
+		await inlineQuarto.expectKernelStatusVisible();
 
-			// Run the cell to start the Quarto kernel session and define df
-			await inlineQuarto.runCellAndWaitForOutput({ cellLine: 11, outputLine: 14 });
+		// Run the cell to start the Quarto kernel session and define df
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 11, outputLine: 14 });
 
-			// Re-focus the file in the editor after inline output
-			await editors.selectTab('simple_r.rmd');
-		});
+		// Re-focus the file in the editor after inline output
+		await editors.selectTab('simple_r.rmd');
 
-		await test.step('Switch to Quarto console then back to R console', async () => {
-			// Select the Quarto console tab to make it the foreground
-			await sessions.select('simple_r.rmd');
+		// Select the Quarto console tab to make it the foreground
+		await sessions.select('simple_r.rmd');
 
-			// Now switch back to the R console tab - this makes the
-			// console session the foreground, which is the key trigger
-			// for the bug
-			await sessions.select(rSession.id);
-		});
+		// Now switch back to the R console tab - this makes the
+		// console session the foreground, which is the key trigger
+		// for the bug
+		await sessions.select(rSession.id);
 
 		await test.step('Type in Quarto and verify completions use Quarto LSP', async () => {
 			// Switch back to the Quarto file in the editor
@@ -278,33 +228,20 @@ test.describe('Autocomplete with Notebook Console', {
 
 	test('Python - Notebook console autocomplete uses notebook session not console session', {
 		tag: [tags.QUARTO]
-	}, async function ({ app, openFile, sessions, hotKeys, settings }) {
+	}, async function ({ app, page, openFile, sessions, python }) {
 		const { console, inlineQuarto, editors } = app.workbench;
-		const page = app.code.driver.currentPage;
 		const keyboard = page.keyboard;
 
-		await test.step('Enable inline output and notebook consoles', async () => {
-			await settings.set({
-				'positron.quarto.inlineOutput.enabled': true,
-				'console.showNotebookConsoles': true,
-				'workbench.editor.enablePreview': false,
-			}, { reload: true, waitMs: 1000 });
-		});
-
-		// Start a Python console session and define a variable
-		await sessions.start(['python']);
-		await hotKeys.closeSecondarySidebar();
+		// Define a variable in the Python console
 		await console.executeCode('Python', 'quux1234 = 42');
 		await sessions.expectAllSessionsToBeReady();
 
-		await test.step('Open Quarto file and run cell to start notebook session', async () => {
-			await openFile(join('workspaces', 'quarto_inline_output', 'console_test_py.qmd'));
-			await editors.waitForActiveTab('console_test_py.qmd');
-			await inlineQuarto.expectKernelStatusVisible();
+		// Open a Quarto file and run a cell to start the notebook session
+		await openFile(join('workspaces', 'quarto_inline_output', 'console_test_py.qmd'));
+		await editors.waitForActiveTab('console_test_py.qmd');
+		await inlineQuarto.expectKernelStatusVisible();
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 11, outputLine: 15 });
 
-			// Run the cell to start the Quarto kernel session
-			await inlineQuarto.runCellAndWaitForOutput({ cellLine: 11, outputLine: 15 });
-		});
 
 		await test.step('Define a variable in the notebook session', async () => {
 			// Define quux2345 by adding it to the existing code cell
@@ -324,70 +261,54 @@ test.describe('Autocomplete with Notebook Console', {
 			// in the file for the notebook LSP to offer it.
 		});
 
-		await test.step('Verify notebook console autocomplete uses notebook session', async () => {
-			// Switch to the notebook console
-			await sessions.select('console_test_py.qmd');
-			await console.waitForReady('>>>');
+		// Switch to the notebook console
+		await sessions.select('console_test_py.qmd');
+		await console.waitForReady('>>>');
 
-			// Clear the console input and type the prefix.
-			await console.clearInput();
-			await keyboard.type('quux', { delay: 250 });
+		// Clear the console input and type the prefix.
+		await console.clearInput();
+		await keyboard.type('quux', { delay: 250 });
 
-			// Trigger completions and verify we see quux2345 (from the
-			// notebook session). If the console LSP is incorrectly
-			// active, we would see quux1234 instead.
-			const suggestWidget = page.locator('.suggest-widget.visible');
-			await expect(async () => {
-				await keyboard.press('Control+Space');
-				await expect(suggestWidget).toBeVisible({ timeout: 5000 });
-				await expect(suggestWidget.getByLabel(/quux2345/)).toBeVisible({ timeout: 5000 });
-			}).toPass({ timeout: 30000 });
-		});
+		// Trigger completions and verify we see quux2345 (from the
+		// notebook session). If the console LSP is incorrectly
+		// active, we would see quux1234 instead.
+		const suggestWidget = page.locator('.suggest-widget.visible');
+		await expect(async () => {
+			await keyboard.press('Control+Space');
+			await expect(suggestWidget).toBeVisible({ timeout: 5000 });
+			await expect(suggestWidget.getByLabel(/quux2345/)).toBeVisible({ timeout: 5000 });
+		}).toPass({ timeout: 30000 });
 	});
 
 	test('Python - Autocomplete in Quarto uses Quarto LSP after switching to console', {
 		tag: [tags.QUARTO]
-	}, async function ({ app, openFile, sessions, hotKeys, settings }) {
+	}, async function ({ app, page, openFile, sessions }) {
 		const { editors, inlineQuarto } = app.workbench;
-		const page = app.code.driver.currentPage;
 		const keyboard = page.keyboard;
 		const suggestionList = page.locator('.suggest-widget .monaco-list-row');
 
-		await test.step('Enable inline output and notebook consoles', async () => {
-			await settings.set({
-				'positron.quarto.inlineOutput.enabled': true,
-				'console.showNotebookConsoles': true,
-				'workbench.editor.enablePreview': false,
-			}, { reload: true, waitMs: 1000 });
-		});
-
 		// Start a Python console session
 		const [pySession] = await sessions.start(['python']);
-		await hotKeys.closeSecondarySidebar();
 		await sessions.expectAllSessionsToBeReady();
 
-		await test.step('Open Quarto file, run cell, and keep file open', async () => {
-			// Open the simple Python qmd file - it defines x and df
-			await openFile(join('workspaces', 'quarto_inline_output', 'simple_py.qmd'));
-			await editors.waitForActiveTab('simple_py.qmd');
-			await inlineQuarto.expectKernelStatusVisible();
+		// Open the simple Python qmd file - it defines x and df
+		await openFile(join('workspaces', 'quarto_inline_output', 'simple_py.qmd'));
+		await editors.waitForActiveTab('simple_py.qmd');
+		await inlineQuarto.expectKernelStatusVisible();
 
-			// Run the cell to start the Quarto kernel session and define df
-			await inlineQuarto.runCellAndWaitForOutput({ cellLine: 11, outputLine: 14 });
+		// Run the cell to start the Quarto kernel session and define df
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 11, outputLine: 14 });
 
-			// Re-focus the file in the editor after inline output
-			await editors.selectTab('simple_py.qmd');
-		});
+		// Re-focus the file in the editor after inline output
+		await editors.selectTab('simple_py.qmd');
 
-		await test.step('Switch to Quarto console then back to Python console', async () => {
-			// Select the Quarto console tab to make it the foreground
-			await sessions.select('simple_py.qmd');
+		// Select the Quarto console tab to make it the foreground
+		await sessions.select('simple_py.qmd');
 
-			// Now switch back to the Python console tab - this makes
-			// the console session the foreground, which is the key
-			// trigger for the bug
-			await sessions.select(pySession.id);
-		});
+		// Now switch back to the Python console tab - this makes
+		// the console session the foreground, which is the key
+		// trigger for the bug
+		await sessions.select(pySession.id);
 
 		await test.step('Type in Quarto and verify completions use Quarto LSP', async () => {
 			// Switch back to the Quarto file in the editor
@@ -421,56 +342,33 @@ test.describe('Autocomplete with Notebook Console', {
 
 	test('R - Autocomplete works in Quarto without inline output', {
 		tag: [tags.ARK, tags.QUARTO]
-	}, async function ({ app, openFile, sessions, hotKeys, settings }) {
+	}, async function ({ app, page, openFile, sessions, hotKeys, settings, r }) {
 		const { editors, inlineQuarto } = app.workbench;
-		const page = app.code.driver.currentPage;
 		const keyboard = page.keyboard;
-		const suggestionList = page.locator('.suggest-widget .monaco-list-row');
 
-		await test.step('Disable inline output', async () => {
-			await settings.set({
-				'positron.quarto.inlineOutput.enabled': false,
-				'workbench.editor.enablePreview': false,
-			}, { reload: true, waitMs: 1000 });
-		});
+		// Open the simple R rmd file
+		await openFile(join('workspaces', 'quarto_inline_output', 'simple_r.rmd'));
+		await editors.waitForActiveTab('simple_r.rmd');
 
-		// Start an R console session (no notebook session will be created)
-		await sessions.start(['r']);
-		await hotKeys.closeSecondarySidebar();
-		await sessions.expectAllSessionsToBeReady();
+		// Go to line 11 (df <- data.frame(x, y)), press End to go
+		// to end of line, Enter to create a new line inside the
+		// code block, then type data.f to trigger completions.
+		// The console LSP should handle the vdoc and provide
+		// completions for base R functions like data.frame.
+		await inlineQuarto.gotoLine(11);
+		await keyboard.press('End');
+		await keyboard.press('Enter');
+		await keyboard.type('data.f', { delay: 250 });
 
-		await test.step('Open Quarto file and verify autocomplete works', async () => {
-			// Open the simple R rmd file
-			await openFile(join('workspaces', 'quarto_inline_output', 'simple_r.rmd'));
-			await editors.waitForActiveTab('simple_r.rmd');
+		// The console LSP serves completions for the Quarto vdoc, so
+		// typing data.f should offer base R's data.frame.
+		const suggestWidget = page.locator('.suggest-widget');
+		await expect(async () => {
+			await keyboard.press('Control+Space');
+			await expect(
+				suggestWidget.getByRole('option', { name: /^data\.frame[,\s]/ })
+			).toBeVisible({ timeout: 5000 });
+		}).toPass({ timeout: 30000 });
 
-			// Go to line 11 (df <- data.frame(x, y)), press End to go
-			// to end of line, Enter to create a new line inside the
-			// code block, then type data.f to trigger completions.
-			// The console LSP should handle the vdoc and provide
-			// completions for base R functions like data.frame.
-			await inlineQuarto.gotoLine(11);
-			await keyboard.press('End');
-			await keyboard.press('Enter');
-			await keyboard.type('data.f', { delay: 250 });
-
-			// Explicitly trigger completions and verify we get results.
-			// Before the fix, the console LSP skipped vdoc files and
-			// no completions appeared. With the fix, the console LSP
-			// handles vdocs and provides R completions like data.frame.
-			await expect(async () => {
-				await keyboard.press('Control+Space');
-				await expect(suggestionList.first()).toBeVisible({ timeout: 5000 });
-			}).toPass({ timeout: 30000 });
-
-			// Verify we see data.frame from the R LSP (match the
-			// first exact entry, not substrings like as.data.frame)
-			const suggestWidget = page.locator('.suggest-widget');
-			await expect(suggestWidget.getByRole('option', {
-				name: 'data.frame, {base}, Function',
-				exact: true
-			})).toBeVisible();
-		});
 	});
-
 });

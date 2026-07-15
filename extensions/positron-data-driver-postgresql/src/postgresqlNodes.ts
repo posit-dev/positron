@@ -7,9 +7,68 @@ import { Client } from 'pg';
 import * as positron from 'positron';
 
 /**
- * Creates the root "Schemas" group node. Lists every non-system schema as a child schema node.
+ * The capability a table/view/column node needs to open itself in the Data Explorer. Implemented by
+ * PostgreSQLConnection, which owns the dataset registration. The `client` is the pg client the node
+ * was built against (the connection's own client in single-database mode, or a per-database client in
+ * server mode) and `database` is the database the object lives in (undefined in single-database mode),
+ * so previewed datasets stay unique across databases.
  */
-export function createSchemasGroupNode(client: Client): positron.DataConnectionNode {
+export interface IPostgresPreviewHost {
+	/** Opens the given table or view in the Data Explorer. */
+	previewObject(client: Client, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void>;
+	/** Opens a single column of the given table or view in the Data Explorer. */
+	previewColumn(client: Client, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
+}
+
+/**
+ * The capability the "Databases" group and database nodes need in server mode: listing the databases
+ * on the server and obtaining a pg client scoped to a particular database. Implemented by
+ * PostgreSQLConnection, which owns the base client and the per-database client cache.
+ */
+export interface IPostgresConnectionHost extends IPostgresPreviewHost {
+	/** Lists the names of the browsable (non-template) databases on the server. */
+	listDatabases(): Promise<string[]>;
+	/** Returns a pg client connected to the given database, creating and caching it on first use. */
+	getDatabaseClient(database: string): Promise<Client>;
+}
+
+/**
+ * Creates the root "Databases" group node, used in server mode (no database specified). Lists every
+ * browsable database as a child database node. Each database node expands to the same "Schemas" group
+ * shown in single-database mode, scoped to a per-database client.
+ */
+export function createDatabasesGroupNode(host: IPostgresConnectionHost): positron.DataConnectionNode {
+	return {
+		name: 'Databases',
+		kind: positron.DataConnectionNodeKind.GroupDatabases,
+		async getChildren() {
+			const databases = await host.listDatabases();
+			return databases.map(database => createDatabaseNode(host, database));
+		},
+	};
+}
+
+/**
+ * Creates a database node that expands to a single "Schemas" group, backed by a per-database client.
+ * Exported so unit tests can construct a database node directly against a mocked host.
+ */
+export function createDatabaseNode(host: IPostgresConnectionHost, database: string): positron.DataConnectionNode {
+	return {
+		name: database,
+		kind: positron.DataConnectionNodeKind.Database,
+		async getChildren() {
+			const client = await host.getDatabaseClient(database);
+			return [createSchemasGroupNode(client, host, database)];
+		},
+	};
+}
+
+/**
+ * Creates the root "Schemas" group node. Lists every non-system schema as a child schema node.
+ * `database` is the database the schemas live in (undefined in single-database mode), threaded down
+ * to previews so their datasets stay unique across databases.
+ */
+export function createSchemasGroupNode(client: Client, host: IPostgresPreviewHost, database: string | undefined): positron.DataConnectionNode {
 	return {
 		name: 'Schemas',
 		kind: positron.DataConnectionNodeKind.GroupSchemas,
@@ -17,7 +76,7 @@ export function createSchemasGroupNode(client: Client): positron.DataConnectionN
 			const result = await client.query(
 				`SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast') ORDER BY schema_name`
 			);
-			return result.rows.map(row => createSchemaNode(client, row.schema_name));
+			return result.rows.map(row => createSchemaNode(client, host, database, row.schema_name));
 		},
 	};
 }
@@ -27,14 +86,14 @@ export function createSchemasGroupNode(client: Client): positron.DataConnectionN
  * unit tests can construct a schema node directly against a mocked client without having to
  * walk through the root Schemas group.
  */
-export function createSchemaNode(client: Client, schemaName: string): positron.DataConnectionNode {
+export function createSchemaNode(client: Client, host: IPostgresPreviewHost, database: string | undefined, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: schemaName,
 		kind: positron.DataConnectionNodeKind.Schema,
 		async getChildren() {
 			return [
-				createTablesGroupNode(client, schemaName),
-				createViewsGroupNode(client, schemaName),
+				createTablesGroupNode(client, host, database, schemaName),
+				createViewsGroupNode(client, host, database, schemaName),
 			];
 		},
 	};
@@ -43,7 +102,7 @@ export function createSchemaNode(client: Client, schemaName: string): positron.D
 /**
  * Creates the "Tables" group inside a schema. Lists base tables in the schema.
  */
-function createTablesGroupNode(client: Client, schemaName: string): positron.DataConnectionNode {
+function createTablesGroupNode(client: Client, host: IPostgresPreviewHost, database: string | undefined, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: 'Tables',
 		kind: positron.DataConnectionNodeKind.GroupTables,
@@ -52,7 +111,7 @@ function createTablesGroupNode(client: Client, schemaName: string): positron.Dat
 				`SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'BASE TABLE' ORDER BY table_name`,
 				[schemaName]
 			);
-			return result.rows.map(row => createTableNode(client, schemaName, row.table_name));
+			return result.rows.map(row => createTableNode(client, host, database, schemaName, row.table_name));
 		},
 	};
 }
@@ -60,7 +119,7 @@ function createTablesGroupNode(client: Client, schemaName: string): positron.Dat
 /**
  * Creates the "Views" group inside a schema. Lists views in the schema.
  */
-function createViewsGroupNode(client: Client, schemaName: string): positron.DataConnectionNode {
+function createViewsGroupNode(client: Client, host: IPostgresPreviewHost, database: string | undefined, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: 'Views',
 		kind: positron.DataConnectionNodeKind.GroupViews,
@@ -69,7 +128,7 @@ function createViewsGroupNode(client: Client, schemaName: string): positron.Data
 				`SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'VIEW' ORDER BY table_name`,
 				[schemaName]
 			);
-			return result.rows.map(row => createViewNode(client, schemaName, row.table_name));
+			return result.rows.map(row => createViewNode(client, host, database, schemaName, row.table_name));
 		},
 	};
 }
@@ -79,6 +138,8 @@ function createViewsGroupNode(client: Client, schemaName: string): positron.Data
  */
 function createTableNode(
 	client: Client,
+	host: IPostgresPreviewHost,
+	database: string | undefined,
 	schemaName: string,
 	tableName: string
 ): positron.DataConnectionNode {
@@ -87,13 +148,12 @@ function createTableNode(
 		kind: positron.DataConnectionNodeKind.Table,
 		async getChildren() {
 			return [
-				createColumnsGroupNode(client, schemaName, tableName),
+				createColumnsGroupNode(client, host, database, schemaName, tableName, 'table'),
 				createIndexesGroupNode(client, schemaName, tableName),
 			];
 		},
 		preview() {
-			// TODO: Wire up to Data Explorer when the preview UI is available.
-			return Promise.resolve();
+			return host.previewObject(client, database, schemaName, tableName, 'table');
 		},
 	};
 }
@@ -104,6 +164,8 @@ function createTableNode(
  */
 function createViewNode(
 	client: Client,
+	host: IPostgresPreviewHost,
+	database: string | undefined,
 	schemaName: string,
 	viewName: string
 ): positron.DataConnectionNode {
@@ -111,39 +173,67 @@ function createViewNode(
 		name: viewName,
 		kind: positron.DataConnectionNodeKind.View,
 		async getChildren() {
-			return [createColumnsGroupNode(client, schemaName, viewName)];
+			return [createColumnsGroupNode(client, host, database, schemaName, viewName, 'view')];
 		},
 		preview() {
-			// TODO: Wire up to Data Explorer when the preview UI is available.
-			return Promise.resolve();
+			return host.previewObject(client, database, schemaName, viewName, 'view');
 		},
 	};
 }
 
 /**
- * Creates the "Columns" group inside a table or view. Lists column nodes with formatted
- * dataType strings.
+ * Creates the "Columns" group inside a table or view. Lists column nodes with formatted dataType
+ * strings; each column can be previewed as a single-column Data Explorer.
  */
 function createColumnsGroupNode(
 	client: Client,
+	host: IPostgresPreviewHost,
+	database: string | undefined,
 	schemaName: string,
-	relationName: string
+	relationName: string,
+	kind: 'table' | 'view'
 ): positron.DataConnectionNode {
 	return {
 		name: 'Columns',
 		kind: positron.DataConnectionNodeKind.GroupColumns,
 		async getChildren() {
+			// Primary-key columns (tables only; views have no primary key).
+			const primaryKeyColumns = kind === 'table'
+				? await getPrimaryKeyColumns(client, schemaName, relationName)
+				: new Set<string>();
+
 			const result = await client.query(
 				`SELECT column_name, data_type, udt_name, is_nullable, character_maximum_length, numeric_precision, numeric_scale FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position`,
 				[schemaName, relationName]
 			);
-			return result.rows.map(row => ({
-				name: row.column_name,
-				kind: positron.DataConnectionNodeKind.Field,
-				dataType: formatDataType(row),
-			}));
+			return result.rows.map(row => {
+				const columnName = row.column_name;
+				return {
+					name: columnName,
+					kind: positron.DataConnectionNodeKind.Field,
+					dataType: formatDataType(row),
+					isPrimaryKey: primaryKeyColumns.has(columnName),
+					preview() {
+						return host.previewColumn(client, database, schemaName, relationName, kind, columnName);
+					},
+				};
+			});
 		},
 	};
+}
+
+/**
+ * Returns the set of column names that make up a table's primary key.
+ */
+async function getPrimaryKeyColumns(client: Client, schemaName: string, tableName: string): Promise<Set<string>> {
+	const result = await client.query(
+		`SELECT kcu.column_name FROM information_schema.table_constraints tc ` +
+		`JOIN information_schema.key_column_usage kcu ` +
+		`ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema ` +
+		`WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = $1 AND tc.table_name = $2`,
+		[schemaName, tableName]
+	);
+	return new Set(result.rows.map(row => row.column_name));
 }
 
 /**

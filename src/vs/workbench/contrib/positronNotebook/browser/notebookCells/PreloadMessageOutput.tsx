@@ -10,10 +10,12 @@ import { NotebookPreloadOutputResults } from '../../../../services/positronWebvi
 
 type PreloadMessageOutputProps = {
 	preloadMessageResult?: NotebookPreloadOutputResults;
+	outputScrolling: boolean;
 };
 
 type DisplayedPreloadMessageProps = {
 	webview: Promise<INotebookOutputWebview>;
+	outputScrolling: boolean;
 };
 
 const MESSAGES = {
@@ -21,7 +23,7 @@ const MESSAGES = {
 	WEBVIEW_FAILED: localize('cellExecutionWebviewFailed', 'Failed to create webview.'),
 } as const;
 
-export function PreloadMessageOutput({ preloadMessageResult }: PreloadMessageOutputProps) {
+export function PreloadMessageOutput({ preloadMessageResult, outputScrolling }: PreloadMessageOutputProps) {
 
 	if (preloadMessageResult === null) {
 		return <div>{MESSAGES.LOADING}</div>;
@@ -37,11 +39,11 @@ export function PreloadMessageOutput({ preloadMessageResult }: PreloadMessageOut
 
 	// We assert types here due to not being able to import the full INotebookOutputWebview type
 	// from positronOutputWebview.ts into the webview preload service.
-	return <DisplayedPreloadMessage webview={preloadMessageResult.webview as Promise<INotebookOutputWebview>} />;
+	return <DisplayedPreloadMessage outputScrolling={outputScrolling} webview={preloadMessageResult.webview as Promise<INotebookOutputWebview>} />;
 }
 
-function DisplayedPreloadMessage({ webview }: DisplayedPreloadMessageProps) {
-	const { containerRef, isLoading, error } = useWebviewMount(webview);
+function DisplayedPreloadMessage({ webview, outputScrolling }: DisplayedPreloadMessageProps) {
+	const { containerRef, isLoading, error } = useWebviewMount(webview, { outputScrolling });
 
 	if (error) {
 		return <div>{error.message}</div>;

@@ -26,6 +26,20 @@ export function isVersionPrerelease(version: string): boolean {
     return PRERELEASE_REGEX.test(version);
 }
 
+/**
+ * Runs a uv subcommand with color output disabled. uv honors FORCE_COLOR/CLICOLOR_FORCE
+ * even when its stdout is piped (both are commonly set in CI), which wraps the paths and
+ * tokens we parse in ANSI escape codes and corrupts them. `--color never` overrides
+ * those env vars. See uvPackageManager, which passes the same flag to `uv pip` commands.
+ */
+export function execUv(
+    command: string,
+    args: string[],
+    options: Parameters<typeof exec>[2] = {},
+): ReturnType<typeof exec> {
+    return exec(command, ['--color', 'never', ...args], options);
+}
+
 /** Wraps the "uv" utility, and exposes its functionality. */
 class UvUtils {
     private static uvPromise: Promise<UvUtils | undefined>;
@@ -44,22 +58,53 @@ class UvUtils {
     }
 
     private static async locate(): Promise<UvUtils | undefined> {
-        const uvPath = 'uv';
-        traceVerbose(`Probing uv binary ${uvPath}`);
-        const uv = new UvUtils(uvPath);
-        const uvDir = await uv.getUvDir();
-        if (uvDir !== undefined) {
-            traceVerbose(`Found uv binary ${uvPath}`);
-            return uv;
+        // Probe `uv` on PATH first, then fall back to uv's known install locations.
+        // The official installer drops the binary at ~/.local/bin/uv (or ~/.cargo/bin/uv)
+        // and only updates shell rc files, so a freshly installed uv is not reachable on
+        // the already-running extension host's PATH. Probing the known locations lets us
+        // find it without waiting for a restart.
+        for (const candidate of ['uv', ...UvUtils.knownInstallLocations()]) {
+            // Absolute-path candidates come from known install locations; only probe ones
+            // that actually exist on disk to avoid spawning processes for missing paths.
+            if (path.isAbsolute(candidate) && !(await pathExists(candidate))) {
+                continue;
+            }
+            traceVerbose(`Probing uv binary ${candidate}`);
+            if (await UvUtils.canRun(candidate)) {
+                traceVerbose(`Found uv binary ${candidate}`);
+                return new UvUtils(candidate);
+            }
         }
         traceVerbose(`No uv binary found`);
         return undefined;
     }
 
+    /** Default locations the official uv installer writes the binary to. */
+    private static knownInstallLocations(): string[] {
+        const home = os.homedir();
+        const binary = process.platform === 'win32' ? 'uv.exe' : 'uv';
+        return [path.join(home, '.local', 'bin', binary), path.join(home, '.cargo', 'bin', binary)];
+    }
+
+    /**
+     * Probes whether the given uv command is runnable. Runs `uv python dir` directly
+     * rather than through the cached `getUvDir()`, whose cache key ignores the command
+     * and would otherwise return a stale result across candidate probes.
+     */
+    private static async canRun(command: string): Promise<boolean> {
+        try {
+            const result = await execUv(command, ['python', 'dir'], { throwOnStdErr: true });
+            return result?.stdout.trim() !== undefined;
+        } catch (ex) {
+            traceVerbose(ex);
+            return false;
+        }
+    }
+
     @cache(-1)
     public async getUvDir(): Promise<string | undefined> {
         try {
-            const result = await exec(this.command, ['python', 'dir'], { throwOnStdErr: true });
+            const result = await execUv(this.command, ['python', 'dir'], { throwOnStdErr: true });
             return result?.stdout.trim();
         } catch (ex) {
             traceVerbose(ex);
@@ -70,7 +115,7 @@ class UvUtils {
     @cache(-1)
     public async getUvBinDir(): Promise<string | undefined> {
         try {
-            const result = await exec(this.command, ['python', 'dir', '--bin'], { throwOnStdErr: true });
+            const result = await execUv(this.command, ['python', 'dir', '--bin'], { throwOnStdErr: true });
             return result?.stdout.trim();
         } catch (ex) {
             traceVerbose(ex);
@@ -190,6 +235,26 @@ export interface GetUvPythonVersionInfoOptions {
 }
 
 /**
+ * Extracts the interpreter path from a `uv python list` output line, stripping any
+ * " -> ..." symlink suffix. Returns undefined for "<download available>" rows or lines
+ * without a path column.
+ *   "cpython-3.13.7-macos-aarch64-none   /usr/local/bin/python3.13 -> ..." -> "/usr/local/bin/python3.13"
+ *   "cpython-3.13.7-windows-x86_64-none  C:\\Program Files\\Python\\python.exe"
+ */
+function parseUvPythonPath(line: string): string | undefined {
+    if (line.includes('<download available>')) {
+        return undefined;
+    }
+    // Columns are separated by 2+ spaces; the path is the second column.
+    const pathColumn = line
+        .split(/\s{2,}/)[1]
+        ?.trim()
+        .split(' -> ')[0]
+        .trim();
+    return pathColumn || undefined;
+}
+
+/**
  * Checks what Python version uv would install for a given version request.
  * Uses `uv python list` to see available versions without actually installing.
  * @param requestedVersion The version requested (e.g., "3.14", "3.13")
@@ -210,7 +275,7 @@ export async function getUvPythonVersionInfo(
         // Output format:
         //   cpython-3.15.0a6-macos-aarch64-none    <download available>
         //   cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> ...
-        const result = await exec(uvUtils.command, ['python', 'list', requestedVersion], { throwOnStdErr: false });
+        const result = await execUv(uvUtils.command, ['python', 'list', requestedVersion], { throwOnStdErr: false });
         const output = result?.stdout.trim();
 
         if (!output) {
@@ -262,33 +327,10 @@ export async function getUvPythonVersionInfo(
 
         const isPrerelease = isVersionPrerelease(version);
 
-        // Check if this version is locally installed
-        const isLocal = !selectedLine.includes('<download available>');
-
-        // Extract path if this is a local install
-        let pythonPath: string | undefined;
-        if (isLocal) {
-            // Extract path from format like:
-            //   "cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> ..."
-            //   "cpython-3.13.7-windows-x86_64-none   C:\Program Files\Python\python.exe"
-            // Split on 2+ spaces to separate columns, then strip " -> ..." suffix
-            const columns = selectedLine.split(/\s{2,}/);
-            if (columns.length >= 2) {
-                let pathColumn = columns[1].trim();
-                const arrowIndex = pathColumn.indexOf(' -> ');
-                if (arrowIndex !== -1) {
-                    pathColumn = pathColumn.substring(0, arrowIndex);
-                }
-                if (pathColumn.length > 0) {
-                    pythonPath = pathColumn;
-                }
-            }
-        }
-
         return {
             version,
             isPrerelease,
-            path: pythonPath,
+            path: parseUvPythonPath(selectedLine),
         };
     } catch (ex) {
         traceVerbose(`Error checking uv Python version: ${ex}`);
@@ -308,7 +350,7 @@ export async function updateUv(): Promise<boolean> {
 
     try {
         traceVerbose('Running uv self update...');
-        await exec(uvUtils.command, ['self', 'update'], { throwOnStdErr: false });
+        await execUv(uvUtils.command, ['self', 'update'], { throwOnStdErr: false });
         traceVerbose('uv self update completed successfully');
         return true;
     } catch (ex) {
@@ -330,7 +372,7 @@ export async function installUvPython(version: string): Promise<boolean> {
 
     try {
         traceVerbose(`Running uv python install ${version}...`);
-        await exec(uvUtils.command, ['python', 'install', version], { throwOnStdErr: false });
+        await execUv(uvUtils.command, ['python', 'install', version], { throwOnStdErr: false });
         traceVerbose(`uv python install ${version} completed successfully`);
         return true;
     } catch (ex) {
@@ -430,10 +472,16 @@ export async function getAvailablePythonVersions(): Promise<UvAvailablePython[]>
         // Output format:
         //   cpython-3.13.1-macos-aarch64-none     /Users/.../.local/share/uv/python/cpython-3.13.1.../bin/python3.13
         //   cpython-3.12.8-macos-aarch64-none     <download available>
+        // --managed-python restricts the listing to uv-managed Pythons. This still includes the
+        // "<download available>" rows for installable versions, but excludes system Pythons (e.g.
+        // /usr/bin/python3, Homebrew). For this "Install Python via uv" flow, only uv-managed
+        // installs should count as already installed; a system Python is shown as installable.
         // On Windows ARM64, use --all-arches to see ARM64 builds (uv defaults to x64)
         // See: https://github.com/astral-sh/uv/issues/12906
-        const args = isWindowsArm64() ? ['python', 'list', '--all-arches'] : ['python', 'list'];
-        const result = await exec(uvUtils.command, args, { throwOnStdErr: false });
+        const args = isWindowsArm64()
+            ? ['python', 'list', '--managed-python', '--all-arches']
+            : ['python', 'list', '--managed-python'];
+        const result = await execUv(uvUtils.command, args, { throwOnStdErr: false });
         const output = result?.stdout.trim();
 
         if (!output) {
@@ -445,8 +493,8 @@ export async function getAvailablePythonVersions(): Promise<UvAvailablePython[]>
             .map((line) => line.trim())
             .filter((line) => line.length > 0);
 
-        const versions: UvAvailablePython[] = [];
-        const seenMinorVersions = new Set<string>();
+        // Keyed by minor version (e.g. "3.13") so we keep one entry per minor version.
+        const versionsByMinor = new Map<string, UvAvailablePython>();
 
         // On Windows ARM64, we use --all-arches which returns both x64 and arm64 versions.
         // We need to prefer arm64 versions. The identifier contains the arch, e.g.:
@@ -501,39 +549,36 @@ export async function getAvailablePythonVersions(): Promise<UvAvailablePython[]>
 
             const minorVersion = `${majorVersion}.${minorVersionNum}`;
 
-            // Only show one entry per minor version
-            if (seenMinorVersions.has(minorVersion)) {
-                continue;
-            }
-            seenMinorVersions.add(minorVersion);
-
             // Extract the identifier (first column)
-            const columns = line.split(/\s{2,}/);
-            const identifier = columns[0].trim();
+            const identifier = line.split(/\s{2,}/)[0].trim();
 
             // Check if installed (has a path, not "<download available>")
             const isInstalled = !line.includes('<download available>');
 
-            let pythonPath: string | undefined;
-            if (isInstalled && columns.length >= 2) {
-                let pathColumn = columns[1].trim();
-                // Strip " -> ..." symlink suffix if present
-                const arrowIndex = pathColumn.indexOf(' -> ');
-                if (arrowIndex !== -1) {
-                    pathColumn = pathColumn.substring(0, arrowIndex);
+            const pythonPath = parseUvPythonPath(line);
+
+            // Only keep one entry per minor version. uv lists patches newest-first, so the
+            // first entry for a minor version is often a newer "<download available>" patch
+            // while an older patch of the same minor version is actually installed. Prefer the
+            // installed entry (and its path) so the quick pick reflects what is really installed.
+            const existing = versionsByMinor.get(minorVersion);
+            if (existing) {
+                if (!existing.isInstalled && isInstalled) {
+                    existing.isInstalled = true;
+                    existing.path = pythonPath;
                 }
-                if (pathColumn.length > 0) {
-                    pythonPath = pathColumn;
-                }
+                continue;
             }
 
-            versions.push({
+            versionsByMinor.set(minorVersion, {
                 version: minorVersion,
                 isInstalled,
                 path: pythonPath,
                 identifier,
             });
         }
+
+        const versions = Array.from(versionsByMinor.values());
 
         // Sort by version descending (newest first)
         versions.sort((a, b) => {

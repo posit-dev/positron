@@ -69,6 +69,37 @@ export class PdfHttpServer {
 	}
 
 	/**
+	 * Replace the first occurrence of an anchor in viewer.html, warning if the
+	 * anchor is absent.
+	 *
+	 * The notebook viewer is assembled by string/regex surgery on pdf.js's
+	 * stock viewer.html. These anchors (the `<title>`, `</head>`, and the
+	 * `#secondaryOpenFile` button) are coupled to the bundled pdf.js version
+	 * (see pdfjs-dist in package.json). A pdf.js upgrade that renames or removes
+	 * one of them would make String.replace a silent no-op; logging here surfaces
+	 * the breakage instead of shipping a viewer that is missing its injections.
+	 */
+	private replaceAnchor(html: string, anchor: string | RegExp, replacement: string): string {
+		const found = typeof anchor === 'string' ? html.includes(anchor) : anchor.test(html);
+		if (!found) {
+			console.warn(`PDF viewer injection anchor not found (pdf.js version mismatch?): ${anchor}`);
+			return html;
+		}
+		return html.replace(anchor, replacement);
+	}
+
+	/**
+	 * Read viewer.html from disk and inject the keyboard forwarder script.
+	 */
+	private async readBaseViewerHtml(): Promise<string> {
+		const viewerPath = path.join(this.extensionPath!, 'pdfjs-dist', 'web', 'viewer.html');
+		let html = await fs.promises.readFile(viewerPath, 'utf-8');
+		const scriptTag = '<script src="/keyboard-forwarder.js"></script>';
+		html = this.replaceAnchor(html, '<title>PDF.js viewer</title>', `<title>PDF.js viewer</title>\n${scriptTag}`);
+		return html;
+	}
+
+	/**
 	 * Setup Express routes.
 	 */
 	private setupRoutes(): void {
@@ -80,14 +111,7 @@ export class PdfHttpServer {
 		// Serve PDF.js viewer.html with keyboard forwarder script injected.
 		this.app.get('/pdfjs/web/viewer.html', async (req: express.Request, res: express.Response) => {
 			try {
-				const viewerPath = path.join(this.extensionPath!, 'pdfjs-dist', 'web', 'viewer.html');
-				let html = await fs.promises.readFile(viewerPath, 'utf-8');
-
-				// Inject our keyboard forwarder script in the <head> BEFORE PDF.js scripts.
-				// This ensures our capture-phase event listeners are registered first.
-				const scriptTag = '<script src="/keyboard-forwarder.js"></script>';
-				html = html.replace('<title>PDF.js viewer</title>', `<title>PDF.js viewer</title>\n${scriptTag}`);
-
+				const html = await this.readBaseViewerHtml();
 				res.type('text/html');
 				return res.send(html);
 			} catch (err) {
@@ -111,6 +135,66 @@ export class PdfHttpServer {
 		this.app.get('/viewer', (_req: express.Request, res: express.Response) => {
 			res.sendFile(path.join(this.extensionPath!, 'viewer-wrapper.html'));
 		});
+
+		// Serve notebook variant of viewer.html with theme preferences and
+		// "Open With..." button injected. Called directly (no wrapper redirect).
+		this.app.get('/pdfjs-notebook/web/viewer.html', async (req: express.Request, res: express.Response) => {
+			try {
+				let html = await this.readBaseViewerHtml();
+
+				// Set theme via pdf.js's webviewerloaded event, which fires after
+				// the viewer is constructed but before it reads preferences.
+				const theme = req.query.theme || '0';
+				const themeScript = `<script>
+					document.addEventListener('webviewerloaded', function() {
+						PDFViewerApplicationOptions.set('viewerCssTheme', ${Number(theme)});
+						PDFViewerApplicationOptions.set('sidebarViewOnLoad', 0);
+					});
+				</script>`;
+				html = this.replaceAnchor(html, '<title>PDF.js viewer</title>', `<title>PDF.js viewer</title>\n${themeScript}`);
+
+				// Inject CSS for the "Open With..." button icon (reuses the Open button's icon).
+				const openWithCss = `<style>
+					:is(#secondaryToolbar #secondaryToolbarButtonContainer) #notebookOpenWith::before {
+						-webkit-mask-image: url("images/toolbarButton-openFile.svg");
+						mask-image: url("images/toolbarButton-openFile.svg");
+					}
+				</style>`;
+				html = this.replaceAnchor(html, '</head>', `${openWithCss}\n</head>`);
+
+				// Inject "Open With..." button after the "Open" button in secondary toolbar.
+				const openWithButton = '\n\t\t\t\t\t\t<button id="notebookOpenWith" class="toolbarButton labeled" type="button" tabindex="0" title="Open With...">\n\t\t\t\t\t\t\t<span>Open With...</span>\n\t\t\t\t\t\t</button>';
+				html = this.replaceAnchor(
+					html,
+					/(<button id="secondaryOpenFile"[^]*?<\/button>)/,
+					`$1\n${openWithButton}`
+				);
+
+				// Inject script to handle "Open With..." click.
+				const openWithScript = `<script>
+					document.addEventListener('DOMContentLoaded', function() {
+						var btn = document.getElementById('notebookOpenWith');
+						if (btn) {
+							btn.addEventListener('click', function() {
+								window.parent.postMessage({ channel: 'pdf-open-with' }, '*');
+							});
+						}
+					});
+				</script>`;
+				html = this.replaceAnchor(html, '</head>', `${openWithScript}\n</head>`);
+
+				res.type('text/html');
+				return res.send(html);
+			} catch (err) {
+				console.error('Error serving notebook viewer.html:', err);
+				return res.status(500).send('Error loading PDF viewer');
+			}
+		});
+
+		// Serve static pdfjs files for the notebook viewer path too.
+		this.app.use('/pdfjs-notebook', express.static(
+			path.join(this.extensionPath, 'pdfjs-dist')
+		));
 
 		// Serve individual PDFs with unique IDs.
 		this.app.get('/pdf/:pdfId', async (req: express.Request, res: express.Response) => {

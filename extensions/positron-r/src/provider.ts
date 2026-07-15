@@ -93,10 +93,58 @@ const R_AD_HOC_BINARIES: readonly string[] = [
  * resolved (symlinks followed) before being reported; `mtimeMs` is 0 when
  * `exists` is false.
  */
-interface RRootEntry {
+export interface RRootEntry {
 	path: string;
 	exists: boolean;
 	mtimeMs: number;
+}
+
+/**
+ * Stat each candidate root, follow symlinks, and dedupe by resolved path into
+ * an ordered list of signature entries. Extracted as a pure function (it only
+ * touches `fs`, no settings or platform globals) so it can be tested against a
+ * real temporary directory with real symlinks, rather than mocking `fs`.
+ *
+ * A non-existent candidate still contributes an entry (with `exists: false`):
+ * if it later starts existing, that flips `exists` to true and the signature
+ * changes, triggering discovery. Following symlinks before recording the
+ * resolved path means distinct candidates pointing at the same physical
+ * location (e.g. an `/opt/R/current` symlink and the version dir it targets)
+ * collapse to one entry, and -- crucially for rig -- a repointed
+ * `current`/`Current` symlink changes the recorded resolved path, flipping the
+ * signature even when the parent directory's mtime did not move.
+ *
+ * @param candidates Ordered candidate root paths; order is preserved in the
+ *   output (it is part of the signature).
+ * @returns One entry per unique resolved path, in first-seen order.
+ */
+export function computeRootSignatureEntries(candidates: readonly string[]): RRootEntry[] {
+	const seen = new Set<string>();
+	const entries: RRootEntry[] = [];
+	for (const candidate of candidates) {
+		let resolved = candidate;
+		let exists = false;
+		let mtimeMs = 0;
+		try {
+			const st = fs.statSync(candidate);
+			try {
+				resolved = fs.realpathSync(candidate);
+			} catch {
+				resolved = candidate;
+			}
+			exists = true;
+			mtimeMs = st.mtimeMs;
+		} catch {
+			// ENOENT (or any other stat failure): treat as non-existent.
+			resolved = candidate;
+		}
+		if (seen.has(resolved)) {
+			continue;
+		}
+		seen.add(resolved);
+		entries.push({ path: resolved, exists, mtimeMs });
+	}
+	return entries;
 }
 
 /**
@@ -107,6 +155,12 @@ interface RRootEntry {
  *
  * Sources covered:
  *   - System headquarters (`rHeadquarters()`).
+ *   - The `current`/`Current` default-version symlink inside each
+ *     headquarters directory (see `rCurrentSymlinks()`), resolved to its
+ *     target version directory. This makes a `rig default <ver>` switch -- a
+ *     symlink repoint that may not move a headquarters mtime the signature
+ *     already captured -- flip the signature and trigger a clean
+ *     re-discovery, instead of relying on the per-binary fingerprint path.
  *   - User-specified `positron.r.customRootFolders`.
  *   - User-specified `positron.r.customBinaries`.
  *   - User-specified `positron.r.interpreters.override`.
@@ -135,7 +189,9 @@ export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRoot
 		}
 	};
 	addAll(rHeadquarters());
+	addAll(rCurrentSymlinks(rHeadquarters()));
 	addAll(userRHeadquarters());
+	addAll(rCurrentSymlinks(userRHeadquarters()));
 	addAll(userRBinaries());
 	addAll(getInterpreterOverridePaths());
 	if (process.platform !== 'win32') {
@@ -143,42 +199,7 @@ export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRoot
 	}
 	addAll(R_AD_HOC_BINARIES);
 
-	// Dedupe by resolved path -- two different settings may both point at the
-	// same on-disk location (e.g. /opt/local/bin and a symlink to it). We keep
-	// the first occurrence's input path as the entry path, so the signature
-	// remains stable regardless of which alias the user wrote first.
-	const seen = new Set<string>();
-	const entries: RRootEntry[] = [];
-	for (const candidate of candidates) {
-		let resolved = candidate;
-		let exists = false;
-		let mtimeMs = 0;
-		try {
-			const st = fs.statSync(candidate);
-			// Follow symlinks before recording the resolved path so that
-			// distinct settings pointing at the same physical directory
-			// collapse to one entry.
-			try {
-				resolved = fs.realpathSync(candidate);
-			} catch {
-				resolved = candidate;
-			}
-			exists = true;
-			mtimeMs = st.mtimeMs;
-		} catch {
-			// ENOENT (or any other stat failure): treat as non-existent. The
-			// path still contributes to the signature -- if it later starts
-			// existing, that flips `exists` to true and triggers discovery.
-			resolved = candidate;
-		}
-		if (seen.has(resolved)) {
-			continue;
-		}
-		seen.add(resolved);
-		entries.push({ path: resolved, exists, mtimeMs });
-	}
-
-	return { entries, opaque: getRFilterSettingsDigest() };
+	return { entries: computeRootSignatureEntries(candidates), opaque: getRFilterSettingsDigest() };
 }
 
 /**
@@ -519,6 +540,17 @@ function isRRuntimeCacheable(rInst: RInstallation): boolean {
 		return false;
 	}
 
+	// Pixi/Module metadata disqualifies regardless of discovery reason. The
+	// metadata is the source of truth for whether launch depends on dynamic,
+	// per-workspace state: a runtime can carry it without the matching reason
+	// (e.g. an affiliated module runtime restored as `[affiliated, PATH]` -- see
+	// RuntimeManager.validateMetadata), so checking reasons alone would wrongly
+	// cache it across windows.
+	const metadata = rInst.packagerMetadata;
+	if (metadata !== undefined && (isModuleMetadata(metadata) || isPixiMetadata(metadata))) {
+		return false;
+	}
+
 	// Pixi/Module reasons disqualify regardless of any other reason on the
 	// merged binary record.
 	for (const r of reasons) {
@@ -548,6 +580,59 @@ function isRRuntimeCacheable(rInst: RInstallation): boolean {
 	return true;
 }
 
+/**
+ * Classify the source/packager that governs an R installation, used for the
+ * runtime's display source (System, Module, Conda, ...) and name amendment.
+ *
+ * Packager metadata takes precedence over the discovery reason: the metadata is
+ * the source of truth for how the runtime launches (it carries the module
+ * startup command, or the conda/pixi environment), and a runtime can carry this
+ * metadata without the matching discovery reason. For example, an affiliated
+ * runtime restored from storage is rebuilt with the `affiliated` reason (see
+ * RuntimeManager.validateMetadata) but keeps its module metadata; keying the
+ * source off the discovery reason alone would mislabel it as System even though
+ * it launches via `module load`. We fall back to the discovery reason for
+ * installations discovered without metadata.
+ *
+ * The Module/Pixi/Conda checks come first because such installations can also
+ * live under a Homebrew or user path.
+ *
+ * @param binpath The R binary path (used to detect Homebrew installations).
+ * @param packagerMetadata The packager metadata, if any.
+ * @param reasonDiscovered How the binary was discovered, if known.
+ * @param isUserInstallation Whether the binary lives under the user's home dir.
+ * @returns The runtime source to display.
+ */
+export function classifyRRuntimeSource(
+	binpath: string,
+	packagerMetadata: PackagerMetadata | undefined,
+	reasonDiscovered: ReasonDiscovered[] | null,
+	isUserInstallation: boolean
+): RRuntimeSource {
+	const hasReason = (reason: ReasonDiscovered) => reasonDiscovered?.includes(reason) ?? false;
+	const isModuleInstallation =
+		(packagerMetadata !== undefined && isModuleMetadata(packagerMetadata)) || hasReason(ReasonDiscovered.MODULE);
+	const isPixiInstallation =
+		(packagerMetadata !== undefined && isPixiMetadata(packagerMetadata)) || hasReason(ReasonDiscovered.PIXI);
+	const isCondaInstallation =
+		(packagerMetadata !== undefined && isCondaMetadata(packagerMetadata)) || hasReason(ReasonDiscovered.CONDA);
+	// Homebrew installations are identified by a 'homebrew' path component.
+	const isHomebrewInstallation = binpath.includes('/homebrew/');
+
+	if (isModuleInstallation) {
+		return RRuntimeSource.module;
+	} else if (isPixiInstallation) {
+		return RRuntimeSource.pixi;
+	} else if (isCondaInstallation) {
+		return RRuntimeSource.conda;
+	} else if (isHomebrewInstallation) {
+		return RRuntimeSource.homebrew;
+	} else if (isUserInstallation) {
+		return RRuntimeSource.user;
+	}
+	return RRuntimeSource.system;
+}
+
 export async function makeMetadata(
 	rInst: RInstallation,
 	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit,
@@ -568,27 +653,14 @@ export async function makeMetadata(
 	// replaced with 'Rscript' or 'Rscript.exe, respectively.
 	const scriptPath = rInst.binpath.replace(/R(\.exe)?$/, 'Rscript$1');
 
-	// Does the runtime path have 'homebrew' as a component? (we assume that
-	// it's a Homebrew installation if it does)
-	const isHomebrewInstallation = rInst.binpath.includes('/homebrew/');
-
-	const isCondaInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.CONDA);
-	const isPixiInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.PIXI);
-	const isModuleInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.MODULE);
-
-	// Be sure to check for pixi/conda/module installations first, as they can be installed via Homebrew
-	let runtimeSource = RRuntimeSource.system;
-	if (isModuleInstallation) {
-		runtimeSource = RRuntimeSource.module;
-	} else if (isPixiInstallation) {
-		runtimeSource = RRuntimeSource.pixi;
-	} else if (isCondaInstallation) {
-		runtimeSource = RRuntimeSource.conda;
-	} else if (isHomebrewInstallation) {
-		runtimeSource = RRuntimeSource.homebrew;
-	} else if (isUserInstallation) {
-		runtimeSource = RRuntimeSource.user;
-	}
+	// Determine the source/packager that governs this installation (System,
+	// Module, Conda, etc.). See classifyRRuntimeSource for the precedence rules.
+	const runtimeSource = classifyRRuntimeSource(
+		rInst.binpath,
+		rInst.packagerMetadata,
+		rInst.reasonDiscovered,
+		isUserInstallation
+	);
 
 	// Short name shown to users (when disambiguating within a language)
 	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
@@ -600,13 +672,13 @@ export async function makeMetadata(
 		runtimeName = rInst.packagerMetadata.label;
 	} else {
 		let packagerAmendment = '';
-		if (isModuleInstallation && rInst.packagerMetadata && isModuleMetadata(rInst.packagerMetadata)) {
+		if (runtimeSource === RRuntimeSource.module && rInst.packagerMetadata && isModuleMetadata(rInst.packagerMetadata)) {
 			packagerAmendment = ` (Module: ${rInst.packagerMetadata.environmentName})`;
-		} else if (isCondaInstallation && rInst.packagerMetadata && isCondaMetadata(rInst.packagerMetadata)) {
+		} else if (runtimeSource === RRuntimeSource.conda && rInst.packagerMetadata && isCondaMetadata(rInst.packagerMetadata)) {
 			packagerAmendment = ` (Conda: ${path.basename(rInst.packagerMetadata.environmentPath)})`;
-		} else if (isPixiInstallation && rInst.packagerMetadata && isPixiMetadata(rInst.packagerMetadata)) {
+		} else if (runtimeSource === RRuntimeSource.pixi && rInst.packagerMetadata && isPixiMetadata(rInst.packagerMetadata)) {
 			packagerAmendment = ` (Pixi: ${rInst.packagerMetadata.environmentName || path.basename(rInst.packagerMetadata.environmentPath)})`;
-		} else if (isHomebrewInstallation) {
+		} else if (runtimeSource === RRuntimeSource.homebrew) {
 			packagerAmendment = ' (Homebrew)';
 		}
 		runtimeName = `R ${runtimeShortName}${packagerAmendment}`;
@@ -1097,6 +1169,31 @@ function rHeadquarters(): string[] {
 		default:
 			throw new Error(`Unsupported platform: ${process.platform}`);
 	}
+}
+
+/**
+ * The `current`/`Current` default-version symlink that rig (and the macOS R
+ * framework) keep inside each headquarters directory to mark the default R
+ * version. Returned so the discovery-root signature can resolve and record the
+ * symlink's target: a `rig default <ver>` switch repoints this symlink, which
+ * changes the resolved target path and therefore flips the signature, forcing
+ * a clean re-discovery rather than depending on the per-binary fingerprint and
+ * revalidation path (which re-resolves `current: true` entries and can leave
+ * the cache holding a stale or wrong default).
+ *
+ * Windows is excluded: rig has no `current` symlink there (the default comes
+ * from the registry, which discovery probes directly).
+ *
+ * @param hqDirs Headquarters directories to look in.
+ * @returns The candidate `current`/`Current` symlink paths, one per directory.
+ */
+export function rCurrentSymlinks(hqDirs: readonly string[]): string[] {
+	if (process.platform === 'win32') {
+		return [];
+	}
+	// macOS uses 'Current' (uppercase 'C'); Linux uses 'current' (lowercase).
+	const name = process.platform === 'darwin' ? 'Current' : 'current';
+	return hqDirs.map(dir => path.join(dir, name));
 }
 
 function firstExisting(base: string, fragments: string[]): string {

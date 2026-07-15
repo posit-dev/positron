@@ -5,8 +5,9 @@
 
 .memory-usage-meter {
 	/* Shrink-wrap the content and hug the right edge of the cell so the hover
-	   background tracks the content rather than the full (over-allocated) cell
-	   width, which would otherwise leave empty space to the left. */
+		background tracks the content rather than the full (over-allocated) cell
+		width, which would otherwise leave empty space to the left.
+	*/
 	width: fit-content;
 	max-width: 100%;
 	margin-inline-start: auto;
@@ -47,11 +48,11 @@
 }
 
 .memory-bar-segment.positron {
-	background-color: var(--vscode-gauge-foreground);
+	background-color: var(--vscode-positronMemoryUsageBar-overheadForeground);
 }
 
 .memory-bar-segment.other {
-	background-color: var(--vscode-gauge-background);
+	background-color: var(--vscode-positronMemoryUsageBar-otherForeground);
 }
 
 .memory-bar-segment.free {
@@ -98,10 +99,12 @@
 	color: var(--vscode-descriptionForeground);
 	white-space: nowrap;
 	user-select: none;
+	font-variant-numeric: tabular-nums;
 }
 
 /* When the meter is too narrow to show the warning icon, color the size label
-   with the warning foreground (matching the icon) to indicate low memory. */
+	with the warning foreground (matching the icon) to indicate low memory.
+*/
 .memory-usage-meter .memory-size-label.low-memory {
 	color: var(--vscode-editorWarning-foreground);
 }
@@ -113,7 +116,8 @@
 	justify-content: center;
 	font-size: 14px !important;
 	/* Chain the .codicon class to outrank the global `.monaco-workbench
-	   .codicon { color: var(--vscode-icon-foreground) }` rule. */
+		.codicon { color: var(--vscode-icon-foreground) }` rule.
+	*/
 	color: var(--vscode-editorWarning-foreground);
 }
 

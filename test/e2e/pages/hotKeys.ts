@@ -185,6 +185,10 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+C', 'Send interrupt to console');
 	}
 
+	public async focusPreviewPanel() {
+		await this.pressHotKeys('Cmd+L B', 'Focus preview panel');
+	}
+
 	// ----------------------
 	// --- Layout Views ---
 	// ----------------------
@@ -238,10 +242,6 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J I', 'Import settings');
 	}
 
-	public async jupyterCellAddTag() {
-		await this.pressHotKeys('Cmd+J J', 'Add Jupyter cell tag');
-	}
-
 	public async newFolderFromTemplate() {
 		await this.pressHotKeys('Cmd+J F', 'New folder from template');
 	}
@@ -261,7 +261,7 @@ export class HotKeys {
 		await this.code.driver.currentPage.waitForTimeout(3000);
 		await this.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
 		if (waitForReady) {
-			await expect(this.code.driver.currentPage.locator('text=/^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+			await expect(this.code.driver.currentPage.locator('text=/^Setting up|^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 		}
 	}
 

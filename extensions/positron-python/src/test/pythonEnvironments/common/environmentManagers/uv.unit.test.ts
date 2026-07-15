@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as os from 'os';
+import * as path from 'path';
 import * as sinon from 'sinon';
 import * as fileUtils from '../../../../client/pythonEnvironments/common/externalDependencies';
 import {
@@ -54,7 +56,7 @@ suite('uv Environment Tests', () => {
         test('exec is called with correct arguments', async () => {
             await isUvEnvironment(exampleUvPython);
 
-            assert.ok(execStub.calledWith('uv', ['python', 'dir'], { throwOnStdErr: true }));
+            assert.ok(execStub.calledWith('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true }));
         });
 
         test('getUvDir returns undefined when command fails', async () => {
@@ -217,14 +219,37 @@ suite('uv Environment Tests', () => {
 
             assert.strictEqual(result, false);
         });
+
+        test('Falls back to the default install location when uv is not on PATH', async () => {
+            // The uv installer drops the binary at ~/.local/bin/uv and only edits shell rc
+            // files, so a freshly installed uv is not reachable on the running process PATH.
+            const localBinUv = path.join(os.homedir(), '.local', 'bin', process.platform === 'win32' ? 'uv.exe' : 'uv');
+            // Bare `uv` is not on PATH.
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .rejects(new Error('command not found'));
+            // uv exists at its default install location and works there.
+            pathExistsStub.withArgs(localBinUv).resolves(true);
+            execStub
+                .withArgs(localBinUv, ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+
+            const result = await isUvInstalled();
+
+            assert.strictEqual(result, true);
+        });
     });
 
     suite('getUvDirs Tests', () => {
         test('Returns both uv dir and bin dir when both are available', async () => {
             const uvDir = '/path/to/uv/python';
             const uvBinDir = '/path/to/uv/bin';
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: uvDir });
-            execStub.withArgs('uv', ['python', 'dir', '--bin'], { throwOnStdErr: true }).resolves({ stdout: uvBinDir });
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: uvDir });
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir', '--bin'], { throwOnStdErr: true })
+                .resolves({ stdout: uvBinDir });
 
             const result = await getUvDirs();
 
@@ -244,9 +269,11 @@ suite('uv Environment Tests', () => {
         test('Trims whitespace from command output', async () => {
             const uvDir = '/path/to/uv/python';
             const uvBinDir = '/path/to/uv/bin';
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: `  ${uvDir}  \n` });
             execStub
-                .withArgs('uv', ['python', 'dir', '--bin'], { throwOnStdErr: true })
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: `  ${uvDir}  \n` });
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir', '--bin'], { throwOnStdErr: true })
                 .resolves({ stdout: `\t${uvBinDir}\r\n` });
 
             const result = await getUvDirs();
@@ -254,6 +281,17 @@ suite('uv Environment Tests', () => {
             assert.strictEqual(result.size, 2);
             assert.ok(result.has(uvDir));
             assert.ok(result.has(uvBinDir));
+        });
+
+        test('Passes --color never so paths are not wrapped in ANSI codes', async () => {
+            // uv honors FORCE_COLOR/CLICOLOR_FORCE even when piped (both common in CI);
+            // the flag keeps `uv python dir` output free of the escape codes we parse.
+            await getUvDirs();
+
+            assert.ok(execStub.calledWith('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true }));
+            assert.ok(
+                execStub.calledWith('uv', ['--color', 'never', 'python', 'dir', '--bin'], { throwOnStdErr: true }),
+            );
         });
     });
 
@@ -267,8 +305,12 @@ suite('uv Environment Tests', () => {
         });
 
         test('Returns undefined when uv python list returns empty output', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-            execStub.withArgs('uv', ['python', 'list', '3.13'], { throwOnStdErr: false }).resolves({ stdout: '' });
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'list', '3.13'], { throwOnStdErr: false })
+                .resolves({ stdout: '' });
 
             const result = await getUvPythonVersionInfo('3.13');
 
@@ -276,8 +318,10 @@ suite('uv Environment Tests', () => {
         });
 
         test('Detects pre-release alpha version from download-only output', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-            execStub.withArgs('uv', ['python', 'list', '3.15'], { throwOnStdErr: false }).resolves({
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub.withArgs('uv', ['--color', 'never', 'python', 'list', '3.15'], { throwOnStdErr: false }).resolves({
                 stdout: 'cpython-3.15.0a6-macos-aarch64-none    <download available>',
             });
 
@@ -290,8 +334,10 @@ suite('uv Environment Tests', () => {
         });
 
         test('Detects pre-release beta version', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-            execStub.withArgs('uv', ['python', 'list', '3.14'], { throwOnStdErr: false }).resolves({
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub.withArgs('uv', ['--color', 'never', 'python', 'list', '3.14'], { throwOnStdErr: false }).resolves({
                 stdout: 'cpython-3.14.0b2-linux-x86_64-gnu    <download available>',
             });
 
@@ -303,8 +349,10 @@ suite('uv Environment Tests', () => {
         });
 
         test('Detects pre-release candidate version', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-            execStub.withArgs('uv', ['python', 'list', '3.13'], { throwOnStdErr: false }).resolves({
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub.withArgs('uv', ['--color', 'never', 'python', 'list', '3.13'], { throwOnStdErr: false }).resolves({
                 stdout: 'cpython-3.13.0rc1-macos-aarch64-none    <download available>',
             });
 
@@ -316,8 +364,10 @@ suite('uv Environment Tests', () => {
         });
 
         test('Detects stable version as non-prerelease', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-            execStub.withArgs('uv', ['python', 'list', '3.12'], { throwOnStdErr: false }).resolves({
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub.withArgs('uv', ['--color', 'never', 'python', 'list', '3.12'], { throwOnStdErr: false }).resolves({
                 stdout: 'cpython-3.12.5-macos-aarch64-none    <download available>',
             });
 
@@ -329,8 +379,10 @@ suite('uv Environment Tests', () => {
         });
 
         test('Returns local install info including path when version is pre-release', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-            execStub.withArgs('uv', ['python', 'list', '3.14'], { throwOnStdErr: false }).resolves({
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub.withArgs('uv', ['--color', 'never', 'python', 'list', '3.14'], { throwOnStdErr: false }).resolves({
                 stdout: 'cpython-3.14.0a5-macos-aarch64-none    /usr/local/bin/python3.14',
             });
 
@@ -343,8 +395,10 @@ suite('uv Environment Tests', () => {
         });
 
         test('Returns local install info for stable version', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-            execStub.withArgs('uv', ['python', 'list', '3.13'], { throwOnStdErr: false }).resolves({
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub.withArgs('uv', ['--color', 'never', 'python', 'list', '3.13'], { throwOnStdErr: false }).resolves({
                 stdout: 'cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> python3.13.real',
             });
 
@@ -357,8 +411,10 @@ suite('uv Environment Tests', () => {
         });
 
         test('Extracts Windows path correctly', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-            execStub.withArgs('uv', ['python', 'list', '3.12'], { throwOnStdErr: false }).resolves({
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub.withArgs('uv', ['--color', 'never', 'python', 'list', '3.12'], { throwOnStdErr: false }).resolves({
                 stdout: 'cpython-3.12.5-windows-x86_64-none    C:\\Users\\test\\AppData\\Local\\uv\\python\\python.exe',
             });
 
@@ -371,8 +427,10 @@ suite('uv Environment Tests', () => {
         });
 
         test('Extracts Windows path with spaces correctly', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-            execStub.withArgs('uv', ['python', 'list', '3.12'], { throwOnStdErr: false }).resolves({
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub.withArgs('uv', ['--color', 'never', 'python', 'list', '3.12'], { throwOnStdErr: false }).resolves({
                 stdout: 'cpython-3.12.5-windows-x86_64-none    C:\\Program Files\\Python312\\python.exe',
             });
 
@@ -385,8 +443,10 @@ suite('uv Environment Tests', () => {
         });
 
         test('Prefers local install over download when both available', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-            execStub.withArgs('uv', ['python', 'list', '3.13'], { throwOnStdErr: false }).resolves({
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub.withArgs('uv', ['--color', 'never', 'python', 'list', '3.13'], { throwOnStdErr: false }).resolves({
                 stdout: [
                     'cpython-3.13.8-macos-aarch64-none    <download available>',
                     'cpython-3.13.7-macos-aarch64-none    /usr/local/bin/python3.13',
@@ -402,8 +462,10 @@ suite('uv Environment Tests', () => {
         });
 
         test('Returns undefined when version cannot be parsed from output', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-            execStub.withArgs('uv', ['python', 'list', '3.13'], { throwOnStdErr: false }).resolves({
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub.withArgs('uv', ['--color', 'never', 'python', 'list', '3.13'], { throwOnStdErr: false }).resolves({
                 stdout: 'unexpected format that does not match',
             });
 
@@ -414,8 +476,10 @@ suite('uv Environment Tests', () => {
         });
 
         test('Handles multiple lines of output', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-            execStub.withArgs('uv', ['python', 'list', '3.12'], { throwOnStdErr: false }).resolves({
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub.withArgs('uv', ['--color', 'never', 'python', 'list', '3.12'], { throwOnStdErr: false }).resolves({
                 stdout: [
                     'cpython-3.12.9-macos-aarch64-none    <download available>',
                     'cpython-3.12.8-macos-aarch64-none    <download available>',
@@ -431,15 +495,31 @@ suite('uv Environment Tests', () => {
             assert.strictEqual(result.isPrerelease, false);
         });
 
+        test('Passes --color never so the interpreter path is not wrapped in ANSI codes', async () => {
+            execStub.withArgs('uv', ['--color', 'never', 'python', 'list', '3.13'], { throwOnStdErr: false }).resolves({
+                stdout: 'cpython-3.13.7-macos-aarch64-none    /usr/local/bin/python3.13',
+            });
+
+            await getUvPythonVersionInfo('3.13');
+
+            assert.ok(
+                execStub.calledWith('uv', ['--color', 'never', 'python', 'list', '3.13'], { throwOnStdErr: false }),
+            );
+        });
+
         suite('skipLocalPrereleases option', () => {
             test('Skips local pre-release and returns downloadable stable version', async () => {
-                execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-                execStub.withArgs('uv', ['python', 'list', '3.14'], { throwOnStdErr: false }).resolves({
-                    stdout: [
-                        'cpython-3.14.0a5-macos-aarch64-none    /usr/local/bin/python3.14',
-                        'cpython-3.14.0-macos-aarch64-none    <download available>',
-                    ].join('\n'),
-                });
+                execStub
+                    .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                    .resolves({ stdout: customDir });
+                execStub
+                    .withArgs('uv', ['--color', 'never', 'python', 'list', '3.14'], { throwOnStdErr: false })
+                    .resolves({
+                        stdout: [
+                            'cpython-3.14.0a5-macos-aarch64-none    /usr/local/bin/python3.14',
+                            'cpython-3.14.0-macos-aarch64-none    <download available>',
+                        ].join('\n'),
+                    });
 
                 const result = await getUvPythonVersionInfo('3.14', { skipLocalPrereleases: true });
 
@@ -451,13 +531,17 @@ suite('uv Environment Tests', () => {
             });
 
             test('Returns local stable version when available', async () => {
-                execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-                execStub.withArgs('uv', ['python', 'list', '3.13'], { throwOnStdErr: false }).resolves({
-                    stdout: [
-                        'cpython-3.13.8-macos-aarch64-none    <download available>',
-                        'cpython-3.13.7-macos-aarch64-none    /usr/local/bin/python3.13',
-                    ].join('\n'),
-                });
+                execStub
+                    .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                    .resolves({ stdout: customDir });
+                execStub
+                    .withArgs('uv', ['--color', 'never', 'python', 'list', '3.13'], { throwOnStdErr: false })
+                    .resolves({
+                        stdout: [
+                            'cpython-3.13.8-macos-aarch64-none    <download available>',
+                            'cpython-3.13.7-macos-aarch64-none    /usr/local/bin/python3.13',
+                        ].join('\n'),
+                    });
 
                 const result = await getUvPythonVersionInfo('3.13', { skipLocalPrereleases: true });
 
@@ -469,13 +553,17 @@ suite('uv Environment Tests', () => {
             });
 
             test('Falls back to pre-release when no stable version available', async () => {
-                execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-                execStub.withArgs('uv', ['python', 'list', '3.15'], { throwOnStdErr: false }).resolves({
-                    stdout: [
-                        'cpython-3.15.0a6-macos-aarch64-none    /usr/local/bin/python3.15',
-                        'cpython-3.15.0a5-macos-aarch64-none    <download available>',
-                    ].join('\n'),
-                });
+                execStub
+                    .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                    .resolves({ stdout: customDir });
+                execStub
+                    .withArgs('uv', ['--color', 'never', 'python', 'list', '3.15'], { throwOnStdErr: false })
+                    .resolves({
+                        stdout: [
+                            'cpython-3.15.0a6-macos-aarch64-none    /usr/local/bin/python3.15',
+                            'cpython-3.15.0a5-macos-aarch64-none    <download available>',
+                        ].join('\n'),
+                    });
 
                 const result = await getUvPythonVersionInfo('3.15', { skipLocalPrereleases: true });
 
@@ -486,14 +574,18 @@ suite('uv Environment Tests', () => {
             });
 
             test('Prefers local stable over downloadable stable', async () => {
-                execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-                execStub.withArgs('uv', ['python', 'list', '3.13'], { throwOnStdErr: false }).resolves({
-                    stdout: [
-                        'cpython-3.13.0a5-macos-aarch64-none    /usr/local/bin/python3.13a',
-                        'cpython-3.13.8-macos-aarch64-none    <download available>',
-                        'cpython-3.13.7-macos-aarch64-none    /usr/local/bin/python3.13',
-                    ].join('\n'),
-                });
+                execStub
+                    .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                    .resolves({ stdout: customDir });
+                execStub
+                    .withArgs('uv', ['--color', 'never', 'python', 'list', '3.13'], { throwOnStdErr: false })
+                    .resolves({
+                        stdout: [
+                            'cpython-3.13.0a5-macos-aarch64-none    /usr/local/bin/python3.13a',
+                            'cpython-3.13.8-macos-aarch64-none    <download available>',
+                            'cpython-3.13.7-macos-aarch64-none    /usr/local/bin/python3.13',
+                        ].join('\n'),
+                    });
 
                 const result = await getUvPythonVersionInfo('3.13', { skipLocalPrereleases: true });
 
@@ -505,13 +597,17 @@ suite('uv Environment Tests', () => {
             });
 
             test('Default behavior (no option) prefers local pre-release', async () => {
-                execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-                execStub.withArgs('uv', ['python', 'list', '3.14'], { throwOnStdErr: false }).resolves({
-                    stdout: [
-                        'cpython-3.14.0a5-macos-aarch64-none    /usr/local/bin/python3.14',
-                        'cpython-3.14.0-macos-aarch64-none    <download available>',
-                    ].join('\n'),
-                });
+                execStub
+                    .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                    .resolves({ stdout: customDir });
+                execStub
+                    .withArgs('uv', ['--color', 'never', 'python', 'list', '3.14'], { throwOnStdErr: false })
+                    .resolves({
+                        stdout: [
+                            'cpython-3.14.0a5-macos-aarch64-none    /usr/local/bin/python3.14',
+                            'cpython-3.14.0-macos-aarch64-none    <download available>',
+                        ].join('\n'),
+                    });
 
                 const result = await getUvPythonVersionInfo('3.14');
 
@@ -534,18 +630,26 @@ suite('uv Environment Tests', () => {
         });
 
         test('Returns true when uv self update succeeds', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-            execStub.withArgs('uv', ['self', 'update'], { throwOnStdErr: false }).resolves({ stdout: 'Updated' });
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub
+                .withArgs('uv', ['--color', 'never', 'self', 'update'], { throwOnStdErr: false })
+                .resolves({ stdout: 'Updated' });
 
             const result = await updateUv();
 
             assert.strictEqual(result, true);
-            assert.ok(execStub.calledWith('uv', ['self', 'update'], { throwOnStdErr: false }));
+            assert.ok(execStub.calledWith('uv', ['--color', 'never', 'self', 'update'], { throwOnStdErr: false }));
         });
 
         test('Returns false when uv self update fails', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-            execStub.withArgs('uv', ['self', 'update'], { throwOnStdErr: false }).rejects(new Error('Update failed'));
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub
+                .withArgs('uv', ['--color', 'never', 'self', 'update'], { throwOnStdErr: false })
+                .rejects(new Error('Update failed'));
 
             const result = await updateUv();
 
@@ -554,8 +658,12 @@ suite('uv Environment Tests', () => {
         });
 
         test('Logs success message on successful update', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
-            execStub.withArgs('uv', ['self', 'update'], { throwOnStdErr: false }).resolves({ stdout: 'Updated' });
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub
+                .withArgs('uv', ['--color', 'never', 'self', 'update'], { throwOnStdErr: false })
+                .resolves({ stdout: 'Updated' });
 
             await updateUv();
 
@@ -574,21 +682,29 @@ suite('uv Environment Tests', () => {
         });
 
         test('Returns true when uv python install succeeds', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
             execStub
-                .withArgs('uv', ['python', 'install', '3.13.7'], { throwOnStdErr: false })
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'install', '3.13.7'], { throwOnStdErr: false })
                 .resolves({ stdout: 'Installed' });
 
             const result = await installUvPython('3.13.7');
 
             assert.strictEqual(result, true);
-            assert.ok(execStub.calledWith('uv', ['python', 'install', '3.13.7'], { throwOnStdErr: false }));
+            assert.ok(
+                execStub.calledWith('uv', ['--color', 'never', 'python', 'install', '3.13.7'], {
+                    throwOnStdErr: false,
+                }),
+            );
         });
 
         test('Returns false when uv python install fails', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
             execStub
-                .withArgs('uv', ['python', 'install', '3.13.7'], { throwOnStdErr: false })
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'install', '3.13.7'], { throwOnStdErr: false })
                 .rejects(new Error('Install failed'));
 
             const result = await installUvPython('3.13.7');
@@ -598,9 +714,11 @@ suite('uv Environment Tests', () => {
         });
 
         test('Logs success message on successful install', async () => {
-            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
             execStub
-                .withArgs('uv', ['python', 'install', '3.14.0'], { throwOnStdErr: false })
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .resolves({ stdout: customDir });
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'install', '3.14.0'], { throwOnStdErr: false })
                 .resolves({ stdout: 'Installed' });
 
             await installUvPython('3.14.0');

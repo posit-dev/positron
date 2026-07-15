@@ -56,17 +56,15 @@ Below are the different package and environment dependencies you'll need to inst
 ### Python Dependencies
 
 ```bash
-curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
 python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+python -m pip install -r test/e2e/test-files/requirements.txt
 python -m pip install ipykernel
 ```
 
 ### R Dependencies
 
 ```bash
-curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+Rscript -e "pak::local_install_dev_deps(root = 'test/e2e/test-files', ask = FALSE)"
 ```
 
 ### Graphviz
@@ -91,7 +89,7 @@ Make sure that you have followed the [Machine Setup](https://connect.posit.it/po
 
 ### Test Dependencies
 
-Several tests use [QA Content Examples](https://github.com/posit-dev/qa-example-content). You will need to install the dependencies for those projects. A few current tests also use additional packages. You can look in the [positron-full-test.yml](https://github.com/posit-dev/positron/blob/39a01b71064e2ef3ef5822c95691a034b7e0194f/.github/workflows/positron-full-test.yml) Github action for the full list.
+Several tests use the QA content examples now bundled in-repo at `test/e2e/test-files`. You will need to install the dependencies for those projects. A few current tests also use additional packages. You can look in the [positron-full-test.yml](https://github.com/posit-dev/positron/blob/39a01b71064e2ef3ef5822c95691a034b7e0194f/.github/workflows/positron-full-test.yml) Github action for the full list.
 
 ## Running Tests
 
@@ -133,6 +131,10 @@ We use Playwright as the test framework for end-to-end tests in Positron. Make s
    - **Debug Test**: Launches the test in debug mode.
    - **Go to Test**: Opens the test in the editor.
    - **Watch Test**: Monitors the test for changes and reruns it.
+
+> [!TIP]
+> To manually run and debug Positron against Workbench (`e2e-workbench` project), see
+> [`docker/environments/workbench-dev/README-positron-workbench.md`](../../docker/environments/workbench-dev/README-positron-workbench.md) (`npm run pwb`).
 
 #### Running Specific Tests
 
@@ -187,11 +189,11 @@ BUILD=/Applications/Positron.app npm run e2e-pr
 
 ## Test Project
 
-Before any of the tests start executing the test framework clones down the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo. This repo contains R and Python files that are run by the automated tests and also includes data files (such as Excel, SQLite, & parquet) that support the test scripts. If you make additions to QA Content Examples for a test, please be sure that the data files are free to use in a public repository.
+Before any of the tests start executing the test framework provisions the test workspace by copying the in-repo `test/e2e/test-files` directory (R and Python files that are run by the automated tests, plus data files such as Excel, SQLite, & parquet that support the test scripts) into the workspace path and git-initializing it. If you add test content under `test/e2e/test-files`, please be sure that the data files are free to use in a public repository.
 
-For Python, add any package requirements to the `requirements.txt` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo. We generally do NOT pin them to a specific version, as test can be run against different versions of python and conflicts could arise. If this becomes a problem, we can revisit this mechanism.
+For Python, add any package requirements to `test/e2e/test-files/requirements.txt`. We generally do NOT pin them to a specific version, as tests can be run against different versions of python and conflicts could arise. If this becomes a problem, we can revisit this mechanism.
 
-For R, add any package requirements to the "imports" section of the `DESCRIPTION` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.
+For R, add any package requirements to the "imports" section of `test/e2e/test-files/DESCRIPTION`.
 
 ## Remote WSL Tests
 
@@ -248,6 +250,19 @@ When creating a pull request, the test runner automatically scans the PR descrip
 > **Add tags before the `pr-tags` job starts**. If you update tags _after_ opening the PR, push a new commit or restart the jobs to apply the changes. The PR comment will confirm the detected tags, and tests will run based on the tags present at execution time.
 > For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
 
+### Automatic Tags (from changed files)
+
+In addition to scanning your PR description, the `pr-tags` job derives tags from the files your PR changes, so the right suites run even if you forget to tag them. Derived tags are **added to** (never replace) the tags you write, and `@:critical` always runs.
+
+- **Source / extension changes** map to feature tags via [`.github/workflows/test-tag-paths-map.json`](https://github.com/posit-dev/positron/blob/main/.github/workflows/test-tag-paths-map.json) (for example, a change under `contrib/positronConsole/` adds `@:console`).
+- **E2E test-file changes** map to the minimal tag(s) needed to guarantee the touched/added tests actually run, chosen to add as few additional sibling tests as possible -- see [`scripts/derive-test-change-tags.mjs`](https://github.com/posit-dev/positron/blob/main/scripts/derive-test-change-tags.mjs). A test file with no declared tags gets a warning in the job log instead of a guessed tag.
+- **Opt out:** add `@:no-auto-tags` to the PR description to disable this derivation for the PR (the `@:critical` floor still applies).
+- **Unmapped dirs:** if your PR touches a Positron dir with no entry in the map, the E2E Tests comment will note it so you (or a maintainer) can add a mapping.
+- **Typo'd tags:** any `@:tag` in your description that isn't declared in [`test-tags.ts`](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts) is dropped and called out in the E2E Tests comment instead of silently matching nothing.
+
+> [!NOTE]
+> The description scan matches the literal `@:tag` text **anywhere** in the body, including prose and code spans. Writing something like `@:win` or `@:web` in a sentence will enable those runs. If a tag you didn't intend shows up, check your description for a stray mention.
+
 ### Running Windows and Browser Tests
 
 By default, only Linux E2E tests run. If you need to include additional environments:
@@ -262,6 +277,9 @@ New tests are not complete until they run successfully across operating systems 
 ### Github Actions Test Artifacts
 
 When a run is complete, you can debug any test failures that occurred using the HTML report. This report will contain everything you need: error info, test steps, screenshot(s), trace, and logs. Note that the trace files are only present for failed cases.
+
+> [!TIP]
+> To reproduce and debug a CI failure locally using the actual CI image, see [`.devcontainer/ci-arm/README.md`](../../.devcontainer/ci-arm/README.md).
 
 ## Notes About Updating Specific Tests
 

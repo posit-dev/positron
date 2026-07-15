@@ -82,32 +82,32 @@ export function registerGettingStartedPositronNotebook(
 						Button(
 							localize(
 								'gettingStarted.notebooksWelcome.panesAndUI.button',
-								"View Notebook Layout"
+								"Read the Documentation"
 							),
-							'command:workbench.action.positronNotebookLayout'
+							'https://positron.posit.co/positron-notebook-editor'
 						)
 					),
-					completionEvents: ['onCommand:workbench.action.positronNotebookLayout'],
+					completionEvents: ['onLink:https://positron.posit.co/positron-notebook-editor'],
 					media: { type: 'markdown', path: 'notebooksPanesAndUi' },
 				},
 				{
 					id: 'notebooks.interpreter',
 					title: localize(
 						'gettingStarted.notebooksWelcome.interpreter.title',
-						"Select a Python Interpreter"
+						"Select an Interpreter"
 					),
 					description: localize(
 						'gettingStarted.notebooksWelcome.interpreter.description',
-						"Choose the Python environment for your notebook\n{0}",
+						"Choose the Python or R environment for your notebook\n{0}",
 						Button(
 							localize(
 								'gettingStarted.notebooksWelcome.interpreter.button',
-								"Select an Interpreter"
+								"Read the Interpreter Documentation"
 							),
-							'command:workbench.action.language.runtime.selectSession'
+							'https://positron.posit.co/positron-notebook-editor.html#selecting-a-notebook-kernel'
 						)
 					),
-					completionEvents: ['onCommand:workbench.action.language.runtime.selectSession'],
+					completionEvents: ['onLink:https://positron.posit.co/positron-notebook-editor.html#selecting-a-notebook-kernel'],
 					media: { type: 'markdown', path: 'notebooksInterpreter' },
 				},
 				{
@@ -138,16 +138,16 @@ export function registerGettingStartedPositronNotebook(
 					),
 					description: localize(
 						'gettingStarted.notebooksWelcome.learnMore.description',
-						"Explore documentation, the roadmap, and ways to share feedback\n{0}",
+						"Create your first notebook, explore tutorials and more\n{0}",
 						Button(
 							localize(
-								'gettingStarted.notebooksWelcome.learnMore.button',
-								"Read the Documentation"
+								'gettingStarted.notebooksWelcome.newNotebook.button',
+								"Create a Notebook"
 							),
-							'https://positron.posit.co/positron-notebook-editor'
+							'command:workbench.action.positronNewNotebookWithLayout'
 						)
 					),
-					completionEvents: ['onLink:https://positron.posit.co/positron-notebook-editor'],
+					completionEvents: ['onCommand:workbench.action.positronNewNotebookWithLayout'],
 					media: { type: 'markdown', path: 'notebooksLearnMore' },
 				},
 			]

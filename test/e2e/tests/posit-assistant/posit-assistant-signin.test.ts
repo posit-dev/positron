@@ -15,10 +15,13 @@ const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
 	'openai-api',
 	'amazon-bedrock',
 	'posit-ai',
+	// Microsoft Foundry (Azure) via API key + Base URL on desktop. The managed
+	// credentials path is covered separately in the workbench suite.
+	'ms-foundry',
 ];
 
 test.describe('Posit Assistant Sign-in', {
-	tag: [tags.POSIT_ASSISTANT, tags.ASSISTANT, tags.WEB, tags.WIN],
+	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
 }, () => {
 
 	for (const provider of POSIT_ASSISTANT_SIGNIN_PROVIDERS) {
@@ -30,15 +33,15 @@ test.describe('Posit Assistant Sign-in', {
 				await app.workbench.positAssistant.waitForReady();
 				await app.workbench.positAssistant.startNewConversation();
 
-				if (provider === 'openai-api') {
-					// OpenAI does not auto-select a default model, so pick one
-					// explicitly. `newConversation: false` avoids starting a
-					// fresh chat after model selection, which would drop it.
-					await app.workbench.positAssistant.selectModel('GPT-5.4');
-					await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: false });
-				} else {
-					await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: true });
-				}
+				// Explicitly select the just-signed-in provider's model rather than
+				// relying on an auto-selected default. Other providers can be signed
+				// in simultaneously (notably AWS Bedrock, which auto-signs-in when AWS
+				// credentials are present in the environment), and model names repeat
+				// across providers, so an auto-selected default may belong to the wrong
+				// provider. `newConversation: false` keeps the selection instead of
+				// resetting to a fresh chat.
+				await app.workbench.positAssistant.selectProviderModel(provider);
+				await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: false });
 				await app.workbench.positAssistant.expectResponseVisible();
 
 				const responseText = await app.workbench.positAssistant.getLastResponseText();

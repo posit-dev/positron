@@ -9,7 +9,7 @@ import { ContextMenu } from './dialog-contextMenu.js';
 
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
-const REFRESH_BUTTON = '.codicon-positron-refresh';
+const REFRESH_BUTTON = '.preview-action-bar .codicon-refresh';
 const VIEWER_PANEL = '[id="workbench.panel.positronPreview"]';
 const ACTION_BAR = '.positron-action-bar';
 const OPEN_IN_DROPDOWN_BUTTON = '.preview-action-bar .action-bar-button-drop-down-button[aria-label="Select where to open"]';

@@ -472,13 +472,11 @@ suite('Native Python API', () => {
         const symlinkTarget = '/opt/python/3.10/bin/python3.10';
 
         sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([additionalDir]);
-        sinon.stub(externalDeps, 'resolveSymbolicLink').callsFake(async (p: string) => {
-            // Both paths resolve to the same underlying binary.
-            if (p === longerPath || p === shorterPath) {
-                return symlinkTarget;
-            }
-            return p;
-        });
+        // Both executables canonicalize to the same underlying binary, and both
+        // report the same install prefix, so they are the same environment.
+        const resolveToTarget = async (p: string) => (p === longerPath || p === shorterPath ? symlinkTarget : p);
+        sinon.stub(externalDeps, 'resolveSymbolicLink').callsFake(resolveToTarget);
+        sinon.stub(externalDeps, 'canonicalizePath').callsFake(resolveToTarget);
 
         const longerEnv: NativeEnvInfo = {
             displayName: 'Python 3.10',
@@ -514,6 +512,195 @@ suite('Native Python API', () => {
         const envs = api.getEnvs();
         assert.equal(envs.length, 1, 'expected exactly one env (longer path should be replaced)');
         assert.equal(envs[0].executable.filename, shorterPath);
+    });
+
+    test('Issue #14489: a uv interpreter reached through a symlinked version directory is de-duplicated', async () => {
+        // uv installs a real `cpython-3.14.6-*` directory alongside a
+        // `cpython-3.14-*` symlink pointing at it. The ~/.local/bin shim reaches
+        // the interpreter THROUGH the symlinked directory, so the executable file
+        // itself is not a symlink and leaf-only resolution leaves the two paths
+        // looking distinct. Full canonicalization resolves the directory symlink
+        // and collapses them to the same real file.
+        const realDir = '/home/user/.local/share/uv/python/cpython-3.14.6-linux-x86_64-gnu';
+        const linkDir = '/home/user/.local/share/uv/python/cpython-3.14-linux-x86_64-gnu';
+        const realExe = `${realDir}/bin/python`;
+        const shimExe = '/home/user/.local/bin/python3.14';
+        const canonicalExe = `${realDir}/bin/python3.14`;
+
+        sinon
+            .stub(nativeFinder, 'getAdditionalEnvDirs')
+            .resolves(['/home/user/.local/share/uv/python', '/home/user/.local/bin']);
+        // Leaf-only resolution (what the buggy code used) leaves the two distinct
+        // because the shim's executable is not itself a symlink.
+        sinon.stub(externalDeps, 'resolveSymbolicLink').callsFake(async (p: string) => {
+            if (p === realExe) {
+                return canonicalExe;
+            }
+            if (p === shimExe) {
+                return `${linkDir}/bin/python3.14`;
+            }
+            return p;
+        });
+        // Full canonicalization resolves the directory symlink: both the executable
+        // and the reported prefix collapse onto the real cpython-3.14.6 paths.
+        sinon.stub(externalDeps, 'canonicalizePath').callsFake(async (p: string) => {
+            if (p === realExe || p === shimExe) {
+                return canonicalExe;
+            }
+            if (p === realDir || p === linkDir) {
+                return realDir;
+            }
+            return p;
+        });
+
+        const realEnv: NativeEnvInfo = {
+            displayName: 'Python 3.14.6',
+            name: 'python',
+            executable: realExe,
+            kind: NativePythonEnvironmentKind.Uv,
+            version: '3.14.6',
+            prefix: realDir,
+        };
+        const shimEnv: NativeEnvInfo = {
+            displayName: 'Python 3.14.6',
+            name: 'python3.14',
+            executable: shimExe,
+            kind: NativePythonEnvironmentKind.Uv,
+            version: '3.14.6',
+            prefix: linkDir,
+        };
+
+        mockFinder
+            .setup((f) => f.refresh())
+            .returns(() => {
+                async function* generator() {
+                    yield* [realEnv, shimEnv];
+                }
+                return generator();
+            });
+
+        await api.triggerRefresh();
+
+        const envs = api.getEnvs();
+        assert.equal(envs.length, 1, 'the shim and the real interpreter should collapse to a single entry');
+        // The shorter path (the ~/.local/bin shim) is the one kept.
+        assert.equal(envs[0].executable.filename, shimExe);
+    });
+
+    test('Windows uv trampolines: a launcher that is not a symlink is de-duplicated via PET symlinks', async () => {
+        // On Windows, uv installs `~/.local/bin/python.exe` as a trampoline: a
+        // small regular executable (not a symlink) that spawns the real
+        // interpreter, so canonicalizing it is a no-op. PET spawns the launcher
+        // and reports the interpreter's real executable in `symlinks`, and its
+        // prefix through uv's minor-version alias directory (a real directory
+        // symlink). The identity must follow the in-prefix symlink so the
+        // trampoline collapses into the real interpreter.
+        const realDir = '/home/user/.local/share/uv/python/cpython-3.14.6-linux-x86_64-gnu';
+        const linkDir = '/home/user/.local/share/uv/python/cpython-3.14-linux-x86_64-gnu';
+        const realExe = `${realDir}/bin/python`;
+        const aliasExe = `${linkDir}/bin/python`;
+        const trampolineExe = '/home/user/.local/bin/python';
+
+        sinon
+            .stub(nativeFinder, 'getAdditionalEnvDirs')
+            .resolves(['/home/user/.local/share/uv/python', '/home/user/.local/bin']);
+        // The trampoline is a regular file: canonicalization leaves it as is.
+        // Only the alias directory (and paths through it) resolve to the real dir.
+        sinon.stub(externalDeps, 'canonicalizePath').callsFake(async (p: string) => {
+            if (p === aliasExe) {
+                return realExe;
+            }
+            if (p === linkDir) {
+                return realDir;
+            }
+            return p;
+        });
+
+        const realEnv: NativeEnvInfo = {
+            displayName: 'Python 3.14.6',
+            name: 'python',
+            executable: realExe,
+            kind: NativePythonEnvironmentKind.Uv,
+            version: '3.14.6',
+            prefix: realDir,
+        };
+        const trampolineEnv: NativeEnvInfo = {
+            displayName: 'Python 3.14.6',
+            name: 'python',
+            executable: trampolineExe,
+            kind: NativePythonEnvironmentKind.GlobalPaths,
+            version: '3.14.6',
+            prefix: linkDir,
+            symlinks: [trampolineExe, aliasExe],
+        };
+
+        mockFinder
+            .setup((f) => f.refresh())
+            .returns(() => {
+                async function* generator() {
+                    yield* [realEnv, trampolineEnv];
+                }
+                return generator();
+            });
+
+        await api.triggerRefresh();
+
+        const envs = api.getEnvs();
+        assert.equal(envs.length, 1, 'the trampoline and the real interpreter should collapse to a single entry');
+        // The shorter path (the ~/.local/bin trampoline) is the one kept.
+        assert.equal(envs[0].executable.filename, trampolineExe);
+    });
+
+    test('Issue #14493: distinct virtual environments sharing a base interpreter are both kept', async () => {
+        // Two uv venvs whose `python` symlinks both resolve to the SAME base
+        // interpreter, but which are genuinely different environments (different
+        // prefixes). They must not be de-duplicated against each other.
+        const base = '/home/user/.local/share/uv/python/cpython-3.12.0-linux-x86_64-gnu/bin/python3.12';
+        const venvA = '/home/user/venvs/a/.venv';
+        const venvB = '/home/user/venvs/bbb/.venv';
+        const exeA = `${venvA}/bin/python`;
+        const exeB = `${venvB}/bin/python`;
+
+        sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves(['/home/user/venvs']);
+        // Both venv executables resolve/canonicalize to the same base interpreter;
+        // every other path (notably each venv's distinct prefix) maps to itself.
+        const resolveBoth = async (p: string) => (p === exeA || p === exeB ? base : p);
+        sinon.stub(externalDeps, 'resolveSymbolicLink').callsFake(resolveBoth);
+        sinon.stub(externalDeps, 'canonicalizePath').callsFake(resolveBoth);
+
+        const envA: NativeEnvInfo = {
+            displayName: 'Python 3.12.0',
+            name: 'a',
+            executable: exeA,
+            kind: NativePythonEnvironmentKind.Venv,
+            version: '3.12.0',
+            prefix: venvA,
+        };
+        const envB: NativeEnvInfo = {
+            displayName: 'Python 3.12.0',
+            name: 'bbb',
+            executable: exeB,
+            kind: NativePythonEnvironmentKind.Venv,
+            version: '3.12.0',
+            prefix: venvB,
+        };
+
+        mockFinder
+            .setup((f) => f.refresh())
+            .returns(() => {
+                async function* generator() {
+                    yield* [envA, envB];
+                }
+                return generator();
+            });
+
+        await api.triggerRefresh();
+
+        const envs = api
+            .getEnvs()
+            .map((e) => e.executable.filename)
+            .sort();
+        assert.deepEqual(envs, [exeA, exeB], 'both venvs should appear despite sharing a base interpreter');
     });
 
     // Regression tests for issue #12500: `resolveEnv` must not pin an
@@ -655,3 +842,161 @@ suite('Native Python API', () => {
     });
     // --- End Positron ---
 });
+
+// --- Start Positron ---
+suite('partitionModuleEnvsByNative', () => {
+    // Build a minimal PythonEnvInfo carrying just the executable path the
+    // partitioner reads; the other fields are irrelevant to the matching logic.
+    function envWith(filename: string): PythonEnvInfo {
+        return {
+            arch: Architecture.Unknown,
+            id: filename,
+            detailedDisplayName: filename,
+            display: filename,
+            distro: { org: '' },
+            executable: { filename, sysPrefix: '', ctime: -1, mtime: -1 },
+            kind: PythonEnvKind.Unknown,
+            location: filename,
+            source: [],
+            name: '',
+            type: undefined,
+            version: { sysVersion: undefined, major: -1, minor: -1, micro: -1 },
+        };
+    }
+
+    // Fake symlink resolver: returns the canonical target from the map, or the
+    // path itself when it isn't a symlink.
+    function resolverFrom(canonical: Record<string, string>): (p: string) => Promise<string> {
+        return (p: string) => Promise.resolve(canonical[p] ?? p);
+    }
+
+    test('re-keys a module interpreter that resolves to the same target as a native env', async () => {
+        // The native locator surfaces bin/python; the module locator resolves
+        // python3 first (bin/python3). Both symlink to the same interpreter.
+        const target = '/uv/cpython-3.11.14/bin/python3.11';
+        const result = await nativeAPI.partitionModuleEnvsByNative(
+            [envWith('/uv/cpython-3.11.14/bin/python3')],
+            [envWith('/uv/cpython-3.11.14/bin/python')],
+            resolverFrom({
+                '/uv/cpython-3.11.14/bin/python': target,
+                '/uv/cpython-3.11.14/bin/python3': target,
+            }),
+        );
+        assert.deepEqual(
+            { uniqueModuleEnvs: result.uniqueModuleEnvs.map((e) => e.executable.filename), reKeys: result.reKeys },
+            {
+                uniqueModuleEnvs: [],
+                reKeys: [{ from: '/uv/cpython-3.11.14/bin/python3', to: '/uv/cpython-3.11.14/bin/python' }],
+            },
+        );
+    });
+
+    test('keeps a module interpreter that has no native equivalent', async () => {
+        const result = await nativeAPI.partitionModuleEnvsByNative(
+            [envWith('/opt/mod/bin/python3')],
+            [envWith('/usr/bin/python')],
+            resolverFrom({}),
+        );
+        assert.deepEqual(
+            { uniqueModuleEnvs: result.uniqueModuleEnvs.map((e) => e.executable.filename), reKeys: result.reKeys },
+            { uniqueModuleEnvs: ['/opt/mod/bin/python3'], reKeys: [] },
+        );
+    });
+
+    test('drops a module interpreter whose path matches the native env without re-keying', async () => {
+        const target = '/uv/cpython-3.11.14/bin/python3.11';
+        const result = await nativeAPI.partitionModuleEnvsByNative(
+            [envWith('/uv/cpython-3.11.14/bin/python3')],
+            [envWith('/uv/cpython-3.11.14/bin/python3')],
+            resolverFrom({ '/uv/cpython-3.11.14/bin/python3': target }),
+        );
+        assert.deepEqual(
+            { uniqueModuleEnvs: result.uniqueModuleEnvs.map((e) => e.executable.filename), reKeys: result.reKeys },
+            { uniqueModuleEnvs: [], reKeys: [] },
+        );
+    });
+
+    test('returns module envs unchanged when there are no native envs', async () => {
+        const result = await nativeAPI.partitionModuleEnvsByNative(
+            [envWith('/opt/mod/bin/python3')],
+            [],
+            resolverFrom({}),
+        );
+        assert.deepEqual(
+            { uniqueModuleEnvs: result.uniqueModuleEnvs.map((e) => e.executable.filename), reKeys: result.reKeys },
+            { uniqueModuleEnvs: ['/opt/mod/bin/python3'], reKeys: [] },
+        );
+    });
+
+    test('Issue #14493: distinct venvs sharing a base interpreter are not merged', async () => {
+        // The module and native locators each surface a *different* venv, but both
+        // venvs' `python` resolves to the same base interpreter. They are distinct
+        // environments (different prefixes), so the module env must be kept, not
+        // re-keyed onto the native one.
+        const base = '/uv/cpython-3.12.0/bin/python3.12';
+        const venvA = '/home/user/venvs/a/.venv';
+        const venvB = '/home/user/venvs/bbb/.venv';
+        const envWithPrefix = (filename: string, sysPrefix: string): PythonEnvInfo => ({
+            ...envWith(filename),
+            executable: { filename, sysPrefix, ctime: -1, mtime: -1 },
+        });
+
+        const result = await nativeAPI.partitionModuleEnvsByNative(
+            [envWithPrefix(`${venvB}/bin/python`, venvB)],
+            [envWithPrefix(`${venvA}/bin/python`, venvA)],
+            (p) => Promise.resolve(p === `${venvA}/bin/python` || p === `${venvB}/bin/python` ? base : p),
+        );
+        assert.deepEqual(
+            { uniqueModuleEnvs: result.uniqueModuleEnvs.map((e) => e.executable.filename), reKeys: result.reKeys },
+            { uniqueModuleEnvs: [`${venvB}/bin/python`], reKeys: [] },
+        );
+    });
+
+    test('a module env with no prefix still de-dups against its native twin', async () => {
+        // In production the native locator fills in a real prefix (via PET) while
+        // a module-discovered env has none (envWith leaves sysPrefix ''). The two
+        // must still collapse to one entry: getEnvIdentity derives the missing
+        // module prefix from the resolved executable's grandparent
+        // (`<prefix>/bin/python`), which matches the native prefix.
+        const prefix = '/opt/python/3.11';
+        const nativeExe = `${prefix}/bin/python`;
+        const moduleExe = `${prefix}/bin/python3`;
+        const target = `${prefix}/bin/python3.11`;
+        const nativeEnv: PythonEnvInfo = {
+            ...envWith(nativeExe),
+            executable: { filename: nativeExe, sysPrefix: prefix, ctime: -1, mtime: -1 },
+        };
+
+        const result = await nativeAPI.partitionModuleEnvsByNative([envWith(moduleExe)], [nativeEnv], (p) =>
+            Promise.resolve(p === nativeExe || p === moduleExe ? target : p),
+        );
+        assert.deepEqual(
+            { uniqueModuleEnvs: result.uniqueModuleEnvs.map((e) => e.executable.filename), reKeys: result.reKeys },
+            { uniqueModuleEnvs: [], reKeys: [{ from: moduleExe, to: nativeExe }] },
+        );
+    });
+
+    test('a module env reached through a ~/.local/bin shim de-dups against its native twin', async () => {
+        // Module envs commonly resolve to a shim like ~/.local/bin/python3 that
+        // points into the real install. Its own grandparent (~/.local/bin ->
+        // ~/.local) is not the interpreter's prefix, so the identity must be
+        // built from the RESOLVED executable's install dir -- which is the prefix
+        // PET reports for the native env it discovered at the real location.
+        const realPrefix = '/home/user/.local/share/uv/python/cpython-3.14.6-linux';
+        const realExe = `${realPrefix}/bin/python3.14`;
+        const shimExe = '/home/user/.local/bin/python3.14';
+        const nativeEnv: PythonEnvInfo = {
+            ...envWith(realExe),
+            executable: { filename: realExe, sysPrefix: realPrefix, ctime: -1, mtime: -1 },
+        };
+        // realpath resolves both the shim and the real path to the same file.
+        const canonicalize = (p: string) => Promise.resolve(p === shimExe || p === realExe ? realExe : p);
+
+        const result = await nativeAPI.partitionModuleEnvsByNative([envWith(shimExe)], [nativeEnv], canonicalize);
+        assert.deepEqual(
+            { uniqueModuleEnvs: result.uniqueModuleEnvs.map((e) => e.executable.filename), reKeys: result.reKeys },
+            { uniqueModuleEnvs: [], reKeys: [{ from: shimExe, to: realExe }] },
+        );
+    });
+});
+// --- End Positron ---

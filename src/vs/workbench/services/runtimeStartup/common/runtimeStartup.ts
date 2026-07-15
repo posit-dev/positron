@@ -1039,9 +1039,20 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// `registerLanguageRuntimeManager` API) self-triggers its own
 			// discovery -- the IIFE inside the ext host is gated on a flag
 			// that, without this signal, would never flip on a warm start.
+			//
+			// Pass the cache-satisfied (and disabled) languages as the skip set.
+			// The ext host enumerates any manager whose language isn't in this
+			// set, so a manager registered via the public API *before* this
+			// signal arrived (its language isn't cache-backed) is still
+			// discovered rather than stranded, while the cache-backed languages
+			// we already served aren't needlessly re-enumerated.
+			const skipLanguageIds = Array.from(new Set([
+				...this._discoveryCache.getAllBuckets().map(bucket => bucket.languageId),
+				...disabledLanguages,
+			]));
 			for (const manager of this._runtimeManagers) {
 				this._discoveryCompleteByExtHostId.set(manager.id, true);
-				manager.markDiscoveryComplete();
+				manager.markDiscoveryComplete(skipLanguageIds);
 			}
 			this.setStartupPhase(RuntimeStartupPhase.Complete);
 		} else {
@@ -1506,6 +1517,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					`replacing ${formatLanguageRuntimeMetadata(task.metadata)} ` +
 					`with ${formatLanguageRuntimeMetadata(validated)}`);
 				this._languageRuntimeService.registerRuntime(validated);
+			}
+			// If the validator redirected the runtime to a different binary --
+			// e.g. R's validateMetadata re-resolves a `current: true` entry to
+			// wherever the rig `current`/`Current` symlink points right now --
+			// the cache is keyed by `runtimePath`, so an `upsert` of the new
+			// path would leave the original entry behind. Evict the old key so
+			// the cache can't accumulate stale or duplicate "current" entries
+			// across sessions.
+			if (validated.runtimePath !== task.metadata.runtimePath) {
+				this._discoveryCache.invalidate(task.extensionId, task.languageId, task.metadata.runtimePath);
 			}
 			// Refresh the cache entry with the (possibly-updated) metadata
 			// and the fresh fingerprint we already captured.

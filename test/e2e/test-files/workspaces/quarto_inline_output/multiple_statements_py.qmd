@@ -1,0 +1,27 @@
+---
+title: "Multi statement Python"
+format: html
+---
+
+## Python
+
+This code cell contains multiple Python statements.
+
+```{python}
+print("This is the first statement.")
+print("This is the middle statement.")
+print("This one is last.")
+```
+
+And this one contains multiple multi-line statements.
+
+```{python}
+print(1 +
+    2 +
+    3)
+print(
+    list(
+        range(10)
+    )
+)
+```
