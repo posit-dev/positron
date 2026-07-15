@@ -36,6 +36,13 @@ suite('migrateToProvidersJson', () => {
 		assert.strictEqual(hasMigratableSettings(readerOf({ 'authentication.anthropic.baseUrl': 'https://x' })), true);
 	});
 
+	test('hasMigratableSettings is false when only empty values are set', () => {
+		assert.strictEqual(hasMigratableSettings(readerOf({
+			'authentication.anthropic.baseUrl': '',
+			'authentication.anthropic.customHeaders': {},
+		})), false);
+	});
+
 	test('nothing to migrate leaves no file behind', async () => {
 		const result = await runMigration({ overwrite: false, configPath, reader: readerOf({}) });
 		assert.deepStrictEqual(result, { outcome: 'nothing-to-migrate' });
@@ -78,5 +85,42 @@ suite('migrateToProvidersJson', () => {
 
 	test('userProvidersFileIsPopulated is false for a missing file', async () => {
 		assert.strictEqual(await userProvidersFileIsPopulated(configPath), false);
+	});
+
+	test('an unparseable providers.json counts as populated and is never overwritten', async () => {
+		fs.writeFileSync(configPath, '{ this is not JSON');
+		assert.strictEqual(await userProvidersFileIsPopulated(configPath), true);
+		const result = await runMigration({ overwrite: false, configPath, reader: readerOf({ 'authentication.anthropic.baseUrl': 'https://x' }) });
+		assert.deepStrictEqual(result, { outcome: 'skipped-populated' });
+		assert.strictEqual(fs.readFileSync(configPath, 'utf-8'), '{ this is not JSON');
+	});
+
+	test('a schema-invalid providers.json counts as populated and is never overwritten', async () => {
+		const invalid = JSON.stringify({ unknownKey: true });
+		fs.writeFileSync(configPath, invalid);
+		assert.strictEqual(await userProvidersFileIsPopulated(configPath), true);
+		const result = await runMigration({ overwrite: false, configPath, reader: readerOf({ 'authentication.anthropic.baseUrl': 'https://x' }) });
+		assert.deepStrictEqual(result, { outcome: 'skipped-populated' });
+		assert.strictEqual(fs.readFileSync(configPath, 'utf-8'), invalid);
+	});
+
+	test('a valid file without providers is not populated', async () => {
+		fs.writeFileSync(configPath, JSON.stringify({ version: 1 }));
+		assert.strictEqual(await userProvidersFileIsPopulated(configPath), false);
+	});
+
+	test('overwrite replaces even an unparseable file after explicit confirmation', async () => {
+		fs.writeFileSync(configPath, '{ this is not JSON');
+		const result = await runMigration({ overwrite: true, configPath, reader: readerOf({ 'authentication.anthropic.baseUrl': 'https://x' }) });
+		assert.deepStrictEqual(result, { outcome: 'migrated', settingCount: 1 });
+		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+		assert.strictEqual(written.providers.anthropic.baseUrl, 'https://x');
+	});
+
+	test('skipping a populated file does not rewrite it', async () => {
+		await runMigration({ overwrite: false, configPath, reader: readerOf({ 'authentication.anthropic.baseUrl': 'https://first' }) });
+		const before = fs.statSync(configPath).mtimeMs;
+		await runMigration({ overwrite: false, configPath, reader: readerOf({ 'authentication.anthropic.baseUrl': 'https://second' }) });
+		assert.strictEqual(fs.statSync(configPath).mtimeMs, before);
 	});
 });

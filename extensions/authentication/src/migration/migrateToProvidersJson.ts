@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs/promises';
 import * as vscode from 'vscode';
 import { log } from '../log';
 import {
 	buildProvidersConfigFromSettings,
-	MIGRATABLE_SETTING_KEYS,
 	MigrationSettingsReader,
 } from './providersJson';
 
@@ -33,32 +33,55 @@ export function createGlobalSettingsReader(): MigrationSettingsReader {
 	};
 }
 
+/** True when the settings hold values the migration would actually write (empty values are filtered). */
 export function hasMigratableSettings(
 	reader: MigrationSettingsReader = createGlobalSettingsReader()
 ): boolean {
-	return MIGRATABLE_SETTING_KEYS.some(key => reader.globalValue(key) !== undefined);
+	return buildProvidersConfigFromSettings(reader) !== undefined;
 }
 
 /**
- * True when the user's providers.json file already carries provider config.
- * Reads through ai-config's source assembly (never raw fs) so file location,
- * JSONC handling, and validation fallbacks stay in one place.
+ * True when the user's providers.json file already carries provider config,
+ * or holds content the migration must not silently replace. ai-config's read
+ * path coerces unparseable or schema-invalid files to an empty config, which
+ * would make a hand-edited file with one typo look unpopulated; this check
+ * deliberately reads the raw file and validates it with ai-config's schema
+ * so such files count as populated.
  */
 export async function userProvidersFileIsPopulated(configPath?: string): Promise<boolean> {
-	const { loadConfigSources } = await import('ai-config/node');
-	const sources = await loadConfigSources({
-		configPath,
-		logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
-	});
-	const userSource = sources.find(source => source.kind === 'user');
-	const providers = userSource?.config.providers;
+	const { PROVIDERS_CONFIG_PATH, providersConfigSchema } = await import('ai-config/node');
+	const filePath = configPath ?? PROVIDERS_CONFIG_PATH;
+	let raw: string;
+	try {
+		raw = await fs.readFile(filePath, 'utf-8');
+	} catch {
+		return false;
+	}
+	if (raw.trim() === '') {
+		return false;
+	}
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		log.warn(`[migration] ${filePath} is not valid JSON; treating it as populated`);
+		return true;
+	}
+	const result = providersConfigSchema.safeParse(parsed);
+	if (!result.success) {
+		log.warn(`[migration] ${filePath} does not match the providers schema; treating it as populated`);
+		return true;
+	}
+	const providers = result.data.providers;
 	return !!providers && Object.keys(providers).length > 0;
 }
 
 /**
  * One-shot migration: writes the mapped config through mutateProvidersConfig.
- * The populated-file guard lives INSIDE the mutator, so the check and the
- * write happen under ai-config's cross-process lock.
+ * The populated-file check runs BEFORE the mutator so unparseable files (which
+ * the mutator's read coerces to an empty config) and no-op skips never touch
+ * the file, and again INSIDE the mutator so the parseable case stays guarded
+ * under ai-config's cross-process lock.
  */
 export async function runMigration(opts: RunMigrationOptions): Promise<MigrationResult> {
 	const reader = opts.reader ?? createGlobalSettingsReader();
@@ -66,6 +89,11 @@ export async function runMigration(opts: RunMigrationOptions): Promise<Migration
 	if (!mapped) {
 		log.info('[migration] No provider settings to migrate');
 		return { outcome: 'nothing-to-migrate' };
+	}
+
+	if (!opts.overwrite && await userProvidersFileIsPopulated(opts.configPath)) {
+		log.info('[migration] providers.json already has provider config; skipped');
+		return { outcome: 'skipped-populated' };
 	}
 
 	const { mutateProvidersConfig } = await import('ai-config/node');
