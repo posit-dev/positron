@@ -7,8 +7,8 @@
 
 import { act, screen } from '@testing-library/react';
 import { URI } from '../../../../../base/common/uri.js';
-import { Emitter, Event } from '../../../../../base/common/event.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { Emitter } from '../../../../../base/common/event.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IQuartoKernelManager, QuartoKernelState, QuartoKernelStateChangeEvent } from '../../browser/quartoKernelManager.js';
@@ -21,6 +21,8 @@ describe('QuartoKernelStatusBadge', () => {
 	const stateChange = new Emitter<QuartoKernelStateChangeEvent>();
 	const editorChange = new Emitter<void>();
 	const displayStateEmitter = new Emitter<{ sessionId: string; state: RuntimeState }>();
+	const registerRuntimeEmitter = new Emitter<ILanguageRuntimeMetadata>();
+	const startupPhaseEmitter = new Emitter<RuntimeStartupPhase>();
 	let displayState: RuntimeState | undefined;
 
 	const editorServiceStub = {
@@ -45,8 +47,8 @@ describe('QuartoKernelStatusBadge', () => {
 			getDisplayRuntimeState: () => displayState,
 		})
 		.stub(ILanguageRuntimeService, {
-			onDidRegisterRuntime: Event.None,
-			onDidChangeRuntimeStartupPhase: Event.None,
+			onDidRegisterRuntime: registerRuntimeEmitter.event,
+			onDidChangeRuntimeStartupPhase: startupPhaseEmitter.event,
 		})
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
@@ -83,6 +85,34 @@ describe('QuartoKernelStatusBadge', () => {
 			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' });
 		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
 		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
+		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
+	});
+
+	it('names a preferred runtime discovered after the initial render', () => {
+		// Interpreter discovery can finish after the editor opens: the badge
+		// starts with "No Kernel" and should adopt the interpreter name once a
+		// preferred runtime becomes available and a registration event fires.
+		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
+		expect(screen.getByText('No Kernel')).toBeInTheDocument();
+
+		kernelManagerStub.getPreferredRuntimeForDocument = () =>
+			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' });
+		act(() => registerRuntimeEmitter.fire(
+			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' })));
+
+		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
+	});
+
+	it('recomputes the preferred runtime when the startup phase changes', () => {
+		// The preferred runtime can resolve as the runtime startup sequence
+		// advances, so a startup-phase change should also refresh the label.
+		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
+		expect(screen.getByText('No Kernel')).toBeInTheDocument();
+
+		kernelManagerStub.getPreferredRuntimeForDocument = () =>
+			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' });
+		act(() => startupPhaseEmitter.fire(RuntimeStartupPhase.Complete));
+
 		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
 	});
 
