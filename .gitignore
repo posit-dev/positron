@@ -64,8 +64,6 @@ product.json.backup
 test/e2e/release-screenshots/output/
 # Log file written to cwd by the snowflake-sdk dependency (positron-catalog-explorer)
 snowflake.log
-# Downloaded from S3 at e2e runtime (very-large-data-frame.test.ts); keep `git clean -fd` from wiping it mid-suite
-/test/e2e/test-files/data-files/largeParquet.parquet
 # --- End Positron ---
 test-output.json
 test/componentFixtures/.screenshots/*
