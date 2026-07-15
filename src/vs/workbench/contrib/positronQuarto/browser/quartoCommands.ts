@@ -309,6 +309,7 @@ registerAction2(class InterruptKernelAction extends Action2 {
 			menu: {
 				id: MenuId.PositronQuartoKernelSubmenu,
 				order: 20,
+				when: QUARTO_KERNEL_RUNNING,
 			},
 		});
 	}
