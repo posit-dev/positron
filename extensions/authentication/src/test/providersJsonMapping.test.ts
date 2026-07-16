@@ -64,6 +64,20 @@ suite('buildProvidersConfigFromSettings', () => {
 		assert.deepStrictEqual(result?.config.providers?.['snowflake-cortex'], { snowflake: { account: 'MYORG-MYACCT', home: '/tmp/snow' } });
 	});
 
+	test('records source-to-destination migrations per destination field', () => {
+		const result = buildProvidersConfigFromSettings(readerOf({
+			'authentication.openai-api.baseUrl': 'https://openai.example.com',
+			'authentication.aws.credentials': { AWS_PROFILE: 'default', AWS_REGION: 'us-east-1' },
+		}), fakeCaps);
+		assert.deepStrictEqual(result?.migrations, [
+			{ source: 'authentication.openai-api.baseUrl', destination: 'providers.openai.baseUrl' },
+			{ source: 'authentication.aws.credentials', destination: 'providers.bedrock.aws.profile' },
+			{ source: 'authentication.aws.credentials', destination: 'providers.bedrock.aws.region' },
+		]);
+		// The toast counts distinct source settings, not destination fields.
+		assert.strictEqual(result?.settingCount, 2);
+	});
+
 	test('maps enablement toggles with the newer generation winning', () => {
 		const result = buildProvidersConfigFromSettings(readerOf({
 			'positron.assistant.provider.anthropic.enable': false,

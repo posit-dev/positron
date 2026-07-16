@@ -13,10 +13,20 @@ export interface MigrationSettingsReader {
 	globalValue<T>(key: string): T | undefined;
 }
 
+/** One settings.json key mapped to the dotted providers.json path it wrote. */
+export interface SettingMigration {
+	/** Source settings.json key. */
+	readonly source: string;
+	/** Destination providers.json dotted path (e.g. providers.openai.baseUrl). */
+	readonly destination: string;
+}
+
 export interface MappedProvidersConfig {
 	config: ProvidersConfig;
 	/** Number of settings.json entries consumed (for the success toast). */
 	settingCount: number;
+	/** Source-to-destination record of every value written (for logging). */
+	migrations: SettingMigration[];
 }
 
 interface ApiKeyConnectionSetting {
@@ -106,10 +116,13 @@ export function buildProvidersConfigFromSettings(
 	inferCapabilities: InferCapabilitiesFn
 ): MappedProvidersConfig | undefined {
 	const providers: Record<string, Block> = {};
-	let settingCount = 0;
+	const migrations: SettingMigration[] = [];
 
 	const merge = (providerId: string, fragment: Block) => {
 		providers[providerId] = { ...providers[providerId], ...fragment };
+	};
+	const record = (source: string, destination: string) => {
+		migrations.push({ source, destination });
 	};
 
 	// --- authentication.<configKey>.{baseUrl,customHeaders} -----------------
@@ -117,12 +130,12 @@ export function buildProvidersConfigFromSettings(
 		const rawBaseUrl = nonEmptyString(reader.globalValue<string>(`authentication.${s.configKey}.baseUrl`));
 		if (rawBaseUrl) {
 			merge(s.providerId, { baseUrl: s.normalizeBaseUrl ? s.normalizeBaseUrl(rawBaseUrl) : rawBaseUrl });
-			settingCount++;
+			record(`authentication.${s.configKey}.baseUrl`, `providers.${s.providerId}.baseUrl`);
 		}
 		const headers = nonEmptyHeaders(reader.globalValue<Record<string, string>>(`authentication.${s.configKey}.customHeaders`));
 		if (headers) {
 			merge(s.providerId, { customHeaders: headers });
-			settingCount++;
+			record(`authentication.${s.configKey}.customHeaders`, `providers.${s.providerId}.customHeaders`);
 		}
 	}
 
@@ -131,13 +144,14 @@ export function buildProvidersConfigFromSettings(
 	const googleCloud: Block = {};
 	if (nonEmptyString(vertexCreds?.GOOGLE_VERTEX_PROJECT)) {
 		googleCloud.project = vertexCreds!.GOOGLE_VERTEX_PROJECT;
+		record('authentication.googleVertex.credentials', 'providers.google-vertex.googleCloud.project');
 	}
 	if (nonEmptyString(vertexCreds?.GOOGLE_VERTEX_LOCATION)) {
 		googleCloud.location = vertexCreds!.GOOGLE_VERTEX_LOCATION;
+		record('authentication.googleVertex.credentials', 'providers.google-vertex.googleCloud.location');
 	}
 	if (Object.keys(googleCloud).length > 0) {
 		merge('google-vertex', { googleCloud });
-		settingCount++;
 	}
 
 	// --- authentication.aws.credentials -> bedrock.aws -----------------------
@@ -145,13 +159,14 @@ export function buildProvidersConfigFromSettings(
 	const aws: Block = {};
 	if (nonEmptyString(awsCreds?.AWS_PROFILE)) {
 		aws.profile = awsCreds!.AWS_PROFILE;
+		record('authentication.aws.credentials', 'providers.bedrock.aws.profile');
 	}
 	if (nonEmptyString(awsCreds?.AWS_REGION)) {
 		aws.region = awsCreds!.AWS_REGION;
+		record('authentication.aws.credentials', 'providers.bedrock.aws.region');
 	}
 	if (Object.keys(aws).length > 0) {
 		merge('bedrock', { aws });
-		settingCount++;
 	}
 
 	// --- authentication.snowflake.* -> snowflake-cortex ----------------------
@@ -159,18 +174,19 @@ export function buildProvidersConfigFromSettings(
 	const snowflake: Block = {};
 	if (nonEmptyString(snowflakeCreds?.SNOWFLAKE_ACCOUNT)) {
 		snowflake.account = snowflakeCreds!.SNOWFLAKE_ACCOUNT;
+		record('authentication.snowflake.credentials', 'providers.snowflake-cortex.snowflake.account');
 	}
 	if (nonEmptyString(snowflakeCreds?.SNOWFLAKE_HOME)) {
 		snowflake.home = snowflakeCreds!.SNOWFLAKE_HOME;
+		record('authentication.snowflake.credentials', 'providers.snowflake-cortex.snowflake.home');
 	}
 	if (Object.keys(snowflake).length > 0) {
 		merge('snowflake-cortex', { snowflake });
-		settingCount++;
 	}
 	const snowflakeHeaders = nonEmptyHeaders(reader.globalValue<Record<string, string>>('authentication.snowflake.customHeaders'));
 	if (snowflakeHeaders) {
 		merge('snowflake-cortex', { customHeaders: snowflakeHeaders });
-		settingCount++;
+		record('authentication.snowflake.customHeaders', 'providers.snowflake-cortex.customHeaders');
 	}
 
 	// --- enablement toggles -> providers.<id>.enabled ------------------------
@@ -180,7 +196,7 @@ export function buildProvidersConfigFromSettings(
 		const enabled = newValue ?? oldValue;
 		if (enabled !== undefined) {
 			merge(s.providerId, { enabled });
-			settingCount++;
+			record(newValue !== undefined ? s.newKey! : s.oldKey!, `providers.${s.providerId}.enabled`);
 		}
 	}
 
@@ -197,7 +213,7 @@ export function buildProvidersConfigFromSettings(
 		}
 		const custom = entries.map(entry => buildCustomModel(s.providerId, entry, inferCapabilities));
 		merge(s.providerId, { models: { discovery: 'off', custom } });
-		settingCount++;
+		record(`positron.assistant.models.overrides.${s.settingName}`, `providers.${s.providerId}.models.custom`);
 	}
 
 	if (Object.keys(providers).length === 0) {
@@ -205,7 +221,8 @@ export function buildProvidersConfigFromSettings(
 	}
 	return {
 		config: { providers } as ProvidersConfig,
-		settingCount,
+		settingCount: new Set(migrations.map(m => m.source)).size,
+		migrations,
 	};
 }
 
