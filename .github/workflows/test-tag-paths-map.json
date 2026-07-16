@@ -76,6 +76,7 @@
   "extensions/positron-code-cells/": [],
   "extensions/positron-data-driver-duckdb/": ["@:connections"],
   "extensions/positron-data-driver-postgresql/": ["@:connections"],
+  "extensions/positron-data-driver-redshift/": ["@:connections"],
   "extensions/positron-data-driver-sqlite/": ["@:connections"],
   "extensions/positron-data-explorer-protocol/": ["@:data-explorer"],
   "extensions/positron-dev-containers/": [],
