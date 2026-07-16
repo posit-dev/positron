@@ -13,12 +13,14 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { isCodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { IPlanReviewFeedbackService } from './planReviewFeedbackService.js';
 import { CHAT_CATEGORY } from '../actions/chatActions.js';
+// --- Start Positron ---
+import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
+// --- End Positron ---
 
 export const PlanReviewFeedbackMenuId = MenuId.for('planReviewFeedback.editorContent');
 
 export const hasPlanReviewFeedback = new RawContextKey<boolean>('planReviewFeedback.hasFeedback', false);
 
-export const submitPlanReviewFeedbackActionId = 'planReviewFeedback.action.submit';
 export const navigatePreviousPlanReviewFeedbackActionId = 'planReviewFeedback.action.navigatePrevious';
 export const navigateNextPlanReviewFeedbackActionId = 'planReviewFeedback.action.navigateNext';
 export const clearAllPlanReviewFeedbackActionId = 'planReviewFeedback.action.clearAll';
@@ -45,36 +47,6 @@ function getActivePlanUri(accessor: ServicesAccessor): URI | undefined {
 	return undefined;
 }
 
-class SubmitPlanReviewFeedbackAction extends Action2 {
-
-	constructor() {
-		super({
-			id: submitPlanReviewFeedbackActionId,
-			title: localize2('planReviewFeedback.submit', 'Submit Feedback'),
-			shortTitle: localize2('planReviewFeedback.submitShort', 'Submit'),
-			icon: Codicon.send,
-			category: CHAT_CATEGORY,
-			precondition: hasPlanReviewFeedback,
-			menu: {
-				id: PlanReviewFeedbackMenuId,
-				group: 'a_submit',
-				order: 0,
-				when: hasPlanReviewFeedback,
-			},
-		});
-	}
-
-	override run(accessor: ServicesAccessor): void {
-		const planUri = getActivePlanUri(accessor);
-		if (!planUri) {
-			return;
-		}
-
-		const planReviewFeedbackService = accessor.get(IPlanReviewFeedbackService);
-		planReviewFeedbackService.submitAllFeedback(planUri);
-	}
-}
-
 class NavigatePlanReviewFeedbackAction extends Action2 {
 
 	constructor(private readonly _next: boolean) {
@@ -86,7 +58,13 @@ class NavigatePlanReviewFeedbackAction extends Action2 {
 			icon: _next ? Codicon.arrowDown : Codicon.arrowUp,
 			category: CHAT_CATEGORY,
 			f1: true,
-			precondition: hasPlanReviewFeedback,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(
+				hasPlanReviewFeedback,
+				ChatContextKeys.aiFeaturesEnabled,
+			),
+			// --- End Positron ---
 			menu: {
 				id: PlanReviewFeedbackMenuId,
 				group: 'navigate',
@@ -129,11 +107,17 @@ class ClearAllPlanReviewFeedbackAction extends Action2 {
 			icon: Codicon.clearAll,
 			category: CHAT_CATEGORY,
 			f1: true,
-			precondition: hasPlanReviewFeedback,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(
+				hasPlanReviewFeedback,
+				ChatContextKeys.aiFeaturesEnabled,
+			),
+			// --- End Positron ---
 			menu: {
 				id: PlanReviewFeedbackMenuId,
-				group: 'a_submit',
-				order: 1,
+				group: 'a_actions',
+				order: 0,
 				when: hasPlanReviewFeedback,
 			},
 		});
@@ -151,7 +135,6 @@ class ClearAllPlanReviewFeedbackAction extends Action2 {
 }
 
 export function registerPlanReviewFeedbackEditorActions(): void {
-	registerAction2(SubmitPlanReviewFeedbackAction);
 	registerAction2(class extends NavigatePlanReviewFeedbackAction { constructor() { super(false); } });
 	registerAction2(class extends NavigatePlanReviewFeedbackAction { constructor() { super(true); } });
 	registerAction2(ClearAllPlanReviewFeedbackAction);
@@ -159,7 +142,7 @@ export function registerPlanReviewFeedbackEditorActions(): void {
 	MenuRegistry.appendMenuItem(PlanReviewFeedbackMenuId, {
 		command: {
 			id: navigationBearingFakeActionId,
-			title: localize('label', 'Navigation Status'),
+			title: localize('planReviewFeedback.navStatus.label', 'Navigation Status'),
 			precondition: ContextKeyExpr.false(),
 		},
 		group: 'navigate',

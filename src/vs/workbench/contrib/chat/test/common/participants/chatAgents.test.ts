@@ -15,7 +15,6 @@ import { ILanguageModelChatProvider, ILanguageModelsChangeEvent, ILanguageModels
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { NullLogService } from '../../../../../../platform/log/common/log.js';
 import { Disposable, IDisposable } from '../../../../../../base/common/lifecycle.js';
-import { TestPositronAssistantConfigurationService } from '../../../../../test/common/positronWorkbenchTestServices.js';
 import { observableValue } from '../../../../../../base/common/observable.js';
 import { ChatContextKeys } from '../../../common/actions/chatContextKeys.js';
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from '../../../common/constants.js';
@@ -88,6 +87,22 @@ class TestLanguageModelsService implements ILanguageModelsService {
 	async setModelConfiguration(): Promise<void> { }
 	getModelConfigurationActions(_modelId: string) { return []; }
 	async configureModel(): Promise<void> { }
+	hasResolvedVendor(_vendor: string): boolean { return false; }
+	async renameLanguageModelsProviderGroup(): Promise<void> { }
+	async updateLanguageModelsProviderGroupApiKey(): Promise<void> { }
+	async addLanguageModelsProviderGroupModel(): Promise<void> { }
+	async openLanguageModelsProviderGroupSettings(): Promise<void> { }
+	getPinnedModelIds(): string[] { return []; }
+	pinModel(_modelIdentifier: string): void { }
+	unpinModel(_modelIdentifier: string): void { }
+	isModelPinned(_modelIdentifier: string): boolean { return false; }
+	onDidChangePinnedModels: Event<void> = new Emitter<void>().event;
+	isModelHidden(_modelIdentifier: string): boolean { return false; }
+	isGroupHidden(_vendor: string, _groupName: string): boolean { return false; }
+	setModelHidden(_modelIdentifier: string, _hidden: boolean): void { }
+	setGroupHidden(_vendor: string, _groupName: string, _hidden: boolean): void { }
+	getHiddenModelIds(): string[] { return []; }
+	onDidChangeModelVisibility: Event<void> = new Emitter<void>().event;
 }
 // --- End Positron ---
 
@@ -106,9 +121,9 @@ suite('ChatAgents', function () {
 		configurationService = new TestConfigurationService();
 		const logService = new NullLogService();
 		const languageModelsService = new TestLanguageModelsService();
-		const positronAssistantConfigurationService = new TestPositronAssistantConfigurationService();
-		configurationService.setUserConfiguration('positron.assistant.enable', true);
-		chatAgentService = store.add(new ChatAgentService(contextKeyService, configurationService, logService, languageModelsService, positronAssistantConfigurationService));
+		configurationService.setUserConfiguration('ai.enabled', true);
+		configurationService.setUserConfiguration('chat.disableAIFeatures', false);
+		chatAgentService = store.add(new ChatAgentService(contextKeyService, configurationService, logService, languageModelsService));
 		// --- End Positron ---
 	});
 
@@ -200,22 +215,24 @@ suite('ChatAgents', function () {
 		const contextKeys = () => ({
 			enabled: ChatContextKeys.enabled.getValue(contextKeyService),
 			panelParticipantRegistered: ChatContextKeys.panelParticipantRegistered.getValue(contextKeyService),
+			aiFeaturesEnabled: ChatContextKeys.aiFeaturesEnabled.getValue(contextKeyService),
 		});
 
-		const fireAIDisabledChange = () => {
+		const fireConfigChange = (changedKey: string) => {
 			configurationService.onDidChangeConfigurationEmitter.fire({
-				affectsConfiguration: (key: string) => key === ChatConfiguration.AIDisabled,
-				affectedKeys: new Set([ChatConfiguration.AIDisabled]),
+				affectsConfiguration: (key: string) => key === changedKey,
+				affectedKeys: new Set([changedKey]),
 				change: { keys: [], overrides: [] },
 				source: ConfigurationTarget.USER,
 			});
 		};
+		const fireAIDisabledChange = () => fireConfigChange(ChatConfiguration.AIDisabled);
 
 		test('chat context keys are set when AI features are enabled', () => {
 			store.add(chatAgentService.registerAgent(defaultAgentId, defaultAgentData));
 			store.add(chatAgentService.registerAgentImplementation(defaultAgentId, agentImpl));
 
-			assert.deepStrictEqual(contextKeys(), { enabled: true, panelParticipantRegistered: true });
+			assert.deepStrictEqual(contextKeys(), { enabled: true, panelParticipantRegistered: true, aiFeaturesEnabled: true });
 		});
 
 		test('chat context keys are cleared when AI features are disabled', () => {
@@ -223,7 +240,7 @@ suite('ChatAgents', function () {
 			store.add(chatAgentService.registerAgent(defaultAgentId, defaultAgentData));
 			store.add(chatAgentService.registerAgentImplementation(defaultAgentId, agentImpl));
 
-			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false });
+			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false, aiFeaturesEnabled: false });
 		});
 
 		test('config listener recomputes chat context keys when the setting flips', () => {
@@ -232,19 +249,19 @@ suite('ChatAgents', function () {
 
 			configurationService.setUserConfiguration(ChatConfiguration.AIDisabled, true);
 			fireAIDisabledChange();
-			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false }, 'keys hide when AI is disabled at runtime');
+			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false, aiFeaturesEnabled: false }, 'keys hide when AI is disabled at runtime');
 
 			configurationService.setUserConfiguration(ChatConfiguration.AIDisabled, false);
 			fireAIDisabledChange();
-			assert.deepStrictEqual(contextKeys(), { enabled: true, panelParticipantRegistered: true }, 'keys return when AI is re-enabled at runtime');
+			assert.deepStrictEqual(contextKeys(), { enabled: true, panelParticipantRegistered: true, aiFeaturesEnabled: true }, 'keys return when AI is re-enabled at runtime');
 		});
 
-		test('API test agent registers the panel participant regardless of positron.assistant.enable', () => {
-			configurationService.setUserConfiguration('positron.assistant.enable', false);
-			store.add(chatAgentService.registerAgent(defaultAgentId, {
-				...defaultAgentData,
-				extensionId: new ExtensionIdentifier('vscode.vscode-api-tests'),
-			}));
+		test('a default agent registers the panel participant while AI features are enabled', () => {
+			// The chat panel previously registered only when `positron.assistant.enable`
+			// was on (or the upstream API test agent was present). That gate has been
+			// removed, so any default agent (e.g. GitHub Copilot) now registers the
+			// panel participant on its own while AI features are not disabled.
+			store.add(chatAgentService.registerAgent(defaultAgentId, defaultAgentData));
 
 			assert.strictEqual(ChatContextKeys.panelParticipantRegistered.getValue(contextKeyService), true);
 		});
@@ -273,6 +290,42 @@ suite('ChatAgents', function () {
 			fireAIDisabledChange();
 
 			assert.strictEqual(agentsChangedCount, 1, 'onDidChangeAgents fires when the setting is toggled at runtime');
+		});
+
+		// `ai.enabled` is Positron's master AI switch. It overrides
+		// `chat.disableAIFeatures` in one direction only: `ai.enabled = false` forces
+		// the chat UI off regardless of `chat.disableAIFeatures`, while `ai.enabled =
+		// true` (or unset) leaves `chat.disableAIFeatures` to govern Copilot on its own.
+		test('ai.enabled off hides the chat UI even when chat.disableAIFeatures is off', () => {
+			configurationService.setUserConfiguration(ChatConfiguration.AIDisabled, false);
+			configurationService.setUserConfiguration('ai.enabled', false);
+			store.add(chatAgentService.registerAgent(inlineAgentId, inlineAgentData));
+			store.add(chatAgentService.registerAgentImplementation(inlineAgentId, agentImpl));
+
+			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false, aiFeaturesEnabled: false });
+			assert.strictEqual(chatAgentService.getDefaultAgent(ChatAgentLocation.EditorInline), undefined);
+		});
+
+		test('ai.enabled on does not force the chat UI on while chat.disableAIFeatures is on', () => {
+			configurationService.setUserConfiguration('ai.enabled', true);
+			configurationService.setUserConfiguration(ChatConfiguration.AIDisabled, true);
+			store.add(chatAgentService.registerAgent(defaultAgentId, defaultAgentData));
+			store.add(chatAgentService.registerAgentImplementation(defaultAgentId, agentImpl));
+
+			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false, aiFeaturesEnabled: false });
+		});
+
+		test('config listener recomputes chat context keys when ai.enabled flips', () => {
+			store.add(chatAgentService.registerAgent(defaultAgentId, defaultAgentData));
+			store.add(chatAgentService.registerAgentImplementation(defaultAgentId, agentImpl));
+
+			configurationService.setUserConfiguration('ai.enabled', false);
+			fireConfigChange('ai.enabled');
+			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false, aiFeaturesEnabled: false }, 'keys hide when the master switch is off at runtime');
+
+			configurationService.setUserConfiguration('ai.enabled', true);
+			fireConfigChange('ai.enabled');
+			assert.deepStrictEqual(contextKeys(), { enabled: true, panelParticipantRegistered: true, aiFeaturesEnabled: true }, 'keys return when the master switch is back on at runtime');
 		});
 	});
 	// --- End Positron ---

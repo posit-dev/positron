@@ -153,7 +153,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 
 		vscode.commands.registerCommand('r.useTest', async () => {
-			executeCodeForCommand('usethis', 'usethis::use_test("rename-me")');
+			executeCodeForCommand('usethis', 'usethis::use_test("something")');
 		}),
 
 		vscode.commands.registerCommand('r.packageCheck', async () => {
@@ -471,6 +471,18 @@ async function sourceCurrentFile(echo: boolean, resource?: vscode.Uri) {
 		// In the future, we may want to shorten the path by making it
 		// relative to the current working directory.
 		if (filePath) {
+			// Offer to install missing packages before sourcing the file. The
+			// preflight runs in the Positron frontend and returns whether to
+			// proceed (false only if the user cancels).
+			const uri = resource ?? vscode.window.activeTextEditor?.document.uri;
+			if (uri) {
+				const shouldRun = await vscode.commands.executeCommand<boolean>(
+					'positron.missingPackages.preflight', uri);
+				if (shouldRun === false) {
+					return;
+				}
+			}
+
 			let command = `source(${JSON.stringify(filePath)})`;
 			if (echo) {
 				command = `source(${JSON.stringify(filePath)}, echo = TRUE)`;

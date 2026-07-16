@@ -8,7 +8,7 @@
 import { act, screen } from '@testing-library/react';
 import { Emitter } from '../../../../../base/common/event.js';
 import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { useSessionRuntimeState } from '../../browser/components/useSessionRuntimeState.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -24,56 +24,77 @@ const TestComponent = ({ session }: ProbeProps) => {
 };
 
 describe('useSessionRuntimeState', () => {
-	const ctx = createTestContainer().withReactServices().build();
+	const displayStateEmitter = new Emitter<{ sessionId: string; state: RuntimeState }>();
+	let displayState: RuntimeState | undefined;
+
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IRuntimeSessionService, {
+			onDidChangeDisplayRuntimeState: displayStateEmitter.event,
+			getDisplayRuntimeState: () => displayState,
+		})
+		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function makeSession(initial: RuntimeState) {
-		const emitter = new Emitter<RuntimeState>();
+	function makeSession(sessionId: string, initial: RuntimeState) {
 		const session = stubInterface<ILanguageRuntimeSession>({
+			sessionId,
 			getRuntimeState: () => initial,
-			onDidChangeRuntimeState: emitter.event,
 		});
-		return { session, emitter };
+		return session;
 	}
 
 	it('returns undefined when session is undefined', () => {
+		displayState = undefined;
 		rtl.render(<TestComponent session={undefined} />);
 		expect(screen.getByTestId('state')).toHaveTextContent('none');
 	});
 
 	it('returns the initial runtime state for a session', () => {
-		const { session } = makeSession(RuntimeState.Idle);
+		displayState = RuntimeState.Idle;
+		const session = makeSession('s1', RuntimeState.Idle);
 		rtl.render(<TestComponent session={session} />);
 		expect(screen.getByTestId('state')).toHaveTextContent(RuntimeState.Idle);
 	});
 
 	it('updates when the session emits a state change', () => {
-		const { session, emitter } = makeSession(RuntimeState.Idle);
+		displayState = RuntimeState.Idle;
+		const session = makeSession('s1', RuntimeState.Idle);
 		rtl.render(<TestComponent session={session} />);
-		act(() => emitter.fire(RuntimeState.Busy));
+		act(() => {
+			displayState = RuntimeState.Busy;
+			displayStateEmitter.fire({ sessionId: 's1', state: RuntimeState.Busy });
+		});
 		expect(screen.getByTestId('state')).toHaveTextContent(RuntimeState.Busy);
 	});
 
 	it('switches subscription when the session prop changes', () => {
-		const a = makeSession(RuntimeState.Idle);
-		const b = makeSession(RuntimeState.Starting);
-		const { rerender } = rtl.render(<TestComponent session={a.session} />);
+		displayState = RuntimeState.Idle;
+		const sessionA = makeSession('s1', RuntimeState.Idle);
+		const sessionB = makeSession('s2', RuntimeState.Starting);
+		const { rerender } = rtl.render(<TestComponent session={sessionA} />);
 		expect(screen.getByTestId('state')).toHaveTextContent(RuntimeState.Idle);
-		rerender(<TestComponent session={b.session} />);
+		act(() => {
+			displayState = RuntimeState.Starting;
+		});
+		rerender(<TestComponent session={sessionB} />);
 		expect(screen.getByTestId('state')).toHaveTextContent(RuntimeState.Starting);
-		// Old session changes should no longer affect the rendered state.
-		act(() => a.emitter.fire(RuntimeState.Busy));
+		act(() => {
+			displayStateEmitter.fire({ sessionId: 's1', state: RuntimeState.Busy });
+		});
 		expect(screen.getByTestId('state')).toHaveTextContent(RuntimeState.Starting);
 	});
 
 	it('clears state when session becomes undefined', () => {
-		const { session, emitter } = makeSession(RuntimeState.Idle);
+		displayState = RuntimeState.Idle;
+		const session = makeSession('s1', RuntimeState.Idle);
 		const { rerender } = rtl.render(<TestComponent session={session} />);
 		expect(screen.getByTestId('state')).toHaveTextContent(RuntimeState.Idle);
 		rerender(<TestComponent session={undefined} />);
 		expect(screen.getByTestId('state')).toHaveTextContent('none');
-		// Late events from the dropped session must not leak.
-		act(() => emitter.fire(RuntimeState.Busy));
+		act(() => {
+			displayStateEmitter.fire({ sessionId: 's1', state: RuntimeState.Busy });
+		});
 		expect(screen.getByTestId('state')).toHaveTextContent('none');
 	});
 });

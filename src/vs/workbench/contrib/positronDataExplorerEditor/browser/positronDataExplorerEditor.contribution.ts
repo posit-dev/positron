@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as React from 'react';
 import { localize } from '../../../../nls.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -16,8 +17,15 @@ import { EditorInputFactoryFunction, IEditorResolverService, RegisteredEditorPri
 import { PositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { registerPositronDataExplorerActions } from './positronDataExplorerActions.js';
+import { PositronDataExplorerCodeActionContribution } from './positronDataExplorerCodeActionProvider.js';
+import { PositronDataExplorerClickToViewContribution } from './positronDataExplorerClickToViewProvider.js';
+import { PositronDataExplorerSheetSelector } from './positronDataExplorerSheetSelector.js';
+import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_XLSX } from './positronDataExplorerContextKeys.js';
 import { extname } from '../../../../base/common/resources.js';
 import { posix } from '../../../../base/common/path.js';
+import { MenuId } from '../../../../platform/actions/common/actions.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { PositronActionBarWidgetRegistry } from '../../../../platform/positronActionBar/browser/positronActionBarWidgetRegistry.js';
 import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -86,7 +94,7 @@ class PositronDataExplorerContribution extends Disposable {
 			}
 		));
 
-		const DUCKDB_SUPPORTED_EXTENSIONS = ['parquet', 'parq', 'csv', 'tsv', 'gz'];
+		const DUCKDB_SUPPORTED_EXTENSIONS = ['parquet', 'parq', 'csv', 'tsv', 'gz', 'xlsx'];
 
 		this._register(editorResolverService.registerEditor(
 			`*.{${DUCKDB_SUPPORTED_EXTENSIONS.join(',')}}`,
@@ -140,3 +148,37 @@ registerWorkbenchContribution2(
 
 // Register actions.
 registerPositronDataExplorerActions();
+
+// Register the "Open in Data Explorer" code action provider for runtime
+// languages.
+registerWorkbenchContribution2(
+	PositronDataExplorerCodeActionContribution.ID,
+	PositronDataExplorerCodeActionContribution,
+	WorkbenchPhase.AfterRestored
+);
+
+// Register the "Cmd/Ctrl+Click to open a data frame in the Data Explorer"
+// gesture. Gated on the RStudio keymap; takes precedence over go-to-definition
+// only for that cohort.
+registerWorkbenchContribution2(
+	PositronDataExplorerClickToViewContribution.ID,
+	PositronDataExplorerClickToViewContribution,
+	WorkbenchPhase.AfterRestored
+);
+
+// Register the worksheet selector widget in the editor action bar. It appears
+// on the right side of the action bar, only for Excel workbooks with more than
+// one worksheet, and lets the user switch between the workbook's worksheets.
+PositronActionBarWidgetRegistry.registerWidget({
+	id: 'positronDataExplorer.sheetSelector',
+	menuId: MenuId.EditorActionsRight,
+	order: 5,
+	when: ContextKeyExpr.and(
+		POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+		POSITRON_DATA_EXPLORER_IS_XLSX
+	),
+	selfContained: true,
+	componentFactory: (accessor) => {
+		return () => React.createElement(PositronDataExplorerSheetSelector, { accessor });
+	}
+});

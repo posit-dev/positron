@@ -11,16 +11,25 @@ import { MouseEvent } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
+import { localize } from '../../../../../nls.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
  * TitleBarProps interface.
  */
 interface TitleBarProps {
 	title: string;
+	titleDescription?: string;
+	size?: 'normal' | 'large';
 	onStartDrag: () => void;
 	onDrag: (x: number, y: number) => void;
 	onStopDrag: (x: number, y: number) => void;
+
+	// When provided, a close (X) button is shown on the right of the title bar that invokes this
+	// handler. This is in addition to any cancel button the dialog renders in its footer.
+	onClose?: () => void;
 }
 
 /**
@@ -104,10 +113,26 @@ export const TitleBar = (props: TitleBarProps) => {
 		// keyboard semantics (the dialog already handles Escape/Tab/Enter at a higher level).
 		// Disable jsx-a11y/no-static-element-interactions.
 		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
-		<div className='title-bar' onMouseDown={mouseDownHandler}>
-			<div className='title-bar-title'>
-				{props.title}
+		<div className={positronClassNames('title-bar', { 'large': props.size === 'large' })} onMouseDown={mouseDownHandler}>
+			<div className='title-bar-titles'>
+				<div className='title-bar-title'>
+					{props.title}
+				</div>
+				{props.titleDescription &&
+					<div className='title-bar-title-description'>
+						{props.titleDescription}
+					</div>
+				}
 			</div>
+			{props.onClose &&
+				<Button
+					ariaLabel={localize('positron.dynamicModalDialog.close', "Close")}
+					className='title-bar-close-button'
+					onPressed={props.onClose}
+				>
+					<div className='codicon codicon-close' />
+				</Button>
+			}
 		</div>
 	);
 };

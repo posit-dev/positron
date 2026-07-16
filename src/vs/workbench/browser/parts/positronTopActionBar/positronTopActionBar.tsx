@@ -24,7 +24,7 @@ import { TopActionBarOpenMenu } from './components/topActionBarOpenMenu.js';
 import { TopActionBarCommandCenter } from './components/topActionBarCommandCenter.js';
 import { PositronTopActionBarContextProvider } from './positronTopActionBarContext.js';
 import { TopActionBarCustomFolderMenu } from './components/topActionBarCustomFolderMenu.js';
-import { TopActionBarSessionManager } from './components/topActionBarSessionManager.js';
+import { TopActionBarSessionPicker } from './components/topActionBarSessionPicker.js';
 import { SAVE_ALL_COMMAND_ID } from '../../../contrib/files/browser/fileConstants.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { LayoutSettings } from '../../../services/layout/browser/layoutService.js';
@@ -140,7 +140,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 							</ActionBarRegion>
 						)}
 						<ActionBarRegion gap={6} location='right'>
-							<TopActionBarSessionManager />
+							<TopActionBarSessionPicker />
 							{showCenterUI && (
 								<TopActionBarCustomFolderMenu />
 							)}

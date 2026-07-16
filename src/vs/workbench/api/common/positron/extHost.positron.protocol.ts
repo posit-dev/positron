@@ -5,7 +5,7 @@
 
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
-import { IHostedLanguageContribution, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, IRuntimeRootSignature, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IHostedLanguageContribution, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, IRuntimeRootSignature, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatProgressDto, ExtHostQuickOpenShape } from '../extHost.protocol.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
@@ -13,12 +13,12 @@ import { IEditorContext } from '../../../services/frontendMethods/common/editorC
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
 import { IRange } from '../../../../editor/common/core/range.js';
 import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
-import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeSessionMetadata, type notebooks } from 'positron';
+import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeMissingPackage, RuntimeMissingPackagesTarget, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
-import { DataConnectionParameterValuesDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
-import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IPositronProviderMetadata, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IChatAgentData } from '../../../contrib/chat/common/participants/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
@@ -43,6 +43,17 @@ export interface RuntimeInitialState {
 	dynState: LanguageRuntimeDynState;
 }
 
+/**
+ * Wire representation of a session handle returned to the extension host. It
+ * extends the public {@link ActiveRuntimeSessionMetadata} with the session's
+ * current runtime state so that proxy session objects can expose a synchronous
+ * state accessor immediately, without an additional round trip.
+ */
+export interface IActiveRuntimeSessionMetadataDto extends ActiveRuntimeSessionMetadata {
+	/** The session's runtime state at the time of the query. */
+	runtimeState: RuntimeState;
+}
+
 
 /**
  * An item contributed to the runtime picker.
@@ -65,10 +76,12 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$executeInlineCells(extensionId: string, documentUri: URI, cellRanges: IRange[], executionMetadata?: Record<string, unknown>[]): Promise<void>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]>;
-	$getActiveSessions(): Promise<ActiveRuntimeSessionMetadata[]>;
-	$getSession(sessionId: string): Promise<ActiveRuntimeSessionMetadata | undefined>;
-	$getForegroundSession(): Promise<ActiveRuntimeSessionMetadata | undefined>;
-	$getNotebookSession(notebookUri: URI): Promise<ActiveRuntimeSessionMetadata | undefined>;
+	$getActiveSessions(): Promise<IActiveRuntimeSessionMetadataDto[]>;
+	$getSession(sessionId: string): Promise<IActiveRuntimeSessionMetadataDto | undefined>;
+	$getForegroundSession(): Promise<IActiveRuntimeSessionMetadataDto | undefined>;
+	$getNotebookSession(notebookUri: URI): Promise<IActiveRuntimeSessionMetadataDto | undefined>;
+	$subscribeToSession(sessionId: string): void;
+	$unsubscribeFromSession(sessionId: string): void;
 	$restartSession(sessionId: string): Promise<boolean>;
 	$interruptSession(sessionId: string): Promise<void>;
 	$focusSession(sessionId: string): void;
@@ -85,7 +98,9 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$emitLanguageRuntimeState(sessionId: string, clock: number, state: RuntimeState): void;
 	$emitLanguageRuntimeExit(sessionId: string, exit: ILanguageRuntimeExit): void;
 	$emitLanguageRuntimeResourceUsage(sessionId: string, usage: ILanguageRuntimeResourceUsage): void;
-	$evaluateCode(languageId: string, sessionId: string | undefined, code: string, evaluationId: string): Promise<EvalResult>;
+	$emitLanguageRuntimeDisconnect(sessionId: string): void;
+	$emitLanguageRuntimeReconnect(sessionId: string): void;
+	$evaluateCode(languageId: string, sessionId: string | undefined, code: string, evaluationId: string, whenBusy?: RuntimeBusyBehavior): Promise<EvalResult>;
 	$cancelEvaluation(sessionId: string, evaluationId: string): void;
 	$registerRuntimePickerContribution(handle: number, languageId: string): void;
 	$unregisterRuntimePickerContribution(handle: number): void;
@@ -120,12 +135,15 @@ export interface ExtHostLanguageRuntimeShape {
 	$showProfileLanguageRuntime(handle: number): void;
 	$getLaunchInfo(handle: number): Promise<ILanguageRuntimeLaunchInfo | undefined>;
 	$discoverLanguageRuntimes(disabledLanguageIds: string[], skipLanguageIds?: string[]): void;
-	$markRuntimeDiscoveryComplete(): void;
+	$markRuntimeDiscoveryComplete(skipLanguageIds?: string[]): void;
 	$recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
 	$getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined>;
 	$getHostedLanguageContributions(): Promise<IHostedLanguageContribution[]>;
 	$onDidRegisterLanguageRuntime(metadata: ILanguageRuntimeMetadata): void;
 	$notifyForegroundSessionChanged(sessionId: string | undefined): void;
+	$updateProxySessionState(sessionId: string, state: RuntimeState): void;
+	$notifyProxySessionDisconnected(sessionId: string): void;
+	$notifyProxySessionReconnected(sessionId: string): void;
 	$notifyCodeExecuted(event: ILanguageRuntimeCodeExecutedEvent): void;
 	$getPackages(handle: number, token: CancellationToken): Promise<LanguageRuntimePackage[]>;
 	$installPackages(handle: number, packages: PackageSpec[], token: CancellationToken): Promise<void>;
@@ -135,6 +153,8 @@ export interface ExtHostLanguageRuntimeShape {
 	$searchPackages(handle: number, query: string, token: CancellationToken): Promise<LanguageRuntimePackage[]>;
 	$searchPackageVersions(handle: number, name: string, token: CancellationToken): Promise<string[]>;
 	$getPackageMetadata(handle: number, packageNames: string[], token: CancellationToken): Promise<Record<string, Partial<LanguageRuntimePackage>> | undefined>;
+	$listMissingPackages(handle: number, target: RuntimeMissingPackagesTarget, token: CancellationToken): Promise<RuntimeMissingPackage[]>;
+	$getPackageDetail(handle: number, name: string, token: CancellationToken): Promise<Partial<LanguageRuntimePackage> | undefined>;
 	$getRuntimePickerItems(handle: number): Promise<IRuntimePickerItem[]>;
 	$handleRuntimePickerSelection(handle: number, itemId: string): Promise<string | undefined>;
 }
@@ -218,7 +238,7 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 * adapter calls back into the ext host via $driverConnect, so the full
 	 * RPC round trip is exercised.
 	 */
-	$connectToDataConnectionDriver(driverId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
+	$connectToDataConnectionDriver(driverId: string, mechanismId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
 
 	/**
 	 * Checks whether a connection is read-only via the main thread service.
@@ -262,7 +282,9 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
  * lifecycle of connections that live in the extension process.
  */
 export interface ExtHostDataConnectionsShape {
-	$driverConnect(driverId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
+	$driverConnect(driverId: string, mechanismId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
+	$generateConnectionCode(driverId: string, mechanismId: string, languageId: string, params: DataConnectionParameterValuesDTO): Promise<IDataConnectionCodeVariantDTO[]>;
+	$redactParameterValue(driverId: string, mechanismId: string, parameterId: string, value: string): Promise<string | undefined>;
 	$connectionIsReadOnly(connectionHandle: number): Promise<boolean>;
 	$connectionGetChildren(connectionHandle: number): Promise<IDataConnectionNodeDTO[]>;
 	$connectionDisconnect(connectionHandle: number): Promise<void>;
@@ -304,11 +326,12 @@ export interface MainThreadAiFeaturesShape {
 	$getCurrentPlotUri(): Promise<string | undefined>;
 	$getPositronChatContext(request: IChatRequestData): Thenable<IPositronChatContext>;
 	$responseProgress(sessionResource: URI, dto: IChatProgressDto): void;
-	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[], options?: IShowLanguageModelConfigOptions): Thenable<void>;
+	$languageModelConfig(id: string, options?: IShowLanguageModelConfigOptions): Thenable<void>;
 	$getChatExport(): Thenable<object | undefined>;
-	$registerProviderMetadata(metadata: IPositronProviderMetadata): void;
-	$addLanguageModelConfig(source: IPositronLanguageModelSource): void;
-	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void;
+	$registerProvider(registration: IPositronLanguageModelSource): void;
+	$unregisterProvider(id: string): void;
+	$updateProvider(id: string, update: Partial<IPositronLanguageModelSource>): void;
+	$getRegisteredProviders(): Promise<IPositronLanguageModelSource[]>;
 	$areCompletionsEnabled(file: UriComponents): Thenable<boolean>;
 	$getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
 	$getCurrentChatMode(): Thenable<string | undefined>;
@@ -318,8 +341,9 @@ export interface MainThreadAiFeaturesShape {
 }
 
 export interface ExtHostAiFeaturesShape {
-	$responseLanguageModelConfig(id: string, config: IPositronLanguageModelConfig, action: string): Thenable<void>;
+	$responseProviderAction(source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string): Thenable<void>;
 	$onCompleteLanguageModelConfig(id: string): void;
+	$onDidChangeProviderConfig(source: IPositronLanguageModelSource): void;
 	getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
 	getCurrentChatMode(): Thenable<string | undefined>;
 	getProviders(): Thenable<IPositronChatProvider[]>;

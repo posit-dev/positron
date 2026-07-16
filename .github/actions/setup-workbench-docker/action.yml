@@ -39,11 +39,11 @@ runs:
       shell: bash
       run: |
         # Create connect directory if it doesn't exist
-        mkdir -p dockerfiles/connect
+        mkdir -p docker/environments/pwb-local/connect
         # Copy Connect license to the location expected by docker-compose volume mount
         if [ -f "${{ inputs.connect-license-path }}" ]; then
-          cp "${{ inputs.connect-license-path }}" dockerfiles/connect/connect.lic
-          echo "Connect license copied to dockerfiles/connect/connect.lic"
+          cp "${{ inputs.connect-license-path }}" docker/environments/pwb-local/connect/connect.lic
+          echo "Connect license copied to docker/environments/pwb-local/connect/connect.lic"
         else
           echo "Warning: Connect license not found at ${{ inputs.connect-license-path }}"
         fi
@@ -53,29 +53,21 @@ runs:
       run: |
         docker compose \
           -p "${{ inputs.run-id }}" \
-          -f dockerfiles/docker-compose.workbench.yml \
+          -f docker/environments/pwb-local/docker-compose.workbench.yml \
           up -d
 
-    - name: Download and setup workbench scripts
+    - name: Setup workbench scripts
       shell: bash
       run: |
-        # Download install-workbench.sh
-        curl -L -o install-workbench.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local/install-workbench.sh
-
-        # Download positronDownload.sh
-        curl -L -o positronDownload.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local/positronDownload.sh
-
-        # Download get-latest-wb-noble-url.sh
-        curl -L -o get-latest-wb-noble-url.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local/get-latest-wb-noble-url.sh
-
-        # Download configure-datasources.sh
-        curl -L -o configure-datasources.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local/configure-datasources.sh
+        # Scripts are checked out with the repo under docker/environments/wb-local
+        SCRIPTS_DIR="docker/environments/wb-local"
 
         # Copy scripts into the container
-        docker cp install-workbench.sh test:/tmp/install-workbench.sh
-        docker cp positronDownload.sh test:/tmp/positronDownload.sh
-        docker cp get-latest-wb-noble-url.sh test:/tmp/get-latest-wb-noble-url.sh
-        docker cp configure-datasources.sh test:/tmp/configure-datasources.sh
+        docker cp "$SCRIPTS_DIR/install-workbench.sh" test:/tmp/install-workbench.sh
+        docker cp "$SCRIPTS_DIR/ensure-connect-token.sh" test:/tmp/ensure-connect-token.sh
+        docker cp "$SCRIPTS_DIR/positronDownload.sh" test:/tmp/positronDownload.sh
+        docker cp "$SCRIPTS_DIR/get-latest-wb-noble-url.sh" test:/tmp/get-latest-wb-noble-url.sh
+        docker cp "$SCRIPTS_DIR/configure-datasources.sh" test:/tmp/configure-datasources.sh
 
         # Copy Workbench license into test container if it exists
         if [ -f "${{ inputs.workbench-license-path }}" ]; then
@@ -84,6 +76,7 @@ runs:
 
         # Make scripts executable
         docker exec test chmod +x /tmp/install-workbench.sh
+        docker exec test chmod +x /tmp/ensure-connect-token.sh
         docker exec test chmod +x /tmp/positronDownload.sh
         docker exec test chmod +x /tmp/get-latest-wb-noble-url.sh
         docker exec test chmod +x /tmp/configure-datasources.sh

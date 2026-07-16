@@ -19,6 +19,18 @@ Edge cases:
 
 **Exception for vitest test files:** `npm run build-check` excludes `*.vitest.ts` files, so it won't surface type errors in tests. To check those, run `npm run test:positron:check-ts` (wraps `tsc --noEmit -p ./vitest.tsconfig.json --skipLibCheck`). It is scoped to vitest files + their ambient declarations and completes in seconds. The output matches what the VS Code Problems pane shows for `.vitest.{ts,tsx}` files. Filter to a specific file with: `npm run test:positron:check-ts 2>&1 | grep '<file>.vitest.ts'`.
 
+### Reproducing CI Failures Locally (Posit-internal)
+
+Only when the user explicitly asks to reproduce a CI-only failure on the real CI
+image (arm64). Requires private GHCR access + license files (not for external
+contributors) -- gate on `gh api repos/posit-dev/positron-ci-images` (404 = no
+access; tell the user, don't attempt setup).
+
+Then read *all* of `.devcontainer/ci-arm/README.md` before acting -- not just its
+"Claude Workflows" section, whose commands depend on Setup/Gotchas context from the
+rest of the file. It covers reusing the long-lived lab worktree (don't recreate it)
+and repointing it at a new branch.
+
 ## Upstream Compatibility
 
 Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
@@ -103,6 +115,7 @@ Positron has three test categories:
   - Formatting: `node scripts/format.mts <file> [file2] ...`
   - ESLint: `npx eslint --fix <file> [file2] ...`
 - When registering user-facing configuration, follow the **[guidance on settings](.claude/rules/configuration.md)**. Setting keys, titles, and display names omit redundant terms ("Positron", "Setting", etc.); `localize()` IDs keep the `positron.` prefix.
+- When adding AI-related functionality (anything that calls a model, suggests completions, or surfaces AI actions), gate it on the `ai.enabled` main switch -- see **[AI feature gating](.claude/rules/ai-gating.md)**.
 
 ## General
 

@@ -51,7 +51,7 @@ const chatViewContainer: ViewContainer = Registry.as<IViewContainersRegistry>(Vi
 	// etc.) Put the Chat view in the Sidebar instead so that it doesn't
 	// obscure the other views.
 }, ViewContainerLocation.Sidebar, { isDefault: false, doNotRegisterOpenCommand: true });
-	// --- End Positron ---
+// --- End Positron ---
 
 const chatViewDescriptor: IViewDescriptor = {
 	id: ChatViewId,
@@ -76,6 +76,11 @@ const chatViewDescriptor: IViewDescriptor = {
 	ctorDescriptor: new SyncDescriptor(ChatViewPane),
 	when: ContextKeyExpr.and(
 		ChatContextKeys.accountPolicyGateActive.negate(),
+		// --- Start Positron ---
+		// Hide the Chat view (and its auto-generated "Focus on Chat View" command)
+		// when AI features are disabled.
+		ChatContextKeys.aiFeaturesEnabled,
+		// --- End Positron ---
 		ContextKeyExpr.or(
 			ContextKeyExpr.and(
 				ChatContextKeys.Setup.hidden.negate(),

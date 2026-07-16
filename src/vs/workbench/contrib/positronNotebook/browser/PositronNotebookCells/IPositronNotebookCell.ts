@@ -14,9 +14,18 @@ import { NotebookPreloadOutputResults } from '../../../../services/positronWebvi
 import { CellSelectionType } from '../selectionMachine.js';
 import { IOutputItemDto } from '../../../notebook/common/notebookCommon.js';
 import { IPositronCellViewModel } from '../IPositronNotebookEditor.js';
+import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { ICellRevealOptions } from './PositronNotebookCell.js';
 
 export type ExecutionStatus = 'running' | 'pending' | 'idle';
+
+/**
+ * The outcome of a tag write. `'ok'` means the desired state holds, whether the
+ * write happened or was a no-op (blank input, removing an absent tag).
+ * `'duplicate'` means the tag already existed, and `'failed'` means the write
+ * could not be applied (no text model, or the cell left the notebook).
+ */
+export type TagWriteResult = 'ok' | 'duplicate' | 'failed';
 
 export enum CellSelectionStatus {
 	Unselected = 'unselected',
@@ -51,6 +60,11 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	get notebookUri(): URI;
 
 	/**
+	 * The notebook instance that owns this cell.
+	 */
+	readonly instance: IPositronNotebookInstance;
+
+	/**
 	 * Current execution status for this cell
 	 */
 	readonly executionStatus: IObservable<ExecutionStatus>;
@@ -73,6 +87,8 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	 */
 	getContent(): string;
 
+	getLineCount(): number;
+
 	/**
 	 * The cell's current code editor widget.
 	 */
@@ -89,6 +105,54 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	 * Code cells override this to return their outputs observable.
 	 */
 	readonly outputs: IObservable<NotebookCellOutputs[]> | undefined;
+
+	/**
+	 * The cell's tags, normalized to a unique string list. Persisted to the
+	 * notebook document so they round-trip across save/reload.
+	 */
+	readonly tags: IObservable<string[]>;
+
+	/**
+	 * Append a trimmed tag. Blank or duplicate input is ignored. Returns the write
+	 * {@link TagWriteResult}.
+	 */
+	addTag(tag: string): TagWriteResult;
+
+	/**
+	 * Remove a tag (an absent tag is a no-op success). Returns the write
+	 * {@link TagWriteResult}.
+	 */
+	removeTag(tag: string): TagWriteResult;
+
+	/**
+	 * Rename a tag to a trimmed value. A missing or duplicate target is rejected
+	 * without writing; a blank value is a no-op. Returns the write
+	 * {@link TagWriteResult}.
+	 */
+	renameTag(oldTag: string, newTag: string): TagWriteResult;
+
+	/**
+	 * Whether an inline tag-add input should be shown for this cell. Lives on the
+	 * cell rather than the bar's React state so the "Add Tag" command can open the
+	 * input from outside React, and the code cell footer can stay expanded while it
+	 * is open.
+	 */
+	readonly isAddingTag: IObservable<boolean>;
+
+	/** Show the inline tag-add input (the "Add Tag" command entry point). */
+	beginAddTag(): void;
+
+	/** Hide the inline tag-add input (after the input commits or is cancelled). */
+	endAddTag(): void;
+
+	/**
+	 * Whether the cell's tag UI (tag pills or the inline add input) should
+	 * currently render: false when the owning notebook hides tags (a transient,
+	 * per-notebook toggle) or when there is neither a tag nor an in-progress
+	 * tag-add. Owned by the cell so the tag bar and the code cell footer share
+	 * one visibility predicate instead of each re-deriving it.
+	 */
+	readonly tagUIVisible: IObservable<boolean>;
 
 	/**
 	 * Delete this cell
@@ -315,6 +379,12 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	 * Show full cell output.
 	 */
 	showFullOutput(): void;
+
+	/**
+	 * Toggle output scrolling, resolving the effective state from the per-cell
+	 * override or the global setting.
+	 */
+	toggleOutputScroll(): void;
 
 	/**
 	 * Reset per-cell output truncation to follow the global setting.

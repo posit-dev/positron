@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, tags, expect } from '../_test.setup';
+import { test, tags, expect } from './_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -13,12 +13,6 @@ test.use({
 test.describe('Quarto - Variables Follow Mode', {
 	tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.VARIABLES]
 }, () => {
-
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({
-			'positron.quarto.inlineOutput.enabled': true
-		}, { reload: 'web' });
-	});
 
 	test('Python - Variables pane follows active QMD editor', async function ({ app, python, openFile, page }) {
 		const { variables, console, hotKeys, inlineQuarto, editors } = app.workbench;

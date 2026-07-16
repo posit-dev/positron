@@ -6,7 +6,7 @@
 import * as React from 'react';
 import { getWindow, addDisposableListener } from '../../../../../../base/browser/dom.js';
 import { INotebookOutputWebview } from '../../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
-import { isDoubleClickMessage, isHTMLOutputWebviewMessage, isWheelForwardMessage } from '../../../../positronWebviewPreloads/browser/notebookOutputUtils.js';
+import { isDoubleClickMessage, isHTMLOutputWebviewMessage, isWheelForwardMessage, normalizeWheelDeltaY } from '../../../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
 import { IOverlayWebview } from '../../../../webview/browser/webview.js';
 import { DisposableStore, toDisposable } from '../../../../../../base/common/lifecycle.js';
@@ -18,26 +18,18 @@ import { autorun } from '../../../../../../base/common/observable.js';
 // Constants
 const MAX_OUTPUT_HEIGHT = 1000;
 const EMPTY_OUTPUT_HEIGHT = 150;
-// Approximate line height used when a wheel event reports DOM_DELTA_LINE.
-// Matches the divisor in StandardWheelEvent (base/browser/mouseEvent.ts,
-// the `/ 40` in its pixel-to-line conversion), which is not exported.
-// Keep this in sync if that constant moves.
-const WHEEL_LINE_HEIGHT_PX = 40;
 
 /**
- * Convert a forwarded wheel event's vertical delta into pixels so raw
- * DOM_DELTA_LINE / DOM_DELTA_PAGE values (e.g. Firefox) don't scroll by
- * a single pixel per tick.
+ * Computes the webview container height from the body scroll height reported by
+ * the webview. When output scrolling is enabled the height is capped at
+ * {@link MAX_OUTPUT_HEIGHT} (taller content scrolls inside the webview rather
+ * than overflowing the cell); when disabled it grows to fit the content. The
+ * default 150px "empty output" height is collapsed to 0.
  */
-function normalizeWheelDeltaY(deltaMode: number, deltaY: number, container: HTMLElement): number {
-	switch (deltaMode) {
-		case WheelEvent.DOM_DELTA_LINE:
-			return deltaY * WHEEL_LINE_HEIGHT_PX;
-		case WheelEvent.DOM_DELTA_PAGE:
-			return deltaY * container.clientHeight;
-		default: // DOM_DELTA_PIXEL
-			return deltaY;
-	}
+export function computeBoundedHeight(bodyScrollHeight: number, outputScrolling: boolean): number {
+	const cap = outputScrolling ? MAX_OUTPUT_HEIGHT : Infinity;
+	const boundedHeight = Math.min(bodyScrollHeight, cap);
+	return boundedHeight === EMPTY_OUTPUT_HEIGHT ? 0 : boundedHeight;
 }
 
 /**
@@ -53,6 +45,7 @@ export class WebviewMountError extends Error {
 interface WebviewMountOptions {
 	readonly onDoubleClick?: () => void;
 	readonly onFocus?: () => void;
+	readonly outputScrolling?: boolean;
 }
 
 /**
@@ -85,15 +78,12 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>, option
 	const services = usePositronReactServicesContext();
 	const onDoubleClick = options?.onDoubleClick;
 	const onFocus = options?.onFocus;
+	const outputScrolling = options?.outputScrolling ?? true;
 
 	// Memoize the webview message handler
 	const handleWebviewMessage = React.useCallback(({ message }: { message: unknown }) => {
 		if (isHTMLOutputWebviewMessage(message) && containerRef.current) {
-			let boundedHeight = Math.min(message.bodyScrollHeight, MAX_OUTPUT_HEIGHT);
-			// Avoid undesired default 150px "empty output" height
-			if (boundedHeight === EMPTY_OUTPUT_HEIGHT) {
-				boundedHeight = 0;
-			}
+			const boundedHeight = computeBoundedHeight(message.bodyScrollHeight, outputScrolling);
 			containerRef.current.style.height = `${boundedHeight}px`;
 			updateWebviewLayoutRef.current?.(true);
 			return;
@@ -108,14 +98,14 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>, option
 		if (isWheelForwardMessage(message)) {
 			const container = notebookInstance.cellsContainer;
 			if (container) {
-				container.scrollTop += normalizeWheelDeltaY(message.deltaMode, message.deltaY, container);
+				container.scrollTop += normalizeWheelDeltaY(message.deltaMode, message.deltaY, container.clientHeight);
 			}
 		}
 
 		if (isDoubleClickMessage(message)) {
 			onDoubleClick?.();
 		}
-	}, [notebookInstance, onDoubleClick]);
+	}, [notebookInstance, onDoubleClick, outputScrolling]);
 
 	React.useEffect(() => {
 		// Abort controller for canceling ongoing tasks if needed

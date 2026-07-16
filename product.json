@@ -3,7 +3,7 @@
 	"nameShort": "Positron",
 	"nameLong": "Positron",
 	"version": "",
-	"positronVersion": "2026.07.0",
+	"positronVersion": "2026.08.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
@@ -40,6 +40,7 @@
 	"reportIssueUrl": "https://github.com/posit-dev/positron/issues/new",
 	"nodejsRepository": "https://nodejs.org",
 	"urlProtocol": "positron",
+	"agentsTelemetryAppName": "agents",
 	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
 	"updateUrl": "https://cdn.posit.co/positron",
 	"releaseNotesUrl": "https://cdn.posit.co/positron",
@@ -95,10 +96,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.6.5",
+			"version": "2026.8.2",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "b5b01d809dd07693554c71bc918590a48f07772db340c5849aa316528a0cf830",
+			"sha256": "3100037ea45430b0ae11b02b469ed8b9454dcf9281fcf9a909fd5317a8973351",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -117,7 +118,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.50.0",
+			"version": "2026.60.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -211,7 +212,7 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "1.0.9002",
+			"version": "1.1.1",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
@@ -241,7 +242,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "2.7.9",
+			"version": "2.8.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -252,8 +253,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.133.0",
-			"sha256": "784b52b2bf42f2a73141c04f173d4d36530a6a4831d221c92ec2ad2a5734f068",
+			"version": "1.135.0",
+			"sha256": "45211fbff7706f45bb8be12c3d5e35a9584b658e7bac7dc12b6668a072087016",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",
@@ -268,7 +269,7 @@
 		},
 		{
 			"name": "posit.air-vscode",
-			"version": "0.24.0",
+			"version": "0.26.0",
 			"repo": "https://github.com/posit-dev/air",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
@@ -291,8 +292,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.144.0",
-			"sha256": "c9358907d2d3a3a70989e264b362a66b8b4f31f718115902dec2a513ec64c372",
+			"version": "0.156.0",
+			"sha256": "e92de13cb9a7a73f71029aa827b8e4f8b104fbdea628dd23d90e4ddec3afa309",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
@@ -305,8 +306,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.6.0",
-			"sha256": "e8042fe26298ea24fbe0772079bcd400d794252886b88b889eb68aa3af4092e0",
+			"version": "0.7.0",
+			"sha256": "fb26eeccbd3fe3f143f80802c1535b604b6d68ffae42c5f376769bc87377cf45",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -338,24 +339,24 @@
 		"https://support.posit.co"
 	],
 	"defaultChatAgent": {
-		"extensionId": "positron.positron-assistant",
-		"chatExtensionId": "positron.positron-assistant",
+		"extensionId": "GitHub.copilot-chat",
+		"chatExtensionId": "GitHub.copilot-chat",
 		"provider": {
 			"default": {
-				"id": "positron.assistant",
-				"name": "Positron Assistant"
+				"id": "github",
+				"name": "GitHub"
 			},
 			"enterprise": {
-				"id": "positron.assistant",
-				"name": "Positron Assistant"
+				"id": "github-enterprise",
+				"name": "GHE"
 			},
 			"google": {
-				"id": "positron.assistant",
-				"name": "Positron Assistant"
+				"id": "google",
+				"name": "Google"
 			},
 			"apple": {
-				"id": "positron.assistant",
-				"name": "Positron Assistant"
+				"id": "apple",
+				"name": "Apple"
 			}
 		},
 		"providerExtensionId": "vscode.github-authentication",
@@ -380,7 +381,7 @@
 		"completionsQuotaExceededContext": "github.copilot.completions.quotaExceeded",
 		"walkthroughCommand": "github.copilot.open.walkthrough",
 		"completionsMenuCommand": "github.copilot.toggleStatusMenu",
-		"completionsEnablementSetting": "positron.assistant.inlineCompletions.enable",
+		"completionsEnablementSetting": "github.copilot.enable",
 		"completionsRefreshTokenCommand": "github.copilot.signIn",
 		"chatRefreshTokenCommand": "github.copilot.refreshToken",
 		"generateCommitMessageCommand": "github.copilot.git.generateCommitMessage",
@@ -399,7 +400,8 @@
 		"upgradePlanUrl": "https://aka.ms/github-copilot-upgrade-plan",
 		"signUpUrl": "https://aka.ms/github-sign-up",
 		"tokenEntitlementUrl": "https://api.github.com/copilot_internal/v2/token",
-		"mcpRegistryDataUrl": "https://api.github.com/copilot/mcp_registry"
+		"mcpRegistryDataUrl": "https://api.github.com/copilot/mcp_registry",
+		"managedSettingsUrl": "https://api.github.com/copilot_internal/managed_settings"
 	},
 	"extensionsEnabledWithApiProposalVersion": [
 		"GitHub.copilot-chat"
@@ -691,12 +693,7 @@
 	},
 	"trustedExtensionPublishers": ["posit", "rstudio"],
 	"trustedExtensionAuthAccess": {
-		"github": [
-			"GitHub.copilot-chat",
-			"positron.positron-assistant",
-			"posit.assistant",
-			"positron.authentication"
-		],
+		"github": [],
 		"github-enterprise": [
 			"GitHub.copilot-chat"
 		],
@@ -830,5 +827,6 @@
 	],
 	"builtInExtensionsEnabledWithAutoUpdates": [
 		"GitHub.copilot-chat"
-	]
+	],
+	"sessionsWindowAllowedExtensions": []
 }

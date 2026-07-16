@@ -2,9 +2,9 @@ name: "Release Screenshots"
 
 # Cron triggers nightly mode automatically (compare-only). Manual dispatch
 # can pick publish mode to open a PR in posit-dev/positron-website with
-# changed images.
+# changed images. Creating a release/* branch also triggers publish mode automatically, against the latest prerelease/daily build.
 
-run-name: "${{ inputs.mode == 'publish' && 'Publish' || 'Nightly' }}: Release Screenshots"
+run-name: "${{ inputs.build_from_source == true && '[source] ' || '' }}${{ (inputs.mode || (github.event_name == 'push' && 'publish') || 'nightly') == 'publish' && 'Publish' || 'Nightly' }}: Release Screenshots"
 
 on:
   workflow_dispatch:
@@ -17,43 +17,54 @@ on:
           - publish
         default: nightly
       version:
-        description: "Positron version: a tag, 'latest-prerelease', 'latest-release', or 'auto' (default; latest-prerelease for nightly, latest-release for publish)."
+        description: "Positron version: a tag, 'latest-prerelease', 'latest-release', or 'auto' (default; latest-prerelease for nightly, latest-release for publish). Ignored when build_from_source is checked."
         type: string
         default: auto
+      build_from_source:
+        description: "Build Positron from the dispatched ref instead of downloading a release. Use to test screenshot/script changes that aren't in any published build yet."
+        type: boolean
+        default: false
       open_pr:
-        description: "Publish mode: open a PR if there are changes. No-op for nightly."
+        description: "Publish mode only (no-op for nightly): open a PR if there are changes."
         type: boolean
         default: true
       slack_notify:
-        description: "Notify #positron-test-results on nightly failure. Always on for scheduled runs; opt-in for manual triggers."
+        description: "Notify #positron-test-results on failure. Always on for unattended triggers (nightly cron, release branch push); opt-in for manual dispatch."
         type: boolean
         default: false
   schedule:
     - cron: '0 9 * * 1-5'  # 09:00 UTC, Mon-Fri (resolves to mode=nightly, version=latest-prerelease via 'auto')
-
-concurrency:
-  # Separate groups per mode so a publish run doesn't cancel an in-flight nightly.
-  group: release-screenshots-${{ inputs.mode || 'nightly' }}
-  cancel-in-progress: true
+  push:
+    branches:
+      - 'release/*'
 
 permissions:
   contents: read
   id-token: write  # for AWS OIDC role-assumption in upload-report-to-s3
 
-# Normalize inputs once. Scheduled (cron) events do not populate inputs.*,
-# so we fall back to nightly defaults here and use env.MODE / env.VERSION_INPUT
-# everywhere downstream.
+# Normalize inputs once. Scheduled (cron) and push (release branch creation)
+# events do not populate inputs.*, so we fall back to defaults here and use
+# env.MODE / env.VERSION_INPUT everywhere downstream.
 env:
-  MODE: ${{ inputs.mode || 'nightly' }}
-  VERSION_INPUT: ${{ inputs.version || 'auto' }}
+  MODE: ${{ inputs.mode || (github.event_name == 'push' && 'publish') || 'nightly' }}
+  VERSION_INPUT: ${{ inputs.version || (github.event_name == 'push' && 'latest-prerelease') || 'auto' }}
+  BUILD_FROM_SOURCE: ${{ inputs.build_from_source || false }}
 
 jobs:
   release-screenshots:
-    name: screenshots-${{ inputs.mode || 'nightly' }}
+    name: screenshots-${{ inputs.mode || (github.event_name == 'push' && 'publish') || 'nightly' }}
     runs-on: macos-latest-xlarge
+    # The branches filter above already scopes push events to release/*;
+    # this narrows to the branch's first push (creation) via the all-zero
+    # "before" SHA, so subsequent commits to the branch don't rerun this.
+    if: github.event_name != 'push' || github.event.before == '0000000000000000000000000000000000000000'
+    concurrency:
+      # Separate groups per mode so a publish run doesn't cancel nightly
+      group: release-screenshots-${{ inputs.mode || (github.event_name == 'push' && 'publish') || 'nightly' }}
+      cancel-in-progress: true
     steps:
       - name: Checkout positron
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Generate POSITRON_BOT token
         id: bot-token
@@ -69,6 +80,15 @@ jobs:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
           INPUT: ${{ env.VERSION_INPUT }}
         run: |
+          # Building from the dispatched ref: there is no release tag to
+          # resolve. Emit a source label (used only for run output, report
+          # headings, and any publish-mode PR title) and stop here.
+          if [[ "$BUILD_FROM_SOURCE" == "true" ]]; then
+            VERSION="source-${GITHUB_SHA:0:7}"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "Building from source; version label: $VERSION"
+            exit 0
+          fi
           # 'auto' picks the per-mode default: latest-prerelease for nightly,
           # latest-release for publish. Cron + the dispatch default both land
           # here so each mode gets the right build channel without the user
@@ -82,8 +102,16 @@ jobs:
           fi
           case "$INPUT" in
             latest-prerelease)
+              # positron-builds flags EVERY tag as prerelease=true, including
+              # stable releases mirrored in from posit-dev/positron. A mirrored
+              # stable build can be the newest entry by created_at, so a plain
+              # ".[0]" would pick stable instead of the dev pre-release we want.
+              # Exclude any tag that exists as a release on posit-dev/positron
+              # (those are the stable ones) and take the newest dev build left.
+              STABLE_TAGS=$(gh api "repos/posit-dev/positron/releases?per_page=100" --jq '[.[].tag_name]')
               VERSION=$(gh api "repos/posit-dev/positron-builds/releases?per_page=100" \
-                --jq '[.[] | select(.prerelease == true)] | .[0].tag_name')
+                --jq '[.[] | select(.prerelease == true) | .tag_name]' \
+                | jq -r --argjson stable "$STABLE_TAGS" '(. - $stable) | .[0]')
               ;;
             latest-release)
               # Stable releases are flagged on posit-dev/positron; positron-builds
@@ -102,6 +130,7 @@ jobs:
           echo "Resolved version: $VERSION"
 
       - name: Download Positron build
+        if: env.BUILD_FROM_SOURCE != 'true'
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
         run: |
@@ -116,6 +145,8 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
           OPENAI_KEY: "op://Positron/OpenAI/credential"
+          MS_FOUNDRY_KEY: "op://Positron/MS-Foundry-East2TestAI/credential"
+          MS_FOUNDRY_BASE_URL: "op://Positron/MS-Foundry-East2TestAI/hostname"
           POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
           POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
           POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
@@ -123,6 +154,22 @@ jobs:
       - name: Setup release-screenshot runtimes
         id: runtimes
         uses: ./.github/actions/setup-release-screenshot-runtimes
+
+      # Compile the dispatched ref so the e2e infra runs the dev build out of
+      # out/ (BUILD stays unset; see test-setup.ts). setup-release-screenshot-runtimes
+      # already ran `npm ci --ignore-scripts`, which skips native modules and the
+      # Electron binary; the full `npm ci` here rebuilds native deps, and the
+      # compile + electron + prelaunch recipe mirrors test-e2e-macos-build.yml.
+      - name: Build Positron from source
+        if: env.BUILD_FROM_SOURCE == 'true'
+        env:
+          npm_config_arch: arm64  # macos-latest-xlarge is Apple silicon
+          POSITRON_BUILD_NUMBER: 0
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+        run: |
+          npm ci --fetch-timeout 120000
+          npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+          npm run prelaunch
 
       - name: Pre-warm matplotlib font cache
         run: python -c "import matplotlib.pyplot as plt; plt.figure()"
@@ -178,15 +225,16 @@ jobs:
           # so text and chrome read proportionally larger in docs.
           POSITRON_SCREENSHOT_VIEWPORT: '1512,945'
           # Bootstrap already verified above; skip the bootstrap test inside
-          # the suite, and skip the workspace clone since globalSetup already
-          # populated it during the bootstrap run (re-running cp -R fails on
-          # the read-only .git/objects/pack files left behind).
+          # the suite, and skip provisioning the workspace since globalSetup
+          # already populated it during the bootstrap run (re-running cp -R fails
+          # on the read-only .git/objects/pack files left behind).
           SKIP_BOOTSTRAP: 'true'
           SKIP_CLONE: 'true'
         run: npx playwright test --project release-screenshots --workers 2 --max-failures=2
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
+        continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
@@ -380,13 +428,13 @@ jobs:
               }')"
 
   slack-notify:
-    # Notify on cron failures always; manual runs only when the box is checked.
-    # Use github.event_name instead of comparing inputs.slack_notify to a string
+    # Notify on failures from unattended triggers (cron, release/* branch
+    # creation) always; manual runs only when the box is checked. Use
+    # github.event_name instead of comparing inputs.slack_notify to a string
     # literal -- boolean inputs don't reliably coerce to strings in expressions.
     if: >-
       ${{ failure() &&
-          (inputs.mode || 'nightly') == 'nightly' &&
-          (github.event_name == 'schedule' || inputs.slack_notify == true) }}
+          (github.event_name == 'schedule' || github.event_name == 'push' || inputs.slack_notify == true) }}
     needs: [release-screenshots]
     runs-on: ubuntu-latest
     steps:

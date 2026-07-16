@@ -8,19 +8,14 @@
 import React from 'react';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { observableValue } from '../../../../../base/common/observable.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { CellSelectionStatus } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType } from '../../browser/selectionMachine.js';
 import { NotebookCellWrapper } from '../../browser/notebookCells/NotebookCellWrapper.js';
 import { useCell } from '../../browser/notebookCells/CellProvider.js';
 import { NotebookInstanceProvider } from '../../browser/NotebookInstanceProvider.js';
-import { EnvironentProvider } from '../../browser/EnvironmentProvider.js';
 import { createLabelledTestNotebook, createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
-import { ISize } from '../../../../../base/browser/positronReactRenderer.js';
-import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 
 // Each mock isolates the click-routing logic from a child that pulls in
@@ -38,17 +33,11 @@ describe('NotebookCellWrapper onClick', () => {
 
 	function renderCell(notebook: TestPositronNotebookInstance, cellIndex = 0, children: React.ReactNode = null) {
 		const cell = notebook.cells.get()[cellIndex];
-		const environmentBundle = {
-			size: observableValue<ISize>('test-size', { width: 800, height: 600 }),
-			scopedContextKeyProviderCallback: () => stubInterface<IScopedContextKeyService>({}),
-		};
 		rtl.render(
 			<NotebookInstanceProvider instance={notebook}>
-				<EnvironentProvider environmentBundle={environmentBundle}>
-					<NotebookCellWrapper cell={cell}>
-						{children}
-					</NotebookCellWrapper>
-				</EnvironentProvider>
+				<NotebookCellWrapper cell={cell}>
+					{children}
+				</NotebookCellWrapper>
 			</NotebookInstanceProvider>
 		);
 		return cell;
@@ -192,17 +181,11 @@ describe('NotebookCellWrapper CellProvider', () => {
 
 	function renderCell(notebook: TestPositronNotebookInstance, children: React.ReactNode) {
 		const cell = notebook.cells.get()[0];
-		const environmentBundle = {
-			size: observableValue<ISize>('test-size', { width: 800, height: 600 }),
-			scopedContextKeyProviderCallback: () => stubInterface<IScopedContextKeyService>({}),
-		};
 		rtl.render(
 			<NotebookInstanceProvider instance={notebook}>
-				<EnvironentProvider environmentBundle={environmentBundle}>
-					<NotebookCellWrapper cell={cell}>
-						{children}
-					</NotebookCellWrapper>
-				</EnvironentProvider>
+				<NotebookCellWrapper cell={cell}>
+					{children}
+				</NotebookCellWrapper>
 			</NotebookInstanceProvider>
 		);
 	}
@@ -225,4 +208,47 @@ describe('NotebookCellWrapper CellProvider', () => {
 		expect(screen.getByTestId('cell-spy')).toHaveTextContent(String(CellKind.Markup));
 	});
 
+});
+
+describe('NotebookCellWrapper tag placement', () => {
+	const ctx = createTestContainer().withNotebookEditorServices().withReactServices().build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	function renderWrapper(notebook: TestPositronNotebookInstance) {
+		const cell = notebook.cells.get()[0];
+		rtl.render(
+			<NotebookInstanceProvider instance={notebook}>
+				<NotebookCellWrapper cell={cell}>{null}</NotebookCellWrapper>
+			</NotebookInstanceProvider>
+		);
+	}
+
+	/** A single tagged cell of the given kind/language (tags seeded in metadata). */
+	function taggedNotebook(language: string, cellKind: CellKind) {
+		return createTestPositronNotebookInstance([{
+			source: 'content',
+			mime: undefined,
+			language,
+			cellKind,
+			outputs: [],
+			metadata: { metadata: { tags: ['tagged'] } },
+			internalMetadata: {},
+		}], ctx);
+	}
+
+	it('places a tagged markdown cell tag bar standalone', () => {
+		// Markdown / raw cells have no footer, so the wrapper renders the bar
+		// itself with the standalone modifier.
+		renderWrapper(taggedNotebook('markdown', CellKind.Markup));
+
+		expect(screen.getByTestId('cell-tags-bar')).toHaveClass('standalone');
+	});
+
+	it('does not place a standalone tag bar on a code cell', () => {
+		// Code cells render their tags inside CodeCellStatusFooter (not part of the
+		// wrapper), so the wrapper's standalone placement is skipped.
+		renderWrapper(taggedNotebook('python', CellKind.Code));
+
+		expect(screen.queryByTestId('cell-tags-bar')).not.toBeInTheDocument();
+	});
 });

@@ -30,7 +30,7 @@ const copyFeedbackDuration = 1200;
 const copyIconClasses = ThemeIcon.asClassNameArray(Codicon.copy);
 const copiedIconClasses = ThemeIcon.asClassNameArray(Codicon.check);
 
-class ChatCopyActionViewItem extends MenuEntryActionViewItem {
+export class ChatCopyActionViewItem extends MenuEntryActionViewItem {
 
 	private readonly copiedStateReset = this._register(new MutableDisposable());
 	private readonly actionRunnerListener = this._register(new MutableDisposable());
@@ -149,6 +149,10 @@ export function registerChatCopyActions() {
 				title: localize2('interactive.copyAll.label', "Copy All"),
 				f1: false,
 				category: CHAT_CATEGORY,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// --- End Positron ---
 				menu: {
 					id: MenuId.ChatContext,
 					when: ChatContextKeys.responseIsFiltered.negate(),
@@ -182,6 +186,10 @@ export function registerChatCopyActions() {
 				f1: false,
 				category: CHAT_CATEGORY,
 				icon: Codicon.copy,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// --- End Positron ---
 				menu: [
 					{
 						id: MenuId.ChatContext,
@@ -236,6 +244,10 @@ export function registerChatCopyActions() {
 				title: localize2('interactive.copyFinalResponse.label', "Copy Final Response"),
 				f1: false,
 				category: CHAT_CATEGORY,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// --- End Positron ---
 				menu: {
 					id: MenuId.ChatContext,
 					when: ContextKeyExpr.and(ChatContextKeys.isResponse, ChatContextKeys.responseIsFiltered.negate()),
@@ -275,6 +287,10 @@ export function registerChatCopyActions() {
 				title: localize2('chat.copyKatexMathSource.label', "Copy Math Source"),
 				f1: false,
 				category: CHAT_CATEGORY,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// --- End Positron ---
 				menu: {
 					id: MenuId.ChatContext,
 					group: 'copy',

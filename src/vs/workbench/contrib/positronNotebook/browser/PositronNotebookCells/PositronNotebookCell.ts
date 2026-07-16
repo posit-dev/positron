@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -13,11 +13,14 @@ import { Range } from '../../../../../editor/common/core/range.js';
 import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellDecorationManager } from './CellDecorationManager.js';
-import { CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
-import { IPositronNotebookCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs } from './IPositronNotebookCell.js';
+import { CellEditType, CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
+import { IPositronNotebookCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs, TagWriteResult } from './IPositronNotebookCell.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { derived, IObservable, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
+import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
+import { derived, IObservable, IObservableSignal, observableFromEvent, observableFromEventOpts, observableSignal, observableValue } from '../../../../../base/common/observable.js';
+import { equals as arraysEqual } from '../../../../../base/common/arrays.js';
+import { applyTagsToNestedMetadata } from './cellTagsMetadata.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
 import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
@@ -75,6 +78,16 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
 	public readonly editor: IObservable<ICodeEditor | undefined> = this._editor;
 	protected readonly _internalMetadata;
+	/** Cell tags, derived from the nested nbformat `metadata.metadata.tags`. */
+	public readonly tags: IObservable<string[]>;
+	/** Whether the inline tag-add input is currently requested for this cell. */
+	private readonly _isAddingTag = observableValue<boolean>('cellIsAddingTag', false);
+	public readonly isAddingTag: IObservable<boolean> = this._isAddingTag;
+	/**
+	 * The single visibility predicate for this cell's tag UI (pills + inline add
+	 * input); see {@link IPositronNotebookCell.tagUIVisible}.
+	 */
+	public readonly tagUIVisible: IObservable<boolean>;
 	private readonly _editorFocusRequested = observableSignal<void>('editorFocusRequested');
 	private _modelRef: IReference<IResolvedTextEditorModel> | undefined;
 
@@ -103,6 +116,30 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 			this,
 			this.model.onDidChangeInternalMetadata,
 			() => /** @description internalMetadata */ this.model.internalMetadata,
+		);
+
+		// Read tags from the nested nbformat metadata (see applyTagsToNestedMetadata).
+		// This is untrusted file data, so normalize on read: ignore a non-array,
+		// drop non-string entries, and dedupe -- the tag bar relies on values being
+		// unique (React keys, edit/remove targeting). equalsFn keeps the observable
+		// stable since onDidChangeMetadata fires on any metadata change, not just tags.
+		this.tags = observableFromEventOpts(
+			{ owner: this, debugName: 'cellTags', equalsFn: arraysEqual },
+			this.model.onDidChangeMetadata,
+			() => {
+				const raw = (this.model.metadata.metadata as Record<string, unknown> | undefined)?.tags;
+				if (!Array.isArray(raw)) {
+					return [];
+				}
+				return [...new Set(raw.filter((tag): tag is string => typeof tag === 'string'))];
+			},
+		);
+
+		// The tag UI shows when the cell has a tag or an inline add is in
+		// progress, unless the notebook-wide toggle hides tags.
+		this.tagUIVisible = derived(this, reader =>
+			!this._instance.cellTagsHidden.read(reader) &&
+			(this.tags.read(reader).length > 0 || this._isAddingTag.read(reader))
 		);
 
 		// Track this cell's current execution
@@ -161,6 +198,10 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return this._instance.uri;
 	}
 
+	get instance(): IPositronNotebookInstance {
+		return this._instance;
+	}
+
 	/**
 	 * Get the handle number for cell from cell model
 	 */
@@ -170,6 +211,10 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 
 	getContent(): string {
 		return this.model.getValue();
+	}
+
+	getLineCount(): number {
+		return this.model.textBuffer.getLineCount();
 	}
 
 	async getTextEditorModel(): Promise<ITextModel> {
@@ -183,6 +228,95 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 
 	delete(): void {
 		this._instance.deleteCell(this);
+	}
+
+	private setTags(tags: string[]): boolean {
+		// Skip no-op writes: applyEdits replaces the metadata object and fires a
+		// change even for identical content, which would add an undo entry and
+		// dirty the notebook. A no-op leaves the desired state in place, so report
+		// success without writing (e.g. committing a tag edit without changes).
+		if (arraysEqual(this.tags.get(), tags)) {
+			return true;
+		}
+		// Tag edits are document mutations, so respect a read-only notebook
+		// (mirrors the reorder guard in PositronNotebookComponent).
+		if (this._instance.isReadOnly) {
+			return false;
+		}
+		const textModel = this._instance.textModel;
+		if (!textModel) {
+			return false;
+		}
+		const index = this.index;
+		if (index < 0) {
+			return false;
+		}
+		// Write to the nested nbformat location (see applyTagsToNestedMetadata). The
+		// trailing `true` is computeUndoRedo, so tag changes remain undoable.
+		const nestedMetadata = applyTagsToNestedMetadata(this.model.metadata.metadata, tags);
+		textModel.applyEdits([
+			{
+				editType: CellEditType.PartialMetadata,
+				index,
+				metadata: { metadata: nestedMetadata }
+			}
+		], true, undefined, () => undefined, undefined, true);
+		return true;
+	}
+
+	addTag(tag: string): TagWriteResult {
+		const value = tag.trim();
+		if (!value) {
+			// Blank input: nothing to add, the desired state already holds.
+			return 'ok';
+		}
+		const existing = this.tags.get();
+		if (existing.includes(value)) {
+			return 'duplicate';
+		}
+		// setTags reports false if the write was skipped; surface that as 'failed'.
+		return this.setTags([...existing, value]) ? 'ok' : 'failed';
+	}
+
+	removeTag(tag: string): TagWriteResult {
+		const existing = this.tags.get();
+		if (!existing.includes(tag)) {
+			// Already absent: the desired state holds without writing (mirrors the
+			// no-op skip in setTags).
+			return 'ok';
+		}
+		return this.setTags(existing.filter(t => t !== tag)) ? 'ok' : 'failed';
+	}
+
+	renameTag(oldTag: string, newTag: string): TagWriteResult {
+		const value = newTag.trim();
+		if (!value) {
+			// Blank input: nothing to rename to, the desired state already holds.
+			return 'ok';
+		}
+		const existing = this.tags.get();
+		const index = existing.indexOf(oldTag);
+		if (index < 0) {
+			// The tag being renamed is gone (the cell changed underneath us).
+			return 'failed';
+		}
+		// Reject a rename onto a different existing tag. Renaming to the unchanged
+		// value matches only its own index, so it falls through to a setTags no-op.
+		if (existing.some((t, i) => i !== index && t === value)) {
+			return 'duplicate';
+		}
+		const next = [...existing];
+		next[index] = value;
+		// setTags reports false if the write was skipped; surface that as 'failed'.
+		return this.setTags(next) ? 'ok' : 'failed';
+	}
+
+	beginAddTag(): void {
+		this._isAddingTag.set(true, undefined);
+	}
+
+	endAddTag(): void {
+		this._isAddingTag.set(false, undefined);
 	}
 
 	// Add placeholder run method to be overridden by subclasses

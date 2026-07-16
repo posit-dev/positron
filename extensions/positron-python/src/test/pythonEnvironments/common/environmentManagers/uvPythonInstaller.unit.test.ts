@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as os from 'os';
 import * as path from 'path';
 import * as sinon from 'sinon';
-import { anything, when, reset } from 'ts-mockito';
+import { anything, when, reset, verify } from 'ts-mockito';
 import { MultiStepAction } from '../../../../client/common/vscodeApis/windowApis';
 import * as fileUtils from '../../../../client/pythonEnvironments/common/externalDependencies';
 import * as logging from '../../../../client/logging';
@@ -18,9 +18,13 @@ import * as commonCreationUtils from '../../../../client/pythonEnvironments/crea
 import * as venvUtils from '../../../../client/pythonEnvironments/creation/provider/venvUtils';
 import * as apiInternal from '../../../../client/envExt/api.internal';
 import { getAvailablePythonVersions } from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
-import { installPythonViaUv } from '../../../../client/pythonEnvironments/common/environmentManagers/uvPythonInstaller';
+import {
+    installPythonViaUv,
+    showUvInstallError,
+} from '../../../../client/pythonEnvironments/common/environmentManagers/uvPythonInstaller';
 import { mockedVSCodeNamespaces } from '../../../vscode-mock';
-import { InterpreterQuickPickList } from '../../../../client/common/utils/localize';
+import { Common, InterpreterQuickPickList } from '../../../../client/common/utils/localize';
+import { Commands } from '../../../../client/common/constants';
 
 // Helper to get expected global venv path
 function getExpectedGlobalVenvPython(): string {
@@ -43,6 +47,32 @@ suite('UV Python Installer Tests', () => {
 
     teardown(() => {
         sinon.restore();
+    });
+
+    suite('showUvInstallError Tests', () => {
+        setup(() => {
+            reset(mockedVSCodeNamespaces.window!);
+            reset(mockedVSCodeNamespaces.commands!);
+            when(mockedVSCodeNamespaces.commands!.executeCommand(anything())).thenResolve(undefined);
+        });
+
+        test('Opens the Python Language Pack logs when the user clicks "Show logs"', async () => {
+            when(mockedVSCodeNamespaces.window!.showErrorMessage(anything(), anything())).thenResolve(
+                Common.showLogs as any,
+            );
+
+            await showUvInstallError('something went wrong');
+
+            verify(mockedVSCodeNamespaces.commands!.executeCommand(Commands.ViewOutput)).once();
+        });
+
+        test('Does not open the logs when the user dismisses the notification', async () => {
+            when(mockedVSCodeNamespaces.window!.showErrorMessage(anything(), anything())).thenResolve(undefined);
+
+            await showUvInstallError('something went wrong');
+
+            verify(mockedVSCodeNamespaces.commands!.executeCommand(Commands.ViewOutput)).never();
+        });
     });
 
     suite('getAvailablePythonVersions Tests', () => {
@@ -133,10 +163,15 @@ suite('UV Python Installer Tests', () => {
 
             const result = await getAvailablePythonVersions();
 
-            // Should only have 3.13 and 3.12 (first occurrence of each minor version)
+            // Should only have 3.13 and 3.12 (one entry per minor version). A newer
+            // "<download available>" patch is listed before the installed older patch, so
+            // 3.13 must still be reported as installed with the installed patch's path.
             assert.strictEqual(result.length, 2);
             assert.strictEqual(result[0].version, '3.13');
+            assert.strictEqual(result[0].isInstalled, true);
+            assert.strictEqual(result[0].path, '/usr/local/bin/python3.13');
             assert.strictEqual(result[1].version, '3.12');
+            assert.strictEqual(result[1].isInstalled, false);
         });
 
         test('Sorts versions in descending order', async () => {
@@ -212,6 +247,52 @@ suite('UV Python Installer Tests', () => {
 
             assert.ok(v311);
             assert.strictEqual(v311.isInstalled, false);
+        });
+
+        test('Requests only uv-managed Pythons (passes --managed-python)', async () => {
+            // System Pythons (e.g. /usr/bin/python3) must not be reported as installed in the
+            // "Install Python via uv" flow, so the listing is restricted to uv-managed Pythons.
+            execStub.resolves({
+                stdout: 'cpython-3.13.1-macos-aarch64-none    <download available>',
+            });
+
+            await getAvailablePythonVersions();
+
+            const listCall = execStub
+                .getCalls()
+                .find((call) => Array.isArray(call.args[1]) && (call.args[1] as string[]).includes('list'));
+            assert.ok(listCall, 'Expected uv python list to be invoked');
+            assert.ok(
+                (listCall.args[1] as string[]).includes('--managed-python'),
+                'Expected uv python list to be called with --managed-python',
+            );
+        });
+
+        test('Reports a minor version as installed when a newer patch is download-available', async () => {
+            // Mirrors real `uv python list` output: newest patches are listed first as
+            // "<download available>", freethreaded variants are interleaved, and the installed
+            // patch (further down) uses a "actual -> target" symlink path.
+            execStub.resolves({
+                stdout: [
+                    'cpython-3.14.6-macos-aarch64-none                 <download available>',
+                    'cpython-3.14.6+freethreaded-macos-aarch64-none    <download available>',
+                    'cpython-3.14.5-macos-aarch64-none                 /Users/test/.local/bin/python3.14 -> /Users/test/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14',
+                    'cpython-3.13.14-macos-aarch64-none                <download available>',
+                    'cpython-3.13.13-macos-aarch64-none                /Users/test/.local/bin/python3.13 -> /Users/test/.local/share/uv/python/cpython-3.13.13-macos-aarch64-none/bin/python3.13',
+                    'cpython-3.12.13-macos-aarch64-none                /Users/test/.local/bin/python3.12 -> /Users/test/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12',
+                ].join('\n'),
+            });
+
+            const result = await getAvailablePythonVersions();
+
+            assert.deepStrictEqual(
+                result.map((v) => ({ version: v.version, isInstalled: v.isInstalled, path: v.path })),
+                [
+                    { version: '3.14', isInstalled: true, path: '/Users/test/.local/bin/python3.14' },
+                    { version: '3.13', isInstalled: true, path: '/Users/test/.local/bin/python3.13' },
+                    { version: '3.12', isInstalled: true, path: '/Users/test/.local/bin/python3.12' },
+                ],
+            );
         });
 
         test('Handles empty lines and whitespace in output', async () => {
@@ -383,6 +464,8 @@ suite('UV Python Installer Tests', () => {
         test('Continues after uv installation even if PATH not updated in current process', async () => {
             // uv not installed initially
             isUvInstalledStub.onFirstCall().resolves(false);
+            // After install, uv is located (e.g. via its known install location)
+            isUvInstalledStub.resolves(true);
             // uv install succeeds
             execStub.onCall(0).resolves({ stdout: '' }); // uv install
             // After install, getAvailablePythonVersions returns versions
@@ -403,6 +486,20 @@ suite('UV Python Installer Tests', () => {
             const result = await installPythonViaUv();
 
             assert.strictEqual(result.success, true);
+        });
+
+        test('Returns actionable error when uv cannot be found after installation', async () => {
+            // uv not installed initially, install command succeeds...
+            isUvInstalledStub.onFirstCall().resolves(false);
+            execStub.resolves({ stdout: '' });
+            // ...but uv still cannot be located afterwards (e.g. installed outside any
+            // known location and not on the current process PATH).
+            isUvInstalledStub.resolves(false);
+
+            const result = await installPythonViaUv();
+
+            assert.strictEqual(result.success, false);
+            assert.strictEqual(result.error, InterpreterQuickPickList.UvInstall.uvNotFoundAfterInstall);
         });
 
         test('Returns error when Python installation fails', async () => {
@@ -839,6 +936,8 @@ suite('UV Python Installer Tests', () => {
         test('Installs uv when not present and continues', async () => {
             // uv not installed initially
             isUvInstalledStub.onFirstCall().resolves(false);
+            // After install, uv is located (e.g. via its known install location)
+            isUvInstalledStub.resolves(true);
             // uv install succeeds (sh command)
             execStub.onCall(0).resolves({ stdout: '' });
             // After install, getAvailablePythonVersions returns versions
@@ -861,6 +960,31 @@ suite('UV Python Installer Tests', () => {
             assert.strictEqual(result.success, true);
             // Should return the global venv path
             assert.strictEqual(result.pythonPath, getExpectedGlobalVenvPython());
+        });
+
+        test('Passes --color never to uv install and find so the parsed path is not ANSI-wrapped', async () => {
+            // uv honors FORCE_COLOR/CLICOLOR_FORCE even when piped (both common in CI); the flag
+            // keeps `uv python find` output free of the escape codes we parse as the interpreter path.
+            isUvInstalledStub.resolves(true);
+            getAvailablePythonVersionsStub.resolves([
+                { version: '3.13', isInstalled: false, identifier: 'cpython-3.13.1-macos-aarch64-none' },
+            ]);
+            quickPickResponses = [{ version: '3.13', label: 'Python 3.13' }];
+            execStub.onFirstCall().resolves({ stdout: '' }); // uv python install
+            execStub.onSecondCall().resolves({ stdout: '/usr/local/bin/python3.13' }); // uv python find
+            execStub.onThirdCall().resolves({ stdout: '' }); // uv venv (global)
+            getWorkspaceFoldersStub.returns(undefined);
+
+            await installPythonViaUv();
+
+            assert.ok(
+                execStub.calledWith('uv', ['--color', 'never', 'python', 'install', '3.13'], { throwOnStdErr: false }),
+                'uv python install should be invoked with --color never',
+            );
+            assert.ok(
+                execStub.calledWith('uv', ['--color', 'never', 'python', 'find', '3.13'], { throwOnStdErr: false }),
+                'uv python find should be invoked with --color never',
+            );
         });
 
         test('Falls back to base Python when global venv creation fails', async () => {

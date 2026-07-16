@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -580,6 +580,19 @@ export enum RuntimeErrorBehavior {
 }
 
 /**
+ * Determines what happens when code is submitted for evaluation while the target
+ * runtime is busy. Mirrors the `RuntimeBusyBehavior` enum in the Positron
+ * extension API (positron.d.ts).
+ */
+export enum RuntimeBusyBehavior {
+	/** Queue the code to run when the runtime next becomes idle. */
+	Queue = 'queue',
+
+	/** Reject the evaluation with an error instead of queueing it. */
+	Reject = 'reject',
+}
+
+/**
  * Results of analyzing code fragment for completeness
  */
 export enum RuntimeCodeFragmentStatus {
@@ -1002,14 +1015,18 @@ export interface IRuntimeManager {
 	discoverAllRuntimes(disabledLanguageIds: string[], skipLanguageIds?: string[]): Promise<void>;
 
 	/**
-	 * Mark the manager's discovery-complete flag without running a real
-	 * enumeration. Used by the warm-start fast path: the discovery cache
-	 * already satisfied every bucket, so no manager needs to enumerate, but
-	 * the ext host still needs to know that initial discovery is over so
-	 * runtime managers registered later (via `registerLanguageRuntimeManager`)
-	 * self-trigger their own discovery.
+	 * Mark the manager's discovery-complete flag on the warm-start fast path:
+	 * the discovery cache already satisfied every cache-backed bucket, so those
+	 * languages don't need to enumerate. The ext host still enumerates any
+	 * managers whose language is *not* in `skipLanguageIds` -- this catches
+	 * runtime managers registered via `registerLanguageRuntimeManager` before
+	 * the warm-start completion signal, whose languages aren't cache-backed and
+	 * would otherwise be stranded -- and records that initial discovery is over
+	 * so managers registered later self-trigger their own discovery.
+	 *
+	 * @param skipLanguageIds The cache-satisfied languages to skip enumerating.
 	 */
-	markDiscoveryComplete(): void;
+	markDiscoveryComplete(skipLanguageIds?: string[]): void;
 
 	/**
 	 * Recommend runtimes for this specific workspace.
@@ -1154,6 +1171,12 @@ export interface ILanguageRuntimeService {
 	 * An event that fires when a new runtime is registered.
 	 */
 	readonly onDidRegisterRuntime: Event<ILanguageRuntimeMetadata>;
+
+	/**
+	 * An event that fires when a runtime is unregistered, carrying the
+	 * runtimeId of the removed runtime.
+	 */
+	readonly onDidUnregisterRuntime: Event<string>;
 
 	/**
 	 * Event tracking the current startup phase.

@@ -16,6 +16,7 @@ const OUTPUT_CONTENT = '.quarto-output-content';
 const OUTPUT_ITEM = '.quarto-output-item';
 const CELL_TOOLBAR = '.quarto-cell-toolbar';
 const TOOLBAR_RUN = '.quarto-toolbar-run';
+const TOOLBAR_MORE = '.quarto-toolbar-more';
 const OUTPUT_CLOSE = '.quarto-output-close';
 const OUTPUT_COPY = '.quarto-output-copy';
 const OUTPUT_SAVE = '.quarto-output-save';
@@ -192,6 +193,27 @@ export class InlineQuarto {
 	async clickToolbarCancelButton(): Promise<void> {
 		await test.step(`Click cancel button on cell toolbar`, async () => {
 			await this.toolbarCancelButton.click();
+		});
+	}
+
+	async openMoreActionsMenu(): Promise<void> {
+		await test.step('Open the "more cell actions" menu', async () => {
+			const moreButton = this.visibleCellToolbar.locator(TOOLBAR_MORE);
+			await expect(moreButton).toBeVisible({ timeout: 10000 });
+			await moreButton.click();
+		});
+	}
+
+	moreActionItem(label: string): Locator {
+		// Items in the Positron custom context menu render their text in a
+		// `.title` element inside a `.custom-context-menu-item` button.
+		return this.code.driver.currentPage
+			.locator('.custom-context-menu-items .custom-context-menu-item', { hasText: label });
+	}
+
+	async clickMoreAction(label: string): Promise<void> {
+		await test.step(`Click "${label}" in the more cell actions menu`, async () => {
+			await this.moreActionItem(label).click();
 		});
 	}
 

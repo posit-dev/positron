@@ -18,11 +18,12 @@ import OpenAI from '../icons/openai.js';
 import PositAi from '../icons/positAi.js';
 import Snowflake from '../icons/snowflake.js';
 import MicrosoftFoundry from '../icons/microsoftFoundry.js';
-import VertexAI from '../icons/vertexai.js';
+import Geap from '../icons/geap.js';
 
 interface LanguageModelButtonProps {
 	identifier: string;
 	displayName: string;
+	logoUrl?: string;
 	selected?: boolean;
 	disabled?: boolean;
 	status?: 'preview' | 'experimental';
@@ -57,7 +58,7 @@ export const LanguageModelButton = React.forwardRef<HTMLDivElement, LanguageMode
 			onPressed={props.onClick}>
 			<div ref={ref} id={`${props.identifier}-provider-button`}>
 				<VerticalStack>
-					<LanguageModelIcon provider={props.identifier} />
+					<LanguageModelIcon logoUrl={props.logoUrl} provider={props.identifier} />
 					{props.displayName}
 					{statusLabel && <span className='language-model button-status'>{statusLabel}</span>}
 				</VerticalStack>
@@ -66,15 +67,18 @@ export const LanguageModelButton = React.forwardRef<HTMLDivElement, LanguageMode
 	);
 });
 
-export const LanguageModelIcon = (props: { provider: string }) => {
+export const LanguageModelIcon = (props: { provider: string; logoUrl?: string }) => {
 	function getIcon() {
+		if (props.logoUrl) {
+			return <img className='language-model icon' src={props.logoUrl} />;
+		}
 		switch (props.provider) {
 			case 'anthropic-api':
 				return <Claude className='language-model icon' />;
 			case 'google':
 				return <Gemini className='language-model icon' />;
 			case 'google-cloud':
-				return <VertexAI className='language-model icon' />;
+				return <Geap className='language-model icon' />;
 			case 'copilot':
 			case 'copilot-auth':
 				return <GithubCopilot className='language-model icon' />;

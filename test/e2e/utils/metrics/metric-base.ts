@@ -6,6 +6,7 @@
 import os from 'os';
 import { DataExplorerShortcutOptions } from './metric-data-explorer.js';
 import type { SessionStartShortcutOptions } from './metric-sessions.js';
+import type { ConsoleShortcutOptions } from './metric-console.js';
 import { getPositronVersion } from '../../infra/test-runner/test-setup.js';
 
 export const CONNECT_API_KEY = process.env.CONNECT_API_KEY!;
@@ -44,6 +45,12 @@ export type MetricContext = {
 	sort_applied?: boolean;
 	filter_applied?: boolean;
 	preview_enabled?: boolean;
+
+	// General: a named sub-scenario that shares one (action, target_type) but
+	// exercises a different code path. Rides in context_json; the
+	// e2e-test-insights dashboard groups the Duration Distribution box plot by
+	// it. Keep values short, stable, snake_case, low-cardinality.
+	variant?: string;
 
 	// Language runtime session fields
 	runtime_version?: string;
@@ -86,6 +93,7 @@ export type RecordMetric = {
 	};
 	notebooks: {
 		runCell: <T>(operation: () => Promise<T>, targetType: MetricTargetType, language?: string, description?: string, context?: MetricContext | (() => Promise<MetricContext>)) => Promise<MetricResult<T>>;
+		renderOnColdOpen: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: { description?: string; additionalContext?: MetricContext | (() => Promise<MetricContext>) }) => Promise<MetricResult<T>>;
 		renderOnOpen: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: { description?: string; additionalContext?: MetricContext | (() => Promise<MetricContext>) }) => Promise<MetricResult<T>>;
 		renderOnNavBack: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: { description?: string; additionalContext?: MetricContext | (() => Promise<MetricContext>) }) => Promise<MetricResult<T>>;
 	};
@@ -95,6 +103,9 @@ export type RecordMetric = {
 			targetType: MetricTargetType,
 			options?: SessionStartShortcutOptions
 		) => Promise<MetricResult<T>>;
+	};
+	console: {
+		executeCode: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: ConsoleShortcutOptions) => Promise<MetricResult<T>>;
 	};
 	assistant: {
 		evalResponse: (input: AssistantEvalMetricInput, durationMs: number) => Promise<void>;

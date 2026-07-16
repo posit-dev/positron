@@ -8,17 +8,21 @@ import './contrib/find/positronNotebookFind.contribution.js';
 import './contrib/assistant/positronNotebookAssistant.contribution.js';
 import './contrib/ghostCell/positronNotebookGhostCell.contribution.js';
 import './contrib/outline/positronNotebookOutline.contribution.js';
+import './contrib/help/NotebookHelpAction.js';
+import './contrib/commands/NotebookCommandsAction.js';
 
 // Self-registering Action2 contributions
 import './notebookCells/InlineDataExplorerActions.js';
 import './SelectPositronNotebookKernelAction.js';
 import './contrib/visualize/VisualizeAction.js';
+import './contrib/cellTags/actions.js';
+import './AssistantPanel/notebookSuggestionsConfig.js';
 
 import { copyImageToClipboard, isCopyImageMenuArg } from './copyImageUtils.js';
 import { isCopyJsonMenuArg, serializeJsonOutput } from './copyJsonUtils.js';
 import { getPlainTextOutputContent, isParsedTextOutput } from './getOutputContents.js';
 import { getActiveWindow, isEditableElement, isHTMLElement } from '../../../../base/browser/dom.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize, localize2 } from '../../../../nls.js';
@@ -34,7 +38,7 @@ import { assertType } from '../../../../base/common/types.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 
 import { EditorInput } from '../../../common/editor/editorInput.js';
-import { IEditorResolverService, RegisteredEditorInfo, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
+import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 import { PositronNotebookEditor } from './PositronNotebookEditor.js';
 import { PositronNotebookEditorInput, PositronNotebookEditorInputOptions } from './PositronNotebookEditorInput.js';
 import { NotebookDiffEditorInput } from '../../notebook/common/notebookDiffEditorInput.js';
@@ -54,12 +58,14 @@ import { bindContextKey } from '../../../../platform/observable/common/platformO
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { IPositronNotebookEditorOptions } from './positronNotebookEditorTypes.js';
-import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookActionId, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
+import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_CATEGORY, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookActionId, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellActionGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
 import { CellContextKeys } from '../common/cellContextKeys.js';
 import { NotebookContextKeys } from '../common/notebookContextKeys.js';
+import { bindNotebookAIEnabledContextKey } from './notebookAIEnabledContextKey.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { Action2, registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
+import { ExecuteSelectionInCellAction } from './ExecuteSelectionInCellAction.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { KernelStatusBadge } from './KernelStatusBadge.js';
@@ -88,17 +94,6 @@ export const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
 	CONTEXT_FIND_INPUT_FOCUSED.toNegated(),
 	CONTEXT_REPLACE_INPUT_FOCUSED.toNegated(),
 );
-
-const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
-
-// Group IDs used to organize cell actions in menus and context menus
-enum PositronNotebookCellActionGroup {
-	Clipboard = '0_clipboard',
-	CellType = '1_celltype',
-	Insert = '2_insert',
-	Order = '3_order',
-	Execution = '4_execution',
-}
 
 /**
  * Infer the notebook view type from a resource's file extension.
@@ -143,6 +138,10 @@ class PositronNotebookContribution extends Disposable {
 			reader => positronNotebookService.experimentsEnabled.read(reader),
 		));
 
+		// Keep the composite notebook AI gate (ai.enabled AND notebook.ai.enabled)
+		// in sync so every notebook AI feature can read the single context key.
+		this._register(bindNotebookAIEnabledContextKey(contextKeyService, this.configurationService));
+
 		this.registerEditor();
 	}
 
@@ -168,137 +167,144 @@ class PositronNotebookContribution extends Disposable {
 	}
 
 	private registerNotebookEditor(info: NotebookEditorRegistration): void {
-		const editorInfo: RegisteredEditorInfo = {
+		const baseEditorInfo = {
 			id: POSITRON_NOTEBOOK_EDITOR_ID,
 			label: localize('positronNotebook', "Positron Notebook"),
 			detail: info.detail,
-			priority: this.getPriority(),
 		};
-		const cellEditorInfo: RegisteredEditorInfo = {
-			...editorInfo,
-			priority: this.getCellPriority(),
+
+		// `registerEditor` snapshots the priority at registration time, so we re-register
+		// both editors whenever the Positron notebook setting changes rather than mutating
+		// the (now read-only) priority on the info objects.
+		const register = (editorPriority: RegisteredEditorPriority, cellPriority: RegisteredEditorPriority): IDisposable => {
+			const store = new DisposableStore();
+			// Register file editor
+			store.add(this.editorResolverService.registerEditor(
+				info.globPattern,
+				{ ...baseEditorInfo, priority: editorPriority },
+				{
+					singlePerResource: true,
+					canSupportResource: (resource: URI) => {
+						return extname(resource) === info.extension &&
+							(resource.scheme === Schemas.untitled ||
+								resource.scheme === Schemas.vscodeNotebookCell ||
+								this.fileService.hasProvider(resource));
+					}
+				},
+				{
+					createUntitledEditorInput: async ({ resource, options }) => {
+						// We should handle undefined resource as in notebookEditorServiceImpl.ts,
+						// but resource seems to always be defined so we throw for now to simplify
+						if (!resource) {
+							throw new Error(`Cannot create untitled Positron notebook editor without a resource`);
+						}
+						const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
+							this.instantiationService,
+							resource,
+							undefined,
+							info.viewType,
+						);
+						return { editor: notebookEditorInput, options };
+					},
+					createEditorInput: ({ resource, options }) => {
+						const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
+							this.instantiationService,
+							resource,
+							undefined,
+							info.viewType,
+						);
+						return { editor: notebookEditorInput, options };
+					},
+					// Positron notebook editor doesn't support diff views, so delegate to VSCode's notebook diff editor
+					createDiffEditorInput: ({ original, modified, label, description }, group) => {
+						if (!modified.resource || !original.resource) {
+							throw new Error('Cannot create notebook diff editor without resources');
+						}
+
+						// Determine the notebook view type for the resource
+						// First try to get it from an existing model
+						let viewType = this.notebookService.getNotebookTextModel(modified.resource)?.viewType;
+
+						// If no model exists, find matching contributed notebook types
+						if (!viewType) {
+							const providers = this.notebookService.getContributedNotebookTypes(modified.resource);
+							// Use exclusive or default provider, or fall back to first available
+							viewType = providers.find(p => p.priority === 'exclusive')?.id
+								|| providers.find(p => p.priority === 'default')?.id
+								|| providers[0]?.id;
+						}
+
+						if (!viewType) {
+							throw new Error(`Cannot determine notebook view type for resource: ${modified.resource}`);
+						}
+
+						const diffInput = NotebookDiffEditorInput.create(
+							this.instantiationService,
+							modified.resource,
+							label,
+							description,
+							original.resource,
+							viewType
+						);
+						return { editor: diffInput };
+					}
+				},
+			));
+
+			// Register cell editor
+			store.add(this.editorResolverService.registerEditor(
+				`${Schemas.vscodeNotebookCell}:/**/*${info.extension}`,
+				// The cell handler is specifically for opening and focusing a cell by URI
+				// e.g. vscode.window.showTextDocument(cell.document).
+				// The editor resolver service expects a single handler with 'exclusive' priority.
+				// This one is only registered if Positron notebooks are enabled.
+				// This does not seem to be an issue for file schemes (registered above).
+				{ ...baseEditorInfo, priority: cellPriority },
+				{
+					singlePerResource: true,
+					canSupportResource: (resource: URI) => {
+						return extname(resource) === info.extension &&
+							resource.scheme === Schemas.vscodeNotebookCell;
+					}
+				},
+				{
+					createEditorInput: (editorInput) => {
+						const parsed = CellUri.parse(editorInput.resource);
+						if (!parsed) {
+							throw new Error(`Invalid cell URI: ${editorInput.resource.toString()}`);
+						}
+						const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
+							this.instantiationService,
+							parsed.notebook,
+							undefined,
+							info.viewType,
+						);
+						// Create notebook editor options from base text editor options
+						const notebookEditorOptions: IPositronNotebookEditorOptions = {
+							...editorInput.options,
+							cellOptions: editorInput,
+							// Override text editor view state - it's not valid for notebook editors
+							viewState: undefined,
+						};
+						return { editor: notebookEditorInput, options: notebookEditorOptions };
+					}
+				},
+			));
+			return store;
 		};
+
+		const registrations = this._register(new MutableDisposable<IDisposable>());
+		const updateRegistrations = () => {
+			registrations.value = register(this.getPriority(), this.getCellPriority());
+		};
+		updateRegistrations();
 
 		// Listen for configuration changes to update priorities dynamically
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY)) {
-				editorInfo.priority = this.getPriority();
-				cellEditorInfo.priority = this.getCellPriority();
+				updateRegistrations();
 			}
 		}));
-
-		// Register file editor
-		this._register(this.editorResolverService.registerEditor(
-			info.globPattern,
-			editorInfo,
-			{
-				singlePerResource: true,
-				canSupportResource: (resource: URI) => {
-					return extname(resource) === info.extension &&
-						(resource.scheme === Schemas.untitled ||
-							resource.scheme === Schemas.vscodeNotebookCell ||
-							this.fileService.hasProvider(resource));
-				}
-			},
-			{
-				createUntitledEditorInput: async ({ resource, options }) => {
-					// We should handle undefined resource as in notebookEditorServiceImpl.ts,
-					// but resource seems to always be defined so we throw for now to simplify
-					if (!resource) {
-						throw new Error(`Cannot create untitled Positron notebook editor without a resource`);
-					}
-					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
-						this.instantiationService,
-						resource,
-						undefined,
-						info.viewType,
-					);
-					return { editor: notebookEditorInput, options };
-				},
-				createEditorInput: ({ resource, options }) => {
-					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
-						this.instantiationService,
-						resource,
-						undefined,
-						info.viewType,
-					);
-					return { editor: notebookEditorInput, options };
-				},
-				// Positron notebook editor doesn't support diff views, so delegate to VSCode's notebook diff editor
-				createDiffEditorInput: ({ original, modified, label, description }, group) => {
-					if (!modified.resource || !original.resource) {
-						throw new Error('Cannot create notebook diff editor without resources');
-					}
-
-					// Determine the notebook view type for the resource
-					// First try to get it from an existing model
-					let viewType = this.notebookService.getNotebookTextModel(modified.resource)?.viewType;
-
-					// If no model exists, find matching contributed notebook types
-					if (!viewType) {
-						const providers = this.notebookService.getContributedNotebookTypes(modified.resource);
-						// Use exclusive or default provider, or fall back to first available
-						viewType = providers.find(p => p.priority === 'exclusive')?.id
-							|| providers.find(p => p.priority === 'default')?.id
-							|| providers[0]?.id;
-					}
-
-					if (!viewType) {
-						throw new Error(`Cannot determine notebook view type for resource: ${modified.resource}`);
-					}
-
-					const diffInput = NotebookDiffEditorInput.create(
-						this.instantiationService,
-						modified.resource,
-						label,
-						description,
-						original.resource,
-						viewType
-					);
-					return { editor: diffInput };
-				}
-			},
-		));
-
-		// Register cell editor
-		this._register(this.editorResolverService.registerEditor(
-			`${Schemas.vscodeNotebookCell}:/**/*${info.extension}`,
-			// The cell handler is specifically for opening and focusing a cell by URI
-			// e.g. vscode.window.showTextDocument(cell.document).
-			// The editor resolver service expects a single handler with 'exclusive' priority.
-			// This one is only registered if Positron notebooks are enabled.
-			// This does not seem to be an issue for file schemes (registered above).
-			cellEditorInfo,
-			{
-				singlePerResource: true,
-				canSupportResource: (resource: URI) => {
-					return extname(resource) === info.extension &&
-						resource.scheme === Schemas.vscodeNotebookCell;
-				}
-			},
-			{
-				createEditorInput: (editorInput) => {
-					const parsed = CellUri.parse(editorInput.resource);
-					if (!parsed) {
-						throw new Error(`Invalid cell URI: ${editorInput.resource.toString()}`);
-					}
-					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
-						this.instantiationService,
-						parsed.notebook,
-						undefined,
-						info.viewType,
-					);
-					// Create notebook editor options from base text editor options
-					const notebookEditorOptions: IPositronNotebookEditorOptions = {
-						...editorInput.options,
-						cellOptions: editorInput,
-						// Override text editor view state - it's not valid for notebook editors
-						viewState: undefined,
-					};
-					return { editor: notebookEditorInput, options: notebookEditorOptions };
-				}
-			},
-		));
 	}
 }
 
@@ -522,7 +528,7 @@ export class AddSelectionUpAction extends NotebookAction2 {
 registerAction2(AddSelectionUpAction);
 
 // Enter key: Enter edit mode when cell is selected but NOT editing
-registerAction2(class extends NotebookAction2 {
+export class EnterEditModeAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.edit',
@@ -541,7 +547,8 @@ registerAction2(class extends NotebookAction2 {
 			console.error('Error entering editor:', err);
 		});
 	}
-});
+}
+registerAction2(EnterEditModeAction);
 
 /**
  * Escape key: Exit edit mode when cell editor is focused.
@@ -553,7 +560,7 @@ registerAction2(class extends NotebookAction2 {
  * cell action bars. We should keep both commands in sync
  * to ensure consistent behavior.
  */
-registerAction2(class extends NotebookAction2 {
+export class ExitEditModeAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.quitEdit',
@@ -589,7 +596,8 @@ registerAction2(class extends NotebookAction2 {
 			}
 		}
 	}
-});
+}
+registerAction2(ExitEditModeAction);
 
 /**
  * Escape key: Reduce multi-selection to just the active cell when in command mode.
@@ -636,6 +644,216 @@ KeybindingsRegistry.registerKeybindingRule({
 	when: POSITRON_NOTEBOOK_COMMAND_MODE,
 	primary: KeyMod.Shift | KeyCode.KeyZ
 });
+
+// Shift+L: Toggle line numbers in command mode (Jupyter-style)
+export class ToggleLineNumbersAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.toggleLineNumbers',
+			title: localize2('positronNotebook.toggleLineNumbers', "Toggle Line Numbers"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Shift | KeyCode.KeyL
+			},
+			grabFocusOnRun: false
+		});
+	}
+	override runNotebookAction(_notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+		const configurationService = accessor.get(IConfigurationService);
+		const current = configurationService.getValue<'on' | 'off'>('notebook.lineNumbers') === 'on';
+		configurationService.updateValue('notebook.lineNumbers', current ? 'off' : 'on');
+	}
+}
+registerAction2(ToggleLineNumbersAction);
+
+// 1-6: Change cell to heading level (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading1',
+			title: localize2('positronNotebook.cell.changeToHeading1', "Change Cell to Heading 1"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit1
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(1);
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading2',
+			title: localize2('positronNotebook.cell.changeToHeading2', "Change Cell to Heading 2"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit2
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(2);
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading3',
+			title: localize2('positronNotebook.cell.changeToHeading3', "Change Cell to Heading 3"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit3
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(3);
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading4',
+			title: localize2('positronNotebook.cell.changeToHeading4', "Change Cell to Heading 4"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit4
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(4);
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading5',
+			title: localize2('positronNotebook.cell.changeToHeading5', "Change Cell to Heading 5"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit5
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(5);
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading6',
+			title: localize2('positronNotebook.cell.changeToHeading6', "Change Cell to Heading 6"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit6
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(6);
+	}
+});
+
+// I+I: Interrupt kernel in command mode (Jupyter-style)
+export class InterruptKernelAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.interruptKernel',
+			title: localize2('positronNotebook.interruptKernel', "Interrupt Kernel"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyChord(KeyCode.KeyI, KeyCode.KeyI)
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.interruptKernel();
+	}
+}
+registerAction2(InterruptKernelAction);
+
+// o: Toggle output of selected cell in command mode (Jupyter-style)
+export class ToggleOutputAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.toggleOutput',
+			title: localize2('positronNotebook.cell.toggleOutput', "Toggle Cell Output"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyO
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell?.isCodeCell()) {
+			cell.toggleOutputCollapse();
+		}
+	}
+}
+registerAction2(ToggleOutputAction);
+
+// Shift+O: Toggle cell output scrolling in command mode (Jupyter-style)
+export class ToggleOutputScrollAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.toggleOutputScroll',
+			title: localize2('positronNotebook.cell.toggleOutputScroll', "Toggle Cell Output Scrolling"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Shift | KeyCode.KeyO
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell?.isCodeCell()) {
+			cell.toggleOutputScroll();
+		}
+	}
+}
+registerAction2(ToggleOutputScrollAction);
+
+// Cmd+A / Ctrl+A: Select all cells in command mode (Jupyter-style)
+export class SelectAllCellsAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.selectAllCells',
+			title: localize2('positronNotebook.selectAllCells', "Select All Cells"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.CtrlCmd | KeyCode.KeyA
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.selectAllCells();
+	}
+}
+registerAction2(SelectAllCellsAction);
 
 //#endregion Notebook Commands
 
@@ -1094,7 +1312,7 @@ registerAction2(ViewMarkdownAction);
 // TODO: Improve the context key support so we don't need to have a single command per
 // the keyboard shortcut and can reuse the action bar commands. Cell agnostic
 // "Execute in place" command.
-registerAction2(class extends NotebookAction2 {
+export class ExecuteOrToggleEditorAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.executeOrToggleEditor',
@@ -1120,7 +1338,8 @@ registerAction2(class extends NotebookAction2 {
 			}
 		}
 	}
-});
+}
+registerAction2(ExecuteOrToggleEditorAction);
 
 
 /**
@@ -1156,7 +1375,7 @@ function executeActiveCell(notebook: IPositronNotebookInstance): IPositronNotebo
 }
 
 // Execute cell and select below
-registerAction2(class extends NotebookAction2 {
+export class ExecuteAndSelectBelowAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.executeAndSelectBelow',
@@ -1199,7 +1418,8 @@ registerAction2(class extends NotebookAction2 {
 			notebook.selectionStateMachine.moveSelectionDown(false);
 		}
 	}
-});
+}
+registerAction2(ExecuteAndSelectBelowAction);
 
 // Execute cell, insert a new cell below, and focus it (Alt+Enter, Jupyter-style)
 export class ExecuteAndInsertBelowAction extends NotebookAction2 {
@@ -1360,7 +1580,10 @@ export class MoveCellUpAction extends NotebookAction2 {
 			keybinding: {
 				when: NotebookContextKeys.editorFocused,
 				weight: KeybindingWeight.EditorContrib,
-				primary: KeyMod.Alt | KeyCode.UpArrow
+				primary: KeyMod.Alt | KeyCode.UpArrow,
+				// WinCtrl is literal Ctrl on macOS (Cmd on Win/Linux), so both Cmd+Shift
+				// and Ctrl+Shift move cells on macOS, matching JupyterLab's Ctrl+Shift.
+				secondary: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.UpArrow, KeyMod.WinCtrl | KeyMod.Shift | KeyCode.UpArrow]
 			}
 		});
 	}
@@ -1387,7 +1610,10 @@ export class MoveCellDownAction extends NotebookAction2 {
 			keybinding: {
 				when: NotebookContextKeys.editorFocused,
 				weight: KeybindingWeight.EditorContrib,
-				primary: KeyMod.Alt | KeyCode.DownArrow
+				primary: KeyMod.Alt | KeyCode.DownArrow,
+				// WinCtrl is literal Ctrl on macOS (Cmd on Win/Linux), so both Cmd+Shift
+				// and Ctrl+Shift move cells on macOS, matching JupyterLab's Ctrl+Shift.
+				secondary: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.DownArrow, KeyMod.WinCtrl | KeyMod.Shift | KeyCode.DownArrow]
 			}
 		});
 	}
@@ -1974,14 +2200,21 @@ registerAction2(class extends NotebookAction2 {
 // Register notebook-level actions that appear in the editor action bar
 
 // Run All Cells - Executes all code cells in the notebook
-registerAction2(class extends NotebookAction2 {
+export class RunAllCellsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.runAllCells',
-			title: localize2('runAllCells', 'Run All'),
+			title: localize2('runAllCells', 'Run All Cells'),
 			icon: ThemeIcon.fromId('notebook-execute-all'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
+			// Mirror the toolbar `when` so the command palette and the notebook
+			// command picker only surface this while nothing is running, matching
+			// the run/stop toolbar toggle (stopAllCells gates on the inverse).
+			precondition: ContextKeyExpr.and(
+				ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+				NOTEBOOK_HAS_SOMETHING_RUNNING.toNegated()
+			),
 			positronActionBarOptions: {
 				controlType: 'button',
 				displayTitle: false
@@ -2009,17 +2242,26 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		return notebook.runAllCells();
 	}
-});
+}
 
 // Stop All Cells - cancels execution of every running cell.
 registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.stopAllCells',
-			title: localize2('stopAllCells', 'Stop'),
+			title: localize2('stopAllCells', 'Stop Execution'),
 			icon: ThemeIcon.fromId('primitive-square'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
+			// Mirror the toolbar `when` so the command palette and the notebook
+			// command picker only surface this while something is running. Without
+			// it the picker showed "Stop Execution" when idle, and selecting it ran
+			// all cells (runNotebookAction delegates to runAllCells, which only
+			// cancels when there are live executions to see).
+			precondition: ContextKeyExpr.and(
+				ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+				NOTEBOOK_HAS_SOMETHING_RUNNING
+			),
 			positronActionBarOptions: {
 				controlType: 'button',
 				displayTitle: false
@@ -2050,13 +2292,14 @@ registerAction2(class extends NotebookAction2 {
 		return notebook.runAllCells();
 	}
 });
+registerAction2(RunAllCellsAction);
 
 // Clear All Outputs - Clears outputs from all cells
-registerAction2(class extends NotebookAction2 {
+export class ClearAllOutputsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.clearAllOutputs',
-			title: localize2('clearAllOutputs', 'Clear Outputs'),
+			title: localize2('clearAllOutputs', 'Clear All Outputs'),
 			icon: ThemeIcon.fromId('clear-all'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
@@ -2081,7 +2324,8 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.clearAllCellOutputs();
 	}
-});
+}
+registerAction2(ClearAllOutputsAction);
 
 // Show Console - Opens or focuses the notebook console
 registerAction2(class extends NotebookAction2 {
@@ -2243,6 +2487,7 @@ registerNotebookWidget({
 //#endregion Notebook Header Actions
 
 // Register actions
+registerAction2(ExecuteSelectionInCellAction);
 registerAction2(ExecuteSelectionInConsoleAction);
 registerAction2(UpdateNotebookWorkingDirectoryAction);
 

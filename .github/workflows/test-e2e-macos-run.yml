@@ -74,7 +74,7 @@ jobs:
       DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
       LANG: "en_US.UTF-8"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -101,6 +101,8 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
           OPENAI_KEY: "op://Positron/OpenAI/credential"
+          MS_FOUNDRY_KEY: "op://Positron/MS-Foundry-East2TestAI/credential"
+          MS_FOUNDRY_BASE_URL: "op://Positron/MS-Foundry-East2TestAI/hostname"
           POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
           POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
           POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
@@ -160,27 +162,6 @@ jobs:
             ls -la positron | head -20
           fi
 
-      - name: Seed system tmp cache from bundled cache
-        run: |
-          if [ -d test/e2e/qa-example-content-cache ]; then
-            rm -rf /tmp/qa-example-content-cache || true
-            mv test/e2e/qa-example-content-cache /tmp/qa-example-content-cache || true
-            if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
-              echo "✓ Seeded /tmp/qa-example-content-cache"
-            fi
-          fi
-
-      - name: Validate bundled QA cache
-        run: |
-          echo "Checking for seeded QA cache at /tmp/qa-example-content-cache/.cached-commit"
-          if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
-            echo "✓ Cached commit found: $(cat /tmp/qa-example-content-cache/.cached-commit)"
-          else
-            echo "✗ Cached commit missing at /tmp/qa-example-content-cache/.cached-commit"
-            echo "Contents of /tmp:"; ls -la /tmp || true
-            exit 1
-          fi
-
       - name: Install Rig and R
         run: |
           if brew list --cask | grep -q "^r$"; then
@@ -188,17 +169,43 @@ jobs:
           fi
           R_VERSION="4.5.2"
           R_ALTERNATE_VERSION="4.3.0"
+          # Install rig from its official release .pkg rather than Homebrew.
+          # The r-lib/rig brew tap has been unreliable (third-party tap trust
+          # prompts and cask checksum mismatches); the .pkg is the method
+          # r-lib recommends for CI.
+          case "$(uname -m)" in
+            arm64) RIG_ARCH="arm64" ;;
+            *)     RIG_ARCH="x86_64" ;;
+          esac
+          # Authenticate the API call: unauthenticated requests share a 60/hr
+          # per-IP limit (shared across all jobs on the runner's egress IP) and
+          # intermittently return 403. The job-level GITHUB_TOKEN raises this to
+          # 5000/hr for this caller.
+          RIG_TAG=$(curl -fsSL \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/r-lib/rig/releases/latest \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')
+          RIG_VERSION="${RIG_TAG#v}"
+          curl -fsSL "https://github.com/r-lib/rig/releases/download/${RIG_TAG}/rig-${RIG_VERSION}-macOS-${RIG_ARCH}.pkg" -o /tmp/rig.pkg
+          sudo installer -pkg /tmp/rig.pkg -target /
           echo "Installing R version $R_VERSION using Rig..."
-          brew tap r-lib/rig
-          brew install --cask rig
           rig add "$R_VERSION"
           echo "Installing R version $R_ALTERNATE_VERSION using Rig..."
           rig add "$R_ALTERNATE_VERSION"
 
       - name: Install R packages for 4.5.2
+        env:
+          # Pin to a frozen PPM snapshot instead of `latest`. `latest` is a rolling
+          # target: pak resolves a version from the metadata, but by the time it
+          # downloads the binary PPM may have published a newer release and rotated
+          # the old binary out, yielding intermittent 404s. A dated snapshot keeps
+          # metadata and binaries consistent.
+          PPM_REPO: https://packagemanager.posit.co/cran/2026-06-30
         run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-          Rscript -e "options(pak.install_binary = TRUE, repos = c(CRAN = 'https://packagemanager.posit.co/cran/latest')); pak::local_install_dev_deps(ask = FALSE)"
+          cp test/e2e/test-files/DESCRIPTION DESCRIPTION
+          Rscript -e "options(pak.install_binary = TRUE, repos = c(CRAN = Sys.getenv('PPM_REPO'))); pak::local_install_dev_deps(ask = FALSE)"
 
       - name: Install pyenv and Python
         run: |
@@ -218,7 +225,7 @@ jobs:
           eval "$(pyenv init --path)"
           eval "$(pyenv init -)"
           pyenv global 3.10.10
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+          cp test/e2e/test-files/requirements.txt requirements.txt
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
@@ -328,7 +335,7 @@ jobs:
     needs: [e2e-macos-run]
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v6
         with:
@@ -419,6 +426,7 @@ jobs:
 
       - name: Upload HTML report to S3
         if: always()
+        continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}

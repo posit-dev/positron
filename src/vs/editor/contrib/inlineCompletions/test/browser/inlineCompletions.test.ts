@@ -11,6 +11,11 @@ import { InlineCompletionsModel } from '../../browser/model/inlineCompletionsMod
 import { IWithAsyncTestCodeEditorAndInlineCompletionsModel, MockInlineCompletionsProvider, withAsyncTestCodeEditorAndInlineCompletionsModel } from './utils.js';
 import { ITestCodeEditor } from '../../../../test/browser/testCodeEditor.js';
 import { Selection } from '../../../../common/core/selection.js';
+// --- Start Positron ---
+import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+// --- End Positron ---
 
 suite('Inline Completions', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
@@ -29,6 +34,33 @@ suite('Inline Completions', () => {
 			}
 		);
 	});
+
+	// --- Start Positron ---
+	// Positron's `ai.enabled` main switch turns off all AI inline completions. When
+	// it is off, `InlineCompletionsModel.getAvailableProviders` returns no providers,
+	// so nothing is fetched even on an explicit trigger. This covers non-Copilot
+	// providers too (the Copilot-specific `isCompletionsEnabled` gate is tested
+	// separately in completionsEnablement.vitest.ts).
+	test('[Positron] Does not fetch completions when the ai.enabled main switch is off', async function () {
+		const provider = new MockInlineCompletionsProvider();
+		const configurationService = new TestConfigurationService();
+		configurationService.setUserConfiguration('ai.enabled', false);
+		const serviceCollection = new ServiceCollection([IConfigurationService, configurationService]);
+		await withAsyncTestCodeEditorAndInlineCompletionsModel('',
+			{ fakeClock: true, provider, serviceCollection },
+			async ({ model, context }) => {
+				context.keyboardType('foo');
+				provider.setReturnValue({ insertText: 'foobar', range: new Range(1, 1, 1, 4) });
+				model.triggerExplicitly();
+				await timeout(1000);
+
+				// Provider is never called and no ghost text is shown.
+				assert.deepStrictEqual(provider.getAndClearCallHistory(), []);
+				assert.deepStrictEqual(context.getAndClearViewStates(), ['']);
+			}
+		);
+	});
+	// --- End Positron ---
 
 	test('Ghost text is shown after trigger', async function () {
 		const provider = new MockInlineCompletionsProvider();
@@ -166,10 +198,10 @@ suite('Inline Completions', () => {
 		const provider = new MockInlineCompletionsProvider();
 		await withAsyncTestCodeEditorAndInlineCompletionsModel('',
 			{ fakeClock: true, provider },
-			async ({ editor, editorViewModel, model, context }) => {
+			async ({ editor, editorViewModel, model, context, logger }) => {
 				context.keyboardType('foo');
 				provider.setReturnValue({ insertText: 'foobar1', range: new Range(1, 1, 1, 4) });
-				model.trigger();
+				logger.logRun(() => model.trigger());
 				await timeout(1000);
 
 				assert.deepStrictEqual(
@@ -183,27 +215,27 @@ suite('Inline Completions', () => {
 					{ insertText: 'foobuzz3', range: new Range(1, 1, 1, 4) }
 				]);
 
-				model.next();
+				logger.logRun(() => model.next());
 				await timeout(1000);
 				assert.deepStrictEqual(context.getAndClearViewStates(), ['foo[bizz2]']);
 
-				model.next();
+				logger.logRun(() => model.next());
 				await timeout(1000);
 				assert.deepStrictEqual(context.getAndClearViewStates(), ['foo[buzz3]']);
 
-				model.next();
+				logger.logRun(() => model.next());
 				await timeout(1000);
 				assert.deepStrictEqual(context.getAndClearViewStates(), ['foo[bar1]']);
 
-				model.previous();
+				logger.logRun(() => model.previous());
 				await timeout(1000);
 				assert.deepStrictEqual(context.getAndClearViewStates(), ['foo[buzz3]']);
 
-				model.previous();
+				logger.logRun(() => model.previous());
 				await timeout(1000);
 				assert.deepStrictEqual(context.getAndClearViewStates(), ['foo[bizz2]']);
 
-				model.previous();
+				logger.logRun(() => model.previous());
 				await timeout(1000);
 				assert.deepStrictEqual(context.getAndClearViewStates(), ['foo[bar1]']);
 

@@ -1,0 +1,59 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Container for all quick-fix buttons */
+.assistant-error-quick-fix {
+	display: flex;
+	flex-direction: row;
+	justify-content: flex-start;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+/* Override split button styling for quick-fix buttons */
+.assistant-error-quick-fix .assistant-error-quick-fix-split-button {
+	border-color: var(--vscode-positronActionBar-selectBorder);
+}
+
+/* Main action button styling */
+.assistant-error-quick-fix .split-button-main {
+	border-radius: 3px 0 0 3px;
+}
+
+.assistant-error-quick-fix .split-button-main:hover {
+	background: var(--vscode-positronActionBar-hoverBackground);
+}
+
+.assistant-error-quick-fix .split-button-main .link-text {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	color: var(--vscode-textLink-foreground);
+	padding: 2px 6px;
+	font-size: 12px;
+	cursor: pointer;
+	user-select: none;
+}
+
+.assistant-error-quick-fix .split-button-main .link-text .codicon {
+	color: var(--vscode-textLink-foreground);
+	font-size: 12px;
+	cursor: pointer;
+	user-select: none;
+}
+
+/* Dropdown button styling */
+.assistant-error-quick-fix .split-button-dropdown {
+	border-left-color: var(--vscode-positronActionBar-selectBorder);
+}
+
+.assistant-error-quick-fix .split-button-dropdown:hover {
+	background: var(--vscode-positronActionBar-hoverBackground);
+}
+
+.assistant-error-quick-fix .split-button-dropdown .codicon {
+	color: var(--vscode-textLink-foreground);
+	font-size: 14px;
+}

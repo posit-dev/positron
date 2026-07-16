@@ -8,8 +8,8 @@
 import { act, screen } from '@testing-library/react';
 import { URI } from '../../../../../base/common/uri.js';
 import { Emitter } from '../../../../../base/common/event.js';
-import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IQuartoKernelManager, QuartoKernelState, QuartoKernelStateChangeEvent } from '../../browser/quartoKernelManager.js';
 import { QuartoKernelStatusBadge } from '../../browser/QuartoKernelStatusBadge.js';
@@ -20,9 +20,11 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 describe('QuartoKernelStatusBadge', () => {
 	const stateChange = new Emitter<QuartoKernelStateChangeEvent>();
 	const editorChange = new Emitter<void>();
+	const displayStateEmitter = new Emitter<{ sessionId: string; state: RuntimeState }>();
+	const registerRuntimeEmitter = new Emitter<ILanguageRuntimeMetadata>();
+	const startupPhaseEmitter = new Emitter<RuntimeStartupPhase>();
+	let displayState: RuntimeState | undefined;
 
-	// Use mutable stub objects so individual tests can override specific methods
-	// without triggering Proxy-set semantics on the stubInterface result.
 	const editorServiceStub = {
 		activeEditor: { resource: URI.file('/tmp/notebook.qmd') },
 		activeTextEditorControl: undefined as unknown,
@@ -33,18 +35,28 @@ describe('QuartoKernelStatusBadge', () => {
 		onDidChangeKernelState: stateChange.event,
 		getKernelState: () => QuartoKernelState.None as QuartoKernelState,
 		getSessionForDocument: () => undefined as ILanguageRuntimeSession | undefined,
+		getPreferredRuntimeForDocument: () => undefined as ILanguageRuntimeMetadata | undefined,
 	};
 
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IEditorService, editorServiceStub)
 		.stub(IQuartoKernelManager, kernelManagerStub)
+		.stub(IRuntimeSessionService, {
+			onDidChangeDisplayRuntimeState: displayStateEmitter.event,
+			getDisplayRuntimeState: () => displayState,
+		})
+		.stub(ILanguageRuntimeService, {
+			onDidRegisterRuntime: registerRuntimeEmitter.event,
+			onDidChangeRuntimeStartupPhase: startupPhaseEmitter.event,
+		})
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function makeSession(initial: RuntimeState) {
+	function makeSession(initial: RuntimeState, sessionId = 's1') {
 		const emitter = new Emitter<RuntimeState>();
 		const session = stubInterface<ILanguageRuntimeSession>({
+			sessionId,
 			getRuntimeState: () => initial,
 			onDidChangeRuntimeState: emitter.event,
 			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' }),
@@ -53,16 +65,65 @@ describe('QuartoKernelStatusBadge', () => {
 	}
 
 	beforeEach(() => {
-		// Reset stubs to defaults before each test
+		displayState = undefined;
 		editorServiceStub.activeEditor = { resource: URI.file('/tmp/notebook.qmd') };
 		kernelManagerStub.getKernelState = () => QuartoKernelState.None;
 		kernelManagerStub.getSessionForDocument = () => undefined;
+		kernelManagerStub.getPreferredRuntimeForDocument = () => undefined;
 	});
 
-	it('shows disconnected icon and "No Kernel" label when no session and state is None', () => {
+	it('shows disconnected icon and "No Kernel" label when no session, no preferred runtime, and state is None', () => {
 		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
 		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
 		expect(screen.getByText('No Kernel')).toBeInTheDocument();
+	});
+
+	it('names the interpreter that would start when no kernel is running', () => {
+		// No session yet, but a preferred runtime is available: the badge should
+		// name it instead of showing "No Kernel".
+		kernelManagerStub.getPreferredRuntimeForDocument = () =>
+			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' });
+		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
+		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
+		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
+	});
+
+	it('names a preferred runtime discovered after the initial render', () => {
+		// Interpreter discovery can finish after the editor opens: the badge
+		// starts with "No Kernel" and should adopt the interpreter name once a
+		// preferred runtime becomes available and a registration event fires.
+		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
+		expect(screen.getByText('No Kernel')).toBeInTheDocument();
+
+		kernelManagerStub.getPreferredRuntimeForDocument = () =>
+			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' });
+		act(() => registerRuntimeEmitter.fire(
+			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' })));
+
+		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
+	});
+
+	it('recomputes the preferred runtime when the startup phase changes', () => {
+		// The preferred runtime can resolve as the runtime startup sequence
+		// advances, so a startup-phase change should also refresh the label.
+		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
+		expect(screen.getByText('No Kernel')).toBeInTheDocument();
+
+		kernelManagerStub.getPreferredRuntimeForDocument = () =>
+			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' });
+		act(() => startupPhaseEmitter.fire(RuntimeStartupPhase.Complete));
+
+		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
+	});
+
+	it('shows the state label over the preferred runtime when not in the None state', () => {
+		// An Error state should still surface the error label rather than the
+		// prospective interpreter name.
+		kernelManagerStub.getKernelState = () => QuartoKernelState.Error;
+		kernelManagerStub.getPreferredRuntimeForDocument = () =>
+			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' });
+		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
+		expect(screen.getByText('Kernel Error')).toBeInTheDocument();
 	});
 
 	it('shows disconnected icon when manager reports an Error state', () => {
@@ -76,27 +137,31 @@ describe('QuartoKernelStatusBadge', () => {
 		const { session } = makeSession(RuntimeState.Idle);
 		kernelManagerStub.getSessionForDocument = () => session;
 		kernelManagerStub.getKernelState = () => QuartoKernelState.Ready;
+		displayState = RuntimeState.Idle;
 		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
 		expect(screen.getByTestId('runtime-status-idle')).toBeInTheDocument();
 		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
 	});
 
-	it('updates display when the session emits a state change', () => {
-		const { session, emitter } = makeSession(RuntimeState.Idle);
+	it('updates display when the display state emitter fires a state change', () => {
+		const { session } = makeSession(RuntimeState.Idle);
 		kernelManagerStub.getSessionForDocument = () => session;
 		kernelManagerStub.getKernelState = () => QuartoKernelState.Ready;
+		displayState = RuntimeState.Idle;
 		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
-		act(() => emitter.fire(RuntimeState.Busy));
+		act(() => displayStateEmitter.fire({ sessionId: 's1', state: RuntimeState.Busy }));
 		expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
 	});
 
 	it('reflects the new session runtime state when manager swaps the session', () => {
-		const a = makeSession(RuntimeState.Idle);
+		const a = makeSession(RuntimeState.Idle, 'sA');
 		kernelManagerStub.getSessionForDocument = () => a.session;
 		kernelManagerStub.getKernelState = () => QuartoKernelState.Ready;
+		displayState = RuntimeState.Idle;
 		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
 
-		const b = makeSession(RuntimeState.Starting);
+		const b = makeSession(RuntimeState.Starting, 'sB');
+		displayState = RuntimeState.Starting;
 		act(() => stateChange.fire({
 			documentUri: URI.file('/tmp/notebook.qmd'),
 			oldState: QuartoKernelState.Ready,
@@ -104,7 +169,6 @@ describe('QuartoKernelStatusBadge', () => {
 			session: b.session,
 		}));
 
-		// Display follows session B, not session A
 		expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
 	});
 });

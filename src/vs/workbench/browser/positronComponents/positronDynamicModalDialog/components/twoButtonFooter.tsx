@@ -9,6 +9,7 @@ import './twoButtonFooter.css';
 // Other dependencies.
 import { FooterButton } from './footerButton.js';
 import * as platform from '../../../../../base/common/platform.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 /**
  * TwoButtonFooterProps interface.
@@ -16,6 +17,7 @@ import * as platform from '../../../../../base/common/platform.js';
 interface TwoButtonFooterProps {
 	primaryButtonTitle: string;
 	secondaryButtonTitle: string;
+	topBorder?: boolean;
 	onPrimaryButton: () => void;
 	onSecondaryButton: () => void;
 }
@@ -42,7 +44,7 @@ export const TwoButtonFooter = (props: TwoButtonFooterProps) => {
 
 	// Render.
 	return (
-		<div className='two-button-footer'>
+		<div className={positronClassNames('two-button-footer', { 'top-border': props.topBorder })}>
 			{/* On Windows, the primary button comes first; on macOS/Linux, the secondary button comes first. */}
 			{platform.isWindows
 				? <>{primaryButton}{secondaryButton}</>

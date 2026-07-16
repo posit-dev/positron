@@ -204,7 +204,7 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
  *     (uv project paths, Pyenv, system labels) don't leak into docs.
  *
  * Scoped to the workbench surfaces that render the runtime label:
- *   - `.top-action-bar-session-manager-face`     (top-right interpreter face)
+ *   - `.top-action-bar-session-picker-face`     (top-right interpreter face)
  *   - `.plot-session-name`                       (plots pane header)
  *   - `.tab-header .session-name`                (console session tab)
  *   - `.positron-notebook-kernel-status-badge`   (Positron notebook kernel chip)
@@ -216,7 +216,7 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
 export async function overrideRuntimeLabel(page: Page, displayVersion: string = '3.13.5'): Promise<void> {
 	await page.evaluate(({ displayVersion }) => {
 		const SELECTORS = [
-			'.top-action-bar-session-manager-face',
+			'.top-action-bar-session-picker-face',
 			'.plot-session-name',
 			'.tab-header .session-name',
 			'.positron-notebook-kernel-status-badge',
@@ -242,7 +242,7 @@ export async function overrideRuntimeLabel(page: Page, displayVersion: string = 
 /**
  * Rewrite the workspace folder name shown in the title bar and the top
  * action bar's folder picker. The default test workspace renders as
- * "qa-example-content"; docs screenshots use a friendlier folder name like
+ * "test-files"; docs screenshots use a friendlier folder name like
  * "positron-demos-notebooks". Replaces only the matching token so other
  * title-bar text (e.g. "Untitled-1.ipynb — ") is preserved.
  *
@@ -272,7 +272,7 @@ export async function overrideWorkspaceName(
 			}
 		}
 		// The console's current-working-directory label renders the full
-		// filesystem path (e.g. /private/var/folders/.../qa-example-content).
+		// filesystem path (e.g. /private/var/folders/.../test-files).
 		// Rewrite to the friendly tilde form (~/my-project) so the docs
 		// screenshot doesn't leak the temp workspace path.
 		for (const label of document.querySelectorAll('.current-working-directory-label .label')) {
@@ -284,14 +284,29 @@ export async function overrideWorkspaceName(
 }
 
 /**
+ * Hide the debug launch-configuration status bar item. Starting a Python
+ * session activates the Python Debugger extension, which registers a
+ * "Python Debugger: Current File …" picker in the status bar. It's not
+ * meaningful in a release screenshot and should not be visible.
+ */
+export async function hideDebugStatusBar(page: Page): Promise<void> {
+	const items = page.locator('.statusbar-item').filter({ hasText: 'Python Debugger' });
+	const count = await items.count();
+	for (let i = 0; i < count; i++) {
+		await items.nth(i).evaluate((el: HTMLElement) => { el.style.display = 'none'; });
+	}
+}
+
+/**
  * Standard pre-screenshot cleanup. Composes the smaller helpers in the order
  * that produces a clean, deterministic frame:
  *   1. Hide notification toasts (they cover real UI)
  *   2. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
  *   3. Hide text-insertion caret (blinking cursor causes pixel noise)
- *   4. Unhover (no spurious hover states)
- *   5. Wait for layout to settle (and any in-flight progress bars to clear)
- *   6. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
+ *   4. Hide debug launch-config status bar item (activated by Python sessions)
+ *   5. Unhover (no spurious hover states)
+ *   6. Wait for layout to settle (and any in-flight progress bars to clear)
+ *   7. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
  *
  * The label rewrite goes last so React re-renders during the settle wait
  * don't undo it before the screenshot fires.
@@ -303,6 +318,7 @@ export async function prepareForScreenshot(app: Application, page: Page): Promis
 	await hideToasts(app);
 	await hideNotificationBadges(page);
 	await hideCaret(page);
+	await hideDebugStatusBar(page);
 	await unhoverAll(page);
 	await waitForStableUI(page);
 	await overrideRuntimeLabel(page);

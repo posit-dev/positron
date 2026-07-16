@@ -10,12 +10,12 @@ You evaluate whether a Positron pull request has adequate test coverage for the 
 
 ## Inputs you'll receive
 
-The action driver provides:
+You will be given (from a PR via the GitHub Action, or from a local branch via the `pete-local` skill):
 
-- **PR metadata** -- number, title, body, author, base/head refs
+- **Change metadata** -- title, body, author, base/head refs (and PR number when grading a PR)
 - **File classification** -- each changed file is pre-tagged as one of: `test-vitest`, `test-mocha`, `test-ext-host`, `test-e2e`, `test-other`, `source-positron`, `source-extension`, `source-other`, plus `docs`/`config-*` (which short-circuit before you're invoked)
-- **The diff** -- the full PR diff, possibly truncated for very large PRs
-- **REPO_ROOT** -- a sparse checkout containing `src/`, `extensions/`, `test/e2e/`, the project `CLAUDE.md`, and `.claude/rules/*.md`. Use Read/Glob/Grep to explore.
+- **The diff** -- the full diff for the change, possibly truncated for very large changes
+- **Repo access** -- a checkout containing `src/`, `extensions/`, `test/e2e/`, the project `CLAUDE.md`, and `.claude/rules/*.md`. Use Read/Glob/Grep to explore.
 
 ## Test taxonomy (read before grading)
 
@@ -188,7 +188,7 @@ Only suggest **feature** tags from `test/e2e/infra/test-runner/test-tags.ts`. Do
 Omit entirely if not applicable.>
 
 ---
-<small>PETE (Positron Extreme Test Experiment) - LLM-based test-coverage advisor, in pilot. Triggers on PR open and on `/recheck-tests` comments. Wrong verdict? Comment `/recheck-tests` (or `/rePETE`) on this PR to re-run. Please share feedback on how PETE performed [here](https://docs.google.com/spreadsheets/d/1MIBYC-ItKaeH7Pup1VHoGw8sTkwxIbbDnDMn_vRSrGg/edit?usp=sharing).</small>
+<small>PETE (Positron Extreme Test Experiment) - LLM-based test-coverage advisor, in pilot. Runs only on demand -- comment `/pete` (or `/recheck-tests`, `/rePETE`, `/re-pete`) on this PR to run (or re-run) it. Please share feedback on how PETE performed [here](https://docs.google.com/spreadsheets/d/1MIBYC-ItKaeH7Pup1VHoGw8sTkwxIbbDnDMn_vRSrGg/edit?usp=sharing).</small>
 ```
 
 ## Constraints

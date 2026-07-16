@@ -1,0 +1,66 @@
+services:
+  test:
+    # Multi-arch manifest: Docker resolves the host arch automatically (arm64 on
+    # Apple Silicon), so no per-arch tag is needed. POSITRON_CI_IMAGE_ARCH (passed
+    # into the container below) still selects the Electron build arch in post-create.sh.
+    image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
+    init: true
+    privileged: true
+    command: /bin/sh -c "while sleep 1000; do :; done"
+    env_file:
+      - .env
+    environment:
+      - E2E_POSTGRES_USER=${E2E_POSTGRES_USER:-testuser}
+      - E2E_POSTGRES_PASSWORD=${E2E_POSTGRES_PASSWORD:-testpassword}
+      - POSITRON_DEV_LICENSE=${POSITRON_DEV_LICENSE:-}
+      - POSITRON_CI_IMAGE_ARCH=${POSITRON_CI_IMAGE_ARCH:-arm64}
+    # Workspace = bind mount of the host checkout at its OWN host path, so git worktree
+    # metadata (which uses absolute host paths) resolves inside the container. The main repo's
+    # .git is mounted too so worktrees work (redundant-but-harmless for a normal clone).
+    # Heavy, platform-specific dirs live on named volumes (native Linux speed; host stays clean).
+    # POSITRON_WORKSPACE_PATH / POSITRON_GIT_COMMON_DIR are set by initialize.sh on the host.
+    volumes:
+      - ${POSITRON_WORKSPACE_PATH:?set by .devcontainer/ci-arm/initialize.sh}:${POSITRON_WORKSPACE_PATH}:cached
+      - ${POSITRON_GIT_COMMON_DIR:?set by .devcontainer/ci-arm/initialize.sh}:${POSITRON_GIT_COMMON_DIR}
+      - positron-node-modules:${POSITRON_WORKSPACE_PATH}/node_modules
+      - positron-e2e-node-modules:${POSITRON_WORKSPACE_PATH}/test/e2e/node_modules
+      # remote/ node_modules carries heavy native modules (spdlog, kerberos, node-pty …) built by
+      # node-gyp in the container, so it lives on a volume for native-FS speed, like root + test/e2e.
+      # Correctness across resets is handled by reset.sh wiping every node_modules (volume + bind),
+      # not by volume coverage — the volume here is purely the perf win for this heavy native dir.
+      - positron-remote-node-modules:${POSITRON_WORKSPACE_PATH}/remote/node_modules
+      - positron-build:${POSITRON_WORKSPACE_PATH}/.build
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ci-arm-net
+
+  postgres:
+    image: ghcr.io/posit-dev/positron-postgres:24.15.0
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${E2E_POSTGRES_USER:-testuser}
+      - POSTGRES_PASSWORD=${E2E_POSTGRES_PASSWORD:-testpassword}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${E2E_POSTGRES_USER:-testuser} -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    networks:
+      - ci-arm-net
+
+networks:
+  ci-arm-net:
+    driver: bridge
+
+volumes:
+  positron-node-modules:
+  positron-e2e-node-modules:
+  positron-remote-node-modules:
+  positron-build:
+  postgres-data:

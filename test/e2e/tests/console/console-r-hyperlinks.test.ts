@@ -21,7 +21,7 @@ test.describe('Console Pane: R Hyperlinks', {
 
 		await console.activeConsole.locator('span', { hasText: 'utils::available.packages' }).click();
 
-		await expect((await help.getHelpFrame(0)).getByText('List Available Packages at CRAN-like Repositories')).toBeVisible({ timeout: 30000 });
+		await expect((await help.getHelpFrame()).getByText('List Available Packages at CRAN-like Repositories')).toBeVisible({ timeout: 30000 });
 	});
 
 
@@ -34,7 +34,7 @@ test.describe('Console Pane: R Hyperlinks', {
 
 		await console.activeConsole.locator('span', { hasText: 'CLICK HERE' }).nth(2).click();
 
-		await expect((await help.getHelpFrame(0)).getByText('Collect Information About the Current R Session')).toBeVisible({ timeout: 30000 });
+		await expect((await help.getHelpFrame()).getByText('Collect Information About the Current R Session')).toBeVisible({ timeout: 30000 });
 	});
 
 	test('R - Verify help for a topic that is not a function', async function ({ app, r }) {
@@ -46,7 +46,7 @@ test.describe('Console Pane: R Hyperlinks', {
 
 		await console.activeConsole.locator('span', { hasText: 'utils::BATCH' }).nth(2).click();
 
-		await expect((await help.getHelpFrame(0)).getByText('Batch Execution of R')).toBeVisible({ timeout: 30000 });
+		await expect((await help.getHelpFrame()).getByText('Batch Execution of R')).toBeVisible({ timeout: 30000 });
 	});
 
 	test('R - Verify help for a vignette', async function ({ app, r }) {
@@ -58,7 +58,7 @@ test.describe('Console Pane: R Hyperlinks', {
 
 		await console.activeConsole.locator('span', { hasText: 'dplyr::dplyr' }).nth(3).click();
 
-		await expect((await help.getHelpFrame(0)).getByText('Introduction to dplyr')).toBeVisible({ timeout: 30000 });
+		await expect((await help.getHelpFrame()).getByText('Introduction to dplyr')).toBeVisible({ timeout: 30000 });
 	});
 
 	test('R - Verify automatically runnable code link', async function ({ app, r }) {

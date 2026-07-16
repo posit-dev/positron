@@ -91,4 +91,15 @@ export interface IPackageManager {
         packageNames: string[],
         token?: vscode.CancellationToken,
     ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>>;
+
+    /**
+     * Fetch detailed metadata for a single package (title, author, dependency
+     * count, source repository), called when the package detail editor opens.
+     * @param name Package name
+     * @param token Optional cancellation token
+     */
+    getPackageDetail?(
+        name: string,
+        token?: vscode.CancellationToken,
+    ): Promise<Partial<positron.LanguageRuntimePackage> | undefined>;
 }

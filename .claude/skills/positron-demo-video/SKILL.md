@@ -1,5 +1,6 @@
 ---
 name: positron-demo-video
+disable-model-invocation: true
 description: Use when the user wants to create a demo video, record a feature walkthrough, or generate a video for a PR description. Triggers on "record a demo", "make a video", "demo video for PR", or "generate a walkthrough".
 ---
 

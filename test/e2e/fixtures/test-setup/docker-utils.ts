@@ -49,19 +49,54 @@ export async function runDockerCommand(command: string, description: string): Pr
 }
 
 /**
+ * Settings that enable the Microsoft Foundry (msFoundry) assistant provider.
+ *
+ * On the Azure Workbench shard the provider is authenticated transparently via
+ * Posit Workbench managed credentials (the authentication extension brokers an
+ * `ms-foundry` session, gated on `posit.workbench.foundry.endpoint` being set),
+ * so no interactive sign-in is required. positAI is disabled so the Foundry
+ * model is the one exercised. Shared by the host-side `beforeApp` fixture and
+ * `dockerSettingsOverrides` so the two paths cannot drift.
+ *
+ * `positron.assistant.models.overrides.msFoundry` declares the models the
+ * provider exposes in the picker: `model-router` (the virtual routing model) and
+ * the concrete `claude-sonnet-4-6` model. The foundry workbench suite exercises
+ * both -- one test selects the router, the other the concrete model -- to cover
+ * the model-overrides auth path for GA.
+ *
+ * NOTE: the `positron.assistant.models.overrides.msFoundry` key is expected to
+ * change in the future; update this override (and the foundry suite) when it does.
+ */
+export const FOUNDRY_ASSISTANT_SETTINGS = {
+	'positron.assistant.enable': true,
+	'positron.assistant.provider.positAI.enable': false,
+	'positron.assistant.models.overrides.msFoundry': [
+		{ name: 'model-router', identifier: 'model-router' },
+		{ name: 'claude-sonnet-4-6', identifier: 'claude-sonnet-4-6' },
+	],
+	'positron.assistant.provider.msFoundry.enable': true,
+	'posit.workbench.foundry.endpoint': 'https://east2testai.services.ai.azure.com/',
+	'authentication.foundry.baseUrl': 'https://east2testai.services.ai.azure.com/openai/v1',
+} as const;
+
+/**
  * Build the settings overrides driven by test options for the Docker apps.
  *
  * Mirrors the host-side `beforeApp` fixture: when a suite opts into the legacy
- * (VS Code) notebook editor, the Positron notebook editor is disabled. Returns
+ * (VS Code) notebook editor, the Positron notebook editor is disabled; when a
+ * suite opts into the Foundry assistant, its settings are merged in. Returns
  * `undefined` when there is nothing to override.
  */
-export function dockerSettingsOverrides(opts: { useLegacyNotebookEditor?: boolean; enableDataConnections?: boolean }): object | undefined {
+export function dockerSettingsOverrides(opts: { useLegacyNotebookEditor?: boolean; enableDataConnections?: boolean; enableFoundryAssistant?: boolean }): object | undefined {
 	const overrides: Record<string, unknown> = {};
 	if (opts.useLegacyNotebookEditor) {
 		overrides['positron.notebook.enabled'] = false;
 	}
 	if (opts.enableDataConnections) {
 		overrides['dataConnections.enabled'] = true;
+	}
+	if (opts.enableFoundryAssistant) {
+		Object.assign(overrides, FOUNDRY_ASSISTANT_SETTINGS);
 	}
 	return Object.keys(overrides).length > 0 ? overrides : undefined;
 }

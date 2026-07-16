@@ -15,5 +15,8 @@
     "compile": "tsc -p tsconfig.json",
     "watch": "tsc -w -p tsconfig.json",
     "prepare": "npm run compile"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
   }
 }

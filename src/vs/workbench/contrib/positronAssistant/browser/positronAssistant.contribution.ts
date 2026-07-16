@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -22,6 +22,18 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { ChatAgentLocation, ChatConfiguration } from '../../chat/common/constants.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
+import { NextEditSuggestionsStatusBarEntry } from './nextEditSuggestionsStatusBar.js';
+import { CommitMessageMenuContribution, registerCommitMessageGeneration } from './commitMessageAction.js';
+
+// Register the `ai.enabled` main switch for Positron's AI features.
+import '../common/positronAIConfiguration.js';
+
+// Register the migration from the deprecated
+// `positron.assistant.inlineCompletions.enable` setting to `github.copilot.enable`.
+import './inlineCompletionsMigration.js';
+
+// Register the commit message generation feature.
+registerCommitMessageGeneration();
 
 const consoleLanguageIds = ['r', 'python'];
 
@@ -62,7 +74,7 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 				super({
 					id: 'workbench.action.positronAssistant.runInConsole',
 					title: localize2('interactive.runInConsole.label', "Run in Console"),
-					precondition: ChatContextKeys.enabled,
+					precondition: ChatContextKeys.available,
 					f1: true,
 					category: localize2('chat.category', 'Chat'),
 					icon: codiconsLibrary.play,
@@ -107,3 +119,5 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 }
 
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronAssistantContribution, LifecyclePhase.Restored);
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(NextEditSuggestionsStatusBarEntry, LifecyclePhase.Restored);
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(CommitMessageMenuContribution, LifecyclePhase.Restored);

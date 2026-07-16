@@ -1381,6 +1381,8 @@ INSPECTOR_CLASSES: dict[str, type[PositronInspector]] = {
     **dict.fromkeys(PandasSeriesInspector.CLASS_QNAME, PandasSeriesInspector),
     **dict.fromkeys(PandasIndexInspector.CLASS_QNAME, PandasIndexInspector),
     PandasTimestampInspector.CLASS_QNAME: PandasTimestampInspector,
+    # pandas 3.0 changed Timestamp.__module__ from pandas._libs.tslibs.timestamps to pandas
+    "pandas.Timestamp": PandasTimestampInspector,
     **dict.fromkeys(NumpyNumberInspector.CLASS_QNAME, NumpyNumberInspector),
     NumpyNdarrayInspector.CLASS_QNAME: NumpyNdarrayInspector,
     TorchTensorInspector.CLASS_QNAME: TorchTensorInspector,

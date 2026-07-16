@@ -418,4 +418,21 @@ describe('Positron - Plots Service', () => {
 		// The second render should cancel the first, so we expect only 1 render call
 		expect(renderCallCount, 'Should have called render only once due to cancellation').toBe(1);
 	});
+
+	// Guard-only coverage for the plot output action buttons (issue #12497). The real
+	// clipboard write and auxiliary-window creation are exercised by the plots e2e suite;
+	// here we only pin the branching that decides whether those side effects run at all.
+	describe('plot actions: copy and open in new window', () => {
+		it('open in new window: throws when no plot is selected', () => {
+			expect(() => plotsService.openPlotInNewWindow()).toThrow('no plot selected');
+		});
+
+		it('copy view plot: rejects when no plot is selected', async () => {
+			await expect(plotsService.copyViewPlotToClipboard()).rejects.toThrow('Plot not found');
+		});
+
+		it('copy editor plot: rejects when the plot id is unknown', async () => {
+			await expect(plotsService.copyEditorPlotToClipboard('missing')).rejects.toThrow('Plot not found');
+		});
+	});
 });

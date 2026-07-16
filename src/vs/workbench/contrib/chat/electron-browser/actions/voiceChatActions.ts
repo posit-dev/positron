@@ -431,7 +431,10 @@ export class VoiceChatInChatViewAction extends VoiceChatWithHoldModeAction {
 			id: VoiceChatInChatViewAction.ID,
 			title: localize2('workbench.action.chat.voiceChatInView.label', "Voice Chat in Chat View"),
 			category: CHAT_CATEGORY,
-			precondition: CanVoiceChat,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(HasSpeechProvider, ChatContextKeys.available),
+			// --- End Positron ---
 			f1: true
 		}, 'view');
 	}
@@ -502,10 +505,14 @@ export class InlineVoiceChatAction extends VoiceChatWithHoldModeAction {
 			id: InlineVoiceChatAction.ID,
 			title: localize2('workbench.action.chat.inlineVoiceChat', "Inline Voice Chat"),
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
 			precondition: ContextKeyExpr.and(
-				CanVoiceChat,
+				HasSpeechProvider,
+				ChatContextKeys.available,
 				ActiveEditorContext,
 			),
+			// --- End Positron ---
 			f1: true
 		}, 'inline');
 	}
@@ -520,7 +527,10 @@ export class QuickVoiceChatAction extends VoiceChatWithHoldModeAction {
 			id: QuickVoiceChatAction.ID,
 			title: localize2('workbench.action.chat.quickVoiceChat.label', "Quick Voice Chat"),
 			category: CHAT_CATEGORY,
-			precondition: CanVoiceChat,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(HasSpeechProvider, ChatContextKeys.available),
+			// --- End Positron ---
 			f1: true
 		}, 'quick');
 	}
@@ -563,11 +573,15 @@ export class StartVoiceChatAction extends Action2 {
 				primary: KeyMod.CtrlCmd | KeyCode.KeyI
 			},
 			icon: Codicon.mic,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
 			precondition: ContextKeyExpr.and(
-				CanVoiceChat,
+				HasSpeechProvider,
+				ChatContextKeys.available,
 				ScopedVoiceChatGettingReady.negate(),	// disable when voice chat is getting ready
 				SpeechToTextInProgress.negate()			// disable when speech to text is in progress
 			),
+			// --- End Positron ---
 			menu: primaryVoiceActionMenu(ContextKeyExpr.and(
 				HasSpeechProvider,
 				ScopedChatSynthesisInProgress.negate(),	// hide when text to speech is in progress

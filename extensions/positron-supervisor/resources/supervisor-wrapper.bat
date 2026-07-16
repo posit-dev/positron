@@ -1,7 +1,7 @@
 @echo off
 
 REM ---------------------------------------------------------------------------------------------
-REM Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+REM Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
 REM ---------------------------------------------------------------------------------------------
 
 REM This script is used to run a program and capture its output to a file. It is
@@ -34,11 +34,12 @@ if defined args set args=%args:~1%
 REM Print the command line to the log file
 echo %args% >> "%output_file%"
 
-REM Run the program with its arguments and capture the output
-%args% >> "%output_file%"
+REM Run the program with its arguments, redirecting stdout and stderr to the
+REM output file so that errors (Rust panics, loader errors) are captured too
+%args% >> "%output_file%" 2>&1
 
 REM Save the exit code of the program
 set exit_code=%ERRORLEVEL%
 
 REM Exit with the same code as the program so that the caller can correctly report errors
-exit /b exit_code
+exit /b %exit_code%

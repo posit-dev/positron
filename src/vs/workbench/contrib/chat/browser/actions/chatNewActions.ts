@@ -24,6 +24,7 @@ import { ACTION_ID_NEW_CHAT, ACTION_ID_NEW_EDIT_SESSION, CHAT_CATEGORY, clearCha
 import { clearChatEditor } from './chatClear.js';
 import { AgentSessionProviders, AgentSessionsViewerOrientation } from '../agentSessions/agentSessions.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IChatSessionsService } from '../../common/chatSessionsService.js';
 
 export interface INewEditSessionActionContext {
 
@@ -97,7 +98,13 @@ export function registerNewChatActions() {
 				title: localize2('chat.newEdits.label', "New Chat"),
 				category: CHAT_CATEGORY,
 				icon: Codicon.plus,
-				precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat)),
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.available,
+					ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
+				),
+				// --- End Positron ---
 				f1: true,
 				menu: [
 					{
@@ -152,7 +159,13 @@ export function registerNewChatActions() {
 					title: localize2('chat.newEdits.label', "New Chat"),
 					category: CHAT_CATEGORY,
 					icon: variant.icon,
-					precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat)),
+					// --- Start Positron ---
+					// Hide when AI features are disabled.
+					precondition: ContextKeyExpr.and(
+						ChatContextKeys.available,
+						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
+					),
+					// --- End Positron ---
 					f1: false,
 					menu: [{
 						id: MenuId.ChatNewMenu,
@@ -180,7 +193,13 @@ export function registerNewChatActions() {
 				title: localize2('chat.newLocalChat.label', "New Local Chat"),
 				category: CHAT_CATEGORY,
 				icon: Codicon.plus,
-				precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat)),
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.available,
+					ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
+				),
+				// --- End Positron ---
 				f1: false,
 			});
 		}
@@ -222,7 +241,13 @@ export function registerNewChatActions() {
 				title: localize2('chat.undoEdit.label', "Undo Last Edit"),
 				category: CHAT_CATEGORY,
 				icon: Codicon.discard,
-				precondition: ContextKeyExpr.and(ChatContextKeys.chatEditingCanUndo, ChatContextKeys.enabled),
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.chatEditingCanUndo,
+					ChatContextKeys.available,
+				),
+				// --- End Positron ---
 				f1: true,
 				menu: [{
 					id: MenuId.ViewTitle,
@@ -246,7 +271,13 @@ export function registerNewChatActions() {
 				title: localize2('chat.redoEdit.label', "Redo Last Edit"),
 				category: CHAT_CATEGORY,
 				icon: Codicon.redo,
-				precondition: ContextKeyExpr.and(ChatContextKeys.chatEditingCanRedo, ChatContextKeys.enabled),
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.chatEditingCanRedo,
+					ChatContextKeys.available,
+				),
+				// --- End Positron ---
 				f1: true,
 				menu: [
 					{
@@ -274,7 +305,13 @@ export function registerNewChatActions() {
 				title: localize2('chat.redoEdit.label2', "Redo"),
 				tooltip: localize2('chat.redoEdit.tooltip', "Reapply discarded workspace changes and chat"),
 				category: CHAT_CATEGORY,
-				precondition: ContextKeyExpr.and(ChatContextKeys.chatEditingCanRedo, ChatContextKeys.enabled),
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.chatEditingCanRedo,
+					ChatContextKeys.available,
+				),
+				// --- End Positron ---
 				f1: true,
 				menu: [{
 					id: MenuId.ChatMessageRestoreCheckpoint,
@@ -315,6 +352,7 @@ async function runNewChatAction(
 	const accessibilityService = accessor.get(IAccessibilityService);
 	const viewsService = accessor.get(IViewsService);
 	const configurationService = accessor.get(IConfigurationService);
+	const chatSessionsService = accessor.get(IChatSessionsService);
 
 	const { editingSession, chatWidget: widget } = context ?? {};
 	if (!widget) {
@@ -331,7 +369,7 @@ async function runNewChatAction(
 	await editingSession?.stop();
 
 	// Create a new session, preserving the session type (or using the specified one)
-	await clearChatSessionPreservingType(widget, viewsService, sessionType);
+	await clearChatSessionPreservingType(widget, viewsService, sessionType, configurationService, chatSessionsService);
 
 	widget.attachmentModel.clear(true);
 	widget.focusInput();

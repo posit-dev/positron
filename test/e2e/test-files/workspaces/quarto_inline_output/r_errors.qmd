@@ -1,0 +1,11 @@
+---
+title: "R Error Example"
+format: html
+---
+
+This cell should generate an error.
+
+```{r}
+stop("oh no")
+```
+

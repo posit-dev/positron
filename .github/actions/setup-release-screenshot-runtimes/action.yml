@@ -1,9 +1,9 @@
 name: "Setup Release Screenshot Runtimes"
 description: >
   Bundles the macOS install dance shared by the release-screenshots
-  workflows: Node + npm deps + Playwright + qa-example-content + Python
+  workflows: Node + npm deps + Playwright + Python
   (primary + alt) + R via rig (primary + alt) + Python and R packages
-  needed by the qa-example-content workspaces. Outputs the resolved
+  needed by the test-files workspaces. Outputs the resolved
   Python versions so the caller can set POSITRON_PY_*_VER_SEL.
 
 inputs:
@@ -55,12 +55,6 @@ runs:
       shell: bash
       run: npx playwright install chromium
 
-    - name: Clone qa-example-content
-      shell: bash
-      run: |
-        git clone --depth 1 https://github.com/posit-dev/qa-example-content.git \
-          test/e2e/qa-example-content
-
     - name: Install uv + Python (primary, with venv)
       id: setup-python-primary
       uses: astral-sh/setup-uv@v7
@@ -68,14 +62,14 @@ runs:
         python-version: ${{ inputs.python-primary-version }}
         activate-environment: true
         enable-cache: true
-        cache-dependency-glob: test/e2e/qa-example-content/requirements.txt
+        cache-dependency-glob: test/e2e/test-files/requirements.txt
 
     - name: Install Python dependencies (primary)
       shell: bash
       run: |
-        uv pip install -r test/e2e/qa-example-content/requirements.txt
+        uv pip install -r test/e2e/test-files/requirements.txt
         uv pip install ipykernel
-        # Extra packages for screenshot tests not yet in qa-example-content's
+        # Extra packages for screenshot tests not yet in the test-files
         # requirements.
         uv pip install astropy matplotlib plotnine
 
@@ -95,8 +89,16 @@ runs:
     - name: Install rig
       shell: bash
       run: |
-        brew tap r-lib/rig
-        brew install --cask rig
+        # Install rig directly from GitHub releases to avoid a broken cask in
+        # the r-lib/homebrew-rig tap (double-quote typo in rig.rb line 5).
+        RIG_VERSION="0.8.1"
+        if [ "$(uname -m)" = "x86_64" ]; then
+          RIG_PKG="rig-${RIG_VERSION}-macOS-x86_64.pkg"
+        else
+          RIG_PKG="rig-${RIG_VERSION}-macOS-arm64.pkg"
+        fi
+        curl -fsSL "https://github.com/r-lib/rig/releases/download/v${RIG_VERSION}/${RIG_PKG}" -o /tmp/rig.pkg
+        sudo installer -pkg /tmp/rig.pkg -target /
 
     - name: Install R (primary)
       shell: bash
@@ -106,11 +108,11 @@ runs:
 
     - name: Install R packages
       shell: bash
-      working-directory: test/e2e/qa-example-content
+      working-directory: test/e2e/test-files
       run: |
         Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://cran.rstudio.com')"
         Rscript -e "options(pak.install_binary = TRUE); pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
-        # Extra packages for screenshot tests not in qa-example-content's DESCRIPTION.
+        # Extra packages for screenshot tests not in the test-files DESCRIPTION.
         Rscript -e "options(pak.install_binary = TRUE); pak::pak(c('nycflights13', 'dbplyr'))"
 
     - name: Install R (alternate)

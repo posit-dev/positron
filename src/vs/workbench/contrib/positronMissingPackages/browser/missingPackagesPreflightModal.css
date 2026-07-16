@@ -1,0 +1,27 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* The content-area provides the surrounding padding; this is just the vertical stack. */
+.missing-packages-preflight {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+/* Footer: Cancel on the left, Install + Run grouped on the right. */
+.positron-dynamic-modal-dialog-box .preflight-footer {
+	height: 48px;
+	display: flex;
+	padding: 0 16px;
+	flex: 0 0 auto;
+	justify-content: space-between;
+	align-items: flex-start;
+}
+
+.positron-dynamic-modal-dialog-box .preflight-footer .preflight-footer-right {
+	gap: 10px;
+	display: flex;
+	align-items: flex-start;
+}

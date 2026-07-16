@@ -3,11 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Override content-area to extend to bottom (no action buttons) */
-.positron-modal-dialog-box:has(.assistant-panel-content) .content-area {
-	bottom: 0;
-}
-
 /* Wrapper for content inside the modal dialog */
 .assistant-panel-content {
 	display: flex;
@@ -15,11 +10,6 @@
 	gap: 8px;
 	padding: 4px 12px 12px;
 	position: relative;
-}
-
-/* Adjust section spacing for modal context */
-.positron-modal-dialog-box .assistant-panel-section {
-	margin: 0;
 }
 
 .assistant-panel {

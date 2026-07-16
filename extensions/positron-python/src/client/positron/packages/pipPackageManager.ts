@@ -7,10 +7,15 @@ import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
+import { IFileSystem } from '../../common/platform/types';
+import { IWorkspaceService } from '../../common/application/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
+import { traceVerbose } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
+import { buildRequirementsFile } from './requirementsFile';
+import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
 /**
@@ -40,6 +45,13 @@ export class PipPackageManager implements IPackageManager {
         return fetchMetadataWithOutdated(packageNames, (t) => this._getOutdatedVersions(t), token);
     }
 
+    async getPackageDetail(
+        name: string,
+        token?: vscode.CancellationToken,
+    ): Promise<Partial<positron.LanguageRuntimePackage> | undefined> {
+        return this._callMethod<Partial<positron.LanguageRuntimePackage> | undefined>('getPackageDetail', token, name);
+    }
+
     /**
      * Check if pip is available in the current Python environment.
      */
@@ -63,11 +75,31 @@ export class PipPackageManager implements IPackageManager {
 
         await this._ensurePip();
 
-        const packageSpecs = this._formatPackageSpecs(packages);
-        const flags = await this._getInstallFlags();
-        const args = ['install', ...flags, ...packageSpecs];
+        const requirementsPath = await this._getWorkspaceRequirementsPath();
+        if (requirementsPath) {
+            // requirements.txt is the source of truth: pass the target on the
+            // command line plus -r <file> (verbatim). The resolver intersects the
+            // target with the file; a conflict fails atomically.
+            const specs = this._formatPackageSpecs(packages);
+            const flags = await this._getInstallFlags();
+            const args = ['install', ...specs, '-r', requirementsPath, ...flags];
+            await this._executePipInTerminal(args, token);
+            return;
+        }
 
-        await this._executePipInTerminal(args, token);
+        // Re-resolve against the full installed set so the new package can't break
+        // the environment: name every installed package (bare) plus the new
+        // package(s); an inconsistent install fails atomically.
+        const freezeLines = await this._getInstalledFreeze(token);
+        const content = buildRequirementsFile(freezeLines, packages);
+        const tempFile = await this._writeRequirementsTempFile(content);
+        try {
+            const flags = await this._getInstallFlags();
+            const args = ['install', '-r', tempFile.filePath, ...flags];
+            await this._executePipInTerminal(args, token);
+        } finally {
+            tempFile.dispose();
+        }
     }
 
     async uninstallPackages(packages: string[], token?: vscode.CancellationToken): Promise<void> {
@@ -95,13 +127,39 @@ export class PipPackageManager implements IPackageManager {
             throw new vscode.CancellationError();
         }
 
+        const missing = packages.find((pkg) => !pkg.version);
+        if (missing) {
+            throw new Error(`A version is required to update '${missing.name}'.`);
+        }
+
         await this._ensurePip();
 
-        const packageSpecs = this._formatPackageSpecs(packages);
-        const flags = await this._getInstallFlags();
-        const args = ['install', '--upgrade', ...flags, ...packageSpecs];
+        const requirementsPath = await this._getWorkspaceRequirementsPath();
+        if (requirementsPath) {
+            // Pin the target(s) on the command line plus -r <file> (verbatim). No
+            // --upgrade: an exact pin moves only the named target.
+            const specs = this._formatPackageSpecs(packages);
+            const flags = await this._getInstallFlags();
+            const args = ['install', ...specs, '-r', requirementsPath, ...flags];
+            await this._executePipInTerminal(args, token);
+            return;
+        }
 
-        await this._executePipInTerminal(args, token);
+        // Re-resolve against the full installed set: name every package so all
+        // constraints are honored, but only the target is pinned (others are bare
+        // and stay put unless the update forces a change). An inconsistent update
+        // fails atomically instead of silently breaking the environment.
+        const targets = packages.map((pkg) => ({ name: pkg.name, version: pkg.version! }));
+        const freezeLines = await this._getInstalledFreeze(token);
+        const content = buildRequirementsFile(freezeLines, targets);
+        const tempFile = await this._writeRequirementsTempFile(content);
+        try {
+            const flags = await this._getInstallFlags();
+            const args = ['install', '-r', tempFile.filePath, ...flags];
+            await this._executePipInTerminal(args, token);
+        } finally {
+            tempFile.dispose();
+        }
     }
 
     async updateAllPackages(token?: vscode.CancellationToken): Promise<void> {
@@ -123,11 +181,29 @@ export class PipPackageManager implements IPackageManager {
             return;
         }
 
-        const packageNames = outdatedPackages.map((pkg) => pkg.name);
-        const flags = await this._getInstallFlags();
-        const args = ['install', '--upgrade', ...flags, ...packageNames];
+        const requirementsPath = await this._getWorkspaceRequirementsPath();
+        if (requirementsPath) {
+            // Upgrade everything DECLARED to latest compatible; the file is the
+            // source of truth (declared pins block their own upgrade).
+            const flags = await this._getInstallFlags();
+            const args = ['install', '--upgrade', '-r', requirementsPath, ...flags];
+            await this._executePipInTerminal(args, token);
+            return;
+        }
 
-        await this._executePipInTerminal(args, token);
+        // Upgrade every installed package to its latest mutually-compatible
+        // version: name them all (bare) and let pip resolve. All constraints are
+        // honored; an impossible set fails atomically.
+        const freezeLines = await this._getInstalledFreeze(token);
+        const content = buildRequirementsFile(freezeLines, []);
+        const tempFile = await this._writeRequirementsTempFile(content);
+        try {
+            const flags = await this._getInstallFlags();
+            const args = ['install', '--upgrade', '-r', tempFile.filePath, ...flags];
+            await this._executePipInTerminal(args, token);
+        } finally {
+            tempFile.dispose();
+        }
     }
 
     async searchPackages(query: string, token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
@@ -135,7 +211,11 @@ export class PipPackageManager implements IPackageManager {
     }
 
     async searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]> {
-        return searchPyPIVersions(name, token);
+        return searchPyPIVersions(
+            name,
+            (specs) => this._callMethod<Record<string, boolean>>('checkRequiresPython', token, specs),
+            token,
+        );
     }
 
     // =========================================================================
@@ -178,10 +258,72 @@ export class PipPackageManager implements IPackageManager {
     ): Promise<Array<{ name: string; latest_version: string }>> {
         const pythonService = await this._getPythonService();
         const proxyFlags = this._getProxyFlags();
-        const result = await pythonService.execModule('pip', ['list', '--outdated', '--format=json', ...proxyFlags], {
-            token,
-        });
+        const result = await pythonService.execModule(
+            'pip',
+            ['list', '--outdated', '--format=json', '--no-color', ...proxyFlags],
+            {
+                token,
+            },
+        );
         return JSON.parse(result.stdout) as Array<{ name: string; latest_version: string }>;
+    }
+
+    /**
+     * Format package install requests into pip package specifiers.
+     * e.g., { name: "requests", version: "2.28.0" } becomes "requests==2.28.0".
+     */
+    private _formatPackageSpecs(packages: positron.PackageSpec[]): string[] {
+        return packages.map((pkg) => (pkg.version ? `${pkg.name}==${pkg.version}` : pkg.name));
+    }
+
+    /**
+     * Path to the workspace-root `requirements.txt` if present, else undefined.
+     */
+    private async _getWorkspaceRequirementsPath(): Promise<string | undefined> {
+        // Opt-out: when the setting is disabled, ignore requirements.txt so all
+        // operations fall back to the pip freeze re-resolve path.
+        if (!vscode.workspace.getConfiguration('python').get<boolean>(USE_REQUIREMENTS_FILE_SETTING, true)) {
+            return undefined;
+        }
+        const workspaceService = this._serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+        const fileSystem = this._serviceContainer.get<IFileSystem>(IFileSystem);
+        return findWorkspaceRequirementsFile(workspaceService, fileSystem);
+    }
+
+    /**
+     * Capture the full installed set as pinned `pip freeze` lines. Origins
+     * (`@ file://`, `-e`, VCS URLs) are preserved so already-installed packages
+     * resolve as satisfied without an index lookup.
+     */
+    private async _getInstalledFreeze(token?: vscode.CancellationToken): Promise<string[]> {
+        const pythonService = await this._getPythonService();
+        // --no-color defensively: pip doesn't colorize `freeze` today, but
+        // FORCE_COLOR/CLICOLOR_FORCE could lead to ANSI codes that would corrupt
+        // the requirements file fed to `pip install -r` (as uv does -- see #14328).
+        const result = await pythonService.execModule('pip', ['freeze', '--no-color'], { token });
+        // Empty output is a valid empty environment, not a failure: `pip freeze`
+        // excludes pip/setuptools/wheel by default, so a fresh env with no
+        // user-installed packages prints nothing. Real failures (missing pip,
+        // spawn errors) throw upstream in execModule, and a broken resolver
+        // surfaces at the actual `install` step.
+        if (!result.stdout) {
+            return [];
+        }
+        return result.stdout.split(/\r?\n/).filter((line) => line.trim() !== '');
+    }
+
+    /**
+     * Write requirements content to a temporary file. Caller must `dispose()`
+     * the returned handle when the install completes.
+     */
+    private async _writeRequirementsTempFile(content: string): Promise<{ filePath: string; dispose: () => void }> {
+        const fs = this._serviceContainer.get<IFileSystem>(IFileSystem);
+        const tempFile = await fs.createTemporaryFile('.txt');
+        await fs.writeFile(tempFile.filePath, content);
+        // Log the generated requirements so the resolved set passed to pip can be
+        // inspected (the temp file itself is deleted after the command runs).
+        traceVerbose(`pip package requirements file ${tempFile.filePath}:\n${content}`);
+        return tempFile;
     }
 
     /**
@@ -195,14 +337,6 @@ export class PipPackageManager implements IPackageManager {
                     'Please install pip to use package management features.',
             );
         }
-    }
-
-    /**
-     * Format package install requests into pip package specifiers.
-     * e.g., { name: "requests", version: "2.28.0" } becomes "requests==2.28.0"
-     */
-    private _formatPackageSpecs(packages: positron.PackageSpec[]): string[] {
-        return packages.map((pkg) => (pkg.version ? `${pkg.name}==${pkg.version}` : pkg.name));
     }
 
     /**

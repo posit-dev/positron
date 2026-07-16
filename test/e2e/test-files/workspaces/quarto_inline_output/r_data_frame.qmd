@@ -1,0 +1,12 @@
+---
+title: "R Data Frame Print Test"
+engine: knitr
+---
+
+```{r}
+df <- data.frame(
+  Name = c("Alice", "Bob", "Charlie"),
+  Age = c(25, 30, 35)
+)
+df
+```

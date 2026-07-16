@@ -92,7 +92,7 @@ export class Workbench {
 	readonly quickInput: QuickInput;
 	readonly extensions: Extensions;
 	readonly editors: Editors;
-	readonly settings: UserSettings;
+	readonly userSettings: UserSettings;
 	readonly debug: Debug;
 	readonly editorActionBar: EditorActionBar;
 	readonly problems: Problems;
@@ -142,10 +142,10 @@ export class Workbench {
 		this.terminal = new Terminal(code, this.quickaccess);
 		this.viewer = new Viewer(code, this.contextMenu);
 		this.editor = new Editor(code);
-		this.testExplorer = new TestExplorer(code);
+		this.testExplorer = new TestExplorer(code, this.quickaccess);
 		this.outline = new Outline(code, this.quickaccess);
 		this.extensions = new Extensions(code, this.quickaccess);
-		this.settings = new UserSettings(code, this.hotKeys);
+		this.userSettings = new UserSettings(code, this.hotKeys);
 		this.debug = new Debug(code, this.hotKeys, this.quickaccess);
 		this.editorActionBar = new EditorActionBar(code.driver.currentPage, this.viewer, this.quickaccess);
 		this.problems = new Problems(code, this.quickaccess);

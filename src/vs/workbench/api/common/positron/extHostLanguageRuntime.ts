@@ -5,7 +5,7 @@
 
 import type * as positron from 'positron';
 import { debounce } from '../../../../base/common/decorators.js';
-import { IHostedLanguageContribution, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, IRuntimeRootSignature, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IHostedLanguageContribution, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, IRuntimeRootSignature, LanguageRuntimeSessionMode, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
@@ -200,19 +200,49 @@ export class ExtHostRuntimeSessionProxy
 	implements positron.BaseLanguageRuntimeSession {
 	readonly sessionId: string = this.metadata.sessionId;
 
+	/** The last known runtime state of the session. */
+	private _runtimeState: RuntimeState;
+
+	/** Holds the emitters below so they can be disposed with the proxy. */
+	private readonly _store = new DisposableStore();
+
+	private readonly _onDidChangeRuntimeState = this._store.add(new Emitter<RuntimeState>());
+	private readonly _onDidDisconnect = this._store.add(new Emitter<void>());
+	private readonly _onDidReconnect = this._store.add(new Emitter<void>());
+
+	/** Fires when the session's runtime state changes. */
+	readonly onDidChangeRuntimeState = this._onDidChangeRuntimeState.event;
+
+	/** Fires when the session's connection to the runtime is lost. */
+	readonly onDidDisconnect = this._onDidDisconnect.event;
+
+	/** Fires when the session's connection to the runtime is re-established. */
+	readonly onDidReconnect = this._onDidReconnect.event;
+
 	/**
 	 * Constructor
 	 *
 	 * @param metadata The metadata about the session
 	 * @param runtimeMetadata The metadata about the runtime
+	 * @param runtimeState The session's runtime state at the time of creation
 	 * @param _proxy A proxy to the main thread language runtime API
 	 */
 	constructor(
 		readonly metadata: positron.RuntimeSessionMetadata,
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
+		runtimeState: RuntimeState,
 		private readonly _proxy: extHostProtocol.MainThreadLanguageRuntimeShape,
 	) {
 		super(() => { });
+		this._runtimeState = runtimeState;
+	}
+
+	override dispose(): void {
+		// Stop the main thread from forwarding events for this session and
+		// release our emitters.
+		this._proxy.$unsubscribeFromSession(this.sessionId);
+		this._store.dispose();
+		super.dispose();
 	}
 
 	/**
@@ -220,6 +250,44 @@ export class ExtHostRuntimeSessionProxy
 	 */
 	async getDynState(): Promise<positron.LanguageRuntimeDynState> {
 		return this._proxy.$getSessionDynState(this.sessionId);
+	}
+
+	/**
+	 * Get the current runtime state of the session.
+	 *
+	 * This is a synchronous accessor backed by the last state forwarded from the
+	 * main thread.
+	 */
+	getRuntimeState(): RuntimeState {
+		return this._runtimeState;
+	}
+
+	/**
+	 * Updates the cached runtime state and fires `onDidChangeRuntimeState`.
+	 * Called when the main thread forwards a state change for this session.
+	 */
+	setRuntimeState(state: RuntimeState): void {
+		if (this._runtimeState === state) {
+			return;
+		}
+		this._runtimeState = state;
+		this._onDidChangeRuntimeState.fire(state);
+	}
+
+	/**
+	 * Fires the `onDidDisconnect` event. Called when the main thread reports
+	 * that this session's connection to the runtime was lost.
+	 */
+	fireDidDisconnect(): void {
+		this._onDidDisconnect.fire();
+	}
+
+	/**
+	 * Fires the `onDidReconnect` event. Called when the main thread reports that
+	 * this session's connection to the runtime was re-established.
+	 */
+	fireDidReconnect(): void {
+		this._onDidReconnect.fire();
 	}
 
 	/**
@@ -683,6 +751,20 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			this._proxy.$emitLanguageRuntimeResourceUsage(session.metadata.sessionId, usage);
 		}));
 
+		// Forward connection state changes to the main thread (if the session
+		// supports them) so they can be relayed to proxy handles held by other
+		// extension hosts. These members are optional on the session interface.
+		if (session.onDidDisconnect) {
+			disposables.add(session.onDidDisconnect(() => {
+				this._proxy.$emitLanguageRuntimeDisconnect(session.metadata.sessionId);
+			}));
+		}
+		if (session.onDidReconnect) {
+			disposables.add(session.onDidReconnect(() => {
+				this._proxy.$emitLanguageRuntimeReconnect(session.metadata.sessionId);
+			}));
+		}
+
 		// Register the runtime
 		const handle = this._runtimeSessions.length;
 		this._runtimeSessions.push(session);
@@ -812,6 +894,30 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 		// Convert Map to plain object for IPC serialization
 		return Object.fromEntries(result);
+	}
+
+	async $listMissingPackages(
+		handle: number,
+		target: positron.RuntimeMissingPackagesTarget,
+		token: CancellationToken,
+	): Promise<positron.RuntimeMissingPackage[]> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot list missing packages: session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		return (await session.listMissingPackages?.(target, token)) ?? [];
+	}
+
+	async $getPackageDetail(
+		handle: number,
+		name: string,
+		token: CancellationToken,
+	): Promise<Partial<positron.LanguageRuntimePackage> | undefined> {
+		const packageManager = this.getPackageManagerOrThrow(handle, 'get package detail');
+		if (!packageManager.getPackageDetail) {
+			return undefined;
+		}
+		return packageManager.getPackageDetail(name, token);
 	}
 
 	async $restartSession(handle: number, workingDirectory?: string): Promise<void> {
@@ -1078,15 +1184,23 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
-	 * Set the discovery-complete flag without running an enumeration. Called
-	 * by the main thread on the warm-start fast path, where the discovery
-	 * cache has satisfied every manager and no real enumeration is needed.
-	 * Without this, late-registered runtime managers (those registered via
-	 * `registerLanguageRuntimeManager` after initial discovery) would never
-	 * see the flag flip and so would never self-discover.
+	 * Mark discovery complete on the warm-start fast path, where the main thread
+	 * served every cache-satisfied language from its discovery cache.
+	 *
+	 * This still runs a normal discovery pass, but with the cache-satisfied
+	 * languages in the skip set so they aren't needlessly re-walked. The point
+	 * is to catch a runtime manager registered via the public
+	 * `registerLanguageRuntimeManager` API *before* this signal arrived: its
+	 * language isn't cache-backed, so it was parked in `_runtimeManagers`
+	 * awaiting an enumeration pass that the warm start would otherwise skip,
+	 * stranding it forever. (Managers registered *after* the flag flips
+	 * self-discover via their own IIFE, so they were never at risk.)
+	 *
+	 * @param skipLanguageIds The cache-satisfied (and disabled) languages to
+	 * skip; supplied by the main thread.
 	 */
-	public $markRuntimeDiscoveryComplete(): void {
-		this._runtimeDiscoveryComplete = true;
+	public $markRuntimeDiscoveryComplete(skipLanguageIds?: string[]): Promise<void> {
+		return this.$discoverLanguageRuntimes([], skipLanguageIds);
 	}
 
 	/**
@@ -1280,7 +1394,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this.getRuntimeSessionInterface(session);
 	}
 
-	private getRuntimeSessionInterface(session?: positron.ActiveRuntimeSessionMetadata): positron.BaseLanguageRuntimeSession | undefined {
+	private getRuntimeSessionInterface(session?: extHostProtocol.IActiveRuntimeSessionMetadataDto): positron.BaseLanguageRuntimeSession | undefined {
 		// If there's no session, return undefined
 		if (!session) {
 			return undefined;
@@ -1301,13 +1415,43 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			return proxy;
 		}
 
-		// Create a proxy for this session
+		// Create a proxy for this session, seeding it with the current runtime
+		// state so that `getRuntimeState()` returns a useful value immediately.
 		const proxySession = new ExtHostRuntimeSessionProxy(
 			session.metadata,
 			session.runtimeMetadata,
+			session.runtimeState,
 			this._proxy);
 		this._runtimeProxies.set(sessionId, proxySession);
+
+		// Ask the main thread to forward state changes and connection events for
+		// this session so that the proxy stays in sync.
+		this._proxy.$subscribeToSession(sessionId);
 		return proxySession;
+	}
+
+	/**
+	 * Handles a runtime state change forwarded from the main thread for a
+	 * proxied session (one owned by another extension host).
+	 */
+	public $updateProxySessionState(sessionId: string, state: RuntimeState): void {
+		this._runtimeProxies.get(sessionId)?.setRuntimeState(state);
+	}
+
+	/**
+	 * Handles a disconnect notification forwarded from the main thread for a
+	 * proxied session.
+	 */
+	public $notifyProxySessionDisconnected(sessionId: string): void {
+		this._runtimeProxies.get(sessionId)?.fireDidDisconnect();
+	}
+
+	/**
+	 * Handles a reconnect notification forwarded from the main thread for a
+	 * proxied session.
+	 */
+	public $notifyProxySessionReconnected(sessionId: string): void {
+		this._runtimeProxies.get(sessionId)?.fireDidReconnect();
 	}
 
 	/**
@@ -1383,6 +1527,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		if (manager.onDidDiscoverRuntime) {
 			disposables.add(manager.onDidDiscoverRuntime(runtime => {
 				this.registerLanguageRuntime(extension, manager, runtime);
+			}));
+		}
+
+		// Attach an event handler to the onDidRemoveRuntime event, if present.
+		// This event notifies us when a previously registered runtime should be
+		// retracted (e.g. its environment was deleted, or de-duplication
+		// collapsed an alias that had already been registered).
+		if (manager.onDidRemoveRuntime) {
+			disposables.add(manager.onDidRemoveRuntime(runtimeId => {
+				this._proxy.$unregisterLanguageRuntime(runtimeId);
+				this._runtimeManagersByRuntimeId.delete(runtimeId);
 			}));
 		}
 
@@ -1511,11 +1666,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		languageId: string,
 		code: string,
 		token?: CancellationToken,
-		sessionId?: string
+		sessionId?: string,
+		whenBusy?: RuntimeBusyBehavior
 	): Promise<EvalResult> {
 		const evaluationId = generateUuid();
 
-		const promise = this._proxy.$evaluateCode(languageId, sessionId, code, evaluationId);
+		const promise = this._proxy.$evaluateCode(languageId, sessionId, code, evaluationId, whenBusy);
 
 		// If a cancellation token is provided, register a listener to cancel
 		// the evaluation when the token fires

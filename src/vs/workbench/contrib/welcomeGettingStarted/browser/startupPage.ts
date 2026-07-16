@@ -34,6 +34,8 @@ import { getActiveElement } from '../../../../base/browser/dom.js';
 import { isWeb } from '../../../../base/common/platform.js';
 import { IOnboardingService } from '../../welcomeOnboarding/common/onboardingService.js';
 import { ONBOARDING_STORAGE_KEY } from '../../welcomeOnboarding/common/onboardingTypes.js';
+import { IChatEntitlementService } from '../../../services/chat/common/chatEntitlementService.js';
+
 // --- Start Positron ---
 import { IPositronNewFolderService } from '../../../services/positronNewFolder/common/positronNewFolder.js';
 // --- End Positron ---
@@ -98,6 +100,7 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 		@INotificationService private readonly notificationService: INotificationService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IOnboardingService private readonly onboardingService: IOnboardingService,
+		@IChatEntitlementService private readonly chatEntitlementService: IChatEntitlementService,
 		// --- Start Positron ---
 		@IPositronNewFolderService private readonly positronNewFolderService: IPositronNewFolderService,
 		// --- End Positron ---
@@ -240,6 +243,16 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 	}
 
 	private tryShowOnboarding(): void {
+		// --- Start Positron ---
+		// Never auto-show the upstream onboarding wizard; it's VS Code / Copilot
+		// content that doesn't apply to Positron. See issue #13955. (Typed as
+		// boolean so the upstream body below stays reachable for clean merges.)
+		const suppressOnboarding: boolean = true;
+		if (suppressOnboarding) {
+			return;
+		}
+		// --- End Positron ---
+
 		if (this.environmentService.skipWelcome) {
 			return; // skip welcome flag is set
 		}
@@ -250,6 +263,10 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 
 		if (!this.configurationService.getValue<boolean>('workbench.welcomePage.experimentalOnboarding')) {
 			return; // experimental onboarding is disabled
+		}
+
+		if (this.chatEntitlementService.sentiment.hidden) {
+			return; // AI features are hidden, do not show AI-focused onboarding
 		}
 
 		if (!this.storageService.isNew(StorageScope.APPLICATION)) {
@@ -272,7 +289,7 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 
 // --- Start Positron ---
 function isStartupPageEnabled(configurationService: IConfigurationService, contextService: IWorkspaceContextService, environmentService: IWorkbenchEnvironmentService, positronNewFolderService: IPositronNewFolderService) {
-// --- End Positron ---
+	// --- End Positron ---
 	if (environmentService.skipWelcome) {
 		return false;
 	}

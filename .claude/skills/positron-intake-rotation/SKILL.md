@@ -1,5 +1,6 @@
 ---
 name: positron-intake-rotation
+disable-model-invocation: true
 description: This skill should be used when handling issue intake rotation duties for the Positron repository. It provides workflows for reviewing and organizing new issues, responding to discussions, handling support tickets, and searching for related content. Use this skill when on intake rotation duty, when helping someone with intake tasks, or when learning the intake rotation process.
 ---
 

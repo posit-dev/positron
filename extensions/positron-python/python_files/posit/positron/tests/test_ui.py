@@ -186,6 +186,41 @@ def test_get_packages_installed_attached(
     assert numpy_entry["attached"] is expected_attached
 
 
+def test_get_missing_imports() -> None:
+    """`_get_missing_imports` reports only modules that cannot be imported."""
+    from positron.ui import _get_missing_imports
+
+    # `sys` is stdlib and `numpy` is installed in the test environment; both are
+    # importable. A clearly-bogus name is not importable and is reported missing.
+    result = _get_missing_imports(None, [["sys", "numpy", "garfblatz_not_a_real_module"]])  # type: ignore[arg-type]
+
+    assert result == ["garfblatz_not_a_real_module"]
+
+
+def test_get_missing_imports_local_module_root(tmp_path) -> None:
+    """A local module in a provided import root is not reported as missing."""
+    from positron.ui import _get_missing_imports
+
+    # A sibling package that only resolves via the extra import root (e.g. the
+    # directory of the file being analyzed), not via sys.path.
+    (tmp_path / "helper").mkdir()
+    (tmp_path / "helper" / "__init__.py").write_text("")
+
+    # Without the root, the local module is reported missing.
+    assert _get_missing_imports(None, [["helper"]]) == ["helper"]  # type: ignore[arg-type]
+
+    # With the root, it is recognized as importable and omitted.
+    assert _get_missing_imports(None, [["helper"], [str(tmp_path)]]) == []  # type: ignore[arg-type]
+
+
+def test_get_missing_imports_invalid_params() -> None:
+    """`_get_missing_imports` rejects params that are not a list of names."""
+    from positron.ui import _get_missing_imports, _InvalidParamsError
+
+    with pytest.raises(_InvalidParamsError):
+        _get_missing_imports(None, ["not", "a", "nested", "list"])  # type: ignore[arg-type]
+
+
 class _StubMetadata:
     """Minimal `Distribution.metadata` stand-in (only the accessors we use)."""
 
@@ -255,6 +290,33 @@ def test_best_package_url(headers: Dict[str, Any], expected_url: Any) -> None:
     from positron.ui import _best_package_url
 
     assert _best_package_url(_StubDist(**headers)) == expected_url  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("spec", "expected"),
+    [
+        (">=3.0", True),
+        ("<3.0", False),
+        (">=99.0", False),
+        ("", True),  # empty specifier -> no constraint
+        ("not-a-real-spec", True),  # malformed -> conservative, do not hide
+    ],
+)
+def test_check_requires_python(kernel: PositronIPyKernel, spec: str, expected: bool) -> None:  # noqa: FBT001
+    """Each spec is evaluated against the running interpreter (any Python 3.x)."""
+    from positron.ui import _check_requires_python
+
+    result = _check_requires_python(kernel, [[spec]])
+
+    assert result == {spec: expected}
+
+
+def test_check_requires_python_multiple_specs(kernel: PositronIPyKernel) -> None:
+    from positron.ui import _check_requires_python
+
+    result = _check_requires_python(kernel, [[">=3.0", ">=99.0"]])
+
+    assert result == {">=3.0": True, ">=99.0": False}
 
 
 def test_is_module_loaded(ui_comm: DummyComm) -> None:
@@ -455,6 +517,128 @@ fig
         # platforms it's a file:// URL. Extract the actual file path accordingly.
         file_path = Path(path.replace("file://", "")) if path.startswith("file://") else Path(path)
         assert file_path.is_file(), f"Cached HTML file should exist: {file_path}"
+
+
+def test_get_package_detail_installed(kernel: PositronIPyKernel) -> None:
+    """_get_package_detail returns a dict with expected fields for an installed package."""
+    from positron.ui import _get_package_detail
+
+    result = _get_package_detail(kernel, ["pytest"])
+    assert result is not None
+    assert isinstance(result, dict)
+    assert result["name"] == "pytest"
+    assert "title" in result
+    assert isinstance(result["title"], str)
+
+
+def test_get_package_detail_unknown(kernel: PositronIPyKernel) -> None:
+    """_get_package_detail returns None for an unknown package name."""
+    from positron.ui import _get_package_detail
+
+    result = _get_package_detail(kernel, ["__no_such_package_xyz__"])
+    assert result is None
+
+
+def test_get_package_detail_invalid_params(kernel: PositronIPyKernel) -> None:
+    """_get_package_detail raises _InvalidParamsError for invalid params."""
+    from positron.ui import _get_package_detail, _InvalidParamsError
+
+    with pytest.raises(_InvalidParamsError):
+        _get_package_detail(kernel, [])
+
+    with pytest.raises(_InvalidParamsError):
+        _get_package_detail(kernel, [42])  # type: ignore[list-item]
+
+    with pytest.raises(_InvalidParamsError):
+        _get_package_detail(kernel, "pytest")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        # SPDX License-Expression is the top choice.
+        ({"License-Expression": "MIT"}, "MIT"),
+        # License-Expression beats a classifier.
+        (
+            {"License-Expression": "MIT", "Classifier": ["License :: OSI Approved :: GPL"]},
+            "MIT",
+        ),
+        # A short legacy License field is used.
+        ({"License": "BSD-3-Clause"}, "BSD-3-Clause"),
+        # An OSI license classifier is the fallback (last segment).
+        ({"Classifier": ["License :: OSI Approved :: MIT License"]}, "MIT License"),
+        # A multi-line legacy License (full text) is skipped in favour of a classifier.
+        (
+            {
+                "License": "Copyright ...\nfull license text\n...",
+                "Classifier": ["License :: OSI Approved :: Apache Software License"],
+            },
+            "Apache Software License",
+        ),
+        # A compound SPDX expression is reduced to its primary (first) license.
+        (
+            {"License-Expression": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0"},
+            "BSD-3-Clause",
+        ),
+        ({"License-Expression": "MIT OR Apache-2.0"}, "MIT"),
+        ({"License-Expression": "Apache-2.0 WITH LLVM-exception"}, "Apache-2.0"),
+        ({"License-Expression": "(MIT OR Apache-2.0)"}, "MIT"),
+        # No license metadata of any kind.
+        ({}, None),
+    ],
+    ids=[
+        "spdx-expression",
+        "expression-beats-classifier",
+        "short-legacy-license",
+        "classifier-fallback",
+        "multiline-license-skipped",
+        "compound-spdx-and",
+        "compound-spdx-or",
+        "spdx-with-exception",
+        "compound-spdx-parens",
+        "none",
+    ],
+)
+def test_best_license(headers: Dict[str, Any], expected: Any) -> None:
+    """_best_license prefers SPDX, then a one-line License, then a classifier."""
+    from positron.ui import _best_license
+
+    assert _best_license(_StubDist(**headers).metadata) == expected  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        # The plain Author field is preferred over the *-email field.
+        ({"Author": "Jane Doe", "Author-email": "Other Name <other@x.com>"}, "Jane Doe"),
+        # Maintainer is used when there is no Author.
+        ({"Maintainer": "Bob Smith"}, "Bob Smith"),
+        # Falls back to the email field, stripping the address.
+        ({"Author-email": "Jane Doe <jane@x.com>"}, "Jane Doe"),
+        # Multiple authors in the email field keep names, drop addresses.
+        (
+            {"Author-email": "Jane Doe <jane@x.com>, Bob Smith <bob@y.com>"},
+            "Jane Doe, Bob Smith",
+        ),
+        # "UNKNOWN" / empty placeholders are skipped in favour of a real field.
+        ({"Author": "UNKNOWN", "Author-email": "Jane Doe <jane@x.com>"}, "Jane Doe"),
+        # No usable author at all.
+        ({}, None),
+    ],
+    ids=[
+        "plain-author-preferred",
+        "maintainer-fallback",
+        "email-stripped",
+        "multiple-authors",
+        "unknown-skipped",
+        "none",
+    ],
+)
+def test_best_author(headers: Dict[str, Any], expected: Any) -> None:
+    """_best_author prefers plain-name fields and strips email addresses."""
+    from positron.ui import _best_author
+
+    assert _best_author(_StubDist(**headers).metadata) == expected  # type: ignore[arg-type]
 
 
 def test_is_not_plot_url_events(

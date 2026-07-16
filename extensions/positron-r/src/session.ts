@@ -18,6 +18,7 @@ import { RSessionManager } from './session-manager';
 import { LOGGER, supervisorApi } from './extension.js';
 import { ArkComm } from './ark-comm';
 import { RPackageManager } from './packages';
+import { listMissingRPackages } from './missingPackages';
 import { RMetadataExtra } from './r-installation';
 
 interface RPackageInstallation {
@@ -111,6 +112,12 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	private _resourceUsageEmitter =
 		new vscode.EventEmitter<positron.RuntimeResourceUsage>();
 
+	/** The emitter fired when the connection to the underlying runtime is lost */
+	private _onDidDisconnect = new vscode.EventEmitter<void>();
+
+	/** The emitter fired when the connection to the underlying runtime is re-established */
+	private _onDidReconnect = new vscode.EventEmitter<void>();
+
 	/** The Positron Supervisor extension API */
 	private adapterApi?: PositronSupervisorApi;
 
@@ -161,6 +168,12 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
 		this.onDidEndSession = this._exitEmitter.event;
 		this.onDidUpdateResourceUsage = this._resourceUsageEmitter.event;
+		this.onDidDisconnect = this._onDidDisconnect.event;
+		this.onDidReconnect = this._onDidReconnect.event;
+
+		// Ensure the emitters are disposed when the session is disposed
+		this._disposables.push(this._onDidDisconnect);
+		this._disposables.push(this._onDidReconnect);
 
 		// Timestamp the session creation
 		this._created = Date.now();
@@ -177,11 +190,22 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
 	onDidUpdateResourceUsage: vscode.Event<positron.RuntimeResourceUsage>;
+	onDidDisconnect: vscode.Event<void>;
+	onDidReconnect: vscode.Event<void>;
 
 	/**
 	 * Accessor for the current state of the runtime.
 	 */
 	get state(): positron.RuntimeState {
+		return this._state;
+	}
+
+	/**
+	 * Synchronously gets the current runtime state of the session.
+	 *
+	 * @returns The session's current runtime state.
+	 */
+	getRuntimeState(): positron.RuntimeState {
 		return this._state;
 	}
 
@@ -793,6 +817,16 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		return this._packageManager;
 	}
 
+	async listMissingPackages(
+		target: positron.RuntimeMissingPackagesTarget,
+		token?: vscode.CancellationToken,
+	): Promise<positron.RuntimeMissingPackage[]> {
+		if (!this._packageManager) {
+			return [];
+		}
+		return listMissingRPackages(this._packageManager, target, token);
+	}
+
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
 		this.adapterApi = await supervisorApi();
 
@@ -824,6 +858,20 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		kernel.onDidUpdateResourceUsage((usage) => {
 			this._resourceUsageEmitter.fire(usage);
 		});
+
+		// Forward the kernel's connection state changes, if it supports them.
+		const disconnectListener = kernel.onDidDisconnect?.(() => {
+			this._onDidDisconnect.fire();
+		});
+		if (disconnectListener) {
+			this._disposables.push(disconnectListener);
+		}
+		const reconnectListener = kernel.onDidReconnect?.(() => {
+			this._onDidReconnect.fire();
+		});
+		if (reconnectListener) {
+			this._disposables.push(reconnectListener);
+		}
 
 		return kernel;
 	}

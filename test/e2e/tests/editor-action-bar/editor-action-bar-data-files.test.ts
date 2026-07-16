@@ -78,7 +78,8 @@ test.describe('Editor Action Bar: Data Files', {
 
 			// Open data explorer via variable pane
 			if (testCase.variable) {
-				await openDataExplorerViaVariablePane(app, testCase.variable, testCase.tabName);
+				const sourceFileTab = testCase.openFile!.split('/').pop()!;
+				await openDataExplorerViaVariablePane(app, testCase.variable, testCase.tabName, sourceFileTab);
 			}
 
 			// Ensure the summary panel is visible
@@ -104,15 +105,36 @@ test.describe('Editor Action Bar: Data Files', {
 			await editorActionBar.verifyOpenInNewWindow(app.web, testCase.tabName);
 		});
 	}
+
+	test('Excel file shows "Open as Spreadsheet" on desktop only', async function ({ app, openDataFile }) {
+		// Open an Excel workbook directly via DuckDB.
+		await openDataFile('data-files/supermarkt_sales/supermarkt_sales.xlsx');
+		await expect(app.code.driver.currentPage.getByText('Data: supermarkt_sales.xlsx', { exact: true })).toBeVisible();
+
+		// "Open as Plain Text File" is never offered for Excel workbooks.
+		await editorActionBar.verifyButtonVisible('Open as Plain Text File', false);
+
+		// "Open as Spreadsheet" opens the file with the OS-native application, which is
+		// only possible in the desktop app; it is hidden in web/server mode.
+		await editorActionBar.verifyButtonVisible('Open as Spreadsheet', !app.web);
+	});
 });
 
 
-async function openDataExplorerViaVariablePane(app: Application, variable: string, tabName: string) {
+async function openDataExplorerViaVariablePane(app: Application, variable: string, tabName: string, sourceFileTab: string) {
 	await test.step('Open data explorer via variable pane', async () => {
+		const page = app.code.driver.currentPage;
+		// Run the source file so the data frame appears in the Variables pane.
 		await app.workbench.editor.playButton.click();
+		// Open the data frame in the Data Explorer.
 		await app.workbench.variables.doubleClickVariableRow(variable);
-		await app.code.driver.currentPage.getByRole('tablist').locator('.tab').first().click();
-		await app.code.driver.currentPage.getByLabel('Close').first().click();
-		await expect(app.code.driver.currentPage.getByText(tabName, { exact: true })).toBeVisible();
+		// Close the source file editor so only the Data Explorer remains. Scope the
+		// close to the source file's own tab: a page-wide `getByLabel('Close')` can
+		// match an unrelated control and leave the file editor open, whose (disabled)
+		// Save button would then trip the "Save not visible" assertion in the test.
+		const sourceTab = page.getByRole('tab', { name: sourceFileTab });
+		await sourceTab.hover();
+		await sourceTab.getByLabel('Close').click();
+		await expect(page.getByText(tabName, { exact: true })).toBeVisible();
 	});
 }

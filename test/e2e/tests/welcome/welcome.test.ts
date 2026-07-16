@@ -7,8 +7,7 @@ import { availableRuntimes } from '../../infra';
 import { test, tags } from '../_test.setup';
 
 test.use({
-	suiteId: __filename,
-	useLegacyNotebookEditor: true
+	suiteId: __filename
 });
 
 test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
@@ -57,12 +56,12 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 		});
 
 		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, python }) {
-			const { welcome, popups, editors, notebooks } = app.workbench;
+			const { welcome, popups, editors, notebooksPositron } = app.workbench;
 
 			await welcome.newNotebookButton.click();
 			await popups.clickItem('Python Notebook');
 			await editors.expectActiveEditorIconClassToMatch(/ipynb-ext-file-icon/);
-			await notebooks.expectKernelToBe(availableRuntimes['python'].name);
+			await notebooksPositron.kernel.expectBadgeToContain(availableRuntimes['python'].name);
 		});
 
 		test('Python - Verify clicking on `new file` from the Welcome page opens editor', async function ({ app, python }) {
@@ -74,13 +73,14 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 		});
 
 		test('R - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, sessions, r }) {
-			const { welcome, popups, editors, notebooks } = app.workbench;
+			const { welcome, popups, editors, notebooksPositron } = app.workbench;
 
 			await welcome.newNotebookButton.click();
 			await popups.clickItem('R Notebook');
 
 			await editors.expectActiveEditorIconClassToMatch(/ipynb-ext-file-icon/);
-			await notebooks.expectKernelToBe(availableRuntimes['r'].name);
+			// Verify the Positron notebook editor's kernel badge shows the R runtime.
+			await notebooksPositron.kernel.expectBadgeToContain(availableRuntimes['r'].name);
 			await sessions.deleteAll();
 		});
 

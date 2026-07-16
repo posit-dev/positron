@@ -5,6 +5,7 @@
 
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -31,13 +32,15 @@ import { ActivityItemOutputHtml } from './classes/activityItemOutputHtml.js';
 import { RuntimeItemPendingInput } from './classes/runtimeItemPendingInput.js';
 import { RuntimeItemRestartButton } from './classes/runtimeItemRestartButton.js';
 import { ActivityItemErrorMessage } from './classes/activityItemErrorMessage.js';
+import { ActivityItemErrorSuggestion } from './classes/activityItemErrorSuggestion.js';
+import { IConsoleError, IConsoleErrorFollowupService } from '../common/consoleErrorFollowup.js';
 import { ActivityItemOutputMessage } from './classes/activityItemOutputMessage.js';
 import { RuntimeItemStartupFailure } from './classes/runtimeItemStartupFailure.js';
 import { ActivityItem, ActivityItemOutput, RuntimeItemActivity } from './classes/runtimeItemActivity.js';
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
-import { DidNavigateInputHistoryUpEventArgs, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
+import { DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
@@ -1252,7 +1255,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * The _onFocusInput event emitter.
 	 */
-	private readonly _onFocusInputEmitter = this._register(new Emitter<void>);
+	private readonly _onFocusInputEmitter = this._register(new Emitter<FocusInputOptions>);
 
 	/**
 	 * The find widget for this console instance.
@@ -1389,6 +1392,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IConsoleFindWidgetFactory private readonly _consoleFindWidgetFactory: IConsoleFindWidgetFactory,
+		@IConsoleErrorFollowupService private readonly _consoleErrorFollowupService: IConsoleErrorFollowupService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -1718,8 +1722,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * Focuses the input for the console.
 	 */
-	focusInput() {
-		this._onFocusInputEmitter.fire();
+	focusInput(options: FocusInputOptions = {}) {
+		this._onFocusInputEmitter.fire(options);
 	}
 
 	requestFind() {
@@ -2719,6 +2723,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						languageRuntimeMessageError.traceback
 					)
 				);
+
+				// Fire-and-forget: ask followup providers (e.g. install a missing
+				// package) for suggestions and, if any, render them beneath the
+				// error. The error is already shown; this never blocks it.
+				this.addErrorFollowupSuggestions(languageRuntimeMessageError);
 			}));
 
 		// Add the onDidReceiveRuntimeMessageState event handler.
@@ -3454,6 +3463,43 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._runtimeItemActivities.set(parentId, runtimeItemActivity);
 			this.addRuntimeItem(runtimeItemActivity);
 		}
+	}
+
+	/**
+	 * Asks the console-error followup service for suggestions for an error and,
+	 * if any are returned, appends an ActivityItemErrorSuggestion beneath the
+	 * error (in the same activity group). Fire-and-forget: failures are ignored
+	 * so they never affect the already-rendered error.
+	 * @param error The runtime message error.
+	 */
+	private async addErrorFollowupSuggestions(error: ILanguageRuntimeMessageError): Promise<void> {
+		const consoleError: IConsoleError = {
+			sessionId: this._sessionMetadata.sessionId,
+			languageId: this._runtimeMetadata.languageId,
+			name: error.name,
+			message: error.message,
+			traceback: error.traceback,
+		};
+
+		let suggestions;
+		try {
+			suggestions = await this._consoleErrorFollowupService.getSuggestions(consoleError, CancellationToken.None);
+		} catch {
+			return;
+		}
+		if (this._store.isDisposed || suggestions.length === 0) {
+			return;
+		}
+
+		this.addOrUpdateRuntimeItemActivity(
+			error.parent_id,
+			new ActivityItemErrorSuggestion(
+				`${error.id}-suggestion`,
+				error.parent_id,
+				new Date(),
+				suggestions
+			)
+		);
 	}
 
 	/**

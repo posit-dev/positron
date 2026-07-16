@@ -21,6 +21,7 @@ import { RuntimeStatusIcon } from '../../positronConsole/browser/components/runt
 import { runtimeStateToRuntimeStatus, RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { useSessionRuntimeState } from '../../positronConsole/browser/components/useSessionRuntimeState.js';
 import { type ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
@@ -89,6 +90,7 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 	const quartoKernelManager = accessor.get(IQuartoKernelManager);
 	const menuService = accessor.get(IMenuService);
 	const contextKeyService = accessor.get(IContextKeyService);
+	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 
 	// State
 	const [documentUri, setDocumentUri] = React.useState<URI | undefined>(() =>
@@ -97,6 +99,10 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 		documentUri ? quartoKernelManager.getKernelState(documentUri) : QuartoKernelState.None);
 	const [session, setSession] = React.useState<ILanguageRuntimeSession | undefined>(() =>
 		documentUri ? quartoKernelManager.getSessionForDocument(documentUri) : undefined);
+	// Name of the interpreter that would start if code were run, shown when no
+	// kernel is running yet (e.g. in a Quarto preview editor).
+	const [preferredRuntimeName, setPreferredRuntimeName] = React.useState<string | undefined>(() =>
+		documentUri ? quartoKernelManager.getPreferredRuntimeForDocument(documentUri)?.runtimeName : undefined);
 
 	// Subscribe to the session's runtime state via the shared hook.
 	const runtimeState = useSessionRuntimeState(session);
@@ -104,6 +110,13 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 	// Set up event listeners
 	React.useEffect(() => {
 		const disposables = new DisposableStore();
+
+		// Recompute the prospective interpreter name for the current document.
+		const refreshPreferredRuntime = () => {
+			setPreferredRuntimeName(documentUri
+				? quartoKernelManager.getPreferredRuntimeForDocument(documentUri)?.runtimeName
+				: undefined);
+		};
 
 		// Listen for active editor changes
 		disposables.add(editorService.onDidActiveEditorChange(() => {
@@ -124,18 +137,34 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 			if (documentUri && e.documentUri.toString() === documentUri.toString()) {
 				setKernelState(e.newState);
 				setSession(e.session);
+				refreshPreferredRuntime();
 			}
 		}));
 
+		// The preferred interpreter can change as runtimes are discovered or
+		// registered (which may finish after the editor opens), so recompute
+		// the prospective name when that happens.
+		disposables.add(languageRuntimeService.onDidRegisterRuntime(refreshPreferredRuntime));
+		disposables.add(languageRuntimeService.onDidChangeRuntimeStartupPhase(refreshPreferredRuntime));
+
+		// Compute once for the current document.
+		refreshPreferredRuntime();
+
 		return () => disposables.dispose();
-	}, [editorService, quartoKernelManager, documentUri]);
+	}, [editorService, quartoKernelManager, languageRuntimeService, documentUri]);
 
 	// Prefer the session's runtime state. Fall back to the manager's
 	// pre-session kernel state (None / Error) when no session exists.
 	const runtimeStatus = runtimeState !== undefined
 		? runtimeStateToRuntimeStatus[runtimeState]
 		: quartoStateToRuntimeStatus[kernelState] ?? RuntimeStatus.Disconnected;
+	// Label priority:
+	// 1. A running session's runtime name.
+	// 2. When no kernel has started, the interpreter that would start if code
+	//    were run (so the badge names it instead of a bare "No Kernel").
+	// 3. The state label ("No Kernel", "Kernel Error", etc.) as a fallback.
 	const label = session?.runtimeMetadata.runtimeName
+		?? (kernelState === QuartoKernelState.None ? preferredRuntimeName : undefined)
 		?? quartoStateToLabel[kernelState]
 		?? '';
 

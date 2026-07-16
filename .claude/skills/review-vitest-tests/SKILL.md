@@ -1,6 +1,6 @@
 ---
 name: review-vitest-tests
-description: Use when reviewing Vitest test files for quality, maintainability, and adherence to Positron's testing patterns. Load this skill when test files need a quality check against the builder pattern, RTL patterns, and project conventions. Not for e2e or Playwright tests.
+description: Use when reviewing Vitest test files (.vitest.ts/.tsx) for quality against Positron's builder pattern, RTL patterns, and conventions. Not for e2e or Playwright tests.
 ---
 
 # Positron Vitest Test Review

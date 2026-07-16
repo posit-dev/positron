@@ -4,7 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect, FrameLocator, Page } from '@playwright/test';
+import { promisify } from 'util';
+import { exec } from 'child_process';
 import { QuickInput } from './quickInput.js';
+
+const execP = promisify(exec);
 
 export class Publisher {
 
@@ -19,6 +23,23 @@ export class Publisher {
 		const outerFrame = page.frameLocator('iframe.webview.ready');
 		const innerFrame = outerFrame.frameLocator('iframe#active-frame');
 		return { outerFrame, innerFrame };
+	}
+
+	/**
+	 * When publishing a Quarto document, the first-run wizard may ask whether to
+	 * publish the source code or the rendered document. This prompt appears on
+	 * macOS / some Publisher versions and is absent on others (e.g. the Linux
+	 * Workbench run), so it is handled optionally: select "Publish document with
+	 * source code" when the prompt shows within the timeout, otherwise no-op.
+	 */
+	async selectSourceCodeDeployment(): Promise<void> {
+		const sourceOption = this.quickInput.quickInputList.getByText('Publish document with source code', { exact: false });
+		try {
+			await sourceOption.waitFor({ state: 'visible', timeout: 5000 });
+			await sourceOption.click();
+		} catch {
+			// Deployment-type prompt not shown in this environment; continue.
+		}
 	}
 
 	/**
@@ -128,5 +149,30 @@ export class Publisher {
 	 */
 	async useSavedCredential(): Promise<void> {
 		await this.quickInput.selectQuickInputElement(0, false);
+	}
+
+	/**
+	 * Best-effort removal of the Posit Publisher credentials the extension keeps
+	 * in the OS secret store, so the next publish flow re-enters a fresh key.
+	 *
+	 * This self-heals the local-only footgun where the connect-data volume was
+	 * wiped (a new bootstrap key is minted) but a saved `connect-container`
+	 * credential still holds the previous, now-stale key. Only implemented for
+	 * macOS (the supported local-dev host); a no-op with a log elsewhere.
+	 */
+	async clearSavedCredentials(): Promise<void> {
+		if (process.platform !== 'darwin') {
+			console.log(`clearSavedCredentials: no-op on ${process.platform}; remove "Posit Publisher Safe Storage" from the OS secret store manually if the saved credential is stale.`);
+			return;
+		}
+		try {
+			// Delete every "Posit Publisher Safe Storage" login-keychain entry.
+			// `security` deletes one match per call, so loop until none remain.
+			for (let i = 0; i < 10; i++) {
+				await execP('security delete-generic-password -s "Posit Publisher Safe Storage"');
+			}
+		} catch {
+			// Non-zero exit once no matching entry remains (or none existed): done.
+		}
 	}
 }

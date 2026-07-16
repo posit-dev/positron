@@ -284,6 +284,18 @@ export enum RuntimeErrorBehavior {
 }
 
 /**
+ * Determines what happens when code is submitted for evaluation while the target
+ * runtime is busy.
+ */
+export enum RuntimeBusyBehavior {
+	/** Queue the code to run when the runtime next becomes idle. */
+	Queue = 'queue',
+
+	/** Reject the evaluation with an error instead of queueing it. */
+	Reject = 'reject',
+}
+
+/**
  * Possible reasons a language runtime could exit.
  */
 export enum RuntimeExitReason {
@@ -484,14 +496,17 @@ export enum DataConnectionNodeKind {
 	Table = 'table',
 	View = 'view',
 	Field = 'field',
+	GroupDatabases = 'group-databases',
 	GroupSchemas = 'group-schemas',
 	GroupTables = 'group-tables',
 	GroupViews = 'group-views',
 	GroupColumns = 'group-columns',
 	GroupIndexes = 'group-indexes',
-	GroupTriggers = 'group-triggers',
-	Trigger = 'trigger',
 	Index = 'index',
+	// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
+	Owner = 'owner',
+	// A pin on a Posit Connect server (positron-data-driver-pins).
+	Pin = 'pin',
 }
 
 /**

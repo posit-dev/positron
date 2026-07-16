@@ -11,16 +11,13 @@ import es from 'event-stream';
 import fancyLog from 'fancy-log';
 import * as fs from 'fs';
 import glob from 'glob';
-import gulp from 'gulp';
-import filter from 'gulp-filter';
-import plumber from 'gulp-plumber';
-import sourcemaps from 'gulp-sourcemaps';
+import { gulp, filter, plumber, sourcemaps } from './lib/gulp/facade.ts';
 import * as path from 'path';
 import * as nodeUtil from 'util';
 import * as ext from './lib/extensions.ts';
 import { getVersion } from './lib/getVersion.ts';
 import { createReporter } from './lib/reporter.ts';
-import * as task from './lib/task.ts';
+import * as task from './lib/gulp/task.ts';
 import * as tsb from './lib/tsb/index.ts';
 import { createTsgoStream, spawnTsgo } from './lib/tsgo.ts';
 import * as util from './lib/util.ts';
@@ -69,13 +66,16 @@ const compilations = [
 	'extensions/positron-duckdb/tsconfig.json',
 	'extensions/positron-environment/tsconfig.json',
 	'extensions/positron-data-driver-duckdb/tsconfig.json',
+	'extensions/positron-data-driver-pins/tsconfig.json',
 	'extensions/positron-data-driver-postgresql/tsconfig.json',
+	'extensions/positron-data-driver-redshift/tsconfig.json',
 	'extensions/positron-data-driver-sqlite/tsconfig.json',
 	'extensions/positron-environment-modules/tsconfig.json',
 	'extensions/positron-file-transfer/tsconfig.json',
 	'extensions/positron-ipywidgets/renderer/tsconfig.json',
 	'extensions/positron-javascript/tsconfig.json',
 	'extensions/positron-notebooks/tsconfig.json',
+	'extensions/positron-notebook-export/tsconfig.json',
 	'extensions/positron-pdf-server/tsconfig.json',
 	'extensions/positron-proxy/tsconfig.json',
 	'extensions/positron-python/tsconfig.json',
@@ -110,7 +110,7 @@ const compilations = [
 	'extensions/markdown-math/tsconfig.json',
 	'extensions/media-preview/tsconfig.json',
 	'extensions/merge-conflict/tsconfig.json',
-	'extensions/mermaid-chat-features/tsconfig.json',
+	'extensions/mermaid-markdown-features/tsconfig.json',
 	'extensions/terminal-suggest/tsconfig.json',
 	'extensions/microsoft-authentication/tsconfig.json',
 	'extensions/notebook-renderers/tsconfig.json',
@@ -130,14 +130,8 @@ const compilations = [
 	'.vscode/extensions/vscode-selfhost-test-provider/tsconfig.json',
 	'.vscode/extensions/vscode-selfhost-import-aid/tsconfig.json',
 	'.vscode/extensions/vscode-extras/tsconfig.json',
+	'.vscode/extensions/vscode-pr-pinger/tsconfig.json',
 ];
-
-// --- Start Positron ---
-// Add the open-remote-wsl extension on Windows
-if (process.platform === 'win32') {
-	compilations.push('extensions/open-remote-wsl/tsconfig.json');
-}
-// --- End Positron ---
 
 // --- Start Positron ---
 // Add the open-remote-wsl extension on Windows
@@ -301,39 +295,51 @@ const tasks = compilations.map(function (tsconfigFile) {
 	}));
 
 	// Tasks
-	gulp.task(transpileTask);
-	gulp.task(compileTask);
-	gulp.task(watchTask);
+	task.task(transpileTask);
+	task.task(compileTask);
+	task.task(watchTask);
 
 	return { transpileTask, compileTask, watchTask };
 });
 
 const transpileExtensionsTask = task.define('transpile-extensions', task.parallel(...tasks.map(t => t.transpileTask)));
-gulp.task(transpileExtensionsTask);
+task.task(transpileExtensionsTask);
 
-export const compileExtensionsTask = task.define('compile-extensions', task.parallel(...tasks.map(t => t.compileTask)));
-gulp.task(compileExtensionsTask);
+// --- Start Positron ---
+// positron-data-explorer-protocol must compile before extensions that depend on its out/ directory.
+// Running all compile tasks in parallel causes a race: the clean step deletes out/, and extensions
+// that import from positron-data-explorer-protocol fail if they start compiling before it rebuilds.
+const dataExplorerProtocolIndex = compilations.indexOf('extensions/positron-data-explorer-protocol/tsconfig.json');
+const compileExtensionsImpl = dataExplorerProtocolIndex >= 0
+	? task.series(
+		tasks[dataExplorerProtocolIndex].compileTask,
+		task.parallel(...tasks.filter((_, i) => i !== dataExplorerProtocolIndex).map(t => t.compileTask))
+	)
+	: task.parallel(...tasks.map(t => t.compileTask));
+export const compileExtensionsTask = task.define('compile-extensions', compileExtensionsImpl);
+// --- End Positron ---
+task.task(compileExtensionsTask);
 
 export const watchExtensionsTask = task.define('watch-extensions', task.parallel(...tasks.map(t => t.watchTask)));
-gulp.task(watchExtensionsTask);
+task.task(watchExtensionsTask);
 
 //#region Extension media
 
 export const compileExtensionMediaTask = task.define('compile-extension-media', () => ext.buildExtensionMedia(false));
-gulp.task(compileExtensionMediaTask);
+task.task(compileExtensionMediaTask);
 
 export const watchExtensionMedia = task.define('watch-extension-media', () => ext.buildExtensionMedia(true));
-gulp.task(watchExtensionMedia);
+task.task(watchExtensionMedia);
 
 export const compileExtensionMediaBuildTask = task.define('compile-extension-media-build', () => ext.buildExtensionMedia(false, '.build/extensions'));
-gulp.task(compileExtensionMediaBuildTask);
+task.task(compileExtensionMediaBuildTask);
 
 //#endregion
 
 // --- Start Positron ---
 
 export const copyExtensionBinariesTask = task.define('copy-extension-binaries', () => { ext.copyExtensionBinaries('.build/extensions'); });
-gulp.task(copyExtensionBinariesTask);
+task.task(copyExtensionBinariesTask);
 
 // --- End Positron ---
 
@@ -364,21 +370,21 @@ export const compileNonNativeExtensionsBuildTask = task.define('compile-non-nati
 	// --- End Positron ---
 	task.define('bundle-non-native-extensions-build', () => ext.packageNonNativeLocalExtensionsStream(false, false).pipe(gulp.dest('.build')))
 ));
-gulp.task(compileNonNativeExtensionsBuildTask);
+task.task(compileNonNativeExtensionsBuildTask);
 
 /**
  * Compiles the native extensions for the build
  * @note this does not clean the directory ahead of it. See {@link cleanExtensionsBuildTask} for that.
  */
 export const compileNativeExtensionsBuildTask = task.define('compile-native-extensions-build', () => ext.packageNativeLocalExtensionsStream(false, false).pipe(gulp.dest('.build')));
-gulp.task(compileNativeExtensionsBuildTask);
+task.task(compileNativeExtensionsBuildTask);
 
 /**
  * Compiles the built-in copilot extension for the build.
  * Used by non-CI local builds where copilot is not downloaded as a VSIX.
  */
 export const compileCopilotExtensionBuildTask = task.define('compile-copilot-extension-build', () => ext.packageCopilotExtensionStream(false).pipe(gulp.dest('.build')));
-gulp.task(compileCopilotExtensionBuildTask);
+task.task(compileCopilotExtensionBuildTask);
 
 /**
  * Compiles the extensions for the build.
@@ -395,17 +401,17 @@ export const compileAllExtensionsBuildTask = task.define('compile-extensions-bui
 	copyExtensionBinariesTask
 	// --- End Positron ---
 ));
-gulp.task(compileAllExtensionsBuildTask);
+task.task(compileAllExtensionsBuildTask);
 
 
 
 //#endregion
 
 export const compileWebExtensionsTask = task.define('compile-web', () => buildWebExtensions(false));
-gulp.task(compileWebExtensionsTask);
+task.task(compileWebExtensionsTask);
 
 export const watchWebExtensionsTask = task.define('watch-web', () => buildWebExtensions(true));
-gulp.task(watchWebExtensionsTask);
+task.task(watchWebExtensionsTask);
 
 async function buildWebExtensions(isWatch: boolean): Promise<void> {
 	const extensionsPath = path.join(root, 'extensions');

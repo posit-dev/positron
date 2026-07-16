@@ -10,7 +10,7 @@ import { QuickAccess } from './quickaccess';
 // The focus command for the Data Connections view (gated behind `dataConnections.enabled`).
 const DATA_CONNECTIONS_VIEW_FOCUS_COMMAND = 'workbench.panel.positronDataConnections.focus';
 
-// The "Configure Data Connection" / "New Data Connection" dialog and its surrounding modal.
+// The "Add Data Connection" -> "Configure Data Connection" dialog and its surrounding modal.
 const MODAL_DIALOG = '.positron-modal-dialog';
 const PARAMETER_FIELD = '.parameter-field';
 const DATA_CONNECTION_ENTRY_ROW = '.data-connection-entry-row';
@@ -65,7 +65,7 @@ export class DataConnections {
 	}
 
 	/**
-	 * Selects a provider in the "New Data Connection" dialog and advances to the configure step.
+	 * Selects a provider in the "Add Data Connection" dialog and advances to the configure step.
 	 * @param providerName The driver name shown on the provider card, e.g. 'PostgreSQL'.
 	 */
 	async selectProvider(providerName: string): Promise<void> {
@@ -76,14 +76,29 @@ export class DataConnections {
 	}
 
 	/**
-	 * Fills the connection form fields in the "Configure Data Connection" dialog. Keys are the
-	 * field labels (e.g. 'Connection Name', 'Host', 'Port', 'Database', 'User', 'Password') and
-	 * values are the text to enter.
-	 * @param fields A map of field label to value.
+	 * Selects a connection mechanism in the "Select how to connect" dialog and advances to the
+	 * configure step. This dialog only appears for providers that expose more than one mechanism.
+	 * @param mechanismLabel The label shown on the mechanism card, e.g. 'User & Password'.
 	 */
-	async fillConnectionInputs(fields: Record<string, string>): Promise<void> {
+	async selectConnectionMechanism(mechanismLabel: string): Promise<void> {
+		await test.step(`Select connection mechanism: ${mechanismLabel}`, async () => {
+			await this.dialog.locator('.mechanism-card').filter({ hasText: mechanismLabel }).click();
+			await this.nextButton.click();
+		});
+	}
+
+	/**
+	 * Fills the connection form fields in the "Configure Database" dialog. Labels (e.g. 'Connection
+	 * Name', 'Host', 'Port', 'Database', 'User', 'Password') map to the text to enter. Pass an object
+	 * for plain string labels, or an array of `[label, value]` entries when a label needs a RegExp
+	 * (e.g. `/^User/` to match a field rendered with an "(optional)" suffix). Note that `exact` is
+	 * ignored for RegExp matchers, so anchor the pattern yourself.
+	 * @param fields A map of field label to value, as an object or an array of entries.
+	 */
+	async fillConnectionInputs(fields: Record<string, string> | [string | RegExp, string][]): Promise<void> {
+		const entries = Array.isArray(fields) ? fields : Object.entries(fields);
 		await test.step('Fill connection inputs', async () => {
-			for (const [label, value] of Object.entries(fields)) {
+			for (const [label, value] of entries) {
 				const field = this.dialog.locator(PARAMETER_FIELD).filter({
 					has: this.code.driver.currentPage.getByText(label, { exact: true })
 				});
@@ -93,7 +108,7 @@ export class DataConnections {
 	}
 
 	/**
-	 * Saves the connection in the "Configure Data Connection" dialog and waits for it to close.
+	 * Saves the connection in the "Configure Database" dialog and waits for it to close.
 	 */
 	async save(): Promise<void> {
 		await this.saveButton.click();
@@ -165,6 +180,22 @@ export class DataConnections {
 	 */
 	async expandNode(label: string): Promise<void> {
 		await this.expandRow(this.treeRow(label), label);
+	}
+
+	/**
+	 * Double-clicks a previewable node (table, view, or column) to open it in the Data Explorer.
+	 * Reveals the row first so it is rendered, then dispatches the dblclick event directly on the
+	 * node row. Like {@link expandRow}, this uses `dispatchEvent` rather than a coordinate-based
+	 * click because the tree is a virtualized grid with absolutely-positioned rows.
+	 * @param label The node label, e.g. 'actor' or 'first_name'.
+	 */
+	async doubleClickNode(label: string): Promise<void> {
+		await test.step(`Double-click node: ${label}`, async () => {
+			const row = this.treeRow(label);
+			await this.revealNode(row);
+			await expect(row).toBeVisible();
+			await row.locator('.data-connection-node-row').dispatchEvent('dblclick');
+		});
 	}
 
 	/**

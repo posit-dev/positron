@@ -1,0 +1,24 @@
+---
+title: "Editable Cell Test"
+jupyter: python3
+---
+
+## Editable Cell
+
+This file is designed for testing edit-and-re-run scenarios with the toolbar.
+
+```{python}
+#| label: editable
+import time
+time.sleep(5)
+x = 42
+print(f"The value is: {x}")
+```
+
+
+```{python}
+import os
+os.getpid()
+```
+
+# End of file

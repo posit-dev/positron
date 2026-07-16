@@ -20,8 +20,8 @@ export { RunResult };
 export async function JupyterApp(
 	fixtureOptions: AppFixtureOptions
 ): Promise<{ app: Application; start: () => Promise<void>; stop: () => Promise<void> }> {
-	const { options, useLegacyNotebookEditor, enableDataConnections } = fixtureOptions;
-	const JUPYTER_WORKSPACE_PATH = '/home/jupyter-admin/qa-example-content/';
+	const { options, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant } = fixtureOptions;
+	const JUPYTER_WORKSPACE_PATH = '/home/jupyter-admin/test-files/';
 
 	const app = createApp({ ...options, workspacePath: JUPYTER_WORKSPACE_PATH });
 
@@ -32,7 +32,7 @@ export async function JupyterApp(
 		await app.positJupyter.auth.signIn();
 
 		// Now that the user exists, setup the environment
-		await setupJupyterEnvironment(useLegacyNotebookEditor, enableDataConnections);
+		await setupJupyterEnvironment(useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant);
 
 		// Open Positron from JupyterLab
 		await app.positJupyter.lab.openPositron();
@@ -42,7 +42,7 @@ export async function JupyterApp(
 		await app.workbench.quickInput.waitForQuickInputOpened();
 		await playwright.expect(app.workbench.quickInput.quickInputList.locator('a').filter({ hasText: '..' })).toBeVisible();
 
-		// Navigate folder-by-folder: /home/jupyter-admin/qa-example-content/
+		// Navigate folder-by-folder: /home/jupyter-admin/test-files/
 		// Split by '/' and filter out empty strings
 		// Skip first 2 items (home, jupyter-admin) since the picker opens to /home/jupyter-admin by default
 		const folderNames = JUPYTER_WORKSPACE_PATH.split('/').filter(part => part.length > 0).slice(2);
@@ -116,10 +116,10 @@ export async function JupyterApp(
  * Setup the complete Jupyter environment: Docker container, configuration, and permissions
  * NOTE: This must be called AFTER login, as login creates the jupyter-admin user
  */
-async function setupJupyterEnvironment(useLegacyNotebookEditor?: boolean, enableDataConnections?: boolean): Promise<void> {
+async function setupJupyterEnvironment(useLegacyNotebookEditor?: boolean, enableDataConnections?: boolean, enableFoundryAssistant?: boolean): Promise<void> {
 	const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
-	const DEFAULT_WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
-	const JUPYTER_WORKSPACE_PATH = '/home/jupyter-admin/qa-example-content/';
+	const DEFAULT_WORKSPACE_PATH = join(TEST_DATA_PATH, 'test-files');
+	const JUPYTER_WORKSPACE_PATH = '/home/jupyter-admin/test-files/';
 	const JUPYTER_USER_SERVER_DIR = '/home/jupyter-admin/.positron-server/';
 	const JUPYTER_USER_DATA_DIR = `${JUPYTER_USER_SERVER_DIR}data/User/`;
 
@@ -152,7 +152,7 @@ async function setupJupyterEnvironment(useLegacyNotebookEditor?: boolean, enable
 		'jupyter-test',
 		'/home/jupyter-admin/.positron-server/data/User/',
 		['settings.json', 'settingsDocker.json', 'settingsWorkbench.json'],
-		dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections })
+		dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant })
 	);
 	await copyKeyBindingsToContainer('jupyter-test', '/home/jupyter-admin/.positron-server/data/User/');
 

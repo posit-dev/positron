@@ -15,8 +15,8 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionMetadata } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IMainPositronContext, MainThreadLanguageRuntimeShape } from '../../../common/positron/extHost.positron.protocol.js';
-import { ExtHostLanguageRuntime } from '../../../common/positron/extHostLanguageRuntime.js';
+import { IActiveRuntimeSessionMetadataDto, IMainPositronContext, MainThreadLanguageRuntimeShape } from '../../../common/positron/extHost.positron.protocol.js';
+import { ExtHostLanguageRuntime, ExtHostRuntimeSessionProxy } from '../../../common/positron/extHostLanguageRuntime.js';
 import { SingleProxyRPCProtocol } from '../testRPCProtocol.js';
 
 function fakeMetadata(overrides: Partial<ILanguageRuntimeMetadata> = {}): ILanguageRuntimeMetadata {
@@ -42,13 +42,17 @@ function fakeMetadata(overrides: Partial<ILanguageRuntimeMetadata> = {}): ILangu
 function createMockShape() {
 	return new class extends mock<MainThreadLanguageRuntimeShape>() {
 		registrations: ILanguageRuntimeMetadata[] = [];
+		unregistrations: string[] = [];
 		override $registerLanguageRuntime(metadata: ILanguageRuntimeMetadata): void {
 			this.registrations.push(metadata);
 		}
-		override $unregisterLanguageRuntime(_runtimeId: string): void {
-			// no-op
+		override $unregisterLanguageRuntime(runtimeId: string): void {
+			this.unregistrations.push(runtimeId);
 		}
 		override $emitPerfMark(_extensionId: string, _name: string): void {
+			// no-op
+		}
+		override $completeLanguageRuntimeDiscovery(): void {
 			// no-op
 		}
 	};
@@ -128,6 +132,110 @@ describe('ExtHostLanguageRuntime - onDidRegisterRuntime', function () {
 		expect(shape.registrations[0].runtimeId).toBe(meta.runtimeId);
 		// ...but the public event has not fired yet (it would on broadcast back).
 		expect(seen).toEqual([]);
+	});
+});
+
+/** A manager that exposes an `onDidRemoveRuntime` event for retraction tests. */
+class RemovableManager extends mock<positron.LanguageRuntimeManager>() {
+	readonly removeEmitter = new Emitter<string>();
+	override readonly onDidRemoveRuntime = this.removeEmitter.event;
+}
+
+describe('ExtHostLanguageRuntime - onDidRemoveRuntime', function () {
+
+	const disposables = ensureNoLeakedDisposables();
+
+	let shape: ReturnType<typeof createMockShape>;
+	let runtime: ExtHostLanguageRuntime;
+
+	beforeEach(() => {
+		shape = createMockShape();
+		runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
+	});
+
+	function registerRemovableRuntime(): RemovableManager {
+		const manager = new RemovableManager();
+		disposables.add(manager.removeEmitter);
+		disposables.add(runtime.registerLanguageRuntimeManager(fakeExtension, 'r', manager));
+		disposables.add(runtime.registerLanguageRuntime(fakeExtension, manager, fakeMetadata({ runtimeId: 'r-1' })));
+		return manager;
+	}
+
+	it('retracts the runtime on the main thread when the manager fires onDidRemoveRuntime', () => {
+		const manager = registerRemovableRuntime();
+
+		manager.removeEmitter.fire('r-1');
+
+		expect(shape.unregistrations).toEqual(['r-1']);
+	});
+
+	it('does not retract the runtime again when the manager is later disposed', () => {
+		const manager = new RemovableManager();
+		disposables.add(manager.removeEmitter);
+		const managerRegistration = runtime.registerLanguageRuntimeManager(fakeExtension, 'r', manager);
+		disposables.add(runtime.registerLanguageRuntime(fakeExtension, manager, fakeMetadata({ runtimeId: 'r-1' })));
+
+		// The runtime is dropped from the manager map on retraction, so disposing
+		// the manager afterwards must not unregister the same id a second time.
+		manager.removeEmitter.fire('r-1');
+		managerRegistration.dispose();
+
+		expect(shape.unregistrations).toEqual(['r-1']);
+	});
+});
+
+/**
+ * A manager whose `discoverAllRuntimes` yields a fixed set of runtimes. Used to
+ * exercise the discovery-completion enumeration paths.
+ */
+class DiscoveringManager extends mock<positron.LanguageRuntimeManager>() {
+	constructor(private readonly _runtimes: positron.LanguageRuntimeMetadata[]) { super(); }
+	override async *discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+		for (const runtime of this._runtimes) {
+			yield runtime;
+		}
+	}
+}
+
+describe('ExtHostLanguageRuntime - discovery completion', function () {
+
+	const disposables = ensureNoLeakedDisposables();
+
+	let shape: ReturnType<typeof createMockShape>;
+	let runtime: ExtHostLanguageRuntime;
+
+	beforeEach(() => {
+		shape = createMockShape();
+		runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
+	});
+
+	it('enumerates a manager registered before warm-start completion', async () => {
+		// The race this guards: a runtime manager registered via the public API
+		// before discovery completed is parked in `_runtimeManagers`, waiting
+		// for an enumeration pass. On the warm-start fast path the main thread
+		// served every cached language from cache and signals completion via
+		// `$markRuntimeDiscoveryComplete` -- without enumerating here, the parked
+		// manager (whose language isn't cache-backed) would be stranded forever.
+		const testRuntime = fakeMetadata({ runtimeId: 'test-1', languageId: 'test' }) as unknown as positron.LanguageRuntimeMetadata;
+		const manager = new DiscoveringManager([testRuntime]);
+		disposables.add(runtime.registerLanguageRuntimeManager(fakeExtension, 'test', manager));
+
+		// Warm start completes; cached languages (r) are supplied in the skip set.
+		await runtime.$markRuntimeDiscoveryComplete(['r']);
+
+		expect(shape.registrations.map(r => r.runtimeId)).toEqual(['test-1']);
+	});
+
+	it('does not re-enumerate cache-satisfied managers on warm-start completion', async () => {
+		// A manager whose language was served from cache must not be re-walked:
+		// that is the whole point of the warm-start optimization.
+		const rRuntime = fakeMetadata({ runtimeId: 'r-1', languageId: 'r' }) as unknown as positron.LanguageRuntimeMetadata;
+		const manager = new DiscoveringManager([rRuntime]);
+		disposables.add(runtime.registerLanguageRuntimeManager(fakeExtension, 'r', manager));
+
+		await runtime.$markRuntimeDiscoveryComplete(['r']);
+
+		expect(shape.registrations).toEqual([]);
 	});
 });
 
@@ -290,5 +398,130 @@ describe('ExtHostLanguageRuntime', () => {
 			// Re-disposing must still find the (released) slot rather than throwing.
 			await expect(runtime.$disposeLanguageRuntime(secondHandle)).resolves.toBeUndefined();
 		});
+	});
+});
+
+/**
+ * A main-thread shape stub for proxy-session tests. It serves a single session
+ * (owned by "another" extension host) via `$getSession` and records the
+ * subscribe/unsubscribe calls the proxy makes for event forwarding.
+ */
+function createProxyShape(dto: IActiveRuntimeSessionMetadataDto) {
+	return new class extends mock<MainThreadLanguageRuntimeShape>() {
+		subscribed: string[] = [];
+		unsubscribed: string[] = [];
+		override async $getSession(sessionId: string): Promise<IActiveRuntimeSessionMetadataDto | undefined> {
+			return sessionId === dto.metadata.sessionId ? dto : undefined;
+		}
+		override $subscribeToSession(sessionId: string): void {
+			this.subscribed.push(sessionId);
+		}
+		override $unsubscribeFromSession(sessionId: string): void {
+			this.unsubscribed.push(sessionId);
+		}
+	};
+}
+
+function fakeSessionDto(overrides: Partial<IActiveRuntimeSessionMetadataDto> = {}): IActiveRuntimeSessionMetadataDto {
+	return {
+		metadata: {
+			sessionId: 's1',
+			sessionMode: LanguageRuntimeSessionMode.Console,
+		},
+		runtimeMetadata: fakeMetadata(),
+		runtimeState: RuntimeState.Idle,
+		...overrides,
+	};
+}
+
+describe('ExtHostLanguageRuntime - proxy session', function () {
+
+	const disposables = ensureNoLeakedDisposables();
+
+	it('getSession returns a proxy seeded with the current runtime state and subscribes for updates', async () => {
+		const shape = createProxyShape(fakeSessionDto({ runtimeState: RuntimeState.Busy }));
+		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
+
+		const session = await runtime.getSession('s1') as ExtHostRuntimeSessionProxy;
+		disposables.add(session);
+
+		// The proxy exposes the synchronous accessor seeded from the DTO...
+		expect(session.getRuntimeState()).toBe(RuntimeState.Busy);
+		// ...and asks the main thread to forward events for this session.
+		expect(shape.subscribed).toEqual(['s1']);
+	});
+
+	it('forwards state changes, disconnect and reconnect to the proxy', async () => {
+		const shape = createProxyShape(fakeSessionDto({ runtimeState: RuntimeState.Idle }));
+		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
+
+		const session = await runtime.getSession('s1') as ExtHostRuntimeSessionProxy;
+		disposables.add(session);
+
+		let disconnects = 0;
+		let reconnects = 0;
+		const stateChanges: RuntimeState[] = [];
+		disposables.add(session.onDidChangeRuntimeState(state => stateChanges.push(state)));
+		disposables.add(session.onDidDisconnect(() => disconnects++));
+		disposables.add(session.onDidReconnect(() => reconnects++));
+
+		runtime.$updateProxySessionState('s1', RuntimeState.Busy);
+		runtime.$notifyProxySessionDisconnected('s1');
+		runtime.$notifyProxySessionReconnected('s1');
+
+		expect({ state: session.getRuntimeState(), stateChanges, disconnects, reconnects })
+			.toEqual({ state: RuntimeState.Busy, stateChanges: [RuntimeState.Busy], disconnects: 1, reconnects: 1 });
+	});
+
+	it('does not fire onDidChangeRuntimeState when the forwarded state is unchanged', async () => {
+		const shape = createProxyShape(fakeSessionDto({ runtimeState: RuntimeState.Idle }));
+		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
+
+		const session = await runtime.getSession('s1') as ExtHostRuntimeSessionProxy;
+		disposables.add(session);
+
+		const stateChanges: RuntimeState[] = [];
+		disposables.add(session.onDidChangeRuntimeState(state => stateChanges.push(state)));
+
+		// Re-forwarding the current state is a no-op; a real transition fires once.
+		runtime.$updateProxySessionState('s1', RuntimeState.Idle);
+		runtime.$updateProxySessionState('s1', RuntimeState.Busy);
+
+		expect(stateChanges).toEqual([RuntimeState.Busy]);
+	});
+
+	it('unsubscribes from main-thread forwarding when the proxy is disposed', async () => {
+		const shape = createProxyShape(fakeSessionDto());
+		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
+
+		const session = await runtime.getSession('s1') as ExtHostRuntimeSessionProxy;
+		session.dispose();
+
+		expect(shape.unsubscribed).toEqual(['s1']);
+	});
+
+	it('returns the same proxy instance for repeated getSession calls', async () => {
+		const shape = createProxyShape(fakeSessionDto());
+		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
+
+		const first = await runtime.getSession('s1') as ExtHostRuntimeSessionProxy;
+		disposables.add(first);
+		const second = await runtime.getSession('s1') as ExtHostRuntimeSessionProxy;
+
+		// Cached: same object, and we only subscribe once.
+		expect(second).toBe(first);
+		expect(shape.subscribed).toEqual(['s1']);
+	});
+
+	it('ignores forwarded events for sessions with no live proxy', () => {
+		const shape = createProxyShape(fakeSessionDto());
+		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
+
+		// No proxy was created for this id, so forwarded events must be no-ops.
+		expect(() => {
+			runtime.$updateProxySessionState('s-unknown', RuntimeState.Busy);
+			runtime.$notifyProxySessionDisconnected('s-unknown');
+			runtime.$notifyProxySessionReconnected('s-unknown');
+		}).not.toThrow();
 	});
 });

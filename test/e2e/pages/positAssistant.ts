@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, FrameLocator } from '@playwright/test';
+import { expect, FrameLocator, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Toasts } from './dialog-toasts';
 
@@ -39,6 +39,30 @@ const STOP_BUTTON = 'button:has(svg.lucide-square)';
 // Chat-form overflow (...) menu — hosts the model picker for providers
 // (like OpenAI) that do not auto-select a default model.
 const CHAT_FORM_OVERFLOW_BUTTON = '.chat-form button[aria-haspopup="menu"]:has(svg.lucide-ellipsis)';
+
+// Model picker containers. The picker renders in two width-dependent modes
+// (see selectProviderModel): a flat radio group when inline, and per-provider
+// group containers when collapsed into the overflow (...) menu.
+const MODEL_RADIO_GROUP = '[data-slot="dropdown-menu-radio-group"]';
+const MODEL_MENU_GROUP = '[data-slot="dropdown-menu-group"]';
+// The inline model-picker trigger. ModeSelector (left) uses plain buttons and
+// the only other status-bar dropdown trigger with a chevron (the persona
+// selector) precedes the model selector in the DOM, so the model trigger is the
+// last chevron dropdown trigger in the chat form.
+const INLINE_MODEL_TRIGGER = '[data-slot="dropdown-menu-trigger"]:has(svg.lucide-chevron-down)';
+
+/**
+ * Maps an e2e provider id to the provider's display name as shown in the model
+ * picker's group headers. Sourced from the assistant's provider registry
+ * (packages/core/src/platform/provider-registry.ts).
+ */
+const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+	'anthropic-api': 'Anthropic',
+	'amazon-bedrock': 'AWS Bedrock',
+	'openai-api': 'OpenAI',
+	'ms-foundry': 'Microsoft Foundry',
+	'posit-ai': 'Posit AI',
+};
 
 // Chat message elements
 const CHAT_MESSAGE_USER = '.chat-message-user';
@@ -146,13 +170,33 @@ export class PositAssistant {
 	/**
 	 * Starts a new conversation by clicking the new chat button.
 	 * If the button is disabled (already on landing page), this is a no-op.
+	 *
+	 * The new-conversation button is disabled both while a response is streaming
+	 * and when the conversation is already empty (`isNewConversation`). That
+	 * disabled state is derived from async-loaded webview state (messages-loaded +
+	 * streaming), so immediately after the chat input renders the button can be
+	 * transiently enabled while messages are still loading, then flip to disabled
+	 * once an empty conversation finishes loading. A bare `isDisabled()` snapshot
+	 * followed by `click()` races that flip and fails with a 30s click timeout on
+	 * a now-disabled button, so guard the click and treat a disabled flip as the
+	 * desired "already on a fresh conversation" end state.
 	 */
 	async startNewConversation(): Promise<void> {
 		const button = this.frame.locator(NEW_CHAT_BUTTON);
 		if (await button.isDisabled()) {
+			// Already on a fresh conversation (or streaming) -- nothing to start.
 			return;
 		}
-		await button.click();
+		try {
+			await button.click({ timeout: 5000 });
+		} catch (e) {
+			// If the button flipped to disabled mid-click we're already on a fresh
+			// conversation, which is the desired end state; otherwise re-throw.
+			if (await button.isDisabled()) {
+				return;
+			}
+			throw e;
+		}
 		await this.waitForReady();
 	}
 
@@ -289,9 +333,10 @@ export class PositAssistant {
 	 * includes decorations (check icon column, trailing note/multiplier),
 	 * so we match on the span text instead.
 	 *
-	 * Some providers auto-pick a default and do not need this call. Models
-	 * beyond the initial slice are hidden behind a "More models" inline
-	 * disclosure — add that fallback when a test needs a non-top-tier model.
+	 * Some providers auto-pick a default and do not need this call. Only
+	 * top-tier models appear in the initial slice; the rest are hidden behind a
+	 * "More models" disclosure, which this method expands automatically when the
+	 * requested model isn't already shown.
 	 *
 	 * @param modelName Exact model name as displayed in the menu (e.g. "GPT-5.4 Mini").
 	 */
@@ -304,13 +349,156 @@ export class PositAssistant {
 		//    "Model" label span; that label is stable across states.
 		await this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))').click();
 
-		// 3. Click the desired model. `:text-is()` is exact-match so
-		//    "GPT-5.4" does not collide with "GPT-5.4 Mini".
-		await this.frame.locator(`[role="menuitem"]:has(span.flex-1:text-is("${modelName}"))`).click();
+		// 3. Locate the desired model. `:text-is()` is exact-match so
+		//    "GPT-5.4" does not collide with "GPT-5.4 Mini". Within each provider
+		//    group, less-preferred models (e.g. those flagged with a warning note,
+		//    like Microsoft Foundry's "model-router") are collapsed under a "More
+		//    models" inline disclosure -- a plain <button>, not a menuitem. When
+		//    more than one provider group is signed in, several "More models"
+		//    disclosures render at once, so the locator must not assume a single
+		//    match. Wait for the submenu to render (the model itself or a
+		//    disclosure), then expand disclosures one at a time -- re-querying,
+		//    since clicking removes the button -- until the model is shown or every
+		//    group has been expanded.
+		const model = this.frame.locator(`[role="menuitem"]:has(span.flex-1:text-is("${modelName}"))`);
+		const moreModels = this.frame.getByRole('button', { name: 'More models' });
+		await expect(model.or(moreModels.first()).first()).toBeVisible();
+		for (let remaining = await moreModels.count(); remaining > 0 && !(await model.isVisible()); remaining--) {
+			await moreModels.first().click();
+		}
+
+		// 4. Click the model.
+		await model.click();
 
 		// Menu closes on selection; wait for the trigger to collapse so
 		// subsequent actions (e.g. Send) don't race an open overlay.
 		await expect(this.frame.locator(CHAT_FORM_OVERFLOW_BUTTON)).toHaveAttribute('aria-expanded', 'false');
+	}
+
+	/**
+	 * Selects the top (first / default) model belonging to a specific provider,
+	 * scoping the choice to that provider's group in the model picker.
+	 *
+	 * WHY: More than one provider can be signed in at once. In particular AWS
+	 * Bedrock auto-signs-in whenever AWS credentials are present in the
+	 * environment, independent of whatever provider a test logged in with. The
+	 * picker then shows multiple provider groups, and model display names repeat
+	 * across them ("Claude Sonnet 5" appears under both Anthropic and AWS
+	 * Bedrock). Selecting by model name alone is provider-ambiguous and can
+	 * silently exercise the wrong provider (e.g. an auto-selected Bedrock
+	 * default). Scoping to the provider group guarantees the intended
+	 * provider+model combination. Picking the group's top model keeps this robust
+	 * to the frequent churn in the model list.
+	 *
+	 * Must be called on a fresh conversation (after `startNewConversation()`),
+	 * and the message that follows should be sent with `newConversation: false`,
+	 * because starting a new conversation drops the model selection.
+	 *
+	 * Handles both picker render modes (width-dependent):
+	 *  - menu mode (narrow status bar): the overflow (...) menu hosts a "Model"
+	 *    submenu where each provider is a `dropdown-menu-group` container.
+	 *  - inline mode (wide status bar, e.g. a maximized sidebar): the model
+	 *    trigger opens a flat radio group whose provider headers are sibling divs.
+	 *
+	 * @param provider e2e provider id (e.g. 'anthropic-api', 'amazon-bedrock').
+	 */
+	async selectProviderModel(provider: string): Promise<void> {
+		const providerName = PROVIDER_DISPLAY_NAMES[provider];
+		if (!providerName) {
+			throw new Error(`No model-picker display name mapped for provider "${provider}"`);
+		}
+
+		const overflow = this.frame.locator(CHAT_FORM_OVERFLOW_BUTTON);
+		const menuMode = await overflow.isVisible().catch(() => false);
+		if (menuMode) {
+			await this.selectProviderModelMenuMode(overflow, providerName);
+		} else {
+			await this.selectProviderModelInlineMode(providerName);
+		}
+	}
+
+	/**
+	 * Menu-mode path for {@link selectProviderModel}: open the overflow (...)
+	 * menu and its "Model" submenu, then click the first model in the provider's
+	 * group container.
+	 */
+	private async selectProviderModelMenuMode(overflow: Locator, providerName: string): Promise<void> {
+		await overflow.click();
+		// Open the "Model" submenu (SubTrigger carries the stable "Model" label).
+		await this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))').click();
+
+		// Scope to the provider's group (label + its model items live in one
+		// container).
+		const group = this.frame.locator(
+			`${MODEL_MENU_GROUP}:has([data-slot="dropdown-menu-label"] span:text-is("${providerName}"))`,
+		);
+		await expect(group).toBeVisible();
+
+		// Some providers (e.g. Microsoft Foundry) list every model under the
+		// "More models" disclosure with none shown directly, so the group has no
+		// model item until it's expanded.
+		const models = group.locator('[role="menuitem"]');
+		if (await models.count() === 0) {
+			await group.locator('button:has-text("More models")').click();
+		}
+		await models.first().click();
+
+		// Menu closes on selection; wait for the trigger to collapse so subsequent
+		// actions (e.g. Send) don't race an open overlay.
+		await expect(overflow).toHaveAttribute('aria-expanded', 'false');
+	}
+
+	/**
+	 * Inline-mode path for {@link selectProviderModel}: open the model trigger and
+	 * click the provider's top model. The radio group is flat, so the provider's
+	 * top model is the header div's immediately-following radio item (adjacent
+	 * sibling combinator scopes the choice to that provider).
+	 *
+	 * The open→select→close cycle is retried because the inline picker is not
+	 * stable to drive one-shot:
+	 *  - On open it auto-scrolls the selected item into view and runs refocus
+	 *    logic, which can transiently close the menu out from under a pending
+	 *    click.
+	 *  - Base UI radio items do NOT close the menu on selection (unlike the
+	 *    regular menu items used in menu mode), so the menu must be dismissed
+	 *    explicitly with Escape afterwards, or the overlay blocks the chat input.
+	 */
+	private async selectProviderModelInlineMode(providerName: string): Promise<void> {
+		const trigger = this.frame.locator(INLINE_MODEL_TRIGGER).last();
+		const radioGroup = this.frame.locator(MODEL_RADIO_GROUP);
+		const headerSelector = `div:has(> span:text-is("${providerName}"))`;
+		const header = radioGroup.locator(headerSelector);
+		// A model shown directly under the provider header (adjacent sibling).
+		const directTopModel = radioGroup.locator(`${headerSelector} + [role="menuitemradio"]`);
+		// The provider's "More models" disclosure, present as the header's adjacent
+		// sibling only when the provider has no model shown directly.
+		const moreModels = radioGroup.locator(`${headerSelector} + button:has-text("More models")`);
+		// The provider's top model, whether shown directly or revealed by expanding
+		// "More models": the first radio item following this provider's header.
+		const topModel = header.locator('xpath=./following-sibling::*[@role="menuitemradio"][1]');
+		const page = this.code.driver.currentPage;
+
+		await expect(async () => {
+			// Open the picker if it isn't already open (e.g. a prior iteration
+			// selected the model but Escape didn't land).
+			if (!(await radioGroup.isVisible().catch(() => false))) {
+				await trigger.click();
+				await expect(radioGroup).toBeVisible({ timeout: 5000 });
+			}
+			// Some providers (e.g. Microsoft Foundry) list every model under the
+			// "More models" disclosure with none shown directly; expand it so the
+			// provider has a selectable model.
+			if (await directTopModel.count() === 0 && await moreModels.isVisible().catch(() => false)) {
+				await moreModels.click();
+			}
+			// Short click timeout so a menu that closed mid-open fails fast and we
+			// reopen on the next iteration rather than hanging.
+			await topModel.click({ timeout: 5000 });
+			// Radio selection leaves the menu open; dismiss it so it can't obscure
+			// the chat input, and confirm it detached.
+			await page.keyboard.press('Escape');
+			await expect(radioGroup).toBeHidden({ timeout: 5000 });
+		}).toPass({ timeout: 30000 });
 	}
 
 	// --- Chat messages ---

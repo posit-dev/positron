@@ -11,14 +11,16 @@ import { status as ariaStatus } from '../../../../base/browser/ui/aria/aria.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICodeEditor, IViewZone, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { localize } from '../../../../nls.js';
-import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, CellExecutionState } from '../common/quartoExecutionTypes.js';
+import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, CellExecutionState, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { formatCellDuration, getRelativeTime } from '../../positronNotebook/browser/notebookCells/cellExecutionUtils.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Event as VSEvent, Emitter } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
+import { dirname } from '../../../../base/common/resources.js';
+import { Schemas } from '../../../../base/common/network.js';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
-import { isHTMLOutputWebviewMessage } from '../../positronWebviewPreloads/browser/notebookOutputUtils.js';
+import { isHTMLOutputWebviewMessage, isWheelForwardMessage, normalizeWheelDeltaY } from '../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeOutputKind, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeMessageType, ILanguageRuntimeResourceUsage } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { EditorLayoutInfo, EditorOption } from '../../../../editor/common/config/editorOptions.js';
@@ -36,6 +38,7 @@ import { IResourceUsageHistoryService } from '../../../services/positronConsole/
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { getDefaultHoverDelegate } from '../../../../base/browser/ui/hover/hoverDelegateFactory.js';
 import { IManagedHover } from '../../../../base/browser/ui/hover/hover.js';
+import { QuartoOutputQuickFix } from './QuartoOutputQuickFix.js';
 
 /**
  * Minimum height for a view zone in pixels.
@@ -113,6 +116,91 @@ export interface QuartoOutputViewZoneOptions {
 }
 
 /**
+ * Whether an inline-output webview's overlay should be shown for a view zone in
+ * its current scroll state.
+ *
+ * Inline output webviews are absolutely positioned (via CSS anchor positioning)
+ * over a placeholder element inside the editor's view zone, but the webview
+ * itself is mounted at the workbench root so it can't be clipped by normal
+ * editor scrolling. When the placeholder is not actually on-screen the
+ * fixed-position overlay falls back to a static position and "sticks" in the
+ * corner of the editor (see posit-dev/positron#13978).
+ *
+ * The reliable signal for "the placeholder is on-screen" is Monaco's own
+ * `monaco-visible-view-zone` attribute: Monaco adds it to (and removes it from)
+ * the view zone's DOM node in its render pass, based on whether the zone's
+ * whitespace intersects the viewport. Crucially it is updated BEFORE Monaco
+ * calls `onDomNodeTop` and BEFORE it applies the zone's new `display`/position,
+ * so reading it during a scroll handler is fresh.
+ *
+ * A geometry probe such as `getClientRects().length > 0` is not a substitute: it
+ * is one frame stale during scroll, and it stays truthy for a zone that has
+ * merely scrolled out of the editor viewport while Monaco still renders it -- in
+ * which case anchor positioning has already fallen back to the corner. An
+ * interactive widget tends to emit follow-up layout events that incidentally
+ * re-hide the overlay, but a static output such as a flextable table does not,
+ * so it stays stuck.
+ *
+ * @param zoneDomNode the view zone's outer DOM node (carries the attribute).
+ * @param anchor the placeholder element the overlay is anchored to.
+ * @returns true when the zone is on-screen and the anchor is still attached.
+ */
+export function isWebviewOverlayShown(zoneDomNode: HTMLElement, anchor: HTMLElement): boolean {
+	return zoneDomNode.hasAttribute('monaco-visible-view-zone') && anchor.isConnected;
+}
+
+/**
+ * Whether a `text/html` output is inert -- free of active content (scripts,
+ * iframes, objects, embeds, `javascript:` URLs, inline event handlers) -- and
+ * therefore safe to inject directly into the DOM rather than sandboxing it in a
+ * webview.
+ *
+ * Uses substring/pattern matching rather than a parser: a false negative (inert
+ * markup treated as active) merely routes to a webview, which still renders,
+ * while a false positive would be a security gap, so we err toward "active".
+ */
+export function isInertHtml(html: string): boolean {
+	const activePatterns = [
+		/<script/i,
+		/javascript:/i,
+		/on\w+\s*=/i, // onclick, onerror, etc.
+		/<iframe/i,
+		/<object/i,
+		/<embed/i,
+	];
+	return !activePatterns.some(pattern => pattern.test(html));
+}
+
+/**
+ * How a `text/html` output item should be rendered inline in a Quarto output
+ * view zone.
+ */
+export type HtmlRenderMode = 'inline' | 'webview' | 'warning';
+
+/**
+ * Decide how to render a `text/html` output item.
+ *
+ * - `inline`: the HTML is inert, so it is injected directly into the DOM.
+ * - `webview`: the HTML has active content and must be sandboxed. The raw-HTML
+ *   webview is built from the static HTML alone via `createRawHtmlOutputWebview`
+ *   and needs no runtime session. This is what lets cached R HTML widgets (e.g.
+ *   highcharter, leaflet) restore as interactive webviews after a reload or
+ *   reopen, before any kernel session reattaches (posit-dev/positron#14559).
+ * - `warning`: no webview service is available at all, so fall back to escaped
+ *   text with a "requires webview" notice.
+ *
+ * @param html the raw HTML content of the output item.
+ * @param hasWebviewService whether a webview service is available to sandbox
+ *   active HTML.
+ */
+export function chooseHtmlRenderMode(html: string, hasWebviewService: boolean): HtmlRenderMode {
+	if (isInertHtml(html)) {
+		return 'inline';
+	}
+	return hasWebviewService ? 'webview' : 'warning';
+}
+
+/**
  * View zone for displaying Quarto cell output inline in the editor.
  * Supports text, images, error output, and complex webview-based outputs.
  */
@@ -131,6 +219,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 */
 	public readonly onDomNodeTop = (_top: number): void => {
 		this._layoutAllWebviews();
+		// Monaco updates the zone's visibility attribute before this callback but
+		// applies its position afterward; re-check next frame to catch the
+		// settled state (matters for static outputs with no follow-up event).
+		this._scheduleWebviewLayout();
 		this._layoutCollapseButton();
 	};
 
@@ -147,6 +239,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private readonly _webviewsByOutputId = new Map<string, INotebookOutputWebview>();
 	// Map from output ID to the container element for re-layout during scrolling
 	private readonly _webviewContainersByOutputId = new Map<string, HTMLElement>();
+	// Pending animation-frame handle for a deferred webview re-layout, used to
+	// re-read overlay visibility after Monaco has applied a layout change.
+	private _webviewLayoutFrame: number | undefined;
 	// Cached clipping container for the editor
 	private _clippingContainer: HTMLElement | undefined;
 
@@ -258,6 +353,12 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// to persist the state to workspace storage.
 	private readonly _onDidChangeCollapsed = this._register(new Emitter<boolean>());
 	readonly onDidChangeCollapsed: VSEvent<boolean> = this._onDidChangeCollapsed.event;
+
+	// Quick-fix support for error outputs (suppressed by default; the live
+	// execution path calls enableQuickFix() to opt in).
+	private _quickFixEnabled = false;
+	private _cellContext: QuartoCellErrorContext | undefined;
+	private _quickFixRenderer: PositronReactRenderer | undefined;
 
 	constructor(
 		private readonly _editor: ICodeEditor,
@@ -932,6 +1033,16 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
+	 * Enable Fix/Explain quick-fix buttons for error outputs in this view
+	 * zone. Only the live execution path calls this; restore paths leave
+	 * the default (suppressed) so stale errors don't show buttons.
+	 */
+	enableQuickFix(context?: QuartoCellErrorContext): void {
+		this._quickFixEnabled = true;
+		this._cellContext = context;
+	}
+
+	/**
 	 * Add an output to the view zone.
 	 */
 	addOutput(output: ICellOutput): void {
@@ -1006,6 +1117,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Dispose all webviews and React renderers
 		this._disposeAllWebviews();
 		this._disposeAllReactRenderers();
+		this._quickFixRenderer?.dispose();
+		this._quickFixRenderer = undefined;
 
 		// Reset recomputing state
 		this._isRecomputing = false;
@@ -1152,9 +1265,15 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._stopTimer();
 		this._stopTimestampRefresh();
 		this._stopSparkline(true);
+		if (this._webviewLayoutFrame !== undefined) {
+			dom.getWindow(this.domNode).cancelAnimationFrame(this._webviewLayoutFrame);
+			this._webviewLayoutFrame = undefined;
+		}
 		this._disposeResizeObserver();
 		this._disposeAllWebviews();
 		this._disposeAllReactRenderers();
+		this._quickFixRenderer?.dispose();
+		this._quickFixRenderer = undefined;
 		if (this._copyButtonTimeout) {
 			clearTimeout(this._copyButtonTimeout);
 		}
@@ -2045,14 +2164,59 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		for (const [outputId, webview] of this._webviewsByOutputId) {
 			const container = this._webviewContainersByOutputId.get(outputId);
 			if (container) {
-				webview.webview.setAnchorElement(container, this._clippingContainer);
+				this._anchorWebview(webview, container);
 			}
 		}
+	}
+
+	/**
+	 * Anchor an output webview over its placeholder container and clip it to the
+	 * editor.
+	 *
+	 * When the view zone is not on-screen, anchoring to its placeholder would
+	 * leave the overlay "stuck" in the editor corner (see
+	 * {@link isWebviewOverlayShown}). In that case we hide the overlay instead,
+	 * and show + re-anchor it once the zone is on-screen again.
+	 */
+	private _anchorWebview(webview: INotebookOutputWebview, container: HTMLElement): void {
+		const overlay = webview.webview.container;
+		if (!this._isCollapsed && isWebviewOverlayShown(this.domNode, container)) {
+			overlay.style.visibility = 'visible';
+			webview.webview.setAnchorElement(container, this._clippingContainer);
+		} else {
+			overlay.style.visibility = 'hidden';
+		}
+	}
+
+	/**
+	 * Re-evaluate overlay visibility on the next animation frame.
+	 *
+	 * A layout change (scroll, height update, first render) updates the view
+	 * zone's `monaco-visible-view-zone` attribute in Monaco's own render pass,
+	 * which runs asynchronously after the triggering event. Reading the attribute
+	 * synchronously in the event handler can therefore be stale, and a static
+	 * output (e.g. a flextable table) emits no follow-up event to correct it.
+	 * Re-checking next frame reads the settled attribute. Unlike a deferred
+	 * geometry read, a deferred attribute read stays correct: the attribute is
+	 * stable once Monaco settles, so this does not fight the immediate updates
+	 * done during scrolling.
+	 */
+	private _scheduleWebviewLayout(): void {
+		if (this._webviewLayoutFrame !== undefined) {
+			return;
+		}
+		const win = dom.getWindow(this.domNode);
+		this._webviewLayoutFrame = win.requestAnimationFrame(() => {
+			this._webviewLayoutFrame = undefined;
+			this._layoutAllWebviews();
+		});
 	}
 
 	private _renderAllOutputs(): void {
 		this._disposeAllWebviews();
 		this._disposeAllReactRenderers();
+		this._quickFixRenderer?.dispose();
+		this._quickFixRenderer = undefined;
 		dom.clearNode(this._outputContainer);
 
 		for (const output of this._outputs) {
@@ -2386,7 +2550,6 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private _renderError(data: string): HTMLElement {
 		const container = document.createElement('div');
 		container.className = 'quarto-output-error';
-		container.setAttribute('role', 'alert');
 
 		let errorText: string;
 		try {
@@ -2409,11 +2572,32 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			errorText = data;
 		}
 
-		// Process ANSI escape sequences in error output
+		// Process ANSI escape sequences in error output. The alert role lives
+		// on the error text, not the container, so the interactive quick-fix
+		// buttons mounted below stay outside the assertive live region.
 		const pre = document.createElement('pre');
+		pre.setAttribute('role', 'alert');
 		const outputLines = ANSIOutput.processOutput(errorText);
 		this._renderAnsiOutputLines(outputLines, pre);
 		container.appendChild(pre);
+
+		// Mount Fix/Explain quick-fix buttons for current-session errors.
+		// QuartoOutputQuickFix self-gates on assistant availability and
+		// renders nothing when the assistant is unavailable.
+		if (this._quickFixEnabled) {
+			const quickFixContainer = document.createElement('div');
+			quickFixContainer.setAttribute('aria-live', 'off');
+			container.appendChild(quickFixContainer);
+
+			this._quickFixRenderer?.dispose();
+			this._quickFixRenderer = new PositronReactRenderer(quickFixContainer);
+			this._quickFixRenderer.render(
+				React.createElement(QuartoOutputQuickFix, {
+					errorContent: errorText,
+					cellContext: this._cellContext,
+				})
+			);
+		}
 
 		return container;
 	}
@@ -2454,43 +2638,51 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		const container = document.createElement('div');
 		container.className = 'quarto-output-html';
 
-		// For security, only render safe HTML (no scripts)
-		if (this._isSafeHtml(content)) {
-			safeSetInnerHtml(container, content);
-		} else if (this._webviewService && this._session) {
-			// Use webview for unsafe HTML content
-			container.className = 'quarto-output-webview-container';
-			this._renderHtmlInWebview(content, output, container);
-		} else {
-			// If HTML contains scripts and no webview service available,
-			// render as escaped text with a warning
-			const warning = document.createElement('div');
-			warning.className = 'quarto-output-warning';
-			warning.textContent = localize('unsafeHtml', 'Interactive HTML output (requires webview)');
-			container.appendChild(warning);
+		// Active HTML is sandboxed in a raw-HTML webview, which is built from the
+		// static content alone and needs no runtime session -- so cached R HTML
+		// widgets restore as webviews after a reload before any kernel reattaches
+		// (posit-dev/positron#14559).
+		switch (chooseHtmlRenderMode(content, !!this._webviewService)) {
+			case 'inline':
+				safeSetInnerHtml(container, content);
+				break;
+			case 'webview':
+				container.className = 'quarto-output-webview-container';
+				this._renderHtmlInWebview(content, output, container);
+				break;
+			case 'warning': {
+				// No webview service available: render as escaped text with a warning.
+				const warning = document.createElement('div');
+				warning.className = 'quarto-output-warning';
+				warning.textContent = localize('unsafeHtml', 'Interactive HTML output (requires webview)');
+				container.appendChild(warning);
 
-			const pre = document.createElement('pre');
-			pre.className = 'quarto-output-html-escaped';
-			pre.textContent = content.substring(0, 500) + (content.length > 500 ? '...' : '');
-			container.appendChild(pre);
+				const pre = document.createElement('pre');
+				pre.className = 'quarto-output-html-escaped';
+				pre.textContent = content.substring(0, 500) + (content.length > 500 ? '...' : '');
+				container.appendChild(pre);
+				break;
+			}
 		}
 
 		return container;
 	}
 
-	private _isSafeHtml(html: string): boolean {
-		// Simple check for potentially unsafe content
-		// Rich/interactive content will be handled by webview
-		const unsafePatterns = [
-			/<script/i,
-			/javascript:/i,
-			/on\w+\s*=/i, // onclick, onerror, etc.
-			/<iframe/i,
-			/<object/i,
-			/<embed/i,
-		];
-
-		return !unsafePatterns.some(pattern => pattern.test(html));
+	/**
+	 * Scroll the editor in response to a wheel event forwarded out of an
+	 * inline-output webview. An overlay webview iframe captures wheel events, so
+	 * without this the widget is a scroll trap: the surrounding document stops
+	 * scrolling once the pointer enters the widget (posit-dev/positron#14620).
+	 * The webview preload only forwards wheel events that nothing inside the
+	 * output can consume, so applying the delta to the editor's scroll position
+	 * lets the document scroll without fighting an inner scroller.
+	 */
+	private _handleWebviewWheel(message: unknown): void {
+		if (!isWheelForwardMessage(message)) {
+			return;
+		}
+		const delta = normalizeWheelDeltaY(message.deltaMode, message.deltaY, this._editor.getLayoutInfo().height);
+		this._editor.setScrollTop(this._editor.getScrollTop() + delta);
 	}
 
 	/**
@@ -2549,7 +2741,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			// Claim and position the webview
 			const editorWindow = dom.getWindow(this.domNode);
 			webview.webview.claim(this, editorWindow, undefined);
-			webview.webview.setAnchorElement(webviewContainer, this._clippingContainer);
+			this._anchorWebview(webview, webviewContainer);
 
 			// Listen for webview messages to get the actual content height
 			// The webview sends webviewMetrics messages with bodyScrollHeight when content loads/resizes
@@ -2562,13 +2754,20 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 					webviewContainer.style.height = `${boundedHeight}px`;
 					// Update the view zone height and re-layout the webview
 					this._updateHeight();
-					webview.webview.setAnchorElement(webviewContainer, this._clippingContainer);
+					this._anchorWebview(webview, webviewContainer);
+					// The height change re-lays out the zone asynchronously; re-check
+					// visibility once Monaco settles so the overlay shows on load.
+					this._scheduleWebviewLayout();
+					return;
 				}
+				this._handleWebviewWheel(message);
 			}));
 
 			// Update height when webview renders
 			this._webviewDisposables.add(webview.onDidRender(() => {
 				this._updateHeight();
+				this._anchorWebview(webview, webviewContainer);
+				this._scheduleWebviewLayout();
 			}));
 
 			// Handle scroll events - update webview position
@@ -2576,7 +2775,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			// but we keep this as a backup for any scroll events that might be missed
 			this._webviewDisposables.add(this._editor.onDidScrollChange(() => {
 				if (this._zoneId) {
-					webview.webview.setAnchorElement(webviewContainer, this._clippingContainer);
+					this._anchorWebview(webview, webviewContainer);
+					this._scheduleWebviewLayout();
 				}
 			}));
 
@@ -2595,7 +2795,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * Used for unsafe HTML that requires sandboxed rendering.
 	 */
 	private async _renderHtmlInWebview(content: string, output: ICellOutput, container: HTMLElement): Promise<void> {
-		if (!this._webviewService || !this._session) {
+		// A raw-HTML webview renders static content and needs no runtime session,
+		// so it can be built when restoring cached output before a kernel
+		// reattaches (posit-dev/positron#14559).
+		if (!this._webviewService) {
 			return;
 		}
 
@@ -2606,36 +2809,21 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		container.appendChild(loadingIndicator);
 
 		try {
-			// Create a runtime message for the HTML content
-			const runtimeMessage: ILanguageRuntimeMessageWebOutput = {
-				id: output.outputId,
-				parent_id: '',
-				when: new Date().toISOString(),
-				type: LanguageRuntimeMessageType.Output,
-				event_clock: 0,
-				kind: RuntimeOutputKind.ViewerWidget,
-				data: { 'text/html': content },
-				output_location: PositronOutputLocation.Console,
-				resource_roots: undefined,
-			};
+			// Resolve relative assets against the document's directory when it
+			// lives on disk (untitled documents have no meaningful base).
+			const baseUri = this._documentUri && this._documentUri.scheme !== Schemas.untitled
+				? dirname(this._documentUri)
+				: undefined;
 
-			// Create the webview
-			const webview = await this._webviewService.createNotebookOutputWebview({
-				id: output.outputId,
-				runtime: this._session,
-				output: runtimeMessage,
-				viewType: 'jupyter-notebook',
-			});
-
-			if (!webview) {
-				// No renderer available - show the HTML escaped
-				container.removeChild(loadingIndicator);
-				const pre = document.createElement('pre');
-				pre.className = 'quarto-output-html-escaped';
-				pre.textContent = content.substring(0, 1000) + (content.length > 1000 ? '...' : '');
-				container.appendChild(pre);
-				return;
-			}
+			// Render raw HTML content as a self-contained document (i.e. an R
+			// leaflet map). Using `createNotebookOutputWebview()` would find the
+			// built-in renderer for `text/html` and flatten the self-contained
+			// document, dropping `<head>` and scripts.
+			const webview = await this._webviewService.createRawHtmlOutputWebview(
+				output.outputId,
+				content,
+				baseUri,
+			);
 
 			// Store the webview and container for later cleanup and scroll updates
 			this._webviewsByOutputId.set(output.outputId, webview);
@@ -2653,7 +2841,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			// Claim and position the webview
 			const editorWindow = dom.getWindow(this.domNode);
 			webview.webview.claim(this, editorWindow, undefined);
-			webview.webview.setAnchorElement(container, this._clippingContainer);
+			this._anchorWebview(webview, container);
 
 			// Listen for webview messages to get the actual content height
 			this._webviewDisposables.add(webview.webview.onMessage(({ message }) => {
@@ -2662,13 +2850,20 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 					const boundedHeight = Math.min(message.bodyScrollHeight, maxHeight);
 					container.style.height = `${boundedHeight}px`;
 					this._updateHeight();
-					webview.webview.setAnchorElement(container, this._clippingContainer);
+					this._anchorWebview(webview, container);
+					// The height change re-lays out the zone asynchronously; re-check
+					// visibility once Monaco settles so the overlay shows on load.
+					this._scheduleWebviewLayout();
+					return;
 				}
+				this._handleWebviewWheel(message);
 			}));
 
 			// Update height when webview renders
 			this._webviewDisposables.add(webview.onDidRender(() => {
 				this._updateHeight();
+				this._anchorWebview(webview, container);
+				this._scheduleWebviewLayout();
 			}));
 
 			// Handle scroll events
@@ -2676,7 +2871,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			// but we keep this as a backup for any scroll events that might be missed
 			this._webviewDisposables.add(this._editor.onDidScrollChange(() => {
 				if (this._zoneId) {
-					webview.webview.setAnchorElement(container, this._clippingContainer);
+					this._anchorWebview(webview, container);
+					this._scheduleWebviewLayout();
 				}
 			}));
 

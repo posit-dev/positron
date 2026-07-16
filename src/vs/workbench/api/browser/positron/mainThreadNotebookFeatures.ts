@@ -10,7 +10,7 @@ import { IPositronNotebookService } from '../../../contrib/positronNotebook/brow
 import { IPositronNotebookInstance, NotebookOperationType } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronNotebookCell, CellSelectionStatus, IPositronNotebookCodeCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { getNotebookInstanceFromActiveEditorPane } from '../../../contrib/positronNotebook/browser/notebookUtils.js';
+import { getNotebookInstanceFromActiveEditorPane, getUnsupportedNotebookEditorMessage } from '../../../contrib/positronNotebook/browser/notebookUtils.js';
 import { CellSelectionType, getSelectedCells } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CellKind, CellEditType, ICellDto2 } from '../../../contrib/notebook/common/notebookCommon.js';
@@ -18,10 +18,13 @@ import { cellToCellDtoForRestore } from '../../../contrib/positronNotebook/brows
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { encodeBase64 } from '../../../../base/common/buffer.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { isImageMimeType, isTextBasedMimeType } from '../../../contrib/positronNotebook/browser/notebookMimeUtils.js';
+import { isImageMimeType, isSvgMimeType, isTextBasedMimeType } from '../../../contrib/positronNotebook/browser/notebookMimeUtils.js';
+import { rasterizeSvgToPng } from '../../../contrib/positronNotebook/browser/svgToPng.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../../contrib/positronNotebook/common/positronNotebookConfig.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { EditorsOrder } from '../../../common/editor.js';
+import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../../contrib/positronNotebook/common/positronNotebookCommon.js';
 
 /**
  * Main thread implementation of notebook features for extension host communication.
@@ -89,14 +92,33 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	}
 
 	/**
-	 * Gets the context information for the currently active notebook.
-	 * @returns The notebook context DTO, or undefined if no notebook is active.
+	 * Gets the context information for the currently active notebook. When no
+	 * Positron notebook is the active editor pane, falls back to the open
+	 * notebook attached to the foreground session, then to the most recently
+	 * active Positron notebook that is still open.
+	 * @returns The notebook context DTO, or undefined if no notebook is open.
 	 */
 	async $getActiveNotebookContext(): Promise<INotebookContextDTO | undefined> {
 		// Use existing helper function instead of service method
-		const instance = getNotebookInstanceFromActiveEditorPane(this._editorService);
+		let instance = getNotebookInstanceFromActiveEditorPane(this._editorService);
 		if (!instance) {
-			return undefined;
+			// A notebook may be open, but in the built-in editor rather than the
+			// Positron Notebook Editor that this API operates on. Surface an
+			// actionable error telling the user how to switch editors, instead of
+			// a bare "no notebook is open" that callers cannot distinguish from
+			// having nothing open at all.
+			const unsupportedEditorMessage = getUnsupportedNotebookEditorMessage(this._editorService);
+			if (unsupportedEditorMessage) {
+				throw new Error(unsupportedEditorMessage);
+			}
+			// A Positron notebook can be open without being the active editor
+			// pane (a Data Explorer or plot editor took the pane, focus moved
+			// to another tab mid-turn). Fall back to an open notebook so
+			// assistant tools can still find it (#14762).
+			instance = this._getFallbackNotebookInstance();
+			if (!instance) {
+				return undefined;
+			}
 		}
 
 		// Get current state from observables
@@ -367,6 +389,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 	/**
 	 * Gets the outputs from a code cell.
+	 *
+	 * SVG outputs are rasterized to base64-encoded PNG (falling back to raw
+	 * SVG text when rasterization fails) so assistants can attach them as
+	 * images (#12096).
+	 *
 	 * @param notebookUri The URI of the notebook as a string.
 	 * @param cellIndex The index of the cell.
 	 * @returns Array of output objects with MIME type and data (text or base64-encoded binary).
@@ -395,6 +422,10 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		// Convert outputs to structured DTOs
 		const outputDTOs: INotebookCellOutputDTO[] = [];
 		for (const output of outputs) {
+			// Items within one output are alternative representations of the same
+			// data. When a binary image representation already exists, don't also
+			// rasterize an SVG sibling into a duplicate image; it stays raw text.
+			const hasRasterImageSibling = output.outputs.some(item => isImageMimeType(item.mime));
 			for (const item of output.outputs) {
 				const mimeType = item.mime;
 
@@ -404,6 +435,25 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 						mimeType: mimeType,
 						data: `[stderr] ${item.data.toString()}`
 					});
+				}
+				// Rasterize SVG outputs to PNG so assistants can attach them as images;
+				// model providers reject image/svg+xml. Fall back to the raw SVG text
+				// when rasterization fails (#12096).
+				else if (isSvgMimeType(mimeType) && !hasRasterImageSibling) {
+					const svgText = item.data.toString();
+					const pngData = await rasterizeSvgToPng(svgText);
+					if (pngData !== undefined) {
+						outputDTOs.push({
+							mimeType: 'image/png',
+							data: pngData
+						});
+					} else {
+						this._logService.warn('Failed to rasterize SVG notebook output to PNG. Returning raw SVG text.');
+						outputDTOs.push({
+							mimeType: mimeType,
+							data: svgText
+						});
+					}
 				}
 				// Handle image MIME types - base64 encode
 				else if (isImageMimeType(mimeType)) {
@@ -663,6 +713,34 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			throw new Error(`No text model found for notebook: ${notebookUri}`);
 		}
 		return instance.textModel;
+	}
+
+	/**
+	 * Finds an open Positron notebook instance when none is the active editor
+	 * pane. Prefers the notebook attached to the foreground session (what the
+	 * interpreter picker shows, and what assistant notebook mode is keyed on),
+	 * then falls back to the notebook whose editor was most recently active.
+	 * @returns The notebook instance, or undefined if no Positron notebook
+	 * editor is open.
+	 */
+	private _getFallbackNotebookInstance(): IPositronNotebookInstance | undefined {
+		const foregroundNotebookUri = this._runtimeSessionService.foregroundSession?.metadata.notebookUri;
+		if (foregroundNotebookUri) {
+			const instances = this._positronNotebookService.listInstances(foregroundNotebookUri);
+			if (instances.length > 0) {
+				return instances[0];
+			}
+		}
+		for (const { editor } of this._editorService.getEditors(EditorsOrder.MOST_RECENTLY_ACTIVE)) {
+			if (editor.typeId !== POSITRON_NOTEBOOK_EDITOR_INPUT_ID || !editor.resource) {
+				continue;
+			}
+			const instances = this._positronNotebookService.listInstances(editor.resource);
+			if (instances.length > 0) {
+				return instances[0];
+			}
+		}
+		return undefined;
 	}
 
 	/**

@@ -38,7 +38,7 @@ const POSITRON_MODAL_DIALOG = '.positron-modal-dialog-box';
 
 
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
-const CONFIGURE_PROVIDERS_LINK = 'a[data-href="command:positron-assistant.configureProviders"]';
+const CONFIGURE_PROVIDERS_LINK = 'a[data-href="command:authentication.configureProviders"]';
 const CONFIGURE_PROVIDERS_BUTTON = '.action-widget .monaco-list-row span.title:has-text("Configure Model Providers...")';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text("Close")';

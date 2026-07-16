@@ -26,6 +26,16 @@ export interface KallichoreServerState {
 	/** The bearer token used to authenticate with the server */
 	bearer_token: string;
 
+	/**
+	 * A unique identifier reported by the server in its status, generated each
+	 * time the server starts. Used to detect when a previously persisted
+	 * connection now points at a different server instance (and therefore that
+	 * the saved bearer token is stale). May be undefined for state saved before
+	 * this field existed, or when connecting to an older server that does not
+	 * report it.
+	 */
+	server_id?: string;
+
 	/** The path to the log file */
 	log_path: string;
 

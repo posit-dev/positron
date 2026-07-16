@@ -38,9 +38,10 @@ import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
 import { Architecture } from '../common/utils/platform';
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
-import { whenTimeout } from './util';
+import { getActiveInterpreterConfigTarget, whenTimeout } from './util';
 import { PackageManagerFactory } from './packages/packageManagerFactory';
 import { IPackageManager } from './packages/types';
+import { listMissingPythonPackages } from './missingPackages';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
 const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/;
@@ -80,6 +81,15 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     /** The emitter for resource usage updates */
     private _resourceUsageEmitter = new vscode.EventEmitter<positron.RuntimeResourceUsage>();
+
+    /** The emitter fired when the connection to the underlying runtime is lost */
+    private _onDidDisconnect = new vscode.EventEmitter<void>();
+
+    /** The emitter fired when the connection to the underlying runtime is re-established */
+    private _onDidReconnect = new vscode.EventEmitter<void>();
+
+    /** Disposables owned by this session (emitters, kernel subscriptions, etc.) */
+    private _disposables: vscode.Disposable[] = [];
 
     /** The Positron Supervisor extension API */
     private adapterApi?: PositronSupervisorApi;
@@ -137,6 +147,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     onDidUpdateResourceUsage = this._resourceUsageEmitter.event;
 
+    onDidDisconnect = this._onDidDisconnect.event;
+
+    onDidReconnect = this._onDidReconnect.event;
+
     constructor(
         readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
         readonly metadata: positron.RuntimeSessionMetadata,
@@ -169,6 +183,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             await this.onStateChange(state);
         });
 
+        // Ensure the connection state emitters are disposed with the session
+        this._disposables.push(this._onDidDisconnect);
+        this._disposables.push(this._onDidReconnect);
+
         this._installer = this.serviceContainer.get<IInstaller>(IInstaller);
         this._interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         this._interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
@@ -177,6 +195,15 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {
         return this._runtimeInfo;
+    }
+
+    /**
+     * Synchronously gets the current runtime state of the session.
+     *
+     * @returns The session's current runtime state.
+     */
+    getRuntimeState(): positron.RuntimeState {
+        return this._state;
     }
 
     getDynState(): Thenable<positron.LanguageRuntimeDynState> {
@@ -359,6 +386,16 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         return this._packageManager;
     }
 
+    async listMissingPackages(
+        target: positron.RuntimeMissingPackagesTarget,
+        token?: vscode.CancellationToken,
+    ): Promise<positron.RuntimeMissingPackage[]> {
+        if (!this._packageManager) {
+            return [];
+        }
+        return listMissingPythonPackages(this, this._packageManager, target, token);
+    }
+
     private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {
         // Use the bundled ipykernel if requested.
         const didUseBundledIpykernel = await this._addBundledIpykernelToPythonPath(interpreter, kernelSpec);
@@ -514,12 +551,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // Update the active environment in the Python extension.
             // Storage-only: the session is already starting here, so the listener in
             // PythonRuntimeManager must not start another one.
-            this._interpreterPathService.update(
-                undefined,
-                vscode.ConfigurationTarget.WorkspaceFolder,
-                interpreter.path,
-                { startSession: false, source: 'positron-session-start' },
-            );
+            const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+            const { configTarget, folderUri } = getActiveInterpreterConfigTarget(workspaceService);
+            this._interpreterPathService.update(folderUri, configTarget, interpreter.path, {
+                startSession: false,
+                source: 'positron-session-start',
+            });
         }
 
         // Register for console width changes, if we haven't already
@@ -808,6 +845,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         if (this._kernel) {
             await this._kernel.dispose();
         }
+
+        // Dispose the connection state emitters and kernel subscriptions
+        this._disposables.forEach((disposable) => disposable.dispose());
+        this._disposables = [];
     }
 
     updateSessionName(sessionName: string): void {
@@ -893,6 +934,21 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         kernel.onDidUpdateResourceUsage((usage) => {
             this._resourceUsageEmitter.fire(usage);
         });
+
+        // Forward the kernel's connection state changes, if it supports them.
+        const disconnectListener = kernel.onDidDisconnect?.(() => {
+            this._onDidDisconnect.fire();
+        });
+        if (disconnectListener) {
+            this._disposables.push(disconnectListener);
+        }
+        const reconnectListener = kernel.onDidReconnect?.(() => {
+            this._onDidReconnect.fire();
+        });
+        if (reconnectListener) {
+            this._disposables.push(reconnectListener);
+        }
+
         return kernel;
     }
 

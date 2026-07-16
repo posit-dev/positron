@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { LOGGER } from '../extension';
 import { parseTestsFromFile } from './parser';
-import { ItemType, TestingTools, encodeNodeId } from './util-testing';
+import { ItemType, TestingTools, uriToFileNodeId } from './util-testing';
 import { testthatTestFilePattern } from './watcher';
 
 export async function discoverTestFiles(testingTools: TestingTools) {
@@ -21,14 +21,14 @@ export async function discoverTestFiles(testingTools: TestingTools) {
 
 export function getOrCreateFileItem(testingTools: TestingTools, uri: vscode.Uri) {
 	const testFile = path.basename(uri.fsPath);
-	const existing = testingTools.controller.items.get(encodeNodeId(testFile));
+	const existing = testingTools.controller.items.get(uriToFileNodeId(uri));
 	if (existing) {
 		LOGGER.info(`Found a file node for ${testFile}`);
 		return existing;
 	}
 
 	LOGGER.info(`Creating a file node for ${testFile}`);
-	const item = testingTools.controller.createTestItem(encodeNodeId(testFile), testFile, uri);
+	const item = testingTools.controller.createTestItem(uriToFileNodeId(uri), testFile, uri);
 	testingTools.testItemData.set(item, ItemType.File);
 	item.canResolveChildren = true;
 	testingTools.controller.items.add(item);

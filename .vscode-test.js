@@ -109,6 +109,11 @@ const extensions = [
 		mocha: { timeout: 60_000 }
 	},
 	{
+		label: 'positron-data-driver-pins',
+		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-pins-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
 		label: 'positron-data-driver-postgresql',
 		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-postgresql-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
@@ -116,6 +121,11 @@ const extensions = [
 	{
 		label: 'positron-data-driver-sqlite',
 		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-sqlite-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
+		label: 'positron-notebook-export',
+		workspaceFolder: 'extensions/positron-notebook-export/test-workspace',
 		mocha: { timeout: 60_000 }
 	},
 	{
@@ -131,6 +141,11 @@ const extensions = [
 	{
 		label: 'positron-zed',
 		workspaceFolder: path.join(os.tmpdir(), `positron-zed-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
+		label: 'positron-pdf-server',
+		workspaceFolder: path.join(os.tmpdir(), `positron-pdf-server-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
 	},
 	// --- End Positron ---

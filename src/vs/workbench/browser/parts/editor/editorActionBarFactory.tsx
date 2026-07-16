@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -11,7 +11,8 @@ import { localize } from '../../../../nls.js';
 import { IEditorGroupView } from './editor.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { EditorResourceAccessor, SideBySideEditor } from '../../../common/editor.js';
 import { IAction, Separator, SubmenuAction } from '../../../../base/common/actions.js';
 import { actionTooltip } from '../../../../platform/positronActionBar/common/helpers.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
@@ -69,9 +70,10 @@ export class EditorActionBarFactory extends Disposable {
 	//#region Private Properties
 
 	/**
-	 * Gets the menu disposable stores.
+	 * Gets the menu disposable stores. Registered so the stores are disposed when the
+	 * factory is disposed, and replacing an entry disposes the previous store.
 	 */
-	private readonly _menuDisposableStores = new Map<MenuId, DisposableStore>();
+	private readonly _menuDisposableStores = this._register(new DisposableMap<MenuId, DisposableStore>());
 
 	/**
 	 * Gets the menus.
@@ -240,10 +242,7 @@ export class EditorActionBarFactory extends Disposable {
 	 * @param menuId The menu ID.
 	 */
 	private createMenu(menuId: MenuId) {
-		// Dispose the current menu disposable store.
-		this._menuDisposableStores.get(menuId)?.dispose();
-
-		// Add the menu disposable store.
+		// Add the menu disposable store. Setting it disposes any existing store for this menu.
 		const disposableStore = new DisposableStore();
 		this._menuDisposableStores.set(menuId, disposableStore);
 
@@ -293,7 +292,11 @@ export class EditorActionBarFactory extends Disposable {
 		const secondaryActions: IAction[] = [];
 		const submenuDescriptors = new Set<SubmenuDescriptor>();
 		const options = {
-			arg: this._editorGroup.activeEditor?.resource,
+			// Resolve the primary side's URI so the argument is forwarded correctly for
+			// diff editors (e.g. the save-conflict editor), whose `resource` getter returns
+			// undefined when the two sides differ. This matches how the upstream editor
+			// title bar (EditorGroupView) builds the same EditorTitle menu actions.
+			arg: EditorResourceAccessor.getOriginalUri(this._editorGroup.activeEditor, { supportSideBySide: SideBySideEditor.PRIMARY }),
 			shouldForwardArgs: true
 		} satisfies IMenuActionOptions;
 		for (const [group, actions] of menu.getActions(options)) {
@@ -338,6 +341,18 @@ export class EditorActionBarFactory extends Disposable {
 
 		// Action bar elements.
 		const actionBarElements: React.JSX.Element[] = [];
+
+		// Get widgets for this menu location. Widgets are custom React components
+		// (like status indicators) filtered by context keys and sorted by order.
+		// A widget's placement determines whether it renders before or after the
+		// menu's action buttons; 'before' widgets are emitted here, ahead of the
+		// actions, and 'after' widgets (the default) below.
+		const widgets = PositronActionBarWidgetRegistry.getWidgets(menuId, this._contextKeyService);
+		for (const widget of widgets) {
+			if (widget.placement === 'before') {
+				actionBarElements.push(<ActionBarWidget key={widget.id} descriptor={widget} />);
+			}
+		}
 
 		/**
 		 * Processes an action.
@@ -470,12 +485,12 @@ export class EditorActionBarFactory extends Disposable {
 			// Process the action.
 			processAction(action);
 		}
-		// Get widgets for this menu location and add them to action bar elements.
-		// Widgets are custom React components (like status indicators) that appear alongside actions.
-		// They are filtered by context keys and sorted by order number.
-		const widgets = PositronActionBarWidgetRegistry.getWidgets(menuId, this._contextKeyService);
+		// Add the widgets that render after the menu's action buttons (the
+		// default placement); the 'before' widgets were already emitted above.
 		for (const widget of widgets) {
-			actionBarElements.push(<ActionBarWidget key={widget.id} descriptor={widget} />);
+			if (widget.placement !== 'before') {
+				actionBarElements.push(<ActionBarWidget key={widget.id} descriptor={widget} />);
+			}
 		}
 
 		// If there are secondary actions, add the more actions button. Note that the normal

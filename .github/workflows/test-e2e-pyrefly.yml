@@ -3,6 +3,22 @@ name: "Test: E2E Pyrefly (Ubuntu)"
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      skip_cache:
+        description: "Skip restoring caches (use when testing a specific commit)"
+        required: false
+        default: false
+        type: boolean
+      enable_diagnostic_logging:
+        required: false
+        description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -15,7 +31,7 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:141
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
       options: --user 0:0 --init
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
@@ -34,10 +50,14 @@ jobs:
       R_LIBS_USER: /usr/local/lib/R/site-library
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
+
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
 
       - name: Setup build environment
         uses: ./.github/actions/setup-build-env
@@ -45,6 +65,7 @@ jobs:
           distro: ubuntu
           install-playwright: 'true'
           github-token: ${{ github.token }}
+          skip-cache: ${{ inputs.skip_cache }}
 
       - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-test-env
@@ -75,11 +96,13 @@ jobs:
           SHARD_NAME: electron-pyrefly
           USE_KEY: true
           GH_SUMMARY_REPORT: true
+          ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
         run: |
           ALLOW_PYREFLY=true npx playwright test test/e2e/tests/lsp --project=e2e-electron --workers=1
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
+        continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}

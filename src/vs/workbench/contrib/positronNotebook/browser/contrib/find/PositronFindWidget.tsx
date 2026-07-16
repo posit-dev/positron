@@ -20,6 +20,7 @@ import { Codicon } from '../../../../../../base/common/codicons.js';
 import { localize } from '../../../../../../nls.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
+import type { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
 
@@ -37,6 +38,19 @@ const matchCountLabel = (matchIndex: number, matchCount: number) =>
 
 export interface PositronFindWidgetHandle {
 	focusFindInput(): void;
+}
+
+/**
+ * Keybinding hints appended to the action button tooltips, e.g. " (F3)".
+ * Empty or missing entries leave the tooltip as the plain label.
+ */
+export interface PositronFindWidgetKeybindingHints {
+	readonly previousMatch?: string;
+	readonly nextMatch?: string;
+	readonly close?: string;
+	readonly toggleReplace?: string;
+	readonly replace?: string;
+	readonly replaceAll?: string;
 }
 
 export interface PositronFindWidgetReplaceProps {
@@ -60,6 +74,8 @@ export interface PositronFindWidgetProps {
 	readonly matchIndex: IObservable<number | undefined>;
 	readonly matchCount: IObservable<number | undefined>;
 	readonly findInputOptions: IFindInputOptions;
+	readonly hoverManager?: IHoverManager;
+	readonly keybindingHints?: PositronFindWidgetKeybindingHints;
 	readonly isVisible: ISettableObservable<boolean>;
 	readonly replace?: PositronFindWidgetReplaceProps;
 	readonly onPreviousMatch: () => void;
@@ -107,6 +123,16 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 	const noMatches = !matchCount;
 	const hasNoResults = !!findText && matchCount === 0;
 	const replaceButtonsEnabled = !!findText;
+
+	// Button tooltips: localized label plus an optional keybinding hint,
+	// matching the editor find widget (e.g. "Next Match (F3)").
+	const hints = props.keybindingHints;
+	const previousMatchTooltip = previousMatchLabel + (hints?.previousMatch ?? '');
+	const nextMatchTooltip = nextMatchLabel + (hints?.nextMatch ?? '');
+	const closeTooltip = closeLabel + (hints?.close ?? '');
+	const toggleReplaceTooltip = toggleReplaceLabel + (hints?.toggleReplace ?? '');
+	const replaceTooltip = replaceLabel + (hints?.replace ?? '');
+	const replaceAllTooltip = replaceAllLabel + (hints?.replaceAll ?? '');
 
 	// --- Tab order key handlers ---
 	// These intercept Tab/Shift+Tab at points where the desired tab order
@@ -210,6 +236,8 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 						ariaLabel={previousMatchLabel}
 						className='action-button'
 						disabled={noMatches}
+						hoverManager={props.hoverManager}
+						tooltip={previousMatchTooltip}
 						onPressed={props.onPreviousMatch}
 					>
 						<ThemeIcon icon={Codicon.arrowUp} />
@@ -219,6 +247,8 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 						ariaLabel={nextMatchLabel}
 						className='action-button'
 						disabled={noMatches}
+						hoverManager={props.hoverManager}
+						tooltip={nextMatchTooltip}
 						onPressed={props.onNextMatch}
 					>
 						<ThemeIcon icon={Codicon.arrowDown} />
@@ -228,6 +258,8 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 					ref={closeButtonRef}
 					ariaLabel={closeLabel}
 					className='action-button close-button'
+					hoverManager={props.hoverManager}
+					tooltip={closeTooltip}
 					onKeyDown={handleCloseButtonKeyDown}
 					onPressed={() => props.isVisible.set(false, undefined)}
 				>
@@ -247,6 +279,8 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 				<ActionButton
 					ariaLabel={toggleReplaceLabel}
 					className='action-button toggle-replace'
+					hoverManager={props.hoverManager}
+					tooltip={toggleReplaceTooltip}
 					onPressed={() => props.replace!.isVisible.set(!props.replace!.isVisible.get(), undefined)}
 				>
 					<ThemeIcon icon={isReplaceVisible ? Codicon.chevronDown : Codicon.chevronRight} />
@@ -276,6 +310,8 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 								ariaLabel={replaceLabel}
 								className='action-button replace-button'
 								disabled={!replaceButtonsEnabled}
+								hoverManager={props.hoverManager}
+								tooltip={replaceTooltip}
 								onKeyDown={handleReplaceButtonKeyDown}
 								onPressed={props.replace.onReplace}
 							>
@@ -285,6 +321,8 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 								ariaLabel={replaceAllLabel}
 								className='action-button replace-all-button'
 								disabled={!replaceButtonsEnabled}
+								hoverManager={props.hoverManager}
+								tooltip={replaceAllTooltip}
 								onPressed={props.replace.onReplaceAll}
 							>
 								<ThemeIcon icon={Codicon.replaceAll} />

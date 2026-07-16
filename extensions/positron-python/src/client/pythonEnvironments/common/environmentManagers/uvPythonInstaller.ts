@@ -8,7 +8,8 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { traceError, traceInfo } from '../../../logging';
 import { exec } from '../externalDependencies';
-import { isUvInstalled, getAvailablePythonVersions, resetUvCache, isWindowsArm64 } from './uv';
+import { isUvInstalled, getAvailablePythonVersions, resetUvCache, isWindowsArm64, execUv } from './uv';
+import { Commands } from '../../../common/constants';
 import { Common, InterpreterQuickPickList } from '../../../common/utils/localize';
 import { getWorkspaceFolders } from '../../../common/vscodeApis/workspaceApis';
 import { createUvVenv } from '../../creation/provider/uvCreationProvider';
@@ -16,6 +17,19 @@ import { ExistingVenvAction, deleteEnvironment, pickExistingVenvAction } from '.
 import { getVenvExecutable, hasVenv } from '../../creation/common/commonUtils';
 import { MultiStepAction } from '../../../common/vscodeApis/windowApis';
 import { refreshEnvironments } from '../../../envExt/api.internal';
+
+/**
+ * Shows an error notification for the uv Python install flow with a button that
+ * opens the Python Language Pack output channel, so users can inspect the logs to
+ * see what went wrong.
+ * @param message The error message to display.
+ */
+export async function showUvInstallError(message: string): Promise<void> {
+    const selection = await vscode.window.showErrorMessage(message, Common.showLogs);
+    if (selection === Common.showLogs) {
+        await vscode.commands.executeCommand(Commands.ViewOutput);
+    }
+}
 
 /**
  * Prompts the user for confirmation before installing uv.
@@ -92,10 +106,10 @@ async function installPythonVersionAndGetPath(version: string, identifier?: stri
         // On Windows ARM64, use the full identifier to ensure we get ARM64 builds.
         // See: https://github.com/astral-sh/uv/issues/12906
         const installTarget = identifier ?? version;
-        await exec('uv', ['python', 'install', installTarget], { throwOnStdErr: false });
+        await execUv('uv', ['python', 'install', installTarget], { throwOnStdErr: false });
 
         // Get the path to the installed Python
-        const result = await exec('uv', ['python', 'find', version], { throwOnStdErr: false });
+        const result = await execUv('uv', ['python', 'find', version], { throwOnStdErr: false });
         const pythonPath = result?.stdout.trim();
 
         if (pythonPath) {
@@ -139,7 +153,7 @@ async function createGlobalVenv(
         // Create the venv using uv
         // --seed installs pip/setuptools for compatibility
         const args = ['venv', venvPath, '--seed', '-p', version];
-        await exec('uv', args, { throwOnStdErr: false });
+        await execUv('uv', args, { throwOnStdErr: false });
 
         // Return the path to the Python executable
         const pythonPath =
@@ -208,7 +222,7 @@ async function selectPythonVersion(): Promise<
     const versions = await getAvailablePythonVersions();
 
     if (versions.length === 0) {
-        vscode.window.showErrorMessage(InterpreterQuickPickList.UvInstall.noVersionsAvailable);
+        await showUvInstallError(InterpreterQuickPickList.UvInstall.noVersionsAvailable);
         return undefined;
     }
 
@@ -298,6 +312,14 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                     if (!(await installUv())) {
                         // User declined or installation failed - exit silently
                         return { success: false };
+                    }
+                    // Verify uv is now reachable. The installer drops the binary at a known
+                    // location and updates shell rc files, but those PATH changes don't reach
+                    // the running extension host. isUvInstalled() also probes uv's known
+                    // install locations; if it still can't be found, surface an actionable
+                    // message instead of the misleading "no versions available" error later.
+                    if (!(await isUvInstalled())) {
+                        return { success: false, error: InterpreterQuickPickList.UvInstall.uvNotFoundAfterInstall };
                     }
                 }
 

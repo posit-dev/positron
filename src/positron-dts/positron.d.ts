@@ -192,6 +192,25 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Describes what should happen when code is submitted for evaluation while
+	 * the target runtime is busy (i.e. not idle).
+	 */
+	export enum RuntimeBusyBehavior {
+		/**
+		 * The code should be queued and evaluated when the runtime next becomes
+		 * idle. This is the default behavior.
+		 */
+		Queue = 'queue',
+
+		/**
+		 * The evaluation should be rejected with an error instead of being
+		 * queued. Use this when running code against a stale view of the
+		 * session state is unacceptable and the caller would rather fail closed.
+		 */
+		Reject = 'reject',
+	}
+
+	/**
 	 * Possible reasons a language runtime could exit.
 	 */
 	export enum RuntimeExitReason {
@@ -1116,6 +1135,20 @@ declare module 'positron' {
 		onDidDiscoverRuntime?: vscode.Event<LanguageRuntimeMetadata>;
 
 		/**
+		 * An optional event that fires when a previously registered runtime
+		 * should be removed, carrying the `runtimeId` of the runtime to remove.
+		 *
+		 * Used to retract a runtime that a manager previously surfaced (via
+		 * `discoverAllRuntimes()` or `onDidDiscoverRuntime`) but that no longer
+		 * exists or has been superseded -- for example when the underlying
+		 * environment is deleted, or when de-duplication collapses several
+		 * aliases of one interpreter and the alias already registered is not the
+		 * survivor. Without this, such stale runtimes linger in the picker until
+		 * the window is reloaded.
+		 */
+		onDidRemoveRuntime?: vscode.Event<string>;
+
+		/**
 		 * An optional metadata validation function. If provided, Positron will
 		 * validate any stored metadata before attempting to use it to create a
 		 * new session. This happens when a workspace is re-opened, for example.
@@ -1263,6 +1296,15 @@ declare module 'positron' {
 		 * (http/https only) and surfaces it via the row's external-link button.
 		 */
 		url?: string;
+
+		/** One-line title/summary, richer than `description`. From the detail RPC. */
+		title?: string;
+
+		/** Display-ready author/maintainer string (already normalized by the runtime). */
+		author?: string;
+
+		/** Source repository label or URL (e.g. "CRAN", or a Project-URL). */
+		sourceRepository?: string;
 	}
 
 	/**
@@ -1342,6 +1384,45 @@ declare module 'positron' {
 			packageNames: string[],
 			token?: vscode.CancellationToken,
 		): Thenable<Map<string, Partial<LanguageRuntimePackage>>>;
+
+		/**
+		 * Fetch detailed metadata for a single package, called when the package
+		 * detail editor opens. Cheap, kernel-local fields only. Returns a partial
+		 * package to merge over the list entry, or undefined when unsupported.
+		 * @param name Package name
+		 * @param token Optional cancellation token
+		 */
+		getPackageDetail?(
+			name: string,
+			token?: vscode.CancellationToken,
+		): Thenable<Partial<LanguageRuntimePackage> | undefined>;
+	}
+
+	/**
+	 * Describes a package that is referenced by code but not installed in a
+	 * session's environment, and that the session knows how to install.
+	 */
+	export interface RuntimeMissingPackage {
+		/** Name to pass to installPackages (the installable/repository name). */
+		readonly name: string;
+
+		/**
+		 * The symbol as referenced in code, when it differs from `name` (e.g.
+		 * python import `cv2` -> install `opencv-python`). Used for display only.
+		 */
+		readonly referencedName?: string;
+	}
+
+	/**
+	 * Describes the code to analyze for missing packages. Callers supply either
+	 * raw code or the URI of a saved file (not both).
+	 */
+	export interface RuntimeMissingPackagesTarget {
+		/** Raw code to analyze (notebook cells, quarto chunks, unsaved buffers). */
+		readonly code?: string;
+
+		/** URI of a saved file to analyze. The runtime may read/parse it directly. */
+		readonly uri?: string;
 	}
 
 	/**
@@ -1371,6 +1452,46 @@ declare module 'positron' {
 
 		/** The state of the runtime that changes during a user session */
 		getDynState(): Thenable<LanguageRuntimeDynState>;
+
+		/**
+		 * Returns the current runtime state of the session.
+		 *
+		 * This is a synchronous accessor that reflects the session's last known
+		 * runtime state. Unlike `onDidChangeRuntimeState` (which only emits on
+		 * transitions), this can be read at any time, making it suitable for
+		 * gating logic that must verify the session is idle before dispatching
+		 * work.
+		 */
+		getRuntimeState?(): RuntimeState;
+
+		/**
+		 * An event that fires when the session's runtime state changes.
+		 *
+		 * Unlike `getRuntimeState()` (which reports the last known state at any
+		 * time), this only emits on transitions. Pair the two: read
+		 * `getRuntimeState()` for the current value, and subscribe here to be
+		 * notified of subsequent changes.
+		 */
+		onDidChangeRuntimeState?: vscode.Event<RuntimeState>;
+
+		/**
+		 * An event that fires when the session's connection to the underlying
+		 * runtime is lost. This can happen if, for example, the transport to the
+		 * kernel supervisor drops while the runtime itself keeps running.
+		 *
+		 * When this fires, any previously observed runtime state may be stale.
+		 * Callers should treat the session's state as unknown until either the
+		 * runtime state changes or `onDidReconnect` fires.
+		 */
+		onDidDisconnect?: vscode.Event<void>;
+
+		/**
+		 * An event that fires when the session's connection to the underlying
+		 * runtime is re-established after an `onDidDisconnect`. Callers should
+		 * re-synchronize by reading `getRuntimeState()`, since transitions that
+		 * happened while disconnected may not have been observed.
+		 */
+		onDidReconnect?: vscode.Event<void>;
 
 		/**
 		 * Calls a method in the runtime and returns the result.
@@ -1562,6 +1683,20 @@ declare module 'positron' {
 		 * Returns undefined if the runtime does not support package management.
 		 */
 		getPackageManager?(): LanguageRuntimePackageManager;
+
+		/**
+		 * Statically analyze code (or a file) and return packages that are
+		 * referenced but NOT installed AND that can be installed in this
+		 * session's environment.
+		 *
+		 * MUST NOT return packages that cannot be resolved/installed (e.g.
+		 * GitHub-only R packages, unknown PyPI names). SHOULD be fast and cache
+		 * internally; callers will not block UI on it.
+		 *
+		 * @param target The code or file to analyze.
+		 * @param token Optional cancellation token.
+		 */
+		listMissingPackages?(target: RuntimeMissingPackagesTarget, token?: vscode.CancellationToken): Thenable<RuntimeMissingPackage[]>;
 	}
 
 
@@ -1799,6 +1934,53 @@ declare module 'positron' {
 		constructor(line?: number);
 	}
 
+	export interface InputBoundaryRange {
+		/**
+		 * Zero indexed starting line of the input.
+		 */
+		readonly start: number;
+
+		/**
+		 * Zero indexed ending line of the input, exclusive.
+		 */
+		readonly end: number;
+	}
+
+	export type InputBoundaryKind = 'whitespace' | 'complete' | 'incomplete' | 'invalid';
+
+	export interface InputBoundary {
+		/**
+		 * The line range of this input boundary, relative to the requested range.
+		 */
+		readonly range: InputBoundaryRange;
+
+		/**
+		 * The parse status of this input.
+		 */
+		readonly kind: InputBoundaryKind;
+
+		/**
+		 * Additional data for this input boundary.
+		 */
+		readonly data?: {
+			readonly message?: string;
+		};
+	}
+
+	export interface InputBoundaryProvider {
+		/**
+		 * Given a document range, return the input boundaries within that range.
+		 *
+		 * @param document The document containing the requested range.
+		 * @param range The range to split into input boundaries.
+		 * @param token A cancellation token.
+		 * @return The input boundaries within the requested range.
+		 */
+		provideInputBoundaries(document: vscode.TextDocument,
+			range: vscode.Range,
+			token: vscode.CancellationToken): vscode.ProviderResult<InputBoundary[]>;
+	}
+
 	export interface HelpTopicProvider {
 		/**
 		 * Given a cursor position, return the help topic relevant to the cursor
@@ -1854,6 +2036,13 @@ declare module 'positron' {
 		label: string;
 
 		/**
+		 * An optional, longer help text shown beneath the field to explain the parameter's purpose or
+		 * its behavior when left blank (e.g. "Defaults to your operating system account if empty").
+		 * Distinct from `placeholder`, which shows an example of the expected value.
+		 */
+		description?: string;
+
+		/**
 		 * Whether this parameter is required.
 		 */
 		required?: boolean;
@@ -1872,6 +2061,19 @@ declare module 'positron' {
 			type: DataConnectionParameterType.File;
 			defaultValue?: string;
 			placeholder?: string;
+
+			/**
+			 * File-type filters for the file picker opened by the field's Browse button, in the
+			 * same format as {@link vscode.OpenDialogOptions.filters}: each key is a human-readable
+			 * label and each value is a list of extensions without dots, for example:
+			 * ```ts
+			 * { 'SQLite Files': ['sqlite', 'sqlite3', 'db'] }
+			 * ```
+			 * Filters are shown in declaration order and the first one is the picker's default
+			 * selection. An "All Files" option is always appended, so drivers should not declare
+			 * one. When omitted, the picker shows "All Files" only.
+			 */
+			filters?: { [name: string]: string[] };
 		}
 		| {
 			type: DataConnectionParameterType.Number;
@@ -1902,6 +2104,14 @@ declare module 'positron' {
 			type: DataConnectionParameterType.String;
 			secret: true;
 			placeholder?: string;
+
+			/**
+			 * Whether the input is masked (rendered like a password field). Defaults to `true` for
+			 * secret strings. Set to `false` to render the value in plaintext while still storing it
+			 * in secret storage -- useful for values the user should be able to read back as they
+			 * type, such as a connection string.
+			 */
+			masked?: boolean;
 		}
 	);
 
@@ -1911,8 +2121,59 @@ declare module 'positron' {
 	export type DataConnectionParameterValues = Record<string, string | number | boolean>;
 
 	/**
-	 * A driver that provides data connections through the 'New Data Connection' dialog.
+	 * A configuration mechanism for a data connection driver. A driver exposes one or more
+	 * mechanisms, each describing a distinct way to configure a connection (for example, a
+	 * PostgreSQL driver may offer separate mechanisms for user/password and certificate-based
+	 * authentication). Each mechanism carries its own set of parameters.
 	 */
+	export interface DataConnectionMechanism {
+		/**
+		 * A stable identifier for the mechanism, unique within the driver.
+		 */
+		id: string;
+
+		/**
+		 * A short user-facing label for the mechanism (e.g. 'Username & Password').
+		 */
+		label: string;
+
+		/**
+		 * A user-facing description of the mechanism, shown as supporting text.
+		 */
+		description: string;
+
+		/**
+		 * The parameters required to configure a connection using this mechanism.
+		 */
+		parameters: DataConnectionParameter[];
+	}
+
+	/**
+	 * A driver that provides data connections through the 'New Database' dialog.
+	 */
+	/**
+	 * A named variant of generated connection code for a single language. A driver may offer
+	 * several variants per language (for example, Python `sqlite3` vs `SQLAlchemy`) so users can
+	 * pick the library they prefer.
+	 */
+	export interface ConnectionCodeVariant {
+		/**
+		 * A stable identifier for the variant (e.g. 'sqlite3', 'sqlalchemy'). Unique within the
+		 * variants returned for a given language.
+		 */
+		id: string;
+
+		/**
+		 * A user-facing label for the variant (e.g. 'sqlite3', 'SQLAlchemy').
+		 */
+		label: string;
+
+		/**
+		 * The generated connection code for this variant.
+		 */
+		code: string;
+	}
+
 	export interface DataConnectionDriver {
 		/**
 		 * The driver identifier.
@@ -1935,9 +2196,11 @@ declare module 'positron' {
 		iconSvg: string;
 
 		/**
-		 * The driver parameters.
+		 * The configuration mechanisms this driver supports. Each mechanism describes a distinct
+		 * way to configure a connection and carries its own set of parameters. A driver must expose
+		 * at least one mechanism.
 		 */
-		parameters: DataConnectionParameter[];
+		mechanisms: DataConnectionMechanism[];
 
 		/**
 		 * The language identifiers this driver supports.
@@ -1945,9 +2208,45 @@ declare module 'positron' {
 		supportedLanguageIds: string[];
 
 		/**
-		 * Connects using the provided parameter values.
+		 * Connects using the selected mechanism and the provided parameter values.
+		 *
+		 * @param mechanismId The id of the mechanism the user selected. One of this driver's
+		 *   `mechanisms`.
+		 * @param parameters The current values of the parameters defined by the selected mechanism.
 		 */
-		connect(parameters: DataConnectionParameterValues): Thenable<DataConnection>;
+		connect(mechanismId: string, parameters: DataConnectionParameterValues): Thenable<DataConnection>;
+
+		/**
+		 * Generates one or more named code variants that connect to this data source in the given
+		 * language, using the selected mechanism and the provided parameter values. The language is
+		 * one of the driver's `supportedLanguageIds`; drivers that report no supported languages need
+		 * not implement this method. Variants are returned in preference order, so the first is
+		 * treated as the default.
+		 *
+		 * @param mechanismId The id of the mechanism the user selected. One of this driver's
+		 *   `mechanisms`.
+		 * @param languageId The language to generate code for (e.g. 'python', 'r'). Always one of
+		 *   the driver's `supportedLanguageIds`.
+		 * @param parameters The current values of the parameters defined by the selected mechanism.
+		 * @returns The available code variants, or an empty array if code cannot be generated from
+		 *   the given parameters (for example, when a required parameter is missing).
+		 */
+		generateConnectionCode?(mechanismId: string, languageId: string, parameters: DataConnectionParameterValues): Thenable<ConnectionCodeVariant[]>;
+
+		/**
+		 * Produces a display-safe, redacted form of a stored secret parameter value, shown in the
+		 * configuration dialog when editing an existing connection (for example, masking the password
+		 * embedded in a connection string). Only called for secret parameters that render in plaintext
+		 * (`masked: false`); the redacted string is used as the field's placeholder. The cleartext
+		 * value never leaves the extension host -- only the returned string is sent to the dialog.
+		 *
+		 * @param mechanismId The id of the mechanism the connection was configured with. One of this
+		 *   driver's `mechanisms`.
+		 * @param parameterId The id of the parameter to redact.
+		 * @param value The stored cleartext parameter value.
+		 * @returns The redacted string to display, or undefined to show no placeholder.
+		 */
+		redactParameterValue?(mechanismId: string, parameterId: string, value: string): vscode.ProviderResult<string>;
 	}
 
 	/**
@@ -1960,14 +2259,17 @@ declare module 'positron' {
 		View = 'view',
 		Field = 'field',
 		// Category containers that group sibling nodes (e.g. "Tables", "Views").
+		GroupDatabases = 'group-databases',
 		GroupSchemas = 'group-schemas',
 		GroupTables = 'group-tables',
 		GroupViews = 'group-views',
 		GroupColumns = 'group-columns',
 		GroupIndexes = 'group-indexes',
-		GroupTriggers = 'group-triggers',
-		Trigger = 'trigger',
 		Index = 'index',
+		// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
+		Owner = 'owner',
+		// A pin on a Posit Connect server (positron-data-driver-pins).
+		Pin = 'pin',
 	}
 
 	export interface DataConnectionNode {
@@ -1985,6 +2287,12 @@ declare module 'positron' {
 		 * Data type information, for field nodes.
 		 */
 		dataType?: string;
+
+		/**
+		 * For field nodes under a table, whether the column is part of the table's primary key.
+		 * Columns under views are not part of a primary key, so this is left unset for them.
+		 */
+		isPrimaryKey?: boolean;
 
 		/**
 		 * Retrieve child nodes (e.g., tables in a schema, fields in a table).
@@ -2035,8 +2343,8 @@ declare module 'positron' {
 		// The driver description.
 		description: string;
 
-		// The driver parameters.
-		parameters: DataConnectionParameter[];
+		// The configuration mechanisms this driver supports.
+		mechanisms: DataConnectionMechanism[];
 
 		// The language identifiers this driver supports.
 		supportedLanguageIds: string[];
@@ -2208,6 +2516,17 @@ declare module 'positron' {
 		export function registerStatementRangeProvider(
 			selector: vscode.DocumentSelector,
 			provider: StatementRangeProvider): vscode.Disposable;
+
+		/**
+		 * Register an input boundary provider.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider An input boundary provider.
+		 * @return A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerInputBoundaryProvider(
+			selector: vscode.DocumentSelector,
+			provider: InputBoundaryProvider): vscode.Disposable;
 
 		/**
 		 * Register a help topic provider.
@@ -2423,6 +2742,15 @@ declare module 'positron' {
 			 * Remove all stored keys for this extension's ephemeral storage.
 			 */
 			clear(): Thenable<void>;
+
+			/**
+			 * A promise that resolves when the ephemeral storage has finished
+			 * loading its initial values from the backing store. Synchronous
+			 * reads via {@link vscode.Memento.get get} are only guaranteed to
+			 * reflect previously persisted values once this has resolved, so
+			 * await it before reading at startup (e.g. after a window reload).
+			 */
+			readonly whenReady: Thenable<unknown>;
 		}
 	}
 
@@ -2561,13 +2889,19 @@ declare module 'positron' {
 		 *  not provided, an appropriate session will be chosen, and if no
 		 *  session for the desired language is running at all, a new session
 		 *  will be started.
+		 * @param whenBusy Determines what happens if the target runtime is busy
+		 *  when the evaluation is requested. Defaults to
+		 *  `RuntimeBusyBehavior.Queue`, which queues the code to run when the
+		 *  runtime next becomes idle. Use `RuntimeBusyBehavior.Reject` to have
+		 *  the returned Thenable reject with an error instead of queueing.
 		 * @returns A Thenable that resolves with the result of the code
 		 *  evaluation.
 		 */
 		export function evaluateCode(languageId: string,
 			code: string,
 			cancellationToken?: vscode.CancellationToken,
-			sessionId?: string): Thenable<EvalResult>;
+			sessionId?: string,
+			whenBusy?: RuntimeBusyBehavior): Thenable<EvalResult>;
 
 		/**
 		 * Executes a set of cells in a source document. The results are
@@ -2890,7 +3224,7 @@ declare module 'positron' {
 	namespace dataConnections {
 		/**
 		 * Registers a data connection driver, allowing extensions to contribute
-		 * to the 'New Data Connection' dialog.
+		 * to the 'New Database' dialog.
 		 *
 		 * @param driver The driver to register.
 		 * @returns A disposable that unregisters the driver when disposed.
@@ -2903,15 +3237,16 @@ declare module 'positron' {
 		export function getDrivers(): Thenable<DataConnectionDriverSummary[]>;
 
 		/**
-		 * Connects to a data connection driver with the given parameters.
+		 * Connects to a data connection driver using the selected mechanism and the given parameters.
 		 * The connection goes through the main thread service and exercises
 		 * the full RPC pipeline.
 		 *
 		 * @param driverId The driver identifier.
+		 * @param mechanismId The id of the mechanism to connect with. One of the driver's mechanisms.
 		 * @param parameters The connection parameters.
 		 * @returns A data connection.
 		 */
-		export function connect(driverId: string, parameters: DataConnectionParameterValues): Thenable<DataConnection>;
+		export function connect(driverId: string, mechanismId: string, parameters: DataConnectionParameterValues): Thenable<DataConnection>;
 	}
 
 	/**
@@ -3153,7 +3488,7 @@ declare module 'positron' {
 		 */
 		export interface ProviderMetadata {
 			/**
-			 * Unique identifier for this provider (e.g., 'anthropic-api', 'openai-api', 'copilot').
+			 * Unique identifier for this provider (e.g., 'anthropic-api', 'openai-api', 'copilot-auth').
 			 * Used internally to distinguish between provider implementations.
 			 */
 			id: string;
@@ -3174,6 +3509,12 @@ declare module 'positron' {
 			 * then 'preview', then 'experimental'.
 			 */
 			status?: 'preview' | 'experimental';
+			/**
+			 * Optional data URL for the provider icon shown in the configuration dialog
+			 * (e.g., 'data:image/svg+xml;base64,...'). Falls back to built-in icons
+			 * when not provided.
+			 */
+			logoUrl?: string;
 		}
 
 		/**
@@ -3185,25 +3526,27 @@ declare module 'positron' {
 			supportedOptions: Exclude<{
 				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
 			}[keyof LanguageModelConfig], undefined>[];
-			defaults: LanguageModelConfigOptions;
+			defaults: LanguageModelConfig;
 			signedIn?: boolean;
 			authMethods?: string[];
-		}
-
-		/**
-		 * Positron Language Model configuration.
-		 */
-		export interface LanguageModelConfig extends LanguageModelConfigOptions {
-			type: PositronLanguageModelType;
-			provider: string;
+			/**
+			 * Provider health. `'ok'` = signed in and healthy; `'error'` = a
+			 * problem worth surfacing, described by `statusMessage`; `null` =
+			 * nothing to report.
+			 */
+			status?: 'ok' | 'error' | null;
+			/**
+			 * Human-readable reason when `status` is `'error'`
+			 * (e.g. "Authentication expired").
+			 */
+			statusMessage?: string;
 		}
 
 		/**
 		 * Positron Language Model configuration options.
 		 */
-		export interface LanguageModelConfigOptions {
-			name: string;
-			model: string;
+		export interface LanguageModelConfig {
+			model?: string;
 			baseUrl?: string;
 			apiKey?: string;
 			oauth?: boolean;
@@ -3289,38 +3632,51 @@ declare module 'positron' {
 
 		/**
 		 * Show a modal dialog for language model configuration.
+		 * Sources are read from internal state, populated via registerProvider.
 		 */
 		export function showLanguageModelConfig(
-			sources: LanguageModelSource[],
-			onAction: (config: LanguageModelConfig, action: string) => Thenable<void>,
 			options?: ShowLanguageModelConfigOptions,
 		): Thenable<void>;
 
 		/**
-		 * Registers provider metadata with the core service.
-		 * This allows the core to check provider enable settings without requiring sign-in.
-		 * Should be called during extension activation for all available providers.
+		 * Registers a language model provider with Positron.
 		 *
-		 * @param metadata Provider identification and settings information
+		 * Call once per provider during extension activation. This registers
+		 * everything static about the provider. Creates a toggle
+		 * `positron.assistant.provider.<settingName>.enable` in Settings.
+		 *
+		 * Returns a Disposable. When disposed, the provider is removed
+		 * from the configuration service.
+		 *
+		 * @param source Provider source definition
+		 * @param onAction Optional callback invoked for user actions.
+		 * @returns A Disposable that unregisters the provider when disposed
 		 */
-		export function registerProviderMetadata(metadata: ProviderMetadata): void;
+		export function registerProvider(
+			source: LanguageModelSource,
+			onAction?: (source: LanguageModelSource, config: LanguageModelConfig, action: string) => Thenable<void>,
+		): vscode.Disposable;
 
 		/**
-		 * Adds the model to the service's known configurations and notifies its listeners.
-		 * @param id the model id
-		 * @param config the model config
+		 * Updates dynamic state for a previously registered provider.
+		 *
+		 * @param id Provider ID (must match a previously registered provider)
+		 * @param update Partial state to deep-merge
 		 */
-		export function addLanguageModelConfig(
-			source: LanguageModelSource,
-		): void;
+		export function updateProvider(id: string, update: Partial<LanguageModelSource>): void;
 
 		/**
-		 * Removes the model from the service's known configurations and notifies its listeners.
-		 * @param id the model id
+		 * Returns the sources of all registered, enabled language model
+		 * providers, including their current `signedIn`, `status`, and
+		 * `statusMessage` state.
 		 */
-		export function removeLanguageModelConfig(
-			source: LanguageModelSource,
-		): void;
+		export function getRegisteredProviders(): Thenable<LanguageModelSource[]>;
+
+		/**
+		 * Event that fires when a provider's configuration changes via
+		 * registerProvider, unregisterProvider, or updateProvider.
+		 */
+		export const onDidChangeProviderConfig: vscode.Event<LanguageModelSource>;
 
 		/**
 		 * The context in which a chat request is made.
@@ -3509,8 +3865,21 @@ declare module 'positron' {
 		}
 
 		/**
-		 * Get context about the active notebook
-		 * @returns The notebook context or undefined if no notebook is active
+		 * Get context about the active notebook.
+		 *
+		 * When no Positron notebook is the active editor pane (e.g. focus is
+		 * in another editor or view), falls back to the open notebook attached
+		 * to the foreground session, then to the most recently active Positron
+		 * notebook that is still open.
+		 *
+		 * Resolves with `undefined` when no notebook is open. Rejects with an
+		 * actionable error when the active editor holds a notebook in an
+		 * editor other than the Positron Notebook Editor (e.g. the
+		 * built-in/Jupyter notebook editor), since the notebook API only
+		 * operates on Positron Notebook Editor instances; the error message
+		 * explains how to switch editors.
+		 *
+		 * @returns The notebook context, or undefined if no notebook is open
 		 */
 		export function getContext(): Thenable<NotebookContext | undefined>;
 
@@ -3585,6 +3954,11 @@ declare module 'positron' {
 
 		/**
 		 * Get the outputs from a code cell
+		 *
+		 * SVG outputs (image/svg+xml) are rasterized to base64-encoded PNG
+		 * (image/png) so they can be attached as images for language models;
+		 * the raw SVG text is returned only when rasterization fails.
+		 *
 		 * @param notebookUri URI of the notebook
 		 * @param cellIndex Index of the cell
 		 * @returns Array of output objects with MIME type and data

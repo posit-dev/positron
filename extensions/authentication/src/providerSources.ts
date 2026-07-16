@@ -16,7 +16,7 @@ import {
 	OPENAI_AUTH_PROVIDER_ID,
 	POSIT_AUTH_PROVIDER_ID,
 } from './constants';
-import { getConfiguredSnowflakeAccount } from './snowflakeCredentials';
+import { getConfiguredSnowflakeAccount } from './credentials/snowflake';
 
 function getSavedBaseUrl(configSection: string, fallback?: string): string | undefined {
 	return vscode.workspace
@@ -57,8 +57,7 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 	foundry: {
 		id: FOUNDRY_AUTH_PROVIDER_ID,
 		displayName: 'Microsoft Foundry',
-		settingName: 'msFoundry',
-		status: 'preview',
+		settingName: 'msFoundry'
 	},
 	snowflake: {
 		id: 'snowflake-cortex',
@@ -72,13 +71,13 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 	},
 	google: {
 		id: GEMINI_AUTH_PROVIDER_ID,
-		displayName: 'Gemini Code Assist',
+		displayName: 'Google Gemini',
 		settingName: 'google',
 		status: 'experimental',
 	},
-	googleVertex: {
+	geap: {
 		id: GOOGLE_CLOUD_AUTH_PROVIDER_ID,
-		displayName: 'Google Vertex AI',
+		displayName: 'Gemini Enterprise Agent Platform',
 		settingName: 'googleVertex',
 		status: 'experimental',
 	},
@@ -103,10 +102,10 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 };
 
 export function getProviderSources(): positron.ai.LanguageModelSource[] {
-	// Vertex shows an autoconfigure label only when project + location come from
+	// GEAP shows an autoconfigure label only when project + location come from
 	// env vars. If the user supplied them via settings, the modal behaves like
 	// Bedrock (no label, Sign Out button visible).
-	const vertexFromEnv = !!process.env.GOOGLE_VERTEX_PROJECT
+	const geapFromEnv = !!process.env.GOOGLE_VERTEX_PROJECT
 		&& !!process.env.GOOGLE_VERTEX_LOCATION;
 
 	return [
@@ -115,7 +114,6 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			provider: PROVIDER_METADATA.anthropic,
 			supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 			defaults: {
-				name: 'Claude Sonnet 4',
 				model: 'claude-sonnet-4-latest',
 				baseUrl: getSavedBaseUrl('anthropic', 'https://api.anthropic.com'),
 				toolCalls: true,
@@ -131,7 +129,6 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			provider: PROVIDER_METADATA.positAI,
 			supportedOptions: ['oauth'],
 			defaults: {
-				name: 'Claude Sonnet 4.5',
 				model: 'claude-sonnet-4-5-20250929',
 				toolCalls: true,
 				oauth: true,
@@ -142,7 +139,6 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			provider: PROVIDER_METADATA.amazonBedrock,
 			supportedOptions: ['toolCalls'],
 			defaults: {
-				name: 'Claude 4 Sonnet Bedrock',
 				model: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
 				toolCalls: true,
 			},
@@ -152,7 +148,6 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			provider: PROVIDER_METADATA.foundry,
 			supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 			defaults: {
-				name: 'Model Router',
 				model: 'model-router',
 				baseUrl: getSavedBaseUrl('foundry'),
 				toolCalls: true,
@@ -163,7 +158,6 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			provider: PROVIDER_METADATA.snowflake,
 			supportedOptions: ['apiKey', 'baseUrl', 'toolCalls', 'autoconfigure'],
 			defaults: {
-				name: 'Snowflake Cortex',
 				model: 'claude-4-sonnet',
 				// baseUrl holds the bare account, not a URL: the Cortex URL is
 				// derived from the account. Don't make it a saved setting (#13750).
@@ -181,7 +175,6 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			provider: PROVIDER_METADATA.openai,
 			supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 			defaults: {
-				name: 'OpenAI',
 				model: 'openai',
 				baseUrl: getSavedBaseUrl('openai-api', 'https://api.openai.com/v1'),
 				toolCalls: true,
@@ -192,7 +185,6 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			provider: PROVIDER_METADATA.google,
 			supportedOptions: ['baseUrl', 'apiKey'],
 			defaults: {
-				name: 'Gemini 2.5 Flash',
 				model: 'gemini-2.5-flash',
 				baseUrl: getSavedBaseUrl('google', 'https://generativelanguage.googleapis.com/v1beta'),
 				apiKey: undefined,
@@ -201,20 +193,19 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 		},
 		{
 			type: positron.PositronLanguageModelType.Chat,
-			provider: PROVIDER_METADATA.googleVertex,
+			provider: PROVIDER_METADATA.geap,
 			// In env-var mode, omit 'baseUrl' from supportedOptions so the
 			// modal renders the simple env-var-driven label without trying
 			// to derive a _BASE_URL peer (the modal's derivation assumes a
 			// _API_KEY suffix, which doesn't apply here).
-			supportedOptions: vertexFromEnv
+			supportedOptions: geapFromEnv
 				? ['autoconfigure']
 				: ['baseUrl', 'toolCalls'],
 			defaults: {
-				name: 'Gemini 2.5 Flash (Vertex)',
 				model: 'gemini-2.5-flash',
 				baseUrl: getSavedBaseUrl('googleVertex', 'https://aiplatform.googleapis.com'),
 				toolCalls: true,
-				...(vertexFromEnv && {
+				...(geapFromEnv && {
 					autoconfigure: {
 						type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
 						key: 'GOOGLE_VERTEX_PROJECT',
@@ -228,7 +219,6 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			provider: PROVIDER_METADATA.copilot,
 			supportedOptions: ['oauth', 'autoconfigure'],
 			defaults: {
-				name: 'GitHub Copilot',
 				model: 'github-copilot',
 				autoconfigure: {
 					type: positron.ai.LanguageModelAutoconfigureType.Custom,
@@ -242,7 +232,6 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			provider: PROVIDER_METADATA.customProvider,
 			supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 			defaults: {
-				name: 'Custom Provider',
 				model: 'openai-compatible',
 				baseUrl: getSavedBaseUrl('openai-compatible', 'https://localhost:1337/v1'),
 				toolCalls: true,
@@ -253,7 +242,6 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			provider: PROVIDER_METADATA.deepseek,
 			supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 			defaults: {
-				name: 'DeepSeek',
 				model: 'deepseek-chat',
 				baseUrl: getSavedBaseUrl('deepseek-api', 'https://api.deepseek.com'),
 				toolCalls: true,

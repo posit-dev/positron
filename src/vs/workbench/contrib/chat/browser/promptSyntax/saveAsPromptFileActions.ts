@@ -67,6 +67,10 @@ function createOptions(id: string, title: ICommandActionTitle, description: ILoc
 		},
 		category: CHAT_CATEGORY,
 		f1: false,
+		// --- Start Positron ---
+		// Hide when AI features are disabled.
+		precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+		// --- End Positron ---
 		menu: {
 			id: MenuId.EditorContent,
 			when: ContextKeyExpr.and(

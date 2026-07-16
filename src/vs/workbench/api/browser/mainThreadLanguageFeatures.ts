@@ -906,6 +906,14 @@ export class MainThreadLanguageFeatures extends Disposable implements MainThread
 		}));
 	}
 
+	$registerInputBoundaryProvider(handle: number, selector: IDocumentFilterDto[]): void {
+		this._registrations.set(handle, this._languageFeaturesService.inputBoundaryProvider.register(selector, {
+			provideInputBoundaries: (model, range, token) => {
+				return this._proxy.$provideInputBoundaries(handle, model.uri, range, token);
+			}
+		}));
+	}
+
 	$registerHelpTopicProvider(handle: number, selector: IDocumentFilterDto[]): void {
 		this._registrations.set(handle, this._languageFeaturesService.helpTopicProvider.register(selector, {
 			provideHelpTopic: (model, position, token) => {
@@ -1409,6 +1417,7 @@ class ExtensionBackedInlineCompletionsProvider extends Disposable implements lan
 				modeId: undefined,
 				modelId: undefined,
 				presentation: item.isInlineEdit ? 'nextEditSuggestion' : 'inlineCompletion',
+				sourceRequestId: undefined,
 			});
 		}
 
@@ -1456,6 +1465,28 @@ class ExtensionBackedInlineCompletionsProvider extends Disposable implements lan
 					presentation: item.isInlineEdit ? 'nextEditSuggestion' : 'inlineCompletion',
 					acceptanceMethod: 'accept',
 					applyCodeBlockSuggestionId: undefined,
+					sourceRequestId: undefined,
+				});
+			}
+		} else if (reason.kind === languages.InlineCompletionEndOfLifeReasonKind.Rejected) {
+			if (item.suggestionId !== undefined) {
+				this._aiEditTelemetryService.handleCodeRejected({
+					suggestionId: item.suggestionId,
+					feature: 'inlineSuggestion',
+					source: this.providerId,
+					languageId: completions.languageId,
+					editDeltaInfo: EditDeltaInfo.tryCreate(
+						lifetimeSummary.lineCountModified,
+						lifetimeSummary.lineCountOriginal,
+						lifetimeSummary.characterCountModified,
+						lifetimeSummary.characterCountOriginal,
+					),
+					modeId: undefined,
+					modelId: undefined,
+					presentation: item.isInlineEdit ? 'nextEditSuggestion' : 'inlineCompletion',
+					rejectionMethod: 'reject',
+					applyCodeBlockSuggestionId: undefined,
+					sourceRequestId: undefined,
 				});
 			}
 		}

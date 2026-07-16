@@ -5,9 +5,8 @@
 
 /// <reference types="vitest/globals" />
 
-import React from 'react';
 import { screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { JsonOutput } from '../../browser/notebookCells/JsonOutput.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';

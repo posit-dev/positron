@@ -4,11 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
+import { Code } from '../infra/code';
+import { QuickAccess } from './quickaccess';
 import { Explorer } from './explorer';
 
-const TEST_RESULT_ITEM = '.monaco-list-row[aria-level="2"] .testing-stdtree-container';
-const NAME = '.label';
-const COMPUTED_STATE = '.computed-state';
 const TEST_EXPLORER_ICON = '.composite-bar .codicon-test-view-icon';
 
 /*
@@ -16,61 +15,63 @@ const TEST_EXPLORER_ICON = '.composite-bar .codicon-test-view-icon';
  */
 export class TestExplorer extends Explorer {
 
-	/**
-	 * Constructs a object containing test results from the test explorer.
-	 * @returns Promise<object> Array of case names with fail/pass statuses.
-	 */
-	async getTestResults(): Promise<object> {
-		const cases = this.code.driver.currentPage.locator(TEST_RESULT_ITEM);
-		const caseList = await cases.all();
-		const caseStatuses = caseList.map(async aCase => {
-
-			// name is a child of .test-peek-item
-			const caseNameLocator = aCase.locator(NAME);
-
-			// computed-state is a child of .test-peek-item
-			const caseStatusLocator = aCase.locator(COMPUTED_STATE);
-
-			// Get the class attribute of the computed-state element (all classes)
-			const classes = await caseStatusLocator.getAttribute('class');
-			let status = 'fail';
-			if (classes!.includes('pass')) { // looking specifically for .codicon-testing-passed-icon
-				status = 'pass';
-			}
-
-			// Get the text of .name, but exclude the text of the child element
-			const caseText = await caseNameLocator.evaluate(el => el.firstChild!.textContent);
-			return { caseText, status };
-		});
-
-		return await Promise.all(caseStatuses);
+	constructor(code: Code, private quickaccess: QuickAccess) {
+		super(code);
 	}
 
-	/**
-	 * Clicks the test explorer icon
-	 * @returns Promise<void>
-	 */
 	async openTestExplorer(): Promise<void> {
-
-		const locator = this.code.driver.currentPage.locator(TEST_EXPLORER_ICON);
-		await locator.waitFor({ state: 'attached' });
-		await locator.waitFor({ state: 'visible' });
-		await locator.click();
+		// The view container's activity-bar icon appears once test discovery has
+		// populated it; wait for that before focusing, or the command no-ops.
+		await this.code.driver.currentPage.locator(TEST_EXPLORER_ICON).waitFor({ state: 'visible' });
+		await this.quickaccess.runCommand('workbench.view.testing.focus');
 	}
 
-	async verifyTestFilesExist(files: string[]) {
-		const projectFiles = this.code.driver.currentPage.locator('.test-explorer');
+	async collapseAllTests(): Promise<void> {
+		await this.quickaccess.runCommand('testing.collapseAll');
+	}
 
-		for (let i = 0; i < files.length; i++) {
-			await expect(projectFiles.getByLabel(files[i])).toBeVisible({ timeout: 3000 });
+	async clearAllTestResults(): Promise<void> {
+		await this.quickaccess.runCommand('testing.clearTestResults');
+	}
+
+	async expectTestItems(labels: string[], timeout?: number): Promise<void> {
+		const tree = this.code.driver.currentPage.locator('.test-explorer');
+		for (const label of labels) {
+			await expect(tree.getByLabel(label)).toBeVisible({ timeout });
 		}
 	}
 
-	/**
-	 * Clicks to run all tests in the test explorer
-	 * @returns Promise<void>
-	 */
+	async expectNoTestItem(label: string, timeout?: number): Promise<void> {
+		const tree = this.code.driver.currentPage.locator('.test-explorer');
+		await expect(tree.getByLabel(label)).toHaveCount(0, { timeout });
+	}
+
 	async runAllTests(): Promise<void> {
 		await this.code.driver.currentPage.locator('.composite.title').getByLabel('Run Tests', { exact: true }).click();
+	}
+
+	async runTest(label: string): Promise<void> {
+		const tree = this.code.driver.currentPage.locator('.test-explorer');
+		const row = tree.locator('.monaco-list-row', { hasText: label });
+		await row.hover();
+		await row.getByLabel('Run Test', { exact: true }).click();
+	}
+
+	async expandAllTests(): Promise<void> {
+		const tree = this.code.driver.currentPage.locator('.test-explorer');
+		const collapsed = tree.locator('.monaco-list-row[aria-expanded="false"]');
+
+		// Technically we just expand up to 100 items, so raise this cap if we
+		// ever create a test fixture that requires more expansion.
+		const MAX_EXPAND_ATTEMPTS = 100;
+		for (let attempt = 0; attempt < MAX_EXPAND_ATTEMPTS && await collapsed.count() > 0; attempt++) {
+			await collapsed.first().locator('.monaco-tl-twistie').click();
+		}
+	}
+
+	// State is encoded in the accessible label as "<label> (<state>)"; substring match ignores the trailing ", in <duration>".
+	async expectTestStatus(label: string, state: 'Passed' | 'Failed' | 'Errored' | 'Skipped', timeout?: number): Promise<void> {
+		const tree = this.code.driver.currentPage.locator('.test-explorer');
+		await expect(tree.getByLabel(`${label} (${state})`)).toBeVisible({ timeout });
 	}
 }

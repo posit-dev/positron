@@ -54,17 +54,23 @@ export class PositronNotebookAssistantController extends Disposable implements I
 	 */
 	private _mapCellToDTO(cell: IPositronNotebookCell, selectionState: ReturnType<typeof this._notebook.selectionStateMachine.state.get>): INotebookCellDTO {
 		const cellOutputs = cell.outputs?.get() ?? [];
-		// Use the isMarkdownCell type guard to determine cell type
-		const isCodeCell = !cell.isMarkdownCell();
 
 		const dto: INotebookCellDTO = {
 			id: cell.uri.toString(),
 			index: cell.index,
-			type: isCodeCell ? NotebookCellType.Code : NotebookCellType.Markdown,
+			type: cell.isCodeCell() ? NotebookCellType.Code : NotebookCellType.Markdown,
 			content: cell.getContent(),
 			hasOutput: cellOutputs.length > 0,
 			selectionStatus: this._getCellSelectionStatusFromState(cell, selectionState)
 		};
+
+		// Execution status is code-cell only. Consumers building an LLM prompt
+		// (e.g. notebook suggestions) use it to prioritize failed cells.
+		if (cell.isCodeCell()) {
+			dto.executionStatus = cell.executionStatus.get();
+			dto.executionOrder = cell.lastExecutionOrder.get();
+			dto.lastRunSuccess = cell.lastRunSuccess.get();
+		}
 
 		return dto;
 	}

@@ -6,74 +6,69 @@
 import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import rimraf from 'rimraf';
-import * as os from 'os';
 
-export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH is not set in cloneTestRepo'): void {
+/**
+ * Provisions the e2e test workspace by copying the local `test/e2e/test-files`
+ * directory (merged in from the former qa-example-content repo) into the given
+ * workspace path, then initializing it as a git repo with a single baseline
+ * commit.
+ *
+ * The git baseline is required by test teardown: `TestTeardown.discardAllChanges`
+ * runs `git rev-list --max-parents=0 HEAD` + `git reset --hard` + `git clean -fd`
+ * to restore the workspace between tests, and some tests (e.g. scm) expect the
+ * opened folder to be a git working tree.
+ */
+export function provisionTestFiles(workspacePath = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH is not set in provisionTestFiles'): void {
 	// Prevent Git warnings about missing templates.
 	process.env.GIT_TEMPLATE_DIR = '';
 
-	const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
-	const cacheDir = path.join(os.tmpdir(), 'qa-example-content-cache');
-	const cachedCommitFile = path.join(cacheDir, '.cached-commit');
-	const branch = process.env.QA_REPO || 'main';
+	const source = path.join(process.cwd(), 'test/e2e/test-files');
+	if (!fs.existsSync(source)) {
+		console.error(`✗ Test files not found at ${source}`);
+		return;
+	}
 
-	// Check if the machine is online by attempting to fetch the latest commit hash.
-	let remoteCommitHash: string | null = null;
+	// Clear any stale copy first: git pack files are read-only, so cp -R
+	// (and xcopy) cannot overwrite them on a rerun, causing "Permission denied".
+	fs.rmSync(workspacePath, { recursive: true, force: true });
+	fs.mkdirSync(workspacePath, { recursive: true });
+	if (process.platform === 'win32') {
+		cp.execSync(`xcopy /E /H /K /Y "${source}\\*" "${workspacePath}\\"`);
+	} else {
+		cp.execSync(`cp -R "${source}/." "${workspacePath}"`);
+	}
+
+	// Initialize a git baseline so teardown can reset the workspace between tests.
+	// Inline identity + disabled signing so CI hosts without global git config succeed.
 	try {
-		remoteCommitHash = cp.execSync(`git ls-remote ${testRepoUrl} refs/heads/${branch}`, { stdio: 'pipe' })
-			.toString()
-			.split('\t')[0]
-			.trim();
-	} catch {
-		console.warn('! Warning: No internet connection detected');
-	}
-
-	// Prevent force cloning if offline
-	if (process.env.FORCE_CLONE === 'true') {
-		if (!remoteCommitHash) {
-			console.error('✗ FORCE_CLONE is set, but the machine is offline. Skipping repository clone');
-		} else {
-			console.log('i FORCE_CLONE is set, forcing a fresh clone');
-			rimraf.sync(cacheDir);
-		}
-	}
-
-	// Check if cache exists and is valid
-	const hasCachedRepo = fs.existsSync(cacheDir) && fs.existsSync(cachedCommitFile);
-	const cachedCommitHash = hasCachedRepo ? fs.readFileSync(cachedCommitFile, 'utf-8').trim() : null;
-
-	// Use cache if available and up-to-date OR if offline
-	if (hasCachedRepo && (remoteCommitHash === cachedCommitHash || !remoteCommitHash)) {
-		console.log('✓ Using cached repository');
-		copyRepo(cacheDir, workspacePath);
+		const git = (args: string) => cp.execSync(`git ${args}`, { cwd: workspacePath, stdio: 'pipe' });
+		git('init -q');
+		git('add -A');
+		git('-c user.email=e2e@posit.co -c user.name=e2e -c commit.gpgsign=false commit -q -m "test-files baseline"');
+	} catch (error) {
+		console.error('✗ Failed to initialize test-files git baseline:', error);
 		return;
 	}
 
-	if (!remoteCommitHash) {
-		console.error('✗ No internet connection and no valid cache found');
-		return;
-	}
-
-	// Clone fresh repo
-	console.log('✓ Cloning fresh repository...');
-	rimraf.sync(cacheDir);
-	if (cp.spawnSync('git', ['clone', '--depth=1', '--branch', branch, testRepoUrl, cacheDir, '-q'], { stdio: 'inherit' }).status !== 0) {
-		console.error('✗ Failed to clone repository');
-		return;
-	}
-
-	fs.writeFileSync(cachedCommitFile, remoteCommitHash);
-	copyRepo(cacheDir, workspacePath);
+	console.log(`✓ Workspace: ${workspacePath}`);
 }
 
-function copyRepo(source: string, destination: string): void {
+/**
+ * Recursively copies a fixture folder to a destination, creating the destination
+ * if it doesn't exist. Unlike `copyFixtureFile`, the source is a caller-supplied
+ * absolute path, so the fixture can live anywhere in the repo (not just under
+ * `test/e2e/fixtures/`).
+ *
+ * @param source - Absolute path to the folder to copy.
+ * @param destination - Absolute path the folder's contents should be copied into.
+ */
+export function copyFixtureFolder(source: string, destination: string): void {
+	fs.mkdirSync(destination, { recursive: true });
 	if (process.platform === 'win32') {
 		cp.execSync(`xcopy /E /H /K /Y "${source}\\*" "${destination}\\"`);
 	} else {
 		cp.execSync(`cp -R "${source}/." "${destination}"`);
 	}
-	console.log(`✓ Workspace: ${destination}`);
 }
 
 /**

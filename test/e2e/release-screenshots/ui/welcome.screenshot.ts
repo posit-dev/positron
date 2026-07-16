@@ -27,9 +27,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 			app.workbench;
 
 		// open workspace
-		await openFolder('qa-example-content/workspaces/astropy-testing');
-		await page.waitForTimeout(3000); // allow time for window to close and re-open
-		await page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		await openFolder('test-files/workspaces/astropy-testing');
 
 		// openFolder re-creates the Electron window, dropping the per-page
 		// CDP override. Re-apply only the override (don't call setSize a

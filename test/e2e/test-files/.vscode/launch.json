@@ -1,0 +1,12 @@
+{
+    "configurations": [
+      {
+        "name": "Python Debugger: Current File (Integrated Terminal)",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${file}",
+        "console": "integratedTerminal",
+        "justMyCode": false,
+      },
+    ]
+  }

@@ -10,7 +10,7 @@ import { QuickAccess } from './quickaccess';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
-import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, SessionState } from './sessions.js';
+import { ACTIVE_STATUS_ICON, DEPRIORITIZED_PYTHON_SOURCES, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, SessionState } from './sessions.js';
 import { basename, relative } from 'path';
 
 const DEFAULT_TIMEOUT = 10000;
@@ -23,7 +23,7 @@ const DRAG_ACTIVATION_DISTANCE_PX = 10;
 const MARKDOWN_ARIA_LABEL = 'Markdown cell - Press Enter to edit';
 
 type MoreActionsMenuItems = 'Copy cell' | 'Cut cell' | 'Paste Cell Above' | 'Paste cell below' | 'Move cell down' | 'Move cell up' | 'Insert code cell above' | 'Insert code cell below';
-type EditorActionBarButtons = 'Markdown' | 'Code' | 'Clear Outputs' | 'Run All';
+type EditorActionBarButtons = 'Markdown' | 'Code' | 'Clear All Outputs' | 'Run All Cells';
 type OutputActionBarButtons = 'Collapse Output' | 'Expand Output' | 'Clear Output' | 'Show Full Output' | 'Truncate Output' | 'Copy Image';
 
 /**
@@ -56,6 +56,9 @@ export class PositronNotebooks extends Notebooks {
 	sortableCellAtIndex = (index: number) => this.code.driver.currentPage.locator('.sortable-cell').nth(index);
 	dragHandleAtIndex = (index: number) => this.sortableCellAtIndex(index).getByRole('button', { name: /Drag to reorder cell/i });
 	dragZoneAtIndex = (index: number) => this.sortableCellAtIndex(index).locator('.cell-drag-zone');
+	// One AddCellButtons per gap (including before the first and after the last cell), in DOM order by gap index
+	addCellButtonsAtGap = (gapIndex: number) => this.code.driver.currentPage.locator('.positron-add-cell-buttons').nth(gapIndex);
+	dropIndicatorAtGap = (gapIndex: number) => this.addCellButtonsAtGap(gapIndex).getByTestId('drop-indicator');
 	moreActionsOption = (option: string) => this.code.driver.currentPage.locator('button.custom-context-menu-item', { hasText: option });
 	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: 'Run Cell', exact: true });
 	private executionOrderBadgeAtIndex = (index: number) => this.cell.nth(index).locator('.execution-order-badge');
@@ -100,6 +103,10 @@ export class PositronNotebooks extends Notebooks {
 	private searchPreviousButton = this.searchWidget.getByRole('button', { name: 'Previous Match' });
 	private searchCloseButton = this.searchWidget.getByRole('button', { name: 'Close', exact: true });
 	private searchDecoration = this.code.driver.currentPage.locator('.findMatchInline');
+	private searchMatchCaseToggle = this.searchWidget.getByRole('checkbox', { name: 'Match Case' });
+	private searchWholeWordToggle = this.searchWidget.getByRole('checkbox', { name: 'Match Whole Word' });
+	private searchRegexToggle = this.searchWidget.getByRole('checkbox', { name: 'Use Regular Expression' });
+	private hoverTooltip = this.code.driver.currentPage.locator('.hover-contents');
 
 	// Ghost Cell
 	private ghostCellHeader = this.code.driver.currentPage.locator('.ghost-cell-header');
@@ -255,7 +262,28 @@ export class PositronNotebooks extends Notebooks {
 	 * @param path - The path to the notebook to open.
 	 */
 	async openNotebook(path: string): Promise<void> {
+		await this.prepareOpenNotebook(path);
+		await this.confirmOpenNotebook();
+	}
+
+	/**
+	 * Action: Open Quick Access and surface the notebook so a subsequent
+	 * {@link confirmOpenNotebook} call only needs to confirm the selection.
+	 *
+	 * Splitting the open this way lets perf tests exclude Quick Access UI
+	 * latency (Cmd+P, clearEditorHistory, the result-polling retry loop)
+	 * from the measured open + parse + render time.
+	 * @param path - The path to the notebook to open.
+	 */
+	async prepareOpenNotebook(path: string): Promise<void> {
 		await this.quickaccess.openFileQuickAccessAndWait(basename(path), 1);
+	}
+
+	/**
+	 * Action: Confirm the Quick Access selection staged by
+	 * {@link prepareOpenNotebook} and wait for the notebook to render.
+	 */
+	async confirmOpenNotebook(): Promise<void> {
 		await this.quickinput.selectQuickInputElement(0);
 		await this.expectToBeVisible();
 	}
@@ -562,71 +590,24 @@ export class PositronNotebooks extends Notebooks {
 				? containerBox.y + containerBox.height * 0.85  // Near bottom edge
 				: containerBox.y + containerBox.height * 0.15; // Near top edge
 
-			// Helper to check if target cell is visible and in a good drop position
-			const isTargetReachable = async (): Promise<{ reachable: boolean; targetY?: number }> => {
-				const targetCell = this.sortableCellAtIndex(toIndex);
-				const targetBox = await targetCell.boundingBox();
-
-				if (!targetBox) {
-					return { reachable: false };
-				}
-
-				// Ensure target is sufficiently visible within container (not just peeking)
-				const targetCenter = targetBox.y + targetBox.height / 2;
-				const containerTop = containerBox.y + containerBox.height * 0.1;
-				const containerBottom = containerBox.y + containerBox.height * 0.9;
-
-				if (targetCenter >= containerTop && targetCenter <= containerBottom) {
-					// Target 75%/25% inside the cell because dnd-kit's collision
-					// detection uses the vertical midpoint to decide above vs.
-					// below placement. See: SortableCellList.tsx collisionDetection
-					// callback (midY calculation).
-					const dropY = scrollingDown
-						? targetBox.y + targetBox.height * 0.75
-						: targetBox.y + targetBox.height * 0.25;
-					return { reachable: true, targetY: dropY };
-				}
-
-				return { reachable: false };
-			};
-
-			// This method is only used for real (non-no-op) moves, so
-			// the drop indicator will always appear.
-			const dropIndicator = this.code.driver.currentPage.getByTestId('drop-indicator');
+			// The gap where dnd-kit will actually drop: after the target cell when
+			// scrolling down, before it when scrolling up. This is the same index
+			// AddCellButtons receives -- see PositronNotebookComponent.tsx.
+			const targetGapIndex = scrollingDown ? toIndex + 1 : toIndex;
+			// The drop indicator reflects dnd-kit's own collision detection
+			// (computeDropIndex in sortableCellListLogic.ts), which is the
+			// authoritative source of truth for reachability -- unlike a
+			// bounding-box re-check, it can't disagree with the real drag state.
+			const targetDropIndicator = this.dropIndicatorAtGap(targetGapIndex);
 
 			try {
-				// First check if target is already visible (no scrolling needed)
-				const initialCheck = await isTargetReachable();
-				if (initialCheck.reachable && initialCheck.targetY !== undefined) {
-					await this.code.driver.currentPage.mouse.move(startX, initialCheck.targetY, { steps: 10 });
-					await expect(dropIndicator).toBeVisible({ timeout: 2000 });
-					return;
-				}
-
-				// Move to edge and wait for auto-scroll to bring target into view
-				// Use polling with timeout instead of fixed iteration count
 				await this.code.driver.currentPage.mouse.move(startX, edgeY, { steps: 5 });
 
 				await expect(async () => {
 					// Keep cursor at edge to maintain auto-scroll
 					await this.code.driver.currentPage.mouse.move(startX, edgeY, { steps: 2 });
-
-					const result = await isTargetReachable();
-					if (!result.reachable) {
-						throw new Error('Target not yet reachable');
-					}
-					return result;
+					await expect(targetDropIndicator).toBeVisible({ timeout: 500 });
 				}).toPass({ timeout: 15000, intervals: [100, 200, 300, 500] });
-
-				// Target is now reachable - get fresh position and drop
-				const finalCheck = await isTargetReachable();
-				if (finalCheck.reachable && finalCheck.targetY !== undefined) {
-					await this.code.driver.currentPage.mouse.move(startX, finalCheck.targetY, { steps: 10 });
-					await expect(dropIndicator).toBeVisible({ timeout: 2000 });
-					return;
-				}
-
-				throw new Error(`Could not reach target cell at index ${toIndex} via auto-scroll`);
 			} finally {
 				await this.code.driver.currentPage.mouse.up();
 			}
@@ -812,6 +793,51 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Action: Add a tag to the cell at the specified index.
+	 *
+	 * Uses the "Add Tag" command, which opens the inline tag input on the
+	 * active cell; the tag is committed with Enter.
+	 * @param cellIndex - The index of the cell to tag.
+	 * @param tag - The tag text to add (e.g. 'raises-exception').
+	 */
+	async addCellTag(cellIndex: number, tag: string): Promise<void> {
+		await test.step(`Add tag "${tag}" to cell ${cellIndex}`, async () => {
+			await this.selectCellAtIndex(cellIndex);
+			await this.quickaccess.runCommand('positronNotebook.cell.addTag');
+
+			const tagInput = this.cell.nth(cellIndex).locator('.positron-notebook-cell-tag-input');
+			await expect(tagInput).toBeFocused({ timeout: DEFAULT_TIMEOUT });
+			await tagInput.fill(tag);
+			await this.code.driver.currentPage.keyboard.press('Enter');
+
+			// Confirm the tag pill rendered.
+			await expect(
+				this.cell.nth(cellIndex).getByRole('button', { name: `Edit tag ${tag}` })
+			).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/**
+	 * Action: Run all cells and wait for execution to finish.
+	 *
+	 * Overrides the legacy notebook implementation: triggers Run All via the
+	 * Cmd/Ctrl+Shift+Enter command-mode shortcut, then waits for all execution
+	 * spinners to clear.
+	 * @param timeout - Maximum time to wait for execution to complete.
+	 */
+	override async runAllCells({ timeout = 30000 } = {}): Promise<void> {
+		await test.step('Run all cells', async () => {
+			// Run All / Interrupt own the Cmd/Ctrl+Shift+Enter shortcut in command
+			// mode; exit edit mode first so it doesn't just run the selection in the
+			// focused cell (#3804).
+			await this.selectCellAtIndex(0, { editMode: false });
+			const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
+			await this.code.driver.currentPage.keyboard.press(`${mod}+Shift+Enter`);
+			await this.expectNoActiveSpinners(timeout);
+		});
+	}
+
+	/**
 	 * Action: Perform a cell action using keyboard shortcuts.
 	 * @param action - The action to perform: 'copy', 'cut', 'paste', 'undo', 'redo', 'delete', 'addCellBelow'.
 	 */
@@ -912,7 +938,7 @@ export class PositronNotebooks extends Notebooks {
 	async expectNotebookAssistantModalVisible(timeout = 10000): Promise<void> {
 		await expect(
 			this.code.driver.currentPage
-				.locator('.positron-modal-dialog-box')
+				.locator('.positron-dynamic-modal-dialog-box')
 				.filter({ hasText: 'Positron Notebook Assistant' })
 		).toBeVisible({ timeout });
 	}
@@ -1001,12 +1027,67 @@ export class PositronNotebooks extends Notebooks {
 	async searchExpandReplace(): Promise<void> {
 		await test.step('Expand replace row', async () => {
 			if (!await this.replaceInput.isVisible()) {
+				// Move the mouse away to dismiss any tooltip that may intercept the click
+				await this.code.driver.currentPage.mouse.move(0, 0);
 				await this.toggleReplaceButton.click();
 			}
 			await expect(this.replaceInput).toBeVisible({ timeout: 2000 });
 		});
 	}
 
+	/**
+	 * Action: Set a search option toggle to the given state.
+	 * Clicks the toggle only if its current state differs from the desired one.
+	 * @param toggle - The search option toggle to set.
+	 * @param enabled - The desired checked state.
+	 */
+	async searchSetToggle(toggle: 'matchCase' | 'wholeWord' | 'regex', enabled: boolean): Promise<void> {
+		await test.step(`Set search toggle ${toggle} to ${enabled}`, async () => {
+			const toggleLocator = {
+				matchCase: this.searchMatchCaseToggle,
+				wholeWord: this.searchWholeWordToggle,
+				regex: this.searchRegexToggle,
+			}[toggle];
+
+			if (await toggleLocator.getAttribute('aria-checked') !== String(enabled)) {
+				await toggleLocator.click();
+			}
+			await expect(toggleLocator).toHaveAttribute('aria-checked', String(enabled), { timeout: 2000 });
+		});
+	}
+
+	/**
+	 * Action: Fill the replace input without performing a replace.
+	 * Expands the replace row if it is not already visible.
+	 * @param replaceText - The text to fill into the replace input.
+	 */
+	async searchSetReplaceText(replaceText: string): Promise<void> {
+		await test.step(`Set replace text to: ${replaceText}`, async () => {
+			await this.searchExpandReplace();
+			await this.replaceInput.fill(replaceText);
+		});
+	}
+
+	/**
+	 * Action: Click the 'Replace' button.
+	 * Replaces the current match and advances to the next one. Note: if no
+	 * match is active yet, the first click only navigates to the first match
+	 * without replacing (two-step behavior, matching the editor find widget).
+	 */
+	async searchReplaceNext(): Promise<void> {
+		await test.step('Replace current match', async () => {
+			await this.replaceButton.click();
+		});
+	}
+
+	/**
+	 * Action: Click the 'Replace All' button.
+	 */
+	async searchReplaceAll(): Promise<void> {
+		await test.step('Replace all matches', async () => {
+			await this.replaceAllButton.click();
+		});
+	}
 
 	// #endregion
 
@@ -1091,6 +1172,52 @@ export class PositronNotebooks extends Notebooks {
 	async expectSearchDecorationCountToBe(expectedCount: number): Promise<void> {
 		await test.step(`Expect search decoration count to be: ${expectedCount}`, async () => {
 			await expect(this.searchDecoration).toHaveCount(expectedCount, { timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/**
+	 * Verify: Replace and Replace All buttons enabled state.
+	 * Note: the widget disables these buttons only when the find text is
+	 * empty, not when a query has zero matches.
+	 * @param enabled - Whether the buttons should be enabled (true) or disabled (false).
+	 */
+	async expectReplaceButtonsEnabled(enabled: boolean = true): Promise<void> {
+		await test.step(`Expect replace buttons to be ${enabled ? 'enabled' : 'disabled'}`, async () => {
+			if (enabled) {
+				await expect(this.replaceButton).toBeEnabled({ timeout: DEFAULT_TIMEOUT });
+				await expect(this.replaceAllButton).toBeEnabled({ timeout: DEFAULT_TIMEOUT });
+			} else {
+				await expect(this.replaceButton).toBeDisabled({ timeout: DEFAULT_TIMEOUT });
+				await expect(this.replaceAllButton).toBeDisabled({ timeout: DEFAULT_TIMEOUT });
+			}
+		});
+	}
+
+	/**
+	 * Verify: hovering a search widget button shows a tooltip with the expected text.
+	 * @param button - The search widget button to hover.
+	 * @param expectedTooltip - The expected tooltip text (string or regex).
+	 */
+	async expectSearchButtonTooltip(
+		button: 'previous' | 'next' | 'close' | 'toggleReplace' | 'replace' | 'replaceAll',
+		expectedTooltip: string | RegExp
+	): Promise<void> {
+		await test.step(`Expect tooltip on ${button} button: ${expectedTooltip}`, async () => {
+			const buttonLocator = {
+				previous: this.searchPreviousButton,
+				next: this.searchNextButton,
+				close: this.searchCloseButton,
+				toggleReplace: this.toggleReplaceButton,
+				replace: this.replaceButton,
+				replaceAll: this.replaceAllButton,
+			}[button];
+
+			// Park the mouse elsewhere first so the hover delay applies cleanly,
+			// then hover the button and wait for the tooltip to render.
+			await this.code.driver.currentPage.mouse.move(0, 0);
+			await expect(this.hoverTooltip).not.toBeVisible({ timeout: 5000 });
+			await buttonLocator.hover();
+			await expect(this.hoverTooltip).toContainText(expectedTooltip, { timeout: DEFAULT_TIMEOUT });
 		});
 	}
 
@@ -1876,6 +2003,33 @@ export class Kernel extends KernelBase {
 	// #region ACTIONS
 
 	/**
+	 * Action: Change the kernel for the current notebook.
+	 */
+	async change(
+		kernelGroup: 'Python' | 'R',
+		{ version }: { version?: string } = {}
+	): Promise<void> {
+		const desiredKernel = version ?? (kernelGroup === 'Python'
+			? process.env.POSITRON_PY_VER_SEL!
+			: process.env.POSITRON_R_VER_SEL!);
+		await test.step('Change kernel', async () => {
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: this.statusBadge,
+				menuItemLabel: /Change Kernel/
+			});
+			// select the kernel
+			await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+			await this.quickinput.type(desiredKernel);
+			await this.quickinput.selectQuickInputElementContaining(desiredKernel, {
+				timeout: 1000,
+				force: false,
+				deprioritize: kernelGroup === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
+			});
+			await this.quickinput.waitForQuickInputClosed();
+		});
+	}
+
+	/**
 	 * Action: Open the notebook session scratchpad in console.
 	 */
 	async openNotebookConsole(): Promise<void> {
@@ -1930,7 +2084,11 @@ export class Kernel extends KernelBase {
 			await this.hotKeys.selectNotebookKernel();
 			await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
 			await this.quickinput.type(desiredKernel);
-			await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
+			await this.quickinput.selectQuickInputElementContaining(desiredKernel, {
+				timeout: 1000,
+				force: false,
+				deprioritize: kernelGroup === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
+			});
 			await this.quickinput.waitForQuickInputClosed();
 			this.code.logger.log(`Selected kernel: ${desiredKernel}`);
 
@@ -2054,10 +2212,10 @@ export class ScopedNotebook {
 		this.kernel = new ScopedKernel(statusBadge, this.editorActionBar, contextMenu);
 
 		// Action bar buttons
-		this.runAllButton = this.editorActionBar.getByRole('button', { name: 'Run All' });
+		this.runAllButton = this.editorActionBar.getByRole('button', { name: 'Run All Cells' });
 		this.addCodeButton = this.editorActionBar.getByRole('button', { name: 'Code' });
 		this.addMarkdownButton = this.editorActionBar.getByRole('button', { name: 'Markdown' });
-		this.clearOutputsButton = this.editorActionBar.getByRole('button', { name: 'Clear Outputs' });
+		this.clearOutputsButton = this.editorActionBar.getByRole('button', { name: 'Clear All Outputs' });
 	}
 
 	/** Get a specific cell by index */

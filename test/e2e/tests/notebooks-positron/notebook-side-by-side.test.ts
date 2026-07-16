@@ -20,7 +20,7 @@ test.use({
 });
 
 test.describe('Notebook Side-by-Side Isolation', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.SESSIONS]
 }, () => {
 
 	test.beforeAll(async function ({ hotKeys }) {
@@ -112,6 +112,11 @@ test.describe('Notebook Side-by-Side Isolation', {
 			const kernelName = availableRuntimes['python'].name;
 			const interpreterNameNb1 = /Untitled\-1.ipynb/;
 			const interpreterNameNb2 = /Untitled\-2.ipynb/;
+
+			// The prior test starts kernels but only closes their editor tabs
+			// (never shuts down the kernels), so clear those lingering sessions
+			// before this test's own kernel selection/autostart timing checks.
+			await sessions.deleteAll();
 
 			// Notebook 1: Create and start kernel
 			await notebooksPositron.newNotebook();

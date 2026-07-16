@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize, localize2 } from '../../../../nls.js';
+import { localize2 } from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
@@ -12,12 +12,13 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
-import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
-import { ChatModeKind } from '../../chat/common/constants.js';
 import { IChatEditingService } from '../../chat/common/editing/chatEditingService.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IHeadlessLanguageModelService } from '../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
-import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { openPositAssistantChat } from '../../positronAssistant/browser/positAssistantChat.js';
+import { NotebookContextKeys } from '../common/notebookContextKeys.js';
+import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
 import { AssistantPanel } from './AssistantPanel/AssistantPanel.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
@@ -41,6 +42,11 @@ export class AskAssistantAction extends Action2 {
 			tooltip: localize2('askAssistant.tooltip', 'Ask the assistant about this notebook'),
 			icon: ThemeIcon.fromId('positron-assistant'),
 			f1: true,
+			// Gate the command palette entry and command execution on the composite
+			// notebook AI switch (global `ai.enabled` AND notebooks-only
+			// `notebook.ai.enabled`, kept in sync by bindNotebookAIEnabledContextKey).
+			// The menu `when` below hides the toolbar button; precondition covers the rest.
+			precondition: NotebookContextKeys.aiEnabled,
 			category: localize2('positronNotebook.category', 'Notebook'),
 			positronActionBarOptions: {
 				controlType: 'button',
@@ -52,7 +58,7 @@ export class AskAssistantAction extends Action2 {
 				order: 50,
 				when: ContextKeyExpr.and(
 					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-					ContextKeyExpr.has('config.positron.assistant.enable'),
+					NotebookContextKeys.aiEnabled,
 				)
 			}
 		});
@@ -69,6 +75,7 @@ export class AskAssistantAction extends Action2 {
 		const layoutService = accessor.get(ILayoutService);
 		const chatEditingService = accessor.get(IChatEditingService);
 		const dialogService = accessor.get(IDialogService);
+		const headlessLmService = accessor.get(IHeadlessLanguageModelService);
 
 		// Get the initial notebook instance (may be undefined during the timing gap
 		// between editor activation and setInput() completion)
@@ -82,30 +89,21 @@ export class AskAssistantAction extends Action2 {
 
 		// Create the modal renderer for a centered dialog
 		// Hook up cancellation so polling stops if the modal is closed early
-		const renderer = new PositronModalReactRenderer({
+		const renderer = new PositronModalDialogReactRenderer({
 			container: layoutService.activeContainer,
 			onDisposed: () => {
 				notebookPromise?.cancel();
 			}
 		});
 
-		// Handle action selection - open the chat with the selected query
-		const handleActionSelected = async (query: string, mode: ChatModeKind) => {
-			try {
-				await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
-					query,
-					mode
-				});
-			} catch (error) {
-				notificationService.error(
-					localize(
-						'positronNotebook.assistant.error',
-						'Failed to open assistant chat: {0}',
-						error instanceof Error ? error.message : String(error)
-					)
-				);
-			}
-		};
+		// Handle action selection - send the query to Posit Assistant. Always starts a
+		// fresh conversation, since the panel is a deliberate "ask about this notebook" entry.
+		const handleActionSelected = (query: string) =>
+			openPositAssistantChat(commandService, notificationService, logService, {
+				prompt: query,
+				target: 'new',
+				behavior: 'submit',
+			});
 
 		// Render the assistant panel immediately (optimistic loading)
 		// Pass the notebook directly if available, otherwise pass the promise
@@ -115,6 +113,7 @@ export class AskAssistantAction extends Action2 {
 				commandService={commandService}
 				configurationService={configurationService}
 				dialogService={dialogService}
+				headlessLmService={headlessLmService}
 				initialNotebook={initialNotebook}
 				logService={logService}
 				notebookPromise={notebookPromise}

@@ -54,6 +54,11 @@ export interface IBrowserWorkbenchEnvironmentService extends IWorkbenchEnvironme
 	 * URL for Positron documentation, if provided by Posit Workbench.
 	 */
 	readonly positronDocsUrl?: string;
+
+	/**
+	 * Raw value of the server's EXTENSIONS_GALLERY environment variable, if set.
+	 */
+	readonly extensionsGalleryEnv?: string;
 	// --- End Positron ---
 
 	/**
@@ -155,6 +160,10 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 	get positronDocsUrl(): string | undefined {
 		return this.options.positronDocsUrl;
 	}
+
+	get extensionsGalleryEnv(): string | undefined {
+		return this.options.extensionsGalleryEnv;
+	}
 	// --- End Positron ---
 
 	@memoize
@@ -193,6 +202,9 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 
 	@memoize
 	get untitledWorkspacesHome(): URI { return joinPath(this.userRoamingDataHome, 'Workspaces'); }
+
+	@memoize
+	get agentSessionsWorkspace(): URI { return joinPath(this.userRoamingDataHome, 'agent-sessions.code-workspace'); }
 
 	@memoize
 	get serviceMachineIdResource(): URI { return joinPath(this.userRoamingDataHome, 'machineid'); }

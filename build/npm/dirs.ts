@@ -31,13 +31,16 @@ export let dirs = [
 	'extensions/positron-environment',
 	'extensions/positron-data-explorer-protocol',
 	'extensions/positron-data-driver-duckdb',
+	'extensions/positron-data-driver-pins',
 	'extensions/positron-data-driver-postgresql',
+	'extensions/positron-data-driver-redshift',
 	'extensions/positron-data-driver-sqlite',
 	'extensions/positron-environment-modules',
 	'extensions/positron-file-transfer',
 	'extensions/positron-ipywidgets',
 	'extensions/positron-javascript',
 	'extensions/positron-notebooks',
+	'extensions/positron-notebook-export',
 	'extensions/positron-pdf-server',
 	'extensions/positron-r',
 	'extensions/positron-reticulate',
@@ -73,7 +76,7 @@ export let dirs = [
 	'extensions/markdown-math',
 	'extensions/media-preview',
 	'extensions/merge-conflict',
-	'extensions/mermaid-chat-features',
+	'extensions/mermaid-markdown-features',
 	'extensions/microsoft-authentication',
 	'extensions/notebook-renderers',
 	'extensions/npm',
@@ -106,6 +109,7 @@ export let dirs = [
 	'.vscode/extensions/vscode-selfhost-import-aid',
 	'.vscode/extensions/vscode-selfhost-test-provider',
 	'.vscode/extensions/vscode-extras',
+	'.vscode/extensions/vscode-pr-pinger',
 ];
 
 // --- Start Positron ---

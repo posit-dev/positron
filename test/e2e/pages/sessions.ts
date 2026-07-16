@@ -19,6 +19,16 @@ export const ACTIVE_STATUS_ICON = '.codicon-positron-runtime-status-active';
 export const IDLE_STATUS_ICON = '.codicon-positron-runtime-status-idle';
 export const DISCONNECTED_STATUS_ICON = '.codicon-positron-runtime-status-disconnected';
 
+// Python interpreter source markers to deprioritize when selecting an interpreter
+// by version. Several interpreters can share a version (e.g. a project venv and a
+// base pyenv both shown as "Python 3.10.12"); when that happens we want the real
+// environment, not the base install. The values match the "(<source>" portion of
+// the quick pick label produced by getRuntimeSourceAndShortName.
+//
+// '(uv)' keeps its closing paren so it matches only a standalone uv-managed Python,
+// not a uv project venv labeled "(uv: <name>)" -- the venv is what we want to keep.
+export const DEPRIORITIZED_PYTHON_SOURCES = ['(Pyenv', '(Global', '(System', '(Unknown', '(uv)'];
+
 // Quickpick labels - keep in sync with languageRuntimeActions.ts
 const INTERPRETER_SESSIONS_LABEL = 'Interpreter Sessions';
 const START_NEW_CONSOLE_SESSION_LABEL = 'Start New Console Session';
@@ -161,13 +171,10 @@ export class Sessions {
 					const currentSessionId = await this.getCurrentSessionId();
 					if (currentSessionId === sessionId) {
 						await this.page.getByTestId('trash-session').click();
-						return;
+					} else if (/(8080|8787)/.test(this.code.driver.currentPage.url())) {
+						return; // workaround for server/workbench: session is already gone
 					} else {
-						if (/(8080|8787)/.test(this.code.driver.currentPage.url())) {
-							return; // workaround for server/workbench
-						} else {
-							throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
-						}
+						throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
 					}
 				} else {
 					// More that one session: Delete via the context menu. (The trash icon
@@ -175,6 +182,10 @@ export class Sessions {
 					await this.deleteViaUI(sessionId);
 				}
 
+				// Wait for the session to actually shut down before returning. Skipping
+				// this (e.g. an early return after the trash click) lets delete() return
+				// while the instance is still visible; deleteAll()'s detach guard then
+				// passes instantly and the dying session races the next test's reuse scan.
 				await expect(this.page.getByText('Shutting down')).not.toBeVisible();
 				await expect(this.consoleInstance(sessionId)).not.toBeVisible();
 			}, `Delete session: ${sessionId}`).toPass();
@@ -461,6 +472,13 @@ export class Sessions {
 					await this.page.keyboard.press('Control+Shift+/');
 				}
 
+				// Wait for interpreter discovery to finish before filtering/selecting.
+				// Opening the picker right after a workspace load (e.g. openFolder)
+				// lands mid-discovery, when only fast-discovered sources are listed;
+				// a bare version-string match can then pick the wrong source (e.g. a
+				// uv base install) over the intended interpreter of the same version.
+				await this.quickinput.waitForInterpreterDiscoveryToComplete();
+
 				let input = language;
 				if (version) {
 					input += ` ${version}`;
@@ -475,7 +493,10 @@ export class Sessions {
 				// We need to click instead of using 'enter' because the Python select interpreter command
 				// may include additional items above the desired interpreter string.
 				try {
-					await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, { timeout: 2000 });
+					await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, {
+						timeout: 2000,
+						deprioritize: language === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
+					});
 				} catch (e) {
 					// Auto-discovery is intermittent: POSITRON_PY_VER_SEL's interpreter
 					// can be missing from the quick pick on the first attempt. Force a
@@ -560,10 +581,7 @@ export class Sessions {
 			await expect(this.code.driver.currentPage.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
 			await this.console.focus();
 			await this.code.driver.currentPage.mouse.move(0, 0);
-			// Give startup messaging a chance to appear before asserting it's gone,
-			// so we don't pass instantly when this check runs ahead of the UI.
-			await this.page.waitForTimeout(5000);
-			await expect(this.page.locator('text=/^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+			await expect(this.page.locator('text=/^Setting up|^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 		});
 	}
 
@@ -634,7 +652,10 @@ export class Sessions {
 	 */
 	async getCurrentSessionId(): Promise<string> {
 		return await test.step('Get current session ID', async () => {
-			const infoButton = this.page.getByTestId(/info-(python|r)-[a-z0-9]+/i);
+			// Notebook console sessions carry an extra `-notebook` segment
+			// (e.g. `info-r-notebook-f77090bb`), so allow it in addition to
+			// standalone sessions (`info-r-f77090bb`).
+			const infoButton = this.page.getByTestId(/info-(python|r)(-notebook)?-[a-z0-9]+/i);
 			const infoButtonCount = await infoButton.count();
 
 			if (infoButtonCount === 0) {
@@ -643,7 +664,7 @@ export class Sessions {
 
 			const testId = await infoButton.getAttribute('data-testid');
 
-			if (!testId || !/^info-((python|r)-[a-z0-9]+)$/i.test(testId)) {
+			if (!testId || !/^info-((python|r)(-notebook)?-[a-z0-9]+)$/i.test(testId)) {
 				throw new Error('No active session or unexpected session ID format');
 			}
 
@@ -662,8 +683,15 @@ export class Sessions {
 			const isSingleSession = (await this.getSessionCount()) === 1;
 
 			if (!isSingleSession && sessionId) {
-				// Use force to bypass notification toasts that may overlay the tab
-				await this.page.getByTestId(`console-tab-${sessionId}`).click({ force: true });
+				const targetTab = this.getSessionTab(sessionId);
+				await expect(async () => {
+					// Use force to bypass notification toasts that may overlay the tab. A
+					// toast can also swallow the click outright (it's on top, so the real
+					// tab never receives it) -- verify the tab actually went active instead
+					// of assuming the click landed, and retry if it didn't.
+					await targetTab.click({ force: true });
+					await expect(targetTab).toHaveClass(/tab-button--active/);
+				}, `Select session tab: ${sessionId}`).toPass({ timeout: 10000 });
 			}
 
 			const metadata = await this.extractMetadataFromDialog();

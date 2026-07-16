@@ -16,6 +16,7 @@ import { IConfigurationService } from '../../../../../../platform/configuration/
 import { MockContextKeyService } from '../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { NotebookDisplayOptions, NotebookLayoutConfiguration, NotebookOptions, NotebookOptionsChangeEvent } from '../../../../notebook/browser/notebookOptions.js';
+import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
 import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js';
@@ -85,12 +86,14 @@ describe('CellTextOutput', () => {
 	it('renders error output with quick-fix', () => {
 		// The workbench preset creates a fresh TestConfigurationService and
 		// MockContextKeyService per test, so pulling them out of the container
-		// here gives isolated state without any manual reset.
+		// here gives isolated state without any manual reset. The composite
+		// notebook AI gate is a context key (positronNotebook.aiEnabled), not a
+		// config value.
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
-		configurationService.setUserConfiguration('positron.assistant.enable', true);
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
-		contextKeyService.createKey('positron-assistant.hasChatModels', true);
+		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, true);
+		contextKeyService.createKey('posit-assistant.hasChatModels', true);
 
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
@@ -99,6 +102,23 @@ describe('CellTextOutput', () => {
 	});
 
 	it('does not render quick-fix for errors when assistant is disabled', () => {
+		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
+
+		expect(screen.getByTestId('cell-text-output')).toHaveClass('notebook-error');
+		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
+	});
+
+	it('does not render quick-fix for errors when the notebook AI gate is off', () => {
+		// Everything else that would show the quick-fix is on; only the composite
+		// notebook AI context key is off, isolating that gate. (The ai.enabled vs
+		// notebook.ai.enabled composition is covered in
+		// notebookAIEnabledContextKey.vitest.ts.)
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
+		configurationService.setUserConfiguration('positron.notebook.enabled', true);
+		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, false);
+		contextKeyService.createKey('posit-assistant.hasChatModels', true);
+
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
 		expect(screen.getByTestId('cell-text-output')).toHaveClass('notebook-error');

@@ -18,7 +18,7 @@ test.describe('Large R Notebook', {
 }, () => {
 
 	test('R - Large notebook execution', {
-		tag: [tags.ARK]
+		tag: [tags.ARK, tags.PLOTS]
 	}, async function ({ app, openDataFile, runCommand, r }) {
 		test.slow();
 		const { notebooks, layouts } = app.workbench;

@@ -1,0 +1,43 @@
+services:
+  jupyter-test:
+    # Multi-arch manifest: Docker resolves the correct arch (amd64 in CI, arm64
+    # locally on Apple Silicon) automatically, so no per-arch tag is needed here.
+    # ARCH_SUFFIX still drives the in-container Positron download (see run.sh /
+    # install-jupyter-positron.sh); it does not affect this base image.
+    image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
+    container_name: jupyter-test
+    ports:
+      - "8888:80"    # JupyterHub (TLJH uses port 80 internally)
+      - "8080:8080"  # Positron server
+      - "5900:5900"  # VNC (used by CI headed runs)
+    command: /lib/systemd/systemd
+    tty: true
+    stdin_open: true
+    privileged: true
+    cgroup: host
+    networks:
+      - jupyter-network
+    environment:
+      - POSIT_WORKBENCH_PASSWORD=${POSIT_WORKBENCH_PASSWORD:-testpassword}
+      - JUPYTER_PASSWORD=${JUPYTER_PASSWORD:-testpassword}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - container=docker
+    volumes:
+      - jupyter-data:/home
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    tmpfs:
+      - /tmp
+      - /run
+      - /run/lock
+    ulimits:
+      nproc: 4096
+      nofile:
+        soft: 65536
+        hard: 65536
+
+networks:
+  jupyter-network:
+    driver: bridge
+
+volumes:
+  jupyter-data:

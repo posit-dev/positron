@@ -2,6 +2,12 @@ name: "Build: Positron Workbench (Linux x64)"
 
 on:
   workflow_call:
+    inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
     outputs:
       artifact-name:
         description: "Name of the workbench artifact uploaded"
@@ -26,7 +32,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -43,6 +49,10 @@ jobs:
         run: |
           git config --global --add safe.directory '*'
           git rev-parse --show-toplevel
+
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
 
       - name: Install build dependencies
         env:

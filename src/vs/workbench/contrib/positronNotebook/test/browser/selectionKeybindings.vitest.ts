@@ -24,6 +24,7 @@ import {
 	SelectUpAction,
 } from '../../browser/positronNotebook.contribution.js';
 import { createLabelledTestNotebook } from './testPositronNotebookInstance.js';
+import { singleKeybinding } from './keybindingTestUtils.js';
 
 /**
  * Verifies that the notebook's keyboard navigation actions (registered in
@@ -90,9 +91,9 @@ describe('Notebook selection keybinding actions', () => {
 		it('declares ArrowUp keybinding scoped to command mode', () => {
 			const action = new SelectUpAction();
 			expect(action.desc.id).toBe('positronNotebook.selectUp');
-			expect(action.desc.keybinding?.primary).toBe(KeyCode.UpArrow);
-			expect(action.desc.keybinding?.secondary).toEqual([KeyCode.KeyK]);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+			expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyCode.UpArrow);
+			expect(singleKeybinding(action.desc.keybinding)?.secondary).toEqual([KeyCode.KeyK]);
+			expect(singleKeybinding(action.desc.keybinding)?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 		});
 
 		it('moves selection up by one cell from SingleSelection', () => {
@@ -112,9 +113,9 @@ describe('Notebook selection keybinding actions', () => {
 		it('declares ArrowDown keybinding scoped to command mode', () => {
 			const action = new SelectDownAction();
 			expect(action.desc.id).toBe('positronNotebook.selectDown');
-			expect(action.desc.keybinding?.primary).toBe(KeyCode.DownArrow);
-			expect(action.desc.keybinding?.secondary).toEqual([KeyCode.KeyJ]);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+			expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyCode.DownArrow);
+			expect(singleKeybinding(action.desc.keybinding)?.secondary).toEqual([KeyCode.KeyJ]);
+			expect(singleKeybinding(action.desc.keybinding)?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 		});
 
 		it('calls moveSelectionDown(false) on the active notebook', () => {
@@ -134,8 +135,8 @@ describe('Notebook selection keybinding actions', () => {
 		it('declares Escape keybinding scoped to command mode', () => {
 			const action = new ReduceSelectionToActiveCellAction();
 			expect(action.desc.id).toBe('positronNotebook.reduceSelectionToActiveCell');
-			expect(action.desc.keybinding?.primary).toBe(KeyCode.Escape);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+			expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyCode.Escape);
+			expect(singleKeybinding(action.desc.keybinding)?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 		});
 
 		it('collapses MultiSelection to SingleSelection on the active cell', () => {
@@ -169,9 +170,9 @@ describe('Notebook selection keybinding actions', () => {
 		it('declares Shift+ArrowDown keybinding scoped to command mode', () => {
 			const action = new AddSelectionDownAction();
 			expect(action.desc.id).toBe('positronNotebook.addSelectionDown');
-			expect(action.desc.keybinding?.primary).toBe(KeyMod.Shift | KeyCode.DownArrow);
-			expect(action.desc.keybinding?.secondary).toEqual([KeyMod.Shift | KeyCode.KeyJ]);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+			expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyMod.Shift | KeyCode.DownArrow);
+			expect(singleKeybinding(action.desc.keybinding)?.secondary).toEqual([KeyMod.Shift | KeyCode.KeyJ]);
+			expect(singleKeybinding(action.desc.keybinding)?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 		});
 
 		it('calls moveSelectionDown(true) -- grows MultiSelection downward', () => {
@@ -192,9 +193,9 @@ describe('Notebook selection keybinding actions', () => {
 		it('declares Shift+ArrowUp keybinding scoped to command mode', () => {
 			const action = new AddSelectionUpAction();
 			expect(action.desc.id).toBe('positronNotebook.addSelectionUp');
-			expect(action.desc.keybinding?.primary).toBe(KeyMod.Shift | KeyCode.UpArrow);
-			expect(action.desc.keybinding?.secondary).toEqual([KeyMod.Shift | KeyCode.KeyK]);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+			expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyMod.Shift | KeyCode.UpArrow);
+			expect(singleKeybinding(action.desc.keybinding)?.secondary).toEqual([KeyMod.Shift | KeyCode.KeyK]);
+			expect(singleKeybinding(action.desc.keybinding)?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 		});
 
 		it('calls moveSelectionUp(true) -- grows MultiSelection upward', () => {
@@ -215,8 +216,8 @@ describe('Notebook selection keybinding actions', () => {
 		it('declares Alt+ArrowUp keybinding and cell action bar menu entry gated on canMoveUp', () => {
 			const action = new MoveCellUpAction();
 			expect(action.desc.id).toBe('positronNotebook.cell.moveUp');
-			expect(action.desc.keybinding?.primary).toBe(KeyMod.Alt | KeyCode.UpArrow);
-			expect(action.desc.keybinding?.when).toBe(NotebookContextKeys.editorFocused);
+			expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyMod.Alt | KeyCode.UpArrow);
+			expect(singleKeybinding(action.desc.keybinding)?.when).toBe(NotebookContextKeys.editorFocused);
 			// Menu entry: cell action bar submenu, gated on canMoveUp so the
 			// item disappears at the first cell where the move would no-op.
 			const menu = Array.isArray(action.desc.menu) ? action.desc.menu[0] : action.desc.menu;
@@ -242,8 +243,8 @@ describe('Notebook selection keybinding actions', () => {
 		it('declares Alt+ArrowDown keybinding and cell action bar menu entry gated on canMoveDown', () => {
 			const action = new MoveCellDownAction();
 			expect(action.desc.id).toBe('positronNotebook.cell.moveDown');
-			expect(action.desc.keybinding?.primary).toBe(KeyMod.Alt | KeyCode.DownArrow);
-			expect(action.desc.keybinding?.when).toBe(NotebookContextKeys.editorFocused);
+			expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyMod.Alt | KeyCode.DownArrow);
+			expect(singleKeybinding(action.desc.keybinding)?.when).toBe(NotebookContextKeys.editorFocused);
 			const menu = Array.isArray(action.desc.menu) ? action.desc.menu[0] : action.desc.menu;
 			expect(menu?.id).toBe(MenuId.PositronNotebookCellActionBarSubmenu);
 			expect(menu?.when).toBe(CellContextKeys.canMoveDown);

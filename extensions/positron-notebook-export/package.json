@@ -1,0 +1,40 @@
+{
+  "name": "notebook-export",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "positron",
+  "private": true,
+  "engines": {
+    "vscode": "^1.65.0"
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "positronNotebook.export",
+        "title": "%command.positronNotebook.export.title%",
+        "category": "%category.notebook%"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "positronNotebook.export",
+          "group": "share",
+          "when": "resourceExtname == .ipynb"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.1.0"
+  }
+}

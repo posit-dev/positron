@@ -36,7 +36,7 @@ export class DashboardPage {
 	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 * @returns true if a new session was created, false if project already existed
 	 */
-	async ensureProjectExists(folderToOpen = 'qa-example-content', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<boolean> {
+	async ensureProjectExists(folderToOpen = 'test-files', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<boolean> {
 		const existingProject = this.project(folderToOpen);
 
 		try {
@@ -67,7 +67,7 @@ export class DashboardPage {
 		await this.sessionNameInput.fill(folderToOpen);
 		await this.launchButton.click();
 
-		// Azure JIT-provisioned users (rstudio-ide-test) don't have qa-example-content in their
+		// Azure JIT-provisioned users (rstudio-ide-test) don't have test-files in their
 		// home directory at launch time. The fixture handles copying the workspace into the JIT
 		// user's home and calling openWorkspaceFolder() once Positron is up.
 		if (managedCredentials === 'azure') {
@@ -86,13 +86,37 @@ export class DashboardPage {
 		await this.code.driver.currentPage.getByRole('button', { name: 'Open Folder', exact: true }).click();
 		await this.quickInput.waitForQuickInputOpened();
 
-		// When the picker opens already pointed at the target folder, its path is prefilled
-		// in the input box and the list shows the folder's *contents* (no row matches the
-		// folder name), so selectQuickInputElementContaining would fail. In that case just
-		// confirm with OK; otherwise navigate to the folder first.
+		// The Open Folder picker can open in one of two states depending on the Workbench
+		// build and timing:
+		//   - prefilled *inside* the target folder: the input path ends with the folder name
+		//     and the list shows the folder's *contents* (no row matches the folder name);
+		//     confirming with OK opens it.
+		//   - opened at the *parent*: the list shows a row for the folder that must be
+		//     selected first.
+		// Reading the input value immediately after the picker opens races the (slower) stable
+		// Workbench build still prefilling the path -- it returns '' or the parent path, so we
+		// wrongly try to select a folder row that never appears and time out. Wait for the
+		// picker to settle into either recognizable state before deciding what to do. Reading
+		// the actual prefilled path (rather than hard-coding a home dir) keeps this correct for
+		// both the user1 dashboard flow and the Azure JIT user's differing home directory.
 		const input = this.code.driver.currentPage.locator('.quick-input-widget .quick-input-box input');
-		const currentPath = (await input.inputValue().catch(() => '')).replace(/\/$/, '');
-		if (!currentPath.endsWith(`/${folderToOpen}`)) {
+		// Match how selectQuickInputElementContaining targets the row (aria-label *contains* the
+		// folder name), so "parent" detection agrees with the row we would go on to select.
+		const folderRow = this.code.driver.currentPage
+			.locator(`.quick-input-widget .quick-input-list .monaco-list-row[aria-label*="${folderToOpen}"]`)
+			.first();
+
+		let prefilledInsideFolder = false;
+		await expect(async () => {
+			const currentPath = (await input.inputValue().catch(() => '')).replace(/\/$/, '');
+			if (currentPath.endsWith(`/${folderToOpen}`)) {
+				prefilledInsideFolder = true;
+				return;
+			}
+			await expect(folderRow).toBeVisible({ timeout: 250 });
+		}).toPass({ timeout: 10000 });
+
+		if (!prefilledInsideFolder) {
 			await this.quickInput.selectQuickInputElementContaining(folderToOpen);
 		}
 		await this.quickInput.clickOkButton();
@@ -104,7 +128,7 @@ export class DashboardPage {
 	 * @param context Optional BrowserContext for setting up managed credentials via OAuth
 	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 */
-	async openSession(projectName = 'qa-example-content', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<void> {
+	async openSession(projectName = 'test-files', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<void> {
 		// Ensure the project exists before trying to open it
 		// If a new project is created, it will auto-launch and set up managed credentials
 		const newProjectCreated = await this.ensureProjectExists(projectName, context, managedCredentials);
@@ -346,9 +370,22 @@ export class DashboardPage {
 	 * Quits the specified project session
 	 * @param projectName The project name to quit
 	 */
-	async quitSession(projectName = 'qa-example-content'): Promise<void> {
-		await this.projectCheckbox(projectName).check();
-		await this.quitButton.click();
+	async quitSession(projectName = 'test-files'): Promise<void> {
+		// A prior teardown that failed to quit can leave a session behind, so more
+		// than one row for the same project may be present. Selecting by the shared
+		// "select <project>" checkbox name then matches multiple elements, which is
+		// a strict-mode violation for `.check()` -- so nothing gets quit and the
+		// leaked sessions accumulate until new sessions can no longer launch. The
+		// workbench lane runs serially (workers=1), so it's safe to check every
+		// matching row and quit them all, which also sweeps up any leaked session.
+		const checkboxes = this.projectCheckbox(projectName);
+		const count = await checkboxes.count();
+		for (let i = 0; i < count; i++) {
+			await checkboxes.nth(i).check();
+		}
+		if (count > 0) {
+			await this.quitButton.click();
+		}
 	}
 
 	// #endregion

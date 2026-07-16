@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { Disposable } from '../extHostTypes.js';
 
 /**
@@ -74,7 +74,12 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 			name: driver.name,
 			description: driver.description,
 			iconSvg: btoa(driver.iconSvg),
-			parameters: driver.parameters.map(p => this._convertParameter(p)),
+			mechanisms: driver.mechanisms.map(m => ({
+				id: m.id,
+				label: m.label,
+				description: m.description,
+				parameters: m.parameters.map(p => this._convertParameter(p)),
+			})),
 			supportedLanguageIds: driver.supportedLanguageIds,
 		};
 
@@ -106,7 +111,12 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 			id: dto.id,
 			name: dto.name,
 			description: dto.description,
-			parameters: dto.parameters as positron.DataConnectionParameter[],
+			mechanisms: dto.mechanisms.map(m => ({
+				id: m.id,
+				label: m.label,
+				description: m.description,
+				parameters: m.parameters as positron.DataConnectionParameter[],
+			})),
 			supportedLanguageIds: dto.supportedLanguageIds,
 		}));
 	}
@@ -116,8 +126,8 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	 * ext host via $driverConnect (full round trip). Returns a DataConnection proxy that routes
 	 * all operations through the main thread.
 	 */
-	public async connect(driverId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
-		const connectionHandle = await this._proxy.$connectToDataConnectionDriver(driverId, params);
+	public async connect(driverId: string, mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
+		const connectionHandle = await this._proxy.$connectToDataConnectionDriver(driverId, mechanismId, params);
 		return new ExtHostDataConnectionProxy(connectionHandle, this._proxy);
 	}
 
@@ -127,15 +137,16 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	 * Calls the extension's driver.connect(), stores the resulting DataConnection, and returns a
 	 * handle the main thread can use to operate on it.
 	 * @param driverId The unique identifier of the driver to connect with.
+	 * @param mechanismId The id of the mechanism the user selected.
 	 * @param params User-supplied parameter values from the connection dialog.
 	 */
-	async $driverConnect(driverId: string, params: Record<string, string | number | boolean>): Promise<number> {
+	async $driverConnect(driverId: string, mechanismId: string, params: Record<string, string | number | boolean>): Promise<number> {
 		const driver = this._drivers.get(driverId);
 		if (!driver) {
 			throw new Error(`Data connection driver '${driverId}' not found`);
 		}
 
-		const connection = await driver.connect(params);
+		const connection = await driver.connect(mechanismId, params);
 		const handle = this._nextConnectionHandle++;
 		this._connections.set(handle, connection);
 		this._nodes.set(handle, new Map());
@@ -144,6 +155,45 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		this._driverConnections.get(driverId)?.add(handle);
 
 		return handle;
+	}
+
+	/**
+	 * Calls the extension's driver.generateConnectionCode() and maps its variants into DTOs for the
+	 * main thread.
+	 * @param driverId The unique identifier of the driver to generate code with.
+	 * @param mechanismId The id of the mechanism the user selected.
+	 * @param languageId One of the driver's supported language ids.
+	 * @param params User-supplied parameter values from the connection dialog.
+	 */
+	async $generateConnectionCode(driverId: string, mechanismId: string, languageId: string, params: Record<string, string | number | boolean>): Promise<IDataConnectionCodeVariantDTO[]> {
+		const driver = this._drivers.get(driverId);
+		if (!driver) {
+			throw new Error(`Data connection driver '${driverId}' not found`);
+		}
+		if (!driver.generateConnectionCode) {
+			throw new Error(`Data connection driver '${driverId}' does not support generating connection code`);
+		}
+
+		const variants = await driver.generateConnectionCode(mechanismId, languageId, params);
+		return variants.map(variant => ({ id: variant.id, label: variant.label, code: variant.code }));
+	}
+
+	/**
+	 * Calls the extension's driver.redactParameterValue() to produce a display-safe form of a stored
+	 * secret value. The cleartext value stays in the ext host; only the redacted result is returned to
+	 * the main thread. Returns undefined when the driver does not implement redaction.
+	 * @param driverId The unique identifier of the driver.
+	 * @param mechanismId The id of the mechanism the connection was configured with.
+	 * @param parameterId The id of the parameter to redact.
+	 * @param value The stored cleartext parameter value.
+	 */
+	async $redactParameterValue(driverId: string, mechanismId: string, parameterId: string, value: string): Promise<string | undefined> {
+		const driver = this._drivers.get(driverId);
+		if (!driver || !driver.redactParameterValue) {
+			return undefined;
+		}
+
+		return (await driver.redactParameterValue(mechanismId, parameterId, value)) ?? undefined;
 	}
 
 	/**
@@ -254,6 +304,7 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 				name: node.name,
 				kind: node.kind,
 				dataType: node.dataType,
+				isPrimaryKey: node.isPrimaryKey,
 				hasGetChildren: !!node.getChildren,
 				hasPreview: !!node.preview,
 			};
@@ -269,6 +320,7 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		const dto: IDataConnectionParameterDTO = {
 			id: p.id,
 			label: p.label,
+			description: p.description,
 			required: p.required,
 			type: p.type,
 		};
@@ -277,14 +329,19 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 				dto.placeholder = p.placeholder;
 				if (p.secret) {
 					dto.secret = true;
+					dto.masked = p.masked;
 				} else {
 					dto.defaultValue = p.defaultValue;
 				}
 				break;
 			case 'number':
+				dto.defaultValue = p.defaultValue;
+				dto.placeholder = p.placeholder;
+				break;
 			case 'file':
 				dto.defaultValue = p.defaultValue;
 				dto.placeholder = p.placeholder;
+				dto.filters = p.filters;
 				break;
 			case 'boolean':
 				dto.defaultValue = p.defaultValue;

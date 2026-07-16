@@ -323,21 +323,11 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	}
 
 	getViewContainerLocation(viewContainer: ViewContainer): ViewContainerLocation {
-		const location = this.viewContainersCustomLocations.get(viewContainer.id) ?? this.getDefaultViewContainerLocation(viewContainer);
-		return this.getEffectiveViewContainerLocation(location);
+		return this.viewContainersCustomLocations.get(viewContainer.id) ?? this.getDefaultViewContainerLocation(viewContainer);
 	}
 
 	getDefaultViewContainerLocation(viewContainer: ViewContainer): ViewContainerLocation {
-		return this.getEffectiveViewContainerLocation(this.viewContainersRegistry.getViewContainerLocation(viewContainer));
-	}
-
-	private getEffectiveViewContainerLocation(location: ViewContainerLocation): ViewContainerLocation {
-		// When not in agent sessions workspace, view containers contributed to ChatBar
-		// should be registered at the AuxiliaryBar location instead
-		if (!this.isSessionsWindow && location === ViewContainerLocation.ChatBar) {
-			return ViewContainerLocation.AuxiliaryBar;
-		}
-		return location;
+		return this.viewContainersRegistry.getViewContainerLocation(viewContainer);
 	}
 
 	getDefaultContainerById(viewId: string): ViewContainer | null {
@@ -373,7 +363,26 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 
 	getDefaultViewContainer(location: ViewContainerLocation): ViewContainer | undefined {
 		const viewContainers = this.viewContainersRegistry.getDefaultViewContainers(location);
-		return viewContainers.find(viewContainer => this.isViewContainerEnabled(viewContainer));
+		// --- Start Positron ---
+		// Honor the `order` field when picking the default view container for a
+		// location. Multiple containers can register as default (e.g. both the
+		// Console and the Terminal are panel defaults), and the registry returns
+		// them in registration order. Without this sort the first-registered
+		// container wins, which is why new windows could open to the Terminal
+		// instead of the Console. Sorting by `order` makes the lowest-order
+		// container (Console, order 1) the default. Containers without an
+		// explicit order keep their relative registration order and sort last.
+		//
+		// We sort here rather than dropping `isDefault` from the Terminal: the
+		// sessions window (vs/sessions) registers the Terminal panel container
+		// but never registers the Console, so the Terminal is its only panel
+		// default. Removing `isDefault` would leave that window's panel without
+		// a default. Honoring `order` is correct in both bundles with no gate.
+		const orderedViewContainers = viewContainers
+			.slice()
+			.sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
+		return orderedViewContainers.find(viewContainer => this.isViewContainerEnabled(viewContainer));
+		// --- End Positron ---
 	}
 
 	canMoveViews(): boolean {
