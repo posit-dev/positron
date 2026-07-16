@@ -3863,13 +3863,19 @@ declare module 'positron' {
 		/**
 		 * Get context about the active notebook.
 		 *
-		 * Resolves with `undefined` when no notebook is open. Rejects with an
-		 * actionable error when a notebook is open but in an editor other than
-		 * the Positron Notebook Editor (e.g. the built-in/Jupyter notebook
-		 * editor), since the notebook API only operates on Positron Notebook
-		 * Editor instances; the error message explains how to switch editors.
+		 * When no Positron notebook is the active editor pane (e.g. focus is
+		 * in another editor or view), falls back to the open notebook attached
+		 * to the foreground session, then to the most recently active Positron
+		 * notebook that is still open.
 		 *
-		 * @returns The notebook context, or undefined if no notebook is active
+		 * Resolves with `undefined` when no notebook is open. Rejects with an
+		 * actionable error when the active editor holds a notebook in an
+		 * editor other than the Positron Notebook Editor (e.g. the
+		 * built-in/Jupyter notebook editor), since the notebook API only
+		 * operates on Positron Notebook Editor instances; the error message
+		 * explains how to switch editors.
+		 *
+		 * @returns The notebook context, or undefined if no notebook is open
 		 */
 		export function getContext(): Thenable<NotebookContext | undefined>;
 
