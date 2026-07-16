@@ -297,6 +297,7 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 			'positron-pdf-server',
 			'positron-data-driver-duckdb',
 			'positron-data-driver-postgresql',
+			'positron-data-driver-redshift',
 			'positron-data-driver-sqlite'
 		];
 

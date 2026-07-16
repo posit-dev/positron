@@ -7,6 +7,7 @@ import { readFileSync } from 'fs';
 import { Client } from 'pg';
 import * as positron from 'positron';
 import { ConnectionOptions } from 'tls';
+import { PostgreSQLClient } from './postgresqlClient.js';
 import { createDatabasesGroupNode, createSchemasGroupNode, IPostgresConnectionHost } from './postgresqlNodes.js';
 import { IPostgresDataExplorerHost, POSTGRESQL_DATA_EXPLORER_PROVIDER_ID } from './postgresqlDataExplorerRpcHandler.js';
 
@@ -20,6 +21,13 @@ let nextConnectionId = 1;
  * client falls back to the pg client's default database (the user name).
  */
 const MAINTENANCE_DATABASE = 'postgres';
+
+/**
+ * How long the socket may sit idle before the OS sends its first TCP keepalive probe. Kept well under
+ * the intervals at which idle-session timeouts and NAT tables tend to drop an idle connection, so the
+ * socket stays warm across ordinary gaps in browsing.
+ */
+const KEEP_ALIVE_INITIAL_DELAY_MS = 30_000;
 
 /**
  * The discrete connection fields, used when not connecting via a connection string. All are optional
@@ -119,9 +127,9 @@ function withConnectionStringDatabase(connectionString: string, database: string
  * Connects via the pg Client and provides schema browsing via getChildren().
  */
 export class PostgreSQLConnection implements positron.DataConnection, IPostgresConnectionHost {
-	// The pg client, or null after disconnect. In server mode this is the base client used to list
-	// databases; per-database browsing uses the clients cached in _databaseClients.
-	private _client: Client | null;
+	// The reconnecting pg client, or null after disconnect. In server mode this is the base client used
+	// to list databases; per-database browsing uses the clients cached in _databaseClients.
+	private _client: PostgreSQLClient | null;
 
 	// Whether the connection targets the whole server (no database specified). In server mode the
 	// top-level nodes are the databases; otherwise they are the schemas of the single database.
@@ -129,7 +137,7 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresC
 
 	// Per-database clients created lazily in server mode, keyed by database name. Cached as promises so
 	// concurrent expansions of the same database node share a single client, and closed on disconnect.
-	private readonly _databaseClients = new Map<string, Promise<Client>>();
+	private readonly _databaseClients = new Map<string, Promise<PostgreSQLClient>>();
 
 	// Unique id for this connection, used to key its previewed datasets.
 	private readonly _connectionId = `postgresql-${nextConnectionId++}`;
@@ -158,16 +166,28 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresC
 	}
 
 	/**
-	 * Builds a pg client from the connection config, optionally scoped to a specific database (used to
-	 * create per-database clients in server mode). A connection string is parsed and applied by the pg
-	 * client itself (including SSL); otherwise the client is built from the individual fields.
+	 * Builds a reconnecting client, optionally scoped to a specific database (used to create
+	 * per-database clients in server mode). The returned wrapper rebuilds its underlying pg client from
+	 * the same config on reconnect.
 	 */
-	private _buildClient(database?: string): Client {
+	private _buildClient(database?: string): PostgreSQLClient {
+		return new PostgreSQLClient(() => this._buildPgClient(database));
+	}
+
+	/**
+	 * Builds the underlying pg client from the connection config, optionally scoped to a specific
+	 * database. A connection string is parsed and applied by the pg client itself (including SSL);
+	 * otherwise the client is built from the individual fields. TCP keepalive is enabled so an idle
+	 * socket stays warm and a dead peer is detected quickly.
+	 */
+	private _buildPgClient(database?: string): Client {
+		// Keep the socket warm across idle gaps and let the OS detect a dead peer quickly.
+		const keepAlive = { keepAlive: true, keepAliveInitialDelayMillis: KEEP_ALIVE_INITIAL_DELAY_MS };
 		if (this._config.kind === 'connectionString') {
 			const connectionString = database !== undefined
 				? withConnectionStringDatabase(this._config.connectionString, database)
 				: this._config.connectionString;
-			return new Client({ connectionString });
+			return new Client({ connectionString, ...keepAlive });
 		}
 		return new Client({
 			host: this._config.host,
@@ -176,6 +196,7 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresC
 			password: this._config.password,
 			database: database ?? this._config.database,
 			ssl: buildSslConfig(this._config),
+			...keepAlive,
 		});
 	}
 
@@ -263,7 +284,7 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresC
 	 * database node's schemas can be browsed with a client scoped to that database. The cached clients
 	 * are closed on disconnect.
 	 */
-	async getDatabaseClient(database: string): Promise<Client> {
+	async getDatabaseClient(database: string): Promise<PostgreSQLClient> {
 		this._ensureConnected();
 		let clientPromise = this._databaseClients.get(database);
 		if (!clientPromise) {
@@ -292,7 +313,7 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresC
 	 * against and `database` is the database it lives in (undefined in single-database mode), so the
 	 * dataset id and query client match the right database.
 	 */
-	async previewObject(client: Client, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void> {
+	async previewObject(client: PostgreSQLClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void> {
 		this._ensureConnected();
 		const datasetId = `postgresql:${this._connectionId}:${database ?? ''}:${kind}:${schemaName}.${tableName}`;
 		await this._dataExplorerHandler.openTableView(datasetId, this._queryClient(client), schemaName, tableName, kind);
@@ -308,7 +329,7 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresC
 	 * Opens a single column of the given table or view in the Data Explorer as a one-column grid.
 	 * Uses a dataset id distinct from the table's so both can be open at once.
 	 */
-	async previewColumn(client: Client, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
+	async previewColumn(client: PostgreSQLClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
 		this._ensureConnected();
 		const datasetId = `postgresql:${this._connectionId}:${database ?? ''}:column:${schemaName}.${tableName}.${columnName}`;
 		await this._dataExplorerHandler.openColumnView(datasetId, this._queryClient(client), schemaName, tableName, kind, columnName);
@@ -321,7 +342,7 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresC
 	}
 
 	/** A query client over the given pg client, for the Data Explorer table views. */
-	private _queryClient(client: Client) {
+	private _queryClient(client: PostgreSQLClient) {
 		return { runQuery: async (sql: string) => (await client.query(sql)).rows };
 	}
 

@@ -5,19 +5,20 @@
 
 import * as assert from 'assert';
 import * as positron from 'positron';
-import { PostgreSQLClient } from '../postgresqlClient.js';
-import { PostgreSQLConnection, PostgreSQLConnectionConfig } from '../postgresqlConnection.js';
-import { createSchemaNode } from '../postgresqlNodes.js';
+import { RedshiftConnection, RedshiftConnectionConfig } from '../redshiftConnection.js';
+import { PgClientFactory, RedshiftClient, RedshiftFieldConfig } from '../redshiftClient.js';
+import { createDatabaseNode, createSchemaNode } from '../redshiftNodes.js';
+import { parseRedshiftEndpoint } from '../redshiftDriver.js';
 
 // Default config for tests -- not used to connect, just to construct.
-const TEST_CONFIG: PostgreSQLConnectionConfig = {
+const TEST_CONFIG: RedshiftConnectionConfig = {
 	kind: 'fields',
-	host: 'localhost',
-	port: 5432,
+	host: 'my-cluster.abc123.us-east-1.redshift.amazonaws.com',
+	port: 5439,
+	database: 'dev',
 	user: 'testuser',
 	password: 'testpass',
-	database: 'testdb',
-	ssl: false
+	ssl: true,
 };
 
 // A no-op Data Explorer host: these tests exercise schema browsing, not previewing, and a real
@@ -42,9 +43,9 @@ function createMockClient(queryHandler?: (sql: string, params?: any[]) => { rows
 	};
 }
 
-// Injects a mock client into a PostgreSQLConnection, bypassing the real pg Client.
-function createTestConnection(mockClient: any): PostgreSQLConnection {
-	const conn = new PostgreSQLConnection(TEST_CONFIG, noopHost);
+// Injects a mock client into a RedshiftConnection, bypassing the real pg Client.
+function createTestConnection(mockClient: any): RedshiftConnection {
+	const conn = new RedshiftConnection(TEST_CONFIG, noopHost);
 	// eslint-disable-next-line local/code-no-any-casts
 	(conn as any)._client = mockClient;
 	return conn;
@@ -71,7 +72,7 @@ async function columnsOf(relationNode: positron.DataConnectionNode): Promise<pos
 	return columnsGroup.getChildren!();
 }
 
-suite('PostgreSQL Driver Tests', () => {
+suite('Redshift Driver Tests', () => {
 
 	// --- Connection lifecycle ---
 
@@ -99,7 +100,7 @@ suite('PostgreSQL Driver Tests', () => {
 	});
 
 	test('connect failure throws', async () => {
-		const conn = new PostgreSQLConnection(TEST_CONFIG, noopHost);
+		const conn = new RedshiftConnection(TEST_CONFIG, noopHost);
 		// eslint-disable-next-line local/code-no-any-casts
 		(conn as any)._client = {
 			connect: async () => { throw new Error('Connection refused'); },
@@ -107,7 +108,7 @@ suite('PostgreSQL Driver Tests', () => {
 
 		await assert.rejects(
 			() => conn.connect(),
-			/Failed to connect to PostgreSQL/
+			/Failed to connect to Redshift/
 		);
 		// After failed connect, isConnected should return false.
 		assert.strictEqual(await conn.isConnected(), false);
@@ -171,7 +172,7 @@ suite('PostgreSQL Driver Tests', () => {
 				return {
 					rows: [
 						{ schema_name: 'public' },
-						{ schema_name: 'app' },
+						{ schema_name: 'analytics' },
 					]
 				};
 			}
@@ -184,7 +185,7 @@ suite('PostgreSQL Driver Tests', () => {
 		assert.strictEqual(schemas.length, 2);
 
 		const names = schemas.map(c => c.name).sort();
-		assert.deepStrictEqual(names, ['app', 'public']);
+		assert.deepStrictEqual(names, ['analytics', 'public']);
 
 		schemas.forEach(c => {
 			assert.strictEqual(c.kind, positron.DataConnectionNodeKind.Schema);
@@ -216,7 +217,7 @@ suite('PostgreSQL Driver Tests', () => {
 			return { rows: [] };
 		});
 
-		const schemaNode = createSchemaNode(mock, noopHost, undefined, 'public');
+		const schemaNode = createSchemaNode(mock, noopHost, 'public');
 		const groups = await schemaNode.getChildren!();
 		assert.strictEqual(groups.length, 2);
 		assert.strictEqual(groups[0].kind, positron.DataConnectionNodeKind.GroupTables);
@@ -252,8 +253,6 @@ suite('PostgreSQL Driver Tests', () => {
 						{
 							column_name: 'id',
 							data_type: 'integer',
-							udt_name: 'int4',
-							is_nullable: 'NO',
 							character_maximum_length: null,
 							numeric_precision: 32,
 							numeric_scale: 0,
@@ -261,8 +260,6 @@ suite('PostgreSQL Driver Tests', () => {
 						{
 							column_name: 'name',
 							data_type: 'character varying',
-							udt_name: 'varchar',
-							is_nullable: 'YES',
 							character_maximum_length: 255,
 							numeric_precision: null,
 							numeric_scale: null,
@@ -270,8 +267,6 @@ suite('PostgreSQL Driver Tests', () => {
 						{
 							column_name: 'price',
 							data_type: 'numeric',
-							udt_name: 'numeric',
-							is_nullable: 'YES',
 							character_maximum_length: null,
 							numeric_precision: 10,
 							numeric_scale: 2,
@@ -279,8 +274,6 @@ suite('PostgreSQL Driver Tests', () => {
 						{
 							column_name: 'active',
 							data_type: 'boolean',
-							udt_name: 'bool',
-							is_nullable: 'NO',
 							character_maximum_length: null,
 							numeric_precision: null,
 							numeric_scale: null,
@@ -297,7 +290,7 @@ suite('PostgreSQL Driver Tests', () => {
 			return { rows: [] };
 		});
 
-		const schemaNode = createSchemaNode(mock, noopHost, undefined, 'public');
+		const schemaNode = createSchemaNode(mock, noopHost, 'public');
 		const tables = await tablesOf(schemaNode);
 		const productsNode = tables.find(c => c.name === 'products')!;
 
@@ -307,7 +300,7 @@ suite('PostgreSQL Driver Tests', () => {
 		const idField = fields.find(f => f.name === 'id')!;
 		assert.strictEqual(idField.kind, positron.DataConnectionNodeKind.Field);
 		assert.strictEqual(idField.dataType, 'integer');
-		// The id column is the primary key; the others are not.
+		// The id column is the declared primary key; the others are not.
 		assert.strictEqual(idField.isPrimaryKey, true);
 
 		const nameField = fields.find(f => f.name === 'name')!;
@@ -327,94 +320,25 @@ suite('PostgreSQL Driver Tests', () => {
 		});
 	});
 
-	// --- Indexes ---
+	// --- No Indexes group (Redshift has no indexes) ---
 
-	test('table Indexes group returns index leaf nodes', async () => {
+	test('table getChildren returns only a Columns group (no Indexes)', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('pg_indexes')) {
-				return {
-					rows: [
-						{ indexname: 'products_pkey' },
-						{ indexname: 'products_name_idx' },
-					]
-				};
-			}
 			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
 				return { rows: [{ table_name: 'products' }] };
 			}
 			return { rows: [] };
 		});
 
-		const schemaNode = createSchemaNode(mock, noopHost, undefined, 'public');
+		const schemaNode = createSchemaNode(mock, noopHost, 'public');
 		const tables = await tablesOf(schemaNode);
-		const productsNode = tables.find(c => c.name === 'products')!;
+		const groups = await tables[0].getChildren!();
 
-		const groups = await productsNode.getChildren!();
-		const indexesGroup = groups.find(g => g.kind === positron.DataConnectionNodeKind.GroupIndexes)!;
-		const indexes = await indexesGroup.getChildren!();
-
-		assert.deepStrictEqual(indexes.map(i => i.name).sort(), ['products_name_idx', 'products_pkey']);
-		indexes.forEach(i => {
-			assert.strictEqual(i.kind, positron.DataConnectionNodeKind.Index);
-			assert.strictEqual(i.getChildren, undefined, 'indexes are leaves');
-		});
+		assert.strictEqual(groups.length, 1);
+		assert.strictEqual(groups[0].kind, positron.DataConnectionNodeKind.GroupColumns);
 	});
 
 	// --- Data type formatting ---
-
-	test('array types formatted correctly', async () => {
-		const mock = createMockClient((sql) => {
-			if (sql.includes('information_schema.columns')) {
-				return {
-					rows: [{
-						column_name: 'tags',
-						data_type: 'ARRAY',
-						udt_name: '_text',
-						is_nullable: 'YES',
-						character_maximum_length: null,
-						numeric_precision: null,
-						numeric_scale: null,
-					}]
-				};
-			}
-			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
-				return { rows: [{ table_name: 't' }] };
-			}
-			return { rows: [] };
-		});
-
-		const schema = createSchemaNode(mock, noopHost, undefined, 'public');
-		const tables = await tablesOf(schema);
-		const fields = await columnsOf(tables[0]);
-		assert.strictEqual(fields[0].dataType, 'text[]');
-	});
-
-	test('user-defined types use udt_name', async () => {
-		const mock = createMockClient((sql) => {
-			if (sql.includes('information_schema.columns')) {
-				return {
-					rows: [{
-						column_name: 'status',
-						data_type: 'USER-DEFINED',
-						udt_name: 'order_status',
-						is_nullable: 'YES',
-						character_maximum_length: null,
-						numeric_precision: null,
-						numeric_scale: null,
-					}]
-				};
-			}
-			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
-				return { rows: [{ table_name: 't' }] };
-			}
-			return { rows: [] };
-		});
-
-		const schema = createSchemaNode(mock, noopHost, undefined, 'public');
-		const tables = await tablesOf(schema);
-		const fields = await columnsOf(tables[0]);
-		assert.strictEqual(fields[0].dataType, 'order_status');
-	});
 
 	test('numeric without scale omits scale', async () => {
 		const mock = createMockClient((sql) => {
@@ -423,8 +347,6 @@ suite('PostgreSQL Driver Tests', () => {
 					rows: [{
 						column_name: 'amount',
 						data_type: 'numeric',
-						udt_name: 'numeric',
-						is_nullable: 'YES',
 						character_maximum_length: null,
 						numeric_precision: 18,
 						numeric_scale: 0,
@@ -437,7 +359,7 @@ suite('PostgreSQL Driver Tests', () => {
 			return { rows: [] };
 		});
 
-		const schema = createSchemaNode(mock, noopHost, undefined, 'public');
+		const schema = createSchemaNode(mock, noopHost, 'public');
 		const tables = await tablesOf(schema);
 		const fields = await columnsOf(tables[0]);
 		assert.strictEqual(fields[0].dataType, 'numeric(18)');
@@ -466,112 +388,49 @@ suite('PostgreSQL Driver Tests', () => {
 			return { rows: [] };
 		});
 
-		const schema = createSchemaNode(mock, noopHost, undefined, 'public');
+		const schema = createSchemaNode(mock, noopHost, 'public');
 		const tables = await tablesOf(schema);
 		assert.ok(tables[0].preview);
 		await tables[0].preview!();
 	});
 });
 
-suite('PostgreSQL Server Mode Tests', () => {
+suite('Redshift Cross-Database Detection', () => {
 
-	// Fields config with no database: the connection targets the whole server, so databases are the
-	// top-level nodes.
-	const SERVER_CONFIG: PostgreSQLConnectionConfig = {
-		kind: 'fields',
-		host: 'localhost',
-		port: 5432,
-		user: 'testuser',
-		password: 'testpass',
-		ssl: false,
-	};
-
-	// Builds a server-mode connection with a base client (used to list databases) and a per-database
-	// client (returned for any database node's schema browsing). Stubbing _buildClient bypasses the
-	// real pg Client, so getDatabaseClient hands back the mock instead of dialing a server.
-	function createServerConnection(baseClient: any, databaseClient: any): PostgreSQLConnection {
-		const conn = new PostgreSQLConnection(SERVER_CONFIG, noopHost);
+	test('connect enables the Databases group when SVV_REDSHIFT_DATABASES is available', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SVV_REDSHIFT_DATABASES')) {
+				return { rows: [{ database_name: 'dev' }, { database_name: 'analytics' }] };
+			}
+			return { rows: [] };
+		});
+		const conn = new RedshiftConnection(TEST_CONFIG, noopHost);
 		// eslint-disable-next-line local/code-no-any-casts
-		(conn as any)._client = baseClient;
-		// eslint-disable-next-line local/code-no-any-casts
-		(conn as any)._buildClient = () => databaseClient;
-		return conn;
-	}
-
-	test('getChildren returns a single Databases group node', async () => {
-		const mock = createMockClient();
-		const conn = createServerConnection(mock, mock);
+		(conn as any)._client = mock;
+		await conn.connect();
 
 		const roots = await conn.getChildren();
 		assert.strictEqual(roots.length, 1);
 		assert.strictEqual(roots[0].kind, positron.DataConnectionNodeKind.GroupDatabases);
-		assert.strictEqual(roots[0].name, 'Databases');
 
-		await conn.disconnect();
-	});
-
-	test('Databases group lists databases, each expanding to its schemas', async () => {
-		const baseClient = createMockClient((sql) => {
-			if (sql.includes('pg_database')) {
-				return { rows: [{ datname: 'analytics' }, { datname: 'app' }] };
-			}
-			return { rows: [] };
-		});
-		const databaseClient = createMockClient((sql) => {
-			if (sql.includes('information_schema.schemata')) {
-				return { rows: [{ schema_name: 'public' }] };
-			}
-			return { rows: [] };
-		});
-		const conn = createServerConnection(baseClient, databaseClient);
-
-		const [databasesGroup] = await conn.getChildren();
-		const databases = await databasesGroup.getChildren!();
-		assert.deepStrictEqual(databases.map(d => d.name), ['analytics', 'app']);
+		const databases = await roots[0].getChildren!();
+		assert.deepStrictEqual(databases.map(d => d.name), ['dev', 'analytics']);
 		databases.forEach(d => assert.strictEqual(d.kind, positron.DataConnectionNodeKind.Database));
 
-		// Expanding a database yields a Schemas group backed by the per-database client.
-		const [schemasGroup] = await databases[0].getChildren!();
-		assert.strictEqual(schemasGroup.kind, positron.DataConnectionNodeKind.GroupSchemas);
-		const schemas = await schemasGroup.getChildren!();
-		assert.deepStrictEqual(schemas.map(s => s.name), ['public']);
-
 		await conn.disconnect();
 	});
 
-	test('server mode falls back from the maintenance database to the default database', async () => {
-		const fallbackClient = createMockClient((sql) => {
-			if (sql.includes('pg_database')) {
-				return { rows: [{ datname: 'app' }] };
+	test('connect falls back to the Schemas group when SVV_REDSHIFT_DATABASES is unavailable', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SVV_REDSHIFT_DATABASES')) {
+				throw new Error('relation "svv_redshift_databases" does not exist');
 			}
 			return { rows: [] };
 		});
-		const conn = new PostgreSQLConnection(SERVER_CONFIG, noopHost);
-		// The primary (maintenance-database) client rejects, as it would when 'postgres' is unavailable;
-		// the fallback client (the pg default database) connects instead.
+		const conn = new RedshiftConnection(TEST_CONFIG, noopHost);
 		// eslint-disable-next-line local/code-no-any-casts
-		(conn as any)._client = { connect: async () => { throw new Error('database "postgres" does not exist'); }, end: async () => { } };
-		// eslint-disable-next-line local/code-no-any-casts
-		(conn as any)._buildClient = () => fallbackClient;
-
+		(conn as any)._client = mock;
 		await conn.connect();
-		assert.strictEqual(await conn.isConnected(), true);
-
-		// Enumeration proceeds against the fallback client.
-		const [databasesGroup] = await conn.getChildren();
-		const databases = await databasesGroup.getChildren!();
-		assert.deepStrictEqual(databases.map(d => d.name), ['app']);
-
-		await conn.disconnect();
-	});
-
-	test('connection string with a database is single-database mode', async () => {
-		const conn = new PostgreSQLConnection(
-			{ kind: 'connectionString', connectionString: 'postgresql://user@localhost:5432/mydb' },
-			noopHost
-		);
-		// eslint-disable-next-line local/code-no-any-casts
-		(conn as any)._client = createMockClient();
 
 		const roots = await conn.getChildren();
 		assert.strictEqual(roots[0].kind, positron.DataConnectionNodeKind.GroupSchemas);
@@ -579,22 +438,52 @@ suite('PostgreSQL Server Mode Tests', () => {
 		await conn.disconnect();
 	});
 
-	test('connection string without a database is server mode', async () => {
-		const conn = new PostgreSQLConnection(
-			{ kind: 'connectionString', connectionString: 'postgresql://user@localhost:5432/' },
-			noopHost
-		);
-		// eslint-disable-next-line local/code-no-any-casts
-		(conn as any)._client = createMockClient();
+	test('database node browses schemas/tables/columns via the SVV_ALL_* views', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SVV_ALL_SCHEMAS')) {
+				return { rows: [{ schema_name: 'public' }] };
+			}
+			if (sql.includes('SVV_ALL_TABLES') && sql.includes("<> 'VIEW'")) {
+				return { rows: [{ table_name: 'events' }] };
+			}
+			if (sql.includes('SVV_ALL_TABLES') && sql.includes("= 'VIEW'")) {
+				return { rows: [{ table_name: 'events_daily' }] };
+			}
+			if (sql.includes('SVV_ALL_COLUMNS')) {
+				return { rows: [{ column_name: 'id', data_type: 'integer', character_maximum_length: null, numeric_precision: 32, numeric_scale: 0 }] };
+			}
+			return { rows: [] };
+		});
 
-		const roots = await conn.getChildren();
-		assert.strictEqual(roots[0].kind, positron.DataConnectionNodeKind.GroupDatabases);
+		const dbNode = createDatabaseNode(mock, noopHost, 'analytics');
+		const [schemasGroup] = await dbNode.getChildren!();
+		assert.strictEqual(schemasGroup.kind, positron.DataConnectionNodeKind.GroupSchemas);
 
-		await conn.disconnect();
+		const schemas = await schemasGroup.getChildren!();
+		assert.deepStrictEqual(schemas.map(s => s.name), ['public']);
+
+		const groups = await schemas[0].getChildren!();
+		const tables = await groups.find(g => g.kind === positron.DataConnectionNodeKind.GroupTables)!.getChildren!();
+		assert.deepStrictEqual(tables.map(t => t.name), ['events']);
+
+		// Columns come from SVV_ALL_COLUMNS; primary-key detection is skipped cross-database.
+		const columnsGroup = (await tables[0].getChildren!())[0];
+		const columns = await columnsGroup.getChildren!();
+		assert.strictEqual(columns[0].name, 'id');
+		assert.strictEqual(columns[0].isPrimaryKey, false);
 	});
 });
 
-suite('PostgreSQL Reconnecting Client', () => {
+suite('Redshift Reconnecting Client', () => {
+
+	const FIELDS: RedshiftFieldConfig = {
+		host: 'my-cluster.abc123.us-east-1.redshift.amazonaws.com',
+		port: 5439,
+		database: 'dev',
+		user: 'testuser',
+		password: 'testpass',
+		ssl: true,
+	};
 
 	// A fake pg Client that records its lifecycle calls and answers queries from a per-instance
 	// handler (which may throw to simulate a query- or connection-level failure).
@@ -608,22 +497,22 @@ suite('PostgreSQL Reconnecting Client', () => {
 		on() { return this; }
 	}
 
-	// Builds a PostgreSQLClient whose pg-client factory hands out FakeClients driven by the given
-	// per-client handlers (the nth handler backs the nth client built), plus the list of clients
-	// created so far.
-	function makeClient(handlers: Array<(sql: string, params?: unknown[]) => { rows: unknown[] }>) {
+	// Builds a PgClientFactory that hands out FakeClients driven by the given per-client handlers (the
+	// nth handler backs the nth client built), plus the list of clients created so far.
+	function makeFactory(handlers: Array<(sql: string, params?: unknown[]) => { rows: unknown[] }>) {
 		const clients: FakeClient[] = [];
-		const client = new PostgreSQLClient(() => {
-			const pg = new FakeClient(handlers[clients.length] ?? (() => ({ rows: [] })));
-			clients.push(pg);
+		const factory: PgClientFactory = () => {
+			const client = new FakeClient(handlers[clients.length] ?? (() => ({ rows: [] })));
+			clients.push(client);
 			// eslint-disable-next-line local/code-no-any-casts
-			return pg as any;
-		});
-		return { client, clients };
+			return client as any;
+		};
+		return { factory, clients };
 	}
 
 	test('passes queries through the connected client', async () => {
-		const { client, clients } = makeClient([() => ({ rows: [{ n: 1 }] })]);
+		const { factory, clients } = makeFactory([() => ({ rows: [{ n: 1 }] })]);
+		const client = new RedshiftClient(FIELDS, factory);
 
 		await client.connect();
 		const result = await client.query('SELECT 1');
@@ -637,10 +526,11 @@ suite('PostgreSQL Reconnecting Client', () => {
 	});
 
 	test('reconnects once and retries when the socket is dead', async () => {
-		const { client, clients } = makeClient([
+		const { factory, clients } = makeFactory([
 			() => { throw new Error('Connection terminated unexpectedly'); },
 			() => ({ rows: [{ ok: true }] }),
 		]);
+		const client = new RedshiftClient(FIELDS, factory);
 
 		await client.connect();
 		const result = await client.query('SELECT 1');
@@ -653,7 +543,8 @@ suite('PostgreSQL Reconnecting Client', () => {
 
 	test('does not reconnect on a non-connection error', async () => {
 		const syntaxError = Object.assign(new Error('syntax error at or near "SELCT"'), { code: '42601' });
-		const { client, clients } = makeClient([() => { throw syntaxError; }]);
+		const { factory, clients } = makeFactory([() => { throw syntaxError; }]);
+		const client = new RedshiftClient(FIELDS, factory);
 
 		await client.connect();
 		await assert.rejects(() => client.query('SELCT 1'), /syntax error/);
@@ -661,10 +552,11 @@ suite('PostgreSQL Reconnecting Client', () => {
 	});
 
 	test('coalesces concurrent reconnects into one', async () => {
-		const { client, clients } = makeClient([
+		const { factory, clients } = makeFactory([
 			() => { throw new Error('Connection terminated unexpectedly'); },
 			(sql) => ({ rows: [{ sql }] }),
 		]);
+		const client = new RedshiftClient(FIELDS, factory);
 
 		await client.connect();
 		const [r1, r2] = await Promise.all([client.query('a'), client.query('b')]);
@@ -676,12 +568,11 @@ suite('PostgreSQL Reconnecting Client', () => {
 		);
 	});
 
-	// Builds a PostgreSQLClient whose nth connect() throws the nth entry in `connectErrors` (undefined
-	// = succeed), so a briefly-unreachable connect sequence can be simulated. Records the attempt
-	// count, and passes a no-op sleep so the backoff does not slow the test.
-	function connectClient(connectErrors: Array<Error | undefined>) {
+	// A pg-client factory whose nth connect() throws the nth entry in `connectErrors` (undefined =
+	// succeed), so a resuming-workgroup connect sequence can be simulated. Records the attempt count.
+	function connectFactory(connectErrors: Array<Error | undefined>) {
 		const state = { attempts: 0 };
-		const client = new PostgreSQLClient(() => {
+		const factory: PgClientFactory = () => {
 			const err = connectErrors[state.attempts];
 			state.attempts++;
 			// eslint-disable-next-line local/code-no-any-casts
@@ -691,12 +582,13 @@ suite('PostgreSQL Reconnecting Client', () => {
 				end: async () => { },
 				on: () => { },
 			} as any;
-		}, async () => { });
-		return { client, state };
+		};
+		return { factory, state };
 	}
 
 	test('retries a transient failure during connect', async () => {
-		const { client, state } = connectClient([new Error('Connection terminated unexpectedly'), undefined]);
+		const { factory, state } = connectFactory([new Error('Connection terminated unexpectedly'), undefined]);
+		const client = new RedshiftClient(FIELDS, factory, async () => { });
 
 		await client.connect();
 		assert.strictEqual(state.attempts, 2, 'the dropped first connect should be retried');
@@ -704,9 +596,34 @@ suite('PostgreSQL Reconnecting Client', () => {
 
 	test('does not retry a terminal error during connect', async () => {
 		const authError = Object.assign(new Error('password authentication failed'), { code: '28P01' });
-		const { client, state } = connectClient([authError]);
+		const { factory, state } = connectFactory([authError]);
+		const client = new RedshiftClient(FIELDS, factory, async () => { });
 
 		await assert.rejects(() => client.connect(), /password authentication failed/);
 		assert.strictEqual(state.attempts, 1, 'a bad password should fail fast, not retry');
+	});
+});
+
+suite('Redshift Endpoint Parsing', () => {
+	const host = 'wg.694830131898.us-east-1.redshift-serverless.amazonaws.com';
+
+	test('bare hostname leaves port and database unset', () => {
+		assert.deepStrictEqual(parseRedshiftEndpoint(host), { host, port: undefined, database: undefined });
+	});
+
+	test('full endpoint splits host, port, and database', () => {
+		assert.deepStrictEqual(parseRedshiftEndpoint(`${host}:5439/dev`), { host, port: 5439, database: 'dev' });
+	});
+
+	test('host with port only', () => {
+		assert.deepStrictEqual(parseRedshiftEndpoint(`${host}:5439`), { host, port: 5439, database: undefined });
+	});
+
+	test('scheme prefix is stripped', () => {
+		assert.deepStrictEqual(parseRedshiftEndpoint(`jdbc:redshift://${host}:5439/dev`), { host, port: 5439, database: 'dev' });
+	});
+
+	test('surrounding whitespace is trimmed', () => {
+		assert.deepStrictEqual(parseRedshiftEndpoint(`  ${host}:5439/dev  `), { host, port: 5439, database: 'dev' });
 	});
 });
