@@ -487,7 +487,7 @@ export const selectNewLanguageRuntime = async (
 		interpreterGroups.forEach(group => {
 			// Group runtimes by environment type
 			const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
-			const allRuntimes = [group.primaryRuntime, ...group.alternateRuntimes];
+			const allRuntimes = group.alternateRuntimes;
 
 			allRuntimes.forEach(runtime => {
 				const envType = `${runtime.runtimeSource}`;
