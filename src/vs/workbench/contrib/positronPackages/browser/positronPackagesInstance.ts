@@ -18,7 +18,7 @@ export interface IPositronPackagesInstance {
 	session: ILanguageRuntimeSession;
 	attachRuntime(): void;
 	detachRuntime(): void;
-	refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
+	refreshPackages(token?: CancellationToken, forceMetadata?: boolean): Promise<ILanguageRuntimePackage[]>;
 	refreshMetadata(token?: CancellationToken): Promise<void>;
 	installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
 	uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void>;
@@ -182,14 +182,14 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		return packageManager;
 	}
 
-	async refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
+	async refreshPackages(token?: CancellationToken, forceMetadata: boolean = false): Promise<ILanguageRuntimePackage[]> {
 		const packageManager = this.getPackageManagerOrThrow();
 		const effectiveToken = token ?? CancellationToken.None;
 
 		// Loading
 		this._onDidChangeRefreshState.fire(true);
 		try {
-			await this._refreshPackagesInternal(packageManager, effectiveToken);
+			await this._refreshPackagesInternal(packageManager, effectiveToken, forceMetadata);
 			return this.packages;
 		} finally {
 			this._onDidChangeRefreshState.fire(false);
@@ -223,20 +223,23 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	private async _refreshPackagesInternal(
 		packageManager: ReturnType<typeof this.getPackageManagerOrThrow>,
 		token: CancellationToken,
+		forceMetadata: boolean = false,
 	): Promise<void> {
 		// Stage 1: Get basic package list and fire event (getter merges cached metadata)
 		this._packages = await packageManager.getPackages(token);
 		this._onDidRefreshPackagesInstance.fire(this.packages);
 
-		// Stage 2: Fetch metadata asynchronously (don't block). When the
-		// persisted entry has aged past its freshness window, refetch every
-		// package so a new upstream release surfaces even though nothing
-		// installed locally changed; otherwise only the packages without a
-		// fresh cache hit are fetched (and a fully-fresh warm start makes no
-		// network call at all). Use CancellationToken.None since this runs
-		// after the main operation completes.
+		// Stage 2: Fetch metadata asynchronously (don't block). Refetch every
+		// package when `forceMetadata` is set (a user-initiated refresh, which
+		// must be authoritative even inside the freshness window) or when the
+		// persisted entry has aged past its freshness window (so a new upstream
+		// release surfaces even though nothing installed locally changed);
+		// otherwise only the packages without a fresh cache hit are fetched
+		// (and a fully-fresh warm start makes no network call at all). Use
+		// CancellationToken.None since this runs after the main operation
+		// completes.
 		if (packageManager.getPackageMetadata && this._packages.length > 0) {
-			const fetchAll = !this._cache.isFresh(this._runtimeId);
+			const fetchAll = forceMetadata || !this._cache.isFresh(this._runtimeId);
 			this._fetchAndMergeMetadata(packageManager, CancellationToken.None, fetchAll);
 		}
 	}

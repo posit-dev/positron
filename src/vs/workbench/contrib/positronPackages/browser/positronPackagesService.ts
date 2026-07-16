@@ -218,11 +218,11 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		this._onDidChangeItemSize.fire(itemSize);
 	}
 
-	async refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
+	async refreshPackages(token?: CancellationToken, forceMetadata?: boolean): Promise<ILanguageRuntimePackage[]> {
 		const instance = this._activeInstance;
 		if (instance) {
 			return await Promise.race([
-				instance.refreshPackages(token),
+				instance.refreshPackages(token, forceMetadata),
 				timeout(TIMEOUT_REFRESH_MS).then(() => { throw new Error('Package refresh timed out'); })
 			]);
 		}

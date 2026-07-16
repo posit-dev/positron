@@ -268,7 +268,9 @@ class RefreshPackagesAction extends Action2 {
 				delay: 500
 			}, async () => {
 				try {
-					return await service.refreshPackages(cts.token);
+					// User-initiated refresh: force a live outdated recompute so
+					// the pane can't keep showing stale cached indicators.
+					return await service.refreshPackages(cts.token, true /* forceMetadata */);
 				} catch (error) {
 					notifications.error(cleanErrorMessage(error));
 					throw error;
