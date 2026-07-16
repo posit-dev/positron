@@ -236,6 +236,24 @@ describe('selectNewLanguageRuntime', () => {
 			await promise;
 		});
 
+		it('keeps every single-listed runtime searchable when the picker is filtered', async () => {
+			// The suggested runtime now appears only under "Suggested". An item flagged
+			// neverShowWhenFiltered is hidden once the user types a query, so any runtime
+			// with a single listing must NOT carry that flag -- otherwise filtering would
+			// hide the user's preferred interpreter entirely.
+			registerRuntime(makeRuntime({ runtimeId: 'py-system', runtimeSource: 'System', runtimeName: 'Python (System)' }));
+			registerRuntime(makeRuntime({ runtimeId: 'py-conda', runtimeSource: 'Conda', runtimeName: 'Python (Conda)' }));
+
+			const promise = runPicker();
+			await waitUntilOpened();
+			const runtimeItems = pick.items.filter(
+				(item): item is IQuickPickItem => item.type !== 'separator'
+			);
+			expect(runtimeItems.every(item => item.neverShowWhenFiltered !== true)).toBe(true);
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
 		it('sorts within an env type by version descending, unsupported runtimes last', async () => {
 			// Register a preferred runtime first so the three runtimes under test
 			// are all alternates (the primary is shown only under "Suggested").

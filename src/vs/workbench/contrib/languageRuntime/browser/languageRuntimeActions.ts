@@ -478,7 +478,7 @@ export const selectNewLanguageRuntime = async (
 					iconPath: {
 						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
 					},
-					neverShowWhenFiltered: true
+					neverShowWhenFiltered: false
 				});
 			});
 		}
