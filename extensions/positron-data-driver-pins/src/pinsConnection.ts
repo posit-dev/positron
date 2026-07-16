@@ -13,14 +13,15 @@ import { createOwnerNode, IPinsBrowseHost } from './pinsNodes.js';
  *
  * There is no persistent socket: each browse action is a stateless HTTPS request carrying the API
  * key. Each top-level browse re-enumerates the pins (the connection is torn down and rebuilt when
- * its tree entry is collapsed and re-expanded, so there is nothing to cache across); per-pin type
- * lookups are memoized because an owner node can be collapsed and re-expanded without disconnecting.
+ * its tree entry is collapsed and re-expanded, so there is nothing to cache across); a successful
+ * per-pin type lookup is memoized because an owner node can be collapsed and re-expanded without
+ * disconnecting, while a failed one is retried on the next re-expand.
  */
 export class PinsConnection implements positron.DataConnection, IPinsBrowseHost {
 	/** Set once disconnected, so browsing after disconnect fails cleanly. */
 	private _disconnected = false;
 
-	/** Per-pin type lookups, keyed by GUID, so a pin's `data.txt` is fetched at most once. */
+	/** Per-pin type lookups, keyed by GUID, so a pin's `data.txt` is fetched at most once on success. */
 	private readonly _typeCache = new Map<string, Promise<string | undefined>>();
 
 	/**
@@ -61,22 +62,26 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 			.map(owner => createOwnerNode(this, owner, pinsByOwner.get(owner)!));
 	}
 
-	/** Resolves a pin's storage type for the badge, memoized and resilient to metadata failures. */
+	/**
+	 * Resolves a pin's storage type for the badge. A successful lookup is memoized; a failed one is
+	 * dropped from the cache (matching the enumeration's retry-rather-than-cache-rejections behavior)
+	 * so a later re-expand retries it, and shows no badge in the meantime rather than failing the
+	 * whole owner expansion.
+	 */
 	async getPinType(pin: PinInfo): Promise<string | undefined> {
 		let typePromise = this._typeCache.get(pin.guid);
 		if (!typePromise) {
-			typePromise = (async () => {
-				try {
-					const meta = await this._client.getPinMeta(pin.guid, pin.activeBundleId);
-					return meta.type || undefined;
-				} catch {
-					// A pin whose metadata can't be read simply shows no type badge.
-					return undefined;
-				}
-			})();
+			typePromise = this._client.getPinMeta(pin.guid, pin.activeBundleId)
+				.then(meta => meta.type || undefined);
 			this._typeCache.set(pin.guid, typePromise);
 		}
-		return typePromise;
+		try {
+			return await typePromise;
+		} catch {
+			// The lookup failed: drop it so a later re-expand retries, and show no badge this time.
+			this._typeCache.delete(pin.guid);
+			return undefined;
+		}
 	}
 
 	/** Marks the connection disconnected and drops cached state. No socket to close. */

@@ -151,6 +151,34 @@ suite('Pins Connection tree', () => {
 		assert.deepStrictEqual(owners.map(o => o.name), ['julia', 'tim']);
 	});
 
+	test('a failed type lookup does not stick; re-expanding the owner re-fetches the badge', async () => {
+		let carsMetaAttempts = 0;
+		const failFirstMeta = (async (input: string | URL): Promise<Response> => {
+			const url = typeof input === 'string' ? input : input.toString();
+			if (url.includes('/content/g-cars/')) {
+				carsMetaAttempts++;
+				// Fail the first metadata read for this pin (as a blip would), then succeed.
+				if (carsMetaAttempts === 1) {
+					return new Response('boom', { status: 500 });
+				}
+			}
+			const route = routes.find(r => url.includes(r.match));
+			return new Response(route ? route.body : '', { status: route ? 200 : 404 });
+		}) as typeof fetch;
+
+		const conn = new PinsConnection(new ConnectClient('https://c.example.com', 'key', failFirstMeta));
+
+		// First expansion: the cars badge is missing because its metadata read failed.
+		const [julia1] = await conn.getChildren();
+		const cars1 = (await julia1.getChildren!()).find(p => p.name === 'cars')!;
+		assert.strictEqual(cars1.dataType, undefined);
+
+		// Re-expanding re-fetches (the failure wasn't cached), so the badge now resolves.
+		const [julia2] = await conn.getChildren();
+		const cars2 = (await julia2.getChildren!()).find(p => p.name === 'cars')!;
+		assert.strictEqual(cars2.dataType, 'parquet');
+	});
+
 	test('browsing after disconnect throws', async () => {
 		const conn = connection();
 		await conn.disconnect();
