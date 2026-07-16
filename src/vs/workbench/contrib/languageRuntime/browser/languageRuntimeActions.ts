@@ -887,7 +887,7 @@ export function registerLanguageRuntimeActions() {
 			const runtimeQuickPickItems = runtimes.map<LanguageRuntimeQuickPickItem>(runtime => ({
 				id: runtime.runtimeId,
 				label: `${runtime.languageName}: ${runtime.runtimeName}`,
-				description: runtime.runtimePath,
+				description: getRuntimeDisplayPath(runtime),
 				runtime
 			} satisfies LanguageRuntimeQuickPickItem));
 
