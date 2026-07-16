@@ -66,9 +66,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			'runtime-startup-phase', RuntimeStartupPhase.Initializing);
 		this.onDidChangeRuntimeStartupPhase = Event.fromObservable(this._startupPhase);
 
-		// Kick off the remote-aware home resolution eagerly. By the time any
-		// extension activates and calls registerRuntime, this Promise has
-		// already resolved (workbench startup completes before extensions run).
+		// Kick off the remote-aware home resolution eagerly so it's likely
+		// cached by the time extensions call registerRuntime. If it hasn't
+		// resolved yet, registerRuntime skips tildification rather than
+		// falling back to the local-only path.
 		this._pathService.userHome({ preferLocal: false }).then(uri => {
 			this._cachedUserHome = uri.fsPath;
 		});
@@ -149,14 +150,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// on non-Windows; absolute path unchanged on Windows or system paths).
 		// Preserve a caller-supplied runtimeDisplayPath; only compute when absent.
 		let runtimeDisplayPath = metadata.runtimeDisplayPath;
-		if (!runtimeDisplayPath) {
-			// Use the cached remote-aware home if available; fall back to the
-			// local home (preferLocal: true is synchronous) on the rare chance
-			// registerRuntime is called before the constructor Promise resolves.
-			const userHome = this._cachedUserHome
-				?? this._pathService.userHome({ preferLocal: true }).fsPath;
-			runtimeDisplayPath = tildify(metadata.runtimePath, userHome);
+		if (!runtimeDisplayPath && this._cachedUserHome) {
+			runtimeDisplayPath = tildify(metadata.runtimePath, this._cachedUserHome);
 		}
+		// If _cachedUserHome isn't ready yet, leave runtimeDisplayPath undefined;
+		// getRuntimeDisplayPath() falls back to the raw runtimePath.
 		const enriched: ILanguageRuntimeMetadata = {
 			...metadata,
 			runtimeDisplayPath,
