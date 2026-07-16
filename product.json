@@ -689,6 +689,7 @@
 			"languageModelSystem"
 		]
 	},
+	"trustedExtensionPublishers": ["posit", "rstudio"],
 	"trustedExtensionAuthAccess": {
 		"github": [
 			"GitHub.copilot-chat",

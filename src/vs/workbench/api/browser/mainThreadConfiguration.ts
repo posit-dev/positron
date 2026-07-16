@@ -16,6 +16,7 @@ import { IEnvironmentService } from '../../../platform/environment/common/enviro
 import * as nls from '../../../nls.js';
 import { ILogService } from '../../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../../platform/notification/common/notification.js';
+import { IProductService } from '../../../platform/product/common/productService.js';
 import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry, ConfigurationKeyValuePairs } from '../../common/configuration.js';
 // --- End Positron ---
 
@@ -32,6 +33,7 @@ export class MainThreadConfiguration implements MainThreadConfigurationShape {
 		// --- Start Positron ---
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IProductService private readonly _productService: IProductService,
 		// --- End Positron ---
 	) {
 		const proxy = extHostContext.getProxy(ExtHostContext.ExtHostConfiguration);
@@ -56,7 +58,7 @@ export class MainThreadConfiguration implements MainThreadConfigurationShape {
 		const configurationProperties = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).getConfigurationProperties();
 		const normalizedExtensionId = extensionId.toLowerCase();
 		const publisher = normalizedExtensionId.split('.')[0];
-		const isTrusted = publisher === 'posit';
+		const isTrusted = (this._productService.trustedExtensionPublishers ?? []).includes(publisher);
 
 		const approved = migrations.filter(migration => {
 			const source = configurationProperties[migration.key]?.source;

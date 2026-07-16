@@ -19,6 +19,7 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/c
 // --- Start Positron ---
 import { ILogService, NullLogService } from '../../../../platform/log/common/log.js';
 import { INotificationService, NoOpNotification } from '../../../../platform/notification/common/notification.js';
+import { IProductService } from '../../../../platform/product/common/productService.js';
 import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry } from '../../../common/configuration.js';
 // --- End Positron ---
 
@@ -67,6 +68,7 @@ suite('MainThreadConfiguration', function () {
 		});
 		// --- Start Positron ---
 		instantiationService.stub(ILogService, new NullLogService());
+		instantiationService.stub(IProductService, { trustedExtensionPublishers: ['posit', 'rstudio'] });
 		// --- End Positron ---
 	});
 
@@ -306,13 +308,21 @@ suite('MainThreadConfiguration', function () {
 			assert.ok(registerSpy.notCalled, 'registerConfigurationMigrations should not be called');
 		});
 
-		test('posit publisher bypasses ownership check', function () {
+		test('trusted publisher bypasses ownership check', function () {
 			const testObject = instantiationService.createInstance(MainThreadConfiguration, SingleProxyRPCProtocol(proxy));
 
 			testObject.$registerConfigurationMigrations('posit.extension', [{ key: OWNED_KEY, migrateTo: 'extHostConfigMigration.newKey' }]);
 
 			assert.ok(registerSpy.calledOnce, 'posit publisher should be able to migrate unowned key');
 			assert.ok(warnSpy.notCalled, 'no warning should be logged for posit publisher');
+
+			registerSpy.resetHistory();
+			warnSpy.resetHistory();
+
+			testObject.$registerConfigurationMigrations('rstudio.rstudio-workbench', [{ key: OWNED_KEY, migrateTo: 'extHostConfigMigration.newKey' }]);
+
+			assert.ok(registerSpy.calledOnce, 'rstudio publisher should be able to migrate unowned key');
+			assert.ok(warnSpy.notCalled, 'no warning should be logged for rstudio publisher');
 		});
 
 		test('unregistered key is accepted when it matches extension namespace', function () {
