@@ -133,6 +133,7 @@ export async function runMigration(opts: RunMigrationOptions): Promise<Migration
 		log.info('[migration] providers.json already has provider config; skipped');
 		return { outcome: 'skipped-populated' };
 	}
-	log.info(`[migration] Migrated ${mapped.settingCount} setting(s) to providers.json`);
+	const providerIds = Object.keys(mapped.config.providers ?? {}).join(', ');
+	log.info(`[migration] Migrated ${mapped.settingCount} setting(s) to providers.json: ${providerIds}`);
 	return { outcome: 'migrated', settingCount: mapped.settingCount };
 }

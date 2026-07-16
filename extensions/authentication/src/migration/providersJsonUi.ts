@@ -78,14 +78,18 @@ async function migrateAndReport(opts: { overwrite: boolean }): Promise<void> {
 	switch (result.outcome) {
 		case 'migrated': {
 			const viewFileAction = vscode.l10n.t('View File');
+			const showLogAction = vscode.l10n.t('Show Log');
 			const choice = await vscode.window.showInformationMessage(
 				vscode.l10n.t('Migrated {0} setting(s) to ~/.posit/ai/providers.json. Positron reads provider configuration from this file; your original settings were not removed.', result.settingCount),
-				viewFileAction
+				viewFileAction,
+				showLogAction
 			);
 			if (choice === viewFileAction) {
 				const { PROVIDERS_CONFIG_PATH } = await import('ai-config/node');
 				const doc = await vscode.workspace.openTextDocument(PROVIDERS_CONFIG_PATH);
 				await vscode.window.showTextDocument(doc);
+			} else if (choice === showLogAction) {
+				log.show();
 			}
 			break;
 		}
