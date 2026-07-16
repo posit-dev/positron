@@ -46,6 +46,10 @@ export interface ConnectDataConnectionWithOptions {
 	// parameters define the connection's secret schema.
 	readonly mechanismId: string;
 
+	// The id of the data connection profile. Used to read and persist the user's preferred code
+	// variant for this profile and language.
+	readonly profileId: string;
+
 	// Regenerates the connection code variants with secret values (e.g. passwords) embedded. Invoked
 	// only after the user confirms the Include Secrets action; pulls secrets from secret storage.
 	readonly generateSecretVariants: () => Promise<IDataConnectionCodeVariant[]>;
@@ -72,6 +76,7 @@ export const showConnectDataConnectionWith = (options: ConnectDataConnectionWith
 			generateSecretVariants={options.generateSecretVariants}
 			languageId={options.languageId}
 			mechanismId={options.mechanismId}
+			profileId={options.profileId}
 			renderer={renderer}
 			variants={options.variants}
 		/>
@@ -87,6 +92,7 @@ interface ConnectDataConnectionWithProps {
 	readonly connectionName: string;
 	readonly driver: IDataConnectionDriver;
 	readonly mechanismId: string;
+	readonly profileId: string;
 	readonly generateSecretVariants: () => Promise<IDataConnectionCodeVariant[]>;
 	readonly variants: IDataConnectionCodeVariant[];
 }
@@ -115,10 +121,20 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 	// by the caller; replaced with secret-bearing variants once the user includes secrets.
 	const [variants, setVariants] = useState(props.variants);
 
-	// The currently-selected variant. Defaults to the first (preferred) variant. Variant ids are
-	// stable across regeneration, so the selection survives including secrets.
-	const [selectedVariantId, setSelectedVariantId] = useState(props.variants[0].id);
+	// The currently-selected variant. Initialized from the profile's stored preference (falling back
+	// to the first/default variant when unset or stale). Variant ids are stable across
+	// regeneration, so the selection survives including secrets.
+	const storedVariantId = services.positronDataConnectionsService.getProfile(props.profileId)?.preferredCodeVariants?.[props.languageId];
+	const [selectedVariantId, setSelectedVariantIdState] = useState(
+		props.variants.some(variant => variant.id === storedVariantId) ? storedVariantId! : props.variants[0].id
+	);
 	const selectedVariant = variants.find(variant => variant.id === selectedVariantId) ?? variants[0];
+
+	// Selects a variant and persists it as the profile's preferred variant for this language.
+	const setSelectedVariantId = (variantId: string) => {
+		setSelectedVariantIdState(variantId);
+		services.positronDataConnectionsService.setPreferredCodeVariant(props.profileId, props.languageId, variantId);
+	};
 
 	const includeSecretsHandler = async () => {
 		// Warn before embedding secrets: the generated code can leak credentials into console

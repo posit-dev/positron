@@ -46,6 +46,12 @@ export interface IDataConnectionProfile {
 
 	// The parameter values for this connection.
 	parameterValues: DataConnectionParameterValues;
+
+	// The user's preferred connection code variant per language (languageId -> variant id), from
+	// the driver's generateConnectionCode results. Optional: existing profiles predate this field,
+	// and languages the user has never picked a variant for are absent. Callers fall back to
+	// variants[0] when a language has no stored preference.
+	preferredCodeVariants?: Record<string, string>;
 }
 
 /**

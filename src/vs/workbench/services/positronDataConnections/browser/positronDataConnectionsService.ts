@@ -241,6 +241,34 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
+	 * Sets the user's preferred connection code variant for a profile and language, persisted
+	 * across sessions. A no-op if the profile is not found. Does not fire onDidChangeProfiles: like
+	 * the mechanism id backfill, this is metadata that does not affect how the profile is displayed
+	 * in the connections list.
+	 * @param profileId The data connection profile id.
+	 * @param languageId The language id the variant applies to (e.g. 'python', 'r').
+	 * @param variantId The id of the preferred variant.
+	 */
+	setPreferredCodeVariant(profileId: string, languageId: string, variantId: string): void {
+		const profile = this._profiles.find(_ => _.id === profileId);
+		if (!profile) {
+			return;
+		}
+
+		profile.preferredCodeVariants = { ...profile.preferredCodeVariants, [languageId]: variantId };
+
+		const secretParameterIds = this._readPersistedProfile(profileId)?.secretParameterIds ?? [];
+		this._storageService.store(
+			profileStorageKey(profileId),
+			JSON.stringify({ profile, secretParameterIds } satisfies IPersistedDataConnectionProfile),
+			StorageScope.PROFILE,
+			StorageTarget.USER,
+		);
+
+		this._logService.trace(`[DataConnections] Set preferred code variant for ${profileId}/${languageId}: ${variantId}`);
+	}
+
+	/**
 	 * Removes a data connection profile.
 	 * @param id The data connection profile id to remove.
 	 */

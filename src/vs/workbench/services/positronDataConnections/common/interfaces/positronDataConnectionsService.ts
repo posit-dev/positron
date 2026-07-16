@@ -84,6 +84,17 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	getRedactedParameterValue(id: string, parameterId: string): Promise<string | undefined>;
 
 	/**
+	 * Sets the user's preferred connection code variant for a profile and language, persisted
+	 * across sessions. Used to initialize the variant selector in the Connect With dialog, and by
+	 * the getConnections command to report the profile's chosen package per language. A no-op if
+	 * the profile is not found.
+	 * @param profileId The data connection profile id.
+	 * @param languageId The language id the variant applies to (e.g. 'python', 'r').
+	 * @param variantId The id of the preferred variant, from the driver's generateConnectionCode results.
+	 */
+	setPreferredCodeVariant(profileId: string, languageId: string, variantId: string): void;
+
+	/**
 	 * Removes a data connection profile.
 	 * @param id The data connection profile id to remove.
 	 */
