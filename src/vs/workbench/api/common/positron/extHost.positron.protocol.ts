@@ -312,6 +312,7 @@ export interface MainThreadDataExplorerShape extends IDisposable {
  */
 export interface ExtHostDataExplorerShape {
 	$handleRpc(providerId: string, rpc: IDataExplorerRpcDto): Promise<IDataExplorerResponseDto>;
+	$disposeBackend(providerId: string, datasetId: string): void;
 }
 
 export interface MainThreadEnvironmentShape extends IDisposable {

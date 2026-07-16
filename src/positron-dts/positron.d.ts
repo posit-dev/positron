@@ -3293,6 +3293,14 @@ declare module 'positron' {
 		 * @returns The response (a result or an error message).
 		 */
 		handleRpc(request: DataExplorerRpcRequest): Thenable<DataExplorerRpcResponse>;
+
+		/**
+		 * Notifies the provider that the Data Explorer for a dataset has closed, so
+		 * it can release any per-dataset resources. A provider may use this to shut
+		 * down idle work once its last dataset closes. Optional.
+		 * @param datasetId The identifier of the dataset that was closed.
+		 */
+		closeDataset?(datasetId: string): void;
 	}
 
 	/**

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { IDataExplorerBackendClient } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import {
 	ArraySelection,
@@ -99,6 +99,11 @@ export class PositronDataExplorerExtensionBackend extends Disposable implements 
 		super();
 		this.datasetUri = datasetUri;
 		this.clientId = clientId;
+
+		// When this backend is disposed (the Data Explorer editor tab closed), tell the providing
+		// extension so it can release the dataset's resources -- e.g. the DuckDB provider shuts its
+		// worker down once its last dataset closes. Runs once, only if not already disposed.
+		this._register(toDisposable(() => this._transport.disposeBackend(this._providerId, this.datasetUri)));
 	}
 
 	/**

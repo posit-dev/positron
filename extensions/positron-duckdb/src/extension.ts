@@ -89,6 +89,13 @@ import { createWorkerEnv } from './workerEnv.js';
 // Set to true when doing development for better console logging
 const DEBUG_LOG = false;
 
+/** Logs a prefixed message to the console when {@link DEBUG_LOG} is enabled. */
+function debugLog(message: string): void {
+	if (DEBUG_LOG) {
+		console.log(`[positron-duckdb] ${message}`);
+	}
+}
+
 /**
  * A query result materialized in the DuckDB worker and reconstructed here from
  * the column-oriented form that crosses the IPC boundary. Exposes the small set
@@ -165,25 +172,49 @@ export class DuckDBInstance {
 	/** Resolved path to the bundled worker entry, emitted next to this module. */
 	private static readonly defaultWorkerPath = path.join(__dirname, 'duckdbWorker.js');
 
+	/**
+	 * How long the worker lingers after the last data explorer closes before it
+	 * self-terminates to reclaim memory. The native DuckDB child holds tens of
+	 * megabytes, so we don't want it resident once nothing is using it; the next
+	 * query respawns it transparently (see {@link runQuery}).
+	 */
+	private static readonly IDLE_SHUTDOWN_MS = 120_000;
+
 	private _worker: ChildProcess | undefined;
 	private _nextId = 0;
 	private readonly _pending = new Map<number, { resolve: (result: QueryResult) => void; reject: (error: Error) => void }>();
 	private _disposed = false;
+	private _idleShutdownTimer: ReturnType<typeof setTimeout> | undefined;
 
 	private readonly _onDidCrash = new vscode.EventEmitter<void>();
 	/** Fires when the worker process terminates unexpectedly (e.g. out of memory). */
 	readonly onDidCrash: vscode.Event<void> = this._onDidCrash.event;
 
-	private constructor(private readonly workerPath: string) { }
+	private constructor(
+		private readonly workerPath: string,
+		private readonly idleShutdownMs: number,
+	) { }
+
+	/** Whether the worker child process is currently running. Exposed for tests. */
+	get isWorkerRunning(): boolean {
+		return this._worker !== undefined;
+	}
 
 	/**
-	 * Create a DuckDB instance. `workerPath` overrides the worker entry point and
-	 * exists only for tests (to exercise crash recovery with a stub worker).
+	 * Create a DuckDB instance. The worker child process is NOT started here: it
+	 * spawns lazily on the first query (see {@link runQuery}), so activating the
+	 * extension and constructing the instance costs nothing until a dataset is
+	 * actually opened.
+	 *
+	 * `workerPath` overrides the worker entry point and `idleShutdownMs` the
+	 * idle-shutdown cooldown; both exist only for tests (to exercise crash recovery
+	 * with a stub worker and idle shutdown without a two-minute wait).
 	 */
-	static async create(workerPath: string = DuckDBInstance.defaultWorkerPath): Promise<DuckDBInstance> {
-		const instance = new DuckDBInstance(workerPath);
-		instance.spawnWorker();
-		return instance;
+	static async create(
+		workerPath: string = DuckDBInstance.defaultWorkerPath,
+		idleShutdownMs: number = DuckDBInstance.IDLE_SHUTDOWN_MS,
+	): Promise<DuckDBInstance> {
+		return new DuckDBInstance(workerPath, idleShutdownMs);
 	}
 
 	private spawnWorker(): void {
@@ -210,6 +241,7 @@ export class DuckDBInstance {
 		worker.on('exit', (code, signal) => this.onWorkerGone(`exited (code=${code}, signal=${signal})`));
 		worker.on('error', (error) => this.onWorkerGone(`failed to start: ${error.message}`));
 		this._worker = worker;
+		debugLog(`Spawned worker process (pid=${worker.pid})`);
 	}
 
 	/**
@@ -223,6 +255,7 @@ export class DuckDBInstance {
 			return;
 		}
 		this._worker = undefined;
+		debugLog(`Worker process terminated unexpectedly: ${detail}`);
 
 		const reason = new Error(`The DuckDB process terminated unexpectedly (${detail}). This usually means a query exhausted available memory.`);
 		for (const pending of this._pending.values()) {
@@ -238,8 +271,12 @@ export class DuckDBInstance {
 	/** Closes the worker process and rejects any in-flight queries. */
 	close(): void {
 		this._disposed = true;
+		this.cancelIdleShutdown();
 		const worker = this._worker;
 		this._worker = undefined;
+		if (worker !== undefined) {
+			debugLog(`Disposing instance; killing worker process (pid=${worker.pid})`);
+		}
 		worker?.kill();
 		for (const pending of this._pending.values()) {
 			pending.reject(new Error('The DuckDB instance was disposed.'));
@@ -248,11 +285,59 @@ export class DuckDBInstance {
 		this._onDidCrash.dispose();
 	}
 
+	/**
+	 * Arm the idle-shutdown timer. Called when the last data explorer closes: after
+	 * {@link IDLE_SHUTDOWN_MS} with no client, the worker self-terminates to free its
+	 * native memory. A no-op if already armed, disposed, or the worker isn't running.
+	 */
+	requestIdleShutdown(): void {
+		if (this._disposed || this._idleShutdownTimer !== undefined || this._worker === undefined) {
+			return;
+		}
+		this._idleShutdownTimer = setTimeout(() => {
+			this._idleShutdownTimer = undefined;
+			this.shutdownIdleWorker();
+		}, this.idleShutdownMs);
+		debugLog(`No clients remain; arming idle shutdown in ${this.idleShutdownMs}ms`);
+	}
+
+	/** Cancel a pending idle shutdown, e.g. when a data explorer is (re)opened. */
+	cancelIdleShutdown(): void {
+		if (this._idleShutdownTimer !== undefined) {
+			clearTimeout(this._idleShutdownTimer);
+			this._idleShutdownTimer = undefined;
+			debugLog('Cancelled pending idle shutdown');
+		}
+	}
+
+	/**
+	 * Terminate the idle worker. Nulling `_worker` before killing means the 'exit'
+	 * handler treats this as an expected shutdown (not a crash), so `onDidCrash`
+	 * does not fire. If a query happens to be in flight, reschedule rather than
+	 * interrupt it.
+	 */
+	private shutdownIdleWorker(): void {
+		if (this._disposed || this._worker === undefined) {
+			return;
+		}
+		if (this._pending.size > 0) {
+			this.requestIdleShutdown();
+			return;
+		}
+		const worker = this._worker;
+		this._worker = undefined;
+		debugLog(`Idle cooldown elapsed; killing worker process (pid=${worker.pid})`);
+		worker.kill();
+	}
+
 	runQuery(query: string): Promise<QueryResult> {
 		if (this._disposed) {
 			return Promise.reject(new Error('The DuckDB instance was disposed.'));
 		}
-		// Lazily (re)spawn the worker, e.g. after a crash.
+		// A query means the instance is in use; don't let it be reaped mid-flight.
+		this.cancelIdleShutdown();
+		// Lazily (re)spawn the worker, e.g. on the first query or after a crash or
+		// idle shutdown.
 		if (this._worker === undefined) {
 			this.spawnWorker();
 		}
@@ -2265,6 +2350,14 @@ interface CreateTableResult {
  */
 export class DataExplorerRpcHandler implements vscode.Disposable {
 	private readonly _uriToTableView = new Map<string, DuckDBTableView>();
+	/**
+	 * Datasets with a currently-open data explorer, keyed by dataset URI. Distinct
+	 * from `_uriToTableView`, whose entries are dropped on a crash and lazily
+	 * rebuilt: this set tracks live clients so the worker can idle-shut-down once
+	 * the last explorer closes. Added in {@link openDataset}, removed in
+	 * {@link closeDataset}.
+	 */
+	private readonly _openDatasets = new Set<string>();
 	private _tableIndex: number = 0;
 	private _watchers: vscode.Disposable[] = [];
 	private readonly _crashListener: vscode.Disposable;
@@ -2360,7 +2453,27 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 
 		}
 		this._uriToTableView.set(params.uri.toString(), tableView);
+		// A dataset is open, so the worker has a live client: cancel any pending
+		// idle shutdown. (Re-imports after a crash pass through here too; the set
+		// add is idempotent.)
+		this._openDatasets.add(params.uri.toString());
+		debugLog(`Opened dataset ${params.uri.toString()}; open datasets: ${this._openDatasets.size}`);
+		this.db.cancelIdleShutdown();
 		return {};
+	}
+
+	/**
+	 * Called by the host when a data explorer for a dataset closes. Drops the
+	 * dataset's table view and, once no explorers remain open, asks the worker to
+	 * idle-shut-down after a cooldown so its native memory is reclaimed.
+	 */
+	closeDataset(uri: string): void {
+		this._uriToTableView.delete(uri);
+		this._openDatasets.delete(uri);
+		debugLog(`Closed dataset ${uri}; open datasets: ${this._openDatasets.size}`);
+		if (this._openDatasets.size === 0) {
+			this.db.requestIdleShutdown();
+		}
 	}
 
 	/**
@@ -2735,7 +2848,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	let session: positron.DataExplorerRpcSession | undefined;
 	const dataExplorerHandler = new DataExplorerRpcHandler(db, event => session?.sendUiEvent(event), context.globalStorageUri.fsPath);
 	session = positron.dataExplorer.registerRpcHandler('positron-duckdb', {
-		handleRpc: (request) => dataExplorerHandler.handleRequest(request as DataExplorerRpc)
+		handleRpc: (request) => dataExplorerHandler.handleRequest(request as DataExplorerRpc),
+		// Notified when a data explorer closes so the worker can idle-shut-down
+		// once the last one is gone.
+		closeDataset: (datasetId) => dataExplorerHandler.closeDataset(datasetId)
 	});
 	context.subscriptions.push(dataExplorerHandler, session);
 }
