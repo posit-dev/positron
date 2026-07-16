@@ -39,7 +39,8 @@ function readEnvFileVar(envFilePath, varName) {
 		if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) {
 			continue;
 		}
-		const [key, ...valueParts] = trimmed.split('=');
+		const [rawKey, ...valueParts] = trimmed.split('=');
+		const key = rawKey.trim();
 		if (key !== varName) {
 			continue;
 		}
@@ -100,8 +101,8 @@ if (runId) params.set('workflow_run_id', runId);
 if (testKeys) params.set('test_keys', testKeys);
 if (branch) params.set('branch', branch);
 if (lookbackDays) params.set('lookback_days', lookbackDays);
-if (occurrencesPerPattern) params.set('occurrences_per_pattern', occurrencesPerPattern);
-if (maxPatterns) params.set('max_patterns', maxPatterns);
+if (occurrencesPerPattern !== null) params.set('occurrences_per_pattern', occurrencesPerPattern);
+if (maxPatterns !== null) params.set('max_patterns', maxPatterns);
 
 const url = `${API_BASE_URL}/test-health?${params.toString()}`;
 

@@ -76,7 +76,10 @@ if (!reportUrl || !outputDir) {
 
 /** True when the test matches every filter that was actually supplied on the CLI. */
 function matchesFilter(test) {
-	if (titleFilter !== null && test.title !== titleFilter) { return false; }
+	if (titleFilter !== null) {
+		const fullTitle = [...(test.path || []), test.title].filter(Boolean).join(' > ');
+		if (fullTitle !== titleFilter) { return false; }
+	}
 	if (testIdFilter !== null && test.testId !== testIdFilter) { return false; }
 	return true;
 }

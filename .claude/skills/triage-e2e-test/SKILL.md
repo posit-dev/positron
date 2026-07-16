@@ -44,8 +44,9 @@ them from the positron repo root:
 
 ## Input
 
-A test name or spec path. Optional: `--branch` (default `main`) and
-`--lookback-days` (default 14, max 30).
+A test name or spec path. Optional: `--lookback-days` (default 14, max 30)
+and `--branch` to override the branches queried (default: the current git
+branch plus `main` -- see step 2).
 
 ## Steps
 
@@ -73,6 +74,18 @@ title and spec path, then walk outward to collect every enclosing
 
 ### 2. Query failure history
 
+**Determine which branch(es) to query.** Run `git branch --show-current` for
+the working branch. If it's `main`, query once. Otherwise query **twice** --
+once with `--branch <current-branch>`, once with `--branch main` -- and merge
+the two responses. Querying only the current branch risks two false
+negatives: a brand-new branch with no CI runs yet reports `total_runs: 0` even
+though the test has a long, well-documented history on main, and a branch
+with just one passing run can mask an established flake that main's history
+would show clearly. Querying only main risks missing something the current
+branch itself introduced that hasn't landed on main. Querying both closes
+both gaps. Skip the second call only when the current branch already is
+`main`, or the engineer explicitly overrides `--branch`.
+
 Always pass `--test-keys` as a JSON array, even for a single key. The API also
 accepts a plain comma-separated string, but it splits on every comma in that
 string to find multiple keys -- a test name that itself contains a comma (e.g.
@@ -80,6 +93,13 @@ string to find multiple keys -- a test name that itself contains a comma (e.g.
 mis-split and rejected with a 400. The JSON array form has no such ambiguity:
 
 ```bash
+node .claude/skills/e2e-failure-analyzer/scripts/e2e-query-history.js \
+  --repo positron \
+  --test-keys '["<testName>|||<specPath>"]' \
+  --branch <current-branch> \
+  --lookback-days 14 \
+  --occurrences-per-pattern 2
+
 node .claude/skills/e2e-failure-analyzer/scripts/e2e-query-history.js \
   --repo positron \
   --test-keys '["<testName>|||<specPath>"]' \
@@ -93,28 +113,49 @@ failure mode (count-descending), with `count`, `percentage`, and up to two
 representative `occurrences` carrying `sha`, `os`, `browser`, `outcome`
 (`failed` | `flaky`), `run_url`, and `report_url`.
 
-If the response is `{}` the API was unreachable (or the key is unset); say so
-and stop rather than guessing.
+When you queried two branches, merge their `failure_patterns[]` into one list
+before building the step 3 table: match entries across the two responses by
+failure-mode text/selector (the same signal that identifies a row in the
+table), not by array position or count, since ordering and counts can differ
+per branch. Tag each merged row with which branch(es) it was observed on
+(`main only`, `<branch> only`, or `both`).
 
-If the test has no failures or flakes in the window (`failure_patterns` is empty
-and `history` shows a clean record), report the clean bill of health -- "no
-failures for this test in the last N days on `<branch>`" -- and stop. There is
-nothing to triage.
+If a response is `{}` the API was unreachable (or the key is unset) for that
+call; say so and stop rather than guessing -- don't silently fall back to the
+other branch's result as if it were complete.
 
-**Exception:** if `history.total_runs` is also `0` (not just failures/flakes at
-0), this is a key-mismatch, not a clean record -- see the full-title warning in
-step 1. A test with real CI history never reports zero total runs.
+Evaluate "no failures" and the zero-runs check **per branch**, not on the
+merged total:
+
+- If the current branch alone reports `total_runs: 0` while main has real
+  history, that is expected for a new or not-yet-pushed branch -- not a
+  key-mismatch -- proceed with main's data and note that the branch has no
+  history of its own yet.
+- If **both** branches report `total_runs: 0`, that's a key-mismatch, not a
+  clean record -- see the full-title warning in step 1. A test with real CI
+  history never reports zero total runs on every branch queried.
+- Only report a clean bill of health -- "no failures for this test in the last
+  N days on `<branch(es)>`" -- when every branch queried has nonzero
+  `total_runs` and an empty `failure_patterns`. There is nothing to triage.
 
 ### 3. Summarize the failure modes FIRST
 
 Before downloading anything, present the shape as a table so the engineer can
 scan it at a glance -- a run-on sentence packing selector text, counts, and
-environment lists together is hard to read:
+environment lists together is hard to read. When step 2 queried two branches,
+add a "Seen on" column so the engineer can immediately tell whether a mode is
+new to their branch or an established main flake:
 
-| # | Failure mode | Count | % | Environments | First seen |
-|---|---|---|---|---|---|
-| a | `toBeVisible()` timeout: `getByLabel('...')...` | 104 | 99% | ubuntu/debian/opensuse/rhel/sles (chromium+electron), 1x win | Jul 07 |
-| b | `locator.click` timeout: `.monaco-list-row...` | 1 | 1% | win/electron only | -- |
+| # | Failure mode | Count | % | Environments | First seen | Seen on |
+|---|---|---|---|---|---|---|
+| A | `toBeVisible()` timeout: `getByLabel('...')...` | 104 | 99% | ubuntu/debian/opensuse/rhel/sles (chromium+electron), 1x win | Jul 07 | both |
+| B | `locator.click` timeout: `.monaco-list-row...` | 1 | 1% | win/electron only | -- | main only |
+
+(Keep the "Seen on" column whenever two branches were queried, even if one
+contributed zero patterns -- e.g. every row reading `main only` is itself the
+signal that nothing has reproduced on the current branch yet, likely because
+it has no CI runs of its own. Drop the column only when a single branch was
+queried.)
 
 **Deciding whether to ask before digging in:** if one pattern is clearly
 dominant -- rule of thumb: >=90%, or every other pattern is a single
@@ -146,10 +187,14 @@ trailing match and silently no-ops when a `#?testId=` fragment follows it):
 ```bash
 # report_url = https://d38p2avprg8il3.cloudfront.net/playwright-report-.../index.html#?testId=e1e84091881625d98b53-...
 base_url="${report_url%%index.html*}"   # -> https://d38p2avprg8il3.cloudfront.net/playwright-report-.../
-test_id="${report_url#*testId=}"        # -> e1e84091881625d98b53-... (only meaningful if the fragment is present)
+filter_args=(--title "<exact hierarchical title from step 1>")
+if [[ "$report_url" == *"testId="* ]]; then
+  test_id="${report_url#*testId=}"      # -> e1e84091881625d98b53-...
+  filter_args=(--test-id "$test_id")
+fi
 node .claude/skills/e2e-failure-analyzer/scripts/e2e-process-s3.js \
   --report-url "$base_url" \
-  --test-id "$test_id" \
+  "${filter_args[@]}" \
   --output-dir <scratch-dir>/<pattern-n> \
   --cleanup
 ```
@@ -160,7 +205,9 @@ often several unrelated tests -- without the filter you pay to download, parse,
 and print full traces/logs/screenshots for all of them, when this skill only
 ever wants evidence for the one test being triaged. Prefer `--test-id` when the
 report_url carries the fragment (exact match, no title-collision risk); fall
-back to `--title` with the exact hierarchical title from step 1 otherwise.
+back to `--title` with the exact hierarchical title from step 1 otherwise --
+never pass `--test-id` with the raw `report_url` when the fragment is absent,
+since that matches nothing and silently skips evidence collection.
 
 This yields the trace timeline, screenshots, the error-context page snapshot,
 and mined log excerpts for that mode. If you ever do need to slice the result
@@ -222,7 +269,7 @@ later, writing the fix.
 
 Two cross-checks that pay off disproportionately for their cost:
 
-- **environment_breakdown skew.** If a pattern clusters on specific OS/browser
+- **Environment_breakdown skew.** If a pattern clusters on specific OS/browser
   combos, check whether that split tracks worker count/parallelism rather than
   a platform-specific bug -- e.g. CI images running more parallel workers hit
   shared-fixture races that near-idle mac/win runs rarely do.
