@@ -129,23 +129,39 @@ spend effort, not an obvious default.
 
 For each pattern worth digging into (see the dominance rule above -- a lone
 minor pattern may not need its own evidence pull), run the S3 processor against
-its representative `report_url`. The API's
-`report_url` ends in `/index.html`, but `e2e-process-s3.js --report-url` expects
-the base **directory** URL (it appends `index.html` itself, so passing the full
-URL yields a malformed `.../index.html/index.html`). Strip the trailing
-`index.html` first:
+its representative `report_url`. The API's `report_url` ends in
+`/index.html`, often followed by a `#?testId=<id>` fragment identifying which
+test in that report you actually care about. `e2e-process-s3.js --report-url`
+expects the base **directory** URL (it appends `index.html` itself, so passing
+the full URL/fragment yields a malformed path) -- strip everything from
+`index.html` onward with `%%...*` (plain `%index.html` only strips an exact
+trailing match and silently no-ops when a `#?testId=` fragment follows it):
 
 ```bash
-# report_url = https://d38p2avprg8il3.cloudfront.net/playwright-report-.../index.html
-base_url="${report_url%index.html}"   # -> https://d38p2avprg8il3.cloudfront.net/playwright-report-.../
+# report_url = https://d38p2avprg8il3.cloudfront.net/playwright-report-.../index.html#?testId=e1e84091881625d98b53-...
+base_url="${report_url%%index.html*}"   # -> https://d38p2avprg8il3.cloudfront.net/playwright-report-.../
+test_id="${report_url#*testId=}"        # -> e1e84091881625d98b53-... (only meaningful if the fragment is present)
 node .claude/skills/e2e-failure-analyzer/scripts/e2e-process-s3.js \
   --report-url "$base_url" \
+  --test-id "$test_id" \
   --output-dir <scratch-dir>/<pattern-n> \
   --cleanup
 ```
 
+**Always pass `--title "<full test title>"` or `--test-id "<id>"` when you know
+which test you're after.** A CI report bundles every failure from that shard,
+often several unrelated tests -- without the filter you pay to download, parse,
+and print full traces/logs/screenshots for all of them, when this skill only
+ever wants evidence for the one test being triaged. Prefer `--test-id` when the
+report_url carries the fragment (exact match, no title-collision risk); fall
+back to `--title` with the exact hierarchical title from step 1 otherwise.
+
 This yields the trace timeline, screenshots, the error-context page snapshot,
-and mined log excerpts for that mode.
+and mined log excerpts for that mode. If you ever do need to slice the result
+further (e.g. pull just one attempt's timeline out of a multi-test result),
+pipe through `jq` rather than reading the raw dump -- progress messages go to
+stderr and only the final JSON hits stdout, so `node e2e-process-s3.js ... | jq
+'.testDetails[0].attempts[0].trace.timeline'` works cleanly.
 
 The mined log excerpt is a grepped, truncated summary -- if it doesn't explain
 the mechanism (e.g. a UI action silently does nothing, with no error to grep
@@ -185,6 +201,18 @@ For each failure mode:
 3. Land on the actual mechanism, then propose a fix that addresses it. A fix
    that could not plausibly change the failure rate is not a fix -- keep
    digging instead of settling for one.
+
+When the trace/logs point at a mechanism that lives outside the failing spec
+file -- a POM helper, a shared fixture, or product source under `src/vs/**` --
+tracing it usually means several rounds of grep-and-read across files you
+haven't opened yet. Delegate that tracing to an `Explore` subagent rather than
+doing it inline: give it the specific symbol/selector from the evidence (e.g.
+"trace which caller invokes `Sessions.getMetadata()` during test setup, and
+what `activePositronConsoleInstance` is and when it updates") and have it
+report back the call chain and relevant line numbers. This keeps the dozen-plus
+exploratory reads out of the main conversation's context, which matters
+because that context is still needed for reasoning through the evidence and,
+later, writing the fix.
 
 Two cross-checks that pay off disproportionately for their cost:
 
@@ -251,6 +279,14 @@ worker interleaving you can't force on demand:
    with the real worker count -- and confirm the assertion fails before the
    fix and passes after. This is the closest thing to a real repro for a race,
    and worth the extra setup time when it's feasible.
+   - **No shared fixture, but the mechanism is load/timing-sensitive anyway**
+     (e.g. a foreground-session/focus race, a debounced UI update) -- a lone
+     spec run on an idle local machine has none of the contention that
+     surfaces it. Run the failing spec alongside a sibling spec that exercises
+     the same racy code path, with `--repeat-each` on both: `npx playwright
+     test specA.test.ts specB.test.ts --project e2e-electron --repeat-each=4`.
+     Real worker contention -- not a shared fixture -- is what triggers the
+     race; recreate the contention, not just the repeat count.
 2. **Repeated local runs are weak evidence, not proof.** `--repeat-each=N` on
    the affected spec passing N/N locally does not confirm the race is gone,
    especially when the race depends on contention from unrelated specs that
@@ -273,5 +309,8 @@ data point.
 
 - No new S3 uploads or API changes -- consumes the existing `test-health`
   endpoint and existing S3 reports.
-- No changes to `e2e-process-s3.js` or the `e2e-failure-analyzer` skill.
 - No run-level triage -- that is `e2e-failure-analyzer`'s job.
+
+`e2e-process-s3.js` is shared with `e2e-failure-analyzer`; the `--title` /
+`--test-id` filter flags are additive and don't change its default (no filter)
+behavior, so run-level triage is unaffected.
