@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,7 +10,7 @@
  *       to not use a third party library.
  */
 
-function xmlAttributes(attributes: Record<string, any>): string {
+function xmlAttributes(attributes: Record<string, string | number | boolean>): string {
 	return Object.entries(attributes)
 		.map(([key, val]) => `${key}="${val}"`)
 		.join(' ');
@@ -26,7 +26,7 @@ function xmlAttributes(attributes: Record<string, any>): string {
  * @param attributes The attributes of the node.
  * @returns The XML string representation of the node.
  */
-export function node(name: string, content?: string, attributes?: Record<string, any>): string {
+export function node(name: string, content?: string, attributes?: Record<string, string | number | boolean>): string {
 	let result = `<${name}`;
 	if (attributes && Object.keys(attributes).length) {
 		result += ` ${xmlAttributes(attributes)}`;
@@ -36,23 +36,5 @@ export function node(name: string, content?: string, attributes?: Record<string,
 		result += `\n${content}\n`;
 	}
 	result += `</${name}>`;
-	return result;
-}
-
-/**
- * Create a self-closing XML node for structuring information in LLM prompts.
- *
- * NOTE: Do not use this function where valid XML is required.
- *
- * @param name The name of the node.
- * @param attributes The attributes of the node.
- * @returns The XML string representation of the self-closing node.
- */
-export function leaf(name: string, attributes?: Record<string, any>): string {
-	let result = `<${name}`;
-	if (attributes && Object.keys(attributes).length) {
-		result += ` ${xmlAttributes(attributes)}`;
-	}
-	result += ` />`;
 	return result;
 }

@@ -702,33 +702,27 @@
 		],
 		"anthropic-api": [
 			"positron.authentication",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"posit-ai": [
 			"positron.authentication",
 			"positron.next-edit-suggestions",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"ms-foundry": [
 			"positron.authentication",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"amazon-bedrock": [
 			"positron.authentication",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"snowflake-cortex": [
 			"positron.authentication",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"openai-api": [
 			"positron.authentication",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"deepseek-api": [
@@ -737,12 +731,10 @@
 		],
 		"openai-compatible": [
 			"positron.authentication",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"google": [
 			"positron.authentication",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"google-cloud": [
