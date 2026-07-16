@@ -5,16 +5,24 @@
 
 import * as vscode from 'vscode';
 import { runThatTest } from './runner-testthat';
-import { TestingTools } from './util-testing';
+import { ItemType, TestingTools } from './util-testing';
+import { parseTestsFromFile } from './parser';
 import { LOGGER } from '../extension';
 
-function maybeEnqueue(
-	test: vscode.TestItem,
-	queue: vscode.TestItem[],
-	excludeSet: readonly vscode.TestItem[] | undefined
+// Paint the UI state of every leaf test under `item` as "queued", recursing through containers.
+function markLeafTestsQueued(
+	testingTools: TestingTools,
+	item: vscode.TestItem,
+	run: vscode.TestRun
 ) {
-	if (!excludeSet?.includes(test)) {
-		queue.push(test);
+	if (item.children.size > 0) {
+		item.children.forEach((child) => markLeafTestsQueued(testingTools, child, run));
+	} else {
+		const type = testingTools.testItemData.get(item);
+		if (type === ItemType.TestThat || type === ItemType.It) {
+			// Only mark a true leaf, not an empty container
+			run.enqueued(item);
+		}
 	}
 }
 
@@ -41,20 +49,41 @@ export async function runHandler(
 		});
 	}
 
-	// We only enqueue tests if we are running something smaller than the whole suite.
-	if (!runAllTests) {
+	// The items to run: every file for a run-all, otherwise the requested (or broken-up) items.
+	const toRun: vscode.TestItem[] = [];
+	if (runAllTests) {
+		testingTools.controller.items.forEach((file) => toRun.push(file));
+	} else {
 		const eligibleTests = explicitInclude ? request.include! : testingTools.controller.items;
-		eligibleTests.forEach((test) => {
+		eligibleTests.forEach((test: vscode.TestItem) => {
 			if (toBreakUp.includes(test)) {
-				test.children.forEach((childTest) => {
-					maybeEnqueue(childTest, queue, request.exclude);
-				});
+				test.children.forEach((child) => toRun.push(child));
 			} else {
-				maybeEnqueue(test, queue, request.exclude);
+				toRun.push(test);
 			}
 		});
-		LOGGER.info(`${queue.length} tests are enqueued`);
 	}
+
+	// Parse files whose children aren't materialized yet, so their leaves exist to mark.
+	const parses: Promise<void>[] = [];
+	toRun.forEach((item) => {
+		if (testingTools.testItemData.get(item) === ItemType.File && item.children.size === 0) {
+			parses.push(parseTestsFromFile(testingTools, item));
+		}
+	});
+	await Promise.all(parses);
+
+	// Mark each leaf "queued" so a run that stops early shows no stale/fresh mix. For a partial
+	// run, also queue the item for the loop below; a run-all is one invocation over the directory.
+	toRun.forEach((item) => {
+		if (request.exclude?.includes(item)) {
+			return;
+		}
+		markLeafTestsQueued(testingTools, item, run);
+		if (!runAllTests) {
+			queue.push(item);
+		}
+	});
 
 	while (!token.isCancellationRequested && (queue.length > 0 || runAllTests)) {
 		let test: vscode.TestItem | undefined;
