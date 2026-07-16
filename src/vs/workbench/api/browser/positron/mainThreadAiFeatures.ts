@@ -9,7 +9,6 @@ import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { isIMenuItem, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { EditorExtensionsRegistry } from '../../../../editor/browser/editorExtensions.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ChatViewId } from '../../../contrib/chat/browser/chat.js';
 import { ChatViewPane } from '../../../contrib/chat/browser/widgetHosts/viewPane/chatViewPane.js';
 import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/participants/chatAgents.js';
@@ -283,24 +282,6 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 			editorActionLabels.set(action.id, action.label);
 		}
 
-		// Build keybindings map: commandId → human-readable shortcut labels
-		const keybindingsMap = new Map<string, string[]>();
-		for (const item of this._keybindingService.getDefaultKeybindings()) {
-			if (!item.command || !item.resolvedKeybinding) {
-				continue;
-			}
-			const label = item.resolvedKeybinding.getLabel();
-			if (!label) {
-				continue;
-			}
-			const existing = keybindingsMap.get(item.command);
-			if (existing) {
-				existing.push(label);
-			} else {
-				keybindingsMap.set(item.command, [label]);
-			}
-		}
-
 		const result: ISerializedAllowedCommand[] = [];
 
 		for (const [id, command] of allCommands) {
@@ -338,7 +319,6 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 				})),
 				returns: meta?.returns,
 				source,
-				keybindings: keybindingsMap.get(id),
 			});
 		}
 

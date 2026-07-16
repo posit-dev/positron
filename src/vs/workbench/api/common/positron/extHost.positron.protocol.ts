@@ -340,7 +340,6 @@ export interface ISerializedAllowedCommand {
 	args?: ISerializedAllowedCommandArg[];
 	returns?: string;
 	source: ISerializedAllowedCommandSource;
-	keybindings?: string[];
 }
 
 export interface MainThreadAiFeaturesShape {
