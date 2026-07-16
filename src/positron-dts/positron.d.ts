@@ -3691,8 +3691,6 @@ declare module 'positron' {
 			returns?: string;
 			/** Where the command was registered from. */
 			source: AllowedCommandSource;
-			/** Default keyboard shortcuts bound to this command (e.g. `["Ctrl+Z"]`). */
-			keybindings?: string[];
 		}
 
 		/**

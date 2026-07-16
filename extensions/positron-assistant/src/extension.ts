@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
 import { validateProvidersEnabled } from './providerConfiguration.js';
 import { registerParticipants } from './participants';
 import { registerAssistantTools } from './tools.js';
@@ -55,16 +54,6 @@ function isActive(): boolean {
 export async function activate(context: vscode.ExtensionContext) {
 	// Create the log output channel.
 	context.subscriptions.push(log);
-
-	// Register a command palette entry for inspecting all commands exposed to AI agents.
-	context.subscriptions.push(
-		vscode.commands.registerCommand('positron.assistant.showAllowedCommands', async () => {
-			const commands = await positron.ai.getAllowedCommands();
-			const json = JSON.stringify(commands, null, 2);
-			const doc = await vscode.workspace.openTextDocument({ content: json, language: 'json' });
-			await vscode.window.showTextDocument(doc);
-		})
-	);
 
 	if (isActive()) {
 		// Register the assistant. We don't propagate errors here since we want

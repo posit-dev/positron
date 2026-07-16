@@ -105,19 +105,9 @@
       }
     ],
     "menus": {
-      "commandPalette": [
-        {
-          "command": "positron.assistant.showAllowedCommands"
-        }
-      ]
+      "commandPalette": []
     },
-    "commands": [
-      {
-        "command": "positron.assistant.showAllowedCommands",
-        "category": "Positron Assistant",
-        "title": "%command.showAllowedCommands.title%"
-      }
-    ],
+    "commands": [],
     "configuration": [
       {
         "type": "object",

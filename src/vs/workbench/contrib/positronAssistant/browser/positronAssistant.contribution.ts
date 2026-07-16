@@ -7,10 +7,14 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
-import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, isIMenuItem, MenuId, MenuRegistry, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { localize2 } from '../../../../nls.js';
+import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
+import { EditorExtensionsRegistry, ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IUntitledTextResourceEditorInput } from '../../../common/editor.js';
 import { codiconsLibrary } from '../../../../base/common/codiconsLibrary.js';
-import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
 import { ICodeBlockActionContext } from '../../chat/browser/widget/chatContentParts/codeBlockPart.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
@@ -18,7 +22,6 @@ import { ChatContextKeys } from '../../chat/common/actions/chatContextKeys.js';
 import { RuntimeCodeExecutionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ChatAgentLocation, ChatConfiguration } from '../../chat/common/constants.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
@@ -121,3 +124,70 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronAssistantContribution, LifecyclePhase.Restored);
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(NextEditSuggestionsStatusBarEntry, LifecyclePhase.Restored);
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(CommitMessageMenuContribution, LifecyclePhase.Restored);
+
+registerAction2(class ShowAllowedCommandsAction extends Action2 {
+	constructor() {
+		super({
+			id: 'positron.assistant.showAllowedCommands',
+			title: localize2('positron.assistant.showAllowedCommands', 'Show Allowed AI Commands'),
+			category: Categories.Developer,
+			f1: true,
+		});
+	}
+
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const paletteItemTitles = new Map<string, string>();
+		for (const item of MenuRegistry.getMenuItems(MenuId.CommandPalette)) {
+			if (isIMenuItem(item)) {
+				const { id, title } = item.command;
+				if (title) {
+					paletteItemTitles.set(id, typeof title === 'string' ? title : title.value);
+				}
+			}
+		}
+
+		const editorActionLabels = new Map<string, string>();
+		for (const action of EditorExtensionsRegistry.getEditorActions()) {
+			editorActionLabels.set(action.id, action.label);
+		}
+
+		const menuCommands = MenuRegistry.getCommands();
+		const result = [];
+
+		for (const [id, command] of CommandsRegistry.getCommands()) {
+			if (id.startsWith('_')) {
+				continue;
+			}
+
+			const meta = command.metadata;
+			const menuCmd = menuCommands.get(id);
+
+			let description: string | undefined;
+			if (meta?.description) {
+				description = typeof meta.description === 'string' ? meta.description : meta.description.value;
+			} else if (menuCmd) {
+				const t = menuCmd.title;
+				description = typeof t === 'string' ? t : t.value;
+			} else {
+				description = paletteItemTitles.get(id) ?? editorActionLabels.get(id);
+			}
+
+			const cmdSource = menuCmd?.source;
+			result.push({
+				id,
+				description,
+				args: meta?.args?.map(a => ({ name: a.name, description: a.description, isOptional: a.isOptional })),
+				returns: meta?.returns,
+				source: cmdSource
+					? { type: 'extension', id: cmdSource.id, displayName: cmdSource.title }
+					: { type: 'builtin' },
+			});
+		}
+
+		await accessor.get(IEditorService).openEditor({
+			resource: undefined,
+			contents: JSON.stringify(result, null, 2),
+			languageId: 'json',
+		} satisfies IUntitledTextResourceEditorInput);
+	}
+});
