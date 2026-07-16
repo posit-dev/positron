@@ -121,9 +121,15 @@ dominant -- rule of thumb: >=90%, or every other pattern is a single
 occurrence -- proceed straight to deep-diving it without stopping to ask; list
 the minor pattern(s) in the table but don't pull full evidence for them unless
 the engineer asks, or the dominant pattern's root cause doesn't plausibly
-explain them too. If the split is more even (60/40, 50/30/20), stop and ask
-which to prioritize -- that split reflects a real judgment call about where to
-spend effort, not an obvious default.
+explain them too. If the split is more even (60/40, 50/30/20) but neither
+pattern is dominant nor a lone outlier, don't jump straight to asking which to
+prioritize -- pull a quick round of evidence for both first (step 4) and check
+whether they're actually the same underlying bug wearing two different error
+messages (e.g. two assertions racing against the same continuously-changing
+state). If they turn out to share a mechanism, there's nothing left to
+prioritize between. Only ask once you've ruled that out, or the two patterns'
+evidence points at genuinely unrelated mechanisms -- that split is a real
+judgment call about where to spend effort, not an obvious default.
 
 ### 4. Pull evidence per pattern
 
