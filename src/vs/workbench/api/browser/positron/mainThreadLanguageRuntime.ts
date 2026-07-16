@@ -53,7 +53,7 @@ import { Range, IRange } from '../../../../editor/common/core/range.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
-import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
+import { getSessionVariables, querySessionTables } from '../../../services/positronVariables/common/helpers/sessionVariableQueries.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { LanguageRuntimeDynState } from 'positron';
@@ -1948,42 +1948,11 @@ export class MainThreadLanguageRuntime
 	}
 
 	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>> {
-		const instances = this._positronVariablesService.positronVariablesInstances;
-		for (const instance of instances) {
-			if (instance.session.sessionId === sessionId) {
-				return this.getSessionVariables(instance, accessKeys);
-			}
-		}
-		throw new Error(`No variables provider found for session ${sessionId}`);
-	}
-
-	async getSessionVariables(instance: IPositronVariablesInstance, accessKeys?: Array<Array<string>>):
-		Promise<Array<Array<Variable>>> {
-		const client = instance.getClientInstance();
-		if (!client) {
-			throw new Error(`No variables provider available for session ${instance.session.sessionId}`);
-		}
-		const accessKeysProvided = !!accessKeys && accessKeys.length > 0 && accessKeys.some(key => key.length !== 0);
-		if (accessKeysProvided) {
-			const result = [];
-			for (const accessKey of accessKeys) {
-				result.push((await client.comm.inspect(accessKey)).children);
-			}
-			return result;
-		} else {
-			const allVars = await client.comm.list();
-			return [allVars.variables];
-		}
+		return getSessionVariables(this._positronVariablesService, sessionId, accessKeys);
 	}
 
 	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>> {
-		const instances = this._positronVariablesService.positronVariablesInstances;
-		for (const instance of instances) {
-			if (instance.session.sessionId === sessionId) {
-				return this.querySessionTables(instance, accessKeys, queryTypes);
-			}
-		}
-		throw new Error(`No variables provider found for session ${sessionId}`);
+		return querySessionTables(this._positronVariablesService, sessionId, accessKeys, queryTypes);
 	}
 
 	/**
@@ -1995,22 +1964,6 @@ export class MainThreadLanguageRuntime
 	 */
 	$emitPerfMark(extensionId: string, name: string): void {
 		perf.mark(`code/positron/${extensionId}/${name}`);
-	}
-
-	async querySessionTables(instance: IPositronVariablesInstance, accessKeys: Array<Array<string>>, queryTypes: Array<string>):
-		Promise<Array<QueryTableSummaryResult>> {
-		const client = instance.getClientInstance();
-		if (!client) {
-			throw new Error(`No variables provider available for session ${instance.session.sessionId}`);
-		}
-		if (accessKeys.length === 0) {
-			throw new Error('No access keys provided for variable data retrieval');
-		}
-		const result = [];
-		for (const accessKey of accessKeys) {
-			result.push(await client.comm.queryTableSummary(accessKey, queryTypes));
-		}
-		return result;
 	}
 
 	// Signals that language runtime discovery is complete.

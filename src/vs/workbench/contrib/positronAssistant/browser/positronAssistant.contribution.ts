@@ -27,6 +27,7 @@ import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../service
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { NextEditSuggestionsStatusBarEntry } from './nextEditSuggestionsStatusBar.js';
 import { CommitMessageMenuContribution, registerCommitMessageGeneration } from './commitMessageAction.js';
+import { PositronAssistantToolsContribution } from './tools/positronAssistantTools.js';
 
 // Register the `ai.enabled` main switch for Positron's AI features.
 import '../common/positronAIConfiguration.js';
@@ -191,3 +192,5 @@ registerAction2(class ShowAllowedCommandsAction extends Action2 {
 		} satisfies IUntitledTextResourceEditorInput);
 	}
 });
+
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronAssistantToolsContribution, LifecyclePhase.Restored);

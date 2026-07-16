@@ -3600,6 +3600,27 @@ declare module 'positron' {
 		export function getPositronChatContext(request: vscode.ChatRequest): Thenable<ChatContext>;
 
 		/**
+		 * Filters a chat request's tools down to those Positron considers enabled
+		 * for the current context. Runs synchronously. Used by chat clients such
+		 * as Copilot Chat to apply Positron's tool-availability policy.
+		 *
+		 * @param request The chat request the tools would be used for.
+		 * @param tools The full list of candidate tools.
+		 * @returns The names of the tools that are enabled.
+		 */
+		export function getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): string[];
+
+		/**
+		 * Generate the Positron assistant prompt for a chat request: the
+		 * Positron-specific system instructions and IDE context to embed in a
+		 * chat prompt. Used by chat clients such as Copilot Chat.
+		 *
+		 * @param request The chat request to generate prompt content for.
+		 * @returns The assembled prompt content.
+		 */
+		export function generateAssistantPrompt(request: vscode.ChatRequest): Thenable<string>;
+
+		/**
 		 * Send a progress response to the chat response stream.
 		 */
 		export function responseProgress(token: unknown, part: vscode.ChatResponsePart | {
@@ -4046,5 +4067,41 @@ declare module 'positron' {
 		 * @param cellIndices Optional array of cell indices to clear. If omitted, clears all cells.
 		 */
 		export function clearCellOutputs(notebookUri: string, cellIndices?: number[]): Thenable<void>;
+	}
+
+	/**
+	 * A specification for migrating one configuration key to another.
+	 * Used with {@link workspace.registerConfigurationMigrations}.
+	 */
+	export interface ConfigurationMigrationSpec {
+		/** The configuration key to migrate from. */
+		readonly key: string;
+		/** The configuration key to migrate to. */
+		readonly migrateTo: string;
+	}
+
+	export namespace workspace {
+
+		/**
+		 * Register configuration key migrations. Each migration copies a value from an old
+		 * configuration key to a new key and clears the old key. If the destination key
+		 * already has a user-set value at the same configuration target, the old key is
+		 * cleared without overwriting the new value.
+		 *
+		 * Ownership of the source keys is required and determined in order:
+		 * 1. The key is still registered and its `source` matches the calling extension.
+		 * 2. The key has no registered extension owner (e.g. removed from the manifest after
+		 *    renaming) and the key starts with `{extensionId}.` — namespace ownership.
+		 *
+		 * Ownership checks are bypassed entirely for extensions published by `posit`.
+		 *
+		 * If the old key is enforced by system policy but the new key is not, the migration
+		 * will log an error and notify the user; the admin should update the policy to use
+		 * the new key.
+		 *
+		 * @param migrations Array of migration specifications.
+		 * @returns A {@link vscode.Disposable} (unregistering is not supported; dispose is a no-op).
+		 */
+		export function registerConfigurationMigrations(migrations: ReadonlyArray<ConfigurationMigrationSpec>): vscode.Disposable;
 	}
 }
