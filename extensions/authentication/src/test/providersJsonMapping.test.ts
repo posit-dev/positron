@@ -64,18 +64,21 @@ suite('buildProvidersConfigFromSettings', () => {
 		assert.deepStrictEqual(result?.config.providers?.['snowflake-cortex'], { snowflake: { account: 'MYORG-MYACCT', home: '/tmp/snow' } });
 	});
 
-	test('records source-to-destination migrations per destination field', () => {
+	test('records source-to-destination migrations with log-safe values', () => {
 		const result = buildProvidersConfigFromSettings(readerOf({
 			'authentication.openai-api.baseUrl': 'https://openai.example.com',
+			'authentication.openai-api.customHeaders': { 'x-api-key': 'sk-secret-token', 'x-team': 'data-science' },
 			'authentication.aws.credentials': { AWS_PROFILE: 'default', AWS_REGION: 'us-east-1' },
 		}), fakeCaps);
 		assert.deepStrictEqual(result?.migrations, [
-			{ source: 'authentication.openai-api.baseUrl', destination: 'providers.openai.baseUrl' },
-			{ source: 'authentication.aws.credentials', destination: 'providers.bedrock.aws.profile' },
-			{ source: 'authentication.aws.credentials', destination: 'providers.bedrock.aws.region' },
+			{ source: 'authentication.openai-api.baseUrl', destination: 'providers.openai.baseUrl', value: '"https://openai.example.com"' },
+			// Header values can carry auth tokens; only names are logged.
+			{ source: 'authentication.openai-api.customHeaders', destination: 'providers.openai.customHeaders', value: '[x-api-key, x-team]' },
+			{ source: 'authentication.aws.credentials', destination: 'providers.bedrock.aws.profile', value: '"default"' },
+			{ source: 'authentication.aws.credentials', destination: 'providers.bedrock.aws.region', value: '"us-east-1"' },
 		]);
 		// The toast counts distinct source settings, not destination fields.
-		assert.strictEqual(result?.settingCount, 2);
+		assert.strictEqual(result?.settingCount, 3);
 	});
 
 	test('maps enablement toggles with the newer generation winning', () => {

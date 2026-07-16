@@ -19,6 +19,12 @@ export interface SettingMigration {
 	readonly source: string;
 	/** Destination providers.json dotted path (e.g. providers.openai.baseUrl). */
 	readonly destination: string;
+	/**
+	 * Log-safe rendering of the written value. Header values are reduced to
+	 * their names since they can carry auth tokens; all other values are safe
+	 * to show verbatim.
+	 */
+	readonly value: string;
 }
 
 export interface MappedProvidersConfig {
@@ -121,21 +127,22 @@ export function buildProvidersConfigFromSettings(
 	const merge = (providerId: string, fragment: Block) => {
 		providers[providerId] = { ...providers[providerId], ...fragment };
 	};
-	const record = (source: string, destination: string) => {
-		migrations.push({ source, destination });
+	const record = (source: string, destination: string, value: string) => {
+		migrations.push({ source, destination, value });
 	};
 
 	// --- authentication.<configKey>.{baseUrl,customHeaders} -----------------
 	for (const s of API_KEY_CONNECTION_SETTINGS) {
 		const rawBaseUrl = nonEmptyString(reader.globalValue<string>(`authentication.${s.configKey}.baseUrl`));
 		if (rawBaseUrl) {
-			merge(s.providerId, { baseUrl: s.normalizeBaseUrl ? s.normalizeBaseUrl(rawBaseUrl) : rawBaseUrl });
-			record(`authentication.${s.configKey}.baseUrl`, `providers.${s.providerId}.baseUrl`);
+			const baseUrl = s.normalizeBaseUrl ? s.normalizeBaseUrl(rawBaseUrl) : rawBaseUrl;
+			merge(s.providerId, { baseUrl });
+			record(`authentication.${s.configKey}.baseUrl`, `providers.${s.providerId}.baseUrl`, JSON.stringify(baseUrl));
 		}
 		const headers = nonEmptyHeaders(reader.globalValue<Record<string, string>>(`authentication.${s.configKey}.customHeaders`));
 		if (headers) {
 			merge(s.providerId, { customHeaders: headers });
-			record(`authentication.${s.configKey}.customHeaders`, `providers.${s.providerId}.customHeaders`);
+			record(`authentication.${s.configKey}.customHeaders`, `providers.${s.providerId}.customHeaders`, headerNames(headers));
 		}
 	}
 
@@ -144,11 +151,11 @@ export function buildProvidersConfigFromSettings(
 	const googleCloud: Block = {};
 	if (nonEmptyString(vertexCreds?.GOOGLE_VERTEX_PROJECT)) {
 		googleCloud.project = vertexCreds!.GOOGLE_VERTEX_PROJECT;
-		record('authentication.googleVertex.credentials', 'providers.google-vertex.googleCloud.project');
+		record('authentication.googleVertex.credentials', 'providers.google-vertex.googleCloud.project', JSON.stringify(googleCloud.project));
 	}
 	if (nonEmptyString(vertexCreds?.GOOGLE_VERTEX_LOCATION)) {
 		googleCloud.location = vertexCreds!.GOOGLE_VERTEX_LOCATION;
-		record('authentication.googleVertex.credentials', 'providers.google-vertex.googleCloud.location');
+		record('authentication.googleVertex.credentials', 'providers.google-vertex.googleCloud.location', JSON.stringify(googleCloud.location));
 	}
 	if (Object.keys(googleCloud).length > 0) {
 		merge('google-vertex', { googleCloud });
@@ -159,11 +166,11 @@ export function buildProvidersConfigFromSettings(
 	const aws: Block = {};
 	if (nonEmptyString(awsCreds?.AWS_PROFILE)) {
 		aws.profile = awsCreds!.AWS_PROFILE;
-		record('authentication.aws.credentials', 'providers.bedrock.aws.profile');
+		record('authentication.aws.credentials', 'providers.bedrock.aws.profile', JSON.stringify(aws.profile));
 	}
 	if (nonEmptyString(awsCreds?.AWS_REGION)) {
 		aws.region = awsCreds!.AWS_REGION;
-		record('authentication.aws.credentials', 'providers.bedrock.aws.region');
+		record('authentication.aws.credentials', 'providers.bedrock.aws.region', JSON.stringify(aws.region));
 	}
 	if (Object.keys(aws).length > 0) {
 		merge('bedrock', { aws });
@@ -174,11 +181,11 @@ export function buildProvidersConfigFromSettings(
 	const snowflake: Block = {};
 	if (nonEmptyString(snowflakeCreds?.SNOWFLAKE_ACCOUNT)) {
 		snowflake.account = snowflakeCreds!.SNOWFLAKE_ACCOUNT;
-		record('authentication.snowflake.credentials', 'providers.snowflake-cortex.snowflake.account');
+		record('authentication.snowflake.credentials', 'providers.snowflake-cortex.snowflake.account', JSON.stringify(snowflake.account));
 	}
 	if (nonEmptyString(snowflakeCreds?.SNOWFLAKE_HOME)) {
 		snowflake.home = snowflakeCreds!.SNOWFLAKE_HOME;
-		record('authentication.snowflake.credentials', 'providers.snowflake-cortex.snowflake.home');
+		record('authentication.snowflake.credentials', 'providers.snowflake-cortex.snowflake.home', JSON.stringify(snowflake.home));
 	}
 	if (Object.keys(snowflake).length > 0) {
 		merge('snowflake-cortex', { snowflake });
@@ -186,7 +193,7 @@ export function buildProvidersConfigFromSettings(
 	const snowflakeHeaders = nonEmptyHeaders(reader.globalValue<Record<string, string>>('authentication.snowflake.customHeaders'));
 	if (snowflakeHeaders) {
 		merge('snowflake-cortex', { customHeaders: snowflakeHeaders });
-		record('authentication.snowflake.customHeaders', 'providers.snowflake-cortex.customHeaders');
+		record('authentication.snowflake.customHeaders', 'providers.snowflake-cortex.customHeaders', headerNames(snowflakeHeaders));
 	}
 
 	// --- enablement toggles -> providers.<id>.enabled ------------------------
@@ -196,7 +203,7 @@ export function buildProvidersConfigFromSettings(
 		const enabled = newValue ?? oldValue;
 		if (enabled !== undefined) {
 			merge(s.providerId, { enabled });
-			record(newValue !== undefined ? s.newKey! : s.oldKey!, `providers.${s.providerId}.enabled`);
+			record(newValue !== undefined ? s.newKey! : s.oldKey!, `providers.${s.providerId}.enabled`, String(enabled));
 		}
 	}
 
@@ -213,7 +220,8 @@ export function buildProvidersConfigFromSettings(
 		}
 		const custom = entries.map(entry => buildCustomModel(s.providerId, entry, inferCapabilities));
 		merge(s.providerId, { models: { discovery: 'off', custom } });
-		record(`positron.assistant.models.overrides.${s.settingName}`, `providers.${s.providerId}.models.custom`);
+		const modelIds = entries.map(e => e.identifier).join(', ');
+		record(`positron.assistant.models.overrides.${s.settingName}`, `providers.${s.providerId}.models.custom`, `[${modelIds}]`);
 	}
 
 	if (Object.keys(providers).length === 0) {
@@ -265,4 +273,9 @@ function nonEmptyString(value: string | undefined): string | undefined {
 
 function nonEmptyHeaders(headers: Record<string, string> | undefined): Record<string, string> | undefined {
 	return headers && Object.keys(headers).length > 0 ? headers : undefined;
+}
+
+/** Header names only; values can carry auth tokens and must not be logged. */
+function headerNames(headers: Record<string, string>): string {
+	return `[${Object.keys(headers).join(', ')}]`;
 }

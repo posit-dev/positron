@@ -134,8 +134,8 @@ export async function runMigration(opts: RunMigrationOptions): Promise<Migration
 		return { outcome: 'skipped-populated' };
 	}
 	log.info(`[migration] Migrated ${mapped.settingCount} setting(s) to providers.json:`);
-	for (const { source, destination } of mapped.migrations) {
-		log.info(`[migration]   ${source} -> ${destination}`);
+	for (const { source, destination, value } of mapped.migrations) {
+		log.info(`[migration]   ${source} -> ${destination} = ${value}`);
 	}
 	return { outcome: 'migrated', settingCount: mapped.settingCount };
 }
