@@ -17,6 +17,11 @@ export async function verifyReticulateFunctionality(
 	zValue = '6'): Promise<void> {
 	const { console, sessions, variables } = app.workbench;
 
+	// Explicitly select the Python session before running code -- with multiple concurrent
+	// sessions of the same language, `console.executeCode` targets whichever session happens
+	// to be foreground, which races with session startup/rename.
+	await sessions.select(pythonSessionId);
+
 	// Create a variable x in Python session
 	await expect(async () => {
 		await console.executeCode('Python', `x = ${xValue}`);
@@ -25,6 +30,7 @@ export async function verifyReticulateFunctionality(
 
 	// Switch to the R session and create an R variable `y` by accessing the Python
 	// variable `x` through reticulate.
+	await sessions.select(rSessionId);
 	await expect(async () => {
 		await console.executeCode('R', 'y<-reticulate::py$x');
 		await variables.expectVariableToBe('y', xValue, 2000);
