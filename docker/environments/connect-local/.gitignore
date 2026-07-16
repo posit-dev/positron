@@ -1,0 +1,9 @@
+# Generated env (holds CONNECT_BOOTSTRAP_SECRETKEY)
+.env
+
+# License files
+*.lic
+connect/*.lic
+
+# Bootstrapped token + self-heal marker (local, per-machine)
+.tokens/

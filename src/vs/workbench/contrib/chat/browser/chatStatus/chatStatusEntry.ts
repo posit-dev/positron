@@ -27,6 +27,14 @@ import { IContextKeyService } from '../../../../../platform/contextkey/common/co
 import { isWeb } from '../../../../../base/common/platform.js';
 import { InEditorZenModeContext } from '../../../../common/contextkeys.js';
 import { ChatConfiguration } from '../../common/constants.js';
+// --- Start Positron ---
+import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
+// GitHub Copilot's provider enable setting (declared in the authentication
+// extension's package.json). When false, Copilot is off, so the status shows
+// the disabled state rather than "Signed out"/"Finish Setup". Literal because
+// the setting is owned by an extension, not a workbench constant.
+const COPILOT_PROVIDER_ENABLE_KEY = 'positron.assistant.provider.githubCopilot.enable';
+// --- End Positron ---
 
 export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribution {
 
@@ -38,7 +46,6 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 
 	private readonly activeCodeEditorListener = this._register(new MutableDisposable());
 	private readonly entryAnchor = h('span');
-	private readonly dashboardTooltip: IStatusbarEntry['tooltip'];
 
 	private runningSessionsCount: number;
 
@@ -56,25 +63,6 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 
 		this.runningSessionsCount = this.chatSessionsService.getInProgress().reduce((total, item) => total + item.count, 0);
 
-		this.dashboardTooltip = {
-			element: (token: CancellationToken) => {
-				const store = new DisposableStore();
-				store.add(token.onCancellationRequested(() => {
-					store.dispose();
-				}));
-				const elem = ChatStatusDashboard.instantiateInContents(this.instantiationService, store, undefined);
-
-				// todo@connor4312/@benibenj: workaround for #257923
-				store.add(disposableWindowInterval(mainWindow, () => {
-					if (!elem.isConnected) {
-						store.dispose();
-					}
-				}, 2000));
-
-				return elem;
-			}
-		};
-
 		this.update();
 
 		this.registerListeners();
@@ -82,8 +70,19 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 
 	private update(): void {
 		const sentiment = this.chatEntitlementService.sentiment;
+		// --- Start Positron ---
+		// When chat is hidden only because of `chat.disableAIFeatures`, keep the
+		// status entry so the user can still see and control inline completions.
+		// `isCompletionsOnlyMode` already implies `sentiment.hidden`, so we don't
+		// re-check it here.
+		/*
 		if (!sentiment.hidden) {
 			const props = this.getEntryProps();
+		*/
+		const completionsOnly = this.chatEntitlementService.isCompletionsOnlyMode;
+		if (!sentiment.hidden || completionsOnly) {
+			const props = this.getEntryProps(completionsOnly);
+			// --- End Positron ---
 			if (this.entry) {
 				this.entry.update(props);
 			} else {
@@ -118,7 +117,15 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 		this._register(this.editorService.onDidActiveEditorChange(() => this.onDidActiveEditorChange()));
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(product.defaultChatAgent?.completionsEnablementSetting) || e.affectsConfiguration(ChatConfiguration.TitleBarSignInEnabled)) {
+			if (e.affectsConfiguration(product.defaultChatAgent?.completionsEnablementSetting) || e.affectsConfiguration(ChatConfiguration.TitleBarSignInEnabled)
+				// --- Start Positron ---
+				// Toggling either the chat-hiding setting or the AI main switch adds or
+				// removes the completions-only entry, so re-run without a reload.
+				// Toggling the GitHub Copilot provider changes the disabled state below.
+				|| e.affectsConfiguration(ChatConfiguration.AIDisabled) || e.affectsConfiguration(AI_ENABLED_KEY)
+				|| e.affectsConfiguration(COPILOT_PROVIDER_ENABLE_KEY)
+				// --- End Positron ---
+			) {
 				this.update();
 			}
 		}));
@@ -138,12 +145,56 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 		}
 	}
 
-	private getEntryProps(): IStatusbarEntry {
+	// --- Start Positron ---
+	// Builds the status dashboard tooltip. In completions-only mode (chat hidden,
+	// inline completions available) it passes `disableChatSections` so the dashboard
+	// suppresses the chat usage/setup rows and keeps the completions controls.
+	private createDashboardTooltip(completionsOnly = false): IStatusbarEntry['tooltip'] {
+		return {
+			element: (token: CancellationToken) => {
+				const store = new DisposableStore();
+				store.add(token.onCancellationRequested(() => {
+					store.dispose();
+				}));
+				const dashboardOptions = completionsOnly ? { disableChatSections: true } : undefined;
+				const elem = ChatStatusDashboard.instantiateInContents(this.instantiationService, store, dashboardOptions);
+
+				// todo@connor4312/@benibenj: workaround for #257923
+				store.add(disposableWindowInterval(mainWindow, () => {
+					if (!elem.isConnected) {
+						store.dispose();
+					}
+				}, 2000));
+
+				return elem;
+			}
+		};
+	}
+	// --- End Positron ---
+
+	// --- Start Positron ---
+	// `completionsOnly` gates out the chat-specific states below when chat is
+	// hidden but inline completions stay available.
+	private getEntryProps(completionsOnly = false): IStatusbarEntry {
+		// --- End Positron ---
 		let text = '$(copilot)';
 		let ariaLabel = localize('chatStatusAria', "Copilot status");
 		let kind: StatusbarEntryKind | undefined;
 
-		if (isNewUser(this.chatEntitlementService)) {
+		// --- Start Positron ---
+		// When the GitHub Copilot provider is disabled, Copilot (chat and inline
+		// completions) is off, so show the disabled state below rather than a
+		// sign-in/entitlement state ("Signed out", "Finish Setup"), which would be
+		// misleading.
+		const copilotProviderDisabled = this.configurationService.getValue(COPILOT_PROVIDER_ENABLE_KEY) === false;
+		// --- End Positron ---
+
+		// --- Start Positron ---
+		// In completions-only mode chat is hidden, so skip the chat-specific states
+		// (Finish Setup) and keep only the completions-relevant ones below. Also skip
+		// it when the Copilot provider is disabled (handled by the disabled state).
+		if (!completionsOnly && !copilotProviderDisabled && isNewUser(this.chatEntitlementService)) {
+			// --- End Positron ---
 			const entitlement = this.chatEntitlementService.entitlement;
 
 			// Sign In
@@ -162,13 +213,21 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 			const isPooledQuotaDepleted = quotas.premiumChat?.unlimited && quotas.premiumChat.hasQuota === false;
 
 			// Disabled
-			if (this.chatEntitlementService.sentiment.disabled || this.chatEntitlementService.sentiment.untrusted) {
+			// --- Start Positron ---
+			// `copilotProviderDisabled` added: the Copilot provider being off maps to
+			// the disabled state, and (being first) takes precedence over the
+			// signed-out and quota states below.
+			if (copilotProviderDisabled || this.chatEntitlementService.sentiment.disabled || this.chatEntitlementService.sentiment.untrusted) {
+				// --- End Positron ---
 				text = '$(copilot-unavailable)';
 				ariaLabel = localize('copilotDisabledStatus', "Copilot disabled");
 			}
 
 			// Sessions in progress
-			else if (this.runningSessionsCount > 0) {
+			// --- Start Positron ---
+			// Chat-specific state; skipped in completions-only mode.
+			else if (!completionsOnly && this.runningSessionsCount > 0) {
+				// --- End Positron ---
 				text = '$(copilot-in-progress)';
 				if (this.runningSessionsCount > 1) {
 					ariaLabel = localize('chatSessionsInProgressStatus', "{0} agent sessions in progress", this.runningSessionsCount);
@@ -184,7 +243,13 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 			}
 
 			// Free Quota Exceeded
+			// --- Start Positron ---
+			// In completions-only mode only the completions quota matters, not chat quota.
+			/*
 			else if (this.chatEntitlementService.entitlement === ChatEntitlement.Free && (chatQuotaExceeded || completionsQuotaExceeded)) {
+			*/
+			else if (this.chatEntitlementService.entitlement === ChatEntitlement.Free && (completionsOnly ? completionsQuotaExceeded : (chatQuotaExceeded || completionsQuotaExceeded))) {
+				// --- End Positron ---
 				let quotaWarning: string;
 				if (chatQuotaExceeded && !completionsQuotaExceeded) {
 					quotaWarning = localize('chatQuotaExceededStatus', "Chat quota reached");
@@ -228,7 +293,11 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 			showInAllWindows: true,
 			kind,
 			content: this.entryAnchor,
-			tooltip: this.dashboardTooltip
+			// --- Start Positron ---
+			// In completions-only mode, suppress the chat usage/setup rows and keep the
+			// completions controls (settings, model, snooze, quota).
+			tooltip: this.createDashboardTooltip(completionsOnly)
+			// --- End Positron ---
 		} satisfies IStatusbarEntry;
 
 		return baseResult;

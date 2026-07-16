@@ -573,8 +573,6 @@ export const selectNewLanguageRuntime = async (
 		return items;
 	};
 
-	await fetchContributedItems();
-
 	const disposables = new DisposableStore();
 	const quickPick = disposables.add(quickInputService.createQuickPick<IQuickPickItem>({ useSeparators: true }));
 	quickPick.title = options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session');
@@ -706,6 +704,20 @@ export const selectNewLanguageRuntime = async (
 		}));
 
 		quickPick.show();
+
+		// Fold in contributed items after show() rather than awaiting them first:
+		// getItems() is an extension-host RPC that can hang for seconds right after
+		// a window reload, which would leave the picker invisible until it resolves.
+		// When startup isn't Complete yet, the onDidChangeRuntimeStartupPhase
+		// handler above does the fetch instead.
+		if (languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
+			fetchContributedItems().then(() => {
+				// Skip if the user dismissed the picker while the fetch was pending.
+				if (!disposables.isDisposed) {
+					rebuildItems();
+				}
+			});
+		}
 	});
 };
 
@@ -1391,6 +1403,7 @@ export function registerLanguageRuntimeActions() {
 			const consoleService = accessor.get(IPositronConsoleService);
 			const notificationService = accessor.get(INotificationService);
 			const quickInputService = accessor.get(IQuickInputService);
+			const runtimeSessionService = accessor.get(IRuntimeSessionService);
 			let fromPrompt = false;
 
 			// TODO: Should this be a "Developer: " command?
@@ -1427,7 +1440,7 @@ export function registerLanguageRuntimeActions() {
 			// If no language ID is provided, try to get the language ID from
 			// the active session.
 			if (!args.langId) {
-				const foreground = accessor.get(IRuntimeSessionService).foregroundSession;
+				const foreground = runtimeSessionService.foregroundSession;
 				if (foreground) {
 					args.langId = foreground.runtimeMetadata.languageId;
 				} else {

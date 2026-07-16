@@ -81,7 +81,7 @@ if ! docker ps | grep -q "test"; then
 fi
 
 # Copy scripts to container (quietly), stripping Windows line endings
-for script in install-workbench.sh positronDownload.sh get-latest-wb-noble-url.sh configure-datasources.sh; do
+for script in install-workbench.sh ensure-connect-token.sh positronDownload.sh get-latest-wb-noble-url.sh configure-datasources.sh; do
   if [ -f "./$script" ]; then
     docker cp "./$script" "test:/tmp/$script" >/dev/null 2>&1
     docker exec test sed -i 's/\r$//' "/tmp/$script" 2>/dev/null

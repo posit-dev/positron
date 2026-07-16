@@ -2227,6 +2227,18 @@ export default defineConfig(
 						'*' // node.js
 					]
 				},
+				// --- Start Positron ---
+				// The kernel supervisor handshake broker is a plain node helper
+				// imported by server-main.ts; it (and its test) only use node
+				// built-ins.
+				{
+					'target': 'src/{server-supervisor-handshake.ts,server-supervisor-handshake.vitest.ts}',
+					'restrictions': [
+						'src/*.js',
+						'*' // node.js
+					]
+				},
+				// --- End Positron ---
 				{
 					'target': 'src/vs/sessions/sessions.common.main.ts',
 					'layer': 'browser',

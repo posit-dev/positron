@@ -192,6 +192,25 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Describes what should happen when code is submitted for evaluation while
+	 * the target runtime is busy (i.e. not idle).
+	 */
+	export enum RuntimeBusyBehavior {
+		/**
+		 * The code should be queued and evaluated when the runtime next becomes
+		 * idle. This is the default behavior.
+		 */
+		Queue = 'queue',
+
+		/**
+		 * The evaluation should be rejected with an error instead of being
+		 * queued. Use this when running code against a stale view of the
+		 * session state is unacceptable and the caller would rather fail closed.
+		 */
+		Reject = 'reject',
+	}
+
+	/**
 	 * Possible reasons a language runtime could exit.
 	 */
 	export enum RuntimeExitReason {
@@ -1435,6 +1454,46 @@ declare module 'positron' {
 		getDynState(): Thenable<LanguageRuntimeDynState>;
 
 		/**
+		 * Returns the current runtime state of the session.
+		 *
+		 * This is a synchronous accessor that reflects the session's last known
+		 * runtime state. Unlike `onDidChangeRuntimeState` (which only emits on
+		 * transitions), this can be read at any time, making it suitable for
+		 * gating logic that must verify the session is idle before dispatching
+		 * work.
+		 */
+		getRuntimeState?(): RuntimeState;
+
+		/**
+		 * An event that fires when the session's runtime state changes.
+		 *
+		 * Unlike `getRuntimeState()` (which reports the last known state at any
+		 * time), this only emits on transitions. Pair the two: read
+		 * `getRuntimeState()` for the current value, and subscribe here to be
+		 * notified of subsequent changes.
+		 */
+		onDidChangeRuntimeState?: vscode.Event<RuntimeState>;
+
+		/**
+		 * An event that fires when the session's connection to the underlying
+		 * runtime is lost. This can happen if, for example, the transport to the
+		 * kernel supervisor drops while the runtime itself keeps running.
+		 *
+		 * When this fires, any previously observed runtime state may be stale.
+		 * Callers should treat the session's state as unknown until either the
+		 * runtime state changes or `onDidReconnect` fires.
+		 */
+		onDidDisconnect?: vscode.Event<void>;
+
+		/**
+		 * An event that fires when the session's connection to the underlying
+		 * runtime is re-established after an `onDidDisconnect`. Callers should
+		 * re-synchronize by reading `getRuntimeState()`, since transitions that
+		 * happened while disconnected may not have been observed.
+		 */
+		onDidReconnect?: vscode.Event<void>;
+
+		/**
 		 * Calls a method in the runtime and returns the result.
 		 *
 		 * Throws a RuntimeMethodError if the method call fails.
@@ -2002,6 +2061,19 @@ declare module 'positron' {
 			type: DataConnectionParameterType.File;
 			defaultValue?: string;
 			placeholder?: string;
+
+			/**
+			 * File-type filters for the file picker opened by the field's Browse button, in the
+			 * same format as {@link vscode.OpenDialogOptions.filters}: each key is a human-readable
+			 * label and each value is a list of extensions without dots, for example:
+			 * ```ts
+			 * { 'SQLite Files': ['sqlite', 'sqlite3', 'db'] }
+			 * ```
+			 * Filters are shown in declaration order and the first one is the picker's default
+			 * selection. An "All Files" option is always appended, so drivers should not declare
+			 * one. When omitted, the picker shows "All Files" only.
+			 */
+			filters?: { [name: string]: string[] };
 		}
 		| {
 			type: DataConnectionParameterType.Number;
@@ -2194,6 +2266,10 @@ declare module 'positron' {
 		GroupColumns = 'group-columns',
 		GroupIndexes = 'group-indexes',
 		Index = 'index',
+		// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
+		Owner = 'owner',
+		// A pin on a Posit Connect server (positron-data-driver-pins).
+		Pin = 'pin',
 	}
 
 	export interface DataConnectionNode {
@@ -2813,13 +2889,19 @@ declare module 'positron' {
 		 *  not provided, an appropriate session will be chosen, and if no
 		 *  session for the desired language is running at all, a new session
 		 *  will be started.
+		 * @param whenBusy Determines what happens if the target runtime is busy
+		 *  when the evaluation is requested. Defaults to
+		 *  `RuntimeBusyBehavior.Queue`, which queues the code to run when the
+		 *  runtime next becomes idle. Use `RuntimeBusyBehavior.Reject` to have
+		 *  the returned Thenable reject with an error instead of queueing.
 		 * @returns A Thenable that resolves with the result of the code
 		 *  evaluation.
 		 */
 		export function evaluateCode(languageId: string,
 			code: string,
 			cancellationToken?: vscode.CancellationToken,
-			sessionId?: string): Thenable<EvalResult>;
+			sessionId?: string,
+			whenBusy?: RuntimeBusyBehavior): Thenable<EvalResult>;
 
 		/**
 		 * Executes a set of cells in a source document. The results are
@@ -3833,8 +3915,21 @@ declare module 'positron' {
 		}
 
 		/**
-		 * Get context about the active notebook
-		 * @returns The notebook context or undefined if no notebook is active
+		 * Get context about the active notebook.
+		 *
+		 * When no Positron notebook is the active editor pane (e.g. focus is
+		 * in another editor or view), falls back to the open notebook attached
+		 * to the foreground session, then to the most recently active Positron
+		 * notebook that is still open.
+		 *
+		 * Resolves with `undefined` when no notebook is open. Rejects with an
+		 * actionable error when the active editor holds a notebook in an
+		 * editor other than the Positron Notebook Editor (e.g. the
+		 * built-in/Jupyter notebook editor), since the notebook API only
+		 * operates on Positron Notebook Editor instances; the error message
+		 * explains how to switch editors.
+		 *
+		 * @returns The notebook context, or undefined if no notebook is open
 		 */
 		export function getContext(): Thenable<NotebookContext | undefined>;
 

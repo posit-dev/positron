@@ -10,6 +10,7 @@ import { JSX } from 'react';
 import { localize } from '../../../../../nls.js';
 import { ParameterFieldStates } from './configureDataConnection.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { Checkbox } from '../../../../../base/browser/ui/positronComponents/checkbox/checkbox.js';
 import { IDataConnectionParameter } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
@@ -32,6 +33,10 @@ interface ConfigureDataConnectionParametersProps {
 
 	// The current value and error state of each parameter field, managed by the parent component.
 	parameterFieldStates: ParameterFieldStates;
+
+	// Callback to open a file picker for a file parameter. The parent owns the dialog interaction
+	// and updates the field with the chosen path.
+	onBrowseFile: (parameterId: string) => void;
 
 	// Callback to notify the parent component of changes to any parameter field.
 	onParameterChanged: (parameterId: string, value: boolean | number | string | undefined) => void;
@@ -70,6 +75,7 @@ export const ConfigureDataConnectionParameters = ({
 	storedSecretIds,
 	redactedSecretValues,
 	parameterFieldStates,
+	onBrowseFile,
 	onParameterChanged,
 }: ConfigureDataConnectionParametersProps): JSX.Element => {
 	return (
@@ -98,18 +104,23 @@ export const ConfigureDataConnectionParameters = ({
 						return (
 							<div key={parameter.id} className='parameter-field'>
 								<ParameterLabel htmlFor={fieldId} label={parameter.label} optional={!parameter.required} />
-								<input
-									aria-required={parameter.required || undefined}
-									className={positronClassNames(
-										'parameter-input', 'text-input',
-										{ 'error': parameterFieldStates[parameter.id].error }
-									)}
-									id={fieldId}
-									placeholder={parameter.placeholder}
-									type='text'
-									value={parameterFieldStates[parameter.id].value as string}
-									onChange={e => onParameterChanged(parameter.id, e.target.value)}
-								/>
+								<div className='parameter-file-input'>
+									<input
+										aria-required={parameter.required || undefined}
+										className={positronClassNames(
+											'parameter-input', 'text-input',
+											{ 'error': parameterFieldStates[parameter.id].error }
+										)}
+										id={fieldId}
+										placeholder={parameter.placeholder}
+										type='text'
+										value={(parameterFieldStates[parameter.id].value as string) ?? ''}
+										onChange={e => onParameterChanged(parameter.id, e.target.value)}
+									/>
+									<Button className='browse-button' onPressed={() => onBrowseFile(parameter.id)}>
+										{localize('positron.configureDataConnection.browse', "Browse...")}
+									</Button>
+								</div>
 								<ParameterDescription text={parameter.description} />
 							</div>
 						);

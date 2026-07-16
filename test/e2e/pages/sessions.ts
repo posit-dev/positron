@@ -581,7 +581,7 @@ export class Sessions {
 			await expect(this.code.driver.currentPage.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
 			await this.console.focus();
 			await this.code.driver.currentPage.mouse.move(0, 0);
-			await expect(this.page.locator('text=/^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+			await expect(this.page.locator('text=/^Setting up|^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 		});
 	}
 
@@ -683,8 +683,15 @@ export class Sessions {
 			const isSingleSession = (await this.getSessionCount()) === 1;
 
 			if (!isSingleSession && sessionId) {
-				// Use force to bypass notification toasts that may overlay the tab
-				await this.page.getByTestId(`console-tab-${sessionId}`).click({ force: true });
+				const targetTab = this.getSessionTab(sessionId);
+				await expect(async () => {
+					// Use force to bypass notification toasts that may overlay the tab. A
+					// toast can also swallow the click outright (it's on top, so the real
+					// tab never receives it) -- verify the tab actually went active instead
+					// of assuming the click landed, and retry if it didn't.
+					await targetTab.click({ force: true });
+					await expect(targetTab).toHaveClass(/tab-button--active/);
+				}, `Select session tab: ${sessionId}`).toPass({ timeout: 10000 });
 			}
 
 			const metadata = await this.extractMetadataFromDialog();

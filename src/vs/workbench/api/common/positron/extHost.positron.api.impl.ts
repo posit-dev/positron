@@ -110,8 +110,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				const extensionId = extension.identifier.value;
 				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId, documentUri, executionMetadata);
 			},
-			evaluateCode(languageId: string, code: string, cancellationToken?: vscode.CancellationToken, sessionId?: string): Thenable<positron.EvalResult> {
-				return extHostLanguageRuntime.evaluateCode(languageId, code, cancellationToken, sessionId);
+			evaluateCode(languageId: string, code: string, cancellationToken?: vscode.CancellationToken, sessionId?: string, whenBusy?: positron.RuntimeBusyBehavior): Thenable<positron.EvalResult> {
+				return extHostLanguageRuntime.evaluateCode(languageId, code, cancellationToken, sessionId, whenBusy);
 			},
 			executeInlineCell(documentUri, ranges, executionMetadata?): Thenable<void> {
 				const extensionId = extension.identifier.value;
@@ -654,6 +654,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			LanguageRuntimeSessionMode: extHostTypes.LanguageRuntimeSessionMode,
 			RuntimeCodeExecutionMode: extHostTypes.RuntimeCodeExecutionMode,
 			RuntimeErrorBehavior: extHostTypes.RuntimeErrorBehavior,
+			RuntimeBusyBehavior: extHostTypes.RuntimeBusyBehavior,
 			LanguageRuntimeStartupBehavior: extHostTypes.LanguageRuntimeStartupBehavior,
 			LanguageRuntimeSessionLocation: extHostTypes.LanguageRuntimeSessionLocation,
 			RuntimeOnlineState: extHostTypes.RuntimeOnlineState,

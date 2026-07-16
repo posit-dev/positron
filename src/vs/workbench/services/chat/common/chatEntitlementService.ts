@@ -33,6 +33,16 @@ import { IObservable, observableFromEvent } from '../../../../base/common/observ
 import { IDefaultAccountService } from '../../../../platform/defaultAccount/common/defaultAccount.js';
 import { IDefaultAccount, IEntitlementsData } from '../../../../base/common/defaultAccount.js';
 
+// --- Start Positron ---
+// Config keys read by the `isCompletionsOnlyMode` gate. `ai.enabled`
+// is Positron's main AI switch; `chat.disableAIFeatures` hides the Copilot chat UI.
+// Defined here (rather than imported from the positronAssistant contrib) because a
+// services-layer file cannot depend on contrib. They mirror the private statics in
+// ChatEntitlementContext, which reads the same keys for its hidden-state gate.
+const POSITRON_AI_ENABLED_CONFIGURATION_KEY = 'ai.enabled';
+const POSITRON_CHAT_DISABLED_CONFIGURATION_KEY = 'chat.disableAIFeatures';
+// --- End Positron ---
+
 export namespace ChatEntitlementContextKeys {
 
 	export const Setup = {
@@ -186,6 +196,17 @@ export interface IChatEntitlementService {
 	readonly sentiment: IChatSentiment;
 	readonly sentimentObs: IObservable<IChatSentiment>;
 
+	// --- Start Positron ---
+	/**
+	 * True when the Copilot chat UI is hidden only because of
+	 * `chat.disableAIFeatures`, while inline completions stay available. Lets the
+	 * status-bar entry keep showing completions controls even though chat is hidden.
+	 * False when Positron's `ai.enabled` main switch is off (everything is off) or
+	 * when chat isn't hidden by the setting at all (full Copilot UI).
+	 */
+	readonly isCompletionsOnlyMode: boolean;
+	// --- End Positron ---
+
 	// TODO@bpasero eventually this will become enabled by default
 	// and in that case we only need to check on entitlements change
 	// between `unknown` and any other entitlement.
@@ -256,6 +277,29 @@ export function getChatPlanName(chatEntitlement: ChatEntitlement): string {
 			return localize('plan.freeName', 'Copilot Free');
 	}
 }
+
+// --- Start Positron ---
+/**
+ * True when the Copilot chat UI is hidden only because of `chat.disableAIFeatures`,
+ * so inline completions (and their status UI) should stay available. False when
+ * Positron's `ai.enabled` main switch is off (everything is off) or when chat isn't
+ * hidden by the setting at all (full Copilot UI). Exported for unit testing; the
+ * service exposes it via the `isCompletionsOnlyMode` getter.
+ */
+export function isCompletionsOnlyMode(configurationService: IConfigurationService, sentiment: IChatSentiment): boolean {
+	if (configurationService.getValue(POSITRON_AI_ENABLED_CONFIGURATION_KEY) === false) {
+		return false; // main switch off: everything, completions included, stays off
+	}
+
+	if (configurationService.getValue(POSITRON_CHAT_DISABLED_CONFIGURATION_KEY) !== true) {
+		return false; // chat not hidden by the setting: full Copilot UI (upstream default)
+	}
+
+	// Chat is hidden only because of `chat.disableAIFeatures`; completions are
+	// available as long as the Copilot extension is present and usable.
+	return Boolean(sentiment.installed) && !sentiment.disabled && !sentiment.untrusted;
+}
+// --- End Positron ---
 
 //#region Service Implementation
 
@@ -650,6 +694,12 @@ export class ChatEntitlementService extends Disposable implements IChatEntitleme
 			registered: this.contextKeyService.getContextKeyValue<boolean>(ChatEntitlementContextKeys.Setup.registered.key) === true
 		};
 	}
+
+	// --- Start Positron ---
+	get isCompletionsOnlyMode(): boolean {
+		return isCompletionsOnlyMode(this.configurationService, this.sentiment);
+	}
+	// --- End Positron ---
 
 	//#endregion
 

@@ -410,6 +410,13 @@ export const tocData: ITOCEntry<string> = {
 					label: localize('plots', 'Plots'),
 					settings: ['plots.*']
 				},
+				{
+					id: 'features/quarto',
+					label: localize('positron.quarto', "Quarto"),
+					// Include the deprecated positron.quarto.* aliases so they remain
+					// discoverable in this group during the deprecation window.
+					settings: ['quarto.*', 'positron.quarto.*']
+				},
 				// --- End Positron ---
 				{
 					id: 'features/issueReporter',

@@ -16,6 +16,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
@@ -29,6 +30,8 @@ import {
 	CellExecutionState,
 	ExecutionStateChangeEvent,
 	ExecutionOutputEvent,
+	FragmentProgressChangeEvent,
+	ICellFragmentProgress,
 	ICellOutput,
 	ICellOutputItem,
 	ICellOutputWebviewMetadata,
@@ -90,6 +93,22 @@ interface ExecutionTracker {
 }
 
 /**
+ * The result of splitting a cell's code into executable fragments.
+ */
+interface QuartoCodeFragments {
+	/** The code fragments to execute, in order. */
+	readonly fragments: string[];
+	/**
+	 * 0-based [start, end) line offsets, relative to the first line of the
+	 * executed code range, for each fragment. Aligned with `fragments`. Only
+	 * present when the code was split into more than one fragment at statement
+	 * boundaries; undefined when the whole range is executed as one fragment
+	 * (in which case the whole-cell running treatment should be used).
+	 */
+	readonly lineRanges?: { readonly start: number; readonly end: number }[];
+}
+
+/**
  * Serialized queue state for ephemeral storage.
  */
 interface SerializedQueueState {
@@ -140,8 +159,17 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	/** Queued ranges by cell ID - multiple ranges can be queued within same cell */
 	private readonly _queuedRanges = new Map<string, Range[]>();
 
+	/**
+	 * Fragment-level execution progress by cell ID. Only populated when a cell's
+	 * code was split into individual statements via an input boundary provider.
+	 */
+	private readonly _fragmentProgress = new Map<string, ICellFragmentProgress>();
+
 	private readonly _onDidChangeExecutionState = this._register(new Emitter<ExecutionStateChangeEvent>());
 	readonly onDidChangeExecutionState: Event<ExecutionStateChangeEvent> = this._onDidChangeExecutionState.event;
+
+	private readonly _onDidChangeFragmentProgress = this._register(new Emitter<FragmentProgressChangeEvent>());
+	readonly onDidChangeFragmentProgress: Event<FragmentProgressChangeEvent> = this._onDidChangeFragmentProgress.event;
 
 	private readonly _onDidReceiveOutput = this._register(new Emitter<ExecutionOutputEvent>());
 	readonly onDidReceiveOutput: Event<ExecutionOutputEvent> = this._onDidReceiveOutput.event;
@@ -153,6 +181,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		@IQuartoKernelManager private readonly _kernelManager: IQuartoKernelManager,
 		@IQuartoDocumentModelService private readonly _documentModelService: IQuartoDocumentModelService,
 		@IEditorService private readonly _editorService: IEditorService,
+		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
 		@IEphemeralStateService private readonly _ephemeralStateService: IEphemeralStateService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -190,6 +219,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		if (cells.length === 0) {
 			return;
 		}
+
+		// Running code pins the document tab so its preview editor (and any
+		// backing runtime session) isn't silently closed.
+		this._pinEditorForDocument(documentUri);
 
 		this._logService.debug(`[QuartoExecutionManager] Queueing ${cells.length} cells for execution`);
 
@@ -350,6 +383,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		if (codeRanges.length === 0) {
 			return;
 		}
+
+		// Running code pins the document tab so its preview editor (and any
+		// backing runtime session) isn't silently closed. See #14736.
+		this._pinEditorForDocument(documentUri);
 
 		this._logService.debug(`[QuartoExecutionManager] Queueing ${codeRanges.length} inline code ranges for execution`);
 
@@ -665,16 +702,30 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				});
 				cancellationPromise.catch(() => undefined);
 
-				const codeFragments = await this._getCodeFragments(cellLanguage, code, cts.token);
+				const { fragments: codeFragments, lineRanges } = await this._getCodeFragments(cellLanguage, code, cts.token);
 				const errorBehavior = options.error
 					? RuntimeErrorBehavior.Stop
 					: RuntimeErrorBehavior.Continue;
+
+				// When the code was split into individual statements, compute the
+				// absolute document line range for each fragment so the gutter can
+				// show per-statement progress as execution advances.
+				const fragmentRanges = lineRanges?.map(({ start, end }) => new Range(
+					codeRange.startLineNumber + start, 1,
+					codeRange.startLineNumber + end - 1, 1,
+				));
 
 				for (let index = 0; index < codeFragments.length; index++) {
 					// Stop dispatching fragments if execution was cancelled between
 					// fragments (e.g. a cancellation that raced a fragment's idle).
 					if (cts.token.isCancellationRequested) {
 						break;
+					}
+
+					// Update per-fragment gutter progress: mark earlier fragments as
+					// executed, this one as executing, and the rest as pending.
+					if (fragmentRanges) {
+						this._setFragmentProgress(cell.id, fragmentRanges, index);
 					}
 
 					const fragment = codeFragments[index];
@@ -1557,6 +1608,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				this._runningCells.delete(documentUri);
 			}
 			this._runningRanges.delete(cell.id);
+			this._fragmentProgress.delete(cell.id);
 			this._executionTrackers.delete(cell.id);
 			disposables.dispose();
 			cts.dispose();
@@ -1589,20 +1641,31 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	 * Split code into complete language inputs when the feature is enabled and
 	 * a language input boundary provider is available.
 	 */
-	private async _getCodeFragments(languageId: string, code: string, token: CancellationToken): Promise<string[]> {
+	private async _getCodeFragments(languageId: string, code: string, token: CancellationToken): Promise<QuartoCodeFragments> {
 		if (!usingQuartoInlineOutputStatementSplitting(this._configurationService)) {
-			return [code];
+			return { fragments: [code] };
 		}
 
-		const boundaryFragments = await this._getCodeFragmentsFromInputBoundaryProvider(languageId, code, token);
-		return boundaryFragments ?? [code];
+		const result = await this._getCodeFragmentsFromInputBoundaryProvider(languageId, code, token);
+		if (!result) {
+			return { fragments: [code] };
+		}
+
+		// Only expose per-fragment line ranges (used for granular gutter
+		// progress) when the code was actually split into multiple statements.
+		// A single fragment covers the whole range, which is indistinguishable
+		// from the whole-cell running treatment.
+		if (result.fragments.length > 1) {
+			return result;
+		}
+		return { fragments: result.fragments };
 	}
 
 	/**
 	 * Ask a language provider for all input boundaries in one request and split
 	 * the code accordingly.
 	 */
-	private async _getCodeFragmentsFromInputBoundaryProvider(languageId: string, code: string, token: CancellationToken): Promise<string[] | undefined> {
+	private async _getCodeFragmentsFromInputBoundaryProvider(languageId: string, code: string, token: CancellationToken): Promise<QuartoCodeFragments | undefined> {
 		const model = this._modelService.createModel(
 			code,
 			this._languageService.createById(languageId),
@@ -1642,13 +1705,14 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		return undefined;
 	}
 
-	private _getCodeFragmentsFromBoundaries(code: string, boundaries: unknown): string[] | undefined {
+	private _getCodeFragmentsFromBoundaries(code: string, boundaries: unknown): QuartoCodeFragments | undefined {
 		if (!Array.isArray(boundaries)) {
 			return undefined;
 		}
 
 		const lines = code.split('\n');
 		const fragments: string[] = [];
+		const lineRanges: { start: number; end: number }[] = [];
 		let sawValidBoundary = false;
 		let nextStart = 0;
 
@@ -1691,6 +1755,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			const fragment = lines.slice(range.start, range.end).join('\n');
 			if (fragment.length > 0) {
 				fragments.push(fragment);
+				// Keep line ranges aligned with fragments so the gutter can map
+				// each fragment back to its lines within the executed range.
+				lineRanges.push({ start: range.start, end: range.end });
 			}
 		}
 
@@ -1702,7 +1769,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			return undefined;
 		}
 
-		return fragments.length > 0 ? fragments : [code];
+		if (fragments.length === 0) {
+			return { fragments: [code] };
+		}
+
+		return { fragments, lineRanges };
 	}
 
 	async cancelQueuedCell(documentUri: URI, cellId: string): Promise<void> {
@@ -1781,6 +1852,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 	getQueuedRanges(cellId: string): Range[] {
 		return [...(this._queuedRanges.get(cellId) ?? [])];
+	}
+
+	getFragmentProgress(cellId: string): ICellFragmentProgress | undefined {
+		return this._fragmentProgress.get(cellId);
 	}
 
 	getQueuedCells(documentUri: URI): string[] {
@@ -2146,6 +2221,22 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	}
 
 	/**
+	 * Pin any editor showing the given document.
+	 *
+	 * Quarto documents open as preview tabs, which are silently replaced when
+	 * the user opens another file. Running code signals the user intends to
+	 * work with the document, not just preview it -- and in inline output mode
+	 * it creates a backing runtime session -- so we pin the tab to prevent it
+	 * from being closed out from under a live session. This mirrors the
+	 * notebook behavior where running a cell pins the editor.
+	 */
+	private _pinEditorForDocument(documentUri: URI): void {
+		for (const { groupId, editor } of this._editorService.findEditors(documentUri)) {
+			this._editorGroupsService.getGroup(groupId)?.pinEditor(editor);
+		}
+	}
+
+	/**
 	 * Get the text model for a document URI.
 	 */
 	private async _getTextModel(documentUri: URI): Promise<ITextModel | undefined> {
@@ -2219,6 +2310,20 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				}
 			}
 		}
+	}
+
+	/**
+	 * Set the fragment-level execution progress for a cell and notify listeners.
+	 * The fragment at `executingIndex` is currently executing; earlier fragments
+	 * are considered executed and later ones pending.
+	 */
+	private _setFragmentProgress(cellId: string, fragmentRanges: Range[], executingIndex: number): void {
+		this._fragmentProgress.set(cellId, {
+			executed: fragmentRanges.slice(0, executingIndex),
+			executing: fragmentRanges[executingIndex],
+			pending: fragmentRanges.slice(executingIndex + 1),
+		});
+		this._onDidChangeFragmentProgress.fire({ cellId });
 	}
 
 	/**

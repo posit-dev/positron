@@ -11,7 +11,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
-import { CellExecutionState, ExecutionOutputEvent, ICellOutput } from '../../common/quartoExecutionTypes.js';
+import { CellExecutionState, ExecutionOutputEvent, ICellFragmentProgress, ICellOutput } from '../../common/quartoExecutionTypes.js';
 import { Range } from '../../../../../editor/common/core/range.js';
 import type { IInputBoundary } from '../../../../../editor/common/languages.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
@@ -26,6 +26,7 @@ import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
 import { IQuartoDocumentModelService } from '../../browser/quartoDocumentModelService.js';
 import { QuartoCodeCell } from '../../common/quartoTypes.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
 import { IEphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
@@ -35,7 +36,7 @@ import { ITerminalService } from '../../../terminal/browser/terminal.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { Event } from '../../../../../base/common/event.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY } from '../../common/positronQuartoConfig.js';
+import { QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY } from '../../common/positronQuartoConfig.js';
 
 const TestLanguageRuntimeMetadata: ILanguageRuntimeMetadata = {
 	base64EncodedIconSvg: '',
@@ -80,6 +81,7 @@ describe('QuartoExecutionManager', () => {
 	let mockKernelManager: MockKernelManager;
 	let mockDocumentModelService: MockDocumentModelService;
 	let mockEditorService: MockEditorService;
+	let mockEditorGroupsService: MockEditorGroupsService;
 	let mockConsoleService: RecordingConsoleService;
 	let mockRuntimeSessionService: MockRuntimeSessionService;
 	let configurationService: TestConfigurationService;
@@ -101,6 +103,7 @@ describe('QuartoExecutionManager', () => {
 		mockKernelManager = ctx.disposables.add(new MockKernelManager(mockSession));
 		mockDocumentModelService = new MockDocumentModelService();
 		mockEditorService = new MockEditorService();
+		mockEditorGroupsService = new MockEditorGroupsService();
 		const mockEphemeralStateService = new MockEphemeralStateService();
 		const mockWorkspaceContextService = new MockWorkspaceContextService();
 		mockConsoleService = new RecordingConsoleService();
@@ -120,6 +123,7 @@ describe('QuartoExecutionManager', () => {
 			asKernelManager(mockKernelManager),
 			asDocumentModelService(mockDocumentModelService),
 			asEditorService(mockEditorService),
+			asEditorGroupsService(mockEditorGroupsService),
 			asEphemeralStateService(mockEphemeralStateService),
 			asWorkspaceContextService(mockWorkspaceContextService),
 			configurationService,
@@ -425,7 +429,7 @@ describe('QuartoExecutionManager', () => {
 		});
 
 		it('executes R code as one range when statement splitting is disabled', async () => {
-			await configurationService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY, false);
+			await configurationService.setUserConfiguration(QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY, false);
 
 			const result = await executeRCellWithBoundaries(
 				'test-r-splitting-disabled',
@@ -1012,6 +1016,164 @@ describe('QuartoExecutionManager', () => {
 		});
 	});
 
+	describe('Fragment Progress', () => {
+		const quartoInputBoundarySelector = { language: 'r', scheme: 'inmemory', pattern: '**/quarto-input-boundaries/*' };
+
+		// A cell with three single-line statements at document lines 2, 3, and 4.
+		function setupThreeStatementCell(testId: string): { documentUri: URI; cell: QuartoCodeCell } {
+			const cell: QuartoCodeCell = {
+				id: testId,
+				index: 0,
+				language: 'r',
+				startLine: 1,
+				endLine: 5,
+				codeStartLine: 2,
+				codeEndLine: 4,
+				label: undefined,
+				options: '',
+				contentHash: testId,
+			};
+			const documentLines = ['```{r}', '1', '2', '3', '```'];
+			const mockModel = new MockQuartoDocumentModel([cell], documentLines, 'r');
+			mockDocumentModelService.setMockModel(mockModel);
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+			return { documentUri: URI.file(`/${testId}.qmd`), cell };
+		}
+
+		function registerLinewiseProvider(): void {
+			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register(quartoInputBoundarySelector, {
+				provideInputBoundaries() {
+					return [
+						{ range: { start: 0, end: 1 }, kind: 'complete' },
+						{ range: { start: 1, end: 2 }, kind: 'complete' },
+						{ range: { start: 2, end: 3 }, kind: 'complete' },
+					];
+				}
+			}));
+		}
+
+		// Project a progress snapshot to plain line-number pairs for easy assertion.
+		function project(progress: ICellFragmentProgress | undefined) {
+			if (!progress) {
+				return undefined;
+			}
+			const toPair = (r: Range) => [r.startLineNumber, r.endLineNumber];
+			return {
+				executed: progress.executed.map(toPair),
+				executing: progress.executing ? toPair(progress.executing) : undefined,
+				pending: progress.pending.map(toPair),
+			};
+		}
+
+		it('reports per-statement progress as each statement executes', async () => {
+			const { documentUri, cell } = setupThreeStatementCell('test-fragment-progress');
+			registerLinewiseProvider();
+
+			const progressEvents: string[] = [];
+			ctx.disposables.add(executionManager.onDidChangeFragmentProgress(e => progressEvents.push(e.cellId)));
+
+			const steps: unknown[] = [];
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+
+			for (let i = 0; i < 3; i++) {
+				const executionId = await mockKernelManager.waitForExecution();
+				steps.push(project(executionManager.getFragmentProgress(cell.id)));
+				mockSession.receiveStateMessage({
+					parent_id: executionId,
+					state: RuntimeOnlineState.Idle,
+				});
+				mockSession.setRuntimeState(RuntimeState.Ready);
+			}
+
+			await executionPromise;
+
+			// Progress advances statement by statement, then is cleared once the
+			// whole cell finishes.
+			expect(steps).toMatchInlineSnapshot(`
+				[
+				  {
+				    "executed": [],
+				    "executing": [
+				      2,
+				      2,
+				    ],
+				    "pending": [
+				      [
+				        3,
+				        3,
+				      ],
+				      [
+				        4,
+				        4,
+				      ],
+				    ],
+				  },
+				  {
+				    "executed": [
+				      [
+				        2,
+				        2,
+				      ],
+				    ],
+				    "executing": [
+				      3,
+				      3,
+				    ],
+				    "pending": [
+				      [
+				        4,
+				        4,
+				      ],
+				    ],
+				  },
+				  {
+				    "executed": [
+				      [
+				        2,
+				        2,
+				      ],
+				      [
+				        3,
+				        3,
+				      ],
+				    ],
+				    "executing": [
+				      4,
+				      4,
+				    ],
+				    "pending": [],
+				  },
+				]
+			`);
+			expect(executionManager.getFragmentProgress(cell.id)).toBeUndefined();
+			expect(progressEvents).toEqual([cell.id, cell.id, cell.id]);
+		});
+
+		it('does not report fragment progress when statement splitting is disabled', async () => {
+			await configurationService.setUserConfiguration(QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY, false);
+			const { documentUri, cell } = setupThreeStatementCell('test-no-split-progress');
+			registerLinewiseProvider();
+
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+			const executionId = await mockKernelManager.waitForExecution();
+
+			// The cell runs as a single range, so there is no per-statement
+			// progress and the gutter falls back to the whole-cell treatment.
+			expect(executionManager.getExecutionState(cell.id)).toBe(CellExecutionState.Running);
+			expect(executionManager.getFragmentProgress(cell.id)).toBeUndefined();
+
+			mockSession.receiveStateMessage({
+				parent_id: executionId,
+				state: RuntimeOnlineState.Idle,
+			});
+			mockSession.setRuntimeState(RuntimeState.Ready);
+			await executionPromise;
+		});
+	});
+
 	describe('Cell Line Number Tracking', () => {
 		it('uses current cell line numbers when document is edited before execution', async () => {
 			// This test verifies the bug where cell line numbers become stale
@@ -1076,6 +1238,7 @@ describe('QuartoExecutionManager', () => {
 				asKernelManager(mockKernelManager),
 				asDocumentModelService(mockDocumentModelService),
 				asEditorService(trackingEditorService),
+				asEditorGroupsService(new MockEditorGroupsService()),
 				asEphemeralStateService(new MockEphemeralStateService()),
 				asWorkspaceContextService(new MockWorkspaceContextService()),
 				configurationService,
@@ -1175,6 +1338,7 @@ describe('QuartoExecutionManager', () => {
 				asKernelManager(mockKernelManager),
 				asDocumentModelService(localMockDocumentModelService),
 				asEditorService(localMockEditorService),
+				asEditorGroupsService(new MockEditorGroupsService()),
 				asEphemeralStateService(new MockEphemeralStateService()),
 				asWorkspaceContextService(new MockWorkspaceContextService()),
 				configurationService,
@@ -1346,6 +1510,67 @@ describe('QuartoExecutionManager', () => {
 			expect(metadata).toBeDefined();
 			expect(metadata!['fig-width'], 'cell value should win').toBe(4);
 			expect(metadata!['output_pixel_ratio'], 'external-only key should pass through').toBe(2);
+		});
+	});
+
+	describe('Editor Pinning', () => {
+		it('pins the document tab when a cell is executed (#14736)', async () => {
+			const documentUri = URI.file('/test-pin-cell.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'test-pin-cell',
+				index: 0,
+				language: 'python',
+				startLine: 1,
+				endLine: 4,
+				codeStartLine: 2,
+				codeEndLine: 3,
+				label: undefined,
+				options: '',
+				contentHash: 'pin-cell',
+			};
+
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+			const executionId = await mockKernelManager.waitForExecution();
+			mockSession.receiveStateMessage({
+				parent_id: executionId,
+				state: RuntimeOnlineState.Idle,
+			});
+			await executionPromise;
+
+			expect(mockEditorGroupsService.pinnedEditors.length).toBe(1);
+		});
+
+		it('pins the document tab when inline cells are executed (#14736)', async () => {
+			const documentUri = URI.file('/test-pin-inline.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'test-pin-inline',
+				index: 0,
+				language: 'python',
+				startLine: 1,
+				endLine: 3,
+				codeStartLine: 2,
+				codeEndLine: 2,
+				label: undefined,
+				options: '',
+				contentHash: 'pin-inline',
+			};
+			const documentLines = ['```{python}', 'x = 1', '```'];
+			const mockModel = new MockQuartoDocumentModel([cell], documentLines);
+			mockDocumentModelService.setMockModel(mockModel);
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			const executionPromise = executionManager.executeInlineCells(documentUri, [new Range(2, 1, 2, 100)]);
+			const executionId = await mockKernelManager.waitForExecution();
+			mockSession.receiveStateMessage({
+				parent_id: executionId,
+				state: RuntimeOnlineState.Idle,
+			});
+			await executionPromise;
+
+			expect(mockEditorGroupsService.pinnedEditors.length).toBe(1);
 		});
 	});
 });
@@ -1538,6 +1763,7 @@ class MockEditorService {
 	findEditors(_resource: unknown): unknown[] {
 		const self = this;
 		return [{
+			groupId: MOCK_EDITOR_GROUP_ID,
 			editor: {
 				resolve: async () => ({
 					textEditorModel: {
@@ -1566,6 +1792,35 @@ function asEditorService(mock: MockEditorService): IEditorService {
 		// reads it to derive layout metadata when an editor is active. The
 		// existing tests don't activate an editor, so undefined is correct.
 		activeTextEditorControl: undefined,
+	});
+}
+
+/** Group id reported by MockEditorService.findEditors, resolved by MockEditorGroupsService.getGroup. */
+const MOCK_EDITOR_GROUP_ID = 1;
+
+/**
+ * Mock editor groups service that records every editor pinned via its group's
+ * pinEditor. Lets tests assert that running a cell pins the document's tab.
+ */
+class MockEditorGroupsService {
+	readonly pinnedEditors: unknown[] = [];
+
+	private readonly _group = {
+		pinEditor: (editor: unknown) => {
+			this.pinnedEditors.push(editor);
+		},
+	};
+
+	getGroup(groupId: number): unknown {
+		return groupId === MOCK_EDITOR_GROUP_ID ? this._group : undefined;
+	}
+}
+
+function asEditorGroupsService(mock: MockEditorGroupsService): IEditorGroupsService {
+	return stubInterface<IEditorGroupsService>({
+		// Cast: the mock's group only implements pinEditor, which is all the
+		// execution manager calls; we narrow at the boundary.
+		getGroup: mock.getGroup.bind(mock) as IEditorGroupsService['getGroup'],
 	});
 }
 

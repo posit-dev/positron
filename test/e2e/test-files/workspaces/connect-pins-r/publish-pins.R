@@ -1,0 +1,55 @@
+# Publishes a couple of pins with dummy data to a Posit Connect server using the
+# pins package, then reads them back and prints their contents (the "tables") to
+# the console.
+#
+# Credentials are read from the CONNECT_SERVER and CONNECT_API_KEY environment
+# variables, which the e2e test sets on the R session before sourcing this file.
+# board_connect() picks these up automatically via its default "auto" auth.
+#
+# The script is idempotent: it deletes any pins left over from a previous run
+# before publishing, so a flaky re-run always starts from a clean slate.
+
+if (!requireNamespace("pins", quietly = TRUE)) {
+	install.packages("pins")
+}
+
+library(pins)
+
+# The pins we publish. Small slices of the built-in datasets are plenty for
+# exercising the publish -> query round trip.
+pins_to_publish <- list(
+	list(name = "e2e-mtcars", data = head(mtcars, 5)),
+	list(name = "e2e-iris", data = head(iris, 5))
+)
+
+board <- board_connect()
+
+# --- Cleanup ---------------------------------------------------------------
+# Remove any pins from a previous (possibly failed) run. Wrapped in tryCatch so
+# a pin that does not exist -- or a transient lookup error -- never aborts the
+# publish that follows.
+for (pin in pins_to_publish) {
+	tryCatch({
+		if (pin_exists(board, pin$name)) {
+			pin_delete(board, pin$name)
+			cat("Deleted existing pin:", pin$name, "\n")
+		}
+	}, error = function(e) {
+		cat("Cleanup skipped for", pin$name, ":", conditionMessage(e), "\n")
+	})
+}
+
+# --- Publish ---------------------------------------------------------------
+for (pin in pins_to_publish) {
+	pin_write(board, pin$data, name = pin$name, type = "rds")
+	cat("Published pin:", pin$name, "\n")
+}
+
+# --- Query -----------------------------------------------------------------
+# Read each pin back and log its table contents to the console.
+for (pin in pins_to_publish) {
+	cat("\n==== Pin contents:", pin$name, "====\n")
+	print(pin_read(board, pin$name))
+}
+
+cat("\nPINS PUBLISH COMPLETE\n")
