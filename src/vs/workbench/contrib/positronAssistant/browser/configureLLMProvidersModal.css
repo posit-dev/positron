@@ -1,0 +1,138 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.provider-list {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	overflow-y: auto;
+}
+
+.provider-list-section {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.provider-list-section-heading {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--vscode-descriptionForeground);
+	margin-bottom: 4px;
+}
+
+/* Provider row */
+.provider-list-item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px;
+	border-radius: 4px;
+	text-align: left;
+}
+
+/* Rounded-square provider avatar (36x36, 6px radius per the design). */
+.provider-list-item-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 6px;
+	border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+	background-color: var(--vscode-editorWidget-background);
+	flex-shrink: 0;
+}
+
+.provider-list-item-icon .language-model.icon {
+	width: 22px;
+	height: 22px;
+	flex-shrink: 0;
+}
+
+.provider-list-item-text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+	flex: 1;
+}
+
+.provider-list-item-name {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.provider-list-item-display-name {
+	font-weight: 600;
+}
+
+.provider-list-item-desc,
+.provider-list-custom-desc {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.provider-list-item-error {
+	font-size: 12px;
+	color: var(--vscode-errorForeground);
+}
+
+/* Badges */
+.provider-list-item-badge {
+	font-size: 11px;
+	line-height: 1.4;
+	padding: 0 6px;
+	border-radius: 8px;
+	background-color: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	white-space: nowrap;
+}
+
+.provider-list-item-badge.error {
+	background-color: transparent;
+	color: var(--vscode-errorForeground);
+	border: 1px solid var(--vscode-errorForeground);
+}
+
+/* Action buttons */
+.provider-list-item-actions {
+	flex-shrink: 0;
+}
+
+.provider-list-item-action,
+.provider-list-add-custom {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 10px;
+	border-radius: 4px;
+	border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
+	background-color: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	cursor: pointer;
+	font-size: 12px;
+}
+
+.provider-list-item-action .codicon,
+.provider-list-add-custom .codicon {
+	font-size: 14px;
+}
+
+.provider-list-item-action:hover,
+.provider-list-add-custom:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.provider-list-add-custom {
+	align-self: flex-start;
+	margin-top: 4px;
+}
