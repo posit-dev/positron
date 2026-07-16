@@ -92,6 +92,15 @@
 	bottom: 0;
 	left: 0;
 	right: 0;
+
+	/* --- Start Positron ---
+	Add bottom padding so the prompt does not feel squished against the edge of
+	the pane (see posit-dev/positron#998, mirrors the console padding). Scoped to
+	the bottom-aligned layouts only. The terminal dimension calculation reads
+	paddingBottom off this element's computed style, so the reserved space is
+	honored rather than clipping rows. */
+	padding-bottom: 10px;
+	/* --- End Positron --- */
 }
 
 .terminal-side-view .terminal.xterm {

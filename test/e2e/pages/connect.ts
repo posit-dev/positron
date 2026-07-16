@@ -28,6 +28,13 @@ const LOCAL_TOKEN_FILE = path.resolve(process.cwd(), 'docker/environments/connec
  */
 const KEY_MARKER_FILE = path.resolve(process.cwd(), 'docker/environments/connect-local/.tokens/.last_publisher_key');
 
+/**
+ * Local file where `with-connect.sh start` records the ephemeral Connect
+ * container id, used by the local run to target `docker exec` (with-connect
+ * gives the container a random name, unlike the Workbench `connect` container).
+ */
+const LOCAL_CONTAINER_ID_FILE = path.resolve(process.cwd(), 'docker/environments/connect-local/.tokens/.container_id');
+
 const PING_URL = 'http://localhost:3939';
 
 type CreateUserBody = {
@@ -163,6 +170,34 @@ export class PositConnect {
 	}
 
 	/**
+	 * Resolve the ephemeral Connect container id for the local run, trying:
+	 *   1. `CONNECT_CONTAINER_ID` env var (exported by the CI workflow from the
+	 *      with-connect action output)
+	 *   2. the local `.container_id` file written by `with-connect.sh start`
+	 *
+	 * Used to target `docker exec` for PAM user setup, since with-connect names
+	 * the container randomly (the Workbench run uses the fixed `connect` name).
+	 */
+	resolveContainerId(): string {
+		const envId = process.env.CONNECT_CONTAINER_ID?.trim();
+		if (envId) {
+			return envId;
+		}
+		try {
+			const fileId = fs.readFileSync(LOCAL_CONTAINER_ID_FILE, 'utf8').trim();
+			if (fileId) {
+				return fileId;
+			}
+		} catch {
+			// Fall through to the error below.
+		}
+		throw new Error(
+			`Could not resolve the Connect container id. Set CONNECT_CONTAINER_ID, ` +
+			`or run 'npm run connect:start' to write ${LOCAL_CONTAINER_ID_FILE}.`
+		);
+	}
+
+	/**
 	 * Whether the Connect server is reachable at all (unauthenticated). Used to
 	 * skip the local suite gracefully when connect has not been started.
 	 */
@@ -273,6 +308,22 @@ export class PositConnect {
 		return Array.from(
 			new Set((data.installations ?? []).map(i => i.version).filter((v): v is string => !!v))
 		);
+	}
+
+	/**
+	 * Returns the username of the user the current API key authenticates as. Used to locate that
+	 * user's owner node in the Data Connections pins tree (pins are grouped by owner username).
+	 */
+	async getCurrentUsername(): Promise<string> {
+		const res = await fetch(`${apiServer}user`, { headers: this.headers });
+		if (!res.ok) {
+			throw new Error(`GET /user failed: ${res.status} ${res.statusText}`);
+		}
+		const data = (await res.json()) as { username?: string };
+		if (!data.username) {
+			throw new Error('Connect /v1/user did not return a username');
+		}
+		return data.username;
 	}
 
 	async getUserId(username: string): Promise<string | undefined> {

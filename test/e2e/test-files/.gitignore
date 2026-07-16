@@ -1,0 +1,8 @@
+# Runtime venv/project folders created at the workspace root by interpreter
+# tests. The e2e runner copies this dir into an ephemeral workspace and re-inits
+# git there, so only a .gitignore inside the workspace travels with it (the root
+# repo .gitignore does not). Without these, a leaked venv inflates SCM status and
+# flakes scm.test.ts.
+venv-creation-test/
+proj/
+.venv/

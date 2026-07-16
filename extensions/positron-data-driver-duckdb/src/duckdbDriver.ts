@@ -90,6 +90,7 @@ export function createDuckDBDriver(
 						type: positron.DataConnectionParameterType.File,
 						required: true,
 						placeholder: databasePathPlaceholder,
+						filters: { [vscode.l10n.t('DuckDB Files')]: ['duckdb', 'ddb'] },
 					},
 					{
 						id: 'readOnly',

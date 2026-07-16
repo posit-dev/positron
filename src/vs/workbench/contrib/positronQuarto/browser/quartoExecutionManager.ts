@@ -16,6 +16,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
@@ -202,6 +203,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		@IQuartoKernelManager private readonly _kernelManager: IQuartoKernelManager,
 		@IQuartoDocumentModelService private readonly _documentModelService: IQuartoDocumentModelService,
 		@IEditorService private readonly _editorService: IEditorService,
+		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
 		@IEphemeralStateService private readonly _ephemeralStateService: IEphemeralStateService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -239,6 +241,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		if (cells.length === 0) {
 			return;
 		}
+
+		// Running code pins the document tab so its preview editor (and any
+		// backing runtime session) isn't silently closed.
+		this._pinEditorForDocument(documentUri);
 
 		this._logService.debug(`[QuartoExecutionManager] Queueing ${cells.length} cells for execution`);
 
@@ -399,6 +405,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		if (codeRanges.length === 0) {
 			return;
 		}
+
+		// Running code pins the document tab so its preview editor (and any
+		// backing runtime session) isn't silently closed. See #14736.
+		this._pinEditorForDocument(documentUri);
 
 		this._logService.debug(`[QuartoExecutionManager] Queueing ${codeRanges.length} inline code ranges for execution`);
 
@@ -2246,6 +2256,22 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			output,
 			documentUri,
 		});
+	}
+
+	/**
+	 * Pin any editor showing the given document.
+	 *
+	 * Quarto documents open as preview tabs, which are silently replaced when
+	 * the user opens another file. Running code signals the user intends to
+	 * work with the document, not just preview it -- and in inline output mode
+	 * it creates a backing runtime session -- so we pin the tab to prevent it
+	 * from being closed out from under a live session. This mirrors the
+	 * notebook behavior where running a cell pins the editor.
+	 */
+	private _pinEditorForDocument(documentUri: URI): void {
+		for (const { groupId, editor } of this._editorService.findEditors(documentUri)) {
+			this._editorGroupsService.getGroup(groupId)?.pinEditor(editor);
+		}
 	}
 
 	/**
