@@ -31,6 +31,7 @@ const projectName = process.env.PW_PROJECT_NAME || 'default';
 const baseIgnore = [
 	'example.test.ts',
 	'**/workbench/**',
+	'**/connect/**',
 	'**/remote-ssh/**',
 	'**/remote-wsl/**',
 	'**/assistant-eval/**',
@@ -90,6 +91,7 @@ export default defineConfig<CustomTestOptions>({
 				? [
 					'example.test.ts',
 					'**/workbench/**',
+					'**/connect/**',
 					'**/remote-ssh/**',
 					'**/remote-wsl/**',
 					// Note: assistant-eval NOT ignored here - runs on e2e-electron only
@@ -97,6 +99,7 @@ export default defineConfig<CustomTestOptions>({
 				: [
 					'example.test.ts',
 					'**/workbench/**',
+					'**/connect/**',
 					'**/remote-ssh/**',
 					'**/remote-wsl/**',
 					'**/lsp/**',
@@ -186,6 +189,31 @@ export default defineConfig<CustomTestOptions>({
 				browserName: 'chromium',
 			},
 			grep: /@:workbench/
+		},
+		{
+			// Plain local electron Positron against a standalone Posit Connect
+			// container (docker/environments/connect-local). No Workbench: this is
+			// the electron coverage for the publisher/connect tests, complementary
+			// to the web coverage the e2e-workbench project provides. Its own
+			// testIgnore deliberately does NOT list '**/connect/**' (so the moved
+			// tests run); grep isolates the suite to @:connect.
+			name: 'e2e-connect',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**',
+				'**/assistant-eval/**',
+				'**/remote-ssh/**',
+				'**/remote-wsl/**',
+			],
+			use: {
+				artifactDir: 'e2e-connect',
+				headless: false,
+				useExternalServer: false,
+			},
+			// Word-boundary guard: a bare /@:connect/ regex substring-matches
+			// '@:connections', pulling the connections suite (Postgres/Snowflake)
+			// into this Connect-only lane. Require a non-tag char (or end) after.
+			grep: /@:connect(?![\w-])/
 		},
 		{
 			name: 'e2e-remote-ssh',

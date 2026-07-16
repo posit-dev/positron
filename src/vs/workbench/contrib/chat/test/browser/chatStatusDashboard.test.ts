@@ -70,6 +70,9 @@ function createEntitlementService(opts: {
 		previewFeaturesDisabled: false,
 		clientByokEnabled: false,
 		hasByokModels: false,
+		// --- Start Positron ---
+		isCompletionsOnlyMode: false,
+		// --- End Positron ---
 	} as IChatEntitlementService;
 }
 

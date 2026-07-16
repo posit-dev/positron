@@ -100,6 +100,36 @@
 	outline-offset: 2px;
 }
 
+/* File parameter: text input paired with a Browse button on one row. */
+.configure-data-connection .parameter-file-input {
+	gap: 6px;
+	display: flex;
+	align-items: stretch;
+}
+
+.configure-data-connection .parameter-file-input .parameter-input {
+	flex: 1;
+	min-width: 0;
+}
+
+.configure-data-connection .parameter-file-input .browse-button {
+	padding: 0 8px;
+	white-space: nowrap;
+	border-radius: 4px;
+	color: var(--vscode-positronModalDialog-buttonForeground);
+	background: var(--vscode-positronModalDialog-buttonBackground);
+	border: 1px solid var(--vscode-button-border);
+}
+
+.configure-data-connection .parameter-file-input .browse-button:focus {
+	outline: none !important;
+}
+
+.configure-data-connection .parameter-file-input .browse-button:focus-visible {
+	outline-offset: 2px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
 .configure-data-connection .parameter-select {
 	height: 26px;
 }

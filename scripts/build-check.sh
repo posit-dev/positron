@@ -31,8 +31,8 @@ node scripts/deemon-status.mts \
 pid4=$!
 
 node scripts/deemon-status.mts \
-	--begins '\[watch:tsc\s*\] \d+:\d+:\d+ [AP]M - (Starting compilation in watch mode|File change detected\. Starting incremental compilation)' \
-	--ends '\[watch:tsc\s*\] \d+:\d+:\d+ [AP]M - Found [0-9]+ errors?\. Watching for file changes' \
+	--begins '\[watch:typecheck\s*\] \d+:\d+:\d+ [AP]M - (Starting compilation in watch mode|File change detected\. Starting incremental compilation)' \
+	--ends '\[watch:typecheck\s*\] \d+:\d+:\d+ [AP]M - Found [0-9]+ errors?\. Watching for file changes' \
 	--command "npm run watch-copilot" &
 pid5=$!
 

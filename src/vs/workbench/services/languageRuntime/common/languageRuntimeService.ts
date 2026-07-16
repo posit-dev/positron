@@ -588,6 +588,19 @@ export enum RuntimeErrorBehavior {
 }
 
 /**
+ * Determines what happens when code is submitted for evaluation while the target
+ * runtime is busy. Mirrors the `RuntimeBusyBehavior` enum in the Positron
+ * extension API (positron.d.ts).
+ */
+export enum RuntimeBusyBehavior {
+	/** Queue the code to run when the runtime next becomes idle. */
+	Queue = 'queue',
+
+	/** Reject the evaluation with an error instead of queueing it. */
+	Reject = 'reject',
+}
+
+/**
  * Results of analyzing code fragment for completeness
  */
 export enum RuntimeCodeFragmentStatus {

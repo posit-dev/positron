@@ -24,7 +24,7 @@ import { IPositronNotebookService } from '../../../positronNotebook/browser/posi
 import { IQuartoKernelManager } from '../../../positronQuarto/browser/quartoKernelManager.js';
 import { ForegroundSessionContribution } from '../../browser/foregroundSessionContribution.js';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../../positronNotebook/common/positronNotebookCommon.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_KEY } from '../../../positronQuarto/common/positronQuartoConfig.js';
+import { QUARTO_INLINE_OUTPUT_ENABLED_KEY } from '../../../positronQuarto/common/positronQuartoConfig.js';
 
 describe('Positron - ForegroundSessionContribution', () => {
 
@@ -89,7 +89,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 		quartoSessionForDocument = undefined;
 
 		// Reset Quarto config to avoid leakage between tests
-		configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, undefined);
+		configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, undefined);
 
 		// Create the contribution -- the constructor wires up event listeners that
 		// the tests exercise by firing events, so we don't need a reference to it.
@@ -249,7 +249,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 
 	describe('Quarto editor focus', () => {
 		it('sets Quarto session as foreground when Quarto file is active and inline output enabled', async () => {
-			configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, true);
+			configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, true);
 
 			const quartoUri = URI.file('/path/to/doc.qmd');
 			const quartoSession = await startNotebookSession(quartoUri);
@@ -264,7 +264,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 		});
 
 		it('does not set Quarto session when inline output is disabled', async () => {
-			configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, false);
+			configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, false);
 
 			const quartoUri = URI.file('/path/to/doc.qmd');
 			const quartoSession = await startNotebookSession(quartoUri);
@@ -396,7 +396,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 		const quartoUri = URI.file('/path/to/doc.qmd');
 
 		it('sets foreground when Quarto session starts and Quarto file is active code editor', async () => {
-			configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, true);
+			configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, true);
 
 			// Set Quarto file as active code editor
 			const codeEditor = createMockCodeEditor(quartoUri, 'quarto');
@@ -410,7 +410,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 		});
 
 		it('does not set foreground when Quarto inline output is disabled', async () => {
-			configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, false);
+			configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, false);
 			const consoleSession = await startConsoleSession();
 
 			const codeEditor = createMockCodeEditor(quartoUri, 'quarto');
@@ -424,7 +424,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 		});
 
 		it('sets foreground when Quarto session becomes ready and Quarto file is active', async () => {
-			configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, true);
+			configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, true);
 
 			const codeEditor = createMockCodeEditor(quartoUri, 'quarto');
 			activeEditor = { typeId: 'text', resource: quartoUri } as unknown as EditorInput;
@@ -440,7 +440,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 		});
 
 		it('does not set foreground when a different file is the active editor', async () => {
-			configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, true);
+			configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, true);
 			const consoleSession = await startConsoleSession();
 
 			// Active editor is a regular file, not the Quarto file
@@ -456,7 +456,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 
 	describe('Quarto editor cached session info', () => {
 		it('uses cached session info when Quarto file has no active session', async () => {
-			configService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY, true);
+			configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, true);
 
 			const quartoUri = URI.file('/path/to/doc.qmd');
 

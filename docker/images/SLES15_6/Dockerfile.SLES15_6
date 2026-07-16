@@ -109,9 +109,18 @@ RUN curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-li
 # Verify Node.js
 RUN node -v && npm -v
 
-# Configure node-gyp to use GCC 13 for C++20 support
+# Configure node-gyp to use GCC 13 for C++20 support.
+# CC/CXX cover tools that read them, but node-gyp's make targets fall back to a
+# bare "g++" when the env is not inherited by the spawned subprocess (as happens
+# for the positron/remote native rebuild). Point the default gcc/g++ at GCC 13 so
+# even bare invocations get C++20 support.
 ENV CC=gcc-13
 ENV CXX=g++-13
+RUN ln -sf /usr/bin/gcc-13 /usr/bin/gcc && \
+    ln -sf /usr/bin/g++-13 /usr/bin/g++
+
+# Sanity check: fail the build here if bare g++ cannot compile C++20.
+RUN echo 'int main(){}' | g++ -std=gnu++20 -x c++ - -o /dev/null && g++ --version
 
 # Global npm deps
 RUN npm install -g node-gyp npm-run-all yarn
@@ -211,8 +220,8 @@ ENV PATH="/root/.local/bin:$PATH"
 RUN uv venv --python=3.10.12 /root/.venv && \
     curl -sS https://bootstrap.pypa.io/get-pip.py | /root/.venv/bin/python
 
-# Install qa-example-content deps into that Python 3.10.12 env
-RUN curl -O https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt && \
+# Install the e2e test-content Python deps into that Python 3.10.12 env
+RUN curl -O https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/test-files/requirements.txt && \
     uv pip install --python /root/.venv/bin/python --break-system-packages -r requirements.txt && \
     /root/.venv/bin/python -m pip list
 
@@ -249,8 +258,8 @@ RUN ARCH_NAME=$(uname -m) && \
         R_REPO="https://packagemanager.posit.co/cran/__linux__/opensuse156/${PPM_SNAPSHOT}"; \
     fi && \
     export MAKEFLAGS="-j$(nproc)" && \
-    git clone --depth 1 https://github.com/posit-dev/qa-example-content.git /tmp/qa-example-content && \
-    cd /tmp/qa-example-content && \
+    mkdir -p /tmp/test-content && cd /tmp/test-content && \
+    curl -O https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/test-files/DESCRIPTION && \
     Rscript -e "options(repos=c(CRAN='${R_REPO}'), pak.no_build_vignettes=TRUE, pkg.sysreqs=FALSE, pkg.install.extra=c('--no-multiarch'), pkgType='${PKG_TYPE}'); \
     pak::local_install_dev_deps(ask=FALSE, dependencies=TRUE, lib=Sys.getenv('R_LIBS_SITE'))"
 

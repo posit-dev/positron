@@ -105,6 +105,9 @@ class MockChatEntitlementService implements IChatEntitlementService {
 
 	readonly sentiment: IChatSentiment = { completed: true, registered: true };
 	readonly sentimentObs: IObservable<IChatSentiment> = observableValue('sentiment', { completed: true, registered: true });
+	// --- Start Positron ---
+	readonly isCompletionsOnlyMode = false;
+	// --- End Positron ---
 
 	readonly anonymous = false;
 	readonly anonymousObs: IObservable<boolean> = observableValue('anonymous', false);

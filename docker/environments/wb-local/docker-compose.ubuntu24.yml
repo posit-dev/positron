@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   test:
-    image: ghcr.io/posit-dev/positron-ubuntu24-arm64:127
+    image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
     container_name: test
     ports:
       - "8080:8080"
@@ -29,7 +29,7 @@ services:
       - connect_tokens:/tokens
 
   postgres:
-    image: ghcr.io/posit-dev/positron-postgres-arm64:143
+    image: ghcr.io/posit-dev/positron-postgres:24.15.0
     container_name: postgres
     ports:
       - "5432:5432"
@@ -50,8 +50,11 @@ services:
       - postgres-data:/var/lib/postgresql
   
   connect:
-    image: rstudio/rstudio-connect-preview:dev-jammy-daily
-    platform: linux/amd64
+    # Multi-arch image (runs native on both amd64 CI and Apple Silicon); the same
+    # image the e2e-connect lane uses via with-connect, so both lanes exercise one
+    # Connect. It auto-discovers its bundled R/Python/Quarto (no gcfg exec pins),
+    # so PAM auth is set via env vars instead of a mounted gcfg.
+    image: ghcr.io/posit-dev/connect:latest
     container_name: connect
     networks:
       - mynetwork
@@ -62,12 +65,13 @@ services:
       - CONNECT_BOOTSTRAP_SECRETKEY=${CONNECT_BOOTSTRAP_SECRETKEY}
       - CONNECT_APPLICATIONS_PACKAGEAUDITINGENABLED=true
       - CONNECT_TENSORFLOW_ENABLED=false
+      - CONNECT_AUTHENTICATION_PROVIDER=pam
+      - CONNECT_PAM_SERVICE=rstudio-connect
     privileged: true
     volumes:
       - connect-data:/var/lib/rstudio-connect
       - /var/lib/rstudio-connect
-      - ./connect/rstudio-connect.gcfg:/etc/rstudio-connect/rstudio-connect.gcfg:ro
-      - ./connect/connect.lic:/var/lib/rstudio-connect/connect.lic:ro
+      - ./connect/connect.lic:/var/lib/rstudio-connect/rstudio-connect.lic:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3939"]
       interval: 10s

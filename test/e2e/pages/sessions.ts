@@ -94,13 +94,11 @@ export class Sessions {
 		options?: {
 			triggerMode?: SessionTrigger;
 			reuse?: boolean;
-			interpreterSource?: string; // source label to require in the selected row (e.g. '.venv')
 		}
 	): Promise<T extends SessionRuntimes ? SessionMetaData : { [K in keyof T]: SessionMetaData }> {
 		const {
 			triggerMode = 'hotkey',
 			reuse = true,
-			interpreterSource,
 		} = options || {};
 
 		// convert input to array for unified processing
@@ -115,7 +113,6 @@ export class Sessions {
 				...sessionTemplate,
 				waitForReady: true,
 				triggerMode,
-				interpreterSource,
 				// Ensure we get fresh environment values
 				name: sessionTemplate.name, // This will call the getter again
 				version: sessionTemplate.version, // This will call the getter again
@@ -435,7 +432,6 @@ export class Sessions {
 		language: 'Python' | 'R';
 		version?: string;
 		disambiguator?: string; // additional string to differentiate in picker
-		interpreterSource?: string; // source label to require in the selected row (e.g. '.venv')
 		triggerMode?: 'session-picker' | 'quickaccess' | 'hotkey';
 		waitForReady?: boolean;
 	}): Promise<string> {
@@ -451,7 +447,6 @@ export class Sessions {
 		const {
 			language,
 			version = language === 'Python' ? getDesiredPython() : getDesiredR(),
-			interpreterSource,
 			waitForReady = true,
 			triggerMode = 'hotkey',
 		} = options;
@@ -497,22 +492,10 @@ export class Sessions {
 				// Wait until the desired runtime appears in the list and select it.
 				// We need to click instead of using 'enter' because the Python select interpreter command
 				// may include additional items above the desired interpreter string.
-				//
-				// When `interpreterSource` is set, target that specific interpreter
-				// (e.g. a project `.venv`) by matching its source in the row label,
-				// rather than relying on the deprioritize heuristic. A slower
-				// discovery source (a project venv on web/remote, which surfaces
-				// after the fast-discovered base interpreter) is simply absent on the
-				// first attempt: selection throws and the enclosing `toPass` retries,
-				// re-opening the picker until discovery lists it -- instead of
-				// falling back to a base interpreter that may be an invalid target.
-				const selectionText = interpreterSource
-					? `${language} ${version} (${interpreterSource})`
-					: `${language} ${version}`;
 				try {
-					await this.quickinput.selectQuickInputElementContaining(selectionText, {
+					await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, {
 						timeout: 2000,
-						deprioritize: (language === 'Python' && !interpreterSource) ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
+						deprioritize: language === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
 					});
 				} catch (e) {
 					// Auto-discovery is intermittent: POSITRON_PY_VER_SEL's interpreter
@@ -598,7 +581,7 @@ export class Sessions {
 			await expect(this.code.driver.currentPage.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
 			await this.console.focus();
 			await this.code.driver.currentPage.mouse.move(0, 0);
-			await expect(this.page.locator('text=/^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+			await expect(this.page.locator('text=/^Setting up|^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 		});
 	}
 
@@ -700,8 +683,15 @@ export class Sessions {
 			const isSingleSession = (await this.getSessionCount()) === 1;
 
 			if (!isSingleSession && sessionId) {
-				// Use force to bypass notification toasts that may overlay the tab
-				await this.page.getByTestId(`console-tab-${sessionId}`).click({ force: true });
+				const targetTab = this.getSessionTab(sessionId);
+				await expect(async () => {
+					// Use force to bypass notification toasts that may overlay the tab. A
+					// toast can also swallow the click outright (it's on top, so the real
+					// tab never receives it) -- verify the tab actually went active instead
+					// of assuming the click landed, and retry if it didn't.
+					await targetTab.click({ force: true });
+					await expect(targetTab).toHaveClass(/tab-button--active/);
+				}, `Select session tab: ${sessionId}`).toPass({ timeout: 10000 });
 			}
 
 			const metadata = await this.extractMetadataFromDialog();
@@ -1347,7 +1337,6 @@ export type SessionInfo = {
 	language: 'Python' | 'R';
 	version: string; // e.g. '3.10.15'
 	disambiguator?: string; // additional string to differentiate in picker
-	interpreterSource?: string; // source label to require in the selected row (e.g. '.venv')
 	id: string;
 	triggerMode?: SessionTrigger;
 	waitForReady?: boolean;

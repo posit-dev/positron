@@ -10,7 +10,7 @@ interface QuartoTestFixtures extends TestFixtures { }
 export const test = base.extend<QuartoTestFixtures, WorkerFixtures>({
 	beforeApp: [
 		async ({ settingsFile }, use) => {
-			await settingsFile.append({ 'positron.quarto.inlineOutput.enabled': true });
+			await settingsFile.append({ 'quarto.inlineOutput.enabled': true });
 			await use();
 		},
 		{ scope: 'worker' }

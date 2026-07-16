@@ -44,7 +44,7 @@ suite('KallichoreApiInstance basePath', () => {
 
 	test('domain socket connections have no base path', () => {
 		// Domain sockets route via the socket path rather than a host, so the
-		// connection file carries no base_path. The round-trip must keep it
+		// connection state carries no base_path. The round-trip must keep it
 		// absent (rather than coercing it to a value that would repoint the API).
 		const api = new KallichoreApiInstance(KallichoreTransport.UnixSocket);
 		api.loadState(makeState({ socket_path: '/tmp/kallichore.sock', transport: KallichoreTransport.UnixSocket }));

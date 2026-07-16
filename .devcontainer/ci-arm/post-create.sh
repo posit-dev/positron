@@ -6,11 +6,16 @@ set -euo pipefail
 
 cd "${WORKSPACE_FOLDER:-$(cd "$(dirname "$0")/../.." && pwd)}"
 
-echo "==> [1/8] root npm ci"
-[ -d node_modules ] && [ -n "$(ls -A node_modules 2>/dev/null)" ] || npm ci --fetch-timeout 120000
+echo "==> [1/8] root deps"
+# fast-install.ts hashes package.json/package-lock.json/.npmrc across every dir in
+# build/npm/dirs.ts (root plus each extension), so it catches a new/changed extension
+# package.json even when the root package-lock.json itself didn't change -- unlike a plain
+# non-empty check or a root-lockfile-only sha compare, both of which would skip the install
+# and leave a stale node_modules a volume carried over from before that extension existed.
+node build/npm/fast-install.ts
 
 echo "==> [2/8] test/e2e npm ci"
-[ -d test/e2e/node_modules ] && [ -n "$(ls -A test/e2e/node_modules 2>/dev/null)" ] || npm --prefix test/e2e ci
+[ "$(sha256sum test/e2e/package-lock.json | cut -d' ' -f1)" = "$(cat .build/.ci-arm-state/e2e-deps.sha 2>/dev/null)" ] || npm --prefix test/e2e ci
 
 echo "==> [3/8] compile + electron (${POSITRON_CI_IMAGE_ARCH:-arm64})"
 ELECTRON_ARCH="${POSITRON_CI_IMAGE_ARCH:-arm64}"

@@ -12,7 +12,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IExtensionRegistries } from '../extHost.api.impl.js';
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
-import { ExtHostConfigProvider } from '../extHostConfiguration.js';
+import { ExtHostConfigProvider, IExtHostConfiguration } from '../extHostConfiguration.js';
 import { ExtHostPositronContext } from './extHost.positron.protocol.js';
 import * as extHostTypes from './extHostTypes.positron.js';
 import { NotebookCellType } from '../../../common/positron/notebookAssistant.js';
@@ -64,6 +64,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostWorkspace = accessor.get(IExtHostWorkspace);
 	const extHostCommands = accessor.get(IExtHostCommands);
 	const extHostLogService = accessor.get(ILogService);
+	const extHostConfiguration = accessor.get(IExtHostConfiguration);
 
 	// Retrieve the raw `ExtHostWebViews` object from the rpcProtocol; this
 	// object is needed to create webviews, and was previously created in
@@ -110,8 +111,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				const extensionId = extension.identifier.value;
 				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId, documentUri, executionMetadata);
 			},
-			evaluateCode(languageId: string, code: string, cancellationToken?: vscode.CancellationToken, sessionId?: string): Thenable<positron.EvalResult> {
-				return extHostLanguageRuntime.evaluateCode(languageId, code, cancellationToken, sessionId);
+			evaluateCode(languageId: string, code: string, cancellationToken?: vscode.CancellationToken, sessionId?: string, whenBusy?: positron.RuntimeBusyBehavior): Thenable<positron.EvalResult> {
+				return extHostLanguageRuntime.evaluateCode(languageId, code, cancellationToken, sessionId, whenBusy);
 			},
 			executeInlineCell(documentUri, ranges, executionMetadata?): Thenable<void> {
 				const extensionId = extension.identifier.value;
@@ -618,6 +619,13 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			}
 		};
 
+		const workspace: typeof positron.workspace = {
+			registerConfigurationMigrations(migrations: ReadonlyArray<positron.ConfigurationMigrationSpec>): vscode.Disposable {
+				extHostConfiguration.registerConfigurationMigrations(extension, migrations);
+				return { dispose: () => { } };
+			},
+		};
+
 		// --- End Positron ---
 
 		return {
@@ -635,6 +643,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			dataExplorer,
 			ai,
 			notebooks,
+			workspace,
 			CodeAttributionSource: extHostTypes.CodeAttributionSource,
 			PositronLanguageModelType: extHostTypes.PositronLanguageModelType,
 			PositronChatAgentLocation: extHostTypes.PositronChatAgentLocation,
@@ -651,6 +660,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			LanguageRuntimeSessionMode: extHostTypes.LanguageRuntimeSessionMode,
 			RuntimeCodeExecutionMode: extHostTypes.RuntimeCodeExecutionMode,
 			RuntimeErrorBehavior: extHostTypes.RuntimeErrorBehavior,
+			RuntimeBusyBehavior: extHostTypes.RuntimeBusyBehavior,
 			LanguageRuntimeStartupBehavior: extHostTypes.LanguageRuntimeStartupBehavior,
 			LanguageRuntimeSessionLocation: extHostTypes.LanguageRuntimeSessionLocation,
 			RuntimeOnlineState: extHostTypes.RuntimeOnlineState,

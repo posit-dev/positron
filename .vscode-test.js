@@ -109,6 +109,11 @@ const extensions = [
 		mocha: { timeout: 60_000 }
 	},
 	{
+		label: 'positron-data-driver-pins',
+		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-pins-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
 		label: 'positron-data-driver-postgresql',
 		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-postgresql-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }

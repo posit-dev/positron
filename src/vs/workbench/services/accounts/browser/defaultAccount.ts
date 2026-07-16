@@ -29,6 +29,9 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { AuthenticationSession, AuthenticationSessionAccount, IAuthenticationExtensionsService, IAuthenticationService } from '../../authentication/common/authentication.js';
+// --- Start Positron ---
+import { IAuthenticationAccessService } from '../../authentication/browser/authenticationAccessService.js';
+// --- End Positron ---
 import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
 import { IHostService } from '../../host/browser/host.js';
@@ -36,6 +39,12 @@ import { adaptManagedSettings, IManagedSettingsResponse } from './managedSetting
 
 interface IDefaultAccountConfig {
 	readonly preferredExtensions: string[];
+	// --- Start Positron ---
+	// The Copilot chat extension id, used to gate the default (Copilot) account on
+	// whether Copilot has been granted access to a GitHub session. See the consent
+	// filter in `getDefaultAccountForAuthenticationProvider`.
+	readonly aiExtensionId: string;
+	// --- End Positron ---
 	readonly authenticationProvider: {
 		readonly default: {
 			readonly id: string;
@@ -94,6 +103,9 @@ function toDefaultAccountConfig(defaultChatAgent: IDefaultChatAgent): IDefaultAc
 			defaultChatAgent.chatExtensionId,
 			defaultChatAgent.extensionId,
 		],
+		// --- Start Positron ---
+		aiExtensionId: defaultChatAgent.extensionId,
+		// --- End Positron ---
 		authenticationProvider: {
 			default: {
 				id: defaultChatAgent.provider.default.id,
@@ -304,6 +316,9 @@ class DefaultAccountProvider extends Disposable implements IDefaultAccountProvid
 		@IStorageService private readonly storageService: IStorageService,
 		@IHostService private readonly hostService: IHostService,
 		@ICommandService private readonly commandService: ICommandService,
+		// --- Start Positron ---
+		@IAuthenticationAccessService private readonly authenticationAccessService: IAuthenticationAccessService,
+		// --- End Positron ---
 	) {
 		super();
 		this.accountStatusContext = CONTEXT_DEFAULT_ACCOUNT_STATE.bindTo(contextKeyService);
@@ -395,6 +410,22 @@ class DefaultAccountProvider extends Disposable implements IDefaultAccountProvid
 			this.logService.debug('[DefaultAccount] Account preference changed for default account provider, updating default account');
 			this.updateDefaultAccount();
 		}));
+
+		// --- Start Positron ---
+		// Copilot's access to a GitHub session gates the default account (see the
+		// consent filter in `getDefaultAccountForAuthenticationProvider`). When that
+		// access is granted or revoked after the session already exists (e.g. the
+		// provider modal grants it just after creating the session), re-resolve so the
+		// status reflects the new consent without a reload.
+		this._register(this.authenticationAccessService.onDidChangeExtensionSessionAccess(e => {
+			const defaultAccountProvider = this.getDefaultAccountAuthenticationProvider();
+			if (e.providerId !== defaultAccountProvider.id) {
+				return;
+			}
+			this.logService.debug('[DefaultAccount] Extension session access changed for default account provider, updating default account');
+			this.updateDefaultAccount();
+		}));
+		// --- End Positron ---
 
 		this._register(this.authenticationService.onDidRegisterAuthenticationProvider(e => {
 			const defaultAccountProvider = this.getDefaultAccountAuthenticationProvider();
@@ -556,7 +587,25 @@ class DefaultAccountProvider extends Disposable implements IDefaultAccountProvid
 				this.logService.debug('[DefaultAccount] No matching session found for provider:', authenticationProvider.id);
 				return null;
 			}
-			return this.getDefaultAccountFromAuthenticatedSessions(authenticationProvider, sessions, options);
+
+			// --- Start Positron ---
+			// Only treat a GitHub session as the default (Copilot) account when Copilot
+			// has been granted access to it. A session created for Git or the GitHub Pull
+			// Requests extension alone no longer counts as a Copilot sign-in, matching the
+			// consent gate that governs Copilot's own getSession calls. Without this, any
+			// GitHub session with matching scopes would light up the Copilot status even
+			// though Copilot itself was never granted the session. Enterprise keeps its
+			// product.json trust, so isAccessAllowed stays true there.
+			const consentedSessions = sessions.filter(session =>
+				this.authenticationAccessService.isAccessAllowed(authenticationProvider.id, session.account.label, this.defaultAccountConfig.aiExtensionId) === true
+			);
+			if (!consentedSessions.length) {
+				this.logService.debug('[DefaultAccount] Matching session found but Copilot has no granted access; treating as signed out for provider:', authenticationProvider.id);
+				return null;
+			}
+
+			return this.getDefaultAccountFromAuthenticatedSessions(authenticationProvider, consentedSessions, options);
+			// --- End Positron ---
 		} catch (error) {
 			this.logService.error('[DefaultAccount] Failed to get default account for provider:', authenticationProvider.id, getErrorMessage(error));
 			return null;
