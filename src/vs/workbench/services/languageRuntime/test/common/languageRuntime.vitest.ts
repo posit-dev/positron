@@ -118,8 +118,12 @@ describe('Positron - LanguageRuntimeService', () => {
 			runtimeDisposable.dispose();
 		});
 
-		it('enriches runtimeDisplayPath via tildify on registration', () => {
+		it('enriches runtimeDisplayPath via tildify on registration', async () => {
 			const languageRuntimeService = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
+
+			// The constructor starts a userHome() promise; let the microtask run
+			// before calling registerRuntime so _cachedUserHome is populated.
+			await Promise.resolve();
 
 			// A path under the test user home should be tildified.
 			const underHome = makeTestMetadata({ runtimeId: 'tilde-1', runtimePath: '/home/testuser/bin/R' });
