@@ -252,10 +252,7 @@ export class Sessions {
 	 */
 	async selectMetadataOption(menuItem: 'Show Kernel Output Channel' | 'Show Supervisor Output Channel' | 'Show LSP Output Channel') {
 		await this.console.focus();
-		// Use openMetadataDialog() instead of a raw button click: the button's
-		// click handler reads the active console session from React context,
-		// which can lag a just-fired focus change and silently no-op.
-		await this.openMetadataDialog();
+		await this.metadataButton.click();
 		await this.metadataDialog.getByText(menuItem).click();
 
 		await expect(this.page.getByRole('tab', { name: 'Output' })).toHaveClass(/.*checked.*/);
