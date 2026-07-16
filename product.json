@@ -691,6 +691,7 @@
 			"languageModelSystem"
 		]
 	},
+	"trustedExtensionPublishers": ["posit", "rstudio"],
 	"trustedExtensionAuthAccess": {
 		"github": [],
 		"github-enterprise": [

@@ -3997,4 +3997,40 @@ declare module 'positron' {
 		 */
 		export function clearCellOutputs(notebookUri: string, cellIndices?: number[]): Thenable<void>;
 	}
+
+	/**
+	 * A specification for migrating one configuration key to another.
+	 * Used with {@link workspace.registerConfigurationMigrations}.
+	 */
+	export interface ConfigurationMigrationSpec {
+		/** The configuration key to migrate from. */
+		readonly key: string;
+		/** The configuration key to migrate to. */
+		readonly migrateTo: string;
+	}
+
+	export namespace workspace {
+
+		/**
+		 * Register configuration key migrations. Each migration copies a value from an old
+		 * configuration key to a new key and clears the old key. If the destination key
+		 * already has a user-set value at the same configuration target, the old key is
+		 * cleared without overwriting the new value.
+		 *
+		 * Ownership of the source keys is required and determined in order:
+		 * 1. The key is still registered and its `source` matches the calling extension.
+		 * 2. The key has no registered extension owner (e.g. removed from the manifest after
+		 *    renaming) and the key starts with `{extensionId}.` — namespace ownership.
+		 *
+		 * Ownership checks are bypassed entirely for extensions published by `posit`.
+		 *
+		 * If the old key is enforced by system policy but the new key is not, the migration
+		 * will log an error and notify the user; the admin should update the policy to use
+		 * the new key.
+		 *
+		 * @param migrations Array of migration specifications.
+		 * @returns A {@link vscode.Disposable} (unregistering is not supported; dispose is a no-op).
+		 */
+		export function registerConfigurationMigrations(migrations: ReadonlyArray<ConfigurationMigrationSpec>): vscode.Disposable;
+	}
 }
