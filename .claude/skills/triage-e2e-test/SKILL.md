@@ -1,14 +1,15 @@
 ---
 name: triage-e2e-test
-description: Triage a specific Positron e2e test that is already failing or flaking in CI. Given a test name, surface its recent distinct failure modes from history, pull the evidence (trace, screenshots, logs) for each mode, give a test-drift vs. product-regression read, and land a concrete test fix or a product-bug repro. Test-centric counterpart to e2e-failure-analyzer (run-centric). For authoring a brand-new test, use author-e2e-tests.
+description: Triage a specific Positron e2e test that is already failing or flaking in CI. Given a test name, surface its recent distinct failure modes from history, pull the evidence (trace, screenshots, logs) for each mode, and reason through the evidence to a root cause collaboratively with the engineer, landing on a concrete test fix or a product-bug repro. Test-centric counterpart to e2e-failure-analyzer (run-centric). For authoring a brand-new test, use author-e2e-tests.
 disable-model-invocation: true
 ---
 
 # Triage E2E Test
 
 Test-centric triage: start from a test name (not a CI run), find its recent
-distinct failure modes, fetch the evidence for each, and land on fix-the-test
-vs. file-a-bug with the action to match.
+distinct failure modes, fetch the evidence for each, and dig into the evidence
+alongside the engineer until you have an actual root cause -- not just a label
+-- then land on fix-the-test vs. file-a-bug with the action to match.
 
 ## When to Use
 
@@ -23,7 +24,10 @@ use `e2e-failure-analyzer` (run-centric).
 
 ## Prerequisites
 
-- `E2E_INSIGHTS_API_KEY` set (for the history query).
+- `E2E_INSIGHTS_API_KEY` set (for the history query) -- either as a shell env
+  var, or as a line in the repo-root `.env.e2e` file (same local secrets file
+  the e2e Playwright suite uses; see `.env.e2e.example`). The query script
+  falls back to `.env.e2e` automatically if the env var isn't set.
 - Node.js and `unzip` on PATH (the S3 processor extracts zip attachments).
 
 ## Scripts
@@ -47,15 +51,38 @@ A test name or spec path. Optional: `--branch` (default `main`) and
 
 ### 1. Build the test key
 
-The API keys tests as `testName|||specPath`. If you only have a partial name,
-grep `test/e2e/tests/` to find the exact title and spec path first.
+The API keys tests as `testName|||specPath`, where `testName` is the **full
+hierarchical Playwright title** -- every enclosing `test.describe()` block
+joined to the `test()` title with `" > "`, not just the leaf title. E.g. for:
+
+```ts
+test.describe('Source Content Management', ..., () => {
+  test('Verify SCM Tracks File Modifications, Staging, and Commit Actions', ...)
+```
+
+the key's `testName` is `"Source Content Management > Verify SCM Tracks File
+Modifications, Staging, and Commit Actions"`, not just the inner string. Using
+only the leaf title silently returns an empty/zero-runs result (looks like a
+clean test, actually a key mismatch) rather than an error -- if a query comes
+back with `total_runs: 0` for a test you know runs regularly, rebuild the key
+with the full describe-chain prefix before concluding it's clean.
+
+If you only have a partial name, grep `test/e2e/tests/` to find the exact
+title and spec path, then walk outward to collect every enclosing
+`test.describe()` title.
 
 ### 2. Query failure history
+
+Always pass `--test-keys` as a JSON array, even for a single key. The API also
+accepts a plain comma-separated string, but it splits on every comma in that
+string to find multiple keys -- a test name that itself contains a comma (e.g.
+"Verify SCM Tracks File Modifications, Staging, and Commit Actions") gets
+mis-split and rejected with a 400. The JSON array form has no such ambiguity:
 
 ```bash
 node .claude/skills/e2e-failure-analyzer/scripts/e2e-query-history.js \
   --repo positron \
-  --test-keys "<testName>|||<specPath>" \
+  --test-keys '["<testName>|||<specPath>"]' \
   --branch main \
   --lookback-days 14 \
   --occurrences-per-pattern 2
@@ -74,16 +101,35 @@ and `history` shows a clean record), report the clean bill of health -- "no
 failures for this test in the last N days on `<branch>`" -- and stop. There is
 nothing to triage.
 
+**Exception:** if `history.total_runs` is also `0` (not just failures/flakes at
+0), this is a key-mismatch, not a clean record -- see the full-title warning in
+step 1. A test with real CI history never reports zero total runs.
+
 ### 3. Summarize the failure modes FIRST
 
-Before downloading anything, present the shape so the engineer can triage:
+Before downloading anything, present the shape as a table so the engineer can
+scan it at a glance -- a run-on sentence packing selector text, counts, and
+environment lists together is hard to read:
 
-> Test X has 2 distinct failure modes over 14 days:
-> (a) locator timeout on chromium x8, (b) kernel-startup error on win x3.
+| # | Failure mode | Count | % | Environments | First seen |
+|---|---|---|---|---|---|
+| a | `toBeVisible()` timeout: `getByLabel('...')...` | 104 | 99% | ubuntu/debian/opensuse/rhel/sles (chromium+electron), 1x win | Jul 07 |
+| b | `locator.click` timeout: `.monaco-list-row...` | 1 | 1% | win/electron only | -- |
+
+**Deciding whether to ask before digging in:** if one pattern is clearly
+dominant -- rule of thumb: >=90%, or every other pattern is a single
+occurrence -- proceed straight to deep-diving it without stopping to ask; list
+the minor pattern(s) in the table but don't pull full evidence for them unless
+the engineer asks, or the dominant pattern's root cause doesn't plausibly
+explain them too. If the split is more even (60/40, 50/30/20), stop and ask
+which to prioritize -- that split reflects a real judgment call about where to
+spend effort, not an obvious default.
 
 ### 4. Pull evidence per pattern
 
-For each pattern's representative `report_url`, run the S3 processor. The API's
+For each pattern worth digging into (see the dominance rule above -- a lone
+minor pattern may not need its own evidence pull), run the S3 processor against
+its representative `report_url`. The API's
 `report_url` ends in `/index.html`, but `e2e-process-s3.js --report-url` expects
 the base **directory** URL (it appends `index.html` itself, so passing the full
 URL yields a malformed `.../index.html/index.html`). Strip the trailing
@@ -101,22 +147,127 @@ node .claude/skills/e2e-failure-analyzer/scripts/e2e-process-s3.js \
 This yields the trace timeline, screenshots, the error-context page snapshot,
 and mined log excerpts for that mode.
 
+The mined log excerpt is a grepped, truncated summary -- if it doesn't explain
+the mechanism (e.g. a UI action silently does nothing, with no error to grep
+for), that's not proof the logs lack the answer. Rerun without `--cleanup` and
+read the full raw log files under the kept temp dir directly; the excerpt can
+miss the multi-step sequence (activate, create, cancel, reconnect, ...) needed
+to see what actually happened.
+
 If an occurrence has `report_url: null`, state it explicitly (e.g. "3 of 8
 occurrences have no report available") rather than assuming the pattern is fully
 covered by the reports that do exist.
 
-### 5. Fix-oriented verdict per pattern
+A 403 from `e2e-process-s3.js --report-url` means "this particular upload isn't
+fetchable" (e.g. still in flight, or since expired), not "no evidence exists
+for this pattern." Fall through to the next occurrence's `report_url` for the
+same pattern rather than concluding the pattern is unevidenced.
+
+### 5. Sleuth each pattern to a root cause
+
+This is a collaborative dig, not a rubber-stamped verdict. Don't force the
+failure into a "test-drift or product-regression" binary -- plenty of real
+causes are neither (a shared-workspace race between two unrelated tests, a
+resource-contention slowdown, an extension that floated to a new build, etc).
+The e2e-failure-analyzer rubric (`../e2e-failure-analyzer/rubric.md`) has the
+full catalog of root-cause categories and how to read the evidence for each
+(trace timeline, error-context snapshot, sibling tests, log excerpts) -- use it.
 
 For each failure mode:
 
 1. State what it is, citing the evidence (trace step, log line, screenshot).
-2. Give a **test-drift vs. product-regression** read. The error-context page
-   snapshot is the key signal: did the test's locator drift (the element moved,
-   was renamed, or the selector is stale) while the product still works -> fix
-   the test; or did the product actually break (the expected state never
-   appears in the snapshot) -> product regression.
-3. Then either propose a concrete test fix, or, if it is a product bug, give the
-   repro and recommend filing an issue.
+2. Reason out loud through what the evidence rules in and out, the way you
+   would talking it through with the test's author. Follow leads: if the
+   error-context snapshot shows something unexpected (an unrelated fixture's
+   files, a surprising element count, a different surface than the test
+   targets), chase it -- that is usually where the real mechanism lives, not
+   in the assertion that happened to trip.
+3. Land on the actual mechanism, then propose a fix that addresses it. A fix
+   that could not plausibly change the failure rate is not a fix -- keep
+   digging instead of settling for one.
+
+Two cross-checks that pay off disproportionately for their cost:
+
+- **environment_breakdown skew.** If a pattern clusters on specific OS/browser
+  combos, check whether that split tracks worker count/parallelism rather than
+  a platform-specific bug -- e.g. CI images running more parallel workers hit
+  shared-fixture races that near-idle mac/win runs rarely do.
+- **Prior art.** Run `git log --oneline -- <spec path>` before proposing a fix.
+  A recent commit fixing the same failure class on this same test is a strong
+  signal for both the mechanism and the fix idiom this codebase already uses
+  -- reuse it instead of reinventing one. But prior art tells you the idiom the
+  codebase likes, not that it's guaranteed to transfer to your specific
+  mechanism -- still verify it with the repro in step 6 before trusting it,
+  even when it looks obviously right.
+
+**Never propose increasing a timeout as the fix**, including as a "quick win"
+or stopgap. It hides the real race, contention, or isolation problem instead of
+addressing it, and usually just narrows the window rather than closing it. If
+the evidence points at a specific mechanism (e.g. a shared fixture, a slow
+decoration provider, a concurrent teardown), name that mechanism and fix it or
+isolate it -- do not paper over it with a longer wait.
+
+### 6. Reproduce before fixing, verify after -- don't trust one green run
+
+**Pick a project to repro against, easiest first.** Only three projects are
+actually exercised in CI (see the `e2e` jobs in a `positron-builds` release
+workflow run) -- start at the top and only move down if you have a specific
+reason to (e.g. the failure pattern's `environment_breakdown` is concentrated
+on one of them):
+
+1. `e2e-electron` -- standard desktop app, no extra setup. Covers macOS,
+   Windows, and Ubuntu in CI (`e2e / desktop / electron (...)`). Try this
+   first unless the test is tagged web-only.
+2. `e2e-chromium` -- browser against a managed server, no extra setup. Covers
+   debian/sles/opensuse/rhel in CI (`e2e / web / chromium (...)`).
+3. `e2e-workbench` -- browser against a container running both Positron and
+   Workbench (`e2e / pwb ubuntu / ...` in CI). Requires `npm run pwb` to bring
+   the stack up first (add `-- --credentials=<databricks|snowflake|azure>`
+   only if the test exercises a managed data-source connection); see
+   `docker/environments/workbench-dev/README-positron-workbench.md`.
+
+(`playwright.config.ts` defines several other projects -- `e2e-server`,
+`e2e-firefox`, `e2e-webkit`, `e2e-edge`, `e2e-connect`, `e2e-remote-ssh`,
+`e2e-remote-wsl`, `e2e-jupyter`. Of these, only `e2e-remote-ssh`,
+`e2e-remote-wsl`, and `e2e-jupyter` actually run in CI, each for a narrow set
+of tests tagged for that surface -- reach for one only if the failing test is
+tagged for it. `e2e-server` isn't run in CI at all; don't default to it.)
+
+```bash
+npx playwright test <spec> --project <project> --grep '<test name>'
+```
+
+For a deterministic failure, confirm it fails the same way on the picked
+project before touching code, then confirm the fix makes that same run pass.
+
+For a flaky/race-driven failure -- the common case this skill exists for -- a
+single local pass or fail proves little; the failure depends on timing or
+worker interleaving you can't force on demand:
+
+1. **Force the mechanism directly, if you can.** If the root cause is a
+   specific concurrent condition (e.g. two specs racing on a shared fixture),
+   reproduce that condition by hand -- e.g. manually drop the polluting state
+   into the shared workspace, or run the two colliding spec files together
+   with the real worker count -- and confirm the assertion fails before the
+   fix and passes after. This is the closest thing to a real repro for a race,
+   and worth the extra setup time when it's feasible.
+2. **Repeated local runs are weak evidence, not proof.** `--repeat-each=N` on
+   the affected spec passing N/N locally does not confirm the race is gone,
+   especially when the race depends on contention from unrelated specs that
+   repeat-each won't recreate. State it as "didn't reproduce locally" or "no
+   trigger of the flake in N tries," not as "confirmed fixed."
+
+**If the failure pattern looks environment-specific** (e.g.
+`environment_breakdown` shows it only on certain OS/browser combos, or you
+suspect something about the actual CI image rather than a timing race), the
+projects above still run on your local machine/OS -- they won't surface an
+issue that's really about the CI runner image itself. For that, reproduce on
+the real CI image per `.devcontainer/ci-arm/README.md` (Posit-internal, arm64
+access required -- see the gating note in this repo's root `CLAUDE.md`).
+
+Don't claim a flaky test is "fixed" on the strength of a single green run,
+local or in CI -- for a race, evidence is a trend across enough runs, not one
+data point.
 
 ## Non-goals
 

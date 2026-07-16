@@ -15,13 +15,44 @@
 //   --max-patterns <N>             Cap on distinct failure patterns returned (default: server default 3)
 //
 // Environment variables:
-//   E2E_INSIGHTS_API_KEY      API key for authentication [required]
+//   E2E_INSIGHTS_API_KEY      API key for authentication [required]. Falls back
+//                             to the value in .env.e2e (repo root) if unset --
+//                             the same local secrets file used by the e2e
+//                             Playwright suite (see test/e2e/.env.e2e.example).
 //
 // Output: JSON response from the API, or empty object {} if the API is unreachable.
 // Exit code 0 always (graceful degradation).
 
+import fs from 'fs';
+import path from 'path';
+
 const API_BASE_URL = 'https://connect.posit.it/e2e-test-insights-api';
-const apiKey = process.env.E2E_INSIGHTS_API_KEY;
+
+function readEnvFileVar(envFilePath, varName) {
+	const fullPath = path.join(process.cwd(), envFilePath);
+	if (!fs.existsSync(fullPath)) {
+		return undefined;
+	}
+	const content = fs.readFileSync(fullPath, 'utf8');
+	for (const line of content.split('\n')) {
+		const trimmed = line.trim();
+		if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) {
+			continue;
+		}
+		const [key, ...valueParts] = trimmed.split('=');
+		if (key !== varName) {
+			continue;
+		}
+		let value = valueParts.join('=').trim();
+		if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+			value = value.slice(1, -1);
+		}
+		return value;
+	}
+	return undefined;
+}
+
+const apiKey = process.env.E2E_INSIGHTS_API_KEY || readEnvFileVar('.env.e2e', 'E2E_INSIGHTS_API_KEY');
 
 if (!apiKey) {
 	process.stderr.write('Warning: E2E_INSIGHTS_API_KEY not set, skipping history lookup.\n');

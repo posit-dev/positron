@@ -137,7 +137,7 @@ Output JSON is identical to Path A's `e2e-process-project.js` (see the field lis
 
 ## Step 6: Query Historical Test Health (optional)
 
-If the `E2E_INSIGHTS_API_KEY` environment variable is set, query the e2e-test-insights dashboard for historical failure data. This step is optional -- if the API is unavailable, skip it and proceed with analysis.
+If the `E2E_INSIGHTS_API_KEY` environment variable is set, query the e2e-test-insights dashboard for historical failure data. This step is optional -- if the API is unavailable, skip it and proceed with analysis. For local use, the query script also falls back to reading `E2E_INSIGHTS_API_KEY` from the repo-root `.env.e2e` file if the env var isn't set.
 
 The repo identifier for the API is always `positron` for both `posit-dev/positron` and `posit-dev/positron-builds`. Both repos run the same tests (positron-builds uses positron as a submodule) and test results are stored under the `positron` repo ID in the dashboard.
 
