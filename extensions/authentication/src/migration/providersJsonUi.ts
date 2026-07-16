@@ -13,16 +13,15 @@ import {
 } from './migrateToProvidersJson';
 
 export const MIGRATE_COMMAND_ID = 'authentication.migrateSettingsToProvidersJson';
-const PROMPT_DISMISSED_KEY = 'providersJsonMigrationPromptDismissed';
 
-/** Registers the migration command and schedules the one-time prompt. */
+/** Registers the migration command and runs the one-time automatic migration. */
 export function registerProvidersJsonMigration(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(MIGRATE_COMMAND_ID, () => runMigrationCommand())
 	);
-	// Fire-and-forget: never block activation on the prompt.
-	maybePromptForMigration(context).catch(err =>
-		log.error(`providers.json migration prompt failed: ${err}`)
+	// Fire-and-forget: never block activation on the migration.
+	maybeAutoMigrate().catch(err =>
+		log.error(`providers.json automatic migration failed: ${err}`)
 	);
 }
 
@@ -51,33 +50,17 @@ async function runMigrationCommand(): Promise<void> {
 	await migrateAndReport({ overwrite });
 }
 
-async function maybePromptForMigration(context: vscode.ExtensionContext): Promise<void> {
-	if (context.globalState.get<boolean>(PROMPT_DISMISSED_KEY)) {
-		return;
-	}
+async function maybeAutoMigrate(): Promise<void> {
 	if (!hasMigratableSettings()) {
 		return;
 	}
 	if (await userProvidersFileIsPopulated()) {
 		// Self-extinguishing: once providers.json is populated by any means,
-		// the prompt never shows again.
+		// migration never runs again.
 		return;
 	}
 
-	const migrateAction = vscode.l10n.t('Migrate');
-	const dontAskAction = vscode.l10n.t("Don't Ask Again");
-	const choice = await vscode.window.showInformationMessage(
-		vscode.l10n.t('Positron now stores AI provider and model configuration in ~/.posit/ai/providers.json. Migrate your settings to keep your providers and models working. Your existing settings will not be removed.'),
-		migrateAction,
-		dontAskAction
-	);
-
-	if (choice === migrateAction) {
-		await migrateAndReport({ overwrite: false });
-	} else if (choice === dontAskAction) {
-		await context.globalState.update(PROMPT_DISMISSED_KEY, true);
-	}
-	// Plain dismissal: no flag, re-prompt on a later launch.
+	await migrateAndReport({ overwrite: false });
 }
 
 async function migrateAndReport(opts: { overwrite: boolean }): Promise<void> {
@@ -93,11 +76,19 @@ async function migrateAndReport(opts: { overwrite: boolean }): Promise<void> {
 	}
 
 	switch (result.outcome) {
-		case 'migrated':
-			vscode.window.showInformationMessage(
-				vscode.l10n.t('Migrated {0} setting(s) to ~/.posit/ai/providers.json. Positron reads provider configuration from this file; your original settings were not removed.', result.settingCount)
+		case 'migrated': {
+			const viewFileAction = vscode.l10n.t('View File');
+			const choice = await vscode.window.showInformationMessage(
+				vscode.l10n.t('Migrated {0} setting(s) to ~/.posit/ai/providers.json. Positron reads provider configuration from this file; your original settings were not removed.', result.settingCount),
+				viewFileAction
 			);
+			if (choice === viewFileAction) {
+				const { PROVIDERS_CONFIG_PATH } = await import('ai-config/node');
+				const doc = await vscode.workspace.openTextDocument(PROVIDERS_CONFIG_PATH);
+				await vscode.window.showTextDocument(doc);
+			}
 			break;
+		}
 		case 'skipped-populated':
 			vscode.window.showInformationMessage(
 				vscode.l10n.t('providers.json already contains provider configuration; nothing was migrated.')
