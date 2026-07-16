@@ -28,7 +28,10 @@ test.describe('Default Interpreters - Python', {
 			? `${buildPythonPath('include')}/bin/python` // Hidden Python (POSITRON_HIDDEN_PY)
 			: path.join(process.env.HOME || '', `.pyenv/versions/${pythonVersion}/bin/python`);
 
-		// First reload: "Apply these settings"
+		// Reload to both apply the settings and trigger the default-interpreter auto-start:
+		// 'always' only recognizes defaultInterpreterPath once the app's initial interpreter
+		// discovery has already run once, so this reload must come after normal app boot rather
+		// than moving the settings to a pre-launch beforeApp fixture.
 		await settings.set({ 'python.defaultInterpreterPath': pythonPath }, { reload: true, waitForReady: true });
 	});
 
@@ -36,7 +39,7 @@ test.describe('Default Interpreters - Python', {
 		await cleanup.discardAllChanges();
 	});
 
-	test('Python - Add a default interpreter (Conda)', async function ({ hotKeys, sessions }) {
+	test('Python - Add a default interpreter (Conda)', async function ({ sessions }) {
 		// Get version from appropriate env var (hidden Python in CI, regular in local)
 		const pythonVersion = process.env.CI
 			? (process.env.POSITRON_HIDDEN_PY || '3.12.10').split(' ')[0] // Extract "3.12.10" from "3.12.10 (Conda)"
@@ -50,10 +53,10 @@ test.describe('Default Interpreters - Python', {
 			? /python-env\/bin\/python/
 			: new RegExp(`~?\\.pyenv/versions/${pythonVersion.replace(/\./g, '\\.')}/bin/python`);
 
-		// Second reload: "Now actually start the interpreter with these settings"
-		await hotKeys.reloadWindow(true);
-
-		// Verify interpreter metadata
+		// Verify interpreter metadata. No extra reload here: the beforeAll reload above already
+		// starts the interpreter. A second reload used to run at this point, but it raced a
+		// window reload against that still-in-flight session-creation call, canceling it and
+		// leaving the console referencing a session that never finished starting.
 		const { name, path } = await sessions.getMetadata();
 		expect(name).toMatch(versionRegex);
 		expect(path).toMatch(pathRegex);
