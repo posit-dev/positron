@@ -60,6 +60,12 @@ const kindIcon = (dto: IDataConnectionNodeDTO): string => {
 		case 'view':
 			return 'positron-db-view';
 
+		case 'owner':
+			return 'account';
+
+		case 'pin':
+			return 'pinned';
+
 		case 'column':
 		case 'field':
 			return dto.isPrimaryKey ? 'positron-db-column-key' : 'positron-db-column';
