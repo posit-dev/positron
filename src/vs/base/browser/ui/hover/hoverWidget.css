@@ -167,6 +167,19 @@
 	content: '(';
 }
 
+/* --- Start Positron --- */
+/*
+ * Top-align table cells in hover markdown. Browsers default table cells to
+ * vertical-align: middle, which leaves an argument name floating in the middle
+ * of a multi-line description in function hover docs (e.g. R argument tables).
+ * The Help pane top-aligns these, so match that here for consistency.
+ */
+.monaco-hover .hover-contents table td,
+.monaco-hover .hover-contents table th {
+	vertical-align: top;
+}
+/* --- End Positron --- */
+
 .monaco-hover .hover-contents a.code-link:after {
 	content: ')';
 }
