@@ -53,6 +53,14 @@ test.describe('Default Interpreters - Python', {
 			? /python-env\/bin\/python/
 			: new RegExp(`~?\\.pyenv/versions/${pythonVersion.replace(/\./g, '\\.')}/bin/python`);
 
+		// The beforeAll reload's waitForReady only asserts the loading banner is gone -- it
+		// doesn't confirm the auto-started session (interpreters.startupBehavior: 'always') has
+		// actually appeared. Extension host reactivation and the kernel-supervisor round trip can
+		// still be in flight once that banner clears, so wait for the session to actually exist
+		// before querying its metadata; otherwise getMetadata() can hang retrying a click on a
+		// Console-information button that doesn't exist yet.
+		await sessions.expectSessionCountToBe(1);
+
 		// Verify interpreter metadata. No extra reload here: the beforeAll reload above already
 		// starts the interpreter. A second reload used to run at this point, but it raced a
 		// window reload against that still-in-flight session-creation call, canceling it and
