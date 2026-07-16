@@ -118,6 +118,7 @@
 					"markdownDescription": "%configuration.aws.inferenceProfileRegion.description%"
 				},
 				"authentication.snowflake.credentials": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "object",
 					"default": {},
 					"markdownDescription": "%configuration.snowflake.credentials.description%",

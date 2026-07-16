@@ -155,11 +155,16 @@ export function buildProvidersConfigFromSettings(
 	}
 
 	// --- authentication.snowflake.* -> snowflake-cortex ----------------------
-	// SNOWFLAKE_HOME migrates in a later task once ai-lib ships snowflake.home
-	// (posit-dev/ai-lib#8); only SNOWFLAKE_ACCOUNT maps here.
 	const snowflakeCreds = reader.globalValue<Record<string, string>>('authentication.snowflake.credentials');
+	const snowflake: Block = {};
 	if (nonEmptyString(snowflakeCreds?.SNOWFLAKE_ACCOUNT)) {
-		merge('snowflake-cortex', { snowflake: { account: snowflakeCreds!.SNOWFLAKE_ACCOUNT } });
+		snowflake.account = snowflakeCreds!.SNOWFLAKE_ACCOUNT;
+	}
+	if (nonEmptyString(snowflakeCreds?.SNOWFLAKE_HOME)) {
+		snowflake.home = snowflakeCreds!.SNOWFLAKE_HOME;
+	}
+	if (Object.keys(snowflake).length > 0) {
+		merge('snowflake-cortex', { snowflake });
 		settingCount++;
 	}
 	const snowflakeHeaders = nonEmptyHeaders(reader.globalValue<Record<string, string>>('authentication.snowflake.customHeaders'));

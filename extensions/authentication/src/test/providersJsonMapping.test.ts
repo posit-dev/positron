@@ -61,8 +61,7 @@ suite('buildProvidersConfigFromSettings', () => {
 		}), fakeCaps);
 		assert.deepStrictEqual(result?.config.providers?.bedrock, { aws: { profile: 'default', region: 'us-east-1' } });
 		assert.deepStrictEqual(result?.config.providers?.['google-vertex'], { googleCloud: { project: 'my-project', location: 'us-central1' } });
-		// SNOWFLAKE_HOME is NOT migrated yet (posit-dev/ai-lib#8).
-		assert.deepStrictEqual(result?.config.providers?.['snowflake-cortex'], { snowflake: { account: 'MYORG-MYACCT' } });
+		assert.deepStrictEqual(result?.config.providers?.['snowflake-cortex'], { snowflake: { account: 'MYORG-MYACCT', home: '/tmp/snow' } });
 	});
 
 	test('maps enablement toggles with the newer generation winning', () => {
@@ -117,7 +116,7 @@ suite('buildProvidersConfigFromSettings', () => {
 			} else if (key === 'authentication.googleVertex.credentials') {
 				values[key] = { GOOGLE_VERTEX_PROJECT: 'proj', GOOGLE_VERTEX_LOCATION: 'us-central1' };
 			} else if (key === 'authentication.snowflake.credentials') {
-				values[key] = { SNOWFLAKE_ACCOUNT: 'MYORG-MYACCT' };
+				values[key] = { SNOWFLAKE_ACCOUNT: 'MYORG-MYACCT', SNOWFLAKE_HOME: '/opt/snowflake' };
 			} else if (key.endsWith('.baseUrl')) {
 				values[key] = 'https://gateway.example.com';
 			} else if (key.endsWith('.customHeaders')) {
