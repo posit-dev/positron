@@ -66,7 +66,7 @@ describe('PositronAssistantService', () => {
 		ctx.instantiationService.stub(IPositronPlotsService, ctx.disposables.add(createTestPlotsServiceWithPlots()));
 
 		// Create test runtime sessions
-		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		const runtime = await createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		testConsoleSession = await startTestLanguageRuntimeSession(
 			ctx.instantiationService,
 			ctx.disposables,

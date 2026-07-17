@@ -21,6 +21,7 @@ import { ActionBarButton } from '../../../../../platform/positronActionBar/brows
 import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { getRuntimeDisplayPath } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
 const localizeShowKernelOutputChannel = (channelName: string) => localize('positron.console.info.showKernelOutputChannel', "Show {0} Output Channel", channelName);
@@ -153,7 +154,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 					<div className='top-separator'>
 						<p className='line' data-testid='session-path'>{localize(
 							'positron.console.info.runtimePath', 'Path: {0}',
-							props.session.runtimeMetadata.runtimePath)}
+							getRuntimeDisplayPath(props.session.runtimeMetadata))}
 						</p>
 						<p className='line' data-testid='session-source'>{localize(
 							'positron.console.info.runtimeSource', 'Source: {0}',

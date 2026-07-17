@@ -9,7 +9,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
-import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { getRuntimeDisplayPath, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IChatWidget } from '../chat.js';
 
@@ -77,7 +77,7 @@ export async function showRuntimeSessionsPick(accessor: ServicesAccessor, _widge
 		return {
 			id: session.sessionId,
 			label,
-			detail: session.runtimeMetadata.runtimePath,
+			detail: getRuntimeDisplayPath(session.runtimeMetadata),
 			iconPath: {
 				dark: URI.parse(`data:image/svg+xml;base64, ${session.runtimeMetadata.base64EncodedIconSvg}`),
 			},
