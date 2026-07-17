@@ -1,0 +1,46 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* SPIKE (#14695): minimal styling for the PoC content. */
+
+.provider-config-content {
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	padding: 24px;
+	overflow: auto;
+}
+
+.provider-config-content-title {
+	margin: 0 0 8px;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.provider-config-content-subtitle {
+	margin: 0 0 16px;
+	opacity: 0.7;
+}
+
+.provider-config-content-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.provider-config-content-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 10px 12px;
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 6px;
+	margin-bottom: 8px;
+}
+
+.provider-config-content-status {
+	opacity: 0.7;
+	font-size: 12px;
+}

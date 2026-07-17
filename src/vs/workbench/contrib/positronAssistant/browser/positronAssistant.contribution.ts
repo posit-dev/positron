@@ -32,6 +32,10 @@ import '../common/positronAIConfiguration.js';
 // `positron.assistant.inlineCompletions.enable` setting to `github.copilot.enable`.
 import './inlineCompletionsMigration.js';
 
+// SPIKE (#14695): register the proof-of-concept provider-configuration editor (hosted as a modal
+// via the upstream modal editor part). Throwaway; remove before shipping.
+import './providerEditorSpike/configureProvidersEditor.contribution.js';
+
 // Register the commit message generation feature.
 registerCommitMessageGeneration();
 
