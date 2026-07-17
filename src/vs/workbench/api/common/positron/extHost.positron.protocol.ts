@@ -347,8 +347,7 @@ export interface ISerializedAgentCommand {
 }
 
 export type ISerializedValidateAndExecuteCommandResult =
-	| { ok: true; result: unknown }
-	| {
+	| { ok: true; result: unknown }| {
 		ok: false;
 		reason: 'not-found' | 'disabled' | 'error' | 'unknown';
 		precondition?: string;
