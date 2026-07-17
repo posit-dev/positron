@@ -300,7 +300,6 @@ function buildWatchers(checkout, assistantDirOverride) {
       replaying: true, // attach replays old output; don't timestamp/alert on it
       ring: new Ring(),
       child: null,
-      feeder: null,
       detaching: false,
     };
     // Every card carries its own verbs and footer keys, so the key handlers
@@ -385,15 +384,15 @@ function attachWatcher(w) {
   w.detaching = false;
   w.replaying = true;
   w.state = 'attaching';
-  w.feeder = new LineFeeder((line) => ingestWatcherLine(w, line));
+  const feeder = new LineFeeder((line) => ingestWatcherLine(w, line));
   const child = spawn(process.execPath, [DEEMON_BIN, 'npm', ...w.args], {
     cwd: w.cwd,
     stdio: ['pipe', 'pipe', 'pipe'],
     env: process.env,
   });
   w.child = child;
-  child.stdout.on('data', (d) => w.feeder.push(d));
-  child.stderr.on('data', (d) => w.feeder.push(d));
+  child.stdout.on('data', (d) => feeder.push(d));
+  child.stderr.on('data', (d) => feeder.push(d));
   child.on('exit', () => {
     w.child = null;
     if (!w.detaching && w.state !== 'no-daemon') w.state = 'stopped';
@@ -407,11 +406,9 @@ function attachWatcher(w) {
   invalidate();
 }
 
-// Detach our client; the daemon keeps running.
-function detachWatcher(w) {
-  if (!w.child) return;
-  w.detaching = true;
-  const child = w.child;
+// Ask a deemon client to detach (^C on its stdin), then hard-kill it after a
+// grace period. The daemon itself keeps running either way.
+function stopClient(child, graceMs) {
   try {
     child.stdin.write('\x03');
   } catch {
@@ -423,28 +420,21 @@ function detachWatcher(w) {
     } catch {
       /* ignore */
     }
-  }, 500);
+  }, graceMs);
+}
+
+// Detach our client; the daemon keeps running.
+function detachWatcher(w) {
+  if (!w.child) return;
+  w.detaching = true;
+  stopClient(w.child, 500);
 }
 
 // Kill the underlying daemon (not just our client), then call cb.
 function killWatcher(w, cb) {
   w.detaching = true; // our client's exit shouldn't flip us to 'stopped'
   const finish = () => {
-    if (w.child) {
-      const child = w.child;
-      try {
-        child.stdin.write('\x03');
-      } catch {
-        /* ignore */
-      }
-      setTimeout(() => {
-        try {
-          child.kill('SIGKILL');
-        } catch {
-          /* ignore */
-        }
-      }, 300);
-    }
+    if (w.child) stopClient(w.child, 300);
     w.state = 'no-daemon';
     w.errorCount = 0;
     w.ring.push('[positron-dev] daemon killed');
@@ -543,6 +533,16 @@ function newAppFeeder(app) {
   });
 }
 
+// Open a log for appending as a spawn stdio target; 'ignore' when it can't be
+// opened. Numeric fds must be closed by the caller after spawn.
+function logFdFor(logPath) {
+  try {
+    return fs.openSync(logPath, 'a');
+  } catch {
+    return 'ignore';
+  }
+}
+
 function appendLog(app, text) {
   try {
     fs.appendFileSync(app.logPath, text);
@@ -636,12 +636,7 @@ function assistantDirFor(checkout) {
 }
 
 function spawnAppProcess(app, cmd, args, cwd) {
-  let fd;
-  try {
-    fd = fs.openSync(app.logPath, 'a');
-  } catch {
-    fd = 'ignore';
-  }
+  const fd = logFdFor(app.logPath);
   const child = spawn(cmd, args, {
     cwd,
     detached: true,
@@ -773,12 +768,7 @@ async function launchElectron(withAssistant) {
   const extPath = path.join(assistantDir, 'packages', 'positron');
   appendLog(app, `[positron-dev] building assistant in ${assistantDir} ...\n`);
   setStatus('building assistant, then launching');
-  let fd;
-  try {
-    fd = fs.openSync(app.logPath, 'a');
-  } catch {
-    fd = 'ignore';
-  }
+  const fd = logFdFor(app.logPath);
   const prep = spawn('npm', ['run', 'build:positron'], {
     cwd: assistantDir,
     stdio: ['ignore', fd, fd],
@@ -895,6 +885,20 @@ function refreshApps() {
   }
 }
 
+// Signal a detached process's whole group (it is the group leader), falling
+// back to the single pid if the group is gone.
+function signalGroup(pid, sig) {
+  try {
+    process.kill(-pid, sig);
+  } catch {
+    try {
+      process.kill(pid, sig);
+    } catch {
+      /* already gone */
+    }
+  }
+}
+
 // Kill a launched app (Electron / web server). They are spawned detached, so
 // the recorded pid is a process-group leader; signal the whole group to take
 // code.sh's children (Electron itself) down with it.
@@ -904,25 +908,14 @@ function killApp(app) {
     return;
   }
   const pid = app.pid;
-  const signalTree = (sig) => {
-    try {
-      process.kill(-pid, sig);
-    } catch {
-      try {
-        process.kill(pid, sig);
-      } catch {
-        /* already gone */
-      }
-    }
-  };
   app.ring.push(`[positron-dev] killing ${app.label} (pid ${pid}) ...`);
-  signalTree('SIGTERM');
+  signalGroup(pid, 'SIGTERM');
   setStatus(`killing ${app.label}`);
   let ticks = 0;
   const poll = setInterval(() => {
     if (pidAlive(pid)) {
       ticks++;
-      if (ticks === 10) signalTree('SIGKILL'); // ~3s of grace, then hard kill
+      if (ticks === 10) signalGroup(pid, 'SIGKILL'); // ~3s of grace, then hard kill
       if (ticks > 30) clearInterval(poll); // stop watching; pidfile logic re-checks
       return;
     }
@@ -1090,15 +1083,7 @@ function runInstall(force) {
 function cancelInstall() {
   const child = deps.child;
   if (!child) return setStatus('nothing to kill on Deps (i runs npm install)');
-  try {
-    process.kill(-child.pid, 'SIGTERM');
-  } catch {
-    try {
-      child.kill('SIGTERM');
-    } catch {
-      /* already gone */
-    }
-  }
+  signalGroup(child.pid, 'SIGTERM');
   deps.state = 'failed'; // sticky until the next i re-derives freshness
   deps.ring.push('[positron-dev] npm install cancelled');
   setStatus('npm install cancelled');
@@ -1595,13 +1580,7 @@ function quit() {
   for (const w of watchers) detachWatcher(w);
   for (const app of Object.values(apps)) stopTail(app);
   // Don't orphan a half-done npm install; it's idempotent to re-run.
-  if (deps && deps.child) {
-    try {
-      process.kill(-deps.child.pid, 'SIGTERM');
-    } catch {
-      /* ignore */
-    }
-  }
+  if (deps && deps.child) signalGroup(deps.child.pid, 'SIGTERM');
   // Give the detach writes a moment to flush, then restore the screen.
   setTimeout(() => {
     try {
@@ -1713,15 +1692,11 @@ function probeWatcher(w, timeoutMs = 15000) {
       clearTimeout(timer);
       if (note) w.probeNote = note;
       w.detaching = true; // daemon keeps running; our client exit is not 'stopped'
-      try {
-        child && child.kill('SIGKILL');
-      } catch {
-        /* ignore */
-      }
+      if (child) stopClient(child, 0);
       resolve();
     };
     const timer = setTimeout(() => finish('probe timed out'), timeoutMs);
-    w.feeder = new LineFeeder((line) => {
+    const feeder = new LineFeeder((line) => {
       ingestWatcherLine(w, line);
       if (/\[deemon\] No daemon running/.test(line)) {
         w.state = 'no-daemon'; // stale socket
@@ -1736,8 +1711,8 @@ function probeWatcher(w, timeoutMs = 15000) {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: process.env,
     });
-    child.stdout.on('data', (d) => w.feeder.push(d));
-    child.stderr.on('data', (d) => w.feeder.push(d));
+    child.stdout.on('data', (d) => feeder.push(d));
+    child.stderr.on('data', (d) => feeder.push(d));
     // Client exiting before the marker means the daemon is gone (the state
     // machine already handled 'Build daemon exited' / stale-socket lines).
     child.on('exit', () => {
