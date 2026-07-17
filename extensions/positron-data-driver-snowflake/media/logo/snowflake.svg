@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="80px" height="80px" viewBox="0 0 80 80" version="1.1" xmlns="http://www.w3.org/2000/svg">
+	<title>Snowflake</title>
+	<g stroke="#29B5E8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none">
+		<g transform="translate(40,40)">
+			<g id="arm">
+				<line x1="0" y1="0" x2="0" y2="-30" />
+				<line x1="0" y1="-14" x2="-8" y2="-22" />
+				<line x1="0" y1="-14" x2="8" y2="-22" />
+				<line x1="0" y1="-26" x2="-6" y2="-32" />
+				<line x1="0" y1="-26" x2="6" y2="-32" />
+			</g>
+			<use href="#arm" transform="rotate(60)" />
+			<use href="#arm" transform="rotate(120)" />
+			<use href="#arm" transform="rotate(180)" />
+			<use href="#arm" transform="rotate(240)" />
+			<use href="#arm" transform="rotate(300)" />
+		</g>
+	</g>
+</svg>
