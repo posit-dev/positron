@@ -39,7 +39,7 @@ test.describe('Default Interpreters - Python', {
 		await cleanup.discardAllChanges();
 	});
 
-	test('Python - Add a default interpreter (Conda)', async function ({ sessions }) {
+	test('Python - Add a default interpreter (Conda)', async function ({ sessions, hotKeys }) {
 		// Get version from appropriate env var (hidden Python in CI, regular in local)
 		const pythonVersion = process.env.CI
 			? (process.env.POSITRON_HIDDEN_PY || '3.12.10').split(' ')[0] // Extract "3.12.10" from "3.12.10 (Conda)"
@@ -53,12 +53,17 @@ test.describe('Default Interpreters - Python', {
 			? /python-env\/bin\/python/
 			: new RegExp(`~?\\.pyenv/versions/${pythonVersion.replace(/\./g, '\\.')}/bin/python`);
 
-		// Verify interpreter metadata. No extra reload here: the beforeAll reload above already
-		// starts the interpreter. A second reload used to run at this point, but it raced a
-		// window reload against that still-in-flight session-creation call, canceling it and
-		// leaving the console referencing a session that never finished starting.
-		const { name, path } = await sessions.getMetadata();
-		expect(name).toMatch(versionRegex);
-		expect(path).toMatch(pathRegex);
+		// Retry with reload on failure -- same detached-session race as #14901; matches
+		// default-r-interpreter.test.ts's idiom.
+		await expect(async () => {
+			try {
+				const { name, path } = await sessions.getMetadata();
+				expect(name).toMatch(versionRegex);
+				expect(path).toMatch(pathRegex);
+			} catch (error) {
+				await hotKeys.reloadWindow(true);
+				throw error;
+			}
+		}).toPass({ timeout: 60000 });
 	});
 });

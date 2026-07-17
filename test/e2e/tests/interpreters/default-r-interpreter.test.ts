@@ -42,10 +42,9 @@ test.describe('Default Interpreters - R', {
 
 	});
 
-	test('R - Add a default interpreter', async function ({ runCommand, sessions, hotKeys }) {
+	test('R - Add a default interpreter', async function ({ sessions, hotKeys }) {
 
-		await hotKeys.reloadWindow(true);
-
+		// No reload here -- see #14901, same detached-session race as the Python default-interpreter test.
 		const hiddenRVersion = process.env.POSITRON_HIDDEN_R;
 		if (!hiddenRVersion) {
 			throw new Error('POSITRON_HIDDEN_R environment variable is not set');
