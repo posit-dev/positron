@@ -34,6 +34,21 @@ export interface PinInfo {
 	activeBundleId: string;
 }
 
+/**
+ * A single version (bundle) of a pin, as returned by the bundles endpoint. The `id` doubles as the
+ * `_rev<id>` segment used to read a specific version's files.
+ */
+export interface BundleInfo {
+	/** The bundle id, as a string. Also the `_rev<id>` segment in the version's file URLs. */
+	id: string;
+	/** The bundle creation timestamp, as an ISO 8601 string (e.g. "2024-01-15T09:30:00Z"). */
+	createdTime: string;
+	/** Whether this bundle is the pin's active (currently served) version. */
+	active: boolean;
+	/** The bundle size in bytes, when recorded. */
+	size?: number;
+}
+
 /** The subset of the server settings response this driver reads. */
 export interface ServerSettings {
 	/** The Connect server version, e.g. "2024.01.0". */
@@ -59,6 +74,14 @@ interface RawApplication {
 /** The applications endpoint response envelope. */
 interface RawApplicationsResponse {
 	applications?: RawApplication[];
+}
+
+/** The shape of a single item in the content bundles endpoint response. */
+interface RawBundle {
+	id?: string | number;
+	created_time?: string;
+	active?: boolean;
+	size?: number;
 }
 
 /**
@@ -159,6 +182,29 @@ export class ConnectClient {
 				description: app.description ?? '',
 				activeBundleId: app.bundle_id !== undefined ? String(app.bundle_id) : '',
 			}));
+	}
+
+	/**
+	 * Lists a pin's versions (bundles) via the documented content bundles endpoint, newest first.
+	 * Each version's `id` is also the `_rev<id>` segment used to read that version's files.
+	 *
+	 * @param guid The pin's content GUID.
+	 */
+	async listBundles(guid: string): Promise<BundleInfo[]> {
+		const json = await this._getJson<RawBundle[]>(this._apiUrl(`v1/content/${encodeURIComponent(guid)}/bundles`));
+		const bundles = Array.isArray(json) ? json : [];
+		this._logger.info(`Found ${bundles.length} version(s) for pin ${guid}`);
+		return bundles
+			.filter((bundle): bundle is RawBundle & { id: string | number } => bundle.id !== undefined)
+			.map(bundle => ({
+				id: String(bundle.id),
+				createdTime: typeof bundle.created_time === 'string' ? bundle.created_time : '',
+				active: bundle.active === true,
+				size: typeof bundle.size === 'number' ? bundle.size : undefined,
+			}))
+			// Newest first. ISO 8601 timestamps sort lexicographically in chronological order; ties
+			// (or missing timestamps) fall back to the numerically larger (newer) bundle id.
+			.sort((a, b) => b.createdTime.localeCompare(a.createdTime) || Number(b.id) - Number(a.id));
 	}
 
 	/**

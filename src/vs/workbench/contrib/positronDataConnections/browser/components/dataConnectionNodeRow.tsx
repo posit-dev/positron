@@ -66,6 +66,9 @@ const kindIcon = (dto: IDataConnectionNodeDTO): string => {
 		case 'pin':
 			return 'pinned';
 
+		case 'version':
+			return 'history';
+
 		case 'column':
 		case 'field':
 			return dto.isPrimaryKey ? 'positron-db-column-key' : 'positron-db-column';

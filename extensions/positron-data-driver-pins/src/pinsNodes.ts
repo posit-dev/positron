@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
-import { PinInfo } from './connectClient.js';
+import { BundleInfo, PinInfo } from './connectClient.js';
 
 /**
  * The maximum number of `data.txt` requests made in parallel when resolving the type badges for an
@@ -24,6 +24,9 @@ export interface IPinsBrowseHost {
 	 * than failing the whole owner expansion.
 	 */
 	getPinType(pin: PinInfo): Promise<string | undefined>;
+
+	/** Lists a pin's versions (bundles), newest first, when the pin node is expanded. */
+	getBundles(pin: PinInfo): Promise<BundleInfo[]>;
 }
 
 /**
@@ -61,23 +64,58 @@ export function createOwnerNode(host: IPinsBrowseHost, ownerUsername: string, pi
 		async getChildren() {
 			const sorted = [...pins].sort((a, b) => a.name.localeCompare(b.name));
 			const types = await mapWithConcurrency(sorted, MAX_METADATA_CONCURRENCY, pin => host.getPinType(pin));
-			return sorted.map((pin, index) => createPinNode(pin, types[index]));
+			return sorted.map((pin, index) => createPinNode(host, pin, types[index]));
 		},
 	};
 }
 
 /**
- * Creates a pin node. In PR 1 pins are leaves: no children and no preview (previewing tabular pins
- * in the Data Explorer comes in a later PR). The type badge shows the pin's storage format when
- * known.
+ * Creates a pin node. Expanding it lists the pin's versions (bundles), newest first; previewing a
+ * version's data in the Data Explorer comes in a later PR. The type badge shows the pin's storage
+ * format when known.
  *
+ * @param host The browse host used to list the pin's versions on expansion.
  * @param pin The pin.
  * @param type The pin's storage type for the badge, or undefined when unknown.
  */
-export function createPinNode(pin: PinInfo, type: string | undefined): positron.DataConnectionNode {
+export function createPinNode(host: IPinsBrowseHost, pin: PinInfo, type: string | undefined): positron.DataConnectionNode {
 	return {
 		name: pin.name,
 		kind: positron.DataConnectionNodeKind.Pin,
 		dataType: type,
+		async getChildren() {
+			const bundles = await host.getBundles(pin);
+			return bundles.map(createVersionNode);
+		},
 	};
+}
+
+/**
+ * Creates a version node: one bundle of a pin. Versions are leaves for now (previewing a version's
+ * data comes in a later PR). The active (currently served) version is flagged with an "active"
+ * badge; the name pairs the creation time with the bundle id, e.g. "2024-01-15 09:30 (#421)".
+ *
+ * @param bundle The bundle (version).
+ */
+export function createVersionNode(bundle: BundleInfo): positron.DataConnectionNode {
+	const timestamp = formatBundleTimestamp(bundle.createdTime);
+	return {
+		name: timestamp ? `${timestamp} (#${bundle.id})` : `#${bundle.id}`,
+		kind: positron.DataConnectionNodeKind.Version,
+		dataType: bundle.active ? 'active' : undefined,
+	};
+}
+
+/**
+ * Formats a bundle's ISO 8601 creation timestamp as "YYYY-MM-DD HH:MM" in UTC, for stable,
+ * timezone-unambiguous version labels. Returns an empty string when the timestamp is missing or
+ * unparseable, so the caller can fall back to a bare bundle id.
+ */
+function formatBundleTimestamp(iso: string): string {
+	const date = new Date(iso);
+	if (iso === '' || isNaN(date.getTime())) {
+		return '';
+	}
+	const pad = (n: number) => String(n).padStart(2, '0');
+	return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }
