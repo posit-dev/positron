@@ -90,8 +90,11 @@ function createDataConnectionsService(options: CreateServiceOptions = {}): IPosi
 describe('getDataConnections', () => {
 	const ctx = createTestContainer().build();
 
-	function run(dataConnectionsService: IPositronDataConnectionsService, enabled: boolean = true) {
-		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({ 'dataConnections.enabled': enabled }));
+	function run(dataConnectionsService: IPositronDataConnectionsService, enabled: boolean = true, aiEnabled: boolean = true) {
+		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
+			'dataConnections.enabled': enabled,
+			'ai.enabled': aiEnabled,
+		}));
 		ctx.instantiationService.stub(IPositronDataConnectionsService, dataConnectionsService);
 		return getDataConnections(ctx.instantiationService);
 	}
@@ -101,6 +104,16 @@ describe('getDataConnections', () => {
 		const dataConnectionsService = stubInterface<IPositronDataConnectionsService>({ getProfiles });
 
 		const result = await run(dataConnectionsService, false);
+
+		expect(result).toEqual([]);
+		expect(getProfiles).not.toHaveBeenCalled();
+	});
+
+	it('returns an empty list when ai.enabled is false, without touching the service', async () => {
+		const getProfiles = vi.fn(() => [createProfile()]);
+		const dataConnectionsService = stubInterface<IPositronDataConnectionsService>({ getProfiles });
+
+		const result = await run(dataConnectionsService, true, false);
 
 		expect(result).toEqual([]);
 		expect(getProfiles).not.toHaveBeenCalled();
