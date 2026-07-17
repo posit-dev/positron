@@ -3,6 +3,22 @@ name: "Test: E2E Pyrefly (Ubuntu)"
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      skip_cache:
+        description: "Skip restoring caches (use when testing a specific commit)"
+        required: false
+        default: false
+        type: boolean
+      enable_diagnostic_logging:
+        required: false
+        description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -39,12 +55,17 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
+
       - name: Setup build environment
         uses: ./.github/actions/setup-build-env
         with:
           distro: ubuntu
           install-playwright: 'true'
           github-token: ${{ github.token }}
+          skip-cache: ${{ inputs.skip_cache }}
 
       - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-test-env
@@ -75,6 +96,7 @@ jobs:
           SHARD_NAME: electron-pyrefly
           USE_KEY: true
           GH_SUMMARY_REPORT: true
+          ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
         run: |
           ALLOW_PYREFLY=true npx playwright test test/e2e/tests/lsp --project=e2e-electron --workers=1
 

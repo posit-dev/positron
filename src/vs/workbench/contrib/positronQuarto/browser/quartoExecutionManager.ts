@@ -16,6 +16,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
@@ -42,7 +43,8 @@ import { usingQuartoInlineOutputStatementSplitting } from '../common/positronQua
 import { RuntimeOnlineState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { DeferredPromise, raceCancellationError, RunOnceScheduler, timeout } from '../../../../base/common/async.js';
-import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IMissingPackagesPreflightService } from '../../positronMissingPackages/browser/missingPackagesPreflightService.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -128,6 +130,27 @@ export function shouldSkipFirstCommandFinished(promptModel: IPromptInputModel): 
 }
 
 /**
+ * Builds a code location for a chunk/statement in a Quarto document from its
+ * line range. Cell ranges are line-based (column 1), so a zero character offset
+ * is used; this is sufficient to attribute outputs (e.g. plots) to the source
+ * and avoids a dependency on the document's text model being resolved at
+ * execution time.
+ *
+ * @param uri The document URI.
+ * @param range The 1-based, line-oriented range of the code being executed.
+ * @returns A code location with 0-based lines and zero character offsets.
+ */
+function codeLocationForRange(uri: URI, range: Range): ICodeLocation {
+	return {
+		uri,
+		range: {
+			start: { line: range.startLineNumber - 1, character: 0 },
+			end: { line: range.endLineNumber - 1, character: 0 },
+		},
+	};
+}
+
+/**
  * Implementation of the Quarto execution manager.
  * Manages code execution queue and output collection for Quarto documents.
  */
@@ -180,6 +203,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		@IQuartoKernelManager private readonly _kernelManager: IQuartoKernelManager,
 		@IQuartoDocumentModelService private readonly _documentModelService: IQuartoDocumentModelService,
 		@IEditorService private readonly _editorService: IEditorService,
+		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
 		@IEphemeralStateService private readonly _ephemeralStateService: IEphemeralStateService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -217,6 +241,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		if (cells.length === 0) {
 			return;
 		}
+
+		// Running code pins the document tab so its preview editor (and any
+		// backing runtime session) isn't silently closed.
+		this._pinEditorForDocument(documentUri);
 
 		this._logService.debug(`[QuartoExecutionManager] Queueing ${cells.length} cells for execution`);
 
@@ -377,6 +405,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		if (codeRanges.length === 0) {
 			return;
 		}
+
+		// Running code pins the document tab so its preview editor (and any
+		// backing runtime session) isn't silently closed. See #14736.
+		this._pinEditorForDocument(documentUri);
 
 		this._logService.debug(`[QuartoExecutionManager] Queueing ${codeRanges.length} inline code ranges for execution`);
 
@@ -741,12 +773,33 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					this._logService.debug(
 						`[QuartoExecutionManager] Executing inline code in cell ${cell.id} with execution ID ${fragmentExecutionId}`
 					);
+
+					// Attribute the fragment to its source location in the
+					// document. When the code was split into statements, use the
+					// fragment's own range; otherwise fall back to the whole
+					// cell range. The location is forwarded to the kernel so that
+					// outputs (e.g. plots) can link back to the source.
+					const fragmentRange = fragmentRanges?.[index] ?? codeRange;
+					const codeLocation = codeLocationForRange(documentUri, fragmentRange);
+					const attribution: IConsoleCodeAttribution = {
+						source: CodeAttributionSource.Notebook,
+						metadata: {
+							codeLocation,
+							cell: {
+								uri: cell.id,
+								notebook: {
+									uri: documentUri,
+								},
+							},
+						},
+					};
+
 					session.execute(
 						fragment,
 						fragmentExecutionId,
 						RuntimeCodeExecutionMode.Interactive,
 						errorBehavior,
-						undefined,
+						attribution,
 						executionMetadata
 					);
 
@@ -754,17 +807,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					const event: ILanguageRuntimeCodeExecutedEvent = {
 						executionId: fragmentExecutionId,
 						sessionId: session.sessionId,
-						attribution: {
-							source: CodeAttributionSource.Notebook,
-							metadata: {
-								cell: {
-									uri: cell.id,
-									notebook: {
-										uri: documentUri,
-									},
-								},
-							},
-						},
+						attribution,
 						code: fragment,
 						languageId: cell.language,
 						runtimeName: session.runtimeMetadata.runtimeName,
@@ -857,6 +900,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				const errorBehavior = options.error
 					? RuntimeErrorBehavior.Stop
 					: RuntimeErrorBehavior.Continue;
+
+				// Attribute the code to its source location in the document so
+				// that outputs (e.g. plots) can link back to the source chunk.
+				const codeLocation = codeLocationForRange(documentUri, codeRange);
 				await this._consoleService.executeCode(
 					cell.language,
 					undefined,
@@ -864,6 +911,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					{
 						source: CodeAttributionSource.Notebook,
 						metadata: {
+							codeLocation,
 							cell: {
 								uri: cell.id,
 								notebook: {
@@ -2208,6 +2256,22 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			output,
 			documentUri,
 		});
+	}
+
+	/**
+	 * Pin any editor showing the given document.
+	 *
+	 * Quarto documents open as preview tabs, which are silently replaced when
+	 * the user opens another file. Running code signals the user intends to
+	 * work with the document, not just preview it -- and in inline output mode
+	 * it creates a backing runtime session -- so we pin the tab to prevent it
+	 * from being closed out from under a live session. This mirrors the
+	 * notebook behavior where running a cell pins the editor.
+	 */
+	private _pinEditorForDocument(documentUri: URI): void {
+		for (const { groupId, editor } of this._editorService.findEditors(documentUri)) {
+			this._editorGroupsService.getGroup(groupId)?.pinEditor(editor);
+		}
 	}
 
 	/**

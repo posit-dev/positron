@@ -192,6 +192,25 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Describes what should happen when code is submitted for evaluation while
+	 * the target runtime is busy (i.e. not idle).
+	 */
+	export enum RuntimeBusyBehavior {
+		/**
+		 * The code should be queued and evaluated when the runtime next becomes
+		 * idle. This is the default behavior.
+		 */
+		Queue = 'queue',
+
+		/**
+		 * The evaluation should be rejected with an error instead of being
+		 * queued. Use this when running code against a stale view of the
+		 * session state is unacceptable and the caller would rather fail closed.
+		 */
+		Reject = 'reject',
+	}
+
+	/**
 	 * Possible reasons a language runtime could exit.
 	 */
 	export enum RuntimeExitReason {
@@ -500,6 +519,16 @@ declare module 'positron' {
 		 * Used to detect architecture mismatches with the system.
 		 */
 		interpreterArch?: LanguageRuntimeArchitecture;
+
+		/**
+		 * The runtime's full build version, if it reports one. Distinct from
+		 * `implementation_version`: this may carry extra build metadata (e.g.
+		 * `0.1.252+14.6618e9a`) used to detect version mismatches.
+		 */
+		build_version?: string;
+
+		/** The short git commit hash the runtime was built from, if known. */
+		commit?: string;
 	}
 
 	/**
@@ -627,7 +656,11 @@ declare module 'positron' {
 	 * before the runtime is started.
 	 */
 	export interface LanguageRuntimeMetadata {
-		/** The path to the runtime. */
+		/**
+		 * The absolute path to the runtime executable. Always a fully-expanded
+		 * path suitable for use with execFile or equivalent; never contains ~
+		 * or other shorthand.
+		 */
 		runtimePath: string;
 
 		/** A unique identifier for this runtime; takes the form of a GUID */
@@ -1435,6 +1468,46 @@ declare module 'positron' {
 		getDynState(): Thenable<LanguageRuntimeDynState>;
 
 		/**
+		 * Returns the current runtime state of the session.
+		 *
+		 * This is a synchronous accessor that reflects the session's last known
+		 * runtime state. Unlike `onDidChangeRuntimeState` (which only emits on
+		 * transitions), this can be read at any time, making it suitable for
+		 * gating logic that must verify the session is idle before dispatching
+		 * work.
+		 */
+		getRuntimeState?(): RuntimeState;
+
+		/**
+		 * An event that fires when the session's runtime state changes.
+		 *
+		 * Unlike `getRuntimeState()` (which reports the last known state at any
+		 * time), this only emits on transitions. Pair the two: read
+		 * `getRuntimeState()` for the current value, and subscribe here to be
+		 * notified of subsequent changes.
+		 */
+		onDidChangeRuntimeState?: vscode.Event<RuntimeState>;
+
+		/**
+		 * An event that fires when the session's connection to the underlying
+		 * runtime is lost. This can happen if, for example, the transport to the
+		 * kernel supervisor drops while the runtime itself keeps running.
+		 *
+		 * When this fires, any previously observed runtime state may be stale.
+		 * Callers should treat the session's state as unknown until either the
+		 * runtime state changes or `onDidReconnect` fires.
+		 */
+		onDidDisconnect?: vscode.Event<void>;
+
+		/**
+		 * An event that fires when the session's connection to the underlying
+		 * runtime is re-established after an `onDidDisconnect`. Callers should
+		 * re-synchronize by reading `getRuntimeState()`, since transitions that
+		 * happened while disconnected may not have been observed.
+		 */
+		onDidReconnect?: vscode.Event<void>;
+
+		/**
 		 * Calls a method in the runtime and returns the result.
 		 *
 		 * Throws a RuntimeMethodError if the method call fails.
@@ -2207,6 +2280,10 @@ declare module 'positron' {
 		GroupColumns = 'group-columns',
 		GroupIndexes = 'group-indexes',
 		Index = 'index',
+		// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
+		Owner = 'owner',
+		// A pin on a Posit Connect server (positron-data-driver-pins).
+		Pin = 'pin',
 	}
 
 	export interface DataConnectionNode {
@@ -2826,13 +2903,19 @@ declare module 'positron' {
 		 *  not provided, an appropriate session will be chosen, and if no
 		 *  session for the desired language is running at all, a new session
 		 *  will be started.
+		 * @param whenBusy Determines what happens if the target runtime is busy
+		 *  when the evaluation is requested. Defaults to
+		 *  `RuntimeBusyBehavior.Queue`, which queues the code to run when the
+		 *  runtime next becomes idle. Use `RuntimeBusyBehavior.Reject` to have
+		 *  the returned Thenable reject with an error instead of queueing.
 		 * @returns A Thenable that resolves with the result of the code
 		 *  evaluation.
 		 */
 		export function evaluateCode(languageId: string,
 			code: string,
 			cancellationToken?: vscode.CancellationToken,
-			sessionId?: string): Thenable<EvalResult>;
+			sessionId?: string,
+			whenBusy?: RuntimeBusyBehavior): Thenable<EvalResult>;
 
 		/**
 		 * Executes a set of cells in a source document. The results are
@@ -3531,6 +3614,27 @@ declare module 'positron' {
 		export function getPositronChatContext(request: vscode.ChatRequest): Thenable<ChatContext>;
 
 		/**
+		 * Filters a chat request's tools down to those Positron considers enabled
+		 * for the current context. Runs synchronously. Used by chat clients such
+		 * as Copilot Chat to apply Positron's tool-availability policy.
+		 *
+		 * @param request The chat request the tools would be used for.
+		 * @param tools The full list of candidate tools.
+		 * @returns The names of the tools that are enabled.
+		 */
+		export function getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): string[];
+
+		/**
+		 * Generate the Positron assistant prompt for a chat request: the
+		 * Positron-specific system instructions and IDE context to embed in a
+		 * chat prompt. Used by chat clients such as Copilot Chat.
+		 *
+		 * @param request The chat request to generate prompt content for.
+		 * @returns The assembled prompt content.
+		 */
+		export function generateAssistantPrompt(request: vscode.ChatRequest): Thenable<string>;
+
+		/**
 		 * Send a progress response to the chat response stream.
 		 */
 		export function responseProgress(token: unknown, part: vscode.ChatResponsePart | {
@@ -3798,13 +3902,19 @@ declare module 'positron' {
 		/**
 		 * Get context about the active notebook.
 		 *
-		 * Resolves with `undefined` when no notebook is open. Rejects with an
-		 * actionable error when a notebook is open but in an editor other than
-		 * the Positron Notebook Editor (e.g. the built-in/Jupyter notebook
-		 * editor), since the notebook API only operates on Positron Notebook
-		 * Editor instances; the error message explains how to switch editors.
+		 * When no Positron notebook is the active editor pane (e.g. focus is
+		 * in another editor or view), falls back to the open notebook attached
+		 * to the foreground session, then to the most recently active Positron
+		 * notebook that is still open.
 		 *
-		 * @returns The notebook context, or undefined if no notebook is active
+		 * Resolves with `undefined` when no notebook is open. Rejects with an
+		 * actionable error when the active editor holds a notebook in an
+		 * editor other than the Positron Notebook Editor (e.g. the
+		 * built-in/Jupyter notebook editor), since the notebook API only
+		 * operates on Positron Notebook Editor instances; the error message
+		 * explains how to switch editors.
+		 *
+		 * @returns The notebook context, or undefined if no notebook is open
 		 */
 		export function getContext(): Thenable<NotebookContext | undefined>;
 
@@ -3921,5 +4031,41 @@ declare module 'positron' {
 		 * @param cellIndices Optional array of cell indices to clear. If omitted, clears all cells.
 		 */
 		export function clearCellOutputs(notebookUri: string, cellIndices?: number[]): Thenable<void>;
+	}
+
+	/**
+	 * A specification for migrating one configuration key to another.
+	 * Used with {@link workspace.registerConfigurationMigrations}.
+	 */
+	export interface ConfigurationMigrationSpec {
+		/** The configuration key to migrate from. */
+		readonly key: string;
+		/** The configuration key to migrate to. */
+		readonly migrateTo: string;
+	}
+
+	export namespace workspace {
+
+		/**
+		 * Register configuration key migrations. Each migration copies a value from an old
+		 * configuration key to a new key and clears the old key. If the destination key
+		 * already has a user-set value at the same configuration target, the old key is
+		 * cleared without overwriting the new value.
+		 *
+		 * Ownership of the source keys is required and determined in order:
+		 * 1. The key is still registered and its `source` matches the calling extension.
+		 * 2. The key has no registered extension owner (e.g. removed from the manifest after
+		 *    renaming) and the key starts with `{extensionId}.` — namespace ownership.
+		 *
+		 * Ownership checks are bypassed entirely for extensions published by `posit`.
+		 *
+		 * If the old key is enforced by system policy but the new key is not, the migration
+		 * will log an error and notify the user; the admin should update the policy to use
+		 * the new key.
+		 *
+		 * @param migrations Array of migration specifications.
+		 * @returns A {@link vscode.Disposable} (unregistering is not supported; dispose is a no-op).
+		 */
+		export function registerConfigurationMigrations(migrations: ReadonlyArray<ConfigurationMigrationSpec>): vscode.Disposable;
 	}
 }

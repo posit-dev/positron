@@ -7,7 +7,7 @@
 
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IQuickInputService, IQuickPickItem, QuickInputHideReason, QuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
@@ -78,25 +78,43 @@ describe('selectNewLanguageRuntime', () => {
 		return ctx.instantiationService.invokeFunction(accessor => selectNewLanguageRuntime(accessor, options));
 	}
 
-	// The helper does `await fetchContributedItems()` before setting up the
-	// picker, so the items array isn't populated until pick.show() is called.
-	// Poll until that happens before reading items / firing events from tests.
+	// The helper builds the runtime rows synchronously and calls pick.show()
+	// immediately; contributed items (from picker contributions) are fetched
+	// afterwards and folded in via a rebuild, so they may not be present the
+	// instant show() is called. Poll for show() before reading runtime rows;
+	// poll again (vi.waitFor) when asserting on contributed items.
 	async function waitUntilOpened(): Promise<void> {
 		await vi.waitFor(() => expect(pick.show).toHaveBeenCalled());
 	}
 
-	function registerRuntime(metadata: ILanguageRuntimeMetadata): ILanguageRuntimeMetadata {
-		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(metadata));
+	async function registerRuntime(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata> {
+		const runtimeService = ctx.get(ILanguageRuntimeService);
+		ctx.disposables.add(runtimeService.registerRuntime(metadata));
 		if (!preferredByLanguage.has(metadata.languageId)) {
 			preferredByLanguage.set(metadata.languageId, metadata);
 		}
-		return metadata;
+		// registerRuntime enriches the metadata into a new object (e.g. adds
+		// runtimeDisplayPath); return the stored instance the picker resolves to.
+		return runtimeService.getRegisteredRuntime(metadata.runtimeId) ?? metadata;
 	}
 
 	function pickItemById(id: string): IQuickPickItem | undefined {
 		return pick.items.find(
 			(item): item is IQuickPickItem => item.type !== 'separator' && item.id === id,
 		);
+	}
+
+	function pickItemByLabel(label: string): IQuickPickItem | undefined {
+		return pick.items.find(
+			(item): item is IQuickPickItem => item.type !== 'separator' && item.label === label,
+		);
+	}
+
+	// Contributed items are fetched after show() and folded in via a rebuild,
+	// so tests must poll for them rather than reading synchronously.
+	async function waitForItemByLabel(label: string): Promise<IQuickPickItem> {
+		await vi.waitFor(() => expect(pickItemByLabel(label)).toBeDefined());
+		return pickItemByLabel(label)!;
 	}
 
 
@@ -109,7 +127,7 @@ describe('selectNewLanguageRuntime', () => {
 		});
 
 		it('resolves to the selected runtime metadata', async () => {
-			const py = registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			const py = await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 			const promise = runPicker();
 			await waitUntilOpened();
 			const item = pickItemById('py-1')!;
@@ -135,8 +153,8 @@ describe('selectNewLanguageRuntime', () => {
 
 	describe('options.languageId', () => {
 		it('filters runtimes to the given languageId', async () => {
-			registerRuntime(makeRuntime({ runtimeId: 'py-1', languageId: 'python', languageName: 'Python' }));
-			registerRuntime(makeRuntime({ runtimeId: 'r-1', languageId: 'r', languageName: 'R', runtimeName: 'R 4.4' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1', languageId: 'python', languageName: 'Python' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'r-1', languageId: 'r', languageName: 'R', runtimeName: 'R 4.4' }));
 
 			const promise = runPicker({ languageId: 'python' });
 			await waitUntilOpened();
@@ -150,7 +168,7 @@ describe('selectNewLanguageRuntime', () => {
 		});
 
 		it('passes languageId through to getPickerContributions', async () => {
-			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 			const spy = vi.spyOn(ctx.get(ILanguageRuntimeService), 'getPickerContributions');
 			const promise = runPicker({ languageId: 'python' });
 			await waitUntilOpened();
@@ -162,8 +180,8 @@ describe('selectNewLanguageRuntime', () => {
 
 	describe('options.currentRuntimeId', () => {
 		it('pre-focuses the matching item via activeItems', async () => {
-			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
-			registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0', runtimeName: 'Python 3.10' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0', runtimeName: 'Python 3.10' }));
 
 			const promise = runPicker({ currentRuntimeId: 'py-2' });
 			await waitUntilOpened();
@@ -174,7 +192,7 @@ describe('selectNewLanguageRuntime', () => {
 		});
 
 		it('leaves activeItems untouched when no item matches the id', async () => {
-			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 			const promise = runPicker({ currentRuntimeId: 'unknown-id' });
 			await waitUntilOpened();
 			expect(pick.activeItems).toEqual([]);
@@ -185,8 +203,8 @@ describe('selectNewLanguageRuntime', () => {
 
 	describe('item structure', () => {
 		it('groups Suggested + per-environment-type runtimes with separators', async () => {
-			registerRuntime(makeRuntime({ runtimeId: 'py-system', runtimeSource: 'System', runtimeName: 'Python (System)' }));
-			registerRuntime(makeRuntime({ runtimeId: 'py-conda', runtimeSource: 'Conda', runtimeName: 'Python (Conda)' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-system', runtimeSource: 'System', runtimeName: 'Python (System)' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-conda', runtimeSource: 'Conda', runtimeName: 'Python (Conda)' }));
 
 			const promise = runPicker();
 			await waitUntilOpened();
@@ -208,9 +226,9 @@ describe('selectNewLanguageRuntime', () => {
 		});
 
 		it('sorts within an env type by version descending, unsupported runtimes last', async () => {
-			registerRuntime(makeRuntime({ runtimeId: 'py-310', languageVersion: '3.10.0', runtimeName: 'Python 3.10' }));
-			registerRuntime(makeRuntime({ runtimeId: 'py-312', languageVersion: '3.12.0', runtimeName: 'Python 3.12' }));
-			registerRuntime(makeRuntime({
+			await registerRuntime(makeRuntime({ runtimeId: 'py-310', languageVersion: '3.10.0', runtimeName: 'Python 3.10' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-312', languageVersion: '3.12.0', runtimeName: 'Python 3.12' }));
+			await registerRuntime(makeRuntime({
 				runtimeId: 'py-old', languageVersion: '3.8.0', runtimeName: 'Python 3.8 (unsupported)',
 				extraRuntimeData: { supported: false },
 			}));
@@ -231,21 +249,21 @@ describe('selectNewLanguageRuntime', () => {
 
 	describe('reactive rebuild', () => {
 		it('rebuilds when onDidRegisterRuntime fires mid-pick', async () => {
-			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 			const promise = runPicker();
 			await waitUntilOpened();
 			expect(pickItemById('py-1')).toBeDefined();
 			expect(pickItemById('py-2')).toBeUndefined();
 
-			registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0' }));
 			expect(pickItemById('py-2')).toBeDefined();
 			pick.cancel(QuickInputHideReason.Gesture);
 			await promise;
 		});
 
 		it('rebuilds when onDidUnregisterRuntime fires mid-pick', async () => {
-			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
-			registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0' }));
 			const promise = runPicker();
 			await waitUntilOpened();
 			expect(pickItemById('py-1')).toBeDefined();
@@ -261,13 +279,13 @@ describe('selectNewLanguageRuntime', () => {
 		});
 
 		it('preserves the previously focused item across rebuilds', async () => {
-			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
-			registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0' }));
 			const promise = runPicker({ currentRuntimeId: 'py-2' });
 			await waitUntilOpened();
 			expect(pick.activeItems[0].id).toBe('py-2');
 
-			registerRuntime(makeRuntime({ runtimeId: 'py-3', languageVersion: '3.13.0' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-3', languageVersion: '3.13.0' }));
 			expect(pick.activeItems[0].id).toBe('py-2');
 			pick.cancel(QuickInputHideReason.Gesture);
 			await promise;
@@ -276,7 +294,7 @@ describe('selectNewLanguageRuntime', () => {
 
 	describe('startup phase', () => {
 		it('re-fetches contributions when phase transitions to Complete', async () => {
-			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 			const runtimeService = ctx.get(ILanguageRuntimeService);
 			runtimeService.setStartupPhase(RuntimeStartupPhase.Discovering);
 
@@ -329,7 +347,7 @@ describe('selectNewLanguageRuntime', () => {
 		it('shows a busy spinner and discovering placeholder while phase is not Complete', async () => {
 			const runtimeService = ctx.get(ILanguageRuntimeService);
 			runtimeService.setStartupPhase(RuntimeStartupPhase.Discovering);
-			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 
 			const promise = runPicker();
 			await waitUntilOpened();
@@ -357,7 +375,7 @@ describe('selectNewLanguageRuntime', () => {
 		});
 
 		it('does not show a spinner when discovery is already complete on open', async () => {
-			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 			const promise = runPicker();
 			await waitUntilOpened();
 			expect(pick.busy).toBe(false);
@@ -369,7 +387,7 @@ describe('selectNewLanguageRuntime', () => {
 
 		it('toggles the spinner back on when phase leaves Complete while the picker is open', async () => {
 			const runtimeService = ctx.get(ILanguageRuntimeService);
-			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 			// beforeEach leaves the phase at Complete.
 			const promise = runPicker();
 			await waitUntilOpened();
@@ -402,12 +420,9 @@ describe('selectNewLanguageRuntime', () => {
 			const promise = runPicker();
 			await waitUntilOpened();
 
-			// A contributed item counts as a selectable row, so the empty-state
-			// placeholder must NOT appear even though there are no runtimes.
-			const contributedItem = pick.items.find(
-				(item): item is IQuickPickItem => item.type !== 'separator' && item.label === 'Install Python via uv',
-			);
-			expect(contributedItem).toBeDefined();
+			// A contributed item counts as a selectable row, so once it arrives the
+			// empty-state placeholder must NOT appear even though there are no runtimes.
+			await waitForItemByLabel('Install Python via uv');
 			expect(pick.busy).toBe(false);
 			expect(pick.placeholder).toBeUndefined();
 
@@ -417,6 +432,42 @@ describe('selectNewLanguageRuntime', () => {
 	});
 
 	describe('contributed items', () => {
+		it('opens the picker immediately without waiting for slow contributed items', async () => {
+			// Regression: getItems() is an extension-host RPC that enumerates
+			// interpreters and can hang for seconds right after a window reload
+			// while the extension host is still activating. The picker previously
+			// awaited it before show(), so a slow RPC left the picker invisible --
+			// clicking the session button appeared to do nothing. show() must now
+			// happen up front, with contributed items folded in once they resolve.
+			const runtimeService = ctx.get(ILanguageRuntimeService);
+			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+
+			let resolveItems!: (items: IRuntimePickerItem[]) => void;
+			const contribution: IRuntimePickerContribution = {
+				handle: 9,
+				languageId: 'python',
+				getItems: vi.fn(() => new Promise<IRuntimePickerItem[]>(resolve => { resolveItems = resolve; })),
+				onSelect: vi.fn(),
+			};
+			ctx.disposables.add(runtimeService.registerPickerContribution(contribution));
+
+			const promise = runPicker();
+
+			// The picker shows even though getItems() has not resolved: runtimes
+			// are visible immediately, the pending contributed item is not.
+			await waitUntilOpened();
+			expect(contribution.getItems).toHaveBeenCalled();
+			expect(pickItemById('py-1')).toBeDefined();
+			expect(pickItemByLabel('Install Python via uv')).toBeUndefined();
+
+			// Once the slow RPC resolves, the contributed item folds in.
+			resolveItems([{ id: 'install-uv', label: 'Install Python via uv' }]);
+			await waitForItemByLabel('Install Python via uv');
+
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
 		it('resolves the registered runtime and triggers a quiet rediscovery on selection', async () => {
 			const installedRuntime = makeRuntime({ runtimeId: 'py-installed-by-uv' });
 			const runtimeService = ctx.get(ILanguageRuntimeService);
@@ -436,11 +487,12 @@ describe('selectNewLanguageRuntime', () => {
 			const promise = runPicker();
 			await waitUntilOpened();
 
-			const installItem = pick.items
-				.find((item): item is IQuickPickItem => item.type !== 'separator' && item.label === 'Install Python via uv')!;
+			const installItem = await waitForItemByLabel('Install Python via uv');
 			pick.accept(installItem);
 
-			await expect(promise).resolves.toEqual(installedRuntime);
+			// The picker resolves to the enriched, registered instance.
+			const result = await promise;
+			expect(result).toEqual(runtimeService.getRegisteredRuntime(installedRuntime.runtimeId));
 			expect(contribution.onSelect).toHaveBeenCalledWith('install-uv');
 			expect(rediscoverAllRuntimes).toHaveBeenCalledWith(/* quiet */ true);
 		});
@@ -458,8 +510,7 @@ describe('selectNewLanguageRuntime', () => {
 			const promise = runPicker();
 			await waitUntilOpened();
 
-			const item = pick.items
-				.find((it): it is IQuickPickItem => it.type !== 'separator' && it.label === 'No-op installer')!;
+			const item = await waitForItemByLabel('No-op installer');
 			pick.accept(item);
 			await expect(promise).resolves.toBeUndefined();
 		});
@@ -478,8 +529,7 @@ describe('selectNewLanguageRuntime', () => {
 			const promise = runPicker();
 			await waitUntilOpened();
 
-			const item = pick.items
-				.find((it): it is IQuickPickItem => it.type !== 'separator' && it.label === 'Failing installer')!;
+			const item = await waitForItemByLabel('Failing installer');
 			pick.accept(item);
 			await expect(promise).resolves.toBeUndefined();
 			expect(consoleErrorSpy).toHaveBeenCalled();
@@ -507,8 +557,7 @@ describe('selectNewLanguageRuntime', () => {
 			const promise = runPicker();
 			await waitUntilOpened();
 
-			const labels = pick.items.map(i => i.label);
-			expect(labels).toContain('Working option');
+			await waitForItemByLabel('Working option');
 			expect(consoleErrorSpy).toHaveBeenCalled();
 
 			pick.cancel(QuickInputHideReason.Gesture);

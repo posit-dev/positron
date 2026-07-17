@@ -117,6 +117,31 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		expect(getPackageMetadata).not.toHaveBeenCalled();
 	});
 
+	it('forces a live refetch on a fresh, fully-covered entry when forceMetadata is set', async () => {
+		// Mirror of the "makes no network call" test above: same fresh, fully-
+		// covered entry, but forceMetadata flips it from re-rendering cache to a
+		// live refetch. The cache flags numpy as outdated; the repository has
+		// since caught up, so the live fetch reports it current.
+		seed({
+			numpy: { version: '1.26.0', outdated: true, latestVersion: '2.0.0' },
+			pandas: { version: '2.0.0', outdated: false },
+		}, 1 * HOUR_MS);
+		getPackageMetadata.mockResolvedValue(new Map<string, Partial<ILanguageRuntimePackage>>([
+			['numpy', { outdated: false }],
+			['pandas', { outdated: false }],
+		]));
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages(CancellationToken.None, true /* forceMetadata */);
+		const [, stage2] = await fires;
+
+		// The forced Stage 2 refetches every package (not just uncached ones, as
+		// a non-forced refresh of a fresh entry would) and clears the stale flag.
+		expect(getPackageMetadata).toHaveBeenCalledWith(['numpy', 'pandas'], expect.anything());
+		expect(stage2.find(p => p.name === 'numpy')?.outdated).toBe(false);
+	});
+
 	it('renders a stale entry then refetches every package', async () => {
 		seed({ numpy: { version: '1.26.0', outdated: true, latestVersion: '2.0.0' } }, 25 * HOUR_MS);
 

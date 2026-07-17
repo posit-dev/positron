@@ -72,10 +72,15 @@ elif [ -n "$BRANCH" ]; then
 	# Build present but we just switched branches: reconcile deps and recompile out/ so both match
 	# the new source. (Without a branch switch the current checkout is assumed already built.)
 	step "reconcile dependencies"
+	# Root deps go through fast-install.ts, not a root-lockfile-only sha compare: it hashes every
+	# dir in build/npm/dirs.ts (root plus each extension), so a branch that only changes an
+	# extension's own package.json (no root package-lock.json change) still triggers a reinstall
+	# instead of silently keeping a stale node_modules from the branch we switched off of.
 	# $() below is meant to run inside the container, not expand on the host, hence single quotes:
 	# shellcheck disable=SC2016
 	in_ctr '
-		[ "$(sha256sum package-lock.json | cut -d" " -f1)" = "$(cat .build/.ci-arm-state/deps.sha 2>/dev/null)" ] || ./.devcontainer/ci-arm/reinstall-deps.sh root
+		node build/npm/fast-install.ts
+		./.devcontainer/ci-arm/mark-build-state.sh root
 		[ "$(sha256sum test/e2e/package-lock.json | cut -d" " -f1)" = "$(cat .build/.ci-arm-state/e2e-deps.sha 2>/dev/null)" ] || ./.devcontainer/ci-arm/reinstall-deps.sh e2e
 	'
 	step "recompile out/ (incremental)"

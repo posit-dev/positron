@@ -578,7 +578,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		for (const languageId of languageIds) {
 			const metadata = this.getAffiliatedRuntimeMetadata(languageId);
 			if (metadata) {
-				runtimes.push(metadata);
+				// Prefer the live registered metadata so callers always see
+				// fresh field values (e.g. runtimePath is always absolute).
+				const live = this._languageRuntimeService.getRegisteredRuntime(metadata.runtimeId);
+				runtimes.push(live ?? metadata);
 			}
 		}
 		return runtimes;
@@ -1598,6 +1601,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// If the runtime is affiliated with this workspace, start it.
 		if (metadata.runtimeId === affiliatedRuntimeId) {
+			// Heal any stale fields in the stored affiliation (e.g. a runtimePath
+			// that was ~-shortened before the runtimePath/runtimeDisplayPath split)
+			// by overwriting with the freshly-discovered metadata.
+			this.saveAffiliatedRuntime({ ...affiliated, metadata });
+
 			try {
 
 				// Check the setting to see if we should be auto-starting.
