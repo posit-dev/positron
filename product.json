@@ -118,7 +118,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.60.0",
+			"version": "2026.62.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -691,6 +691,10 @@
 			"languageModelSystem"
 		]
 	},
+	"trustedExtensionPublishers": [
+		"posit",
+		"rstudio"
+	],
 	"trustedExtensionAuthAccess": {
 		"github": [],
 		"github-enterprise": [
@@ -701,33 +705,27 @@
 		],
 		"anthropic-api": [
 			"positron.authentication",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"posit-ai": [
 			"positron.authentication",
 			"positron.next-edit-suggestions",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"ms-foundry": [
 			"positron.authentication",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"amazon-bedrock": [
 			"positron.authentication",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"snowflake-cortex": [
 			"positron.authentication",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"openai-api": [
 			"positron.authentication",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"deepseek-api": [
@@ -736,12 +734,10 @@
 		],
 		"openai-compatible": [
 			"positron.authentication",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"google": [
 			"positron.authentication",
-			"positron.positron-assistant",
 			"posit.assistant"
 		],
 		"google-cloud": [

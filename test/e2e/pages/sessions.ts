@@ -236,7 +236,10 @@ export class Sessions {
 	 */
 	async selectMetadataOption(menuItem: 'Show Kernel Output Channel' | 'Show Supervisor Output Channel' | 'Show LSP Output Channel') {
 		await this.console.focus();
-		await this.metadataButton.click();
+		// Use openMetadataDialog() instead of a raw button click: the button's
+		// click handler reads the active console session from React context,
+		// which can lag a just-fired focus change and silently no-op.
+		await this.openMetadataDialog();
 		await this.metadataDialog.getByText(menuItem).click();
 
 		await expect(this.page.getByRole('tab', { name: 'Output' })).toHaveClass(/.*checked.*/);
@@ -683,11 +686,18 @@ export class Sessions {
 			const isSingleSession = (await this.getSessionCount()) === 1;
 
 			if (!isSingleSession && sessionId) {
-				// Use force to bypass notification toasts that may overlay the tab
-				await this.page.getByTestId(`console-tab-${sessionId}`).click({ force: true });
+				const targetTab = this.getSessionTab(sessionId);
+				await expect(async () => {
+					// Use force to bypass notification toasts that may overlay the tab. A
+					// toast can also swallow the click outright (it's on top, so the real
+					// tab never receives it) -- verify the tab actually went active instead
+					// of assuming the click landed, and retry if it didn't.
+					await targetTab.click({ force: true });
+					await expect(targetTab).toHaveClass(/tab-button--active/);
+				}, `Select session tab: ${sessionId}`).toPass({ timeout: 10000 });
 			}
 
-			const metadata = await this.extractMetadataFromDialog();
+			const metadata = await this.extractMetadataFromDialog(sessionId);
 
 			// Close the metadata dialog
 			await this.page.keyboard.press('Escape');
@@ -698,13 +708,15 @@ export class Sessions {
 
 	/**
 	 * Helper: Extract metadata from the metadata dialog
+	 *
+	 * @param sessionId the session ID the dialog should reflect, if known
 	 */
-	private async extractMetadataFromDialog(): Promise<SessionMetaData> {
+	private async extractMetadataFromDialog(sessionId?: string): Promise<SessionMetaData> {
 		let metadata: SessionMetaData | undefined;
 
 		await test.step('Extract metadata from dialog', async () => {
 			await expect(async () => {
-				await this.openMetadataDialog();
+				await this.openMetadataDialog(sessionId);
 				const [name, id, state, path, source] = await Promise.all([
 					this.metadataDialog.getByTestId('session-name').textContent(),
 					this.metadataDialog.getByTestId('session-id').textContent(),
@@ -856,13 +868,22 @@ export class Sessions {
 
 	/**
 	* Action: Open the metadata dialog for the current session
+	*
+	* @param sessionId the session the dialog should reflect, if known -- click via the
+	* button's testid (`info-unknown` until a real session lands in it) rather than its
+	* role/label, so we wait for the click handler's React context to be ready, not just visible
 	*/
-	async openMetadataDialog() {
+	async openMetadataDialog(sessionId?: string) {
+		const button = sessionId
+			? this.page.getByTestId(`info-${sessionId}`)
+			: this.page.getByTestId(/^info-(python|r)(-notebook)?-[a-z0-9]+$/i);
+
 		await expect(async () => {
 			const isMetadataDialogVisible = await this.metadataDialog.isVisible();
 
 			if (!isMetadataDialogVisible) {
-				await this.metadataButton.click();
+				await expect(button).toBeVisible();
+				await button.click();
 				await this.page.mouse.move(0, 0);
 				await this.page.waitForTimeout(500);
 			}

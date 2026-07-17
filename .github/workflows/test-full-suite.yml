@@ -14,26 +14,6 @@ on:
         required: false
         default: true
         type: boolean
-      run_e2e_rhel:
-        description: "E2E Tests / Electron (RHEL)"
-        required: false
-        default: false
-        type: boolean
-      run_e2e_suse:
-        description: "E2E Tests / Electron (SUSE)"
-        required: false
-        default: false
-        type: boolean
-      run_e2e_sles:
-        description: "E2E Tests / Electron (SLES)"
-        required: false
-        default: false
-        type: boolean
-      run_e2e_debian:
-        description: "E2E Tests / Electron (Debian)"
-        required: false
-        default: false
-        type: boolean
       run_e2e_windows:
         description: "E2E Tests / Electron (Windows)"
         required: false
@@ -71,6 +51,36 @@ on:
         type: boolean
       run_e2e_browser_debian:
         description: "E2E Tests / Chromium (Debian)"
+        required: false
+        default: false
+        type: boolean
+      run_e2e_workbench:
+        description: "E2E Tests / Workbench (Ubuntu)"
+        required: false
+        default: false
+        type: boolean
+      run_e2e_workbench_stable:
+        description: "E2E Tests / Workbench Stable (Ubuntu)"
+        required: false
+        default: false
+        type: boolean
+      run_e2e_pyrefly:
+        description: "E2E Tests / Pyrefly (Ubuntu)"
+        required: false
+        default: false
+        type: boolean
+      run_e2e_connect:
+        description: "E2E Tests / Connect (Ubuntu)"
+        required: false
+        default: false
+        type: boolean
+      run_e2e_jupyter:
+        description: "E2E Tests / Jupyter (Ubuntu)"
+        required: false
+        default: false
+        type: boolean
+      run_e2e_remote_ssh:
+        description: "E2E Tests / Remote SSH (Ubuntu)"
         required: false
         default: false
         type: boolean
@@ -255,23 +265,6 @@ jobs:
       max_failures: 6  # 20 max failures / 4 shards = 5, rounded to 6 to avoid premature failure of the entire suite
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
-  e2e-rhel:
-    name: e2e
-    needs: [validate-commit]
-    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_rhel) }}
-    uses: ./.github/workflows/test-e2e-rhel.yml
-    secrets: inherit
-    with:
-      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
-      skip_cache: ${{ inputs.commit != 'latest' }}
-      grep: ${{ inputs.grep || '' }}
-      project: "e2e-electron"
-      display_name: "electron (rhel)"
-      install_undetectable_interpreters: true
-      install_license: false
-      allow_soft_fail: false
-      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
-
   e2e-chromium-rhel:
     name: e2e
     needs: [validate-commit]
@@ -286,23 +279,6 @@ jobs:
       display_name: "chromium (rhel)"
       install_undetectable_interpreters: true
       install_license: true
-      allow_soft_fail: false
-      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
-
-  e2e-suse:
-    name: e2e
-    needs: [validate-commit]
-    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_suse) }}
-    uses: ./.github/workflows/test-e2e-suse.yml
-    secrets: inherit
-    with:
-      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
-      skip_cache: ${{ inputs.commit != 'latest' }}
-      grep: ${{ inputs.grep || '' }}
-      project: "e2e-electron"
-      display_name: "electron (suse)"
-      install_undetectable_interpreters: true
-      install_license: false
       allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
@@ -323,23 +299,6 @@ jobs:
       allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
-  e2e-sles:
-    name: e2e
-    needs: [validate-commit]
-    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_sles) }}
-    uses: ./.github/workflows/test-e2e-sles.yml
-    secrets: inherit
-    with:
-      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
-      skip_cache: ${{ inputs.commit != 'latest' }}
-      grep: ${{ inputs.grep || '' }}
-      project: "e2e-electron"
-      display_name: "electron (sles)"
-      install_undetectable_interpreters: true
-      install_license: false
-      allow_soft_fail: false
-      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
-
   e2e-chromium-sles:
     name: e2e
     needs: [validate-commit]
@@ -357,23 +316,6 @@ jobs:
       allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
-  e2e-debian:
-    name: e2e
-    needs: [validate-commit]
-    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_debian) }}
-    uses: ./.github/workflows/test-e2e-debian.yml
-    secrets: inherit
-    with:
-      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
-      skip_cache: ${{ inputs.commit != 'latest' }}
-      grep: ${{ inputs.grep || '' }}
-      project: "e2e-electron"
-      display_name: "electron (debian)"
-      install_undetectable_interpreters: true
-      install_license: false
-      allow_soft_fail: false
-      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
-
   e2e-chromium-debian:
     name: e2e
     needs: [validate-commit]
@@ -388,6 +330,126 @@ jobs:
       display_name: "chromium (debian)"
       install_undetectable_interpreters: true
       install_license: true
+      allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
+
+  build-workbench:
+    name: build
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench || inputs.run_e2e_workbench_stable) }}
+    uses: ./.github/workflows/build-workbench-linux.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+
+  e2e-workbench:
+    name: e2e
+    needs: [build-workbench]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench) }}
+    uses: ./.github/workflows/test-e2e-workbench-ubuntu.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      grep: ${{ inputs.grep || '@:workbench' }}
+      display_name: "workbench"
+      install_license: false
+      upload_logs: false
+      allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
+
+  e2e-workbench-stable:
+    name: e2e
+    needs: [build-workbench]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench_stable) }}
+    uses: ./.github/workflows/test-e2e-workbench-ubuntu.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      grep: "@:workbench"
+      display_name: "workbench-stable"
+      install_license: false
+      upload_logs: false
+      allow_soft_fail: false
+      install_mode: "ci-stable"
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
+
+  e2e-pyrefly:
+    name: e2e
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_pyrefly) }}
+    uses: ./.github/workflows/test-e2e-pyrefly.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      skip_cache: ${{ inputs.commit != 'latest' }}
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
+
+  build-connect:
+    name: build
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_connect) }}
+    uses: ./.github/workflows/build-connect-linux.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+
+  e2e-connect:
+    name: e2e
+    needs: [build-connect]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_connect) }}
+    uses: ./.github/workflows/test-e2e-connect.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      display_name: "connect"
+      upload_logs: false
+      allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
+
+  build-jupyter:
+    name: build
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_jupyter) }}
+    uses: ./.github/workflows/build-jupyter-linux.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+
+  e2e-jupyter:
+    name: e2e
+    needs: [build-jupyter]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_jupyter) }}
+    uses: ./.github/workflows/test-e2e-jupyter-ubuntu.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      grep: ${{ inputs.grep || '@:jupyter' }}
+      display_name: "jupyter"
+      install_license: true
+      upload_logs: false
+      allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
+
+  build-remote-ssh:
+    name: build
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_remote_ssh) }}
+    uses: ./.github/workflows/build-remote-ssh-linux.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+
+  e2e-remote-ssh:
+    name: e2e
+    needs: [build-remote-ssh]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_remote_ssh) }}
+    uses: ./.github/workflows/test-e2e-remote-ssh-ubuntu.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      grep: ${{ inputs.grep || '@:remote-ssh' }}
+      display_name: "remote-ssh"
+      upload_logs: false
       allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
@@ -413,7 +475,7 @@ jobs:
   slack-notify:
     if: always()
     needs:
-      [validate-commit, e2e-electron, e2e-windows, e2e-macos-arm64, e2e-macos-x64, e2e-chromium, e2e-rhel, e2e-chromium-rhel, e2e-suse, e2e-chromium-suse, e2e-sles, e2e-chromium-sles, e2e-debian, e2e-chromium-debian, unit-tests, ext-host-tests]
+      [validate-commit, e2e-electron, e2e-windows, e2e-macos-arm64, e2e-macos-x64, e2e-chromium, e2e-chromium-rhel, e2e-chromium-suse, e2e-chromium-sles, e2e-chromium-debian, e2e-workbench, e2e-workbench-stable, e2e-pyrefly, e2e-connect, e2e-jupyter, e2e-remote-ssh, unit-tests, ext-host-tests]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

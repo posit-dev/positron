@@ -10,7 +10,7 @@ import { IEditor } from '../../../../editor/common/editorCommon.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { Action2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId } from '../../../../platform/actions/common/actions.js';
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPositronHelpService } from './positronHelpService.js';
@@ -23,6 +23,7 @@ import { PositronConsoleFocused } from '../../../common/contextkeys.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { POSITRON_RUNTIME_LANGUAGE_IDS } from '../../languageRuntime/browser/languageRuntimeContextKeys.js';
 
 export class ShowHelpAtCursor extends Action2 {
 	constructor() {
@@ -41,7 +42,39 @@ export class ShowHelpAtCursor extends Action2 {
 				when: ContextKeyExpr.or(EditorContextKeys.focus, PositronConsoleFocused)
 			},
 			category: Categories.Help,
-			f1: true
+			f1: true,
+			menu: [
+				{
+					id: MenuId.EditorContext,
+					// Show on editors whose language has a registered Positron
+					// runtime. The list is maintained dynamically by
+					// PositronRuntimeLanguagesContextKeyContribution so new
+					// runtimes are picked up without code changes here.
+					//
+					// Quarto is added explicitly: a .qmd document's outer
+					// language is 'quarto', but the command still works
+					// because it resolves the embedded language at the
+					// cursor via getLanguageIdAtPosition.
+					when: ContextKeyExpr.and(
+						EditorContextKeys.editorTextFocus,
+						ContextKeyExpr.or(
+							ContextKeyExpr.in(
+								EditorContextKeys.languageId.key,
+								POSITRON_RUNTIME_LANGUAGE_IDS.key,
+							),
+							ContextKeyExpr.equals(
+								EditorContextKeys.languageId.key,
+								'quarto',
+							),
+						),
+					),
+					// Sit just below "Go to References" (order 1.45) and just
+					// above "View Data Frame at Cursor" (order 1.5) in the
+					// editor context menu's navigation group.
+					group: 'navigation',
+					order: 1.47,
+				},
+			],
 		});
 	}
 

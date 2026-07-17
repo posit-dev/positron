@@ -310,6 +310,22 @@ export class PositConnect {
 		);
 	}
 
+	/**
+	 * Returns the username of the user the current API key authenticates as. Used to locate that
+	 * user's owner node in the Data Connections pins tree (pins are grouped by owner username).
+	 */
+	async getCurrentUsername(): Promise<string> {
+		const res = await fetch(`${apiServer}user`, { headers: this.headers });
+		if (!res.ok) {
+			throw new Error(`GET /user failed: ${res.status} ${res.statusText}`);
+		}
+		const data = (await res.json()) as { username?: string };
+		if (!data.username) {
+			throw new Error('Connect /v1/user did not return a username');
+		}
+		return data.username;
+	}
+
 	async getUserId(username: string): Promise<string | undefined> {
 		const controller = new AbortController();
 		const t = setTimeout(() => controller.abort(), 10_000);
