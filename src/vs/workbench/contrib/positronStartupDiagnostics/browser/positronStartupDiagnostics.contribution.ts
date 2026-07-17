@@ -62,7 +62,11 @@ registerAction2(class extends Action2 {
 			id: 'positron.startupDiagnostics.show',
 			title: localize2('positronStartupDiagnostics.title', 'Runtime Startup Diagnostics'),
 			category: Categories.Developer,
-			f1: true
+			f1: true,
+			metadata: {
+				description: localize('positron.startupDiagnostics.show.description', "Open the runtime startup diagnostics editor to inspect interpreter discovery output."),
+				agentCompatible: true,
+			},
 		});
 	}
 

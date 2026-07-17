@@ -53,7 +53,11 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 				mnemonicTitle: nls.localize({ key: 'miTogglePlots', comment: ['&& denotes a mnemonic'] }, "&&Plots"),
 				keybindings: {},
 				order: 1,
-			}
+			},
+			focusCommand: {
+				id: `${POSITRON_PLOTS_VIEW_ID}.focus`,
+				agentCompatible: true,
+			},
 		}
 	],
 	POSITRON_SESSION_CONTAINER

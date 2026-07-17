@@ -612,7 +612,10 @@ export class ViewsService extends Disposable implements IViewsService {
 									},
 								}
 							}
-						]
+						],
+						// --- Start Positron ---
+						agentCompatible: viewDescriptor.focusCommand?.agentCompatible,
+						// --- End Positron ---
 					}
 				});
 			}

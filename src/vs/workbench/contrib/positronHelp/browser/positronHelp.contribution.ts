@@ -65,7 +65,11 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH,
 		},
 		order: 1,
-	}
+	},
+	focusCommand: {
+		id: `${POSITRON_HELP_VIEW_ID}.focus`,
+		agentCompatible: true,
+	},
 }], VIEW_CONTAINER);
 
 // Register keybinding rule for copy.

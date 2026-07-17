@@ -1170,6 +1170,11 @@ export function registerLanguageRuntimeActions() {
 			}
 
 			session.interrupt();
+		},
+		undefined,
+		{
+			description: localize('positron.languageRuntime.interruptActiveInterpreterSession.description', "Interrupt the active interpreter runtime session (e.g. stop a running computation)."),
+			agentCompatible: true,
 		});
 
 	/**
@@ -1325,7 +1330,11 @@ export function registerLanguageRuntimeActions() {
 				id: LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID,
 				title: localize2('workbench.action.language.runtime.discoverAllRuntimes', "Discover All Interpreters"),
 				f1: true,
-				category
+				category,
+				metadata: {
+					description: localize('positron.languageRuntime.discoverAllRuntimes.description', "Rediscover all installed interpreters so newly installed environments become available."),
+					agentCompatible: true,
+				},
 			});
 		}
 
