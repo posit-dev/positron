@@ -232,7 +232,9 @@ async function readExpectedCommit(): Promise<ExpectedCommit | undefined> {
 	return undefined;
 }
 
-/** Whether a path exists, without throwing. */
+/** Whether a path exists, without throwing.
+ * Be mindful about TOCTOU races.
+ */
 async function fileExists(filePath: string): Promise<boolean> {
 	try {
 		await fs.promises.access(filePath);
