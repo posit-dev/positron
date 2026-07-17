@@ -169,13 +169,16 @@ else
 	if [[ -z "$CHANGED_FILES" ]]; then
 		echo "Warning: could not fetch changed files; skipping @:ark injection."
 	elif echo "$CHANGED_FILES" | grep -qxF "extensions/positron-r/ark"; then
-		echo "Ark submodule changed. Injecting @:ark tag."
+		# @:ark is also derivable from the path map (extensions/positron-r/),
+		# but @:win/@:web can't be: the map only feeds the --grep string, while
+		# the win/web CI jobs launch off the *_tag_found outputs, not the tags.
+		# An ark bump can regress R behavior on any platform, so run those lanes
+		# too -- which means setting the outputs here, imperatively.
+		echo "Ark submodule changed. Injecting @:ark, @:win, and @:web tags."
 		ARK_INJECTED="true"
-		if [[ -n "$TAGS" ]]; then
-			TAGS="$TAGS,@:ark"
-		else
-			TAGS="@:ark"
-		fi
+		TAGS="$(union_csv_tags "$TAGS" "@:ark,@:win,@:web")"
+		echo "win_tag_found=true" >> "$GITHUB_OUTPUT"
+		echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
 	fi
 
 	# Resolve the path to the map (this script lives in scripts/).
