@@ -458,10 +458,17 @@ const CONSOLE_NOISE_RE = /(_setContext|LEAKED DISPOSABLE|No pandoc executable|Me
 function buildConsoleDigest(evts) {
 	const ALLOW = /(CommandService#executeCommand|Runtime startup][^\n]*Phase changed|Discovery completed|Uncaught|Unhandled)/i;
 	const MAX_LINES = 28;
+	// Look back far enough to catch a command that fired and then left the test
+	// waiting on UI that never came: the classic "click did nothing" timeout has
+	// the triggering command ~15-30s before the failing assertion, so a tight
+	// window would drop the very command-fired signal this digest exists to
+	// surface. 30s covers Playwright's max default timeout; the tight allowlist,
+	// dedup, and priority cap below keep the wider window from getting noisy.
+	const LOOKBACK_MS = 30000;
 	const consoles = evts.filter(e => e.type === 'console' && typeof e.text === 'string');
 	if (!consoles.length) { return null; }
 	const errTimes = evts.filter(e => e.type === 'after' && e.error).map(e => e.endTime ?? e.startTime).filter(t => t != null);
-	const focusStart = errTimes.length ? Math.min(...errTimes) - 3000 : -Infinity;
+	const focusStart = errTimes.length ? Math.min(...errTimes) - LOOKBACK_MS : -Infinity;
 	const focusEnd = errTimes.length ? Math.max(...errTimes) + 1000 : Infinity;
 	const picked = consoles.filter(e =>
 		(e.time == null || (e.time >= focusStart && e.time <= focusEnd)) &&
@@ -474,10 +481,18 @@ function buildConsoleDigest(evts) {
 		const text = cleanConsole(e.text).slice(0, 200);
 		const last = entries[entries.length - 1];
 		if (last && last.text === text) { last.count++; continue; }
-		entries.push({ time: e.time, level: e.messageType || 'log', text, count: 1 });
+		// Command/phase/error lines are the load-bearing signal; warnings are
+		// context. Track priority so the cap can never drop a command-fired or
+		// phase line in favor of a warning.
+		const high = ALLOW.test(e.text) || e.messageType === 'error';
+		entries.push({ time: e.time, level: e.messageType || 'log', text, count: 1, high });
 	}
 
-	const shown = entries.slice(0, MAX_LINES);
+	// Over the cap, keep high-signal lines first (stable sort preserves time
+	// order within each tier), then restore chronological order for display.
+	const shown = entries.length <= MAX_LINES
+		? entries
+		: [...entries].sort((a, b) => Number(b.high) - Number(a.high)).slice(0, MAX_LINES).sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
 	const out = [`\n=== Console digest near failure (${shown.length}${entries.length > shown.length ? ` of ${entries.length}` : ''} high-signal lines) ===`];
 	for (const e of shown) {
 		out.push(`t=${Math.round(e.time ?? 0)} [${e.level}] ${e.text}${e.count > 1 ? ` (x${e.count})` : ''}`);
