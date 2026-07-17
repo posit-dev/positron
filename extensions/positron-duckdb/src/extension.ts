@@ -238,8 +238,8 @@ export class DuckDBInstance {
 				pending.reject(new Error(response.error));
 			}
 		});
-		worker.on('exit', (code, signal) => this.onWorkerGone(`exited (code=${code}, signal=${signal})`));
-		worker.on('error', (error) => this.onWorkerGone(`failed to start: ${error.message}`));
+		worker.on('exit', (code, signal) => this.onWorkerGone(worker, `exited (code=${code}, signal=${signal})`));
+		worker.on('error', (error) => this.onWorkerGone(worker, `failed to start: ${error.message}`));
 		this._worker = worker;
 		debugLog(`Spawned worker process (pid=${worker.pid})`);
 	}
@@ -248,10 +248,16 @@ export class DuckDBInstance {
 	 * Handle the worker process going away. Reject every in-flight query so
 	 * callers fail gracefully rather than hanging, and notify listeners. The
 	 * worker is respawned lazily on the next query.
+	 *
+	 * `worker` is the process the handler was bound to. A worker we deliberately
+	 * killed (idle shutdown, {@link close}) exits asynchronously, by which point a
+	 * new worker may already be current; ignoring events from anything but the
+	 * current worker keeps a stale exit from rejecting queries on its replacement.
 	 */
-	private onWorkerGone(detail: string): void {
-		if (this._worker === undefined) {
-			// Already handled (e.g. both 'error' and 'exit' fired), or disposed.
+	private onWorkerGone(worker: ChildProcess, detail: string): void {
+		if (this._worker !== worker) {
+			// A worker we already replaced or intentionally killed (idle shutdown,
+			// close), or a duplicate event (both 'error' and 'exit' fired).
 			return;
 		}
 		this._worker = undefined;
