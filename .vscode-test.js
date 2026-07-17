@@ -69,11 +69,6 @@ const extensions = [
 		mocha: { timeout: 60_000 }
 	},
 	{
-		label: 'positron-assistant',
-		workspaceFolder: 'extensions/positron-assistant/test-workspace',
-		mocha: { timeout: 60_000 }
-	},
-	{
 		label: 'next-edit-suggestions',
 		workspaceFolder: path.join(os.tmpdir(), `next-edit-suggestions-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
