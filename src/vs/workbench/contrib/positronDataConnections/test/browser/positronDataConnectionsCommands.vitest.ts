@@ -77,7 +77,10 @@ function createDataConnectionsService(options: CreateServiceOptions = {}): IPosi
 		driverManager,
 		getProfiles: vi.fn(() => profiles),
 		getProfileSecretIds: vi.fn(() => secretParameterIds),
-		getRedactedParameterValue: vi.fn(async (_id: string, parameterId: string) => redactedValues[parameterId]),
+		getRedactedParameterValues: vi.fn(async (_id: string, parameterIds: readonly string[]) =>
+			Object.fromEntries(parameterIds
+				.filter(parameterId => redactedValues[parameterId] !== undefined)
+				.map(parameterId => [parameterId, redactedValues[parameterId]]))),
 		getInstanceForProfile: vi.fn((profileId: string) => connectedProfileIds.includes(profileId)
 			? stubInterface<IDataConnectionInstance>({ id: 'instance-1' })
 			: undefined),

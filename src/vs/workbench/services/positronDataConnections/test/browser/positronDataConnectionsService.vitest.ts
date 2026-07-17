@@ -12,7 +12,8 @@ import { TestSecretStorageService } from '../../../../../platform/secrets/test/c
 import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
 import { NullExtensionService, IExtensionService } from '../../../extensions/common/extensions.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { IDataConnectionProfile } from '../../common/interfaces/dataConnectionDriver.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { IDataConnectionDriver, IDataConnectionProfile } from '../../common/interfaces/dataConnectionDriver.js';
 import { IPositronDataConnectionsService } from '../../common/interfaces/positronDataConnectionsService.js';
 import { PositronDataConnectionsService } from '../../browser/positronDataConnectionsService.js';
 
@@ -42,12 +43,12 @@ describe('PositronDataConnectionsService', () => {
 
 	beforeEach(() => {
 		storageService = new TestStorageService();
+		ctx.disposables.add(storageService);
 		ctx.instantiationService.stub(IStorageService, storageService);
 		ctx.instantiationService.stub(ISecretStorageService, new TestSecretStorageService());
 
 		service = ctx.instantiationService.createInstance(PositronDataConnectionsService);
 		ctx.disposables.add(service);
-		ctx.disposables.add(storageService);
 	});
 
 	it('has no preferred code variant until one is set', () => {
@@ -87,5 +88,38 @@ describe('PositronDataConnectionsService', () => {
 	it('is a no-op when the profile does not exist', () => {
 		expect(() => service.setPreferredCodeVariant('missing', 'python', 'sqlalchemy')).not.toThrow();
 		expect(service.getProfile('missing')).toBeUndefined();
+	});
+
+	it('keeps a secret in secret storage, not plaintext, when re-saved after its driver becomes unregistered', () => {
+		const driver = stubInterface<IDataConnectionDriver>({
+			id: 'test-driver',
+			metadata: {
+				id: 'test-driver',
+				name: 'Test Driver',
+				description: '',
+				iconSvg: '',
+				supportedLanguageIds: [],
+				mechanisms: [{
+					id: 'test-mechanism',
+					label: 'Test Mechanism',
+					description: '',
+					parameters: [{ id: 'apiKey', label: 'API Key', type: 'password', secret: true }],
+				}],
+			},
+		});
+		service.driverManager.registerDriver(driver);
+
+		// Save once while the driver is registered, so apiKey is recognized as a secret.
+		service.addUpdateProfile({ ...createProfile('conn-1'), parameterValues: { apiKey: 'sekret' } });
+		expect(service.getProfile('conn-1')?.parameterValues).toEqual({});
+
+		// The driver's extension unloads before the next save; the profile's secret schema is now
+		// unknown at save time.
+		service.driverManager.removeDriver('test-driver');
+		service.addUpdateProfile({ ...createProfile('conn-1'), parameterValues: { apiKey: 'new-sekret' } });
+
+		// The new value must still be routed to secret storage, not leaked as plaintext into the
+		// public profile returned by getProfile.
+		expect(service.getProfile('conn-1')?.parameterValues).toEqual({});
 	});
 });

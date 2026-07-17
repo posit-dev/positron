@@ -71,17 +71,18 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	getProfileSecretIds(id: string): readonly string[];
 
 	/**
-	 * Gets a display-safe, redacted form of a stored secret parameter value, for showing as a
-	 * placeholder when editing an existing connection (e.g. a connection string with its password
-	 * masked). The cleartext value is resolved from secret storage and passed to the driver, which
-	 * performs the format-specific redaction; only the redacted result is returned. The cleartext is
-	 * never exposed to callers.
+	 * Gets display-safe, redacted forms of stored secret parameter values, for showing as
+	 * placeholders when editing an existing connection (e.g. a connection string with its password
+	 * masked). The cleartext values are resolved from secret storage and passed to the driver, which
+	 * performs the format-specific redaction; only the redacted results are returned. The cleartext
+	 * is never exposed to callers. Resolves the profile once for all requested parameters, so
+	 * redacting M secrets costs one profile/secret-storage fetch rather than M.
 	 * @param id The data connection profile id.
-	 * @param parameterId The id of the secret parameter to redact.
-	 * @returns The redacted string, or undefined if there is no stored value or the driver does not
-	 * implement redaction.
+	 * @param parameterIds The ids of the secret parameters to redact.
+	 * @returns A map of parameter id to its redacted string. A parameter is omitted when it has no
+	 * stored value or the driver does not implement redaction.
 	 */
-	getRedactedParameterValue(id: string, parameterId: string): Promise<string | undefined>;
+	getRedactedParameterValues(id: string, parameterIds: readonly string[]): Promise<Record<string, string>>;
 
 	/**
 	 * Sets the user's preferred connection code variant for a profile and language, persisted

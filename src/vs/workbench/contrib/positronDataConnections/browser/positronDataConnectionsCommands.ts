@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize2 } from '../../../../nls.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { IUntitledTextResourceEditorInput } from '../../../common/editor.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
@@ -12,6 +13,7 @@ import { Action2, registerAction2 } from '../../../../platform/actions/common/ac
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from './positronDataConnectionsConfiguration.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile, resolveDataConnectionMechanism } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
@@ -69,22 +71,28 @@ export interface IDataConnectionsGetConnectionsResult {
 // pattern every built-in driver's generateConnectionCode uses to bind the connection, board, or
 // engine it creates. Indented lines (e.g. keyword arguments inside a multi-line call) don't
 // match, since \w excludes the leading whitespace.
-const CONNECTION_VARIABLE_PATTERN = /^(\w+)\s*(?:=|<-)\s*\S/m;
+const CONNECTION_VARIABLE_PATTERN = /^(?<variableName>\w+)\s*(?:=|<-)\s*\S/gm;
 
 /**
- * Parses the name of the variable a generated connection code snippet binds, from its first
- * top-level assignment.
+ * Parses the name of the variable a generated connection code snippet binds. Takes the last
+ * top-level assignment rather than the first: built-in drivers only ever emit one, but a driver
+ * is free to emit a preparatory statement (e.g. a config variable) before the real bind line, and
+ * the bind is always the final top-level assignment in the snippet.
  * @param code The generated connection code.
  */
 function extractConnectionVariableName(code: string): string | undefined {
-	return CONNECTION_VARIABLE_PATTERN.exec(code)?.[1];
+	let variableName: string | undefined;
+	for (const match of code.matchAll(CONNECTION_VARIABLE_PATTERN)) {
+		variableName = match.groups?.variableName;
+	}
+	return variableName;
 }
 
 /**
  * Builds the profile's parameter values for the getConnections payload: non-secret values as-is,
  * plus a redacted display string for each secret parameter that has one. Never reads a secret
  * parameter's cleartext value directly -- redaction is delegated to
- * {@link IPositronDataConnectionsService.getRedactedParameterValue}, which keeps the cleartext
+ * {@link IPositronDataConnectionsService.getRedactedParameterValues}, which keeps the cleartext
  * within the service/driver and returns only the redacted result.
  * @param profile The data connection profile.
  * @param dataConnectionsService The data connections service.
@@ -96,12 +104,11 @@ async function getRedactedParameterValues(
 	// profile.parameterValues never contains secret values, so this starts as the full non-secret set.
 	const parameterValues: DataConnectionParameterValues = { ...profile.parameterValues };
 
-	for (const parameterId of dataConnectionsService.getProfileSecretIds(profile.id)) {
-		const redacted = await dataConnectionsService.getRedactedParameterValue(profile.id, parameterId);
-		if (redacted !== undefined) {
-			parameterValues[parameterId] = redacted;
-		}
-	}
+	const redacted = await dataConnectionsService.getRedactedParameterValues(
+		profile.id,
+		dataConnectionsService.getProfileSecretIds(profile.id),
+	);
+	Object.assign(parameterValues, redacted);
 
 	return parameterValues;
 }
@@ -109,24 +116,34 @@ async function getRedactedParameterValues(
 /**
  * Builds the per-language connection code payload for a profile, using the profile's preferred
  * variant per language (falling back to the driver's default) -- the same generateConnectionCode
- * call dataConnectionEntryRow.tsx uses to populate the Connect With dialog.
+ * call dataConnectionEntryRow.tsx uses to populate the Connect With dialog. A driver that throws
+ * for one language (e.g. it doesn't support code generation for the given parameters) only omits
+ * that language; it doesn't fail the rest of the payload.
  * @param profile The data connection profile.
  * @param mechanismId The id of the mechanism the profile was configured with.
  * @param driver The registered driver for the profile.
+ * @param logService The log service.
  */
 async function getLanguagePayloads(
 	profile: IDataConnectionProfile,
 	mechanismId: string,
 	driver: IDataConnectionDriver,
+	logService: ILogService,
 ): Promise<Record<string, IDataConnectionsGetConnectionsLanguageResult>> {
 	const languages: Record<string, IDataConnectionsGetConnectionsLanguageResult> = {};
 
-	for (const languageId of driver.metadata.supportedLanguageIds) {
+	await Promise.all(driver.metadata.supportedLanguageIds.map(async languageId => {
 		// The profile's own parameterValues never contains secret values, so this is always the
 		// secret-free preview.
-		const variants = await driver.generateConnectionCode(mechanismId, languageId, profile.parameterValues);
+		let variants;
+		try {
+			variants = await driver.generateConnectionCode(mechanismId, languageId, profile.parameterValues);
+		} catch (err) {
+			logService.error(`[DataConnections] generateConnectionCode failed for ${profile.id}/${languageId}: ${err}`);
+			return;
+		}
 		if (variants.length === 0) {
-			continue;
+			return;
 		}
 
 		const preferredVariantId = profile.preferredCodeVariants?.[languageId];
@@ -137,7 +154,7 @@ async function getLanguagePayloads(
 			code: variant.code,
 			variableName: extractConnectionVariableName(variant.code),
 		};
-	}
+	}));
 
 	return languages;
 }
@@ -145,7 +162,8 @@ async function getLanguagePayloads(
 /**
  * Builds the getConnections payload: a flat JSON summary of every saved data connection profile,
  * for cold-start Assistant awareness (no live connection required). Returns an empty list when
- * the dataConnections.enabled feature flag is off, so the command stays registered and
+ * the dataConnections.enabled feature flag is off, or when the ai.enabled main switch is off (this
+ * command exists solely for Assistant to consume), so the command stays registered and
  * Assistant-side feature detection is a simple getCommands() check.
  * @param accessor The services accessor.
  */
@@ -154,18 +172,27 @@ export async function getDataConnections(accessor: ServicesAccessor): Promise<ID
 	if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) !== true) {
 		return [];
 	}
+	if (configurationService.getValue<boolean>(AI_ENABLED_KEY) === false) {
+		return [];
+	}
 
 	const dataConnectionsService = accessor.get(IPositronDataConnectionsService);
+	const logService = accessor.get(ILogService);
 
-	const results: IDataConnectionsGetConnectionsResult[] = [];
-	for (const profile of dataConnectionsService.getProfiles()) {
+	return Promise.all(dataConnectionsService.getProfiles().map(async profile => {
 		// The driver may be unregistered (extension not installed, or not yet activated); fall back
 		// to the profile's own mechanismId and report no per-language code in that case.
 		const driver = dataConnectionsService.driverManager.getDriver(profile.driverMetadata.id);
-		const mechanism = driver ? resolveDataConnectionMechanism(driver.metadata, profile.mechanismId) : undefined;
-		const mechanismId = mechanism?.id ?? profile.mechanismId;
 
-		results.push({
+		let mechanismId = profile.mechanismId;
+		let languages: Record<string, IDataConnectionsGetConnectionsLanguageResult> = {};
+		if (driver) {
+			const mechanism = resolveDataConnectionMechanism(driver.metadata, profile.mechanismId);
+			mechanismId = mechanism?.id ?? profile.mechanismId;
+			languages = await getLanguagePayloads(profile, mechanismId, driver, logService);
+		}
+
+		return {
 			profileId: profile.id,
 			connectionName: profile.connectionName,
 			driverId: profile.driverMetadata.id,
@@ -173,11 +200,9 @@ export async function getDataConnections(accessor: ServicesAccessor): Promise<ID
 			mechanismId,
 			connected: dataConnectionsService.getInstanceForProfile(profile.id) !== undefined,
 			parameterValues: await getRedactedParameterValues(profile, dataConnectionsService),
-			languages: driver ? await getLanguagePayloads(profile, mechanismId, driver) : {},
-		});
-	}
-
-	return results;
+			languages,
+		};
+	}));
 }
 
 CommandsRegistry.registerCommand(GET_CONNECTIONS_COMMAND_ID, getDataConnections);
