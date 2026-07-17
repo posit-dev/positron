@@ -19,7 +19,6 @@ export interface IPositronPackagesInstance {
 	attachRuntime(): void;
 	detachRuntime(): void;
 	refreshPackages(token?: CancellationToken, forceMetadata?: boolean): Promise<ILanguageRuntimePackage[]>;
-	refreshMetadata(token?: CancellationToken): Promise<void>;
 	installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
 	uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void>;
 	updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
@@ -194,25 +193,6 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		} finally {
 			this._onDidChangeRefreshState.fire(false);
 		}
-	}
-
-	/**
-	 * Force refresh metadata for all packages, clearing the cache first.
-	 */
-	async refreshMetadata(token?: CancellationToken): Promise<void> {
-		const packageManager = this.getPackageManagerOrThrow();
-		const effectiveToken = token ?? CancellationToken.None;
-
-		if (!packageManager.getPackageMetadata || this._packages.length === 0) {
-			return;
-		}
-
-		// Cancel any in-flight fetch before clearing the cache so a stale
-		// fetch from refreshPackages can't repopulate it after the clear.
-		this._metadataFetch?.cancel();
-		this._metadataCache.clear();
-
-		await this._fetchAndMergeMetadata(packageManager, effectiveToken, true /* fetchAll */);
 	}
 
 	/**
