@@ -17,6 +17,10 @@ const connectionName = 'e2e Connect Pins';
 // their pins alphabetically).
 const seededPins = ['e2e-iris', 'e2e-mtcars'];
 
+// The seed script publishes this pin twice, so it has two version nodes (the newest is the active
+// bundle). e2e-iris is published once and is left collapsed.
+const versionedPin = 'e2e-mtcars';
+
 // The Connect API key resolved in beforeAll and used both to seed pins (via the R session) and to
 // configure the Data Connections driver.
 let connectApiKey: string;
@@ -78,6 +82,13 @@ test.describe('Data Connections - Posit Connect Pins', { tag: [tags.WORKBENCH, t
 			for (const pin of seededPins) {
 				await dataConnections.expectNodeVisible(pin);
 			}
+		});
+
+		await test.step('Expand a pin and verify its version nodes, with the active bundle badged', async () => {
+			await dataConnections.expandNode(versionedPin);
+			// The pin was published twice, so it has two versions; the newest is the active bundle.
+			await dataConnections.expectVersionCount(2);
+			await dataConnections.expectActiveVersionVisible();
 		});
 	});
 });

@@ -55,5 +55,12 @@ test.describe('Data Connections - Posit Connect Pins (remote)', { tag: [tags.CON
 			await dataConnections.expandNode(ownerUsername);
 			await dataConnections.expectNodeVisible(pinName);
 		});
+
+		await test.step(`Expand ${pinName} and verify its active version`, async () => {
+			// Any real pin has exactly one active bundle, so the "active" version node is the stable
+			// anchor here (the real version count is unknown and each version's label is dynamic).
+			await dataConnections.expandNode(pinName);
+			await dataConnections.expectActiveVersionVisible();
+		});
 	});
 });
