@@ -84,8 +84,11 @@ interface ExpectedCommit {
  *
  * The check can be turned off via the `positron.r.kernel.warnOnVersionMismatch`
  * setting. When the user has set a custom `positron.r.kernel.path`, the warning
- * names that path and points at the kernel path setting instead (and skips the
- * local-development suppression, since the binary was chosen explicitly).
+ * names that path and points at the kernel path setting instead. If that path is
+ * a Cargo build output (`.../target/{debug,release}/ark`), the enclosing Ark
+ * checkout is inspected too: when its HEAD is at or ahead of the expected commit
+ * the developer is building their own Ark and the mismatch is suppressed, just
+ * as it is for the bundled submodule.
  *
  * Runs asynchronously and is invoked fire-and-forget from the session-start
  * path, so the git subprocesses it may spawn never slow down boot.
@@ -123,18 +126,31 @@ export async function warnOnArkVersionMismatch(runtimeInfo: positron.LanguageRun
 	}
 
 	// A non-empty kernel path setting means the user has explicitly pointed
-	// Positron at an Ark binary of their choosing. A mismatch there is worth
-	// surfacing regardless of local Ark development, and the fix is to correct
-	// that setting rather than to reinstall.
+	// Positron at an Ark binary of their choosing. The fix for a mismatch there
+	// is to correct that setting rather than to reinstall.
 	const customKernelPath = config.get<string>(KERNEL_PATH_SETTING)?.trim() || undefined;
 
-	// The commits differ. In a dev build with no custom kernel path, only warn
-	// when the submodule HEAD is a released commit (an ancestor of Ark's
-	// origin/main); if it has local commits on top, the developer is iterating
-	// on Ark and expects a mismatch. This suppression needs git, so it only
-	// applies when the expected commit came from the submodule; a release bundle
-	// has no local Ark development to guard.
-	if (!customKernelPath && expected.source === 'git' && !(await isSubmoduleAncestorOfMain())) {
+	// The commits differ. Suppress the warning when the developer is iterating on
+	// Ark locally and therefore expects a mismatch.
+	if (customKernelPath) {
+		// The user pointed Positron at a specific Ark binary. If that binary is a
+		// Cargo build output, its enclosing checkout is an Ark repo (or worktree)
+		// the developer builds from; when its HEAD is at or ahead of the expected
+		// commit they are doing local Ark development, so don't nag them.
+		if (await isCustomKernelLocalDevelopment(customKernelPath, expected.commit)) {
+			LOGGER.debug(
+				`Ark version check: running commit ${runningCommit} differs from expected ` +
+				`${expected.commit.slice(0, 7)}, but the custom kernel path ${customKernelPath} ` +
+				`is a local Ark checkout at or ahead of the expected commit; not warning.`);
+			return;
+		}
+	} else if (expected.source === 'git' && !(await isSubmoduleAncestorOfMain())) {
+		// Dev build with no custom kernel path: only warn when the submodule HEAD
+		// is a released commit (an ancestor of Ark's origin/main); if it has local
+		// commits on top, the developer is iterating on Ark and expects a
+		// mismatch. This suppression needs git, so it only applies when the
+		// expected commit came from the submodule; a release bundle has no local
+		// Ark development to guard.
 		LOGGER.debug(
 			`Ark version check: running commit ${runningCommit} differs from submodule ` +
 			`HEAD ${expected.commit.slice(0, 7)}, but HEAD looks like local Ark development; ` +
@@ -260,6 +276,57 @@ async function isSubmoduleAncestorOfMain(): Promise<boolean> {
 	} catch {
 		return false;
 	}
+}
+
+/**
+ * Whether a custom kernel path points at a local Ark checkout whose HEAD is at or
+ * ahead of the expected commit -- i.e. the developer is building their own Ark and
+ * expects the running binary to differ from what Positron pins.
+ *
+ * Only recognizes Cargo build outputs (`.../target/{debug,release}/ark`); the
+ * enclosing checkout is the directory containing `target/`. `git` operates
+ * transparently on both regular repos and worktrees there, so no special handling
+ * is needed for developers who point at different worktrees. Returns false when
+ * the path isn't a recognizable build output or on any git error, so an
+ * unknowable state still warns.
+ */
+async function isCustomKernelLocalDevelopment(kernelPath: string, expectedCommit: string): Promise<boolean> {
+	const repoDir = arkRepoFromKernelPath(kernelPath);
+	if (!repoDir) {
+		return false;
+	}
+	try {
+		// Exits 0 when the expected commit is an ancestor of HEAD, i.e. the
+		// checkout is at or ahead of it (local Ark development), 1 otherwise.
+		await execFileAsync('git', ['merge-base', '--is-ancestor', expectedCommit, 'HEAD'], {
+			cwd: repoDir,
+			timeout: GIT_TIMEOUT_MS,
+		});
+		return true;
+	} catch (err) {
+		LOGGER.debug(`Ark version check: could not compare ${repoDir} to expected commit: ${err}`);
+		return false;
+	}
+}
+
+/**
+ * Given a custom kernel path, returns the enclosing Ark checkout root when the
+ * path is a Cargo build output (`.../target/debug/ark` or
+ * `.../target/release/ark`), or undefined otherwise. The root is the directory
+ * containing `target/`.
+ */
+function arkRepoFromKernelPath(kernelPath: string): string | undefined {
+	// The path is the binary; its parent should be `target/{debug,release}`.
+	const buildDir = path.dirname(kernelPath);
+	const profile = path.basename(buildDir);
+	if (profile !== 'debug' && profile !== 'release') {
+		return undefined;
+	}
+	const targetDir = path.dirname(buildDir);
+	if (path.basename(targetDir) !== 'target') {
+		return undefined;
+	}
+	return path.dirname(targetDir);
 }
 
 /** Run a git command in the submodule and return its trimmed stdout. */
