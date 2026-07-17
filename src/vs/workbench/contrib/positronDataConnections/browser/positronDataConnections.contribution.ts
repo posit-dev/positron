@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
+import './positronDataConnectionsCommands.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataViewPane } from './positronDataConnectionsView.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
@@ -11,15 +12,13 @@ import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js'
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from './positronDataConnectionsConfiguration.js';
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 
 // The Positron data connections view ID.
 const POSITRON_DATA_CONNECTIONS_VIEW_ID = 'workbench.panel.positronDataConnections';
-
-// Configuration key that gates the Positron Data Connections feature.
-const POSITRON_DATA_CONNECTIONS_ENABLED_KEY = 'dataConnections.enabled';
 
 // Register the configuration setting.
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
