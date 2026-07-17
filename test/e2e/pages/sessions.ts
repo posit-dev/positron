@@ -139,6 +139,22 @@ export class Sessions {
 				} else {
 					// session found, retrieve metadata
 					const foundSession = consoleTabActiveSessions[existingSessionIndex];
+
+					// Wait for the reused session to actually be reattached before reading its
+					// metadata -- the Console information button silently no-ops while a session
+					// is still reconnecting (e.g. right after another test's window reload reset
+					// every session's websocket), which otherwise strands getMetadata()'s dialog
+					// retry against a button that never opens it. Only checkable here when more
+					// than one session tab is rendered; a lone session's metadata already goes
+					// through this same dialog with no tab-based signal to wait on instead.
+					if (await this.getSessionCount() > 1) {
+						await expect(async () => {
+							const status = await this.getIconStatus(foundSession.id);
+							expect(status).not.toBe('disconnected');
+							expect(status).not.toBe('unknown');
+						}, `Wait for reused session to reattach: ${foundSession.id}`).toPass({ timeout: 30000 });
+					}
+
 					results.push(await this.getMetadata(foundSession.id));
 
 					// remove the found session from the list to avoid duplicates
