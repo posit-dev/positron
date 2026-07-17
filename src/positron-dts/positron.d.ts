@@ -3757,21 +3757,26 @@ declare module 'positron' {
 		export function areCompletionsEnabled(uri: vscode.Uri): Thenable<boolean>;
 
 		/**
-		 * A parameter accepted by an allowed command.
+		 * A positional parameter accepted by an agent-compatible command.
+		 *
+		 * The entry's position in `AgentCommand.args` is the positional index the
+		 * command handler expects.
 		 */
-		export interface AllowedCommandArg {
+		export interface AgentCommandArg {
 			/** Parameter name. */
 			name: string;
 			/** Human-readable description of the parameter. */
 			description?: string;
-			/** Whether the parameter may be omitted. */
-			isOptional?: boolean;
+			/** JSON Schema describing valid values for this argument. */
+			schema?: object;
+			/** Whether the argument is required. Defaults to `true`. */
+			required?: boolean;
 		}
 
 		/**
-		 * Where a command was registered from.
+		 * Where an agent-compatible command was registered from.
 		 */
-		export interface AllowedCommandSource {
+		export interface AgentCommandSource {
 			/** `'builtin'` for core Positron/VS Code commands; `'extension'` for extension-contributed commands. */
 			type: 'builtin' | 'extension';
 			/** Extension identifier (e.g. `ms-python.python`). Only present when `type` is `'extension'`. */
@@ -3781,30 +3786,74 @@ declare module 'positron' {
 		}
 
 		/**
-		 * Metadata for a single Positron command available to AI agents.
+		 * Metadata for a single Positron command exposed to AI agents.
 		 */
-		export interface AllowedCommand {
+		export interface AgentCommand {
 			/** Unique command identifier (e.g. `workbench.action.files.save`). */
 			id: string;
-			/** Human-readable description of what the command does. */
+			/** Model-facing description of what the command does. */
 			description?: string;
-			/** Ordered list of parameters the command accepts. */
-			args?: AllowedCommandArg[];
-			/** Description of the command's return value, if any. */
+			/** Ordered list of positional arguments the command accepts. */
+			args?: AgentCommandArg[];
+			/** Description of the command's return value, if meaningful. */
 			returns?: string;
 			/** Where the command was registered from. */
-			source: AllowedCommandSource;
+			source: AgentCommandSource;
 		}
 
 		/**
-		 * Returns all commands available to AI agents, including their IDs,
-		 * descriptions, and parameter/return-value metadata.
+		 * Result of {@link validateAndExecuteCommand}.
 		 *
-		 * In the future this may be filtered to a configured allowlist.
+		 * On success, `ok` is `true` and `result` carries the handler's return
+		 * value. On failure, `ok` is `false` and `reason` explains what went
+		 * wrong so the caller can respond intelligibly:
+		 * - `'unknown'`: no command is registered with this id in the current
+		 *   build.
+		 * - `'disabled'`: the command's precondition context-key expression
+		 *   evaluated to false. `precondition` contains the serialized
+		 *   expression for diagnostics.
+		 * - `'error'`: the handler threw. `message` contains the error message.
+		 */
+		export type ValidateAndExecuteCommandResult =
+			| { ok: true; result: unknown }
+			| {
+				ok: false;
+				reason: 'unknown' | 'disabled' | 'error';
+				precondition?: string;
+				message?: string;
+			};
+
+		/**
+		 * Returns the curated list of Positron commands that are available to
+		 * AI agents, including their IDs, descriptions, and parameter and
+		 * return-value metadata.
+		 *
+		 * The list is assembled from commands whose registration marks them as
+		 * agent-compatible; any curated id that is not registered in the
+		 * current build is dropped so the returned list is guaranteed to
+		 * resolve.
 		 *
 		 * @returns A Thenable that resolves to an array of command descriptors.
 		 */
-		export function getAllowedCommands(): Thenable<AllowedCommand[]>;
+		export function getAgentAllowedCommands(): Thenable<AgentCommand[]>;
+
+		/**
+		 * Validate and execute a Positron command.
+		 *
+		 * Unlike `vscode.commands.executeCommand`, this call first checks that
+		 * the command exists and that its precondition (the context-key
+		 * expression that would grey the command out in menus and the command
+		 * palette) currently holds, then runs it and reports the outcome as a
+		 * structured result instead of a UI notification.
+		 *
+		 * @param commandId The identifier of the command to execute.
+		 * @param args Positional arguments to pass to the command handler.
+		 * @returns A Thenable that resolves to the structured result.
+		 */
+		export function validateAndExecuteCommand(
+			commandId: string,
+			args?: unknown[]
+		): Thenable<ValidateAndExecuteCommandResult>;
 	}
 
 	/**

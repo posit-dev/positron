@@ -320,13 +320,16 @@ export interface MainThreadEnvironmentShape extends IDisposable {
 
 export interface ExtHostEnvironmentShape { }
 
-export interface ISerializedAllowedCommandArg {
+export interface ISerializedAgentCommandArg {
 	name: string;
 	description?: string;
-	isOptional?: boolean;
+	/** JSON Schema describing valid values for this argument. Serialized as a plain object. */
+	schema?: object;
+	/** Whether the argument is required. Defaults to `true`. */
+	required?: boolean;
 }
 
-export interface ISerializedAllowedCommandSource {
+export interface ISerializedAgentCommandSource {
 	type: 'builtin' | 'extension';
 	/** Extension identifier (e.g. `ms-python.python`). Only present when type is 'extension'. */
 	id?: string;
@@ -334,13 +337,22 @@ export interface ISerializedAllowedCommandSource {
 	displayName?: string;
 }
 
-export interface ISerializedAllowedCommand {
+export interface ISerializedAgentCommand {
 	id: string;
 	description?: string;
-	args?: ISerializedAllowedCommandArg[];
+	args?: ISerializedAgentCommandArg[];
 	returns?: string;
-	source: ISerializedAllowedCommandSource;
+	source: ISerializedAgentCommandSource;
 }
+
+export type ISerializedValidateAndExecuteCommandResult =
+	| { ok: true; result: unknown }
+	| {
+		ok: false;
+		reason: 'unknown' | 'disabled' | 'error';
+		precondition?: string;
+		message?: string;
+	};
 
 export interface MainThreadAiFeaturesShape {
 	$registerChatAgent(agentData: IChatAgentData): Thenable<void>;
@@ -361,7 +373,11 @@ export interface MainThreadAiFeaturesShape {
 	$getProviders(): Thenable<IPositronChatProvider[]>;
 	$setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 	$getEnabledProviders(): Thenable<string[]>;
-	$getAllowedCommands(): Promise<ISerializedAllowedCommand[]>;
+	$getAgentAllowedCommands(): Promise<ISerializedAgentCommand[]>;
+	$validateAndExecuteCommand(
+		commandId: string,
+		args: unknown[] | undefined,
+	): Promise<ISerializedValidateAndExecuteCommandResult>;
 }
 
 export interface ExtHostAiFeaturesShape {

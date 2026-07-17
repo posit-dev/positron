@@ -6,9 +6,7 @@
 import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
 import { revive } from '../../../../base/common/marshalling.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
-import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
-import { isIMenuItem, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
-import { EditorExtensionsRegistry } from '../../../../editor/browser/editorExtensions.js';
+import { IAgentAllowedCommandsService } from '../../../contrib/positronAiFeatures/common/agentAllowedCommandsService.js';
 import { ChatViewId } from '../../../contrib/chat/browser/chat.js';
 import { ChatViewPane } from '../../../contrib/chat/browser/widgetHosts/viewPane/chatViewPane.js';
 import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/participants/chatAgents.js';
@@ -19,7 +17,7 @@ import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronAssistantCo
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
-import { ExtHostAiFeaturesShape, ExtHostPositronContext, ISerializedAllowedCommand, MainPositronContext, MainThreadAiFeaturesShape } from '../../common/positron/extHost.positron.protocol.js';
+import { ExtHostAiFeaturesShape, ExtHostPositronContext, ISerializedAgentCommand, ISerializedValidateAndExecuteCommandResult, MainPositronContext, MainThreadAiFeaturesShape } from '../../common/positron/extHost.positron.protocol.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ChatModeKind } from '../../../contrib/chat/common/constants.js';
@@ -45,6 +43,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		@IViewsService private readonly _viewsService: IViewsService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IFileService private readonly _fileService: IFileService,
+		@IAgentAllowedCommandsService private readonly _agentAllowedCommandsService: IAgentAllowedCommandsService,
 	) {
 		super();
 		// Create the proxy for the extension host.
@@ -257,71 +256,35 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	/**
-	 * Return all registered commands with their IDs, descriptions, and parameter metadata.
-	 * Internal commands (IDs starting with '_') are excluded.
+	 * Return the curated set of Positron commands available to AI agents.
 	 */
-	async $getAllowedCommands(): Promise<ISerializedAllowedCommand[]> {
-		const allCommands = CommandsRegistry.getCommands();
-		const menuCommands = MenuRegistry.getCommands();
+	async $getAgentAllowedCommands(): Promise<ISerializedAgentCommand[]> {
+		return this._agentAllowedCommandsService.getAgentAllowedCommands().map(cmd => ({
+			id: cmd.id,
+			description: cmd.description,
+			args: cmd.args?.map(a => ({
+				name: a.name,
+				description: a.description,
+				schema: a.schema,
+				required: a.required,
+			})),
+			returns: cmd.returns,
+			source: {
+				type: cmd.source.type,
+				id: cmd.source.id,
+				displayName: cmd.source.displayName,
+			},
+		}));
+	}
 
-		// Build title map from command palette menu items — catches MultiCommand/EditorCommand
-		// registrations (e.g. undo, redo) that use appendMenuItem instead of addCommand.
-		const paletteItemTitles = new Map<string, string>();
-		for (const item of MenuRegistry.getMenuItems(MenuId.CommandPalette)) {
-			if (isIMenuItem(item)) {
-				const { id, title } = item.command;
-				if (title) {
-					paletteItemTitles.set(id, typeof title === 'string' ? title : title.value);
-				}
-			}
-		}
-
-		// Build label map from editor actions (covers undo, redo, cursor commands, etc.)
-		const editorActionLabels = new Map<string, string>();
-		for (const action of EditorExtensionsRegistry.getEditorActions()) {
-			editorActionLabels.set(action.id, action.label);
-		}
-
-		const result: ISerializedAllowedCommand[] = [];
-
-		for (const [id, command] of allCommands) {
-			if (id.startsWith('_')) {
-				continue;
-			}
-
-			const meta = command.metadata;
-			const menuCmd = menuCommands.get(id);
-
-			let description: string | undefined;
-			if (meta?.description) {
-				description = typeof meta.description === 'string'
-					? meta.description
-					: meta.description.value;
-			} else if (menuCmd) {
-				const title = menuCmd.title;
-				description = typeof title === 'string' ? title : title.value;
-			} else {
-				description = paletteItemTitles.get(id) ?? editorActionLabels.get(id);
-			}
-
-			const cmdSource = menuCmd?.source;
-			const source: ISerializedAllowedCommand['source'] = cmdSource
-				? { type: 'extension', id: cmdSource.id, displayName: cmdSource.title }
-				: { type: 'builtin' };
-
-			result.push({
-				id,
-				description,
-				args: meta?.args?.map(a => ({
-					name: a.name,
-					description: a.description,
-					isOptional: a.isOptional,
-				})),
-				returns: meta?.returns,
-				source,
-			});
-		}
-
-		return result;
+	/**
+	 * Check that a command exists and is currently enabled, then execute it.
+	 * Returns a structured result the caller can act on.
+	 */
+	async $validateAndExecuteCommand(
+		commandId: string,
+		args: unknown[] | undefined,
+	): Promise<ISerializedValidateAndExecuteCommandResult> {
+		return this._agentAllowedCommandsService.validateAndExecute(commandId, args);
 	}
 }
