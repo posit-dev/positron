@@ -169,13 +169,19 @@
 
 /* --- Start Positron --- */
 /*
- * Top-align table cells in hover markdown. Browsers default table cells to
- * vertical-align: middle, which leaves an argument name floating in the middle
- * of a multi-line description in function hover docs (e.g. R argument tables).
- * The Help pane top-aligns these, so match that here for consistency.
+ * Top-align table cells in editor hover markdown. Browsers default table cells
+ * to vertical-align: middle, which leaves an argument name floating in the
+ * middle of a multi-line description in function hover docs (e.g. R argument
+ * tables). The Help pane top-aligns these, so match that here for consistency.
+ *
+ * Scoped to `.monaco-editor` so this only affects editor hovers, not other
+ * hovers/tooltips across the workbench. This mirrors upstream's own hover
+ * theming convention (see hoverContribution.ts, which scopes with
+ * `.monaco-editor .monaco-hover`), and the extra class raises specificity so
+ * the rule wins regardless of stylesheet load order.
  */
-.monaco-hover .hover-contents table td,
-.monaco-hover .hover-contents table th {
+.monaco-editor .monaco-hover .hover-contents table td,
+.monaco-editor .monaco-hover .hover-contents table th {
 	vertical-align: top;
 }
 /* --- End Positron --- */
