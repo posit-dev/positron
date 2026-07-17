@@ -64,14 +64,11 @@ export interface IPositronPackagesService {
 	/**
 	 * Gets the installed packages for the active session.
 	 * @param token Optional cancellation token
+	 * @param forceMetadata When `true`, recompute outdated metadata live for
+	 * every package instead of reusing still-fresh cached state. Set for
+	 * user-initiated refreshes so an explicit Refresh is always authoritative.
 	 */
-	refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
-
-	/**
-	 * Force refresh package metadata, clearing the cache.
-	 * @param token Optional cancellation token
-	 */
-	refreshMetadata(token?: CancellationToken): Promise<void>;
+	refreshPackages(token?: CancellationToken, forceMetadata?: boolean): Promise<ILanguageRuntimePackage[]>;
 
 	/**
 	 * Install packages in the active session.
