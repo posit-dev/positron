@@ -72,12 +72,12 @@ test.describe('Python Applications', {
 			await openFile(join('workspaces', 'python_apps', appTest.filePath));
 
 			// Press play and verify the content is visible in the viewer frame
-			await editor.pressPlay();
+			await editor.pressPlay({ appName: appTest.name });
 			await viewer.expectContentVisible(appTest.locator, {
 				onRetry: async () => {
 					await terminal.clickTerminalTab();
 					await terminal.sendKeysToTerminal('Control+C');
-					await editor.pressPlay();
+					await editor.pressPlay({ appName: appTest.name });
 				}
 			});
 
@@ -95,14 +95,14 @@ test.describe('Python Applications', {
 
 		// Open the Streamlit app file and press play
 		await openFile(join('workspaces', 'python_apps', 'streamlit_example', 'streamlit_example.py'));
-		await editor.pressPlay();
+		await editor.pressPlay({ appName: 'Streamlit' });
 		await viewer.expectContentVisible(
 			frame => frame.getByRole('button', { name: 'Deploy' }),
 			{
 				onRetry: async () => {
 					await terminal.clickTerminalTab();
 					await terminal.sendKeysToTerminal('Control+C');
-					await editor.pressPlay();
+					await editor.pressPlay({ appName: 'Streamlit' });
 				}
 			}
 		);

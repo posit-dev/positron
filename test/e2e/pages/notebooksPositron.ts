@@ -56,6 +56,9 @@ export class PositronNotebooks extends Notebooks {
 	sortableCellAtIndex = (index: number) => this.code.driver.currentPage.locator('.sortable-cell').nth(index);
 	dragHandleAtIndex = (index: number) => this.sortableCellAtIndex(index).getByRole('button', { name: /Drag to reorder cell/i });
 	dragZoneAtIndex = (index: number) => this.sortableCellAtIndex(index).locator('.cell-drag-zone');
+	// One AddCellButtons per gap (including before the first and after the last cell), in DOM order by gap index
+	addCellButtonsAtGap = (gapIndex: number) => this.code.driver.currentPage.locator('.positron-add-cell-buttons').nth(gapIndex);
+	dropIndicatorAtGap = (gapIndex: number) => this.addCellButtonsAtGap(gapIndex).getByTestId('drop-indicator');
 	moreActionsOption = (option: string) => this.code.driver.currentPage.locator('button.custom-context-menu-item', { hasText: option });
 	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: 'Run Cell', exact: true });
 	private executionOrderBadgeAtIndex = (index: number) => this.cell.nth(index).locator('.execution-order-badge');
@@ -587,71 +590,24 @@ export class PositronNotebooks extends Notebooks {
 				? containerBox.y + containerBox.height * 0.85  // Near bottom edge
 				: containerBox.y + containerBox.height * 0.15; // Near top edge
 
-			// Helper to check if target cell is visible and in a good drop position
-			const isTargetReachable = async (): Promise<{ reachable: boolean; targetY?: number }> => {
-				const targetCell = this.sortableCellAtIndex(toIndex);
-				const targetBox = await targetCell.boundingBox();
-
-				if (!targetBox) {
-					return { reachable: false };
-				}
-
-				// Ensure target is sufficiently visible within container (not just peeking)
-				const targetCenter = targetBox.y + targetBox.height / 2;
-				const containerTop = containerBox.y + containerBox.height * 0.1;
-				const containerBottom = containerBox.y + containerBox.height * 0.9;
-
-				if (targetCenter >= containerTop && targetCenter <= containerBottom) {
-					// Target 75%/25% inside the cell because dnd-kit's collision
-					// detection uses the vertical midpoint to decide above vs.
-					// below placement. See: SortableCellList.tsx collisionDetection
-					// callback (midY calculation).
-					const dropY = scrollingDown
-						? targetBox.y + targetBox.height * 0.75
-						: targetBox.y + targetBox.height * 0.25;
-					return { reachable: true, targetY: dropY };
-				}
-
-				return { reachable: false };
-			};
-
-			// This method is only used for real (non-no-op) moves, so
-			// the drop indicator will always appear.
-			const dropIndicator = this.code.driver.currentPage.getByTestId('drop-indicator');
+			// The gap where dnd-kit will actually drop: after the target cell when
+			// scrolling down, before it when scrolling up. This is the same index
+			// AddCellButtons receives -- see PositronNotebookComponent.tsx.
+			const targetGapIndex = scrollingDown ? toIndex + 1 : toIndex;
+			// The drop indicator reflects dnd-kit's own collision detection
+			// (computeDropIndex in sortableCellListLogic.ts), which is the
+			// authoritative source of truth for reachability -- unlike a
+			// bounding-box re-check, it can't disagree with the real drag state.
+			const targetDropIndicator = this.dropIndicatorAtGap(targetGapIndex);
 
 			try {
-				// First check if target is already visible (no scrolling needed)
-				const initialCheck = await isTargetReachable();
-				if (initialCheck.reachable && initialCheck.targetY !== undefined) {
-					await this.code.driver.currentPage.mouse.move(startX, initialCheck.targetY, { steps: 10 });
-					await expect(dropIndicator).toBeVisible({ timeout: 2000 });
-					return;
-				}
-
-				// Move to edge and wait for auto-scroll to bring target into view
-				// Use polling with timeout instead of fixed iteration count
 				await this.code.driver.currentPage.mouse.move(startX, edgeY, { steps: 5 });
 
 				await expect(async () => {
 					// Keep cursor at edge to maintain auto-scroll
 					await this.code.driver.currentPage.mouse.move(startX, edgeY, { steps: 2 });
-
-					const result = await isTargetReachable();
-					if (!result.reachable) {
-						throw new Error('Target not yet reachable');
-					}
-					return result;
+					await expect(targetDropIndicator).toBeVisible({ timeout: 500 });
 				}).toPass({ timeout: 15000, intervals: [100, 200, 300, 500] });
-
-				// Target is now reachable - get fresh position and drop
-				const finalCheck = await isTargetReachable();
-				if (finalCheck.reachable && finalCheck.targetY !== undefined) {
-					await this.code.driver.currentPage.mouse.move(startX, finalCheck.targetY, { steps: 10 });
-					await expect(dropIndicator).toBeVisible({ timeout: 2000 });
-					return;
-				}
-
-				throw new Error(`Could not reach target cell at index ${toIndex} via auto-scroll`);
 			} finally {
 				await this.code.driver.currentPage.mouse.up();
 			}

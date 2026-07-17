@@ -134,6 +134,12 @@ export class ExtHostConfiguration implements ExtHostConfigurationShape {
 	$acceptConfigurationChanged(data: IConfigurationInitData, change: IConfigurationChange): void {
 		this.getConfigProvider().then(provider => provider.$acceptConfigurationChanged(data, change));
 	}
+
+	// --- Start Positron ---
+	registerConfigurationMigrations(extension: IExtensionDescription, migrations: ReadonlyArray<{ readonly key: string; readonly migrateTo: string }>): void {
+		this._proxy.$registerConfigurationMigrations(extension.identifier.value, migrations);
+	}
+	// --- End Positron ---
 }
 
 export class ExtHostConfigProvider {

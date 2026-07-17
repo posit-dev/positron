@@ -94,13 +94,13 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 		ctx.instantiationService.stub(IRuntimeNotebookKernelService, runtimeNotebookKernelService);
 
 		// Create a test language runtime.
-		runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		runtime = await createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 
 		// Get the kernel corresponding to the test language runtime.
 		kernel = runtimeNotebookKernelService.getKernelByRuntimeId(runtime.runtimeId)!;
 
 		// Create another runtime and kernel to test swapping kernels.
-		anotherRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		anotherRuntime = await createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		anotherKernel = runtimeNotebookKernelService.getKernelByRuntimeId(anotherRuntime.runtimeId)!;
 
 		// Register the 'test' language, otherwise cells can't be set to that language.
@@ -110,7 +110,7 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 	it('kernel is added on language runtime registration', async () => {
 		// Register a language runtime, and wait for the corresponding kernel to be added.
 		const kernelPromise = Event.toPromise(notebookKernelService.onDidAddKernel);
-		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		const runtime = await createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		const kernel = await kernelPromise;
 
 		// Check the kernel's properties.

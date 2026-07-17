@@ -105,8 +105,8 @@ else {
 				'https://login.staging.posit.cloud'
 			],
 			defaultChatAgent: {
-				extensionId: 'positron.positron-assistant',
-				chatExtensionId: 'positron.positron-assistant',
+				extensionId: 'GitHub.copilot-chat',
+				chatExtensionId: 'GitHub.copilot-chat',
 				chatExtensionOutputId: '',
 				documentationUrl: '',
 				skusDocumentationUrl: '',
@@ -119,8 +119,8 @@ else {
 				termsStatementUrl: '',
 				privacyStatementUrl: '',
 				provider: {
-					default: { id: 'positron.assistant', name: 'Positron Assistant' },
-					enterprise: { id: 'positron.assistant', name: 'Positron Assistant' },
+					default: { id: 'github', name: 'GitHub' },
+					enterprise: { id: 'github-enterprise', name: 'GitHub Enterprise' },
 					google: { id: '', name: '' },
 					apple: { id: '', name: '' },
 				},

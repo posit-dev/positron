@@ -421,31 +421,44 @@ export class PositAssistant {
 	 * Menu-mode path for {@link selectProviderModel}: open the overflow (...)
 	 * menu and its "Model" submenu, then click the first model in the provider's
 	 * group container.
+	 *
+	 * The open->select->close cycle is retried because providers whose model list
+	 * is populated by a live fetch (e.g. Posit AI) can re-render the group between
+	 * the count check and the click, detaching the item mid-click and hanging the
+	 * click indefinitely. A short inner click timeout lets a stale attempt fail
+	 * fast so the loop reopens the menu and retries against the fresh list.
 	 */
 	private async selectProviderModelMenuMode(overflow: Locator, providerName: string): Promise<void> {
-		await overflow.click();
-		// Open the "Model" submenu (SubTrigger carries the stable "Model" label).
-		await this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))').click();
-
+		const modelSubmenu = this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))');
 		// Scope to the provider's group (label + its model items live in one
 		// container).
 		const group = this.frame.locator(
 			`${MODEL_MENU_GROUP}:has([data-slot="dropdown-menu-label"] span:text-is("${providerName}"))`,
 		);
-		await expect(group).toBeVisible();
-
-		// Some providers (e.g. Microsoft Foundry) list every model under the
-		// "More models" disclosure with none shown directly, so the group has no
-		// model item until it's expanded.
 		const models = group.locator('[role="menuitem"]');
-		if (await models.count() === 0) {
-			await group.locator('button:has-text("More models")').click();
-		}
-		await models.first().click();
 
-		// Menu closes on selection; wait for the trigger to collapse so subsequent
-		// actions (e.g. Send) don't race an open overlay.
-		await expect(overflow).toHaveAttribute('aria-expanded', 'false');
+		await expect(async () => {
+			// Open the overflow menu and its "Model" submenu if the provider's
+			// group isn't already visible (e.g. a prior iteration reopens after a
+			// stale click).
+			if (!(await group.isVisible().catch(() => false))) {
+				await overflow.click();
+				await modelSubmenu.click();
+				await expect(group).toBeVisible({ timeout: 5000 });
+			}
+
+			// Some providers (e.g. Microsoft Foundry) list every model under the
+			// "More models" disclosure with none shown directly, so the group has no
+			// model item until it's expanded.
+			if (await models.count() === 0) {
+				await group.locator('button:has-text("More models")').click();
+			}
+			await models.first().click({ timeout: 5000 });
+
+			// Menu closes on selection; wait for the trigger to collapse so subsequent
+			// actions (e.g. Send) don't race an open overlay.
+			await expect(overflow).toHaveAttribute('aria-expanded', 'false', { timeout: 5000 });
+		}).toPass({ timeout: 30000 });
 	}
 
 	/**

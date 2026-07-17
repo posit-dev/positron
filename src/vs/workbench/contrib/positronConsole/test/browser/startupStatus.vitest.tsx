@@ -162,7 +162,7 @@ describe('StartupStatus', () => {
 			rtl.render(<StartupStatus />);
 
 			act(() => {
-				const runtime = stubInterface<ILanguageRuntimeMetadata>({ runtimePath: '/usr/bin/python' });
+				const runtime = stubInterface<ILanguageRuntimeMetadata>({ runtimePath: '/usr/bin/python', runtimeDisplayPath: undefined });
 				langMock.registeredRuntimes.push(runtime);
 				langMock.onDidRegisterRuntime.fire(runtime);
 			});
@@ -174,7 +174,7 @@ describe('StartupStatus', () => {
 			rtl.render(<StartupStatus />);
 
 			act(() => {
-				const runtime = stubInterface<ILanguageRuntimeMetadata>({ runtimePath: '/opt/local/python' });
+				const runtime = stubInterface<ILanguageRuntimeMetadata>({ runtimePath: '/opt/local/python', runtimeDisplayPath: undefined });
 				langMock.registeredRuntimes.push(runtime);
 				langMock.onDidRegisterRuntime.fire(runtime);
 			});
@@ -186,7 +186,7 @@ describe('StartupStatus', () => {
 			rtl.render(<StartupStatus />);
 
 			act(() => {
-				const runtime = stubInterface<ILanguageRuntimeMetadata>({ runtimePath: '/usr/bin/python' });
+				const runtime = stubInterface<ILanguageRuntimeMetadata>({ runtimePath: '/usr/bin/python', runtimeDisplayPath: undefined });
 				langMock.registeredRuntimes.push(runtime);
 				langMock.onDidRegisterRuntime.fire(runtime);
 			});

@@ -14,6 +14,8 @@ import { TestRuntimeClientInstance } from '../../../languageRuntime/test/common/
 import { CancellationError } from '../../../../../base/common/errors.js';
 import { TestUiClientInstance } from '../../../languageRuntime/test/common/testUiClientInstance.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
+import { IConsoleCodeAttribution } from '../../../positronConsole/common/positronConsoleCodeExecution.js';
+import { ICodeLocation } from '../../../positronConsole/common/codeLocation.js';
 
 export class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeSession {
 	private readonly _onDidChangeRuntimeState = this._register(new Emitter<RuntimeState>());
@@ -42,6 +44,8 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	private _clients = new Map<string, TestRuntimeClientInstance>();
 
 	private _uiClient: TestUiClientInstance | undefined;
+
+	private readonly _executionCodeLocations = new Map<string, ICodeLocation>();
 
 	onDidChangeRuntimeState = this._onDidChangeRuntimeState.event;
 	onDidCompleteStartup = this._onDidCompleteStartup.event;
@@ -126,8 +130,16 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		_code: string,
 		id: string,
 		_mode: RuntimeCodeExecutionMode,
-		_errorBehavior: RuntimeErrorBehavior
+		_errorBehavior: RuntimeErrorBehavior,
+		attribution?: IConsoleCodeAttribution,
 	): void {
+		// Remember any code location so outputs can be attributed to their
+		// source (see getExecutionCodeLocation), mirroring the real session.
+		const codeLocation = attribution?.metadata?.codeLocation as ICodeLocation | undefined;
+		if (codeLocation) {
+			this._executionCodeLocations.set(id, codeLocation);
+		}
+
 		if (this._currentState === RuntimeState.Busy ||
 			this._currentState === RuntimeState.Exited ||
 			this._currentState === RuntimeState.Exiting ||
@@ -151,6 +163,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 				this._onDidExecute.fire(id);
 			});
 		});
+	}
+
+	getExecutionCodeLocation(executionId: string): ICodeLocation | undefined {
+		return this._executionCodeLocations.get(executionId);
 	}
 
 	async callMethod(_method: string, ..._args: unknown[]): Promise<unknown> {

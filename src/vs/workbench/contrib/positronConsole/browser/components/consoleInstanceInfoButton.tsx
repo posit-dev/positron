@@ -21,6 +21,7 @@ import { ActionBarButton } from '../../../../../platform/positronActionBar/brows
 import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { getRuntimeDisplayPath } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
 const localizeShowKernelOutputChannel = (channelName: string) => localize('positron.console.info.showKernelOutputChannel', "Show {0} Output Channel", channelName);
@@ -44,7 +45,7 @@ export const ConsoleInstanceInfoButton = () => {
 	// Reference hooks.
 	const ref = useRef<HTMLButtonElement>(undefined!);
 
-	const handlePressed = async () => {
+	const handlePressed = () => {
 		// Get the session ID and the session. Note that we don't ask the
 		// console instance for the session directly since we want this to work
 		// even with a detached session.
@@ -58,16 +59,11 @@ export const ConsoleInstanceInfoButton = () => {
 			return;
 		}
 
-		// Get the channels from the session.
-		let channels: LanguageRuntimeSessionChannel[] = [];
-		try {
-			channels = intersectionOutputChannels(await session.listOutputChannels());
-		} catch (err) {
-			// If we fail to get the channels we can just ignore it
-			console.warn('Failed to get output channels', err);
-		}
-
-		// Create the renderer.
+		// Open the popup immediately. The popup loads its output channels
+		// asynchronously (see ConsoleInstanceInfoModalPopup) so opening it never
+		// waits on the listOutputChannels() ext-host RPC, which can be slow under
+		// load or early in session startup and would otherwise delay (or drop) the
+		// popup entirely.
 		const renderer = new PositronModalReactRenderer({
 			container: services.workbenchLayoutService.getContainer(DOM.getWindow(ref.current)),
 			parent: ref.current
@@ -76,7 +72,6 @@ export const ConsoleInstanceInfoButton = () => {
 		renderer.render(
 			<ConsoleInstanceInfoModalPopup
 				anchorElement={ref.current}
-				channels={channels}
 				renderer={renderer}
 				session={session}
 			/>
@@ -101,11 +96,11 @@ interface ConsoleInstanceInfoModalPopupProps {
 	anchorElement: HTMLElement;
 	renderer: PositronModalReactRenderer;
 	session: ILanguageRuntimeSession;
-	channels: LanguageRuntimeSessionChannel[];
 }
 
 const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
 	const [sessionState, setSessionState] = useState(() => props.session.getRuntimeState());
+	const [channels, setChannels] = useState<LanguageRuntimeSessionChannel[]>([]);
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -116,7 +111,31 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 		}));
 
 		return () => disposableStore.dispose();
-	}, [props.session, props.renderer]);
+	}, [props.session]);
+
+	// Load the session's output channels asynchronously so the popup opens
+	// immediately; the channel buttons appear once listOutputChannels() resolves.
+	useEffect(() => {
+		let active = true;
+
+		const loadOutputChannels = async () => {
+			let available: string[];
+			try {
+				available = await props.session.listOutputChannels();
+			} catch (err) {
+				// If we fail to get the channels we can just ignore it
+				console.warn('Failed to get output channels', err);
+				return;
+			}
+			if (active) {
+				setChannels(intersectionOutputChannels(available));
+			}
+		};
+
+		loadOutputChannels();
+
+		return () => { active = false; };
+	}, [props.session]);
 
 	const showKernelOutputChannelClickHandler = (channel: LanguageRuntimeSessionChannel) => {
 		props.session.showOutput(channel);
@@ -153,7 +172,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 					<div className='top-separator'>
 						<p className='line' data-testid='session-path'>{localize(
 							'positron.console.info.runtimePath', 'Path: {0}',
-							props.session.runtimeMetadata.runtimePath)}
+							getRuntimeDisplayPath(props.session.runtimeMetadata))}
 						</p>
 						<p className='line' data-testid='session-source'>{localize(
 							'positron.console.info.runtimeSource', 'Source: {0}',
@@ -161,17 +180,19 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 						</p>
 					</div>
 				</div>
-				<div className='top-separator actions'>
-					{props.channels.map((channel, index) => (
-						<Button
-							key={`channel-${index}`}
-							className='link'
-							onPressed={() => showKernelOutputChannelClickHandler(channel)}
-						>
-							{localizeShowKernelOutputChannel(OutputChannelNames[channel])}
-						</Button>
-					))}
-				</div>
+				{channels.length > 0 &&
+					<div className='top-separator actions'>
+						{channels.map((channel, index) => (
+							<Button
+								key={`channel-${index}`}
+								className='link'
+								onPressed={() => showKernelOutputChannelClickHandler(channel)}
+							>
+								{localizeShowKernelOutputChannel(OutputChannelNames[channel])}
+							</Button>
+						))}
+					</div>
+				}
 			</div>
 		</PositronModalPopup>
 	);

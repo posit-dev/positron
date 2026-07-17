@@ -7,6 +7,12 @@ name: "Build: Connect (Linux x64)"
 
 on:
   workflow_call:
+    inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
     outputs:
       artifact-name:
         description: "Name of the deb artifact uploaded"
@@ -32,7 +38,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0
-      BUILD_SOURCEVERSION: ${{ github.sha }}
+      BUILD_SOURCEVERSION: ${{ inputs.commit || github.sha }}
 
     steps:
       - name: Checkout repository
@@ -42,7 +48,7 @@ jobs:
           submodules: recursive
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
 
@@ -53,6 +59,10 @@ jobs:
         run: |
           git config --global --add safe.directory '*'
           git rev-parse --show-toplevel
+
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
 
       - name: Install build dependencies
         env:

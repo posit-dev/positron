@@ -429,7 +429,11 @@ build_tag_reasons() {
 			code="body"
 		elif printf '%s\n' "$map_nl" | grep -qxF "$tag"; then
 			code="files"
-		elif [[ "$tag" == "@:ark" && "$ark" == "true" ]]; then
+		elif [[ ( "$tag" == "@:ark" || "$tag" == "@:win" || "$tag" == "@:web" ) && "$ark" == "true" ]]; then
+			# An ark bump injects @:ark plus @:win/@:web together (see
+			# pr-tags-parse.sh); attribute all three to the bump. This sits above
+			# the test-win/test-web branches, so a bump wins over a coincidental
+			# tags.WIN/WEB add in the same PR.
 			code="ark"
 		elif [[ "$tag" == "@:win" && "$added_win" == "true" ]]; then
 			code="test-win"

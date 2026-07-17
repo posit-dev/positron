@@ -12,28 +12,23 @@ import { PROVIDER_METADATA } from '../providerSources';
  * Guards against drift between PROVIDER_METADATA in providerSources.ts and the
  * package.json contributions that own the same data. The metadata hardcodes
  * provider ids, display names, setting names, and maturity status that really
- * live in the manifests; nothing but this test keeps them in sync.
+ * live in this extension's manifest; nothing but this test keeps them in sync.
  *
- * Two manifests are involved:
- *   - this extension's package.json: `contributes.authentication` (id + label)
- *     and the `assistant.provider.<settingName>.enabled` settings for providers
- *     that don't ship via positron-assistant (googleVertex, deepseek).
- *   - positron-assistant's package.json: the `positron.assistant.provider.
- *     <settingName>.enable` settings (and their tags, which `status` mirrors).
+ * Two sets of contributions in this extension's package.json are involved:
+ *   - `contributes.authentication` (id + label).
+ *   - the provider enablement settings (and their tags, which `status`
+ *     mirrors). posit-dev/positron#13811 already moved every enablement
+ *     setting into this manifest (the old positron-assistant home is gone) and
+ *     is still renaming the legacy `positron.assistant.provider.<name>.enable`
+ *     keys to the new `assistant.provider.<name>.enabled` format (note the
+ *     trailing `d`). Until every key is renamed, both formats coexist here.
  *
- * NOTE: posit-dev/positron#13811 migrates the old `positron.assistant.provider.
- * <name>.enable` keys to the new `assistant.provider.<name>.enabled` format
- * (note the trailing `d`) and moves every enablement setting into a single home.
- * Once that lands, this test simplifies:
- *   - If the settings move here, drop `assistantPkg` and its `collect()` call;
- *     the cross-extension read into positron-assistant goes away (it's being
- *     deprecated anyway). If they move elsewhere, point the single read there.
- *   - Tighten the `provider\.(?<name>[^.]+)\.enabled?$` regex to `\.enabled$`;
- *     the optional `d` only exists to match both the old and new key formats.
- *   - If the migration keeps the old keys around as deprecated aliases instead
- *     of removing them, both keys will exist for the same provider. They map to
- *     the same capture group, so skip anything carrying a `deprecationMessage`/
- *     `markdownDeprecationMessage` to avoid the deprecated entry's tags winning.
+ * The `provider\.(?<name>[^.]+)\.enabled?$` regex matches both formats; the
+ * optional `d` only exists to bridge them. Tighten it to `\.enabled$` once the
+ * rename is complete. If any legacy key is kept around as a deprecated alias
+ * (so both keys exist for one provider, mapping to the same capture group),
+ * skip entries carrying a `deprecationMessage`/`markdownDeprecationMessage` so
+ * the deprecated entry's tags don't win.
  */
 suite('PROVIDER_METADATA package.json consistency', () => {
 
@@ -43,7 +38,6 @@ suite('PROVIDER_METADATA package.json consistency', () => {
 	}
 
 	const authPkg = readPackageJson('package.json');
-	const assistantPkg = readPackageJson('..', 'positron-assistant', 'package.json');
 
 	test('every authentication contribution has a PROVIDER_METADATA entry', () => {
 		// `label` (Accounts menu) and `displayName` (model picker) are deliberately
@@ -60,8 +54,8 @@ suite('PROVIDER_METADATA package.json consistency', () => {
 	});
 
 	test('settingName and status match the provider enable settings', () => {
-		// Collect every `provider.<name>.enable`/`.enabled` setting across both
-		// manifests, mapping the name to its maturity status (derived from tags).
+		// Collect every `provider.<name>.enable`/`.enabled` setting in the
+		// manifest, mapping the name to its maturity status (derived from tags).
 		// `status` in PROVIDER_METADATA must mirror that exactly.
 		const enableSettings: Record<string, 'preview' | 'experimental' | undefined> = {};
 		const collect = (pkg: any) => {
@@ -80,7 +74,6 @@ suite('PROVIDER_METADATA package.json consistency', () => {
 			}
 		};
 		collect(authPkg);
-		collect(assistantPkg);
 
 		const fromMetadata: Record<string, 'preview' | 'experimental' | undefined> = {};
 		for (const entry of Object.values(PROVIDER_METADATA)) {

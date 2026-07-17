@@ -4,11 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { DuckDBRow } from '../duckdbWorkerClient.js';
-import { DuckDBSchemaEntry, DuckDBTableView, duckdbDisplayType, makeWhereExpr } from '../duckdbTableView.js';
 import {
+	DuckDBDataExplorerRpcHandler,
+	DuckDBRow,
+	DuckDBSchemaEntry,
+	DuckDBTableView,
+	duckdbDisplayType,
+	makeWhereExpr
+} from 'positron-data-explorer-duckdb';
+import {
+	BackendState,
 	ColumnDisplayType,
 	ColumnValue,
+	DataExplorerBackendRequest,
+	DataExplorerResponse,
+	DataExplorerRpc,
 	FilterComparisonOp,
 	FormatOptions,
 	RowFilter,
@@ -159,6 +169,100 @@ suite('DuckDB Data Explorer Tests', () => {
 				{ numColumns: state.table_shape.num_columns, columns: data.columns },
 				{ numColumns: 1, columns: [['1.50', '2.50']] }
 			);
+		});
+	});
+
+	suite('convert to code', () => {
+		const schema: DuckDBSchemaEntry[] = [
+			{ column_name: 'id', column_type: 'INTEGER', type_display: ColumnDisplayType.Integer },
+		];
+		// A view that never queries: the code-gen paths don't touch the client, and the row counts
+		// resolve lazily.
+		const idleClient = new FakeQueryClient(() => [{ n: 0 }]);
+
+		test('without a generator, advertises SQL and emits a SELECT over the table', async () => {
+			const view = new DuckDBTableView(idleClient, '"main"."people"', 'people', 'table', schema);
+			const state = await view.getState();
+			assert.deepStrictEqual(state.supported_features.convert_to_code.code_syntaxes, [{ code_syntax_name: 'SQL' }]);
+			assert.deepStrictEqual(await view.suggestCodeSyntax(), { code_syntax_name: 'SQL' });
+			const code = await view.convertToCode({ column_filters: [], row_filters: [], sort_keys: [], code_syntax_name: { code_syntax_name: 'SQL' } });
+			assert.deepStrictEqual(code.converted_code, ['SELECT *', 'FROM "main"."people"']);
+		});
+
+		test('with a generator, advertises its syntaxes and delegates the emitted code', async () => {
+			const generator = {
+				syntaxNames: ['R', 'Python'],
+				defaultSyntaxName: 'R',
+				generate: (syntax: string) => [`# ${syntax} code`],
+			};
+			const view = new DuckDBTableView(idleClient, '"main"."people"', 'people', 'table', schema, generator);
+
+			const state = await view.getState();
+			assert.deepStrictEqual(state.supported_features.convert_to_code.code_syntaxes, [
+				{ code_syntax_name: 'R' }, { code_syntax_name: 'Python' },
+			]);
+			assert.deepStrictEqual(await view.suggestCodeSyntax(), { code_syntax_name: 'R' });
+			const code = await view.convertToCode({ column_filters: [], row_filters: [], sort_keys: [], code_syntax_name: { code_syntax_name: 'Python' } });
+			assert.deepStrictEqual(code.converted_code, ['# Python code']);
+		});
+	});
+
+	suite('openTableView display name', () => {
+		test('reports the given display name, not the physical table name, in the view state', async () => {
+			// buildDuckDBSchema queries information_schema; getState queries count(*).
+			const client = new FakeQueryClient(sql =>
+				sql.includes('information_schema')
+					? [{ column_name: 'id', data_type: 'INTEGER' }]
+					: [{ n: 0 }]);
+			const handler = new DuckDBDataExplorerRpcHandler('test-provider');
+			try {
+				// The physical table ('pin_g_cars_5', a synthetic name over a downloaded file) and the
+				// display name ('julia/cars', what the tab should show) deliberately differ.
+				await handler.openTableView('ds1', client, 'main', 'pin_g_cars_5', 'table', { displayName: 'julia/cars' });
+				const response = await handler.handleRequest({
+					method: DataExplorerBackendRequest.GetState, uri: 'ds1', params: {},
+				} as DataExplorerRpc) as DataExplorerResponse & { result: BackendState };
+				assert.strictEqual(response.result.display_name, 'julia/cars');
+			} finally {
+				handler.dispose();
+			}
+		});
+	});
+
+	suite('dataset close', () => {
+		// A client that answers buildDuckDBSchema (information_schema) and getState (count(*)).
+		const makeClient = () => new FakeQueryClient(sql =>
+			sql.includes('information_schema') ? [{ column_name: 'id', data_type: 'INTEGER' }] : [{ n: 0 }]);
+
+		test('closeDataset drops the view and invokes the onClose hook', async () => {
+			const handler = new DuckDBDataExplorerRpcHandler('test-provider');
+			let closed = false;
+			try {
+				await handler.openTableView('ds1', makeClient(), 'main', 't', 'table', { onClose: () => { closed = true; } });
+				handler.closeDataset('ds1');
+				assert.strictEqual(closed, true);
+				// The view is gone, so a later RPC for the dataset comes back as an error.
+				const response = await handler.handleRequest({
+					method: DataExplorerBackendRequest.GetState, uri: 'ds1', params: {},
+				} as DataExplorerRpc) as { error_message?: string };
+				assert.ok(response.error_message);
+			} finally {
+				handler.dispose();
+			}
+		});
+
+		test('closeTableView drops the view without invoking the onClose hook', async () => {
+			// Disconnect uses closeTableView and tears down its own worker, so the per-dataset hook must
+			// not fire (it would double up on that cleanup).
+			const handler = new DuckDBDataExplorerRpcHandler('test-provider');
+			let closed = false;
+			try {
+				await handler.openTableView('ds1', makeClient(), 'main', 't', 'table', { onClose: () => { closed = true; } });
+				handler.closeTableView('ds1');
+				assert.strictEqual(closed, false);
+			} finally {
+				handler.dispose();
+			}
 		});
 	});
 });

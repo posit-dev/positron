@@ -26,6 +26,12 @@ SERVER_ERR=/tmp/positron-server.err     # written by start-server.sh on a failed
 DESKTOP_ERR=/tmp/positron-electron.err  # written by launch-electron.sh on a failed launch
 
 sha() { [ -f "$1" ] && sha256sum "$1" | awk '{print $1}' || echo "missing"; }
+# Root deps check: a root-lockfile-only sha (like the e2e check below) misses drift from an
+# extension's own package.json/package-lock.json, since each dir in build/npm/dirs.ts is installed
+# separately and doesn't touch the root package-lock.json. installStateHash.ts's isUpToDate() is the
+# same read-only check npm's own postinstall hook trusts, hashing every dir in dirs.ts - reuse it
+# here instead of re-deriving (and getting wrong) that logic in bash. ~200ms; fine for a 3s poll.
+root_deps_ok() { node -e "import('$WS/build/npm/installStateHash.ts').then(m => process.exit(m.isUpToDate() ? 0 : 1))" 2>/dev/null; }
 tcp() { (exec 3<>"/dev/tcp/$1/$2") 2>/dev/null; }
 human_dur() { # seconds -> compact "3d 4h" / "2h 5m" / "12m" / "9s"
   local s=$1
@@ -140,7 +146,7 @@ render() {
     [ -f "$STATE/complete" ] || { build_ok=0; actions+=("Cold build never completed → run 'Positron CI: Rebuild'."); }
     [ -d "$WS/out" ]        || { build_ok=0; actions+=("No compiled output (out/) → start the watcher ('npm run watch') or run 'Positron CI: Rebuild'."); }
     [ -e "$WS/.build/electron" ] || { build_ok=0; actions+=("Electron not set up → run 'Positron CI: Rebuild'."); }
-    [ "$(sha "$WS/package-lock.json")" = "$(cat "$STATE/deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("Root deps changed → run 'Positron CI: Reinstall deps'."); }
+    root_deps_ok || { build_ok=0; actions+=("Root deps changed → run 'Positron CI: Reinstall deps'."); }
     [ "$(sha "$WS/test/e2e/package-lock.json")" = "$(cat "$STATE/e2e-deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("test/e2e deps changed → run 'Positron CI: Reinstall e2e deps'."); }
     if [ "$build_ok" -eq 1 ]; then
       printf '  %s✓%s %-*s%s%s%s\n' "$G" "$RST" "$NAMEW" "Build" "$DIM" "$last_build" "$RST"
@@ -244,7 +250,7 @@ sig() {
   # marker, so without these bits the Build row stayed stale until a manual refresh.
   [ -d "$WS/out" ] && s+=O || s+=o
   [ -e "$WS/.build/electron" ] && s+=L || s+=l
-  [ "$(sha "$WS/package-lock.json")" = "$(cat "$STATE/deps.sha" 2>/dev/null)" ] && s+=M || s+=m
+  root_deps_ok && s+=M || s+=m
   [ "$(sha "$WS/test/e2e/package-lock.json")" = "$(cat "$STATE/e2e-deps.sha" 2>/dev/null)" ] && s+=2 || s+=z
   # Build-marker mtime: Reinstall deps / Rebuild rewrite it (mark-build-state.sh), so the Build
   # card redraws when they finish — Reinstall never runs post-create.sh, so the B bit alone misses it.

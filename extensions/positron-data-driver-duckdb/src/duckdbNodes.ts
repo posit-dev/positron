@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
-import { IDuckDBQueryClient } from './duckdbWorkerClient.js';
+import { IDuckDBQueryClient } from 'positron-data-explorer-duckdb';
 
 /**
  * The capability a table/view/column node needs to open itself in the Data Explorer. Implemented by

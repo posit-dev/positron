@@ -296,7 +296,10 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 			'positron-catalog-explorer',
 			'positron-pdf-server',
 			'positron-data-driver-duckdb',
+			'positron-data-driver-pins',
 			'positron-data-driver-postgresql',
+			'positron-data-driver-redshift',
+			'positron-data-driver-snowflake',
 			'positron-data-driver-sqlite'
 		];
 
@@ -331,16 +334,16 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 			fileNames = Array.from(new Set([...fileNames, ...packagedDependencyFileNames]));
 		}
 
-		const files = fileNames
-			.map(fileName => path.join(extensionPath, fileName))
-			.map(filePath => new File({
-				path: filePath,
-				stat: fs.statSync(filePath),
-				base: extensionPath,
-				contents: fs.createReadStream(filePath)
-			}));
-
-		es.readArray(files).pipe(result);
+		// --- Start Positron ---
+		// Stream the files sequentially rather than eagerly opening a read
+		// stream for every file up front. Extensions with npm dependencies
+		// (e.g. positron-data-driver-snowflake, which bundles @azure/msal-node)
+		// enumerate thousands of node_modules files here; opening a descriptor
+		// for all of them at once exhausts the open-file limit and fails the
+		// Windows build with EMFILE. createSequentialFileStream opens one file
+		// at a time, matching fromLocalNormal. See posit-dev/positron#14998.
+		createSequentialFileStream(extensionPath, fileNames).pipe(result);
+		// --- End Positron ---
 	}).catch(err => {
 		console.error(extensionPath);
 		console.error(packagedDependencies);
@@ -540,6 +543,10 @@ const excludedExtensions = [
 	// the data driver extensions bundle via esbuild. It is not an extension and
 	// must not be packaged or activated at runtime.
 	'positron-data-explorer-protocol',
+	// Build-time-only package: shared DuckDB-backed Data Explorer backend that the
+	// DuckDB (and later pins) data driver extensions bundle via esbuild. It is not
+	// an extension and must not be packaged or activated at runtime.
+	'positron-data-explorer-duckdb',
 	// --- End Positron ---
 ];
 

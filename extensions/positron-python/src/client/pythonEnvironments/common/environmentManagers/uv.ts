@@ -9,9 +9,9 @@ import * as fs from 'fs';
 import { cache } from '../../../common/utils/decorators';
 import { clearCache } from '../../../common/utils/cacheUtils';
 import { traceError, traceVerbose } from '../../../logging';
-import { exec, pathExists, readFile, resolveSymbolicLink } from '../externalDependencies';
+import { canonicalizePath, exec, isParentPath, pathExists, readFile } from '../externalDependencies';
 import { isTestExecution, MINIMUM_PYTHON_VERSION, MAXIMUM_PYTHON_VERSION_EXCLUSIVE } from '../../../common/constants';
-import { getPyvenvConfigPathsFrom } from './simplevirtualenvs';
+import { getPyvenvConfigPathsFrom, isVenvEnvironment } from './simplevirtualenvs';
 import { splitLines } from '../../../common/stringUtils';
 import { CreateEnv } from '../../../common/utils/localize';
 
@@ -134,7 +134,60 @@ export function resetUvCache(): void {
 }
 
 /**
- * Checks if the given interpreter belongs to a uv-managed environment.
+ * Checks whether an interpreter resolves to a location under uv's managed Python directory.
+ * Both paths are canonicalized first (the same technique getEnvIdentity uses), so a symlinked
+ * intermediate directory or mount point can't hide a path that really lives under the uv python
+ * dir: uv's own `cpython-3.14` -> `cpython-3.14.6` version-directory symlink (issue #14489), a
+ * `.venv/bin/python` symlinked to its uv-managed base, or an install dir relocated behind a
+ * symlink like `/tmp` -> `/private/tmp`. isParentPath then matches on path boundaries, so a
+ * sibling like `<uvDir>-backup/...` that only shares the string prefix is not counted as inside.
+ *
+ * Both a uv-managed standalone install and a uv-created venv canonicalize to a path here, so
+ * callers that need to tell base installs apart from venvs must apply their own venv check.
+ * @param interpreterPath Absolute path to the python interpreter.
+ * @param uvDir The uv-managed Python directory (from `uv python dir`).
+ */
+async function isUnderUvPythonDir(interpreterPath: string, uvDir: string): Promise<boolean> {
+    const [canonicalInterpreter, canonicalUvDir] = await Promise.all([
+        canonicalizePath(interpreterPath),
+        canonicalizePath(uvDir),
+    ]);
+    return isParentPath(canonicalInterpreter, canonicalUvDir);
+}
+
+/**
+ * Checks whether an interpreter is a uv-managed standalone Python installation - a base
+ * interpreter that uv downloaded (living under `uv python dir`), as distinct from a
+ * uv-created virtual environment. Standalone installs are base/global interpreters, not
+ * dedicated environments.
+ * @param interpreterPath Absolute path to the python interpreter.
+ * @returns {boolean} Returns true if the interpreter is a uv-managed standalone install.
+ */
+export async function isUvManagedBasePython(interpreterPath: string): Promise<boolean> {
+    const uvUtils = await UvUtils.getUvUtils();
+    if (!uvUtils) {
+        return false;
+    }
+
+    const uvDir = await uvUtils.getUvDir();
+    if (!uvDir) {
+        return false;
+    }
+
+    // A virtual environment is never a standalone base install, even when its interpreter
+    // symlinks into the uv python directory: a uv-created venv points its `python` at the
+    // uv-managed base it was built from. Exclude anything with a pyvenv.cfg so those venvs
+    // stay classified as uv environments rather than global base Pythons.
+    if (await isVenvEnvironment(interpreterPath)) {
+        return false;
+    }
+
+    return isUnderUvPythonDir(interpreterPath, uvDir);
+}
+
+/**
+ * Checks if the given interpreter belongs to a uv-managed environment (a standalone install
+ * or a uv-created venv).
  * @param interpreterPath Absolute path to the python interpreter.
  * @returns {boolean} Returns true if the interpreter belongs to a uv environment.
  */
@@ -149,25 +202,9 @@ export async function isUvEnvironment(interpreterPath: string): Promise<boolean>
         return false;
     }
 
-    // Check if interpreter is directly in the uv directory
-    const normalizedInterpreterPath = path.normalize(interpreterPath);
-    const normalizedUvDir = path.normalize(uvDir);
-    if (normalizedInterpreterPath.startsWith(normalizedUvDir)) {
+    // A uv-managed standalone Python install lives under the uv python directory.
+    if (await isUnderUvPythonDir(interpreterPath, uvDir)) {
         return true;
-    }
-
-    // Check if it's a symlink pointing to the uv directory
-    try {
-        const resolvedPath = await resolveSymbolicLink(interpreterPath);
-        if (
-            resolvedPath &&
-            resolvedPath !== interpreterPath &&
-            path.normalize(resolvedPath).startsWith(normalizedUvDir)
-        ) {
-            return true;
-        }
-    } catch (ex) {
-        traceVerbose(ex);
     }
 
     // Check if there's a pyvenv.cfg file with a uv key

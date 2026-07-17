@@ -97,6 +97,25 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/** Emitter for disconnection events  */
 	readonly disconnected: vscode.EventEmitter<DisconnectedEvent>;
 
+	/** Emitter fired when the connection to the underlying runtime is lost */
+	private readonly _onDidDisconnect = new vscode.EventEmitter<void>();
+
+	/** Emitter fired when the connection to the underlying runtime is re-established */
+	private readonly _onDidReconnect = new vscode.EventEmitter<void>();
+
+	/** Public event fired when the connection to the underlying runtime is lost */
+	readonly onDidDisconnect = this._onDidDisconnect.event;
+
+	/** Public event fired when the connection to the underlying runtime is re-established */
+	readonly onDidReconnect = this._onDidReconnect.event;
+
+	/**
+	 * Whether the session has disconnected at least once; used to distinguish a
+	 * reconnection from the initial connection so we only fire `onDidReconnect`
+	 * after an actual disconnect.
+	 */
+	private _hasDisconnected = false;
+
 	/** Barrier: opens when the session has been established on Kallichore */
 	private readonly _established: Barrier = new Barrier();
 
@@ -216,6 +235,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._disposables.push(this._state);
 		this._disposables.push(this._exit);
 		this._disposables.push(this.disconnected);
+		this._disposables.push(this._onDidDisconnect);
+		this._disposables.push(this._onDidReconnect);
 
 		this.onDidReceiveRuntimeMessage = this._messages.event;
 
@@ -335,8 +356,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		//
 		// This is done after the contributed variables so that the kernel spec
 		// variables take precedence.
-		if (this._kernelSpec?.env) {
-			for (const [key, value] of Object.entries(this._kernelSpec.env)) {
+		//
+		// For a restored session (reconnected after e.g. an extension host
+		// restart) we no longer hold the original kernel spec, so fall back to
+		// the environment the session was launched with, as recorded by the
+		// supervisor. Without this, a restart rebuilds the environment without
+		// spec-provided entries such as the bundled ipykernel path on
+		// PYTHONPATH, and the restarted kernel fails to import its dependencies
+		// (e.g. `ModuleNotFoundError: No module named 'psutil'`).
+		const specEnv = this._kernelSpec?.env ?? this._activeSession?.initial_env;
+		if (specEnv) {
+			for (const [key, value] of Object.entries(specEnv)) {
 				if (typeof value === 'string') {
 					const action: VarAction = {
 						action: VarActionType.Replace,
@@ -1653,6 +1683,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				this.log(`Connected to websocket ${wsUri}.`, vscode.LogLevel.Debug);
 				// Open the connected barrier so that we can start sending messages
 				this._connected.open();
+
+				// If we had previously disconnected, this is a reconnection;
+				// notify listeners that the connection has been re-established.
+				if (this._hasDisconnected) {
+					this._hasDisconnected = false;
+					this._onDidReconnect.fire();
+				}
+
 				resolve();
 			};
 
@@ -1683,6 +1721,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 						state: this._runtimeState,
 					};
 					this.disconnected.fire(disconnectEvent);
+					this._hasDisconnected = true;
+					this._onDidDisconnect.fire();
 				}
 
 				// When the socket is closed, reset the connected barrier and
@@ -1909,6 +1949,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				state: this._runtimeState,
 			};
 			this.disconnected.fire(disconnectEvent);
+			this._hasDisconnected = true;
+			this._onDidDisconnect.fire();
 			this.onStateChange(positron.RuntimeState.Exited, data.clientDisconnected);
 
 			const exitEvent: positron.LanguageRuntimeExit = {
@@ -1936,6 +1978,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Gets the current runtime state of the kernel.
 	 */
 	get runtimeState(): positron.RuntimeState {
+		return this._runtimeState;
+	}
+
+	/**
+	 * Synchronously gets the current runtime state of the session.
+	 *
+	 * @returns The session's current runtime state.
+	 */
+	getRuntimeState(): positron.RuntimeState {
 		return this._runtimeState;
 	}
 
@@ -2041,7 +2092,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	private onExited(exitCode: number) {
-		if (this._restarting) {
+		// `_restarting` is cleared as soon as the replacement kernel reports that
+		// it's starting, which can happen before this exit arrives. The exit
+		// reason isn't affected by that ordering, so check it too; otherwise we
+		// tear down the websocket the replacement kernel is already using.
+		const restarting = this._restarting ||
+			this._exitReason === positron.RuntimeExitReason.Restart;
+
+		if (restarting) {
 			// If we're restarting, wait for the kernel to start up again
 			this.log(`Kernel exited with code ${exitCode}; waiting for restart to finish.`, vscode.LogLevel.Info);
 		} else {
@@ -2139,6 +2197,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			supported_features: reply.supported_features,
 			input_prompt,
 			continuation_prompt,
+			build_version: reply.language_info.positron?.build_version,
+			commit: reply.language_info.positron?.commit,
 		};
 
 		return this._runtimeInfo;

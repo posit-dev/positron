@@ -164,9 +164,9 @@ runs:
       id: node-version
       shell: bash
       run: |
-        # Extract just the major version (e.g., "22" from "v22.22.0")
-        # Using major version only because ABI is stable within a major version
-        # (all Node 22.x use NODE_MODULE_VERSION=127, native modules are compatible)
+        # Extract just the major version (e.g., "24" from "v24.15.0")
+        # Using major version only because the native-module ABI (NODE_MODULE_VERSION)
+        # is stable within a major version, so native modules stay compatible.
         NODE_FULL=$(node -v)
         NODE_MAJOR=$(echo "$NODE_FULL" | sed 's/v\([0-9]*\).*/\1/')
         echo "version=$NODE_MAJOR" >> "$GITHUB_OUTPUT"

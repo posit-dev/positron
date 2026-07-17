@@ -53,7 +53,7 @@ jobs:
       # Pin Node for scripts/apply-test-tag-map-fixes.mjs rather than relying on
       # whatever ships with ubuntu-latest.
       - name: Set up Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "20"
 

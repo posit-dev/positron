@@ -113,6 +113,18 @@ export class Plots {
 		});
 	}
 
+	async expectSessionNameButtonVisible() {
+		await test.step('Expect session name button to be visible', async () => {
+			await expect(this.sessionNameButton).toBeVisible({ timeout: 30000 });
+		});
+	}
+
+	async expectSessionNameButtonContain(text: string) {
+		await test.step(`Expect session name button to contain text: ${text}`, async () => {
+			await expect(this.sessionNameButton).toContainText(text);
+		});
+	}
+
 	getWebviewPlotLocator(selector: string): Locator {
 		return this.code.driver.currentPage
 			.locator(OUTER_WEBVIEW_FRAME).last().contentFrame()

@@ -13,7 +13,7 @@ import { IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../p
 import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { getRuntimeDisplayPath, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
@@ -22,7 +22,7 @@ import { getSessionDisplayName, getSessionIconClasses, isQuartoSession } from '.
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID, SELECT_KERNEL_ID_POSITRON } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IRuntimeDiscoveryCache } from '../../../services/runtimeStartup/common/runtimeDiscoveryCacheService.js';
-import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandMetadata, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { DisposableStore, dispose } from '../../../../base/common/lifecycle.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExplorerFolderContext } from '../../files/common/files.js';
@@ -213,7 +213,7 @@ export const selectLanguageRuntimeSession = async (
 		.map(session => ({
 			id: session.sessionId,
 			label: session.dynState.sessionName,
-			detail: session.runtimeMetadata.runtimePath,
+			detail: getRuntimeDisplayPath(session.runtimeMetadata),
 			description: session.sessionId === currentForegroundSession?.sessionId
 				? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
 				: undefined,
@@ -242,7 +242,7 @@ export const selectLanguageRuntimeSession = async (
 			.map(session => ({
 				id: session.sessionId,
 				label: getSessionDisplayNameWithRuntime(session),
-				detail: session.runtimeMetadata.runtimePath,
+				detail: getRuntimeDisplayPath(session.runtimeMetadata),
 				description: session.sessionId === currentForegroundSession?.sessionId
 					? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
 					: undefined,
@@ -264,7 +264,7 @@ export const selectLanguageRuntimeSession = async (
 			.map(session => ({
 				id: session.sessionId,
 				label: getSessionDisplayNameWithRuntime(session),
-				detail: session.runtimeMetadata.runtimePath,
+				detail: getRuntimeDisplayPath(session.runtimeMetadata),
 				description: session.sessionId === currentForegroundSession?.sessionId
 					? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
 					: undefined,
@@ -474,11 +474,11 @@ export const selectNewLanguageRuntime = async (
 				items.push({
 					id: runtime.runtimeId,
 					label: runtime.runtimeName,
-					detail: runtime.runtimePath,
+					detail: getRuntimeDisplayPath(runtime),
 					iconPath: {
 						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
 					},
-					neverShowWhenFiltered: true
+					neverShowWhenFiltered: false
 				});
 			});
 		}
@@ -487,7 +487,7 @@ export const selectNewLanguageRuntime = async (
 		interpreterGroups.forEach(group => {
 			// Group runtimes by environment type
 			const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
-			const allRuntimes = [group.primaryRuntime, ...group.alternateRuntimes];
+			const allRuntimes = group.alternateRuntimes;
 
 			allRuntimes.forEach(runtime => {
 				const envType = `${runtime.runtimeSource}`;
@@ -540,7 +540,7 @@ export const selectNewLanguageRuntime = async (
 						items.push({
 							id: runtime.runtimeId,
 							label: runtime.runtimeName,
-							detail: runtime.runtimePath,
+							detail: getRuntimeDisplayPath(runtime),
 							iconPath: {
 								dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
 							},
@@ -572,8 +572,6 @@ export const selectNewLanguageRuntime = async (
 
 		return items;
 	};
-
-	await fetchContributedItems();
 
 	const disposables = new DisposableStore();
 	const quickPick = disposables.add(quickInputService.createQuickPick<IQuickPickItem>({ useSeparators: true }));
@@ -706,6 +704,20 @@ export const selectNewLanguageRuntime = async (
 		}));
 
 		quickPick.show();
+
+		// Fold in contributed items after show() rather than awaiting them first:
+		// getItems() is an extension-host RPC that can hang for seconds right after
+		// a window reload, which would leave the picker invisible until it resolves.
+		// When startup isn't Complete yet, the onDidChangeRuntimeStartupPhase
+		// handler above does the fetch instead.
+		if (languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
+			fetchContributedItems().then(() => {
+				// Skip if the user dismissed the picker while the fetch was pending.
+				if (!disposables.isDisposed) {
+					rebuildItems();
+				}
+			});
+		}
 	});
 };
 
@@ -827,7 +839,8 @@ export function registerLanguageRuntimeActions() {
 		id: string,
 		title: ILocalizedString,
 		action: (accessor: ServicesAccessor) => Promise<void>,
-		keybinding: Omit<IKeybindingRule, 'id'>[] | undefined = undefined): void => {
+		keybinding: Omit<IKeybindingRule, 'id'>[] | undefined = undefined,
+		metadata: ICommandMetadata | undefined = undefined): void => {
 		registerAction2(class extends Action2 {
 			// Constructor.
 			constructor() {
@@ -836,7 +849,8 @@ export function registerLanguageRuntimeActions() {
 					title,
 					f1: true,
 					category,
-					keybinding
+					keybinding,
+					metadata,
 				});
 			}
 
@@ -887,7 +901,7 @@ export function registerLanguageRuntimeActions() {
 			const runtimeQuickPickItems = runtimes.map<LanguageRuntimeQuickPickItem>(runtime => ({
 				id: runtime.runtimeId,
 				label: `${runtime.languageName}: ${runtime.runtimeName}`,
-				description: runtime.runtimePath,
+				description: getRuntimeDisplayPath(runtime),
 				runtime
 			} satisfies LanguageRuntimeQuickPickItem));
 
@@ -1133,7 +1147,11 @@ export function registerLanguageRuntimeActions() {
 				weight: KeybindingWeight.WorkbenchContrib,
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Digit0
 			},
-		]
+		],
+		{
+			description: localize('positron.languageRuntime.restartActiveInterpreterSession.description', "Restart the active interpreter runtime session."),
+			agentCompatible: true,
+		}
 	);
 
 	/**
@@ -1152,6 +1170,11 @@ export function registerLanguageRuntimeActions() {
 			}
 
 			session.interrupt();
+		},
+		undefined,
+		{
+			description: localize('positron.languageRuntime.interruptActiveInterpreterSession.description', "Interrupt the active interpreter runtime session (e.g. stop a running computation)."),
+			agentCompatible: true,
 		});
 
 	/**
@@ -1307,7 +1330,11 @@ export function registerLanguageRuntimeActions() {
 				id: LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID,
 				title: localize2('workbench.action.language.runtime.discoverAllRuntimes', "Discover All Interpreters"),
 				f1: true,
-				category
+				category,
+				metadata: {
+					description: localize('positron.languageRuntime.discoverAllRuntimes.description', "Rediscover all installed interpreters so newly installed environments become available."),
+					agentCompatible: true,
+				},
 			});
 		}
 

@@ -111,10 +111,19 @@ get_extension_info() {
 	EXTENSION_TARGET_PLATFORM=""
 
 	if command -v jq >/dev/null 2>&1; then
-		# Sort by published_at descending to get the actual latest version
-		# (P3M does not guarantee versions are returned in sorted order)
-		EXTENSION_VERSION=$(echo "$response" | jq -r '.versions | sort_by(.published_at) | reverse | .[0].version // empty')
-		EXTENSION_TARGET_PLATFORM=$(echo "$response" | jq -r '.versions | sort_by(.published_at) | reverse | .[0].target_platform // empty')
+		# Pick the most recently published *stable* release. Open VSX marks
+		# prerelease builds with "pre_release": true (e.g. pyrefly's 1.1.900x dev
+		# builds), and those must not be bootstrapped as if they were releases.
+		# Fall back to all versions if the extension only publishes prereleases.
+		# Select a single entry so version and target_platform stay consistent.
+		# (P3M does not guarantee versions are returned in sorted order.)
+		local selected
+		selected=$(echo "$response" | jq -c '
+			(.versions | map(select(.pre_release != true))) as $stable
+			| (if ($stable | length) > 0 then $stable else .versions end)
+			| sort_by(.published_at) | reverse | .[0] // {}')
+		EXTENSION_VERSION=$(echo "$selected" | jq -r '.version // empty')
+		EXTENSION_TARGET_PLATFORM=$(echo "$selected" | jq -r '.target_platform // empty')
 
 	else
 		# Fallback parsing without jq

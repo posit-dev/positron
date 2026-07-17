@@ -129,6 +129,8 @@ const vscodeResourceIncludes = [
 	// Positron Help
 	'out-build/vs/workbench/contrib/positronHelp/browser/resources/*.html',
 	'out-build/vs/workbench/browser/media/*.svg',
+	// Positron Assistant chat prompt templates
+	'out-build/vs/workbench/contrib/positronAssistant/browser/media/prompts/chat/*.md',
 	// --- End Positron ---
 
 	// Tree Sitter highlights

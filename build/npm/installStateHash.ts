@@ -18,14 +18,15 @@ export const forceInstallMessage = 'Run \x1b[36mnode build/npm/fast-install.ts -
 
 // --- Start Positron ---
 // The ark binary in extensions/positron-r/resources/ark is resolved by
-// install-kernel.ts based on the submodule's HEAD SHA. Include that SHA in
-// the postinstall state so a submodule pointer change invalidates the
-// "up to date" check and re-runs the extensions install.
-const arkSubmodulePath = 'extensions/positron-r/ark';
-const arkVirtualKey = `${arkSubmodulePath}@HEAD`;
+// install-kernel.ts based on the submodule's HEAD SHA, and the ai-config dist
+// is built from the ai-lib submodule by the authentication extension's
+// postinstall. Include those SHAs in the postinstall state so a submodule
+// pointer change invalidates the "up to date" check and re-runs the
+// extensions install.
+const submodulePaths = ['extensions/positron-r/ark', 'ai-lib'];
 
-function getArkSubmoduleSha(): string | undefined {
-	const submoduleDir = path.join(root, arkSubmodulePath);
+function getSubmoduleSha(submodulePath: string): string | undefined {
+	const submoduleDir = path.join(root, submodulePath);
 	if (!fs.existsSync(path.join(submoduleDir, '.git'))) {
 		return undefined;
 	}
@@ -35,6 +36,15 @@ function getArkSubmoduleSha(): string | undefined {
 			.trim();
 	} catch {
 		return undefined;
+	}
+}
+
+function addSubmoduleShas(fileMap: Record<string, string>): void {
+	for (const submodulePath of submodulePaths) {
+		const sha = getSubmoduleSha(submodulePath);
+		if (sha) {
+			fileMap[`${submodulePath}@HEAD`] = sha;
+		}
 	}
 }
 // --- End Positron ---
@@ -124,10 +134,7 @@ export function computeState(options?: { ignoreNodeVersion?: boolean }): Postins
 		}
 	}
 	// --- Start Positron ---
-	const arkSha = getArkSubmoduleSha();
-	if (arkSha) {
-		fileHashes[arkVirtualKey] = arkSha;
-	}
+	addSubmoduleShas(fileHashes);
 	// --- End Positron ---
 	return { nodeVersion: options?.ignoreNodeVersion ? '' : process.versions.node, fileHashes };
 }
@@ -142,10 +149,7 @@ export function computeContents(): Record<string, string> {
 		}
 	}
 	// --- Start Positron ---
-	const arkSha = getArkSubmoduleSha();
-	if (arkSha) {
-		fileContents[arkVirtualKey] = arkSha;
-	}
+	addSubmoduleShas(fileContents);
 	// --- End Positron ---
 	return fileContents;
 }

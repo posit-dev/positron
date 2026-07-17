@@ -31,7 +31,7 @@ interface LanguageModelButtonProps {
 }
 
 /** Human-readable label for a provider's maturity status, or undefined for stable providers. */
-function getStatusLabel(status: LanguageModelButtonProps['status']): string | undefined {
+export function getStatusLabel(status: LanguageModelButtonProps['status']): string | undefined {
 	switch (status) {
 		case 'preview':
 			return localize('positron.languageModelButton.status.preview', "Preview");

@@ -13,23 +13,27 @@ import { DefaultDatabricksCredentialProvider } from './credentials';
 import { registerDatabricksProvider } from './catalogs/databricks';
 import { registerMockProvider } from './catalogs/mock';
 import { registerDbfsProvider } from './fs/dbfs';
-import { configureSnowflakeLogging, registerSnowflakeProvider } from './catalogs/snowflake';
+import { registerSnowflakeProvider } from './catalogs/snowflake';
 import { setExtensionUri } from './resources';
-import { initializeLogging, traceInfo, traceWarn } from './logging';
+import { initializeLogging, traceInfo } from './logging';
 
-let catalogExplorerEnabled = false;
-
-async function initializeCatalogExplorer(context: vscode.ExtensionContext): Promise<void> {
-	if (catalogExplorerEnabled) {
-		return;
-	}
+/**
+ * Activate the Catalog Explorer extension.
+ *
+ * Activation is driven on demand by the declarative activation events in
+ * package.json (the `catalog-explorer` view and the palette commands), all of
+ * which are gated on `config.catalogExplorer.enabled`. As a result the
+ * extension - and its module graph - is only loaded once the feature is
+ * actually enabled and used, rather than on every Positron startup.
+ */
+export async function activate(context: vscode.ExtensionContext) {
+	initializeLogging();
+	traceInfo('Catalog Explorer extension activating');
 
 	const config = vscode.workspace.getConfiguration('catalogExplorer');
 	const viewTestCatalog = config.get<boolean>('viewTestCatalog', false);
 
 	setExtensionUri(context);
-
-	await configureSnowflakeLogging(context);
 
 	const registry = new CatalogProviderRegistry();
 
@@ -46,37 +50,7 @@ async function initializeCatalogExplorer(context: vscode.ExtensionContext): Prom
 	);
 	registerCatalogCommands(context, registry);
 
-	catalogExplorerEnabled = true;
 	traceInfo('Catalog Explorer extension initialized');
-}
-
-export async function activate(context: vscode.ExtensionContext) {
-	initializeLogging();
-	traceInfo('Catalog Explorer extension activating');
-
-	// Check if the extension is enabled via configuration
-	const config = vscode.workspace.getConfiguration('catalogExplorer');
-	const isEnabled = config.get<boolean>('enabled', true);
-
-	// If the extension is disabled, set up a listener to initialize when enabled
-	if (!isEnabled) {
-		traceWarn('Catalog Explorer extension is disabled via configuration');
-		context.subscriptions.push(
-			vscode.workspace.onDidChangeConfiguration(async (e) => {
-				if (e.affectsConfiguration('catalogExplorer.enabled')) {
-					const newConfig = vscode.workspace.getConfiguration('catalogExplorer');
-					const newEnabled = newConfig.get<boolean>('enabled', false);
-					if (newEnabled && !catalogExplorerEnabled) {
-						traceInfo('Catalog Explorer enabled via configuration change');
-						await initializeCatalogExplorer(context);
-					}
-				}
-			})
-		);
-		return;
-	}
-
-	await initializeCatalogExplorer(context);
 }
 
 export function deactivate() { }

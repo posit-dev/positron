@@ -261,6 +261,8 @@ const desktopResourcePatterns = [
 	// --- Start Positron ---
 	// Positron Help welcome/help HTML loaded by positronHelpService at runtime.
 	'vs/workbench/contrib/positronHelp/browser/resources/*.html',
+	// Positron Assistant chat prompt templates, loaded by PromptRenderer at runtime.
+	'vs/workbench/contrib/positronAssistant/browser/media/prompts/chat/*.md',
 	// --- End Positron ---
 
 	// HTML
@@ -342,6 +344,8 @@ const serverWebResourcePatterns = [
 	// --- Start Positron ---
 	// Positron Help welcome/help HTML loaded by positronHelpService at runtime.
 	'vs/workbench/contrib/positronHelp/browser/resources/*.html',
+	// Positron Assistant chat prompt templates, loaded by PromptRenderer at runtime.
+	'vs/workbench/contrib/positronAssistant/browser/media/prompts/chat/*.md',
 	// --- End Positron ---
 
 	// Web HTML
@@ -374,6 +378,8 @@ const webResourcePatterns = [
 	// --- Start Positron ---
 	// Positron Help welcome/help HTML loaded by positronHelpService at runtime.
 	'vs/workbench/contrib/positronHelp/browser/resources/*.html',
+	// Positron Assistant chat prompt templates, loaded by PromptRenderer at runtime.
+	'vs/workbench/contrib/positronAssistant/browser/media/prompts/chat/*.md',
 	// --- End Positron ---
 
 	// Web HTML

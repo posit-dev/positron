@@ -363,6 +363,12 @@
             "default": "",
             "description": "%r.configuration.kernelPath.description%"
           },
+          "positron.r.kernel.warnOnVersionMismatch": {
+            "scope": "window",
+            "type": "boolean",
+            "default": true,
+            "description": "%r.configuration.kernelWarnOnVersionMismatch.description%"
+          },
           "positron.r.kernel.logLevel": {
             "scope": "window",
             "type": "string",

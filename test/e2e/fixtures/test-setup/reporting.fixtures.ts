@@ -38,16 +38,33 @@ export function AttachScreenshotsToReportFixture() {
 			screenshots.push(screenshotPath);
 		};
 
-		await use();
-
-		// if test failed, take and attach screenshot
-		if (testInfo.status !== testInfo.expectedStatus) {
+		const attachFailureScreenshot = async () => {
+			if (testInfo.status === testInfo.expectedStatus) { return; }
 			try {
 				const screenshot = await page.screenshot();
-				await testInfo.attach('on-test-end', { body: screenshot, contentType: 'image/png' });
+				await testInfo.attach('on-test-fail', { body: screenshot, contentType: 'image/png' });
 			} catch {
 				// Page may not be available if app failed to start
 			}
+		};
+
+		// Capture the failure screenshot the instant the test function throws, via the
+		// same private callback hook Playwright's own built-in `screenshot:
+		// 'only-on-failure'` uses internally. This fires before afterEach/afterAll hooks
+		// and before fixture teardown, so it shows the state that caused the failure
+		// rather than whatever teardown left behind. There's no public API for this
+		// timing; if a future Playwright release removes the hook, fall back to
+		// capturing at fixture teardown (the old, later timing) so failure screenshots
+		// don't silently disappear.
+		const onDidFinishTestFunctionCallbacks = (testInfo as unknown as {
+			_onDidFinishTestFunctionCallbacks?: Set<() => unknown>;
+		})._onDidFinishTestFunctionCallbacks;
+		onDidFinishTestFunctionCallbacks?.add(attachFailureScreenshot);
+
+		await use();
+
+		if (!onDidFinishTestFunctionCallbacks) {
+			await attachFailureScreenshot();
 		}
 
 		for (const screenshotPath of screenshots) {

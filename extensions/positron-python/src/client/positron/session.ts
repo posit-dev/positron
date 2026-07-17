@@ -82,6 +82,15 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The emitter for resource usage updates */
     private _resourceUsageEmitter = new vscode.EventEmitter<positron.RuntimeResourceUsage>();
 
+    /** The emitter fired when the connection to the underlying runtime is lost */
+    private _onDidDisconnect = new vscode.EventEmitter<void>();
+
+    /** The emitter fired when the connection to the underlying runtime is re-established */
+    private _onDidReconnect = new vscode.EventEmitter<void>();
+
+    /** Disposables owned by this session (emitters, kernel subscriptions, etc.) */
+    private _disposables: vscode.Disposable[] = [];
+
     /** The Positron Supervisor extension API */
     private adapterApi?: PositronSupervisorApi;
 
@@ -138,6 +147,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     onDidUpdateResourceUsage = this._resourceUsageEmitter.event;
 
+    onDidDisconnect = this._onDidDisconnect.event;
+
+    onDidReconnect = this._onDidReconnect.event;
+
     constructor(
         readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
         readonly metadata: positron.RuntimeSessionMetadata,
@@ -170,6 +183,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             await this.onStateChange(state);
         });
 
+        // Ensure the connection state emitters are disposed with the session
+        this._disposables.push(this._onDidDisconnect);
+        this._disposables.push(this._onDidReconnect);
+
         this._installer = this.serviceContainer.get<IInstaller>(IInstaller);
         this._interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         this._interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
@@ -178,6 +195,15 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {
         return this._runtimeInfo;
+    }
+
+    /**
+     * Synchronously gets the current runtime state of the session.
+     *
+     * @returns The session's current runtime state.
+     */
+    getRuntimeState(): positron.RuntimeState {
+        return this._state;
     }
 
     getDynState(): Thenable<positron.LanguageRuntimeDynState> {
@@ -819,6 +845,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         if (this._kernel) {
             await this._kernel.dispose();
         }
+
+        // Dispose the connection state emitters and kernel subscriptions
+        this._disposables.forEach((disposable) => disposable.dispose());
+        this._disposables = [];
     }
 
     updateSessionName(sessionName: string): void {
@@ -904,6 +934,21 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         kernel.onDidUpdateResourceUsage((usage) => {
             this._resourceUsageEmitter.fire(usage);
         });
+
+        // Forward the kernel's connection state changes, if it supports them.
+        const disconnectListener = kernel.onDidDisconnect?.(() => {
+            this._onDidDisconnect.fire();
+        });
+        if (disconnectListener) {
+            this._disposables.push(disconnectListener);
+        }
+        const reconnectListener = kernel.onDidReconnect?.(() => {
+            this._onDidReconnect.fire();
+        });
+        if (reconnectListener) {
+            this._disposables.push(reconnectListener);
+        }
+
         return kernel;
     }
 

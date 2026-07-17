@@ -6,13 +6,18 @@
 /// <reference types="vitest/globals" />
 
 import { raceTimeout } from '../../../../../base/common/async.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IPositronPlotMetadata, PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotOpenTarget, PlotsDisplayLocation } from '../../../../services/positronPlots/common/positronPlots.js';
+import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotOpenTarget, PlotsDisplayLocation, POSITRON_PLOTS_VIEW_ID } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ACTIVE_GROUP, AUX_WINDOW_GROUP, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
+import { LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOutputKind, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { ICodeLocation } from '../../../../services/positronConsole/common/codeLocation.js';
 import { RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { PositronPlotCommProxy } from '../../../../services/languageRuntime/common/positronPlotCommProxy.js';
@@ -20,6 +25,7 @@ import { IntrinsicSize, PlotUnit } from '../../../../services/languageRuntime/co
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyFill } from '../../../../services/positronPlots/common/sizingPolicyFill.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 
 describe('Positron - Plots Service', () => {
@@ -433,6 +439,151 @@ describe('Positron - Plots Service', () => {
 
 		it('copy editor plot: rejects when the plot id is unknown', async () => {
 			await expect(plotsService.copyEditorPlotToClipboard('missing')).rejects.toThrow('Plot not found');
+		});
+	});
+
+	// Notebook consoles surface their static image outputs in the Plots pane,
+	// but passively -- the plot appears without the pane being raised. Plain
+	// notebooks (no attached console) stay out of the pane entirely.
+	describe('notebook console plots', () => {
+		const SHOW_NOTEBOOK_CONSOLES_KEY = 'console.showNotebookConsoles';
+
+		// A static image output message, of the shape a runtime emits for a plot.
+		function staticImageMessage(id: string) {
+			return { id, kind: RuntimeOutputKind.StaticImage, data: { 'image/png': 'dGVzdA==' } };
+		}
+
+		async function startNotebookSession() {
+			return startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, {
+				sessionMode: LanguageRuntimeSessionMode.Notebook,
+				notebookUri: URI.parse('untitled:notebook.ipynb'),
+			});
+		}
+
+		it('notebook console: surfaces static plots passively (does not raise the pane)', async () => {
+			// A notebook session gets a console when notebook consoles are enabled.
+			const configurationService = ctx.instantiationService.get(IConfigurationService) as TestConfigurationService;
+			await configurationService.setUserConfiguration(SHOW_NOTEBOOK_CONSOLES_KEY, true);
+			const openViewSpy = vi.spyOn(ctx.instantiationService.get(IViewsService), 'openView');
+
+			const session = await startNotebookSession();
+			session.receiveOutputMessage(staticImageMessage('notebook-plot-1'));
+
+			// The plot shows up in the Plots pane, but the pane is never raised.
+			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['notebook-plot-1']);
+			expect(openViewSpy).not.toHaveBeenCalledWith(POSITRON_PLOTS_VIEW_ID, false);
+		});
+
+		it('plain notebook (no console): keeps plots out of the pane', async () => {
+			// notebook consoles disabled (the default), so this notebook has no console.
+			const session = await startNotebookSession();
+			session.receiveOutputMessage(staticImageMessage('notebook-plot-1'));
+
+			expect(plotsService.positronPlotInstances.length).toBe(0);
+		});
+
+		it('console: surfaces static plots and raises the pane', async () => {
+			const openViewSpy = vi.spyOn(ctx.instantiationService.get(IViewsService), 'openView');
+
+			// startTestLanguageRuntimeSession defaults to a console session.
+			const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+			session.receiveOutputMessage(staticImageMessage('console-plot-1'));
+
+			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['console-plot-1']);
+			expect(openViewSpy).toHaveBeenCalledWith(POSITRON_PLOTS_VIEW_ID, false);
+		});
+
+		// A plot preview stays in the console after the user clears the Plots
+		// pane. Clicking it selects the plot by id (see the console's
+		// onDidSelectPlot flow); since the plot is gone, the service recreates
+		// it from the original message and re-adds it to the pane, selected.
+		it('notebook console: reselecting a cleared plot re-adds it to the pane', async () => {
+			const configurationService = ctx.instantiationService.get(IConfigurationService) as TestConfigurationService;
+			await configurationService.setUserConfiguration(SHOW_NOTEBOOK_CONSOLES_KEY, true);
+
+			const session = await startNotebookSession();
+			session.receiveOutputMessage(staticImageMessage('notebook-plot-1'));
+			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['notebook-plot-1']);
+
+			// The user clears the Plots pane.
+			plotsService.removeAllPlots();
+			expect(plotsService.positronPlotInstances.length).toBe(0);
+
+			// Reselecting the cleared plot restores it.
+			plotsService.selectPlot('notebook-plot-1');
+			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['notebook-plot-1']);
+			expect(plotsService.selectedPlotId).toBe('notebook-plot-1');
+		});
+
+		// A plot generated by a Quarto chunk surfaces as a message-sourced static
+		// plot, which carries no backend origin. To let the Plots pane's
+		// session-name button navigate to the source location (not just open the
+		// file), the service recovers the origin from the code location the
+		// session recorded for the originating execution.
+		it('notebook console: attaches an origin from the execution code location', async () => {
+			const configurationService = ctx.instantiationService.get(IConfigurationService) as TestConfigurationService;
+			await configurationService.setUserConfiguration(SHOW_NOTEBOOK_CONSOLES_KEY, true);
+
+			const session = await startNotebookSession();
+			session.setRuntimeState(RuntimeState.Ready);
+
+			// Execute a chunk with a source code location (as the Quarto execution
+			// manager does), then have the runtime emit a static plot attributed to
+			// that execution via its parent id.
+			const codeLocation: ICodeLocation = {
+				uri: URI.parse('file:///workspace/simple_plot_r.qmd'),
+				range: { start: { line: 9, character: 0 }, end: { line: 9, character: 0 } },
+			};
+			session.execute(
+				'plot(1:10)',
+				'exec-1',
+				RuntimeCodeExecutionMode.Interactive,
+				RuntimeErrorBehavior.Continue,
+				{ source: CodeAttributionSource.Notebook, metadata: { codeLocation } },
+			);
+			session.receiveOutputMessage({ ...staticImageMessage('notebook-plot-1'), parent_id: 'exec-1' });
+
+			expect(plotsService.positronPlotInstances[0].metadata.origin).toEqual({
+				uri: codeLocation.uri.toString(),
+				range: { start_line: 9, start_character: 0, end_line: 9, end_character: 0 },
+			});
+		});
+
+		it('reselecting a plot that is still in the pane does not duplicate it', async () => {
+			const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+			session.receiveOutputMessage(staticImageMessage('console-plot-1'));
+			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['console-plot-1']);
+
+			plotsService.selectPlot('console-plot-1');
+			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['console-plot-1']);
+		});
+
+		// The recreate cache is bounded (see MaxSurfacedPlotMessages), so a
+		// long-running session doesn't retain every plot's message and session
+		// forever. The oldest entries are evicted once the bound is exceeded.
+		it('notebook console: bounds the recreate cache to the most recent plots', async () => {
+			const configurationService = ctx.instantiationService.get(IConfigurationService) as TestConfigurationService;
+			await configurationService.setUserConfiguration(SHOW_NOTEBOOK_CONSOLES_KEY, true);
+
+			const session = await startNotebookSession();
+
+			// Emit more plots than the cache retains (33 exceeds the 32-entry bound).
+			const total = 33;
+			for (let i = 0; i < total; i++) {
+				session.receiveOutputMessage(staticImageMessage(`nb-plot-${i}`));
+			}
+
+			// The user clears the Plots pane.
+			plotsService.removeAllPlots();
+			expect(plotsService.positronPlotInstances.length).toBe(0);
+
+			// The oldest plot was evicted from the cache and can't be recreated.
+			plotsService.selectPlot('nb-plot-0');
+			expect(plotsService.positronPlotInstances.length).toBe(0);
+
+			// The most recent plot is still cached and is recreated on reselection.
+			plotsService.selectPlot(`nb-plot-${total - 1}`);
+			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual([`nb-plot-${total - 1}`]);
 		});
 	});
 });

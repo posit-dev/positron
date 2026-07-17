@@ -283,6 +283,24 @@ already mixed, see [Gotchas](#gotchas) for the fix.
 | **Positron CI: Watch (src)** | incremental compiler for the edit-debug loop; reload the window after "Finished compilation" |
 | *Run and Debug ->* **Positron CI: Debug (Electron)** / **(Web)** | debug Positron source - desktop app / browser build (see Debug above) |
 
+### When you're done
+
+**Don't delete the container or volumes when you finish a session.** The lab is meant to be
+long-lived, and the five Docker volumes ([node_modules, .build, postgres-data](#how-storage-works))
+hold the expensive Linux-built state. Removing them forces a ~10-min cold rebuild next time; keeping
+them means the next open is warm.
+
+| Situation | What to do | What survives |
+|---|---|---|
+| **Done for the session** (UI) | click **Stop**, then the remote indicator -> **Reopen Folder Locally** (or just close the window). Docker stops the container; volumes persist. | everything -- next open is warm |
+| **Done for the session** (headless) | nothing required; `docker compose stop` from `.devcontainer/ci-arm` if you want the container idle. `ci-lab-up.sh` is idempotent, so you can also just leave it. | everything |
+| **Truly done / reclaim disk** | `npm run ci-lab-reset` -- the *only* time you remove containers + volumes (see [Start over](#start-over-reset) below). | source, `.env`, `license.txt` |
+
+Avoid `docker volume rm`, `docker system prune`, or otherwise deleting the `ci-arm_*` volumes by
+hand -- that nukes the warm build state the whole design exists to preserve. Use `reset.sh` /
+`npm run ci-lab-reset` when you actually want a clean slate; it scopes the teardown to this checkout's
+Compose project.
+
 ### Start over (reset)
 
 To force a fresh cold build and reset the environment:

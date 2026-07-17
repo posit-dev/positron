@@ -41,7 +41,7 @@ import {
 import { getWorkspaceFolders, onDidChangeWorkspaceFolders } from '../common/vscodeApis/workspaceApis';
 
 // --- Start Positron ---
-import { getUvDirs, isUvEnvironment } from './common/environmentManagers/uv';
+import { getUvDirs, isUvEnvironment, isUvManagedBasePython } from './common/environmentManagers/uv';
 import { isCustomEnvironment } from '../positron/interpreterSettings';
 import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalInstalledEnvs';
 // eslint-disable-next-line import/no-duplicates
@@ -582,9 +582,25 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     private async addEnv(native: NativeEnvInfo, searchLocation?: Uri): Promise<PythonEnvInfo | undefined> {
         const info = await toPythonEnvInfo(native, this._condaEnvDirs);
         if (info) {
-            if (info.executable.filename && (await isUvEnvironment(info.executable.filename))) {
-                traceInfo(`Found uv environment: ${info.executable.filename}`);
-                info.kind = PythonEnvKind.Uv;
+            if (info.executable.filename) {
+                if (await isUvManagedBasePython(info.executable.filename)) {
+                    // A uv-managed standalone Python install is a base interpreter, not a
+                    // dedicated environment. Classify it as a global Python so the picker,
+                    // recommendation ranking, health check, and venv-base selection treat
+                    // it like any other standalone Python rather than a uv virtual env.
+                    traceInfo(`Found uv-managed base Python: ${info.executable.filename}`);
+                    info.kind = PythonEnvKind.OtherGlobal;
+                    // toPythonEnvInfo derived type and display name from the pre-override
+                    // kind, which PET reported as Uv (type Virtual, label "(uv)"). Recompute
+                    // both so the corrected global kind is reflected everywhere.
+                    info.type = getEnvType(info.kind);
+                    const display = getDisplayName(info.version, info.kind, info.arch, info.name);
+                    info.detailedDisplayName = display;
+                    info.display = display;
+                } else if (await isUvEnvironment(info.executable.filename)) {
+                    traceInfo(`Found uv environment: ${info.executable.filename}`);
+                    info.kind = PythonEnvKind.Uv;
+                }
             }
             let old = this._envs.find((item) => item.executable.filename === info.executable.filename);
             if (!old) {

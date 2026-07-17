@@ -92,7 +92,7 @@ describe('Positron - RuntimeNotebookKernel', () => {
 		}));
 
 		// Create a test language runtime.
-		runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		runtime = await createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 
 		// Create the runtime notebook kernel.
 		kernel = ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeNotebookKernel, runtime));
@@ -573,7 +573,7 @@ describe('Positron - RuntimeNotebookKernel - executeCodeInCell', () => {
 		}));
 
 		// Create a test language runtime.
-		runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		runtime = await createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 
 		// Create the runtime notebook kernel.
 		kernel = ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeNotebookKernel, runtime));

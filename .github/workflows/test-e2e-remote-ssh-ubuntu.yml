@@ -23,6 +23,16 @@ on:
         description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
         type: boolean
         default: false
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      enable_diagnostic_logging:
+        required: false
+        description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -47,6 +57,10 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
 
       - uses: docker/login-action@v4
         with:
@@ -100,8 +114,10 @@ jobs:
 
       - name: Setup Positron REH in container
         run: |
-          # Get the commit SHA to create the versioned directory structure
-          COMMIT_SHA="${{ github.sha }}"
+          # Get the commit SHA to create the versioned directory structure.
+          # Must match BUILD_SOURCEVERSION baked into the desktop build (see
+          # build-remote-ssh-linux.yml) so the extension resolves the REH here.
+          COMMIT_SHA="${{ inputs.commit || github.sha }}"
 
           # Copy REH tarball into container
           docker cp /tmp/artifacts/positron-reh-remote-ssh-x64.tar.gz test:/tmp/positron-reh-remote-ssh-x64.tar.gz
@@ -186,6 +202,7 @@ jobs:
           REPORTER_REPO_NAME: positron
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           PW_PROJECT_NAME: e2e-remote-ssh
+          ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
         run: |
           export DISPLAY=:10
           BUILD=/usr/share/positron npx playwright test --project e2e-remote-ssh --retries=1 --workers=1

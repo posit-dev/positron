@@ -834,6 +834,13 @@ assert_eq "reasons: author+map overlap prefers body" "@:critical|required,@:cons
 	"$(build_tag_reasons "@:critical,@:console" "@:console" "@:console" "false" "false" "false")"
 assert_eq "reasons: ark injection" "@:critical|required,@:ark|ark" \
 	"$(build_tag_reasons "@:critical,@:ark" "" "" "true" "false" "false")"
+# An ark bump injects @:ark + @:win + @:web together; all three read as ark.
+assert_eq "reasons: ark bump labels win/web as ark" \
+	"@:critical|required,@:ark|ark,@:win|ark,@:web|ark" \
+	"$(build_tag_reasons "@:critical,@:ark,@:win,@:web" "" "" "true" "false" "false")"
+# @:win typed in the body beats the ark-injection attribution even when ark=true.
+assert_eq "reasons: author-typed win beats ark" "@:critical|required,@:win|body" \
+	"$(build_tag_reasons "@:critical,@:win" "@:win" "" "true" "false" "false")"
 # @:win typed in the body reads as body, not test-win.
 assert_eq "reasons: author-typed win is body" "@:critical|required,@:win|body" \
 	"$(build_tag_reasons "@:critical,@:win" "@:win" "" "false" "true" "false")"
@@ -1162,6 +1169,14 @@ assert_eq "empty --feature-tags behaves like no allowlist (not an empty allowlis
 OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --feature-tags "$FEATURE_ALLOW" --list-json "$DERIVE_DIR/plat-list.json")"
 assert_eq "with allowlist: platform tag excluded, pricier feature tag chosen" "@:search" "$OUT"
 
+# Regression: a platform tag already selected (e.g. the author typed @:web, or
+# an unrelated file in the same PR triggered @:cross-browser) must NOT count
+# as "covered" for a spec that also carries a real feature tag -- the platform
+# tag guarantees the spec runs in CI, but says nothing about its feature scope,
+# and that scope must still surface so the PR comment/tag-map audit can see it.
+OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "@:cross-browser" --feature-tags "$FEATURE_ALLOW" --list-json "$DERIVE_DIR/plat-list.json")"
+assert_eq "platform tag already selected does not suppress the spec's real feature tag" "@:search" "$OUT"
+
 changed_file "test/e2e/tests/webonly/webonly.test.ts"
 WARN_OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --feature-tags "$FEATURE_ALLOW" --list-json "$DERIVE_DIR/plat-list.json" 2>&1 1>/dev/null)"
 if printf '%s' "$WARN_OUT" | grep -qF "platform/non-feature"; then
@@ -1171,6 +1186,16 @@ else
 fi
 STDOUT_ONLY="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --feature-tags "$FEATURE_ALLOW" --list-json "$DERIVE_DIR/plat-list.json" 2>/dev/null)"
 assert_eq "platform-only touched test: nothing added to stdout" "" "$STDOUT_ONLY"
+
+# When a platform-only spec's own platform tag IS already selected, it must
+# still be treated as covered and skipped silently (no warning) -- the
+# feature-tags-only "covered" check only applies once a real feature tag
+# exists to protect; a spec with no feature tag at all falls back to the old
+# any-tag check.
+NO_WARN_OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "@:web" --feature-tags "$FEATURE_ALLOW" --list-json "$DERIVE_DIR/plat-list.json" 2>&1 1>/dev/null)"
+assert_eq "platform-only touched test already covered by its own platform tag: no warning" "" "$NO_WARN_OUT"
+NO_WARN_STDOUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "@:web" --feature-tags "$FEATURE_ALLOW" --list-json "$DERIVE_DIR/plat-list.json" 2>/dev/null)"
+assert_eq "platform-only touched test already covered: nothing added to stdout" "" "$NO_WARN_STDOUT"
 
 rm -rf "$DERIVE_DIR"
 

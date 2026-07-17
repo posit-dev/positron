@@ -77,6 +77,8 @@ export const vscodeWebResourceIncludes = [
 	// Positron Help
 	'out-build/vs/workbench/contrib/positronHelp/browser/resources/*.html',
 	'out-build/vs/workbench/browser/media/*.svg',
+	// Positron Assistant chat prompt templates
+	'out-build/vs/workbench/contrib/positronAssistant/browser/media/prompts/chat/*.md',
 	'out-build/esm-package-dependencies/**',
 	// --- End Positron ---
 

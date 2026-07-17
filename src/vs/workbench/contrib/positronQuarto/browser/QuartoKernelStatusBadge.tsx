@@ -13,7 +13,8 @@ import React from 'react';
 import { localize } from '../../../../nls.js';
 import { IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
+import { useEditorGroup } from '../../../browser/parts/editor/editorGroupContext.js';
 import { IQuartoKernelManager, QuartoKernelState } from './quartoKernelManager.js';
 import { isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
@@ -21,6 +22,7 @@ import { RuntimeStatusIcon } from '../../positronConsole/browser/components/runt
 import { runtimeStateToRuntimeStatus, RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { useSessionRuntimeState } from '../../positronConsole/browser/components/useSessionRuntimeState.js';
 import { type ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
@@ -58,17 +60,22 @@ interface QuartoKernelStatusBadgeProps {
 }
 
 /**
- * Helper function to get URI and language ID from the active editor.
- * Returns undefined if the active editor is not a Quarto document.
+ * Helper function to get URI and language ID from the given editor group's
+ * active editor. Returns undefined if that editor is not a Quarto document.
+ *
+ * Binds to the group's own active editor rather than the globally active
+ * editor, so the badge keeps reflecting its document's kernel even when another
+ * editor -- such as the Settings modal overlay -- becomes the globally active
+ * editor. See posit-dev/positron#14826.
  */
-function getQuartoDocumentFromEditor(editorService: IEditorService): URI | undefined {
-	const uri = editorService.activeEditor?.resource;
-	const activeEditor = editorService.activeTextEditorControl;
+function getQuartoDocumentFromGroup(editorGroup: IEditorGroup | undefined): URI | undefined {
+	const uri = editorGroup?.activeEditor?.resource;
+	const control = editorGroup?.activeEditorPane?.getControl();
 
 	// Get language ID from the editor model if available
 	let languageId: string | undefined;
-	if (activeEditor && 'getModel' in activeEditor) {
-		const model = (activeEditor as ICodeEditor).getModel();
+	if (control && 'getModel' in control) {
+		const model = (control as ICodeEditor).getModel();
 		languageId = model?.getLanguageId();
 	}
 
@@ -85,18 +92,27 @@ function getQuartoDocumentFromEditor(editorService: IEditorService): URI | undef
  */
 export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgeProps) {
 	// Get services
-	const editorService = accessor.get(IEditorService);
 	const quartoKernelManager = accessor.get(IQuartoKernelManager);
 	const menuService = accessor.get(IMenuService);
 	const contextKeyService = accessor.get(IContextKeyService);
+	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+
+	// The editor group this badge is rendered in. State is resolved from this
+	// group's active editor, not the globally active editor (see
+	// getQuartoDocumentFromGroup).
+	const editorGroup = useEditorGroup();
 
 	// State
 	const [documentUri, setDocumentUri] = React.useState<URI | undefined>(() =>
-		getQuartoDocumentFromEditor(editorService));
+		getQuartoDocumentFromGroup(editorGroup));
 	const [kernelState, setKernelState] = React.useState<QuartoKernelState>(() =>
 		documentUri ? quartoKernelManager.getKernelState(documentUri) : QuartoKernelState.None);
 	const [session, setSession] = React.useState<ILanguageRuntimeSession | undefined>(() =>
 		documentUri ? quartoKernelManager.getSessionForDocument(documentUri) : undefined);
+	// Name of the interpreter that would start if code were run, shown when no
+	// kernel is running yet (e.g. in a Quarto preview editor).
+	const [preferredRuntimeName, setPreferredRuntimeName] = React.useState<string | undefined>(() =>
+		documentUri ? quartoKernelManager.getPreferredRuntimeForDocument(documentUri)?.runtimeName : undefined);
 
 	// Subscribe to the session's runtime state via the shared hook.
 	const runtimeState = useSessionRuntimeState(session);
@@ -105,37 +121,64 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 	React.useEffect(() => {
 		const disposables = new DisposableStore();
 
-		// Listen for active editor changes
-		disposables.add(editorService.onDidActiveEditorChange(() => {
-			const quartoUri = getQuartoDocumentFromEditor(editorService);
-			if (quartoUri) {
-				setDocumentUri(quartoUri);
-				setKernelState(quartoKernelManager.getKernelState(quartoUri));
-				setSession(quartoKernelManager.getSessionForDocument(quartoUri));
-			} else {
-				setDocumentUri(undefined);
-				setKernelState(QuartoKernelState.None);
-				setSession(undefined);
-			}
-		}));
+		// Recompute the prospective interpreter name for the current document.
+		const refreshPreferredRuntime = () => {
+			setPreferredRuntimeName(documentUri
+				? quartoKernelManager.getPreferredRuntimeForDocument(documentUri)?.runtimeName
+				: undefined);
+		};
+
+		// Listen for active editor changes within this editor group (not the
+		// globally active editor), so opening another editor -- e.g. the Settings
+		// modal -- doesn't reset this document's kernel badge.
+		if (editorGroup) {
+			disposables.add(editorGroup.onDidActiveEditorChange(() => {
+				const quartoUri = getQuartoDocumentFromGroup(editorGroup);
+				if (quartoUri) {
+					setDocumentUri(quartoUri);
+					setKernelState(quartoKernelManager.getKernelState(quartoUri));
+					setSession(quartoKernelManager.getSessionForDocument(quartoUri));
+				} else {
+					setDocumentUri(undefined);
+					setKernelState(QuartoKernelState.None);
+					setSession(undefined);
+				}
+			}));
+		}
 
 		// Listen for kernel state changes
 		disposables.add(quartoKernelManager.onDidChangeKernelState(e => {
 			if (documentUri && e.documentUri.toString() === documentUri.toString()) {
 				setKernelState(e.newState);
 				setSession(e.session);
+				refreshPreferredRuntime();
 			}
 		}));
 
+		// The preferred interpreter can change as runtimes are discovered or
+		// registered (which may finish after the editor opens), so recompute
+		// the prospective name when that happens.
+		disposables.add(languageRuntimeService.onDidRegisterRuntime(refreshPreferredRuntime));
+		disposables.add(languageRuntimeService.onDidChangeRuntimeStartupPhase(refreshPreferredRuntime));
+
+		// Compute once for the current document.
+		refreshPreferredRuntime();
+
 		return () => disposables.dispose();
-	}, [editorService, quartoKernelManager, documentUri]);
+	}, [editorGroup, quartoKernelManager, languageRuntimeService, documentUri]);
 
 	// Prefer the session's runtime state. Fall back to the manager's
 	// pre-session kernel state (None / Error) when no session exists.
 	const runtimeStatus = runtimeState !== undefined
 		? runtimeStateToRuntimeStatus[runtimeState]
 		: quartoStateToRuntimeStatus[kernelState] ?? RuntimeStatus.Disconnected;
+	// Label priority:
+	// 1. A running session's runtime name.
+	// 2. When no kernel has started, the interpreter that would start if code
+	//    were run (so the badge names it instead of a bare "No Kernel").
+	// 3. The state label ("No Kernel", "Kernel Error", etc.) as a fallback.
 	const label = session?.runtimeMetadata.runtimeName
+		?? (kernelState === QuartoKernelState.None ? preferredRuntimeName : undefined)
 		?? quartoStateToLabel[kernelState]
 		?? '';
 

@@ -1,0 +1,30 @@
+{
+	"compilerOptions": {
+		"module": "nodenext",
+		"target": "ES2020",
+		"moduleResolution": "nodenext",
+		"outDir": "out",
+		"lib": [
+			"ES2020"
+		],
+		"rootDir": "src",
+		"declaration": true,
+		"sourceMap": true,
+		"strict": false,
+		"skipLibCheck": true,
+		"allowSyntheticDefaultImports": true,
+		"noImplicitAny": false,
+		"esModuleInterop": true,
+		"types": [
+			"node"
+		],
+		"typeRoots": [
+			"./node_modules/@types"
+		]
+	},
+	"include": [
+		"src/**/*",
+		"../../src/positron-dts/positron.d.ts",
+		"../../src/vscode-dts/vscode.d.ts"
+	]
+}

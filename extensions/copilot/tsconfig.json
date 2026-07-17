@@ -23,7 +23,10 @@
 	"include": [
 		"./src",
 		"./test",
-		".vscode/extensions/test-extension"
+		".vscode/extensions/test-extension",
+		// Positron: ambient `declare module 'positron'` so Copilot can type the
+		// `positron` API it consumes at runtime (e.g. positron.ai.getEnabledTools).
+		"../../src/positron-dts/positron.d.ts"
 	],
 	"exclude": [
 		"test/scenarios/**/*",

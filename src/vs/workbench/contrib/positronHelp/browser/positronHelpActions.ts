@@ -10,7 +10,7 @@ import { IEditor } from '../../../../editor/common/editorCommon.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { Action2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId } from '../../../../platform/actions/common/actions.js';
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPositronHelpService } from './positronHelpService.js';
@@ -23,6 +23,7 @@ import { PositronConsoleFocused } from '../../../common/contextkeys.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { POSITRON_RUNTIME_LANGUAGE_IDS } from '../../languageRuntime/browser/languageRuntimeContextKeys.js';
 
 export class ShowHelpAtCursor extends Action2 {
 	constructor() {
@@ -41,7 +42,39 @@ export class ShowHelpAtCursor extends Action2 {
 				when: ContextKeyExpr.or(EditorContextKeys.focus, PositronConsoleFocused)
 			},
 			category: Categories.Help,
-			f1: true
+			f1: true,
+			menu: [
+				{
+					id: MenuId.EditorContext,
+					// Show on editors whose language has a registered Positron
+					// runtime. The list is maintained dynamically by
+					// PositronRuntimeLanguagesContextKeyContribution so new
+					// runtimes are picked up without code changes here.
+					//
+					// Quarto is added explicitly: a .qmd document's outer
+					// language is 'quarto', but the command still works
+					// because it resolves the embedded language at the
+					// cursor via getLanguageIdAtPosition.
+					when: ContextKeyExpr.and(
+						EditorContextKeys.editorTextFocus,
+						ContextKeyExpr.or(
+							ContextKeyExpr.in(
+								EditorContextKeys.languageId.key,
+								POSITRON_RUNTIME_LANGUAGE_IDS.key,
+							),
+							ContextKeyExpr.equals(
+								EditorContextKeys.languageId.key,
+								'quarto',
+							),
+						),
+					),
+					// Sit just below "Go to References" (order 1.45) and just
+					// above "View Data Frame at Cursor" (order 1.5) in the
+					// editor context menu's navigation group.
+					group: 'navigation',
+					order: 1.47,
+				},
+			],
 		});
 	}
 
@@ -116,6 +149,17 @@ export class ShowHelpAtCursor extends Action2 {
 	}
 }
 
+/**
+ * Result of the lookupHelpTopic command, returned to programmatic callers
+ * (notably agents via `positron.ai.validateAndExecuteCommand`).
+ */
+interface ILookupHelpTopicResult {
+	found: boolean;
+	topic?: string;
+	languageId?: string;
+	message?: string;
+}
+
 export class LookupHelpTopic extends Action2 {
 	constructor() {
 		super({
@@ -125,17 +169,29 @@ export class LookupHelpTopic extends Action2 {
 				original: 'Look Up Help Topic'
 			},
 			category: Categories.Help,
-			f1: true
+			f1: true,
+			metadata: {
+				description: localize('positron.help.lookupHelpTopic.description', "Show help for a topic, such as a function name, in the Help pane. Uses the language of the active editor, or of the foreground interpreter session when no editor is open. Requires a running interpreter session for that language."),
+				agentCompatible: true,
+				args: [
+					{ name: 'topic', description: 'Help topic to look up, typically a bare function or symbol name (for example: mean).', schema: { type: 'string' } },
+				],
+				returns: 'An object with found, topic, languageId, and message. found is true when the help topic was shown in the Help pane, with topic and languageId confirming what was looked up and in which language; when found is false, message explains why (no topic provided, topic not found, no session for the language, or a lookup error).',
+			},
 		});
 	}
 
-	async run(accessor: ServicesAccessor): Promise<void> {
+	async run(accessor: ServicesAccessor, topicArg?: string): Promise<ILookupHelpTopicResult> {
 		const editorService = accessor.get(IEditorService);
 		const helpService = accessor.get(IPositronHelpService);
 		const sessionService = accessor.get(IRuntimeSessionService);
 		const quickInputService = accessor.get(IQuickInputService);
 		const notificationService = accessor.get(INotificationService);
 		const languageService = accessor.get(ILanguageService);
+
+		// Only treat a non-empty string as a supplied topic; otherwise prompt
+		// the user for a help topic.
+		const suppliedTopic = typeof topicArg === 'string' ? topicArg.trim() : '';
 
 		// Very likely the user's interested in a help topic for the language
 		// they're currently editing, so use that as the default.
@@ -155,7 +211,7 @@ export class LookupHelpTopic extends Action2 {
 			} else {
 				const message = localize('positron.help.noInterpreters', "There are no interpreters running. Start an interpreter to look up help topics.");
 				notificationService.info(message);
-				return;
+				return { found: false, message };
 			}
 		}
 
@@ -171,41 +227,45 @@ export class LookupHelpTopic extends Action2 {
 		if (!found) {
 			const message = localize('positron.help.noLanguage', "Open a file for the language you want to look up help topics for, or start an interpreter for that language.");
 			notificationService.info(message);
-			return;
+			return { found: false, message };
 		}
 
 		// Look up the friendly name of the language ID
 		const languageName = languageService.getLanguageName(languageId);
 
-		// Prompt the user for a help topic.
-		const topic = await quickInputService.input({
+		const noTopicMessage = localize('positron.help.noTopic', "No help topic provided.");
+		const topic = suppliedTopic || await quickInputService.input({
 			prompt: localize('positron.help.enterHelpTopic', "Enter {0} help topic", languageName),
 			value: '',
 			ignoreFocusLost: true,
 			validateInput: async (value: string) => {
 				if (value.length === 0) {
-					return localize('positron.help.noTopic', "No help topic provided.");
+					return noTopicMessage;
 				}
 				return undefined;
 			}
 		});
 
-		// If the user entered a topic, show it.
-		if (topic) {
-			try {
-				const found = await helpService.showHelpTopic(languageId, topic);
-				if (!found) {
-					const message = localize('positron.help.helpTopicUnavailable',
-						"No help found for '{0}'.", topic);
-					notificationService.info(message);
-					return;
-				}
-			} catch (err) {
-				const message = localize('positron.help.errorLookingUpTopic',
-					"Error finding help on '{0}': {1} ({2}).", topic, err.message, err.code);
-				notificationService.warn(message);
-				return;
-			}
+		// The input box returns undefined when dismissed without a topic.
+		if (!topic) {
+			return { found: false, message: noTopicMessage };
 		}
+
+		let helpShown = false;
+		try {
+			helpShown = await helpService.showHelpTopic(languageId, topic);
+		} catch (err) {
+			const message = localize('positron.help.errorLookingUpTopic',
+				"Error finding help on '{0}': {1} ({2}).", topic, err.message, err.code);
+			notificationService.warn(message);
+			return { found: false, message };
+		}
+		if (!helpShown) {
+			const message = localize('positron.help.helpTopicUnavailable',
+				"No help found for '{0}'.", topic);
+			notificationService.info(message);
+			return { found: false, message };
+		}
+		return { found: true, topic, languageId };
 	}
 }

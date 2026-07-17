@@ -40,7 +40,10 @@ test.describe('Remote SSH', {
 
 	});
 
-	test('Verify SSH connection into docker image', async function ({ app, python, runDockerCommand }) {
+	// Intentionally does not take the `python` fixture: this test starts its own
+	// sessions on the remote host. The fixture would start an unused *local* Python
+	// session before the SSH connection, which only adds time and a startup flake surface.
+	test('Verify SSH connection into docker image', async function ({ app, runDockerCommand }) {
 
 		const sshWin = await test.step(`Connect to docker image`, async () => {
 			// Start waiting for *any* new window before we trigger the UI that opens it

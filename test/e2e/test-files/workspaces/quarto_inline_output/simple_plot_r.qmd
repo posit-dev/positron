@@ -1,0 +1,11 @@
+---
+title: "Simple R Plot Test"
+jupyter: ark
+---
+
+## Plot Example
+
+```{r}
+#| label: fig-simple-r
+plot(1:10)
+```

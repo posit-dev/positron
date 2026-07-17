@@ -60,8 +60,14 @@ export const RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT = 1;
  *
  * v2 added per-bucket `discoveryRootSignature` so warm starts can detect newly
  * installed interpreters by re-statting the directories the extension scans.
+ *
+ * v3: `runtimePath` is now always the fully-expanded absolute path, with the
+ * `~` shorthand moved to the separate `runtimeDisplayPath` field. Entries
+ * written by older builds may still carry a `~`-shortened `runtimePath` and
+ * no `runtimeDisplayPath`; bumping the version forces those entries to be
+ * discarded and rediscovered rather than replayed as-is.
  */
-export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 2;
+export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 3;
 
 /**
  * Storage key under which all cache state is persisted. Embeds the schema

@@ -48,6 +48,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { PositronPlotCommProxy } from '../../../services/languageRuntime/common/positronPlotCommProxy.js';
 import { PlotResult } from '../../../services/languageRuntime/common/positronPlotComm.js';
 import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
+import { plotOriginFromCodeLocation } from './plotUtils.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { joinPath } from '../../../../base/common/resources.js';
@@ -58,6 +59,13 @@ const MaxRecentExecutions = 10;
 
 /** The maximum number of plots with an active webview. */
 const MaxActiveWebviewPlots = 5;
+
+/**
+ * The maximum number of surfaced plot messages to retain for recreation. Bounded
+ * so a long-running session emitting many plots doesn't accumulate their message
+ * payloads (which include image data) and sessions without limit.
+ */
+const MaxSurfacedPlotMessages = 32;
 
 /** Time in milliseconds after which webview plots are deactivated if they're not selected. */
 const WebviewPlotInactiveTimeout = 120_000;
@@ -198,6 +206,20 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 */
 	private readonly _recentExecutions = new Map<string, string>();
 	private readonly _recentExecutionIds = new Array<string>();
+
+	/**
+	 * A map of plot id to the runtime message (and its session) that produced a
+	 * plot surfaced in the Plots pane from a console or notebook console. A
+	 * console keeps showing a plot preview even after the user clears the Plots
+	 * pane; clicking that preview reselects the plot by id, so we keep the
+	 * originating message around to recreate the plot on demand (see
+	 * {@link selectPlot}).
+	 *
+	 * Bounded to the most recent {@link MaxSurfacedPlotMessages} entries (via
+	 * {@link rememberSurfacedPlotMessage}) so the retained message payloads and
+	 * sessions don't accumulate without limit.
+	 */
+	private readonly _surfacedPlotMessages = new Map<string, { message: ILanguageRuntimeMessageOutput; session: ILanguageRuntimeSession }>();
 
 	/** The current plot rendering settings. */
 	private readonly _plotsRenderSettings: ISettableObservable<PlotRenderSettings>;
@@ -867,11 +889,37 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			}
 		}));
 
-		// Configure console-specific behavior.
-		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+		// Configure console-specific behavior. This applies to regular console
+		// sessions as well as notebook sessions that have a console attached
+		// ("notebook consoles"). Notebook consoles surface their static plots in
+		// the Plots pane too, but passively: the pane is populated without being
+		// raised. Plain notebooks (no console) render their plots inline in the
+		// notebook and are excluded below.
+		const isConsole = session.metadata.sessionMode === LanguageRuntimeSessionMode.Console;
+		const isNotebook = session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
+		if (isConsole || isNotebook) {
+			// Determines whether this session's plots should be surfaced in the
+			// Plots pane, and whether adding them should raise the pane. Console
+			// sessions always do and raise the pane; notebook sessions only do so
+			// once a console is attached, and never raise the pane. This is
+			// evaluated per message because a notebook console may attach after
+			// the session starts.
+			const getPlotsPaneBehavior = (): { surface: boolean; raisePane: boolean } => {
+				if (isConsole) {
+					return { surface: true, raisePane: true };
+				}
+				const hasConsole = this._runtimeSessionService.getActiveSession(session.sessionId)?.hasConsole ?? false;
+				return { surface: hasConsole, raisePane: false };
+			};
+
 			// Listen for static plots being emitted, and register each one with
 			// the plots service.
 			const handleDidReceiveRuntimeMessageOutput = (message: ILanguageRuntimeMessageOutput) => {
+				const { surface, raisePane } = getPlotsPaneBehavior();
+				if (!surface) {
+					return;
+				}
+
 				// Check to see if we we already have a plot client for this
 				// message ID. If so, we don't need to do anything.
 				if (this.hasPlot(session.sessionId, message.id)) {
@@ -885,26 +933,39 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					return;
 				}
 
+				// Remember the originating message so the plot can be recreated
+				// if the user clears the Plots pane and later reselects it from
+				// the console (see selectPlot).
+				this.rememberSurfacedPlotMessage(plot.id, message, session);
+
 				// If the runtime specified an output ID, update the plot with the given output ID, if one exists.
 				if (message.output_id) {
 					const existingPlot = this.getPlotForOutput(session.sessionId, message.output_id);
 					if (existingPlot) {
-						this.replacePlot(existingPlot.id, plot);
+						// Evict the replaced plot's entry so it doesn't linger as
+						// a stale entry (the replacement was remembered above).
+						this._surfacedPlotMessages.delete(existingPlot.id);
+						this.replacePlot(existingPlot.id, plot, raisePane);
 						return;
 					}
 				}
 
 				// This is a new plot, register it with the plots service.
 				if (plot instanceof StaticPlotClient) {
-					this.registerNewPlotClient(plot);
+					this.registerNewPlotClient(plot, raisePane);
 				} else if (plot instanceof NotebookOutputPlotClient) {
-					this.registerWebviewPlotClient(plot);
+					this.registerWebviewPlotClient(plot, raisePane);
 				}
 			};
 			this._register(session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
 			this._register(session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
 
 			this._register(session.onDidReceiveRuntimeMessageUpdateOutput((message) => {
+				const { surface, raisePane } = getPlotsPaneBehavior();
+				if (!surface) {
+					return;
+				}
+
 				// Create a plot from the output message.
 				const plot = this.createPlot(message, session);
 				if (!plot) {
@@ -915,7 +976,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				// Update the plot with the given output ID, if one exists.
 				const existingPlot = this.getPlotForOutput(session.sessionId, message.output_id);
 				if (existingPlot) {
-					this.replacePlot(existingPlot.id, plot);
+					// Remember the originating message so the plot can be
+					// recreated if the user clears the Plots pane and later
+					// reselects it from the console (see selectPlot). The
+					// replaced plot's own entry (keyed by existingPlot.id) is
+					// evicted here so it doesn't linger as a stale entry.
+					this._surfacedPlotMessages.delete(existingPlot.id);
+					this.rememberSurfacedPlotMessage(plot.id, message, session);
+					this.replacePlot(existingPlot.id, plot, raisePane);
 				}
 			}));
 		}
@@ -947,13 +1015,26 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Get the code that generated this update.
 		const code = this._recentExecutions.get(message.parent_id) ?? '';
 
+		// Unlike comm-backed dynamic plots (whose origin comes from the backend
+		// via fetchAndUpdateMetadata), plots created directly from an output
+		// message carry no origin. Recover it from the code location the session
+		// recorded for the originating execution, so the plot can link back to
+		// its source (e.g. a Quarto chunk in a .qmd).
+		const codeLocation = session.getExecutionCodeLocation?.(message.parent_id);
+		const origin = codeLocation ? plotOriginFromCodeLocation(codeLocation) : undefined;
+
+		let plot: IPositronPlotClient | undefined;
 		if (message.kind === RuntimeOutputKind.StaticImage) {
-			return StaticPlotClient.fromMessage(this._storageService, session.sessionId, message, code);
+			plot = StaticPlotClient.fromMessage(this._storageService, session.sessionId, message, code);
 		} else if (message.kind === RuntimeOutputKind.PlotWidget) {
-			return new NotebookOutputPlotClient(this._notebookOutputWebviewService, session, message, code);
+			plot = new NotebookOutputPlotClient(this._notebookOutputWebviewService, session, message, code);
 		}
 
-		return undefined;
+		if (plot && origin) {
+			plot.metadata.origin = origin;
+		}
+
+		return plot;
 	}
 
 	/**
@@ -1103,7 +1184,63 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param index The ID of the plot to select.
 	 */
 	selectPlot(id: string): void {
+		// If the plot is no longer in the pane (e.g. the user cleared the Plots
+		// pane after a console or notebook console emitted it, but its preview
+		// is still shown in the console), recreate it from the originating
+		// message so the click still has somewhere to navigate. Recreating adds
+		// it back to the pane and selects it.
+		if (!this._plots.some(plot => plot.id === id) && this.recreateSurfacedPlot(id)) {
+			return;
+		}
 		this._onDidSelectPlot.fire(id);
+	}
+
+	/**
+	 * Remembers the originating message for a surfaced plot so it can be
+	 * recreated on demand (see {@link recreateSurfacedPlot}), evicting the oldest
+	 * entry when the cache exceeds {@link MaxSurfacedPlotMessages}. Re-inserting
+	 * an existing id refreshes its recency.
+	 *
+	 * @param id The id of the plot (the originating message id).
+	 * @param message The runtime message that produced the plot.
+	 * @param session The session that emitted the message.
+	 */
+	private rememberSurfacedPlotMessage(id: string, message: ILanguageRuntimeMessageOutput, session: ILanguageRuntimeSession): void {
+		// Delete first so a re-inserted id moves to the end (most recent) of the
+		// Map's insertion order, which is what eviction below relies on.
+		this._surfacedPlotMessages.delete(id);
+		this._surfacedPlotMessages.set(id, { message, session });
+		if (this._surfacedPlotMessages.size > MaxSurfacedPlotMessages) {
+			const oldest = this._surfacedPlotMessages.keys().next().value;
+			if (oldest !== undefined) {
+				this._surfacedPlotMessages.delete(oldest);
+			}
+		}
+	}
+
+	/**
+	 * Recreates a previously surfaced plot from its originating message and
+	 * re-adds it to the Plots pane, selected. Used when a console plot preview
+	 * is clicked but the plot has been cleared from the pane.
+	 *
+	 * @param id The id of the plot to recreate.
+	 * @returns true if the plot was recreated; false if there is no cached
+	 *   message for the id.
+	 */
+	private recreateSurfacedPlot(id: string): boolean {
+		const cached = this._surfacedPlotMessages.get(id);
+		if (!cached) {
+			return false;
+		}
+		const plot = this.createPlot(cached.message, cached.session);
+		if (plot instanceof StaticPlotClient) {
+			this.registerNewPlotClient(plot);
+			return true;
+		} else if (plot instanceof NotebookOutputPlotClient) {
+			this.registerWebviewPlotClient(plot);
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -1214,8 +1351,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * Replaces a plot with a new one and fires the appropriate UI events.
 	 * @param id The ID of the plot to replace.
 	 * @param newPlot The new plot.
+	 * @param raisePane Whether to raise the Plots pane. Defaults to true; pass
+	 *   false to replace the plot passively (e.g. for notebook consoles).
 	 */
-	private replacePlot(id: string, newPlot: IPositronPlotClient) {
+	private replacePlot(id: string, newPlot: IPositronPlotClient, raisePane: boolean = true) {
 		const index = this._plots.findIndex(plot => plot.id === id);
 		if (index < 0) {
 			throw new Error(`Could not replace unknown plot: ${id}`);
@@ -1232,7 +1371,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._onDidRemovePlot.fire(id);
 		this._onDidEmitPlot.fire(newPlot);
 		this._onDidSelectPlot.fire(newPlot.id);
-		this._showPlotsPane();
+		if (raisePane) {
+			this._showPlotsPane();
+		}
 	}
 
 	saveViewPlot(): void {
@@ -1426,7 +1567,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._showPlotsPane();
 	}
 
-	private registerWebviewPlotClient(plotClient: IPositronPlotClient) {
+	private registerWebviewPlotClient(plotClient: IPositronPlotClient, raisePane: boolean = true) {
 		if (plotClient instanceof WebviewPlotClient) {
 			// Ensure that the number of active webview plots does not exceed the maximum.
 			this._register(plotClient.onDidActivate(() => {
@@ -1458,7 +1599,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			}));
 		}
 
-		this.registerNewPlotClient(plotClient);
+		this.registerNewPlotClient(plotClient, raisePane);
 	}
 
 	/**
@@ -1466,13 +1607,17 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * appropriate events.
 	 *
 	 * @param client The plot client to register
+	 * @param raisePane Whether to raise the Plots pane. Defaults to true; pass
+	 *   false to add the plot passively (e.g. for notebook consoles).
 	 */
-	private registerNewPlotClient(client: IPositronPlotClient) {
+	private registerNewPlotClient(client: IPositronPlotClient, raisePane: boolean = true) {
 		this._plots.unshift(client);
 		this._onDidEmitPlot.fire(client);
 		this._onDidSelectPlot.fire(client.id);
 		this._register(client);
-		this._showPlotsPane();
+		if (raisePane) {
+			this._showPlotsPane();
+		}
 	}
 
 	public async openEditor(plotId: string, groupType?: number, metadata?: IPositronPlotMetadata): Promise<void> {

@@ -284,6 +284,18 @@ export enum RuntimeErrorBehavior {
 }
 
 /**
+ * Determines what happens when code is submitted for evaluation while the target
+ * runtime is busy.
+ */
+export enum RuntimeBusyBehavior {
+	/** Queue the code to run when the runtime next becomes idle. */
+	Queue = 'queue',
+
+	/** Reject the evaluation with an error instead of queueing it. */
+	Reject = 'reject',
+}
+
+/**
  * Possible reasons a language runtime could exit.
  */
 export enum RuntimeExitReason {
@@ -490,7 +502,16 @@ export enum DataConnectionNodeKind {
 	GroupViews = 'group-views',
 	GroupColumns = 'group-columns',
 	GroupIndexes = 'group-indexes',
+	GroupStages = 'group-stages',
 	Index = 'index',
+	// A Snowflake stage: a named location for staging files (positron-data-driver-snowflake).
+	Stage = 'stage',
+	// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
+	Owner = 'owner',
+	// A pin on a Posit Connect server (positron-data-driver-pins).
+	Pin = 'pin',
+	// A version (bundle) of a pin on a Posit Connect server (positron-data-driver-pins).
+	Version = 'version',
 }
 
 /**

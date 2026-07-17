@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { getRuntimeDisplayPath, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { RuntimeClientList } from './runtimeClientList.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
@@ -85,7 +85,7 @@ export const RuntimeSessionCard = (props: runtimeSessionCardProps) => {
 						{props.session.metadata.startReason}
 					</div>
 					<div className='runtime-path'>
-						{props.session.runtimeMetadata.runtimePath}
+						{getRuntimeDisplayPath(props.session.runtimeMetadata)}
 					</div>
 				</div>
 				<div className='runtime-action-buttons'>

@@ -31,6 +31,7 @@ export const enum QuartoCommandId {
 	ClearAllOutputs = 'positronQuarto.clearAllOutputs',
 	ClearOutputCache = 'positronQuarto.clearOutputCache',
 	ShowOutputCache = 'positronQuarto.showOutputCache',
+	StartKernel = 'positronQuarto.startKernel',
 	RestartKernel = 'positronQuarto.restartKernel',
 	InterruptKernel = 'positronQuarto.interruptKernel',
 	ShutdownKernel = 'positronQuarto.shutdownKernel',
@@ -213,6 +214,43 @@ registerAction2(class RestartAndClearAllOutputsAction extends Action2 {
 });
 
 /**
+ * Start the kernel for the current document explicitly. Shown when no kernel
+ * is running so the user can start one directly (e.g. from a Quarto preview
+ * editor) instead of having to run a cell or pin the tab.
+ */
+registerAction2(class StartKernelAction extends Action2 {
+	constructor() {
+		super({
+			id: QuartoCommandId.StartKernel,
+			title: localize2('quarto.startKernel', "Start Kernel"),
+			category: QUARTO_CATEGORY,
+			f1: true,
+			precondition: ContextKeyExpr.and(QUARTO_PRECONDITION, QUARTO_KERNEL_RUNNING.negate()),
+			menu: {
+				id: MenuId.PositronQuartoKernelSubmenu,
+				order: -10,
+				when: QUARTO_KERNEL_RUNNING.negate(),
+			},
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Extract all services synchronously before any async operations
+		const editorService = accessor.get(IEditorService);
+		const kernelManager = accessor.get(IQuartoKernelManager);
+
+		const context = getQuartoContext(editorService);
+		if (!context) {
+			return;
+		}
+
+		const { documentUri } = context;
+
+		await kernelManager.ensureKernelForDocument(documentUri);
+	}
+});
+
+/**
  * Restart the kernel for the current document.
  */
 registerAction2(class RestartKernelAction extends Action2 {
@@ -229,6 +267,9 @@ registerAction2(class RestartKernelAction extends Action2 {
 			menu: {
 				id: MenuId.PositronQuartoKernelSubmenu,
 				order: 10,
+				// Only show for a running kernel; when nothing is running the
+				// "Start Kernel" item covers starting one.
+				when: QUARTO_KERNEL_RUNNING,
 			},
 		});
 	}
@@ -268,6 +309,7 @@ registerAction2(class InterruptKernelAction extends Action2 {
 			menu: {
 				id: MenuId.PositronQuartoKernelSubmenu,
 				order: 20,
+				when: QUARTO_KERNEL_RUNNING,
 			},
 		});
 	}

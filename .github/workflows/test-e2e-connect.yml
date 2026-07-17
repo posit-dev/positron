@@ -27,6 +27,16 @@ on:
         description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
         type: boolean
         default: false
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      enable_diagnostic_logging:
+        required: false
+        description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -55,6 +65,10 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
 
       - name: Docker login (GHCR)
         uses: docker/login-action@v4
@@ -179,6 +193,7 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           REPORTER_REPO_NAME: positron
           PW_PROJECT_NAME: e2e-connect
+          ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
         run: |
           export DISPLAY=:10
           # The e2e-connect project already scopes to @:connect via its grep; no

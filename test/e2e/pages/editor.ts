@@ -75,17 +75,44 @@ export class Editor {
 		});
 	}
 
-	async pressPlay(skipToastVerification: boolean = false): Promise<void> {
+	async pressPlay(options: { skipToastVerification?: boolean; appName?: string } = {}): Promise<void> {
+		const { skipToastVerification = false, appName } = options;
 		await test.step('Press play button', async () => {
+			const page = this.code.driver.currentPage;
+			// For web-app files the framework-specific run button ("Run <name> App in Terminal")
+			// only appears once Positron's async app detection sets the pythonAppFramework context
+			// key. Target that button by name so Playwright waits for detection to finish; clicking
+			// the generic PLAY_BUTTON can race detection and hit "Run Python File in Console", which
+			// runs the file as a plain script and never launches the app (so the toast never shows).
+			const playButton = appName
+				? page.getByRole('button', { name: `Run ${appName} App in Terminal` })
+				: page.locator(PLAY_BUTTON);
+
 			if (!skipToastVerification) {
 				// Set up the toast locator BEFORE clicking to avoid racing with a fast-dismissing toast
-				const appRunningToast = this.code.driver.currentPage.locator('.notifications-toasts').getByText(/Running.*application:/);
-				await this.code.driver.currentPage.locator(PLAY_BUTTON).click();
+				const appRunningToast = page.locator('.notifications-toasts').getByText(/Running.*application:/);
+				await playButton.click();
 				await expect(appRunningToast).toBeVisible({ timeout: 30000 });
 				await expect(appRunningToast).not.toBeVisible({ timeout: 45000 });
 			} else {
-				await this.code.driver.currentPage.locator(PLAY_BUTTON).click();
+				await playButton.click();
 			}
+		});
+	}
+
+	/**
+	 * Expect the editor's active line (where the cursor is) to be the given line
+	 * number. Monaco marks the cursor's gutter line number with the
+	 * `active-line-number` class, so this verifies where a navigation landed the
+	 * cursor, not just which file is open.
+	 * @param filename the file whose editor to inspect
+	 * @param lineNumber the 1-based line number expected to be active
+	 */
+	async expectActiveLineNumber(filename: string, lineNumber: number): Promise<void> {
+		await test.step(`Expect active line number to be ${lineNumber}`, async () => {
+			const activeLineNumber = this.code.driver.currentPage
+				.locator(`${EDITOR(filename)} .margin-view-overlays .active-line-number`);
+			await expect(activeLineNumber).toHaveText(String(lineNumber));
 		});
 	}
 

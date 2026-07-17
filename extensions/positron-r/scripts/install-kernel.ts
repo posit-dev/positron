@@ -19,13 +19,24 @@
  * The short SHA is included so builds from diverging branches at the same
  * (version, distance) produce distinct tags and asset names.
  *
+ * The resolved submodule commit is also written to a `SUBMODULE_COMMIT` sidecar
+ * in the runtime location. Because that location ships in the packaged
+ * extension, Positron can compare it against the running Ark's commit to warn
+ * about a stale Ark even in a release build (see `src/arkVersionCheck.ts`).
+ *
  * Resolution order (local dev):
  *   1. A local `cargo build` at `ark/target/release/ark[.exe]`
  *   2. An already-installed prebuild matching the expected version (marker file)
  *   3. Download the exact prebuild from positron-ark
- *   4. Download the most recent earlier prebuild (with a stderr note)
- *   5. Build from source via `cargo build --release` (if rust is installed)
+ *   4. Build from source via `cargo build --release` (if rust is installed)
+ *   5. Download the most recent earlier prebuild (with a stderr note)
  *   6. Helpful error
+ *
+ * On a dev machine, building the current ark from source is preferred over
+ * silently downloading a stale prebuild: a developer with the rust toolchain
+ * installed should get exactly the ark their submodule points at. The
+ * older-prebuild fallback (step 5) is the absolute last resort, for machines
+ * without rust, and it prints a stderr warning so the staleness is visible.
  *
  * In CI (detected via `CI=true`), the fallback prebuild step is skipped
  * entirely: we go exact prebuild -> build from source -> fail hard. A PR that
@@ -47,6 +58,11 @@ import { promisify } from 'util';
 const SUBMODULE_DIR = 'ark';
 const RUNTIME_DIR = path.join('resources', 'ark');
 const MARKER_FILE = path.join(RUNTIME_DIR, 'VERSION');
+// Sidecar recording the submodule commit this install was resolved against.
+// Ships in the packaged extension (unlike the submodule itself), so Positron
+// can detect a stale Ark at runtime even in a release build with no git. See
+// `warnOnArkVersionMismatch` in `src/arkVersionCheck.ts`.
+const SUBMODULE_COMMIT_FILE = path.join(RUNTIME_DIR, 'SUBMODULE_COMMIT');
 
 // GitHub repo that hosts the prebuilds.
 const PREBUILD_OWNER = 'posit-dev';
@@ -324,6 +340,19 @@ async function tryUseLocalBuild(): Promise<boolean> {
 	// Don't write the marker — local builds re-evaluate via the binary's
 	// existence in the submodule on every run, so a marker would just go stale.
 	return true;
+}
+
+/**
+ * Record the submodule commit this install resolved against, next to the
+ * binary. Bundled with the extension (`resources/ark/` ships), so Positron can
+ * compare it to the running Ark's reported commit at runtime even when the git
+ * submodule isn't present (a release build). See `warnOnArkVersionMismatch` in
+ * `src/arkVersionCheck.ts`. Distinct from {@link MARKER_FILE}, which records the
+ * *installed* build version for the prebuild cache check.
+ */
+async function writeSubmoduleCommitMarker(info: ArkBuildInfo): Promise<void> {
+	await fs.promises.mkdir(RUNTIME_DIR, { recursive: true });
+	await writeFileAsync(SUBMODULE_COMMIT_FILE, info.shortSha);
 }
 
 /**
@@ -635,6 +664,12 @@ async function main(): Promise<void> {
 	const info = await readSubmoduleBuildInfo();
 	console.log(`Ark submodule: version ${info.version}, distance ${info.distance} (${info.releaseTag})`);
 
+	// Record the submodule commit next to the binary so Positron can detect a
+	// stale Ark at runtime, including in release bundles that ship no git
+	// submodule. Written up front so every resolution path below — including the
+	// early-return local-build and cached-prebuild paths — leaves it in place.
+	await writeSubmoduleCommitMarker(info);
+
 	// Respect npm_config_arch when cross-building (e.g. building x64 on arm64 macOS).
 	const targetArch = (process.env.npm_config_arch as NodeArch | undefined) || arch();
 	const targets = getDownloadTargets(platform() as NodeJS.Platform, targetArch);
@@ -670,35 +705,32 @@ async function main(): Promise<void> {
 		console.warn(`Could not download exact prebuild: ${err}`);
 	}
 
-	// In CI: build from source as the only fallback, then fail hard. Skip the
-	// fallback-prebuild path entirely.
-	if (inCi) {
-		try {
-			if (await tryCargoBuild(info)) {
-				return;
-			}
-		} catch (err) {
-			console.warn(`cargo build failed: ${err}`);
-		}
-		throw new InstallError(info, inCi);
-	}
-
-	// 4. Fallback to most recent earlier prebuild (local dev only).
-	try {
-		if (await tryDownloadFallbackPrebuild(info, targets, githubPat)) {
-			return;
-		}
-	} catch (err) {
-		console.warn(`Could not download fallback prebuild: ${err}`);
-	}
-
-	// 5. Build from source (local dev only).
+	// 4. Build from source (both CI and dev). On a dev machine this is
+	// preferred over the older-prebuild fallback: a developer with rust
+	// installed should get exactly the ark their submodule points at, not a
+	// stale prebuild.
 	try {
 		if (await tryCargoBuild(info)) {
 			return;
 		}
 	} catch (err) {
 		console.warn(`cargo build failed: ${err}`);
+	}
+
+	// In CI we stop here: never fall back to a stale prebuild. A PR that bumps
+	// the ark submodule must actually test against the new ark.
+	if (inCi) {
+		throw new InstallError(info, inCi);
+	}
+
+	// 5. Fallback to most recent earlier prebuild (local dev only, last resort).
+	// Reached only when there's no exact prebuild and rust isn't installed.
+	try {
+		if (await tryDownloadFallbackPrebuild(info, targets, githubPat)) {
+			return;
+		}
+	} catch (err) {
+		console.warn(`Could not download fallback prebuild: ${err}`);
 	}
 
 	// 6. Helpful error.

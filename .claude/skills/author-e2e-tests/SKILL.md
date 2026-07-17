@@ -9,6 +9,17 @@ description: Use when writing, debugging, or maintaining Playwright e2e tests fo
 
 Provides specialized knowledge and patterns for writing correct, reliable Playwright e2e tests that follow Positron's established conventions and avoid common mistakes.
 
+## Philosophy: What Makes a Good E2E Test
+
+Prefer the smallest test that confidently protects the intended user-visible behavior. Do not add additional scenarios or assertions simply because they are easy to write -- extra setup, incidental checks, and duplicate assertions add maintenance cost and flake surface without adding confidence.
+
+A good e2e test:
+- validates observable user behavior, not implementation details
+- exercises a complete workflow, not a fragment of one
+- minimizes setup to what the regression actually needs
+- remains deterministic -- no reliance on fixed waits, execution order, or leftover state
+- isolates the single regression it protects, so a failure points at one cause
+
 ## When to Use This Skill
 
 Load this skill when:
@@ -75,62 +86,17 @@ test.describe('Feature Name', {
 
 See `references/fixtures.md` for complete fixture documentation.
 
-## Quick Reference: Page Objects
+## Page Objects
 
-Access via `app.workbench.*`:
+UI interactions go through `app.workbench.*` page objects, not raw locators. Before writing any interaction: check for an existing method, then consider adding a reusable one, and only fall back to a raw locator when neither fits -- see `references/common-mistakes.md` #15 for the full workflow, and `references/page-objects.md` for usage idioms and "Finding the Exact Source" for looking up the exact signature in `test/e2e/pages/*.ts`. **Never guess or paraphrase a method name -- copy it from the source file.**
 
-```typescript
-const { console, variables, dataExplorer, plots, notebooks, sessions } = app.workbench;
+## Assertions
 
-// Execute code
-await console.executeCode('Python', 'x = 1');
+Standard Playwright web-first assertions apply, with the project's 15s default timeout covering most checks -- don't add `{ timeout }` reflexively. See `references/assertions.md` for choosing between `toPass`, `expect.poll`, and plain web-first assertions, selector priority, and what makes an assertion worth adding versus redundant.
 
-// Wait for content
-await console.waitForConsoleContents('expected text');
+## Test Tags
 
-// Variable interaction
-await variables.doubleClickVariableRow('df');
-
-// Data explorer
-await dataExplorer.grid.verifyTableData([{ col: 'value' }]);
-```
-
-See `references/page-objects.md` for usage idioms and "Finding the Exact Source" for how to look up the exact signature directly from `test/e2e/pages/*.ts`. **Never guess or paraphrase a method name -- copy it from the source file.**
-
-## Quick Reference: Assertions
-
-```typescript
-// Default 15s timeout covers most UI checks -- no override needed
-await expect(locator).toBeVisible();
-
-// Override only for a known-slow operation (see references/assertions.md)
-await expect(locator).toBeVisible({ timeout: 60000 });
-
-// Text content
-await expect(locator).toHaveText('expected');
-await expect(locator).toContainText('partial');
-
-// Count
-await expect(locator).toHaveCount(3, { timeout: 15000 });
-
-// Retry pattern for flaky operations
-await expect(async () => {
-	await someAction();
-	await expect(resultLocator).toBeVisible({ timeout: 2000 }); // fail quickly
-}).toPass({ timeout: 15000 });
-```
-
-See `references/assertions.md` for retry-mechanism choice (`toPass` vs `expect.poll` vs web-first) and selector priority.
-
-## Quick Reference: Test Tags
-
-Tag every `test.describe` via the `tag` array. Available tags are the `FeatureTags` (what the test covers) and `PlatformTags` (where it runs) enums in `test/e2e/infra/test-runner/test-tags.ts` -- read those for the current set. A test with no platform tag runs only on Linux/Electron; add `tags.WEB` / `tags.WIN` to broaden.
-
-```typescript
-test.describe('Console Tests', {
-	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.CONSOLE]
-}, () => { ... });
-```
+Tag every `test.describe` via the `tag` array. Available tags are the `FeatureTags` (what the test covers) and `PlatformTags` (where it runs) enums in `test/e2e/infra/test-runner/test-tags.ts`. A test with no platform tag runs only on Linux/Electron; add `tags.WEB` / `tags.WIN` to broaden. See `references/test-structure.md` for the full tagging and annotation model.
 
 ## Performance / Metric Tests
 
@@ -152,6 +118,7 @@ All performance/metric tests must include `tags.PERFORMANCE` in their tag list.
 **Quality issues:**
 4. **Timeout overrides added reflexively** - the 15s default covers most UI checks; only override for a known-slow (or known-fast) operation
 5. **No `test.step()`** - wrap complex multi-action sequences for better reports
+6. **Fixed waits** - `page.waitForTimeout(...)` instead of a web-first assertion, `expect.poll`, `toPass`, or a POM wait helper
 
 See `references/common-mistakes.md` for detailed gotchas with code examples.
 
@@ -202,3 +169,4 @@ For detailed information, read the bundled reference docs:
 2. Check page object source in `test/e2e/pages/` for available methods
 3. Read `test/e2e/tests/_test.setup.ts` for fixture definitions
 4. Use `--debug` flag to step through tests interactively
+5. For a flaky/failing test that already has CI history, query `test-health` directly for a quick read on known failure patterns -- see `../e2e-failure-analyzer/scripts/README.md` for the test-key format and how to call `e2e-query-history.js`. For a full guided root-cause dig through the evidence, suggest the user run `/triage-e2e-test` (manual-only, not something to invoke on their behalf).

@@ -13,6 +13,7 @@ import { RuntimeClientType, IRuntimeClientInstance } from '../../languageRuntime
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 import { IConsoleCodeAttribution } from '../../positronConsole/common/positronConsoleCodeExecution.js';
+import { ICodeLocation } from '../../positronConsole/common/codeLocation.js';
 
 export const IRuntimeSessionService =
 	createDecorator<IRuntimeSessionService>('runtimeSessionService');
@@ -192,6 +193,20 @@ export interface ILanguageRuntimeSession extends IDisposable {
 		attribution?: IConsoleCodeAttribution,
 		executionMetadata?: Record<string, unknown>,
 	): void;
+
+	/**
+	 * Returns the source code location that was attributed to a recent
+	 * execution, if one was provided via the execution's attribution. This lets
+	 * consumers link an output (e.g. a plot) back to the source code that
+	 * produced it, keyed by the execution id (the id passed to {@link execute}).
+	 *
+	 * Only a bounded number of recent executions are retained, and only those
+	 * that carried a code location; other executions return `undefined`.
+	 *
+	 * @param executionId The execution id to look up.
+	 * @returns The associated code location, or `undefined` if unknown.
+	 */
+	getExecutionCodeLocation?(executionId: string): ICodeLocation | undefined;
 
 	/**
 	 * Calls a runtime-specific method and returns the result.

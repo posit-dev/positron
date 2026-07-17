@@ -247,6 +247,9 @@ export interface MainThreadSecretStateShape extends IDisposable {
 export interface MainThreadConfigurationShape extends IDisposable {
 	$updateConfigurationOption(target: ConfigurationTarget | null, key: string, value: unknown, overrides: IConfigurationOverrides | undefined, scopeToLanguage: boolean | undefined): Promise<void>;
 	$removeConfigurationOption(target: ConfigurationTarget | null, key: string, overrides: IConfigurationOverrides | undefined, scopeToLanguage: boolean | undefined): Promise<void>;
+	// --- Start Positron ---
+	$registerConfigurationMigrations(extensionId: string, migrations: ReadonlyArray<{ readonly key: string; readonly migrateTo: string }>): void;
+	// --- End Positron ---
 }
 
 export interface MainThreadDiagnosticsShape extends IDisposable {

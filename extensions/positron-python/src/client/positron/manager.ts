@@ -320,7 +320,19 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
 
         if (interpreterPath) {
             interpreterPath = untildify(interpreterPath);
-            const interpreter = await this.interpreterService.getInterpreterDetails(interpreterPath, workspaceUri);
+            let interpreter = await this.interpreterService.getInterpreterDetails(interpreterPath, workspaceUri);
+
+            // This runs during startup, before interpreter discovery has necessarily
+            // resolved this path. A cold resolve returns undefined, which would drop the
+            // workspace default entirely, since it is never re-queried after discovery.
+            // Trigger a refresh and retry once so the default is recommended reliably.
+            // Mirrors the retry in selectLanguageRuntimeFromPath.
+            if (!interpreter) {
+                traceInfo(`Recommended interpreter ${interpreterPath} not resolved yet, triggering refresh...`);
+                await this.interpreterService.triggerRefresh().ignoreErrors();
+                interpreter = await this.interpreterService.getInterpreterDetails(interpreterPath, workspaceUri);
+            }
+
             if (interpreter) {
                 const metadata = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, isImmediate);
                 traceInfo(`Recommended runtime for workspace: ${interpreter.path}`);

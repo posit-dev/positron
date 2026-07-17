@@ -118,7 +118,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 
 	/** Start a console session and set it as foreground. */
 	async function startConsoleSession() {
-		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		const runtime = await createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		const session = await startTestLanguageRuntimeSession(
 			ctx.instantiationService, ctx.disposables, {
 			runtime,
@@ -132,7 +132,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 
 	/** Start a notebook session for the given URI. */
 	async function startNotebookSession(uri: URI = notebookUri) {
-		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		const runtime = await createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		const session = await startTestLanguageRuntimeSession(
 			ctx.instantiationService, ctx.disposables, {
 			runtime,

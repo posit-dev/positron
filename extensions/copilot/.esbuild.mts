@@ -32,6 +32,9 @@ const baseNodeBuildOptions = {
 	external: [
 		'./package.json',
 		'./.vscode-test.mjs',
+		// Positron: the `positron` module is provided by the Positron extension
+		// host at runtime, so leave it external rather than bundling it.
+		'positron',
 		'playwright',
 		'keytar',
 		'@azure/functions-core',
@@ -206,6 +209,7 @@ const webExtHostBuildOptions = {
 	format: 'cjs', // Necessary to export activate function from bundle for extension
 	external: [
 		'vscode',
+		'positron', // Positron: provided by the Positron extension host at runtime
 		'http',
 	]
 } satisfies esbuild.BuildOptions;

@@ -1,40 +1,27 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, suite, test, vi } from 'vitest';
+import { expect, suite, test } from 'vitest';
 import { PositronAssistant } from '../positronAssistant';
-
-// `prepare()` resolves the Positron Assistant extension via
-// `vscode.extensions.getExtension`; that is the only `vscode` member used at
-// runtime, so mock just `extensions` and drive `getExtension` per-test.
-const { getExtension } = vi.hoisted(() => ({ getExtension: vi.fn() }));
-vi.mock('vscode', () => ({ extensions: { getExtension } }));
 
 suite('PositronAssistant', () => {
 	const request = { prompt: 'hello' };
-	const props = { promptContext: { request } } as any;
-	const element = new PositronAssistant(props);
+	const element = new PositronAssistant({ promptContext: { request } } as any);
 
-	test('prepare returns undefined when the Positron Assistant extension is not installed', async () => {
-		getExtension.mockReturnValue(undefined);
+	test('prepare returns undefined when there is no chat request', async () => {
+		const withoutRequest = new PositronAssistant({ promptContext: {} } as any);
 
-		expect(await element.prepare({} as any)).toBeUndefined();
+		expect(await withoutRequest.prepare({} as any)).toBeUndefined();
 	});
 
-	test('prepare returns undefined when the extension API lacks generateAssistantPrompt', async () => {
-		getExtension.mockReturnValue({ activate: async () => ({}) });
-
+	test('prepare returns undefined when the Positron API is unavailable', async () => {
+		// The `positron` module is provided by the Positron extension host at
+		// runtime and is not resolvable here, so prepare degrades gracefully
+		// rather than failing the chat request. (The prompt-generation itself is
+		// exercised by the core positron.ai.generateAssistantPrompt tests.)
 		expect(await element.prepare({} as any)).toBeUndefined();
-	});
-
-	test('prepare activates the extension and returns its generated prompt', async () => {
-		const generateAssistantPrompt = vi.fn().mockResolvedValue('positron context');
-		getExtension.mockReturnValue({ activate: async () => ({ generateAssistantPrompt }) });
-
-		expect(await element.prepare({} as any)).toBe('positron context');
-		expect(generateAssistantPrompt).toHaveBeenCalledWith(request);
 	});
 
 	test('render returns nothing when there is no Positron context', () => {

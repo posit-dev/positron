@@ -13,16 +13,43 @@ const DATA_CONNECTIONS_VIEW_FOCUS_COMMAND = 'workbench.panel.positronDataConnect
 // The "Add Data Connection" -> "Configure Data Connection" dialog and its surrounding modal.
 const MODAL_DIALOG = '.positron-modal-dialog';
 const PARAMETER_FIELD = '.parameter-field';
+const MECHANISM_CARD = '.mechanism-card';
 const DATA_CONNECTION_ENTRY_ROW = '.data-connection-entry-row';
+
+// The "Connect With" dialog, opened from a connection entry's Actions menu.
+const CONNECT_WITH_DIALOG_CONTENT = '.connect-data-connection-with';
+const CUSTOM_CONTEXT_MENU_ITEMS = '.custom-context-menu-items';
 
 // Tree row selectors. The tree renders inside a virtualized data grid; each row exposes a twisty
 // button (aria-label "Expand" when collapsed) and a content area holding the node label.
 const TREE_ROW = '.positron-tree-row';
 const TREE_TWISTY_COLLAPSED = '.positron-tree-twisty-collapsed';
 
-// The virtualized grid that hosts the tree. It renders only the rows that fit in the viewport (no
-// overscan), so rows below the fold are absent from the DOM until scrolled into view.
-const TREE_WAFFLE = '#data-connection-profiles-list .data-grid-waffle';
+// The container that hosts the connection tree, and the virtualized grid inside it. The grid renders
+// only the rows that fit in the viewport (no overscan), so rows below the fold are absent from the
+// DOM until scrolled into view.
+const TREE_CONTAINER = '#data-connection-profiles-list';
+const TREE_WAFFLE = `${TREE_CONTAINER} .data-grid-waffle`;
+
+// Version (pin bundle) nodes render with the history codicon; the active bundle carries an "active"
+// type badge. Scoped to the tree container so the icon can't collide with history icons elsewhere in
+// the workbench.
+const VERSION_ROW = `${TREE_CONTAINER} ${TREE_ROW}:has(.codicon-history)`;
+const NODE_TYPE_BADGE = '.data-connection-node-type';
+
+/**
+ * The subset of node kinds a caller can disambiguate on, mapped to the codicon class the row renders
+ * for that kind (see `dataConnectionNodeRow.tsx`). Two nodes can share a label across levels (e.g. a
+ * Redshift database and a table both named `flights`); passing a kind narrows the exact-text match to
+ * the row with the matching icon.
+ */
+export type DataConnectionNodeKind = 'database' | 'schema' | 'table' | 'view';
+const NODE_KIND_ICON: Record<DataConnectionNodeKind, string> = {
+	database: 'codicon-positron-db-database',
+	schema: 'codicon-positron-db-schema',
+	table: 'codicon-positron-db-table',
+	view: 'codicon-positron-db-view',
+};
 
 /**
  * Reusable Positron Data Connections panel functionality for tests to leverage.
@@ -38,6 +65,16 @@ export class DataConnections {
 	saveButton: Locator;
 	nextButton: Locator;
 	connectionEntries: Locator;
+	connectWithDialog: Locator;
+
+	/**
+	 * Optional override (in ms) for the built-in waits in this page object. Slow backends need more
+	 * than the global 15s expect timeout: a serverless Redshift workgroup can cold-start on the first
+	 * connect, and each tree expansion issues a metadata query that may be slow to return. Set this
+	 * once (e.g. in `beforeAll`) to widen every wait for connecting, expanding, and node assertions.
+	 * Leave undefined to use Playwright's default expect timeout.
+	 */
+	actionTimeout?: number;
 
 	constructor(private code: Code, private quickaccess: QuickAccess) {
 		const page = code.driver.currentPage;
@@ -46,6 +83,8 @@ export class DataConnections {
 		this.saveButton = this.dialog.getByRole('button', { name: 'Save' });
 		this.nextButton = this.dialog.getByRole('button', { name: 'Next' });
 		this.connectionEntries = page.locator(DATA_CONNECTION_ENTRY_ROW);
+		this.connectWithDialog = page.locator('.positron-dynamic-modal-dialog-box-container')
+			.filter({ has: page.locator(CONNECT_WITH_DIALOG_CONTENT) });
 	}
 
 	/**
@@ -82,7 +121,9 @@ export class DataConnections {
 	 */
 	async selectConnectionMechanism(mechanismLabel: string): Promise<void> {
 		await test.step(`Select connection mechanism: ${mechanismLabel}`, async () => {
-			await this.dialog.locator('.mechanism-card').filter({ hasText: mechanismLabel }).click();
+			await this.dialog.locator(MECHANISM_CARD)
+				.filter({ has: this.code.driver.currentPage.getByText(mechanismLabel, { exact: true }) })
+				.click();
 			await this.nextButton.click();
 		});
 	}
@@ -112,7 +153,9 @@ export class DataConnections {
 	 */
 	async save(): Promise<void> {
 		await this.saveButton.click();
-		await expect(this.dialog).toBeHidden();
+		// Saving opens the live connection, so this wait spans the backend connect (a cold-starting
+		// serverless workgroup can take a while); honor actionTimeout when set.
+		await expect(this.dialog).toBeHidden({ timeout: this.actionTimeout });
 	}
 
 	/**
@@ -122,18 +165,75 @@ export class DataConnections {
 	async expectConnectionInTree(connectionName: string): Promise<void> {
 		await expect(
 			this.connectionEntries.filter({ hasText: connectionName })
-		).toBeVisible();
+		).toBeVisible({ timeout: this.actionTimeout });
+	}
+
+	/**
+	 * Opens the "Connect With" dialog for a connection's language, via the connection entry's
+	 * Actions menu.
+	 * @param connectionName The connection name shown in the tree.
+	 * @param languageName The connect-with menu item label, e.g. 'Python', 'R', 'SQL'.
+	 */
+	async openConnectWith(connectionName: string, languageName: string): Promise<void> {
+		await test.step(`Open Connect With ${languageName} for ${connectionName}`, async () => {
+			const row = this.connectionEntries.filter({ hasText: connectionName });
+			await this.revealNode(row);
+			await expect(row).toBeVisible();
+			await row.getByRole('button', { name: 'Actions' }).click();
+
+			const menu = this.code.driver.currentPage.locator(CUSTOM_CONTEXT_MENU_ITEMS);
+			await expect(menu).toBeVisible();
+			await menu.locator('.custom-context-menu-item', {
+				has: this.code.driver.currentPage.locator('.title', { hasText: languageName })
+			}).click();
+
+			await expect(this.connectWithDialog).toBeVisible();
+		});
+	}
+
+	/**
+	 * Selects a connection code variant (e.g. a package like 'SQLAlchemy') by its label in the
+	 * open Connect With dialog.
+	 * @param label The variant's label.
+	 */
+	async selectConnectionCodeVariant(label: string): Promise<void> {
+		await test.step(`Select connection code variant: ${label}`, async () => {
+			await this.connectWithDialog.getByRole('option', { name: label }).click();
+		});
+	}
+
+	/**
+	 * Asserts that the given connection code variant is currently selected in the open Connect
+	 * With dialog.
+	 * @param label The variant's label.
+	 */
+	async expectConnectionCodeVariantSelected(label: string): Promise<void> {
+		await expect(this.connectWithDialog.getByRole('option', { name: label })).toHaveAttribute('aria-selected', 'true');
+	}
+
+	/**
+	 * Closes the open Connect With dialog via its Cancel action.
+	 */
+	async closeConnectWith(): Promise<void> {
+		await this.connectWithDialog.getByRole('button', { name: 'Cancel' }).click();
+		await expect(this.connectWithDialog).toBeHidden();
 	}
 
 	/**
 	 * Returns the tree row whose node label exactly matches the given text. Exact matching avoids
-	 * false matches between names that share a substring (e.g. 'actor' vs 'actor_info').
+	 * false matches between names that share a substring (e.g. 'actor' vs 'actor_info'). Pass a
+	 * `kind` to further narrow the match by node icon when the same label appears at more than one
+	 * level (e.g. a Redshift database and a table both named 'flights').
 	 * @param label The node label, e.g. 'Schemas', 'public', 'Tables', 'actor'.
+	 * @param kind Optional node kind to disambiguate rows that share a label.
 	 */
-	private treeRow(label: string): Locator {
-		return this.code.driver.currentPage.locator(TREE_ROW).filter({
-			has: this.code.driver.currentPage.getByText(label, { exact: true })
-		});
+	private treeRow(label: string, kind?: DataConnectionNodeKind): Locator {
+		const page = this.code.driver.currentPage;
+		let row = page.locator(TREE_ROW).filter({ has: page.getByText(label, { exact: true }) });
+		if (kind) {
+			row = row.filter({ has: page.locator(`.${NODE_KIND_ICON[kind]}`) });
+		}
+		return row;
 	}
 
 	/**
@@ -149,17 +249,21 @@ export class DataConnections {
 	 */
 	private async expandRow(row: Locator, label: string): Promise<void> {
 		await test.step(`Expand node: ${label}`, async () => {
-			// Every node expanded by this test lives near the top of the tree, so scrolling to the
-			// top guarantees the target is within the (overscan-free) rendered range, even if a
-			// prior verification step scrolled the grid down. toBeVisible then waits for the row to
-			// finish loading after its parent expanded.
-			await this.scrollToTop();
-			await expect(row).toBeVisible();
+			// Reveal the row before acting on it. The grid renders no overscan, so a row below the
+			// fold is absent from the DOM entirely -- which happens for a deep node in a short panel
+			// (e.g. a Redshift table, one level below Postgres's because of the extra Databases node).
+			// revealNode scrolls it into the rendered range (or back to the top if it is a child still
+			// loading after its parent expanded); toBeVisible then waits for that load to finish before
+			// we click its twisty.
+			await this.revealNode(row);
+			await expect(row).toBeVisible({ timeout: this.actionTimeout });
 
 			const collapsedTwisty = row.locator(TREE_TWISTY_COLLAPSED);
 			if (await collapsedTwisty.count() > 0) {
 				await collapsedTwisty.first().dispatchEvent('click');
-				await expect(row.locator(TREE_TWISTY_COLLAPSED)).toHaveCount(0);
+				// Children load asynchronously (a metadata query) after the twisty is clicked, so this
+				// wait can span a slow backend response; honor actionTimeout when set.
+				await expect(row.locator(TREE_TWISTY_COLLAPSED)).toHaveCount(0, { timeout: this.actionTimeout });
 			}
 		});
 	}
@@ -177,9 +281,10 @@ export class DataConnections {
 	/**
 	 * Expands a tree node by its label.
 	 * @param label The node label to expand, e.g. 'Schemas', 'public', 'Tables', 'Views'.
+	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
 	 */
-	async expandNode(label: string): Promise<void> {
-		await this.expandRow(this.treeRow(label), label);
+	async expandNode(label: string, kind?: DataConnectionNodeKind): Promise<void> {
+		await this.expandRow(this.treeRow(label, kind), label);
 	}
 
 	/**
@@ -188,12 +293,13 @@ export class DataConnections {
 	 * node row. Like {@link expandRow}, this uses `dispatchEvent` rather than a coordinate-based
 	 * click because the tree is a virtualized grid with absolutely-positioned rows.
 	 * @param label The node label, e.g. 'actor' or 'first_name'.
+	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
 	 */
-	async doubleClickNode(label: string): Promise<void> {
+	async doubleClickNode(label: string, kind?: DataConnectionNodeKind): Promise<void> {
 		await test.step(`Double-click node: ${label}`, async () => {
-			const row = this.treeRow(label);
+			const row = this.treeRow(label, kind);
 			await this.revealNode(row);
-			await expect(row).toBeVisible();
+			await expect(row).toBeVisible({ timeout: this.actionTimeout });
 			await row.locator('.data-connection-node-row').dispatchEvent('dblclick');
 		});
 	}
@@ -224,16 +330,25 @@ export class DataConnections {
 		for (let i = 0; i < 60 && await row.count() === 0; i++) {
 			await page.mouse.wheel(0, 200);
 		}
+
+		// If the scan reached the end without rendering the row, it is not below the fold -- it is a
+		// child still loading after its parent expanded. Return to the top so it renders in the visible
+		// range once the load completes (the nodes this drives all live near the top of the tree),
+		// rather than being stranded off-screen where the scan left the grid scrolled to the bottom.
+		if (await row.count() === 0) {
+			await this.scrollToTop();
+		}
 	}
 
 	/**
 	 * Asserts that a tree node with the given label is visible, scrolling it into view if needed.
 	 * @param label The node label.
+	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
 	 */
-	async expectNodeVisible(label: string): Promise<void> {
-		const row = this.treeRow(label);
+	async expectNodeVisible(label: string, kind?: DataConnectionNodeKind): Promise<void> {
+		const row = this.treeRow(label, kind);
 		await this.revealNode(row);
-		await expect(row).toBeVisible();
+		await expect(row).toBeVisible({ timeout: this.actionTimeout });
 	}
 
 	/**
@@ -244,7 +359,34 @@ export class DataConnections {
 	async expectColumn(name: string, dataType: string): Promise<void> {
 		const row = this.treeRow(name);
 		await this.revealNode(row);
-		await expect(row).toBeVisible();
-		await expect(row.locator('.data-connection-node-type')).toHaveText(dataType);
+		await expect(row).toBeVisible({ timeout: this.actionTimeout });
+		await expect(row.locator(NODE_TYPE_BADGE)).toHaveText(dataType, { timeout: this.actionTimeout });
+	}
+
+	/**
+	 * Asserts the number of version (pin bundle) nodes currently shown in the tree. Use after
+	 * expanding a single pin so the count reflects that pin's versions. Version node labels are
+	 * dynamic (creation time + bundle id), so tests key off the count and the active badge rather
+	 * than exact names. Reveals a version row first so the count isn't taken while the expanded
+	 * pin's versions are still below the virtualized fold.
+	 * @param count The expected number of version nodes.
+	 */
+	async expectVersionCount(count: number): Promise<void> {
+		const versionRows = this.code.driver.currentPage.locator(VERSION_ROW);
+		await this.revealNode(versionRows.first());
+		await expect(versionRows).toHaveCount(count);
+	}
+
+	/**
+	 * Asserts that a version node badged "active" is visible: the pin's currently served bundle. This
+	 * is the deterministic anchor on version nodes (their names carry a dynamic timestamp/bundle id),
+	 * so it works against a real server where the version count is unknown. Reveals the row first, as
+	 * an expanded pin's versions can sit below the fold.
+	 */
+	async expectActiveVersionVisible(): Promise<void> {
+		const activeVersion = this.code.driver.currentPage.locator(VERSION_ROW)
+			.filter({ has: this.code.driver.currentPage.locator(NODE_TYPE_BADGE, { hasText: 'active' }) });
+		await this.revealNode(activeVersion);
+		await expect(activeVersion).toBeVisible();
 	}
 }

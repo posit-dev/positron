@@ -9,8 +9,9 @@ import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWo
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { localize2 } from '../../../../nls.js';
-import { codiconsLibrary } from '../../../../base/common/codiconsLibrary.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
+import { codiconsLibrary } from '../../../../base/common/codiconsLibrary.js';
 import { ICodeBlockActionContext } from '../../chat/browser/widget/chatContentParts/codeBlockPart.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
@@ -18,12 +19,13 @@ import { ChatContextKeys } from '../../chat/common/actions/chatContextKeys.js';
 import { RuntimeCodeExecutionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ChatAgentLocation, ChatConfiguration } from '../../chat/common/constants.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { NextEditSuggestionsStatusBarEntry } from './nextEditSuggestionsStatusBar.js';
 import { CommitMessageMenuContribution, registerCommitMessageGeneration } from './commitMessageAction.js';
+import { AiExtensionActivationContribution } from './aiExtensionActivation.js';
+import { PositronAssistantToolsContribution } from './tools/positronAssistantTools.js';
 
 // Register the `ai.enabled` main switch for Positron's AI features.
 import '../common/positronAIConfiguration.js';
@@ -121,3 +123,12 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronAssistantContribution, LifecyclePhase.Restored);
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(NextEditSuggestionsStatusBarEntry, LifecyclePhase.Restored);
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(CommitMessageMenuContribution, LifecyclePhase.Restored);
+
+// Fire the custom AI activation events (`onAiEnabled`, `onCopilotEnabled`) so
+// the bundled AI extensions activate lazily while their backing settings are
+// on. Registered at `Eventually` to preserve the deferred timing those
+// extensions had under `onStartupFinished`.
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(AiExtensionActivationContribution, LifecyclePhase.Eventually);
+
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronAssistantToolsContribution, LifecyclePhase.Restored);
+

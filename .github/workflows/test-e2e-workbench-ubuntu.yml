@@ -33,6 +33,16 @@ on:
         description: "Workbench install mode: 'ci' for latest daily, 'ci-stable' for the last stable release."
         type: string
         default: "ci"
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      enable_diagnostic_logging:
+        required: false
+        description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -84,6 +94,10 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
+
       - name: Generate access token for private repos
         id: access-token
         uses: actions/create-github-app-token@v3
@@ -128,6 +142,21 @@ jobs:
           AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET: "op://Positron/RStudioIDE_Service_Account/azure-service-principal-client-secret"
           WORKBENCH_LICENSE: "op://Positron/Workbench-lic-WB-Auto/notesPlain"
           CONNECT_LICENSE: "op://Positron/Connect-lic-WB-Auto/notesPlain"
+          REDSHIFT_TEST_HOST: "op://Positron/Redshift_Test_Environment/hostname"
+          REDSHIFT_TEST_USERNAME: "op://Positron/Redshift_Test_Environment/username"
+          REDSHIFT_TEST_PASSWORD: "op://Positron/Redshift_Test_Environment/password"
+          TS_OAUTH_CLIENT_ID: "op://Positron/Tailscale_OAuth/client_id"
+          TS_OAUTH_SECRET: "op://Positron/Tailscale_OAuth/client_secret"
+
+      # Bring up Tailscale so tests can reach private test infrastructure (e.g. the serverless
+      # Redshift workgroup used by the data-connections e2e tests). OAuth creds are loaded from
+      # 1Password in the previous step.
+      - name: Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ env.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ env.TS_OAUTH_SECRET }}
+          tags: tag:positron-gha
 
       - name: Write license files
         run: |
@@ -135,7 +164,7 @@ jobs:
           echo "$CONNECT_LICENSE" > /tmp/connect.lic
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 20
 
@@ -195,6 +224,7 @@ jobs:
           USE_KEY: true
           PW_PROJECT_NAME: e2e-workbench
           REPORTER_REPO_NAME: positron
+          ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
         run: |
           export DISPLAY=:10
           GREP_INVERT_ARG=""
@@ -225,4 +255,4 @@ jobs:
       - name: Stop Docker containers
         if: always()
         run: |
-          docker compose -p ${{ github.run_id }} -f docker/environments/workbench-dev/docker-compose.workbench.yml down || true
+          docker compose -p ${{ github.run_id }} -f docker/environments/wb-local/docker-compose.workbench.yml down || true

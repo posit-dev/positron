@@ -24,10 +24,7 @@ export const DISCONNECTED_STATUS_ICON = '.codicon-positron-runtime-status-discon
 // base pyenv both shown as "Python 3.10.12"); when that happens we want the real
 // environment, not the base install. The values match the "(<source>" portion of
 // the quick pick label produced by getRuntimeSourceAndShortName.
-//
-// '(uv)' keeps its closing paren so it matches only a standalone uv-managed Python,
-// not a uv project venv labeled "(uv: <name>)" -- the venv is what we want to keep.
-export const DEPRIORITIZED_PYTHON_SOURCES = ['(Pyenv', '(Global', '(System', '(Unknown', '(uv)'];
+export const DEPRIORITIZED_PYTHON_SOURCES = ['(Pyenv', '(Global', '(System', '(Unknown'];
 
 // Quickpick labels - keep in sync with languageRuntimeActions.ts
 const INTERPRETER_SESSIONS_LABEL = 'Interpreter Sessions';
@@ -139,6 +136,22 @@ export class Sessions {
 				} else {
 					// session found, retrieve metadata
 					const foundSession = consoleTabActiveSessions[existingSessionIndex];
+
+					// Wait for the reused session to actually be reattached before reading its
+					// metadata -- the Console information button silently no-ops while a session
+					// is still reconnecting (e.g. right after another test's window reload reset
+					// every session's websocket), which otherwise strands getMetadata()'s dialog
+					// retry against a button that never opens it. Only checkable here when more
+					// than one session tab is rendered; a lone session's metadata already goes
+					// through this same dialog with no tab-based signal to wait on instead.
+					if (await this.getSessionCount() > 1) {
+						await expect(async () => {
+							const status = await this.getIconStatus(foundSession.id);
+							expect(status).not.toBe('disconnected');
+							expect(status).not.toBe('unknown');
+						}, `Wait for reused session to reattach: ${foundSession.id}`).toPass({ timeout: 30000 });
+					}
+
 					results.push(await this.getMetadata(foundSession.id));
 
 					// remove the found session from the list to avoid duplicates
@@ -236,7 +249,10 @@ export class Sessions {
 	 */
 	async selectMetadataOption(menuItem: 'Show Kernel Output Channel' | 'Show Supervisor Output Channel' | 'Show LSP Output Channel') {
 		await this.console.focus();
-		await this.metadataButton.click();
+		// Use openMetadataDialog() instead of a raw button click: the button's
+		// click handler reads the active console session from React context,
+		// which can lag a just-fired focus change and silently no-op.
+		await this.openMetadataDialog();
 		await this.metadataDialog.getByText(menuItem).click();
 
 		await expect(this.page.getByRole('tab', { name: 'Output' })).toHaveClass(/.*checked.*/);
@@ -288,6 +304,17 @@ export class Sessions {
 			// behind on server/workbench (see delete() workaround) stays visible,
 			// so it does not block this wait.
 			await expect(this.sessions.filter({ visible: false })).toHaveCount(0, { timeout: 15000 });
+
+			// The detach wait above only tracks hidden instances; it can pass while a
+			// session is still visibly tearing down, letting the next test's fresh
+			// kernel start race that teardown (session comes up "not active"). On
+			// desktop, also wait for the console to reach its empty state (no tabs, no
+			// metadata button). Server/workbench intentionally leaves a session behind
+			// (see delete() workaround), so skip this stricter wait there.
+			const isServedSession = /(8080|8787)/.test(this.code.driver.currentPage.url());
+			if (!isServedSession) {
+				await this.expectSessionCountToBe(0);
+			}
 		});
 	}
 
@@ -499,11 +526,15 @@ export class Sessions {
 					});
 				} catch (e) {
 					// Auto-discovery is intermittent: POSITRON_PY_VER_SEL's interpreter
-					// can be missing from the quick pick on the first attempt. Force a
-					// rescan so the next retry of this `toPass` iteration sees it.
+					// can be missing from the quick pick on the first attempt -- notably
+					// on remote hosts, where interpreter registration can lag the
+					// discovery-complete signal. Force a fresh cross-host rescan so the
+					// next retry of this `toPass` iteration sees it. (The former
+					// `python.refreshInterpreters` command does not exist, so this
+					// recovery was silently a no-op.)
 					if (language === 'Python') {
 						await this.quickinput.closeQuickInput().catch(() => { });
-						await this.quickaccess.runCommand('python.refreshInterpreters').catch(() => { });
+						await this.quickaccess.runCommand('workbench.action.language.runtime.discoverAllRuntimes').catch(() => { });
 					}
 					throw e;
 				}
@@ -537,7 +568,23 @@ export class Sessions {
 				}
 			}
 
-			return this.getCurrentSessionId();
+			// The foreground-session switch to the session we just started is async
+			// (it lags the "started" text above), so a leftover session from an
+			// earlier test in the same suite can still be active here. getCurrentSessionId()
+			// trusts whichever session is currently active; confirm it actually matches the
+			// language we just requested before returning it, otherwise callers (e.g.
+			// pasteCodeToConsole) end up targeting the wrong session's console input.
+			// Match the "Select runtime from quick pick" budget above -- this check is
+			// effectively finishing off that same runtime-selection process, and is exposed
+			// to the same CI-load-driven extension host stalls.
+			const expectedIdPrefix = new RegExp(`^${language.toLowerCase()}(-notebook)?-`, 'i');
+			let sessionId: string | undefined;
+			await expect(async () => {
+				sessionId = await this.getCurrentSessionId();
+				expect(sessionId).toMatch(expectedIdPrefix);
+			}, `Wait for ${language} session to become active`).toPass({ timeout: 30000 });
+
+			return sessionId!;
 		});
 	}
 
@@ -683,11 +730,18 @@ export class Sessions {
 			const isSingleSession = (await this.getSessionCount()) === 1;
 
 			if (!isSingleSession && sessionId) {
-				// Use force to bypass notification toasts that may overlay the tab
-				await this.page.getByTestId(`console-tab-${sessionId}`).click({ force: true });
+				const targetTab = this.getSessionTab(sessionId);
+				await expect(async () => {
+					// Use force to bypass notification toasts that may overlay the tab. A
+					// toast can also swallow the click outright (it's on top, so the real
+					// tab never receives it) -- verify the tab actually went active instead
+					// of assuming the click landed, and retry if it didn't.
+					await targetTab.click({ force: true });
+					await expect(targetTab).toHaveClass(/tab-button--active/);
+				}, `Select session tab: ${sessionId}`).toPass({ timeout: 10000 });
 			}
 
-			const metadata = await this.extractMetadataFromDialog();
+			const metadata = await this.extractMetadataFromDialog(sessionId);
 
 			// Close the metadata dialog
 			await this.page.keyboard.press('Escape');
@@ -698,13 +752,15 @@ export class Sessions {
 
 	/**
 	 * Helper: Extract metadata from the metadata dialog
+	 *
+	 * @param sessionId the session ID the dialog should reflect, if known
 	 */
-	private async extractMetadataFromDialog(): Promise<SessionMetaData> {
+	private async extractMetadataFromDialog(sessionId?: string): Promise<SessionMetaData> {
 		let metadata: SessionMetaData | undefined;
 
 		await test.step('Extract metadata from dialog', async () => {
 			await expect(async () => {
-				await this.openMetadataDialog();
+				await this.openMetadataDialog(sessionId);
 				const [name, id, state, path, source] = await Promise.all([
 					this.metadataDialog.getByTestId('session-name').textContent(),
 					this.metadataDialog.getByTestId('session-id').textContent(),
@@ -856,17 +912,29 @@ export class Sessions {
 
 	/**
 	* Action: Open the metadata dialog for the current session
+	*
+	* @param sessionId the session the dialog should reflect, if known -- click via the
+	* button's testid (`info-unknown` until a real session lands in it) rather than its
+	* role/label, so we wait for the click handler's React context to be ready, not just visible
 	*/
-	async openMetadataDialog() {
+	async openMetadataDialog(sessionId?: string) {
+		const button = sessionId
+			? this.page.getByTestId(`info-${sessionId}`)
+			: this.page.getByTestId(/^info-(python|r)(-notebook)?-[a-z0-9]+$/i);
+
+		// The info button's press handler no-ops while the button's testid is still `info-unknown`
+		// -- the active console session isn't wired into React context yet. Wait for the real
+		// `info-<id>` testid before clicking; once it's real a single click reliably opens the
+		// dialog. Return early when the dialog is already open: clicking the button again dismisses
+		// the popup, so the retry must never re-click an open dialog.
+		await expect(button).toBeVisible();
+
 		await expect(async () => {
-			const isMetadataDialogVisible = await this.metadataDialog.isVisible();
-
-			if (!isMetadataDialogVisible) {
-				await this.metadataButton.click();
-				await this.page.mouse.move(0, 0);
-				await this.page.waitForTimeout(500);
+			if (await this.metadataDialog.isVisible()) {
+				return;
 			}
-
+			await button.click();
+			await this.page.mouse.move(0, 0);
 			await expect(this.metadataDialog).toBeVisible();
 		}, 'Open the Metadata Dialog').toPass({ timeout: 3000 });
 	}
