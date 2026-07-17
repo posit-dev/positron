@@ -95,7 +95,7 @@ function buildDomPresence(evts, tokens) {
 	if (!snaps.length) { return null; }
 	const span = `t=${Math.round(snaps[0].ts)}..${Math.round(snaps[snaps.length - 1].ts)}`;
 	const out = [`\n=== DOM presence across ${snaps.length} frame snapshots (${span}) ===`];
-	out.push("Did the failing selector's target ever enter the DOM? NEVER present => it never rendered (product open-path issue), not a render-then-dismiss.");
+	out.push("Whether the failing selector's class/id token ever matched a DOM snapshot. 'present in N/M' => the element WAS in the DOM (rules out never-rendered; a visibility/timeout error is then a timing or dismiss race). 'NEVER present' is AMBIGUOUS on its own: the exact class never matched, which fits BOTH a never-rendered element (product open-path bug -- strongest when the console digest shows its command fired) AND locator drift (the element rendered under different markup). Disambiguate with the error-context snapshot's stable text/label, not this line alone.");
 	for (const tok of tokens) {
 		const hits = snaps.filter(s => s.json.includes(tok));
 		if (!hits.length) {
