@@ -52,21 +52,12 @@ branch plus `main` -- see step 2).
 
 ### 1. Build the test key
 
-The API keys tests as `testName|||specPath`, where `testName` is the **full
-hierarchical Playwright title** -- every enclosing `test.describe()` block
-joined to the `test()` title with `" > "`, not just the leaf title. E.g. for:
-
-```ts
-test.describe('Source Content Management', ..., () => {
-  test('Verify SCM Tracks File Modifications, Staging, and Commit Actions', ...)
-```
-
-the key's `testName` is `"Source Content Management > Verify SCM Tracks File
-Modifications, Staging, and Commit Actions"`, not just the inner string. Using
-only the leaf title silently returns an empty/zero-runs result (looks like a
-clean test, actually a key mismatch) rather than an error -- if a query comes
-back with `total_runs: 0` for a test you know runs regularly, rebuild the key
-with the full describe-chain prefix before concluding it's clean.
+See [`../e2e-failure-analyzer/scripts/README.md`](../e2e-failure-analyzer/scripts/README.md#building-a-test-key)
+for the `testName|||specPath` format. `testName` must be the **full
+hierarchical Playwright title** -- every enclosing `test.describe()` joined to
+the `test()` title with `" > "` -- or the query silently returns an
+empty/zero-runs result (looks like a clean test, actually a key mismatch)
+instead of an error.
 
 If you only have a partial name, grep `test/e2e/tests/` to find the exact
 title and spec path, then walk outward to collect every enclosing
@@ -86,11 +77,9 @@ branch itself introduced that hasn't landed on main. Querying both closes
 both gaps. Skip the second call only when the current branch already is
 `main`, or the engineer explicitly overrides `--branch`.
 
-Always pass `--test-keys` as a JSON array, even for a single key. The API also
-accepts a plain comma-separated string, but it splits on every comma in that
-string to find multiple keys -- a test name that itself contains a comma (e.g.
-"Verify SCM Tracks File Modifications, Staging, and Commit Actions") gets
-mis-split and rejected with a 400. The JSON array form has no such ambiguity:
+Always pass `--test-keys` as a JSON array, even for a single key -- see
+[`../e2e-failure-analyzer/scripts/README.md`](../e2e-failure-analyzer/scripts/README.md#--test-keys-always-pass-a-json-array-even-for-one-key)
+for why the comma-separated form is unsafe:
 
 ```bash
 node .claude/skills/e2e-failure-analyzer/scripts/e2e-query-history.js \

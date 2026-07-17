@@ -3,12 +3,15 @@
 //
 // Usage:
 //   node e2e-query-history.js --repo <repo_id> --run-id <workflow_run_id> [options]
-//   node e2e-query-history.js --repo <repo_id> --test-keys "name1|||path1,name2|||path2" [options]
+//   node e2e-query-history.js --repo <repo_id> --test-keys '["name1|||path1","name2|||path2"]' [options]
+//
+// See scripts/README.md for the test-key format and why the JSON-array form
+// is required (a comma-joined string mis-splits on commas inside test names).
 //
 // Options:
 //   --repo <repo_id>          Repository identifier (e.g., "positron") [required]
 //   --run-id <id>             GitHub workflow run ID - returns history for all failed/flaked tests
-//   --test-keys <keys>        Comma-separated test keys in "testName|||specPath" format
+//   --test-keys <keys>        JSON array of test keys in "testName|||specPath" format
 //   --branch <branch>         Branch to filter history by (default: repo's default branch)
 //   --lookback-days <days>    Days of history, 1-30 (default: 5)
 //   --occurrences-per-pattern <N>  Representative occurrences per failure pattern (default: 0, omitted)

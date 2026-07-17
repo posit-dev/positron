@@ -137,9 +137,7 @@ Output JSON is identical to Path A's `e2e-process-project.js` (see the field lis
 
 ## Step 6: Query Historical Test Health (optional)
 
-If the `E2E_INSIGHTS_API_KEY` environment variable is set, query the e2e-test-insights dashboard for historical failure data. This step is optional -- if the API is unavailable, skip it and proceed with analysis. For local use, the query script also falls back to reading `E2E_INSIGHTS_API_KEY` from the repo-root `.env.e2e` file if the env var isn't set.
-
-The repo identifier for the API is always `positron` for both `posit-dev/positron` and `posit-dev/positron-builds`. Both repos run the same tests (positron-builds uses positron as a submodule) and test results are stored under the `positron` repo ID in the dashboard.
+If `E2E_INSIGHTS_API_KEY` is set, query the e2e-test-insights dashboard for historical failure data. This step is optional -- if the API is unavailable, skip it and proceed with analysis. See [`scripts/README.md`](scripts/README.md) for auth, the `repo_id` convention, the test-key format, and how to read the response (`insight.type`, `environment_breakdown`, etc.) -- this section only covers the run-centric option specific to this skill.
 
 ### Option 1: Query by workflow run ID (preferred)
 
@@ -153,40 +151,20 @@ The branch is important -- a test may be `rare_flake` on `main` but `known_flaky
 
 ### Option 2: Query by test keys
 
-If the run isn't in the dashboard yet, construct test keys manually from extracted failures:
+If the run isn't in the dashboard yet, construct test keys manually from extracted failures -- see [`scripts/README.md`](scripts/README.md#building-a-test-key) for the key format and the JSON-array requirement:
 
 ```bash
 node "$SKILL_DIR/scripts/e2e-query-history.js" --repo positron \
-  --test-keys "testName1|||specPath1,testName2|||specPath2" --lookback-days 14
+  --test-keys '["testName1|||specPath1", "testName2|||specPath2"]' --lookback-days 14
 ```
 
-### Using the history in analysis
-
-The response includes per-test data. Use it to enhance the analysis:
-
-- **`insight.type`**: `"new"` = first-time failure (likely regression), `"recurring"` / `"known_flaky"` = known pattern, `"rare_flake"` = infrequent
-- **`history.pass_rate`**: Low pass rate = known flaky test, 100% pass rate before this run = regression
-- **`failure_patterns`**: Compare today's error message against historical patterns -- same pattern = recurring, new pattern = potential regression even for known-flaky tests
-- **`insight.first_failure_sha`** / **`insight.timing_value`**: When the failures started -- useful for bisecting
-
-#### Interpreting `environment_breakdown` -- look across environments
-
-The `environment_breakdown` array is often more informative than the aggregate `history` stats. **Always check per-environment pass rates** before concluding a test is "flaky":
-
-- **0% pass rate on one environment, 100% on others** = deterministic regression on that platform, NOT flaky. Example: a test failing on all chromium runs but passing on all electron runs is a chromium-specific bug, even if the aggregate pass rate is 58%.
-- **Low pass rate across all environments** = genuinely flaky
-- **Low pass rate on one environment only** = platform-specific flakiness (e.g., "worse on win/electron")
-
-When the breakdown reveals an environment-specific pattern, call it out explicitly:
-- "History: **100% failure on chromium** (0/4 passed), 100% pass on electron (6/6) -- deterministic regression on chromium, not flaky"
-- "History: known flaky across all platforms, worst on win/electron (88% pass rate)"
-
-#### History line format
+### History line format
 
 Include a **History** line in each failure's analysis, e.g.:
 - "History: failed 4/18 runs (22%) over last 14 days, same error pattern -- known flaky"
 - "History: passed 15/15 runs over last 14 days -- **new regression**"
-- "History: **0% pass rate on chromium** (10/10 failed since Apr 02), 100% on electron -- deterministic platform regression"
+- "History: **0% pass rate on chromium** (10/10 failed since Apr 02), 100% on electron -- deterministic platform regression, not flaky"
+- "History: known flaky across all platforms, worst on win/electron (88% pass rate)"
 - "History: no data available (API unreachable)"
 
 ---
