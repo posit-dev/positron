@@ -45,6 +45,13 @@ jobs:
           # - test/e2e/{CLAUDE.md,README.md} for repo-specific test conventions.
           # - playwright.config.ts for worker/parallelism settings (e.g. workers,
           #   fullyParallel) needed to reason about shared-workspace teardown races.
+          # - src/ and extensions/ so the analyzer can read the PRODUCT source a
+          #   failure exercises -- required to tell a real code regression from a
+          #   test-side issue (stale selector, duplicated-logic drift), and to
+          #   confirm an open-path bug in the handler behind a fired command. The
+          #   rubric already directs the model to read product source; without
+          #   these it cannot. The culprit often lives in extensions/ (e.g. the
+          #   positron-python interpreter picker), not just src/, so include both.
           sparse-checkout: |
             .claude/skills/e2e-failure-analyzer
             .github/actions/e2e-failure-analyzer
@@ -55,6 +62,8 @@ jobs:
             test/e2e/CLAUDE.md
             test/e2e/README.md
             playwright.config.ts
+            src
+            extensions
 
       - name: Load secret
         uses: 1password/load-secrets-action@v4

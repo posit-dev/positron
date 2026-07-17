@@ -12,7 +12,7 @@ Analyzes Playwright e2e test failures from a GitHub Actions run using JSON repor
 
 - A CI run has failed and you want to understand why
 - Triaging e2e test failures from `Test: Merge to branch`, `Test: Full Suite`, or `Positron Build: Daily Release`
-- Investigating flaky tests from a specific run
+- Triaging a whole run's hard failures (for deep per-test investigation of one flaky/failing test, use the `triage-e2e-test` skill instead)
 
 ## Prerequisites
 
@@ -179,6 +179,7 @@ Include a **Commit** line in the detailed analysis when the head commit is relev
 
 Also use context from the repo when helpful:
 - Read the failing test file to understand what it does
+- Read the **product source** the failure exercises (`src/` and `extensions/`) to settle a code-vs-test attribution -- e.g. confirm an open-path bug in the handler behind a fired command, or compare a test helper against the product function it re-derives (see the rubric's "duplicated logic drift"). Do this only to CONFIRM a hypothesis the evidence already points to; prefer Grep and read narrowly. (In the Action, `src/` and `extensions/` are checked out for exactly this.)
 - Check `git log` for recent changes to the test or related product code beyond the head commit
 - Search for related issues
 
@@ -196,7 +197,9 @@ For each failure, include the **platform** (OS and project/browser) where it occ
 
 When multiple projects/platforms are analyzed in a single run, note which platforms each failure occurred on and whether the same test passed on other platforms.
 
-Present the analysis in a summary table that includes columns for: test name, platform, root cause category, and severity. In the severity column, clearly distinguish tests that **failed all retries** (hard failures) from tests that **passed on retry** (flaky). This distinction comes from comparing `failures` (final failures after all retries) vs `failedTests` (all attempts including those that recovered). Then provide detailed analysis for each failure below the table.
+Deep-analyze the **hard failures** -- tests that **failed all retries** (`failures` in the extractor output, as opposed to `failedTests`, which includes attempts that recovered). Present them in a summary table with columns: test name, platform, root cause category, and severity (`hard`), then give the detailed per-failure analysis below the table.
+
+**Flaky tests** (passed on retry) are not deep-analyzed here: they recovered on the same run, so they didn't break it, and per-test flaky investigation is the `triage-e2e-test` skill's specialty. List them compactly under a short "Flaky (passed on retry)" section (name + one-line history) and point to `triage-e2e-test` for any worth chasing -- unless the user explicitly asks you to dig into a flaky one. This keeps the run-centric analysis focused (and, in the Action, keeps token cost to the hard failures that actually need it).
 
 Include **non-e2e job failures** (unit tests, integration tests, build failures) in the summary table as well, with the job name as the test name and a brief description of the failure extracted from the job logs.
 
