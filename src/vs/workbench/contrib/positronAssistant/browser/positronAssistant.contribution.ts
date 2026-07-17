@@ -25,6 +25,7 @@ import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.j
 import { NextEditSuggestionsStatusBarEntry } from './nextEditSuggestionsStatusBar.js';
 import { CommitMessageMenuContribution, registerCommitMessageGeneration } from './commitMessageAction.js';
 import { AiExtensionActivationContribution } from './aiExtensionActivation.js';
+import { PositronAssistantToolsContribution } from './tools/positronAssistantTools.js';
 
 // Register the `ai.enabled` main switch for Positron's AI features.
 import '../common/positronAIConfiguration.js';
@@ -128,3 +129,6 @@ Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).regi
 // on. Registered at `Eventually` to preserve the deferred timing those
 // extensions had under `onStartupFinished`.
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(AiExtensionActivationContribution, LifecyclePhase.Eventually);
+
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronAssistantToolsContribution, LifecyclePhase.Restored);
+

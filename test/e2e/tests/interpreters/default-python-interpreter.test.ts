@@ -28,7 +28,10 @@ test.describe('Default Interpreters - Python', {
 			? `${buildPythonPath('include')}/bin/python` // Hidden Python (POSITRON_HIDDEN_PY)
 			: path.join(process.env.HOME || '', `.pyenv/versions/${pythonVersion}/bin/python`);
 
-		// First reload: "Apply these settings"
+		// Reload to both apply the settings and trigger the default-interpreter auto-start:
+		// 'always' only recognizes defaultInterpreterPath once the app's initial interpreter
+		// discovery has already run once, so this reload must come after normal app boot rather
+		// than moving the settings to a pre-launch beforeApp fixture.
 		await settings.set({ 'python.defaultInterpreterPath': pythonPath }, { reload: true, waitForReady: true });
 	});
 
@@ -36,7 +39,7 @@ test.describe('Default Interpreters - Python', {
 		await cleanup.discardAllChanges();
 	});
 
-	test('Python - Add a default interpreter (Conda)', async function ({ hotKeys, sessions }) {
+	test('Python - Add a default interpreter (Conda)', async function ({ sessions, hotKeys }) {
 		// Get version from appropriate env var (hidden Python in CI, regular in local)
 		const pythonVersion = process.env.CI
 			? (process.env.POSITRON_HIDDEN_PY || '3.12.10').split(' ')[0] // Extract "3.12.10" from "3.12.10 (Conda)"
@@ -50,12 +53,17 @@ test.describe('Default Interpreters - Python', {
 			? /python-env\/bin\/python/
 			: new RegExp(`~?\\.pyenv/versions/${pythonVersion.replace(/\./g, '\\.')}/bin/python`);
 
-		// Second reload: "Now actually start the interpreter with these settings"
-		await hotKeys.reloadWindow(true);
-
-		// Verify interpreter metadata
-		const { name, path } = await sessions.getMetadata();
-		expect(name).toMatch(versionRegex);
-		expect(path).toMatch(pathRegex);
+		// Retry with reload on failure -- same detached-session race as #14901; matches
+		// default-r-interpreter.test.ts's idiom.
+		await expect(async () => {
+			try {
+				const { name, path } = await sessions.getMetadata();
+				expect(name).toMatch(versionRegex);
+				expect(path).toMatch(pathRegex);
+			} catch (error) {
+				await hotKeys.reloadWindow(true);
+				throw error;
+			}
+		}).toPass({ timeout: 60000 });
 	});
 });

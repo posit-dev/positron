@@ -14,6 +14,9 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	private readonly _onDidChangeRuntimeState = new vscode.EventEmitter<positron.RuntimeState>();
 	private readonly _onDidEndSession = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
 	private readonly _onDidUpdateResourceUsage = new vscode.EventEmitter<positron.RuntimeResourceUsage>();
+	private readonly _onDidDisconnect = new vscode.EventEmitter<void>();
+	private readonly _onDidReconnect = new vscode.EventEmitter<void>();
+	private _currentState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	static messageId = 0;
 	private _executingCode: string | undefined;
 	private _executionCount = 0;
@@ -26,6 +29,8 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState> = this._onDidChangeRuntimeState.event;
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit> = this._onDidEndSession.event;
 	onDidUpdateResourceUsage: vscode.Event<positron.RuntimeResourceUsage> = this._onDidUpdateResourceUsage.event;
+	onDidDisconnect: vscode.Event<void> = this._onDidDisconnect.event;
+	onDidReconnect: vscode.Event<void> = this._onDidReconnect.event;
 	dynState: positron.LanguageRuntimeDynState;
 
 	constructor(
@@ -47,6 +52,26 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		return Promise.resolve(this.dynState);
 	}
 
+	getRuntimeState(): positron.RuntimeState {
+		return this._currentState;
+	}
+
+	/** Updates the tracked runtime state and fires the change event. */
+	setRuntimeState(state: positron.RuntimeState): void {
+		this._currentState = state;
+		this._onDidChangeRuntimeState.fire(state);
+	}
+
+	/** Test helper: simulate the session's connection to the runtime dropping. */
+	simulateDisconnect(): void {
+		this._onDidDisconnect.fire();
+	}
+
+	/** Test helper: simulate the session's connection being re-established. */
+	simulateReconnect(): void {
+		this._onDidReconnect.fire();
+	}
+
 	generateMessageId(): string {
 		return `msg-${TestLanguageRuntimeSession.messageId++}`;
 	}
@@ -66,7 +91,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		} as positron.LanguageRuntimeState);
 
 		// Simulate starting with busy state
-		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
+		this.setRuntimeState(positron.RuntimeState.Busy);
 
 		// Acknowledge the input
 		this._onDidReceiveRuntimeMessage.fire({
@@ -173,7 +198,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	executeError(id: string) {
 
 		// Simulate starting with busy state
-		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
+		this.setRuntimeState(positron.RuntimeState.Busy);
 
 		// Simulate error
 		this._onDidReceiveRuntimeMessage.fire({
@@ -203,7 +228,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		} as positron.LanguageRuntimeState);
 
 		// Update state
-		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Idle);
+		this.setRuntimeState(positron.RuntimeState.Idle);
 
 		// No more current execution
 		this._currentExecutionId = '';
@@ -363,7 +388,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	}
 
 	async start(): Promise<positron.LanguageRuntimeInfo> {
-		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
+		this.setRuntimeState(positron.RuntimeState.Starting);
 		this._runtimeInfo = {
 			banner: 'Test runtime',
 			implementation_version: '0.0.1',
@@ -372,7 +397,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 			input_prompt: this.dynState.inputPrompt,
 		};
 		setTimeout(() => {
-			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
+			this.setRuntimeState(positron.RuntimeState.Ready);
 		}, 10);
 		return this._runtimeInfo;
 	}
@@ -448,6 +473,36 @@ class TestLanguageRuntimeManager implements positron.LanguageRuntimeManager {
 		this.createdSessions.push(session);
 		return session;
 	}
+}
+
+/**
+ * Registers a runtime manager for a unique language ID so that each test gets a
+ * fresh session (existing 'test' sessions from earlier tests would otherwise be
+ * reused). Returns the manager and the registered language ID.
+ */
+async function registerUniqueTestManager(
+	disposables: Disposable[],
+	languageId: string,
+	runtimeId: string
+): Promise<TestLanguageRuntimeManager> {
+	const metadata = testLanguageRuntimeMetadata();
+	metadata.languageId = languageId;
+	metadata.languageName = languageId;
+	metadata.runtimeId = runtimeId;
+
+	const manager = new TestLanguageRuntimeManager();
+	manager.discoverAllRuntimes = async function* () { yield metadata; };
+
+	disposables.push(positron.runtime.registerLanguageRuntimeManager(languageId, manager));
+
+	await poll(
+		async () => (await positron.runtime.getRegisteredRuntimes())
+			.filter(runtime => runtime.languageId === languageId),
+		runtimes => runtimes.length > 0,
+		`${languageId} runtime should be registered`
+	);
+
+	return manager;
 }
 
 suite('positron API - runtime', () => {
@@ -988,5 +1043,167 @@ suite('positron API - evaluateCode', () => {
 		}
 
 		tokenSource.dispose();
+	});
+
+	test('evaluateCode with whenBusy=Reject rejects when the session is busy', async () => {
+		const languageId = 'test-reject-busy';
+		await registerUniqueTestManager(disposables, languageId, '00000000-0000-0000-0000-400000000000');
+
+		// Start a session and make it busy with a long-running execution. We
+		// deliberately don't await this; it stays busy until we interrupt it.
+		positron.runtime.executeCode(languageId, 'slow', false).then(() => { }, () => { });
+
+		// Wait until the session exists and is busy.
+		const session = await poll(
+			async () => (await positron.runtime.getActiveSessions())
+				.find(s => s.runtimeMetadata.languageId === languageId),
+			s => !!s && s.getRuntimeState?.() === positron.RuntimeState.Busy,
+			'test session should be busy'
+		);
+		assert.ok(session, 'a busy test session should exist');
+		const sessionId = session.metadata.sessionId;
+
+		// With Reject behavior, evaluateCode should reject while the session is busy.
+		let rejected = false;
+		let errorMessage = '';
+		try {
+			await positron.runtime.evaluateCode(languageId, '1 + 1', undefined, sessionId,
+				positron.RuntimeBusyBehavior.Reject);
+		} catch (err: any) {
+			rejected = true;
+			errorMessage = err?.message ?? String(err);
+		}
+		assert.ok(rejected,
+			'evaluateCode should reject when the session is busy and whenBusy is Reject');
+		assert.ok(/busy/.test(errorMessage),
+			`the rejection should mention that the session is busy, got: ${errorMessage}`);
+
+		// Clean up: interrupt the session so it returns to idle.
+		await positron.runtime.interruptSession(sessionId);
+		await poll(
+			async () => (await positron.runtime.getActiveSessions())
+				.find(s => s.metadata.sessionId === sessionId),
+			s => !!s && s.getRuntimeState?.() !== positron.RuntimeState.Busy,
+			'test session should return to idle after interrupt'
+		);
+	});
+
+	test('evaluateCode with whenBusy=Queue stays pending when the session is busy', async () => {
+		const languageId = 'test-queue-busy';
+		await registerUniqueTestManager(disposables, languageId, '00000000-0000-0000-0000-500000000000');
+
+		// Start a session and make it busy.
+		positron.runtime.executeCode(languageId, 'slow', false).then(() => { }, () => { });
+
+		const session = await poll(
+			async () => (await positron.runtime.getActiveSessions())
+				.find(s => s.runtimeMetadata.languageId === languageId),
+			s => !!s && s.getRuntimeState?.() === positron.RuntimeState.Busy,
+			'test session should be busy'
+		);
+		assert.ok(session, 'a busy test session should exist');
+		const sessionId = session.metadata.sessionId;
+
+		// With the default Queue behavior, evaluateCode should not reject; it
+		// should queue and stay pending while the session is busy.
+		const tokenSource = new vscode.CancellationTokenSource();
+		const evalPromise = positron.runtime.evaluateCode(languageId, '1 + 1', tokenSource.token,
+			sessionId, positron.RuntimeBusyBehavior.Queue);
+
+		const outcome = await Promise.race([
+			evalPromise.then(() => 'settled', () => 'settled'),
+			new Promise<string>(resolve => setTimeout(() => resolve('pending'), 300)),
+		]);
+		assert.strictEqual(outcome, 'pending',
+			'evaluateCode should queue (stay pending) while busy when whenBusy is Queue');
+
+		// Clean up: cancel the queued evaluation and interrupt the session.
+		tokenSource.cancel();
+		await evalPromise.then(() => { }, () => { });
+		tokenSource.dispose();
+		await positron.runtime.interruptSession(sessionId);
+	});
+});
+
+suite('positron API - session state', () => {
+	let disposables: Disposable[];
+
+	setup(() => {
+		disposables = [];
+	});
+
+	teardown(async () => {
+		assertNoRpcFromEntry([positron, 'positron']);
+		disposeAll(disposables);
+	});
+
+	test('getRuntimeState reflects the current session state', async () => {
+		const languageId = 'test-state';
+		await registerUniqueTestManager(disposables, languageId, '00000000-0000-0000-0000-600000000000');
+
+		// Execute some code so a session is created and returns to idle.
+		await positron.runtime.executeCode(
+			languageId,
+			'print("hi")',
+			false,
+			false,
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Stop
+		);
+
+		const session = (await positron.runtime.getActiveSessions())
+			.find(s => s.runtimeMetadata.languageId === languageId);
+		assert.ok(session, 'a test session should exist');
+
+		// The synchronous accessor should be exposed and report an idle-ish state
+		// once execution has completed.
+		assert.strictEqual(typeof session.getRuntimeState, 'function',
+			'getRuntimeState should be exposed on the session handle');
+		const state = session.getRuntimeState!();
+		assert.ok(
+			state === positron.RuntimeState.Idle || state === positron.RuntimeState.Ready,
+			`expected an idle/ready state after execution, got '${state}'`
+		);
+	});
+
+	test('onDidDisconnect and onDidReconnect are exposed and fire', async () => {
+		const languageId = 'test-disconnect';
+		const manager = await registerUniqueTestManager(disposables, languageId,
+			'00000000-0000-0000-0000-700000000000');
+
+		// Execute code to create a session.
+		await positron.runtime.executeCode(
+			languageId,
+			'print("hi")',
+			false,
+			false,
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Stop
+		);
+
+		const session = (await positron.runtime.getActiveSessions())
+			.find(s => s.runtimeMetadata.languageId === languageId);
+		assert.ok(session, 'a test session should exist');
+
+		// The connection events should be exposed on the handle.
+		assert.strictEqual(typeof session.onDidDisconnect, 'function',
+			'onDidDisconnect should be exposed on the session handle');
+		assert.strictEqual(typeof session.onDidReconnect, 'function',
+			'onDidReconnect should be exposed on the session handle');
+
+		let disconnected = false;
+		let reconnected = false;
+		disposables.push(session.onDidDisconnect!(() => { disconnected = true; }));
+		disposables.push(session.onDidReconnect!(() => { reconnected = true; }));
+
+		// Drive the underlying session's connection events.
+		const underlying = manager.createdSessions
+			.find(s => s.metadata.sessionId === session.metadata.sessionId);
+		assert.ok(underlying, 'the underlying test session should be found');
+		underlying.simulateDisconnect();
+		underlying.simulateReconnect();
+
+		assert.ok(disconnected, 'onDidDisconnect should fire');
+		assert.ok(reconnected, 'onDidReconnect should fire');
 	});
 });
