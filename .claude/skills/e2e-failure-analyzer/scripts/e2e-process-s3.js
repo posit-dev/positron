@@ -9,7 +9,7 @@
 //
 // Usage:
 //   node e2e-process-s3.js --report-url <S3_URL> --output-dir <DIR> \
-//     [--last N] [--screenshots N] [--cleanup]
+//     [--last N] [--screenshots N] [--cleanup] [--title <string>] [--test-id <string>]
 //
 // <S3_URL> is a Playwright HTML report base URL, e.g.:
 //   https://d38p2avprg8il3.cloudfront.net/playwright-report-<run>-<attempt>-<id>-<os>/
@@ -20,6 +20,12 @@
 //   --last <N>           Number of trace actions to show (default: 500)
 //   --screenshots <N>    Number of trailing screencast frames to extract per attempt (default: 3)
 //   --cleanup            Remove the intermediate tmp dir after processing (default: keep)
+//   --title <string>     Only process the failed test with this exact title -- skips
+//                         downloading/parsing traces and logs for every other failed test
+//                         in the report. A CI report often bundles several unrelated
+//                         failures; use this when you already know which one you want.
+//   --test-id <string>   Same idea, matched against the Playwright testId instead of the
+//                         title (e.g. the value after "testId=" in a report_url fragment).
 
 import { readFileSync, existsSync, mkdirSync, writeFileSync, rmSync, readdirSync } from 'fs';
 import { join, resolve } from 'path';
@@ -36,6 +42,8 @@ let outputDir = null;
 let lastN = 500;
 let screenshotsN = 3;
 let doCleanup = false;
+let titleFilter = null;
+let testIdFilter = null;
 
 function parseNonNegInt(name, raw) {
 	const n = Number(raw);
@@ -53,6 +61,8 @@ for (let i = 0; i < cliArgs.length; i++) {
 		case '--last': lastN = parseNonNegInt('--last', cliArgs[++i]); break;
 		case '--screenshots': screenshotsN = parseNonNegInt('--screenshots', cliArgs[++i]); break;
 		case '--cleanup': doCleanup = true; break;
+		case '--title': titleFilter = cliArgs[++i]; break;
+		case '--test-id': testIdFilter = cliArgs[++i]; break;
 		default:
 			console.error(`Unknown argument: ${cliArgs[i]}`);
 			process.exit(1);
@@ -60,8 +70,18 @@ for (let i = 0; i < cliArgs.length; i++) {
 }
 
 if (!reportUrl || !outputDir) {
-	console.error('Usage: node e2e-process-s3.js --report-url <S3_URL> --output-dir <DIR> [--last N] [--screenshots N] [--cleanup]');
+	console.error('Usage: node e2e-process-s3.js --report-url <S3_URL> --output-dir <DIR> [--last N] [--screenshots N] [--cleanup] [--title <string>] [--test-id <string>]');
 	process.exit(1);
+}
+
+/** True when the test matches every filter that was actually supplied on the CLI. */
+function matchesFilter(test) {
+	if (titleFilter !== null) {
+		const fullTitle = [...(test.path || []), test.title].filter(Boolean).join(' > ');
+		if (fullTitle !== titleFilter) { return false; }
+	}
+	if (testIdFilter !== null && test.testId !== testIdFilter) { return false; }
+	return true;
 }
 
 // Normalize report URL to end with a single slash for clean joins.
@@ -334,6 +354,7 @@ for (const fileSummary of report.files || []) {
 
 	for (const test of detail.tests || []) {
 		if (test.outcome !== 'unexpected' && test.outcome !== 'flaky') continue;
+		if (!matchesFilter(test)) continue;
 
 		const failedResults = (test.results || []).filter(r => FAIL.has(r.status));
 
@@ -370,6 +391,9 @@ for (const fileSummary of report.files || []) {
 }
 
 process.stderr.write(`Found ${failures.length} hard failures, ${failedTests.length} failed attempts across ${testDetailsList.length} unique failed tests.\n`);
+if ((titleFilter !== null || testIdFilter !== null) && testDetailsList.length === 0) {
+	process.stderr.write(`WARN: --title/--test-id filter matched 0 failed tests in this report -- check the exact title/testId.\n`);
+}
 
 // ---------------------------------------------------------------------------
 // Step 3: per-attempt processing -- download traces + error-context, parse,
