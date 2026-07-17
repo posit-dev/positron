@@ -24,10 +24,7 @@ export const DISCONNECTED_STATUS_ICON = '.codicon-positron-runtime-status-discon
 // base pyenv both shown as "Python 3.10.12"); when that happens we want the real
 // environment, not the base install. The values match the "(<source>" portion of
 // the quick pick label produced by getRuntimeSourceAndShortName.
-//
-// '(uv)' keeps its closing paren so it matches only a standalone uv-managed Python,
-// not a uv project venv labeled "(uv: <name>)" -- the venv is what we want to keep.
-export const DEPRIORITIZED_PYTHON_SOURCES = ['(Pyenv', '(Global', '(System', '(Unknown', '(uv)'];
+export const DEPRIORITIZED_PYTHON_SOURCES = ['(Pyenv', '(Global', '(System', '(Unknown'];
 
 // Quickpick labels - keep in sync with languageRuntimeActions.ts
 const INTERPRETER_SESSIONS_LABEL = 'Interpreter Sessions';
