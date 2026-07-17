@@ -267,7 +267,7 @@ exploratory reads out of the main conversation's context, which matters
 because that context is still needed for reasoning through the evidence and,
 later, writing the fix.
 
-Two cross-checks that pay off disproportionately for their cost:
+Three cross-checks that pay off disproportionately for their cost:
 
 - **Environment_breakdown skew.** If a pattern clusters on specific OS/browser
   combos, check whether that split tracks worker count/parallelism rather than
@@ -280,6 +280,16 @@ Two cross-checks that pay off disproportionately for their cost:
   codebase likes, not that it's guaranteed to transfer to your specific
   mechanism -- still verify it with the repro in step 6 before trusting it,
   even when it looks obviously right.
+- **Same-file preceding-test adjacency.** If the evidence points at another
+  test in the same file leaking state (see the rubric's "Same-file
+  preceding-test state leakage"), don't trust it off one occurrence -- pull
+  evidence for a second, independent occurrence (different SHA, different run)
+  and confirm both the timeline (disruptive event lands right before the
+  failure) AND the adjacency (the report's sibling-test list places the same
+  state-mutating test directly before the failing one) hold in both. This
+  skill's multi-occurrence history is exactly what tells apart a reproducible
+  same-file race from a coincidental one-run overlap that a single-run
+  analyzer (which only ever sees one occurrence) can't rule out on its own.
 
 **Never propose increasing a timeout as the fix**, including as a "quick win"
 or stopgap. It hides the real race, contention, or isolation problem instead of
