@@ -158,11 +158,18 @@ export class LookupHelpTopic extends Action2 {
 				original: 'Look Up Help Topic'
 			},
 			category: Categories.Help,
-			f1: true
+			f1: true,
+			metadata: {
+				description: localize('positron.help.lookupHelpTopic.description', "Look up a help topic for the active language."),
+				agentCompatible: true,
+				args: [
+					{ name: 'topic', isOptional: true, description: "Help topic to look up. When omitted, an input box opens.", schema: { type: 'string' } },
+				],
+			},
 		});
 	}
 
-	async run(accessor: ServicesAccessor): Promise<void> {
+	async run(accessor: ServicesAccessor, topicArg?: string): Promise<void> {
 		const editorService = accessor.get(IEditorService);
 		const helpService = accessor.get(IPositronHelpService);
 		const sessionService = accessor.get(IRuntimeSessionService);
@@ -211,7 +218,7 @@ export class LookupHelpTopic extends Action2 {
 		const languageName = languageService.getLanguageName(languageId);
 
 		// Prompt the user for a help topic.
-		const topic = await quickInputService.input({
+		const topic = topicArg ?? await quickInputService.input({
 			prompt: localize('positron.help.enterHelpTopic', "Enter {0} help topic", languageName),
 			value: '',
 			ignoreFocusLost: true,
