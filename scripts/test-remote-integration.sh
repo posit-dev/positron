@@ -67,6 +67,16 @@ fi
 
 API_TESTS_EXTRA_ARGS="--no-sandbox --disable-telemetry --disable-experiments --skip-welcome --skip-release-notes --crash-reporter-directory=$VSCODECRASHDIR --logsPath=$VSCODELOGSDIR --no-cached-data --disable-updates --use-inmemory-secretstorage --disable-workspace-trust --user-data-dir=$VSCODEUSERDATADIR"
 
+# --- Start Positron ---
+# Each test workspace below cold-starts a fresh Electron. On the headless CI
+# image the GPU process's multithreaded fontconfig init intermittently
+# GP-faults in libexpat during font config load (stack: libexpat <-
+# libfontconfig <- libpangoft2), crashing the whole run with exit 139. This is
+# the dominant ext-host CI flake. Disabling the GPU process removes that font
+# init path; these tests are headless and don't exercise GPU rendering.
+API_TESTS_EXTRA_ARGS="$API_TESTS_EXTRA_ARGS --disable-gpu"
+# --- End Positron ---
+
 echo "Storing crash reports into '$VSCODECRASHDIR'."
 echo "Storing log files into '$VSCODELOGSDIR'."
 

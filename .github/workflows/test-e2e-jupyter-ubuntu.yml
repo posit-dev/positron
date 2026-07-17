@@ -106,7 +106,7 @@ jobs:
           POSITRON_SIGNING_KEY: "op://Positron/Positron Server private key/notesPlain"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 20
 

@@ -19,6 +19,30 @@ export interface IChatRequestData {
 	location: ChatAgentLocation;
 }
 
+/**
+ * An active-session reference attached to a chat request. The values are the
+ * opaque session/variables payloads the chat client attaches; they are
+ * serialized verbatim into the prompt.
+ */
+export interface IChatRequestReferenceSession {
+	activeSession: unknown;
+	variables?: unknown;
+}
+
+/**
+ * The serializable subset of a chat request needed to generate the Positron
+ * assistant prompt. Extracted in the extension host from the live request.
+ */
+export interface IGenerateAssistantPromptRequest extends IChatRequestData {
+	/**
+	 * Whether the editor selection is empty. Undefined when the request does not
+	 * originate from an editor.
+	 */
+	selectionIsEmpty?: boolean;
+	/** Active-session references attached to the request. */
+	referenceSessions: IChatRequestReferenceSession[];
+}
+
 export interface IPositronChatContext {
 	plots?: {
 		hasPlots: boolean;
