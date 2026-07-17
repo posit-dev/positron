@@ -113,6 +113,18 @@ export class Plots {
 		});
 	}
 
+	async expectSessionNameButtonVisible() {
+		await test.step('Expect session name button to be visible', async () => {
+			await expect(this.sessionNameButton).toBeVisible({ timeout: 30000 });
+		});
+	}
+
+	async expectSessionNameButtonContain(text: string) {
+		await test.step(`Expect session name button to contain text: ${text}`, async () => {
+			await expect(this.sessionNameButton).toContainText(text);
+		});
+	}
+
 	getWebviewPlotLocator(selector: string): Locator {
 		return this.code.driver.currentPage
 			.locator(OUTER_WEBVIEW_FRAME).last().contentFrame()
@@ -148,6 +160,19 @@ export class Plots {
 
 	async waitForNoPlots({ timeout = 15000 }: { timeout?: number } = {}) {
 		await expect(this.code.driver.currentPage.locator(CURRENT_PLOT)).not.toBeVisible({ timeout });
+	}
+
+	// Clears every plot (all sessions) via the action-bar button and asserts the pane is empty.
+	// The "Clear All Plots" button works headlessly where the Cmd+L C keybinding does not, so this
+	// guarantees an empty history (no filmstrip) that image-comparison tests rely on. Requires the
+	// Plots view to be visible (e.g. after stackedLayout()) so the button is actionable.
+	async clearAllPlots({ timeout = 15000 }: { timeout?: number } = {}) {
+		await expect(async () => {
+			if (await this.clearPlotsButton.isVisible() && await this.clearPlotsButton.isEnabled()) {
+				await this.clearPlotsButton.click();
+			}
+			await this.waitForNoPlots({ timeout: 3000 });
+		}).toPass({ timeout });
 	}
 
 	async getCurrentPlotAsBuffer(): Promise<Buffer> {

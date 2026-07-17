@@ -37,7 +37,7 @@ import { IUpdate } from '../common/update.js';
 import { hasUpdate } from '../common/positronVersion.js';
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
 import { IStateService } from '../../state/node/state.js';
-import { buildUpdateUrl } from '../common/positronUpdateUtils.js';
+import { buildUpdateUrl, mergeActiveLanguageRecord, parseActiveLanguageRecord, reportableLanguages } from '../common/positronUpdateUtils.js';
 
 // This was modfied from the original createUpdateURL as our update URL structure is much simpler
 export function createUpdateURL(platform: string, channel: string, productService: IProductService): string {
@@ -89,10 +89,11 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	// --- Start Positron ---
 	// protected quality: string | undefined;
 	protected url: string | undefined;
-	private _activeLanguages: string[];
 	// enable the service to download and apply updates automatically
 	protected enableAutoUpdate = false;
 	private static readonly TELEMETRY_ID_KEY = 'telemetry.anonymousId';
+	private static readonly ACTIVE_LANGUAGES_KEY = 'update.activeLanguages';
+	private static readonly ACTIVE_LANGUAGES_MAX_AGE_DAYS = 7;
 	// --- End Positron ---
 
 	private _state: State = State.Uninitialized;
@@ -154,10 +155,6 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		// --- End Positron ---
 		protected readonly supportsUpdateOverwrite: boolean,
 	) {
-		// --- Start Positron ---
-		this._activeLanguages = [];
-		// --- End Positron ---
-
 		lifecycleMainService.when(LifecycleMainPhase.AfterWindowOpen)
 			.finally(() => this.initialize());
 	}
@@ -357,7 +354,8 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		this.logService.debug('update#checkForUpdates, includeAnonymousUsage =', includeAnonymousId);
 		this.logService.trace('update#checkForUpdates, state = ', this.state.type);
 
-		this.logService.debug('update#checkForUpdates, languages =', this._activeLanguages.join(', '));
+		const languages = this.getReportableLanguages();
+		this.logService.debug('update#checkForUpdates, languages =', languages.join(', '));
 
 
 		if (this.state.type !== StateType.Idle) {
@@ -368,7 +366,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 
 		// Build URL with optional parameters
 		const anonymousId = includeAnonymousId ? this.getOrCreateTelemetryId() : undefined;
-		const releaseMetadataUrl = buildUpdateUrl(this.url!, this._activeLanguages, includeLanguages, anonymousId);
+		const releaseMetadataUrl = buildUpdateUrl(this.url!, languages, includeLanguages, anonymousId);
 
 		this.logService.debug('update#checkForUpdates, url =', releaseMetadataUrl);
 
@@ -628,7 +626,28 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		this.setState(State.AvailableForDownload(context));
 	}
 	updateActiveLanguages(languages: string[]): void {
-		this._activeLanguages = languages;
+		// Persist the day's usage so it can be reported on a later launch, even if
+		// this session ends before an update check fires. Every window pushes into
+		// this single main-process service, each reporting only its own languages,
+		// so union with the stored same-day record rather than overwriting it (so
+		// R in one window and Python in another are both reported).
+		const stored = this.stateService.getItem<string>(AbstractUpdateService.ACTIVE_LANGUAGES_KEY);
+		const record = mergeActiveLanguageRecord(stored, languages, Date.now());
+		if (record !== undefined) {
+			this.stateService.setItem(AbstractUpdateService.ACTIVE_LANGUAGES_KEY, record);
+		}
+	}
+
+	private getReportableLanguages(): string[] {
+		// The stored record is the source of truth: it holds today's union across
+		// all windows, and at cold start (before any code has run this session) it
+		// holds the most recent day's usage within the retention window.
+		const stored = this.stateService.getItem<string>(AbstractUpdateService.ACTIVE_LANGUAGES_KEY);
+		return reportableLanguages(
+			parseActiveLanguageRecord(stored),
+			Date.now(),
+			AbstractUpdateService.ACTIVE_LANGUAGES_MAX_AGE_DAYS
+		);
 	}
 
 	private getOrCreateTelemetryId(): string {

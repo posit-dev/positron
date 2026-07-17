@@ -25,6 +25,7 @@ export interface IDataConnectionParameterDTO {
 	defaultValue?: string | number | boolean;
 	placeholder?: string;
 	options?: string[]; // only for 'option' type
+	filters?: Record<string, string[]>; // only for 'file' type; file-picker filters, label -> extensions
 }
 
 /**

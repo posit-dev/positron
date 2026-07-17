@@ -23,6 +23,7 @@ import { IExtensionService } from '../../extensions/common/extensions.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 import { IUpdateService } from '../../../../platform/update/common/update.js';
+import { toUtcDay } from '../../../../platform/update/common/positronUpdateUtils.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
 import { UiClientInstance } from '../../languageRuntime/common/languageRuntimeUiClient.js';
@@ -121,6 +122,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// from sessionId to session. We keep these around so we can reconnect them when
 	// the extension host comes back online.
 	private readonly _disconnectedSessions = new Map<string, ActiveRuntimeSession>();
+
+	// The last active-language set pushed to the update service, keyed by UTC day
+	// and sorted language ids, so repeated execution events don't re-push an
+	// unchanged set (and a session spanning UTC midnight re-pushes for the new day).
+	private _lastReportedLanguagesKey = '';
 
 	// The event emitter for the onWillStartRuntime event.
 	private readonly _onWillStartRuntimeEmitter =
@@ -2032,6 +2038,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				case RuntimeState.Exited:
 					this.updateSessionMapsAfterExit(session);
 					break;
+
+				case RuntimeState.Busy:
+					// The session is running code, so refresh the active language
+					// usage reported on update checks. This is the earliest reliable
+					// "code ran" signal; by now execute() has set the session's
+					// lastUsed timestamp.
+					this.updateActiveLanguages();
+					break;
 			}
 
 			// Let listeners know that the runtime state has changed.
@@ -2467,7 +2481,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				languages.add(activeSession.session.runtimeMetadata.languageId);
 			}
 		});
-		this._updateService.updateActiveLanguages([...languages]);
+		const sorted = [...languages].sort();
+		// Skip the push if nothing changed since last time. The key includes the
+		// UTC day so a long-running session re-reports after crossing midnight.
+		const key = `${toUtcDay(Date.now())}|${sorted.join(',')}`;
+		if (key === this._lastReportedLanguagesKey) {
+			return;
+		}
+		this._lastReportedLanguagesKey = key;
+		this._updateService.updateActiveLanguages(sorted);
 	}
 
 	/**

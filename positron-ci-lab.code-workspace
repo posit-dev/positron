@@ -137,6 +137,19 @@
 				"problemMatcher": []
 			},
 			{
+				// Runs the currently open spec via run-e2e.sh, which sets everything a headless e2e run
+				// needs (all four interpreter version vars, GITHUB_ACTIONS so image-comparison tests
+				// actually compare, DISPLAY, --project e2e-electron). --workers=1 runs the whole file
+				// in order -- Positron doesn't split a spec across workers -- which is how CI-only flakes
+				// reproduce. Open the .test.ts first (${relativeFile} is the active editor).
+				"label": "Positron CI: e2e (current spec)",
+				"detail": "Run the open .test.ts CI-faithfully: interpreter vars + GITHUB_ACTIONS set, whole file in order at --workers=1. The setup for reproducing CI-only flakes. Open the spec first.",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/run-e2e.sh \"${relativeFile}\" --workers=1",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": true, "clear": true },
+				"problemMatcher": []
+			},
+			{
 				// Prelaunch step for the "Positron CI: Debug (Electron)" compound. Same as the repo's
 				// "Ensure Prelaunch Dependencies" task (node build/lib/preLaunch.ts), but defined here
 				// under a unique name so the workspace-level launch compound can resolve it — a

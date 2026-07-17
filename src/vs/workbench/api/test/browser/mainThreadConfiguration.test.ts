@@ -16,6 +16,12 @@ import { IConfigurationService, ConfigurationTarget } from '../../../../platform
 import { WorkspaceService } from '../../../services/configuration/browser/configurationService.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+// --- Start Positron ---
+import { ILogService, NullLogService } from '../../../../platform/log/common/log.js';
+import { INotificationService, NoOpNotification } from '../../../../platform/notification/common/notification.js';
+import { IProductService } from '../../../../platform/product/common/productService.js';
+import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry } from '../../../common/configuration.js';
+// --- End Positron ---
 
 suite('MainThreadConfiguration', function () {
 
@@ -60,6 +66,10 @@ suite('MainThreadConfiguration', function () {
 		instantiationService.stub(IEnvironmentService, {
 			isBuilt: false
 		});
+		// --- Start Positron ---
+		instantiationService.stub(ILogService, new NullLogService());
+		instantiationService.stub(IProductService, { trustedExtensionPublishers: ['posit', 'rstudio'] });
+		// --- End Positron ---
 	});
 
 	teardown(() => {
@@ -236,4 +246,104 @@ suite('MainThreadConfiguration', function () {
 
 		assert.strictEqual(ConfigurationTarget.WORKSPACE_FOLDER, target.args[0][3]);
 	});
+
+	// --- Start Positron ---
+	suite('registerConfigurationMigrations', function () {
+
+		const OWNED_KEY = 'extHostConfigMigration.oldKey';
+		const OWNER_EXT = 'test.owner';
+
+		suiteSetup(() => {
+			Registry.as<IConfigurationRegistry>(Extensions.Configuration).registerConfiguration({
+				id: 'extHostConfigMigration',
+				type: 'object',
+				extensionInfo: { id: OWNER_EXT },
+				properties: {
+					[OWNED_KEY]: { type: 'boolean', description: 'test key for migration tests' }
+				}
+			});
+		});
+
+		let migrationRegistry: IConfigurationMigrationRegistry;
+		let registerSpy: sinon.SinonSpy;
+		let warnSpy: sinon.SinonSpy;
+
+		setup(() => {
+			migrationRegistry = Registry.as<IConfigurationMigrationRegistry>(ConfigurationMigrationExtensions.ConfigurationMigration);
+			registerSpy = sinon.spy(migrationRegistry, 'registerConfigurationMigrations');
+			const logService = new NullLogService();
+			warnSpy = sinon.spy(logService, 'warn');
+			instantiationService.stub(ILogService, logService);
+			instantiationService.stub(INotificationService, { notify: () => new NoOpNotification() });
+			instantiationService.stub(IWorkspaceContextService, <IWorkspaceContextService>{ getWorkbenchState: () => WorkbenchState.FOLDER });
+		});
+
+		teardown(() => {
+			registerSpy.restore();
+		});
+
+		test('owned key is accepted and migrateFn maps value correctly', function () {
+			const testObject = instantiationService.createInstance(MainThreadConfiguration, SingleProxyRPCProtocol(proxy));
+
+			testObject.$registerConfigurationMigrations(OWNER_EXT, [{ key: OWNED_KEY, migrateTo: 'extHostConfigMigration.newKey' }]);
+
+			assert.ok(registerSpy.calledOnce, 'registerConfigurationMigrations should be called once');
+			const [migrations] = registerSpy.args[0] as [Array<{ key: string; migrateFn: (v: unknown, accessor: (k: string) => unknown) => unknown }>];
+			assert.strictEqual(migrations.length, 1);
+			assert.strictEqual(migrations[0].key, OWNED_KEY);
+			// accessor returns undefined → new key not yet set → migration copies value
+			const result = migrations[0].migrateFn('testValue', () => undefined);
+			assert.deepStrictEqual(result, [
+				[OWNED_KEY, { value: undefined }],
+				['extHostConfigMigration.newKey', { value: 'testValue' }],
+			]);
+		});
+
+		test('unowned key is rejected and a warning is logged', function () {
+			const testObject = instantiationService.createInstance(MainThreadConfiguration, SingleProxyRPCProtocol(proxy));
+
+			testObject.$registerConfigurationMigrations('other.extension', [{ key: OWNED_KEY, migrateTo: 'extHostConfigMigration.newKey' }]);
+
+			assert.ok(warnSpy.calledOnce, 'warn should be called for unowned key');
+			assert.ok(registerSpy.notCalled, 'registerConfigurationMigrations should not be called');
+		});
+
+		test('trusted publisher bypasses ownership check', function () {
+			const testObject = instantiationService.createInstance(MainThreadConfiguration, SingleProxyRPCProtocol(proxy));
+
+			testObject.$registerConfigurationMigrations('posit.extension', [{ key: OWNED_KEY, migrateTo: 'extHostConfigMigration.newKey' }]);
+
+			assert.ok(registerSpy.calledOnce, 'posit publisher should be able to migrate unowned key');
+			assert.ok(warnSpy.notCalled, 'no warning should be logged for posit publisher');
+
+			registerSpy.resetHistory();
+			warnSpy.resetHistory();
+
+			testObject.$registerConfigurationMigrations('rstudio.rstudio-workbench', [{ key: OWNED_KEY, migrateTo: 'extHostConfigMigration.newKey' }]);
+
+			assert.ok(registerSpy.calledOnce, 'rstudio publisher should be able to migrate unowned key');
+			assert.ok(warnSpy.notCalled, 'no warning should be logged for rstudio publisher');
+		});
+
+		test('unregistered key is accepted when it matches extension namespace', function () {
+			const testObject = instantiationService.createInstance(MainThreadConfiguration, SingleProxyRPCProtocol(proxy));
+			const droppedKey = `${OWNER_EXT}.droppedKey`; // never registered; simulates rename-and-remove
+
+			testObject.$registerConfigurationMigrations(OWNER_EXT, [{ key: droppedKey, migrateTo: 'extHostConfigMigration.newKey' }]);
+
+			assert.ok(registerSpy.calledOnce, 'migration for unregistered key in extension namespace should be accepted');
+			assert.ok(warnSpy.notCalled, 'no warning should be logged for namespace-owned key');
+		});
+
+		test('unregistered key outside extension namespace is rejected', function () {
+			const testObject = instantiationService.createInstance(MainThreadConfiguration, SingleProxyRPCProtocol(proxy));
+			const foreignKey = 'other.publisher.droppedKey'; // unregistered and wrong namespace
+
+			testObject.$registerConfigurationMigrations(OWNER_EXT, [{ key: foreignKey, migrateTo: 'extHostConfigMigration.newKey' }]);
+
+			assert.ok(warnSpy.calledOnce, 'warn should be called for unregistered key outside extension namespace');
+			assert.ok(registerSpy.notCalled, 'migration should not be registered');
+		});
+	});
+	// --- End Positron ---
 });

@@ -5,7 +5,7 @@
 
 import { PromptElement, PromptSizing, SystemMessage, TextChunk } from '@vscode/prompt-tsx';
 import type { ChatResponsePart } from '@vscode/prompt-tsx/dist/base/vscodeTypes.js';
-import * as vscode from 'vscode';
+import type * as vscode from 'vscode';
 import type { GenericBasePromptElementProps } from '../../../context/node/resolvers/genericPanelIntentInvocation';
 import type { IBuildPromptContext } from '../../../prompt/common/intents.js';
 
@@ -25,22 +25,22 @@ export class PositronAssistant extends PromptElement<GenericBasePromptElementPro
 		progress?: vscode.Progress<ChatResponsePart>,
 		token?: vscode.CancellationToken): Promise<any> {
 
-		// The Positron Assistant extension supplies the Positron-specific context
-		// for this prompt. When Copilot Chat is used on its own, that extension may
-		// be disabled or not installed; skip this element in that case rather than
-		// failing the whole chat request.
-		const extension = vscode.extensions.getExtension('positron.positron-assistant');
-		if (!extension) {
+		const request = this.context.request;
+		if (!request) {
 			return undefined;
 		}
 
-		// Activate the extension if needed so its API is available, then generate
-		// the content element.
-		const api = await extension.activate();
-		if (typeof api?.generateAssistantPrompt !== 'function') {
+		// Positron supplies the Positron-specific context for this prompt via the
+		// `positron` API, provided by the Positron extension host at runtime. It
+		// is absent when Copilot Chat runs outside Positron (or in simulation
+		// tests), so guard the lookup and skip this element rather than failing
+		// the whole chat request.
+		try {
+			const positron = require('positron') as typeof import('positron');
+			return await positron.ai.generateAssistantPrompt(request);
+		} catch {
 			return undefined;
 		}
-		return await api.generateAssistantPrompt(this.context.request);
 	}
 
 	/**

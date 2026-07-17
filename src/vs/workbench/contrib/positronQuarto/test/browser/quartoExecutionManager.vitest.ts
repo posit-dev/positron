@@ -26,6 +26,7 @@ import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
 import { IQuartoDocumentModelService } from '../../browser/quartoDocumentModelService.js';
 import { QuartoCodeCell } from '../../common/quartoTypes.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
 import { IEphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
@@ -80,6 +81,7 @@ describe('QuartoExecutionManager', () => {
 	let mockKernelManager: MockKernelManager;
 	let mockDocumentModelService: MockDocumentModelService;
 	let mockEditorService: MockEditorService;
+	let mockEditorGroupsService: MockEditorGroupsService;
 	let mockConsoleService: RecordingConsoleService;
 	let mockRuntimeSessionService: MockRuntimeSessionService;
 	let configurationService: TestConfigurationService;
@@ -101,6 +103,7 @@ describe('QuartoExecutionManager', () => {
 		mockKernelManager = ctx.disposables.add(new MockKernelManager(mockSession));
 		mockDocumentModelService = new MockDocumentModelService();
 		mockEditorService = new MockEditorService();
+		mockEditorGroupsService = new MockEditorGroupsService();
 		const mockEphemeralStateService = new MockEphemeralStateService();
 		const mockWorkspaceContextService = new MockWorkspaceContextService();
 		mockConsoleService = new RecordingConsoleService();
@@ -120,6 +123,7 @@ describe('QuartoExecutionManager', () => {
 			asKernelManager(mockKernelManager),
 			asDocumentModelService(mockDocumentModelService),
 			asEditorService(mockEditorService),
+			asEditorGroupsService(mockEditorGroupsService),
 			asEphemeralStateService(mockEphemeralStateService),
 			asWorkspaceContextService(mockWorkspaceContextService),
 			configurationService,
@@ -1234,6 +1238,7 @@ describe('QuartoExecutionManager', () => {
 				asKernelManager(mockKernelManager),
 				asDocumentModelService(mockDocumentModelService),
 				asEditorService(trackingEditorService),
+				asEditorGroupsService(new MockEditorGroupsService()),
 				asEphemeralStateService(new MockEphemeralStateService()),
 				asWorkspaceContextService(new MockWorkspaceContextService()),
 				configurationService,
@@ -1333,6 +1338,7 @@ describe('QuartoExecutionManager', () => {
 				asKernelManager(mockKernelManager),
 				asDocumentModelService(localMockDocumentModelService),
 				asEditorService(localMockEditorService),
+				asEditorGroupsService(new MockEditorGroupsService()),
 				asEphemeralStateService(new MockEphemeralStateService()),
 				asWorkspaceContextService(new MockWorkspaceContextService()),
 				configurationService,
@@ -1504,6 +1510,67 @@ describe('QuartoExecutionManager', () => {
 			expect(metadata).toBeDefined();
 			expect(metadata!['fig-width'], 'cell value should win').toBe(4);
 			expect(metadata!['output_pixel_ratio'], 'external-only key should pass through').toBe(2);
+		});
+	});
+
+	describe('Editor Pinning', () => {
+		it('pins the document tab when a cell is executed (#14736)', async () => {
+			const documentUri = URI.file('/test-pin-cell.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'test-pin-cell',
+				index: 0,
+				language: 'python',
+				startLine: 1,
+				endLine: 4,
+				codeStartLine: 2,
+				codeEndLine: 3,
+				label: undefined,
+				options: '',
+				contentHash: 'pin-cell',
+			};
+
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+			const executionId = await mockKernelManager.waitForExecution();
+			mockSession.receiveStateMessage({
+				parent_id: executionId,
+				state: RuntimeOnlineState.Idle,
+			});
+			await executionPromise;
+
+			expect(mockEditorGroupsService.pinnedEditors.length).toBe(1);
+		});
+
+		it('pins the document tab when inline cells are executed (#14736)', async () => {
+			const documentUri = URI.file('/test-pin-inline.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'test-pin-inline',
+				index: 0,
+				language: 'python',
+				startLine: 1,
+				endLine: 3,
+				codeStartLine: 2,
+				codeEndLine: 2,
+				label: undefined,
+				options: '',
+				contentHash: 'pin-inline',
+			};
+			const documentLines = ['```{python}', 'x = 1', '```'];
+			const mockModel = new MockQuartoDocumentModel([cell], documentLines);
+			mockDocumentModelService.setMockModel(mockModel);
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			const executionPromise = executionManager.executeInlineCells(documentUri, [new Range(2, 1, 2, 100)]);
+			const executionId = await mockKernelManager.waitForExecution();
+			mockSession.receiveStateMessage({
+				parent_id: executionId,
+				state: RuntimeOnlineState.Idle,
+			});
+			await executionPromise;
+
+			expect(mockEditorGroupsService.pinnedEditors.length).toBe(1);
 		});
 	});
 });
@@ -1696,6 +1763,7 @@ class MockEditorService {
 	findEditors(_resource: unknown): unknown[] {
 		const self = this;
 		return [{
+			groupId: MOCK_EDITOR_GROUP_ID,
 			editor: {
 				resolve: async () => ({
 					textEditorModel: {
@@ -1724,6 +1792,35 @@ function asEditorService(mock: MockEditorService): IEditorService {
 		// reads it to derive layout metadata when an editor is active. The
 		// existing tests don't activate an editor, so undefined is correct.
 		activeTextEditorControl: undefined,
+	});
+}
+
+/** Group id reported by MockEditorService.findEditors, resolved by MockEditorGroupsService.getGroup. */
+const MOCK_EDITOR_GROUP_ID = 1;
+
+/**
+ * Mock editor groups service that records every editor pinned via its group's
+ * pinEditor. Lets tests assert that running a cell pins the document's tab.
+ */
+class MockEditorGroupsService {
+	readonly pinnedEditors: unknown[] = [];
+
+	private readonly _group = {
+		pinEditor: (editor: unknown) => {
+			this.pinnedEditors.push(editor);
+		},
+	};
+
+	getGroup(groupId: number): unknown {
+		return groupId === MOCK_EDITOR_GROUP_ID ? this._group : undefined;
+	}
+}
+
+function asEditorGroupsService(mock: MockEditorGroupsService): IEditorGroupsService {
+	return stubInterface<IEditorGroupsService>({
+		// Cast: the mock's group only implements pinEditor, which is all the
+		// execution manager calls; we narrow at the boundary.
+		getGroup: mock.getGroup.bind(mock) as IEditorGroupsService['getGroup'],
 	});
 }
 

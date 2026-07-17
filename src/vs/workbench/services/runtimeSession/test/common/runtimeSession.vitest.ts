@@ -605,8 +605,10 @@ describe('Positron - RuntimeSessionService', () => {
 
 		await restoreConsole(unregisteredRuntime);
 
-		// The runtime should now be registered.
-		expect(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId)).toBe(unregisteredRuntime);
+		// The runtime should now be registered. registerRuntime enriches the
+		// metadata into a new object, so compare structurally rather than by
+		// reference.
+		expect(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId)).toEqual(unregisteredRuntime);
 	});
 
 	it('auto start validates runtime if unregistered', async () => {

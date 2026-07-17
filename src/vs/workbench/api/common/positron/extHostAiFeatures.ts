@@ -6,18 +6,20 @@
 import type * as vscode from 'vscode';
 import type * as positron from 'positron';
 
-import { Disposable } from '../extHostTypes.js';
+import { ChatRequestEditorData, Disposable } from '../extHostTypes.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import * as typeConvert from '../extHostTypeConverters.js';
 import { ExtHostCommands } from '../extHostCommands.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { isToolInvocationContext, IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
-import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IChatRequestReferenceSession, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ChatAgentLocation, ChatModeKind } from '../../../contrib/chat/common/constants.js';
 import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
+import { IExtHostWorkspace } from '../extHostWorkspace.js';
+import { getEnabledTools as filterEnabledTools } from './positronToolFilter.js';
 
 export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape {
 
@@ -32,9 +34,20 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
 		private readonly _commands: ExtHostCommands,
+		private readonly _extHostWorkspace: IExtHostWorkspace,
 	) {
 		// Trigger creation of proxy to main thread
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadAiFeatures);
+	}
+
+	/**
+	 * Filters a chat request's tools down to those Positron considers enabled.
+	 * Runs synchronously in the extension host; used by chat clients such as
+	 * Copilot Chat.
+	 */
+	getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): string[] {
+		const isWorkspaceOpen = (this._extHostWorkspace.getWorkspaceFolders()?.length ?? 0) > 0;
+		return filterEnabledTools(request, tools, isWorkspaceOpen);
 	}
 
 	async registerChatAgent(extension: IExtensionDescription, agentData: positron.ai.ChatAgentData): Promise<Disposable> {
@@ -98,6 +111,28 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 			location: typeConvert.ChatLocation.from(request.location),
 		};
 		return this._proxy.$getPositronChatContext(agentRequest);
+	}
+
+	async generateAssistantPrompt(request: vscode.ChatRequest): Promise<string> {
+		// Extract only the serializable parts of the live request that the
+		// prompt needs, then let the main thread assemble and render it.
+		const selectionIsEmpty = request.location2 instanceof ChatRequestEditorData
+			? request.location2.selection?.isEmpty
+			: undefined;
+
+		const referenceSessions: IChatRequestReferenceSession[] = [];
+		for (const reference of request.references ?? []) {
+			const value = reference.value as { activeSession?: unknown; variables?: unknown };
+			if (value.activeSession) {
+				referenceSessions.push({ activeSession: value.activeSession, variables: value.variables });
+			}
+		}
+
+		return this._proxy.$generateAssistantPrompt({
+			location: typeConvert.ChatLocation.from(request.location),
+			selectionIsEmpty,
+			referenceSessions,
+		});
 	}
 
 	responseProgress(context: IToolInvocationContext, part: vscode.ChatResponsePart | vscode.ChatResponseTextEditPart | vscode.ChatResponseConfirmationPart): void {

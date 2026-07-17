@@ -64,21 +64,6 @@ product.json.backup
 test/e2e/release-screenshots/output/
 # Log file written to cwd by the snowflake-sdk dependency (positron-catalog-explorer)
 snowflake.log
-# Generated artifacts from qa-example-content test files (merged into test/e2e/test-files)
-test/e2e/test-files/workspaces/quarto_basic/.quarto/*
-test/e2e/test-files/workspaces/quarto_basic/quarto_basic_files/*
-test/e2e/test-files/workspaces/quarto_basic/quarto_basic.html
-test/e2e/test-files/workspaces/basic-rmd-file/basicRmd_cache/*
-test/e2e/test-files/workspaces/basic-rmd-file/basicRmd_files/*
-test/e2e/test-files/workspaces/basic-rmd-file/basicRmd.html
-test/e2e/test-files/workspaces/basic-rmd-file/.gitignore
-test/e2e/test-files/workspaces/quarto_interactive/.quarto/*
-test/e2e/test-files/workspaces/quarto_interactive/quarto_interactive_files/*
-test/e2e/test-files/workspaces/quarto_interactive/quarto_interactive.html
-test/e2e/test-files/workspaces/quarto_shiny/mini-app_files/*
-test/e2e/test-files/workspaces/quarto_shiny/mini-app.html
-# Downloaded from S3 at e2e runtime (very-large-data-frame.test.ts); keep `git clean -fd` from wiping it mid-suite
-/test/e2e/test-files/data-files/largeParquet.parquet
 # --- End Positron ---
 test-output.json
 test/componentFixtures/.screenshots/*

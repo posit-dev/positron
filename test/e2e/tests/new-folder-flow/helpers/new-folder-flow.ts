@@ -42,10 +42,15 @@ export async function verifyGitFilesArePresent(app: Application) {
 
 export async function verifyGitStatus(app: Application) {
 	await test.step('Verify git status', async () => {
-		// Git status should show that we're on the main branch
+		// Verify the repo is on the main branch. Use `git branch --show-current`
+		// (prints just "main") rather than `git status`: the multi-line status
+		// header pushes "On branch main" out of the visible xterm viewport on
+		// short terminals, and waitForTerminalText only reads the rendered
+		// viewport rows, so the assertion flakes (seen on debian web). A single
+		// line of output can't scroll off.
 		await app.workbench.terminal.createTerminal();
-		await app.workbench.terminal.runCommandInTerminal('git status');
-		await app.workbench.terminal.waitForTerminalText('On branch main');
+		await app.workbench.terminal.runCommandInTerminal('git branch --show-current');
+		await app.workbench.terminal.waitForTerminalText('main');
 	});
 }
 

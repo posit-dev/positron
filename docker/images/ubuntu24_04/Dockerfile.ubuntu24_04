@@ -136,6 +136,26 @@ RUN set -eu; \
     "$TT_BIN/mktexlsr"; \
     fc-cache -f
 
+# --- Font stack hardening for headless Electron/Chromium test runs ---
+# The ext-host "Remote" suite cold-starts Electron once per test workspace.
+# Each cold start runs fontconfig's FcInit (config XML parse via libexpat plus a
+# font-dir scan) from multiple threads, and on a thin headless image this
+# intermittently GP-faults deep in libexpat while loading the fontconfig config
+# (crash stack: libexpat <- libfontconfig <- libpangoft2). It is the dominant
+# ext-host CI flake (amd64). We can't remove the race at the image layer, but we
+# shrink its window to near-zero and rule out the known memory-corruption bug:
+#   1. Pull the security-patched libexpat1 / libfontconfig1 (noble's base
+#      2.6.1-2build1 shipped with the CVE-2024-45490 negative-length memory
+#      corruption bug; 2.6.1-2ubuntu0.1 fixes it).
+#   2. Install a complete font set and fully rebuild the cache as the last
+#      font-affecting step so FcInit is a fast cache-hit that never regenerates
+#      the cache at runtime.
+RUN apt-get update && \
+    apt-get install -y --only-upgrade libexpat1 libfontconfig1 && \
+    apt-get install -y fontconfig fonts-dejavu-core fonts-noto-core && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    fc-cache -f -v
+
 # Install uv (latest)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
