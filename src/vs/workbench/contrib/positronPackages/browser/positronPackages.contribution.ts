@@ -32,6 +32,7 @@ import { IPositronPackagesService } from './interfaces/positronPackagesService.j
 import { PACKAGE_METADATA_CACHE_ENABLED_SETTING, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING } from './packageMetadataCache.js';
 import { PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
 import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
+import { normalizeAgentTargetVersion } from './agentPackageArgs.js';
 import { PositronPackagesService } from './positronPackagesService.js';
 import { PositronPackagesView } from './positronPackagesView.js';
 
@@ -449,6 +450,14 @@ class UpdatePackageAction extends Action2 {
 			category: PACKAGES_CATEGORY,
 			f1: true,
 			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
+			metadata: {
+				description: nls.localize('positron.updatePackage.description', "Update an installed package in the active runtime session."),
+				agentCompatible: true,
+				args: [
+					{ name: 'name', description: "Name of the package to update.", schema: { type: 'string' } },
+					{ name: 'version', isOptional: true, description: "Target version, or 'latest' for the newest available version. When omitted, a version picker opens.", schema: { type: 'string' } },
+				],
+			},
 		});
 	}
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
@@ -474,7 +483,7 @@ class UpdatePackageAction extends Action2 {
 				return service.searchPackageVersions(pkg, cts.token);
 			};
 
-			const performUpdate = async (pkg: string, version: string): Promise<void> => {
+			const performUpdate = async (pkg: string, version?: string): Promise<void> => {
 				await progress.withProgress({
 					title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
 					location: ProgressLocation.Notification,
@@ -504,7 +513,7 @@ class UpdatePackageAction extends Action2 {
 			const argPackage = typeof args.at(0) === 'string' ? args.at(0) as string : undefined;
 			const argVersion = typeof args.at(1) === 'string' ? args.at(1) as string : undefined;
 			if (argPackage && argVersion) {
-				await performUpdate(argPackage, argVersion);
+				await performUpdate(argPackage, normalizeAgentTargetVersion(argVersion));
 				return;
 			}
 			await updatePackage(accessor, performSearch, performSearchVersions, performUpdate, argPackage, cts);
