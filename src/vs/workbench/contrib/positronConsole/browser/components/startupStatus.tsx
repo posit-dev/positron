@@ -14,7 +14,7 @@ import { localize } from '../../../../../nls.js';
 import { RuntimeStartupProgress } from './runtimeStartupProgress.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
-import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { getRuntimeDisplayPath, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/embeddedLink/EmbeddedLink.js';
@@ -84,7 +84,7 @@ export const StartupStatus = () => {
 						bar.worked(1);
 					}
 					if (runtime.runtimePath) {
-						setLatestRuntimePath(runtime.runtimePath);
+						setLatestRuntimePath(getRuntimeDisplayPath(runtime));
 					}
 				}));
 

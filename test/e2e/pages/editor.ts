@@ -89,6 +89,22 @@ export class Editor {
 		});
 	}
 
+	/**
+	 * Expect the editor's active line (where the cursor is) to be the given line
+	 * number. Monaco marks the cursor's gutter line number with the
+	 * `active-line-number` class, so this verifies where a navigation landed the
+	 * cursor, not just which file is open.
+	 * @param filename the file whose editor to inspect
+	 * @param lineNumber the 1-based line number expected to be active
+	 */
+	async expectActiveLineNumber(filename: string, lineNumber: number): Promise<void> {
+		await test.step(`Expect active line number to be ${lineNumber}`, async () => {
+			const activeLineNumber = this.code.driver.currentPage
+				.locator(`${EDITOR(filename)} .margin-view-overlays .active-line-number`);
+			await expect(activeLineNumber).toHaveText(String(lineNumber));
+		});
+	}
+
 	async pressToLine(filename: string, lineNumber: number, press: string): Promise<void> {
 		const editor = EDITOR(filename);
 		const line = `${editor} .view-lines > .view-line:nth-child(${lineNumber})`;

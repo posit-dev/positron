@@ -78,7 +78,7 @@
     }
   ],
   "activationEvents": [
-    "onStartupFinished",
+    "onCopilotEnabled",
     "onLanguageModelChat:copilot",
     "onUri",
     "onFileSystem:ccreq",

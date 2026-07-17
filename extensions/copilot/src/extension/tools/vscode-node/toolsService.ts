@@ -292,11 +292,20 @@ export class ToolsService extends BaseToolsService {
 		// filters out tools that are not relevant to the current Positron
 		// context; for example, many tools only make sense when a session
 		// context is attached.
+		//
+		// Positron's tool-availability policy lives in the `positron` API, which
+		// the Positron extension host provides at runtime. It is absent in
+		// non-Positron or simulation/test environments, so guard the lookup and
+		// leave all tools enabled when it is unavailable.
 		let enabledTools = this.tools.map(tool => tool.name);
-		const api = vscode.extensions.getExtension('positron.positron-assistant')?.exports;
-		if (api) {
-			// Get the enabled tools from the Positron API
-			const positronEnabledTools = api.getEnabledTools(request, this.tools);
+		let positronEnabledTools: string[] | undefined;
+		try {
+			const positron = require('positron') as typeof import('positron');
+			positronEnabledTools = positron.ai.getEnabledTools(request, this.tools);
+		} catch {
+			// Not running in a Positron host; skip Positron tool filtering.
+		}
+		if (positronEnabledTools) {
 			// Compute the set of tools that were disabled
 			const positronDisabledTools = this.tools.filter(tool => !positronEnabledTools.includes(tool.name)).map(tool => tool.name);
 			this.logService.debug(`Disabling Positron tools: ${positronDisabledTools.join(', ')}`);

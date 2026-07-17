@@ -5,6 +5,7 @@
 
 import * as assert from 'assert';
 import * as positron from 'positron';
+import { PostgreSQLClient } from '../postgresqlClient.js';
 import { PostgreSQLConnection, PostgreSQLConnectionConfig } from '../postgresqlConnection.js';
 import { createSchemaNode } from '../postgresqlNodes.js';
 
@@ -590,5 +591,122 @@ suite('PostgreSQL Server Mode Tests', () => {
 		assert.strictEqual(roots[0].kind, positron.DataConnectionNodeKind.GroupDatabases);
 
 		await conn.disconnect();
+	});
+});
+
+suite('PostgreSQL Reconnecting Client', () => {
+
+	// A fake pg Client that records its lifecycle calls and answers queries from a per-instance
+	// handler (which may throw to simulate a query- or connection-level failure).
+	class FakeClient {
+		connectCount = 0;
+		endCount = 0;
+		constructor(private readonly _handler: (sql: string, params?: unknown[]) => { rows: unknown[] }) { }
+		async connect() { this.connectCount++; }
+		async query(sql: string, params?: unknown[]) { return this._handler(sql, params); }
+		async end() { this.endCount++; }
+		on() { return this; }
+	}
+
+	// Builds a PostgreSQLClient whose pg-client factory hands out FakeClients driven by the given
+	// per-client handlers (the nth handler backs the nth client built), plus the list of clients
+	// created so far.
+	function makeClient(handlers: Array<(sql: string, params?: unknown[]) => { rows: unknown[] }>) {
+		const clients: FakeClient[] = [];
+		const client = new PostgreSQLClient(() => {
+			const pg = new FakeClient(handlers[clients.length] ?? (() => ({ rows: [] })));
+			clients.push(pg);
+			// eslint-disable-next-line local/code-no-any-casts
+			return pg as any;
+		});
+		return { client, clients };
+	}
+
+	test('passes queries through the connected client', async () => {
+		const { client, clients } = makeClient([() => ({ rows: [{ n: 1 }] })]);
+
+		await client.connect();
+		const result = await client.query('SELECT 1');
+
+		assert.deepStrictEqual(result.rows, [{ n: 1 }]);
+		assert.strictEqual(clients.length, 1);
+		assert.strictEqual(clients[0].connectCount, 1);
+
+		await client.end();
+		assert.strictEqual(clients[0].endCount, 1);
+	});
+
+	test('reconnects once and retries when the socket is dead', async () => {
+		const { client, clients } = makeClient([
+			() => { throw new Error('Connection terminated unexpectedly'); },
+			() => ({ rows: [{ ok: true }] }),
+		]);
+
+		await client.connect();
+		const result = await client.query('SELECT 1');
+
+		assert.deepStrictEqual(result.rows, [{ ok: true }]);
+		assert.strictEqual(clients.length, 2);
+		assert.strictEqual(clients[0].endCount, 1, 'the dead client should be closed');
+		assert.strictEqual(clients[1].connectCount, 1, 'the replacement client should be connected');
+	});
+
+	test('does not reconnect on a non-connection error', async () => {
+		const syntaxError = Object.assign(new Error('syntax error at or near "SELCT"'), { code: '42601' });
+		const { client, clients } = makeClient([() => { throw syntaxError; }]);
+
+		await client.connect();
+		await assert.rejects(() => client.query('SELCT 1'), /syntax error/);
+		assert.strictEqual(clients.length, 1, 'a SQL error should not trigger a reconnect');
+	});
+
+	test('coalesces concurrent reconnects into one', async () => {
+		const { client, clients } = makeClient([
+			() => { throw new Error('Connection terminated unexpectedly'); },
+			(sql) => ({ rows: [{ sql }] }),
+		]);
+
+		await client.connect();
+		const [r1, r2] = await Promise.all([client.query('a'), client.query('b')]);
+
+		assert.strictEqual(clients.length, 2, 'two simultaneous failures should rebuild the client once');
+		assert.deepStrictEqual(
+			[(r1.rows[0] as { sql: string }).sql, (r2.rows[0] as { sql: string }).sql].sort(),
+			['a', 'b']
+		);
+	});
+
+	// Builds a PostgreSQLClient whose nth connect() throws the nth entry in `connectErrors` (undefined
+	// = succeed), so a briefly-unreachable connect sequence can be simulated. Records the attempt
+	// count, and passes a no-op sleep so the backoff does not slow the test.
+	function connectClient(connectErrors: Array<Error | undefined>) {
+		const state = { attempts: 0 };
+		const client = new PostgreSQLClient(() => {
+			const err = connectErrors[state.attempts];
+			state.attempts++;
+			// eslint-disable-next-line local/code-no-any-casts
+			return {
+				connect: async () => { if (err) { throw err; } },
+				query: async () => ({ rows: [] }),
+				end: async () => { },
+				on: () => { },
+			} as any;
+		}, async () => { });
+		return { client, state };
+	}
+
+	test('retries a transient failure during connect', async () => {
+		const { client, state } = connectClient([new Error('Connection terminated unexpectedly'), undefined]);
+
+		await client.connect();
+		assert.strictEqual(state.attempts, 2, 'the dropped first connect should be retried');
+	});
+
+	test('does not retry a terminal error during connect', async () => {
+		const authError = Object.assign(new Error('password authentication failed'), { code: '28P01' });
+		const { client, state } = connectClient([authError]);
+
+		await assert.rejects(() => client.connect(), /password authentication failed/);
+		assert.strictEqual(state.attempts, 1, 'a bad password should fail fast, not retry');
 	});
 });

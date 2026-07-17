@@ -163,7 +163,6 @@ export const PACKAGES_UPDATE_COMMAND_ID = 'positronPackages.updatePackage';
 export const PACKAGES_UPDATE_ALL_COMMAND_ID = 'positronPackages.updateAllPackages';
 export const PACKAGES_UNINSTALL_COMMAND_ID = 'positronPackages.uninstallPackage';
 export const PACKAGES_REFRESH_COMMAND_ID = 'positronPackages.refreshPackages';
-export const PACKAGES_REFRESH_METADATA_COMMAND_ID = 'positronPackages.refreshMetadata';
 
 const PACKAGES_CATEGORY = nls.localize2('packages', 'Packages');
 
@@ -268,7 +267,9 @@ class RefreshPackagesAction extends Action2 {
 				delay: 500
 			}, async () => {
 				try {
-					return await service.refreshPackages(cts.token);
+					// User-initiated refresh: force a live outdated recompute so
+					// the pane can't keep showing stale cached indicators.
+					return await service.refreshPackages(cts.token, true /* forceMetadata */);
 				} catch (error) {
 					notifications.error(cleanErrorMessage(error));
 					throw error;
@@ -626,49 +627,6 @@ class UninstallSelectedPackageAction extends Action2 {
 	}
 }
 
-class RefreshMetadataAction extends Action2 {
-	constructor() {
-		super({
-			id: PACKAGES_REFRESH_METADATA_COMMAND_ID,
-			title: nls.localize2('refreshMetadata', 'Refresh Metadata'),
-			category: PACKAGES_CATEGORY,
-			f1: true,
-			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
-			menu: {
-				id: MenuId.ViewTitle,
-				when: PACKAGES_VIEW_VISIBLE,
-				group: 'packages_metadata',
-				order: 1
-			}
-		});
-	}
-	override async run(accessor: ServicesAccessor): Promise<void> {
-		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
-		const notifications = accessor.get<INotificationService>(INotificationService);
-		const progress = accessor.get<IProgressService>(IProgressService);
-
-		const cts = new CancellationTokenSource();
-
-		try {
-			await progress.withProgress({
-				title: nls.localize('positronPackages.refreshingMetadata', 'Refreshing Package Metadata...'),
-				location: ProgressLocation.Notification,
-				cancellable: true,
-				delay: 500
-			}, async () => {
-				try {
-					await service.refreshMetadata(cts.token);
-				} catch (error) {
-					notifications.error(cleanErrorMessage(error));
-					throw error;
-				}
-			}, () => cts.cancel());
-		} finally {
-			cts.dispose(true);
-		}
-	}
-}
-
 /**
  * Switches the Packages view to the expanded card layout.
  * Only visible in the view title when the view is currently showing compact rows.
@@ -772,7 +730,6 @@ CommandsRegistry.registerCommand(PACKAGES_OPEN_COMMAND_ID,
 
 registerAction2(InstallPackageAction);
 registerAction2(RefreshPackagesAction);
-registerAction2(RefreshMetadataAction);
 registerAction2(UninstallPackageAction);
 registerAction2(UpdatePackageAction);
 registerAction2(UpdateAllPackagesAction);

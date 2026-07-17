@@ -264,7 +264,10 @@ export class TestPathService implements IPathService {
 	userHome(options: { preferLocal: true }): URI;
 	userHome(options?: { preferLocal: boolean }): Promise<URI>;
 	userHome(options?: { preferLocal: boolean }): URI | Promise<URI> {
-		return URI.file('/home/test');
+		if (options?.preferLocal === true) {
+			return URI.file('/home/test');
+		}
+		return Promise.resolve(URI.file('/home/test'));
 	}
 
 	hasValidBasename(resource: URI, basename?: string): Promise<boolean>;

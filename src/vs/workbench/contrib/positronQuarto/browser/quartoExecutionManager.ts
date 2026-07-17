@@ -43,7 +43,8 @@ import { usingQuartoInlineOutputStatementSplitting } from '../common/positronQua
 import { RuntimeOnlineState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { DeferredPromise, raceCancellationError, RunOnceScheduler, timeout } from '../../../../base/common/async.js';
-import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IMissingPackagesPreflightService } from '../../positronMissingPackages/browser/missingPackagesPreflightService.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -126,6 +127,27 @@ interface SerializedQueueState {
  */
 export function shouldSkipFirstCommandFinished(promptModel: IPromptInputModel): boolean {
 	return promptModel.state === PromptInputState.Input && promptModel.value.length > 0;
+}
+
+/**
+ * Builds a code location for a chunk/statement in a Quarto document from its
+ * line range. Cell ranges are line-based (column 1), so a zero character offset
+ * is used; this is sufficient to attribute outputs (e.g. plots) to the source
+ * and avoids a dependency on the document's text model being resolved at
+ * execution time.
+ *
+ * @param uri The document URI.
+ * @param range The 1-based, line-oriented range of the code being executed.
+ * @returns A code location with 0-based lines and zero character offsets.
+ */
+function codeLocationForRange(uri: URI, range: Range): ICodeLocation {
+	return {
+		uri,
+		range: {
+			start: { line: range.startLineNumber - 1, character: 0 },
+			end: { line: range.endLineNumber - 1, character: 0 },
+		},
+	};
 }
 
 /**
@@ -751,12 +773,33 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					this._logService.debug(
 						`[QuartoExecutionManager] Executing inline code in cell ${cell.id} with execution ID ${fragmentExecutionId}`
 					);
+
+					// Attribute the fragment to its source location in the
+					// document. When the code was split into statements, use the
+					// fragment's own range; otherwise fall back to the whole
+					// cell range. The location is forwarded to the kernel so that
+					// outputs (e.g. plots) can link back to the source.
+					const fragmentRange = fragmentRanges?.[index] ?? codeRange;
+					const codeLocation = codeLocationForRange(documentUri, fragmentRange);
+					const attribution: IConsoleCodeAttribution = {
+						source: CodeAttributionSource.Notebook,
+						metadata: {
+							codeLocation,
+							cell: {
+								uri: cell.id,
+								notebook: {
+									uri: documentUri,
+								},
+							},
+						},
+					};
+
 					session.execute(
 						fragment,
 						fragmentExecutionId,
 						RuntimeCodeExecutionMode.Interactive,
 						errorBehavior,
-						undefined,
+						attribution,
 						executionMetadata
 					);
 
@@ -764,17 +807,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					const event: ILanguageRuntimeCodeExecutedEvent = {
 						executionId: fragmentExecutionId,
 						sessionId: session.sessionId,
-						attribution: {
-							source: CodeAttributionSource.Notebook,
-							metadata: {
-								cell: {
-									uri: cell.id,
-									notebook: {
-										uri: documentUri,
-									},
-								},
-							},
-						},
+						attribution,
 						code: fragment,
 						languageId: cell.language,
 						runtimeName: session.runtimeMetadata.runtimeName,
@@ -867,6 +900,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				const errorBehavior = options.error
 					? RuntimeErrorBehavior.Stop
 					: RuntimeErrorBehavior.Continue;
+
+				// Attribute the code to its source location in the document so
+				// that outputs (e.g. plots) can link back to the source chunk.
+				const codeLocation = codeLocationForRange(documentUri, codeRange);
 				await this._consoleService.executeCode(
 					cell.language,
 					undefined,
@@ -874,6 +911,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					{
 						source: CodeAttributionSource.Notebook,
 						metadata: {
+							codeLocation,
 							cell: {
 								uri: cell.id,
 								notebook: {

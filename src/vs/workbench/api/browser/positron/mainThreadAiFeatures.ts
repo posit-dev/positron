@@ -12,17 +12,25 @@ import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/
 import { ChatModel, IExportableChatData } from '../../../contrib/chat/common/model/chatModel.js';
 import { IChatProgress, IChatService } from '../../../contrib/chat/common/chatService/chatService.js';
 import { ILanguageModelsService, IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
-import { IChatRequestData, IPositronAssistantConfigurationService, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronAssistantConfigurationService, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
 import { ExtHostAiFeaturesShape, ExtHostPositronContext, MainPositronContext, MainThreadAiFeaturesShape } from '../../common/positron/extHost.positron.protocol.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ChatModeKind } from '../../../contrib/chat/common/constants.js';
+import { PromptRenderer } from '../../../contrib/positronAssistant/browser/prompts/promptRenderer.js';
+import { getPositronContextPrompts } from '../../../contrib/positronAssistant/browser/prompts/positronContextPrompts.js';
+import { getForegroundSessionInfo } from '../../../contrib/positronAssistant/browser/prompts/promptSessions.js';
+import * as xml from '../../../contrib/positronAssistant/common/xml.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadAiFeatures)
 export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeaturesShape {
 
 	private readonly _proxy: ExtHostAiFeaturesShape;
 	private readonly _registrations = this._register(new DisposableMap<string>());
+	private _promptRenderer: PromptRenderer | undefined;
 
 	constructor(
 		extHostContext: IExtHostContext,
@@ -32,6 +40,8 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		@IChatAgentService private readonly _chatAgentService: IChatAgentService,
 		@ILanguageModelsService private readonly _languageModelsService: ILanguageModelsService,
 		@IViewsService private readonly _viewsService: IViewsService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IFileService private readonly _fileService: IFileService,
 	) {
 		super();
 		// Create the proxy for the extension host.
@@ -103,6 +113,62 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 */
 	async $getPositronChatContext(request: IChatRequestData): Promise<IPositronChatContext> {
 		return this._positronAssistantService.getPositronChatContext(request);
+	}
+
+	private get promptRenderer(): PromptRenderer {
+		if (!this._promptRenderer) {
+			this._promptRenderer = new PromptRenderer(this._fileService);
+		}
+		return this._promptRenderer;
+	}
+
+	/**
+	 * Generate the Positron assistant prompt for a chat request. Assembles the
+	 * mode prompt, the global IDE context, and any attached session context.
+	 */
+	async $generateAssistantPrompt(request: IGenerateAssistantPromptRequest): Promise<string> {
+		// Use the mode currently selected in the chat UI, defaulting to agent.
+		const mode = (await this.$getCurrentChatMode()) ?? ChatModeKind.Agent;
+
+		// Describe the runtime the user is currently working in - the selected
+		// (foreground) session - so both the language-specific fragments and the
+		// context reflect it, rather than whatever other sessions happen to be
+		// active in the background.
+		const { sessions, contextFragment: activeSessionContext } = getForegroundSessionInfo(this._runtimeSessionService);
+
+		// Reconstruct the minimal request shape the templates reference.
+		const renderRequest = request.selectionIsEmpty === undefined
+			? undefined
+			: { location2: { selection: { isEmpty: request.selectionIsEmpty } } };
+
+		let prompt = await this.promptRenderer.renderModePrompt({ mode, sessions, request: renderRequest, streamingEdits: true });
+
+		// Append the global IDE context for the request.
+		const positronContext = this._positronAssistantService.getPositronChatContext({ location: request.location });
+		const contextPrompts = getPositronContextPrompts(positronContext);
+		if (activeSessionContext) {
+			contextPrompts.push(activeSessionContext);
+		}
+		prompt += contextPrompts.join('\n');
+		if (contextPrompts.length > 0) {
+			prompt += xml.node('context', contextPrompts.join('\n\n'));
+		}
+
+		// Append context about any active sessions attached to the request.
+		let allSessions = '';
+		for (const reference of request.referenceSessions) {
+			let sessionContent = JSON.stringify(reference.activeSession, null, 2);
+			if (reference.variables) {
+				sessionContent += '\n' + xml.node('variables', JSON.stringify(reference.variables, null, 2));
+			}
+			allSessions += xml.node('session', sessionContent);
+		}
+		if (request.referenceSessions.length > 0) {
+			const sessionText = await this.promptRenderer.readPromptFile('sessions.md');
+			prompt += sessionText + '\n' + xml.node('sessions', allSessions);
+		}
+
+		return prompt;
 	}
 
 	/**

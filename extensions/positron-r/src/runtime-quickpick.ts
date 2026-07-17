@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as os from 'os';
+import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { rRuntimeDiscoverer, RRuntimeSource } from './provider';
@@ -18,7 +20,11 @@ class RuntimeQuickPickItem implements vscode.QuickPickItem {
 		public runtimeMetadata: positron.LanguageRuntimeMetadata,
 	) {
 		this.label = runtimeMetadata.runtimeName;
-		this.description = runtimeMetadata.runtimePath;
+		const homedir = os.homedir();
+		this.description =
+			os.platform() !== 'win32' && runtimeMetadata.runtimePath.startsWith(homedir)
+				? path.join('~', runtimeMetadata.runtimePath.substring(homedir.length))
+				: runtimeMetadata.runtimePath;
 		this.runtime = runtimeMetadata;
 	}
 }

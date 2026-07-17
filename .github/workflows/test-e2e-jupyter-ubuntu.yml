@@ -28,6 +28,16 @@ on:
         description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
         type: boolean
         default: false
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      enable_diagnostic_logging:
+        required: false
+        description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -57,6 +67,10 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
 
       - name: Generate access token for private repos
         id: access-token
@@ -92,7 +106,7 @@ jobs:
           POSITRON_SIGNING_KEY: "op://Positron/Positron Server private key/notesPlain"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 20
 
@@ -151,6 +165,7 @@ jobs:
           USE_KEY: true
           PW_PROJECT_NAME: e2e-jupyter
           REPORTER_REPO_NAME: positron
+          ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
         run: |
           export DISPLAY=:10
           npx playwright test --project e2e-jupyter --retries=1 --workers=1

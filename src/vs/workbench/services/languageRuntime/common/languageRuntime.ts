@@ -5,6 +5,7 @@
 
 import * as nls from '../../../../nls.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
+import { tildify } from '../../../../base/common/labels.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -13,6 +14,7 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationNode, } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
 
 /**
  * The implementation of ILanguageRuntimeService
@@ -38,6 +40,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// Map of picker contributions by handle
 	private readonly _pickerContributions = new Map<number, IRuntimePickerContribution>();
 
+	// Cached user home path (remote-aware). Populated eagerly in the constructor
+	// so registerRuntime can run synchronously.
+	private _cachedUserHome: string | undefined;
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -50,7 +56,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 */
 	constructor(
 		@ILogService private readonly _logService: ILogService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IPathService private readonly _pathService: IPathService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -58,6 +65,14 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._startupPhase = observableValue(
 			'runtime-startup-phase', RuntimeStartupPhase.Initializing);
 		this.onDidChangeRuntimeStartupPhase = Event.fromObservable(this._startupPhase);
+
+		// Kick off the remote-aware home resolution eagerly so it's likely
+		// cached by the time extensions call registerRuntime. If it hasn't
+		// resolved yet, registerRuntime skips tildification rather than
+		// falling back to the local-only path.
+		this._pathService.userHome({ preferLocal: false }).then(uri => {
+			this._cachedUserHome = uri.fsPath;
+		});
 	}
 
 	/**
@@ -131,11 +146,25 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				`the '${metadata.languageId}' language is disabled.`);
 		}
 
+		// Enrich metadata with a workbench-computed display path (~-shortened
+		// on non-Windows; absolute path unchanged on Windows or system paths).
+		// Preserve a caller-supplied runtimeDisplayPath; only compute when absent.
+		let runtimeDisplayPath = metadata.runtimeDisplayPath;
+		if (!runtimeDisplayPath && this._cachedUserHome) {
+			runtimeDisplayPath = tildify(metadata.runtimePath, this._cachedUserHome);
+		}
+		// If _cachedUserHome isn't ready yet, leave runtimeDisplayPath undefined;
+		// getRuntimeDisplayPath() falls back to the raw runtimePath.
+		const enriched: ILanguageRuntimeMetadata = {
+			...metadata,
+			runtimeDisplayPath,
+		};
+
 		// Add the runtime to the registered runtimes.
-		this._registeredRuntimesByRuntimeId.set(metadata.runtimeId, metadata);
+		this._registeredRuntimesByRuntimeId.set(enriched.runtimeId, enriched);
 
 		// Signal that the set of registered runtimes has changed.
-		this._onDidRegisterRuntimeEmitter.fire(metadata);
+		this._onDidRegisterRuntimeEmitter.fire(enriched);
 
 		// Logging.
 		this._logService.trace(`Language runtime ${formatLanguageRuntimeMetadata(metadata)} successfully registered.`);

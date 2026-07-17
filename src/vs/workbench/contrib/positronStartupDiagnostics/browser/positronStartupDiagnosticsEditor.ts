@@ -33,7 +33,7 @@ import {
 	IRuntimeDiscoveryCache,
 	RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING
 } from '../../../services/runtimeStartup/common/runtimeDiscoveryCacheService.js';
-import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { getRuntimeDisplayPath, ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IOutputService } from '../../../services/output/common/output.js';
 import { IAdminPolicyService } from '../../../../platform/policy/common/adminPolicyService.js';
@@ -721,7 +721,7 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 			table.push([
 				runtime.extensionId.value,
 				runtime.runtimeName,
-				runtime.runtimePath
+				getRuntimeDisplayPath(runtime)
 			]);
 		}
 		md.table(['Extension', 'Name', 'Path'], table);

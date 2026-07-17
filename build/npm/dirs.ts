@@ -22,7 +22,6 @@ export let dirs = [
 	'extensions/authentication',
 	'extensions/next-edit-suggestions',
 	'extensions/open-remote-ssh',
-	'extensions/positron-assistant',
 	'extensions/positron-catalog-explorer',
 	'extensions/positron-code-cells',
 	'extensions/positron-connections',
@@ -31,7 +30,9 @@ export let dirs = [
 	'extensions/positron-environment',
 	'extensions/positron-data-explorer-protocol',
 	'extensions/positron-data-driver-duckdb',
+	'extensions/positron-data-driver-pins',
 	'extensions/positron-data-driver-postgresql',
+	'extensions/positron-data-driver-redshift',
 	'extensions/positron-data-driver-sqlite',
 	'extensions/positron-environment-modules',
 	'extensions/positron-file-transfer',
@@ -140,7 +141,6 @@ if (existsSync(`${import.meta.dirname}/../../.build/distro/npm`)) {
 // THIS IS THE SINGLE SOURCE OF TRUTH for volatile extension list
 export const volatileExtensions = [
 	'extensions/positron-python',
-	'extensions/positron-assistant',
 	'extensions/positron-r'
 ];
 

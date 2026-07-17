@@ -73,12 +73,16 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 		// 	}
 		// }
 
+		// Sorts driver metadata alphabetically by display name so the provider grid has a stable,
+		// predictable order regardless of the order drivers registered in.
+		const byName = (metadata: IDataConnectionDriverMetadata[]) => [...metadata].sort((a, b) => a.name.localeCompare(b.name));
+
 		// Set the initial list of drivers.
-		setDrivers(positronDataConnectionsService.driverManager.getDrivers().map(d => d.metadata));
+		setDrivers(byName(positronDataConnectionsService.driverManager.getDrivers().map(d => d.metadata)));
 
 		// Listen for changes to the registered drivers and update the list accordingly.
 		const disposable = positronDataConnectionsService.driverManager.onDidChangeDrivers(updatedDrivers => {
-			setDrivers(updatedDrivers.map(d => d.metadata));
+			setDrivers(byName(updatedDrivers.map(d => d.metadata)));
 		});
 
 		// Clean up the listener when the component is unmounted.
