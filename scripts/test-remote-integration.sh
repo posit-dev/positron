@@ -68,17 +68,48 @@ fi
 API_TESTS_EXTRA_ARGS="--no-sandbox --disable-telemetry --disable-experiments --skip-welcome --skip-release-notes --crash-reporter-directory=$VSCODECRASHDIR --logsPath=$VSCODELOGSDIR --no-cached-data --disable-updates --use-inmemory-secretstorage --disable-workspace-trust --user-data-dir=$VSCODEUSERDATADIR"
 
 # --- Start Positron ---
-# Each test workspace below cold-starts a fresh Electron. On the headless CI
-# image the GPU process's multithreaded fontconfig init intermittently
-# GP-faults in libexpat during font config load (stack: libexpat <-
-# libfontconfig <- libpangoft2), crashing the whole run with exit 139. This is
-# the dominant ext-host CI flake. Disabling the GPU process removes that font
-# init path; these tests are headless and don't exercise GPU rendering.
-API_TESTS_EXTRA_ARGS="$API_TESTS_EXTRA_ARGS --disable-gpu"
+# Match the headless software-GL flags the e2e harness passes in docker (see
+# test/e2e/infra/playwrightElectron.ts). Each test workspace below cold-starts a
+# fresh Electron, and on the headless CI image the render/GPU stack's startup
+# intermittently trips a thread-safety race in fontconfig, GP-faulting in
+# libexpat (stack: libexpat <- libfontconfig <- libpangoft2) and crashing the
+# run with exit 139. Forcing software GL via swiftshader makes the ext-host
+# Electron start up the same way e2e's does (which does not hit this), shrinking
+# the race window. Passed unconditionally rather than gated on docker: almost
+# nobody runs the ext-host tests locally, and forcing software GL for a headless
+# test run is harmless. The retry below is the actual safety net.
+API_TESTS_EXTRA_ARGS="$API_TESTS_EXTRA_ARGS --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --disable-gpu-compositing"
 # --- End Positron ---
 
 echo "Storing crash reports into '$VSCODECRASHDIR'."
 echo "Storing log files into '$VSCODELOGSDIR'."
+
+# --- Start Positron ---
+# Headless Electron intermittently GP-faults on startup in libexpat while
+# fontconfig initializes fonts on a glib worker thread (a thread-safety race in
+# the system font libraries; crash stack: libexpat <- libfontconfig <-
+# libpangoft2). It happens before any test runs, exits 139 (SIGSEGV), and takes
+# the whole Remote suite down with it. The race lives in system libraries we
+# can't patch, so retry an invocation that dies with a startup segfault: a fresh
+# process is a new roll of the dice and succeeds nearly every time. Only exit
+# 139 is retried -- any other non-zero exit is a real test failure and is
+# returned immediately so it is never masked.
+run_integration_test() {
+	local attempt=1 max_attempts=3 status
+	while true; do
+		set +e
+		"$@"
+		status=$?
+		set -e
+		if [ "$status" -ne 139 ] || [ "$attempt" -ge "$max_attempts" ]; then
+			return "$status"
+		fi
+		echo "Electron exited 139 (startup segfault, likely fontconfig race); retrying (attempt $((attempt + 1))/$max_attempts)..."
+		kill_app
+		attempt=$((attempt + 1))
+	done
+}
+# --- End Positron ---
 
 
 # Tests in the extension host
@@ -86,49 +117,49 @@ echo "Storing log files into '$VSCODELOGSDIR'."
 echo
 echo "### API tests (folder)"
 echo
-"$INTEGRATION_TEST_ELECTRON_PATH" --folder-uri=$REMOTE_VSCODE/vscode-api-tests/testWorkspace --extensionDevelopmentPath=$REMOTE_VSCODE/vscode-api-tests --extensionTestsPath=$REMOTE_VSCODE/vscode-api-tests/out/singlefolder-tests $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
+run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" --folder-uri=$REMOTE_VSCODE/vscode-api-tests/testWorkspace --extensionDevelopmentPath=$REMOTE_VSCODE/vscode-api-tests --extensionTestsPath=$REMOTE_VSCODE/vscode-api-tests/out/singlefolder-tests $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
 kill_app
 
 echo
 echo "### API tests (workspace)"
 echo
-"$INTEGRATION_TEST_ELECTRON_PATH" --file-uri=$REMOTE_VSCODE/vscode-api-tests/testworkspace.code-workspace --extensionDevelopmentPath=$REMOTE_VSCODE/vscode-api-tests --extensionTestsPath=$REMOTE_VSCODE/vscode-api-tests/out/workspace-tests $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
+run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" --file-uri=$REMOTE_VSCODE/vscode-api-tests/testworkspace.code-workspace --extensionDevelopmentPath=$REMOTE_VSCODE/vscode-api-tests --extensionTestsPath=$REMOTE_VSCODE/vscode-api-tests/out/workspace-tests $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
 kill_app
 
 echo
 echo "### TypeScript tests"
 echo
-"$INTEGRATION_TEST_ELECTRON_PATH" --folder-uri=$REMOTE_VSCODE/typescript-language-features/test-workspace --extensionDevelopmentPath=$REMOTE_VSCODE/typescript-language-features --extensionTestsPath=$REMOTE_VSCODE/typescript-language-features/out/test/unit $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
+run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" --folder-uri=$REMOTE_VSCODE/typescript-language-features/test-workspace --extensionDevelopmentPath=$REMOTE_VSCODE/typescript-language-features --extensionTestsPath=$REMOTE_VSCODE/typescript-language-features/out/test/unit $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
 kill_app
 
 echo
 echo "### Markdown tests"
 echo
-"$INTEGRATION_TEST_ELECTRON_PATH" --folder-uri=$REMOTE_VSCODE/markdown-language-features/test-workspace --extensionDevelopmentPath=$REMOTE_VSCODE/markdown-language-features --extensionTestsPath=$REMOTE_VSCODE/markdown-language-features/out/test $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
+run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" --folder-uri=$REMOTE_VSCODE/markdown-language-features/test-workspace --extensionDevelopmentPath=$REMOTE_VSCODE/markdown-language-features --extensionTestsPath=$REMOTE_VSCODE/markdown-language-features/out/test $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
 kill_app
 
 echo
 echo "### Emmet tests"
 echo
-"$INTEGRATION_TEST_ELECTRON_PATH" --folder-uri=$REMOTE_VSCODE/emmet/test-workspace --extensionDevelopmentPath=$REMOTE_VSCODE/emmet --extensionTestsPath=$REMOTE_VSCODE/emmet/out/test $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
+run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" --folder-uri=$REMOTE_VSCODE/emmet/test-workspace --extensionDevelopmentPath=$REMOTE_VSCODE/emmet --extensionTestsPath=$REMOTE_VSCODE/emmet/out/test $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
 kill_app
 
 echo
 echo "### Git tests"
 echo
-"$INTEGRATION_TEST_ELECTRON_PATH" --folder-uri=$AUTHORITY$(mktemp -d 2>/dev/null) --extensionDevelopmentPath=$REMOTE_VSCODE/git --extensionTestsPath=$REMOTE_VSCODE/git/out/test $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
+run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" --folder-uri=$AUTHORITY$(mktemp -d 2>/dev/null) --extensionDevelopmentPath=$REMOTE_VSCODE/git --extensionTestsPath=$REMOTE_VSCODE/git/out/test $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
 kill_app
 
 echo
 echo "### Ipynb tests"
 echo
-"$INTEGRATION_TEST_ELECTRON_PATH" --folder-uri=$AUTHORITY$(mktemp -d 2>/dev/null) --extensionDevelopmentPath=$REMOTE_VSCODE/ipynb --extensionTestsPath=$REMOTE_VSCODE/ipynb/out/test $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
+run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" --folder-uri=$AUTHORITY$(mktemp -d 2>/dev/null) --extensionDevelopmentPath=$REMOTE_VSCODE/ipynb --extensionTestsPath=$REMOTE_VSCODE/ipynb/out/test $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
 kill_app
 
 echo
 echo "### Configuration editing tests"
 echo
-"$INTEGRATION_TEST_ELECTRON_PATH" --folder-uri=$AUTHORITY$(mktemp -d 2>/dev/null) --extensionDevelopmentPath=$REMOTE_VSCODE/configuration-editing --extensionTestsPath=$REMOTE_VSCODE/configuration-editing/out/test $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
+run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" --folder-uri=$AUTHORITY$(mktemp -d 2>/dev/null) --extensionDevelopmentPath=$REMOTE_VSCODE/configuration-editing --extensionTestsPath=$REMOTE_VSCODE/configuration-editing/out/test $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
 kill_app
 
 # Cleanup
