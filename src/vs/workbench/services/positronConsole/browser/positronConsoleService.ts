@@ -193,6 +193,13 @@ const consoleServiceConfigurationBaseNode = Object.freeze<IConfigurationNode>({
 export const scrollbackSizeSettingId = 'console.scrollbackSize';
 
 /**
+ * The setting that controls whether plots emitted by a notebook are previewed
+ * in its console, and how tall (in pixels) those previews are. A value of 0
+ * disables notebook plot previews entirely.
+ */
+export const notebookPlotPreviewHeightSettingId = 'console.notebookPlotPreviewHeight';
+
+/**
  * Storage key guarding the one-time migration that clears any pre-existing user override of
  * `console.scrollbackSize`. The default was raised (thanks to render memoization ) so most
  * previously-picked values are obsolete; we reset once per profile and then let the user set
@@ -288,6 +295,15 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: false,
 			markdownDescription: localize('console.showNotebookConsoles', "Controls whether consoles are automatically shown for open notebooks."),
+			tags: ['experimental'],
+		},
+		// The height (in pixels) of plot previews shown in notebook consoles.
+		'console.notebookPlotPreviewHeight': {
+			type: 'number',
+			minimum: 0,
+			maximum: 1000,
+			default: 200,
+			markdownDescription: localize('console.notebookPlotPreviewHeight', "Controls whether plots emitted by a notebook are previewed in its console, and how tall (in pixels) those previews are. Set to 0 to disable notebook plot previews."),
 			tags: ['experimental'],
 		},
 		// Whether to show the notebook console actions in menus
@@ -3126,6 +3142,20 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}
 
 		if (images) {
+			// For notebook consoles, the plot preview is governed by a setting:
+			// its height is configurable and a value of 0 disables the preview
+			// entirely (the plot still renders in the notebook itself). When it's
+			// disabled at the time the plot is emitted, don't add it to the
+			// console at all. The component reads the setting live thereafter, so
+			// height changes (and hiding at 0) apply to existing previews too.
+			const isNotebookConsolePlot =
+				this._sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
+			if (isNotebookConsolePlot &&
+				this._configurationService.getValue<number>(notebookPlotPreviewHeightSettingId) <= 0) {
+				// Notebook plot previews are disabled.
+				return undefined;
+			}
+
 			// It's an image, so create a plot activity item.
 			return new ActivityItemOutputPlot(
 				message.id,
@@ -3137,7 +3167,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					// Plots pane.
 					this._onDidSelectPlotEmitter.fire(message.id);
 				},
-				message.output_id
+				message.output_id,
+				isNotebookConsolePlot
 			);
 		} else if (html) {
 			// It's HTML, so show the HTML.
