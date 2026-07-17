@@ -101,7 +101,7 @@ interface ConnectDataConnectionWithProps {
  * ConnectDataConnectionWith component.
  * @param props The component props.
  */
-const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectionWithProps>) => {
+export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectionWithProps>) => {
 	// Get services.
 	const services = usePositronReactServicesContext();
 
