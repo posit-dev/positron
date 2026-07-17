@@ -49,7 +49,8 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 				id: 'positronVariables.focus',
 				keybindings: {
 					primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyV),
-				}
+				},
+				agentCompatible: true,
 			}
 		}
 	],
