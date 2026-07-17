@@ -6,7 +6,7 @@
 import { DropDownListBoxEntry } from '../../positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { DropDownListBoxSeparator } from '../../positronComponents/dropDownListBox/dropDownListBoxSeparator.js';
-import { ILanguageRuntimeMetadata } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { getRuntimeDisplayPath, ILanguageRuntimeMetadata } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 
 /**
  * InterpreterInfo interface.
@@ -52,7 +52,7 @@ export const interpretersToDropdownItems = (
 							runtimeId: runtime.runtimeId,
 							languageName: runtime.languageName,
 							languageVersion: runtime.languageVersion,
-							runtimePath: runtime.runtimePath,
+							runtimePath: getRuntimeDisplayPath(runtime),
 							runtimeSource: runtime.runtimeSource,
 						},
 					})

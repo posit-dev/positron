@@ -233,7 +233,7 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 
 	it('reconciliation disposes an overlay but spares a widget sharing the cell', async () => {
 		// Widgets need a live notebook session to be created.
-		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		const runtime = await createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, {
 			runtime,
 			notebookUri: NOTEBOOK_URI,
