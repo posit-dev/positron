@@ -129,6 +129,115 @@ function unzipAll(zipPath, destDir) {
 }
 
 /**
+ * Collect the selectors involved in FAILED actions/assertions: the selector on
+ * the nearest preceding `before`, plus any `locator('...')` mined from the error
+ * message.
+ */
+function collectFailingSelectors(evts) {
+	const selectors = new Set();
+	for (let i = 0; i < evts.length; i++) {
+		const e = evts[i];
+		if (e.type !== 'after' || !e.error) { continue; }
+		for (let j = i - 1; j >= 0; j--) {
+			if (evts[j].type === 'before') {
+				if (evts[j].params?.selector) { selectors.add(evts[j].params.selector); }
+				break;
+			}
+		}
+		for (const m of String(e.error.message || '').matchAll(/locator\(['"`]([^'"`]+)['"`]\)/g)) {
+			selectors.add(m[1]);
+		}
+	}
+	return [...selectors];
+}
+
+/** Pull stable class/id tokens out of selector strings. */
+function selectorTokens(selectors) {
+	const tokens = new Set();
+	for (const sel of selectors) {
+		for (const m of String(sel).matchAll(/\.([A-Za-z_][\w-]{2,})/g)) { tokens.add(m[1]); }
+		for (const m of String(sel).matchAll(/\[id=["']([^"']+)["']\]/g)) { tokens.add(m[1]); }
+	}
+	return [...tokens];
+}
+
+/**
+ * Report whether each failing-selector token ever entered the DOM across the
+ * trace's frame snapshots. "NEVER present" => the element never rendered (a
+ * product open-path bug), not a render-then-dismiss.
+ */
+function buildDomPresence(evts, tokens) {
+	if (!tokens.length) { return null; }
+	const snaps = evts
+		.filter(e => e.type === 'frame-snapshot' && e.snapshot?.timestamp != null)
+		.map(s => ({ ts: s.snapshot.timestamp, json: JSON.stringify(s) }));
+	if (!snaps.length) { return null; }
+	const span = `t=${Math.round(snaps[0].ts)}..${Math.round(snaps[snaps.length - 1].ts)}`;
+	const out = [`\n=== DOM presence across ${snaps.length} frame snapshots (${span}) ===`];
+	out.push("Did the failing selector's target ever enter the DOM? NEVER present => it never rendered (product open-path issue), not a render-then-dismiss.");
+	for (const tok of tokens) {
+		const hits = snaps.filter(s => s.json.includes(tok));
+		if (!hits.length) {
+			out.push(`- '${tok}': NEVER present in any snapshot`);
+		} else {
+			out.push(`- '${tok}': present in ${hits.length}/${snaps.length} snapshots (t=${Math.round(hits[0].ts)}..${Math.round(hits[hits.length - 1].ts)})`);
+		}
+	}
+	return out.join('\n');
+}
+
+/** Strip the `%c`/`color:#…` console-formatting noise VS Code prepends. */
+function cleanConsole(text) {
+	return String(text)
+		.replace(/%c/g, '')
+		.replace(/(?:background|color):\s*#?[0-9a-fA-F]{3,6}/g, '')
+		.replace(/\s;\s/g, ' ')
+		.replace(/\s{2,}/g, ' ')
+		.replace(/^[\s;:-]+/, '')
+		.trim();
+}
+
+// Console lines that match the allowlist / error levels but carry no diagnostic
+// value: internal context-key churn, the dev-only disposable-leak tracker, and
+// benign environment probes on CI runners.
+const CONSOLE_NOISE_RE = /(_setContext|LEAKED DISPOSABLE|No pandoc executable|MetadataLookupWarning|received unexpected error = network timeout)/i;
+
+/**
+ * Digest of high-signal renderer-console lines around the failure window:
+ * command executions, runtime-startup phase transitions, and errors/warnings.
+ * Distinguishes "click was swallowed" from "command ran but nothing rendered."
+ */
+function buildConsoleDigest(evts) {
+	const ALLOW = /(CommandService#executeCommand|Runtime startup][^\n]*Phase changed|Discovery completed|Uncaught|Unhandled)/i;
+	const MAX_LINES = 28;
+	const consoles = evts.filter(e => e.type === 'console' && typeof e.text === 'string');
+	if (!consoles.length) { return null; }
+	const errTimes = evts.filter(e => e.type === 'after' && e.error).map(e => e.endTime ?? e.startTime).filter(t => t != null);
+	const focusStart = errTimes.length ? Math.min(...errTimes) - 3000 : -Infinity;
+	const focusEnd = errTimes.length ? Math.max(...errTimes) + 1000 : Infinity;
+	const picked = consoles.filter(e =>
+		(e.time == null || (e.time >= focusStart && e.time <= focusEnd)) &&
+		(e.messageType === 'error' || e.messageType === 'warning' || ALLOW.test(e.text)) &&
+		!CONSOLE_NOISE_RE.test(e.text));
+	if (!picked.length) { return null; }
+
+	const entries = [];
+	for (const e of picked) {
+		const text = cleanConsole(e.text).slice(0, 200);
+		const last = entries[entries.length - 1];
+		if (last && last.text === text) { last.count++; continue; }
+		entries.push({ time: e.time, level: e.messageType || 'log', text, count: 1 });
+	}
+
+	const shown = entries.slice(0, MAX_LINES);
+	const out = [`\n=== Console digest near failure (${shown.length}${entries.length > shown.length ? ` of ${entries.length}` : ''} high-signal lines) ===`];
+	for (const e of shown) {
+		out.push(`t=${Math.round(e.time ?? 0)} [${e.level}] ${e.text}${e.count > 1 ? ` (x${e.count})` : ''}`);
+	}
+	return out.join('\n');
+}
+
+/**
  * Parse a Playwright trace.trace file into a timeline plus the trailing
  * screencast frames. Identical to the parser in e2e-process-project.js; kept
  * inline here to avoid cross-script imports.
@@ -189,6 +298,14 @@ function parseTrace(tracePath) {
 			timelineLines.push(`- ${err}`);
 		}
 	}
+
+	// DOM-presence of the failing selector(s) + a console digest near the
+	// failure -- separates "the control never rendered" / "the command fired but
+	// nothing happened" from a pure environment flake.
+	const domPresence = buildDomPresence(events, selectorTokens(collectFailingSelectors(events)));
+	if (domPresence) { timelineLines.push(domPresence); }
+	const consoleDigest = buildConsoleDigest(events);
+	if (consoleDigest) { timelineLines.push(consoleDigest); }
 
 	return {
 		timeline: timelineLines.join('\n'),
