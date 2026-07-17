@@ -289,19 +289,38 @@ function buildWatchers(checkout, assistantDirOverride) {
   const defs = WATCHER_DEFS.map((d) => ({ ...d, cwd: checkout }));
   const assistantDir = assistantDirOverride ?? siblingAssistantDir(checkout);
   if (assistantDir) defs.push(assistantWatcherDef(assistantDir));
-  watchers = defs.map((d, i) => ({
-    ...d,
-    key: String(i + 1),
-    state: 'no-daemon',
-    errorCount: 0,
-    statusLine: '', // last begins/ends line, for the card summary
-    verdictAt: null, // when the last live-observed verdict landed
-    replaying: true, // attach replays old output; don't timestamp/alert on it
-    ring: new Ring(),
-    child: null,
-    feeder: null,
-    detaching: false,
-  }));
+  watchers = defs.map((d, i) => {
+    const w = {
+      ...d,
+      key: String(i + 1),
+      state: 'no-daemon',
+      errorCount: 0,
+      statusLine: '', // last begins/ends line, for the card summary
+      verdictAt: null, // when the last live-observed verdict landed
+      replaying: true, // attach replays old output; don't timestamp/alert on it
+      ring: new Ring(),
+      child: null,
+      feeder: null,
+      detaching: false,
+    };
+    // Every card carries its own verbs and footer keys, so the key handlers
+    // and footer act on the selected card without per-kind dispatch.
+    w.kill = () => {
+      killWatcher(w);
+      setStatus(`killing ${w.label} daemon`);
+    };
+    w.restart = () => {
+      restartWatcher(w);
+      setStatus(`restarting ${w.label}`);
+    };
+    w.keys = () => [
+      ['r', 'restart'],
+      ['k', 'kill'],
+      ['K', confirmKill ? 'KILL?' : 'kill all'],
+      ['s', 'start all'],
+    ];
+    return w;
+  });
 }
 
 function hasDeemon() {
@@ -475,13 +494,21 @@ function initApps(checkout) {
     /* ignore */
   }
   apps = {
-    electron: makeApp(String(watchers.length + 1), 'electron', 'Electron', null),
-    web: makeApp(String(watchers.length + 2), 'web', 'Web', /Web UI available at/),
+    electron: makeApp(String(watchers.length + 1), 'electron', 'Electron', null, [
+      ['e', 'launch'],
+      ['a', 'launch +asst'],
+      ['k', 'kill'],
+    ]),
+    web: makeApp(String(watchers.length + 2), 'web', 'Web', /Web UI available at/, [
+      ['w', 'launch'],
+      ['b', 'browser'],
+      ['k', 'kill'],
+    ]),
   };
 }
 
-function makeApp(key, name, label, readyRe) {
-  return {
+function makeApp(key, name, label, readyRe, keys) {
+  const app = {
     key,
     name,
     label,
@@ -495,6 +522,9 @@ function makeApp(key, name, label, readyRe) {
     tailPos: 0,
     feeder: null,
   };
+  app.kill = () => killApp(app);
+  app.keys = () => keys;
+  return app;
 }
 
 function appLogPath(app) {
@@ -950,6 +980,11 @@ function initDeps(checkout, assistantDirOverride) {
     targets,
     child: null,
   };
+  deps.kill = () => cancelInstall();
+  deps.keys = () => [
+    ['i', 'install'],
+    ['k', 'cancel'],
+  ];
   refreshDeps();
 }
 
@@ -1331,46 +1366,13 @@ function renderTabStrip(cols) {
 
 // ---- footer + status ----
 
-// Keys that make sense for the selected card; the launch/daemon keys still
-// work globally, but the footer only advertises what applies right here.
-function contextKeys() {
-  const t = tabByKey(activeTab);
-  if (watchers.includes(t)) {
-    return [
-      ['r', 'restart'],
-      ['k', 'kill'],
-      ['K', confirmKill ? 'KILL?' : 'kill all'],
-      ['s', 'start all'],
-    ];
-  }
-  if (t === apps.electron) {
-    return [
-      ['e', 'launch'],
-      ['a', 'launch +asst'],
-      ['k', 'kill'],
-    ];
-  }
-  if (t === apps.web) {
-    return [
-      ['w', 'launch'],
-      ['b', 'browser'],
-      ['k', 'kill'],
-    ];
-  }
-  if (t === deps) {
-    return [
-      ['i', 'install'],
-      ['k', 'cancel'],
-    ];
-  }
-  return [];
-}
-
 function renderFooter(cols) {
+  // The launch/daemon keys still work globally, but the footer only
+  // advertises the selected card's own keys (each card carries them).
   const keys = [
     [`1-${allTabs().length}/arrows`, 'select'],
     ['enter', logExpanded ? 'grid' : 'logs'],
-    ...contextKeys(),
+    ...tabByKey(activeTab).keys(),
     ['?', 'help'],
     ['q', 'quit'],
   ];
@@ -1487,12 +1489,8 @@ function tickSpinner() {
 
 function restartActive() {
   const t = tabByKey(activeTab);
-  if (watchers.includes(t)) {
-    restartWatcher(t);
-    setStatus(`restarting ${t.label}`);
-  } else {
-    setStatus(`r restarts a build daemon (tabs 1-${watchers.length})`);
-  }
+  if (t.restart) t.restart();
+  else setStatus(`r restarts a build daemon (tabs 1-${watchers.length})`);
 }
 
 // Arrow keys move the selection over the card grid: left/right step through
@@ -1514,20 +1512,6 @@ function moveSelection(dx, dy) {
   if (next === idx) return;
   activeTab = tabs[next].key;
   invalidate();
-}
-
-// k = kill whatever the selected card is: one daemon, one app, or a running
-// npm install. Kill-all lives on K (with confirm).
-function killActive() {
-  const t = tabByKey(activeTab);
-  if (watchers.includes(t)) {
-    killWatcher(t);
-    setStatus(`killing ${t.label} daemon`);
-  } else if (t === deps) {
-    cancelInstall();
-  } else {
-    killApp(t);
-  }
 }
 
 function onKey(str, key) {
@@ -1593,7 +1577,9 @@ function onKey(str, key) {
     case 'r':
       return restartActive();
     case 'k':
-      return killActive();
+      // Kill whatever the selected card is: one daemon, one app, or a running
+      // npm install. Kill-all lives on K (with confirm).
+      return tabByKey(activeTab).kill();
     case 's':
       return startAll();
     default:
