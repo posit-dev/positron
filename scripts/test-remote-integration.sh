@@ -68,13 +68,17 @@ fi
 API_TESTS_EXTRA_ARGS="--no-sandbox --disable-telemetry --disable-experiments --skip-welcome --skip-release-notes --crash-reporter-directory=$VSCODECRASHDIR --logsPath=$VSCODELOGSDIR --no-cached-data --disable-updates --use-inmemory-secretstorage --disable-workspace-trust --user-data-dir=$VSCODEUSERDATADIR"
 
 # --- Start Positron ---
-# Each test workspace below cold-starts a fresh Electron. On the headless CI
-# image the GPU process's multithreaded fontconfig init intermittently
-# GP-faults in libexpat during font config load (stack: libexpat <-
-# libfontconfig <- libpangoft2), crashing the whole run with exit 139. This is
-# the dominant ext-host CI flake. Disabling the GPU process removes that font
-# init path; these tests are headless and don't exercise GPU rendering.
-API_TESTS_EXTRA_ARGS="$API_TESTS_EXTRA_ARGS --disable-gpu"
+# Match the headless software-GL flags the e2e harness passes in docker (see
+# test/e2e/infra/playwrightElectron.ts). Each test workspace below cold-starts a
+# fresh Electron, and on the headless CI image the render/GPU stack's startup
+# intermittently trips a thread-safety race in fontconfig, GP-faulting in
+# libexpat (stack: libexpat <- libfontconfig <- libpangoft2) and crashing the
+# run with exit 139. Forcing software GL via swiftshader makes the ext-host
+# Electron start up the same way e2e's does (which does not hit this), shrinking
+# the race window. Passed unconditionally rather than gated on docker: almost
+# nobody runs the ext-host tests locally, and forcing software GL for a headless
+# test run is harmless. The retry below is the actual safety net.
+API_TESTS_EXTRA_ARGS="$API_TESTS_EXTRA_ARGS --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --disable-gpu-compositing"
 # --- End Positron ---
 
 echo "Storing crash reports into '$VSCODECRASHDIR'."
