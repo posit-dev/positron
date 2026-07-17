@@ -838,6 +838,9 @@ assert_eq "reasons: ark injection" "@:critical|required,@:ark|ark" \
 assert_eq "reasons: ark bump labels win/web as ark" \
 	"@:critical|required,@:ark|ark,@:win|ark,@:web|ark" \
 	"$(build_tag_reasons "@:critical,@:ark,@:win,@:web" "" "" "true" "false" "false")"
+# @:win typed in the body beats the ark-injection attribution even when ark=true.
+assert_eq "reasons: author-typed win beats ark" "@:critical|required,@:win|body" \
+	"$(build_tag_reasons "@:critical,@:win" "@:win" "" "true" "false" "false")"
 # @:win typed in the body reads as body, not test-win.
 assert_eq "reasons: author-typed win is body" "@:critical|required,@:win|body" \
 	"$(build_tag_reasons "@:critical,@:win" "@:win" "" "false" "true" "false")"
