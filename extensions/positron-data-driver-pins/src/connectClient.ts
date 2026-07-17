@@ -195,7 +195,7 @@ export class ConnectClient {
 		const bundles = Array.isArray(json) ? json : [];
 		this._logger.info(`Found ${bundles.length} version(s) for pin ${guid}`);
 		return bundles
-			.filter((bundle): bundle is RawBundle & { id: string | number } => bundle.id !== undefined)
+			.filter((bundle): bundle is RawBundle & { id: string | number } => bundle.id !== undefined && bundle.id !== null)
 			.map(bundle => ({
 				id: String(bundle.id),
 				createdTime: typeof bundle.created_time === 'string' ? bundle.created_time : '',

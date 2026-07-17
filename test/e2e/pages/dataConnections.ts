@@ -260,11 +260,14 @@ export class DataConnections {
 	 * Asserts the number of version (pin bundle) nodes currently shown in the tree. Use after
 	 * expanding a single pin so the count reflects that pin's versions. Version node labels are
 	 * dynamic (creation time + bundle id), so tests key off the count and the active badge rather
-	 * than exact names.
+	 * than exact names. Reveals a version row first so the count isn't taken while the expanded
+	 * pin's versions are still below the virtualized fold.
 	 * @param count The expected number of version nodes.
 	 */
 	async expectVersionCount(count: number): Promise<void> {
-		await expect(this.code.driver.currentPage.locator(VERSION_ROW)).toHaveCount(count);
+		const versionRows = this.code.driver.currentPage.locator(VERSION_ROW);
+		await this.revealNode(versionRows.first());
+		await expect(versionRows).toHaveCount(count);
 	}
 
 	/**
