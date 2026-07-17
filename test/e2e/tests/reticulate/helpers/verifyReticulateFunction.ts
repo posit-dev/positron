@@ -17,21 +17,21 @@ export async function verifyReticulateFunctionality(
 	zValue = '6'): Promise<void> {
 	const { console, sessions, variables } = app.workbench;
 
-	// Explicitly select the Python session before running code -- with multiple concurrent
-	// sessions of the same language, `console.executeCode` targets whichever session happens
-	// to be foreground, which races with session startup/rename.
-	await sessions.select(pythonSessionId);
-
 	// Create a variable x in Python session
 	await expect(async () => {
+		// Re-select on every retry -- with multiple concurrent sessions of the same language,
+		// `console.executeCode` targets whichever session is foreground, and foreground can be
+		// reassigned asynchronously (e.g. by another session's Ready transition) after a
+		// one-time select, silently stranding subsequent retries on the wrong session.
+		await sessions.select(pythonSessionId);
 		await console.executeCode('Python', `x = ${xValue}`);
 		await variables.expectVariableToBe('x', xValue, 2000);
 	}, 'Can create variable in Python session').toPass();
 
 	// Switch to the R session and create an R variable `y` by accessing the Python
 	// variable `x` through reticulate.
-	await sessions.select(rSessionId);
 	await expect(async () => {
+		await sessions.select(rSessionId);
 		await console.executeCode('R', 'y<-reticulate::py$x');
 		await variables.expectVariableToBe('y', xValue, 2000);
 	}, 'Can access Python variable x from R').toPass();
@@ -42,6 +42,7 @@ export async function verifyReticulateFunctionality(
 
 	// Verify able to overwrite the R variable `y` with an integer literal on the R side.
 	await expect(async () => {
+		await sessions.select(rSessionId);
 		await console.executeCode('R', `y <- ${yValue}L`);
 		await variables.expectVariableToBe('y', yValue, 2000);
 	}, 'Can overwrite the R variable').toPass();
@@ -53,12 +54,14 @@ export async function verifyReticulateFunctionality(
 
 	// Print the R variable r.y (should reflect the R-side value) and ensure it appears in the console
 	await expect(async () => {
+		await sessions.select(pythonSessionId);
 		await console.executeCode('Python', 'print(r.y)');
 		await console.waitForConsoleContents(yValue, { timeout: 5000 });
 	}, 'Can print the R variable r.y from Python').toPass();
 
 	// Print the Python variable z (created via repl_python) and ensure it appears as well
 	await expect(async () => {
+		await sessions.select(pythonSessionId);
 		await console.executeCode('Python', 'print(z)');
 		await console.waitForConsoleContents(zValue, { timeout: 5000 });
 	}, 'Can print the Python variable z from Python').toPass();
