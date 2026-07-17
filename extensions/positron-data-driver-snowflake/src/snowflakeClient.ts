@@ -225,7 +225,9 @@ export class SnowflakeClient {
 	 * that perform an async token exchange or browser round-trip and connect otherwise.
 	 */
 	private _connectOnce(conn: ISnowflakeSdkConnection): Promise<void> {
-		const useAsync = this._config.authenticator !== undefined && ASYNC_AUTHENTICATORS.has(this._config.authenticator);
+		// Compare case-insensitively: authenticators sourced from connections.toml can be lower-case
+		// (e.g. `externalbrowser`), while the form-based mechanisms pass the upper-case SDK constants.
+		const useAsync = this._config.authenticator !== undefined && ASYNC_AUTHENTICATORS.has(this._config.authenticator.toUpperCase());
 		return new Promise<void>((resolve, reject) => {
 			const callback = (err: SnowflakeError | undefined) => err ? reject(err) : resolve();
 			if (useAsync) {

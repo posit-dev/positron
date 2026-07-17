@@ -19,7 +19,8 @@
   },
   "contributes": {},
   "dependencies": {
-    "snowflake-sdk": "^3.1.0"
+    "snowflake-sdk": "^3.1.0",
+    "toml": "^3.0.0"
   },
   "devDependencies": {
     "@types/mocha": "^9.1.0",

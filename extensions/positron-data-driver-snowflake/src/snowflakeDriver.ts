@@ -19,6 +19,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { SnowflakeConnection } from './snowflakeConnection.js';
 import { SnowflakeConnectionOptions } from './snowflakeClient.js';
+import { SnowflakeConnectionsFileEntry, listConnectionNames, readConnectionsFile } from './snowflakeConnectionsFile.js';
 import { SnowflakeDataExplorerRpcHandler } from './snowflakeDataExplorerRpcHandler.js';
 
 /** The id of the key-pair (SNOWFLAKE_JWT) connection mechanism. */
@@ -27,6 +28,8 @@ const KEYPAIR_MECHANISM_ID = 'keypair';
 const OAUTH_CC_MECHANISM_ID = 'oauth-client-credentials';
 /** The id of the programmatic-access-token connection mechanism. */
 const PAT_MECHANISM_ID = 'pat';
+/** The id of the mechanism that reuses a named connection from ~/.snowflake/connections.toml. */
+const CONNECTIONS_FILE_MECHANISM_ID = 'connections-file';
 
 /** The snowflake-sdk authenticator constant for key-pair auth. */
 const AUTHENTICATOR_JWT = 'SNOWFLAKE_JWT';
@@ -265,6 +268,22 @@ function codegenFields(mechanismId: string, params: positron.DataConnectionParam
 	}
 }
 
+/**
+ * Generates connection code for the connections-file mechanism, which references the named connection
+ * rather than inlining its fields. Only Python is emitted: snowflake-connector-python reads
+ * connections.toml via `connection_name`, whereas R's odbc/DBI has no equivalent, so R yields nothing.
+ */
+function generateConnectionsFileCode(languageId: string, connectionName: string): positron.ConnectionCodeVariant[] {
+	if (languageId !== 'python' || !connectionName) {
+		return [];
+	}
+	return [{
+		id: 'snowflake-connector-python',
+		label: 'snowflake.connector',
+		code: `import snowflake.connector\n\nconn = snowflake.connector.connect(\n\tconnection_name="${escapeDoubleQuoted(connectionName)}",\n)\n`,
+	}];
+}
+
 /** Generates the connection code variants for the given language and normalized fields. */
 function generateConnectionCodeForFields(languageId: string, fields: SnowflakeCodegenFields | undefined): positron.ConnectionCodeVariant[] {
 	if (!fields) {
@@ -282,8 +301,54 @@ function generateConnectionCodeForFields(languageId: string, fields: SnowflakeCo
 	}
 }
 
+/** Reads a key from a connections.toml entry as a non-empty string, or undefined. */
+function tomlString(entry: SnowflakeConnectionsFileEntry, key: string): string | undefined {
+	const value = entry[key];
+	return isNonEmptyString(value) ? value : undefined;
+}
+
+/**
+ * Maps a raw connections.toml entry to normalized snowflake-sdk options. Reads the connector's
+ * snake_case keys (with the common aliases the SDK accepts) and passes whatever authenticator the file
+ * names -- including interactive ones like `externalbrowser` -- upper-cased so the client routes it
+ * correctly. Throws if the entry has no account, the one field always required.
+ */
+function connectionOptionsFromToml(name: string, entry: SnowflakeConnectionsFileEntry): SnowflakeConnectionOptions {
+	const account = tomlString(entry, 'account');
+	if (!account) {
+		throw new Error(vscode.l10n.t("Connection '{0}' in connections.toml has no account.", name));
+	}
+	const authenticator = tomlString(entry, 'authenticator');
+	return {
+		account: parseSnowflakeAccount(account),
+		username: tomlString(entry, 'user') ?? tomlString(entry, 'username'),
+		// A PAT or OAuth token in the file is supplied where a password is expected.
+		password: tomlString(entry, 'password') ?? tomlString(entry, 'token'),
+		authenticator: authenticator?.toUpperCase(),
+		privateKeyPath: tomlString(entry, 'private_key_file') ?? tomlString(entry, 'private_key_path'),
+		privateKeyPass: tomlString(entry, 'private_key_file_pwd') ?? tomlString(entry, 'private_key_pwd'),
+		warehouse: tomlString(entry, 'warehouse'),
+		database: tomlString(entry, 'database'),
+		schema: tomlString(entry, 'schema'),
+		role: tomlString(entry, 'role'),
+	};
+}
+
+/** Looks up a named connection in connections.toml, throwing a localized error if it is not found. */
+function tomlConnectionEntry(name: string): SnowflakeConnectionsFileEntry {
+	const entry = readConnectionsFile()[name];
+	if (!entry) {
+		throw new Error(vscode.l10n.t("Connection '{0}' was not found in connections.toml.", name));
+	}
+	return entry;
+}
+
 /** Builds the normalized snowflake-sdk connection options for a mechanism's parameter values. */
 function connectionOptions(mechanismId: string, params: positron.DataConnectionParameterValues): SnowflakeConnectionOptions {
+	if (mechanismId === CONNECTIONS_FILE_MECHANISM_ID) {
+		const name = params.connectionName as string;
+		return connectionOptionsFromToml(name, tomlConnectionEntry(name));
+	}
 	const account = parseSnowflakeAccount(params.account as string);
 	const common = commonFields(params);
 	const base: SnowflakeConnectionOptions = { account, ...common };
@@ -324,6 +389,14 @@ function connectionOptions(mechanismId: string, params: positron.DataConnectionP
  * the first missing one.
  */
 function validateRequired(mechanismId: string, params: positron.DataConnectionParameterValues): void {
+	// The connections-file mechanism takes a connection name rather than an account and its own
+	// credentials; everything else is read from connections.toml at connect time.
+	if (mechanismId === CONNECTIONS_FILE_MECHANISM_ID) {
+		if (!isNonEmptyString(params.connectionName)) {
+			throw new Error(vscode.l10n.t('Connection is required'));
+		}
+		return;
+	}
 	if (!isNonEmptyString(params.account)) {
 		throw new Error(vscode.l10n.t('Account is required'));
 	}
@@ -465,13 +538,41 @@ export function createSnowflakeDriver(
 		],
 	};
 
+	// Connections File: reuse a named connection already configured in
+	// ~/.snowflake/connections.toml. Only offered when the file defines at least one connection;
+	// the names are read at registration time (a window reload picks up later edits).
+	const connectionNames = listConnectionNames();
+	const connectionsFileMechanism: positron.DataConnectionMechanism | undefined = connectionNames.length > 0 ? {
+		id: CONNECTIONS_FILE_MECHANISM_ID,
+		label: vscode.l10n.t('Connections File'),
+		description: vscode.l10n.t('Reuse a named connection from your ~/.snowflake/connections.toml file.'),
+		parameters: [
+			{
+				id: 'connectionName',
+				label: vscode.l10n.t('Connection'),
+				description: vscode.l10n.t('The named connection to use from connections.toml.'),
+				type: positron.DataConnectionParameterType.Option,
+				options: connectionNames,
+				required: true,
+			},
+		],
+	} : undefined;
+
+	// Order: the connections file first (when present) since it reuses credentials the user has
+	// already configured, then Programmatic Access Token, then Key Pair, then the machine-to-machine
+	// OAuth client-credentials flow.
+	const mechanisms = [patMechanism, keyPairMechanism, oauthCcMechanism];
+	if (connectionsFileMechanism) {
+		mechanisms.unshift(connectionsFileMechanism);
+	}
+
 	return {
 		id: 'positron-data-driver-snowflake',
 		name: 'Snowflake',
 		description: vscode.l10n.t('Connect to a Snowflake account'),
 		iconSvg,
 		supportedLanguageIds: ['python', 'r'],
-		mechanisms: [keyPairMechanism, oauthCcMechanism, patMechanism],
+		mechanisms,
 		async connect(mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
 			validateRequired(mechanismId, params);
 			const connection = new SnowflakeConnection(connectionOptions(mechanismId, params), dataExplorerHandler);
@@ -479,6 +580,9 @@ export function createSnowflakeDriver(
 			return connection;
 		},
 		async generateConnectionCode(mechanismId: string, languageId: string, params: positron.DataConnectionParameterValues): Promise<positron.ConnectionCodeVariant[]> {
+			if (mechanismId === CONNECTIONS_FILE_MECHANISM_ID) {
+				return generateConnectionsFileCode(languageId, params.connectionName as string);
+			}
 			return generateConnectionCodeForFields(languageId, codegenFields(mechanismId, params));
 		},
 	};
