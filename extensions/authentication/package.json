@@ -21,7 +21,6 @@
 		"onAuthenticationRequest:google-cloud",
 		"onAuthenticationRequest:deepseek-api",
 		"onCommand:authentication.configureProviders",
-		"onCommand:authentication.migrateApiKey",
 		"onCommand:authentication.migrateSettingsToProvidersJson"
 	],
 	"main": "./out/extension.js",
