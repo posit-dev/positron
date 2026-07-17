@@ -521,6 +521,18 @@ function appendLog(app, text) {
   }
 }
 
+// Last 128 KB of a file plus its size (throws if unreadable; callers treat
+// that as "no log yet").
+function readLogTail(p) {
+  const st = fs.statSync(p);
+  const start = Math.max(0, st.size - 131072);
+  const fd = fs.openSync(p, 'r');
+  const buf = Buffer.alloc(st.size - start);
+  fs.readSync(fd, buf, 0, buf.length, start);
+  fs.closeSync(fd);
+  return { text: buf.toString('utf8'), size: st.size };
+}
+
 function startTail(app, fromPos) {
   stopTail(app);
   app.tailPos = fromPos ?? 0;
@@ -691,6 +703,13 @@ async function launchElectron(withAssistant) {
   const app = apps.electron;
   const codeSh = path.join(CHECKOUT, 'scripts', 'code.sh');
 
+  // 'launching' spans the assistant pre-build; a second press mid-build would
+  // start a concurrent build into the same log.
+  if (app.state === 'launching') {
+    setStatus('Electron launch already in progress');
+    return;
+  }
+
   const running = await runningDevInstance();
   if (running) {
     const ours = app.pid && pidAlive(app.pid);
@@ -761,6 +780,13 @@ async function launchElectron(withAssistant) {
 
 function launchWeb() {
   const app = apps.web;
+  // A relaunch while the server is up would orphan the old pid (losing k) and
+  // die on the port anyway - refuse, like the Electron singleton check.
+  if (app.pid && pidAlive(app.pid)) {
+    setStatus(`Web is already running (pid ${app.pid}) - k kills it`);
+    activeTab = app.key;
+    return invalidate();
+  }
   const codeServer = path.join(CHECKOUT, 'scripts', 'code-server.sh');
   beginAppLaunch(app);
   activeTab = app.key;
@@ -800,16 +826,10 @@ function resumeApps() {
     app.feeder = newAppFeeder(app);
     let size = 0;
     try {
-      // Seed the ring with the tail of the existing log (last 128 KB).
-      const st = fs.statSync(app.logPath);
-      size = st.size;
-      const start = Math.max(0, st.size - 131072);
-      const fd = fs.openSync(app.logPath, 'r');
-      const len = st.size - start;
-      const buf = Buffer.alloc(len);
-      fs.readSync(fd, buf, 0, len, start);
-      fs.closeSync(fd);
-      for (const line of buf.toString('utf8').split(/\r\n?|\n/)) {
+      // Seed the ring with the tail of the existing log.
+      const tail = readLogTail(app.logPath);
+      size = tail.size;
+      for (const line of tail.text.split(/\r\n?|\n/)) {
         if (line.length) {
           const clean = stripAnsi(line);
           app.ring.push(clean);
@@ -821,6 +841,27 @@ function resumeApps() {
     }
     app.ring.push(`[positron-dev] resumed (pid ${pid}); tailing ${app.logPath}`);
     startTail(app, size);
+  }
+}
+
+// Launched apps are detached (and resumed ones were never our children), so
+// there is no exit event to listen for; poll the recorded pid instead and flip
+// the card when the process dies on its own (window closed, server crashed).
+function refreshApps() {
+  for (const app of Object.values(apps)) {
+    if ((app.state !== 'running' && app.state !== 'ready') || !app.pid || pidAlive(app.pid)) {
+      continue;
+    }
+    stopTail(app);
+    app.ring.push(`[positron-dev] ${app.label} exited (pid ${app.pid})`);
+    app.pid = null;
+    app.state = 'exited';
+    try {
+      fs.unlinkSync(appPidPath(app));
+    } catch {
+      /* ignore */
+    }
+    invalidate();
   }
 }
 
@@ -1753,13 +1794,7 @@ function probeApp(app) {
   app.state = alive ? 'running' : pid ? 'exited' : 'idle';
   if (alive && app.readyRe) {
     try {
-      const st = fs.statSync(app.logPath);
-      const start = Math.max(0, st.size - 131072);
-      const fd = fs.openSync(app.logPath, 'r');
-      const buf = Buffer.alloc(st.size - start);
-      fs.readSync(fd, buf, 0, buf.length, start);
-      fs.closeSync(fd);
-      if (app.readyRe.test(stripAnsi(buf.toString('utf8')))) app.state = 'ready';
+      if (app.readyRe.test(stripAnsi(readLogTail(app.logPath).text))) app.state = 'ready';
     } catch {
       /* no log yet */
     }
@@ -1850,6 +1885,7 @@ async function main() {
   initApps(CHECKOUT);
   initDeps(CHECKOUT);
   setInterval(refreshDeps, 5000);
+  setInterval(refreshApps, 5000);
   setInterval(invalidate, 10000); // keep the "N ago" badges fresh
 
   process.stdout.write(ALT_ON + CUR_HIDE + CLEAR);
