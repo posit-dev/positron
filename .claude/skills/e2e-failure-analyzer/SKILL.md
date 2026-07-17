@@ -32,7 +32,7 @@ Scripts live alongside this skill in `scripts/`. Use the base directory path sho
 ### Standalone scripts (used by consolidated scripts internally, or for ad-hoc debugging)
 
 - **`e2e-extract-failures.js`** - Extracts failures from a merged Playwright JSON report
-- **`e2e-parse-trace.js`** - Parses a `trace.trace` file into an action timeline with errors and last screenshot hash
+- **`e2e-parse-trace.js`** - Parses a `trace.trace` file into an action timeline with errors and last screenshot hash, plus a DOM-presence report and a console digest near the failure (see **Reading the DOM-presence and console-digest sections** below)
 - **`e2e-inspect-blobs.js`** - Scans blob report zips to find failed test IDs and their trace/log resource hashes
 - **`e2e-query-history.js`** - Queries the e2e-test-insights API for historical test health data (requires `E2E_INSIGHTS_API_KEY` env var)
 
@@ -100,7 +100,7 @@ Output JSON contains:
 - `testDetails` - array of per-test objects, each containing:
   - `testId`, `title`, `file`, `status`, `blob`, `attemptCount`
   - `attempts` - array of per-attempt objects with:
-    - `trace` - parsed trace data: `timeline` (human-readable string), `errors` (array), `screenshotShas` (array of `{sha1, timestamp}` in chronological order), `lastScreenshotSha1` (legacy: same as last entry of `screenshotShas`)
+    - `trace` - parsed trace data: `timeline` (human-readable string), `errors` (array), `screenshotShas` (array of `{sha1, timestamp}` in chronological order), `lastScreenshotSha1` (legacy: same as last entry of `screenshotShas`). The `timeline` ends with two derived sections when the trace carries the data (see **Reading the DOM-presence and console-digest sections** below): a **DOM presence** report (did the failing selector's target ever enter the DOM across the frame snapshots) and a **console digest** (command executions + runtime-startup phase transitions near the failure).
     - `screenshotPaths` - chronological array of paths to extracted screenshot JPEGs (view with Read tool); the last entry is the failure-state frame, earlier entries show the moments before it
     - `screenshotPath` - legacy alias pointing to the last entry of `screenshotPaths`
     - `errorContextPath` - path to the extracted **page snapshot** markdown: Playwright's accessibility-tree snapshot of the page at the moment of failure (including content inside same-origin webview iframes), plus the failing selector and the relevant test source. Primary evidence for locator-not-found / not-visible / element-count / text-or-attribute failures -- Read it to tell a stale test selector from a real product regression (see the [analysis rubric](rubric.md))
@@ -109,6 +109,13 @@ Output JSON contains:
 **IMPORTANT: View screenshots** using the `screenshotPaths` arrays with the Read tool. You MUST Read **all** screenshots in a **single message** with multiple parallel Read tool calls -- this results in only one approval prompt instead of one per screenshot. View all attempts and all frames per attempt; comparing across retries reveals whether a failure is consistent or intermittent, and comparing the trailing frames *within* an attempt often shows where the test went wrong before the visible error. Screenshots are the most revealing evidence for diagnosing failures. Default frame count per attempt is 3 (configurable via `--screenshots N` on `e2e-process-project.js`).
 
 **View the error-context page snapshot** with the Read tool using `errorContextPath` paths. For any locator-not-found, "not visible", element-count, or text/attribute failure, Read it FIRST (not as a last resort): it captures the failure-state accessibility tree -- the only evidence that distinguishes a stale test selector from a real product regression, since a screenshot cannot. See the [analysis rubric](rubric.md).
+
+**Reading the DOM-presence and console-digest sections.** These two derived sections are appended to each attempt's `trace.timeline` (no extra file to open). They exist to separate a product open-path bug from an environment flake when a click/keypress "does nothing":
+
+- **DOM presence** substring-matches the failing selector's class/id token across all frame snapshots. `present in N/M snapshots` means the element WAS in the DOM (so a visibility/timeout error is a timing or dismiss race, not a never-render). `NEVER present` is **ambiguous on its own** -- the exact class never matched, which fits BOTH a never-rendered element AND locator drift (the element rendered under different markup). Do not read `NEVER present` as "product bug" by itself; disambiguate with the console digest and the error-context snapshot's stable text/label.
+- **Console digest** lists renderer `CommandService#executeCommand <id>` lines (a command actually firing) and `[Runtime startup] Phase changed` transitions near the failure. A command that fired while the target UI stayed `NEVER present` points at the command's handler (a product open-path bug), not the click or the environment; a startup phase flipping to `complete` just before the failing action is a timing-race tell.
+
+The decision rule that combines these -- and the requirement that the command-fired signal (or a confirmed-absent stable label), not DOM-absence alone, is what justifies a product-open-path verdict -- lives in the [analysis rubric](rubric.md) under "Action fired but nothing rendered."
 
 ---
 
