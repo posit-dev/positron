@@ -13,7 +13,10 @@
     "Data Science"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onView:catalog-explorer",
+    "onCommand:posit.catalog-explorer.addCatalogProvider",
+    "onCommand:posit.catalog-explorer.removeCatalogProvider",
+    "onCommand:posit.catalog-explorer.refresh"
   ],
   "main": "./out/extension.js",
   "extensionDependencies": [
@@ -26,7 +29,7 @@
         "catalogExplorer.enabled": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Enable or disable the experimental Catalog Explorer extension. When disabled, the extension will not activate. Requires a restart of Positron to take effect.",
+          "markdownDescription": "Enable or disable the experimental Catalog Explorer extension. When disabled, the Catalog Explorer view is hidden and the extension is not loaded.",
           "tags": [
             "experimental"
           ]
