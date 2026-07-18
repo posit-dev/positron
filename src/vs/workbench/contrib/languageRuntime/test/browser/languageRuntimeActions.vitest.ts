@@ -12,7 +12,7 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { DuplicateActiveConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime } from '../../browser/languageRuntimeActions.js';
+import { DuplicateActiveConsoleSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime } from '../../browser/languageRuntimeActions.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -824,5 +824,54 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 			RuntimeStartMode.Starting,
 			true
 		);
+	});
+});
+
+describe('StartNewConsoleSessionAction', () => {
+	const startNewRuntimeSession = vi.fn(async (): Promise<string> => 'new-session-id');
+	const executeCommand = vi.fn(async () => undefined);
+	const notifyError = vi.fn();
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({ startNewRuntimeSession }))
+		.stub(ICommandService, { executeCommand })
+		.stub(INotificationService, stubInterface<INotificationService>({ error: notifyError }))
+		.build();
+
+	function runAction(runtimeId?: string) {
+		return ctx.instantiationService.invokeFunction(accessor =>
+			new StartNewConsoleSessionAction().run(accessor, runtimeId));
+	}
+
+	// Agent-invocable path: a runtimeId is supplied, so the command must
+	// resolve it directly and skip the picker entirely.
+	it('starts the session for a registered runtimeId without opening a picker', async () => {
+		const runtimeService = ctx.get(ILanguageRuntimeService);
+		const runtime = makeRuntime({ runtimeId: 'py-1', runtimeName: 'Python 3.12 (System)' });
+		ctx.disposables.add(runtimeService.registerRuntime(runtime));
+
+		const result = await runAction('py-1');
+
+		expect(result).toBe('new-session-id');
+		expect(executeCommand).toHaveBeenCalledWith('workbench.panel.positronConsole.focus');
+		expect(startNewRuntimeSession).toHaveBeenCalledWith(
+			'py-1',
+			'Python 3.12 (System)',
+			LanguageRuntimeSessionMode.Console,
+			undefined,
+			'Runtime id supplied to startNewConsoleSession command',
+			RuntimeStartMode.Starting,
+			true
+		);
+	});
+
+	// An unresolvable runtimeId must surface a clear error rather than
+	// silently falling back to the interactive picker.
+	it('throws and notifies without starting a session for an unknown runtimeId', async () => {
+		await expect(runAction('does-not-exist')).rejects.toThrow(/does-not-exist/);
+		expect(notifyError).toHaveBeenCalledWith(expect.stringContaining('does-not-exist'));
+		expect(startNewRuntimeSession).not.toHaveBeenCalled();
+		expect(executeCommand).not.toHaveBeenCalled();
 	});
 });

@@ -827,6 +827,89 @@ export class DuplicateActiveConsoleSessionAction extends Action2 {
 	}
 }
 
+/**
+ * Action that allows the user to create a new console session from a list of registered runtimes.
+ */
+export class StartNewConsoleSessionAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			icon: Codicon.plus,
+			id: LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID,
+			title: localize2('positron.languageRuntime.startConsoleSession', 'Start New Console Session'),
+			category,
+			f1: true,
+			menu: [{
+				group: 'navigation',
+				id: MenuId.ViewTitle,
+				order: 1,
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
+					PositronConsoleInstancesExistContext.negate()
+				),
+			}],
+			keybinding: {
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Slash,
+				mac: { primary: KeyMod.WinCtrl | KeyMod.Shift | KeyCode.Slash },
+				weight: KeybindingWeight.WorkbenchContrib
+			},
+			metadata: {
+				description: localize('positron.startNewConsoleSession.description', "Start a new console session for a language runtime."),
+				agentCompatible: true,
+				args: [
+					{ name: 'runtimeId', isOptional: true, description: "Runtime id to start a console session for. If omitted, a runtime picker opens.", schema: { type: 'string' } },
+				],
+			},
+		});
+	}
+
+	async run(accessor: ServicesAccessor, runtimeId?: string) {
+		// Access services.
+		const commandService = accessor.get(ICommandService);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+
+		let selectedRuntime: ILanguageRuntimeMetadata | undefined;
+		if (runtimeId) {
+			// A runtime id was supplied (e.g. by an agent): resolve it
+			// directly and skip the picker.
+			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+			selectedRuntime = languageRuntimeService.getRegisteredRuntime(runtimeId);
+			if (!selectedRuntime) {
+				const notificationService = accessor.get(INotificationService);
+				const message = localize('positron.languageRuntime.startConsoleSession.unknownRuntime',
+					"No registered runtime with id '{0}'.", runtimeId);
+				notificationService.error(message);
+				throw new Error(message);
+			}
+		} else {
+			// Prompt the user to select a runtime to start
+			selectedRuntime = await selectNewLanguageRuntime(
+				accessor,
+				{ title: localize('positron.languageRuntime.startConsoleSession', 'Start New Console Session') }
+			);
+		}
+
+		// If a runtime was resolved, start a new session for it.
+		if (selectedRuntime?.runtimeId) {
+			// Drive focus into the Positron console.
+			commandService.executeCommand('workbench.panel.positronConsole.focus');
+
+			return await runtimeSessionService.startNewRuntimeSession(
+				selectedRuntime.runtimeId,
+				selectedRuntime.runtimeName,
+				LanguageRuntimeSessionMode.Console,
+				undefined,
+				runtimeId ? 'Runtime id supplied to startNewConsoleSession command' : 'User selected runtime',
+				RuntimeStartMode.Starting,
+				true
+			);
+		}
+		return undefined;
+	}
+}
+
 export function registerLanguageRuntimeActions() {
 	/**
 	 * Helper function to register a language runtime action.
@@ -966,66 +1049,7 @@ export function registerLanguageRuntimeActions() {
 		}
 	);
 
-	/**
-	 * Action that allows the user to create a new console session from a list of registered runtimes.
-	 */
-	registerAction2(class extends Action2 {
-		/**
-		 * Constructor.
-		 */
-		constructor() {
-			super({
-				icon: Codicon.plus,
-				id: LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID,
-				title: localize2('positron.languageRuntime.startConsoleSession', 'Start New Console Session'),
-				category,
-				f1: true,
-				menu: [{
-					group: 'navigation',
-					id: MenuId.ViewTitle,
-					order: 1,
-					when: ContextKeyExpr.and(
-						ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
-						PositronConsoleInstancesExistContext.negate()
-					),
-				}],
-				keybinding: {
-					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Slash,
-					mac: { primary: KeyMod.WinCtrl | KeyMod.Shift | KeyCode.Slash },
-					weight: KeybindingWeight.WorkbenchContrib
-				}
-			});
-		}
-
-		async run(accessor: ServicesAccessor) {
-			// Access services.
-			const commandService = accessor.get(ICommandService);
-			const runtimeSessionService = accessor.get(IRuntimeSessionService);
-
-			// Prompt the user to select a runtime to start
-			const selectedRuntime = await selectNewLanguageRuntime(
-				accessor,
-				{ title: localize('positron.languageRuntime.startConsoleSession', 'Start New Console Session') }
-			);
-
-			// If the user selected a runtime, set it as the active runtime
-			if (selectedRuntime?.runtimeId) {
-				// Drive focus into the Positron console.
-				commandService.executeCommand('workbench.panel.positronConsole.focus');
-
-				return await runtimeSessionService.startNewRuntimeSession(
-					selectedRuntime.runtimeId,
-					selectedRuntime.runtimeName,
-					LanguageRuntimeSessionMode.Console,
-					undefined,
-					'User selected runtime',
-					RuntimeStartMode.Starting,
-					true
-				);
-			}
-			return undefined;
-		}
-	});
+	registerAction2(StartNewConsoleSessionAction);
 
 	/**
 	 * Action that allows the user to rename an active session.
