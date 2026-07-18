@@ -111,7 +111,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 		}));
 
 		return () => disposableStore.dispose();
-	}, [props.session, props.renderer]);
+	}, [props.session]);
 
 	// Load the session's output channels asynchronously so the popup opens
 	// immediately; the channel buttons appear once listOutputChannels() resolves.
