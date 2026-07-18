@@ -894,16 +894,19 @@ export class Sessions {
 			? this.page.getByTestId(`info-${sessionId}`)
 			: this.page.getByTestId(/^info-(python|r)(-notebook)?-[a-z0-9]+$/i);
 
+		// The info button's press handler no-ops while the button's testid is still `info-unknown`
+		// -- the active console session isn't wired into React context yet. Wait for the real
+		// `info-<id>` testid before clicking; once it's real a single click reliably opens the
+		// dialog. Return early when the dialog is already open: clicking the button again dismisses
+		// the popup, so the retry must never re-click an open dialog.
+		await expect(button).toBeVisible();
+
 		await expect(async () => {
-			const isMetadataDialogVisible = await this.metadataDialog.isVisible();
-
-			if (!isMetadataDialogVisible) {
-				await expect(button).toBeVisible();
-				await button.click();
-				await this.page.mouse.move(0, 0);
-				await this.page.waitForTimeout(500);
+			if (await this.metadataDialog.isVisible()) {
+				return;
 			}
-
+			await button.click();
+			await this.page.mouse.move(0, 0);
 			await expect(this.metadataDialog).toBeVisible();
 		}, 'Open the Metadata Dialog').toPass({ timeout: 3000 });
 	}
