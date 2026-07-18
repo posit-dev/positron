@@ -122,6 +122,7 @@
   "src/vs/platform/positronIdleTracking/": [],
   "src/vs/platform/positronMemoryUsage/": ["@:variables"],
   "src/vs/platform/update/": [],
+  "src/vs/workbench/browser/parts/editor/editorActionBar": ["@:editor-action-bar"],
   "src/vs/workbench/browser/parts/positronTopActionBar/": ["@:top-action-bar"],
   "src/vs/workbench/browser/positronAnsiRenderer/": ["@:console"],
   "src/vs/workbench/browser/positronDataExplorer/": ["@:data-explorer"],
