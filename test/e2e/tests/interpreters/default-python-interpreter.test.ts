@@ -53,17 +53,22 @@ test.describe('Default Interpreters - Python', {
 			? /python-env\/bin\/python/
 			: new RegExp(`~?\\.pyenv/versions/${pythonVersion.replace(/\./g, '\\.')}/bin/python`);
 
-		// Retry with reload on failure -- same detached-session race as #14901; matches
-		// default-r-interpreter.test.ts's idiom.
-		await expect(async () => {
-			try {
-				const { name, path } = await sessions.getMetadata();
-				expect(name).toMatch(versionRegex);
-				expect(path).toMatch(pathRegex);
-			} catch (error) {
-				await hotKeys.reloadWindow(true);
-				throw error;
-			}
-		}).toPass({ timeout: 60000 });
+		// The beforeAll set python.defaultInterpreterPath and reloaded in one call. That reload
+		// cancels the in-flight (extension-requested) session creation, and the affiliated Python
+		// runtime does not reliably auto-start afterward. Wait for a session to actually appear
+		// before reading metadata rather than racing a still-empty console (which is what surfaced
+		// the misleading "Extract session metadata" timeout). If affiliation never fired, reload
+		// once to re-trigger it -- but only after the wait, so we never reload a session mid-start
+		// (a reload cancels in-flight session creation; see #14901).
+		try {
+			await sessions.expectSessionCountToBe(1);
+		} catch {
+			await hotKeys.reloadWindow(true);
+			await sessions.expectSessionCountToBe(1);
+		}
+
+		const { name, path } = await sessions.getMetadata();
+		expect(name).toMatch(versionRegex);
+		expect(path).toMatch(pathRegex);
 	});
 });
