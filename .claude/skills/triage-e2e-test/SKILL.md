@@ -357,6 +357,61 @@ Don't claim a flaky test is "fixed" on the strength of a single green run,
 local or in CI -- for a race, evidence is a trend across enough runs, not one
 data point.
 
+### 7. Record the diagnosis on the PR
+
+This skill is manual and doesn't open PRs itself, so this step fires whenever
+the triage does lead to a PR (fix-the-test or a product-bug fix). Append an
+`### E2E Triage Diagnosis` block to the end of the PR body -- after whatever
+body template the change itself calls for (plain Summary/QA Notes for a
+test-only change; the product PR template for a source fix). The block is an
+immutable snapshot of the skill's root-cause prediction at authoring time, so
+its accuracy can be scored later against what actually fixed the flake.
+
+```
+### E2E Triage Diagnosis
+
+<details>
+<summary>🟢 <b>High confidence</b> -- <one-line hypothesis summary></summary>
+
+- **Spec:** `<spec path>`
+  - **Test:** `<full hierarchical test title>`
+- **Signal:** <trace-timeline mechanism observation, not the bare assertion string>
+- **Frequency:** <count/percentage + environment, e.g. "5/313 runs (1.6%), ubuntu/electron">
+- **Hypothesis:** <root-cause mechanism -- race / isolation / contention / infra / product-bug>
+
+</details>
+```
+
+Field notes:
+
+- **Confidence emoji:** 🟢 high, 🟡 medium, 🔴 low. Keep the word "confidence"
+  in plain text next to the emoji so the block stays greppable for later
+  scoring.
+- **Signal is the highest-leverage field, and the easiest to get lazy on.**
+  Pull the timeline shape from the step 4-5 evidence -- what the trace or
+  snapshot actually showed (e.g. "markers render right after import, then
+  disappear before the assertion runs") -- not the step-3 failure-pattern
+  string ("`toBeVisible()` timed out"), which can't tell "never rendered" from
+  "rendered then clobbered": two unrelated root causes.
+- **Frequency** is its own bullet -- it's a different kind of evidence (how
+  often / where) than the Signal mechanism observation.
+- `<details>` collapsing is rendering-only: `gh api` / `gh pr view --json body`
+  still return the full text, so nothing is lost for later scoring.
+
+Do NOT edit the block after merge to record whether the hypothesis turned out
+right -- that would rewrite a merged PR description as ground truth arrives
+late. Outcome scoring lives in a separate log keyed by PR number. To find every
+PR carrying a diagnosis, full-text search the heading (no label needed):
+
+```bash
+gh search prs --repo posit-dev/positron --match body "E2E Triage Diagnosis" \
+  --json number,title,url
+```
+
+When appending the block to an existing PR, edit the body with `gh api
+repos/<owner>/<repo>/pulls/<n> -X PATCH -F body=@<file>` -- `gh pr edit` fails
+on the Projects-classic GraphQL deprecation.
+
 ## Non-goals
 
 - No new S3 uploads or API changes -- consumes the existing `test-health`
