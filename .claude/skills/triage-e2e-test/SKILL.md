@@ -384,6 +384,16 @@ its accuracy can be scored later against what actually fixed the flake.
 
 Field notes:
 
+- **Spec and Test lead every block -- never drop them.** Each block names the
+  spec path and the **full hierarchical test title** (every enclosing
+  `test.describe()` joined with `" > "`, same key as step 1) -- they're the
+  block's identity, what makes it findable and scoreable per-test later. A
+  product-bug block whose fix lives in source still gets them: the diagnosis is
+  keyed to the test that surfaced it, not to the file being changed (this is
+  the field easiest to forget precisely on those blocks). When one block covers
+  more than one test, give each its own `Spec` + `Test` pair rather than
+  collapsing them into a prose "`pathA` and `pathB`" that a later per-test
+  search won't match.
 - **Confidence emoji:** 🟢 high, 🟡 medium, 🔴 low. Keep the word "confidence"
   in plain text next to the emoji so the block stays greppable for later
   scoring.
