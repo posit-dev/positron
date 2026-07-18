@@ -45,7 +45,7 @@ export const ConsoleInstanceInfoButton = () => {
 	// Reference hooks.
 	const ref = useRef<HTMLButtonElement>(undefined!);
 
-	const handlePressed = async () => {
+	const handlePressed = () => {
 		// Get the session ID and the session. Note that we don't ask the
 		// console instance for the session directly since we want this to work
 		// even with a detached session.
@@ -59,16 +59,11 @@ export const ConsoleInstanceInfoButton = () => {
 			return;
 		}
 
-		// Get the channels from the session.
-		let channels: LanguageRuntimeSessionChannel[] = [];
-		try {
-			channels = intersectionOutputChannels(await session.listOutputChannels());
-		} catch (err) {
-			// If we fail to get the channels we can just ignore it
-			console.warn('Failed to get output channels', err);
-		}
-
-		// Create the renderer.
+		// Open the popup immediately. The popup loads its output channels
+		// asynchronously (see ConsoleInstanceInfoModalPopup) so opening it never
+		// waits on the listOutputChannels() ext-host RPC, which can be slow under
+		// load or early in session startup and would otherwise delay (or drop) the
+		// popup entirely.
 		const renderer = new PositronModalReactRenderer({
 			container: services.workbenchLayoutService.getContainer(DOM.getWindow(ref.current)),
 			parent: ref.current
@@ -77,7 +72,6 @@ export const ConsoleInstanceInfoButton = () => {
 		renderer.render(
 			<ConsoleInstanceInfoModalPopup
 				anchorElement={ref.current}
-				channels={channels}
 				renderer={renderer}
 				session={session}
 			/>
@@ -102,11 +96,11 @@ interface ConsoleInstanceInfoModalPopupProps {
 	anchorElement: HTMLElement;
 	renderer: PositronModalReactRenderer;
 	session: ILanguageRuntimeSession;
-	channels: LanguageRuntimeSessionChannel[];
 }
 
 const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
 	const [sessionState, setSessionState] = useState(() => props.session.getRuntimeState());
+	const [channels, setChannels] = useState<LanguageRuntimeSessionChannel[]>([]);
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -118,6 +112,23 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 
 		return () => disposableStore.dispose();
 	}, [props.session, props.renderer]);
+
+	// Load the session's output channels asynchronously so the popup opens
+	// immediately; the channel buttons appear once listOutputChannels() resolves.
+	useEffect(() => {
+		let active = true;
+		props.session.listOutputChannels().then(
+			available => {
+				if (active) {
+					setChannels(intersectionOutputChannels(available));
+				}
+			},
+			err => {
+				// If we fail to get the channels we can just ignore it
+				console.warn('Failed to get output channels', err);
+			});
+		return () => { active = false; };
+	}, [props.session]);
 
 	const showKernelOutputChannelClickHandler = (channel: LanguageRuntimeSessionChannel) => {
 		props.session.showOutput(channel);
@@ -163,7 +174,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 					</div>
 				</div>
 				<div className='top-separator actions'>
-					{props.channels.map((channel, index) => (
+					{channels.map((channel, index) => (
 						<Button
 							key={`channel-${index}`}
 							className='link'
