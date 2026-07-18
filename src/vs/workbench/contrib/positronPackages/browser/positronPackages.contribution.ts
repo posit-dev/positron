@@ -300,7 +300,15 @@ class InstallPackageAction extends Action2 {
 				when: PACKAGES_VIEW_VISIBLE,
 				group: 'packages',
 				order: 1
-			}
+			},
+			metadata: {
+				description: nls.localize('positron.installPackage.description', "Install a package in the active runtime session."),
+				agentCompatible: true,
+				args: [
+					{ name: 'name', description: "Name of the package to install.", schema: { type: 'string' } },
+					{ name: 'version', isOptional: true, description: "Target version, or 'latest' for the newest available version. When omitted, the newest version is installed.", schema: { type: 'string' } },
+				],
+			},
 		});
 	}
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
@@ -323,10 +331,6 @@ class InstallPackageAction extends Action2 {
 			};
 
 			const performInstall = async (pkg: string, version?: string): Promise<void> => {
-				if (!version) {
-					throw new Error('No version specified.');
-				}
-
 				await progress.withProgress({
 					title: nls.localize('positronPackages.installingPackages', 'Installing Packages...'),
 					location: ProgressLocation.Notification,
@@ -349,15 +353,16 @@ class InstallPackageAction extends Action2 {
 				}, () => cts.cancel());
 			};
 
-			// When a package name and version are both provided (e.g. the detail
-			// editor's Install button), install that version directly. Only a real
-			// string is treated as the package name -- menu invocations (e.g. the
-			// view-title overflow "Install Package") pass a context object as arg0,
-			// which must fall through to the search quick-pick.
+			// When a package name is provided (e.g. the detail editor's Install
+			// button, or an agent), install it directly, installing the latest
+			// version when none is given. Only a real string is treated as the
+			// package name -- menu invocations (e.g. the view-title overflow
+			// "Install Package") pass a context object as arg0, which must fall
+			// through to the search quick-pick.
 			const argPackage = typeof args.at(0) === 'string' ? args.at(0) as string : undefined;
 			const argVersion = typeof args.at(1) === 'string' ? args.at(1) as string : undefined;
-			if (argPackage && argVersion) {
-				await performInstall(argPackage, argVersion);
+			if (argPackage) {
+				await performInstall(argPackage, normalizeAgentTargetVersion(argVersion));
 				return;
 			}
 
