@@ -76,9 +76,11 @@ jobs:
           # One-way override: @:full-ci in the PR body forces full CI. Matches the
           # existing loose @: tag convention in pr-tags-parse.sh (substring match,
           # can trigger from backtick-quoted prose -- acceptable, only forces MORE
-          # testing).
-          PR_BODY=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.body' || true)
-          if printf '%s' "$PR_BODY" | grep -q "@:full-ci"; then
+          # testing). Fail safe: if the body fetch errors, force full CI too.
+          if ! PR_BODY=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.body'); then
+            echo "Could not fetch PR body; forcing full CI."
+            DOCS_ONLY=false
+          elif printf '%s' "$PR_BODY" | grep -q "@:full-ci"; then
             echo "Found @:full-ci in PR body; forcing full CI."
             DOCS_ONLY=false
           fi
