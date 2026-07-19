@@ -50,6 +50,8 @@ jobs:
       # Guardrail for the tag-derivation scripts; fail fast before relying on them below.
       - name: Unit test the tag-derivation helpers
         run: bash scripts/test/pr-tags-lib-test.sh
+      - name: Unit test the docs-only detection helper
+        run: bash scripts/test/is-docs-only-change-test.sh
       - name: Validate test-tag-paths-map.json tags against test-tags.ts
         run: bash scripts/check-test-tag-map.sh --tags-only
       - name: Parse Tags from PR Body
