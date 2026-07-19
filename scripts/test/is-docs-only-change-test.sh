@@ -40,6 +40,24 @@ assert_eq "nested markdown -> true" "true" \
 	"$(run "src/vs/workbench/contrib/foo/README.md")"
 assert_eq "empty input -> false" "false" \
 	"$(run "")"
+# A root LICENSE*-style glob must not match nested paths (e.g. a code file
+# living under a directory that happens to start with LICENSE).
+assert_eq "nested path matching root glob prefix -> false" "false" \
+	"$(run "LICENSE_TOOLS/foo.ts")"
+
+# Regression: a large list with an early non-doc path must not SIGPIPE the
+# upstream producer under `set -o pipefail` -- the script must drain all of
+# stdin. Build a >64KB list whose first entry is code.
+big_list() {
+	printf 'src/vs/first.ts\n'
+	# ~6000 lines * ~14 bytes ~= 84KB, safely over the pipe buffer.
+	for i in $(seq 1 6000); do printf 'docs/page-%04d.md\n' "$i"; done
+}
+assert_eq "large list, early non-doc, no SIGPIPE -> false" "false" \
+	"$(big_list | bash "$SCRIPT")"
+# Also assert the pipeline itself exits 0 (no 141/SIGPIPE) under pipefail.
+(set -o pipefail; big_list | bash "$SCRIPT" >/dev/null)
+assert_eq "large list pipeline exit status" "0" "$?"
 
 if [[ "$fail" -ne 0 ]]; then
 	echo "SOME TESTS FAILED"

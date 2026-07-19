@@ -11,31 +11,39 @@ set -uo pipefail
 is_doc_path() {
 	local path="$1"
 	case "$path" in
-		*.md) return 0 ;;                       # Markdown anywhere
-		docs/*) return 0 ;;                     # docs/ tree (segment-anchored)
-		LICENSE*|CHANGELOG*|NOTICE*) return 0 ;; # root license/changelog/notice
+		*.md) return 0 ;;                        # Markdown anywhere
+		docs/*) return 0 ;;                      # docs/ tree (segment-anchored)
+		*/*) return 1 ;;                         # any other nested path is not a root doc
+		LICENSE*|CHANGELOG*|NOTICE*) return 0 ;; # root license/changelog/notice only
 		*) return 1 ;;
 	esac
 }
 
 saw_any=false
 result=true
+
+# Check one path, but only while we still believe the change is docs-only.
+# Do NOT break out of the loop on the first non-doc file: an early break
+# leaves stdin undrained, which SIGPIPEs the upstream producer (printf / git
+# diff) under `set -o pipefail` on large inputs. Read to EOF unconditionally.
+check_path() {
+	if [[ "$result" == "true" ]] && ! is_doc_path "$1"; then
+		result=false
+	fi
+}
+
 while IFS= read -r path; do
 	# Skip blank lines (trailing newline, empty stdin).
 	[[ -z "$path" ]] && continue
 	saw_any=true
-	if ! is_doc_path "$path"; then
-		result=false
-		break
-	fi
+	check_path "$path"
 done
 
-# Handle the last line if input doesn't end with newline
-if [[ -n "$path" && "$result" == "true" ]]; then
+# Handle the final line when input has no trailing newline (the while-read
+# loop does not execute its body for an unterminated last line).
+if [[ -n "$path" ]]; then
 	saw_any=true
-	if ! is_doc_path "$path"; then
-		result=false
-	fi
+	check_path "$path"
 fi
 
 if [[ "$saw_any" != "true" ]]; then
