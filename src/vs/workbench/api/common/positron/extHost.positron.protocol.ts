@@ -349,7 +349,7 @@ export type ISerializedValidateAndExecuteCommandResult =
 	| { ok: true; result: unknown }
 	| {
 		ok: false;
-		reason: 'unknown' | 'disabled' | 'error';
+		reason: 'not-found' | 'disabled' | 'error' | 'unknown';
 		precondition?: string;
 		message?: string;
 	};

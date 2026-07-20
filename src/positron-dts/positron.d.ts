@@ -3811,18 +3811,19 @@ declare module 'positron' {
 		 * On success, `ok` is `true` and `result` carries the handler's return
 		 * value. On failure, `ok` is `false` and `reason` explains what went
 		 * wrong so the caller can respond intelligibly:
-		 * - `'unknown'`: no command is registered with this id in the current
+		 * - `'not-found'`: no command is registered with this id in the current
 		 *   build.
 		 * - `'disabled'`: the command's precondition context-key expression
 		 *   evaluated to false. `precondition` contains the serialized
 		 *   expression for diagnostics.
 		 * - `'error'`: the handler threw. `message` contains the error message.
+		 * - `'unknown'`: the failure cause could not be determined.
 		 */
 		export type ValidateAndExecuteCommandResult =
 			| { ok: true; result: unknown }
 			| {
 				ok: false;
-				reason: 'unknown' | 'disabled' | 'error';
+				reason: 'not-found' | 'disabled' | 'error' | 'unknown';
 				precondition?: string;
 				message?: string;
 			};

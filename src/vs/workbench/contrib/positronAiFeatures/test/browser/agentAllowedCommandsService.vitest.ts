@@ -68,7 +68,7 @@ describe('AgentAllowedCommandsService', () => {
 	}
 
 	describe('getAgentAllowedCommands', () => {
-		it('returns only commands marked agentCompatible and exposed in the command palette', () => {
+		it('returns only commands marked agentCompatible and currently enabled', () => {
 			registerPaletteCommand('test.agent.included', {
 				agentCompatible: true,
 				description: 'included cmd',
@@ -80,7 +80,7 @@ describe('AgentAllowedCommandsService', () => {
 			});
 			registerPaletteCommand('test.agent.excluded', { agentCompatible: false, description: 'not marked' });
 
-			// Marked agentCompatible but NOT registered in the command palette.
+			// Marked agentCompatible but NOT registered in the command palette -- still included.
 			store.add(CommandsRegistry.registerCommand({
 				id: 'test.agent.notPalette',
 				handler: () => { },
@@ -93,7 +93,7 @@ describe('AgentAllowedCommandsService', () => {
 
 			expect(ids).toContain('test.agent.included');
 			expect(ids).not.toContain('test.agent.excluded');
-			expect(ids).not.toContain('test.agent.notPalette');
+			expect(ids).toContain('test.agent.notPalette');
 
 			const included = commands.find(c => c.id === 'test.agent.included')!;
 			expect(included).toMatchObject({
@@ -188,10 +188,10 @@ describe('AgentAllowedCommandsService', () => {
 			expect(executeCommand).toHaveBeenCalledWith('test.agent.happy', 'a', 1);
 		});
 
-		it('returns { ok: false, reason: "unknown" } for an unregistered id', async () => {
+		it('returns { ok: false, reason: "not-found" } for an unregistered id', async () => {
 			const service = makeService();
 			const result = await service.validateAndExecute('test.agent.nonexistent');
-			expect(result).toEqual({ ok: false, reason: 'unknown' });
+			expect(result).toEqual({ ok: false, reason: 'not-found' });
 		});
 
 		it('returns { ok: false, reason: "disabled", precondition } when the precondition fails', async () => {

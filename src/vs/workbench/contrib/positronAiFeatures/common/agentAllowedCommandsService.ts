@@ -66,7 +66,7 @@ export type IValidateAndExecuteResult =
 	| { readonly ok: true; readonly result: unknown }
 	| {
 		readonly ok: false;
-		readonly reason: 'unknown' | 'disabled' | 'error';
+		readonly reason: 'not-found' | 'disabled' | 'error' | 'unknown';
 		readonly precondition?: string;
 		readonly message?: string;
 	};
@@ -81,8 +81,7 @@ export interface IAgentAllowedCommandsService {
 
 	/**
 	 * Return the curated agent-compatible commands that are actually
-	 * registered in the current build, exposed in the command palette
-	 * (`f1: true`), and currently enabled (precondition holds).
+	 * registered in the current build and currently enabled (precondition holds).
 	 */
 	getAgentAllowedCommands(): IAgentCommandDescriptor[];
 
@@ -120,13 +119,8 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 	getAgentAllowedCommands(): IAgentCommandDescriptor[] {
 		const all = this.getAllAgentCompatibleCommands();
 		const result: IAgentCommandDescriptor[] = [];
-		let filteredNotPalette = 0;
 		let filteredDisabled = 0;
 		for (const cmd of all) {
-			if (!cmd.inPalette) {
-				filteredNotPalette++;
-				continue;
-			}
 			if (!cmd.enabled) {
 				filteredDisabled++;
 				continue;
@@ -136,7 +130,7 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 		}
 		this._logService.trace(
 			`[AgentAllowedCommands] returning ${result.length} curated command(s); ` +
-			`filtered ${filteredNotPalette} not palette-exposed, ${filteredDisabled} disabled by precondition`
+			`filtered ${filteredDisabled} disabled by precondition`
 		);
 		return result;
 	}
@@ -188,7 +182,7 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 
 	async validateAndExecute(commandId: string, args?: unknown[]): Promise<IValidateAndExecuteResult> {
 		if (!CommandsRegistry.getCommand(commandId)) {
-			return { ok: false, reason: 'unknown' };
+			return { ok: false, reason: 'not-found' };
 		}
 		// Precondition comes from the ICommandAction registered via MenuRegistry.addCommand
 		// (populated by registerAction2 when f1: true). Non-Action2 commands have no
