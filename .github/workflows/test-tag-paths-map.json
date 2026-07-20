@@ -16,7 +16,7 @@
   "src/vs/workbench/contrib/positronNotebook/": ["@:positron-notebooks"],
   "src/vs/workbench/contrib/positronPackages/": ["@:packages-pane"],
   "src/vs/workbench/contrib/positronQuarto/": ["@:quarto"],
-  "src/vs/workbench/contrib/positronWelcome/": ["@:welcome"],
+  "src/vs/workbench/contrib/positronWelcome/": ["@:welcome", "@:vscode-settings"],
   "src/vs/workbench/contrib/positronModalDialogs/": ["@:modal"],
   "src/vs/workbench/services/positronModalDialogs/": ["@:modal"],
   "src/vs/workbench/contrib/positronAssistant/": ["@:assistant"],
