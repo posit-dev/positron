@@ -8,8 +8,8 @@ import * as os from 'os';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { DuckDBDataExplorerRpcHandler } from 'positron-data-explorer-duckdb';
 import { DuckDBConnection } from './duckdbConnection.js';
-import { DuckDBDataExplorerRpcHandler } from './duckdbDataExplorerRpcHandler.js';
 
 /**
  * Type guard for a non-empty string.

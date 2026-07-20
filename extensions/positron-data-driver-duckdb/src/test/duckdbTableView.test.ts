@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { DuckDBRow } from '../duckdbWorkerClient.js';
-import { DuckDBSchemaEntry, DuckDBTableView, duckdbDisplayType, makeWhereExpr } from '../duckdbTableView.js';
+import { DuckDBRow, DuckDBSchemaEntry, DuckDBTableView, duckdbDisplayType, makeWhereExpr } from 'positron-data-explorer-duckdb';
 import {
 	ColumnDisplayType,
 	ColumnValue,

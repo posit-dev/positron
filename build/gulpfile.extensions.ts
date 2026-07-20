@@ -55,6 +55,9 @@ const compilations = [
 	// Shared, generated Data Explorer protocol types consumed by the data driver extensions.
 	// Compiled here so the data driver extensions can resolve its out/ (.js + .d.ts).
 	'extensions/positron-data-explorer-protocol/tsconfig.json',
+	// Shared DuckDB-backed Data Explorer backend consumed by the DuckDB (and later pins) data
+	// driver extensions. Depends on the protocol package above; compiled before its consumers.
+	'extensions/positron-data-explorer-duckdb/tsconfig.json',
 	'extensions/authentication/tsconfig.json',
 	'extensions/open-remote-ssh/tsconfig.json',
 	'extensions/next-edit-suggestions/tsconfig.json',
@@ -305,14 +308,22 @@ const transpileExtensionsTask = task.define('transpile-extensions', task.paralle
 task.task(transpileExtensionsTask);
 
 // --- Start Positron ---
-// positron-data-explorer-protocol must compile before extensions that depend on its out/ directory.
-// Running all compile tasks in parallel causes a race: the clean step deletes out/, and extensions
-// that import from positron-data-explorer-protocol fail if they start compiling before it rebuilds.
-const dataExplorerProtocolIndex = compilations.indexOf('extensions/positron-data-explorer-protocol/tsconfig.json');
-const compileExtensionsImpl = dataExplorerProtocolIndex >= 0
+// Some in-repo packages are consumed by other extensions via their compiled out/ directory, so they
+// must compile before their dependents. Running every compile task in parallel causes a race: the
+// clean step deletes out/, and a dependent that starts compiling before its prerequisite rebuilds
+// fails to resolve the import. Compile these prerequisites first, in order (the DuckDB backend itself
+// imports the protocol types), then the rest in parallel.
+const orderedPrerequisites = [
+	'extensions/positron-data-explorer-protocol/tsconfig.json',
+	'extensions/positron-data-explorer-duckdb/tsconfig.json',
+]
+	.map(tsconfig => compilations.indexOf(tsconfig))
+	.filter(index => index >= 0);
+const prerequisiteIndexSet = new Set(orderedPrerequisites);
+const compileExtensionsImpl = orderedPrerequisites.length > 0
 	? task.series(
-		tasks[dataExplorerProtocolIndex].compileTask,
-		task.parallel(...tasks.filter((_, i) => i !== dataExplorerProtocolIndex).map(t => t.compileTask))
+		...orderedPrerequisites.map(index => tasks[index].compileTask),
+		task.parallel(...tasks.filter((_, index) => !prerequisiteIndexSet.has(index)).map(t => t.compileTask))
 	)
 	: task.parallel(...tasks.map(t => t.compileTask));
 export const compileExtensionsTask = task.define('compile-extensions', compileExtensionsImpl);
