@@ -1,0 +1,31 @@
+{
+  "name": "positron-data-explorer-duckdb",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared DuckDB-backed Data Explorer backend (table view, RPC handler, out-of-process worker) for Positron data driver extensions. Build-time-only: consumed by the data driver extensions via esbuild, not packaged or activated as an extension.",
+  "main": "./out/index.js",
+  "types": "./out/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./out/index.d.ts",
+      "default": "./out/index.js"
+    },
+    "./worker": {
+      "types": "./out/duckdbWorker.d.ts",
+      "default": "./out/duckdbWorker.js"
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p tsconfig.json",
+    "watch": "tsc -w -p tsconfig.json",
+    "prepare": "npm run compile"
+  },
+  "dependencies": {
+    "@duckdb/node-api": "^1.5.3-r.3"
+  },
+  "devDependencies": {
+    "@types/node": "14.x",
+    "positron-data-explorer-protocol": "file:../positron-data-explorer-protocol",
+    "typescript": "^4.5.5"
+  }
+}

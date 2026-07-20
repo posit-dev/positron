@@ -26,9 +26,6 @@ import {
 	SetSortColumnsParams,
 } from 'positron-data-explorer-protocol';
 
-/** The provider id this extension registers its Data Explorer RPC handler under. */
-export const DUCKDB_DATA_EXPLORER_PROVIDER_ID = 'positron-data-driver-duckdb';
-
 /**
  * The slice of the RPC handler a connection needs to preview its tables. Kept as an interface so a
  * connection can be tested without registering the real Data Explorer provider.
@@ -49,13 +46,20 @@ export interface IDuckDBDataExplorerHost {
  * then asks Positron to open an explorer keyed by the same dataset id. Positron routes every RPC
  * for that dataset to this handler (registered via `positron.dataExplorer.registerRpcHandler`).
  * Async column profiles are delivered back through the registration session's `sendUiEvent`.
+ *
+ * The provider id is supplied by the consuming extension, so each data driver that reuses this
+ * DuckDB backend registers under its own id (and must pass the same id to `positron.dataExplorer.open`).
  */
 export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBDataExplorerHost {
 	private readonly _views = new Map<string, DuckDBTableView>();
 	private readonly _session: positron.DataExplorerRpcSession;
 
-	constructor() {
-		this._session = positron.dataExplorer.registerRpcHandler(DUCKDB_DATA_EXPLORER_PROVIDER_ID, {
+	/**
+	 * @param providerId The Data Explorer provider id to register under; the consuming extension
+	 * passes the same id to `positron.dataExplorer.open`.
+	 */
+	constructor(providerId: string) {
+		this._session = positron.dataExplorer.registerRpcHandler(providerId, {
 			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc)
 		});
 	}
