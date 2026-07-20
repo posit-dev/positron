@@ -35,7 +35,7 @@
 
   "extensions/authentication/": ["@:assistant"],
   "extensions/copilot/": ["@:assistant"],
-  "extensions/copilot/src/extension/prompts/node/base/positronAssistant.tsx/": ["@:assistant"],
+  "extensions/copilot/src/extension/prompts/node/base/positronAssistant.tsx": ["@:assistant"],
   "extensions/positron-connections/": ["@:connections"],
   "extensions/positron-notebooks/": ["@:positron-notebooks"],
   "extensions/positron-reticulate/": ["@:reticulate"],
