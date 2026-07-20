@@ -3627,4 +3627,82 @@ suite('DuckDB worker isolation', () => {
 			await fs.promises.rm(dir, { recursive: true, force: true });
 		}
 	});
+
+	// Poll until `predicate` holds or the deadline passes, so idle-shutdown tests
+	// don't depend on a fixed sleep.
+	async function waitUntil(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
+		const deadline = Date.now() + timeoutMs;
+		while (!predicate()) {
+			if (Date.now() > deadline) {
+				throw new Error('Timed out waiting for condition');
+			}
+			await new Promise(resolve => setTimeout(resolve, 5));
+		}
+	}
+
+	test('does not spawn the worker until the first query', async () => {
+		const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'duckdb-stub-worker-'));
+		const stubPath = path.join(dir, 'stubWorker.js');
+		await fs.promises.writeFile(stubPath, STUB_WORKER);
+
+		const db = await DuckDBInstance.create(stubPath);
+		try {
+			// Creating the instance (e.g. on activation) must not fork the child.
+			assert.strictEqual(db.isWorkerRunning, false, 'worker should not spawn on create');
+
+			// The first query spawns it lazily.
+			assert.strictEqual((await db.runQuery('SELECT 1')).numRows, 1);
+			assert.strictEqual(db.isWorkerRunning, true, 'worker should spawn on first query');
+		} finally {
+			db.close();
+			await fs.promises.rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	test('idle-shuts-down the worker after the cooldown and respawns on the next query', async () => {
+		const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'duckdb-stub-worker-'));
+		const stubPath = path.join(dir, 'stubWorker.js');
+		await fs.promises.writeFile(stubPath, STUB_WORKER);
+
+		// A short cooldown keeps the test fast.
+		const db = await DuckDBInstance.create(stubPath, 30);
+		try {
+			await db.runQuery('SELECT 1');
+			assert.strictEqual(db.isWorkerRunning, true);
+
+			// Once the last client is gone, the worker self-terminates after the cooldown.
+			db.requestIdleShutdown();
+			await waitUntil(() => !db.isWorkerRunning);
+			assert.strictEqual(db.isWorkerRunning, false, 'worker should be gone after cooldown');
+
+			// A later query transparently respawns it.
+			assert.strictEqual((await db.runQuery('SELECT 1')).numRows, 1);
+			assert.strictEqual(db.isWorkerRunning, true, 'worker should respawn on next query');
+		} finally {
+			db.close();
+			await fs.promises.rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	test('cancelIdleShutdown keeps the worker alive', async () => {
+		const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'duckdb-stub-worker-'));
+		const stubPath = path.join(dir, 'stubWorker.js');
+		await fs.promises.writeFile(stubPath, STUB_WORKER);
+
+		const db = await DuckDBInstance.create(stubPath, 30);
+		try {
+			await db.runQuery('SELECT 1');
+
+			// A client reopening before the cooldown fires cancels the shutdown.
+			db.requestIdleShutdown();
+			db.cancelIdleShutdown();
+
+			// Wait past the cooldown; the worker must still be running.
+			await new Promise(resolve => setTimeout(resolve, 60));
+			assert.strictEqual(db.isWorkerRunning, true, 'worker should survive a cancelled shutdown');
+		} finally {
+			db.close();
+			await fs.promises.rm(dir, { recursive: true, force: true });
+		}
+	});
 });
