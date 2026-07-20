@@ -50,8 +50,4 @@ export namespace PositronNotebookExtensionsRegistry {
 	export function getNotebookContributions(): IPositronNotebookContributionDescription[] {
 		return PositronNotebookContributionRegistry.INSTANCE.getContributions();
 	}
-
-	export function getSomeNotebookContributions(ids: string[]): IPositronNotebookContributionDescription[] {
-		return PositronNotebookContributionRegistry.INSTANCE.getContributions().filter(c => ids.includes(c.id));
-	}
 }

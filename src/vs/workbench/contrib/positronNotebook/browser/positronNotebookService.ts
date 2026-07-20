@@ -36,9 +36,8 @@ export interface IPositronNotebookService {
 
 	/**
 	 * Observable mirroring the `positron.notebook.experimental` configuration.
-	 * Lets non-UI code gate on the experimental flag; UI code should prefer the
-	 * `usePositronNotebookExperimental` hook (backed by the
-	 * `positronNotebook.experimental` context key, which the notebook
+	 * Lets non-UI code gate on the experimental flag; UI code should gate on the
+	 * `positronNotebook.experimental` context key (which the notebook
 	 * contribution binds to this observable).
 	 */
 	readonly experimentsEnabled: IObservable<boolean>;
