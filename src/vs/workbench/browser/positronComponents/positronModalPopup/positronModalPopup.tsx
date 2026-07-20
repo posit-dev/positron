@@ -418,18 +418,6 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		updatePopupLayout();
 	}, [updatePopupLayout]);
 
-	// Re-layout when the popup's content changes size. Content can load
-	// asynchronously (e.g. buttons that appear once an RPC resolves); without
-	// re-measuring, the popup keeps its initial placement and can overflow
-	// off-screen instead of repositioning to fit.
-	useEffect(() => {
-		const resizeObserver = new (DOM.getWindow(popupChildrenRef.current).ResizeObserver)(() => {
-			updatePopupLayout();
-		});
-		resizeObserver.observe(popupChildrenRef.current);
-		return () => resizeObserver.disconnect();
-	}, [updatePopupLayout]);
-
 	// Event handlers.
 	useEffect(() => {
 		// Set this popup's bounds provider with the renderer so that we can check click containment.
