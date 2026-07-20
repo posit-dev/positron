@@ -14,15 +14,14 @@ import {
 
 export const MIGRATE_COMMAND_ID = 'authentication.migrateSettingsToProvidersJson';
 
-/** Registers the migration command and runs the one-time automatic migration. */
 export function registerProvidersJsonMigration(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(MIGRATE_COMMAND_ID, () => runMigrationCommand())
 	);
-	// Fire-and-forget: never block activation on the migration.
-	maybeAutoMigrate().catch(err =>
-		log.error(`providers.json automatic migration failed: ${err}`)
-	);
+	// Automatic migration is disabled until providers.json is fully in use
+	// maybeAutoMigrate().catch(err =>
+	// 	log.error(`providers.json automatic migration failed: ${err}`)
+	// );
 }
 
 async function runMigrationCommand(): Promise<void> {
