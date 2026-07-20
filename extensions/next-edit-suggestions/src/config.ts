@@ -85,6 +85,28 @@ export function isCompletionEnabledForFileType(document: vscode.TextDocument): b
 	return enableConfig['*'] ?? true;
 }
 
+/**
+ * Whether Next Edit Suggestions could produce completions for any file type at
+ * all, based on `nextEditSuggestions.enabled`. When this is `false` the feature
+ * is off for every file (e.g. `{ "*": false }`), so there is no reason to run
+ * the language server.
+ */
+export function isCompletionEnabledForAnyFileType(): boolean {
+	const enableConfig = vscode.workspace
+		.getConfiguration('nextEditSuggestions')
+		.get<Record<string, boolean>>('enabled');
+
+	// No config, or the `*` wildcard left at its default, means unlisted file
+	// types are enabled.
+	if (!enableConfig || enableConfig['*'] !== false) {
+		return true;
+	}
+
+	// The `*` wildcard is off; the feature is still on if any specific file type
+	// is explicitly enabled.
+	return Object.values(enableConfig).some(enabled => enabled === true);
+}
+
 /** Determines whether inline completions are enabled for a document.
  *
  * Checks are evaluated in order:

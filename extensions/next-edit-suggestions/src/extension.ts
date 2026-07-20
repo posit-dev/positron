@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import type { SubmitCompletionFeedbackParams } from './types.js';
 import { CompletionBusyState } from './completionBusyState.js';
 import { getLanguageClientManager, startLanguageServer, stopLanguageServer } from './client.js';
-import { isAIEnabled, isCompletionEnabled, isCompletionEnabledForFileType, migrateEnabledSetting } from './config.js';
+import { isAIEnabled, isCompletionEnabled, isCompletionEnabledForAnyFileType, isCompletionEnabledForFileType, migrateEnabledSetting } from './config.js';
 import { getLLMConfiguration, resetModelCache } from './model.js';
 import { sendFeedback } from './feedback.js';
 import { debounceDelayMs, generateSuggestion } from './suggestions.js';
@@ -30,12 +30,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// Migrate the renamed `nextEditSuggestions.enable` setting to `nextEditSuggestions.enabled`.
 	const enabledSettingMigration = migrateEnabledSetting(log);
 
-	// Start the language server only when Positron's AI features are enabled
-	// (`ai.enabled`) and an auth token is available. Gating on `isAIEnabled()`
-	// here (not just at request time) keeps the server subprocess from running
-	// when AI is turned off, even for a signed-in user.
+	// Start the language server only when Next Edit Suggestions can actually be
+	// used: Positron's AI features are enabled (`ai.enabled`), the feature isn't
+	// turned off for every file type (`nextEditSuggestions.enabled`), and an auth
+	// token is available. Gating here (not just at request time) keeps the server
+	// subprocess from running when it could never produce a suggestion.
 	async function ensureLanguageServer() {
-		const config = isAIEnabled() ? await getLLMConfiguration() : undefined;
+		const enabled = isAIEnabled() && isCompletionEnabledForAnyFileType();
+		const config = enabled ? await getLLMConfiguration() : undefined;
 		const active = !!config;
 		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.active', active);
 		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.provider', config?.providerDisplayName);
@@ -47,7 +49,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				log.info('Language server started.');
 			}
 		} else if (getLanguageClientManager()) {
-			log.info('Stopping language server because AI features are disabled or the user is signed out.');
+			log.info('Stopping language server because Next Edit Suggestions is disabled or the user is signed out.');
 			await stopLanguageServer();
 		}
 	}
