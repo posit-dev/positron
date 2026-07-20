@@ -20,9 +20,17 @@ const DATA_CONNECTION_ENTRY_ROW = '.data-connection-entry-row';
 const TREE_ROW = '.positron-tree-row';
 const TREE_TWISTY_COLLAPSED = '.positron-tree-twisty-collapsed';
 
-// The virtualized grid that hosts the tree. It renders only the rows that fit in the viewport (no
-// overscan), so rows below the fold are absent from the DOM until scrolled into view.
-const TREE_WAFFLE = '#data-connection-profiles-list .data-grid-waffle';
+// The container that hosts the connection tree, and the virtualized grid inside it. The grid renders
+// only the rows that fit in the viewport (no overscan), so rows below the fold are absent from the
+// DOM until scrolled into view.
+const TREE_CONTAINER = '#data-connection-profiles-list';
+const TREE_WAFFLE = `${TREE_CONTAINER} .data-grid-waffle`;
+
+// Version (pin bundle) nodes render with the history codicon; the active bundle carries an "active"
+// type badge. Scoped to the tree container so the icon can't collide with history icons elsewhere in
+// the workbench.
+const VERSION_ROW = `${TREE_CONTAINER} ${TREE_ROW}:has(.codicon-history)`;
+const NODE_TYPE_BADGE = '.data-connection-node-type';
 
 /**
  * Reusable Positron Data Connections panel functionality for tests to leverage.
@@ -149,11 +157,11 @@ export class DataConnections {
 	 */
 	private async expandRow(row: Locator, label: string): Promise<void> {
 		await test.step(`Expand node: ${label}`, async () => {
-			// Every node expanded by this test lives near the top of the tree, so scrolling to the
-			// top guarantees the target is within the (overscan-free) rendered range, even if a
-			// prior verification step scrolled the grid down. toBeVisible then waits for the row to
-			// finish loading after its parent expanded.
-			await this.scrollToTop();
+			// Reveal the row so it is rendered before interacting with it: the grid renders no
+			// overscan, so a row below the fold is absent from the DOM (and a prior step may have
+			// scrolled the grid). revealNode scrolls it into the rendered range; toBeVisible then
+			// waits for the row to finish loading after its parent expanded.
+			await this.revealNode(row);
 			await expect(row).toBeVisible();
 
 			const collapsedTwisty = row.locator(TREE_TWISTY_COLLAPSED);
@@ -245,6 +253,33 @@ export class DataConnections {
 		const row = this.treeRow(name);
 		await this.revealNode(row);
 		await expect(row).toBeVisible();
-		await expect(row.locator('.data-connection-node-type')).toHaveText(dataType);
+		await expect(row.locator(NODE_TYPE_BADGE)).toHaveText(dataType);
+	}
+
+	/**
+	 * Asserts the number of version (pin bundle) nodes currently shown in the tree. Use after
+	 * expanding a single pin so the count reflects that pin's versions. Version node labels are
+	 * dynamic (creation time + bundle id), so tests key off the count and the active badge rather
+	 * than exact names. Reveals a version row first so the count isn't taken while the expanded
+	 * pin's versions are still below the virtualized fold.
+	 * @param count The expected number of version nodes.
+	 */
+	async expectVersionCount(count: number): Promise<void> {
+		const versionRows = this.code.driver.currentPage.locator(VERSION_ROW);
+		await this.revealNode(versionRows.first());
+		await expect(versionRows).toHaveCount(count);
+	}
+
+	/**
+	 * Asserts that a version node badged "active" is visible: the pin's currently served bundle. This
+	 * is the deterministic anchor on version nodes (their names carry a dynamic timestamp/bundle id),
+	 * so it works against a real server where the version count is unknown. Reveals the row first, as
+	 * an expanded pin's versions can sit below the fold.
+	 */
+	async expectActiveVersionVisible(): Promise<void> {
+		const activeVersion = this.code.driver.currentPage.locator(VERSION_ROW)
+			.filter({ has: this.code.driver.currentPage.locator(NODE_TYPE_BADGE, { hasText: 'active' }) });
+		await this.revealNode(activeVersion);
+		await expect(activeVersion).toBeVisible();
 	}
 }

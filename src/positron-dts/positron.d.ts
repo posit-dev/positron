@@ -2284,6 +2284,8 @@ declare module 'positron' {
 		Owner = 'owner',
 		// A pin on a Posit Connect server (positron-data-driver-pins).
 		Pin = 'pin',
+		// A version (bundle) of a pin on a Posit Connect server (positron-data-driver-pins).
+		Version = 'version',
 	}
 
 	export interface DataConnectionNode {

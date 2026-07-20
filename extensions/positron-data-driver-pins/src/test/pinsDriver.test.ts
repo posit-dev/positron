@@ -95,8 +95,16 @@ suite('Pins Connection tree', () => {
 			{ guid: 'g-model', name: 'model', owner_username: 'tim', bundle_id: 9 },
 		],
 	});
+	// cars has two versions, returned out of order to confirm they are surfaced newest first.
+	const carsBundles = JSON.stringify([
+		{ id: 1, created_time: '2024-01-15T09:30:00Z', active: false, size: 100 },
+		{ id: 5, created_time: '2024-03-02T14:00:00Z', active: true, size: 200 },
+	]);
 	const routes = [
 		{ match: '/__api__/applications', body: applications },
+		// Bundles routes precede the data.txt routes: a bundles URL also contains the "/content/<guid>/"
+		// substring the data.txt routes match on, so the more specific bundles match must be found first.
+		{ match: '/v1/content/g-cars/bundles', body: carsBundles },
 		{ match: '/content/g-sales/', body: 'file: sales.csv\ntype: csv\napi_version: 1\n' },
 		{ match: '/content/g-cars/', body: 'file: cars.parquet\ntype: parquet\napi_version: 1\n' },
 		{ match: '/content/g-model/', body: 'file: model.joblib\ntype: joblib\napi_version: 1\n' },
@@ -112,7 +120,7 @@ suite('Pins Connection tree', () => {
 		owners.forEach(o => assert.strictEqual(o.kind, positron.DataConnectionNodeKind.Owner));
 	});
 
-	test('owner expands to pins sorted by name, badged with type, as leaves', async () => {
+	test('owner expands to pins sorted by name, badged with type, expandable but not previewable', async () => {
 		const [julia] = await connection().getChildren();
 		const pins = await julia.getChildren!();
 
@@ -120,10 +128,26 @@ suite('Pins Connection tree', () => {
 			{ name: 'cars', kind: positron.DataConnectionNodeKind.Pin, dataType: 'parquet' },
 			{ name: 'sales', kind: positron.DataConnectionNodeKind.Pin, dataType: 'csv' },
 		]);
-		// Pins are leaves in PR 1: no children, not previewable.
+		// Pins expand to versions but are not previewable (Data Explorer preview comes in a later PR).
 		pins.forEach(p => {
-			assert.strictEqual(p.getChildren, undefined);
+			assert.notStrictEqual(p.getChildren, undefined);
 			assert.strictEqual(p.preview, undefined);
+		});
+	});
+
+	test('pin expands to versions, newest first, with the active version badged, as leaves', async () => {
+		const [julia] = await connection().getChildren();
+		const cars = (await julia.getChildren!()).find(p => p.name === 'cars')!;
+		const versions = await cars.getChildren!();
+
+		assert.deepStrictEqual(versions.map(v => ({ name: v.name, kind: v.kind, dataType: v.dataType })), [
+			{ name: '2024-03-02 14:00 (#5)', kind: positron.DataConnectionNodeKind.Version, dataType: 'active' },
+			{ name: '2024-01-15 09:30 (#1)', kind: positron.DataConnectionNodeKind.Version, dataType: undefined },
+		]);
+		// Versions are leaves for now: no children, not previewable.
+		versions.forEach(v => {
+			assert.strictEqual(v.getChildren, undefined);
+			assert.strictEqual(v.preview, undefined);
 		});
 	});
 
