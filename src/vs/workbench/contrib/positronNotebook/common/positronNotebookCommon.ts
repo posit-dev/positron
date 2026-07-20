@@ -57,6 +57,8 @@ export enum PositronNotebookActionId {
 	CopyOutput = 'positronNotebook.cell.copyOutput',
 	CopyOutputImage = 'positronNotebook.cell.copyOutputImage',
 	CopyOutputJson = 'positronNotebook.cell.copyOutputJson',
+	SaveOutputImage = 'positronNotebook.cell.saveOutputImage',
+	OpenOutputImageInNewTab = 'positronNotebook.cell.openOutputImageInNewTab',
 }
 
 /**
