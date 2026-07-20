@@ -1,139 +1,100 @@
-# Setup for Positron Local Workbench Testing
+# Local Positron & Workbench environment (`npm run pwb`)
 
-Supports both **arm64** (macOS Apple Silicon) and **amd64** (Windows/x86 Linux). Architecture is auto-detected.
+Run Positron and Posit Workbench together on your machine, against versions you
+pick, in one command.
 
 ## Prerequisites
 
-### 1. Create Configuration Files
+- Docker Desktop with 8+ CPUs and 16 GB RAM.
+- `workbench.lic` and `connect.lic` in `docker/environments/wb-local/`.
+- `.env` is created from `.env.example` on first run; you are prompted for
+  `WB_PASSWORD` if it is unset.
+- Optional: `fzf` for arrow-key pickers (without it you get a numbered prompt).
+  Install with `brew install fzf` (macOS), `sudo apt install fzf` (Debian/Ubuntu),
+  or `conda install -c conda-forge fzf`.
 
-```bash
-cd docker/environments/wb-local
-cp .env.example .env
-```
+## Quick start
 
-Fill in the values:
-* **E2E_POSTGRES vars**: 1Password under `Positron > E2E Postgres DB Connection info`
-* **WB_PASSWORD**: Your desired password for the `user1` account in Workbench
+1. Login once, when prompted for a password, enter your **GitHub Personal Access Token**, not your GitHub password. The token needs `read:packages` scope.
 
-**Optional overrides** (add to `.env` if needed):
-* **ARCH_SUFFIX**: Override auto-detected architecture (`arm64` or `amd64`)
-* **IMAGE_TAG**: Override the container image tag (e.g., `100` if the latest tag isn't available for your architecture)
+   ```bash
+   docker login ghcr.io -u <your_github_username>
+   ```
 
-### 2. Docker Login
+2. Drop `workbench.lic` and `connect.lic` into `docker/environments/wb-local/`.
+3. Create `.env` from `.env.example`. Secrets are in 1Password.
+4. `npm run pwb`.
 
-```bash
-docker login ghcr.io -u <your_github_username>
-```
+First run asks which Positron and Workbench you want, installs them, and brings
+the stack up. Open http://localhost:8787 and log in as `user1` and password as set in `WB_PASSWORD`.
 
-> **Note:** When prompted for a password, enter your **GitHub Personal Access Token**, not your GitHub password. The token needs `read:packages` scope.
+## Commands
 
-### 3. Docker Resource Settings
+| Command | What it does |
+| --- | --- |
+| `npm run pwb` | Bring the stack up. First run: pick versions and install. Already installed: (re)start and show status. Safe to re-run anytime. |
+| `npm run pwb -- --reinstall` | Re-run the pickers and reinstall, to switch Positron/Workbench versions. |
+| `npm run pwb -- --credentials=<type>` | Install with a managed data-source connection: `databricks`, `snowflake`, or `azure`. See [Managed credentials](#managed-credentials). |
+| `npm run pwb -- --ttl N` | Set the auto-stop to N minutes; `--no-ttl` disables it. |
+| `npm run pwb -- status` | Containers, installed versions, and URLs. |
+| `npm run pwb -- logs [svc]` | Tail logs: `rserver` (default), `connect`, or a container name. |
+| `npm run pwb -- shell [svc]` | Open a shell in a container: `test` (default), `postgres`, or `connect`. |
+| `npm run pwb -- stop` | Pause the stack (containers stopped, volumes kept). |
+| `npm run pwb -- down` | Tear the stack down (removes containers and volumes). |
 
-In **Docker Desktop → Settings → Resources → Advanced**, allocate enough resources for Workbench to run smoothly. Recommended minimums:
+`npm run pwb -- --help` prints the same reference in your terminal.
 
-* **CPU**: 8+ cores
-* **Memory**: 16 GB
-* **Swap**: 2 GB
-* **Disk**: enough free space for the Workbench and Positron images
+## Auto-stop
 
-![Docker Resource Settings](doc-images/dockerConf.png)
+The stack stops itself after 60 minutes so a forgotten one doesn't sit there
+burning CPU (you're working in a browser, not the container, so it's easy to
+lose track). Each `npm run pwb` resets the timer, and it only stops the instance
+it was scheduled for, so a manual restart is never cut short. Change it with
+`--ttl N` or turn it off with `--no-ttl` (or set `WB_TTL_MINUTES`).
 
-### 4. GitHub Token
+## Version pickers
 
-You'll need a GitHub Personal Access Token with `read:packages` scope for downloading Positron releases.
+- **Positron**: choose Release or Daily, then pick a specific version.
+- **Workbench**: Release or Daily (each resolves to the current build, matching
+  the workbench-nightly CI), or a custom `.deb` URL to pin a specific build.
+  The URL is checked for format, arch, and reachability before install.
 
-### 5. Shell
+## Managed credentials
 
-* **macOS**: Use the default Terminal
-* **Windows**: Use **Git Bash** (comes with Git for Windows)
+To test Positron's managed data-source connections (the credentials Workbench
+hands to a session), install with `--credentials=<type>`. One provider per
+install; re-run with `--reinstall --credentials=<type>` to switch.
 
-## Quick Start
+| Type | Configures | Reads from `.env` |
+| --- | --- | --- |
+| `databricks` | `/etc/rstudio/databricks.conf` + `databricks-enabled` | `DATABRICKS_URL_`, `DATABRICKS_CLIENT_ID_` |
+| `snowflake` | `/etc/rstudio/snowflake.conf` + `allow-refresh-snowflake-roles` | `SNOWFLAKE_ACCOUNT_`, `SNOWFLAKE_CLIENT_ID_`, `SNOWFLAKE_CLIENT_SECRET_` |
+| `azure` | OpenID auth in `rserver.conf` + `openid-client-secret` + JIT home dirs | `AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_` |
 
-Open **two terminal windows** from the repo root:
+1. Put the values for your provider in `docker/environments/wb-local/.env` (templated in
+   `.env.example`). They live in the team 1Password vault. Wrap each value in
+   single quotes -- `.env` is sourced by the shell, so a secret containing a `$`,
+   space, or `#` is mangled (or errors out) without them. The trailing underscore
+   on the names above is optional locally; the bare names (`SNOWFLAKE_ACCOUNT`, as
+   stored in 1Password / GitHub secrets) are accepted as aliases.
+2. Install with the flag:
+   ```bash
+   npm run pwb -- --credentials=snowflake
+   ```
+   The install fails fast if the chosen provider's variables are unset.
 
-### Terminal 1: Start Containers
+## Access
 
-```bash
-npm run wb:start
-```
-
-### Terminal 2: Connect & Install
-
-```bash
-GITHUB_TOKEN=your_token npm run wb:connect
-```
-
-You'll see a menu:
-1. **Latest versions** - Install latest Workbench + Positron
-2. **Specific versions** - Enter custom URLs/tags
-3. **Skip to shell** - For reconnecting or manual setup
-
-### Access Workbench
-
-Open http://localhost:8787 and login:
-* **Username**: `user1`
-* **Password**: Your `.env` WB_PASSWORD value
-
-## Credential Configuration
-
-Workbench can be configured with **one** credential type per install, selected with the
-`--credentials` flag:
-
-```bash
-GITHUB_TOKEN=your_token npm run wb:connect -- --credentials=databricks
-GITHUB_TOKEN=your_token npm run wb:connect -- --credentials=snowflake
-GITHUB_TOKEN=your_token npm run wb:connect -- --credentials=azure
-```
-
-| Type | Requires in `.env` |
-|------|--------------------|
-| `databricks` | `DATABRICKS_*` values |
-| `snowflake` | `SNOWFLAKE_*` values |
-| `azure` | `AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET` |
-
-If `--credentials` is omitted, no data source is configured.
-
-## All npm Scripts
-
-```bash
-npm run wb:start     # Start containers
-npm run wb:connect   # Connect (requires GITHUB_TOKEN)
-npm run wb:stop      # Stop containers
-npm run wb:status    # Check status
-```
-
-## CI/Automated Usage
-
-```bash
-GITHUB_TOKEN=your_token npm run wb:connect -- --ci
-```
-
-Or from this directory:
-```bash
-GITHUB_TOKEN=your_token ./connect.sh --ci
-```
-
-This bypasses all prompts and automatically installs the latest versions. Add
-`--credentials=<databricks|snowflake|azure>` to configure a data source.
-
-Use `--ci-stable` instead of `--ci` to install the latest Positron with the
-released (stable) Workbench:
-```bash
-GITHUB_TOKEN=your_token ./connect.sh --ci-stable
-```
-
-## Cleanup
-
-1. Terminal 2: `exit`
-2. Terminal 1: `Ctrl+C`
-3. Optional: `npm run wb:stop`
+| Service | URL | Login |
+| --- | --- | --- |
+| Workbench | http://localhost:8787 | `user1` / `WB_PASSWORD` (from `docker/environments/wb-local/.env`) |
+| Connect | http://localhost:3939 | bootstrapped per run |
 
 ## Troubleshooting
 
-### Getting Forbidden Error
-
-Delete the cookie for vscode-tkn for http://localhost:
-
-![Forbidden Fix](doc-images/forbidden.png)
-
-Refresh the page and you should be logged in.
+- **"Forbidden" on first login**: clear the `vscode-tkn` cookie for `localhost`
+  and refresh.
+- **One stack at a time** (`container_name: test`). To compare two Workbench
+  versions, `down` one and bring up the other.
+- **Apple Silicon**: the Connect service runs emulated (amd64) and is slow to
+  start.
