@@ -307,6 +307,17 @@ export class Sessions {
 			// behind on server/workbench (see delete() workaround) stays visible,
 			// so it does not block this wait.
 			await expect(this.sessions.filter({ visible: false })).toHaveCount(0, { timeout: 15000 });
+
+			// The detach wait above only tracks hidden instances; it can pass while a
+			// session is still visibly tearing down, letting the next test's fresh
+			// kernel start race that teardown (session comes up "not active"). On
+			// desktop, also wait for the console to reach its empty state (no tabs, no
+			// metadata button). Server/workbench intentionally leaves a session behind
+			// (see delete() workaround), so skip this stricter wait there.
+			const isServedSession = /(8080|8787)/.test(this.code.driver.currentPage.url());
+			if (!isServedSession) {
+				await this.expectSessionCountToBe(0);
+			}
 		});
 	}
 
