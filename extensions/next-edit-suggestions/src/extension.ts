@@ -30,21 +30,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// Migrate the renamed `nextEditSuggestions.enable` setting to `nextEditSuggestions.enabled`.
 	const enabledSettingMigration = migrateEnabledSetting(log);
 
-	// Start the language server only when an auth token is available
+	// Start the language server only when Positron's AI features are enabled
+	// (`ai.enabled`) and an auth token is available. Gating on `isAIEnabled()`
+	// here (not just at request time) keeps the server subprocess from running
+	// when AI is turned off, even for a signed-in user.
 	async function ensureLanguageServer() {
-		const config = await getLLMConfiguration();
-		const signedIn = !!config;
-		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.active', signedIn);
+		const config = isAIEnabled() ? await getLLMConfiguration() : undefined;
+		const active = !!config;
+		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.active', active);
 		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.provider', config?.providerDisplayName);
 		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.model',
 			config ? { id: config.modelId, displayName: config.modelDisplayName } : undefined);
-		if (signedIn) {
+		if (active) {
 			if (!getLanguageClientManager()) {
 				startLanguageServer(context, log);
 				log.info('Language server started.');
 			}
 		} else if (getLanguageClientManager()) {
-			log.info('Stopping language server due to logout.');
+			log.info('Stopping language server because AI features are disabled or the user is signed out.');
 			await stopLanguageServer();
 		}
 	}
@@ -183,6 +186,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		vscode.workspace.onDidChangeConfiguration((e) => {
 			if (e.affectsConfiguration('ai.enabled')) {
 				updateAvailableContext();
+				// Start/stop the language server to match the new AI-enabled state
+				// without waiting for a reload.
+				void ensureLanguageServer();
 			}
 			if (e.affectsConfiguration('nextEditSuggestions')) {
 				log.trace(`[config] Refresh configuration due to change in 'nextEditSuggestions' settings.`);
