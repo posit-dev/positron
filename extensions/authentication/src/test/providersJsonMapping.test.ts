@@ -99,15 +99,21 @@ suite('buildProvidersConfigFromSettings', () => {
 				{ identifier: 'missing-name' }, // malformed: skipped
 			],
 		}), fakeCaps);
-		const models = result?.config.providers?.anthropic?.models;
-		assert.strictEqual(models?.discovery, 'off');
-		assert.strictEqual(models?.custom?.length, 1);
-		const model = models.custom[0];
-		assert.strictEqual(model.id, 'claude-sonnet-4-5');
-		assert.strictEqual(model.name, 'Sonnet (team)');
-		assert.strictEqual(model.maxInputTokens, 300_000);
-		// maxContextLength floored at the user's maxInputTokens.
-		assert.ok(model.maxContextLength >= 300_000);
+		// The malformed entry is skipped; maxContextLength floors at the user's
+		// maxInputTokens (300_000 > the fakeCaps 128_000).
+		assert.deepStrictEqual(result?.config.providers?.anthropic?.models, {
+			discovery: 'off',
+			custom: [{
+				id: 'claude-sonnet-4-5',
+				name: 'Sonnet (team)',
+				maxContextLength: 300_000,
+				maxInputTokens: 300_000,
+				supportsTools: true,
+				supportsImages: false,
+				supportsToolResultImages: false,
+				supportsWebSearch: false,
+			}],
+		});
 	});
 
 	test('an overrides array with only malformed entries maps nothing', () => {
@@ -121,7 +127,8 @@ suite('buildProvidersConfigFromSettings', () => {
 		const result = buildProvidersConfigFromSettings(readerOf({
 			'positron.assistant.models.overrides.anthropic': [{ name: 'Sonnet', identifier: 'claude-sonnet-4-5' }],
 		}), inferModelCapabilities);
-		customModelSchema.parse(result?.config.providers?.anthropic?.models?.custom?.[0]);
+		const models = result?.config.providers?.anthropic?.models as { custom?: unknown[] } | undefined;
+		customModelSchema.parse(models?.custom?.[0]);
 	});
 
 	test('every migratable setting maps to config the real ai-config schema accepts', async () => {

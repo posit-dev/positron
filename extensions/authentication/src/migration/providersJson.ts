@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { InferredModelCapabilities, ProvidersConfig } from 'ai-config/node';
+import type { InferredModelCapabilities } from 'ai-config/node';
 
 export type InferCapabilitiesFn = (providerId: string, modelId: string) => InferredModelCapabilities;
 
@@ -26,8 +26,17 @@ export interface SettingMigration {
 	readonly value: string;
 }
 
+/** A single provider block: plain data assembled field by field. */
+type Block = Record<string, unknown>;
+
 export interface MappedProvidersConfig {
-	config: ProvidersConfig;
+	/**
+	 * Loosely-typed assembled config. runMigration validates it through
+	 * providersConfigSchema before writing; the builder stays synchronous
+	 * (hasMigratableSettings needs it) and cannot reach the schema value, which
+	 * ai-config/node only exposes via dynamic import.
+	 */
+	config: { providers: Record<string, Block> };
 	/** Number of settings.json entries consumed (for the success toast). */
 	settingCount: number;
 	/** Source-to-destination record of every value written (for logging). */
@@ -110,10 +119,6 @@ export const MIGRATABLE_SETTING_KEYS: readonly string[] = [
 	...ENABLEMENT_SETTINGS.flatMap(s => [s.oldKey, s.newKey]).filter((k): k is string => !!k),
 	...MODEL_OVERRIDE_SETTINGS.map(s => `positron.assistant.models.overrides.${s.settingName}`),
 ];
-
-// providers.json blocks are plain data; build them as records and assign into
-// the (structurally typed) ProvidersConfig at the end.
-type Block = Record<string, unknown>;
 
 export function buildProvidersConfigFromSettings(
 	reader: MigrationSettingsReader,
@@ -225,7 +230,7 @@ export function buildProvidersConfigFromSettings(
 		return undefined;
 	}
 	return {
-		config: { providers } as ProvidersConfig,
+		config: { providers },
 		settingCount: new Set(migrations.map(m => m.source)).size,
 		migrations,
 	};

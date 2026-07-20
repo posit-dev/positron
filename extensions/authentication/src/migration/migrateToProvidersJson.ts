@@ -102,12 +102,17 @@ export async function userProvidersFileIsPopulated(configPath?: string): Promise
  */
 export async function runMigration(opts: RunMigrationOptions): Promise<MigrationResult> {
 	const reader = opts.reader ?? createGlobalSettingsReader();
-	const { mutateProvidersConfig, inferModelCapabilities } = await import('ai-config/node');
+	const { mutateProvidersConfig, inferModelCapabilities, providersConfigSchema } = await import('ai-config/node');
 	const mapped = buildProvidersConfigFromSettings(reader, opts.inferCapabilities ?? inferModelCapabilities);
 	if (!mapped) {
 		log.info('[migration] No provider settings to migrate');
 		return { outcome: 'nothing-to-migrate' };
 	}
+
+	// The builder assembles loosely-typed blocks; validate the assembled config
+	// against ai-config's schema before writing so a bad mapping fails loudly
+	// here instead of writing malformed providers.json.
+	const config = providersConfigSchema.parse(mapped.config);
 
 	if (!opts.overwrite && await userProvidersFileIsPopulated(opts.configPath)) {
 		log.info('[migration] providers.json already has provider config; skipped');
@@ -121,7 +126,7 @@ export async function runMigration(opts: RunMigrationOptions): Promise<Migration
 				skippedPopulated = true;
 				return current;
 			}
-			return { ...current, providers: mapped.config.providers };
+			return { ...current, providers: config.providers };
 		},
 		{
 			configPath: opts.configPath,

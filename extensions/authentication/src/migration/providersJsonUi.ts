@@ -68,9 +68,10 @@ async function migrateAndReport(opts: { overwrite: boolean }): Promise<void> {
 	try {
 		result = await runMigration(opts);
 	} catch (err) {
-		log.error(`providers.json migration failed: ${err}`);
+		const detail = formatMigrationError(err);
+		log.error(`providers.json migration failed: ${detail}`);
 		vscode.window.showErrorMessage(
-			vscode.l10n.t('Failed to migrate provider settings: {0}. No changes were made to your settings.', String(err))
+			vscode.l10n.t('Failed to migrate provider settings: {0}. No changes were made to your settings.', detail)
 		);
 		return;
 	}
@@ -104,4 +105,28 @@ async function migrateAndReport(opts: { overwrite: boolean }): Promise<void> {
 			);
 			break;
 	}
+}
+
+/** A Zod-style validation error: a list of per-field issues. */
+interface ZodLikeError {
+	issues: Array<{ message: string; path?: unknown[] }>;
+}
+
+function isZodLikeError(err: unknown): err is ZodLikeError {
+	return !!err && typeof err === 'object' && Array.isArray((err as ZodLikeError).issues);
+}
+
+/**
+ * Render a migration failure as a concise message. Schema validation throws a
+ * Zod error whose issues pinpoint the offending fields (e.g. an empty model
+ * name); flatten those to `path: message` pairs instead of the verbose default
+ * dump. Any other error falls back to its string form.
+ */
+function formatMigrationError(err: unknown): string {
+	if (isZodLikeError(err)) {
+		return err.issues
+			.map(issue => `${issue.path?.join('.') ?? ''}: ${issue.message}`)
+			.join('; ');
+	}
+	return String(err);
 }
