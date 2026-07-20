@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
+import { Uri, WorkspaceFolder } from 'vscode';
 import { CreateEnvironmentOptionsInternal } from '../pythonEnvironments/creation/types';
 import {
     CreateEnvironmentOptions,
@@ -16,7 +17,7 @@ import { IPythonRuntimeManager } from './manager';
 import { getExtension } from '../common/vscodeApis/extensionsApi';
 import { PythonExtension } from '../api/types';
 import { PVSC_EXTENSION_ID } from '../common/constants';
-import { getConfiguration } from '../common/vscodeApis/workspaceApis';
+import { getConfiguration, getWorkspaceFolder } from '../common/vscodeApis/workspaceApis';
 import { CONDA_PROVIDER_ID } from '../pythonEnvironments/creation/provider/condaCreationProvider';
 import { VenvCreationProviderId } from '../pythonEnvironments/creation/provider/venvCreationProvider';
 import { UV_PROVIDER_ID } from '../pythonEnvironments/creation/provider/uvCreationProvider';
@@ -35,6 +36,33 @@ interface FlowEnvironmentProviders {
  * Result of creating a Python environment and registering it with the language runtime manager.
  */
 type CreateEnvironmentAndRegisterResult = CreateEnvironmentResult & { metadata?: positron.LanguageRuntimeMetadata };
+
+/**
+ * JSON-safe options for the `python.createEnvironmentAndRegister` command. Mirrors
+ * `CreateEnvironmentOptions & CreateEnvironmentOptionsInternal`, but `workspaceFolder` is a URI
+ * string instead of a `WorkspaceFolder` object, so callers can pass this across a command
+ * boundary (e.g. embedded in `fix.args`) without needing to serialize a `WorkspaceFolder`.
+ */
+export interface CreateEnvironmentAndRegisterOptions
+    extends Omit<CreateEnvironmentOptions & CreateEnvironmentOptionsInternal, 'workspaceFolder'> {
+    workspaceFolder?: string;
+}
+
+/**
+ * Rehydrates a workspace folder URI string into a `WorkspaceFolder`.
+ * @param workspaceFolderUri The URI string of the workspace folder, or undefined.
+ * @returns The corresponding `WorkspaceFolder`, or undefined if no URI was given.
+ */
+function rehydrateWorkspaceFolder(workspaceFolderUri: string | undefined): WorkspaceFolder | undefined {
+    if (!workspaceFolderUri) {
+        return undefined;
+    }
+    const folder = getWorkspaceFolder(Uri.parse(workspaceFolderUri));
+    if (!folder) {
+        throw new Error(`Workspace folder not found for URI: ${workspaceFolderUri}`);
+    }
+    return folder;
+}
 
 /**
  * Get the list of providers that can be used in the Positron New Folder Flow
@@ -61,7 +89,7 @@ export async function getCreateEnvironmentProviders(
 export async function createEnvironmentAndRegister(
     providers: readonly CreateEnvironmentProvider[],
     pythonRuntimeManager: IPythonRuntimeManager,
-    options: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
+    options: CreateEnvironmentAndRegisterOptions,
 ): Promise<CreateEnvironmentAndRegisterResult | undefined> {
     if (!options.providerId || (!options.interpreterPath && !options.condaPythonVersion && !options.uvPythonVersion)) {
         return {
@@ -70,7 +98,11 @@ export async function createEnvironmentAndRegister(
             ),
         };
     }
-    const result = await handleCreateEnvironmentCommand(providers, options);
+    const resolvedOptions: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal = {
+        ...options,
+        workspaceFolder: rehydrateWorkspaceFolder(options.workspaceFolder),
+    };
+    const result = await handleCreateEnvironmentCommand(providers, resolvedOptions);
     if (result?.path) {
         const metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(result.path);
         return { ...result, metadata };

@@ -240,7 +240,10 @@ function getArchitectureSortName(arch?: Architecture) {
     }
 }
 
-function isBaseCondaEnvironment(environment: PythonEnvironment): boolean {
+// --- Start Positron ---
+// export this
+export function isBaseCondaEnvironment(environment: PythonEnvironment): boolean {
+    // --- End Positron ---
     return (
         environment.envType === EnvironmentType.Conda &&
         (environment.envName === 'base' || environment.envName === 'miniconda')
