@@ -258,6 +258,9 @@ describe('selectNewLanguageRuntime', () => {
 		});
 
 		it('sorts within an env type by version descending, unsupported runtimes last', async () => {
+			// Register a preferred runtime first so the three runtimes under test
+			// are all alternates (the primary is shown only under "Suggested").
+			await registerRuntime(makeRuntime({ runtimeId: 'py-pref', runtimeName: 'Python (preferred)' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-310', languageVersion: '3.10.0', runtimeName: 'Python 3.10' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-312', languageVersion: '3.12.0', runtimeName: 'Python 3.12' }));
 			await registerRuntime(makeRuntime({
