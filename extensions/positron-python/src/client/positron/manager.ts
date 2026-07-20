@@ -329,7 +329,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             // Mirrors the retry in selectLanguageRuntimeFromPath.
             if (!interpreter) {
                 traceInfo(`Recommended interpreter ${interpreterPath} not resolved yet, triggering refresh...`);
-                await this.triggerInterpreterRefresh();
+                await this.interpreterService.triggerRefresh().ignoreErrors();
                 interpreter = await this.interpreterService.getInterpreterDetails(interpreterPath, workspaceUri);
             }
 
