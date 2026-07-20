@@ -37,13 +37,13 @@ suite('buildProvidersConfigFromSettings', () => {
 		assert.strictEqual(result?.settingCount, 3);
 	});
 
-	test('normalizes the foundry base URL', () => {
+	test('copies the foundry base URL verbatim', () => {
 		const result = buildProvidersConfigFromSettings(readerOf({
 			'authentication.foundry.baseUrl': 'https://my-resource.services.ai.azure.com',
 		}), fakeCaps);
-		// normalizeToV1Url appends the versioned path; assert against its real output.
-		assert.ok(result?.config.providers?.['ms-foundry']?.baseUrl?.startsWith('https://my-resource.services.ai.azure.com'));
-		assert.notStrictEqual(result?.config.providers?.['ms-foundry']?.baseUrl, 'https://my-resource.services.ai.azure.com');
+		assert.deepStrictEqual(result?.config.providers?.['ms-foundry'], {
+			baseUrl: 'https://my-resource.services.ai.azure.com',
+		});
 	});
 
 	test('omits empty strings and empty header maps', () => {

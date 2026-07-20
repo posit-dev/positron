@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type { InferredModelCapabilities, ProvidersConfig } from 'ai-config/node';
-import { normalizeToV1Url } from '../validation';
 
 export type InferCapabilitiesFn = (providerId: string, modelId: string) => InferredModelCapabilities;
 
@@ -38,7 +37,6 @@ export interface MappedProvidersConfig {
 interface ApiKeyConnectionSetting {
 	readonly configKey: string;
 	readonly providerId: string;
-	readonly normalizeBaseUrl?: (url: string) => string;
 }
 
 /** authentication.<configKey>.{baseUrl,customHeaders} -> providers.<id>. */
@@ -47,7 +45,7 @@ const API_KEY_CONNECTION_SETTINGS: readonly ApiKeyConnectionSetting[] = [
 	{ configKey: 'openai-api', providerId: 'openai' },
 	{ configKey: 'google', providerId: 'gemini' },
 	{ configKey: 'deepseek-api', providerId: 'deepseek' },
-	{ configKey: 'foundry', providerId: 'ms-foundry', normalizeBaseUrl: normalizeToV1Url },
+	{ configKey: 'foundry', providerId: 'ms-foundry' },
 	{ configKey: 'openai-compatible', providerId: 'openai-compatible' },
 	{ configKey: 'googleVertex', providerId: 'google-vertex' },
 ];
@@ -135,9 +133,8 @@ export function buildProvidersConfigFromSettings(
 	for (const s of API_KEY_CONNECTION_SETTINGS) {
 		const rawBaseUrl = nonEmptyString(reader.globalValue<string>(`authentication.${s.configKey}.baseUrl`));
 		if (rawBaseUrl) {
-			const baseUrl = s.normalizeBaseUrl ? s.normalizeBaseUrl(rawBaseUrl) : rawBaseUrl;
-			merge(s.providerId, { baseUrl });
-			record(`authentication.${s.configKey}.baseUrl`, `providers.${s.providerId}.baseUrl`, JSON.stringify(baseUrl));
+			merge(s.providerId, { baseUrl: rawBaseUrl });
+			record(`authentication.${s.configKey}.baseUrl`, `providers.${s.providerId}.baseUrl`, JSON.stringify(rawBaseUrl));
 		}
 		const headers = nonEmptyHeaders(reader.globalValue<Record<string, string>>(`authentication.${s.configKey}.customHeaders`));
 		if (headers) {
