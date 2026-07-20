@@ -39,6 +39,7 @@ suite('Native Python API', () => {
     let getWorkspaceFoldersStub: sinon.SinonStub;
     // --- Start Positron ---
     let isUvEnvironmentStub: sinon.SinonStub;
+    let isUvManagedBasePythonStub: sinon.SinonStub;
     // --- End Positron ---
 
     const basicEnv: NativeEnvInfo = {
@@ -152,6 +153,7 @@ suite('Native Python API', () => {
         setPyEnvBinaryStub = sinon.stub(pyenvApi, 'setPyEnvBinary');
         // --- Start Positron ---
         isUvEnvironmentStub = sinon.stub(uvApi, 'isUvEnvironment');
+        isUvManagedBasePythonStub = sinon.stub(uvApi, 'isUvManagedBasePython');
         // --- End Positron ---
         getWorkspaceFoldersStub = sinon.stub(ws, 'getWorkspaceFolders');
         getWorkspaceFoldersStub.returns([]);
@@ -349,9 +351,10 @@ suite('Native Python API', () => {
     });
 
     // --- Start Positron ---
-    test('uv environment detected and converted during addEnv via triggerRefresh', async () => {
-        // Create a test environment that looks like a regular VirtualEnv initially
-        const uvEnv: NativeEnvInfo = {
+    test('uv-managed base Python classified as global during addEnv via triggerRefresh', async () => {
+        // A uv-managed standalone Python install lives under the uv python dir. It is a base
+        // interpreter, not a dedicated environment, so it must be classified as global.
+        const uvBasePython: NativeEnvInfo = {
             displayName: 'uv environment',
             name: 'my_uv_env',
             executable: '/home/user/.local/share/uv/python/cpython-3.11.5/bin/python',
@@ -360,15 +363,16 @@ suite('Native Python API', () => {
             prefix: '/home/user/.local/share/uv/python/cpython-3.11.5',
         };
 
-        // Mock isUvEnvironment to return true for this environment
-        isUvEnvironmentStub.withArgs(uvEnv.executable).resolves(true);
+        isUvManagedBasePythonStub.withArgs(uvBasePython.executable).resolves(true);
+        // addEnv awaits getAdditionalEnvDirs (which spawns uv); stub it for a hermetic test.
+        sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([]);
 
         // Setup the finder to return our test env during refresh
         mockFinder
             .setup((f) => f.refresh())
             .returns(() => {
                 async function* generator() {
-                    yield* [uvEnv];
+                    yield* [uvBasePython];
                 }
                 return generator();
             })
@@ -377,22 +381,23 @@ suite('Native Python API', () => {
         // Trigger refresh which will call addEnv internally
         await api.triggerRefresh();
 
-        // Get the environments and verify the uv environment was converted
+        // Get the environments and verify the base Python was classified as global
         const envs = api.getEnvs();
         assert.equal(envs.length, 1);
 
         const addedEnv = envs[0];
         assert.isDefined(addedEnv);
-        assert.equal(addedEnv.kind, PythonEnvKind.Uv);
+        assert.equal(addedEnv.kind, PythonEnvKind.OtherGlobal);
         assert.equal(addedEnv.executable.filename, '/home/user/.local/share/uv/python/cpython-3.11.5/bin/python');
 
-        // Verify isUvEnvironment was called during addEnv
-        assert.isTrue(isUvEnvironmentStub.calledWith('/home/user/.local/share/uv/python/cpython-3.11.5/bin/python'));
+        // The base-vs-venv discriminator short-circuits before isUvEnvironment.
+        assert.isTrue(
+            isUvManagedBasePythonStub.calledWith('/home/user/.local/share/uv/python/cpython-3.11.5/bin/python'),
+        );
     });
 
-    test('uv environment detected and converted during resolveEnv', async () => {
-        // Create a test environment
-        const uvEnv: NativeEnvInfo = {
+    test('uv-managed base Python classified as global during resolveEnv', async () => {
+        const uvBasePython: NativeEnvInfo = {
             displayName: 'uv Python',
             name: 'uv_python',
             executable: '/home/user/.local/share/uv/python/cpython-3.10',
@@ -401,25 +406,60 @@ suite('Native Python API', () => {
             prefix: '/home/user/.local/share/uv/python',
         };
 
-        // Mock the isUvEnvironment to return true for this environment
-        isUvEnvironmentStub.withArgs(uvEnv.executable).resolves(true);
+        isUvManagedBasePythonStub.withArgs(uvBasePython.executable).resolves(true);
+        // addEnv awaits getAdditionalEnvDirs (which spawns uv); stub it for a hermetic test.
+        sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([]);
 
         // Setup the finder to return our test env when resolving
         mockFinder
             .setup((f) => f.resolve('/home/user/.local/share/uv/python/cpython-3.10'))
-            .returns(() => Promise.resolve(uvEnv))
+            .returns(() => Promise.resolve(uvBasePython))
             .verifiable(typemoq.Times.once());
 
         // Resolve the environment
         const resolved = await api.resolveEnv('/home/user/.local/share/uv/python/cpython-3.10');
 
-        // Verify the environment was recognized as Uv
+        // Verify the base Python was classified as global
         assert.isDefined(resolved);
-        assert.equal(resolved?.kind, PythonEnvKind.Uv);
+        assert.equal(resolved?.kind, PythonEnvKind.OtherGlobal);
 
-        // Verify isUvEnvironment was called twice (once when adding; once when resolving)
-        assert.isTrue(isUvEnvironmentStub.calledTwice);
-        assert.isTrue(isUvEnvironmentStub.calledWith('/home/user/.local/share/uv/python/cpython-3.10'));
+        // The classifier is consulted for this path during resolution.
+        assert.isTrue(isUvManagedBasePythonStub.calledWith('/home/user/.local/share/uv/python/cpython-3.10'));
+    });
+
+    test('uv venv kept as Uv during addEnv via triggerRefresh', async () => {
+        // A uv-created venv is a uv environment but not a standalone base install, so it stays
+        // classified as Uv (a dedicated environment).
+        const uvVenv: NativeEnvInfo = {
+            displayName: 'uv venv',
+            name: 'my_project',
+            executable: '/home/user/projects/my_project/.venv/bin/python',
+            kind: NativePythonEnvironmentKind.VirtualEnv,
+            version: '3.12.1',
+            prefix: '/home/user/projects/my_project/.venv',
+        };
+
+        isUvManagedBasePythonStub.withArgs(uvVenv.executable).resolves(false);
+        isUvEnvironmentStub.withArgs(uvVenv.executable).resolves(true);
+        // addEnv awaits getAdditionalEnvDirs (which spawns uv); stub it for a hermetic test.
+        sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([]);
+
+        mockFinder
+            .setup((f) => f.refresh())
+            .returns(() => {
+                async function* generator() {
+                    yield* [uvVenv];
+                }
+                return generator();
+            })
+            .verifiable(typemoq.Times.once());
+
+        await api.triggerRefresh();
+
+        const envs = api.getEnvs();
+        assert.equal(envs.length, 1);
+        assert.equal(envs[0]?.kind, PythonEnvKind.Uv);
+        assert.isTrue(isUvEnvironmentStub.calledWith('/home/user/projects/my_project/.venv/bin/python'));
     });
 
     test('Pre-release version (alpha) is included in display name', async () => {
