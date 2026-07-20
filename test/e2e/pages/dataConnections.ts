@@ -33,6 +33,20 @@ const VERSION_ROW = `${TREE_CONTAINER} ${TREE_ROW}:has(.codicon-history)`;
 const NODE_TYPE_BADGE = '.data-connection-node-type';
 
 /**
+ * The subset of node kinds a caller can disambiguate on, mapped to the codicon class the row renders
+ * for that kind (see `dataConnectionNodeRow.tsx`). Two nodes can share a label across levels (e.g. a
+ * Redshift database and a table both named `flights`); passing a kind narrows the exact-text match to
+ * the row with the matching icon.
+ */
+export type DataConnectionNodeKind = 'database' | 'schema' | 'table' | 'view';
+const NODE_KIND_ICON: Record<DataConnectionNodeKind, string> = {
+	database: 'codicon-positron-db-database',
+	schema: 'codicon-positron-db-schema',
+	table: 'codicon-positron-db-table',
+	view: 'codicon-positron-db-view',
+};
+
+/**
  * Reusable Positron Data Connections panel functionality for tests to leverage.
  *
  * Covers the panel gated behind the `dataConnections.enabled` setting: opening the view, adding a
@@ -46,6 +60,15 @@ export class DataConnections {
 	saveButton: Locator;
 	nextButton: Locator;
 	connectionEntries: Locator;
+
+	/**
+	 * Optional override (in ms) for the built-in waits in this page object. Slow backends need more
+	 * than the global 15s expect timeout: a serverless Redshift workgroup can cold-start on the first
+	 * connect, and each tree expansion issues a metadata query that may be slow to return. Set this
+	 * once (e.g. in `beforeAll`) to widen every wait for connecting, expanding, and node assertions.
+	 * Leave undefined to use Playwright's default expect timeout.
+	 */
+	actionTimeout?: number;
 
 	constructor(private code: Code, private quickaccess: QuickAccess) {
 		const page = code.driver.currentPage;
@@ -120,7 +143,9 @@ export class DataConnections {
 	 */
 	async save(): Promise<void> {
 		await this.saveButton.click();
-		await expect(this.dialog).toBeHidden();
+		// Saving opens the live connection, so this wait spans the backend connect (a cold-starting
+		// serverless workgroup can take a while); honor actionTimeout when set.
+		await expect(this.dialog).toBeHidden({ timeout: this.actionTimeout });
 	}
 
 	/**
@@ -130,18 +155,24 @@ export class DataConnections {
 	async expectConnectionInTree(connectionName: string): Promise<void> {
 		await expect(
 			this.connectionEntries.filter({ hasText: connectionName })
-		).toBeVisible();
+		).toBeVisible({ timeout: this.actionTimeout });
 	}
 
 	/**
 	 * Returns the tree row whose node label exactly matches the given text. Exact matching avoids
-	 * false matches between names that share a substring (e.g. 'actor' vs 'actor_info').
+	 * false matches between names that share a substring (e.g. 'actor' vs 'actor_info'). Pass a
+	 * `kind` to further narrow the match by node icon when the same label appears at more than one
+	 * level (e.g. a Redshift database and a table both named 'flights').
 	 * @param label The node label, e.g. 'Schemas', 'public', 'Tables', 'actor'.
+	 * @param kind Optional node kind to disambiguate rows that share a label.
 	 */
-	private treeRow(label: string): Locator {
-		return this.code.driver.currentPage.locator(TREE_ROW).filter({
-			has: this.code.driver.currentPage.getByText(label, { exact: true })
-		});
+	private treeRow(label: string, kind?: DataConnectionNodeKind): Locator {
+		const page = this.code.driver.currentPage;
+		let row = page.locator(TREE_ROW).filter({ has: page.getByText(label, { exact: true }) });
+		if (kind) {
+			row = row.filter({ has: page.locator(`.${NODE_KIND_ICON[kind]}`) });
+		}
+		return row;
 	}
 
 	/**
@@ -157,17 +188,21 @@ export class DataConnections {
 	 */
 	private async expandRow(row: Locator, label: string): Promise<void> {
 		await test.step(`Expand node: ${label}`, async () => {
-			// Reveal the row so it is rendered before interacting with it: the grid renders no
-			// overscan, so a row below the fold is absent from the DOM (and a prior step may have
-			// scrolled the grid). revealNode scrolls it into the rendered range; toBeVisible then
-			// waits for the row to finish loading after its parent expanded.
+			// Reveal the row before acting on it. The grid renders no overscan, so a row below the
+			// fold is absent from the DOM entirely -- which happens for a deep node in a short panel
+			// (e.g. a Redshift table, one level below Postgres's because of the extra Databases node).
+			// revealNode scrolls it into the rendered range (or back to the top if it is a child still
+			// loading after its parent expanded); toBeVisible then waits for that load to finish before
+			// we click its twisty.
 			await this.revealNode(row);
-			await expect(row).toBeVisible();
+			await expect(row).toBeVisible({ timeout: this.actionTimeout });
 
 			const collapsedTwisty = row.locator(TREE_TWISTY_COLLAPSED);
 			if (await collapsedTwisty.count() > 0) {
 				await collapsedTwisty.first().dispatchEvent('click');
-				await expect(row.locator(TREE_TWISTY_COLLAPSED)).toHaveCount(0);
+				// Children load asynchronously (a metadata query) after the twisty is clicked, so this
+				// wait can span a slow backend response; honor actionTimeout when set.
+				await expect(row.locator(TREE_TWISTY_COLLAPSED)).toHaveCount(0, { timeout: this.actionTimeout });
 			}
 		});
 	}
@@ -185,9 +220,10 @@ export class DataConnections {
 	/**
 	 * Expands a tree node by its label.
 	 * @param label The node label to expand, e.g. 'Schemas', 'public', 'Tables', 'Views'.
+	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
 	 */
-	async expandNode(label: string): Promise<void> {
-		await this.expandRow(this.treeRow(label), label);
+	async expandNode(label: string, kind?: DataConnectionNodeKind): Promise<void> {
+		await this.expandRow(this.treeRow(label, kind), label);
 	}
 
 	/**
@@ -196,12 +232,13 @@ export class DataConnections {
 	 * node row. Like {@link expandRow}, this uses `dispatchEvent` rather than a coordinate-based
 	 * click because the tree is a virtualized grid with absolutely-positioned rows.
 	 * @param label The node label, e.g. 'actor' or 'first_name'.
+	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
 	 */
-	async doubleClickNode(label: string): Promise<void> {
+	async doubleClickNode(label: string, kind?: DataConnectionNodeKind): Promise<void> {
 		await test.step(`Double-click node: ${label}`, async () => {
-			const row = this.treeRow(label);
+			const row = this.treeRow(label, kind);
 			await this.revealNode(row);
-			await expect(row).toBeVisible();
+			await expect(row).toBeVisible({ timeout: this.actionTimeout });
 			await row.locator('.data-connection-node-row').dispatchEvent('dblclick');
 		});
 	}
@@ -232,16 +269,25 @@ export class DataConnections {
 		for (let i = 0; i < 60 && await row.count() === 0; i++) {
 			await page.mouse.wheel(0, 200);
 		}
+
+		// If the scan reached the end without rendering the row, it is not below the fold -- it is a
+		// child still loading after its parent expanded. Return to the top so it renders in the visible
+		// range once the load completes (the nodes this drives all live near the top of the tree),
+		// rather than being stranded off-screen where the scan left the grid scrolled to the bottom.
+		if (await row.count() === 0) {
+			await this.scrollToTop();
+		}
 	}
 
 	/**
 	 * Asserts that a tree node with the given label is visible, scrolling it into view if needed.
 	 * @param label The node label.
+	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
 	 */
-	async expectNodeVisible(label: string): Promise<void> {
-		const row = this.treeRow(label);
+	async expectNodeVisible(label: string, kind?: DataConnectionNodeKind): Promise<void> {
+		const row = this.treeRow(label, kind);
 		await this.revealNode(row);
-		await expect(row).toBeVisible();
+		await expect(row).toBeVisible({ timeout: this.actionTimeout });
 	}
 
 	/**
@@ -252,8 +298,8 @@ export class DataConnections {
 	async expectColumn(name: string, dataType: string): Promise<void> {
 		const row = this.treeRow(name);
 		await this.revealNode(row);
-		await expect(row).toBeVisible();
-		await expect(row.locator(NODE_TYPE_BADGE)).toHaveText(dataType);
+		await expect(row).toBeVisible({ timeout: this.actionTimeout });
+		await expect(row.locator(NODE_TYPE_BADGE)).toHaveText(dataType, { timeout: this.actionTimeout });
 	}
 
 	/**
