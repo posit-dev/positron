@@ -117,16 +117,23 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 	// immediately; the channel buttons appear once listOutputChannels() resolves.
 	useEffect(() => {
 		let active = true;
-		props.session.listOutputChannels().then(
-			available => {
-				if (active) {
-					setChannels(intersectionOutputChannels(available));
-				}
-			},
-			err => {
+
+		const loadOutputChannels = async () => {
+			let available: string[];
+			try {
+				available = await props.session.listOutputChannels();
+			} catch (err) {
 				// If we fail to get the channels we can just ignore it
 				console.warn('Failed to get output channels', err);
-			});
+				return;
+			}
+			if (active) {
+				setChannels(intersectionOutputChannels(available));
+			}
+		};
+
+		loadOutputChannels();
+
 		return () => { active = false; };
 	}, [props.session]);
 
@@ -173,17 +180,19 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 						</p>
 					</div>
 				</div>
-				<div className='top-separator actions'>
-					{channels.map((channel, index) => (
-						<Button
-							key={`channel-${index}`}
-							className='link'
-							onPressed={() => showKernelOutputChannelClickHandler(channel)}
-						>
-							{localizeShowKernelOutputChannel(OutputChannelNames[channel])}
-						</Button>
-					))}
-				</div>
+				{channels.length > 0 &&
+					<div className='top-separator actions'>
+						{channels.map((channel, index) => (
+							<Button
+								key={`channel-${index}`}
+								className='link'
+								onPressed={() => showKernelOutputChannelClickHandler(channel)}
+							>
+								{localizeShowKernelOutputChannel(OutputChannelNames[channel])}
+							</Button>
+						))}
+					</div>
+				}
 			</div>
 		</PositronModalPopup>
 	);
