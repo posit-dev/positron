@@ -12,7 +12,7 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { DuplicateActiveConsoleSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime } from '../../browser/languageRuntimeActions.js';
+import { DuplicateActiveConsoleSessionAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime } from '../../browser/languageRuntimeActions.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -873,5 +873,117 @@ describe('StartNewConsoleSessionAction', () => {
 		expect(notifyError).toHaveBeenCalledWith(expect.stringContaining('does-not-exist'));
 		expect(startNewRuntimeSession).not.toHaveBeenCalled();
 		expect(executeCommand).not.toHaveBeenCalled();
+	});
+});
+
+describe('SelectSessionAction', () => {
+	const executeCommand = vi.fn(async () => undefined);
+	const openEditor = vi.fn(async () => undefined);
+	const notifyError = vi.fn();
+	const pickFn = vi.fn(async (): Promise<QuickPickItem | undefined> => undefined);
+
+	let foregroundSession: ILanguageRuntimeSession | undefined;
+	let sessionsById: Map<string, ILanguageRuntimeSession>;
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
+			get foregroundSession() { return foregroundSession; },
+			set foregroundSession(session) { foregroundSession = session; },
+			activeSessions: [] as ILanguageRuntimeSession[],
+			getSession: (sessionId: string) => sessionsById.get(sessionId),
+		}))
+		.stub(ICommandService, { executeCommand })
+		.stub(IEditorService, stubInterface<IEditorService>({ openEditor }))
+		.stub(INotificationService, stubInterface<INotificationService>({ error: notifyError }))
+		.stub(IQuickInputService, stubInterface<IQuickInputService>({
+			// Narrow to IQuickInputService['pick'] because the field is overloaded
+			// (canPickMany: true returns Promise<T[]>, canPickMany: false returns
+			// Promise<T>); our single-shape stub satisfies only one overload and
+			// TS rejects it without the cast.
+			pick: pickFn as IQuickInputService['pick'],
+		}))
+		.build();
+
+	beforeEach(() => {
+		foregroundSession = undefined;
+		sessionsById = new Map();
+	});
+
+	function runAction(sessionId?: string) {
+		return ctx.instantiationService.invokeFunction(accessor =>
+			new SelectSessionAction().run(accessor, sessionId));
+	}
+
+	function makeConsoleSession(sessionId: string): ILanguageRuntimeSession {
+		return stubInterface<ILanguageRuntimeSession>({
+			sessionId,
+			metadata: {
+				sessionId,
+				sessionMode: LanguageRuntimeSessionMode.Console,
+				notebookUri: undefined,
+				createdTimestamp: 0,
+				startReason: 'test',
+			},
+		});
+	}
+
+	function makeNotebookSession(sessionId: string, uri: URI): ILanguageRuntimeSession {
+		return stubInterface<ILanguageRuntimeSession>({
+			sessionId,
+			metadata: {
+				sessionId,
+				sessionMode: LanguageRuntimeSessionMode.Notebook,
+				notebookUri: uri,
+				createdTimestamp: 0,
+				startReason: 'test',
+			},
+		});
+	}
+
+	// Agent-invocable path: a sessionId is supplied, so the command must
+	// resolve it directly and skip the picker entirely.
+	it('resolves a console sessionId directly, focuses the console, and skips the picker', async () => {
+		const session = makeConsoleSession('console-1');
+		sessionsById.set('console-1', session);
+
+		await runAction('console-1');
+
+		expect(pickFn).not.toHaveBeenCalled();
+		expect(foregroundSession).toBe(session);
+		expect(executeCommand).toHaveBeenCalledWith('workbench.panel.positronConsole.focus');
+		expect(openEditor).not.toHaveBeenCalled();
+	});
+
+	it('resolves a notebook sessionId directly, opens its editor, and skips the picker', async () => {
+		const uri = URI.file('/path/to/notebook.ipynb');
+		const session = makeNotebookSession('notebook-1', uri);
+		sessionsById.set('notebook-1', session);
+
+		await runAction('notebook-1');
+
+		expect(pickFn).not.toHaveBeenCalled();
+		expect(foregroundSession).toBe(session);
+		expect(openEditor).toHaveBeenCalledWith({ resource: uri });
+		expect(executeCommand).not.toHaveBeenCalled();
+	});
+
+	// An unresolvable sessionId must surface a clear error rather than
+	// silently falling back to the interactive picker.
+	it('notifies and leaves the foreground session unchanged for an unknown sessionId, without opening a picker', async () => {
+		await runAction('does-not-exist');
+
+		expect(pickFn).not.toHaveBeenCalled();
+		expect(notifyError).toHaveBeenCalledWith(expect.stringContaining('does-not-exist'));
+		expect(foregroundSession).toBeUndefined();
+		expect(executeCommand).not.toHaveBeenCalled();
+		expect(openEditor).not.toHaveBeenCalled();
+	});
+
+	it('opens the interactive picker when sessionId is omitted', async () => {
+		await runAction();
+
+		expect(pickFn).toHaveBeenCalled();
+		expect(foregroundSession).toBeUndefined();
 	});
 });
