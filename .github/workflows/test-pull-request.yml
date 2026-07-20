@@ -7,6 +7,7 @@ on:
       - main
       - "prerelease/**"
       - "release/**"
+      - "mi/scratch-docsci-base"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
