@@ -3,11 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as fs from 'fs-extra';
-import * as os from 'os';
 import * as path from 'path';
 import * as crypto from 'crypto';
 
@@ -250,13 +248,7 @@ export async function createPythonRuntimeMetadata(
     digest.update(pythonVersion);
     const runtimeId = digest.digest('hex').substring(0, 32);
 
-    // Create the runtime path.
-    // TODO@softwarenerd - We will need to update this for Windows.
-    const homedir = os.homedir();
-    const runtimePath =
-        os.platform() !== 'win32' && interpreter.path.startsWith(homedir)
-            ? path.join('~', interpreter.path.substring(homedir.length))
-            : interpreter.path;
+    const runtimePath = interpreter.path;
 
     // Save the ID of the Python environment for use when creating the language
     // runtime session.

@@ -33,7 +33,9 @@ function escapeDoubleQuoted(value: string): string {
 }
 
 /**
- * Generates the R connection code variants. The default variant relies on the CONNECT_SERVER and
+ * Generates the R connection code variants. The generated code operates at the connection (board)
+ * level, listing the board's pins; reading an individual pin is a per-pin operation, not something
+ * this connection-level code represents. The default variant relies on the CONNECT_SERVER and
  * CONNECT_API_KEY environment variables (matching `board_connect()` defaults). The explicit-server
  * variant names the server from the profile and reads the key from the environment, unless the key
  * was included via the Include Secrets flow, in which case it is embedded inline.
@@ -43,7 +45,7 @@ function generateRCode(serverUrl: string | undefined, apiKey: string | undefined
 		{
 			id: 'envvar',
 			label: vscode.l10n.t('Environment Variables'),
-			code: `library(pins)\nboard <- board_connect()\npin_list(board)\n# pin_read(board, "owner/name")\n`,
+			code: `library(pins)\nboard <- board_connect()\npin_list(board)\n`,
 		},
 	];
 	if (serverUrl) {
@@ -53,23 +55,25 @@ function generateRCode(serverUrl: string | undefined, apiKey: string | undefined
 		variants.push({
 			id: 'explicitServer',
 			label: vscode.l10n.t('Explicit Server'),
-			code: `library(pins)\nboard <- board_connect(\n\tserver = "${escapeDoubleQuoted(serverUrl)}",\n\t${keyArg}\n)\npin_list(board)\n# pin_read(board, "owner/name")\n`,
+			code: `library(pins)\nboard <- board_connect(\n\tserver = "${escapeDoubleQuoted(serverUrl)}",\n\t${keyArg}\n)\npin_list(board)\n`,
 		});
 	}
 	return variants;
 }
 
 /**
- * Generates the Python connection code variants, mirroring {@link generateRCode}. The default
- * variant relies on the CONNECT_SERVER and CONNECT_API_KEY environment variables; the
- * explicit-server variant names the server and, when secrets are included, embeds the key.
+ * Generates the Python connection code variants, mirroring {@link generateRCode}. The generated
+ * code lists the board's pins (a connection-level operation); reading an individual pin is per-pin
+ * and not represented here. The default variant relies on the CONNECT_SERVER and CONNECT_API_KEY
+ * environment variables; the explicit-server variant names the server and, when secrets are
+ * included, embeds the key.
  */
 function generatePythonCode(serverUrl: string | undefined, apiKey: string | undefined): positron.ConnectionCodeVariant[] {
 	const variants: positron.ConnectionCodeVariant[] = [
 		{
 			id: 'envvar',
 			label: vscode.l10n.t('Environment Variables'),
-			code: `import pins\nboard = pins.board_connect()\nboard.pin_list()\n# board.pin_read("owner/name")\n`,
+			code: `import pins\nboard = pins.board_connect()\nboard.pin_list()\n`,
 		},
 	];
 	if (serverUrl) {
@@ -79,7 +83,7 @@ function generatePythonCode(serverUrl: string | undefined, apiKey: string | unde
 		variants.push({
 			id: 'explicitServer',
 			label: vscode.l10n.t('Explicit Server'),
-			code: `import pins\nboard = pins.board_connect(server_url="${escapeDoubleQuoted(serverUrl)}"${keyArg})\nboard.pin_list()\n# board.pin_read("owner/name")\n`,
+			code: `import pins\nboard = pins.board_connect(server_url="${escapeDoubleQuoted(serverUrl)}"${keyArg})\nboard.pin_list()\n`,
 		});
 	}
 	return variants;

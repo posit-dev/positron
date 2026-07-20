@@ -42,9 +42,7 @@ test.describe('Default Interpreters - R', {
 
 	});
 
-	test('R - Add a default interpreter', async function ({ runCommand, sessions, hotKeys }) {
-
-		await hotKeys.reloadWindow(true);
+	test('R - Add a default interpreter', async function ({ sessions, hotKeys }) {
 
 		const hiddenRVersion = process.env.POSITRON_HIDDEN_R;
 		if (!hiddenRVersion) {
@@ -54,24 +52,28 @@ test.describe('Default Interpreters - R', {
 		// Escape dots for regex matching
 		const escapedVersion = hiddenRVersion.replace(/\./g, '\\.');
 
-		await expect(async () => {
+		// The beforeAll set the default interpreter and reloaded in one call. That reload cancels
+		// the in-flight (extension-requested) session creation, and the affiliated runtime does not
+		// reliably auto-start afterward. Wait for a session to actually appear before reading
+		// metadata rather than racing a still-empty console (which is what surfaced the misleading
+		// "Extract session metadata" timeout). If affiliation never fired, reload once to re-trigger
+		// it -- but only after the wait, so we never reload a session mid-start (a reload cancels
+		// in-flight session creation; see #14901).
+		try {
+			await sessions.expectSessionCountToBe(1);
+		} catch {
+			await hotKeys.reloadWindow(true);
+			await sessions.expectSessionCountToBe(1);
+		}
 
-			try {
-				const { name, path } = await sessions.getMetadata();
+		const { name, path } = await sessions.getMetadata();
 
-				// Local debugging sample:
-				// expect(name).toContain('R 4.3.3');
-				// expect(path).toContain('R.framework/Versions/4.3-arm64/Resources/R');
+		// Local debugging sample:
+		// expect(name).toContain('R 4.3.3');
+		// expect(path).toContain('R.framework/Versions/4.3-arm64/Resources/R');
 
-				// hidden CI interpreter:
-				expect(name).toMatch(new RegExp(`R ${escapedVersion}`));
-				expect(path).toMatch(new RegExp(`R-${escapedVersion}\\/bin\\/R`));
-
-			} catch (error) {
-				await hotKeys.reloadWindow(true);
-				throw error;
-			}
-
-		}).toPass({ timeout: 60000 });
+		// hidden CI interpreter:
+		expect(name).toMatch(new RegExp(`R ${escapedVersion}`));
+		expect(path).toMatch(new RegExp(`R-${escapedVersion}\\/bin\\/R`));
 	});
 });

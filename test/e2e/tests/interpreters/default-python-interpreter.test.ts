@@ -39,7 +39,7 @@ test.describe('Default Interpreters - Python', {
 		await cleanup.discardAllChanges();
 	});
 
-	test('Python - Add a default interpreter (Conda)', async function ({ sessions }) {
+	test('Python - Add a default interpreter (Conda)', async function ({ sessions, hotKeys }) {
 		// Get version from appropriate env var (hidden Python in CI, regular in local)
 		const pythonVersion = process.env.CI
 			? (process.env.POSITRON_HIDDEN_PY || '3.12.10').split(' ')[0] // Extract "3.12.10" from "3.12.10 (Conda)"
@@ -53,10 +53,20 @@ test.describe('Default Interpreters - Python', {
 			? /python-env\/bin\/python/
 			: new RegExp(`~?\\.pyenv/versions/${pythonVersion.replace(/\./g, '\\.')}/bin/python`);
 
-		// Verify interpreter metadata. No extra reload here: the beforeAll reload above already
-		// starts the interpreter. A second reload used to run at this point, but it raced a
-		// window reload against that still-in-flight session-creation call, canceling it and
-		// leaving the console referencing a session that never finished starting.
+		// The beforeAll set python.defaultInterpreterPath and reloaded in one call. That reload
+		// cancels the in-flight (extension-requested) session creation, and the affiliated Python
+		// runtime does not reliably auto-start afterward. Wait for a session to actually appear
+		// before reading metadata rather than racing a still-empty console (which is what surfaced
+		// the misleading "Extract session metadata" timeout). If affiliation never fired, reload
+		// once to re-trigger it -- but only after the wait, so we never reload a session mid-start
+		// (a reload cancels in-flight session creation; see #14901).
+		try {
+			await sessions.expectSessionCountToBe(1);
+		} catch {
+			await hotKeys.reloadWindow(true);
+			await sessions.expectSessionCountToBe(1);
+		}
+
 		const { name, path } = await sessions.getMetadata();
 		expect(name).toMatch(versionRegex);
 		expect(path).toMatch(pathRegex);

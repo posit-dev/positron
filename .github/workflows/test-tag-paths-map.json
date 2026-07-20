@@ -35,7 +35,7 @@
 
   "extensions/authentication/": ["@:assistant"],
   "extensions/copilot/": ["@:assistant"],
-  "extensions/copilot/src/extension/prompts/node/base/positronAssistant.tsx/": ["@:assistant"],
+  "extensions/copilot/src/extension/prompts/node/base/positronAssistant.tsx": ["@:assistant"],
   "extensions/positron-connections/": ["@:connections"],
   "extensions/positron-notebooks/": ["@:positron-notebooks"],
   "extensions/positron-reticulate/": ["@:reticulate"],
@@ -122,6 +122,7 @@
   "src/vs/platform/positronIdleTracking/": [],
   "src/vs/platform/positronMemoryUsage/": ["@:variables"],
   "src/vs/platform/update/": [],
+  "src/vs/workbench/browser/parts/editor/editorActionBar": ["@:editor-action-bar"],
   "src/vs/workbench/browser/parts/positronTopActionBar/": ["@:top-action-bar"],
   "src/vs/workbench/browser/positronAnsiRenderer/": ["@:console"],
   "src/vs/workbench/browser/positronDataExplorer/": ["@:data-explorer"],

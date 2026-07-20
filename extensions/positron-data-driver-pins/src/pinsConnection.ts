@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
-import { ConnectClient, PinInfo } from './connectClient.js';
+import { BundleInfo, ConnectClient, PinInfo } from './connectClient.js';
 import { Logger, NULL_LOGGER } from './logging.js';
 import { createOwnerNode, IPinsBrowseHost } from './pinsNodes.js';
 
@@ -82,6 +82,15 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 			this._typeCache.delete(pin.guid);
 			return undefined;
 		}
+	}
+
+	/**
+	 * Lists a pin's versions (bundles), newest first, when a pin node is expanded. Fetched fresh each
+	 * time (not cached): it is a single request, and a live fetch surfaces newly published versions.
+	 */
+	async getBundles(pin: PinInfo): Promise<BundleInfo[]> {
+		this._ensureConnected();
+		return this._client.listBundles(pin.guid);
 	}
 
 	/** Marks the connection disconnected and drops cached state. No socket to close. */

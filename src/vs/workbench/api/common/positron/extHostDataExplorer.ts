@@ -79,6 +79,12 @@ export class ExtHostDataExplorer implements extHostProtocol.ExtHostDataExplorerS
 		return handler.handleRpc(rpc as positron.DataExplorerRpcRequest) as Promise<IDataExplorerResponseDto>;
 	}
 
+	$disposeBackend(providerId: string, datasetId: string): void {
+		// Only notify a provider that has already registered. A closed dataset must never
+		// activate a dormant extension: there is nothing for it to release.
+		this._handlers.get(providerId)?.closeDataset?.(datasetId);
+	}
+
 	// --- Private helpers ---
 
 	/**

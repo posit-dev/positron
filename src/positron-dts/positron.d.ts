@@ -519,6 +519,16 @@ declare module 'positron' {
 		 * Used to detect architecture mismatches with the system.
 		 */
 		interpreterArch?: LanguageRuntimeArchitecture;
+
+		/**
+		 * The runtime's full build version, if it reports one. Distinct from
+		 * `implementation_version`: this may carry extra build metadata (e.g.
+		 * `0.1.252+14.6618e9a`) used to detect version mismatches.
+		 */
+		build_version?: string;
+
+		/** The short git commit hash the runtime was built from, if known. */
+		commit?: string;
 	}
 
 	/**
@@ -646,7 +656,11 @@ declare module 'positron' {
 	 * before the runtime is started.
 	 */
 	export interface LanguageRuntimeMetadata {
-		/** The path to the runtime. */
+		/**
+		 * The absolute path to the runtime executable. Always a fully-expanded
+		 * path suitable for use with execFile or equivalent; never contains ~
+		 * or other shorthand.
+		 */
 		runtimePath: string;
 
 		/** A unique identifier for this runtime; takes the form of a GUID */
@@ -2270,6 +2284,8 @@ declare module 'positron' {
 		Owner = 'owner',
 		// A pin on a Posit Connect server (positron-data-driver-pins).
 		Pin = 'pin',
+		// A version (bundle) of a pin on a Posit Connect server (positron-data-driver-pins).
+		Version = 'version',
 	}
 
 	export interface DataConnectionNode {
@@ -3293,6 +3309,14 @@ declare module 'positron' {
 		 * @returns The response (a result or an error message).
 		 */
 		handleRpc(request: DataExplorerRpcRequest): Thenable<DataExplorerRpcResponse>;
+
+		/**
+		 * Notifies the provider that the Data Explorer for a dataset has closed, so
+		 * it can release any per-dataset resources. A provider may use this to shut
+		 * down idle work once its last dataset closes. Optional.
+		 * @param datasetId The identifier of the dataset that was closed.
+		 */
+		closeDataset?(datasetId: string): void;
 	}
 
 	/**

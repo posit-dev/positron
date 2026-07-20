@@ -4,10 +4,11 @@ src/**
 .gitignore
 .prettierignore
 .yarnrc
-esbuild.js
 vsc-extension-quickstart.md
 **/tsconfig.json
+**/tsconfig.tsbuildinfo
 **/eslint.config.mjs
 **/*.map
 **/*.ts
+**/*.mts
 **/.vscode-test.*

@@ -40,4 +40,10 @@ export interface JupyterLanguageInfoPositron {
 
 	/** Initial continuation prompt */
 	continuation_prompt?: string;
+
+	/** The kernel's full build version (e.g. `0.1.252+14.6618e9a`), if known */
+	build_version?: string;
+
+	/** The short git commit hash the kernel was built from, if known */
+	commit?: string;
 }

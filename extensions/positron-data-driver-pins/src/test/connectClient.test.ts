@@ -88,6 +88,22 @@ suite('ConnectClient', () => {
 		assert.ok(calls[0].url.includes('filter=content_type:pin'), calls[0].url);
 	});
 
+	test('listBundles parses the bundles response into BundleInfo, newest first', async () => {
+		const { fetch, calls } = recordingFetch(() => ({
+			// Returned out of order to confirm the client sorts newest first.
+			body: JSON.stringify([
+				{ id: 1, created_time: '2024-01-15T09:30:00Z', active: false, size: 100 },
+				{ id: 5, created_time: '2024-03-02T14:00:00Z', active: true, size: 200 },
+			]),
+		}));
+		const bundles = await new ConnectClient(SERVER, KEY, fetch).listBundles('g1');
+		assert.deepStrictEqual(bundles, [
+			{ id: '5', createdTime: '2024-03-02T14:00:00Z', active: true, size: 200 },
+			{ id: '1', createdTime: '2024-01-15T09:30:00Z', active: false, size: 100 },
+		]);
+		assert.strictEqual(calls[0].url, `${SERVER}/__api__/v1/content/g1/bundles`);
+	});
+
 	test('getPinMeta fetches data.txt from the content _rev path and parses it', async () => {
 		const { fetch, calls } = recordingFetch(() => ({
 			body: 'file: data.parquet\ntype: parquet\ntitle: Cars\napi_version: 1\n',

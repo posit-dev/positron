@@ -115,7 +115,11 @@ const dashboardOptions: IChatStatusDashboardOptions = {
 suite('ChatStatusDashboard', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 
-	function createDashboard(entitlementService: IChatEntitlementService): ChatStatusDashboard {
+	// --- Start Positron ---
+	// `options` param added (defaulting to the original hardcoded `dashboardOptions`) so
+	// tests can exercise `disableChatSections` (completions-only mode) below.
+	function createDashboard(entitlementService: IChatEntitlementService, options: IChatStatusDashboardOptions = dashboardOptions): ChatStatusDashboard {
+		// --- End Positron ---
 		const instantiationService = workbenchInstantiationService(undefined, store);
 
 		instantiationService.stub(IChatEntitlementService, entitlementService);
@@ -137,7 +141,10 @@ suite('ChatStatusDashboard', () => {
 			_serviceBrand: undefined,
 		});
 
-		const dashboard = store.add(instantiationService.createInstance(ChatStatusDashboard, dashboardOptions));
+		// --- Start Positron ---
+		// Was: instantiationService.createInstance(ChatStatusDashboard, dashboardOptions)
+		const dashboard = store.add(instantiationService.createInstance(ChatStatusDashboard, options));
+		// --- End Positron ---
 
 		mainWindow.document.body.appendChild(dashboard.element);
 		store.add({ dispose: () => dashboard.element.remove() });
@@ -633,6 +640,24 @@ suite('ChatStatusDashboard', () => {
 
 		assert.strictEqual(getCalloutText(dashboard.element), 'You\'ve used your included credits. Your organization covers additional usage, so you can keep working.');
 	});
+
+	// --- Start Positron ---
+	// --- COMPLETIONS-ONLY MODE ---
+	// Regression test for https://github.com/posit-dev/positron/issues/14989: Copilot's
+	// usage rows must stay visible even when `disableChatSections` hides the chat-specific
+	// setup / contributed sections, since Copilot's quota still applies when it's used as a
+	// chat provider in Posit Assistant.
+	test('Completions-only mode: still shows Chat messages and Premium requests quota rows', () => {
+		const dashboard = createDashboard(createEntitlementService({
+			chat: { percentRemaining: 80, unlimited: false },
+			premiumChat: { percentRemaining: 60, unlimited: false },
+			completions: { percentRemaining: 90, unlimited: false },
+			entitlement: ChatEntitlement.Pro,
+		}), { ...dashboardOptions, disableChatSections: true });
+
+		assert.deepStrictEqual(getQuotaLabels(dashboard.element), ['Chat messages', 'Premium requests', 'Inline Suggestions']);
+	});
+	// --- End Positron ---
 
 	// --- LIVE UPDATES ---
 

@@ -45,6 +45,11 @@ for (pin in pins_to_publish) {
 	cat("Published pin:", pin$name, "\n")
 }
 
+# Publish a second version of one pin (board_connect() is versioned by default), so the
+# tree shows multiple version nodes and the newest write becomes the active version.
+pin_write(board, head(mtcars, 8), name = "e2e-mtcars", type = "rds")
+cat("Published second version of pin: e2e-mtcars\n")
+
 # --- Query -----------------------------------------------------------------
 # Read each pin back and log its table contents to the console.
 for (pin in pins_to_publish) {

@@ -33,6 +33,7 @@ import { BeforeShutdownEvent, ILifecycleService, WillShutdownEvent } from '../..
 import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../positronNewFolder/common/positronNewFolder.js';
 import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { RuntimeStartupService } from '../../common/runtimeStartup.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import {
 	ICachedRuntime,
 	IDiscoveryCacheBucket,
@@ -1040,6 +1041,72 @@ describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
 				'Should not show notification in remote SSH sessions'
 			).toBe(0);
 		});
+	});
+});
+
+describe('RuntimeStartupService - affiliation healing', () => {
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IEphemeralStateService, {
+			getItem: () => Promise.resolve(undefined),
+			setItem: () => Promise.resolve(),
+		})
+		.stub(ILifecycleService, {
+			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
+			onWillShutdown: new Emitter<WillShutdownEvent>().event,
+		})
+		.stub(IPositronNewFolderService, {
+			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
+			startupPhase: NewFolderStartupPhase.Complete,
+		})
+		.stub(IProgressService, {})
+		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+		.stub(INotificationService, new TestNotificationService())
+		.stub(IRuntimeDiscoveryCache, {})
+		.build();
+
+	it('heals a stale ~-prefixed runtimePath in stored affiliation when the runtime registers', async () => {
+		const runtimeId = 'r-stale-path-test';
+		const languageId = 'r';
+		const staleRuntimePath = '~/local/lib/R/bin/R';
+		const freshRuntimePath = '/home/positron/local/lib/R/bin/R';
+		const storageKey = `positron.affiliatedRuntimeMetadata.v2.${languageId}`;
+		// TestContextService uses TestWorkspace (one folder, no configuration) →
+		// WorkbenchState.FOLDER → affiliationStorageScope() returns WORKSPACE.
+		const scope = StorageScope.WORKSPACE;
+
+		// Pre-populate storage with a stale affiliation whose runtimePath was
+		// shortened with a ~ prefix before the runtimePath/runtimeDisplayPath split.
+		const staleAffiliated = {
+			metadata: metadata({ languageId, runtimePath: staleRuntimePath, runtimeId, extensionId: 'ms.r' }),
+			lastUsed: 0,
+			lastStarted: 0,
+		};
+		ctx.get(IStorageService).store(storageKey, JSON.stringify(staleAffiliated), scope, StorageTarget.MACHINE);
+
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		// Force into LoadingCache phase so onDidRegisterRuntime heals the affiliation.
+		// LoadingCache (not Discovering) is used here to skip the upsert branch that
+		// only runs during Discovering; the heal runs in both phases.
+		(svc as unknown as { _startupPhase: RuntimeStartupPhase })._startupPhase = RuntimeStartupPhase.LoadingCache;
+
+		// Use Manual startup behavior so the service heals the stored affiliation
+		// without attempting to auto-start a runtime (which has no extension host).
+		const freshMd: ILanguageRuntimeMetadata = {
+			...metadata({ languageId, runtimePath: freshRuntimePath, runtimeId, extensionId: 'ms.r' }),
+			startupBehavior: LanguageRuntimeStartupBehavior.Manual,
+		};
+		// Registering the runtime fires onDidRegisterRuntime, which heals the stored affiliation.
+		await ctx.get(ILanguageRuntimeService).registerRuntime(freshMd);
+
+		// The stored affiliation must now carry the absolute path.
+		const stored = JSON.parse(ctx.get(IStorageService).get(storageKey, scope)!);
+		expect(stored.metadata.runtimePath).toBe(freshRuntimePath);
+
+		// getAffiliatedRuntimes() returns the live registered metadata (absolute path).
+		expect(svc.getAffiliatedRuntimes()[0].runtimePath).toBe(freshRuntimePath);
 	});
 });
 

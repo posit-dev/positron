@@ -642,11 +642,7 @@ export async function makeMetadata(
 	const homedir = os.homedir();
 	const isUserInstallation = rInst.binpath.startsWith(homedir);
 
-	// Create the runtime path.
-	// TODO@softwarenerd - We will need to update this for Windows.
-	const runtimePath = os.platform() !== 'win32' && isUserInstallation ?
-		path.join('~', rInst.binpath.substring(homedir.length)) :
-		rInst.binpath;
+	const runtimePath = rInst.binpath;
 
 	// Create the Rscript path.
 	// The Rscript path is the same as the R binary path, but with the 'R' or 'R.exe' executable

@@ -12,7 +12,7 @@ Analyzes Playwright e2e test failures from a GitHub Actions run using JSON repor
 
 - A CI run has failed and you want to understand why
 - Triaging e2e test failures from `Test: Merge to branch`, `Test: Full Suite`, or `Positron Build: Daily Release`
-- Investigating flaky tests from a specific run
+- Triaging a whole run's hard failures (for deep per-test investigation of one flaky/failing test, use the `triage-e2e-test` skill instead)
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ Scripts live alongside this skill in `scripts/`. Use the base directory path sho
 ### Standalone scripts (used by consolidated scripts internally, or for ad-hoc debugging)
 
 - **`e2e-extract-failures.js`** - Extracts failures from a merged Playwright JSON report
-- **`e2e-parse-trace.js`** - Parses a `trace.trace` file into an action timeline with errors and last screenshot hash
+- **`e2e-parse-trace.js`** - Parses a `trace.trace` file into an action timeline with errors and last screenshot hash, plus a DOM-presence report and a console digest near the failure (see **Reading the DOM-presence and console-digest sections** below)
 - **`e2e-inspect-blobs.js`** - Scans blob report zips to find failed test IDs and their trace/log resource hashes
 - **`e2e-query-history.js`** - Queries the e2e-test-insights API for historical test health data (requires `E2E_INSIGHTS_API_KEY` env var)
 
@@ -100,7 +100,7 @@ Output JSON contains:
 - `testDetails` - array of per-test objects, each containing:
   - `testId`, `title`, `file`, `status`, `blob`, `attemptCount`
   - `attempts` - array of per-attempt objects with:
-    - `trace` - parsed trace data: `timeline` (human-readable string), `errors` (array), `screenshotShas` (array of `{sha1, timestamp}` in chronological order), `lastScreenshotSha1` (legacy: same as last entry of `screenshotShas`)
+    - `trace` - parsed trace data: `timeline` (human-readable string), `errors` (array), `screenshotShas` (array of `{sha1, timestamp}` in chronological order), `lastScreenshotSha1` (legacy: same as last entry of `screenshotShas`). The `timeline` ends with two derived sections when the trace carries the data (see **Reading the DOM-presence and console-digest sections** below): a **DOM presence** report (did the failing selector's target ever enter the DOM across the frame snapshots) and a **console digest** (command executions + runtime-startup phase transitions near the failure).
     - `screenshotPaths` - chronological array of paths to extracted screenshot JPEGs (view with Read tool); the last entry is the failure-state frame, earlier entries show the moments before it
     - `screenshotPath` - legacy alias pointing to the last entry of `screenshotPaths`
     - `errorContextPath` - path to the extracted **page snapshot** markdown: Playwright's accessibility-tree snapshot of the page at the moment of failure (including content inside same-origin webview iframes), plus the failing selector and the relevant test source. Primary evidence for locator-not-found / not-visible / element-count / text-or-attribute failures -- Read it to tell a stale test selector from a real product regression (see the [analysis rubric](rubric.md))
@@ -109,6 +109,13 @@ Output JSON contains:
 **IMPORTANT: View screenshots** using the `screenshotPaths` arrays with the Read tool. You MUST Read **all** screenshots in a **single message** with multiple parallel Read tool calls -- this results in only one approval prompt instead of one per screenshot. View all attempts and all frames per attempt; comparing across retries reveals whether a failure is consistent or intermittent, and comparing the trailing frames *within* an attempt often shows where the test went wrong before the visible error. Screenshots are the most revealing evidence for diagnosing failures. Default frame count per attempt is 3 (configurable via `--screenshots N` on `e2e-process-project.js`).
 
 **View the error-context page snapshot** with the Read tool using `errorContextPath` paths. For any locator-not-found, "not visible", element-count, or text/attribute failure, Read it FIRST (not as a last resort): it captures the failure-state accessibility tree -- the only evidence that distinguishes a stale test selector from a real product regression, since a screenshot cannot. See the [analysis rubric](rubric.md).
+
+**Reading the DOM-presence and console-digest sections.** These two derived sections are appended to each attempt's `trace.timeline` (no extra file to open). They exist to separate a product open-path bug from an environment flake when a click/keypress "does nothing":
+
+- **DOM presence** substring-matches the failing selector's class/id token across all frame snapshots. `present in N/M snapshots` means the element WAS in the DOM (so a visibility/timeout error is a timing or dismiss race, not a never-render). `NEVER present` is **ambiguous on its own** -- the exact class never matched, which fits BOTH a never-rendered element AND locator drift (the element rendered under different markup). Do not read `NEVER present` as "product bug" by itself; disambiguate with the console digest and the error-context snapshot's stable text/label.
+- **Console digest** lists renderer `CommandService#executeCommand <id>` lines (a command actually firing) and `[Runtime startup] Phase changed` transitions near the failure. A command that fired while the target UI stayed `NEVER present` points at the command's handler (a product open-path bug), not the click or the environment; a startup phase flipping to `complete` just before the failing action is a timing-race tell.
+
+The decision rule that combines these -- and the requirement that the command-fired signal (or a confirmed-absent stable label), not DOM-absence alone, is what justifies a product-open-path verdict -- lives in the [analysis rubric](rubric.md) under "Action fired but nothing rendered."
 
 ---
 
@@ -137,9 +144,7 @@ Output JSON is identical to Path A's `e2e-process-project.js` (see the field lis
 
 ## Step 6: Query Historical Test Health (optional)
 
-If the `E2E_INSIGHTS_API_KEY` environment variable is set, query the e2e-test-insights dashboard for historical failure data. This step is optional -- if the API is unavailable, skip it and proceed with analysis.
-
-The repo identifier for the API is always `positron` for both `posit-dev/positron` and `posit-dev/positron-builds`. Both repos run the same tests (positron-builds uses positron as a submodule) and test results are stored under the `positron` repo ID in the dashboard.
+If `E2E_INSIGHTS_API_KEY` is set, query the e2e-test-insights dashboard for historical failure data. This step is optional -- if the API is unavailable, skip it and proceed with analysis. See [`scripts/README.md`](scripts/README.md) for auth, the `repo_id` convention, the test-key format, and how to read the response (`insight.type`, `environment_breakdown`, etc.) -- this section only covers the run-centric option specific to this skill.
 
 ### Option 1: Query by workflow run ID (preferred)
 
@@ -153,40 +158,20 @@ The branch is important -- a test may be `rare_flake` on `main` but `known_flaky
 
 ### Option 2: Query by test keys
 
-If the run isn't in the dashboard yet, construct test keys manually from extracted failures:
+If the run isn't in the dashboard yet, construct test keys manually from extracted failures -- see [`scripts/README.md`](scripts/README.md#building-a-test-key) for the key format and the JSON-array requirement:
 
 ```bash
 node "$SKILL_DIR/scripts/e2e-query-history.js" --repo positron \
-  --test-keys "testName1|||specPath1,testName2|||specPath2" --lookback-days 14
+  --test-keys '["testName1|||specPath1", "testName2|||specPath2"]' --lookback-days 14
 ```
 
-### Using the history in analysis
-
-The response includes per-test data. Use it to enhance the analysis:
-
-- **`insight.type`**: `"new"` = first-time failure (likely regression), `"recurring"` / `"known_flaky"` = known pattern, `"rare_flake"` = infrequent
-- **`history.pass_rate`**: Low pass rate = known flaky test, 100% pass rate before this run = regression
-- **`failure_patterns`**: Compare today's error message against historical patterns -- same pattern = recurring, new pattern = potential regression even for known-flaky tests
-- **`insight.first_failure_sha`** / **`insight.timing_value`**: When the failures started -- useful for bisecting
-
-#### Interpreting `environment_breakdown` -- look across environments
-
-The `environment_breakdown` array is often more informative than the aggregate `history` stats. **Always check per-environment pass rates** before concluding a test is "flaky":
-
-- **0% pass rate on one environment, 100% on others** = deterministic regression on that platform, NOT flaky. Example: a test failing on all chromium runs but passing on all electron runs is a chromium-specific bug, even if the aggregate pass rate is 58%.
-- **Low pass rate across all environments** = genuinely flaky
-- **Low pass rate on one environment only** = platform-specific flakiness (e.g., "worse on win/electron")
-
-When the breakdown reveals an environment-specific pattern, call it out explicitly:
-- "History: **100% failure on chromium** (0/4 passed), 100% pass on electron (6/6) -- deterministic regression on chromium, not flaky"
-- "History: known flaky across all platforms, worst on win/electron (88% pass rate)"
-
-#### History line format
+### History line format
 
 Include a **History** line in each failure's analysis, e.g.:
 - "History: failed 4/18 runs (22%) over last 14 days, same error pattern -- known flaky"
 - "History: passed 15/15 runs over last 14 days -- **new regression**"
-- "History: **0% pass rate on chromium** (10/10 failed since Apr 02), 100% on electron -- deterministic platform regression"
+- "History: **0% pass rate on chromium** (10/10 failed since Apr 02), 100% on electron -- deterministic platform regression, not flaky"
+- "History: known flaky across all platforms, worst on win/electron (88% pass rate)"
 - "History: no data available (API unreachable)"
 
 ---
@@ -201,6 +186,7 @@ Include a **Commit** line in the detailed analysis when the head commit is relev
 
 Also use context from the repo when helpful:
 - Read the failing test file to understand what it does
+- Read the **product source** the failure exercises (`src/` and `extensions/`) to settle a code-vs-test attribution -- e.g. confirm an open-path bug in the handler behind a fired command, or compare a test helper against the product function it re-derives (see the rubric's "duplicated logic drift"). Do this only to CONFIRM a hypothesis the evidence already points to; prefer Grep and read narrowly. (In the Action, `src/` and `extensions/` are checked out for exactly this.)
 - Check `git log` for recent changes to the test or related product code beyond the head commit
 - Search for related issues
 
@@ -218,7 +204,9 @@ For each failure, include the **platform** (OS and project/browser) where it occ
 
 When multiple projects/platforms are analyzed in a single run, note which platforms each failure occurred on and whether the same test passed on other platforms.
 
-Present the analysis in a summary table that includes columns for: test name, platform, root cause category, and severity. In the severity column, clearly distinguish tests that **failed all retries** (hard failures) from tests that **passed on retry** (flaky). This distinction comes from comparing `failures` (final failures after all retries) vs `failedTests` (all attempts including those that recovered). Then provide detailed analysis for each failure below the table.
+Deep-analyze the **hard failures** -- tests that **failed all retries** (`failures` in the extractor output, as opposed to `failedTests`, which includes attempts that recovered). Present them in a summary table with columns: test name, platform, root cause category, and severity (`hard`), then give the detailed per-failure analysis below the table.
+
+**Flaky tests** (passed on retry) are not deep-analyzed here: they recovered on the same run, so they didn't break it, and per-test flaky investigation is the `triage-e2e-test` skill's specialty. List them compactly under a short "Flaky (passed on retry)" section (name + one-line history) and point to `triage-e2e-test` for any worth chasing -- unless the user explicitly asks you to dig into a flaky one. This keeps the run-centric analysis focused (and, in the Action, keeps token cost to the hard failures that actually need it).
 
 Include **non-e2e job failures** (unit tests, integration tests, build failures) in the summary table as well, with the job name as the test name and a brief description of the failure extracted from the job logs.
 

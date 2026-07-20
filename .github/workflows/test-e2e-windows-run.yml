@@ -136,6 +136,21 @@ jobs:
           POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
           POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
           POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
+          REDSHIFT_TEST_HOST: "op://Positron/Redshift_Test_Environment/hostname"
+          REDSHIFT_TEST_USERNAME: "op://Positron/Redshift_Test_Environment/username"
+          REDSHIFT_TEST_PASSWORD: "op://Positron/Redshift_Test_Environment/password"
+          TS_OAUTH_CLIENT_ID: "op://Positron/Tailscale_OAuth/client_id"
+          TS_OAUTH_SECRET: "op://Positron/Tailscale_OAuth/client_secret"
+
+      # Bring up Tailscale so tests can reach private test infrastructure (e.g. the serverless
+      # Redshift workgroup used by the data-connections e2e tests). OAuth creds are loaded from
+      # 1Password in the previous step.
+      - name: Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ env.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ env.TS_OAUTH_SECRET }}
+          tags: tag:positron-gha
 
       - name: Set screen resolution
         shell: pwsh
@@ -143,7 +158,7 @@ jobs:
           Set-DisplayResolution -Width 1920 -Height 1080 -Force
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
 
@@ -628,7 +643,7 @@ jobs:
         if: ${{ inputs.commit != '' }}
         run: git checkout ${{ inputs.commit }}
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
 

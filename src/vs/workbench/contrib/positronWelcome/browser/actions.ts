@@ -6,6 +6,7 @@
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isWeb } from '../../../../base/common/platform.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
+import { ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import { localize } from '../../../../nls.js';
 import { Action2 } from '../../../../platform/actions/common/actions.js';
 import { ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
@@ -52,6 +53,7 @@ export class PositronImportSettings extends Action2 {
 		const prefService = accessor.get(IPreferencesService);
 		const fileService = accessor.get(IFileService);
 		const editorService = accessor.get(IEditorService);
+		const textModelService = accessor.get(ITextModelService);
 		const notificationService = accessor.get(INotificationService);
 		const loggingService = accessor.get(ILogService);
 		const terminalService = accessor.get(ITerminalService);
@@ -90,17 +92,23 @@ export class PositronImportSettings extends Action2 {
 		});
 
 		const editor = editorService.activeEditor;
-		const model = editorService.activeTextEditorControl?.getModel();
 		if (editor) {
 			disposables.add(
 				fileConfigurationService.disableAutoSave(editor)
 			);
 		}
 
-		if (model && 'setValue' in model) {
-			model.setLanguage('jsonl');
-			model.setValue('// Settings imported from Visual Studio Code\n' + mergedSettings);
-		}
+		// Resolve the settings model fully before writing the imported preview.
+		// openEditor() returns once the editor is shown, but the file-backed model
+		// resolves its on-disk contents asynchronously; writing before that settles
+		// lets the late resolve overwrite the preview (the conflict markers flash in,
+		// then get clobbered). Awaiting the model reference guarantees the initial
+		// resolve is done, and setValue then dirties the model so no reload follows.
+		const modelRef = await textModelService.createModelReference(positronSettingsPath);
+		disposables.add(modelRef);
+		const model = modelRef.object.textEditorModel;
+		model.setLanguage('jsonl');
+		model.setValue('// Settings imported from Visual Studio Code\n' + mergedSettings);
 
 		const notification = notificationService.prompt(
 			Severity.Info,

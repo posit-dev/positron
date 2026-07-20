@@ -2181,6 +2181,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			supported_features: reply.supported_features,
 			input_prompt,
 			continuation_prompt,
+			build_version: reply.language_info.positron?.build_version,
+			commit: reply.language_info.positron?.commit,
 		};
 
 		return this._runtimeInfo;

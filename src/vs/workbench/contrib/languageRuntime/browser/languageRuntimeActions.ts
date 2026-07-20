@@ -13,7 +13,7 @@ import { IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../p
 import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { getRuntimeDisplayPath, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
@@ -213,7 +213,7 @@ export const selectLanguageRuntimeSession = async (
 		.map(session => ({
 			id: session.sessionId,
 			label: session.dynState.sessionName,
-			detail: session.runtimeMetadata.runtimePath,
+			detail: getRuntimeDisplayPath(session.runtimeMetadata),
 			description: session.sessionId === currentForegroundSession?.sessionId
 				? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
 				: undefined,
@@ -242,7 +242,7 @@ export const selectLanguageRuntimeSession = async (
 			.map(session => ({
 				id: session.sessionId,
 				label: getSessionDisplayNameWithRuntime(session),
-				detail: session.runtimeMetadata.runtimePath,
+				detail: getRuntimeDisplayPath(session.runtimeMetadata),
 				description: session.sessionId === currentForegroundSession?.sessionId
 					? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
 					: undefined,
@@ -264,7 +264,7 @@ export const selectLanguageRuntimeSession = async (
 			.map(session => ({
 				id: session.sessionId,
 				label: getSessionDisplayNameWithRuntime(session),
-				detail: session.runtimeMetadata.runtimePath,
+				detail: getRuntimeDisplayPath(session.runtimeMetadata),
 				description: session.sessionId === currentForegroundSession?.sessionId
 					? localize('positron.languageRuntime.currentlySelected', 'Currently Selected')
 					: undefined,
@@ -474,7 +474,7 @@ export const selectNewLanguageRuntime = async (
 				items.push({
 					id: runtime.runtimeId,
 					label: runtime.runtimeName,
-					detail: runtime.runtimePath,
+					detail: getRuntimeDisplayPath(runtime),
 					iconPath: {
 						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
 					},
@@ -540,7 +540,7 @@ export const selectNewLanguageRuntime = async (
 						items.push({
 							id: runtime.runtimeId,
 							label: runtime.runtimeName,
-							detail: runtime.runtimePath,
+							detail: getRuntimeDisplayPath(runtime),
 							iconPath: {
 								dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
 							},
@@ -899,7 +899,7 @@ export function registerLanguageRuntimeActions() {
 			const runtimeQuickPickItems = runtimes.map<LanguageRuntimeQuickPickItem>(runtime => ({
 				id: runtime.runtimeId,
 				label: `${runtime.languageName}: ${runtime.runtimeName}`,
-				description: runtime.runtimePath,
+				description: getRuntimeDisplayPath(runtime),
 				runtime
 			} satisfies LanguageRuntimeQuickPickItem));
 

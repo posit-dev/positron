@@ -318,10 +318,7 @@ export class ChatStatusDashboard extends DomWidget {
 			}
 
 			let chatQuotaIndicator: ((quota: IQuotaSnapshot | string) => void) | undefined;
-			// --- Start Positron ---
-			// Hide the "Chat messages" quota row in completions-only mode (chat is hidden).
-			if (!this.options?.disableChatSections && chatQuota && !chatQuota.unlimited && (!this.chatEntitlementService.quotas.usageBasedBilling || this.chatEntitlementService.entitlement === ChatEntitlement.Free)) {
-				// --- End Positron ---
+			if (chatQuota && !chatQuota.unlimited && (!this.chatEntitlementService.quotas.usageBasedBilling || this.chatEntitlementService.entitlement === ChatEntitlement.Free)) {
 				const chatLabel = this.chatEntitlementService.quotas.usageBasedBilling && this.chatEntitlementService.entitlement === ChatEntitlement.Free
 					? localize('creditsLabel', "Credits")
 					: localize('chatsLabel', "Chat messages");
@@ -329,10 +326,7 @@ export class ChatStatusDashboard extends DomWidget {
 			}
 
 			let premiumChatQuotaIndicator: ((quota: IQuotaSnapshot | string) => void) | undefined;
-			// --- Start Positron ---
-			// Hide the "Premium requests" quota row in completions-only mode (chat is hidden).
-			if (!this.options?.disableChatSections && premiumChatQuota && !premiumChatQuota.unlimited && premiumChatQuota.percentRemaining >= 0) {
-				// --- End Positron ---
+			if (premiumChatQuota && !premiumChatQuota.unlimited && premiumChatQuota.percentRemaining >= 0) {
 				const isUBB = this.chatEntitlementService.quotas.usageBasedBilling;
 				const premiumChatLabel = isUBB
 					? localize('creditsLabel', "Credits")
@@ -385,10 +379,7 @@ export class ChatStatusDashboard extends DomWidget {
 		}
 
 		// Anonymous Indicator
-		// --- Start Positron ---
-		// Hide the anonymous "Chat messages" quota row in completions-only mode (chat is hidden).
-		else if (!this.options?.disableChatSections && this.chatEntitlementService.anonymous && this.chatEntitlementService.sentiment.completed) {
-			// --- End Positron ---
+		else if (this.chatEntitlementService.anonymous && this.chatEntitlementService.sentiment.completed) {
 			this.createQuotaIndicator(container, localize('quotaLimited', "Limited"), localize('chatsLabel', "Chat messages"));
 		}
 	}

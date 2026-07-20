@@ -17,6 +17,15 @@ test.describe('New Folder Flow: Python Project', {
 }, () => {
 	const folderTemplate = FolderTemplate.PYTHON_PROJECT;
 
+	// Base interpreter to build new venvs on. The primary interpreter
+	// (POSITRON_PY_VER_SEL) is a uv-managed base on some runners (e.g. Linux),
+	// which would classify the resulting environment as uv instead of venv. The
+	// alternate interpreter is a non-uv global (pyenv / setup-python) on every
+	// runner. Its path embeds the full patch version, whereas uv base paths carry
+	// only major.minor (e.g. cpython-3.13-linux), so matching the patch version
+	// string via selectInterpreterByPath selects it and never a uv base.
+	const venvBaseInterpreter = process.env.POSITRON_PY_ALT_VER_SEL;
+
 	test.beforeAll(async function ({ settings }) {
 		await settings.set({ 'interpreters.startupBehavior': 'auto' }, { waitMs: 1000 });
 	});
@@ -50,6 +59,7 @@ test.describe('New Folder Flow: Python Project', {
 			initGitRepo: true,
 			status: 'new',
 			pythonEnv: 'venv',
+			interpreterPath: venvBaseInterpreter,
 			createPyprojectToml: true,
 		});
 
@@ -87,6 +97,7 @@ test.describe('New Folder Flow: Python Project', {
 			folderName,
 			status: 'new',
 			pythonEnv: 'venv',
+			interpreterPath: venvBaseInterpreter,
 			createPyprojectToml: false,
 		});
 

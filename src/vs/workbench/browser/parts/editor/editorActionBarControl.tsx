@@ -24,7 +24,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { SettingsEditor2Input } from '../../../services/preferences/common/preferencesEditorInput.js';
 import { NotebookOutputEditorInput } from '../../../contrib/notebook/browser/outputEditor/notebookOutputEditorInput.js';
-import { IsAuxiliaryWindowContext, IsCompactTitleBarContext } from '../../../common/contextkeys.js';
+import { EditorPartModalContext, IsAuxiliaryWindowContext, IsCompactTitleBarContext } from '../../../common/contextkeys.js';
 
 /**
  * Constants.
@@ -227,6 +227,16 @@ export class EditorActionBarControlFactory {
 	private updateEnablementForEditorInput(editorInput: EditorInput | undefined | null) {
 		// If there isn't an active editor, disable the editor action bar and return.
 		if (!editorInput) {
+			this.updateEnablement(false);
+			return;
+		}
+
+		// Modal editor parts (e.g. the Settings dialog overlay) always disable the
+		// editor action bar. The modal part renders its own header chrome, so the
+		// Positron action bar would appear as a spurious extra row of icons on top of
+		// the dialog. This gate also keeps any action bar widgets (e.g. the Quarto
+		// kernel status badge) from leaking into the modal header.
+		if (EditorPartModalContext.getValue(this._contextKeyService)) {
 			this.updateEnablement(false);
 			return;
 		}

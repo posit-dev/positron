@@ -24,10 +24,7 @@ export const DISCONNECTED_STATUS_ICON = '.codicon-positron-runtime-status-discon
 // base pyenv both shown as "Python 3.10.12"); when that happens we want the real
 // environment, not the base install. The values match the "(<source>" portion of
 // the quick pick label produced by getRuntimeSourceAndShortName.
-//
-// '(uv)' keeps its closing paren so it matches only a standalone uv-managed Python,
-// not a uv project venv labeled "(uv: <name>)" -- the venv is what we want to keep.
-export const DEPRIORITIZED_PYTHON_SOURCES = ['(Pyenv', '(Global', '(System', '(Unknown', '(uv)'];
+export const DEPRIORITIZED_PYTHON_SOURCES = ['(Pyenv', '(Global', '(System', '(Unknown'];
 
 // Quickpick labels - keep in sync with languageRuntimeActions.ts
 const INTERPRETER_SESSIONS_LABEL = 'Interpreter Sessions';
@@ -139,6 +136,22 @@ export class Sessions {
 				} else {
 					// session found, retrieve metadata
 					const foundSession = consoleTabActiveSessions[existingSessionIndex];
+
+					// Wait for the reused session to actually be reattached before reading its
+					// metadata -- the Console information button silently no-ops while a session
+					// is still reconnecting (e.g. right after another test's window reload reset
+					// every session's websocket), which otherwise strands getMetadata()'s dialog
+					// retry against a button that never opens it. Only checkable here when more
+					// than one session tab is rendered; a lone session's metadata already goes
+					// through this same dialog with no tab-based signal to wait on instead.
+					if (await this.getSessionCount() > 1) {
+						await expect(async () => {
+							const status = await this.getIconStatus(foundSession.id);
+							expect(status).not.toBe('disconnected');
+							expect(status).not.toBe('unknown');
+						}, `Wait for reused session to reattach: ${foundSession.id}`).toPass({ timeout: 30000 });
+					}
+
 					results.push(await this.getMetadata(foundSession.id));
 
 					// remove the found session from the list to avoid duplicates
@@ -697,7 +710,7 @@ export class Sessions {
 				}, `Select session tab: ${sessionId}`).toPass({ timeout: 10000 });
 			}
 
-			const metadata = await this.extractMetadataFromDialog();
+			const metadata = await this.extractMetadataFromDialog(sessionId);
 
 			// Close the metadata dialog
 			await this.page.keyboard.press('Escape');
@@ -708,13 +721,15 @@ export class Sessions {
 
 	/**
 	 * Helper: Extract metadata from the metadata dialog
+	 *
+	 * @param sessionId the session ID the dialog should reflect, if known
 	 */
-	private async extractMetadataFromDialog(): Promise<SessionMetaData> {
+	private async extractMetadataFromDialog(sessionId?: string): Promise<SessionMetaData> {
 		let metadata: SessionMetaData | undefined;
 
 		await test.step('Extract metadata from dialog', async () => {
 			await expect(async () => {
-				await this.openMetadataDialog();
+				await this.openMetadataDialog(sessionId);
 				const [name, id, state, path, source] = await Promise.all([
 					this.metadataDialog.getByTestId('session-name').textContent(),
 					this.metadataDialog.getByTestId('session-id').textContent(),
@@ -866,17 +881,29 @@ export class Sessions {
 
 	/**
 	* Action: Open the metadata dialog for the current session
+	*
+	* @param sessionId the session the dialog should reflect, if known -- click via the
+	* button's testid (`info-unknown` until a real session lands in it) rather than its
+	* role/label, so we wait for the click handler's React context to be ready, not just visible
 	*/
-	async openMetadataDialog() {
+	async openMetadataDialog(sessionId?: string) {
+		const button = sessionId
+			? this.page.getByTestId(`info-${sessionId}`)
+			: this.page.getByTestId(/^info-(python|r)(-notebook)?-[a-z0-9]+$/i);
+
+		// The info button's press handler no-ops while the button's testid is still `info-unknown`
+		// -- the active console session isn't wired into React context yet. Wait for the real
+		// `info-<id>` testid before clicking; once it's real a single click reliably opens the
+		// dialog. Return early when the dialog is already open: clicking the button again dismisses
+		// the popup, so the retry must never re-click an open dialog.
+		await expect(button).toBeVisible();
+
 		await expect(async () => {
-			const isMetadataDialogVisible = await this.metadataDialog.isVisible();
-
-			if (!isMetadataDialogVisible) {
-				await this.metadataButton.click();
-				await this.page.mouse.move(0, 0);
-				await this.page.waitForTimeout(500);
+			if (await this.metadataDialog.isVisible()) {
+				return;
 			}
-
+			await button.click();
+			await this.page.mouse.move(0, 0);
 			await expect(this.metadataDialog).toBeVisible();
 		}, 'Open the Metadata Dialog').toPass({ timeout: 3000 });
 	}

@@ -28,14 +28,18 @@ describe('PositronDataExplorerExtensionBackend', () => {
 	/** Builds a backend over a fake transport that responds with `respond(rpc)`. */
 	function createBackend(respond: (rpc: IDataExplorerRpcDto) => IDataExplorerResponseDto) {
 		const calls: Array<{ providerId: string; rpc: IDataExplorerRpcDto }> = [];
+		const disposed: Array<{ providerId: string; datasetId: string }> = [];
 		const transport: IDataExplorerRpcTransport = {
 			handleRpc: (providerId, rpc) => {
 				calls.push({ providerId, rpc });
 				return Promise.resolve(respond(rpc));
+			},
+			disposeBackend: (providerId, datasetId) => {
+				disposed.push({ providerId, datasetId });
 			}
 		};
 		const backend = store.add(new PositronDataExplorerExtensionBackend(transport, PROVIDER_ID, IDENTIFIER));
-		return { backend, calls };
+		return { backend, calls, disposed };
 	}
 
 	it('forwards an RPC tagged with the provider id and dataset identifier and unwraps the result', async () => {
@@ -74,5 +78,14 @@ describe('PositronDataExplorerExtensionBackend', () => {
 		backend.handleUiEvent(event);
 
 		expect(delivered).toEqual({ callback_id: 'cb', profiles: [] });
+	});
+
+	it('notifies the transport that the backend closed on dispose', () => {
+		const { backend, disposed } = createBackend(() => ({ result: undefined }));
+
+		expect(disposed).toEqual([]);
+		backend.dispose();
+
+		expect(disposed).toEqual([{ providerId: PROVIDER_ID, datasetId: IDENTIFIER }]);
 	});
 });
