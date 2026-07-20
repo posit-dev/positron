@@ -65,9 +65,10 @@ export class SelectPositronNotebookKernelAction extends Action2 {
 			runtime = languageRuntimeService.getRegisteredRuntime(runtimeId);
 			if (!runtime) {
 				const notificationService = accessor.get(INotificationService);
-				notificationService.error(localize('positronNotebookActions.selectKernel.unknownRuntime',
-					"No registered runtime with id '{0}'.", runtimeId));
-				return false;
+				const message = localize('positronNotebookActions.selectKernel.unknownRuntime',
+					"No registered runtime with id '{0}'.", runtimeId);
+				notificationService.error(message);
+				throw new Error(message);
 			}
 		} else {
 			const selectedKernel = notebookKernelService.getMatchingKernel(notebook).selected;

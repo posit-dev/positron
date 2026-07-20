@@ -970,8 +970,8 @@ describe('SelectSessionAction', () => {
 
 	// An unresolvable sessionId must surface a clear error rather than
 	// silently falling back to the interactive picker.
-	it('notifies and leaves the foreground session unchanged for an unknown sessionId, without opening a picker', async () => {
-		await runAction('does-not-exist');
+	it('throws and notifies without changing the foreground session for an unknown sessionId, without opening a picker', async () => {
+		await expect(runAction('does-not-exist')).rejects.toThrow(/does-not-exist/);
 
 		expect(pickFn).not.toHaveBeenCalled();
 		expect(notifyError).toHaveBeenCalledWith(expect.stringContaining('does-not-exist'));

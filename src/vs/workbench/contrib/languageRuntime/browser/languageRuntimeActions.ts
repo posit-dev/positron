@@ -983,9 +983,10 @@ export class SelectSessionAction extends Action2 {
 			newActiveSession = runtimeSessionService.getSession(sessionId);
 			if (!newActiveSession) {
 				const notificationService = accessor.get(INotificationService);
-				notificationService.error(localize('positron.languageRuntime.selectSession.unknownSession',
-					"No active session with id '{0}'.", sessionId));
-				return;
+				const message = localize('positron.languageRuntime.selectSession.unknownSession',
+					"No active session with id '{0}'.", sessionId);
+				notificationService.error(message);
+				throw new Error(message);
 			}
 		} else {
 			// Prompt the user to select a runtime to use.
