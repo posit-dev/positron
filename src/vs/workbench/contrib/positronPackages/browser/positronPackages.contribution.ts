@@ -65,6 +65,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	[
 		{
 			id: POSITRON_PACKAGES_VIEW_ID,
+			agentCompatible: true,
 			name: {
 				value: nls.localize('positron.packages', 'Packages'),
 				original: 'Packages'

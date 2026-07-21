@@ -598,6 +598,9 @@ export class ViewsService extends Disposable implements IViewsService {
 					},
 					metadata: {
 						description: title.value,
+						// --- Start Positron ---
+						agentCompatible: viewDescriptor.agentCompatible,
+						// --- End Positron ---
 						args: [
 							{
 								name: 'focusOptions',
