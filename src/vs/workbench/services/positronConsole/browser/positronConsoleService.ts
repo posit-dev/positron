@@ -6,7 +6,6 @@
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
-import { timeout } from '../../../../base/common/async.js';
 import { isCancellationError } from '../../../../base/common/errors.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
@@ -2586,9 +2585,6 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			URI.from({ scheme: 'inmemory', path: `/console-input-boundaries/${generateUuid()}` })
 		);
 		try {
-			// TEMPORARY: artificial 10-second delay to make the submission UX
-			// (the "submitting" overlay) easy to observe. Remove before merge.
-			await timeout(10_000, token);
 			return await provideInputBoundaries(
 				this._languageFeaturesService.inputBoundaryProvider,
 				model,
