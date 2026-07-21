@@ -9,7 +9,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { IDuckDBQueryClient } from './duckdbWorkerClient.js';
-import { DuckDBSchemaEntry, DuckDBTableView, duckdbDisplayType } from './duckdbTableView.js';
+import { DuckDBSchemaEntry, DuckDBTableView, duckdbDisplayType, IDuckDBTableCodeGenerator } from './duckdbTableView.js';
 import {
 	ConvertToCodeParams,
 	DataExplorerBackendRequest,
@@ -31,8 +31,14 @@ import {
  * connection can be tested without registering the real Data Explorer provider.
  */
 export interface IDuckDBDataExplorerHost {
-	/** Builds and registers a table view for a table or view under the given dataset id. */
-	openTableView(datasetId: string, client: IDuckDBQueryClient, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void>;
+	/**
+	 * Builds and registers a table view for a table or view under the given dataset id. `displayName`
+	 * is the human-readable name shown in the Data Explorer tab (defaults to `tableName`); pass it when
+	 * the physical table name is not what the user should see (e.g. a synthetic name over a downloaded
+	 * file). An optional code generator overrides the view's Convert-to-Code output (see
+	 * {@link IDuckDBTableCodeGenerator}).
+	 */
+	openTableView(datasetId: string, client: IDuckDBQueryClient, schemaName: string, tableName: string, kind: 'table' | 'view', displayName?: string, codeGenerator?: IDuckDBTableCodeGenerator): Promise<void>;
 	/** Builds and registers a single-column view of a table or view under the given dataset id. */
 	openColumnView(datasetId: string, client: IDuckDBQueryClient, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
 	/** Drops a dataset's view. */
@@ -79,9 +85,11 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 		schemaName: string,
 		tableName: string,
 		kind: 'table' | 'view',
+		displayName: string = tableName,
+		codeGenerator?: IDuckDBTableCodeGenerator,
 	): Promise<void> {
 		const schema = await buildDuckDBSchema(client, schemaName, tableName);
-		this._views.set(datasetId, new DuckDBTableView(client, tableRef(schemaName, tableName), tableName, kind, schema));
+		this._views.set(datasetId, new DuckDBTableView(client, tableRef(schemaName, tableName), displayName, kind, schema, codeGenerator));
 	}
 
 	/**
