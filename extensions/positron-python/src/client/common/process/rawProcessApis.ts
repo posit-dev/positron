@@ -280,16 +280,22 @@ export function execObservable(
         on(proc.stdout, 'data', (data: Buffer) => sendOutput('stdout', data));
         on(proc.stderr, 'data', (data: Buffer) => sendOutput('stderr', data));
 
+        // --- Start Positron ---
+        // Complete the output stream on 'close', not 'exit'. Node emits 'exit'
+        // as soon as the process ends, but 'close' fires only after the stdio
+        // streams have finished draining. Completing on 'exit' can race the
+        // final stdout chunk (e.g. create_venv.py's `CREATED_VENV:` marker),
+        // which then gets dropped -- surfacing as a spurious "Failed to create
+        // virtual environment" even though the venv was created.
+        proc.once('exit', () => {
+            procExited = true;
+        });
         proc.once('close', () => {
             procExited = true;
             subscriber.complete();
             internalDisposables.forEach((d) => d.dispose());
         });
-        proc.once('exit', () => {
-            procExited = true;
-            subscriber.complete();
-            internalDisposables.forEach((d) => d.dispose());
-        });
+        // --- End Positron ---
         proc.once('error', (ex) => {
             procExited = true;
             subscriber.error(ex);
