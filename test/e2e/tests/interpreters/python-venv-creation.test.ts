@@ -44,9 +44,11 @@ test.describe('Python Venv Auto-Creation', {
 	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
 	test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
-	test.slow();
 
 	test('Clicking Yes creates venv', async function ({ app, openFolder }) {
+		// Real venv creation (~35s avg in CI, with 60s waits below); the other
+		// two tests are fast and run under the normal timeout.
+		test.slow();
 		const tempWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'test-files', 'venv-creation-test');
 		await fs.mkdir(tempWorkspace, { recursive: true });
 		await fs.writeFile(path.join(tempWorkspace, 'requirements.txt'), 'requests\n');
