@@ -553,7 +553,23 @@ export class Sessions {
 				}
 			}
 
-			return this.getCurrentSessionId();
+			// The foreground-session switch to the session we just started is async
+			// (it lags the "started" text above), so a leftover session from an
+			// earlier test in the same suite can still be active here. getCurrentSessionId()
+			// trusts whichever session is currently active; confirm it actually matches the
+			// language we just requested before returning it, otherwise callers (e.g.
+			// pasteCodeToConsole) end up targeting the wrong session's console input.
+			// Match the "Select runtime from quick pick" budget above -- this check is
+			// effectively finishing off that same runtime-selection process, and is exposed
+			// to the same CI-load-driven extension host stalls.
+			const expectedIdPrefix = new RegExp(`^${language.toLowerCase()}(-notebook)?-`, 'i');
+			let sessionId: string | undefined;
+			await expect(async () => {
+				sessionId = await this.getCurrentSessionId();
+				expect(sessionId).toMatch(expectedIdPrefix);
+			}, `Wait for ${language} session to become active`).toPass({ timeout: 30000 });
+
+			return sessionId!;
 		});
 	}
 
