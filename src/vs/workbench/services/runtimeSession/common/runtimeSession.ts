@@ -2081,12 +2081,19 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					return;
 				}
 
-				// If a workspace session ended because the extension host was
+				// If a session ended because the extension host was
 				// disconnected, remember it so we can attempt to reconnect it
-				// when the extension host comes back online.
+				// when the extension host comes back online. Only Browser
+				// sessions are skipped: they live entirely in the extension host
+				// and cannot be reconnected. Both Workspace and Machine sessions
+				// reconnect to a kernel that keeps running (in the supervisor)
+				// while the extension host restarts, so both need to be queued
+				// here. Machine sessions in particular were previously dropped,
+				// leaving the main-thread adapter bound to the dead extension
+				// host and a later restart throwing "session handle not found".
 				if (exit.reason === RuntimeExitReason.ExtensionHost &&
-					session.runtimeMetadata.sessionLocation ===
-					LanguageRuntimeSessionLocation.Workspace) {
+					session.runtimeMetadata.sessionLocation !==
+					LanguageRuntimeSessionLocation.Browser) {
 					this._disconnectedSessions.set(session.sessionId, sessionInfo);
 				}
 			}, 0);
