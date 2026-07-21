@@ -16,6 +16,17 @@
 }
 
 /*
+ * While a submission is in flight the input is read-only, so its cursor stops
+ * blinking and sits frozen in the "on" state, which makes the input look hung.
+ * Hide the cursor for the duration so the barber pole is the only motion. The
+ * `!important` is required because Monaco toggles the cursor's `display` with an
+ * inline style (see viewCursor.ts), which a plain rule can't override.
+ */
+.console-input.submitting .monaco-editor .cursors-layer > .cursor {
+	display: none !important;
+}
+
+/*
  * A green barber pole in the console's 10px left gutter, signalling that the
  * submitted code is being prepared for execution. Mirrors the blue
  * `.runtime-starting .left-bar` barber pole; see runtimeStarting.css.

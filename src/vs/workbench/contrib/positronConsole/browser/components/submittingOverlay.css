@@ -3,19 +3,28 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.console-submitting-overlay {
+.console-submitting-overlay-anchor {
 	/*
-	 * The console instance is itself the scroll container, so a sticky element
+	 * The console instance is itself the scroll container. A sticky element
 	 * placed at the end of its content stays pinned to the bottom of the
-	 * viewport as the user scrolls. margin-left: auto right-aligns the
-	 * fit-content box within the content box.
+	 * viewport as the user scrolls, but a sticky element still occupies its
+	 * height in the normal flow, which would inflate the scroll height and leave
+	 * dead white space below the content. Giving the anchor zero height removes
+	 * that flow contribution entirely; the overlay is absolutely positioned
+	 * within it so it too stays out of the flow.
 	 */
 	position: sticky;
 	bottom: 16px;
-	width: fit-content;
-	margin-left: auto;
-	margin-right: 16px;
+	height: 0;
 	z-index: 10;
+}
+
+.console-submitting-overlay {
+	/* Absolutely positioned within the zero-height anchor, right-aligned. */
+	position: absolute;
+	right: 16px;
+	bottom: 0;
+	width: fit-content;
 	display: flex;
 	align-items: center;
 	gap: 8px;

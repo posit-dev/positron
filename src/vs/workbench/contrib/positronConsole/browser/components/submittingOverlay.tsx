@@ -35,28 +35,35 @@ export const SubmittingOverlay = (props: SubmittingOverlayProps) => {
 	}
 	const label = localize('positron.console.submitting', "Submitting...");
 	return (
-		<div className='console-submitting-overlay' data-testid='console-submitting-overlay'>
-			<span aria-label={label} className='console-submitting-overlay-label' role='status'>
-				{
-					// Render each character in its own span so a staggered
-					// per-character opacity animation reads as a wave travelling
-					// through the text. aria-label carries the whole word for
-					// assistive tech; the character spans are decorative.
-					Array.from(label).map((char, index) => (
-						<span
-							key={index}
-							aria-hidden='true'
-							className='console-submitting-overlay-label-char'
-							style={{ animationDelay: `${index * 80}ms` }}
-						>
-							{char}
-						</span>
-					))
-				}
-			</span>
-			<button className='console-submitting-overlay-cancel' onClick={props.onCancel}>
-				{localize('positron.console.submitting.cancel', "Cancel")}
-			</button>
+		// The anchor is a zero-height sticky element at the end of the console's
+		// scrollable content: it stays pinned near the bottom of the viewport as
+		// the user scrolls, but adds nothing to the scroll height (so it can't
+		// create dead white space below the content). The overlay itself is
+		// absolutely positioned within it, also out of the layout flow.
+		<div className='console-submitting-overlay-anchor'>
+			<div className='console-submitting-overlay' data-testid='console-submitting-overlay'>
+				<span aria-label={label} className='console-submitting-overlay-label' role='status'>
+					{
+						// Render each character in its own span so a staggered
+						// per-character opacity animation reads as a wave travelling
+						// through the text. aria-label carries the whole word for
+						// assistive tech; the character spans are decorative.
+						Array.from(label).map((char, index) => (
+							<span
+								key={index}
+								aria-hidden='true'
+								className='console-submitting-overlay-label-char'
+								style={{ animationDelay: `${index * 80}ms` }}
+							>
+								{char}
+							</span>
+						))
+					}
+				</span>
+				<button className='console-submitting-overlay-cancel' onClick={props.onCancel}>
+					{localize('positron.console.submitting.cancel', "Cancel")}
+				</button>
+			</div>
 		</div>
 	);
 };
