@@ -21,9 +21,23 @@
  * the modal here. `editor.actionBar.enabled` is turned on so the action bar *would* render
  * inside the modal if the suppression gate were missing, which is what makes the absence
  * assertion meaningful rather than vacuous.
+ *
+ * Both settings are written pre-launch (via `beforeApp`/`settingsFile`) rather than set
+ * mid-test, so the config service reads them at startup instead of racing a live
+ * file-watcher reload.
  */
 
-import { test, expect, tags } from '../_test.setup';
+import { test as base, expect, tags } from '../_test.setup';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ settingsFile }, use) => {
+			await settingsFile.append({ 'editor.actionBar.enabled': true, 'workbench.editor.useModal': 'all' });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
 
 test.use({
 	suiteId: __filename
@@ -37,14 +51,7 @@ test.describe('Editor Action Bar: Modal Editor Overlay', {
 		await runCommand('workbench.action.closeModalEditor');
 	});
 
-	test('does not render the Positron editor action bar inside the modal editor overlay', async function ({ page, settings, runCommand }) {
-		// keepOpen: false forces the settings reload to settle before we open an editor,
-		// so `useModal: 'all'` is in effect by the time the editor is routed.
-		await settings.set(
-			{ 'editor.actionBar.enabled': true, 'workbench.editor.useModal': 'all' },
-			{ keepOpen: false }
-		);
-
+	test('does not render the Positron editor action bar inside the modal editor overlay', async function ({ page, runCommand }) {
 		await runCommand('workbench.action.files.newUntitledFile');
 
 		const modal = page.locator('.monaco-modal-editor-block');
