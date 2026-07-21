@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as sinon from 'sinon';
-import { isCompletionEnabled } from '../config.js';
+import { deriveStatusContext, isCompletionEnabled } from '../config.js';
 
 function setupConfigStubs(values: {
 	aiExcludes?: string[];
@@ -242,5 +242,32 @@ suite('config / isCompletionEnabled', () => {
 			const doc = mockDocument('/project/src/file.ts', 'typescript');
 			assert.strictEqual(isCompletionEnabled(doc), true);
 		});
+	});
+});
+
+suite('config / deriveStatusContext', () => {
+	test('is active only when enabled, signed in, and configuration resolved', () => {
+		assert.deepStrictEqual(
+			deriveStatusContext(true, true, true),
+			{ signedIn: true, active: true },
+		);
+	});
+
+	test('reports signed in but not active when the feature is turned off', () => {
+		// The regression this guards: a signed-in user with the feature disabled
+		// must still read as signed in, so the status UI offers a re-enable
+		// rather than a sign-in prompt. `hasConfig` is false because a disabled
+		// feature never resolves the LLM configuration.
+		assert.deepStrictEqual(
+			deriveStatusContext(false, true, false),
+			{ signedIn: true, active: false },
+		);
+	});
+
+	test('is neither signed in nor active when signed out', () => {
+		assert.deepStrictEqual(
+			deriveStatusContext(true, false, false),
+			{ signedIn: false, active: false },
+		);
 	});
 });
