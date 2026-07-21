@@ -157,9 +157,12 @@ if [[ $UNCACHED_COUNT -gt 0 ]]; then
 	# Found uncached files - show detailed warning with actionable instructions
 
 	echo ""
-	echo "⚠️  WARNING: npm install created $UNCACHED_COUNT files outside node_modules/"
+	echo "❌ ERROR: npm install created $UNCACHED_COUNT files outside node_modules/"
 	echo ""
-	echo "These files are NOT cached and will be missing when caches hit."
+	echo "These files are NOT cached and will be MISSING on cache-hit runs, which is"
+	echo "most runs. A build artifact absent on a cache hit breaks the build long after"
+	echo "the introducing PR merged green. This check fails the build so the gap is"
+	echo "resolved at author time instead of surfacing on main later."
 	echo ""
 	echo "Files (first 50):"
 	echo -e "$UNCACHED_FILES" | grep -v '^$' | head -50
@@ -201,17 +204,20 @@ if [[ $UNCACHED_COUNT -gt 0 ]]; then
 	# Also write to GitHub Step Summary for visibility
 	if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
 		{
-			echo "## ⚠️ Uncached Postinstall Artifacts Detected"
+			echo "## ❌ Uncached Postinstall Artifacts Detected"
 			echo ""
 			echo "npm install created **$UNCACHED_COUNT files** outside node_modules/ that aren't cached."
+			echo "They will be missing on cache-hit runs, so this check fails the build."
 			echo ""
-			echo "**Where to look:** In the \`${GITHUB_JOB:-unit}\` job, expand the \"🔍 Check for uncached postinstall artifacts\" step for details and next steps."
+			echo "**Where to look:** In the \`${GITHUB_JOB:-unit}\` job, expand the \"🔍 Check for uncached postinstall artifacts\" step for details and next steps (cache the path, or add it to IGNORE_PATTERNS)."
 		} >> "$GITHUB_STEP_SUMMARY"
 	fi
 
-	# Don't fail the build - just warn
-	# Humans should decide if these files are critical
-	exit 0
+	# Fail the build. A build artifact that isn't cached goes missing on cache-hit
+	# runs (the common case) and breaks the build after the introducing PR merged
+	# green. Resolve it at author time: cache the path (cache-paths.sh) or, if tests
+	# genuinely don't need it, add it to IGNORE_PATTERNS above.
+	exit 1
 else
 	echo "✅ No uncached artifacts detected"
 	echo ""
