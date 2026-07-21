@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { RSession } from './session.js';
 import { RSessionManager } from './session-manager.js';
 
@@ -129,4 +130,36 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 		}
 	});
 	context.subscriptions.push(rGetHelpPageTool);
+
+	// --- Start Positron ---
+	// Testing tools for the agent-allowed commands API. Remove once the API is stable.
+	const getAgentAllowedCommandsTool = vscode.lm.registerTool<Record<string, never>>(
+		'getPositronAgentAllowedCommands',
+		{
+			invoke: async (_options, _token) => {
+				const commands = await positron.ai.getAgentAllowedCommands();
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart(JSON.stringify(commands, null, 2)),
+				]);
+			}
+		}
+	);
+	context.subscriptions.push(getAgentAllowedCommandsTool);
+
+	const validateAndExecuteAgentCommandTool = vscode.lm.registerTool<{ commandId: string; args?: unknown[] }>(
+		'validateAndExecutePositronAgentCommand',
+		{
+			invoke: async (options, _token) => {
+				const result = await positron.ai.validateAndExecuteCommand(
+					options.input.commandId,
+					options.input.args,
+				);
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart(JSON.stringify(result, null, 2)),
+				]);
+			}
+		}
+	);
+	context.subscriptions.push(validateAndExecuteAgentCommandTool);
+	// --- End Positron ---
 }

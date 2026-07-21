@@ -1080,6 +1080,50 @@
           "positron-assistant",
           "requires-session:r"
         ]
+      },
+      {
+        "name": "getPositronAgentAllowedCommands",
+        "displayName": "Get Positron Agent Allowed Commands",
+        "toolReferenceName": "getPositronAgentAllowedCommands",
+        "userDescription": "List all commands that an AI agent is allowed to invoke in the current Positron session.",
+        "modelDescription": "Returns the list of Positron commands that an AI agent is permitted to invoke, given the current state of the editor. Each entry includes the command id, an optional description, optional argument schema, an optional return-value description, and the source (builtin or extension). Use this tool to discover what commands are available before calling validateAndExecutePositronAgentCommand.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        },
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant"
+        ]
+      },
+      {
+        "name": "validateAndExecutePositronAgentCommand",
+        "displayName": "Validate and Execute a Positron Agent Command",
+        "toolReferenceName": "validateAndExecutePositronAgentCommand",
+        "userDescription": "Validate and execute a Positron command on behalf of an AI agent.",
+        "modelDescription": "Validates that the specified command is agent-allowed and currently enabled, then executes it. Returns an object with ok=true and the command result on success, or ok=false with a reason ('not-found', 'disabled', 'error', or 'unknown') on failure. Always call getPositronAgentAllowedCommands first to discover which commands are available.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "commandId": {
+              "type": "string",
+              "description": "The identifier of the command to execute, e.g. 'workbench.action.files.save'."
+            },
+            "args": {
+              "type": "array",
+              "description": "Optional positional arguments to pass to the command.",
+              "items": {}
+            }
+          },
+          "required": [
+            "commandId"
+          ]
+        },
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant"
+        ]
       }
     ]
   },
