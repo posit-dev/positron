@@ -107,6 +107,21 @@ export function isCompletionEnabledForAnyFileType(): boolean {
 	return Object.values(enableConfig).some(enabled => enabled === true);
 }
 
+/**
+ * Derives the `signedIn` and `active` status context-key values from the feature
+ * gate and auth state. `signedIn` reflects Posit AI authentication alone, so the
+ * status UI can distinguish "signed in but turned off" (offer to re-enable) from
+ * "signed out" (prompt a sign-in). `active` additionally requires the feature to
+ * be enabled and a usable LLM configuration to have been resolved.
+ */
+export function deriveStatusContext(
+	enabled: boolean,
+	signedIn: boolean,
+	hasConfig: boolean,
+): { signedIn: boolean; active: boolean } {
+	return { signedIn, active: enabled && signedIn && hasConfig };
+}
+
 /** Determines whether inline completions are enabled for a document.
  *
  * Checks are evaluated in order:

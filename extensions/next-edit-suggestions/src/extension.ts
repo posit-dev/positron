@@ -8,8 +8,8 @@ import * as vscode from 'vscode';
 import type { SubmitCompletionFeedbackParams } from './types.js';
 import { CompletionBusyState } from './completionBusyState.js';
 import { getLanguageClientManager, startLanguageServer, stopLanguageServer } from './client.js';
-import { isAIEnabled, isCompletionEnabled, isCompletionEnabledForAnyFileType, isCompletionEnabledForFileType, migrateEnabledSetting } from './config.js';
-import { getLLMConfiguration, resetModelCache } from './model.js';
+import { deriveStatusContext, isAIEnabled, isCompletionEnabled, isCompletionEnabledForAnyFileType, isCompletionEnabledForFileType, migrateEnabledSetting } from './config.js';
+import { getLLMConfiguration, isSignedIn, resetModelCache } from './model.js';
 import { sendFeedback } from './feedback.js';
 import { debounceDelayMs, generateSuggestion } from './suggestions.js';
 
@@ -37,13 +37,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// subprocess from running when it could never produce a suggestion.
 	async function ensureLanguageServer() {
 		const enabled = isAIEnabled() && isCompletionEnabledForAnyFileType();
-		const config = enabled ? await getLLMConfiguration() : undefined;
-		const active = !!config;
-		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.active', active);
+
+		// The signed-in state is checked independently of `enabled` so the status
+		// UI can distinguish "signed in but turned off" from "not signed in": the
+		// former should let the user re-enable the feature, not prompt a sign-in.
+		const signedIn = await isSignedIn();
+
+		// Only resolve the full configuration (which may fetch the model list) when
+		// the feature is enabled and could actually produce a suggestion.
+		const config = enabled && signedIn ? await getLLMConfiguration() : undefined;
+		const status = deriveStatusContext(enabled, signedIn, !!config);
+		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.signedIn', status.signedIn);
+		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.active', status.active);
 		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.provider', config?.providerDisplayName);
 		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.model',
 			config ? { id: config.modelId, displayName: config.modelDisplayName } : undefined);
-		if (active) {
+		if (status.active) {
 			if (!getLanguageClientManager()) {
 				startLanguageServer(context, log);
 				log.info('Language server started.');
