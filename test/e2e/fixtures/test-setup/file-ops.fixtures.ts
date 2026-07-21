@@ -30,6 +30,18 @@ export function FileOperationsFixture(app: Application) {
 				await app.workbench.hotKeys.openFolder();
 				await playwright.expect(app.workbench.quickInput.quickInputList.locator('a').filter({ hasText: '..' })).toBeVisible();
 
+				// An absolute path resolves the same regardless of where the picker
+				// opens (parent of the current workspace), so type it in one shot
+				// instead of navigating segment-by-segment from that start dir.
+				// This keeps a test independent of the workspace left by prior tests.
+				if (path.isAbsolute(folderPath)) {
+					await app.workbench.quickInput.quickInput.fill(folderPath);
+					await app.workbench.quickInput.clickOkButton();
+					await app.code.driver.currentPage.waitForTimeout(3000);
+					await app.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
+					return;
+				}
+
 				const folderNames = folderPath.split('/');
 
 				for (const folderName of folderNames) {

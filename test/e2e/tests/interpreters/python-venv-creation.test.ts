@@ -69,7 +69,11 @@ test.describe('Python Venv Auto-Creation', {
 	});
 
 	test('Notification appears for workspace with requirements.txt', async function ({ app, openFolder }) {
-		await openFolder('workspaces/python-venv-creation/with-requirements');
+		// Absolute path so the test is independent of the workspace left by the
+		// preceding test (and survives a retry, which relaunches at the default
+		// workspace). See the openFolder fixture's absolute-path branch.
+		const requirementsWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'test-files', 'workspaces', 'python-venv-creation', 'with-requirements');
+		await openFolder(requirementsWorkspace);
 		await app.workbench.sessions.expectNoStartUpMessaging();
 
 		const toast = app.workbench.toasts.toastNotification.filter({ hasText: /requirements\.txt/ });
@@ -79,7 +83,11 @@ test.describe('Python Venv Auto-Creation', {
 	});
 
 	test('No notification when .venv already exists', async function ({ app, openFolder }) {
-		await openFolder('with-existing-venv');
+		// Absolute path so the test is independent of the workspace left by the
+		// preceding test (and survives a retry, which relaunches at the default
+		// workspace). See the openFolder fixture's absolute-path branch.
+		const venvWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'test-files', 'workspaces', 'python-venv-creation', 'with-existing-venv');
+		await openFolder(venvWorkspace);
 
 		await app.workbench.toasts.expectToastWithTitleNotToAppear(/requirements\.txt/);
 	});
