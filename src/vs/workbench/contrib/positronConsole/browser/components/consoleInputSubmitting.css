@@ -9,15 +9,22 @@
 }
 
 /*
- * A green barber pole over the input's gutter (prompt) area, signalling that
- * the submitted code is being prepared for execution. Mirrors the blue
+ * A green barber pole in the console's 10px left gutter, signalling that the
+ * submitted code is being prepared for execution. Mirrors the blue
  * `.runtime-starting .left-bar` barber pole; see runtimeStarting.css.
+ *
+ * The console instance reserves a 10px left gutter via `padding-left` (see
+ * consoleInstance.css). `left: -10px` reaches out of the input's content box
+ * into that gutter so the bar sits to the left of the editor's own prompt
+ * margin rather than behind it (which left it partially occluded and only
+ * visible below the input). `bottom: 10px` matches the input's padding-bottom
+ * so the bar spans the editor exactly.
  */
 .console-input-submitting-bar {
 	position: absolute;
 	top: 0;
-	left: 0;
-	bottom: 0;
+	left: -10px;
+	bottom: 10px;
 	width: 4px;
 	opacity: 0.75;
 	pointer-events: none;

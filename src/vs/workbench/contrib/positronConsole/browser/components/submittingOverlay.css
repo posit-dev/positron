@@ -25,6 +25,11 @@
 	color: var(--vscode-editorWidget-foreground);
 	border: 1px solid var(--vscode-editorWidget-border);
 	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+	/*
+	 * Use the regular UI font, not the console's monospace font that this
+	 * overlay would otherwise inherit from the console instance.
+	 */
+	font-family: var(--vscode-font-family);
 	font-size: 12px;
 }
 
@@ -34,6 +39,9 @@
 
 .console-submitting-overlay .console-submitting-overlay-cancel {
 	padding: 2px 10px;
+	/* Buttons don't inherit font-family, so set it to the UI font explicitly. */
+	font-family: var(--vscode-font-family);
+	font-size: inherit;
 	border: none;
 	border-radius: 2px;
 	cursor: pointer;
