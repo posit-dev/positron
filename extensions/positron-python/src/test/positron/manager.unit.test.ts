@@ -583,6 +583,66 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
         assert.strictEqual(createPythonRuntimeMetadataStub.firstCall.args[2], false);
         assert.strictEqual(result?.extraRuntimeData?.pythonPath, venvPythonPath);
     });
+
+    test('triggers a refresh and retries when the interpreter is not resolved yet (cold resolve)', async () => {
+        Object.defineProperty(vscode.workspace, 'workspaceFolders', {
+            value: [],
+            configurable: true,
+        });
+        const globalInterpreterPath = '/path/to/global/python';
+        getUserDefaultInterpreterStub.returns({
+            globalValue: globalInterpreterPath,
+            workspaceValue: undefined,
+            workspaceFolderValue: undefined,
+        } as InspectInterpreterSettingType);
+
+        // First resolve is cold (undefined), the refresh warms it, the retry succeeds.
+        interpreter.setup((i) => i.path).returns(() => globalInterpreterPath);
+        let resolveCount = 0;
+        interpreterService
+            .setup((i) =>
+                i.getInterpreterDetails(TypeMoq.It.isValue(globalInterpreterPath), TypeMoq.It.isValue(undefined)),
+            )
+            .returns(() => {
+                resolveCount += 1;
+                return Promise.resolve(resolveCount === 1 ? undefined : interpreter.object);
+            });
+        interpreterService.setup((i) => i.triggerRefresh()).returns(() => Promise.resolve());
+
+        const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
+
+        assert.strictEqual(resolveCount, 2);
+        interpreterService.verify((i) => i.triggerRefresh(), TypeMoq.Times.once());
+        sinon.assert.calledOnce(createPythonRuntimeMetadataStub);
+        assert.strictEqual(result?.extraRuntimeData?.pythonPath, globalInterpreterPath);
+    });
+
+    test('returns undefined when the interpreter stays unresolved after a refresh', async () => {
+        Object.defineProperty(vscode.workspace, 'workspaceFolders', {
+            value: [],
+            configurable: true,
+        });
+        const globalInterpreterPath = '/path/to/global/python';
+        getUserDefaultInterpreterStub.returns({
+            globalValue: globalInterpreterPath,
+            workspaceValue: undefined,
+            workspaceFolderValue: undefined,
+        } as InspectInterpreterSettingType);
+
+        // Resolve stays cold even after the refresh: recommend gives up, does not loop.
+        interpreterService
+            .setup((i) =>
+                i.getInterpreterDetails(TypeMoq.It.isValue(globalInterpreterPath), TypeMoq.It.isValue(undefined)),
+            )
+            .returns(() => Promise.resolve(undefined));
+        interpreterService.setup((i) => i.triggerRefresh()).returns(() => Promise.resolve());
+
+        const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
+
+        assert.strictEqual(result, undefined);
+        interpreterService.verify((i) => i.triggerRefresh(), TypeMoq.Times.once());
+        sinon.assert.notCalled(createPythonRuntimeMetadataStub);
+    });
 });
 
 suite('Python runtime manager - onDidChangeInterpreter filter', () => {

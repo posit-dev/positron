@@ -7,7 +7,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as assert from 'assert';
-import { DuckDBWorkerClient } from '../duckdbWorkerClient.js';
+import { DuckDBWorkerClient } from 'positron-data-explorer-duckdb';
 
 suite('DuckDB worker isolation', () => {
 	// A stub worker that speaks the IPC protocol, so we can exercise crash
