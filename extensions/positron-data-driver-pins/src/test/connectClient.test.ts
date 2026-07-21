@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { ConnectClient, normalizeServerUrl } from '../connectClient.js';
 
 /** Records the requests made and returns responses from a route handler, standing in for fetch. */
@@ -158,6 +158,25 @@ suite('ConnectClient.downloadPinFile', () => {
 		const destPath = join(dir, 'data.parquet');
 		await assert.rejects(() => new ConnectClient(SERVER, KEY, fetch).downloadPinFile('g1', '42', 'data.parquet', destPath), /Not Found/);
 		assert.strictEqual(existsSync(destPath), false);
-		assert.strictEqual(existsSync(`${destPath}.download`), false);
+		assert.strictEqual(readdirSync(dir).filter(f => f.includes('.download')).length, 0);
+	});
+
+	test('concurrent downloads of the same file populate the cache without corruption', async () => {
+		// A body large enough that two writes interleaved into one shared temp would not match it.
+		const body = 'X'.repeat(200_000);
+		const { fetch } = recordingFetch(() => ({ body }));
+		const client = new ConnectClient(SERVER, KEY, fetch);
+		const destPath = join(dir, 'nested', 'data.parquet');
+
+		// Two previews of the same uncached version race to download it (each writes its own unique
+		// temp and atomically publishes a complete file).
+		await Promise.all([
+			client.downloadPinFile('g1', '5', 'data.parquet', destPath),
+			client.downloadPinFile('g1', '5', 'data.parquet', destPath),
+		]);
+
+		assert.strictEqual(readFileSync(destPath, 'utf-8'), body);
+		// No temporary files are left behind by either download.
+		assert.strictEqual(readdirSync(dirname(destPath)).filter(f => f.includes('.download')).length, 0);
 	});
 });

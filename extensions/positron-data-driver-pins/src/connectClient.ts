@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { randomUUID } from 'crypto';
 import { createWriteStream } from 'fs';
 import { mkdir, rename, unlink } from 'fs/promises';
 import { dirname } from 'path';
@@ -230,9 +231,12 @@ export class ConnectClient {
 	/**
 	 * Downloads a single data file from a pin version to `destPath`, streamed to disk so a large pin
 	 * never materializes in memory. Served from the content's own URL (under `/content/`, matching
-	 * {@link getPinMeta}), which works with viewer access. The body is written to a temporary sibling
-	 * and renamed into place only on success, so a failed or interrupted download never leaves a
-	 * partial file that a later immutable-skip would mistake for a complete one.
+	 * {@link getPinMeta}), which works with viewer access. The body is written to a per-call unique
+	 * temporary sibling and atomically renamed into place only on success. The unique name means two
+	 * concurrent downloads of the same file (e.g. previewing a pin and its active version at once)
+	 * each write their own temp rather than corrupting a shared one, and the atomic rename means
+	 * `destPath` is only ever absent or a complete file, so a failed/interrupted download never leaves
+	 * a partial file that a later immutable-skip would mistake for a complete one.
 	 *
 	 * No request timeout is applied: a pin's data file can be large and take longer than the API
 	 * timeout to transfer, and the fixed abort would kill an otherwise-healthy download.
@@ -251,7 +255,9 @@ export class ConnectClient {
 			throw new Error(`The Connect server returned an empty response body for ${filename}.`);
 		}
 		await mkdir(dirname(destPath), { recursive: true });
-		const tempPath = `${destPath}.download`;
+		// A per-call unique temp (a sibling, so the rename stays on the same filesystem and is atomic)
+		// keeps concurrent downloads of the same file from clobbering each other's in-progress writes.
+		const tempPath = `${destPath}.${randomUUID()}.download`;
 		try {
 			await pipeline(Readable.fromWeb(response.body), createWriteStream(tempPath));
 			await rename(tempPath, destPath);
