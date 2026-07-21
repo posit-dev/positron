@@ -923,9 +923,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 			if (e.affectsConfiguration('positron.assistant.models.overrides')) {
 				this._logService.trace('[LM] Model overrides configuration changed, re-resolving language models');
 				this._reResolveLanguageModels();
-			} else if (e.affectsConfiguration('positron.assistant.models.preference')) {
-				this._logService.trace('[LM] Model preference configuration changed, re-resolving language models');
-				this._reResolveLanguageModels();
 			}
 		}));
 
