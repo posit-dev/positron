@@ -604,6 +604,10 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		return this._codeSubmissionInProgress;
 	}
 
+	get submittingInputPromoted(): boolean {
+		return false;
+	}
+
 	async submitCode(code: string, attribution: IConsoleCodeAttribution): Promise<CodeSubmissionResult> {
 		this.executeCode(code, attribution);
 		return CodeSubmissionResult.Executed;

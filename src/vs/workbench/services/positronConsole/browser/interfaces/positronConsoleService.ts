@@ -563,6 +563,15 @@ export interface IPositronConsoleInstance {
 	readonly codeSubmissionInProgress: boolean;
 
 	/**
+	 * Whether the code being submitted has been promoted into the transcript
+	 * (because more code was queued behind it). While true, the input line
+	 * should be hidden: its code now lives in the transcript, and showing an
+	 * empty prompt would invite the user to enter more code even though a
+	 * submission is still pending.
+	 */
+	readonly submittingInputPromoted: boolean;
+
+	/**
 	 * Submits code entered interactively: performs the completeness check
 	 * appropriate for the session/settings, then executes and/or queues it.
 	 *

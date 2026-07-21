@@ -21,6 +21,8 @@ import { ConsoleErrorFollowupService, IConsoleErrorFollowupService } from '../..
 import { CodeAttributionSource } from '../../common/positronConsoleCodeExecution.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeFragmentStatus, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 
 /** A no-op find widget so the instance's constructor can create one. */
 class TestConsoleFindWidgetFactory implements IConsoleFindWidgetFactory {
@@ -87,6 +89,12 @@ describe('PositronConsoleInstance.submitCode', () => {
 		// The model service is created lazily; force it so the instance can use it.
 		instantiationService.get(IModelService);
 		disposables.add(languageService.registerLanguage({ id: 'r' }));
+
+		// Give the instance a real scrollback budget so transcript items (the
+		// pending-input preview, the submitting placeholder) are not trimmed away
+		// the moment another item is added. The constructor reads this value.
+		const configurationService = instantiationService.get(IConfigurationService) as TestConfigurationService;
+		configurationService.setUserConfiguration('console.scrollbackSize', 1000);
 
 		const sessionMetadata = createSessionMetadata('test-session');
 		const session = disposables.add(new TestLanguageRuntimeSession(sessionMetadata, TestRuntimeMetadata));
@@ -198,15 +206,30 @@ describe('PositronConsoleInstance.submitCode', () => {
 		// must produce visible feedback (a pending input item) rather than
 		// silently doing nothing.
 		await instance.enqueueCode('editor_code', { source: CodeAttributionSource.Interactive });
-		const pending = instance.runtimeItems.find(
+
+		// The submitting code is promoted into the transcript (as a submitting
+		// pending-input item), and the queued code appears after it, so run order
+		// reads top-to-bottom.
+		const pendingItems = instance.runtimeItems.filter(
 			(item): item is RuntimeItemPendingInput => item instanceof RuntimeItemPendingInput);
-		expect(pending?.code).toBe('editor_code');
+		expect(pendingItems.map(item => ({ code: item.code, submitting: item.submitting }))).toEqual([
+			{ code: '2 +', submitting: true },
+			{ code: 'editor_code', submitting: false },
+		]);
 		expect(executedCode).toEqual([]);
+
+		// While promoted, the input line is hidden (its code lives in the
+		// transcript) so no empty prompt invites more input.
+		expect(instance.submittingInputPromoted).toBe(true);
 
 		// Resolve the console submission as incomplete: nothing executes and the
 		// runtime is left idle, so no busy->idle transition would drain the queue.
 		resolveBoundaries([{ range: { start: 0, end: 1 }, kind: 'incomplete' }]);
 		expect(await submission).toBe(CodeSubmissionResult.Incomplete);
+
+		// The placeholder is gone once the submission settles, so the input line
+		// is shown again.
+		expect(instance.submittingInputPromoted).toBe(false);
 
 		// The queued editor code drains and executes once the submission settles.
 		await waitFor(() => executedCode.includes('editor_code'));

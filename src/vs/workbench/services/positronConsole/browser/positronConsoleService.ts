@@ -6,6 +6,7 @@
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { timeout } from '../../../../base/common/async.js';
 import { isCancellationError } from '../../../../base/common/errors.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
@@ -1261,6 +1262,24 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	private _runtimeItemPendingInput?: RuntimeItemPendingInput;
 
 	/**
+	 * The code currently shown in the input line for an in-flight submission,
+	 * and its attribution. When code is queued behind the submission, the
+	 * submitting code is promoted into the transcript (see
+	 * `promoteSubmittingInputToTranscript`) so run order reads top-to-bottom;
+	 * these hold what to promote and, on an incomplete/cancelled result, what to
+	 * restore to the input line.
+	 */
+	private _submittingInputCode?: string;
+	private _submittingAttribution?: IConsoleCodeAttribution;
+
+	/**
+	 * The transcript placeholder shown for the submitting code once other code
+	 * has been queued behind it. Carries the green barber pole and is removed
+	 * (or replaced by the executed input) when the submission resolves.
+	 */
+	private _runtimeItemSubmittingInput?: RuntimeItemPendingInput;
+
+	/**
 	 * Determines whether or not pending input is currently being processed.
 	 */
 	private _pendingInputState: 'Idle' | 'Processing' | 'Interrupted' = 'Idle';
@@ -1809,6 +1828,14 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	}
 
 	/**
+	 * Whether the submitting code has been promoted into the transcript (so the
+	 * input line should be hidden). See `promoteSubmittingInputToTranscript`.
+	 */
+	get submittingInputPromoted(): boolean {
+		return this._runtimeItemSubmittingInput !== undefined;
+	}
+
+	/**
 	 * Focuses the input for the console.
 	 */
 	focusInput(options: FocusInputOptions = {}) {
@@ -2045,6 +2072,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// the runtime becomes idle, or when the in-flight submission settles
 		// without executing (see `drainPendingInputIfIdle`).
 		if (this._codeSubmissionInProgress) {
+			// The submitting code lives in the input line, which renders below
+			// the transcript; queuing below it would read as "runs first" even
+			// though the submitting code runs first. Promote the submitting code
+			// into the transcript so this queued code appears after it.
+			this.promoteSubmittingInputToTranscript();
 			this.addPendingInput(
 				code,
 				attribution,
@@ -2098,8 +2130,12 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			// there is always something visible next to the submitting visuals
 			// (editor- and extension-driven code has no input text of its own).
 			// The end states below clear it (on execute) or leave it (on an
-			// incomplete tail, which becomes the continuation prompt).
+			// incomplete tail, which becomes the continuation prompt). Record it
+			// as the submitting code so it can be promoted into the transcript if
+			// more code is queued behind it.
 			if (displayDuringCheck) {
+				this._submittingInputCode = codeToRun;
+				this._submittingAttribution = attribution;
 				this.setPendingCode(codeToRun, pendingExecutionId);
 			}
 
@@ -2247,6 +2283,12 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				this.setCodeSubmissionInProgress(false);
 			}
 
+			// If the submitting code was promoted into the transcript (because
+			// code was queued behind it), reconcile that placeholder now.
+			this.finalizeSubmittingInput(dispatched);
+			this._submittingInputCode = undefined;
+			this._submittingAttribution = undefined;
+
 			// If nothing was executed (incomplete/cancelled/no session), the
 			// runtime is left idle, so no busy->idle transition will fire to
 			// drain code that was queued (e.g. from a racing editor or extension
@@ -2370,9 +2412,13 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			return CodeSubmissionResult.Cancelled;
 		}
 
-		// Start the submission.
+		// Start the submission. Record the submitting code so it can be promoted
+		// into the transcript if the user runs more code (e.g. from the editor)
+		// while this submission is in flight.
 		const tokenSource = new CancellationTokenSource();
 		this._currentSubmission = tokenSource;
+		this._submittingInputCode = code;
+		this._submittingAttribution = attribution;
 		this.setCodeSubmissionInProgress(true);
 
 		// Whether the submission-in-progress flag should remain set after this
@@ -2462,6 +2508,15 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				this.setCodeSubmissionInProgress(false);
 			}
 
+			// If the submitting code was promoted into the transcript (because
+			// code was queued behind it), reconcile that placeholder now: on an
+			// executed result the code was already echoed, so drop the
+			// placeholder and float the pending input below it; otherwise restore
+			// the code to the input line.
+			this.finalizeSubmittingInput(dispatched);
+			this._submittingInputCode = undefined;
+			this._submittingAttribution = undefined;
+
 			// A submission that executed nothing leaves the runtime idle, so no
 			// busy->idle transition will drain pending input that was queued
 			// (e.g. from an editor run) while this check was in flight. Drain it
@@ -2531,6 +2586,9 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			URI.from({ scheme: 'inmemory', path: `/console-input-boundaries/${generateUuid()}` })
 		);
 		try {
+			// TEMPORARY: artificial 10-second delay to make the submission UX
+			// (the "submitting" overlay) easy to observe. Remove before merge.
+			await timeout(10_000, token);
 			return await provideInputBoundaries(
 				this._languageFeaturesService.inputBoundaryProvider,
 				model,
@@ -3750,6 +3808,80 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		if (runtimeState === RuntimeState.Idle || runtimeState === RuntimeState.Ready) {
 			this.processPendingInput();
 		}
+	}
+
+	/**
+	 * Promotes the in-flight submission's code out of the input line and into the
+	 * transcript, as a barber-pole pending-input item.
+	 *
+	 * The input line renders below the transcript, so code queued while a
+	 * submission is in flight would appear above the submitting code even though
+	 * it runs after it. Moving the submitting code into the transcript (and
+	 * clearing the input line) keeps run order reading top-to-bottom: submitting
+	 * code first, queued code below. No-op when there is nothing to promote or it
+	 * has already been promoted.
+	 */
+	private promoteSubmittingInputToTranscript(): void {
+		if (this._runtimeItemSubmittingInput || this._submittingInputCode === undefined) {
+			return;
+		}
+		const attribution = this._submittingAttribution ??
+			{ source: CodeAttributionSource.Interactive };
+		this._runtimeItemSubmittingInput = new RuntimeItemPendingInput(
+			generateUuid(),
+			this._session?.dynState.inputPrompt ?? '',
+			attribution,
+			undefined,
+			this._submittingInputCode,
+			RuntimeCodeExecutionMode.Interactive,
+			true /* submitting */
+		);
+		this.addRuntimeItem(this._runtimeItemSubmittingInput);
+
+		// Clear the input line; the code now lives in the transcript placeholder.
+		this.setPendingCode();
+	}
+
+	/**
+	 * Reconciles the transcript placeholder created by
+	 * `promoteSubmittingInputToTranscript` when a submission resolves.
+	 *
+	 * @param executed Whether the submission executed its code. When it did, the
+	 *   code was already echoed at the bottom of the transcript by
+	 *   `doExecuteCode`, so the placeholder is removed and the pending-input
+	 *   preview is floated below the echo (run order top-to-bottom). When it did
+	 *   not (incomplete/cancelled), the code is restored to the input line so the
+	 *   user can keep editing it.
+	 */
+	private finalizeSubmittingInput(executed: boolean): void {
+		const placeholder = this._runtimeItemSubmittingInput;
+		if (!placeholder) {
+			return;
+		}
+		this._runtimeItemSubmittingInput = undefined;
+
+		// Remove the placeholder from the transcript.
+		const index = this._runtimeItems.indexOf(placeholder);
+		if (index > -1) {
+			this._runtimeItems.splice(index, 1);
+		}
+
+		if (executed) {
+			// The code was echoed at the bottom of the transcript; move the
+			// pending-input preview back below it so run order reads correctly.
+			if (this._runtimeItemPendingInput) {
+				const pendingIndex = this._runtimeItems.indexOf(this._runtimeItemPendingInput);
+				if (pendingIndex > -1) {
+					this._runtimeItems.splice(pendingIndex, 1);
+					this._runtimeItems.push(this._runtimeItemPendingInput);
+				}
+			}
+		} else if (this._submittingInputCode !== undefined) {
+			// Nothing ran: restore the code to the input line for continuation.
+			this.setPendingCode(this._submittingInputCode);
+		}
+
+		this._onDidChangeRuntimeItemsEmitter.fire();
 	}
 
 	private async processPendingInput(): Promise<void> {

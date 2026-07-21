@@ -968,6 +968,14 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		disposableStore.add(props.positronConsoleInstance.onDidSetPendingCode(pendingCode => {
 			codeEditorWidget.setValue(pendingCode || '');
 			updateCodeEditorWidgetPosition(Position.Last, Position.Last);
+
+			// If the input was cleared while a submission is in flight, the
+			// submitting code was promoted into the transcript; hide the
+			// input-line submitting visuals so the barber pole doesn't linger
+			// over an empty input (the transcript item carries it instead).
+			if (!pendingCode) {
+				setShowSubmittingVisuals(false);
+			}
 		}));
 
 		// Add the onDidExecuteCode event handler.
@@ -1059,7 +1067,13 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			if (inProgress) {
 				timer = setTimeout(() => {
 					timer = undefined;
-					if (instance.codeSubmissionInProgress) {
+					// Only show the input-line submitting visuals if there is
+					// code in the input. When code is promoted into the
+					// transcript (because more code was queued behind it), the
+					// input is empty and the barber pole rides the transcript
+					// item instead.
+					if (instance.codeSubmissionInProgress &&
+						codeEditorWidgetRef.current.getValue().length > 0) {
 						setShowSubmittingVisuals(true);
 					}
 				}, 400);
@@ -1077,7 +1091,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			}
 			disposable.dispose();
 		};
-	}, [props.positronConsoleInstance]);
+	}, [props.positronConsoleInstance, codeEditorWidgetRef]);
 
 	/**
 	 * onFocus event handler.

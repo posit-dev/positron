@@ -7,3 +7,46 @@
 	opacity: 0.65;
 	position: relative;
 }
+
+/*
+ * A submitting pending-input item represents the code that is actively being
+ * prepared for execution (checked for completeness), promoted out of the input
+ * line into the transcript because more code was queued behind it. Unlike
+ * queued code, it is shown at full opacity and carries the green barber pole.
+ */
+.pending-input.submitting {
+	opacity: 1;
+}
+
+/*
+ * The green barber pole for a submitting pending-input item. Mirrors the input
+ * line's `.console-input-submitting-bar` (see consoleInputSubmitting.css) but
+ * spans the full height of the transcript item. The console instance reserves a
+ * 10px left gutter (see consoleInstance.css); `left: -10px` reaches into it so
+ * the bar sits to the left of the prompt.
+ */
+.pending-input-submitting-bar {
+	position: absolute;
+	top: 0;
+	left: -10px;
+	bottom: 0;
+	width: 4px;
+	pointer-events: none;
+	background-image: repeating-linear-gradient(45deg,
+			var(--vscode-positronConsole-ansiBrightGreen),
+			var(--vscode-positronConsole-ansiBrightGreen) 3px,
+			transparent 3px,
+			transparent 6px);
+	background-size: 8.49px 8.49px;
+	animation: pending-input-submitting-move-stripes 1s linear infinite;
+}
+
+@keyframes pending-input-submitting-move-stripes {
+	0% {
+		background-position: 0 0;
+	}
+
+	100% {
+		background-position: 8.49px 0;
+	}
+}
