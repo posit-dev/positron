@@ -205,20 +205,24 @@ signal that nothing has reproduced on the current branch yet, likely because
 it has no CI runs of its own. Drop the column only when a single branch was
 queried.)
 
-**Deciding whether to ask before digging in:** if one pattern is clearly
-dominant -- rule of thumb: >=90%, or every other pattern is a single
-occurrence -- proceed straight to deep-diving it without stopping to ask; list
-the minor pattern(s) in the table but don't pull full evidence for them unless
-the engineer asks, or the dominant pattern's root cause doesn't plausibly
-explain them too. If the split is more even (60/40, 50/30/20) but neither
-pattern is dominant nor a lone outlier, don't jump straight to asking which to
-prioritize -- pull a quick round of evidence for both first (step 5) and check
+**Ask which pattern to prioritize whenever the table has more than one row.**
+A single pattern needs no choice -- proceed straight into it. With two or
+more, pause immediately after presenting the table and ask the engineer which
+one to dig into first, rather than auto-selecting the dominant pattern and
+trudging forward on your own. Frame the question with your own read (e.g. "A
+is dominant at 56% -- want me to start there, or focus on B/C instead?") so
+the engineer isn't choosing blind, but let their answer decide. This matters
+even when one pattern looks clearly dominant: the engineer may already know a
+recent fix landed that makes the dominant pattern's share stale, or may simply
+already know which failure they care about -- context the raw counts can't
+carry.
+
+If the engineer says "you pick" or wants a quick check before committing,
+pull a round of evidence for the patterns in question (step 5) and check
 whether they're actually the same underlying bug wearing two different error
 messages (e.g. two assertions racing against the same continuously-changing
-state). If they turn out to share a mechanism, there's nothing left to
-prioritize between. Only ask once you've ruled that out, or the two patterns'
-evidence points at genuinely unrelated mechanisms -- that split is a real
-judgment call about where to spend effort, not an obvious default.
+state) -- if they share a mechanism, there's nothing left to prioritize
+between and you can proceed on all of them together.
 
 These percentages are a snapshot of the raw lookback window, not necessarily
 the current state -- step 6's prior-art check can later reveal that a
