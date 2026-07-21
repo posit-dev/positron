@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { dirname, join } from 'path';
+import { dirname, join, sep } from 'path';
 import { PinsCache } from '../pinsCache.js';
 
 suite('PinsCache', () => {
@@ -25,12 +25,26 @@ suite('PinsCache', () => {
 		assert.notStrictEqual(dirname(a), dirname(b));
 	});
 
-	test('filePath reduces the file name to its base name so it cannot escape the cache', () => {
+	test('no server-supplied segment (guid, bundle, file) can escape the cache directory', () => {
 		const cache = new PinsCache(base);
-		const p = cache.filePath('https://a.example.com', 'g1', '5', '../../etc/passwd');
-		assert.ok(p.startsWith(join(base, 'pins-cache')), p);
-		assert.ok(p.endsWith('passwd'), p);
-		assert.ok(!p.includes('..'), p);
+		const root = join(base, 'pins-cache');
+		// A crafted guid, bundle id, or file name from a malicious server must not traverse out of the
+		// cache root. Each stays within root and leaves no `..` in the resolved path.
+		const crafted = [
+			cache.filePath('https://a.example.com', '../../../../etc', '5', 'data.parquet'),
+			cache.filePath('https://a.example.com', 'g1', '../../../../etc', 'data.parquet'),
+			cache.filePath('https://a.example.com', 'g1', '5', '../../etc/passwd'),
+			cache.filePath('https://a.example.com', 'g1', '5', '..'),
+		];
+		for (const p of crafted) {
+			assert.ok(p.startsWith(root + sep), p);
+			assert.ok(!p.includes('..'), p);
+		}
+	});
+
+	test('a legitimate file name keeps its extension', () => {
+		const cache = new PinsCache(base);
+		assert.ok(cache.filePath('https://a.example.com', 'g1', '5', 'data.parquet').endsWith('data.parquet'));
 	});
 
 	test('prune removes files older than 30 days and keeps recent ones', async () => {
