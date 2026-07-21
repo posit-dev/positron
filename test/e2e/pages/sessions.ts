@@ -559,12 +559,15 @@ export class Sessions {
 			// trusts whichever session is currently active; confirm it actually matches the
 			// language we just requested before returning it, otherwise callers (e.g.
 			// pasteCodeToConsole) end up targeting the wrong session's console input.
+			// Match the "Select runtime from quick pick" budget above -- this check is
+			// effectively finishing off that same runtime-selection process, and is exposed
+			// to the same CI-load-driven extension host stalls.
 			const expectedIdPrefix = new RegExp(`^${language.toLowerCase()}(-notebook)?-`, 'i');
 			let sessionId: string | undefined;
 			await expect(async () => {
 				sessionId = await this.getCurrentSessionId();
 				expect(sessionId).toMatch(expectedIdPrefix);
-			}, `Wait for ${language} session to become active`).toPass({ timeout: 10000 });
+			}, `Wait for ${language} session to become active`).toPass({ timeout: 30000 });
 
 			return sessionId!;
 		});
