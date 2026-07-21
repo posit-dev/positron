@@ -55,7 +55,11 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 	/** Set once disconnected, so browsing after disconnect fails cleanly. */
 	private _disconnected = false;
 
-	/** Per-pin type lookups, keyed by GUID, so a pin's `data.txt` is fetched at most once on success. */
+	/**
+	 * Per-version type lookups, keyed by `guid:bundleId`, so a version's `data.txt` is fetched at most
+	 * once on success. Keyed per version (not per pin) because a pin's storage type can differ across
+	 * versions, which determines each version's preview availability.
+	 */
 	private readonly _typeCache = new Map<string, Promise<string | undefined>>();
 
 	/** The in-memory DuckDB worker backing previews, created lazily on the first preview. */
@@ -116,17 +120,28 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 	 * whole owner expansion.
 	 */
 	async getPinType(pin: PinInfo): Promise<string | undefined> {
-		let typePromise = this._typeCache.get(pin.guid);
+		// The badge reflects the active (currently served) version's type.
+		return this.getVersionType(pin, pin.activeBundleId);
+	}
+
+	/**
+	 * Resolves a specific version's storage type, used to gate that version's preview (and, for the
+	 * active version, the pin's type badge). A successful lookup is memoized per (guid, bundle); a
+	 * failed one is dropped so a later re-expand retries, offering no preview in the meantime rather
+	 * than failing the whole expansion.
+	 */
+	async getVersionType(pin: PinInfo, bundleId: string): Promise<string | undefined> {
+		const key = `${pin.guid}:${bundleId}`;
+		let typePromise = this._typeCache.get(key);
 		if (!typePromise) {
-			typePromise = this._client.getPinMeta(pin.guid, pin.activeBundleId)
-				.then(meta => meta.type || undefined);
-			this._typeCache.set(pin.guid, typePromise);
+			typePromise = this._client.getPinMeta(pin.guid, bundleId).then(meta => meta.type || undefined);
+			this._typeCache.set(key, typePromise);
 		}
 		try {
 			return await typePromise;
 		} catch {
-			// The lookup failed: drop it so a later re-expand retries, and show no badge this time.
-			this._typeCache.delete(pin.guid);
+			// The lookup failed: drop it so a later re-expand retries, and show no badge/preview this time.
+			this._typeCache.delete(key);
 			return undefined;
 		}
 	}
@@ -170,6 +185,14 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 			await this._downloadToCache(pin.guid, bundleId, meta.file, meta.fileSize, destPath, displayName);
 		}
 
+		// The metadata and download above are awaited, so a disconnect may have completed in the
+		// meantime. Bail before spinning up a worker or opening an explorer: disconnect's cleanup has
+		// already run and will not run again, so anything created past this point would leak. The
+		// download stays cached (harmless). Aborting quietly, since the user chose to disconnect.
+		if (this._disconnected) {
+			return;
+		}
+
 		// Load the file into the in-memory database as a table (materialized for fast repeated
 		// queries and a stable row order), then register and open the Data Explorer view.
 		const worker = this._ensureWorker();
@@ -185,6 +208,15 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 		});
 		await this._dataExplorerHandler.openTableView(datasetId, worker, 'main', tableName, 'table', displayName, codeGenerator);
 		this._openedDatasets.add(datasetId);
+
+		// Re-check after the async view build: a disconnect in that window already tore down the worker
+		// and any views it knew about, but not this dataset (registered just above). Undo the
+		// registration and bail rather than opening an explorer backed by a disposed worker.
+		if (this._disconnected) {
+			this._dataExplorerHandler.closeTableView(datasetId);
+			this._openedDatasets.delete(datasetId);
+			return;
+		}
 
 		this._logger.info(`Opening ${displayName} in the Data Explorer`);
 		await positron.dataExplorer.open({ providerId: PINS_DATA_EXPLORER_PROVIDER_ID, datasetId, displayName });
