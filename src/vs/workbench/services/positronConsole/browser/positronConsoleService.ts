@@ -2045,11 +2045,18 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		const dispatchChecked = async (
 			codeToRun: string,
 			pendingExecutionId: string | undefined,
-			clearPendingBeforeExecute: boolean
+			clearPendingBeforeExecute: boolean,
+			token: CancellationToken,
+			displayDuringCheck: boolean
 		) => {
+			// When we display the code in the input line during the check, we
+			// must always clear it before executing (so it moves to the
+			// scrollback instead of lingering in the input).
+			const clearBeforeExecute = clearPendingBeforeExecute || displayDuringCheck;
+
 			// Executes `codeToRun` as-is, one statement.
 			const executeWhole = () => {
-				if (clearPendingBeforeExecute) {
+				if (clearBeforeExecute) {
 					this.setPendingCode();
 				}
 				void this.doExecuteCode(codeToRun, attribution, mode, errorBehavior, pendingExecutionId, executionMetadata);
@@ -2063,6 +2070,15 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				return;
 			}
 
+			// Show the submitted code in the input line while we check it, so
+			// there is always something visible next to the submitting visuals
+			// (editor- and extension-driven code has no input text of its own).
+			// The end states below clear it (on execute) or leave it (on an
+			// incomplete tail, which becomes the continuation prompt).
+			if (displayDuringCheck) {
+				this.setPendingCode(codeToRun, pendingExecutionId);
+			}
+
 			// For interactive executions, try the input boundary provider so
 			// multi-statement input is interleaved statement-by-statement (this
 			// gives extension-driven executions the same treatment as the
@@ -2071,9 +2087,18 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			if (effectiveMode === RuntimeCodeExecutionMode.Interactive) {
 				let boundaries: IInputBoundary[] | undefined;
 				try {
-					boundaries = await this.tryProvideInputBoundaries(codeToRun, CancellationToken.None);
-				} catch {
+					boundaries = await this.tryProvideInputBoundaries(codeToRun, token);
+				} catch (err) {
+					// A cancellation aborts the whole submission; the caller
+					// leaves the code untouched. Any other provider error just
+					// falls through to the runtime completeness check.
+					if (isCancellationError(err)) {
+						return;
+					}
 					boundaries = undefined;
+				}
+				if (token.isCancellationRequested) {
+					return;
 				}
 				if (boundaries !== undefined) {
 					let fragments: IInputBoundaryFragments | undefined;
@@ -2098,7 +2123,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 
 						// Execute the first statement now; queue the rest as
 						// already-verified fragments (no re-check roundtrip).
-						if (clearPendingBeforeExecute) {
+						if (clearBeforeExecute) {
 							this.setPendingCode();
 						}
 						const [first, ...rest] = fragments.fragments;
@@ -2123,37 +2148,78 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			// completeness check. TODO(console-roundtrip.md Phase 4d): convert
 			// this no-provider path to the Unprocessed mode to save a kernel
 			// roundtrip.
-			if (this.session &&
-				await this.session.isCodeFragmentComplete(codeToRun) === RuntimeCodeFragmentStatus.Complete) {
+			if (!this.session) {
+				this.setPendingCode(codeToRun, pendingExecutionId);
+				return;
+			}
+			const complete =
+				await this.session.isCodeFragmentComplete(codeToRun) === RuntimeCodeFragmentStatus.Complete;
+			if (token.isCancellationRequested) {
+				return;
+			}
+			if (complete) {
 				executeWhole();
 			} else {
 				this.setPendingCode(codeToRun, pendingExecutionId);
 			}
 		};
 
-		// Handle interactive mode first.
-		if (mode === RuntimeCodeExecutionMode.Interactive) {
-			// If there is pending code in the code editor, see if adding this code to it creates
-			// code that can be executed.
-			const pendingCode = this.codeEditor?.getValue();
-			if (pendingCode) {
-				// No ID supplied; check if there's a stored execution ID for this code.
-				if (!executionId) {
-					const storedExecutionId = this._pendingExecutionIds.get(code);
-					if (storedExecutionId) {
-						executionId = storedExecutionId;
+		// Wrap the completeness check in a cancellable submission so the
+		// submitting overlay (and its Cancel button / the action bar stop
+		// button) work for editor- and extension-driven executions too, not
+		// just console input. The overlay is debounced, so a fast check stays
+		// invisible; only a slow check (e.g. a laggy remote) surfaces it. If a
+		// submission is already in flight (a console-input submission racing an
+		// editor execution), fall back to a non-cancellable check rather than
+		// clobbering the shared submission state.
+		// Give the completeness check the visible submitting treatment (the
+		// overlay, a cancel path, and the submitted code shown in the input
+		// line) only for interactive submissions when no other submission is
+		// already in flight. Silent/transient extension executions and a
+		// console-input submission racing an editor execution fall back to a
+		// plain, non-cancellable check that touches no shared state.
+		const ownSubmission =
+			!this._currentSubmission && (mode ?? RuntimeCodeExecutionMode.Interactive) === RuntimeCodeExecutionMode.Interactive;
+		const tokenSource = ownSubmission ? new CancellationTokenSource() : undefined;
+		if (tokenSource) {
+			this._currentSubmission = tokenSource;
+			this.setCodeSubmissionInProgress(true);
+		}
+		const token = tokenSource?.token ?? CancellationToken.None;
+		const displayDuringCheck = tokenSource !== undefined;
+		try {
+			// Handle interactive mode first.
+			if (mode === RuntimeCodeExecutionMode.Interactive) {
+				// If there is pending code in the code editor, see if adding this code to it creates
+				// code that can be executed.
+				const pendingCode = this.codeEditor?.getValue();
+				if (pendingCode) {
+					// No ID supplied; check if there's a stored execution ID for this code.
+					if (!executionId) {
+						const storedExecutionId = this._pendingExecutionIds.get(code);
+						if (storedExecutionId) {
+							executionId = storedExecutionId;
+						}
 					}
-				}
 
-				// Check the merged text, clearing the input editor's pending
-				// code before executing.
-				await dispatchChecked(pendingCode + '\n' + code, executionId, true);
-				return;
+					// Check the merged text, clearing the input editor's pending
+					// code before executing.
+					await dispatchChecked(pendingCode + '\n' + code, executionId, true, token, displayDuringCheck);
+					return;
+				}
+			}
+
+			// Check the code on its own.
+			await dispatchChecked(code, executionId, false, token, displayDuringCheck);
+		} finally {
+			// Non-unprocessed executions echo immediately and never hand the
+			// flag off to a busy event, so it is safe to clear it here.
+			if (tokenSource) {
+				this._currentSubmission = undefined;
+				tokenSource.dispose();
+				this.setCodeSubmissionInProgress(false);
 			}
 		}
-
-		// Check the code on its own.
-		await dispatchChecked(code, executionId, false);
 	}
 
 	/**
