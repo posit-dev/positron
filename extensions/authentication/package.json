@@ -24,9 +24,6 @@
 		"onCommand:authentication.migrateSettingsToProvidersJson"
 	],
 	"main": "./out/extension.js",
-	"scripts": {
-		"postinstall": "npm --prefix ../../ai-lib run build -w ai-config"
-	},
 	"dependencies": {
 		"@aws-sdk/credential-providers": "^3.734.0",
 		"@aws-sdk/types": "^3.734.0",
