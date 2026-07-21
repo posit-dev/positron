@@ -35,6 +35,7 @@ import { IWorkbenchEnvironmentService } from '../../../services/environment/comm
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { getErrorMessage } from '../../../../base/common/errors.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -1525,9 +1526,10 @@ export function registerLanguageRuntimeActions() {
 			if (session) {
 				// We already have a console session for the language, so
 				// execute the code in it (silently)
-				session.execute(args.code, `silent-command-${ExecuteSilentlyAction._counter++}`,
+				Promise.resolve(session.execute(args.code, `silent-command-${ExecuteSilentlyAction._counter++}`,
 					RuntimeCodeExecutionMode.Silent,
-					RuntimeErrorBehavior.Continue);
+					RuntimeErrorBehavior.Continue)).catch((err) =>
+						accessor.get(ILogService).error(`Failed to execute silent command: ${err}`));
 			} else {
 				// No console session available. Since the intent is usually to
 				// execute the task in the background, notify the user that

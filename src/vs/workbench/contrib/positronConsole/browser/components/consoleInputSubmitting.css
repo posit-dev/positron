@@ -1,0 +1,41 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Dim the input's editor while a submission is in flight. */
+.console-input.submitting .monaco-editor {
+	opacity: 0.7;
+}
+
+/*
+ * A green barber pole over the input's gutter (prompt) area, signalling that
+ * the submitted code is being prepared for execution. Mirrors the blue
+ * `.runtime-starting .left-bar` barber pole; see runtimeStarting.css.
+ */
+.console-input-submitting-bar {
+	position: absolute;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	width: 4px;
+	opacity: 0.75;
+	pointer-events: none;
+	background-image: repeating-linear-gradient(45deg,
+			var(--vscode-positronConsole-ansiBrightGreen),
+			var(--vscode-positronConsole-ansiBrightGreen) 3px,
+			transparent 3px,
+			transparent 6px);
+	background-size: 8.49px 8.49px;
+	animation: console-input-submitting-move-stripes 1s linear infinite;
+}
+
+@keyframes console-input-submitting-move-stripes {
+	0% {
+		background-position: 0 0;
+	}
+
+	100% {
+		background-position: 8.49px 0;
+	}
+}

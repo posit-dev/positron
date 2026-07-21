@@ -5,9 +5,15 @@
 
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
+import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
+import { IModelService } from '../../../../editor/common/services/model.js';
+import { ILanguageService } from '../../../../editor/common/languages/language.js';
+import { codeFragmentsFromBoundaries, IInputBoundaryFragments, provideInputBoundaries } from '../../../../editor/contrib/positronInputBoundaries/browser/provideInputBoundaries.js';
+import { IInputBoundary } from '../../../../editor/common/languages.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
@@ -39,8 +45,8 @@ import { RuntimeItemStartupFailure } from './classes/runtimeItemStartupFailure.j
 import { ActivityItem, ActivityItemOutput, RuntimeItemActivity } from './classes/runtimeItemActivity.js';
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
-import { DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
+import { CodeSubmissionResult, DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, RUNTIME_CODE_INCOMPLETE_ERROR, RUNTIME_EXECUTION_CANCELLED_ERROR, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
@@ -193,6 +199,13 @@ const consoleServiceConfigurationBaseNode = Object.freeze<IConfigurationNode>({
 export const scrollbackSizeSettingId = 'console.scrollbackSize';
 
 /**
+ * The setting that controls whether code submitted in the Console is checked
+ * for completeness before running. When enabled (the default) and the code is
+ * incomplete, the Console prompts for more input instead of running it.
+ */
+export const promptWhenIncompleteSettingId = 'console.promptWhenIncomplete';
+
+/**
  * The setting that controls whether plots emitted by a notebook are previewed
  * in its console, and how tall (in pixels) those previews are. A value of 0
  * disables notebook plot previews entirely.
@@ -325,6 +338,12 @@ configurationRegistry.registerConfiguration({
 			default: true,
 			description: localize('positron.console.assistantActions.enabled', "Enable Assistant-powered console actions, such as Fix and Explain."),
 			tags: ['preview'],
+		},
+		// Whether to check submitted code for completeness before running it
+		'console.promptWhenIncomplete': {
+			type: 'boolean',
+			default: true,
+			description: localize('positron.console.promptWhenIncomplete', "When enabled, code submitted in the Console is checked for completeness first; if it is incomplete, the Console prompts for more input instead of running it. When disabled, submitted code runs immediately without a completeness check."),
 		}
 	}
 });
@@ -1159,6 +1178,14 @@ interface IPendingCodeFragment {
 	mode: RuntimeCodeExecutionMode;
 	errorBehavior: RuntimeErrorBehavior;
 	executionMetadata?: Record<string, unknown>;
+
+	/**
+	 * When true, this fragment has already been verified as complete (e.g. it
+	 * came from an input boundary provider split) and
+	 * `processPendingInputImpl` skips the per-fragment `isCodeFragmentComplete`
+	 * kernel roundtrip.
+	 */
+	completenessVerified?: boolean;
 }
 
 /**
@@ -1374,6 +1401,36 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private readonly _onDidRequestRevealExecutionEmitter = this._register(new Emitter<string>);
 
 	/**
+	 * The onDidChangeCodeSubmissionInProgress event emitter.
+	 */
+	private readonly _onDidChangeCodeSubmissionInProgressEmitter = this._register(new Emitter<boolean>);
+
+	/**
+	 * Whether a code submission (completeness check) is currently in flight.
+	 */
+	private _codeSubmissionInProgress = false;
+
+	/**
+	 * The cancellation token source for the in-flight submission, if any. Only
+	 * one submission can be in flight at a time (the input is readonly while a
+	 * submission is in progress).
+	 */
+	private _currentSubmission: CancellationTokenSource | undefined;
+
+	/**
+	 * The execution ID of the in-flight Flow 2 (Unprocessed) execution whose
+	 * barber-pole visuals should linger until the kernel goes busy for it. See
+	 * `markInputBusyState` and `submitCode`.
+	 */
+	private _pendingBusyExecutionId: string | undefined;
+
+	/**
+	 * The timestamp (Date.now()) when the current Flow 2 submission started, for
+	 * tracing the busy latency. Undefined when no Flow 2 submission is pending.
+	 */
+	private _pendingBusyStart: number | undefined;
+
+	/**
 	 * Provides access to the code editor, if it's available. Note that we generally prefer to
 	 * interact with this editor indirectly, since its state is managed by React.
 	 */
@@ -1409,6 +1466,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IConsoleFindWidgetFactory private readonly _consoleFindWidgetFactory: IConsoleFindWidgetFactory,
 		@IConsoleErrorFollowupService private readonly _consoleErrorFollowupService: IConsoleErrorFollowupService,
+		@ILanguageFeaturesService private readonly _languageFeaturesService: ILanguageFeaturesService,
+		@IModelService private readonly _modelService: IModelService,
+		@ILanguageService private readonly _languageService: ILanguageService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -1736,6 +1797,18 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	readonly onDidChangeWidthInChars: Event<number>;
 
 	/**
+	 * onDidChangeCodeSubmissionInProgress event.
+	 */
+	readonly onDidChangeCodeSubmissionInProgress = this._onDidChangeCodeSubmissionInProgressEmitter.event;
+
+	/**
+	 * Whether a code submission (completeness check) is currently in flight.
+	 */
+	get codeSubmissionInProgress(): boolean {
+		return this._codeSubmissionInProgress;
+	}
+
+	/**
 	 * Focuses the input for the console.
 	 */
 	focusInput(options: FocusInputOptions = {}) {
@@ -1859,6 +1932,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			return;
 		}
 
+		// If a code submission (completeness check) is in progress, interrupt
+		// the processing instead of sending a kernel interrupt. This makes the
+		// stop button and Ctrl+C cancel the submission.
+		if (this._codeSubmissionInProgress) {
+			this.cancelCodeSubmission();
+			return;
+		}
+
 		// Get the runtime state.
 		const runtimeState = this._session.getRuntimeState();
 
@@ -1955,28 +2036,106 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			return;
 		}
 
-		// Code should be executed if the caller skips checks, or if the runtime says the code is complete.
-		const shouldExecuteCode = async (codeToCheck: string) => {
-			// If there is no session, we cannot check if the code is complete or execute it,
-			// so return false.
-			if (!this.session) {
-				return false;
+		// Checks `codeToRun` for completeness and either executes it (splitting
+		// it into individually-verified statements when an input boundary
+		// provider is available) or sets it as pending code for the user to
+		// complete. `clearPendingBeforeExecute` clears the input editor's
+		// pending code before executing (used when `codeToRun` was merged from
+		// the input editor).
+		const dispatchChecked = async (
+			codeToRun: string,
+			pendingExecutionId: string | undefined,
+			clearPendingBeforeExecute: boolean
+		) => {
+			// Executes `codeToRun` as-is, one statement.
+			const executeWhole = () => {
+				if (clearPendingBeforeExecute) {
+					this.setPendingCode();
+				}
+				void this.doExecuteCode(codeToRun, attribution, mode, errorBehavior, pendingExecutionId, executionMetadata);
+			};
+
+			// If the caller skips checks, or completeness checking is disabled,
+			// execute the code as-is with no roundtrips.
+			if (allowIncomplete ||
+				this._configurationService.getValue<boolean>(promptWhenIncompleteSettingId) === false) {
+				executeWhole();
+				return;
 			}
 
-			// If allow incomplete is true, skip the code completeness check and return true.
-			if (allowIncomplete) {
-				return true;
+			// For interactive executions, try the input boundary provider so
+			// multi-statement input is interleaved statement-by-statement (this
+			// gives extension-driven executions the same treatment as the
+			// console input).
+			const effectiveMode = mode ?? RuntimeCodeExecutionMode.Interactive;
+			if (effectiveMode === RuntimeCodeExecutionMode.Interactive) {
+				let boundaries: IInputBoundary[] | undefined;
+				try {
+					boundaries = await this.tryProvideInputBoundaries(codeToRun, CancellationToken.None);
+				} catch {
+					boundaries = undefined;
+				}
+				if (boundaries !== undefined) {
+					let fragments: IInputBoundaryFragments | undefined;
+					try {
+						fragments = codeFragmentsFromBoundaries(codeToRun, boundaries);
+					} catch {
+						fragments = undefined;
+					}
+					if (fragments) {
+						// Incomplete tail: land the code in the input editor.
+						if (fragments.incomplete) {
+							this.setPendingCode(codeToRun, pendingExecutionId);
+							return;
+						}
+
+						// Invalid, or all whitespace: execute the whole text so
+						// the interpreter surfaces any error / echoes a prompt.
+						if (fragments.invalid || fragments.fragments.length === 0) {
+							executeWhole();
+							return;
+						}
+
+						// Execute the first statement now; queue the rest as
+						// already-verified fragments (no re-check roundtrip).
+						if (clearPendingBeforeExecute) {
+							this.setPendingCode();
+						}
+						const [first, ...rest] = fragments.fragments;
+						void this.doExecuteCode(first, attribution, effectiveMode, errorBehavior, pendingExecutionId, executionMetadata);
+						for (const fragment of rest) {
+							this.addPendingInput(
+								fragment,
+								attribution,
+								undefined,
+								effectiveMode,
+								errorBehavior ?? RuntimeErrorBehavior.Continue,
+								executionMetadata,
+								true /* completenessVerified */
+							);
+						}
+						return;
+					}
+				}
 			}
 
-			// Return true if the code fragment is complete, false otherwise.
-			return await this.session.isCodeFragmentComplete(codeToCheck) === RuntimeCodeFragmentStatus.Complete;
+			// No provider (or a non-interactive mode): fall back to the runtime
+			// completeness check. TODO(console-roundtrip.md Phase 4d): convert
+			// this no-provider path to the Unprocessed mode to save a kernel
+			// roundtrip.
+			if (this.session &&
+				await this.session.isCodeFragmentComplete(codeToRun) === RuntimeCodeFragmentStatus.Complete) {
+				executeWhole();
+			} else {
+				this.setPendingCode(codeToRun, pendingExecutionId);
+			}
 		};
 
 		// Handle interactive mode first.
 		if (mode === RuntimeCodeExecutionMode.Interactive) {
 			// If there is pending code in the code editor, see if adding this code to it creates
 			// code that can be executed.
-			let pendingCode = this.codeEditor?.getValue();
+			const pendingCode = this.codeEditor?.getValue();
 			if (pendingCode) {
 				// No ID supplied; check if there's a stored execution ID for this code.
 				if (!executionId) {
@@ -1986,28 +2145,15 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					}
 				}
 
-				// Figure out whether adding this code to the pending code results in code that can
-				// be executed. If so, execute it.
-				pendingCode += '\n' + code;
-				if (await shouldExecuteCode(pendingCode)) {
-					this.setPendingCode();
-					this.doExecuteCode(pendingCode, attribution, mode, errorBehavior, executionId, executionMetadata);
-				} else {
-					// Update the pending code. More will be revealed.
-					this.setPendingCode(pendingCode, executionId);
-				}
-
-				// In either case, return.
+				// Check the merged text, clearing the input editor's pending
+				// code before executing.
+				await dispatchChecked(pendingCode + '\n' + code, executionId, true);
 				return;
 			}
 		}
 
-		// Execute the code if it is complete, or set it as pending if it is not.
-		if (await shouldExecuteCode(code)) {
-			this.doExecuteCode(code, attribution, mode, errorBehavior, executionId, executionMetadata);
-		} else {
-			this.setPendingCode(code, executionId);
-		}
+		// Check the code on its own.
+		await dispatchChecked(code, executionId, false);
 	}
 
 	/**
@@ -2095,7 +2241,231 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		executionId?: string,
 		executionMetadata?: Record<string, unknown>) {
 		this.setPendingCode();
-		this.doExecuteCode(code, attribution, mode, errorBehavior, executionId, executionMetadata);
+		void this.doExecuteCode(code, attribution, mode, errorBehavior, executionId, executionMetadata);
+	}
+
+	/**
+	 * Submits code entered interactively: performs the completeness check
+	 * appropriate for the session/settings, then executes and/or queues it.
+	 *
+	 * @param code The code to submit.
+	 * @param attribution The attribution describing the source of the code.
+	 * @returns The result of the submission attempt.
+	 */
+	async submitCode(code: string, attribution: IConsoleCodeAttribution): Promise<CodeSubmissionResult> {
+		const t0 = Date.now();
+
+		// Flow 3 short-circuit: completeness checking is disabled, so run the
+		// code as-is with no checks, no roundtrips, and no submission visuals.
+		if (this._configurationService.getValue<boolean>(promptWhenIncompleteSettingId) === false) {
+			this.setPendingCode();
+			await this.doExecuteCode(code, attribution, RuntimeCodeExecutionMode.Interactive);
+			return CodeSubmissionResult.Executed;
+		}
+
+		// Only one submission can be in flight at a time. The input is readonly
+		// during a submission, so this should not normally happen; be defensive.
+		if (this._currentSubmission) {
+			return CodeSubmissionResult.Cancelled;
+		}
+
+		// Start the submission.
+		const tokenSource = new CancellationTokenSource();
+		this._currentSubmission = tokenSource;
+		this.setCodeSubmissionInProgress(true);
+
+		// Whether the submission-in-progress flag should remain set after this
+		// method resolves. Flow 2 keeps it set until the kernel goes busy for
+		// the accepted execution (see markInputBusyState).
+		let keepInProgress = false;
+		try {
+			const token = tokenSource.token;
+
+			// Clear any pending code in the input editor before submitting.
+			this.setPendingCode();
+
+			// Flow 1: try the input boundary provider.
+			let boundaries: IInputBoundary[] | undefined;
+			try {
+				boundaries = await this.tryProvideInputBoundaries(code, token);
+			} catch (err) {
+				if (isCancellationError(err)) {
+					return CodeSubmissionResult.Cancelled;
+				}
+				// Any other provider error: fall through to Flow 2.
+				boundaries = undefined;
+			}
+			if (token.isCancellationRequested) {
+				return CodeSubmissionResult.Cancelled;
+			}
+
+			if (boundaries !== undefined) {
+				let fragments: IInputBoundaryFragments | undefined;
+				try {
+					fragments = codeFragmentsFromBoundaries(code, boundaries);
+				} catch {
+					// Malformed boundaries: treat as no provider (Flow 2).
+					fragments = undefined;
+				}
+				if (fragments) {
+					const result = this.submitViaBoundaries(code, attribution, fragments);
+					if (this._trace) {
+						this.addRuntimeItemTrace(
+							`Completeness check (input boundaries): ${fragments.fragments.length} statement(s) in ${Date.now() - t0}ms`);
+					}
+					return result;
+				}
+			}
+
+			// Flow 2: no provider (or malformed boundaries). Execute with the
+			// Unprocessed mode; the session checks completeness first.
+			const result = await this.doExecuteCode(
+				code,
+				attribution,
+				RuntimeCodeExecutionMode.Interactive,
+				RuntimeErrorBehavior.Continue,
+				undefined,
+				undefined,
+				{ unprocessed: true }
+			);
+			if (this._trace) {
+				const suffix = result === CodeSubmissionResult.Executed ? `accepted in ${Date.now() - t0}ms` :
+					result === CodeSubmissionResult.Incomplete ? `incomplete after ${Date.now() - t0}ms` :
+						`cancelled after ${Date.now() - t0}ms`;
+				this.addRuntimeItemTrace(`Completeness check (runtime): ${suffix}`);
+			}
+			// Keep the submission visuals up until the busy event when the
+			// execution was accepted (doExecuteCode set the pending-busy state).
+			if (result === CodeSubmissionResult.Executed) {
+				keepInProgress = true;
+			}
+			return result;
+		} finally {
+			this._currentSubmission = undefined;
+			tokenSource.dispose();
+			if (!keepInProgress) {
+				this.setCodeSubmissionInProgress(false);
+			}
+		}
+	}
+
+	/**
+	 * Cancels the in-flight submission, if any.
+	 */
+	cancelCodeSubmission(): void {
+		// If we're still checking completeness / awaiting acceptance, cancel it.
+		if (this._currentSubmission) {
+			// Flow 2 needs a supervisor-side abort via the session interrupt so
+			// the pending completeness check rejects.
+			if (this._pendingBusyExecutionId) {
+				this._session?.interrupt();
+			}
+			this._currentSubmission.cancel();
+			return;
+		}
+
+		// Otherwise we may be in the Flow 2 post-acceptance phase: the execution
+		// was accepted but the kernel has not gone busy yet, so the submission
+		// visuals are still up. Interrupt the execution and clear them.
+		if (this._pendingBusyExecutionId) {
+			this._session?.interrupt();
+			this.clearPendingBusy();
+			this.setCodeSubmissionInProgress(false);
+		}
+	}
+
+	/**
+	 * Updates the code-submission-in-progress flag and fires the change event.
+	 */
+	private setCodeSubmissionInProgress(inProgress: boolean) {
+		if (this._codeSubmissionInProgress === inProgress) {
+			return;
+		}
+		this._codeSubmissionInProgress = inProgress;
+		this._onDidChangeCodeSubmissionInProgressEmitter.fire(inProgress);
+	}
+
+	/**
+	 * Creates a throwaway in-memory model for the submitted code and queries the
+	 * registered input boundary providers.
+	 *
+	 * @param code The submitted code.
+	 * @param token A cancellation token.
+	 * @returns The boundaries from the first matching provider, or `undefined`
+	 *   when no provider matches the session's language.
+	 */
+	private async tryProvideInputBoundaries(code: string, token: CancellationToken): Promise<IInputBoundary[] | undefined> {
+		const session = this._session;
+		if (!session) {
+			return undefined;
+		}
+
+		const languageId = session.runtimeMetadata.languageId;
+		const model = this._modelService.createModel(
+			code,
+			this._languageService.createById(languageId),
+			URI.from({ scheme: 'inmemory', path: `/console-input-boundaries/${generateUuid()}` })
+		);
+		try {
+			return await provideInputBoundaries(
+				this._languageFeaturesService.inputBoundaryProvider,
+				model,
+				token
+			);
+		} finally {
+			model.dispose();
+		}
+	}
+
+	/**
+	 * Flow 1: submits code that was split by an input boundary provider.
+	 *
+	 * @param code The original submitted code.
+	 * @param attribution The attribution describing the source of the code.
+	 * @param fragments The fragments and flags from the boundary provider.
+	 * @returns The result of the submission.
+	 */
+	private submitViaBoundaries(
+		code: string,
+		attribution: IConsoleCodeAttribution,
+		fragments: IInputBoundaryFragments
+	): CodeSubmissionResult {
+		// Incomplete tail: submit nothing (even if earlier statements are
+		// complete). The caller shows the continuation prompt.
+		if (fragments.incomplete) {
+			return CodeSubmissionResult.Incomplete;
+		}
+
+		// Invalid (and not incomplete): execute the entire original code as one
+		// statement so the interpreter surfaces the syntax error.
+		if (fragments.invalid) {
+			void this.doExecuteCode(code, attribution, RuntimeCodeExecutionMode.Interactive);
+			return CodeSubmissionResult.Executed;
+		}
+
+		// No fragments (all whitespace): execute the original code as-is (this
+		// matches pressing Enter on an empty line: echo and return a prompt).
+		if (fragments.fragments.length === 0) {
+			void this.doExecuteCode(code, attribution, RuntimeCodeExecutionMode.Interactive);
+			return CodeSubmissionResult.Executed;
+		}
+
+		// Execute the first fragment now; queue the rest as already-verified
+		// fragments so they don't re-incur a completeness roundtrip.
+		const [first, ...rest] = fragments.fragments;
+		void this.doExecuteCode(first, attribution, RuntimeCodeExecutionMode.Interactive);
+		for (const fragment of rest) {
+			this.addPendingInput(
+				fragment,
+				attribution,
+				undefined,
+				RuntimeCodeExecutionMode.Interactive,
+				RuntimeErrorBehavior.Continue,
+				undefined,
+				true /* completenessVerified */
+			);
+		}
+		return CodeSubmissionResult.Executed;
 	}
 
 	/**
@@ -2220,6 +2590,18 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param busy Whether the input is busy.
 	 */
 	markInputBusyState(parentId: string, busy: boolean) {
+		// Flow 2: the submission visuals (dim, barber pole, overlay) linger
+		// after acceptance until the kernel goes busy for the accepted
+		// unprocessed execution. Clear them when that busy transition arrives.
+		if (busy && this._pendingBusyExecutionId === parentId) {
+			if (this._trace && this._pendingBusyStart !== undefined) {
+				this.addRuntimeItemTrace(
+					`Execution ${parentId} busy after ${Date.now() - this._pendingBusyStart}ms`);
+			}
+			this.clearPendingBusy();
+			this.setCodeSubmissionInProgress(false);
+		}
+
 		// Look up all the activities that match the given parent ID
 		const activity = this._runtimeItemActivities.get(parentId);
 		if (!activity) {
@@ -2970,6 +3352,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._runtimeAttached = false;
 			this._onDidAttachRuntime.fire(undefined);
 
+			// Cancel any in-flight submission and clear the submission visuals;
+			// the session is going away and will not emit the busy event that
+			// would otherwise clear them.
+			this._currentSubmission?.cancel();
+			this.clearPendingBusy();
+			this.setCodeSubmissionInProgress(false);
+
 			// Clear the executing state of all ActivityItemInputs. When a
 			// runtime exits, it may not send an Idle message corresponding
 			// to the command that caused it to exit (for instance if the
@@ -3014,7 +3403,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		executionId: string | undefined,
 		mode: RuntimeCodeExecutionMode,
 		errorBehavior: RuntimeErrorBehavior,
-		executionMetadata?: Record<string, unknown>) {
+		executionMetadata?: Record<string, unknown>,
+		completenessVerified?: boolean) {
 		// Add to the pending code queue.
 		this._pendingCodeQueue.push({
 			code,
@@ -3022,7 +3412,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			executionId,
 			mode,
 			errorBehavior,
-			executionMetadata
+			executionMetadata,
+			completenessVerified
 		});
 
 		// Only create/update visual pending input for interactive mode.
@@ -3244,8 +3635,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Process the first item in the queue.
 		const pendingItem = this._pendingCodeQueue[0];
 
-		// Check if the code fragment is complete.
-		const codeFragmentStatus = await this._session.isCodeFragmentComplete(pendingItem.code);
+		// Check if the code fragment is complete. Fragments that were already
+		// verified complete (e.g. from an input boundary provider split) skip
+		// the kernel roundtrip and are treated as complete.
+		const codeFragmentStatus = pendingItem.completenessVerified ?
+			RuntimeCodeFragmentStatus.Complete :
+			await this._session.isCodeFragmentComplete(pendingItem.code);
 
 		// If we have been interrupted, then `clearPendingInput()` has cleared the queue.
 		if (this._pendingInputState === 'Interrupted') {
@@ -3381,42 +3776,29 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param mode Possible code execution modes for a language runtime
 	 * @param errorBehavior Possible error behavior for a language runtime
 	 */
-	private doExecuteCode(
+	private async doExecuteCode(
 		code: string,
 		attribution: IConsoleCodeAttribution,
 		mode: RuntimeCodeExecutionMode = RuntimeCodeExecutionMode.Interactive,
 		errorBehavior: RuntimeErrorBehavior = RuntimeErrorBehavior.Continue,
 		executionId?: string,
-		executionMetadata?: Record<string, unknown>
-	) {
+		executionMetadata?: Record<string, unknown>,
+		options?: { unprocessed?: boolean }
+	): Promise<CodeSubmissionResult> {
 		// Use the supplied execution ID if known; otherwise, generate one
 		const id = executionId || this.generateExecutionId(code);
 
 		if (!this._session) {
-			return;
+			return CodeSubmissionResult.Cancelled;
 		}
+		const session = this._session;
 
-		/**
-		 * If the code execution mode is silent, an ActivityItem for the code fragment
-		 * should not be added to avoid UI side effects from the code execution.
-		 */
-		if (mode !== RuntimeCodeExecutionMode.Silent) {
-			// Create the provisional ActivityItemInput.
-			const activityItemInput = new ActivityItemInput(
-				id,
-				id,
-				new Date(),
-				ActivityItemInputState.Provisional,
-				this._session.dynState.inputPrompt,
-				this._session.dynState.continuationPrompt,
-				code
-			);
-
-			// Add the provisional ActivityItemInput. This provisional ActivityItemInput will be
-			// replaced with the real ActivityItemInput when the runtime sends it (which can take a
-			// moment or two to happen).
-			this.addOrUpdateRuntimeItemActivity(id, activityItemInput);
-		}
+		// An unprocessed submission travels over the wire as `Unprocessed` (so
+		// the session checks completeness), but is reported to the console and
+		// in the onDidExecuteCode event as `Interactive` once accepted.
+		const unprocessed = options?.unprocessed === true;
+		const wireMode = unprocessed ? RuntimeCodeExecutionMode.Unprocessed : mode;
+		const reportedMode = unprocessed ? RuntimeCodeExecutionMode.Interactive : mode;
 
 		// If this is an interactive submission, check to see the text we just executed is
 		// the text that was last pasted, so we can attribute it to the clipboard if
@@ -3431,35 +3813,111 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._lastPastedText = '';
 		}
 
+		// Adds the provisional ActivityItemInput. This provisional
+		// ActivityItemInput will be replaced with the real ActivityItemInput
+		// when the runtime sends it (which can take a moment or two to happen).
+		//
+		// If the (reported) code execution mode is silent, an ActivityItem for
+		// the code fragment should not be added to avoid UI side effects from
+		// the code execution.
+		const addProvisionalInput = () => {
+			if (reportedMode !== RuntimeCodeExecutionMode.Silent) {
+				const activityItemInput = new ActivityItemInput(
+					id,
+					id,
+					new Date(),
+					ActivityItemInputState.Provisional,
+					session.dynState.inputPrompt,
+					session.dynState.continuationPrompt,
+					code
+				);
+				this.addOrUpdateRuntimeItemActivity(id, activityItemInput);
+			}
+		};
+
+		// Fires the onDidExecuteCode event.
+		const fireExecutedEvent = () => {
+			const event: ILanguageRuntimeCodeExecutedEvent = {
+				executionId: id,
+				sessionId: session.sessionId,
+				code,
+				mode: reportedMode,
+				attribution,
+				errorBehavior,
+				languageId: session.runtimeMetadata.languageId,
+				runtimeName: session.runtimeMetadata.runtimeName
+			};
+			this._onDidExecuteCodeEmitter.fire(event);
+		};
+
+		// Flow 2: unprocessed execution. Await acceptance before echoing
+		// anything to the console; the session checks completeness first.
+		if (unprocessed) {
+			// Track this execution for the barber-pole-until-busy visuals.
+			this._pendingBusyExecutionId = id;
+			this._pendingBusyStart = Date.now();
+			try {
+				await session.execute(code, id, wireMode, errorBehavior, attribution, executionMetadata);
+			} catch (err) {
+				// Nothing was echoed to the console, so there is nothing to roll
+				// back. Clear the pending-busy tracking on any failure.
+				this.clearPendingBusy();
+				const name = (err as { name?: string } | undefined)?.name;
+				if (name === RUNTIME_CODE_INCOMPLETE_ERROR) {
+					return CodeSubmissionResult.Incomplete;
+				}
+				if (name === RUNTIME_EXECUTION_CANCELLED_ERROR) {
+					return CodeSubmissionResult.Cancelled;
+				}
+				// Unexpected error: log it and leave the input intact so the
+				// user can retry.
+				this._logService.error(`Console execution ${id} failed: ${err}`);
+				if (this._trace) {
+					this.addRuntimeItemTrace(`Execution ${id} failed: ${err}`);
+				}
+				return CodeSubmissionResult.Cancelled;
+			}
+
+			// Accepted: echo the input and fire the event.
+			addProvisionalInput();
+			fireExecutedEvent();
+			return CodeSubmissionResult.Executed;
+		}
+
+		// Standard (non-unprocessed) execution: echo immediately, then execute.
+		addProvisionalInput();
+
 		/**
 		 * Execute the code.
 		 *
 		 * The jupyter protocol advises kernels to rebroadcast execution inputs.
 		 * The kernels don't rebroadcast silent input and thus will not be
 		 * added back into the runtimeItemActivities list which powers the UI.
+		 *
+		 * The returned promise signals acceptance; a rejection (e.g. RPC
+		 * failure) is logged since there is no interactive submission to
+		 * surface it to.
 		 */
-
-		this._session.execute(
+		Promise.resolve(session.execute(
 			code,
 			id,
-			mode,
+			wireMode,
 			errorBehavior,
 			attribution,
 			executionMetadata,
-		);
+		)).catch((err) => this._logService.error(`Console execution ${id} failed: ${err}`));
 
-		// Create and fire the onDidExecuteCode event.
-		const event: ILanguageRuntimeCodeExecutedEvent = {
-			executionId: id,
-			sessionId: this._session.sessionId,
-			code,
-			mode,
-			attribution,
-			errorBehavior,
-			languageId: this._session.runtimeMetadata.languageId,
-			runtimeName: this._session.runtimeMetadata.runtimeName
-		};
-		this._onDidExecuteCodeEmitter.fire(event);
+		fireExecutedEvent();
+		return CodeSubmissionResult.Executed;
+	}
+
+	/**
+	 * Clears the state tracking a Flow 2 (unprocessed) execution's
+	 * barber-pole-until-busy visuals.
+	 */
+	private clearPendingBusy() {
+		this._pendingBusyExecutionId = undefined;
+		this._pendingBusyStart = undefined;
 	}
 
 	/**

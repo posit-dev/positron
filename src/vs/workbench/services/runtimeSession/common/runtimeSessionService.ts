@@ -184,7 +184,16 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	 */
 	openResource(resource: URI | string): Thenable<boolean>;
 
-	/** Execute code in the runtime */
+	/**
+	 * Execute code in the runtime.
+	 *
+	 * The returned promise signals ACCEPTANCE of the code for execution, not
+	 * completion of the execution. When `mode` is
+	 * `RuntimeCodeExecutionMode.Unprocessed`, the promise rejects if the code
+	 * is found to be incomplete (error `name` is
+	 * `RUNTIME_CODE_INCOMPLETE_ERROR`) or the submission was cancelled (error
+	 * `name` is `RUNTIME_EXECUTION_CANCELLED_ERROR`).
+	 */
 	execute(
 		code: string,
 		id: string,
@@ -192,7 +201,7 @@ export interface ILanguageRuntimeSession extends IDisposable {
 		errorBehavior: RuntimeErrorBehavior,
 		attribution?: IConsoleCodeAttribution,
 		executionMetadata?: Record<string, unknown>,
-	): void;
+	): Promise<void>;
 
 	/**
 	 * Returns the source code location that was attributed to a recent

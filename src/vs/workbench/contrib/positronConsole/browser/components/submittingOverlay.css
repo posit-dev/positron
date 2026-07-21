@@ -1,0 +1,46 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.console-submitting-overlay {
+	/*
+	 * The console instance is itself the scroll container, so a sticky element
+	 * placed at the end of its content stays pinned to the bottom of the
+	 * viewport as the user scrolls. margin-left: auto right-aligns the
+	 * fit-content box within the content box.
+	 */
+	position: sticky;
+	bottom: 16px;
+	width: fit-content;
+	margin-left: auto;
+	margin-right: 16px;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 10px;
+	border-radius: 4px;
+	background-color: var(--vscode-editorWidget-background);
+	color: var(--vscode-editorWidget-foreground);
+	border: 1px solid var(--vscode-editorWidget-border);
+	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+	font-size: 12px;
+}
+
+.console-submitting-overlay .console-submitting-overlay-label {
+	white-space: nowrap;
+}
+
+.console-submitting-overlay .console-submitting-overlay-cancel {
+	padding: 2px 10px;
+	border: none;
+	border-radius: 2px;
+	cursor: pointer;
+	color: var(--vscode-button-foreground);
+	background-color: var(--vscode-button-background);
+}
+
+.console-submitting-overlay .console-submitting-overlay-cancel:hover {
+	background-color: var(--vscode-button-hoverBackground);
+}

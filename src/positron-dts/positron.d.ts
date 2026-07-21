@@ -177,7 +177,24 @@ declare module 'positron' {
 		 * Combined with pending code: No
 		 *          Stored in history: No
 		 */
-		Silent = 'silent'
+		Silent = 'silent',
+
+		/**
+		 * Unprocessed code execution: behaves exactly like `Interactive`
+		 * (displayed to the user, stored in history), except the code has NOT
+		 * been checked for completeness. A session receiving this mode must
+		 * check completeness itself before executing; if the code is
+		 * incomplete it must not execute it and must reject the `execute()`
+		 * call with an error whose `name` is `'CodeIncompleteError'`. Sessions
+		 * that cannot check completeness should treat `Unprocessed` exactly as
+		 * `Interactive` (the interpreter will surface a syntax error for
+		 * incomplete code).
+		 *
+		 *          Displayed to user: Yes
+		 * Combined with pending code: Yes
+		 *          Stored in history: Yes
+		 */
+		Unprocessed = 'unprocessed'
 	}
 
 	/**
@@ -1527,6 +1544,13 @@ declare module 'positron' {
 		 * @param codeLocation Optionally, the location of `code` in the source editor.
 		 * @param executionMetadata Optionally, a record of additional metadata to associate with this execution.
 		 * Note: The errorBehavior parameter is currently ignored by kernels
+		 *
+		 * The returned Thenable (if any) signals ACCEPTANCE of the code for
+		 * execution, not completion of the execution. When `mode` is
+		 * `RuntimeCodeExecutionMode.Unprocessed`, the session must check the
+		 * code for completeness first; if it is incomplete, reject with an
+		 * error whose `name` is `'CodeIncompleteError'`. Returning `void`
+		 * (the historical behavior) is treated as immediate acceptance.
 		 */
 		execute(
 			code: string,
@@ -1535,7 +1559,7 @@ declare module 'positron' {
 			errorBehavior: RuntimeErrorBehavior,
 			codeLocation?: Utf8Location,
 			executionMetadata?: Record<string, any>,
-		): void;
+		): Thenable<void> | void;
 
 		/**
 		 * Shut down the runtime; returns a Thenable that resolves when the

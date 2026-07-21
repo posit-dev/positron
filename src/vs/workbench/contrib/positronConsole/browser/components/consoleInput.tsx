@@ -7,10 +7,11 @@
 import './consoleInput.css';
 
 // React.
-import { FocusEvent, useEffect, useLayoutEffect, useRef } from 'react';
+import { FocusEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
+import { ConsoleInputSubmitting } from './consoleInputSubmitting.js';
 import { KeyCode } from '../../../../../base/common/keyCodes.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { HistoryNavigator2 } from '../../../../../base/common/history.js';
@@ -34,17 +35,16 @@ import { TabCompletionController } from '../../../snippets/browser/tabCompletion
 import { TerminalContextKeys } from '../../../terminal/common/terminalContextKey.js';
 import { ParameterHintsController } from '../../../../../editor/contrib/parameterHints/browser/parameterHints.js';
 import { SelectionClipboardContributionID } from '../../../codeEditor/browser/selectionClipboard.js';
-import { LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { LanguageRuntimeSessionMode, RuntimeCodeExecutionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { PositronConsoleInputCursorBoundary } from '../../../../common/contextkeys.js';
 import { HistoryBrowserPopup } from './historyBrowserPopup.js';
 import { HistoryInfixMatchStrategy } from '../../common/historyInfixMatchStrategy.js';
 import { HistoryPrefixMatchStrategy } from '../../common/historyPrefixMatchStrategy.js';
 import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from '../../common/historyMatchStrategy.js';
-import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { CodeSubmissionResult, IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ContentHoverController } from '../../../../../editor/contrib/hover/browser/contentHoverController.js';
 import { IInputHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { localize } from '../../../../../nls.js';
 import { createConsoleInputEditorOptions, createConsoleInputLineNumbersOptions, ILineNumbersOptions } from './consoleInputOptions.js';
 import { createConsoleInputModel } from './consoleInputModel.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -92,6 +92,16 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
 		useStateRef<string | undefined>(undefined);
 	const shouldExecuteOnStartRef = useRef(false);
+
+	// Whether a code submission (completeness check) is currently in flight.
+	// While true the input editor is readonly; the other updateOptions call
+	// sites read this to preserve the readonly state.
+	const submissionInProgressRef = useRef(false);
+
+	// Whether the debounced submission visuals (dim + green barber pole) should
+	// be shown. Set 400ms after a submission starts, so quick checks don't
+	// flicker; cleared as soon as the submission finishes.
+	const [showSubmittingVisuals, setShowSubmittingVisuals] = useState(false);
 
 	/**
 	 * Gets the appropriate history navigator based on whether a debug session
@@ -181,52 +191,38 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			return false;
 		}
 
-		// Determine whether the code is complete, incomplete, invalid, or
-		// unknown. We handle errors here since callers don't handle them.
-		let status = RuntimeCodeFragmentStatus.Unknown;
+		// Submit the code for the completeness check appropriate for the
+		// session/settings. While the submission is in flight, make the input
+		// readonly so keystrokes are swallowed; the ref lets the other
+		// updateOptions call sites preserve the readonly state.
+		const attribution: IConsoleCodeAttribution = {
+			source: CodeAttributionSource.Interactive
+		};
+
+		submissionInProgressRef.current = true;
+		codeEditorWidgetRef.current.updateOptions({ readOnly: true });
+
+		let result: CodeSubmissionResult;
 		try {
-			status = await session.isCodeFragmentComplete(code);
-		} catch (err) {
-			if (err instanceof Error) {
-				services.notificationService.error(
-					localize('positronConsole.incompleteError', 'Cannot execute code: {0} ({1})', err.name, err.message)
-				);
-			} else {
-				services.notificationService.error(
-					localize('positronConsole.incompleteUnknownError', 'Cannot execute code: {0}', JSON.stringify(err))
-				);
-			}
+			result = await props.positronConsoleInstance.submitCode(code, attribution);
+		} finally {
+			submissionInProgressRef.current = false;
+			codeEditorWidgetRef.current.updateOptions({ readOnly: false });
+		}
+
+		// Incomplete: don't execute; let the Enter handler insert a
+		// continuation line.
+		if (result === CodeSubmissionResult.Incomplete) {
 			return false;
 		}
 
-		switch (status) {
-			// If the code fragment is complete, execute it.
-			case RuntimeCodeFragmentStatus.Complete:
-				break;
-
-			// If the code fragment is incomplete, don't do anything. The user will just see a new
-			// line in the input area.
-			case RuntimeCodeFragmentStatus.Incomplete: {
-				// Don't execute the code, let the code editor widget handle the key event.
-				return false;
-			}
-
-			// If the code fragment is invalid (contains syntax errors), log a warning but execute
-			// it anyway (so the user can see a syntax error from the interpreter).
-			case RuntimeCodeFragmentStatus.Invalid:
-				services.logService.warn(
-					`Executing invalid code fragment: '${code}'`
-				);
-				break;
-
-			// If the code fragment status is unknown, log a warning but execute it anyway (so the
-			// user can see an error from the interpreter).
-			case RuntimeCodeFragmentStatus.Unknown:
-				services.logService.warn(
-					`Could not determine whether code fragment: '${code}' is complete.`
-				);
-				break;
+		// Cancelled: leave the editor text intact and editable, and don't
+		// insert a newline.
+		if (result === CodeSubmissionResult.Cancelled) {
+			return true;
 		}
+
+		// Executed: clear the input and prepare for the next prompt.
 
 		// Clear the current code fragment.
 		setCurrentCodeFragment(undefined);
@@ -243,12 +239,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			lineNumbers: (_: number) => ' '.repeat(promptWidth),
 			lineNumbersMinChars: promptWidth
 		});
-
-		// Execute the code.
-		const attribution: IConsoleCodeAttribution = {
-			source: CodeAttributionSource.Interactive
-		};
-		props.positronConsoleInstance.executeCode(code, attribution);
 
 		// Render the code editor widget.
 		codeEditorWidgetRef.current.render(true);
@@ -646,8 +636,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Creates the configuration-driven editor options. Thin wrapper over the
 		// pure builder; deliberately excludes line number (prompt) options.
+		// Preserves the readonly state while a submission is in flight.
 		const createEditorOptions = (): IEditorOptions =>
-			createConsoleInputEditorOptions(services.configurationService);
+			createConsoleInputEditorOptions(services.configurationService, submissionInProgressRef.current);
 
 		// Create the code editor widget. The initial options combine the
 		// configuration-driven editor options with the state-driven line number
@@ -1058,6 +1049,36 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}
 	}, [codeEditorWidgetRef, props.width, setCodeEditorWidth]);
 
+	// Debounce the submission visuals: show the dim + barber pole 400ms after a
+	// submission starts (and only if it is still in progress), and hide them as
+	// soon as the submission finishes.
+	useEffect(() => {
+		const instance = props.positronConsoleInstance;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const disposable = instance.onDidChangeCodeSubmissionInProgress(inProgress => {
+			if (inProgress) {
+				timer = setTimeout(() => {
+					timer = undefined;
+					if (instance.codeSubmissionInProgress) {
+						setShowSubmittingVisuals(true);
+					}
+				}, 400);
+			} else {
+				if (timer) {
+					clearTimeout(timer);
+					timer = undefined;
+				}
+				setShowSubmittingVisuals(false);
+			}
+		});
+		return () => {
+			if (timer) {
+				clearTimeout(timer);
+			}
+			disposable.dispose();
+		};
+	}, [props.positronConsoleInstance]);
+
 	/**
 	 * onFocus event handler.
 	 * @param e A FocusEvent<HTMLDivElement, Element> that contains the event data.
@@ -1097,8 +1118,13 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	}
 
 	// Render.
+	const consoleInputClassName =
+		'console-input' +
+		(props.hidden ? ' hidden' : '') +
+		(showSubmittingVisuals ? ' submitting' : '');
 	return (
-		<div className={props.hidden ? 'console-input hidden' : 'console-input'} tabIndex={0} onFocus={focusHandler}>
+		<div className={consoleInputClassName} tabIndex={0} onFocus={focusHandler}>
+			<ConsoleInputSubmitting visible={showSubmittingVisuals} />
 			<div ref={codeEditorWidgetContainerRef} />
 			{historyBrowserActive &&
 				<HistoryBrowserPopup

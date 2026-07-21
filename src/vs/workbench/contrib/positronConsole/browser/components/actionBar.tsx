@@ -113,6 +113,9 @@ export const ActionBar = (props: ActionBarProps) => {
 	// Hooks to track when the console can be interrupted and when the interrupt is in progress.
 	const [interruptible, setInterruptible] = useState(false);
 	const [interrupting, setInterrupting] = useState(false);
+	// Hook to track when a code submission (completeness check) is in progress;
+	// the interrupt (stop) button is shown so the user can cancel it.
+	const [submitting, setSubmitting] = useState(false);
 	// Hook to track when the console can be shutdown and restarted
 	// since a restart requires the session kernel to be shutdown.
 	const [canShutdown, setCanShutdown] = useState(false);
@@ -321,6 +324,14 @@ export const ActionBar = (props: ActionBarProps) => {
 
 			// Register for runtime changes.
 			disposableConsoleStore.add(activePositronConsoleInstance.onDidAttachSession(attachRuntime));
+
+			// Track code-submission progress so the stop button is shown (and
+			// can cancel the submission) while a completeness check is in flight.
+			setSubmitting(activePositronConsoleInstance.codeSubmissionInProgress);
+			disposableConsoleStore.add(
+				activePositronConsoleInstance.onDidChangeCodeSubmissionInProgress(setSubmitting));
+		} else {
+			setSubmitting(false);
 		}
 
 		// Return the cleanup function that will dispose of the disposables.
@@ -332,8 +343,12 @@ export const ActionBar = (props: ActionBarProps) => {
 
 	// Interrupt handler.
 	const interruptHandler = async () => {
-		// Set the interrupting flag to debounch the button.
-		setInterrupting(true);
+		// Set the interrupting flag to debounce the button, but not for a
+		// submission cancel: that resolves quickly and the button should stay
+		// responsive (the interrupt routes to cancelCodeSubmission).
+		if (!submitting) {
+			setInterrupting(true);
+		}
 
 		// Interrupt the active Positron console instance.
 		activePositronConsoleInstance?.interrupt();
@@ -428,8 +443,9 @@ export const ActionBar = (props: ActionBarProps) => {
 		});
 	}
 
-	// Interrupt action.
-	if (interruptible) {
+	// Interrupt action. Shown while the runtime is busy or while a code
+	// submission is being prepared (so the user can cancel the submission).
+	if (interruptible || submitting) {
 		rightActions.push({
 			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
 			separator: false,

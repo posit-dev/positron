@@ -269,7 +269,13 @@ export enum RuntimeCodeExecutionMode {
 	 * Combined with pending code: No
 	 *          Stored in history: No
 	 */
-	Silent = 'silent'
+	Silent = 'silent',
+
+	/**
+	 * Unprocessed code execution: behaves like `Interactive`, but the code has
+	 * not been checked for completeness; the session checks it before executing.
+	 */
+	Unprocessed = 'unprocessed'
 }
 
 /**

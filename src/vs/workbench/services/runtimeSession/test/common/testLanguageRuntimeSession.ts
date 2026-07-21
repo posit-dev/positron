@@ -132,7 +132,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		_mode: RuntimeCodeExecutionMode,
 		_errorBehavior: RuntimeErrorBehavior,
 		attribution?: IConsoleCodeAttribution,
-	): void {
+	): Promise<void> {
 		// Remember any code location so outputs can be attributed to their
 		// source (see getExecutionCodeLocation), mirroring the real session.
 		const codeLocation = attribution?.metadata?.codeLocation as ICodeLocation | undefined;
@@ -163,6 +163,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 				this._onDidExecute.fire(id);
 			});
 		});
+
+		// Resolve immediately: the returned promise signals acceptance, not
+		// completion (matching the real session's behavior).
+		return Promise.resolve();
 	}
 
 	getExecutionCodeLocation(executionId: string): ICodeLocation | undefined {

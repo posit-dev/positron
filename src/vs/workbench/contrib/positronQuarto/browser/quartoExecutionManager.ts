@@ -794,14 +794,15 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						},
 					};
 
-					session.execute(
+					Promise.resolve(session.execute(
 						fragment,
 						fragmentExecutionId,
 						RuntimeCodeExecutionMode.Interactive,
 						errorBehavior,
 						attribution,
 						executionMetadata
-					);
+					)).catch((err) => this._logService.error(
+						`[QuartoExecutionManager] Failed to execute fragment: ${err}`));
 
 					// Fire the event signaling code execution.
 					const event: ILanguageRuntimeCodeExecutedEvent = {
@@ -1702,6 +1703,14 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	/**
 	 * Ask a language provider for all input boundaries in one request and split
 	 * the code accordingly.
+	 *
+	 * TODO(console-roundtrip.md Phase 4a): the provider iteration here overlaps
+	 * with the shared `provideInputBoundaries` helper in
+	 * editor/contrib/positronInputBoundaries. This code isn't migrated because
+	 * Quarto's boundary->fragment conversion below differs (it needs per-
+	 * fragment `lineRanges` and treats incomplete/invalid boundaries as
+	 * fragments), and its vitest coverage only guards the conversion, not the
+	 * iteration.
 	 */
 	private async _getCodeFragmentsFromInputBoundaryProvider(languageId: string, code: string, token: CancellationToken): Promise<QuartoCodeFragments | undefined> {
 		const model = this._modelService.createModel(
