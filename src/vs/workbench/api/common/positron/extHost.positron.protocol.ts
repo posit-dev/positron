@@ -347,40 +347,6 @@ export interface ISerializedAgentCommand {
 }
 
 export type ISerializedValidateAndExecuteCommandResult =
-	| { ok: true; result: unknown }| {
-		ok: false;
-		reason: 'not-found' | 'disabled' | 'error' | 'unknown';
-		precondition?: string;
-		message?: string;
-	};
-
-
-export interface ISerializedAgentCommandArg {
-	name: string;
-	description?: string;
-	/** JSON Schema describing valid values for this argument. Serialized as a plain object. */
-	schema?: object;
-	/** Whether the argument is required. Defaults to `true`. */
-	required?: boolean;
-}
-
-export interface ISerializedAgentCommandSource {
-	type: 'builtin' | 'extension';
-	/** Extension identifier (e.g. `ms-python.python`). Only present when type is 'extension'. */
-	id?: string;
-	/** Extension display name. Only present when type is 'extension'. */
-	displayName?: string;
-}
-
-export interface ISerializedAgentCommand {
-	id: string;
-	description?: string;
-	args?: ISerializedAgentCommandArg[];
-	returns?: string;
-	source: ISerializedAgentCommandSource;
-}
-
-export type ISerializedValidateAndExecuteCommandResult =
 	| { ok: true; result: unknown }
 	| {
 		ok: false;
@@ -413,7 +379,6 @@ export interface MainThreadAiFeaturesShape {
 		commandId: string,
 		args: unknown[] | undefined,
 	): Promise<ISerializedValidateAndExecuteCommandResult>;
-	$getAgentAllowedCommands(): Promise<ISerializedAgentCommand[]>;
 }
 
 export interface ExtHostAiFeaturesShape {

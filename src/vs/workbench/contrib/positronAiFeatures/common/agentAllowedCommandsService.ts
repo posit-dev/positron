@@ -205,6 +205,3 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 	}
 }
 
-
-||||||| parent of f4e0266e40 (Add agent-allowed commands service and API)
-

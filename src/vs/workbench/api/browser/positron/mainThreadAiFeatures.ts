@@ -7,8 +7,6 @@ import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js'
 import { revive } from '../../../../base/common/marshalling.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IAgentAllowedCommandsService } from '../../../contrib/positronAiFeatures/common/agentAllowedCommandsService.js';
-import { IAgentAllowedCommandsService } from '../../../contrib/positronAiFeatures/common/agentAllowedCommandsService.js';
-import { IAgentAllowedCommandsService } from '../../../contrib/positronAiFeatures/common/agentAllowedCommandsService.js';
 import { ChatViewId } from '../../../contrib/chat/browser/chat.js';
 import { ChatViewPane } from '../../../contrib/chat/browser/widgetHosts/viewPane/chatViewPane.js';
 import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/participants/chatAgents.js';
@@ -290,36 +288,4 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		return this._agentAllowedCommandsService.validateAndExecute(commandId, args);
 	}
 
-	/**
-	 * Return the curated set of Positron commands available to AI agents.
-	 */
-	async $getAgentAllowedCommands(): Promise<ISerializedAgentCommand[]> {
-		return this._agentAllowedCommandsService.getAgentAllowedCommands().map(cmd => ({
-			id: cmd.id,
-			description: cmd.description,
-			args: cmd.args?.map(a => ({
-				name: a.name,
-				description: a.description,
-				schema: a.schema,
-				required: a.required,
-			})),
-			returns: cmd.returns,
-			source: {
-				type: cmd.source.type,
-				id: cmd.source.id,
-				displayName: cmd.source.displayName,
-			},
-		}));
-	}
-
-	/**
-	 * Check that a command exists and is currently enabled, then execute it.
-	 * Returns a structured result the caller can act on.
-	 */
-	async $validateAndExecuteCommand(
-		commandId: string,
-		args: unknown[] | undefined,
-	): Promise<ISerializedValidateAndExecuteCommandResult> {
-		return this._agentAllowedCommandsService.validateAndExecute(commandId, args);
-	}
 }
