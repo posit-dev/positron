@@ -355,24 +355,23 @@ function generateRehWebPackageJson() {
 }
 
 /**
- * If the ark submodule pointer recorded in this commit differs from what's
- * currently checked out in `extensions/positron-r/ark`, sync it — but only
- * when it's safe to do so. "Safe" means: the current submodule HEAD is
- * detached and is an ancestor of ark's `origin/main` (i.e., no in-progress
- * dev work would be lost). Anything else (named branch, unmerged commits,
- * offline, CI) is left alone.
+ * If the submodule pointer recorded in this commit differs from what's
+ * currently checked out, sync it — but only when it's safe to do so. "Safe"
+ * means: the current submodule HEAD is detached and is an ancestor of the
+ * submodule's `origin/main` (i.e., no in-progress dev work would be lost).
+ * Anything else (named branch, unmerged commits, offline, CI) is left alone.
  *
  * Runs before the dirs loop so the subsequent extensions install (which
- * triggers install-kernel) sees the synced submodule contents.
+ * triggers install-kernel and the authentication extension's postinstall)
+ * sees the synced submodule contents.
  */
-async function syncArkSubmoduleIfSafe(): Promise<void> {
+async function syncSubmoduleIfSafe(submodulePath: string): Promise<void> {
 	// Skip in CI — checkouts there already pin the submodule via `submodules: true`.
 	if (process.env['CI']) {
-		log('.', 'Skipping ark submodule sync in CI environment');
+		log(submodulePath, 'Skipping submodule sync in CI environment');
 		return;
 	}
 
-	const submodulePath = 'extensions/positron-r/ark';
 	const submoduleAbs = path.join(root, submodulePath);
 
 	// Not initialized yet — install-kernel's ensureSubmoduleReady handles that path.
@@ -404,7 +403,7 @@ async function syncArkSubmoduleIfSafe(): Promise<void> {
 		if (branch) {
 			log(submodulePath,
 				`Pointer differs (${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}), ` +
-				`but ark is on branch '${branch}'. Skipping auto-sync.`);
+				`but the submodule is on branch '${branch}'. Skipping auto-sync.`);
 			return;
 		}
 	} catch {
@@ -425,12 +424,12 @@ async function syncArkSubmoduleIfSafe(): Promise<void> {
 	} catch {
 		log(submodulePath,
 			`Pointer differs (${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}), ` +
-			`but HEAD is not reachable from ark's origin/main — looks like in-progress ` +
-			`work. Skipping. Run \`git submodule update -- ${submodulePath}\` to sync manually.`);
+			`but HEAD is not reachable from the submodule's origin/main — looks like ` +
+			`in-progress work. Skipping. Run \`git submodule update -- ${submodulePath}\` to sync manually.`);
 		return;
 	}
 
-	log(submodulePath, `Syncing ark submodule ${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}...`);
+	log(submodulePath, `Syncing submodule ${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}...`);
 	run('git', ['submodule', 'update', '--', submodulePath], { cwd: root, stdio: 'inherit' });
 }
 // --- End Positron ---
@@ -488,12 +487,21 @@ async function runWithConcurrency(tasks: (() => Promise<void>)[], concurrency: n
 
 async function main() {
 	// --- Start Positron ---
-	// Sync the ark submodule before anything else — extensions install runs
-	// install-kernel, which reads the submodule's working tree.
+	// Sync the submodules before anything else — extensions install runs
+	// install-kernel, which reads the ark submodule's working tree, and the
+	// authentication extension's postinstall, which builds ai-config from the
+	// ai-lib submodule. Unlike ark, ai-lib has no install step of its own to
+	// initialize it, so a missing ai-lib checkout is initialized here first —
+	// there is no working tree to lose.
 	try {
-		await syncArkSubmoduleIfSafe();
+		if (!fs.existsSync(path.join(root, 'ai-lib', '.git'))) {
+			log('ai-lib', 'Submodule not initialized; running `git submodule update --init`...');
+			run('git', ['submodule', 'update', '--init', '--', 'ai-lib'], { cwd: root, stdio: 'inherit' });
+		}
+		await syncSubmoduleIfSafe('extensions/positron-r/ark');
+		await syncSubmoduleIfSafe('ai-lib');
 	} catch (err) {
-		console.error('Error in syncArkSubmoduleIfSafe:', err);
+		console.error('Error syncing submodules:', err);
 		throw err;
 	}
 	// --- End Positron ---
