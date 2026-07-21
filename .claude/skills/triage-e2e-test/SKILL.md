@@ -103,7 +103,7 @@ representative `occurrences` carrying `sha`, `os`, `browser`, `outcome`
 (`failed` | `flaky`), `run_url`, and `report_url`.
 
 When you queried two branches, merge their `failure_patterns[]` into one list
-before building the step 3 table: match entries across the two responses by
+before building the step 4 table: match entries across the two responses by
 failure-mode text/selector (the same signal that identifies a row in the
 table), not by array position or count, since ordering and counts can differ
 per branch. Tag each merged row with which branch(es) it was observed on
@@ -127,7 +127,66 @@ merged total:
   N days on `<branch(es)>`" -- when every branch queried has nonzero
   `total_runs` and an empty `failure_patterns`. There is nothing to triage.
 
-### 3. Summarize the failure modes FIRST
+### 3. Check for a recent triage attempt on this test
+
+Before presenting the failure table, check whether this test already has a
+fix in flight or recently landed -- so the diagnosis doesn't re-propose an
+idea that's already been tried, or re-litigate a mode a prior fix already
+addressed. This is a lightweight, single-test lookback, not the full
+scored-eval pipeline (that runs separately, on a schedule).
+
+Reuse the same search step 8 uses to find diagnosis blocks, but pull `body`
+too so you can filter it locally to this test:
+
+```bash
+gh search prs --repo posit-dev/positron --match body "E2E Triage Diagnosis" \
+  --json number,title,url,mergedAt,state,body --limit 50
+```
+
+The search matches the heading in *every* diagnosis block ever posted, not
+just this test's -- filter the results yourself for a body containing this
+test's exact spec path (from step 1's key). Discard anything that doesn't
+match; a shared heading with a different test's diagnosis has nothing to say
+about this one.
+
+For each PR whose body does name this spec:
+
+- **Still open.** There's an unlanded attempt in flight. Say so and stop here
+  rather than starting a parallel diagnosis -- point the engineer at the open
+  PR instead of re-running the same investigation.
+- **Merged.** This is the case that answers "did the fix work?" Get the merge
+  commit with `gh pr view <number> --json mergeCommit,mergedAt`, then check
+  which of step 2's occurrences post-date it:
+
+  ```bash
+  git merge-base --is-ancestor <fix-merge-sha> <occurrence-sha> \
+    && echo "after fix" || echo "before fix / unrelated history"
+  ```
+
+  Run this per occurrence SHA from the merged `failure_patterns`. If a SHA
+  isn't found locally, `git fetch origin` first -- occurrence SHAs come from
+  CI runs across branches your local clone may not have fetched yet.
+  - Occurrences that are **not** descendants of the fix commit are old news
+    already covered by that PR's diagnosis -- don't re-litigate them.
+  - Occurrences that **are** descendants mean the failure recurred after the
+    fix meant to close it. Lead with this once you reach step 4: e.g.
+    "recurred after PR #123 (merged Jul 15), which hypothesized <one-line>."
+    Treat that prior hypothesis as ruled out, not as a guess worth re-testing
+    -- the evidence already says it didn't hold, so step 6's sleuthing should
+    start from "why didn't that fix work" rather than re-deriving the same
+    mechanism.
+  - If there are zero occurrences since the merge and enough runs have
+    accumulated in that window to be meaningful, the fix looks like it held --
+    say so. If `failure_patterns` is now empty, that's a clean bill of health,
+    not a fresh test to triage.
+  - If the merge is very recent and few or no runs have happened since, say
+    that explicitly ("not enough runs since PR #123 merged to tell yet")
+    rather than declaring the fix a success or failure prematurely.
+
+If no PR's body names this test, there's nothing to reconcile -- proceed to
+step 4 as normal.
+
+### 4. Summarize the failure modes FIRST
 
 Before downloading anything, present the shape as a table so the engineer can
 scan it at a glance -- a run-on sentence packing selector text, counts, and
@@ -153,7 +212,7 @@ the minor pattern(s) in the table but don't pull full evidence for them unless
 the engineer asks, or the dominant pattern's root cause doesn't plausibly
 explain them too. If the split is more even (60/40, 50/30/20) but neither
 pattern is dominant nor a lone outlier, don't jump straight to asking which to
-prioritize -- pull a quick round of evidence for both first (step 4) and check
+prioritize -- pull a quick round of evidence for both first (step 5) and check
 whether they're actually the same underlying bug wearing two different error
 messages (e.g. two assertions racing against the same continuously-changing
 state). If they turn out to share a mechanism, there's nothing left to
@@ -161,7 +220,14 @@ prioritize between. Only ask once you've ruled that out, or the two patterns'
 evidence points at genuinely unrelated mechanisms -- that split is a real
 judgment call about where to spend effort, not an obvious default.
 
-### 4. Pull evidence per pattern
+These percentages are a snapshot of the raw lookback window, not necessarily
+the current state -- step 6's prior-art check can later reveal that a
+pattern's occurrences all predate an unrelated fix that happened to cover this
+mechanism too, which makes its share of the table stale. Don't re-litigate
+that here; it only becomes knowable once a mechanism and its evidence are in
+hand.
+
+### 5. Pull evidence per pattern
 
 For each pattern worth digging into (see the dominance rule above -- a lone
 minor pattern may not need its own evidence pull), run the S3 processor against
@@ -205,12 +271,35 @@ pipe through `jq` rather than reading the raw dump -- progress messages go to
 stderr and only the final JSON hits stdout, so `node e2e-process-s3.js ... | jq
 '.testDetails[0].attempts[0].trace.timeline'` works cleanly.
 
-The mined log excerpt is a grepped, truncated summary -- if it doesn't explain
-the mechanism (e.g. a UI action silently does nothing, with no error to grep
-for), that's not proof the logs lack the answer. Rerun without `--cleanup` and
-read the full raw log files under the kept temp dir directly; the excerpt can
-miss the multi-step sequence (activate, create, cancel, reconnect, ...) needed
-to see what actually happened.
+The mined log excerpt (`logExcerpt`, per test in `testDetails[]`) is a grep for
+error-shaped lines only (`no such file`, `traceback`, `\w+error:`, `failed to
+\w+`, etc. -- see `LOG_ERROR_RE` in the script). It cannot show you sequence or
+timing -- `[info]`-level lines never match, so a race (two things happening in
+the wrong order, neither one erroring on its own) is invisible in the digest by
+construction, not because the excerpt was truncated. Any time the question is
+"what happened, in what order" rather than "what error was thrown," go straight
+to the raw logs instead of trying to coax more out of the digest.
+
+**To read the raw logs:** rerun the same command *without* `--cleanup`. The raw
+`logs-<shortId>.zip` is NOT under `--output-dir` -- it's left in the OS temp
+directory, at the path the script prints to stderr on its last line: `(temp dir
+kept at /var/folders/.../T/e2e-process-s3-<hash> -- pass --cleanup to remove)`.
+Unzip it and grep by extension-host channel -- each extension's real output
+channel is its own file under `server/exthost2/<extension-id>/*.log` (e.g.
+`ms-python.python/Python Language Pack.log`), separate from the top-level
+`e2e-test-runner.log` the digest draws from:
+
+```bash
+# TMP is the exact path the script printed: "(temp dir kept at <TMP> -- ...)"
+LZ=$(find "$TMP" -name 'logs-*.zip' | head -1)
+DEST=<scratch-dir>/logs-extracted
+mkdir -p "$DEST" && unzip -o "$LZ" -d "$DEST"
+find "$DEST" -iname '*<extension-id-or-keyword>*'   # locate the right channel file
+```
+
+The excerpt can also miss the multi-step sequence (activate, create, cancel,
+reconnect, ...) needed to see what actually happened even when it does find an
+error line -- read the full channel file, not just the matched lines.
 
 If an occurrence has `report_url: null`, state it explicitly (e.g. "3 of 8
 occurrences have no report available") rather than assuming the pattern is fully
@@ -221,7 +310,7 @@ fetchable" (e.g. still in flight, or since expired), not "no evidence exists
 for this pattern." Fall through to the next occurrence's `report_url` for the
 same pattern rather than concluding the pattern is unevidenced.
 
-### 5. Sleuth each pattern to a root cause
+### 6. Sleuth each pattern to a root cause
 
 This is a collaborative dig, not a rubber-stamped verdict. Don't force the
 failure into a "test-drift or product-regression" binary -- plenty of real
@@ -256,6 +345,15 @@ exploratory reads out of the main conversation's context, which matters
 because that context is still needed for reasoning through the evidence and,
 later, writing the fix.
 
+**Actively try to falsify your leading hypothesis, not just confirm it.** When
+two mechanisms would both explain the surface symptom (e.g. "output split
+across chunks" vs. "output dropped entirely"), grep the *raw* logs (not just
+the mined excerpt) for the exact expected string across its full length. Total
+absence of the string anywhere in the log rules out "split/mangled" and points
+at "never arrived" -- a materially different mechanism with a different fix.
+Don't settle for the first hypothesis that's merely consistent with the
+symptom; check whether the evidence can rule out the alternatives too.
+
 Three cross-checks that pay off disproportionately for their cost:
 
 - **Environment_breakdown skew.** If a pattern clusters on specific OS/browser
@@ -265,10 +363,47 @@ Three cross-checks that pay off disproportionately for their cost:
 - **Prior art.** Run `git log --oneline -- <spec path>` before proposing a fix.
   A recent commit fixing the same failure class on this same test is a strong
   signal for both the mechanism and the fix idiom this codebase already uses
-  -- reuse it instead of reinventing one. But prior art tells you the idiom the
-  codebase likes, not that it's guaranteed to transfer to your specific
-  mechanism -- still verify it with the repro in step 6 before trusting it,
-  even when it looks obviously right.
+  -- reuse it instead of reinventing one.
+
+  Once the evidence points at a specific mechanism, repeat the check against
+  the **implicated source file(s)** too (a POM helper, a shared service,
+  anything under `src/vs/**` the trace or logs named) -- not just the spec
+  path:
+
+  ```bash
+  git log --oneline -- <implicated source file>
+  ```
+
+  A fix for your exact mechanism can land via a completely different test's
+  triage and never mention this spec at all, so the spec-path-only log (and
+  step 3's PR-body search, which only matches PRs naming this test) will both
+  miss it. If this turns up a recent merge commit, don't stop at "prior art
+  exists" -- partition this pattern's occurrences by ancestry to it, the same
+  way step 3 partitions occurrences against a diagnosis PR's merge commit:
+
+  ```bash
+  git merge-base --is-ancestor <fix-commit> <occurrence-sha> \
+    && echo "after fix" || echo "before fix"
+  ```
+
+  - **All sampled occurrences predate the fix:** the failure rate in step 4's
+    table is stale -- this pattern may already be resolved. Say so explicitly
+    instead of treating the raw percentage as current; widen
+    `--occurrences-per-pattern` if two samples aren't enough to be confident.
+  - **Some or all postdate the fix:** this mechanism is still live despite
+    that fix -- either the fix doesn't cover this code path, or a second bug
+    shares the same symptom. Keep digging; don't credit the existing fix with
+    something it didn't do.
+  - When a test has multiple failure patterns and this check splits them --
+    one pattern's occurrences all predating a fix, another's all postdating
+    it -- that split *is* the diagnosis: the predating pattern is old news the
+    other fix already explains, and the postdating pattern is the one still
+    worth root-causing. Lead with that split when you report back, rather
+    than presenting both patterns as equally live.
+
+  Prior art tells you the idiom the codebase likes, not that it's guaranteed
+  to transfer to your specific mechanism -- still verify it with the repro in
+  step 7 before trusting it, even when it looks obviously right.
 - **Same-file preceding-test adjacency.** If the evidence points at another
   test in the same file leaking state (see the rubric's "Same-file
   preceding-test state leakage"), don't trust it off one occurrence -- pull
@@ -287,7 +422,18 @@ the evidence points at a specific mechanism (e.g. a shared fixture, a slow
 decoration provider, a concurrent teardown), name that mechanism and fix it or
 isolate it -- do not paper over it with a longer wait.
 
-### 6. Reproduce before fixing, verify after -- don't trust one green run
+### 7. Reproduce before fixing, verify after -- don't trust one green run
+
+**Prefer a unit-level repro when the mechanism lives below the e2e layer.** If
+the root cause traces into a lower-level module with its own unit-test suite
+(e.g. an extension's process-spawning helper, not the e2e spec or a POM), write
+a deterministic unit test there instead of relying on the flaky e2e repro. Model
+the exact event ordering that triggers the bug (e.g. a Node child-process
+`exit`/`close` race), confirm it fails against the current code (RED), apply
+the fix, confirm it passes (GREEN). This is faster and more deterministic than
+chasing a load-dependent e2e race, and it doubles as a regression test the e2e
+repro alone wouldn't leave behind. Reach for the e2e project repro below when
+the mechanism is genuinely e2e-layer (a POM race, a shared fixture, UI timing).
 
 **Pick a project to repro against, easiest first.** Only three projects are
 actually exercised in CI (see the `e2e` jobs in a `positron-builds` release
@@ -357,13 +503,33 @@ Don't claim a flaky test is "fixed" on the strength of a single green run,
 local or in CI -- for a race, evidence is a trend across enough runs, not one
 data point.
 
-### 7. Record the diagnosis on the PR
+**If the engineer asks why a long-standing bug started failing only recently,
+that's a separate, weaker-evidence question from the root cause itself --
+don't conflate "when the bug was introduced" with "when the failure rate
+spiked."** Check `git log`/`git blame` on the actual fixed code to establish
+the bug's age, then compare that against the test-health history's onset date
+(the first date the failure pattern actually appears in the lookback window,
+not just "recently"). If the bug predates the onset by a wide margin, look at
+merges from the day(s) just before onset, but verify each candidate's *actual
+mechanism* (does it change runtime versions, parallelism, CI image contents,
+or load -- not just a plausibly-related commit title) before naming it as a
+trigger. A commit whose diff doesn't actually change the behavior in question
+(e.g. an action-version bump that keeps the pinned runtime the same) is not a
+trigger regardless of how suggestive its title reads. If no candidate's
+mechanism holds up, say so plainly -- "bug predates the spike; no confirmed
+trigger identified" -- rather than presenting the most plausible-sounding
+candidate as if it were proven.
+
+### 8. Record the diagnosis on the PR
 
 This skill is manual and doesn't open PRs itself, so this step fires whenever
 the triage does lead to a PR (fix-the-test or a product-bug fix). Append an
 `### E2E Triage Diagnosis` block to the end of the PR body -- after whatever
 body template the change itself calls for (plain Summary/QA Notes for a
-test-only change; the product PR template for a source fix). The block is an
+test-only change; the product PR template for a source fix -- see
+`positron-pr-helper`'s `references/pr-templates.md` for the required fields,
+e.g. `Fixes #`, `### Release Notes`, `### Validation Steps`; this is easy to
+forget when the diagnosis block is the thing top of mind). The block is an
 immutable snapshot of the skill's root-cause prediction at authoring time, so
 its accuracy can be scored later against what actually fixed the flake.
 
@@ -382,6 +548,11 @@ its accuracy can be scored later against what actually fixed the flake.
 </details>
 ```
 
+If step 3 found a merged PR whose fix didn't hold, add a **Supersedes** bullet
+naming it (`Supersedes: #123 (hypothesized <one-line>, recurred N times
+after merge)`) so a later reader -- human or the eval pipeline -- can see this
+is attempt #2, not attempt #1, without re-running the git-merge-base check.
+
 Field notes:
 
 - **Spec and Test lead every block -- never drop them.** Each block names the
@@ -398,9 +569,9 @@ Field notes:
   in plain text next to the emoji so the block stays greppable for later
   scoring.
 - **Signal is the highest-leverage field, and the easiest to get lazy on.**
-  Pull the timeline shape from the step 4-5 evidence -- what the trace or
+  Pull the timeline shape from the step 5-6 evidence -- what the trace or
   snapshot actually showed (e.g. "markers render right after import, then
-  disappear before the assertion runs") -- not the step-3 failure-pattern
+  disappear before the assertion runs") -- not the step-4 failure-pattern
   string ("`toBeVisible()` timed out"), which can't tell "never rendered" from
   "rendered then clobbered": two unrelated root causes.
 - **Frequency** is its own bullet -- it's a different kind of evidence (how
