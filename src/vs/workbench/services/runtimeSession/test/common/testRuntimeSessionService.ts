@@ -67,6 +67,7 @@ export function createRuntimeServices(
 export function createTestLanguageRuntimeMetadata(
 	instantiationService: TestInstantiationService,
 	disposables: Pick<DisposableStore, 'add'>,
+	sessionLocation: LanguageRuntimeSessionLocation = LanguageRuntimeSessionLocation.Browser,
 ): ILanguageRuntimeMetadata {
 	const languageRuntimeService = instantiationService.get(ILanguageRuntimeService);
 	const runtimeSessionService = instantiationService.get(IRuntimeSessionService);
@@ -87,7 +88,7 @@ export function createTestLanguageRuntimeMetadata(
 		runtimeShortName: languageVersion,
 		runtimeSource: 'Test',
 		runtimeVersion: '0.0.1',
-		sessionLocation: LanguageRuntimeSessionLocation.Browser,
+		sessionLocation,
 		startupBehavior: LanguageRuntimeStartupBehavior.Implicit,
 	};
 	disposables.add(languageRuntimeService.registerRuntime(runtime));

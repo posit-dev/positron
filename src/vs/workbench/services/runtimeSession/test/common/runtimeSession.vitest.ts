@@ -11,7 +11,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
-import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType, RuntimeStartMode } from '../../common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
@@ -1525,6 +1525,55 @@ describe('Positron - RuntimeSessionService', () => {
 
 			await runtimeSessionService.deleteSession(session.sessionId);
 			expect(runtimeSessionService.getDisplayRuntimeState(session.sessionId)).toBeUndefined();
+		});
+	});
+
+	describe('reconnecting sessions after an extension host restart', () => {
+		// Drive a session to an extension-host disconnect: mark it exited, then
+		// fire onDidEndSession with the ExtensionHost reason. The queuing runs on
+		// the next tick, so callers await timeout(0) before asserting. A queued
+		// (disconnected) session refuses deletion with a distinctive error, which
+		// is how we observe whether it was remembered for reconnection.
+		async function disconnectViaExtensionHost(session: TestLanguageRuntimeSession) {
+			session.setRuntimeState(RuntimeState.Exited);
+			session.endSession({ reason: RuntimeExitReason.ExtensionHost });
+			await timeout(0);
+		}
+
+		it('remembers a Machine session so it can be reconnected', async () => {
+			const machineRuntime = createTestLanguageRuntimeMetadata(
+				ctx.instantiationService, ctx.disposables, LanguageRuntimeSessionLocation.Machine);
+			const session = await startConsole(machineRuntime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+
+			await disconnectViaExtensionHost(session);
+
+			await expect(runtimeSessionService.deleteSession(session.sessionId))
+				.rejects.toThrow(/disconnected/);
+		});
+
+		it('remembers a Workspace session so it can be reconnected', async () => {
+			const workspaceRuntime = createTestLanguageRuntimeMetadata(
+				ctx.instantiationService, ctx.disposables, LanguageRuntimeSessionLocation.Workspace);
+			const session = await startConsole(workspaceRuntime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+
+			await disconnectViaExtensionHost(session);
+
+			await expect(runtimeSessionService.deleteSession(session.sessionId))
+				.rejects.toThrow(/disconnected/);
+		});
+
+		it('does not remember a Browser session, which cannot be reconnected', async () => {
+			const browserRuntime = createTestLanguageRuntimeMetadata(
+				ctx.instantiationService, ctx.disposables, LanguageRuntimeSessionLocation.Browser);
+			const session = await startConsole(browserRuntime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+
+			await disconnectViaExtensionHost(session);
+
+			// Not queued for reconnection, so deletion proceeds normally.
+			expect(await runtimeSessionService.deleteSession(session.sessionId)).toBe(true);
 		});
 	});
 });
