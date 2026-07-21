@@ -478,7 +478,7 @@ export const selectNewLanguageRuntime = async (
 					iconPath: {
 						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
 					},
-					neverShowWhenFiltered: true
+					neverShowWhenFiltered: false
 				});
 			});
 		}
@@ -487,7 +487,7 @@ export const selectNewLanguageRuntime = async (
 		interpreterGroups.forEach(group => {
 			// Group runtimes by environment type
 			const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
-			const allRuntimes = [group.primaryRuntime, ...group.alternateRuntimes];
+			const allRuntimes = group.alternateRuntimes;
 
 			allRuntimes.forEach(runtime => {
 				const envType = `${runtime.runtimeSource}`;

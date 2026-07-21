@@ -211,11 +211,12 @@ describe('selectNewLanguageRuntime', () => {
 			const shape = pick.items.map(item =>
 				item.type === 'separator' ? `[${item.label}]` : `${item.id}=${item.label}`
 			);
+			// The suggested (primary) runtime appears only under "Suggested", not
+			// again under its own environment type -- so its "System" group is
+			// omitted entirely since it had no other members.
 			expect(shape).toMatchInlineSnapshot(`
 				[
 				  "[Suggested]",
-				  "py-system=Python (System)",
-				  "[System]",
 				  "py-system=Python (System)",
 				  "[Conda]",
 				  "py-conda=Python (Conda)",
@@ -225,7 +226,41 @@ describe('selectNewLanguageRuntime', () => {
 			await promise;
 		});
 
+		it('does not duplicate the suggested runtime under its environment type', async () => {
+			registerRuntime(makeRuntime({ runtimeId: 'py-system', runtimeSource: 'System', runtimeName: 'Python (System)' }));
+
+			const promise = runPicker();
+			await waitUntilOpened();
+			const suggestedRuntimeItems = pick.items.filter(
+				(item): item is IQuickPickItem => item.type !== 'separator' && item.id === 'py-system'
+			);
+			expect(suggestedRuntimeItems).toHaveLength(1);
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
+		it('keeps every single-listed runtime searchable when the picker is filtered', async () => {
+			// The suggested runtime now appears only under "Suggested". An item flagged
+			// neverShowWhenFiltered is hidden once the user types a query, so any runtime
+			// with a single listing must NOT carry that flag -- otherwise filtering would
+			// hide the user's preferred interpreter entirely.
+			registerRuntime(makeRuntime({ runtimeId: 'py-system', runtimeSource: 'System', runtimeName: 'Python (System)' }));
+			registerRuntime(makeRuntime({ runtimeId: 'py-conda', runtimeSource: 'Conda', runtimeName: 'Python (Conda)' }));
+
+			const promise = runPicker();
+			await waitUntilOpened();
+			const runtimeItems = pick.items.filter(
+				(item): item is IQuickPickItem => item.type !== 'separator'
+			);
+			expect(runtimeItems.every(item => item.neverShowWhenFiltered !== true)).toBe(true);
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
 		it('sorts within an env type by version descending, unsupported runtimes last', async () => {
+			// Register a preferred runtime first so the three runtimes under test
+			// are all alternates (the primary is shown only under "Suggested").
+			await registerRuntime(makeRuntime({ runtimeId: 'py-pref', runtimeName: 'Python (preferred)' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-310', languageVersion: '3.10.0', runtimeName: 'Python 3.10' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-312', languageVersion: '3.12.0', runtimeName: 'Python 3.12' }));
 			await registerRuntime(makeRuntime({
