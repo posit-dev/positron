@@ -4,17 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 /*
-Summary:
-- Verifies the Python venv auto-creation notification flow.
-- Requires a global Python interpreter (non-venv, non-conda) for the trigger to fire.
-- Tests run in sequence; each openFolder changes the workspace, so paths are
-	relative to where the picker starts after the previous test.
+End-to-end smoke for Python venv auto-creation: open a workspace with a
+requirements.txt, accept the prompt, and confirm uv actually creates the .venv.
 
-|Test              |Workspace                     |Expected behavior                  |
-|------------------|------------------------------|-----------------------------------|
-|Clicking Yes      |temp dir with requirements.txt|Notification appears, .venv created|
-|Notification shows|fixture with requirements.txt |Toast mentions requirements.txt + uv|
-|No notification   |fixture with existing .venv   |No toast appears                   |
+The prompt's gating decision (requirements present, no existing venv/conda, a
+global interpreter selected, etc.) is pure logic covered deterministically by
+positron-python's unit tests -- see
+extensions/positron-python/src/test/pythonEnvironments/creation/createEnvironmentTrigger.unit.test.ts
+(including the "selected python is not global" branch). This E2E only covers
+the one thing those can't: the real create-venv flow through the UI and uv.
 */
 
 import * as os from 'os';
@@ -29,13 +27,6 @@ const test = base.extend<{}, {}>({
 				'python.createEnvironment.trigger': 'prompt',
 				'interpreters.startupBehavior': 'auto',
 				'python.defaultInterpreterPath': '/usr/bin/python3',
-				// Override the Docker fixture's interpreters.include (settingsDocker.json),
-				// which force-includes /root/.venv -- a uv venv on the CI image. When that
-				// venv wins the workspace's active-interpreter selection, the create-env
-				// prompt is suppressed (it only fires for a global interpreter), so the
-				// requirements.txt notification never appears. Clearing the include leaves
-				// the global /usr/bin/python as the unambiguous selection.
-				'python.interpreters.include': [],
 			});
 			await use();
 		},
@@ -51,11 +42,9 @@ test.describe('Python Venv Auto-Creation', {
 	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
 	test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
+	test.slow();
 
 	test('Clicking Yes creates venv', async function ({ app, openFolder }) {
-		// Real venv creation (~35s avg in CI, with 60s waits below); the other
-		// two tests are fast and run under the normal timeout.
-		test.slow();
 		const tempWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'test-files', 'venv-creation-test');
 		await fs.mkdir(tempWorkspace, { recursive: true });
 		await fs.writeFile(path.join(tempWorkspace, 'requirements.txt'), 'requests\n');
@@ -75,29 +64,5 @@ test.describe('Python Venv Auto-Creation', {
 		} finally {
 			await fs.rm(tempWorkspace, { recursive: true, force: true }).catch(() => { });
 		}
-	});
-
-	test('Notification appears for workspace with requirements.txt', async function ({ app, openFolder }) {
-		// Absolute path so the test is independent of the workspace left by the
-		// preceding test (and survives a retry, which relaunches at the default
-		// workspace). See the openFolder fixture's absolute-path branch.
-		const requirementsWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'test-files', 'workspaces', 'python-venv-creation', 'with-requirements');
-		await openFolder(requirementsWorkspace);
-		await app.workbench.sessions.expectNoStartUpMessaging();
-
-		const toast = app.workbench.toasts.toastNotification.filter({ hasText: /requirements\.txt/ });
-		await expect(toast).toBeVisible({ timeout: 60000 });
-		await app.workbench.toasts.expectToastWithTitle(/uv/);
-		await app.workbench.toasts.closeWithHeader(/requirements\.txt/);
-	});
-
-	test('No notification when .venv already exists', async function ({ app, openFolder }) {
-		// Absolute path so the test is independent of the workspace left by the
-		// preceding test (and survives a retry, which relaunches at the default
-		// workspace). See the openFolder fixture's absolute-path branch.
-		const venvWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'test-files', 'workspaces', 'python-venv-creation', 'with-existing-venv');
-		await openFolder(venvWorkspace);
-
-		await app.workbench.toasts.expectToastWithTitleNotToAppear(/requirements\.txt/);
 	});
 });
