@@ -49,16 +49,6 @@ export function registerAuthProvider(
 }
 
 /**
- * Get the auth provider for a given provider ID.
- * Used by the migrateApiKey command.
- */
-export function getAuthProvider(
-	providerId: string
-): AuthProvider | undefined {
-	return authProviders.get(providerId);
-}
-
-/**
  * Update a provider's signedIn and autoconfigure state from its current sessions.
  * The caller is responsible for fetching sessions via the appropriate mechanism.
  */

@@ -1,3 +1,6 @@
 [submodule "extensions/positron-r/ark"]
 	path = extensions/positron-r/ark
 	url = https://github.com/posit-dev/ark.git
+[submodule "ai-lib"]
+	path = ai-lib
+	url = https://github.com/posit-dev/ai-lib.git
