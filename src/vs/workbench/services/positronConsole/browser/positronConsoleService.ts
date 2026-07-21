@@ -2185,19 +2185,14 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 						if (clearBeforeExecute) {
 							this.setPendingCode();
 						}
-						const [first, ...rest] = fragments.fragments;
-						void this.doExecuteCode(first, attribution, effectiveMode, errorBehavior, pendingExecutionId, executionMetadata);
-						for (const fragment of rest) {
-							this.addPendingInput(
-								fragment,
-								attribution,
-								undefined,
-								effectiveMode,
-								errorBehavior ?? RuntimeErrorBehavior.Continue,
-								executionMetadata,
-								true /* completenessVerified */
-							);
-						}
+						this.executeVerifiedFragments(
+							fragments.fragments,
+							attribution,
+							effectiveMode,
+							errorBehavior ?? RuntimeErrorBehavior.Continue,
+							pendingExecutionId,
+							executionMetadata
+						);
 						return true;
 					}
 				}
@@ -2630,20 +2625,52 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 
 		// Execute the first fragment now; queue the rest as already-verified
 		// fragments so they don't re-incur a completeness roundtrip.
-		const [first, ...rest] = fragments.fragments;
-		void this.doExecuteCode(first, attribution, RuntimeCodeExecutionMode.Interactive);
+		this.executeVerifiedFragments(
+			fragments.fragments,
+			attribution,
+			RuntimeCodeExecutionMode.Interactive,
+			RuntimeErrorBehavior.Continue,
+			undefined,
+			undefined
+		);
+		return CodeSubmissionResult.Executed;
+	}
+
+	/**
+	 * Executes the first boundary-split fragment immediately and queues the rest
+	 * as already-verified pending input, so the queued fragments skip the
+	 * per-fragment `isCodeFragmentComplete` roundtrip in
+	 * `processPendingInputImpl`. Shared by the console-input (`submitCode`) and
+	 * extension/editor (`enqueueCode`) boundary-split paths.
+	 *
+	 * @param fragments The complete fragments to run, in order (non-empty).
+	 * @param attribution The attribution describing the source of the code.
+	 * @param mode The execution mode.
+	 * @param errorBehavior The error behavior.
+	 * @param executionId The execution ID for the first fragment, if any.
+	 * @param executionMetadata Metadata to associate with the executions.
+	 */
+	private executeVerifiedFragments(
+		fragments: string[],
+		attribution: IConsoleCodeAttribution,
+		mode: RuntimeCodeExecutionMode,
+		errorBehavior: RuntimeErrorBehavior,
+		executionId: string | undefined,
+		executionMetadata: Record<string, unknown> | undefined
+	): void {
+		const [first, ...rest] = fragments;
+		void this.doExecuteCode(first, attribution, mode, errorBehavior, executionId, executionMetadata);
 		for (const fragment of rest) {
 			this.addPendingInput(
 				fragment,
 				attribution,
 				undefined,
-				RuntimeCodeExecutionMode.Interactive,
-				RuntimeErrorBehavior.Continue,
-				undefined,
+				mode,
+				errorBehavior,
+				executionMetadata,
 				true /* completenessVerified */
 			);
 		}
-		return CodeSubmissionResult.Executed;
 	}
 
 	/**
@@ -4005,15 +4032,17 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// Fire the runtime items changed event.
 		this._onDidChangeRuntimeItemsEmitter.fire();
 
-		// Execute the code fragment.
-		this._session.execute(
+		// Execute the code fragment. The returned promise signals acceptance; a
+		// rejection (e.g. RPC failure) is logged since there is no interactive
+		// submission to surface it to.
+		Promise.resolve(this._session.execute(
 			pendingItem.code,
 			id,
 			pendingItem.mode,
 			pendingItem.errorBehavior,
 			pendingItem.attribution,
 			pendingItem.executionMetadata,
-		);
+		)).catch((err) => this._logService.error(`Console execution ${id} failed: ${err}`));
 
 		// Create and fire the onDidExecuteCode event.
 		const event: ILanguageRuntimeCodeExecutedEvent = {
