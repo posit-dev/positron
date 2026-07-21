@@ -54,6 +54,14 @@ Before drafting Validation Steps, I'll run the local PETE preview (the `pete` sk
 
 If PETE reports **Insufficient**, I'll say so and suggest concrete additions (file path, runner, what to test) before we finalize the PR body -- I won't silently paper over a coverage gap with a generic "Validation Steps" section. This is a local preview only; it doesn't replace the official check, which now runs on demand in CI -- comment `/pete` (or `/recheck-tests`, `/rePETE`, `/re-pete`) on the PR once it's open to get the authoritative verdict.
 
+### Tag Safety: only write `@:tag` where you mean to trigger it
+
+`scripts/pr-tags-parse.sh` (CI) extracts tags with a raw `grep -o "@:[a-zA-Z0-9_-]*"` over the **entire PR body text**. It has no awareness of markdown structure -- a literal `@:tag` substring runs that suite's CI job regardless of which section it's in, whether it's inside backticks, or whether you meant it as a real directive or just prose mentioning a tag name. Backtick-quoting does **not** protect against this (confirmed on PR #14734).
+
+So: the literal string `@:` followed by tag characters must appear **only** in the Validation Steps section, and only for tags you actually want CI to run. Everywhere else in the PR body (Summary, QA Notes, bullets explaining blast radius or affected areas, etc.), refer to the area by name **without the `@:` prefix** -- e.g. "the sessions, apps, and viewer suites" or "affects the `sessions` helper broadly," never "`@:sessions @:apps @:viewer`" as a parenthetical aside. If you need to discuss the tagging system itself (like a PR that fixes tag auto-detection), the same rule applies -- describe the tag by name, don't spell out the `@:` form.
+
+Before finalizing any PR body, scan your own draft for `@:` outside the Validation Steps section and reword those away.
+
 ### Step 4: Generate PR Body
 
 Based on the PR type and context, I'll create a structured PR body with:
@@ -223,5 +231,6 @@ conn.execute("INSERT INTO employees VALUES (1, 'Alice', 75000)")
 - Use present tense ("fixes", "adds", "enables")
 - Include issue references in parentheses in release notes
 - Always include at least one e2e test tag in validation steps
+- Never write a literal `@:tag` outside the Validation Steps section -- CI's tag parser matches the substring anywhere in the body, in prose or backticks alike, and will trigger that suite unintentionally
 - For complex changes, numbered test steps are better
 - Keep release notes user-facing (avoid implementation details)
