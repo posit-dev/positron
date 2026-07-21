@@ -111,6 +111,7 @@
 					"additionalProperties": false
 				},
 				"authentication.aws.inferenceProfileRegion": {
+					"markdownDeprecationMessage": "%configuration.deprecation.inferenceProfileRegion%",
 					"type": "string",
 					"default": null,
 					"markdownDescription": "%configuration.aws.inferenceProfileRegion.description%"

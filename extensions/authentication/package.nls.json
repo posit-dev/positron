@@ -39,7 +39,7 @@
 	"configuration.models.overrides.google.description": "Model overrides for Google Gemini provider.\n\nThese models will be used instead of retrieving the model listing from the provider. Each model must have a `name` (display name) and `identifier` (model ID for API calls). Optionally specify `maxInputTokens` and `maxOutputTokens`.\n\nRequires a restart to take effect.",
 	"configuration.aiExcludes.description": "A list of [glob patterns](https://aka.ms/vscode-glob-patterns) to exclude from AI features. Files matching these patterns will not have their contents sent to AI providers for inline completions or chat context. Patterns without a `/` will match against the filename only (e.g., `*.py` matches all Python files). Use `**/` prefix for explicit recursive matching.",
 	"configuration.deprecation.providersJson": "This setting is deprecated. Use `~/.posit/ai/providers.json` instead.",
-	"configuration.deprecation.inferenceProfileRegion": "This setting is deprecated and no longer read. Use a custom model in `~/.posit/ai/providers.json` instead.",
+	"configuration.deprecation.inferenceProfileRegion": "This setting is deprecated and no longer read. Bedrock cross-region inference profiles are derived from the AWS region.",
 	"commands.configureProviders.title": "Configure Language Model Providers",
 	"commands.migrateSettingsToProvidersJson.title": "Migrate AI Provider Settings to providers.json",
 	"commands.category": "Authentication"
