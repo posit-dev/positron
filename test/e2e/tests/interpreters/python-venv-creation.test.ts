@@ -29,6 +29,13 @@ const test = base.extend<{}, {}>({
 				'python.createEnvironment.trigger': 'prompt',
 				'interpreters.startupBehavior': 'auto',
 				'python.defaultInterpreterPath': '/usr/bin/python3',
+				// Override the Docker fixture's interpreters.include (settingsDocker.json),
+				// which force-includes /root/.venv -- a uv venv on the CI image. When that
+				// venv wins the workspace's active-interpreter selection, the create-env
+				// prompt is suppressed (it only fires for a global interpreter), so the
+				// requirements.txt notification never appears. Clearing the include leaves
+				// the global /usr/bin/python as the unambiguous selection.
+				'python.interpreters.include': [],
 			});
 			await use();
 		},
