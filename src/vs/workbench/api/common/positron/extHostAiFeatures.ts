@@ -188,4 +188,15 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return this._proxy.$getEnabledProviders();
 	}
 
+	async getAgentAllowedCommands(): Promise<extHostProtocol.ISerializedAgentCommand[]> {
+		return this._proxy.$getAgentAllowedCommands();
+	}
+
+	async validateAndExecuteCommand(
+		commandId: string,
+		args: unknown[] | undefined,
+	): Promise<extHostProtocol.ISerializedValidateAndExecuteCommandResult> {
+		return this._proxy.$validateAndExecuteCommand(commandId, args);
+	}
+
 }

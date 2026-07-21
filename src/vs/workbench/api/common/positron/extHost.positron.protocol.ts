@@ -321,6 +321,40 @@ export interface MainThreadEnvironmentShape extends IDisposable {
 
 export interface ExtHostEnvironmentShape { }
 
+export interface ISerializedAgentCommandArg {
+	name: string;
+	description?: string;
+	/** JSON Schema describing valid values for this argument. Serialized as a plain object. */
+	schema?: object;
+	/** Whether the argument is required. Defaults to `true`. */
+	required?: boolean;
+}
+
+export interface ISerializedAgentCommandSource {
+	type: 'builtin' | 'extension';
+	/** Extension identifier (e.g. `ms-python.python`). Only present when type is 'extension'. */
+	id?: string;
+	/** Extension display name. Only present when type is 'extension'. */
+	displayName?: string;
+}
+
+export interface ISerializedAgentCommand {
+	id: string;
+	description?: string;
+	args?: ISerializedAgentCommandArg[];
+	returns?: string;
+	source: ISerializedAgentCommandSource;
+}
+
+export type ISerializedValidateAndExecuteCommandResult =
+	| { ok: true; result: unknown }
+	| {
+		ok: false;
+		reason: 'not-found' | 'disabled' | 'error' | 'unknown';
+		precondition?: string;
+		message?: string;
+	};
+
 export interface MainThreadAiFeaturesShape {
 	$registerChatAgent(agentData: IChatAgentData): Thenable<void>;
 	$unregisterChatAgent(id: string): void;
@@ -340,6 +374,11 @@ export interface MainThreadAiFeaturesShape {
 	$getProviders(): Thenable<IPositronChatProvider[]>;
 	$setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 	$getEnabledProviders(): Thenable<string[]>;
+	$getAgentAllowedCommands(): Promise<ISerializedAgentCommand[]>;
+	$validateAndExecuteCommand(
+		commandId: string,
+		args: unknown[] | undefined,
+	): Promise<ISerializedValidateAndExecuteCommandResult>;
 }
 
 export interface ExtHostAiFeaturesShape {
