@@ -128,11 +128,20 @@ buildScripts.forEach(f => console.error('  → ' + f));
 // cache on every bump, so a stale build is never restored. A package-lock.json
 // signal alone would miss source-only bumps (and ai-lib's lockfile isn't even
 // at the core-dir path -- it's the workspace root's).
-const { execSync } = require('child_process');
+// spawnSync with an argument array (never a shell string) so submodule paths
+// parsed from .gitmodules can't be interpreted as shell syntax.
+const { spawnSync } = require('child_process');
+const git = (args) => {
+  const r = spawnSync('git', args, { encoding: 'utf8' });
+  if (r.status !== 0) {
+    throw new Error('git ' + args.join(' ') + ' failed: ' + (r.stderr || '').trim());
+  }
+  return r.stdout;
+};
 
 let submodulePaths = [];
 try {
-  const out = execSync('git config --file .gitmodules --get-regexp path', { encoding: 'utf8' });
+  const out = git(['config', '--file', '.gitmodules', '--get-regexp', 'path']);
   submodulePaths = out.split('\n').map(l => l.trim().split(/\s+/)[1]).filter(Boolean);
 } catch {
   // No .gitmodules (or no submodules) -- nothing to fold in.
@@ -151,7 +160,7 @@ const submoduleGitlinks = [...submoduleRoots].sort().map(sub => ({
   sub,
   // Read the gitlink from the tree, so this works even when the submodule
   // isn't checked out. Throws loudly if a declared submodule can't resolve.
-  sha: execSync('git rev-parse HEAD:' + sub, { encoding: 'utf8' }).trim(),
+  sha: git(['rev-parse', 'HEAD:' + sub]).trim(),
 }));
 
 console.error('');
