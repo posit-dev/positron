@@ -48,7 +48,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create access token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         id: app_token
         with:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
