@@ -26,7 +26,6 @@
 	left: -10px;
 	bottom: 10px;
 	width: 4px;
-	opacity: 0.75;
 	pointer-events: none;
 	background-image: repeating-linear-gradient(45deg,
 			var(--vscode-positronConsole-ansiBrightGreen),

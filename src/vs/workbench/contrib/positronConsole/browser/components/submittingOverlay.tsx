@@ -33,10 +33,26 @@ export const SubmittingOverlay = (props: SubmittingOverlayProps) => {
 	if (!props.visible) {
 		return null;
 	}
+	const label = localize('positron.console.submitting', "Submitting...");
 	return (
 		<div className='console-submitting-overlay' data-testid='console-submitting-overlay'>
-			<span className='console-submitting-overlay-label'>
-				{localize('positron.console.submitting', "Submitting...")}
+			<span aria-label={label} className='console-submitting-overlay-label' role='status'>
+				{
+					// Render each character in its own span so a staggered
+					// per-character opacity animation reads as a wave travelling
+					// through the text. aria-label carries the whole word for
+					// assistive tech; the character spans are decorative.
+					Array.from(label).map((char, index) => (
+						<span
+							key={index}
+							aria-hidden='true'
+							className='console-submitting-overlay-label-char'
+							style={{ animationDelay: `${index * 80}ms` }}
+						>
+							{char}
+						</span>
+					))
+				}
 			</span>
 			<button className='console-submitting-overlay-cancel' onClick={props.onCancel}>
 				{localize('positron.console.submitting.cancel', "Cancel")}

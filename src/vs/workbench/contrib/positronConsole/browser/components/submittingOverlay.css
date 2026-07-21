@@ -27,9 +27,12 @@
 	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
 	/*
 	 * Use the regular UI font, not the console's monospace font that this
-	 * overlay would otherwise inherit from the console instance.
+	 * overlay would otherwise inherit from the console instance. The workbench
+	 * has no `--vscode-font-family` variable; it sets the UI font directly on
+	 * `.monaco-workbench`, so spell out the same stack here (matching
+	 * positronConsoleFind.css).
 	 */
-	font-family: var(--vscode-font-family);
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 	font-size: 12px;
 }
 
@@ -37,10 +40,32 @@
 	white-space: nowrap;
 }
 
+/*
+ * Each character animates its opacity on the same 1.4s loop, but the parent
+ * staggers the animation-delay per character (see submittingOverlay.tsx). The
+ * offset phases make an opacity dip travel across the word as a repeating wave.
+ */
+.console-submitting-overlay .console-submitting-overlay-label-char {
+	display: inline-block;
+	animation: console-submitting-overlay-wave 1.4s ease-in-out infinite;
+}
+
+@keyframes console-submitting-overlay-wave {
+	0%,
+	60%,
+	100% {
+		opacity: 1;
+	}
+
+	30% {
+		opacity: 0.35;
+	}
+}
+
 .console-submitting-overlay .console-submitting-overlay-cancel {
 	padding: 2px 10px;
 	/* Buttons don't inherit font-family, so set it to the UI font explicitly. */
-	font-family: var(--vscode-font-family);
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 	font-size: inherit;
 	border: none;
 	border-radius: 2px;

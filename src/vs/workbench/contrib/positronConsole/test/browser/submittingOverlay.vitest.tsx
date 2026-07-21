@@ -18,7 +18,9 @@ describe('SubmittingOverlay', () => {
 
 	it('renders the label and Cancel button when visible', () => {
 		render(<SubmittingOverlay visible={true} onCancel={vi.fn()} />);
-		expect(screen.getByText('Submitting...')).toBeInTheDocument();
+		// The label text is split into per-character spans for the wave
+		// animation; the accessible name lives on the status role.
+		expect(screen.getByRole('status', { name: 'Submitting...' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
 	});
 
