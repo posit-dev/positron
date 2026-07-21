@@ -15,6 +15,7 @@ import {
 	ColumnSelection,
 	ColumnSortKey,
 	ConvertedCode,
+	ConvertToCodeParams,
 	DataExplorerBackendRequest,
 	DataExplorerFrontendEvent,
 	DataUpdateEvent,
@@ -206,8 +207,10 @@ export class PositronDataExplorerExtensionBackend extends Disposable implements 
 				column_filters: columnFilters,
 				row_filters: rowFilters,
 				sort_keys: sortKeys,
-				code_syntax: codeSyntax
-			}
+				// The protocol (and the generated runtime comm) name this parameter `code_syntax_name`;
+				// sending it under any other key leaves it undefined for the backend handler.
+				code_syntax_name: codeSyntax
+			} satisfies ConvertToCodeParams
 		});
 	}
 
