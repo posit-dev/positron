@@ -1191,7 +1191,7 @@ interface IPendingCodeFragment {
 /**
  * PositronConsoleInstance class.
  */
-class PositronConsoleInstance extends Disposable implements IPositronConsoleInstance {
+export class PositronConsoleInstance extends Disposable implements IPositronConsoleInstance {
 	//#region Private Properties
 
 	/**
@@ -2281,8 +2281,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		try {
 			const token = tokenSource.token;
 
-			// Clear any pending code in the input editor before submitting.
-			this.setPendingCode();
+			// Note: do not clear the input editor here. The submitted code is
+			// the editor's current contents; the editor is cleared by the
+			// caller only when the submission actually executes (Executed).
+			// Clearing it up front would wipe the user's code when the
+			// submission turns out to be Incomplete or Cancelled, breaking the
+			// continuation-prompt flow (e.g. "2 +" then Enter).
 
 			// Flow 1: try the input boundary provider.
 			let boundaries: IInputBoundary[] | undefined;
