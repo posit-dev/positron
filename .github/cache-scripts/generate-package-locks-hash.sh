@@ -8,6 +8,10 @@
 # The hash includes:
 # 1. All core package-lock.json files (dependency versions)
 # 2. Build scripts that affect postinstall behavior (what gets generated)
+# 3. Gitlink SHAs of submodules that host a core dir (e.g. ai-lib). Their build
+#    output is cached (see cache-paths.sh) and regenerated only on a submodule
+#    bump, which moves the gitlink SHA. Deps-only signals would miss source-only
+#    bumps and restore a stale build.
 #
 # When any of these change, the hash changes and cache invalidates.
 #
@@ -115,12 +119,64 @@ console.error('Hashing ' + buildScripts.length + ' build scripts:');
 buildScripts.forEach(f => console.error('  → ' + f));
 
 // ----------------------------------------------------------------------------
+// Step 3.5: Collect submodule gitlink SHAs for core dirs hosted in a submodule
+// ----------------------------------------------------------------------------
+// A core dir such as 'ai-lib/packages/ai-config' lives inside the ai-lib
+// submodule. Its build output is cached (cache-paths.sh) but is regenerated
+// only when the submodule is bumped, which moves the gitlink SHA the parent
+// repo records for that submodule. Folding that SHA into the key busts the
+// cache on every bump, so a stale build is never restored. A package-lock.json
+// signal alone would miss source-only bumps (and ai-lib's lockfile isn't even
+// at the core-dir path -- it's the workspace root's).
+// spawnSync with an argument array (never a shell string) so submodule paths
+// parsed from .gitmodules can't be interpreted as shell syntax.
+const { spawnSync } = require('child_process');
+const git = (args) => {
+  const r = spawnSync('git', args, { encoding: 'utf8' });
+  if (r.status !== 0) {
+    throw new Error('git ' + args.join(' ') + ' failed: ' + (r.stderr || '').trim());
+  }
+  return r.stdout;
+};
+
+let submodulePaths = [];
+try {
+  const out = git(['config', '--file', '.gitmodules', '--get-regexp', 'path']);
+  submodulePaths = out.split('\n').map(l => l.trim().split(/\s+/)[1]).filter(Boolean);
+} catch {
+  // No .gitmodules (or no submodules) -- nothing to fold in.
+}
+
+const submoduleRoots = new Set();
+for (const dir of coreDirs) {
+  for (const sub of submodulePaths) {
+    if (dir === sub || dir.startsWith(sub + '/')) {
+      submoduleRoots.add(sub);
+    }
+  }
+}
+
+const submoduleGitlinks = [...submoduleRoots].sort().map(sub => ({
+  sub,
+  // Read the gitlink from the tree, so this works even when the submodule
+  // isn't checked out. Throws loudly if a declared submodule can't resolve.
+  sha: git(['rev-parse', 'HEAD:' + sub]).trim(),
+}));
+
+console.error('');
+console.error('Hashing ' + submoduleGitlinks.length + ' submodule gitlink(s):');
+submoduleGitlinks.forEach(({ sub, sha }) => console.error('  → ' + sub + ' @ ' + sha));
+
+// ----------------------------------------------------------------------------
 // Step 4: Hash all files together
 // ----------------------------------------------------------------------------
 // Read each file and update the running hash. Sort order ensures deterministic hash.
 const hash = crypto.createHash('sha256');
 for (const file of [...lockFiles, ...buildScripts]) {
   hash.update(fs.readFileSync(file));
+}
+for (const { sub, sha } of submoduleGitlinks) {
+  hash.update(sub + ':' + sha);
 }
 
 const finalHash = hash.digest('hex');

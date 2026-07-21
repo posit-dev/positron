@@ -67,9 +67,16 @@ fi
 # What: Root node_modules, build tools, test dependencies, npm/node-gyp caches,
 #       and artifacts generated during postinstall (e.g., ESM dependencies)
 # Invalidates: When any core package-lock.json changes OR Node.js major version changes
-#              OR postinstall scripts change (see generate-package-locks-hash.sh)
+#              OR postinstall scripts change OR the ai-lib submodule is bumped
+#              (see generate-package-locks-hash.sh)
 # Why cache node-gyp: Avoids downloading Node.js headers (saves 10-30s, more reliable)
 # Node.js version: Major version included in cache key (ABI is stable within major versions)
+# ai-lib/packages/ai-config/dist: Built by extensions/authentication's postinstall
+#       (npm --prefix ../../ai-lib run build -w ai-config). It lives outside node_modules
+#       and outside extensions/, so neither the extension caches nor node_modules cover it;
+#       without this it goes missing on a cache hit. The ai-lib submodule gitlink is folded
+#       into this cache's key so a bump rebuilds it (see generate-package-locks-hash.sh).
+#       NOTE: entries are read line-by-line, so no inline comments inside the heredoc.
 read -r -d '' NPM_CORE_PATHS << EOF || true
 .npm-cache
 $NODE_GYP_CACHE
@@ -82,6 +89,7 @@ remote/reh-web/node_modules
 test/integration/browser/node_modules
 test/monaco/node_modules
 test/mcp/node_modules
+ai-lib/packages/ai-config/dist
 EOF
 
 # ----------------------------------------------------------------------------

@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { closeAllEditors, delay, disposeAll } from './utils';
+import { closeAllEditors, disposeAll, waitFor } from './utils';
 import { SetDecorations, activateDecorations, focusedCellBackgroundDecorationType, focusedCellBottomDecorationType, focusedCellTopDecorationType } from '../decorations';
 
 suite('Decorations', () => {
@@ -30,6 +30,22 @@ suite('Decorations', () => {
 		assert.deepStrictEqual(
 			decorations.get(type), expected, 'Cell decoration ranges are not equal'
 		);
+	}
+
+	function cellDecorationRangesEqual(type: vscode.TextEditorDecorationType, expected: vscode.Range[]): boolean {
+		try {
+			assert.deepStrictEqual(decorations.get(type), expected);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	// Decorations update asynchronously in response to editor events, so poll
+	// until they match rather than waiting a fixed delay (which flakes under CI load).
+	async function assertCellDecorationRangesEventuallyEqual(type: vscode.TextEditorDecorationType, expected: vscode.Range[]): Promise<void> {
+		await waitFor(() => cellDecorationRangesEqual(type, expected));
+		assertCellDecorationRangesEqual(type, expected);
 	}
 
 	test('Opening an empty Python document', async () => {
@@ -65,8 +81,7 @@ suite('Decorations', () => {
 		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, [new vscode.Range(0, 0, 0, 4)]);
 
 		// Decorations update after a delay
-		await delay(400);
-		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, [new vscode.Range(1, 0, 1, 4)]);
+		await assertCellDecorationRangesEventuallyEqual(focusedCellBackgroundDecorationType, [new vscode.Range(1, 0, 1, 4)]);
 	});
 
 	test('Removing all code cells from a Python document', async () => {
@@ -81,8 +96,7 @@ suite('Decorations', () => {
 		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, [new vscode.Range(0, 0, 0, 4)]);
 
 		// Decorations update after a delay
-		await delay(400);
-		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, []);
+		await assertCellDecorationRangesEventuallyEqual(focusedCellBackgroundDecorationType, []);
 	});
 
 	test('Changing the active editor', async () => {
@@ -91,8 +105,7 @@ suite('Decorations', () => {
 
 		// Decorations update after a delay
 		await showTextDocument('');
-		await delay(400);
-		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, []);
+		await assertCellDecorationRangesEventuallyEqual(focusedCellBackgroundDecorationType, []);
 	});
 
 	test('Changing the cell style option', async () => {

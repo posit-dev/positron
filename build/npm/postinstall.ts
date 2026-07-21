@@ -485,6 +485,43 @@ async function runWithConcurrency(tasks: (() => Promise<void>)[], concurrency: n
 	}
 }
 
+// --- Start Positron ---
+/**
+ * Build the ai-config package (from the ai-lib submodule).
+ *
+ * ai-config emits dist/ via tsc, and the authentication extension imports it at
+ * COMPILE time (`import ... from 'ai-config/node'`, resolved by the package's
+ * exports map to dist/). The build used to be a side effect of the
+ * authentication extension's own postinstall, but npm skips that postinstall
+ * whenever the extension's node_modules is restored from cache -- so on
+ * cache-hit runs (the common case) dist/ was never built and compilation failed
+ * with "Cannot find module 'ai-config/node'".
+ *
+ * Building here -- next to the always-run buildSqliteServerBinding, in both the
+ * up-to-date and full postinstall paths -- makes dist/ deterministic regardless
+ * of the extension cache state. dist/ is also cached on its own (cache-paths.sh,
+ * keyed on the ai-lib submodule gitlink) so full cache-hit runs that skip
+ * postinstall entirely still get it restored.
+ */
+async function buildAiConfig({ force }: { force: boolean }): Promise<void> {
+	const aiConfigDir = path.join(root, 'ai-lib', 'packages', 'ai-config');
+	if (!fs.existsSync(aiConfigDir)) {
+		// ai-lib submodule not checked out (e.g. a shallow/partial checkout that
+		// doesn't need it); nothing to build.
+		return;
+	}
+	// In the up-to-date fast path (force=false) skip the rebuild if dist/ is
+	// already present -- nothing changed, so rebuilding would just add tsc +
+	// generate-schema to every `npm install`. The full install path passes
+	// force=true because deps just changed and dist/ may be stale or absent.
+	if (!force && fs.existsSync(path.join(aiConfigDir, 'dist', 'index.js'))) {
+		return;
+	}
+	log('ai-lib/packages/ai-config', 'Building ai-config (generate-schema + tsc)...');
+	await spawnAsync(npm, ['--prefix', 'ai-lib', 'run', 'build', '-w', 'ai-config'], { cwd: root });
+}
+// --- End Positron ---
+
 async function main() {
 	// --- Start Positron ---
 	// Sync the submodules before anything else — extensions install runs
@@ -513,6 +550,10 @@ async function main() {
 		// and cheap when the binary is already correct (see buildSqliteServerBinding),
 		// so a cached/already-installed node_modules still gets repaired here.
 		await buildSqliteServerBinding();
+		// Likewise ensure ai-config's dist/ exists (the authentication extension
+		// imports it at compile time). Nothing changed, so skip the rebuild if
+		// it's already there.
+		await buildAiConfig({ force: false });
 		child_process.execSync('git config pull.rebase merges');
 		child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
 		return;
@@ -631,6 +672,11 @@ async function main() {
 	// The SQLite data driver's native binding must also load in the server/remote
 	// extension host (plain Node, a different ABI than the desktop Electron host).
 	await buildSqliteServerBinding();
+	// Build ai-config's dist/ (imported by the authentication extension at
+	// compile time). Kept here rather than in the authentication postinstall,
+	// which npm skips whenever that extension is restored from cache. Deps just
+	// changed, so force a rebuild rather than trusting a possibly-stale dist/.
+	await buildAiConfig({ force: true });
 	// --- End Positron ---
 
 	child_process.execSync('git config pull.rebase merges');
