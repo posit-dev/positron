@@ -4,11 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as os from 'os';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { IDuckDBDataExplorerHost } from 'positron-data-explorer-duckdb';
 import { ConnectClient } from '../connectClient.js';
 import { createPinsDriver } from '../pinsDriver.js';
+import { PinsCache } from '../pinsCache.js';
 import { PinsConnection } from '../pinsConnection.js';
 
 /** A minimal ExtensionContext exposing only extensionPath, which is all the driver factory reads. */
@@ -17,6 +20,20 @@ function fakeContext(): vscode.ExtensionContext {
 	const extensionPath = path.join(__dirname, '..', '..');
 	// eslint-disable-next-line local/code-no-any-casts
 	return { extensionPath, subscriptions: [] } as any as vscode.ExtensionContext;
+}
+
+/** A no-op Data Explorer host: the tree tests browse and inspect nodes, they never open a preview. */
+function fakeDataExplorerHandler(): IDuckDBDataExplorerHost {
+	return {
+		openTableView: async () => { },
+		openColumnView: async () => { },
+		closeTableView: () => { },
+	};
+}
+
+/** A cache pointed at the temp dir; the tree tests never download, so nothing is written. */
+function fakeCache(): PinsCache {
+	return new PinsCache(os.tmpdir());
 }
 
 /** A fetch stand-in that routes by URL substring, for driving a real ConnectClient in tests. */
@@ -29,7 +46,7 @@ function routingFetch(routes: { match: string; body: string }[]): typeof fetch {
 }
 
 suite('Pins Driver', () => {
-	const driver = createPinsDriver(fakeContext());
+	const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache());
 
 	test('marks the server URL and API key parameters required, with the key a secret', () => {
 		const [mechanism] = driver.mechanisms;
@@ -111,7 +128,11 @@ suite('Pins Connection tree', () => {
 	];
 
 	function connection(): PinsConnection {
-		return new PinsConnection(new ConnectClient('https://c.example.com', 'key', routingFetch(routes)));
+		return new PinsConnection(
+			new ConnectClient('https://c.example.com', 'key', routingFetch(routes)),
+			fakeDataExplorerHandler(),
+			fakeCache(),
+		);
 	}
 
 	test('groups pins by owner, sorted, rendered as owner nodes', async () => {
@@ -120,7 +141,7 @@ suite('Pins Connection tree', () => {
 		owners.forEach(o => assert.strictEqual(o.kind, positron.DataConnectionNodeKind.Owner));
 	});
 
-	test('owner expands to pins sorted by name, badged with type, expandable but not previewable', async () => {
+	test('owner expands to pins sorted by name, badged with type; tabular pins are previewable', async () => {
 		const [julia] = await connection().getChildren();
 		const pins = await julia.getChildren!();
 
@@ -128,14 +149,22 @@ suite('Pins Connection tree', () => {
 			{ name: 'cars', kind: positron.DataConnectionNodeKind.Pin, dataType: 'parquet' },
 			{ name: 'sales', kind: positron.DataConnectionNodeKind.Pin, dataType: 'csv' },
 		]);
-		// Pins expand to versions but are not previewable (Data Explorer preview comes in a later PR).
+		// Pins expand to versions, and tabular pins (parquet, csv) can be opened in the Data Explorer.
 		pins.forEach(p => {
 			assert.notStrictEqual(p.getChildren, undefined);
-			assert.strictEqual(p.preview, undefined);
+			assert.notStrictEqual(p.preview, undefined);
 		});
 	});
 
-	test('pin expands to versions, newest first, with the active version badged, as leaves', async () => {
+	test('a non-tabular pin is not previewable', async () => {
+		const [, tim] = await connection().getChildren();
+		const [model] = await tim.getChildren!();
+		// model is a joblib pin: DuckDB cannot read it, so it stays non-previewable.
+		assert.strictEqual(model.dataType, 'joblib');
+		assert.strictEqual(model.preview, undefined);
+	});
+
+	test('a tabular pin expands to versions, newest first, active badged, previewable leaves', async () => {
 		const [julia] = await connection().getChildren();
 		const cars = (await julia.getChildren!()).find(p => p.name === 'cars')!;
 		const versions = await cars.getChildren!();
@@ -144,10 +173,10 @@ suite('Pins Connection tree', () => {
 			{ name: '2024-03-02 14:00 (#5)', kind: positron.DataConnectionNodeKind.Version, dataType: 'active' },
 			{ name: '2024-01-15 09:30 (#1)', kind: positron.DataConnectionNodeKind.Version, dataType: undefined },
 		]);
-		// Versions are leaves for now: no children, not previewable.
+		// Versions are leaves (no children); each version of a tabular pin is previewable.
 		versions.forEach(v => {
 			assert.strictEqual(v.getChildren, undefined);
-			assert.strictEqual(v.preview, undefined);
+			assert.notStrictEqual(v.preview, undefined);
 		});
 	});
 
@@ -166,7 +195,7 @@ suite('Pins Connection tree', () => {
 			return new Response('', { status: 404 });
 		}) as typeof fetch;
 
-		const conn = new PinsConnection(new ConnectClient('https://c.example.com', 'key', failFirstFetch));
+		const conn = new PinsConnection(new ConnectClient('https://c.example.com', 'key', failFirstFetch), fakeDataExplorerHandler(), fakeCache());
 
 		// First browse fails...
 		await assert.rejects(() => conn.getChildren(), /network blip/);
@@ -190,7 +219,7 @@ suite('Pins Connection tree', () => {
 			return new Response(route ? route.body : '', { status: route ? 200 : 404 });
 		}) as typeof fetch;
 
-		const conn = new PinsConnection(new ConnectClient('https://c.example.com', 'key', failFirstMeta));
+		const conn = new PinsConnection(new ConnectClient('https://c.example.com', 'key', failFirstMeta), fakeDataExplorerHandler(), fakeCache());
 
 		// First expansion: the cars badge is missing because its metadata read failed.
 		const [julia1] = await conn.getChildren();
