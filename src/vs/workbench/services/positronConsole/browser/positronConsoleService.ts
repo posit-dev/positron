@@ -2036,19 +2036,43 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			return;
 		}
 
+		// If a code submission is already in progress (e.g. the console input is
+		// checking a previous submission for completeness, or is waiting for the
+		// kernel to pick it up), we can't reliably check this code for
+		// completeness yet: the runtime is nominally idle, but a submission is in
+		// flight. Queue it as pending input so the user gets visual feedback right
+		// away, just as when the runtime is busy. It is processed the next time
+		// the runtime becomes idle, or when the in-flight submission settles
+		// without executing (see `drainPendingInputIfIdle`).
+		if (this._codeSubmissionInProgress) {
+			this.addPendingInput(
+				code,
+				attribution,
+				executionId,
+				mode ?? RuntimeCodeExecutionMode.Interactive,
+				errorBehavior ?? RuntimeErrorBehavior.Continue,
+				executionMetadata
+			);
+			return;
+		}
+
 		// Checks `codeToRun` for completeness and either executes it (splitting
 		// it into individually-verified statements when an input boundary
 		// provider is available) or sets it as pending code for the user to
 		// complete. `clearPendingBeforeExecute` clears the input editor's
 		// pending code before executing (used when `codeToRun` was merged from
 		// the input editor).
+		// Returns `true` when it dispatched code to the runtime (an execution is
+		// now in flight and its busy->idle transition will drain any queued
+		// pending input), or `false` when nothing was executed (incomplete,
+		// cancelled, or no session) and the runtime is left idle.
 		const dispatchChecked = async (
 			codeToRun: string,
 			pendingExecutionId: string | undefined,
 			clearPendingBeforeExecute: boolean,
 			token: CancellationToken,
 			displayDuringCheck: boolean
-		) => {
+		): Promise<boolean> => {
 			// When we display the code in the input line during the check, we
 			// must always clear it before executing (so it moves to the
 			// scrollback instead of lingering in the input).
@@ -2067,7 +2091,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			if (allowIncomplete ||
 				this._configurationService.getValue<boolean>(promptWhenIncompleteSettingId) === false) {
 				executeWhole();
-				return;
+				return true;
 			}
 
 			// Show the submitted code in the input line while we check it, so
@@ -2093,12 +2117,12 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 					// leaves the code untouched. Any other provider error just
 					// falls through to the runtime completeness check.
 					if (isCancellationError(err)) {
-						return;
+						return false;
 					}
 					boundaries = undefined;
 				}
 				if (token.isCancellationRequested) {
-					return;
+					return false;
 				}
 				if (boundaries !== undefined) {
 					let fragments: IInputBoundaryFragments | undefined;
@@ -2111,14 +2135,14 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 						// Incomplete tail: land the code in the input editor.
 						if (fragments.incomplete) {
 							this.setPendingCode(codeToRun, pendingExecutionId);
-							return;
+							return false;
 						}
 
 						// Invalid, or all whitespace: execute the whole text so
 						// the interpreter surfaces any error / echoes a prompt.
 						if (fragments.invalid || fragments.fragments.length === 0) {
 							executeWhole();
-							return;
+							return true;
 						}
 
 						// Execute the first statement now; queue the rest as
@@ -2139,7 +2163,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 								true /* completenessVerified */
 							);
 						}
-						return;
+						return true;
 					}
 				}
 			}
@@ -2150,17 +2174,19 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			// roundtrip.
 			if (!this.session) {
 				this.setPendingCode(codeToRun, pendingExecutionId);
-				return;
+				return false;
 			}
 			const complete =
 				await this.session.isCodeFragmentComplete(codeToRun) === RuntimeCodeFragmentStatus.Complete;
 			if (token.isCancellationRequested) {
-				return;
+				return false;
 			}
 			if (complete) {
 				executeWhole();
+				return true;
 			} else {
 				this.setPendingCode(codeToRun, pendingExecutionId);
+				return false;
 			}
 		};
 
@@ -2187,6 +2213,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		}
 		const token = tokenSource?.token ?? CancellationToken.None;
 		const displayDuringCheck = tokenSource !== undefined;
+		let dispatched = false;
 		try {
 			// Handle interactive mode first.
 			if (mode === RuntimeCodeExecutionMode.Interactive) {
@@ -2204,13 +2231,13 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 
 					// Check the merged text, clearing the input editor's pending
 					// code before executing.
-					await dispatchChecked(pendingCode + '\n' + code, executionId, true, token, displayDuringCheck);
+					dispatched = await dispatchChecked(pendingCode + '\n' + code, executionId, true, token, displayDuringCheck);
 					return;
 				}
 			}
 
 			// Check the code on its own.
-			await dispatchChecked(code, executionId, false, token, displayDuringCheck);
+			dispatched = await dispatchChecked(code, executionId, false, token, displayDuringCheck);
 		} finally {
 			// Non-unprocessed executions echo immediately and never hand the
 			// flag off to a busy event, so it is safe to clear it here.
@@ -2218,6 +2245,14 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				this._currentSubmission = undefined;
 				tokenSource.dispose();
 				this.setCodeSubmissionInProgress(false);
+			}
+
+			// If nothing was executed (incomplete/cancelled/no session), the
+			// runtime is left idle, so no busy->idle transition will fire to
+			// drain code that was queued (e.g. from a racing editor or extension
+			// run) while this check was in flight. Drain it now.
+			if (!dispatched) {
+				this.drainPendingInputIfIdle();
 			}
 		}
 	}
@@ -2344,6 +2379,12 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// method resolves. Flow 2 keeps it set until the kernel goes busy for
 		// the accepted execution (see markInputBusyState).
 		let keepInProgress = false;
+
+		// Whether this submission executed code. When it did not (incomplete or
+		// cancelled), the runtime is left idle, so we must drain any pending
+		// input that was queued (e.g. from a racing editor run) while the check
+		// was in flight; nothing else will trigger that drain.
+		let dispatched = false;
 		try {
 			const token = tokenSource.token;
 
@@ -2379,6 +2420,9 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				}
 				if (fragments) {
 					const result = this.submitViaBoundaries(code, attribution, fragments);
+					if (result === CodeSubmissionResult.Executed) {
+						dispatched = true;
+					}
 					if (this._trace) {
 						this.addRuntimeItemTrace(
 							`Completeness check (input boundaries): ${fragments.fragments.length} statement(s) in ${Date.now() - t0}ms`);
@@ -2408,6 +2452,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			// execution was accepted (doExecuteCode set the pending-busy state).
 			if (result === CodeSubmissionResult.Executed) {
 				keepInProgress = true;
+				dispatched = true;
 			}
 			return result;
 		} finally {
@@ -2415,6 +2460,15 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			tokenSource.dispose();
 			if (!keepInProgress) {
 				this.setCodeSubmissionInProgress(false);
+			}
+
+			// A submission that executed nothing leaves the runtime idle, so no
+			// busy->idle transition will drain pending input that was queued
+			// (e.g. from an editor run) while this check was in flight. Drain it
+			// now. When it did execute, that execution's busy->idle transition
+			// handles the drain.
+			if (!dispatched) {
+				this.drainPendingInputIfIdle();
 			}
 		}
 	}
@@ -3673,6 +3727,31 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	/**
 	 * Processes pending input.
 	 */
+	/**
+	 * Drains the pending input queue if the runtime is currently idle or ready.
+	 *
+	 * The pending input queue is normally drained by the runtime's busy->idle
+	 * transition (see the `onDidChangeRuntimeState` handler). When a code
+	 * submission settles without executing anything (incomplete or cancelled),
+	 * the runtime is left idle and no such transition fires, so any code queued
+	 * while the submission was in flight (e.g. an editor or extension run that
+	 * arrived during the "submitting" window) would otherwise sit unprocessed.
+	 *
+	 * This is only safe to call when no execution is in flight, because
+	 * `processPendingInput` does not itself check the runtime state; callers
+	 * gate on having executed nothing. The idle/ready guard here is a
+	 * belt-and-suspenders check for the same reason.
+	 */
+	private drainPendingInputIfIdle(): void {
+		if (this._pendingCodeQueue.length === 0) {
+			return;
+		}
+		const runtimeState = this.session?.getRuntimeState() ?? RuntimeState.Uninitialized;
+		if (runtimeState === RuntimeState.Idle || runtimeState === RuntimeState.Ready) {
+			this.processPendingInput();
+		}
+	}
+
 	private async processPendingInput(): Promise<void> {
 		// If we are already processing pending input and the `await` below allowed us to loop
 		// back into here, refuse to process anything else right now.

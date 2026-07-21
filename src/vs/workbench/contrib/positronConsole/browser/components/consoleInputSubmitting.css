@@ -3,9 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Dim the input's editor while a submission is in flight. */
+/*
+ * Dim the input's editor while a submission is in flight. The transition lives
+ * on the `.submitting` rule so it eases the dimming in over 500ms rather than
+ * snapping on; when the class is removed the transition goes with it, so the
+ * editor snaps back to full opacity at once (matching the barber pole, which
+ * unmounts instantly).
+ */
 .console-input.submitting .monaco-editor {
 	opacity: 0.7;
+	transition: opacity 500ms ease;
 }
 
 /*
@@ -33,7 +40,25 @@
 			transparent 3px,
 			transparent 6px);
 	background-size: 8.49px 8.49px;
-	animation: console-input-submitting-move-stripes 1s linear infinite;
+	/*
+	 * The bar mounts fresh when the submitting visuals become active, so a
+	 * plain transition has no prior state to animate from. Pair the endless
+	 * stripe scroll with a one-shot fade-in so the pole eases in over 500ms
+	 * rather than popping into view.
+	 */
+	animation:
+		console-input-submitting-fade-in 500ms ease-out,
+		console-input-submitting-move-stripes 1s linear infinite;
+}
+
+@keyframes console-input-submitting-fade-in {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
 }
 
 @keyframes console-input-submitting-move-stripes {

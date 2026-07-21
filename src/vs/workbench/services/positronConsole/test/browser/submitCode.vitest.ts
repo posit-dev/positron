@@ -15,10 +15,11 @@ import type { IInputBoundary } from '../../../../../editor/common/languages.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { TestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { PositronConsoleInstance } from '../../browser/positronConsoleService.js';
+import { RuntimeItemPendingInput } from '../../browser/classes/runtimeItemPendingInput.js';
 import { CodeSubmissionResult, IConsoleFindWidget, IConsoleFindWidgetFactory, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
 import { ConsoleErrorFollowupService, IConsoleErrorFollowupService } from '../../common/consoleErrorFollowup.js';
 import { CodeAttributionSource } from '../../common/positronConsoleCodeExecution.js';
-import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeFragmentStatus, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
 
 /** A no-op find widget so the instance's constructor can create one. */
@@ -75,6 +76,7 @@ describe('PositronConsoleInstance.submitCode', () => {
 	function createInstance(): {
 		instance: PositronConsoleInstance;
 		languageFeaturesService: ILanguageFeaturesService;
+		session: TestLanguageRuntimeSession;
 	} {
 		const instantiationService = createModelServices(disposables, [
 			[IConsoleFindWidgetFactory, TestConsoleFindWidgetFactory],
@@ -98,7 +100,18 @@ describe('PositronConsoleInstance.submitCode', () => {
 		));
 		instance.attachRuntimeSession(session, SessionAttachMode.Connected);
 
-		return { instance, languageFeaturesService };
+		return { instance, languageFeaturesService, session };
+	}
+
+	/** Polls `predicate` until it is true or the timeout elapses. */
+	async function waitFor(predicate: () => boolean, timeout = 1000): Promise<void> {
+		const start = Date.now();
+		while (!predicate()) {
+			if (Date.now() - start > timeout) {
+				throw new Error('waitFor timed out');
+			}
+			await new Promise(resolve => setTimeout(resolve, 5));
+		}
 	}
 
 	/** Registers a boundary provider that returns the given boundaries. */
@@ -154,5 +167,48 @@ describe('PositronConsoleInstance.submitCode', () => {
 
 		expect(result).toBe(CodeSubmissionResult.Executed);
 		expect(executedCode).toEqual(['2 +\n3']);
+	});
+
+	it('queues code enqueued during an in-flight submission and runs it once the submission settles', async () => {
+		const { instance, languageFeaturesService, session } = createInstance();
+
+		// Make the boundary provider hang so the console submission stays in the
+		// "submitting" state while we enqueue code from the editor.
+		let resolveBoundaries!: (boundaries: IInputBoundary[]) => void;
+		const boundariesPromise = new Promise<IInputBoundary[]>(resolve => {
+			resolveBoundaries = resolve;
+		});
+		disposables.add(languageFeaturesService.inputBoundaryProvider.register(
+			{ language: 'r', scheme: 'inmemory' },
+			{ provideInputBoundaries: () => boundariesPromise }
+		));
+
+		// The queued code drains through the runtime completeness check (it is
+		// not a provider-verified fragment); report it complete so it executes.
+		vi.spyOn(session, 'isCodeFragmentComplete').mockResolvedValue(RuntimeCodeFragmentStatus.Complete);
+
+		const executedCode: string[] = [];
+		disposables.add(instance.onDidExecuteCode(e => executedCode.push(e.code)));
+
+		// Start a console submission but do not await it; it is now in flight.
+		const submission = instance.submitCode('2 +', { source: CodeAttributionSource.Interactive });
+		expect(instance.codeSubmissionInProgress).toBe(true);
+
+		// Enqueue code from the editor while the submission is in flight. This
+		// must produce visible feedback (a pending input item) rather than
+		// silently doing nothing.
+		await instance.enqueueCode('editor_code', { source: CodeAttributionSource.Interactive });
+		const pending = instance.runtimeItems.find(
+			(item): item is RuntimeItemPendingInput => item instanceof RuntimeItemPendingInput);
+		expect(pending?.code).toBe('editor_code');
+		expect(executedCode).toEqual([]);
+
+		// Resolve the console submission as incomplete: nothing executes and the
+		// runtime is left idle, so no busy->idle transition would drain the queue.
+		resolveBoundaries([{ range: { start: 0, end: 1 }, kind: 'incomplete' }]);
+		expect(await submission).toBe(CodeSubmissionResult.Incomplete);
+
+		// The queued editor code drains and executes once the submission settles.
+		await waitFor(() => executedCode.includes('editor_code'));
 	});
 });
