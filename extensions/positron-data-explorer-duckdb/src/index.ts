@@ -9,7 +9,7 @@
 // the consumer's esbuild into its own dist so the runtime __dirname lookup resolves).
 
 export { DuckDBTableView, DuckDBSchemaEntry, IDuckDBTableCodeGenerator, duckdbDisplayType, makeWhereExpr } from './duckdbTableView.js';
-export { DuckDBDataExplorerRpcHandler, IDuckDBDataExplorerHost, buildDuckDBSchema } from './duckdbDataExplorerRpcHandler.js';
+export { DuckDBDataExplorerRpcHandler, IDuckDBDataExplorerHost, OpenTableViewOptions, buildDuckDBSchema } from './duckdbDataExplorerRpcHandler.js';
 export { DuckDBWorkerClient, IDuckDBQueryClient, DuckDBRow } from './duckdbWorkerClient.js';
 export { DuckDBWorkerPool, duckDBWorkerPool, IDuckDBWorkerLease } from './duckdbWorkerPool.js';
 export { WorkerOpenConfig } from './duckdbWorkerProtocol.js';

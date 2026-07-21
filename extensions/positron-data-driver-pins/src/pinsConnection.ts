@@ -206,7 +206,13 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 			// The active version reads as the latest; only pin an explicit version for the others.
 			version: isActiveVersion ? undefined : bundleId,
 		});
-		await this._dataExplorerHandler.openTableView(datasetId, worker, 'main', tableName, 'table', displayName, codeGenerator);
+		await this._dataExplorerHandler.openTableView(datasetId, worker, 'main', tableName, 'table', {
+			displayName,
+			codeGenerator,
+			// When the user closes this preview's tab, reclaim its memory instead of waiting for the
+			// whole connection to disconnect.
+			onClose: () => this._releasePreview(datasetId, tableName),
+		});
 		this._openedDatasets.add(datasetId);
 
 		// Re-check after the async view build: a disconnect in that window already tore down the worker
@@ -247,6 +253,24 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 			{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Downloading {0}...', displayName) },
 			() => download()
 		);
+	}
+
+	// Releases a previewed dataset when its Data Explorer tab is closed: drops the materialized table
+	// to reclaim its memory, and disposes the worker once no previews remain (it respawns lazily on the
+	// next preview). A no-op if the dataset was already released (e.g. the connection disconnected
+	// first), so a late tab-close after disconnect can't touch a torn-down worker.
+	private _releasePreview(datasetId: string, tableName: string): void {
+		if (!this._openedDatasets.delete(datasetId)) {
+			return;
+		}
+		if (this._openedDatasets.size === 0) {
+			// Last preview closed: drop the whole in-memory database by disposing the worker.
+			this._worker?.dispose();
+			this._worker = undefined;
+		} else {
+			// Other previews still share the worker; drop just this table.
+			void this._worker?.runQuery(`DROP TABLE IF EXISTS "${tableName}"`).catch(() => { });
+		}
 	}
 
 	// Lazily creates the in-memory DuckDB worker that backs this connection's previews. The worker

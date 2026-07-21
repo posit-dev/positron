@@ -218,11 +218,48 @@ suite('DuckDB Data Explorer Tests', () => {
 			try {
 				// The physical table ('pin_g_cars_5', a synthetic name over a downloaded file) and the
 				// display name ('julia/cars', what the tab should show) deliberately differ.
-				await handler.openTableView('ds1', client, 'main', 'pin_g_cars_5', 'table', 'julia/cars');
+				await handler.openTableView('ds1', client, 'main', 'pin_g_cars_5', 'table', { displayName: 'julia/cars' });
 				const response = await handler.handleRequest({
 					method: DataExplorerBackendRequest.GetState, uri: 'ds1', params: {},
 				} as DataExplorerRpc) as DataExplorerResponse & { result: BackendState };
 				assert.strictEqual(response.result.display_name, 'julia/cars');
+			} finally {
+				handler.dispose();
+			}
+		});
+	});
+
+	suite('dataset close', () => {
+		// A client that answers buildDuckDBSchema (information_schema) and getState (count(*)).
+		const makeClient = () => new FakeQueryClient(sql =>
+			sql.includes('information_schema') ? [{ column_name: 'id', data_type: 'INTEGER' }] : [{ n: 0 }]);
+
+		test('closeDataset drops the view and invokes the onClose hook', async () => {
+			const handler = new DuckDBDataExplorerRpcHandler('test-provider');
+			let closed = false;
+			try {
+				await handler.openTableView('ds1', makeClient(), 'main', 't', 'table', { onClose: () => { closed = true; } });
+				handler.closeDataset('ds1');
+				assert.strictEqual(closed, true);
+				// The view is gone, so a later RPC for the dataset comes back as an error.
+				const response = await handler.handleRequest({
+					method: DataExplorerBackendRequest.GetState, uri: 'ds1', params: {},
+				} as DataExplorerRpc) as { error_message?: string };
+				assert.ok(response.error_message);
+			} finally {
+				handler.dispose();
+			}
+		});
+
+		test('closeTableView drops the view without invoking the onClose hook', async () => {
+			// Disconnect uses closeTableView and tears down its own worker, so the per-dataset hook must
+			// not fire (it would double up on that cleanup).
+			const handler = new DuckDBDataExplorerRpcHandler('test-provider');
+			let closed = false;
+			try {
+				await handler.openTableView('ds1', makeClient(), 'main', 't', 'table', { onClose: () => { closed = true; } });
+				handler.closeTableView('ds1');
+				assert.strictEqual(closed, false);
 			} finally {
 				handler.dispose();
 			}

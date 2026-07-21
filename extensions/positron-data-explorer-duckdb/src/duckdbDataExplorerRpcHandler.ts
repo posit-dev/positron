@@ -26,22 +26,37 @@ import {
 	SetSortColumnsParams,
 } from 'positron-data-explorer-protocol';
 
+/** Options for {@link IDuckDBDataExplorerHost.openTableView}. */
+export interface OpenTableViewOptions {
+	/**
+	 * The human-readable name shown in the Data Explorer tab (defaults to the table name); pass it
+	 * when the physical table name is not what the user should see (e.g. a synthetic name over a
+	 * downloaded file).
+	 */
+	displayName?: string;
+	/** Overrides the view's Convert-to-Code output (see {@link IDuckDBTableCodeGenerator}). */
+	codeGenerator?: IDuckDBTableCodeGenerator;
+	/**
+	 * Called when the Data Explorer for this dataset is closed by the user (its tab closed), so the
+	 * consumer can release the dataset's resources (e.g. drop a materialized table, shut down an idle
+	 * worker). Not called when the view is removed via {@link IDuckDBDataExplorerHost.closeTableView}.
+	 */
+	onClose?: () => void;
+}
+
 /**
  * The slice of the RPC handler a connection needs to preview its tables. Kept as an interface so a
  * connection can be tested without registering the real Data Explorer provider.
  */
 export interface IDuckDBDataExplorerHost {
 	/**
-	 * Builds and registers a table view for a table or view under the given dataset id. `displayName`
-	 * is the human-readable name shown in the Data Explorer tab (defaults to `tableName`); pass it when
-	 * the physical table name is not what the user should see (e.g. a synthetic name over a downloaded
-	 * file). An optional code generator overrides the view's Convert-to-Code output (see
-	 * {@link IDuckDBTableCodeGenerator}).
+	 * Builds and registers a table view for a table or view under the given dataset id. See
+	 * {@link OpenTableViewOptions} for the display name, Convert-to-Code override, and close hook.
 	 */
-	openTableView(datasetId: string, client: IDuckDBQueryClient, schemaName: string, tableName: string, kind: 'table' | 'view', displayName?: string, codeGenerator?: IDuckDBTableCodeGenerator): Promise<void>;
+	openTableView(datasetId: string, client: IDuckDBQueryClient, schemaName: string, tableName: string, kind: 'table' | 'view', options?: OpenTableViewOptions): Promise<void>;
 	/** Builds and registers a single-column view of a table or view under the given dataset id. */
 	openColumnView(datasetId: string, client: IDuckDBQueryClient, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
-	/** Drops a dataset's view. */
+	/** Drops a dataset's view (without invoking its close hook), e.g. when its connection disconnects. */
 	closeTableView(datasetId: string): void;
 }
 
@@ -58,6 +73,8 @@ export interface IDuckDBDataExplorerHost {
  */
 export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBDataExplorerHost {
 	private readonly _views = new Map<string, DuckDBTableView>();
+	/** Per-dataset close hooks, invoked when the user closes a dataset's Data Explorer tab. */
+	private readonly _onClose = new Map<string, () => void>();
 	private readonly _session: positron.DataExplorerRpcSession;
 
 	/**
@@ -66,13 +83,15 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 	 */
 	constructor(providerId: string) {
 		this._session = positron.dataExplorer.registerRpcHandler(providerId, {
-			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc)
+			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc),
+			closeDataset: (datasetId) => this.closeDataset(datasetId),
 		});
 	}
 
 	dispose(): void {
 		this._session.dispose();
 		this._views.clear();
+		this._onClose.clear();
 	}
 
 	/**
@@ -85,11 +104,15 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 		schemaName: string,
 		tableName: string,
 		kind: 'table' | 'view',
-		displayName: string = tableName,
-		codeGenerator?: IDuckDBTableCodeGenerator,
+		options: OpenTableViewOptions = {},
 	): Promise<void> {
 		const schema = await buildDuckDBSchema(client, schemaName, tableName);
-		this._views.set(datasetId, new DuckDBTableView(client, tableRef(schemaName, tableName), displayName, kind, schema, codeGenerator));
+		this._views.set(datasetId, new DuckDBTableView(client, tableRef(schemaName, tableName), options.displayName ?? tableName, kind, schema, options.codeGenerator));
+		if (options.onClose) {
+			this._onClose.set(datasetId, options.onClose);
+		} else {
+			this._onClose.delete(datasetId);
+		}
 	}
 
 	/**
@@ -112,9 +135,26 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 		this._views.set(datasetId, new DuckDBTableView(client, tableRef(schemaName, tableName), tableName, kind, [column]));
 	}
 
-	/** Drops a dataset's view, e.g. when its connection is disconnected. */
+	/**
+	 * Drops a dataset's view and forgets its close hook, without invoking it. Used when the connection
+	 * tears everything down itself (disconnect), where invoking the per-dataset hook would double up on
+	 * that wholesale cleanup.
+	 */
 	closeTableView(datasetId: string): void {
 		this._views.delete(datasetId);
+		this._onClose.delete(datasetId);
+	}
+
+	/**
+	 * Handles the user closing a dataset's Data Explorer tab (invoked by Positron via the registered
+	 * handler's `closeDataset`): drops the view and invokes the consumer's close hook (if any) so it can
+	 * release that dataset's resources.
+	 */
+	closeDataset(datasetId: string): void {
+		this._views.delete(datasetId);
+		const onClose = this._onClose.get(datasetId);
+		this._onClose.delete(datasetId);
+		onClose?.();
 	}
 
 	async handleRequest(rpc: DataExplorerRpc): Promise<DataExplorerResponse> {
