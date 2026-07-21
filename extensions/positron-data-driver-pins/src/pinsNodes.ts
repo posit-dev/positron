@@ -26,6 +26,12 @@ export interface IPinsBrowseHost {
 	 */
 	getPinType(pin: PinInfo): Promise<string | undefined>;
 
+	/**
+	 * Resolves a specific version's storage type, or undefined when it can't be determined. Used to
+	 * gate each version's preview on its own format, since a pin's type can differ across versions.
+	 */
+	getVersionType(pin: PinInfo, bundleId: string): Promise<string | undefined>;
+
 	/** Lists a pin's versions (bundles), newest first, when the pin node is expanded. */
 	getBundles(pin: PinInfo): Promise<BundleInfo[]>;
 
@@ -98,7 +104,10 @@ export function createPinNode(host: IPinsBrowseHost, pin: PinInfo, type: string 
 		dataType: type,
 		async getChildren() {
 			const bundles = await host.getBundles(pin);
-			return bundles.map(bundle => createVersionNode(host, pin, type, bundle));
+			// A pin's storage type can differ across versions, so resolve each version's own type
+			// (bounded concurrency, like the per-owner badge fetch) to gate its preview correctly.
+			const versionTypes = await mapWithConcurrency(bundles, MAX_METADATA_CONCURRENCY, bundle => host.getVersionType(pin, bundle.id));
+			return bundles.map((bundle, index) => createVersionNode(host, pin, versionTypes[index], bundle));
 		},
 		// A previewable pin opens its active version in the Data Explorer.
 		preview: isPreviewablePinType(type)
@@ -108,23 +117,24 @@ export function createPinNode(host: IPinsBrowseHost, pin: PinInfo, type: string 
 }
 
 /**
- * Creates a version node: one bundle of a pin. A version of a previewable pin can be opened in the
- * Data Explorer (that specific version's data); other versions are leaves. The active (currently
- * served) version is flagged with an "active" badge; the name pairs the creation time with the
- * bundle id, e.g. "2024-01-15 09:30 (#421)".
+ * Creates a version node: one bundle of a pin. A version stored in a previewable (tabular) format
+ * can be opened in the Data Explorer (that specific version's data); others are leaves. Preview is
+ * gated on this version's own storage type, since a pin's type can differ across versions. The
+ * active (currently served) version is flagged with an "active" badge; the name pairs the creation
+ * time with the bundle id, e.g. "2024-01-15 09:30 (#421)".
  *
  * @param host The browse host used to open the preview.
  * @param pin The pin this version belongs to.
- * @param type The pin's storage type, used to decide whether the version is previewable.
+ * @param versionType This version's own storage type, used to decide whether it is previewable.
  * @param bundle The bundle (version).
  */
-export function createVersionNode(host: IPinsBrowseHost, pin: PinInfo, type: string | undefined, bundle: BundleInfo): positron.DataConnectionNode {
+export function createVersionNode(host: IPinsBrowseHost, pin: PinInfo, versionType: string | undefined, bundle: BundleInfo): positron.DataConnectionNode {
 	const timestamp = formatBundleTimestamp(bundle.createdTime);
 	return {
 		name: timestamp ? `${timestamp} (#${bundle.id})` : `#${bundle.id}`,
 		kind: positron.DataConnectionNodeKind.Version,
 		dataType: bundle.active ? 'active' : undefined,
-		preview: isPreviewablePinType(type)
+		preview: isPreviewablePinType(versionType)
 			? () => host.previewPin(pin, bundle.id, bundle.active)
 			: undefined,
 	};
