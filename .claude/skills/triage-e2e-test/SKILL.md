@@ -338,9 +338,9 @@ file -- a POM helper, a shared fixture, or product source under `src/vs/**` --
 tracing it usually means several rounds of grep-and-read across files you
 haven't opened yet. Delegate that tracing to an `Explore` subagent rather than
 doing it inline: give it the specific symbol/selector from the evidence (e.g.
-"trace which caller invokes `Sessions.getMetadata()` during test setup, and
-what `activePositronConsoleInstance` is and when it updates") and have it
-report back the call chain and relevant line numbers. This keeps the dozen-plus
+"trace which caller invokes `<method>` during test setup, and what `<field>`
+is and when it updates") and have it report back the call chain and relevant
+line numbers. This keeps the dozen-plus
 exploratory reads out of the main conversation's context, which matters
 because that context is still needed for reasoning through the evidence and,
 later, writing the fix.
@@ -450,7 +450,7 @@ on one of them):
    Workbench (`e2e / pwb ubuntu / ...` in CI). Requires `npm run pwb` to bring
    the stack up first (add `-- --credentials=<databricks|snowflake|azure>`
    only if the test exercises a managed data-source connection); see
-   `docker/environments/workbench-dev/README-positron-workbench.md`.
+   `docker/environments/wb-local/README.md`.
 
 (`playwright.config.ts` defines several other projects -- `e2e-server`,
 `e2e-firefox`, `e2e-webkit`, `e2e-edge`, `e2e-connect`, `e2e-remote-ssh`,
