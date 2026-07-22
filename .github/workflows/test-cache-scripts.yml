@@ -1,0 +1,25 @@
+name: Test cache scripts
+
+# Unit tests for the CI cache tooling in .github/cache-scripts/. These scripts
+# gate the build (check-uncached-artifacts.sh) and define the cache key/paths, so
+# a regression is expensive and easy to miss -- hence a fast, dependency-free
+# scenario suite. Runs only when the cache scripts themselves change.
+on:
+  pull_request:
+    paths:
+      - '.github/cache-scripts/**'
+      - '.github/workflows/test-cache-scripts.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/cache-scripts/**'
+      - '.github/workflows/test-cache-scripts.yml'
+
+jobs:
+  test:
+    name: check-uncached-artifacts scenarios
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run cache-script tests
+        run: bash .github/cache-scripts/check-uncached-artifacts.test.sh

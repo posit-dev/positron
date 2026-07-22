@@ -35,6 +35,11 @@
 #    on a cache HIT that actually EXECUTES the cached code (a build/compile step never
 #    runs it). Right after a key rotation everything is a cache MISS (full install), which
 #    masks the gap. Verify against a cache-hit run of a job that runs the code (e.g. ext-host).
+# D. Force a rebuild with the "vN" key prefix, not a hack. Each cache key in the restore/
+#    save action.yml carries a manual version (npm-core-v7, builtins-v2, ...). Bump it in
+#    BOTH action.yml files to invalidate a cache when no content hash would (a corrupt
+#    saved blob, a paths change you can't express as a hash input). The per-cache numbers
+#    are independent, so they need not match each other.
 #
 # USED BY:
 # • .github/actions/restore-build-caches/action.yml
