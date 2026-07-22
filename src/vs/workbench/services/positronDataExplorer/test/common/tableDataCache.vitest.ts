@@ -104,6 +104,26 @@ describe('TableDataCache', () => {
 		});
 	});
 
+	it('refreshes invalidated data even when the row-labels request fails', async () => {
+		ensureNoLeakedDisposables();
+
+		// Seed the cache, then invalidate. On an invalidating refresh (e.g. a sort or filter change)
+		// the data cache is cleared and refetched. A row-labels failure during that refresh must not
+		// abort the data path, otherwise the grid keeps showing the stale pre-invalidation cells.
+		getDataValues
+			.mockResolvedValueOnce({ columns: [['old'], ['old']] })
+			.mockResolvedValue({ columns: [['new'], ['new']] });
+
+		// First update caches "old".
+		await cache.update({ invalidateCache: InvalidateCacheFlags.Data, columnIndices: [0, 1], rowIndices: [0, 1] });
+
+		// Invalidating refresh whose row-labels fetch rejects. The cells must still update to "new".
+		getRowLabels.mockRejectedValueOnce(new Error('row.names should be strings, got 0'));
+		await cache.update({ invalidateCache: InvalidateCacheFlags.Data, columnIndices: [0, 1], rowIndices: [0, 1] });
+
+		expect(cache.getDataCell(0, 0)?.formatted).toBe('new');
+	});
+
 	it('drains the pending update queued while the in-flight update fails', async () => {
 		ensureNoLeakedDisposables();
 

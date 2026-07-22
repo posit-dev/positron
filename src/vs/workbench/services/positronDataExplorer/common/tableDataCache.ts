@@ -565,9 +565,6 @@ export class TableDataCache extends Disposable {
 
 			}
 
-			// Get the table row labels.
-			const tableRowLabels = !rowLabels ? undefined : await this._dataExplorerClientInstance.getRowLabels(rowLabels);
-
 			// Clear the data cache, if we're supposed to.
 			if (invalidateDataCache) {
 				this._rowLabelCache.clear();
@@ -620,21 +617,30 @@ export class TableDataCache extends Disposable {
 				}
 			}
 
-			// Update the row labels cache.
-			if (rowLabels && tableRowLabels) {
-				for (let row = 0; row < tableRowLabels.row_labels[0].length; row++) {
-					// Set the row index.
-					let rowIndex: number;
-					if (isDataSelectionRange(rowLabels)) {
-						rowIndex = rowLabels.first_index + row;
-					} else if (isDataSelectionIndices(rowLabels)) {
-						rowIndex = rowLabels.indices[row];
-					} else {
-						continue;
-					}
+			// Load and cache the row labels. Row labels are secondary to the cell data, so this is done
+			// after the data above has been cleared, refetched, and cached, and its failure is isolated
+			// here. A rejected getRowLabels then degrades to missing labels rather than aborting the data
+			// refresh and leaving stale cells on screen. See https://github.com/posit-dev/positron/issues/12547.
+			if (rowLabels) {
+				try {
+					const tableRowLabels = await this._dataExplorerClientInstance.getRowLabels(rowLabels);
+					for (let row = 0; row < tableRowLabels.row_labels[0].length; row++) {
+						// Set the row index.
+						let rowIndex: number;
+						if (isDataSelectionRange(rowLabels)) {
+							rowIndex = rowLabels.first_index + row;
+						} else if (isDataSelectionIndices(rowLabels)) {
+							rowIndex = rowLabels.indices[row];
+						} else {
+							continue;
+						}
 
-					// Cache the row label.
-					this._rowLabelCache.set(rowIndex, tableRowLabels.row_labels[0][row]);
+						// Cache the row label.
+						this._rowLabelCache.set(rowIndex, tableRowLabels.row_labels[0][row]);
+					}
+				} catch (error) {
+					// Log and continue; the cell data above is already loaded.
+					console.error('Failed to load table row labels:', error);
 				}
 			}
 
