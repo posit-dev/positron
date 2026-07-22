@@ -76,6 +76,11 @@ fi
 #       and outside extensions/, so neither the extension caches nor node_modules cover it;
 #       without this it goes missing on a cache hit. The ai-lib submodule gitlink is folded
 #       into this cache's key so a bump rebuilds it (see generate-package-locks-hash.sh).
+# ai-lib/node_modules + ai-lib/packages/ai-config/node_modules: ai-lib is an npm workspace
+#       root, so installing ai-config (dirs.ts) hoists its deps (e.g. proper-lockfile) into
+#       ai-lib/node_modules. ai-config/dist imports those at runtime, but postinstall only
+#       rebuilds dist on a cache hit -- it never reinstalls ai-lib's deps -- so without these
+#       paths the cached dist loads and then fails with ERR_MODULE_NOT_FOUND. Same gitlink key.
 #       NOTE: entries are read line-by-line, so no inline comments inside the heredoc.
 read -r -d '' NPM_CORE_PATHS << EOF || true
 .npm-cache
@@ -89,6 +94,8 @@ remote/reh-web/node_modules
 test/integration/browser/node_modules
 test/monaco/node_modules
 test/mcp/node_modules
+ai-lib/node_modules
+ai-lib/packages/ai-config/node_modules
 ai-lib/packages/ai-config/dist
 EOF
 

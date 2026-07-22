@@ -112,6 +112,12 @@ const buildScripts = [
   'build/npm/preinstall.ts',   // Preinstall script - installs build/ dependencies
   'build/npm/postinstall.ts',  // Postinstall script - runs npm install in all dirs
   'build/npm/dirs.ts',         // List of directories that get npm install
+  // Defines which paths this cache saves. Changing the set (e.g. adding a
+  // node_modules dir) must rotate the key: on a plain key hit actions/cache
+  // restores the old blob and never re-saves, so a newly-added path would stay
+  // missing until the key changes. Folding this file in rebuilds the cache the
+  // first time the path set changes.
+  '.github/cache-scripts/cache-paths.sh',
 ].sort();
 
 console.error('');
