@@ -244,6 +244,31 @@ describe('Positron - PositronIPyWidgetsService', () => {
 		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBe(true);
 	});
 
+	it('notebook session: does not attach a widget when the session ends before its editor appears', async () => {
+		// The deferred-attach listener must be torn down when the session ends,
+		// so an editor that appears for an already-ended session never triggers
+		// a phantom attach (guards the up-front onDidEndSession registration).
+		const notebookUri = URI.file('notebook.ipynb');
+
+		// Start the notebook session before its editor exists.
+		const session = await startTestLanguageRuntimeSession(
+			ctx.instantiationService,
+			ctx.disposables,
+			{ sessionMode: LanguageRuntimeSessionMode.Notebook, notebookUri },
+		);
+		await timeout(0);
+
+		// End the session while it is still waiting for an editor.
+		session.endSession();
+		await timeout(0);
+
+		// A matching editor appears afterward: it must not resurrect the session.
+		notebookEditorService.addNotebookEditor(createNotebookEditor(notebookUri));
+		await timeout(0);
+
+		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBe(false);
+	});
+
 });
 
 describe('Positron - IPyWidgetsInstance constructor', () => {

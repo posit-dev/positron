@@ -258,7 +258,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				if (isEqual(session.metadata.notebookUri, e?.uri)) {
 					return;
 				}
-				this._logService.debug(`Editor model changed for session '${session.sessionId}, disposing ipywidgets instance`);
+				this._logService.debug(`Editor model changed for session '${session.sessionId}', disposing ipywidgets instance`);
 				disposables.dispose();
 			}));
 
@@ -267,7 +267,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				if (e !== notebookEditor) {
 					return;
 				}
-				this._logService.debug(`Notebook editor removed for session '${session.sessionId}, disposing ipywidgets instance`);
+				this._logService.debug(`Notebook editor removed for session '${session.sessionId}', disposing ipywidgets instance`);
 				disposables.dispose();
 			}));
 		};
