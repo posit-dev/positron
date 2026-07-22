@@ -10,8 +10,9 @@ suite('escapeLabelForRDesc', () => {
 	const cases: Record<string, [input: string, expected: string]> = {
 		'leaves a plain label untouched': ['plain label', 'plain label'],
 		'escapes single quotes': ['it\'s fine', 'it\\\'s fine'],
-		'escapes double quotes and backticks': ['a "b" `c`', 'a \\"b\\" \\`c\\`'],
-		'escapes a LF newline': ['multi\nline', 'multi\\nline'],
+		'leaves double quotes and backticks untouched': ['a "b" `c`', 'a "b" `c`'],
+		'leaves a LF newline untouched': ['multi\nline', 'multi\nline'],
+		'leaves backslashes untouched': ['a\\b', 'a\\b'],
 	};
 
 	for (const [name, [input, expected]] of Object.entries(cases)) {

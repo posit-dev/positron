@@ -8,6 +8,7 @@ import { ItemType, TestingTools } from './util-testing';
 import { discoverTestFiles, loadTestsFromFile } from './loader';
 import { createTestthatWatchers } from './watcher';
 import { runHandler } from './runner';
+import { killActiveTestRuns } from './runner-testthat';
 import { LOGGER } from '../extension';
 import { detectRPackage, getRPackageName } from '../contexts';
 
@@ -74,6 +75,9 @@ export async function discoverTests(context: vscode.ExtensionContext) {
 	);
 	context.subscriptions.push(controller);
 	context.subscriptions.push(_onDidDiscoverTestFiles);
+	// If the extension host is torn down (window close / reload) mid-run, the spawned
+	// R process won't be reaped automatically, so kill any survivors.
+	context.subscriptions.push({ dispose: killActiveTestRuns });
 
 	const testItemData = new WeakMap<vscode.TestItem, ItemType>();
 	const testingTools: TestingTools = {
