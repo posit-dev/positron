@@ -12,7 +12,6 @@ import { checkInstalled, getLocale } from '../session';
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { ItemType, TestingTools, encodeNodeId, escapeLabelForRDesc } from './util-testing';
 import { TestResult } from './reporter';
-import { parseTestsFromFile } from './parser';
 import { RSessionManager } from '../session-manager';
 
 const testReporterPath = path
@@ -69,16 +68,9 @@ export async function runThatTest(
 			return Promise.resolve('Individual it() call: can\'t be run individually.');
 		case ItemType.File:
 			LOGGER.info('Test type is file');
-			if (test!.children.size === 0) {
-				LOGGER.info('Children are not yet available. Parsing children.');
-				await parseTestsFromFile(testingTools, test!);
-			}
 			break;
 		case ItemType.Directory:
 			LOGGER.info('Test type is directory');
-			testingTools.controller.items.forEach(async (test) => {
-				await parseTestsFromFile(testingTools, test);
-			});
 			break;
 	}
 
@@ -120,6 +112,7 @@ export async function runThatTest(
 			}
 		});
 		let stdout = '';
+		let sawEndReporter = false;
 		const testStartDates = new WeakMap<vscode.TestItem, number>();
 		childProcess.stdout!
 			.pipe(split2((line: string) => {
@@ -220,14 +213,31 @@ export async function runThatTest(
 							}
 						}
 						break;
+					case 'end_reporter':
+						sawEndReporter = true;
+						break;
 				}
 			});
-		childProcess.once('exit', () => {
-			stdout += childProcess.stderr.read();
-			if (stdout.includes('Execution halted')) {
-				reject(Error(stdout));
+		childProcess.once('exit', (code, signal) => {
+			const stderr = String(childProcess.stderr.read() ?? '');
+			stdout += stderr;
+			if (sawEndReporter) {
+				resolve(stdout);
+				return;
 			}
-			resolve(stdout);
+			// If we haven't seen end_reporter, that means R died before testthat
+			// finished its work cleanly (e.g. a failed load_all(), an error in a
+			// setup or helper file, or an R crash). Surface what we know in TEST
+			// RESULTS.
+			const how = signal ? `signal ${signal}` : `exit code ${code}`;
+			run.appendOutput(
+				`\r\nThe R test run ended before completing (${how}).\r\n`
+			);
+			const detail = stderr.trim();
+			if (detail) {
+				run.appendOutput(detail.replace(/\r?\n/g, '\r\n') + '\r\n');
+			}
+			reject(new Error(detail || `R exited with ${how} before completing.`));
 		});
 		childProcess.once('error', (err) => {
 			reject(err);

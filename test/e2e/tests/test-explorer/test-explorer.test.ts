@@ -124,4 +124,27 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		await testExplorer.expectTestItems(['added out of band'], WATCHER_TIMEOUT);
 		await testExplorer.expectNoTestItem('test_that number 2 fails', WATCHER_TIMEOUT);
 	});
+
+	// Clear-on-run: a run that stops partway must clear stale results, not leave them behind.
+	test('A run that stops partway clears stale results', async function ({ app }, testInfo) {
+		const { testExplorer } = app.workbench;
+		const testthatDir = path.join(path.dirname(app.workspacePathOrFolder), fixtureFolderFor(testInfo.title, testInfo.workerIndex), 'tests', 'testthat');
+		const BEFORE = 'runs before the stop';
+		const AFTER = 'runs after the stop';
+
+		// First run: no STOP sentinel, so the whole file runs and both tests pass.
+		await testExplorer.runAllTests();
+		await testExplorer.expectTestStatus('test-early-stop.R', 'Passed', 60000);
+		await testExplorer.expandAllTests();
+		await testExplorer.expectTestStatus(BEFORE, 'Passed');
+		await testExplorer.expectTestStatus(AFTER, 'Passed');
+
+		// Drop the sentinel so a top-level stop() ends the file after the first test.
+		fs.writeFileSync(path.join(testthatDir, 'STOP'), '');
+
+		// Second run: the file stops after BEFORE, so AFTER never runs. Its prior
+		// 'Passed' must be cleared to 'Skipped', not left stale.
+		await testExplorer.runAllTests();
+		await testExplorer.expectTestStatus(AFTER, 'Skipped', 60000);
+	});
 });
