@@ -3,12 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as assert from 'assert';
 import { expect } from 'chai';
 import * as path from 'path';
 import * as sinon from 'sinon';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { listMissingPythonPackages, parsePythonImports } from '../../client/positron/missingPackages';
+import {
+    listMissingPythonPackages,
+    parsePythonImports,
+    pythonMissingPackageProbe,
+} from '../../client/positron/missingPackages';
 import { IPackageManager, PackageSession } from '../../client/positron/packages/types';
 
 suite('parsePythonImports', () => {
@@ -35,6 +40,16 @@ suite('parsePythonImports', () => {
         const code = ['import pandas; import numpy', 'x = 1; import requests; from flask import Flask'].join('\n');
 
         expect(parsePythonImports(code).sort()).to.deep.equal(['flask', 'numpy', 'pandas', 'requests'].sort());
+    });
+});
+
+suite('pythonMissingPackageProbe', () => {
+    test('returns an import snippet for a ModuleNotFoundError', () => {
+        assert.strictEqual(pythonMissingPackageProbe(`No module named 'requests'`), 'import requests');
+    });
+
+    test('returns undefined for an unrelated error', () => {
+        assert.strictEqual(pythonMissingPackageProbe('SyntaxError: invalid syntax'), undefined);
     });
 });
 
