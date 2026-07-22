@@ -55,6 +55,7 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewC
 
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
 	id: POSITRON_CONSOLE_VIEW_ID,
+	agentCompatible: true,
 	name: {
 		value: nls.localize('positron.console', "Console"),
 		original: 'Console'
