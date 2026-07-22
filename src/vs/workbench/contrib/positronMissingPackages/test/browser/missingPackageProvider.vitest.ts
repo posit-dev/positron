@@ -49,24 +49,24 @@ describe('MissingPackageErrorProvider', () => {
 		enabled?: boolean;
 		missing?: IRuntimeMissingPackage[];
 	} = {}) {
-		const analyzeCode = vi.fn<(...args: unknown[]) => Promise<IRuntimeMissingPackage[]>>()
+		const analyzeError = vi.fn<(...args: unknown[]) => Promise<IRuntimeMissingPackage[]>>()
 			.mockResolvedValue(options.missing ?? [{ name: 'requests' }]);
 		const install = vi.fn().mockResolvedValue(undefined);
-		const missingPackagesService = stubInterface<IMissingPackagesService>({ analyzeCode, install });
+		const missingPackagesService = stubInterface<IMissingPackagesService>({ analyzeError, install });
 		const configurationService = stubInterface<IConfigurationService>({ getValue: () => options.enabled ?? true });
 		const notificationError = vi.fn();
 		const notificationService = stubInterface<INotificationService>({ error: notificationError });
 		const provider = new MissingPackageErrorProvider(missingPackagesService, configurationService, notificationService);
-		return { provider, analyzeCode, install, notificationError };
+		return { provider, analyzeError, install, notificationError };
 	}
 
-	it('offers an install action for a Python missing-module error', async () => {
-		const { provider, analyzeCode, install } = setup();
-		const error = makeError({ languageId: 'python', name: 'ModuleNotFoundError', message: `No module named 'requests'` });
+	it('offers an install action for a package the runtime reports missing', async () => {
+		const { provider, analyzeError, install } = setup();
+		const error = makeError({ name: 'ModuleNotFoundError', message: `No module named 'requests'` });
 
 		const suggestions = await provider.provideSuggestions(error, CancellationToken.None);
 
-		expect(analyzeCode).toHaveBeenCalledWith('s1', 'import requests', CancellationToken.None);
+		expect(analyzeError).toHaveBeenCalledWith('s1', error, CancellationToken.None);
 		expect(suggestions).toHaveLength(1);
 		expect(suggestions[0].label).toBe('Install requests');
 
@@ -74,43 +74,25 @@ describe('MissingPackageErrorProvider', () => {
 		expect(install).toHaveBeenCalledWith({ sessionId: 's1', languageId: 'python', packages: [{ name: 'requests' }] });
 	});
 
-	it('matches an R missing-package error with curly quotes', async () => {
-		const { provider, analyzeCode } = setup({ missing: [{ name: 'tidyverse' }] });
-		const error = makeError({
-			languageId: 'r',
-			message: 'Error in library(tidyverse) : there is no package called \u2018tidyverse\u2019',
-		});
-
-		const suggestions = await provider.provideSuggestions(error, CancellationToken.None);
-
-		expect(analyzeCode).toHaveBeenCalledWith('s1', 'library(tidyverse)', CancellationToken.None);
-		expect(suggestions.map(s => s.label)).toEqual(['Install tidyverse']);
-	});
-
 	it('offers nothing when the setting is disabled', async () => {
-		const { provider, analyzeCode } = setup({ enabled: false });
-		const error = makeError({ message: `No module named 'requests'` });
+		const { provider, analyzeError } = setup({ enabled: false });
 
-		expect(await provider.provideSuggestions(error, CancellationToken.None)).toEqual([]);
-		expect(analyzeCode).not.toHaveBeenCalled();
+		expect(await provider.provideSuggestions(makeError({}), CancellationToken.None)).toEqual([]);
+		expect(analyzeError).not.toHaveBeenCalled();
 	});
 
-	it('offers nothing when the analyzer finds no installable package', async () => {
+	it('offers nothing when the runtime reports no installable package', async () => {
 		const { provider } = setup({ missing: [] });
-		const error = makeError({ message: `No module named 'garfblatz'` });
 
-		expect(await provider.provideSuggestions(error, CancellationToken.None)).toEqual([]);
+		expect(await provider.provideSuggestions(makeError({}), CancellationToken.None)).toEqual([]);
 	});
 
 	it('surfaces a notification when the install fails, without rejecting', async () => {
 		const { provider, install, notificationError } = setup();
 		install.mockRejectedValueOnce(new Error('network down'));
-		const error = makeError({ languageId: 'python', message: `No module named 'requests'` });
 
-		const suggestions = await provider.provideSuggestions(error, CancellationToken.None);
+		const suggestions = await provider.provideSuggestions(makeError({}), CancellationToken.None);
 
-		// `run` swallows the install failure after surfacing it to the user, so the
-		// click handler never sees an unhandled rejection.
 		await expect(suggestions[0].run()).resolves.toBeUndefined();
 		expect(notificationError).toHaveBeenCalledWith(`Failed to install 'requests': network down`);
 	});
