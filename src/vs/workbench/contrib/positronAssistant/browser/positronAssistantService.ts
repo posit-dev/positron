@@ -282,6 +282,10 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	}
 
 	areCompletionsEnabled(uri: URI): boolean {
+		if (!this._aiProviderService.isEnabled('copilot')) {
+			return false; // Copilot provider disabled in the catalog
+		}
+
 		// First, check the completions enablement setting for the file's
 		// language. This reads the product-configured setting
 		// (`github.copilot.enable`), the single source of truth shared with

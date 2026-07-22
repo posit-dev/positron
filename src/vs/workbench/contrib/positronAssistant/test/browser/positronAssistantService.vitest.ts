@@ -26,6 +26,8 @@ import { IAiProviderService } from '../../../../services/positronAiProvider/comm
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { DeferredPromise } from '../../../../../base/common/async.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { Emitter } from '../../../../../base/common/event.js';
+import { IProviderCatalogChangeData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
 
 const { mockShowDialog } = vi.hoisted(() => ({ mockShowDialog: vi.fn() }));
 vi.mock('../../browser/languageModelModalDialog.js', () => ({ showLanguageModelModalDialog: mockShowDialog }));
@@ -278,8 +280,18 @@ describe('PositronAssistantService showLanguageModelModalDialog', () => {
 });
 
 describe('PositronAssistantService areCompletionsEnabled', () => {
+	// Controllable per-test catalog enablement map, read synchronously by the
+	// stubbed IAiProviderService.isEnabled, mirroring the real service's contract.
+	let enabledCatalogIds: Set<string>;
+	const onDidChangeProvidersEmitter = new Emitter<IProviderCatalogChangeData>();
+
 	const ctx = createTestContainer()
 		.withRuntimeServices()
+		.stub(IAiProviderService, {
+			isEnabled: (id: string) => enabledCatalogIds.has(id),
+			onDidChangeProviders: onDidChangeProvidersEmitter.event,
+			whenInitialized: Promise.resolve(),
+		})
 		.build();
 
 	let service: PositronAssistantService;
@@ -287,6 +299,9 @@ describe('PositronAssistantService areCompletionsEnabled', () => {
 	let languageService: ILanguageService;
 
 	beforeEach(() => {
+		// Default to the catalog's copilot entry enabled; tests that need it
+		// disabled override this set explicitly.
+		enabledCatalogIds = new Set(['copilot']);
 		configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		languageService = ctx.get(ILanguageService);
 		service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronAssistantService));
@@ -326,5 +341,28 @@ describe('PositronAssistantService areCompletionsEnabled', () => {
 		guessLanguage('python');
 
 		expect(service.areCompletionsEnabled(URI.file('/path/to/file.py'))).toBe(false);
+	});
+
+	it('disables completions when the catalog copilot provider is disabled, even with the per-language setting on', () => {
+		enabledCatalogIds.delete('copilot');
+		configurationService.setUserConfiguration('github.copilot.enable', { '*': true });
+		guessLanguage('python');
+
+		expect(service.areCompletionsEnabled(URI.file('/path/to/file.py'))).toBe(false);
+	});
+
+	it('enables completions when the catalog copilot provider is enabled and the per-language setting is on', () => {
+		configurationService.setUserConfiguration('github.copilot.enable', { '*': true });
+		guessLanguage('python');
+
+		expect(service.areCompletionsEnabled(URI.file('/path/to/file.py'))).toBe(true);
+	});
+
+	it('ignores the deprecated provider enable setting: catalog copilot enabled still wins', () => {
+		configurationService.setUserConfiguration('github.copilot.enable', { '*': true });
+		configurationService.setUserConfiguration('positron.assistant.provider.githubCopilot.enable', false);
+		guessLanguage('python');
+
+		expect(service.areCompletionsEnabled(URI.file('/path/to/file.py'))).toBe(true);
 	});
 });

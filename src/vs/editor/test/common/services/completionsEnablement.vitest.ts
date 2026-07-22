@@ -79,21 +79,21 @@ describe('completions enablement respects the ai.enabled main switch', () => {
 	});
 });
 
-// The GitHub Copilot provider enable setting disables completions when off:
-// turning off the Copilot provider stops completions (the provider isn't
-// registered), and the status bar / areCompletionsEnabled must agree.
-describe('completions enablement respects the Copilot provider setting', () => {
+// The deprecated Copilot provider enable setting no longer affects completions
+// enablement: gating on the catalog's copilot entry now happens at the
+// workbench call sites (IAiProviderService.isEnabled('copilot')), not here.
+describe('completions enablement ignores the deprecated Copilot provider setting', () => {
 	const providerSetting = 'positron.assistant.provider.githubCopilot.enable';
 
-	it('is off when the Copilot provider is disabled, even with github.copilot.enable on', () => {
+	it('stays on when the deprecated provider setting is false but github.copilot.enable is on', () => {
 		const configurationService = new TestConfigurationService();
 		configurationService.setUserConfiguration(completionsSetting, { '*': true });
 		configurationService.setUserConfiguration(providerSetting, false);
 
-		expect(isCompletionsEnabled(configurationService)).toBe(false);
+		expect(isCompletionsEnabled(configurationService)).toBe(true);
 	});
 
-	it('follows github.copilot.enable when the Copilot provider is unset or enabled', () => {
+	it('follows github.copilot.enable when the deprecated provider setting is unset or enabled', () => {
 		const configurationService = new TestConfigurationService();
 		configurationService.setUserConfiguration(completionsSetting, { '*': true });
 
@@ -106,16 +106,16 @@ describe('completions enablement respects the Copilot provider setting', () => {
 
 	// isCompletionsEnabledWithTextResourceConfig is the per-file variant (it reads
 	// config scoped to a resource for per-language overrides). It carries the same
-	// guard, so it must gate on the provider setting too.
-	it('isCompletionsEnabledWithTextResourceConfig is off when the Copilot provider is disabled', () => {
+	// independence from the deprecated setting.
+	it('isCompletionsEnabledWithTextResourceConfig stays on when the deprecated provider setting is false', () => {
 		const configurationService = new TestConfigurationService();
 		configurationService.setUserConfiguration(completionsSetting, { '*': true });
 		configurationService.setUserConfiguration(providerSetting, false);
 
-		expect(isCompletionsEnabledWithTextResourceConfig(textResourceConfig(configurationService), resource)).toBe(false);
+		expect(isCompletionsEnabledWithTextResourceConfig(textResourceConfig(configurationService), resource)).toBe(true);
 	});
 
-	it('isCompletionsEnabledWithTextResourceConfig is on when the Copilot provider is unset', () => {
+	it('isCompletionsEnabledWithTextResourceConfig is on when the deprecated provider setting is unset', () => {
 		const configurationService = new TestConfigurationService();
 		configurationService.setUserConfiguration(completionsSetting, { '*': true });
 
