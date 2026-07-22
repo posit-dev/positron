@@ -3,13 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// The Snowflake data connection driver. It offers three non-interactive auth mechanisms, all backed
-// by snowflake-sdk:
+// The Snowflake data connection driver. It offers several auth mechanisms, all backed by
+// snowflake-sdk:
+//   - External Browser: interactive single sign-on (authenticator EXTERNALBROWSER); the SDK opens the
+//     system browser to complete the identity-provider handshake.
+//   - Connections File: reuse a named connection from ~/.snowflake/connections.toml, whose own
+//     authenticator (including interactive ones) is passed through to the SDK.
+//   - Programmatic Access Token (PAT): a token minted in Snowflake, supplied where a password is
+//     expected (Snowflake accepts a PAT anywhere a password is accepted).
 //   - Key Pair: an RSA private key file (+ optional passphrase), authenticator SNOWFLAKE_JWT.
 //   - OAuth Client Credentials (M2M): a client id/secret and token URL; the SDK performs the token
 //     exchange itself (authenticator OAUTH_CLIENT_CREDENTIALS).
-//   - Programmatic Access Token (PAT): a token minted in Snowflake, supplied where a password is
-//     expected (Snowflake accepts a PAT anywhere a password is accepted).
 // Password auth is intentionally omitted. Every mechanism shares the same optional session settings
 // (warehouse, database, schema, role) and hands off to the same reconnecting SnowflakeClient.
 
@@ -22,15 +26,19 @@ import { SnowflakeConnectionOptions } from './snowflakeClient.js';
 import { SnowflakeConnectionsFileEntry, listConnectionNames, readConnectionsFile } from './snowflakeConnectionsFile.js';
 import { SnowflakeDataExplorerRpcHandler } from './snowflakeDataExplorerRpcHandler.js';
 
+/** The id of the external-browser (interactive SSO) connection mechanism. */
+const EXTERNAL_BROWSER_MECHANISM_ID = 'externalbrowser';
+/** The id of the mechanism that reuses a named connection from ~/.snowflake/connections.toml. */
+const CONNECTIONS_FILE_MECHANISM_ID = 'connections-file';
+/** The id of the programmatic-access-token connection mechanism. */
+const PAT_MECHANISM_ID = 'pat';
 /** The id of the key-pair (SNOWFLAKE_JWT) connection mechanism. */
 const KEYPAIR_MECHANISM_ID = 'keypair';
 /** The id of the OAuth client-credentials (machine-to-machine) connection mechanism. */
 const OAUTH_CC_MECHANISM_ID = 'oauth-client-credentials';
-/** The id of the programmatic-access-token connection mechanism. */
-const PAT_MECHANISM_ID = 'pat';
-/** The id of the mechanism that reuses a named connection from ~/.snowflake/connections.toml. */
-const CONNECTIONS_FILE_MECHANISM_ID = 'connections-file';
 
+/** The snowflake-sdk authenticator constant for interactive external-browser SSO. */
+const AUTHENTICATOR_EXTERNAL_BROWSER = 'EXTERNALBROWSER';
 /** The snowflake-sdk authenticator constant for key-pair auth. */
 const AUTHENTICATOR_JWT = 'SNOWFLAKE_JWT';
 /** The snowflake-sdk authenticator constant for the OAuth client-credentials flow. */
@@ -139,7 +147,7 @@ function accountParameter(): positron.DataConnectionParameter {
 
 /** Normalized fields for generating connection code, tagged by the mechanism that produced them. */
 interface SnowflakeCodegenFields extends SnowflakeCommonFields {
-	mechanism: typeof KEYPAIR_MECHANISM_ID | typeof OAUTH_CC_MECHANISM_ID | typeof PAT_MECHANISM_ID;
+	mechanism: typeof EXTERNAL_BROWSER_MECHANISM_ID | typeof PAT_MECHANISM_ID | typeof KEYPAIR_MECHANISM_ID | typeof OAUTH_CC_MECHANISM_ID;
 	account: string;
 	user?: string;
 	privateKeyPath?: string;
@@ -158,6 +166,14 @@ function renderPythonCode(fields: SnowflakeCodegenFields): positron.ConnectionCo
 
 	const notes: string[] = [];
 	switch (fields.mechanism) {
+		case EXTERNAL_BROWSER_MECHANISM_ID:
+			// The connector opens the system browser to complete SSO.
+			args.push(`authenticator="externalbrowser"`);
+			break;
+		case PAT_MECHANISM_ID:
+			// Snowflake accepts a programmatic access token wherever a password is expected.
+			if (fields.token) { args.push(`password="${escapeDoubleQuoted(fields.token)}"`); }
+			break;
 		case KEYPAIR_MECHANISM_ID:
 			if (fields.privateKeyPath) { args.push(`private_key_file="${escapeDoubleQuoted(fields.privateKeyPath)}"`); }
 			if (fields.privateKeyPass) { args.push(`private_key_file_pwd="${escapeDoubleQuoted(fields.privateKeyPass)}"`); }
@@ -169,10 +185,6 @@ function renderPythonCode(fields: SnowflakeCodegenFields): positron.ConnectionCo
 			if (fields.oauthTokenRequestUrl) { args.push(`oauth_token_request_url="${escapeDoubleQuoted(fields.oauthTokenRequestUrl)}"`); }
 			if (fields.oauthScope) { args.push(`oauth_scope="${escapeDoubleQuoted(fields.oauthScope)}"`); }
 			notes.push('# OAuth client-credentials support requires a recent snowflake-connector-python.');
-			break;
-		case PAT_MECHANISM_ID:
-			// Snowflake accepts a programmatic access token wherever a password is expected.
-			if (fields.token) { args.push(`password="${escapeDoubleQuoted(fields.token)}"`); }
 			break;
 	}
 
@@ -199,14 +211,18 @@ function renderRCode(fields: SnowflakeCodegenFields): positron.ConnectionCodeVar
 	if (fields.user) { args.push(`uid = "${escapeDoubleQuoted(fields.user)}"`); }
 
 	switch (fields.mechanism) {
-		case KEYPAIR_MECHANISM_ID:
-			args.push(`authenticator = "SNOWFLAKE_JWT"`);
-			if (fields.privateKeyPath) { args.push(`priv_key_file = "${escapeDoubleQuoted(fields.privateKeyPath)}"`); }
-			if (fields.privateKeyPass) { args.push(`priv_key_file_pwd = "${escapeDoubleQuoted(fields.privateKeyPass)}"`); }
+		case EXTERNAL_BROWSER_MECHANISM_ID:
+			// The ODBC driver opens the system browser to complete SSO.
+			args.push(`authenticator = "externalbrowser"`);
 			break;
 		case PAT_MECHANISM_ID:
 			// The PAT is supplied where a password is expected.
 			if (fields.token) { args.push(`pwd = "${escapeDoubleQuoted(fields.token)}"`); }
+			break;
+		case KEYPAIR_MECHANISM_ID:
+			args.push(`authenticator = "SNOWFLAKE_JWT"`);
+			if (fields.privateKeyPath) { args.push(`priv_key_file = "${escapeDoubleQuoted(fields.privateKeyPath)}"`); }
+			if (fields.privateKeyPass) { args.push(`priv_key_file_pwd = "${escapeDoubleQuoted(fields.privateKeyPass)}"`); }
 			break;
 		case OAUTH_CC_MECHANISM_ID:
 			// The OAuth client-credentials flow has no clean odbc::snowflake() mapping; use Python.
@@ -238,6 +254,14 @@ function codegenFields(mechanismId: string, params: positron.DataConnectionParam
 	const common = commonFields(params);
 	const user = isNonEmptyString(params.user) ? params.user : undefined;
 	switch (mechanismId) {
+		case EXTERNAL_BROWSER_MECHANISM_ID:
+			// Only the account is required; the browser SSO handshake establishes the user.
+			return { mechanism: EXTERNAL_BROWSER_MECHANISM_ID, account, user, ...common };
+		case PAT_MECHANISM_ID:
+			if (!user || !isNonEmptyString(params.token)) {
+				return undefined;
+			}
+			return { mechanism: PAT_MECHANISM_ID, account, user, ...common, token: params.token };
 		case KEYPAIR_MECHANISM_ID:
 			if (!user || !isNonEmptyString(params.privateKeyPath)) {
 				return undefined;
@@ -258,11 +282,6 @@ function codegenFields(mechanismId: string, params: positron.DataConnectionParam
 				oauthTokenRequestUrl: params.oauthTokenRequestUrl,
 				oauthScope: isNonEmptyString(params.oauthScope) ? params.oauthScope : undefined,
 			};
-		case PAT_MECHANISM_ID:
-			if (!user || !isNonEmptyString(params.token)) {
-				return undefined;
-			}
-			return { mechanism: PAT_MECHANISM_ID, account, user, ...common, token: params.token };
 		default:
 			return undefined;
 	}
@@ -353,6 +372,20 @@ function connectionOptions(mechanismId: string, params: positron.DataConnectionP
 	const common = commonFields(params);
 	const base: SnowflakeConnectionOptions = { account, ...common };
 	switch (mechanismId) {
+		case EXTERNAL_BROWSER_MECHANISM_ID:
+			return {
+				...base,
+				username: isNonEmptyString(params.user) ? params.user : undefined,
+				authenticator: AUTHENTICATOR_EXTERNAL_BROWSER,
+			};
+		case PAT_MECHANISM_ID:
+			// Snowflake accepts a programmatic access token wherever a password is expected, so no
+			// special authenticator is set.
+			return {
+				...base,
+				username: params.user as string,
+				password: params.token as string,
+			};
 		case KEYPAIR_MECHANISM_ID:
 			return {
 				...base,
@@ -370,14 +403,6 @@ function connectionOptions(mechanismId: string, params: positron.DataConnectionP
 				oauthClientSecret: params.oauthClientSecret as string,
 				oauthTokenRequestUrl: params.oauthTokenRequestUrl as string,
 				oauthScope: isNonEmptyString(params.oauthScope) ? params.oauthScope : undefined,
-			};
-		case PAT_MECHANISM_ID:
-			// Snowflake accepts a programmatic access token wherever a password is expected, so no
-			// special authenticator is set.
-			return {
-				...base,
-				username: params.user as string,
-				password: params.token as string,
 			};
 		default:
 			throw new Error(vscode.l10n.t("Unknown connection mechanism '{0}'.", mechanismId));
@@ -401,6 +426,17 @@ function validateRequired(mechanismId: string, params: positron.DataConnectionPa
 		throw new Error(vscode.l10n.t('Account is required'));
 	}
 	switch (mechanismId) {
+		case EXTERNAL_BROWSER_MECHANISM_ID:
+			// Only the account is required; the browser SSO handshake establishes the user.
+			break;
+		case PAT_MECHANISM_ID:
+			if (!isNonEmptyString(params.user)) {
+				throw new Error(vscode.l10n.t('User is required'));
+			}
+			if (!isNonEmptyString(params.token)) {
+				throw new Error(vscode.l10n.t('Token is required'));
+			}
+			break;
 		case KEYPAIR_MECHANISM_ID:
 			if (!isNonEmptyString(params.user)) {
 				throw new Error(vscode.l10n.t('User is required'));
@@ -418,14 +454,6 @@ function validateRequired(mechanismId: string, params: positron.DataConnectionPa
 			}
 			if (!isNonEmptyString(params.oauthTokenRequestUrl)) {
 				throw new Error(vscode.l10n.t('Token Request URL is required'));
-			}
-			break;
-		case PAT_MECHANISM_ID:
-			if (!isNonEmptyString(params.user)) {
-				throw new Error(vscode.l10n.t('User is required'));
-			}
-			if (!isNonEmptyString(params.token)) {
-				throw new Error(vscode.l10n.t('Token is required'));
 			}
 			break;
 		default:
@@ -452,6 +480,59 @@ export function createSnowflakeDriver(
 		type: positron.DataConnectionParameterType.String,
 		required,
 	});
+
+	// External Browser: interactive SSO. The user supplies an account (and optionally a user); the
+	// SDK opens the system browser to complete the identity-provider handshake.
+	const externalBrowserMechanism: positron.DataConnectionMechanism = {
+		id: EXTERNAL_BROWSER_MECHANISM_ID,
+		label: vscode.l10n.t('External Browser'),
+		description: vscode.l10n.t('Sign in interactively through your web browser (single sign-on).'),
+		parameters: [
+			accountParameter(),
+			userParameter(false),
+			...commonParameters(),
+		],
+	};
+
+	// Connections File: reuse a named connection already configured in
+	// ~/.snowflake/connections.toml. Only offered when the file defines at least one connection;
+	// the names are read at registration time (a window reload picks up later edits).
+	const connectionNames = listConnectionNames();
+	const connectionsFileMechanism: positron.DataConnectionMechanism | undefined = connectionNames.length > 0 ? {
+		id: CONNECTIONS_FILE_MECHANISM_ID,
+		label: vscode.l10n.t('Connections File'),
+		description: vscode.l10n.t('Reuse a named connection from your ~/.snowflake/connections.toml file.'),
+		parameters: [
+			{
+				id: 'connectionName',
+				label: vscode.l10n.t('Connection'),
+				description: vscode.l10n.t('The named connection to use from connections.toml.'),
+				type: positron.DataConnectionParameterType.Option,
+				options: connectionNames,
+				required: true,
+			},
+		],
+	} : undefined;
+
+	// Programmatic Access Token: a token minted in Snowflake, supplied like a password.
+	const patMechanism: positron.DataConnectionMechanism = {
+		id: PAT_MECHANISM_ID,
+		label: vscode.l10n.t('Programmatic Access Token'),
+		description: vscode.l10n.t('Connect with a programmatic access token (PAT) minted in Snowflake.'),
+		parameters: [
+			accountParameter(),
+			userParameter(true),
+			{
+				id: 'token',
+				label: vscode.l10n.t('Token'),
+				description: vscode.l10n.t('The programmatic access token.'),
+				type: positron.DataConnectionParameterType.Password,
+				secret: true,
+				required: true,
+			},
+			...commonParameters(),
+		],
+	};
 
 	// Key Pair (SNOWFLAKE_JWT): account, user, private key file, optional passphrase.
 	const keyPairMechanism: positron.DataConnectionMechanism = {
@@ -518,52 +599,17 @@ export function createSnowflakeDriver(
 		],
 	};
 
-	// Programmatic Access Token: a token minted in Snowflake, supplied like a password.
-	const patMechanism: positron.DataConnectionMechanism = {
-		id: PAT_MECHANISM_ID,
-		label: vscode.l10n.t('Programmatic Access Token'),
-		description: vscode.l10n.t('Connect with a programmatic access token (PAT) minted in Snowflake.'),
-		parameters: [
-			accountParameter(),
-			userParameter(true),
-			{
-				id: 'token',
-				label: vscode.l10n.t('Token'),
-				description: vscode.l10n.t('The programmatic access token.'),
-				type: positron.DataConnectionParameterType.Password,
-				secret: true,
-				required: true,
-			},
-			...commonParameters(),
-		],
-	};
-
-	// Connections File: reuse a named connection already configured in
-	// ~/.snowflake/connections.toml. Only offered when the file defines at least one connection;
-	// the names are read at registration time (a window reload picks up later edits).
-	const connectionNames = listConnectionNames();
-	const connectionsFileMechanism: positron.DataConnectionMechanism | undefined = connectionNames.length > 0 ? {
-		id: CONNECTIONS_FILE_MECHANISM_ID,
-		label: vscode.l10n.t('Connections File'),
-		description: vscode.l10n.t('Reuse a named connection from your ~/.snowflake/connections.toml file.'),
-		parameters: [
-			{
-				id: 'connectionName',
-				label: vscode.l10n.t('Connection'),
-				description: vscode.l10n.t('The named connection to use from connections.toml.'),
-				type: positron.DataConnectionParameterType.Option,
-				options: connectionNames,
-				required: true,
-			},
-		],
-	} : undefined;
-
-	// Order: the connections file first (when present) since it reuses credentials the user has
-	// already configured, then Programmatic Access Token, then Key Pair, then the machine-to-machine
-	// OAuth client-credentials flow.
-	const mechanisms = [patMechanism, keyPairMechanism, oauthCcMechanism];
+	// Every implemented mechanism, in dialog order: External Browser, Programmatic Access Token, Key
+	// Pair, then the machine-to-machine OAuth client-credentials flow. Key Pair and OAuth Client
+	// Credentials remain fully implemented but are intentionally withheld from the connect dialog for
+	// now; add their ids to `enabledMechanismIds` to offer them again.
+	const allMechanisms = [externalBrowserMechanism, patMechanism, keyPairMechanism, oauthCcMechanism];
+	const enabledMechanismIds = new Set<string>([EXTERNAL_BROWSER_MECHANISM_ID, PAT_MECHANISM_ID]);
+	const mechanisms = allMechanisms.filter(mechanism => enabledMechanismIds.has(mechanism.id));
+	// The connections file slots in just after External Browser (when present): External Browser leads,
+	// then the connections file since it reuses credentials the user has already configured.
 	if (connectionsFileMechanism) {
-		mechanisms.unshift(connectionsFileMechanism);
+		mechanisms.splice(1, 0, connectionsFileMechanism);
 	}
 
 	return {
