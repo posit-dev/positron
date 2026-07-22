@@ -54,7 +54,7 @@ import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } 
 import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry } from '../../../common/configuration.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../common/positronConsoleCodeExecution.js';
+import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent, isCompletenessVerified } from '../common/positronConsoleCodeExecution.js';
 import { EDITOR_FONT_DEFAULTS } from '../../../../editor/common/config/fontInfo.js';
 import { URI } from '../../../../base/common/uri.js';
 
@@ -2031,6 +2031,12 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			this._externalExecutionIds.add(executionId);
 		}
 
+		// Whether the code's completeness has already been verified by the caller
+		// (e.g. it came from a statement range provider). When true, both the
+		// immediate dispatch below and any pending-input queueing skip the Console's
+		// own completeness checks and run the code as-is.
+		const completenessVerified = isCompletenessVerified(attribution);
+
 		// If there is a pending input runtime item, all the code in it was enqueued before this
 		// code, so add this code to it and wait for it to be processed the next time the runtime
 		// becomes idle.
@@ -2041,7 +2047,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				executionId,
 				mode ?? RuntimeCodeExecutionMode.Interactive,
 				errorBehavior ?? RuntimeErrorBehavior.Continue,
-				executionMetadata
+				executionMetadata,
+				completenessVerified
 			);
 			return;
 		}
@@ -2057,7 +2064,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				executionId,
 				mode ?? RuntimeCodeExecutionMode.Interactive,
 				errorBehavior ?? RuntimeErrorBehavior.Continue,
-				executionMetadata
+				executionMetadata,
+				completenessVerified
 			);
 			return;
 		}
@@ -2082,7 +2090,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				executionId,
 				mode ?? RuntimeCodeExecutionMode.Interactive,
 				errorBehavior ?? RuntimeErrorBehavior.Continue,
-				executionMetadata
+				executionMetadata,
+				completenessVerified
 			);
 			return;
 		}
@@ -2117,9 +2126,12 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				void this.doExecuteCode(codeToRun, attribution, mode, errorBehavior, pendingExecutionId, executionMetadata);
 			};
 
-			// If the caller skips checks, or completeness checking is disabled,
-			// execute the code as-is with no roundtrips.
+			// If the caller skips checks, the code's completeness was already
+			// verified (e.g. it came from a statement range provider), or
+			// completeness checking is disabled, execute the code as-is with no
+			// roundtrips.
 			if (allowIncomplete ||
+				completenessVerified ||
 				this._configurationService.getValue<boolean>(promptWhenIncompleteSettingId) === false) {
 				executeWhole();
 				return true;

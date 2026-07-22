@@ -18,7 +18,7 @@ import { PositronConsoleInstance } from '../../browser/positronConsoleService.js
 import { RuntimeItemPendingInput } from '../../browser/classes/runtimeItemPendingInput.js';
 import { CodeSubmissionResult, IConsoleFindWidget, IConsoleFindWidgetFactory, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
 import { ConsoleErrorFollowupService, IConsoleErrorFollowupService } from '../../common/consoleErrorFollowup.js';
-import { CodeAttributionSource } from '../../common/positronConsoleCodeExecution.js';
+import { CodeAttributionSource, COMPLETENESS_VERIFIED_METADATA_KEY } from '../../common/positronConsoleCodeExecution.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeState, RUNTIME_CODE_INCOMPLETE_ERROR } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -68,6 +68,65 @@ function createSessionMetadata(sessionId: string): IRuntimeSessionMetadata {
 	};
 }
 
+function createInstance(disposables: DisposableStore): {
+	instance: PositronConsoleInstance;
+	languageFeaturesService: ILanguageFeaturesService;
+	session: TestLanguageRuntimeSession;
+} {
+	const instantiationService = createModelServices(disposables, [
+		[IConsoleFindWidgetFactory, TestConsoleFindWidgetFactory],
+		[IConsoleErrorFollowupService, ConsoleErrorFollowupService],
+	]);
+	const languageService = instantiationService.get(ILanguageService);
+	const languageFeaturesService = instantiationService.get(ILanguageFeaturesService);
+	// The model service is created lazily; force it so the instance can use it.
+	instantiationService.get(IModelService);
+	disposables.add(languageService.registerLanguage({ id: 'r' }));
+
+	// Give the instance a real scrollback budget so transcript items (the
+	// pending-input preview, the submitting placeholder) are not trimmed away
+	// the moment another item is added. The constructor reads this value.
+	const configurationService = instantiationService.get(IConfigurationService) as TestConfigurationService;
+	configurationService.setUserConfiguration('console.scrollbackSize', 1000);
+
+	const sessionMetadata = createSessionMetadata('test-session');
+	const session = disposables.add(new TestLanguageRuntimeSession(sessionMetadata, TestRuntimeMetadata));
+	session.setRuntimeState(RuntimeState.Ready);
+
+	const instance = disposables.add(instantiationService.createInstance(
+		PositronConsoleInstance,
+		'Test R',
+		sessionMetadata,
+		TestRuntimeMetadata,
+	));
+	instance.attachRuntimeSession(session, SessionAttachMode.Connected);
+
+	return { instance, languageFeaturesService, session };
+}
+
+/** Polls `predicate` until it is true or the timeout elapses. */
+async function waitFor(predicate: () => boolean, timeout = 1000): Promise<void> {
+	const start = Date.now();
+	while (!predicate()) {
+		if (Date.now() - start > timeout) {
+			throw new Error('waitFor timed out');
+		}
+		await new Promise(resolve => setTimeout(resolve, 5));
+	}
+}
+
+/** Registers a boundary provider that returns the given boundaries. */
+function registerBoundaryProvider(
+	disposables: DisposableStore,
+	languageFeaturesService: ILanguageFeaturesService,
+	boundaries: IInputBoundary[]
+): void {
+	disposables.add(languageFeaturesService.inputBoundaryProvider.register(
+		{ language: 'r', scheme: 'inmemory' },
+		{ provideInputBoundaries: () => boundaries }
+	));
+}
+
 describe('PositronConsoleInstance.submitCode', () => {
 	const disposables = new DisposableStore();
 
@@ -75,69 +134,11 @@ describe('PositronConsoleInstance.submitCode', () => {
 		disposables.clear();
 	});
 
-	function createInstance(): {
-		instance: PositronConsoleInstance;
-		languageFeaturesService: ILanguageFeaturesService;
-		session: TestLanguageRuntimeSession;
-	} {
-		const instantiationService = createModelServices(disposables, [
-			[IConsoleFindWidgetFactory, TestConsoleFindWidgetFactory],
-			[IConsoleErrorFollowupService, ConsoleErrorFollowupService],
-		]);
-		const languageService = instantiationService.get(ILanguageService);
-		const languageFeaturesService = instantiationService.get(ILanguageFeaturesService);
-		// The model service is created lazily; force it so the instance can use it.
-		instantiationService.get(IModelService);
-		disposables.add(languageService.registerLanguage({ id: 'r' }));
-
-		// Give the instance a real scrollback budget so transcript items (the
-		// pending-input preview, the submitting placeholder) are not trimmed away
-		// the moment another item is added. The constructor reads this value.
-		const configurationService = instantiationService.get(IConfigurationService) as TestConfigurationService;
-		configurationService.setUserConfiguration('console.scrollbackSize', 1000);
-
-		const sessionMetadata = createSessionMetadata('test-session');
-		const session = disposables.add(new TestLanguageRuntimeSession(sessionMetadata, TestRuntimeMetadata));
-		session.setRuntimeState(RuntimeState.Ready);
-
-		const instance = disposables.add(instantiationService.createInstance(
-			PositronConsoleInstance,
-			'Test R',
-			sessionMetadata,
-			TestRuntimeMetadata,
-		));
-		instance.attachRuntimeSession(session, SessionAttachMode.Connected);
-
-		return { instance, languageFeaturesService, session };
-	}
-
-	/** Polls `predicate` until it is true or the timeout elapses. */
-	async function waitFor(predicate: () => boolean, timeout = 1000): Promise<void> {
-		const start = Date.now();
-		while (!predicate()) {
-			if (Date.now() - start > timeout) {
-				throw new Error('waitFor timed out');
-			}
-			await new Promise(resolve => setTimeout(resolve, 5));
-		}
-	}
-
-	/** Registers a boundary provider that returns the given boundaries. */
-	function registerBoundaryProvider(
-		languageFeaturesService: ILanguageFeaturesService,
-		boundaries: IInputBoundary[]
-	): void {
-		disposables.add(languageFeaturesService.inputBoundaryProvider.register(
-			{ language: 'r', scheme: 'inmemory' },
-			{ provideInputBoundaries: () => boundaries }
-		));
-	}
-
 	it('does not clear the input editor when the code is incomplete', async () => {
-		const { instance, languageFeaturesService } = createInstance();
+		const { instance, languageFeaturesService } = createInstance(disposables);
 
 		// The R provider reports `2 +` as a single incomplete statement.
-		registerBoundaryProvider(languageFeaturesService, [
+		registerBoundaryProvider(disposables, languageFeaturesService, [
 			{ range: { start: 0, end: 1 }, kind: 'incomplete' }
 		]);
 
@@ -157,11 +158,11 @@ describe('PositronConsoleInstance.submitCode', () => {
 	});
 
 	it('executes the full multi-line code once it is complete', async () => {
-		const { instance, languageFeaturesService } = createInstance();
+		const { instance, languageFeaturesService } = createInstance(disposables);
 
 		// After the continuation prompt, the input holds both lines. The R
 		// provider now reports them as a single complete statement.
-		registerBoundaryProvider(languageFeaturesService, [
+		registerBoundaryProvider(disposables, languageFeaturesService, [
 			{ range: { start: 0, end: 2 }, kind: 'complete' }
 		]);
 
@@ -178,7 +179,7 @@ describe('PositronConsoleInstance.submitCode', () => {
 	});
 
 	it('shows the continuation prompt when the session reports incomplete code (no provider)', async () => {
-		const { instance, session } = createInstance();
+		const { instance, session } = createInstance(disposables);
 
 		// No input boundary provider is registered, so completeness is checked by
 		// the session over the Unprocessed mode (the Python path). Reject the
@@ -208,7 +209,7 @@ describe('PositronConsoleInstance.submitCode', () => {
 	});
 
 	it('executes code the session accepts (no provider)', async () => {
-		const { instance, session } = createInstance();
+		const { instance, session } = createInstance(disposables);
 
 		// No provider: the session accepts the Unprocessed execution.
 		vi.spyOn(session, 'execute').mockResolvedValue(undefined);
@@ -227,7 +228,7 @@ describe('PositronConsoleInstance.submitCode', () => {
 	});
 
 	it('queues code enqueued during an in-flight submission and runs it once the submission settles', async () => {
-		const { instance, languageFeaturesService, session } = createInstance();
+		const { instance, languageFeaturesService, session } = createInstance(disposables);
 
 		// Make the boundary provider hang so the console submission stays in the
 		// "submitting" state while we enqueue code from the editor.
@@ -282,5 +283,63 @@ describe('PositronConsoleInstance.submitCode', () => {
 
 		// The queued editor code drains and executes once the submission settles.
 		await waitFor(() => executedCode.includes('editor_code'));
+	});
+});
+
+describe('PositronConsoleInstance.enqueueCode (statement range provenance)', () => {
+	const disposables = new DisposableStore();
+
+	afterEach(() => {
+		disposables.clear();
+	});
+
+	/** Script attribution marked as already completeness-verified. */
+	const verifiedScriptAttribution = {
+		source: CodeAttributionSource.Script,
+		metadata: { [COMPLETENESS_VERIFIED_METADATA_KEY]: true },
+	};
+
+	it('runs completeness-verified code as-is without any completeness check', async () => {
+		const { instance, languageFeaturesService, session } = createInstance(disposables);
+
+		// Wire up spies for both completeness paths. Neither should be consulted:
+		// the code came from a statement range provider, which already verified it.
+		const boundaryProvider = { provideInputBoundaries: vi.fn(() => []) };
+		disposables.add(languageFeaturesService.inputBoundaryProvider.register(
+			{ language: 'r', scheme: 'inmemory' },
+			boundaryProvider
+		));
+		const completeSpy = vi.spyOn(session, 'isCodeFragmentComplete');
+
+		const executedCode: string[] = [];
+		disposables.add(instance.onDidExecuteCode(e => executedCode.push(e.code)));
+
+		await instance.enqueueCode('x <- 1', verifiedScriptAttribution);
+
+		expect(executedCode).toEqual(['x <- 1']);
+		expect(boundaryProvider.provideInputBoundaries).not.toHaveBeenCalled();
+		expect(completeSpy).not.toHaveBeenCalled();
+	});
+
+	it('runs completeness-verified code queued while busy without a completeness roundtrip', async () => {
+		const { instance, session } = createInstance(disposables);
+
+		// The runtime is busy, so the code is queued as pending input rather than
+		// dispatched immediately.
+		session.setRuntimeState(RuntimeState.Busy);
+		const completeSpy = vi.spyOn(session, 'isCodeFragmentComplete');
+
+		const executedCode: string[] = [];
+		disposables.add(instance.onDidExecuteCode(e => executedCode.push(e.code)));
+
+		await instance.enqueueCode('x <- 1', verifiedScriptAttribution);
+		expect(executedCode).toEqual([]);
+
+		// When the runtime goes idle the queued input drains. Because it was
+		// already verified, it executes without the isCodeFragmentComplete
+		// roundtrip that unverified pending input would incur.
+		session.setRuntimeState(RuntimeState.Idle);
+		await waitFor(() => executedCode.includes('x <- 1'));
+		expect(completeSpy).not.toHaveBeenCalled();
 	});
 });
