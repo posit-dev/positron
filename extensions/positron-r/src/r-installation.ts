@@ -412,20 +412,60 @@ function getRHomePathDarwin(binpath: string): string | undefined {
 		LOGGER.info(`Binary is not a shell script wrapping the executable: ${binpath}`);
 		return undefined;
 	}
+
+	// First try the R_HOME_DIR baked into the script. For system installs this
+	// points at the real R home. Examples:
+	//   macOS orthogonal:     R_HOME_DIR=/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources
+	//   macOS non-orthogonal: R_HOME_DIR=/Library/Frameworks/R.framework/Resources
+	// Only trust the parsed value if binpath actually lives under it. Otherwise
+	// the script's R_HOME_DIR points at a *different* R install that happens to
+	// exist at the build-time path (e.g. portable R-4.5.3 with R_HOME_DIR baked
+	// to /Library/.../4.5-arm64/Resources where the user also has CRAN R 4.5.1
+	// installed). Without this guard we'd conflate the two installs.
 	const targetLine = binLines.find(line => line.match('R_HOME_DIR'));
-	if (!targetLine) {
-		LOGGER.info(`Can\'t determine R_HOME_DIR from the binary: ${binpath}`);
+	if (targetLine) {
+		const parsed = removeSurroundingQuotes(extractValue(targetLine, 'R_HOME_DIR'));
+		if (parsed !== '' && hasRBaseLibrary(parsed) && binpathIsUnder(binpath, parsed)) {
+			return parsed;
+		}
+	}
+
+	// Fallback: derive R_HOME from the binpath itself. The Mac R wrapper is
+	// always at <home>/bin/R, so dirname(dirname(binpath)) is R_HOME. Resolve
+	// symlinks first so a shim like /usr/local/bin/R points at the real script.
+	// This rescues portable R builds where the script's
+	// R_HOME_DIR is a stale absolute path from the build machine.
+	const derived = derivedRHomePathDarwin(binpath);
+	if (derived && hasRBaseLibrary(derived)) {
+		return derived;
+	}
+
+	LOGGER.info(`Can't determine R_HOME_DIR from the binary: ${binpath}`);
+	return undefined;
+}
+
+function derivedRHomePathDarwin(binpath: string): string | undefined {
+	try {
+		const realBinpath = fs.realpathSync(binpath);
+		return path.dirname(path.dirname(realBinpath));
+	} catch (err) {
+		LOGGER.info(`Could not resolve real path for ${binpath}: ${err}`);
 		return undefined;
 	}
-	// macOS: R_HOME_DIR=/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources
-	// macOS non-orthogonal: R_HOME_DIR=/Library/Frameworks/R.framework/Resources
-	const R_HOME_DIR = removeSurroundingQuotes(extractValue(targetLine, 'R_HOME_DIR'));
-	const homepath = R_HOME_DIR;
-	if (homepath === '') {
-		LOGGER.info(`Can\'t determine R_HOME_DIR from the binary: ${binpath}`);
-		return undefined;
+}
+
+function hasRBaseLibrary(homepath: string): boolean {
+	return fs.existsSync(path.join(homepath, 'library', 'utils', 'DESCRIPTION'));
+}
+
+function binpathIsUnder(binpath: string, homepath: string): boolean {
+	try {
+		const realBin = fs.realpathSync(binpath);
+		const realHome = fs.realpathSync(homepath);
+		return realBin.startsWith(realHome + path.sep);
+	} catch {
+		return false;
 	}
-	return homepath;
 }
 
 function getRHomePathLinux(binpath: string): string | undefined {
