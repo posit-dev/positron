@@ -74,6 +74,16 @@ export type IValidateAndExecuteResult =
 	};
 
 /**
+ * Options for filtering the result of {@link IAgentAllowedCommandsService.getAgentAllowedCommands}.
+ */
+export interface IGetAgentAllowedCommandsOptions {
+	/** Only include commands currently in the command palette (`f1: true`). Default: `false`. */
+	f1Only?: boolean;
+	/** Only include commands whose precondition currently holds. Default: `true`. */
+	enabledOnly?: boolean;
+}
+
+/**
  * Assembles and executes the curated set of Positron commands exposed to AI
  * agents. See `positron.ai.getAgentAllowedCommands()` and
  * `positron.ai.validateAndExecuteCommand()` on the Positron extension API.
@@ -85,7 +95,7 @@ export interface IAgentAllowedCommandsService {
 	 * Return the curated agent-compatible commands that are actually
 	 * registered in the current build and currently enabled (precondition holds).
 	 */
-	getAgentAllowedCommands(): IAgentCommandDescriptor[];
+	getAgentAllowedCommands(options?: IGetAgentAllowedCommandsOptions): IAgentCommandDescriptor[];
 
 	/**
 	 * Return every agent-compatible command registered in the current build,
@@ -134,21 +144,20 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 		);
 	}
 
-	getAgentAllowedCommands(): IAgentCommandDescriptor[] {
+	getAgentAllowedCommands(options: IGetAgentAllowedCommandsOptions = {}): IAgentCommandDescriptor[] {
+		const { f1Only = false, enabledOnly = true } = options;
 		const all = this.getAllAgentCompatibleCommands();
 		const result: IAgentCommandDescriptor[] = [];
-		let filteredDisabled = 0;
+		let filtered = 0;
 		for (const cmd of all) {
-			if (!cmd.enabled) {
-				filteredDisabled++;
-				continue;
-			}
+			if (enabledOnly && !cmd.enabled) { filtered++; continue; }
+			if (f1Only && !cmd.inPalette) { filtered++; continue; }
 			const { enabled: _e, precondition: _p, inPalette: _ip, ...descriptor } = cmd;
 			result.push(descriptor);
 		}
 		this._logService.trace(
 			`[AgentAllowedCommands] returning ${result.length} curated command(s); ` +
-			`filtered ${filteredDisabled} disabled by precondition`
+			`filtered ${filtered} by options`
 		);
 		return result;
 	}
@@ -166,8 +175,46 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 		}
 
 		const result: IAgentCommandDebugDescriptor[] = [];
+
+		// Pass 1: CommandsRegistry is the canonical source and includes non-f1
+		// commands from registerAction2 that MenuRegistry would miss.
+		for (const [id, command] of CommandsRegistry.getCommands()) {
+			if (!command.metadata?.agentCompatible) {
+				continue;
+			}
+			const meta = command.metadata;
+			const menuCmd = MenuRegistry.getCommand(id);
+			if (!this._isTrustedCommandSource(menuCmd?.source)) {
+				continue;
+			}
+			const precondition = menuCmd?.precondition;
+			const enabled = !precondition || this._contextKeyService.contextMatchesRules(precondition);
+			const source: IAgentCommandSource = menuCmd?.source
+				? { type: 'extension', id: menuCmd.source.id, displayName: menuCmd.source.title }
+				: { type: 'builtin' };
+			result.push({
+				id,
+				description: toDescription(meta.description),
+				args: meta.args?.map(a => ({
+					name: a.name,
+					description: a.description,
+					schema: a.schema,
+					required: a.isOptional !== true,
+				})),
+				returns: meta.returns,
+				source,
+				enabled,
+				precondition: precondition?.serialize(),
+				inPalette: paletteIds.has(id),
+			});
+		}
+
+		// Pass 2: Also surface commands declared in contributes.commands that
+		// live in MenuRegistry pre-activation (before the extension calls
+		// registerCommand and populates CommandsRegistry).
+		const seenIds = new Set(result.map(r => r.id));
 		for (const [id, menuCmd] of MenuRegistry.getCommands()) {
-			if (!menuCmd.metadata?.agentCompatible) {
+			if (!menuCmd.metadata?.agentCompatible || seenIds.has(id)) {
 				continue;
 			}
 			if (!this._isTrustedCommandSource(menuCmd.source)) {

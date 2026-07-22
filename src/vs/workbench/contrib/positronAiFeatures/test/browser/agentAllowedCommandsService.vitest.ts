@@ -12,7 +12,7 @@ import { ContextKeyExpr, IContextKeyService, ContextKeyExpression } from '../../
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { AgentAllowedCommandsService } from '../../common/agentAllowedCommandsService.js';
+import { AgentAllowedCommandsService, IGetAgentAllowedCommandsOptions } from '../../common/agentAllowedCommandsService.js';
 import { IProductService } from '../../../../../platform/product/common/productService.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 
@@ -140,6 +140,48 @@ describe('AgentAllowedCommandsService', () => {
 			expect(makeService().getAgentAllowedCommands().map(c => c.id))
 				.not.toContain('test.agent.transient');
 		});
+
+		it('includes non-palette commands by default', () => {
+			// Registered via CommandsRegistry only (no MenuRegistry entry → not in the palette).
+			// The default call must still surface it; f1Only is an opt-in filter.
+			store.add(CommandsRegistry.registerCommand({
+				id: 'test.agent.notPalette',
+				handler: () => { },
+				metadata: { description: 'not in palette', agentCompatible: true },
+			}));
+			expect(makeService().getAgentAllowedCommands().map(c => c.id))
+				.toContain('test.agent.notPalette');
+		});
+
+		it('f1Only option excludes commands not in the command palette', () => {
+			registerPaletteCommand('test.agent.f1.palette', { agentCompatible: true });
+			store.add(CommandsRegistry.registerCommand({
+				id: 'test.agent.f1.nonPalette',
+				handler: () => { },
+				metadata: { description: 'not in palette', agentCompatible: true },
+			}));
+			const service = makeService();
+			const options: IGetAgentAllowedCommandsOptions = { f1Only: true };
+			const ids = service.getAgentAllowedCommands(options).map(c => c.id);
+			expect(ids).toContain('test.agent.f1.palette');
+			expect(ids).not.toContain('test.agent.f1.nonPalette');
+		});
+
+		it('enabledOnly: false includes commands whose precondition does not hold', () => {
+			const precondition = ContextKeyExpr.equals('foo', 'bar')!;
+			registerPaletteCommand('test.agent.enabledOnly.gated', {
+				agentCompatible: true,
+				description: 'gated',
+				precondition,
+			});
+			const service = makeService({
+				contextMatchesRules: (expr: ContextKeyExpression | undefined) => expr === undefined,
+			});
+			expect(service.getAgentAllowedCommands().map(c => c.id))
+				.not.toContain('test.agent.enabledOnly.gated');
+			expect(service.getAgentAllowedCommands({ enabledOnly: false }).map(c => c.id))
+				.toContain('test.agent.enabledOnly.gated');
+		});
 	});
 
 	describe('getAllAgentCompatibleCommands', () => {
@@ -154,6 +196,12 @@ describe('AgentAllowedCommandsService', () => {
 				description: 'gated cmd',
 				precondition,
 			});
+			// CommandsRegistry-only: not in MenuRegistry → inPalette: false.
+			store.add(CommandsRegistry.registerCommand({
+				id: 'test.agent.debug.notPalette',
+				handler: () => { },
+				metadata: { description: 'not in palette', agentCompatible: true },
+			}));
 
 			const service = makeService({
 				contextMatchesRules: (expr: ContextKeyExpression | undefined) => expr === undefined,
@@ -170,6 +218,11 @@ describe('AgentAllowedCommandsService', () => {
 				enabled: false,
 				precondition: precondition.serialize(),
 				inPalette: true,
+			});
+			expect(byId.get('test.agent.debug.notPalette')).toMatchObject({
+				enabled: true,
+				precondition: undefined,
+				inPalette: false,
 			});
 		});
 
