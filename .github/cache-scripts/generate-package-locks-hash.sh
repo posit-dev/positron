@@ -7,13 +7,20 @@
 # Creates a deterministic hash used as the cache key for npm-core cache.
 # The hash includes:
 # 1. All core package-lock.json files (dependency versions)
-# 2. Build scripts that affect postinstall behavior (what gets generated)
+# 2. Files that must invalidate the core cache when changed: install scripts
+#    (what gets generated) AND cache-paths.sh (what gets cached). See buildScripts.
 # 3. Gitlink SHAs of submodules that host a core dir (e.g. ai-lib). Their build
 #    output is cached (see cache-paths.sh) and regenerated only on a submodule
 #    bump, which moves the gitlink SHA. Deps-only signals would miss source-only
 #    bumps and restore a stale build.
 #
 # When any of these change, the hash changes and cache invalidates.
+#
+# NOT in this hash: Node.js major version, runner.os, and distro are separate
+# segments of the cache key, assembled in the restore/save action.yml
+# (key: npm-core-v7-node<major>-<os>-<distro>-<hash>). Don't add them here --
+# they'd be double-counted. The "vN" prefix (v7) is a manual force-invalidate
+# knob; bump it in BOTH action.yml files to rebuild without a content change.
 #
 # WHY INCLUDE BUILD SCRIPTS?
 # The postinstall script runs during `npm install` and generates artifacts
@@ -33,8 +40,11 @@
 # • test/integration/browser/
 # • test/monaco/
 # • test/mcp/
+# • ai-lib/packages/ai-config/ (workspace package inside the ai-lib submodule)
 #
 # Basically: Everything except extensions/ and .vscode/
+# Authoritative list = dirs.ts minus extensions/ and .vscode/ (see coreDirs below);
+# this bullet list is illustrative and may lag.
 #
 # WHY NOT EXTENSIONS?
 # Extensions have their own caches (npm-extensions-volatile and npm-extensions-stable)
@@ -101,17 +111,27 @@ console.error('Hashing ' + lockFiles.length + ' package-lock.json files:');
 lockFiles.forEach(f => console.error('  → ' + f));
 
 // ----------------------------------------------------------------------------
-// Step 3: Collect build scripts that affect postinstall behavior
+// Step 3: Collect files that must invalidate the core cache when changed
 // ----------------------------------------------------------------------------
-// These scripts control what runs during npm install and what artifacts are
-// generated. Changes to these should invalidate the cache even if package-lock
-// files haven't changed.
+// Two kinds live here, both beyond package-lock.json:
+//   - install scripts: control what runs during npm install and what artifacts
+//     get generated (a changed build step won't re-run on a cache hit otherwise).
+//   - cache-paths.sh: controls what the cache saves. Changing the path set must
+//     rotate the key, or a newly-added path stays missing until the key changes
+//     for some other reason (a plain key hit restores the old blob, never re-saves).
 //
-// NOTE: If you add a new script that runs during install, add it here!
+// NOTE: Add a file here if changing it must rebuild the core cache -- whether it
+// runs during install OR defines what gets cached.
 const buildScripts = [
   'build/npm/preinstall.ts',   // Preinstall script - installs build/ dependencies
   'build/npm/postinstall.ts',  // Postinstall script - runs npm install in all dirs
   'build/npm/dirs.ts',         // List of directories that get npm install
+  // Defines which paths this cache saves. Changing the set (e.g. adding a
+  // node_modules dir) must rotate the key: on a plain key hit actions/cache
+  // restores the old blob and never re-saves, so a newly-added path would stay
+  // missing until the key changes. Folding this file in rebuilds the cache the
+  // first time the path set changes.
+  '.github/cache-scripts/cache-paths.sh',
 ].sort();
 
 console.error('');
