@@ -854,6 +854,16 @@ namespace schema {
 		icon?: IUserFriendlyIcon;
 		// --- Start Positron ---
 		actionBarOptions?: IUserFriendlyActionBarOptions;
+		agent?: {
+			description: string;
+			args?: ReadonlyArray<{
+				name: string;
+				description?: string;
+				required?: boolean;
+				schema?: object;
+			}>;
+			returns?: string;
+		};
 		// --- End Positron ---
 	}
 
@@ -1065,6 +1075,38 @@ namespace schema {
 						}
 					}
 				}]
+			},
+			agent: {
+				description: localize(
+					'positron.vscode.extension.contributes.commandType.agent',
+					'(Optional) Exposes this command to AI agents with machine-readable metadata.'
+				),
+				type: 'object',
+				required: ['description'],
+				properties: {
+					description: {
+						description: localize('positron.vscode.extension.contributes.commandType.agent.description', 'Natural-language description for an AI agent.'),
+						type: 'string',
+					},
+					args: {
+						description: localize('positron.vscode.extension.contributes.commandType.agent.args', 'Positional arguments accepted by this command.'),
+						type: 'array',
+						items: {
+							type: 'object',
+							required: ['name'],
+							properties: {
+								name: { type: 'string' },
+								description: { type: 'string' },
+								required: { type: 'boolean' },
+								schema: { type: 'object' },
+							},
+						},
+					},
+					returns: {
+						description: localize('positron.vscode.extension.contributes.commandType.agent.returns', 'What the command returns.'),
+						type: 'string',
+					},
+				},
 			}
 			// --- End Positron ---
 		}
@@ -1113,8 +1155,8 @@ commandsExtensionPoint.setHandler(extensions => {
 		// --- End Positron ---
 
 		// --- Start Positron ---
-		// Add actionBarOptions.
-		const { icon, enablement, category, title, shortTitle, command, actionBarOptions } = userFriendlyCommand;
+		// Add actionBarOptions and agent.
+		const { icon, enablement, category, title, shortTitle, command, actionBarOptions, agent } = userFriendlyCommand;
 		// --- End Positron ---
 
 		let absoluteIcon: { dark: URI; light?: URI } | ThemeIcon | undefined;
@@ -1170,7 +1212,18 @@ commandsExtensionPoint.setHandler(extensions => {
 			precondition: ContextKeyExpr.deserialize(enablement),
 			icon: absoluteIcon,
 			// --- Start Positron ---
-			positronActionBarOptions
+			positronActionBarOptions,
+			metadata: agent ? {
+				description: agent.description,
+				agentCompatible: true,
+				args: agent.args?.map(a => ({
+					name: a.name,
+					description: a.description,
+					isOptional: a.required === false,
+					schema: a.schema as IJSONSchema | undefined,
+				})),
+				returns: agent.returns,
+			} : undefined,
 			// --- End Positron ---
 		}));
 	}
