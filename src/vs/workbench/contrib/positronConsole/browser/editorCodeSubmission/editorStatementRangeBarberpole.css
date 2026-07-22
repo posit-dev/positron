@@ -1,0 +1,55 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * A green barber pole shown in the editor gutter while a statement range provider
+ * is being consulted to determine which code to submit. This mirrors the console
+ * input's barber pole (see consoleInputSubmitting.css) so feedback for code run
+ * from the editor is visually identical to code submitted in the console.
+ *
+ * The bar is drawn in a decoration's lines-decorations lane. Monaco sets the
+ * lane element's width with an inline style, so `!important` is required to
+ * override it (matching quartoExecutionDecorations.css). `margin-left: 10px`
+ * offsets the bar past the line numbers into the gutter.
+ */
+.monaco-editor .editor-statement-range-detecting {
+	width: 4px !important;
+	margin-left: 10px;
+	background-image: repeating-linear-gradient(45deg,
+			var(--vscode-positronConsole-ansiBrightGreen),
+			var(--vscode-positronConsole-ansiBrightGreen) 3px,
+			transparent 3px,
+			transparent 6px);
+	background-size: 8.49px 8.49px;
+	/*
+	 * The decoration mounts fresh when the barber pole delay elapses, so a plain
+	 * transition has no prior state to animate from. Pair the endless stripe
+	 * scroll with a one-shot fade-in so the pole eases in over 500ms rather than
+	 * popping into view.
+	 */
+	animation:
+		editor-statement-range-detecting-fade-in 500ms ease-out,
+		editor-statement-range-detecting-move-stripes 1s linear infinite;
+}
+
+@keyframes editor-statement-range-detecting-fade-in {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes editor-statement-range-detecting-move-stripes {
+	0% {
+		background-position: 0 0;
+	}
+
+	100% {
+		background-position: 8.49px 0;
+	}
+}

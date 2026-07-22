@@ -46,6 +46,7 @@ import { usingQuartoInlineOutput, isQuartoDocument, QUARTO_INLINE_OUTPUT_ENABLED
 import { getNotebookUriFromActiveEditor } from './getNotebookUriFromActiveEditor.js';
 import { IQuartoExecutionManager } from '../../positronQuarto/common/quartoExecutionTypes.js';
 import { NotebookContextKeys } from '../../positronNotebook/common/notebookContextKeys.js';
+import { IEditorCodeSubmissionService } from './editorCodeSubmission/editorCodeSubmissionService.js';
 
 /**
  * Positron console command ID's.
@@ -419,6 +420,7 @@ export function registerPositronConsoleActions() {
 			const debugService = accessor.get(IDebugService);
 			const textFileService = accessor.get(ITextFileService);
 			const configurationService = accessor.get(IConfigurationService);
+			const editorCodeSubmissionService = accessor.get(IEditorCodeSubmissionService);
 
 			// By default we advance the cursor to the next statement
 			const advance = opts.advance === undefined ? true : opts.advance;
@@ -530,15 +532,40 @@ export function registerPositronConsoleActions() {
 			if (!isString(code) && statementRangeProviders.length > 0) {
 
 				let statementRange: IStatementRange | null | undefined = undefined;
+
+				// Begin a statement range detection session. This provides visual
+				// feedback (a gutter barber pole, and a "Submitting" action bar
+				// widget) if the provider is slow, keeping editor feedback symmetric
+				// with the console. The user can cancel the submission or choose to
+				// run the code as-is from the widget, which we race the provider
+				// against below.
+				const detection = editorCodeSubmissionService.beginStatementRangeDetection(
+					editor, model, position.lineNumber);
 				try {
 					// Just consult the first statement range provider if several are registered
-					statementRange = await statementRangeProviders[0].provideStatementRange(
-						model,
-						position,
-						CancellationToken.None);
-				} catch (err) {
-					// If the statement range provider throws an exception, log it and continue
-					logService.warn(`Failed to get statement range at ${position}: ${err}`);
+					const outcome = await detection.wait(Promise.resolve(
+						statementRangeProviders[0].provideStatementRange(
+							model,
+							position,
+							detection.token)));
+					switch (outcome.kind) {
+						case 'cancel':
+							// The user cancelled the submission; abort execution entirely.
+							return undefined;
+						case 'runAsIs':
+							// The user chose to run the code as-is; leave `statementRange`
+							// undefined so we fall through to line-based execution below.
+							break;
+						case 'error':
+							// If the statement range provider throws an exception, log it and continue
+							logService.warn(`Failed to get statement range at ${position}: ${outcome.error}`);
+							break;
+						case 'result':
+							statementRange = outcome.value;
+							break;
+					}
+				} finally {
+					detection.dispose();
 				}
 
 				if (statementRange) {
