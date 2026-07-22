@@ -871,13 +871,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Create and send the execute request.
 		const execute = new ExecuteRequest(id, request, cellId as string);
-		this.sendRequest(execute).then((reply) => {
+		try {
+			const reply = await this.sendRequest(execute);
 			this.log(`Execution result: ${JSON.stringify(reply)}`, vscode.LogLevel.Debug);
-		}).catch((err) => {
+		} catch (err) {
 			// This should be exceedingly rare; it represents a failure to send
 			// the request to Kallichore rather than a failure to execute it
 			this.log(`Failed to send execution request for '${code}': ${err}`, vscode.LogLevel.Error);
-		});
+			throw err;
+		}
 	}
 
 	/**
