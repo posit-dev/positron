@@ -23,21 +23,8 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { localize } from '../../../../nls.js';
-
-/**
- * Returns the candidate config keys for a provider's enable setting, in
- * preference order. The shorter `assistant.provider.<name>.enabled` form
- * is used by providers owned by the authentication extension; the legacy
- * `positron.assistant.provider.<name>.enable` form is used by providers
- * still declared in `extensions/positron-assistant/package.json`. Either
- * key may toggle the provider on.
- */
-function enableSettingKeys(settingName: string): string[] {
-	return [
-		`assistant.provider.${settingName}.enabled`,
-		`positron.assistant.provider.${settingName}.enable`,
-	];
-}
+import { IAiProviderService } from '../../../services/positronAiProvider/common/aiProviderService.js';
+import { catalogIdForSettingName } from '../common/providerCatalogIds.js';
 
 /**
  * PositronAssistantConfigurationService class.
@@ -65,22 +52,17 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	readonly onChangeProviderConfig = this._onChangeProviderConfigEmitter.event;
 
 	constructor(
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@ICommandService private readonly _commandService: ICommandService,
+		@IAiProviderService private readonly _aiProviderService: IAiProviderService,
 	) {
 		super();
 
-		// Listen for configuration changes to provider enablement settings
-		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			// Check individual provider enable settings
-			for (const source of this._providerRegistrations.values()) {
-				for (const settingKey of enableSettingKeys(source.provider.settingName)) {
-					if (e.affectsConfiguration(settingKey)) {
-						this._enabledProvidersEmitter.fire();
-						return;
-					}
-				}
+		// Provider enablement now comes from the catalog; only enabledChanged
+		// events affect which registered providers are considered enabled.
+		this._register(this._aiProviderService.onDidChangeProviders(e => {
+			if (e.enabledChanged) {
+				this._enabledProvidersEmitter.fire();
 			}
 		}));
 	}
@@ -195,26 +177,33 @@ export class PositronAssistantConfigurationService extends Disposable implements
 		this._copilotEnabledEmitter.fire(this._copilotEnabled);
 	}
 
+	private isSourceEnabled(source: IPositronLanguageModelSource): boolean {
+		const catalogId = catalogIdForSettingName(source.provider.settingName);
+		// Providers without a catalog entry (dev-only echo/error) follow the
+		// catalog baseline: enabled by default.
+		return catalogId === undefined || this._aiProviderService.isEnabled(catalogId);
+	}
+
 	getEnabledProviders(): string[] {
 		const enabledProviders: string[] = [];
-
 		for (const [providerId, source] of this._providerRegistrations.entries()) {
-			const isEnabled = enableSettingKeys(source.provider.settingName).some(
-				key => this._configurationService.getValue<boolean>(key)
-			);
-			if (isEnabled) {
+			if (this.isSourceEnabled(source)) {
 				enabledProviders.push(providerId);
 			}
 		}
-
 		return enabledProviders;
 	}
 
 	isProviderEnabled(providerId: string): boolean {
-		const enabledProviders = this.getEnabledProviders();
-		return enabledProviders.includes(providerId) ||
-			// Special case: 'copilot' vendor is enabled via 'copilot-auth' provider id's setting
-			(providerId === 'copilot' && enabledProviders.includes('copilot-auth'));
+		for (const source of this._providerRegistrations.values()) {
+			const catalogId = catalogIdForSettingName(source.provider.settingName);
+			// Callers pass either the registered provider id (openai-api) or the
+			// vendor/catalog id (openai, copilot); both resolve to the same source.
+			if (source.provider.id === providerId || catalogId === providerId) {
+				return this.isSourceEnabled(source);
+			}
+		}
+		return false;
 	}
 }
 
