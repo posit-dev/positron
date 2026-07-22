@@ -17,9 +17,16 @@ on:
 
 jobs:
   test:
-    name: check-uncached-artifacts scenarios
+    name: cache-script scenarios
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Run cache-script tests
+      # generate-package-locks-hash.test.sh runs the real key generator, which
+      # requires('./build/npm/dirs.ts') -- Node >= 22.6 strips the types natively.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: check-uncached-artifacts scenarios
         run: bash .github/cache-scripts/check-uncached-artifacts.test.sh
+      - name: generate-package-locks-hash scenarios
+        run: bash .github/cache-scripts/generate-package-locks-hash.test.sh

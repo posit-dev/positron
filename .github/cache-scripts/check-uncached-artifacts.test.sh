@@ -143,6 +143,23 @@ else
 	fail "multiple: not all reported (rc=$RC)"; echo "$out"
 fi
 
+# --- Test 10 (REGRESSION #13545): incident-backed IGNORE_PATTERNS stay ignored ---
+# .git/ was a real shipped false positive (#13545): git objects created during CI
+# were flagged as uncached artifacts and failed the build. .claude/ (agent-harness
+# symlinks) and .tsbuildinfo (incremental tsc caches) are the same shape -- files
+# npm install may touch that tests never need. A "cleanup" that drops any of these
+# from IGNORE_PATTERNS would reintroduce a build failure, so guard them here.
+tests_run=$((tests_run + 1))
+out="$(run_check "" \
+	".git/objects/ab/cdef0123456789" \
+	".claude/CLAUDE.md" \
+	"ai-lib/packages/ai-config/tsconfig.tsbuildinfo")"; read_rc
+if [ "$RC" -eq 0 ] && grep -q "No uncached artifacts" <<<"$out"; then
+	pass "incident-backed ignores (.git/, .claude/, .tsbuildinfo) stay ignored"
+else
+	fail "ignore-regression: a protected pattern was flagged (rc=$RC)"; echo "$out"
+fi
+
 echo
 echo "Ran $tests_run tests, $tests_failed failed."
 [ "$tests_failed" -eq 0 ]
