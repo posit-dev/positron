@@ -598,21 +598,26 @@ export class ViewsService extends Disposable implements IViewsService {
 					},
 					metadata: {
 						description: title.value,
+						// --- Start Positron ---
+						agentCompatible: viewDescriptor.agentCompatible,
+						// Describe the focus option so agents (getAgentAllowedCommands) can use it.
 						args: [
 							{
 								name: 'focusOptions',
-								description: 'Focus Options',
+								description: 'Options for focusing the view.',
 								schema: {
 									type: 'object',
 									properties: {
 										'preserveFocus': {
 											type: 'boolean',
-											default: false
+											default: false,
+											description: 'When true, reveal the view without moving keyboard focus to it - use when the user should not be interrupted (e.g. actively typing). Omit or false to focus the view (the usual case).'
 										}
 									},
 								}
 							}
 						]
+						// --- End Positron ---
 					}
 				});
 			}

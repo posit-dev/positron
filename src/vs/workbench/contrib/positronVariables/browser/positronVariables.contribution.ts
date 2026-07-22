@@ -29,6 +29,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	[
 		{
 			id: POSITRON_VARIABLES_VIEW_ID,
+			agentCompatible: true,
 			name: {
 				value: nls.localize('positron.variables', "Variables"),
 				original: 'Variables'
