@@ -18,7 +18,7 @@ import { RSessionManager } from './session-manager';
 import { LOGGER, supervisorApi } from './extension.js';
 import { ArkComm } from './ark-comm';
 import { RPackageManager } from './packages';
-import { listMissingRPackages } from './missingPackages';
+import { listMissingRPackages, rMissingPackageProbe } from './missingPackages';
 import { RMetadataExtra } from './r-installation';
 import { warnOnArkVersionMismatch } from './arkVersionCheck';
 
@@ -832,6 +832,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			return [];
 		}
 		return listMissingRPackages(this._packageManager, target, token);
+	}
+
+	getMissingPackageProbe(error: positron.RuntimeConsoleError): string | undefined {
+		return rMissingPackageProbe(error.message);
 	}
 
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
