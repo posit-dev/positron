@@ -1,0 +1,45 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { Event } from '../../../base/common/event.js';
+
+export const POSITRON_AI_PROVIDER_CHANNEL = 'positronAiProviderCatalog';
+
+/**
+ * Mirrors ai-config's ResolvedConnection as plain IPC-marshalable data.
+ * Kept in sync by hand with the pinned ai-lib commit (same pattern as
+ * platform/positronHeadlessLanguageModel/common/engine.ts mirroring the
+ * bridge types); ai-config is imported node-side only.
+ */
+export interface IResolvedConnectionData {
+	readonly baseUrl?: string;
+	readonly endpoint?: string;
+	readonly customHeaders?: Record<string, string>;
+	readonly aws?: { readonly region?: string; readonly profile?: string };
+	readonly googleCloud?: { readonly project?: string; readonly location?: string };
+	readonly snowflake?: { readonly account?: string; readonly host?: string; readonly home?: string };
+}
+
+/** Mirrors ai-config's ResolvedProvider (id, enabled, connection). */
+export interface IResolvedProviderData {
+	readonly id: string;
+	readonly enabled: boolean;
+	readonly connection: IResolvedConnectionData;
+}
+
+/** Mirrors ai-config's ProviderCatalogChange. */
+export interface IProviderCatalogChangeData {
+	readonly catalog: readonly IResolvedProviderData[];
+	readonly enabledChanged: boolean;
+	readonly connectionChanged: boolean;
+	readonly modelsChanged: boolean;
+}
+
+/** Node-side catalog surface, reachable over POSITRON_AI_PROVIDER_CHANNEL. */
+export interface IAiProviderCatalog {
+	readonly onDidChangeCatalog: Event<IProviderCatalogChangeData>;
+	getCatalog(): Promise<readonly IResolvedProviderData[]>;
+	getConfigFilePath(): Promise<string>;
+}
