@@ -2242,7 +2242,12 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			this.setCodeSubmissionInProgress(true);
 		}
 		const token = tokenSource?.token ?? CancellationToken.None;
-		const displayDuringCheck = tokenSource !== undefined;
+		// Only borrow the console input line to show the submitting code (and,
+		// consequently, clear it before executing) when it is empty. Editor- and
+		// extension-driven executions must not clobber code the user has already
+		// typed or pasted into the input but not yet run; that pending input is
+		// either merged in below (Interactive mode) or left untouched.
+		const displayDuringCheck = tokenSource !== undefined && !this.codeEditor?.getValue();
 		let dispatched = false;
 		try {
 			// Handle interactive mode first.

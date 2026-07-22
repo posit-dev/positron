@@ -19,7 +19,7 @@ import { RuntimeItemPendingInput } from '../../browser/classes/runtimeItemPendin
 import { CodeSubmissionResult, IConsoleFindWidget, IConsoleFindWidgetFactory, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
 import { ConsoleErrorFollowupService, IConsoleErrorFollowupService } from '../../common/consoleErrorFollowup.js';
 import { CodeAttributionSource } from '../../common/positronConsoleCodeExecution.js';
-import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeFragmentStatus, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeState, RUNTIME_CODE_INCOMPLETE_ERROR } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
@@ -175,6 +175,55 @@ describe('PositronConsoleInstance.submitCode', () => {
 
 		expect(result).toBe(CodeSubmissionResult.Executed);
 		expect(executedCode).toEqual(['2 +\n3']);
+	});
+
+	it('shows the continuation prompt when the session reports incomplete code (no provider)', async () => {
+		const { instance, session } = createInstance();
+
+		// No input boundary provider is registered, so completeness is checked by
+		// the session over the Unprocessed mode (the Python path). Reject the
+		// execution with a CodeIncompleteError, as the supervisor does for
+		// incomplete input.
+		const incompleteError = new Error('Code fragment is incomplete');
+		incompleteError.name = RUNTIME_CODE_INCOMPLETE_ERROR;
+		const executeSpy = vi.spyOn(session, 'execute').mockRejectedValue(incompleteError);
+
+		const executedCode: string[] = [];
+		disposables.add(instance.onDidExecuteCode(e => executedCode.push(e.code)));
+
+		const result = await instance.submitCode(
+			'def f():',
+			{ source: CodeAttributionSource.Interactive }
+		);
+
+		expect(result).toBe(CodeSubmissionResult.Incomplete);
+		// The session was asked to run the code in Unprocessed mode.
+		expect(executeSpy).toHaveBeenCalledTimes(1);
+		const [executedCodeArg, , modeArg] = executeSpy.mock.calls[0];
+		expect(executedCodeArg).toBe('def f():');
+		expect(modeArg).toBe(RuntimeCodeExecutionMode.Unprocessed);
+		// Nothing executed, and the submission visuals are cleared.
+		expect(executedCode).toEqual([]);
+		expect(instance.codeSubmissionInProgress).toBe(false);
+	});
+
+	it('executes code the session accepts (no provider)', async () => {
+		const { instance, session } = createInstance();
+
+		// No provider: the session accepts the Unprocessed execution.
+		vi.spyOn(session, 'execute').mockResolvedValue(undefined);
+
+		const executedCode: string[] = [];
+		disposables.add(instance.onDidExecuteCode(e => executedCode.push(e.code)));
+
+		const result = await instance.submitCode(
+			'40 + 2',
+			{ source: CodeAttributionSource.Interactive }
+		);
+
+		expect(result).toBe(CodeSubmissionResult.Executed);
+		// It is reported to the console as Interactive, not Unprocessed.
+		expect(executedCode).toEqual(['40 + 2']);
 	});
 
 	it('queues code enqueued during an in-flight submission and runs it once the submission settles', async () => {

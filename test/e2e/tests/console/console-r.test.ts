@@ -61,6 +61,11 @@ test.describe('Console Pane: R', {
 	test('R - Multi-statement input executes each statement (input boundary provider path)', async function ({ app, r }) {
 		const { console } = app.workbench;
 
+		// Start from a clean input line: a prior test may have left unrun code
+		// pasted in the console input (e.g. the queued-execution test), and
+		// pasting appends at the cursor.
+		await console.clearInput();
+
 		// Submit two complete statements at once. The R input boundary provider
 		// splits them; the first executes immediately and the second is queued
 		// and run on the next idle transition.
@@ -80,12 +85,14 @@ test.describe('Console Pane: R', {
 		const { console } = app.workbench;
 
 		// An incomplete statement must not execute; the console shows the
-		// continuation prompt (+) so the user can finish typing.
+		// continuation prompt (+) so the user can finish typing. The editor
+		// auto-closes the '(', so typing 'f <- function(' yields
+		// 'f <- function()'.
 		await console.typeToConsole('f <- function(', true);
 		await console.waitForReady('+', 10000);
 
-		// Complete the statement; it should now run.
-		await console.typeToConsole(') { 42 }', true);
+		// Complete the statement by adding the function body; it should now run.
+		await console.typeToConsole(' { 42 }', true);
 		await console.waitForReady('>', 10000);
 		await console.typeToConsole('f()', true);
 		await console.waitForConsoleContents('[1] 42', { timeout: 10000 });
