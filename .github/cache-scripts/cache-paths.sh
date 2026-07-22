@@ -20,6 +20,22 @@
 # 3. For stable extensions: Automatic (all non-volatile extensions)
 # 4. Run: .github/cache-scripts/verify-cache-paths.sh to validate changes
 #
+# GOTCHAS (each of these has bitten us; read before editing NPM_CORE_PATHS):
+# A. Cache a generated artifact's RUNTIME DEPS, not just the artifact. postinstall
+#    is skipped on a cache hit, so it only rebuilds outputs -- it does NOT reinstall
+#    node_modules. If you cache a built output (a dist/, a native binding), also cache
+#    the node_modules it require()s at runtime, or the artifact restores but fails to
+#    load. This is why both ai-config/dist AND ai-lib/node_modules are listed (#15065).
+# B. Changing the PATH SET must rotate the cache key. On a plain key hit, actions/cache
+#    restores the old blob and never re-saves -- so a path you add here stays MISSING
+#    until the key changes for some other reason. cache-paths.sh is folded into the key
+#    (generate-package-locks-hash.sh buildScripts) so editing it self-rotates the key.
+#    Keep it there.
+# C. A green PR-CI run does NOT prove a cache change works. The failure mode only appears
+#    on a cache HIT that actually EXECUTES the cached code (a build/compile step never
+#    runs it). Right after a key rotation everything is a cache MISS (full install), which
+#    masks the gap. Verify against a cache-hit run of a job that runs the code (e.g. ext-host).
+#
 # USED BY:
 # • .github/actions/restore-build-caches/action.yml
 # • .github/actions/save-build-caches/action.yml
