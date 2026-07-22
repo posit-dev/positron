@@ -7,7 +7,7 @@
 import './dataConnectionNodeRow.css';
 
 // React.
-import { MouseEvent as ReactMouseEvent, useRef } from 'react';
+import { MouseEvent as ReactMouseEvent, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -79,11 +79,12 @@ const kindIcon = (dto: IDataConnectionNodeDTO): string => {
 };
 
 /**
- * Whether a node can be opened in the Data Explorer: a previewable table, view, or column. The
- * `hasPreview` gate excludes nodes the driver didn't make previewable (e.g. index-column fields).
+ * Whether a node can be opened in the Data Explorer: a previewable table, view, column, pin, or pin
+ * version. The `hasPreview` gate excludes nodes the driver didn't make previewable (e.g. index-column
+ * fields, or pins whose storage type isn't tabular).
  */
 const canPreview = (dto: IDataConnectionNodeDTO): boolean =>
-	dto.hasPreview && (dto.kind === 'table' || dto.kind === 'view' || dto.kind === 'field');
+	dto.hasPreview && (dto.kind === 'table' || dto.kind === 'view' || dto.kind === 'field' || dto.kind === 'pin' || dto.kind === 'version');
 
 interface DataConnectionNodeRowProps {
 	dto: IDataConnectionNodeDTO;
@@ -98,16 +99,28 @@ interface DataConnectionNodeRowProps {
 export const DataConnectionNodeRow = ({ dto, handle }: DataConnectionNodeRowProps) => {
 	const { notificationService } = usePositronReactServicesContext();
 	const rowRef = useRef<HTMLDivElement>(null);
+	// Opening a preview can take a moment (a driver may download data first). Track it so the row can
+	// show a spinner for the duration, matching the tree's busy treatment on expansion.
+	const [opening, setOpening] = useState(false);
 
-	const openInDataExplorer = () => {
-		handle.nodePreview(dto.nodeHandle).catch(error => {
+	const openInDataExplorer = async () => {
+		// Ignore a repeat trigger (double-click or context menu) while a preview is already opening.
+		if (opening) {
+			return;
+		}
+		setOpening(true);
+		try {
+			await handle.nodePreview(dto.nodeHandle);
+		} catch (error) {
 			notificationService.error(localize(
 				'positron.dataConnections.openInDataExplorerFailed',
 				"Could not open '{0}' in the Data Explorer: {1}",
 				dto.name,
 				error instanceof Error ? error.message : String(error)
 			));
-		});
+		} finally {
+			setOpening(false);
+		}
 	};
 
 	const onDoubleClick = () => {
@@ -148,7 +161,7 @@ export const DataConnectionNodeRow = ({ dto, handle }: DataConnectionNodeRowProp
 			onContextMenu={onContextMenu}
 			onDoubleClick={onDoubleClick}
 		>
-			<div className={`codicon codicon-${kindIcon(dto)} data-connection-node-icon`} />
+			<div className={`codicon ${opening ? 'codicon-loading codicon-modifier-spin' : `codicon-${kindIcon(dto)}`} data-connection-node-icon`} />
 			<div className='data-connection-node-text'>{dto.name}</div>
 			{dto.dataType && (
 				<div className='data-connection-node-type'>{dto.dataType}</div>

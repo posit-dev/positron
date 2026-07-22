@@ -77,6 +77,26 @@ export interface DuckDBSchemaEntry {
 }
 
 /**
+ * Optional override for the Data Explorer's Convert-to-Code feature. A table view built with a
+ * generator advertises these syntaxes in the Convert-to-Code dialog, pre-selects
+ * {@link defaultSyntaxName}, and emits {@link generate} instead of the built-in DuckDB SQL.
+ *
+ * A consumer whose data is not a durable SQL table -- e.g. a pin previewed from a file downloaded
+ * into an ephemeral in-memory database -- uses this to emit code that reads the real source (a
+ * `pin_read(...)` call) rather than a `SELECT` against a throwaway local table the user cannot run.
+ * Kept string-based (no protocol types) so consumers don't need a `positron-data-explorer-protocol`
+ * dependency to implement it.
+ */
+export interface IDuckDBTableCodeGenerator {
+	/** The syntax names offered in the Convert-to-Code dropdown (e.g. 'R', 'Python'). */
+	readonly syntaxNames: readonly string[];
+	/** The syntax pre-selected when the dialog opens; must be one of {@link syntaxNames}. */
+	readonly defaultSyntaxName: string;
+	/** Emits the code lines for the chosen syntax. Data Explorer filters/sorts are not represented. */
+	generate(syntaxName: string): string[];
+}
+
+/**
  * Maps a DuckDB column type name (from information_schema.columns.data_type) to a Data Explorer
  * display type. Matches by substring so parameterized types (e.g. DECIMAL(18,3)) resolve correctly.
  */
@@ -230,6 +250,8 @@ export class DuckDBTableView {
 	 * @param displayName The unqualified table/view name for display.
 	 * @param objectKind Whether this is a table (has a stable rowid) or a view.
 	 * @param schema The resolved column schema.
+	 * @param codeGenerator Optional Convert-to-Code override; when omitted, Convert-to-Code emits
+	 * DuckDB SQL over the table reference.
 	 */
 	constructor(
 		private readonly client: IDuckDBQueryClient,
@@ -237,6 +259,7 @@ export class DuckDBTableView {
 		private readonly displayName: string,
 		private readonly objectKind: 'table' | 'view',
 		private readonly schema: Array<DuckDBSchemaEntry>,
+		private readonly codeGenerator?: IDuckDBTableCodeGenerator,
 	) {
 		this._unfilteredRows = this._countRows('');
 		this._filteredRows = this._unfilteredRows;
@@ -500,13 +523,24 @@ export class DuckDBTableView {
 				},
 				convert_to_code: {
 					support_status: SupportStatus.Supported,
-					code_syntaxes: [{ code_syntax_name: 'SQL' }],
+					code_syntaxes: this.codeGenerator
+						? this.codeGenerator.syntaxNames.map(name => ({ code_syntax_name: name }))
+						: [{ code_syntax_name: 'SQL' }],
 				},
 			},
 		};
 	}
 
-	async convertToCode(_params: ConvertToCodeParams): Promise<ConvertedCode> {
+	async convertToCode(params: ConvertToCodeParams): Promise<ConvertedCode> {
+		// When a code generator is supplied, it fully owns the output (e.g. a pin_read snippet); the
+		// Data Explorer's current filters/sorts do not map onto that source and are intentionally
+		// dropped.
+		if (this.codeGenerator) {
+			// Read the syntax defensively: fall back to the generator's default if it is absent, so a
+			// missing/renamed parameter degrades to sensible output instead of throwing.
+			const syntaxName = params.code_syntax_name?.code_syntax_name ?? this.codeGenerator.defaultSyntaxName;
+			return { converted_code: this.codeGenerator.generate(syntaxName) };
+		}
 		const result = ['SELECT *', `FROM ${this._quotedTable}`];
 		if (this._whereClause) {
 			result.push(this._whereClause.replace(/\n/g, ' ').trim());
@@ -519,7 +553,7 @@ export class DuckDBTableView {
 	}
 
 	async suggestCodeSyntax(): Promise<CodeSyntaxName> {
-		return { code_syntax_name: 'SQL' };
+		return { code_syntax_name: this.codeGenerator?.defaultSyntaxName ?? 'SQL' };
 	}
 
 	async exportDataSelection(params: ExportDataSelectionParams): Promise<ExportedData> {

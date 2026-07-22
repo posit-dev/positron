@@ -17,9 +17,14 @@ library(pins)
 
 # The pins we publish. Small slices of the built-in datasets are plenty for
 # exercising the publish -> query round trip.
+# Each pin carries its storage type. The rds pins exercise the tree; the csv pin is a tabular type
+# DuckDB can read, so it exercises the Data Explorer preview. csv is used (not parquet) because it
+# needs no extra R package, and pins writes it with row.names = FALSE so its columns are exactly the
+# data frame's.
 pins_to_publish <- list(
-	list(name = "e2e-mtcars", data = head(mtcars, 5)),
-	list(name = "e2e-iris", data = head(iris, 5))
+	list(name = "e2e-mtcars", data = head(mtcars, 5), type = "rds"),
+	list(name = "e2e-iris", data = head(iris, 5), type = "rds"),
+	list(name = "e2e-csv", data = data.frame(id = 1:5, group = letters[1:5], value = c(1.5, 2.5, 3.5, 4.5, 5.5)), type = "csv")
 )
 
 board <- board_connect()
@@ -41,8 +46,8 @@ for (pin in pins_to_publish) {
 
 # --- Publish ---------------------------------------------------------------
 for (pin in pins_to_publish) {
-	pin_write(board, pin$data, name = pin$name, type = "rds")
-	cat("Published pin:", pin$name, "\n")
+	pin_write(board, pin$data, name = pin$name, type = pin$type)
+	cat("Published pin:", pin$name, "(", pin$type, ")\n")
 }
 
 # Publish a second version of one pin (board_connect() is versioned by default), so the
