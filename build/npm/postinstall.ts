@@ -70,6 +70,23 @@ async function npmInstallAsync(dir: string, opts?: child_process.SpawnOptions): 
 		shell: true,
 	};
 
+	// --- Start Positron ---
+	// When cross-building (e.g. an x64 build on an arm64 macOS machine) the build
+	// sets `npm_config_arch` to the *target* architecture. node-gyp reads that to
+	// compile native modules for the target, but npm ignores `arch` when choosing
+	// which platform-specific optional dependencies to install -- it filters those
+	// by the package's `cpu` field, which npm derives from `process.arch` unless the
+	// `--cpu` (`npm_config_cpu`) config overrides it. Without this, packages that
+	// ship prebuilt per-arch bindings via optional dependencies (e.g. @duckdb/node-api
+	// -> @duckdb/node-bindings-darwin-*) get the host-arch binding bundled instead of
+	// the target's, and fail to load at runtime with MODULE_NOT_FOUND. Translate the
+	// target arch into `npm_config_cpu` so npm selects the correct optional deps.
+	const env = finalOpts.env;
+	if (env && env['npm_config_arch'] && !env['npm_config_cpu']) {
+		env['npm_config_cpu'] = env['npm_config_arch'];
+	}
+	// --- End Positron ---
+
 	const command = process.env['npm_command'] || 'install';
 
 	if (process.env['VSCODE_REMOTE_DEPENDENCIES_CONTAINER_NAME'] && /^(.build\/distro\/npm\/)?remote$/.test(dir)) {
