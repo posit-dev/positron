@@ -16,6 +16,16 @@ import { ISnowflakeDataExplorerHost, SNOWFLAKE_DATA_EXPLORER_PROVIDER_ID } from 
 /** Monotonically increasing id so each connection's previewed datasets get a unique key. */
 let nextConnectionId = 1;
 
+/**
+ * Builds a collision-proof dataset id from a connection id, a kind tag, and the object-name
+ * components. Each component is URL-encoded and joined with ':' -- the one delimiter encoding escapes
+ * -- so identifiers containing '.', ':', or other delimiter characters (legal in quoted Snowflake
+ * object names) can never map two distinct objects onto the same id.
+ */
+function datasetKey(connectionId: string, kind: string, ...parts: string[]): string {
+	return ['snowflake', connectionId, kind, ...parts].map(encodeURIComponent).join(':');
+}
+
 /** The connection configuration passed from the driver: the normalized snowflake-sdk options. */
 export type SnowflakeConnectionConfig = SnowflakeConnectionOptions;
 
@@ -79,7 +89,7 @@ export class SnowflakeConnection implements positron.DataConnection, ISnowflakeP
 	 */
 	async previewObject(client: SnowflakeClient, database: string, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void> {
 		this._ensureConnected();
-		const datasetId = `snowflake:${this._connectionId}:${database}:${kind}:${schemaName}.${tableName}`;
+		const datasetId = datasetKey(this._connectionId, kind, database, schemaName, tableName);
 		await this._dataExplorerHandler.openTableView(datasetId, this._queryClient(client), database, schemaName, tableName, kind);
 		this._openedDatasets.add(datasetId);
 		await positron.dataExplorer.open({
@@ -95,7 +105,7 @@ export class SnowflakeConnection implements positron.DataConnection, ISnowflakeP
 	 */
 	async previewColumn(client: SnowflakeClient, database: string, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
 		this._ensureConnected();
-		const datasetId = `snowflake:${this._connectionId}:${database}:column:${schemaName}.${tableName}.${columnName}`;
+		const datasetId = datasetKey(this._connectionId, 'column', database, schemaName, tableName, columnName);
 		await this._dataExplorerHandler.openColumnView(datasetId, this._queryClient(client), database, schemaName, tableName, kind, columnName);
 		this._openedDatasets.add(datasetId);
 		await positron.dataExplorer.open({

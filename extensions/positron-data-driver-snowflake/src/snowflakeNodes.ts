@@ -96,6 +96,7 @@ export function createSchemaNode(client: SnowflakeClient, host: ISnowflakePrevie
 			return [
 				createTablesGroupNode(client, host, database, schemaName),
 				createViewsGroupNode(client, host, database, schemaName),
+				createStagesGroupNode(client, database, schemaName),
 			];
 		},
 	};
@@ -129,6 +130,30 @@ function createViewsGroupNode(client: SnowflakeClient, host: ISnowflakePreviewHo
 				[schemaName]
 			);
 			return result.rows.map(row => createRelationNode(client, host, database, schemaName, String(row.table_name), 'view'));
+		},
+	};
+}
+
+/**
+ * Creates the "Stages" group inside a schema. Lists named stages via INFORMATION_SCHEMA.STAGES. Stages
+ * hold files rather than tabular rows, so stage nodes are leaves: no Data Explorer preview and no
+ * children (listing a stage's files is deliberately left for a follow-up). Takes no preview host for
+ * that reason.
+ */
+function createStagesGroupNode(client: SnowflakeClient, database: string, schemaName: string): positron.DataConnectionNode {
+	return {
+		name: 'Stages',
+		kind: positron.DataConnectionNodeKind.GroupStages,
+		async getChildren() {
+			const result = await client.query(
+				`SELECT STAGE_NAME AS "stage_name" FROM ${quoteIdentifier(database)}.INFORMATION_SCHEMA.STAGES ` +
+				`WHERE STAGE_SCHEMA = ? ORDER BY STAGE_NAME`,
+				[schemaName]
+			);
+			return result.rows.map(row => ({
+				name: String(row.stage_name),
+				kind: positron.DataConnectionNodeKind.Stage,
+			}));
 		},
 	};
 }

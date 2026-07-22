@@ -73,6 +73,13 @@ async function viewsOf(schemaNode: positron.DataConnectionNode): Promise<positro
 	return viewsGroup.getChildren!();
 }
 
+// Expands a schema node to its Stages group children (stage nodes).
+async function stagesOf(schemaNode: positron.DataConnectionNode): Promise<positron.DataConnectionNode[]> {
+	const groups = await schemaNode.getChildren!();
+	const stagesGroup = groups.find(g => g.kind === positron.DataConnectionNodeKind.GroupStages)!;
+	return stagesGroup.getChildren!();
+}
+
 // Expands a table or view node to its Columns group children (field nodes).
 async function columnsOf(relationNode: positron.DataConnectionNode): Promise<positron.DataConnectionNode[]> {
 	const groups = await relationNode.getChildren!();
@@ -206,9 +213,10 @@ suite('Snowflake Driver Tests', () => {
 
 		const schemaNode = createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC');
 		const groups = await schemaNode.getChildren!();
-		assert.strictEqual(groups.length, 2);
+		assert.strictEqual(groups.length, 3);
 		assert.strictEqual(groups[0].kind, positron.DataConnectionNodeKind.GroupTables);
 		assert.strictEqual(groups[1].kind, positron.DataConnectionNodeKind.GroupViews);
+		assert.strictEqual(groups[2].kind, positron.DataConnectionNodeKind.GroupStages);
 
 		// Tables.
 		const tables = await tablesOf(schemaNode);
@@ -225,6 +233,27 @@ suite('Snowflake Driver Tests', () => {
 		views.forEach(v => {
 			assert.strictEqual(v.kind, positron.DataConnectionNodeKind.View);
 			assert.ok(v.preview, `${v.name} should have preview`);
+		});
+	});
+
+	// --- Stages within a schema ---
+
+	test('Stages group lists stage nodes as leaves via INFORMATION_SCHEMA.STAGES', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('INFORMATION_SCHEMA.STAGES')) {
+				return { rows: [{ stage_name: 'RAW_LOAD' }, { stage_name: 'EXPORTS' }] };
+			}
+			return { rows: [] };
+		});
+
+		const schemaNode = createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC');
+		const stages = await stagesOf(schemaNode);
+		assert.deepStrictEqual(stages.map(s => s.name), ['RAW_LOAD', 'EXPORTS']);
+		stages.forEach(s => {
+			assert.strictEqual(s.kind, positron.DataConnectionNodeKind.Stage);
+			// Stages hold files, not rows: leaf nodes with no children and no preview.
+			assert.strictEqual(s.getChildren, undefined);
+			assert.strictEqual(s.preview, undefined);
 		});
 	});
 
@@ -322,6 +351,23 @@ suite('Snowflake Driver Tests', () => {
 		const tables = await tablesOf(schemaNode);
 		assert.ok(tables[0].preview);
 		await tables[0].preview!();
+	});
+
+	test('preview dataset ids do not collide for names containing delimiters', async () => {
+		// Two distinct objects whose names differ only in where a '.' falls between schema and table
+		// would previously fold onto the same dataset id (schema.table joined unescaped).
+		const captured: string[] = [];
+		const recordingHost = { ...noopHost, openTableView: async (id: string) => { captured.push(id); } };
+		const mock = createMockClient();
+		const conn = new SnowflakeConnection(TEST_CONFIG, recordingHost);
+		// eslint-disable-next-line local/code-no-any-casts
+		(conn as any)._client = mock;
+
+		await conn.previewObject(mock, 'DB', 'a.b', 'c', 'table');
+		await conn.previewObject(mock, 'DB', 'a', 'b.c', 'table');
+
+		assert.strictEqual(new Set(captured).size, 2, 'each object should get a distinct dataset id');
+		await conn.disconnect();
 	});
 });
 
@@ -481,5 +527,9 @@ suite('Snowflake Account Parsing', () => {
 
 	test('legacy region locator is preserved', () => {
 		assert.strictEqual(parseSnowflakeAccount('xy12345.us-east-1'), 'xy12345.us-east-1');
+	});
+
+	test('non-.com realm host suffix is stripped', () => {
+		assert.strictEqual(parseSnowflakeAccount('https://myorg-myacct.snowflakecomputing.cn'), 'myorg-myacct');
 	});
 });

@@ -53,7 +53,7 @@ function isNonEmptyString(value: unknown): value is string {
  * Normalizes the Account field to a Snowflake account identifier. Accepts a bare identifier
  * (`myorg-myacct` or `xy12345.us-east-1`) or the full account URL the Snowflake console shows
  * (`https://myorg-myacct.snowflakecomputing.com`), stripping any scheme, path, and the
- * `.snowflakecomputing.com` suffix so pasting the console URL just works.
+ * `.snowflakecomputing.*` host suffix (any realm) so pasting the console URL just works.
  */
 export function parseSnowflakeAccount(input: string): string {
 	let s = input.trim();
@@ -67,10 +67,13 @@ export function parseSnowflakeAccount(input: string): string {
 	if (slashIdx !== -1) {
 		s = s.slice(0, slashIdx);
 	}
-	// Strip the account-URL host suffix, case-insensitively.
-	const suffix = '.snowflakecomputing.com';
-	if (s.toLowerCase().endsWith(suffix)) {
-		s = s.slice(0, s.length - suffix.length);
+	// Strip the account-URL host suffix, case-insensitively. Matches every realm's domain
+	// (.snowflakecomputing.com, .snowflakecomputing.cn, etc.) by cutting at the marker rather than a
+	// single hard-coded suffix.
+	const marker = '.snowflakecomputing.';
+	const markerIdx = s.toLowerCase().indexOf(marker);
+	if (markerIdx !== -1) {
+		s = s.slice(0, markerIdx);
 	}
 	return s;
 }
