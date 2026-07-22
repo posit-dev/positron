@@ -20,6 +20,8 @@ export let dirs = [
 	'extensions',
 	// --- Start Positron ---
 	'ai-lib/packages/ai-config',
+	'ai-lib/packages/ai-credentials',
+	'ai-lib/packages/ai-provider-bridge',
 	'extensions/authentication',
 	'extensions/next-edit-suggestions',
 	'extensions/open-remote-ssh',
