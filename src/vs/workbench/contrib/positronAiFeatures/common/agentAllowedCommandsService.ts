@@ -120,7 +120,6 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 		@IExtensionService private readonly _extensionService: IExtensionService,
 	) { }
 
-	// --- Start Positron ---
 	private _isTrustedCommandSource(source: ICommandActionSource | undefined): boolean {
 		if (!source) {
 			return true; // core built-in command with no extension origin
@@ -131,10 +130,9 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 		}
 		// Also allow built-in (system) extensions regardless of publisher
 		return this._extensionService.extensions.some(
-			e => e.identifier.value.toLowerCase() === source.id.toLowerCase() && e.isBuiltin
+			e => e.isBuiltin && e.identifier.value.toLowerCase() === source.id.toLowerCase()
 		);
 	}
-	// --- End Positron ---
 
 	getAgentAllowedCommands(): IAgentCommandDescriptor[] {
 		const all = this.getAllAgentCompatibleCommands();
@@ -168,48 +166,8 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 		}
 
 		const result: IAgentCommandDebugDescriptor[] = [];
-		for (const [id, command] of CommandsRegistry.getCommands()) {
-			if (!command.metadata?.agentCompatible) {
-				continue;
-			}
-
-			const meta = command.metadata;
-			const menuCmd = MenuRegistry.getCommand(id);
-			const precondition = menuCmd?.precondition;
-			const enabled = !precondition || this._contextKeyService.contextMatchesRules(precondition);
-			const source: IAgentCommandSource = menuCmd?.source
-				? { type: 'extension', id: menuCmd.source.id, displayName: menuCmd.source.title }
-				: { type: 'builtin' };
-			// --- Start Positron ---
-			if (!this._isTrustedCommandSource(menuCmd?.source)) {
-				continue;
-			}
-			// --- End Positron ---
-
-			result.push({
-				id,
-				description: toDescription(meta.description),
-				args: meta.args?.map(a => ({
-					name: a.name,
-					description: a.description,
-					schema: a.schema,
-					required: a.isOptional !== true,
-				})),
-				returns: meta.returns,
-				source,
-				enabled,
-				precondition: precondition?.serialize(),
-				inPalette: paletteIds.has(id),
-			});
-		}
-
-		// --- Start Positron ---
-		// Also surface commands contributed via package.json contributes.commands.
-		// These live in MenuRegistry pre-activation; CommandsRegistry only has them
-		// once the extension activates and calls vscode.commands.registerCommand.
-		const seenIds = new Set(result.map(r => r.id));
 		for (const [id, menuCmd] of MenuRegistry.getCommands()) {
-			if (!menuCmd.metadata?.agentCompatible || seenIds.has(id)) {
+			if (!menuCmd.metadata?.agentCompatible) {
 				continue;
 			}
 			if (!this._isTrustedCommandSource(menuCmd.source)) {
@@ -237,20 +195,16 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 				inPalette: paletteIds.has(id),
 			});
 		}
-		// --- End Positron ---
-
 		return result;
 	}
 
 	async validateAndExecute(commandId: string, args?: unknown[]): Promise<IValidateAndExecuteResult> {
-		// --- Start Positron ---
 		// Also check MenuRegistry for commands declared in contributes.commands whose
 		// extension has not yet activated. commandService.executeCommand fires the
 		// onCommand:<id> activation event which registers the handler before running it.
 		if (!CommandsRegistry.getCommand(commandId) && !MenuRegistry.getCommand(commandId)) {
 			return { ok: false, reason: 'not-found' };
 		}
-		// --- End Positron ---
 		// Precondition comes from the ICommandAction registered via MenuRegistry.addCommand
 		// (populated by registerAction2 when f1: true). Non-Action2 commands have no
 		// recorded precondition and are treated as always enabled.

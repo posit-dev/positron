@@ -70,6 +70,12 @@ describe('AgentAllowedCommandsService', () => {
 			id,
 			title: options.description ?? id,
 			precondition: options.precondition,
+			metadata: {
+				description: options.description ?? id,
+				agentCompatible: options.agentCompatible,
+				args: options.metadataArgs,
+				returns: options.metadataReturns,
+			},
 		}));
 		store.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, {
 			command: { id, title: options.description ?? id },
@@ -90,20 +96,12 @@ describe('AgentAllowedCommandsService', () => {
 			});
 			registerPaletteCommand('test.agent.excluded', { agentCompatible: false, description: 'not marked' });
 
-			// Marked agentCompatible but NOT registered in the command palette -- still included.
-			store.add(CommandsRegistry.registerCommand({
-				id: 'test.agent.notPalette',
-				handler: () => { },
-				metadata: { description: 'not palette-exposed', agentCompatible: true },
-			}));
-
 			const service = makeService();
 			const commands = service.getAgentAllowedCommands();
 			const ids = commands.map(c => c.id);
 
 			expect(ids).toContain('test.agent.included');
 			expect(ids).not.toContain('test.agent.excluded');
-			expect(ids).toContain('test.agent.notPalette');
 
 			const included = commands.find(c => c.id === 'test.agent.included')!;
 			expect(included).toMatchObject({
@@ -156,11 +154,6 @@ describe('AgentAllowedCommandsService', () => {
 				description: 'gated cmd',
 				precondition,
 			});
-			store.add(CommandsRegistry.registerCommand({
-				id: 'test.agent.debug.notPalette',
-				handler: () => { },
-				metadata: { description: 'not palette-exposed', agentCompatible: true },
-			}));
 
 			const service = makeService({
 				contextMatchesRules: (expr: ContextKeyExpression | undefined) => expr === undefined,
@@ -177,11 +170,6 @@ describe('AgentAllowedCommandsService', () => {
 				enabled: false,
 				precondition: precondition.serialize(),
 				inPalette: true,
-			});
-			expect(byId.get('test.agent.debug.notPalette')).toMatchObject({
-				enabled: true,
-				precondition: undefined,
-				inPalette: false,
 			});
 		});
 
