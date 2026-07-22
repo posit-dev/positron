@@ -55,6 +55,25 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		this._register(this._positronAssistantConfigurationService.onChangeProviderConfig(source => {
 			this._proxy.$onDidChangeProviderConfig(source);
 		}));
+
+		// Forward per-provider catalog enablement flips to the extension host. The
+		// baseline snapshot is captured after initialization so activation-time
+		// listeners never see a flip against the empty pre-initialization state.
+		let lastEnabled = new Map<string, boolean>();
+		const snapshotEnablement = () => new Map(this._aiProviderService.getProviders().map(p => [p.id, p.enabled]));
+		this._aiProviderService.whenInitialized.then(() => { lastEnabled = snapshotEnablement(); });
+		this._register(this._aiProviderService.onDidChangeProviders(e => {
+			if (!e.enabledChanged) {
+				return;
+			}
+			const current = snapshotEnablement();
+			for (const [id, enabled] of current) {
+				if (lastEnabled.get(id) !== undefined && lastEnabled.get(id) !== enabled) {
+					this._proxy.$onDidChangeProviderEnablement(id, enabled);
+				}
+			}
+			lastEnabled = current;
+		}));
 	}
 
 	/**
@@ -258,6 +277,17 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		// activation code; the RPC is already async so callers see no change.
 		await this._aiProviderService.whenInitialized;
 		return this._positronAssistantConfigurationService.getEnabledProviders();
+	}
+
+	/**
+	 * Check whether a provider (identified by its catalog id) is enabled in the
+	 * resolved provider catalog.
+	 */
+	async $isProviderEnabled(id: string): Promise<boolean> {
+		// Same timing rule as $getEnabledProviders: activation-time callers must
+		// not observe the pre-initialization snapshot.
+		await this._aiProviderService.whenInitialized;
+		return this._aiProviderService.isEnabled(id);
 	}
 
 	/**

@@ -3774,6 +3774,18 @@ declare module 'positron' {
 		export function getEnabledProviders(): Thenable<string[]>;
 
 		/**
+		 * Whether the provider with the given CATALOG id (e.g. 'copilot',
+		 * 'anthropic') is enabled in the resolved provider catalog. Unlike
+		 * getEnabledProviders(), ids are catalog ids, not registered auth-provider
+		 * ids, and no provider registration is required: the catalog's
+		 * default-enabled baseline answers for providers with no configuration.
+		 */
+		export function isProviderEnabled(id: string): Thenable<boolean>;
+
+		/** Fires when a provider's catalog enablement flips. Ids are catalog ids. */
+		export const onDidChangeProviderEnablement: vscode.Event<{ readonly id: string; readonly enabled: boolean }>;
+
+		/**
 		 * Checks if completions are enabled for the given file.
 		 * @param uri The file URI to check if completions are enabled.
 		 * @returns A Thenable that resolves to true if completions should be enabled for the file, false otherwise.
