@@ -19,6 +19,7 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
 import { ExtHostAiFeaturesShape, ExtHostPositronContext, ISerializedAgentCommand, ISerializedValidateAndExecuteCommandResult, MainPositronContext, MainThreadAiFeaturesShape } from '../../common/positron/extHost.positron.protocol.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
+import { IAiProviderService } from '../../../services/positronAiProvider/common/aiProviderService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ChatModeKind } from '../../../contrib/chat/common/constants.js';
 import { PromptRenderer } from '../../../contrib/positronAssistant/browser/prompts/promptRenderer.js';
@@ -44,6 +45,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IFileService private readonly _fileService: IFileService,
 		@IAgentAllowedCommandsService private readonly _agentAllowedCommandsService: IAgentAllowedCommandsService,
+		@IAiProviderService private readonly _aiProviderService: IAiProviderService,
 	) {
 		super();
 		// Create the proxy for the extension host.
@@ -252,6 +254,9 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 * Get the list of enabled provider IDs from configuration.
 	 */
 	async $getEnabledProviders(): Promise<string[]> {
+		// Never expose the empty pre-initialization snapshot to extension
+		// activation code; the RPC is already async so callers see no change.
+		await this._aiProviderService.whenInitialized;
 		return this._positronAssistantConfigurationService.getEnabledProviders();
 	}
 

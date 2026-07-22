@@ -24,6 +24,8 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { localize } from '../../../../nls.js';
 import { IAiProviderService } from '../../../services/positronAiProvider/common/aiProviderService.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { catalogIdForSettingName } from '../common/providerCatalogIds.js';
 
 /**
@@ -226,7 +228,9 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		@ITerminalService private readonly _terminalService: ITerminalService,
 		@IPositronAssistantConfigurationService private readonly _assistantConfigurationService: PositronAssistantConfigurationService,
 		@INotificationService private readonly _notificationService: INotificationService,
-		@ICommandService private readonly _commandService: ICommandService,
+		@IAiProviderService private readonly _aiProviderService: IAiProviderService,
+		@IEditorService private readonly _editorService: IEditorService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
 	}
@@ -303,28 +307,38 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		onClose: () => void,
 		options?: IShowLanguageModelConfigOptions,
 	): void {
-		const sources = this._assistantConfigurationService.getRegisteredSources();
-		if (sources.length === 0) {
-			this._notificationService.prompt(
-				Severity.Info,
-				localize('positron.noProvidersEnabled', "No language model providers are enabled. Enable at least one provider in Settings."),
-				[{
-					label: localize('positron.openSettings', "Open Settings"),
-					run: () => this._commandService.executeCommand('workbench.action.openSettings', 'positron.assistant.provider enable'),
-				}]
+		// Fire-and-forget, guaranteed to terminate: whenInitialized never
+		// rejects, so either the dialog/prompt shows or onClose runs.
+		this._aiProviderService.whenInitialized.then(() => {
+			const sources = this._assistantConfigurationService.getRegisteredSources();
+			if (sources.length === 0) {
+				this._notificationService.prompt(
+					Severity.Info,
+					localize('positron.noProvidersEnabled', "No language model providers are enabled. Enable at least one provider in providers.json."),
+					[{
+						label: localize('positron.openProvidersJson', "Open providers.json"),
+						run: async () => {
+							const resource = await this._aiProviderService.getConfigFileUri();
+							await this._editorService.openEditor({ resource });
+						},
+					}]
+				);
+				onClose();
+				return;
+			}
+			// Feature switch: the new "Configure LLM Providers" modal
+			const useNewModal = this._configurationService.getValue<boolean>(NEW_PROVIDER_MODAL_KEY) === true;
+			const showModal = useNewModal ? showConfigureLLMProvidersModal : showLanguageModelModalDialog;
+			showModal(
+				sources,
+				onAction,
+				onClose,
+				options
 			);
+		}).catch(error => {
+			this._logService.error('[positron assistant] failed to show provider dialog', error);
 			onClose();
-			return;
-		}
-		// Feature switch: the new "Configure LLM Providers" modal
-		const useNewModal = this._configurationService.getValue<boolean>(NEW_PROVIDER_MODAL_KEY) === true;
-		const showModal = useNewModal ? showConfigureLLMProvidersModal : showLanguageModelModalDialog;
-		showModal(
-			sources,
-			onAction,
-			onClose,
-			options
-		);
+		});
 	}
 
 	getChatExport() {

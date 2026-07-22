@@ -9,7 +9,6 @@ import { RuntimeState, LanguageRuntimeSessionMode } from '../../../../services/l
 import { IPositronAssistantService, IPositronAssistantConfigurationService, IPositronChatContext, IChatRequestData, IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
 import { PositronAssistantService } from '../../browser/positronAssistantService.js';
 import { INotificationService, IPromptChoice, Severity } from '../../../../../platform/notification/common/notification.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { ChatAgentLocation } from '../../../chat/common/constants.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
@@ -23,6 +22,9 @@ import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
+import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { DeferredPromise } from '../../../../../base/common/async.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 
 const { mockShowDialog } = vi.hoisted(() => ({ mockShowDialog: vi.fn() }));
@@ -142,18 +144,26 @@ describe('PositronAssistantService', () => {
 
 describe('PositronAssistantService showLanguageModelModalDialog', () => {
 	const prompt = vi.fn();
-	const executeCommand = vi.fn();
+	const openEditor = vi.fn();
 	const getRegisteredSources = vi.fn<() => IPositronLanguageModelSource[]>();
+	const getConfigFileUri = vi.fn<() => Promise<URI>>();
+	let whenInitializedDeferred: DeferredPromise<void>;
 	const ctx = createTestContainer()
 		.withRuntimeServices()
 		.stub(INotificationService, { prompt })
-		.stub(ICommandService, { executeCommand })
+		.stub(IEditorService, { openEditor })
 		.stub(IPositronAssistantConfigurationService, { getRegisteredSources })
+		.stub(IAiProviderService, {
+			getConfigFileUri,
+			get whenInitialized() { return whenInitializedDeferred.p; },
+		})
 		.build();
 
 	let service: PositronAssistantService;
 
 	beforeEach(() => {
+		whenInitializedDeferred = new DeferredPromise<void>();
+		getConfigFileUri.mockResolvedValue(URI.file('/home/u/.posit/ai/providers.json'));
 		service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronAssistantService));
 	});
 
@@ -166,37 +176,87 @@ describe('PositronAssistantService showLanguageModelModalDialog', () => {
 		};
 	}
 
-	it('notifies and closes without rendering when no providers are enabled', () => {
-		getRegisteredSources.mockReturnValue([]);
-		const onAction = vi.fn();
-		const onClose = vi.fn();
-
-		service.showLanguageModelModalDialog(onAction, onClose);
-
-		expect(prompt).toHaveBeenCalledTimes(1);
-		expect(prompt.mock.calls[0][0]).toBe(Severity.Info);
-		expect(prompt.mock.calls[0][1]).toBe('No language model providers are enabled. Enable at least one provider in Settings.');
-		expect(onClose).toHaveBeenCalledTimes(1);
-		expect(mockShowDialog).not.toHaveBeenCalled();
-	});
-
-	it('opens settings when the notification action is run', () => {
-		getRegisteredSources.mockReturnValue([]);
-
-		service.showLanguageModelModalDialog(vi.fn(), vi.fn());
-
-		const choices = prompt.mock.calls[0][2] as IPromptChoice[];
-		choices[0].run();
-		expect(executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', 'positron.assistant.provider enable');
-	});
-
-	it('renders the dialog with the registered sources when providers are enabled', () => {
+	it('defers the dialog until the provider service initializes, then shows it', async () => {
 		const sources = [makeSource('prov-a')];
 		getRegisteredSources.mockReturnValue(sources);
 		const onAction = vi.fn();
 		const onClose = vi.fn();
 
 		service.showLanguageModelModalDialog(onAction, onClose);
+
+		// Nothing shown yet: whenInitialized has not resolved.
+		expect(prompt).not.toHaveBeenCalled();
+		expect(mockShowDialog).not.toHaveBeenCalled();
+
+		whenInitializedDeferred.complete();
+		await whenInitializedDeferred.p;
+		// Allow the .then() continuation to run.
+		await Promise.resolve();
+
+		expect(mockShowDialog).toHaveBeenCalledTimes(1);
+		expect(mockShowDialog.mock.calls[0][0]).toBe(sources);
+	});
+
+	it('invokes onClose (never hangs) when initialization ends in error status', async () => {
+		getRegisteredSources.mockReturnValue([]);
+		const onClose = vi.fn();
+
+		service.showLanguageModelModalDialog(vi.fn(), onClose);
+
+		// whenInitialized never rejects, even when the catalog fetch failed;
+		// it resolves once the fetch attempt has completed.
+		whenInitializedDeferred.complete();
+		await whenInitializedDeferred.p;
+		await Promise.resolve();
+
+		expect(prompt).toHaveBeenCalledTimes(1);
+		expect(onClose).toHaveBeenCalledTimes(1);
+		expect(mockShowDialog).not.toHaveBeenCalled();
+	});
+
+	it('notifies and closes without rendering when no providers are enabled', async () => {
+		getRegisteredSources.mockReturnValue([]);
+		const onAction = vi.fn();
+		const onClose = vi.fn();
+
+		service.showLanguageModelModalDialog(onAction, onClose);
+		whenInitializedDeferred.complete();
+		await whenInitializedDeferred.p;
+		await Promise.resolve();
+
+		expect(prompt).toHaveBeenCalledTimes(1);
+		expect(prompt.mock.calls[0][0]).toBe(Severity.Info);
+		expect(prompt.mock.calls[0][1]).toBe('No language model providers are enabled. Enable at least one provider in providers.json.');
+		expect(onClose).toHaveBeenCalledTimes(1);
+		expect(mockShowDialog).not.toHaveBeenCalled();
+	});
+
+	it('the no-providers prompt opens providers.json in an editor', async () => {
+		getRegisteredSources.mockReturnValue([]);
+
+		service.showLanguageModelModalDialog(vi.fn(), vi.fn());
+		whenInitializedDeferred.complete();
+		await whenInitializedDeferred.p;
+		await Promise.resolve();
+
+		const choices = prompt.mock.calls[0][2] as IPromptChoice[];
+		await choices[0].run();
+
+		expect(openEditor).toHaveBeenCalledWith(expect.objectContaining({
+			resource: expect.objectContaining({ path: '/home/u/.posit/ai/providers.json' }),
+		}));
+	});
+
+	it('renders the dialog with the registered sources when providers are enabled', async () => {
+		const sources = [makeSource('prov-a')];
+		getRegisteredSources.mockReturnValue(sources);
+		const onAction = vi.fn();
+		const onClose = vi.fn();
+
+		service.showLanguageModelModalDialog(onAction, onClose);
+		whenInitializedDeferred.complete();
+		await whenInitializedDeferred.p;
+		await Promise.resolve();
 
 		expect(prompt).not.toHaveBeenCalled();
 		expect(mockShowDialog).toHaveBeenCalledTimes(1);
