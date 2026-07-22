@@ -116,6 +116,13 @@ IGNORE_PATTERNS+=(
 	# .claude/skills -> .agents/skills). Gitignored dev tooling, not needed by
 	# tests/build, and regenerated idempotently, so nothing to cache.
 	".claude/"
+	# TypeScript incremental-build caches emitted by composite/incremental
+	# projects (e.g. ai-lib/packages/ai-config, which has "composite": true).
+	# Nothing imports these -- tsc reads them only to skip unchanged files on a
+	# recompile, and regenerates them whenever it compiles. The actual build
+	# output (dist/) is cached separately, so a missing .tsbuildinfo costs at
+	# most a full recompile, never a broken build.
+	".tsbuildinfo"
 )
 
 # ============================================================================
