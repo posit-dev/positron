@@ -42,10 +42,19 @@ function spawnAsync(command: string, args: string[], opts: child_process.SpawnOp
 		let output = '';
 		child.stdout?.on('data', (data: Buffer) => { output += data.toString(); });
 		child.stderr?.on('data', (data: Buffer) => { output += data.toString(); });
-		child.on('error', reject);
-		child.on('close', (code) => {
+		// Name the command and cwd on failure so a crash points at the process that
+		// died. Concurrent installs interleave output, and a bare "exited with code"
+		// (e.g. a native module aborting with the Windows 0xC0000409 / 3221226505 exit
+		// code) doesn't say which dir crashed; the cwd is what identifies it.
+		const where = opts.cwd ? ` (cwd: ${opts.cwd})` : '';
+		const commandLine = `${command} ${args.join(' ')}`.trim();
+		child.on('error', (err) => {
+			reject(new Error(`Failed to spawn "${commandLine}"${where}: ${err.message}`));
+		});
+		child.on('close', (code, signal) => {
 			if (code !== 0) {
-				reject(new Error(`Process exited with code: ${code}\n${output}`));
+				const sig = signal ? `, signal: ${signal}` : '';
+				reject(new Error(`Command "${commandLine}"${where} exited with code: ${code}${sig}\n${output}`));
 			} else {
 				resolve(output);
 			}
