@@ -128,8 +128,15 @@ export function registerNotebookWidget(options: INotebookWidgetOptions): IDispos
 					? getNotebookInstanceFromEditorPane(editorGroup.activeEditorPane)
 					: undefined;
 
-				// Fall back to the global active editor (e.g. command palette context)
-				if (!notebook) {
+				// Fall back to the global active editor only when there is no
+				// editor-group context (e.g. command palette). Inside a group we
+				// must NOT borrow the globally-focused notebook: when a notebook is
+				// moved to another group, its badge can re-render before the new
+				// pane's notebookInstance is populated, and a global fallback would
+				// bind this group's badge to whichever notebook is focused. Render
+				// nothing instead and let the next re-render resolve this group's
+				// own notebook.
+				if (!notebook && !editorGroup) {
 					const editorService = accessor.get(IEditorService);
 					notebook = getNotebookInstanceFromActiveEditorPane(editorService);
 				}
