@@ -518,7 +518,9 @@ async function buildAiConfig({ force }: { force: boolean }): Promise<void> {
 		return;
 	}
 	log('ai-lib/packages/ai-config', 'Building ai-config (generate-schema + tsc)...');
-	await spawnAsync(npm, ['--prefix', 'ai-lib', 'run', 'build', '-w', 'ai-config'], { cwd: root });
+	// shell: true is required on Windows, where `npm` resolves to npm.cmd -- Node's
+	// child_process.spawn refuses to launch a .cmd directly (EINVAL) without it.
+	await spawnAsync(npm, ['--prefix', 'ai-lib', 'run', 'build', '-w', 'ai-config'], { cwd: root, shell: true });
 }
 // --- End Positron ---
 
