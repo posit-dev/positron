@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   test:
-    image: ghcr.io/posit-dev/positron-debian12:24.15.0
+    image: ghcr.io/posit-dev/positron-debian13:24.15.0
     container_name: test
     init: true
     ports:

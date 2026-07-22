@@ -7,10 +7,10 @@ set -eu
 OS_TYPE="ubuntu24"
 
 # Check for OS type argument
-if [ "${1:-}" = "ubuntu24" ] || [ "${1:-}" = "rocky8" ] || [ "${1:-}" = "opensuse156" ] || [ "${1:-}" = "sles156" ] || [ "${1:-}" = "debian12" ]; then
+if [ "${1:-}" = "ubuntu24" ] || [ "${1:-}" = "rocky8" ] || [ "${1:-}" = "opensuse156" ] || [ "${1:-}" = "sles156" ] || [ "${1:-}" = "debian13" ]; then
   OS_TYPE="$1"
 elif [ -n "${1:-}" ]; then
-  echo "Usage: $0 [ubuntu24|rocky8|opensuse156|sles156|debian12]"
+  echo "Usage: $0 [ubuntu24|rocky8|opensuse156|sles156|debian13]"
   echo "       Default is ubuntu24 if not specified"
   echo ""
 fi
