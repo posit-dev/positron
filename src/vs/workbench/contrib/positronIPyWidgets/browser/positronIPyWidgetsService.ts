@@ -2,7 +2,7 @@
  *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageStream, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
@@ -71,7 +71,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	override dispose(): void {
 		super.dispose();
 		// Clean up disposables linked to any connected sessions
-		this._sessionToDisposablesMap.forEach(disposables => disposables.dispose());
+		this._sessionToDisposablesMap.dispose();
 	}
 
 	/**
@@ -165,7 +165,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	 * repeatedly attaching to the same session which can happen in the case of the application
 	 * closing before the session ends
 	 */
-	private _sessionToDisposablesMap = new Map<string, DisposableStore>();
+	private readonly _sessionToDisposablesMap = new DisposableMap<string, DisposableStore>();
 
 	private attachSession(session: ILanguageRuntimeSession) {
 		// Check if we're already attached here
@@ -176,8 +176,9 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		}
 		const disposables = new DisposableStore();
 		this._sessionToDisposablesMap.set(session.sessionId, disposables);
-		// Cleanup from map when disposed.
-		disposables.add(toDisposable(() => this._sessionToDisposablesMap.delete(session.sessionId)));
+		// Cleanup from map when disposed. Use deleteAndLeak: the store is disposing
+		// itself right now, so just remove the map entry, don't dispose it again.
+		disposables.add(toDisposable(() => this._sessionToDisposablesMap.deleteAndLeak(session.sessionId)));
 
 		switch (session.metadata.sessionMode) {
 			case LanguageRuntimeSessionMode.Console:
