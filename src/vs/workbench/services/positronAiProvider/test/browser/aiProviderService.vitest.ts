@@ -142,14 +142,13 @@ describe('AiProviderService', () => {
 		expect(service.getProviders()).toEqual([]);
 	});
 
-	it('a failed fetch after a prior success keeps the previous snapshot (spec 7)', async () => {
+	it('a catalog change event replaces the prior snapshot in place', async () => {
 		const fake = fakeCatalog({ catalog: [provider('anthropic', true)] });
 		const service = createService(fake.catalog);
 		await service.whenInitialized;
 		expect(service.getProvider('anthropic')).toEqual(provider('anthropic', true));
 
-		// A live change event that carries a fresh catalog still updates in place;
-		// the prior snapshot persists until a successful refresh replaces it.
+		// A live change event that carries a fresh catalog updates the snapshot in place.
 		fake.onDidChangeCatalog.fire(change([provider('anthropic', false)]));
 		expect(service.isEnabled('anthropic')).toBe(false);
 		expect(service.getProviders()).toEqual([provider('anthropic', false)]);
