@@ -100,7 +100,9 @@ node .claude/skills/e2e-failure-analyzer/scripts/e2e-query-history.js \
 The response's `failure_patterns[]` is your map: each entry is a distinct
 failure mode (count-descending), with `count`, `percentage`, and up to two
 representative `occurrences` carrying `sha`, `os`, `browser`, `outcome`
-(`failed` | `flaky`), `run_url`, and `report_url`.
+(`failed` | `flaky`), `run_url`, and `report_url`. Each test object also carries
+a top-level `test_detail_view_url` -- a link to the test-health dashboard
+filtered to this test -- used for the diagnosis block in step 8.
 
 When you queried two branches, merge their `failure_patterns[]` into one list
 before building the step 4 table: match entries across the two responses by
@@ -543,8 +545,8 @@ its accuracy can be scored later against what actually fixed the flake.
 <details>
 <summary>🟢 <b>High confidence</b> -- <one-line hypothesis summary></summary>
 
-- **Spec:** `<spec path>`
-  - **Test:** `<full hierarchical test title>`
+- **Test:** [<full hierarchical test title>](<test_detail_view_url>)
+- **Targeted failure:** <the exact surface error/assertion string from step 4's table, e.g. `Test timeout of 120000ms exceeded`>
 - **Signal:** <trace-timeline mechanism observation, not the bare assertion string>
 - **Frequency:** <count/percentage + environment, e.g. "5/313 runs (1.6%), ubuntu/electron">
 - **Hypothesis:** <root-cause mechanism -- race / isolation / contention / infra / product-bug>
@@ -559,19 +561,34 @@ is attempt #2, not attempt #1, without re-running the git-merge-base check.
 
 Field notes:
 
-- **Spec and Test lead every block -- never drop them.** Each block names the
-  spec path and the **full hierarchical test title** (every enclosing
-  `test.describe()` joined with `" > "`, same key as step 1) -- they're the
-  block's identity, what makes it findable and scoreable per-test later. A
-  product-bug block whose fix lives in source still gets them: the diagnosis is
-  keyed to the test that surfaced it, not to the file being changed (this is
-  the field easiest to forget precisely on those blocks). When one block covers
-  more than one test, give each its own `Spec` + `Test` pair rather than
-  collapsing them into a prose "`pathA` and `pathB`" that a later per-test
-  search won't match.
+- **Test leads every block -- never drop it.** Each block names the **full
+  hierarchical test title** (every enclosing `test.describe()` joined with
+  `" > "`, same key as step 1), rendered as a plain markdown link with no
+  backticks -- `[<title>](<url>)`. It's the block's identity, what makes it
+  findable and scoreable per-test later. A product-bug block whose fix lives in
+  source still gets it: the diagnosis is keyed to the test that surfaced it, not
+  to the file being changed (this is the field easiest to forget precisely on
+  those blocks). The spec path is not a separate bullet -- it's already carried
+  in the link's `test_detail_view_url`. When one block covers more than one
+  test, give each its own `Test` bullet rather than collapsing them into a prose
+  "`testA` and `testB`" that a later per-test search won't match.
+  - **Link the Test title to the dashboard.** The step 2 API response carries a
+    per-test `test_detail_view_url` (the test-health dashboard filtered to this
+    test); render the Test title as a markdown link to it. Use it verbatim from
+    the response, don't hand-build the URL. It's a Connect app behind auth (an
+    anonymous fetch 401s), which is fine -- it's a link for a logged-in human,
+    not something to fetch. If a given response omits the field (older API),
+    fall back to the plain unlinked title (still no backticks).
 - **Confidence emoji:** 🟢 high, 🟡 medium, 🔴 low. Keep the word "confidence"
   in plain text next to the emoji so the block stays greppable for later
   scoring.
+- **Targeted failure names the surface error, not the mechanism.** It's the
+  row from step 4's table you set out to fix -- the raw assertion/timeout
+  string as CI reported it, nothing more -- so a later scorer can tell whether
+  a recurrence is the same mode or a different one. Keep it to the bare error
+  string; don't append pattern letters or the disposition of other modes. This
+  is distinct from Signal: the targeted failure is what CI printed; the Signal
+  is what the trace showed was really happening.
 - **Signal is the highest-leverage field, and the easiest to get lazy on.**
   Pull the timeline shape from the step 5-6 evidence -- what the trace or
   snapshot actually showed (e.g. "markers render right after import, then
