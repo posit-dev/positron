@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ISharedProcessService } from '../../../../platform/ipc/electron-browser/services.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IAiProviderService } from '../../positronAiProvider/common/aiProviderService.js';
 import { IAuthenticationService } from '../../authentication/common/authentication.js';
 import { IRemoteAgentService } from '../../remote/common/remoteAgentService.js';
 import { AbstractHeadlessLanguageModelService } from '../browser/abstractHeadlessLanguageModelService.js';
@@ -23,10 +23,10 @@ export class NativeHeadlessLanguageModelService extends AbstractHeadlessLanguage
 		@IRemoteAgentService private readonly _remoteAgentService: IRemoteAgentService,
 		@ISharedProcessService private readonly _sharedProcessService: ISharedProcessService,
 		@IAuthenticationService authService: IAuthenticationService,
-		@IConfigurationService configService: IConfigurationService,
+		@IAiProviderService aiProviderService: IAiProviderService,
 		@ILogService logService: ILogService,
 	) {
-		super(authService, configService, logService);
+		super(authService, aiProviderService, logService);
 	}
 
 	protected createEngine(): IHeadlessLanguageModelEngine | undefined {

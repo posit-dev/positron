@@ -5,8 +5,8 @@
 
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IAuthenticationService } from '../../authentication/common/authentication.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IAiProviderService } from '../../positronAiProvider/common/aiProviderService.js';
 import { IRemoteAgentService } from '../../remote/common/remoteAgentService.js';
 import { AbstractHeadlessLanguageModelService } from './abstractHeadlessLanguageModelService.js';
 import { HeadlessLanguageModelEngineChannelClient, HEADLESS_LM_ENGINE_CHANNEL, IHeadlessLanguageModelEngine } from '../../../../platform/positronHeadlessLanguageModel/common/engine.js';
@@ -22,10 +22,10 @@ export class BrowserHeadlessLanguageModelService extends AbstractHeadlessLanguag
 	constructor(
 		@IRemoteAgentService private readonly _remoteAgentService: IRemoteAgentService,
 		@IAuthenticationService authService: IAuthenticationService,
-		@IConfigurationService configService: IConfigurationService,
+		@IAiProviderService aiProviderService: IAiProviderService,
 		@ILogService logService: ILogService,
 	) {
-		super(authService, configService, logService);
+		super(authService, aiProviderService, logService);
 	}
 
 	protected createEngine(): IHeadlessLanguageModelEngine | undefined {

@@ -74,7 +74,7 @@ export interface ILanguageModelMessage {
 export type ICredentials =
 	| { readonly type: 'apikey'; readonly apiKey: string; readonly baseUrl?: string; readonly customHeaders?: Record<string, string> }
 	| { readonly type: 'oauth'; readonly accessToken: string }
-	| { readonly type: 'aws-credentials'; readonly region: string; readonly accessKeyId?: string; readonly secretAccessKey?: string; readonly sessionToken?: string }
+	| { readonly type: 'aws-credentials'; readonly region: string; readonly profile?: string; readonly accessKeyId?: string; readonly secretAccessKey?: string; readonly sessionToken?: string }
 	| { readonly type: 'google-cloud'; readonly project: string; readonly location: string; readonly accessToken?: string };
 
 /** A model as the engine reports it: enough to select, route, and display. */
