@@ -9,11 +9,14 @@ on:
     paths:
       - '.github/cache-scripts/**'
       - '.github/workflows/test-cache-scripts.yml'
+      # The hash test require()s dirs.ts, so a change there can rotate the key too.
+      - 'build/npm/dirs.ts'
   push:
     branches: [main]
     paths:
       - '.github/cache-scripts/**'
       - '.github/workflows/test-cache-scripts.yml'
+      - 'build/npm/dirs.ts'
 
 jobs:
   test:
