@@ -1,4 +1,4 @@
-name: Test cache scripts
+name: 'Test: cache scripts'
 
 # Unit tests for the CI cache tooling in .github/cache-scripts/. These scripts
 # gate the build (check-uncached-artifacts.sh) and define the cache key/paths, so
@@ -20,7 +20,7 @@ on:
 
 jobs:
   test:
-    name: cache-script scenarios
+    name: cache-scenarios
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
