@@ -7,6 +7,7 @@ import { ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILang
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
+import { INotebookEditor } from '../../notebook/browser/notebookBrowser.js';
 import { INotebookEditorService } from '../../notebook/browser/services/notebookEditorService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -234,52 +235,69 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	}
 
 	private attachNotebookSession(session: ILanguageRuntimeSession, disposables: DisposableStore) {
+		// Bind the ipywidgets instance to a matching notebook editor.
+		const attachToEditor = (notebookEditor: INotebookEditor) => {
+			this._logService.debug(`Found a notebook editor for session '${session.sessionId}', starting ipywidgets instance`);
+
+			// We found a matching notebook editor, create an ipywidgets instance.
+			const { messaging, instance } = this.createWidgetInstance(
+				session,
+				notebookEditor.getId()
+			);
+			disposables.add(messaging);
+			disposables.add(instance);
+			this._notebookInstancesBySessionId.set(session.sessionId, instance);
+
+			// Unregister the instance when the session is disposed.
+			disposables.add(toDisposable(() => {
+				this._notebookInstancesBySessionId.delete(session.sessionId);
+			}));
+
+			// Dispose when the notebook text model changes.
+			disposables.add(notebookEditor.onDidChangeModel((e) => {
+				if (isEqual(session.metadata.notebookUri, e?.uri)) {
+					return;
+				}
+				this._logService.debug(`Editor model changed for session '${session.sessionId}, disposing ipywidgets instance`);
+				disposables.dispose();
+			}));
+
+			// Dispose when the notebook editor is removed.
+			disposables.add(this._notebookEditorService.onDidRemoveNotebookEditor((e) => {
+				if (e !== notebookEditor) {
+					return;
+				}
+				this._logService.debug(`Notebook editor removed for session '${session.sessionId}, disposing ipywidgets instance`);
+				disposables.dispose();
+			}));
+		};
+
+		// Dispose when the session ends. Registered up front so a session that
+		// ends before its editor appears still tears down the deferred listener.
+		disposables.add(session.onDidEndSession((e) => {
+			disposables.dispose();
+		}));
+
 		// For built-in notebooks: find the session's notebook editor by its notebook URI.
 		const notebookEditor = this._notebookEditorService.listNotebookEditors().find(
 			(editor) => isEqual(session.metadata.notebookUri, editor.textModel?.uri));
 
-		if (!notebookEditor) {
-			this._logService.error(`Could not find a notebook editor for session '${session.sessionId}'`);
+		if (notebookEditor) {
+			attachToEditor(notebookEditor);
 			return;
 		}
 
-		this._logService.debug(`Found an existing notebook editor for session '${session.sessionId}, starting ipywidgets instance`);
-
-		// We found a matching notebook editor, create an ipywidgets instance.
-		const { messaging, instance } = this.createWidgetInstance(
-			session,
-			notebookEditor.getId()
-		);
-		disposables.add(messaging);
-		disposables.add(instance);
-		this._notebookInstancesBySessionId.set(session.sessionId, instance);
-
-		// Unregister the instance when the session is disposed.
-		disposables.add(toDisposable(() => {
-			this._notebookInstancesBySessionId.delete(session.sessionId);
-		}));
-
-		// Dispose when the notebook text model changes.
-		disposables.add(notebookEditor.onDidChangeModel((e) => {
-			if (isEqual(session.metadata.notebookUri, e?.uri)) {
+		// The editor may not exist yet: the session can re-register before its
+		// editor is recreated (e.g. after a window reload). Defer the attach
+		// until a matching editor appears instead of giving up here, which
+		// would leave the widget permanently unrendered.
+		this._logService.debug(`No notebook editor yet for session '${session.sessionId}', waiting for one to appear`);
+		const deferredAttach = disposables.add(this._notebookEditorService.onDidAddNotebookEditor((editor) => {
+			if (!isEqual(session.metadata.notebookUri, editor.textModel?.uri)) {
 				return;
 			}
-			this._logService.debug(`Editor model changed for session '${session.sessionId}, disposing ipywidgets instance`);
-			disposables.dispose();
-		}));
-
-		// Dispose when the notebook editor is removed.
-		disposables.add(this._notebookEditorService.onDidRemoveNotebookEditor((e) => {
-			if (e !== notebookEditor) {
-				return;
-			}
-			this._logService.debug(`Notebook editor removed for session '${session.sessionId}, disposing ipywidgets instance`);
-			disposables.dispose();
-		}));
-
-		// Dispose when the session ends.
-		disposables.add(session.onDidEndSession((e) => {
-			disposables.dispose();
+			deferredAttach.dispose();
+			attachToEditor(editor);
 		}));
 	}
 

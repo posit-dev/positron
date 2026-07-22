@@ -148,18 +148,22 @@ describe('Positron - PositronIPyWidgetsService', () => {
 		// improper disposal of listeners
 	});
 
-	async function createNotebookInstance() {
-		const notebookUri = URI.file('notebook.ipynb');
-
-		// Add a mock notebook editor.
+	function createNotebookEditor(notebookUri: URI): TestNotebookEditor {
 		const onDidChangeModel = ctx.disposables.add(new Emitter<NotebookTextModel | undefined>());
-		const notebookEditor = <TestNotebookEditor>{
+		return <TestNotebookEditor>{
 			getId() { return 'test-notebook-editor-id'; },
 			onDidChangeModel: onDidChangeModel.event,
 			textModel: { uri: notebookUri },
 			getViewModel() { return undefined; },
 			changeModel(uri) { onDidChangeModel.fire(<NotebookTextModel>{ uri }); },
 		};
+	}
+
+	async function createNotebookInstance() {
+		const notebookUri = URI.file('notebook.ipynb');
+
+		// Add a mock notebook editor.
+		const notebookEditor = createNotebookEditor(notebookUri);
 		notebookEditorService.addNotebookEditor(notebookEditor);
 
 		// Start a notebook session.
@@ -212,6 +216,32 @@ describe('Positron - PositronIPyWidgetsService', () => {
 
 		// Check that the instance was removed.
 		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBe(false);
+	});
+
+	it('notebook session: attaches widget when the editor appears after the session starts', async () => {
+		// Regression (win/electron flake): after a window reload, the notebook
+		// session can re-register before its editor is recreated. The attach
+		// must defer and bind once the matching editor appears, rather than
+		// giving up on a one-shot lookup and leaving the widget unrendered.
+		const notebookUri = URI.file('notebook.ipynb');
+
+		// Start the notebook session BEFORE its editor exists.
+		const session = await startTestLanguageRuntimeSession(
+			ctx.instantiationService,
+			ctx.disposables,
+			{ sessionMode: LanguageRuntimeSessionMode.Notebook, notebookUri },
+		);
+		await timeout(0);
+
+		// No matching editor yet, so no instance yet.
+		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBe(false);
+
+		// The editor appears afterward.
+		notebookEditorService.addNotebookEditor(createNotebookEditor(notebookUri));
+		await timeout(0);
+
+		// The widget should now be attached to the late-arriving editor.
+		expect(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId)).toBe(true);
 	});
 
 });
