@@ -181,7 +181,7 @@ export class InlineQuarto {
 			await this.gotoLine(cellLine);
 			await run();
 			await expect(this.executingToolbarButton.first()).toBeVisible({ timeout: 10000 });
-		}).toPass({ timeout: 60000, intervals: [500] });
+		}).toPass({ timeout: 30000, intervals: [1000] });
 	}
 
 	async runCellAndWaitForOutput({ cellLine, outputLine, timeout = 120000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
