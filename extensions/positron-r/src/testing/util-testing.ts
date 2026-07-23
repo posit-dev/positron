@@ -43,7 +43,9 @@ export function uriToFileNodeId(uri: vscode.Uri): string {
  * `devtools::test_active_file(..., desc = 'LABEL')`.
  */
 export function escapeLabelForRDesc(label: string): string {
-	return label.replace(/'/g, '\\\'');
+	return label
+		.replace(/'/g, '\\\'')
+		.replace(/\n/g, '\\n');
 }
 
 export interface TestParser {
