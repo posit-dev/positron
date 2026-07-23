@@ -7,13 +7,24 @@ fix"). Save the diagnosis checkpoint first.
 
 If the root cause traces into a lower-level module with its own unit-test suite
 (e.g. an extension's process-spawning helper, not the e2e spec or a POM), write
-a deterministic unit test there instead of relying on the flaky e2e repro. Model
-the exact event ordering that triggers the bug (e.g. a Node child-process
-`exit`/`close` race), confirm it fails against current code (RED), apply the
-fix, confirm it passes (GREEN). Faster and more deterministic than a
-load-dependent e2e race, and it leaves behind a regression test the e2e repro
-wouldn't. Reach for an e2e-project repro when the mechanism is genuinely
-e2e-layer (a POM race, a shared fixture, UI timing).
+a deterministic unit test there instead of relying on the flaky e2e repro.
+**Invoke `author-vitest-tests` to write it** -- that skill owns the builder /
+`stubInterface` conventions and the RED bar, and pairs with `review-vitest-tests`.
+Don't hand-roll the test here. Model the exact event ordering that triggers the
+bug (e.g. a Node child-process `exit`/`close` race), confirm it fails against
+current code (RED), apply the fix, confirm it passes (GREEN).
+
+**A valid RED fails inside the assertion, for the diagnosed mechanism** -- it
+reproduces the race/ordering the diagnosis predicts. An import, compile, or
+setup error that fails *before* the assertion runs is **not** a RED: it proves
+nothing about the mechanism, and a green run afterward only proves the file now
+loads. If the test passes the moment it compiles, you never watched it fail for
+the right reason -- rework it until it fails on the behavior, then fix.
+
+A lower-level test is faster and more deterministic than a load-dependent e2e
+race, and it leaves behind a regression test the e2e repro wouldn't. Reach for
+an e2e-project repro when the mechanism is genuinely e2e-layer (a POM race, a
+shared fixture, UI timing).
 
 ## Pick a project, easiest first
 

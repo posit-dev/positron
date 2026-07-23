@@ -161,15 +161,25 @@ Save the diagnosis to the checkpoint (`--patch` a `diagnosis` object) and set
 
 ## Reproduce and fix
 
-**Save the diagnosis checkpoint first, then it is safe to `/clear`** and resume
-with `--resume <id>` before implementation -- the history and evidence work is
-durable on disk and won't be re-run. Set `phase=awaiting-clear` if you pause here.
+**Checkpoint the diagnosis, then `/clear` and `--resume <id>` before
+implementing.** History and evidence are durable on disk, so implementation
+should start from a **clean context carrying only the compact diagnosis** --
+don't drag the whole investigation into the fix, where cross-file edits, tests,
+and verification runs will grow context fast. Set `phase=awaiting-clear` before
+clearing; on resume, set `phase=implementation`.
 
-Read [`references/reproduction.md`](references/reproduction.md) at this stage. In
-short: prefer a deterministic lower-level regression test when the mechanism is
-below the e2e layer; otherwise use the smallest CI-exercised e2e project and
-recreate the triggering condition, not just a rerun. For a race, one green run
-is not proof.
+Read [`references/reproduction.md`](references/reproduction.md) at this stage.
+In short:
+
+- When the mechanism is below the e2e layer, write a deterministic lower-level
+  regression test -- **invoke `author-vitest-tests` to write it** (it owns the
+  builder/stub conventions and the RED bar, and pairs with `review-vitest-tests`);
+  don't hand-roll one. A valid RED fails *inside the assertion for the diagnosed
+  mechanism* -- an import, compile, or setup error is not a RED.
+- Otherwise use the smallest CI-exercised e2e project and recreate the
+  triggering condition, not just a rerun. For a race, one green run is not proof.
+- Keep verification output on disk or in the background (the `--repeat-each`
+  loop is noisy) -- read a summary, don't stream full runs into context.
 
 ## Record the result
 
