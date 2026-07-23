@@ -87,28 +87,36 @@ export class PositronImportSettings extends Action2 {
 			await fileService.createFile(positronSettingsPath);
 		}
 
-		await editorService.openEditor({
-			resource: positronSettingsPath,
-		});
-
-		const editor = editorService.activeEditor;
-		if (editor) {
-			disposables.add(
-				fileConfigurationService.disableAutoSave(editor)
-			);
-		}
-
-		// Resolve the settings model fully before writing the imported preview.
-		// openEditor() returns once the editor is shown, but the file-backed model
-		// resolves its on-disk contents asynchronously; writing before that settles
-		// lets the late resolve overwrite the preview (the conflict markers flash in,
-		// then get clobbered). Awaiting the model reference guarantees the initial
-		// resolve is done, and setValue then dirties the model so no reload follows.
+		// Stage the imported preview into the settings model *before* opening the
+		// editor, and keep the model dirty for the whole preview.
+		//
+		// settings.json is a shared, live model: startup config writes (theme-ID
+		// migration, console.scrollbackSize reset, files.associations registration
+		// from extension activation) all resolve/write/dispose it concurrently via
+		// IConfigurationService.updateValue during this same window. Those writes
+		// pass no handleDirtyFile option, so ConfigurationEditing.validate() rejects
+		// them with ERROR_CONFIGURATION_FILE_DIRTY when the model is dirty -- they
+		// cannot clobber a dirty preview. The only window where they *can* clobber is
+		// while the model is still clean. The previous ordering (openEditor first,
+		// then setValue) left that window open: the open resolves a clean model and
+		// schedules an async reload that overwrites the preview. Dirtying the model
+		// before the editor binds to it closes the window -- a dirty model is not
+		// reloaded from disk. disableAutoSave is applied by URI first so the dirty
+		// content can never be flushed while the prompt is up.
+		disposables.add(
+			fileConfigurationService.disableAutoSave(positronSettingsPath)
+		);
 		const modelRef = await textModelService.createModelReference(positronSettingsPath);
 		disposables.add(modelRef);
 		const model = modelRef.object.textEditorModel;
 		model.setLanguage('jsonl');
 		model.setValue('// Settings imported from Visual Studio Code\n' + mergedSettings);
+
+		await editorService.openEditor({
+			resource: positronSettingsPath,
+		});
+
+		const editor = editorService.activeEditor;
 
 		const notification = notificationService.prompt(
 			Severity.Info,

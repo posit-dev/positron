@@ -192,10 +192,22 @@ export class ConfigurationEditing {
 			throw this.toConfigurationEditingError(ConfigurationEditingErrorCode.ERROR_INVALID_CONFIGURATION, operation.target, operation);
 		}
 
-		if (this.textFileService.isDirty(model.uri) && options.handleDirtyFile) {
-			switch (options.handleDirtyFile) {
-				case 'save': await this.save(model, operation); break;
-				case 'revert': await this.textFileService.revert(model.uri); break;
+		if (this.textFileService.isDirty(model.uri)) {
+			if (options.handleDirtyFile) {
+				switch (options.handleDirtyFile) {
+					case 'save': await this.save(model, operation); break;
+					case 'revert': await this.textFileService.revert(model.uri); break;
+				}
+			} else {
+				// --- Start Positron ---
+				// validate() checks isDirty before the model reference is resolved
+				// (see doWriteConfiguration above). A caller that dirties the model
+				// in that window (e.g. a diff-preview editor binding to it) would
+				// otherwise sail through undetected and have its edit silently
+				// merged into -- and saved on top of -- the dirty buffer. Re-check
+				// here, immediately before the edit is applied, to close that gap.
+				throw this.toConfigurationEditingError(ConfigurationEditingErrorCode.ERROR_CONFIGURATION_FILE_DIRTY, operation.target, operation);
+				// --- End Positron ---
 			}
 		}
 
