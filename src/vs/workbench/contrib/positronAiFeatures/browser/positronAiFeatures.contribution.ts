@@ -7,12 +7,20 @@ import { Action2, registerAction2 } from '../../../../platform/actions/common/ac
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
 import { localize2 } from '../../../../nls.js';
+import { IConfigurationRegistry, Extensions as ConfigurationExtensions } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IUntitledTextResourceEditorInput } from '../../../common/editor.js';
 import { AgentAllowedCommandsService, IAgentAllowedCommandsService } from '../common/agentAllowedCommandsService.js';
 
 registerSingleton(IAgentAllowedCommandsService, AgentAllowedCommandsService, InstantiationType.Delayed);
+
+// The Posit Assistant extension ships `assistant.positronCommandIntegration` off by
+// default; Positron turns it on so the assistant can run IDE commands out of the box.
+// Users can still opt out per user/workspace.
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
+	.registerDefaultConfigurations([{ overrides: { 'assistant.positronCommandIntegration': true } }]);
 
 registerAction2(class ShowAgentAllowedCommandsAction extends Action2 {
 	constructor() {
