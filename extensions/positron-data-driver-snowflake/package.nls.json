@@ -1,0 +1,4 @@
+{
+	"displayName": "Positron Snowflake Data Connection Driver",
+	"description": "Provides a Snowflake data connection driver for the Data Connections panel."
+}

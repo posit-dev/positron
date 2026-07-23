@@ -71,6 +71,7 @@ const compilations = [
 	'extensions/positron-data-driver-pins/tsconfig.json',
 	'extensions/positron-data-driver-postgresql/tsconfig.json',
 	'extensions/positron-data-driver-redshift/tsconfig.json',
+	'extensions/positron-data-driver-snowflake/tsconfig.json',
 	'extensions/positron-data-driver-sqlite/tsconfig.json',
 	'extensions/positron-environment-modules/tsconfig.json',
 	'extensions/positron-file-transfer/tsconfig.json',
