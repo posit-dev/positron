@@ -173,16 +173,22 @@ export function VisualizePreview({ code, notebookUri, library, needsDfName }: Pr
 				setState({ status: 'error', message: summary });
 			}));
 
+			// execute() now returns a promise that signals acceptance; handle
+			// both a synchronous throw and an async rejection (e.g. RPC failure)
+			// so the error surfaces and subscriptions are cleaned up.
+			const handleExecuteError = (err: unknown) => {
+				setState({ status: 'error', message: err instanceof Error ? err.message : String(err) });
+				disposables.dispose();
+			};
 			try {
-				session.execute(
+				Promise.resolve(session.execute(
 					code,
 					execId,
 					RuntimeCodeExecutionMode.Silent,
 					RuntimeErrorBehavior.Continue,
-				);
+				)).catch(handleExecuteError);
 			} catch (err) {
-				setState({ status: 'error', message: err instanceof Error ? err.message : String(err) });
-				disposables.dispose();
+				handleExecuteError(err);
 				return;
 			}
 

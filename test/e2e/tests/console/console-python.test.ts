@@ -79,4 +79,22 @@ print("Completed all steps")
 		// Verify that not all work was completed (Step 9 should not appear)
 		await console.waitForConsoleContents('Step 9', { expectedCount: 0, timeout: 1000 });
 	});
+
+	test('Python - Incomplete input shows a continuation prompt (Unprocessed path)', async function ({ app, python }) {
+		const { console } = app.workbench;
+
+		// Python has no input boundary provider, so completeness is checked by
+		// the session over the Unprocessed mode. An incomplete statement must
+		// not execute; the console shows the continuation prompt instead.
+		await console.typeToConsole('def f():', true);
+		await console.waitForReady('...', 10000);
+
+		// Clearing the input returns the console to the primary prompt.
+		await console.clearInput();
+		await console.waitForReady('>>>', 10000);
+
+		// A complete statement still executes normally.
+		await console.typeToConsole('40 + 2', true);
+		await console.waitForConsoleContents('42', { timeout: 10000 });
+	});
 });

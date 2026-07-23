@@ -443,14 +443,16 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			metadata.cellId = options.cellId;
 		}
 		try {
-			session.execute(
+			// execute() now returns a promise that signals acceptance; a
+			// rejection (e.g. RPC failure) is surfaced on the execution.
+			Promise.resolve(session.execute(
 				code,
 				execution.id,
 				RuntimeCodeExecutionMode.Interactive,
 				errorBehavior,
 				undefined,
 				metadata,
-			);
+			)).catch((err) => execution.error(err));
 		} catch (err) {
 			execution.error(err);
 		}

@@ -30,12 +30,14 @@ export async function showPackageHelp(
 	const languageId = session.runtimeMetadata.languageId;
 
 	if (languageId === 'r') {
-		session.execute(
+		// Fire-and-forget interactive execution; ignore acceptance-promise
+		// rejections (e.g. RPC failures) so they don't surface as unhandled.
+		Promise.resolve(session.execute(
 			`help(package = "${packageName}", help_type = "html")`,
 			generateUuid(),
 			RuntimeCodeExecutionMode.Interactive,
 			RuntimeErrorBehavior.Stop,
-		);
+		)).catch(() => { });
 		return;
 	}
 

@@ -19,9 +19,11 @@ export type ILineNumbersOptions = Pick<IEditorOptions, 'lineNumbers' | 'lineNumb
  * editor widget.
  *
  * @param configurationService The configuration service to read editor/console settings from.
+ * @param readOnly Whether the input should be readonly (e.g. while a code
+ *   submission is in flight). Defaults to false.
  * @returns The configuration-driven IEditorOptions for the console input's code editor widget.
  */
-export function createConsoleInputEditorOptions(configurationService: IConfigurationService): IEditorOptions {
+export function createConsoleInputEditorOptions(configurationService: IConfigurationService, readOnly: boolean = false): IEditorOptions {
 	// Drop the configured `editor.lineNumbers` / `editor.lineNumbersMinChars`
 	// from the base options. The console input renders its prompt through the
 	// line numbers (see createConsoleInputLineNumbersOptions); letting the
@@ -37,7 +39,7 @@ export function createConsoleInputEditorOptions(configurationService: IConfigura
 		...configurationService.getValue<IFontOptions>('console'),
 		// IEditorOptions we override from their configured values.
 		...{
-			readOnly: false,
+			readOnly,
 			minimap: {
 				enabled: false
 			},

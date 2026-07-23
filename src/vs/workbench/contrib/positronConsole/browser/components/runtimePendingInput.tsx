@@ -32,8 +32,11 @@ export const RuntimePendingInput = memo((props: RuntimePendingInputProps) => {
 		props.fontInfo.typicalHalfwidthCharacterWidth
 	);
 
+	const submitting = props.runtimeItemPendingInput.submitting;
+
 	return (
-		<div className='pending-input'>
+		<div className={'pending-input' + (submitting ? ' submitting' : '')}>
+			{submitting && <div className='pending-input-submitting-bar' />}
 			{props.runtimeItemPendingInput.outputLines.map((outputLine, index) =>
 				<div key={outputLine.id}>
 					<span style={{ width: promptWidth }}>

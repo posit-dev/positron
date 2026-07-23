@@ -614,7 +614,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		errorBehavior: RuntimeErrorBehavior,
 		attribution?: IConsoleCodeAttribution,
 		executionMetadata?: Record<string, unknown>,
-	): void {
+	): Promise<void> {
 		this._lastUsed = Date.now();
 
 		let codeLocation: ICodeLocation | undefined = undefined;
@@ -636,7 +636,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 			}
 		}
 
-		this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior, codeLocation, undefined, executionMetadata);
+		return this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior, codeLocation, undefined, executionMetadata);
 	}
 
 	getExecutionCodeLocation(executionId: string): ICodeLocation | undefined {

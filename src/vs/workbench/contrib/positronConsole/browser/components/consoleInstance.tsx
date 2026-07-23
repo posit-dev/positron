@@ -14,6 +14,7 @@ import { getActiveWindow } from '../../../../../base/browser/dom.js';
 import * as nls from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { ConsoleInstanceItems } from './consoleInstanceItems.js';
+import { SubmittingOverlay } from './submittingOverlay.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { disposableTimeout } from '../../../../../base/common/async.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
@@ -74,6 +75,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [, setIgnoreNextScrollEvent, ignoreNextScrollEventRef] = useStateRef(false);
 	const [disconnected, setDisconnected] = useState(false);
 
+	// Whether the "Submitting..." + Cancel overlay should be shown. Set 1000ms
+	// after a submission starts (and only if it is still in progress), cleared
+	// as soon as the submission finishes.
+	const [showSubmittingOverlay, setShowSubmittingOverlay] = useState(false);
+
 	// Attach the find widget DOM node to the console container.
 	useEffect(() => {
 		const domNode = props.positronConsoleInstance.findWidgetDomNode;
@@ -102,6 +108,36 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	useEffect(() => {
 		props.positronConsoleInstance.layoutFindWidget(props.width);
 	}, [props.positronConsoleInstance, props.width]);
+
+	// Debounce the "Submitting..." + Cancel overlay: show it 1000ms after a
+	// submission starts (and only if it is still in progress), and hide it as
+	// soon as the submission finishes.
+	useEffect(() => {
+		const instance = props.positronConsoleInstance;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const disposable = instance.onDidChangeCodeSubmissionInProgress(inProgress => {
+			if (inProgress) {
+				timer = setTimeout(() => {
+					timer = undefined;
+					if (instance.codeSubmissionInProgress) {
+						setShowSubmittingOverlay(true);
+					}
+				}, 1000);
+			} else {
+				if (timer) {
+					clearTimeout(timer);
+					timer = undefined;
+				}
+				setShowSubmittingOverlay(false);
+			}
+		});
+		return () => {
+			if (timer) {
+				clearTimeout(timer);
+			}
+			disposable.dispose();
+		};
+	}, [props.positronConsoleInstance]);
 
 	// Anchor to bottom on shrink. The browser auto-clamps scrollTop on grow but not on shrink, so
 	// we need to set it ourselves. ResizeObserver fires between layout and paint, keeping the
@@ -747,6 +783,10 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					onSelectAll={() => selectAllRuntimeItems()}
 				/>
 			</div>
+			<SubmittingOverlay
+				visible={showSubmittingOverlay}
+				onCancel={() => props.positronConsoleInstance.cancelCodeSubmission()}
+			/>
 		</div>
 	);
 };

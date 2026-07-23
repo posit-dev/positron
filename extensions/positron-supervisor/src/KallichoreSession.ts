@@ -16,6 +16,7 @@ import { KernelInfoReply, KernelInfoRequest } from './jupyter/KernelInfoRequest'
 import { Barrier, PromiseHandles, withTimeout } from './async';
 import { ExecuteRequest, JupyterExecuteRequest } from './jupyter/ExecuteRequest';
 import { IsCompleteRequest, JupyterIsCompleteRequest } from './jupyter/IsCompleteRequest';
+import { CODE_INCOMPLETE_ERROR, EXECUTION_CANCELLED_ERROR, shouldExecuteAfterCompletenessCheck, shouldSendKernelInterrupt } from './completenessHelpers';
 import { CommInfoRequest } from './jupyter/CommInfoRequest';
 import { JupyterCommOpen } from './jupyter/JupyterCommOpen';
 import { CommOpenCommand } from './jupyter/CommOpenCommand';
@@ -133,6 +134,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	/** The current runtime state of this session */
 	private _runtimeState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
+
+	/**
+	 * Pending unprocessed (Flow 2) completeness checks, keyed by execution ID.
+	 * The value aborts the pending check, causing the corresponding `execute()`
+	 * call to reject with an `ExecutionCancelledError`. See `execute()` and
+	 * `interrupt()`.
+	 */
+	private _pendingUnprocessedExecutions: Map<string, () => void> = new Map();
 
 	/** A map of pending RPCs, used to pair up requests and replies */
 	private _pendingRequests: Map<string, JupyterRequest<any, any>> = new Map();
@@ -816,20 +825,35 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @param mode The execution mode
 	 * @param errorBehavior What to do if an error occurs
 	 */
-	execute(
+	async execute(
 		code: string,
 		id: string,
 		mode: positron.RuntimeCodeExecutionMode,
 		errorBehavior: positron.RuntimeErrorBehavior,
 		codeLocation?: positron.Utf8Location,
 		executionMetadata?: Record<string, unknown>
-	): void {
+	): Promise<void> {
 
-		// Translate the parameters into a Jupyter execute request
+		// For unprocessed code, check completeness ourselves before executing.
+		// This eliminates a client-to-(remote-)supervisor roundtrip: the
+		// console does not have to send a separate is_complete_request and wait
+		// for its reply before sending the execute_request. If the code is
+		// incomplete, throw so the console can show the continuation prompt; if
+		// the submission is cancelled while we wait, throw a cancellation error.
+		if (mode === positron.RuntimeCodeExecutionMode.Unprocessed) {
+			await this.checkUnprocessedCompleteness(code, id);
+		}
+
+		// Translate the parameters into a Jupyter execute request. `Unprocessed`
+		// behaves exactly like `Interactive` on the wire (displayed to the user,
+		// stored in history).
+		const interactiveLike =
+			mode === positron.RuntimeCodeExecutionMode.Interactive ||
+			mode === positron.RuntimeCodeExecutionMode.Unprocessed;
 		const request: JupyterExecuteRequest = {
 			code,
 			silent: mode === positron.RuntimeCodeExecutionMode.Silent,
-			store_history: mode === positron.RuntimeCodeExecutionMode.Interactive,
+			store_history: interactiveLike,
 			user_expressions: {},
 			allow_stdin: true,
 			stop_on_error: errorBehavior === positron.RuntimeErrorBehavior.Stop,
@@ -854,7 +878,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			};
 		}
 
-		// Create and send the execute request.
+		// Create and send the execute request. The promise returned by
+		// `execute()` signals ACCEPTANCE of the code (the request has been
+		// dispatched to the kernel), not completion, so we do not await the
+		// reply here. The reply paired with `ExecuteRequest` is `execute_result`,
+		// which the kernel only emits for code that produces a result value;
+		// awaiting it would hang forever on assignments, `print(...)`, and any
+		// other statement without a value. For `Unprocessed` code the
+		// completeness check above already established acceptance (rejecting on
+		// incomplete/cancelled). The reply is logged out of band.
 		const execute = new ExecuteRequest(id, request, cellId as string);
 		this.sendRequest(execute).then((reply) => {
 			this.log(`Execution result: ${JSON.stringify(reply)}`, vscode.LogLevel.Debug);
@@ -863,6 +895,43 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			// the request to Kallichore rather than a failure to execute it
 			this.log(`Failed to send execution request for '${code}': ${err}`, vscode.LogLevel.Error);
 		});
+	}
+
+	/**
+	 * Checks whether an unprocessed (Flow 2) code fragment is complete before
+	 * executing it. Sends an `is_complete_request` and awaits the reply. Rejects
+	 * (without sending the execute request) if the code is incomplete or if the
+	 * submission is cancelled via `interrupt()` while waiting.
+	 *
+	 * @param code The code to check.
+	 * @param id The execution ID, used to key the cancellation entry.
+	 */
+	private async checkUnprocessedCompleteness(code: string, id: string): Promise<void> {
+		// Register a cancellation entry so interrupt() can abort this check.
+		const abortPromise = new Promise<never>((_resolve, reject) => {
+			this._pendingUnprocessedExecutions.set(id, () => {
+				const err = new Error(
+					`Execution ${id} was cancelled before it was submitted`);
+				err.name = EXECUTION_CANCELLED_ERROR;
+				reject(err);
+			});
+		});
+
+		try {
+			// Send the is_complete_request and race it against cancellation.
+			const request: JupyterIsCompleteRequest = { code };
+			const isComplete = new IsCompleteRequest(request);
+			const reply = await Promise.race([this.sendRequest(isComplete), abortPromise]);
+
+			if (!shouldExecuteAfterCompletenessCheck(reply.status)) {
+				const err = new Error(
+					`Code fragment of length ${code.length} is incomplete`);
+				err.name = CODE_INCOMPLETE_ERROR;
+				throw err;
+			}
+		} finally {
+			this._pendingUnprocessedExecutions.delete(id);
+		}
 	}
 
 	/**
@@ -1750,6 +1819,26 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * been sent. Note that the kernel may not be interrupted immediately.
 	 */
 	async interrupt(): Promise<void> {
+		// Abort any pending unprocessed (Flow 2) completeness checks first; each
+		// abort makes the corresponding execute() reject with a cancellation
+		// error. Capture the count before clearing so we can decide whether the
+		// HTTP interrupt is still needed.
+		const pendingUnprocessedCount = this._pendingUnprocessedExecutions.size;
+		if (pendingUnprocessedCount > 0) {
+			for (const abort of Array.from(this._pendingUnprocessedExecutions.values())) {
+				abort();
+			}
+			this._pendingUnprocessedExecutions.clear();
+		}
+
+		// If we only had pending completeness checks to abort and the kernel is
+		// not currently busy, there is nothing running to interrupt; skip the
+		// HTTP interrupt (and the Interrupting state transition).
+		const kernelBusy = this._runtimeState === positron.RuntimeState.Busy;
+		if (!shouldSendKernelInterrupt(kernelBusy, pendingUnprocessedCount)) {
+			return;
+		}
+
 		// Mark the session as interrupting
 		this.onStateChange(positron.RuntimeState.Interrupting, 'interrupting kernel');
 

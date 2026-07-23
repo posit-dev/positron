@@ -5,7 +5,7 @@
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
-import { DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
+import { CodeSubmissionResult, DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
 import { RuntimeItem } from '../../browser/classes/runtimeItem.js';
 import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
@@ -313,8 +313,10 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 	private readonly _onDidAttachSessionEmitter = new Emitter<ILanguageRuntimeSession | undefined>();
 	private readonly _onDidChangeWidthInCharsEmitter = new Emitter<number>();
 	private readonly _onDidRequestRevealExecutionEmitter = new Emitter<string>();
+	private readonly _onDidChangeCodeSubmissionInProgressEmitter = new Emitter<boolean>();
 
 	private _findWidget: IConsoleFindWidget | undefined;
+	private _codeSubmissionInProgress = false;
 
 	private _state: PositronConsoleState = PositronConsoleState.Ready;
 	private _trace: boolean = false;
@@ -591,6 +593,27 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 	 * Interrupts the console.
 	 */
 	interrupt(code: string): void {
+		// No-op for test implementation
+	}
+
+	get onDidChangeCodeSubmissionInProgress(): Event<boolean> {
+		return this._onDidChangeCodeSubmissionInProgressEmitter.event;
+	}
+
+	get codeSubmissionInProgress(): boolean {
+		return this._codeSubmissionInProgress;
+	}
+
+	get submittingInputPromoted(): boolean {
+		return false;
+	}
+
+	async submitCode(code: string, attribution: IConsoleCodeAttribution): Promise<CodeSubmissionResult> {
+		this.executeCode(code, attribution);
+		return CodeSubmissionResult.Executed;
+	}
+
+	cancelCodeSubmission(): void {
 		// No-op for test implementation
 	}
 

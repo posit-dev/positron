@@ -3,12 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as React from 'react';
 import * as nls from '../../../../nls.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
-import { PositronConsoleFocused, PositronConsoleFindInputFocused, PositronConsoleFindVisible } from '../../../common/contextkeys.js';
+import { PositronConsoleFocused, PositronConsoleFindInputFocused, PositronConsoleFindVisible, ResourceContextKey } from '../../../common/contextkeys.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { PositronConsoleViewPane } from './positronConsoleView.js';
@@ -21,9 +22,12 @@ import { IClipboardService } from '../../../../platform/clipboard/common/clipboa
 import { ContextKeyExpr, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { localize2 } from '../../../../nls.js';
 import { ConsoleFindWidgetFactory, PositronConsoleFindCommandId } from './positronConsoleFind.js';
+import { PositronActionBarWidgetRegistry } from '../../../../platform/positronActionBar/browser/positronActionBarWidgetRegistry.js';
+import { EditorCodeSubmissionService, IEditorCodeSubmissionService } from './editorCodeSubmission/editorCodeSubmissionService.js';
+import { EditorSubmittingWidgetMount } from './editorCodeSubmission/editorSubmittingWidget.js';
 
 // The Positron console view icon.
 const positronConsoleViewIcon = registerIcon(
@@ -198,3 +202,24 @@ registerPositronConsoleActions();
 
 // Singleton to allow service layers to instantiate a find widget.
 registerSingleton(IConsoleFindWidgetFactory, ConsoleFindWidgetFactory, InstantiationType.Delayed);
+
+// Service that provides feedback while code submitted from an editor is being
+// prepared for execution (statement range detection).
+registerSingleton(IEditorCodeSubmissionService, EditorCodeSubmissionService, InstantiationType.Delayed);
+
+// The "Submitting" widget shown in the editor action bar while a slow statement
+// range provider is being consulted. It is always mounted (the component renders
+// nothing until a submission crosses the widget threshold for the active editor)
+// and gated to languages that have statement range providers.
+PositronActionBarWidgetRegistry.registerWidget({
+	id: 'positronConsole.editorSubmitting',
+	menuId: MenuId.EditorActionsRight,
+	// Sit next to the missing-packages badge (order 95).
+	order: 96,
+	when: ContextKeyExpr.or(
+		ContextKeyExpr.equals(ResourceContextKey.LangId.key, 'python'),
+		ContextKeyExpr.equals(ResourceContextKey.LangId.key, 'r'),
+	),
+	selfContained: true,
+	componentFactory: (accessor) => () => React.createElement(EditorSubmittingWidgetMount, { accessor }),
+});

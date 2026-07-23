@@ -38,7 +38,7 @@ import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../serv
 import { IDebugService } from '../../debug/common/debug.js';
 import { ITextFileService } from '../../../services/textfile/common/textfiles.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
-import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { CodeAttributionSource, COMPLETENESS_VERIFIED_METADATA_KEY, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { createCodeLocation, ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -46,6 +46,7 @@ import { usingQuartoInlineOutput, isQuartoDocument, QUARTO_INLINE_OUTPUT_ENABLED
 import { getNotebookUriFromActiveEditor } from './getNotebookUriFromActiveEditor.js';
 import { IQuartoExecutionManager } from '../../positronQuarto/common/quartoExecutionTypes.js';
 import { NotebookContextKeys } from '../../positronNotebook/common/notebookContextKeys.js';
+import { IEditorCodeSubmissionService } from './editorCodeSubmission/editorCodeSubmissionService.js';
 
 /**
  * Positron console command ID's.
@@ -101,6 +102,7 @@ async function executeCodeInConsole(
 	},
 	opts: {
 		allowIncomplete?: boolean;
+		completenessVerified?: boolean;
 		languageId?: string;
 		mode?: RuntimeCodeExecutionMode;
 		errorBehavior?: RuntimeErrorBehavior;
@@ -122,12 +124,16 @@ async function executeCodeInConsole(
 	// Whether to allow incomplete code to be executed.
 	const allowIncomplete = opts.allowIncomplete;
 
-	// Create the attribution object. This is used to track the source of the code execution.
+	// Create the attribution object. This is used to track the source of the
+	// code execution. When the code came from a statement range provider, mark
+	// it as completeness-verified so the Console skips its own redundant
+	// completeness check (the provider already located one complete statement).
 	const attribution: IConsoleCodeAttribution = {
 		source: CodeAttributionSource.Script,
 		metadata: {
 			cursorLocation,
 			codeLocation,
+			...(opts.completenessVerified ? { [COMPLETENESS_VERIFIED_METADATA_KEY]: true } : {}),
 		}
 	};
 
@@ -414,12 +420,19 @@ export function registerPositronConsoleActions() {
 			const debugService = accessor.get(IDebugService);
 			const textFileService = accessor.get(ITextFileService);
 			const configurationService = accessor.get(IConfigurationService);
+			const editorCodeSubmissionService = accessor.get(IEditorCodeSubmissionService);
 
 			// By default we advance the cursor to the next statement
 			const advance = opts.advance === undefined ? true : opts.advance;
 
 			// The code to execute.
 			let code: string | undefined = undefined;
+
+			// Whether the code's completeness has already been verified. This is
+			// set only when the code is obtained from a statement range provider,
+			// which returns exactly one complete statement; the Console can then
+			// run it without re-checking completeness.
+			let completenessVerified = false;
 
 			// Determine if we're using a provided URI or the active editor
 			let editor: IEditor | undefined;
@@ -519,15 +532,40 @@ export function registerPositronConsoleActions() {
 			if (!isString(code) && statementRangeProviders.length > 0) {
 
 				let statementRange: IStatementRange | null | undefined = undefined;
+
+				// Begin a statement range detection session. This provides visual
+				// feedback (a gutter barber pole, and a "Submitting" action bar
+				// widget) if the provider is slow, keeping editor feedback symmetric
+				// with the console. The user can cancel the submission or choose to
+				// run the code as-is from the widget, which we race the provider
+				// against below.
+				const detection = editorCodeSubmissionService.beginStatementRangeDetection(
+					editor, model, position.lineNumber);
 				try {
 					// Just consult the first statement range provider if several are registered
-					statementRange = await statementRangeProviders[0].provideStatementRange(
-						model,
-						position,
-						CancellationToken.None);
-				} catch (err) {
-					// If the statement range provider throws an exception, log it and continue
-					logService.warn(`Failed to get statement range at ${position}: ${err}`);
+					const outcome = await detection.wait(Promise.resolve(
+						statementRangeProviders[0].provideStatementRange(
+							model,
+							position,
+							detection.token)));
+					switch (outcome.kind) {
+						case 'cancel':
+							// The user cancelled the submission; abort execution entirely.
+							return undefined;
+						case 'runAsIs':
+							// The user chose to run the code as-is; leave `statementRange`
+							// undefined so we fall through to line-based execution below.
+							break;
+						case 'error':
+							// If the statement range provider throws an exception, log it and continue
+							logService.warn(`Failed to get statement range at ${position}: ${outcome.error}`);
+							break;
+						case 'result':
+							statementRange = outcome.value;
+							break;
+					}
+				} finally {
+					detection.dispose();
 				}
 
 				if (statementRange) {
@@ -538,6 +576,10 @@ export function registerPositronConsoleActions() {
 							// returned `undefined` if it didn't think it was important.
 							code = isString(statementRange.code) ? statementRange.code : model.getValueInRange(statementRange.range);
 							codeLocation = createCodeLocation(model, model.uri, statementRange.range);
+
+							// The provider located a single complete statement, so
+							// the Console does not need to re-check its completeness.
+							completenessVerified = true;
 
 							if (advance) {
 								nextPosition = await this.advanceStatement(model, editor, statementRange, statementRangeProviders[0], logService);
@@ -654,6 +696,7 @@ export function registerPositronConsoleActions() {
 				},
 				{
 					allowIncomplete: opts.allowIncomplete,
+					completenessVerified,
 					languageId: opts.languageId,
 					mode: opts.mode,
 					errorBehavior: opts.errorBehavior

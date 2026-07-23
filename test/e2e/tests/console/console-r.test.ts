@@ -57,5 +57,45 @@ test.describe('Console Pane: R', {
 		await app.workbench.console.waitForConsoleContents('246', { expectedCount: 0, timeout: 5000 });
 
 	});
+
+	test('R - Multi-statement input executes each statement (input boundary provider path)', async function ({ app, r }) {
+		const { console } = app.workbench;
+
+		// Start from a clean input line: a prior test may have left unrun code
+		// pasted in the console input (e.g. the queued-execution test), and
+		// pasting appends at the cursor.
+		await console.clearInput();
+
+		// Submit two complete statements at once. The R input boundary provider
+		// splits them; the first executes immediately and the second is queued
+		// and run on the next idle transition.
+		await console.pasteCodeToConsole('x <- 1\ny <- 2');
+		await console.sendEnterKey();
+
+		// Both statements should be echoed.
+		await console.waitForConsoleContents('x <- 1', { expectedCount: 1, timeout: 10000 });
+		await console.waitForConsoleContents('y <- 2', { expectedCount: 1, timeout: 10000 });
+
+		// Both assignments took effect, proving both statements executed.
+		await console.typeToConsole('x + y', true);
+		await console.waitForConsoleContents('[1] 3', { timeout: 10000 });
+	});
+
+	test('R - Incomplete input shows a continuation prompt and does not execute', async function ({ app, r }) {
+		const { console } = app.workbench;
+
+		// An incomplete statement must not execute; the console shows the
+		// continuation prompt (+) so the user can finish typing. The editor
+		// auto-closes the '(', so typing 'f <- function(' yields
+		// 'f <- function()'.
+		await console.typeToConsole('f <- function(', true);
+		await console.waitForReady('+', 10000);
+
+		// Complete the statement by adding the function body; it should now run.
+		await console.typeToConsole(' { 42 }', true);
+		await console.waitForReady('>', 10000);
+		await console.typeToConsole('f()', true);
+		await console.waitForConsoleContents('[1] 42', { timeout: 10000 });
+	});
 });
 

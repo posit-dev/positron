@@ -37,6 +37,18 @@ export const enum PositronConsoleState {
 }
 
 /**
+ * Result of a code submission attempt made via {@link IPositronConsoleInstance.submitCode}.
+ */
+export const enum CodeSubmissionResult {
+	/** The code was accepted and (its first statement) sent for execution. */
+	Executed = 'executed',
+	/** The code is incomplete; nothing was submitted. Show the continuation prompt. */
+	Incomplete = 'incomplete',
+	/** The user cancelled the submission; nothing was (knowingly) submitted. */
+	Cancelled = 'cancelled',
+}
+
+/**
  * IPositronConsoleService interface.
  */
 export interface IPositronConsoleService {
@@ -429,6 +441,12 @@ export interface IPositronConsoleInstance {
 	readonly onDidChangeWidthInChars: Event<number>;
 
 	/**
+	 * Fires when a code submission (completeness check) starts or finishes.
+	 * The payload is the new value of {@link codeSubmissionInProgress}.
+	 */
+	readonly onDidChangeCodeSubmissionInProgress: Event<boolean>;
+
+	/**
 	 * Focuses the input for the console.
 	 * @param options Options controlling how focus is taken.
 	 */
@@ -538,6 +556,35 @@ export interface IPositronConsoleInstance {
 	 * @param code The optional code to interrupt.
 	 */
 	interrupt(code?: string): void;
+
+	/**
+	 * Whether a code submission (completeness check) is currently in flight.
+	 */
+	readonly codeSubmissionInProgress: boolean;
+
+	/**
+	 * Whether the code being submitted has been promoted into the transcript
+	 * (because more code was queued behind it). While true, the input line
+	 * should be hidden: its code now lives in the transcript, and showing an
+	 * empty prompt would invite the user to enter more code even though a
+	 * submission is still pending.
+	 */
+	readonly submittingInputPromoted: boolean;
+
+	/**
+	 * Submits code entered interactively: performs the completeness check
+	 * appropriate for the session/settings, then executes and/or queues it.
+	 *
+	 * @param code The code to submit.
+	 * @param attribution An attribution object that describes the source of the code.
+	 * @returns The result of the submission attempt.
+	 */
+	submitCode(code: string, attribution: IConsoleCodeAttribution): Promise<CodeSubmissionResult>;
+
+	/**
+	 * Cancels the in-flight submission, if any.
+	 */
+	cancelCodeSubmission(): void;
 
 	/**
 	 * Gets the clipboard representation of the console instance.
