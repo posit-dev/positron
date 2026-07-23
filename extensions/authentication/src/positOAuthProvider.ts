@@ -140,7 +140,7 @@ export class PositOAuthProvider extends AuthProvider {
 		await this.context.secrets.delete('posit-ai.token_expiry');
 	}
 
-	cancelSignIn(): void {
+	override cancelSignIn(): void {
 		this._cancellationToken?.cancel();
 		this._cancellationToken?.dispose();
 		this._cancellationToken = null;

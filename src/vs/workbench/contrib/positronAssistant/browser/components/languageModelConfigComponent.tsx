@@ -168,7 +168,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 	const hasAutoconfigure = !!source.defaults.autoconfigure && source.defaults.autoconfigure.signedIn && authStatus === AuthStatus.SIGNED_IN;
 	const showApiKeyInput = authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN && !hasAutoconfigure;
 	const showCancelButton = authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.SIGNING_IN && !hasAutoconfigure;
-	const showBaseUrl = (authMethod === AuthMethod.API_KEY || authMethod === AuthMethod.NONE) && source.supportedOptions?.includes('baseUrl') && !hasAutoconfigure;
+	const showBaseUrl = (authMethod === AuthMethod.API_KEY || authMethod === AuthMethod.OAUTH || authMethod === AuthMethod.NONE) && source.supportedOptions?.includes('baseUrl') && !hasAutoconfigure;
 
 	// This currently only updates the API key for the provider, but in the future it may be extended to support
 	// additional configuration options for language models.
@@ -176,7 +176,17 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 		props.onChange({ ...props.config, apiKey: newApiKey });
 	};
 
+	// Under OAuth the base URL (e.g. the Databricks workspace URL) is an input to
+	// the sign-in flow, and once signed in (either method) it is read-only context
+	// for the sign-out action — in both cases it renders above the button. Only
+	// the API-key entry layout (inputs, then button, then base URL) is preserved.
+	const baseUrlElement = showBaseUrl
+		? <BaseUrl baseUrl={config.baseUrl} provider={props.source.provider} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />
+		: null;
+	const showBaseUrlAboveSignIn = authMethod === AuthMethod.OAUTH || authStatus === AuthStatus.SIGNED_IN;
+
 	return <>
+		{showBaseUrlAboveSignIn && baseUrlElement}
 		{!hasAutoconfigure && <div className='language-model-container input'>
 			{showApiKeyInput && <ApiKey apiKey={apiKey} inputRef={apiKeyInputRef} onChange={onChange} />}
 			<SignInButton authMethod={authMethod} authStatus={authStatus} onSignIn={() => props.onSignIn(apiKeyInputRef.current?.value)} />
@@ -187,7 +197,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 			}
 		</div>}
 		{source.provider.id === 'copilot-auth' && authStatus === AuthStatus.SIGNED_IN && <CopilotSignoutGuidance closeDialog={props.closeDialog} />}
-		{showBaseUrl && <BaseUrl baseUrl={config.baseUrl} provider={props.source.provider} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />}
+		{!showBaseUrlAboveSignIn && baseUrlElement}
 		<AutoconfiguredModel details={source.defaults.autoconfigure} displayName={source.provider.displayName} provider={source.provider.id} supportsBaseUrl={source.supportedOptions?.includes('baseUrl')} />
 		<ProviderNotice provider={source.provider} />
 	</>;
@@ -195,8 +205,28 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 
 const DEPLOYMENT_URL_PATTERN = /\/openai\/deployments\//;
 const SNOWFLAKE_PROVIDER_ID = 'snowflake-cortex';
+const DATABRICKS_PROVIDER_ID = 'databricks';
 
 const BaseUrl = (props: { baseUrl?: string; signedIn?: boolean; onChange: (newBaseUrl: string) => void; provider: IProvider }) => {
+	// For Databricks, baseUrl holds the workspace URL: relabel as "Workspace URL".
+	if (props.provider.id === DATABRICKS_PROVIDER_ID) {
+		const workspaceUrlLabel = localize('positron.languageModelConfig.databricksWorkspaceUrlInputLabel', 'Workspace URL');
+		return (
+			<div className='language-model-authentication-container' id='base-url-input'>
+				{
+					props.signedIn ?
+						<p>{localize('positron.languageModelConfig.databricksWorkspaceUrlSignedIn', "Workspace URL: {0}", props.baseUrl)}</p>
+						:
+						<LabeledTextInput
+							label={workspaceUrlLabel}
+							type='text'
+							value={props.baseUrl ?? ''}
+							onChange={e => { props.onChange(e.currentTarget.value); }} />
+				}
+			</div>
+		);
+	}
+
 	// For Snowflake, baseUrl holds the bare account, not a URL: relabel as
 	// "Account Identifier" and pass through. Don't make it a URL input (#13750).
 	if (props.provider.id === SNOWFLAKE_PROVIDER_ID) {

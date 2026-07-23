@@ -22,3 +22,9 @@ export const CUSTOM_PROVIDER_AUTH_PROVIDER_ID = 'openai-compatible';
 export const GEMINI_AUTH_PROVIDER_ID = 'google';
 export const GOOGLE_CLOUD_AUTH_PROVIDER_ID = 'google-cloud';
 export const DEEPSEEK_AUTH_PROVIDER_ID = 'deepseek-api';
+export const DATABRICKS_AUTH_PROVIDER_ID = 'databricks';
+
+export const DATABRICKS_OAUTH_CLIENT_ID = 'databricks-cli';
+export const DATABRICKS_OAUTH_REDIRECT_PORT = 8020;
+export const DATABRICKS_OAUTH_REDIRECT_URI = 'http://localhost:8020';
+export const DATABRICKS_OAUTH_SCOPES = 'all-apis offline_access';

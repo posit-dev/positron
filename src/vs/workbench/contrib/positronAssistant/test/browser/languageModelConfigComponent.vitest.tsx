@@ -102,14 +102,17 @@ describe('LanguageModelConfigComponent base-URL input', () => {
 	const ctx = createTestContainer().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function renderConfig(supportedOptions: string[]) {
+	function renderConfig(supportedOptions: string[], options?: {
+		authMethod?: AuthMethod;
+		provider?: { id: string; displayName: string };
+	}) {
 		rtl.render(
 			<LanguageModelConfigComponent
-				authMethod={AuthMethod.NONE}
+				authMethod={options?.authMethod ?? AuthMethod.NONE}
 				authStatus={AuthStatus.SIGNED_OUT}
 				closeDialog={() => { }}
 				config={{ model: '' }}
-				source={makeSource({ supportedOptions })}
+				source={makeSource({ supportedOptions, provider: options?.provider })}
 				onCancel={() => { }}
 				onChange={() => { }}
 				onSignIn={() => { }}
@@ -126,6 +129,34 @@ describe('LanguageModelConfigComponent base-URL input', () => {
 	it('does not render the base-URL input when supportedOptions is empty', () => {
 		renderConfig([]);
 
+		expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
+	});
+
+	it('shows the base URL input under OAuth when the provider supports baseUrl', () => {
+		renderConfig(['oauth', 'apiKey', 'baseUrl'], { authMethod: AuthMethod.OAUTH });
+
+		expect(screen.getByLabelText('Base URL')).toBeInTheDocument();
+	});
+
+	it('hides the base URL input under OAuth when the provider does not support baseUrl', () => {
+		renderConfig(['oauth'], { authMethod: AuthMethod.OAUTH });
+
+		expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
+	});
+
+	it('still shows the base URL input under API key auth', () => {
+		renderConfig(['apiKey', 'baseUrl'], { authMethod: AuthMethod.API_KEY });
+
+		expect(screen.getByLabelText('Base URL')).toBeInTheDocument();
+	});
+
+	it('labels the Databricks base URL input as Workspace URL', () => {
+		renderConfig(['oauth', 'apiKey', 'baseUrl'], {
+			authMethod: AuthMethod.OAUTH,
+			provider: { id: 'databricks', displayName: 'Databricks' },
+		});
+
+		expect(screen.getByLabelText('Workspace URL')).toBeInTheDocument();
 		expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
 	});
 });

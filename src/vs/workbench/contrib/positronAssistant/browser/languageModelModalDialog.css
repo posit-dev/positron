@@ -114,10 +114,35 @@
 	height: 2rem;
 	border-radius: 5px;
 	border: 1px solid var(--vscode-positronModalDialog-buttonBorder);
+	color: var(--vscode-positronModalDialog-buttonForeground);
 	background: var(--vscode-positronModalDialog-buttonBackground);
 	width: 80px;
 	min-width: 80px;
 	text-align: center !important;
+}
+
+.language-model.button.sign-in:hover,
+.language-model.button.cancel:hover {
+	background: var(--vscode-positronModalDialog-buttonHoverBackground);
+}
+
+/*
+	VS Code 1.109.0 changed secondary buttons to have transparent background and no border in dark
+	mode. Modal dialog buttons need a visible border, mirroring .action-bar-button:not(.default)
+	in positronModalDialog.css.
+*/
+.vs-dark .language-model.button.sign-in:not(.default),
+.vs-dark .language-model.button.cancel {
+	border: 1px solid var(--vscode-button-border);
+}
+
+.language-model.button.sign-in.default {
+	color: var(--vscode-positronModalDialog-defaultButtonForeground);
+	background: var(--vscode-positronModalDialog-defaultButtonBackground);
+}
+
+.language-model.button.sign-in.default:hover {
+	background: var(--vscode-positronModalDialog-defaultButtonHoverBackground);
 }
 
 /** layout the children of this container horizontally */

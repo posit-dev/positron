@@ -11,6 +11,7 @@ import {
 	AWS_AUTH_PROVIDER_ID,
 	CREDENTIAL_REFRESH_INTERVAL_MS,
 	CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
+	DATABRICKS_AUTH_PROVIDER_ID,
 	DEEPSEEK_AUTH_PROVIDER_ID,
 	FOUNDRY_AUTH_PROVIDER_ID,
 	GEMINI_AUTH_PROVIDER_ID,
@@ -25,6 +26,7 @@ import {
 	normalizeToV1Url,
 	validateAnthropicApiKey,
 	validateCustomProviderApiKey,
+	validateDatabricksApiKey,
 	validateDeepSeekApiKey,
 	validateFoundryApiKey,
 	validateGeminiApiKey,
@@ -39,6 +41,8 @@ import {
 	getSnowflakeConnectionsTomlPath,
 } from './credentials/snowflake';
 import { PositOAuthProvider } from './positOAuthProvider';
+import { DatabricksAuthProvider } from './databricksAuthProvider';
+import { normalizeHost } from './databricksOAuth';
 import * as fs from 'fs';
 import { log } from './log';
 import { migrateAwsSettings } from './migration/aws';
@@ -67,6 +71,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	await registerGeminiProvider(context);
 	await registerGeapProvider(context);
 	await registerDeepSeekProvider(context);
+	registerDatabricksProvider(context);
 	registerCustomProvider(context);
 
 	// Register providers so the Settings UI shows per-provider
@@ -681,6 +686,46 @@ async function registerDeepSeekProvider(
 	);
 
 	log.info(`Registered auth provider: ${DEEPSEEK_AUTH_PROVIDER_ID}`);
+}
+
+function registerDatabricksProvider(
+	context: vscode.ExtensionContext
+): void {
+	const logger = new AuthProviderLogger('Databricks');
+	const provider = new DatabricksAuthProvider(context);
+	context.subscriptions.push(
+		vscode.authentication.registerAuthenticationProvider(
+			DATABRICKS_AUTH_PROVIDER_ID, 'Databricks', provider,
+			{ supportsMultipleAccounts: false }
+		),
+		provider
+	);
+	registerAuthProvider(DATABRICKS_AUTH_PROVIDER_ID, provider, {
+		validateApiKey: validateDatabricksApiKey,
+		onSave: async (config) => {
+			// baseUrl holds the workspace host; persist it as
+			// DATABRICKS_HOST in the credentials setting. Read the global
+			// scope only so workspace-scoped values are not copied into
+			// global (same pattern as the Snowflake account sync).
+			const host = config.baseUrl?.trim();
+			if (!host) {
+				return;
+			}
+			const normalized = normalizeHost(host);
+			const cfg = vscode.workspace
+				.getConfiguration('authentication.databricks');
+			const inspection = cfg.inspect<Record<string, string>>('credentials');
+			const globalValue = inspection?.globalValue ?? {};
+			if (globalValue.DATABRICKS_HOST !== normalized) {
+				await cfg.update(
+					'credentials',
+					{ ...globalValue, DATABRICKS_HOST: normalized },
+					vscode.ConfigurationTarget.Global
+				);
+			}
+		},
+	});
+	logger.info('Registered auth provider');
 }
 
 function registerCustomProvider(

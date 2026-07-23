@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { AuthProvider } from './authProvider';
-import { PositOAuthProvider } from './positOAuthProvider';
 import { FOUNDRY_AUTH_PROVIDER_ID } from './constants';
 import { log } from './log';
 import { FOUNDRY_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
@@ -165,9 +164,7 @@ export async function providerAction(
 		}
 		case 'cancel': {
 			const provider = authProviders.get(providerId);
-			if (provider instanceof PositOAuthProvider) {
-				provider.cancelSignIn();
-			}
+			provider?.cancelSignIn?.();
 			break;
 		}
 		default:

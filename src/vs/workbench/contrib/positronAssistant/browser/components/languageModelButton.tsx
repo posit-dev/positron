@@ -9,6 +9,7 @@ import { localize } from '../../../../../nls.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { VerticalStack } from '../../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
 import Claude from '../icons/claude.js';
+import Databricks from '../icons/databricks.js';
 import DeepSeek from '../icons/deepseek.js';
 import Gemini from '../icons/gemini.js';
 import GithubCopilot from '../icons/githubCopilot.js';
@@ -94,6 +95,8 @@ export const LanguageModelIcon = (props: { provider: string; logoUrl?: string })
 				return <PositAi className='language-model icon' />;
 			case 'snowflake-cortex':
 				return <Snowflake className='language-model icon' />;
+			case 'databricks':
+				return <Databricks className='language-model icon' />;
 			case 'openai-compatible':
 				return <div className={`language-model icon button-icon codicon codicon-wrench`} />;
 			case 'error':
