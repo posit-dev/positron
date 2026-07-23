@@ -19,10 +19,14 @@ describe('codeFragmentsFromBoundaries', () => {
 	it('returns a single complete fragment', () => {
 		const code = 'x <- 1';
 		const result = codeFragmentsFromBoundaries(code, [boundary(0, 1, 'complete')]);
-		expect(result).toEqual({ fragments: ['x <- 1'], incomplete: false, invalid: false });
+		expect(result).toEqual({
+			fragments: [{ code: 'x <- 1', startLine: 0, endLine: 1 }],
+			incomplete: false,
+			invalid: false,
+		});
 	});
 
-	it('returns multiple complete fragments in order', () => {
+	it('returns multiple complete fragments in order with their line ranges', () => {
 		const code = 'x <- 1\ny <- 2\nz <- 3';
 		const result = codeFragmentsFromBoundaries(code, [
 			boundary(0, 1, 'complete'),
@@ -30,29 +34,39 @@ describe('codeFragmentsFromBoundaries', () => {
 			boundary(2, 3, 'complete'),
 		]);
 		expect(result).toEqual({
-			fragments: ['x <- 1', 'y <- 2', 'z <- 3'],
+			fragments: [
+				{ code: 'x <- 1', startLine: 0, endLine: 1 },
+				{ code: 'y <- 2', startLine: 1, endLine: 2 },
+				{ code: 'z <- 3', startLine: 2, endLine: 3 },
+			],
 			incomplete: false,
 			invalid: false,
 		});
 	});
 
-	it('joins a multi-line complete fragment with newlines', () => {
+	it('joins a multi-line complete fragment with newlines and spans its line range', () => {
 		const code = 'if (x) {\n  y\n}\nz';
 		const result = codeFragmentsFromBoundaries(code, [
 			boundary(0, 3, 'complete'),
 			boundary(3, 4, 'complete'),
 		]);
-		expect(result.fragments).toEqual(['if (x) {\n  y\n}', 'z']);
+		expect(result.fragments).toEqual([
+			{ code: 'if (x) {\n  y\n}', startLine: 0, endLine: 3 },
+			{ code: 'z', startLine: 3, endLine: 4 },
+		]);
 	});
 
-	it('skips whitespace boundaries', () => {
+	it('skips whitespace boundaries but keeps line ranges accurate', () => {
 		const code = 'x <- 1\n\ny <- 2';
 		const result = codeFragmentsFromBoundaries(code, [
 			boundary(0, 1, 'complete'),
 			boundary(1, 2, 'whitespace'),
 			boundary(2, 3, 'complete'),
 		]);
-		expect(result.fragments).toEqual(['x <- 1', 'y <- 2']);
+		expect(result.fragments).toEqual([
+			{ code: 'x <- 1', startLine: 0, endLine: 1 },
+			{ code: 'y <- 2', startLine: 2, endLine: 3 },
+		]);
 	});
 
 	it('flags an incomplete trailing boundary and does not emit a fragment for it', () => {
@@ -63,7 +77,7 @@ describe('codeFragmentsFromBoundaries', () => {
 		]);
 		expect(result.incomplete).toBe(true);
 		expect(result.invalid).toBe(false);
-		expect(result.fragments).toEqual(['x <- 1']);
+		expect(result.fragments).toEqual([{ code: 'x <- 1', startLine: 0, endLine: 1 }]);
 	});
 
 	it('flags an invalid trailing boundary', () => {
@@ -74,7 +88,7 @@ describe('codeFragmentsFromBoundaries', () => {
 		]);
 		expect(result.invalid).toBe(true);
 		expect(result.incomplete).toBe(false);
-		expect(result.fragments).toEqual(['x <- 1']);
+		expect(result.fragments).toEqual([{ code: 'x <- 1', startLine: 0, endLine: 1 }]);
 	});
 
 	it('returns no fragments for all-whitespace input', () => {

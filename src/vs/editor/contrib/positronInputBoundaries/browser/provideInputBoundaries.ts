@@ -53,14 +53,30 @@ export async function provideInputBoundaries(
 }
 
 /**
+ * A single executable code fragment produced from a `complete` input boundary,
+ * carrying its line range within the submitted code so callers can attribute it
+ * back to its source lines.
+ */
+export interface IInputBoundaryFragment {
+	/** The fragment code (the boundary's lines joined with `\n`). */
+	readonly code: string;
+
+	/** The fragment's 0-based start line within the submitted code. */
+	readonly startLine: number;
+
+	/** The fragment's 0-based end line (exclusive) within the submitted code. */
+	readonly endLine: number;
+}
+
+/**
  * The result of converting input boundaries into executable code fragments.
  */
 export interface IInputBoundaryFragments {
 	/**
 	 * The code fragments for the `complete` boundaries, in order. Each fragment
-	 * is the boundary's lines joined with `\n`.
+	 * is the boundary's lines joined with `\n`, tagged with its line range.
 	 */
-	readonly fragments: string[];
+	readonly fragments: IInputBoundaryFragment[];
 
 	/** True if any boundary was `incomplete`. */
 	readonly incomplete: boolean;
@@ -94,7 +110,7 @@ export function codeFragmentsFromBoundaries(
 	}
 
 	const lines = code.split('\n');
-	const fragments: string[] = [];
+	const fragments: IInputBoundaryFragment[] = [];
 	let incomplete = false;
 	let invalid = false;
 	let nextStart = 0;
@@ -138,7 +154,7 @@ export function codeFragmentsFromBoundaries(
 			case 'complete': {
 				const fragment = lines.slice(range.start, range.end).join('\n');
 				if (fragment.length > 0) {
-					fragments.push(fragment);
+					fragments.push({ code: fragment, startLine: range.start, endLine: range.end });
 				}
 				break;
 			}

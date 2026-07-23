@@ -12,7 +12,7 @@ import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
-import { codeFragmentsFromBoundaries, IInputBoundaryFragments, provideInputBoundaries } from '../../../../editor/contrib/positronInputBoundaries/browser/provideInputBoundaries.js';
+import { codeFragmentsFromBoundaries, IInputBoundaryFragment, IInputBoundaryFragments, provideInputBoundaries } from '../../../../editor/contrib/positronInputBoundaries/browser/provideInputBoundaries.js';
 import { IInputBoundary } from '../../../../editor/common/languages.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
@@ -55,6 +55,7 @@ import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurati
 import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry } from '../../../common/configuration.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent, isCompletenessVerified } from '../common/positronConsoleCodeExecution.js';
+import { fragmentCodeLocation, ICodeLocation } from '../common/codeLocation.js';
 import { EDITOR_FONT_DEFAULTS } from '../../../../editor/common/config/fontInfo.js';
 import { URI } from '../../../../base/common/uri.js';
 
@@ -2417,10 +2418,27 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			return CodeSubmissionResult.Executed;
 		}
 
-		// Only one submission can be in flight at a time. The input is readonly
-		// during a submission, so this should not normally happen; be defensive.
+		// Only one submission can be checked at a time. If another submission is
+		// already in flight, do not drop this code: queue it as pending input so
+		// it runs after the in-flight submission settles, matching `enqueueCode`
+		// and the pre-serialization behavior where every submitted line
+		// eventually executes. This is what lets a debugger command (or any fast
+		// successive line) typed while a prior submission is still in flight reach
+		// the runtime instead of being silently discarded. The submitting code
+		// lives in the input line (below the transcript), so promote it into the
+		// transcript first, keeping run order top-to-bottom.
 		if (this._currentSubmission) {
-			return CodeSubmissionResult.Cancelled;
+			this.promoteSubmittingInputToTranscript();
+			this.addPendingInput(
+				code,
+				attribution,
+				undefined,
+				RuntimeCodeExecutionMode.Interactive,
+				RuntimeErrorBehavior.Continue,
+				undefined,
+				false /* completenessVerified: re-checked when drained */
+			);
+			return CodeSubmissionResult.Executed;
 		}
 
 		// Start the submission. Record the submitting code so it can be promoted
@@ -2668,7 +2686,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 * @param executionMetadata Metadata to associate with the executions.
 	 */
 	private executeVerifiedFragments(
-		fragments: string[],
+		fragments: IInputBoundaryFragment[],
 		attribution: IConsoleCodeAttribution,
 		mode: RuntimeCodeExecutionMode,
 		errorBehavior: RuntimeErrorBehavior,
@@ -2676,11 +2694,18 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		executionMetadata: Record<string, unknown> | undefined
 	): void {
 		const [first, ...rest] = fragments;
-		void this.doExecuteCode(first, attribution, mode, errorBehavior, executionId, executionMetadata);
+		void this.doExecuteCode(
+			first.code,
+			this.attributeFragment(attribution, first),
+			mode,
+			errorBehavior,
+			executionId,
+			executionMetadata
+		);
 		for (const fragment of rest) {
 			this.addPendingInput(
-				fragment,
-				attribution,
+				fragment.code,
+				this.attributeFragment(attribution, fragment),
 				undefined,
 				mode,
 				errorBehavior,
@@ -2688,6 +2713,41 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				true /* completenessVerified */
 			);
 		}
+	}
+
+	/**
+	 * Derives a per-fragment attribution from the whole submission's
+	 * attribution. When the submission carries a source `codeLocation` (e.g. an
+	 * editor selection run for debugging), the location is offset so the
+	 * fragment is attributed to the source lines it actually came from, rather
+	 * than the whole selection. Boundary-splitting alone would leave every
+	 * fragment pointing at the whole selection's location, which breaks source
+	 * attribution and the line mapping a runtime uses to verify breakpoints.
+	 *
+	 * @param attribution The whole submission's attribution.
+	 * @param fragment The fragment and its line range within the submission.
+	 * @returns An attribution scoped to the fragment's source lines.
+	 */
+	private attributeFragment(
+		attribution: IConsoleCodeAttribution,
+		fragment: IInputBoundaryFragment
+	): IConsoleCodeAttribution {
+		const codeLocation = attribution.metadata?.codeLocation as ICodeLocation | undefined;
+		if (!codeLocation) {
+			return attribution;
+		}
+		return {
+			...attribution,
+			metadata: {
+				...attribution.metadata,
+				codeLocation: fragmentCodeLocation(
+					codeLocation,
+					fragment.code,
+					fragment.startLine,
+					fragment.endLine
+				),
+			},
+		};
 	}
 
 	/**

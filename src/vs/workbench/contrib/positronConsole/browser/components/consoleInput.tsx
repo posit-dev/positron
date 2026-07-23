@@ -93,11 +93,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		useStateRef<string | undefined>(undefined);
 	const shouldExecuteOnStartRef = useRef(false);
 
-	// Whether a code submission (completeness check) is currently in flight.
-	// While true the input editor is readonly; the other updateOptions call
-	// sites read this to preserve the readonly state.
-	const submissionInProgressRef = useRef(false);
-
 	// Whether the debounced submission visuals (dim + green barber pole) should
 	// be shown. Set 400ms after a submission starts, so quick checks don't
 	// flicker; cleared as soon as the submission finishes.
@@ -191,44 +186,39 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			return false;
 		}
 
-		// Submit the code for the completeness check appropriate for the
-		// session/settings. While the submission is in flight, make the input
-		// readonly so keystrokes are swallowed; the ref lets the other
-		// updateOptions call sites preserve the readonly state.
 		const attribution: IConsoleCodeAttribution = {
 			source: CodeAttributionSource.Interactive
 		};
 
-		submissionInProgressRef.current = true;
-		codeEditorWidgetRef.current.updateOptions({ readOnly: true });
+		// Clear the input immediately so that any keystrokes typed while this
+		// submission is in flight (type-ahead -- e.g. a debugger command entered
+		// right after) land in a clean editor rather than being appended to the
+		// code being submitted or dropped. The submitted code is echoed into the
+		// transcript when it executes; if the submission turns out incomplete or
+		// cancelled it is restored below so the user can finish editing it.
+		setCurrentCodeFragment(undefined);
+		codeEditorWidgetRef.current.setValue('');
 
-		let result: CodeSubmissionResult;
-		try {
-			result = await props.positronConsoleInstance.submitCode(code, attribution);
-		} finally {
-			submissionInProgressRef.current = false;
-			codeEditorWidgetRef.current.updateOptions({ readOnly: false });
-		}
+		const result = await props.positronConsoleInstance.submitCode(code, attribution);
 
-		// Incomplete: don't execute; let the Enter handler insert a
+		// Incomplete: restore the code and let the Enter handler insert a
 		// continuation line.
 		if (result === CodeSubmissionResult.Incomplete) {
+			codeEditorWidgetRef.current.setValue(code);
+			updateCodeEditorWidgetPosition(Position.Last, Position.Last);
 			return false;
 		}
 
-		// Cancelled: leave the editor text intact and editable, and don't
-		// insert a newline.
+		// Cancelled: restore the code, leaving it editable, and don't insert a
+		// newline.
 		if (result === CodeSubmissionResult.Cancelled) {
+			codeEditorWidgetRef.current.setValue(code);
+			updateCodeEditorWidgetPosition(Position.Last, Position.Last);
 			return true;
 		}
 
-		// Executed: clear the input and prepare for the next prompt.
-
-		// Clear the current code fragment.
-		setCurrentCodeFragment(undefined);
-
-		// Clear the code editor widget's model.
-		codeEditorWidgetRef.current.setValue('');
+		// Executed: the input was already cleared above (any type-ahead entered
+		// since is preserved). Prepare for the next prompt.
 
 		// Immediately change the prompt to be spaces to eliminate prompt flickering.
 		const promptWidth = Math.max(
@@ -636,9 +626,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Creates the configuration-driven editor options. Thin wrapper over the
 		// pure builder; deliberately excludes line number (prompt) options.
-		// Preserves the readonly state while a submission is in flight.
 		const createEditorOptions = (): IEditorOptions =>
-			createConsoleInputEditorOptions(services.configurationService, submissionInProgressRef.current);
+			createConsoleInputEditorOptions(services.configurationService);
 
 		// Create the code editor widget. The initial options combine the
 		// configuration-driven editor options with the state-driven line number
