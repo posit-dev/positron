@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import * as sinon from 'sinon';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { applyPwbPositAIDefault } from '../pwbDefaults';
 
@@ -22,41 +24,29 @@ function makeContext(): { context: vscode.ExtensionContext; globalState: Map<str
 	return { context, globalState };
 }
 
-function makeConfigStub(overrides: {
-	currentValue?: boolean;
-	globalValue?: boolean;
-	workspaceValue?: boolean;
-	updateError?: Error;
-} = {}) {
-	return {
-		get: sinon.stub().returns(overrides.currentValue),
-		inspect: sinon.stub().returns({
-			globalValue: overrides.globalValue,
-			workspaceValue: overrides.workspaceValue,
-			workspaceFolderValue: undefined,
-		}),
-		update: overrides.updateError
-			? sinon.stub().rejects(overrides.updateError)
-			: sinon.stub().resolves(),
-	};
+function writeConfig(configPath: string, providers: Record<string, unknown>): void {
+	fs.writeFileSync(configPath, JSON.stringify({ version: 1, providers }));
 }
 
 suite('applyPwbPositAIDefault', () => {
-	let getConfigurationStub: sinon.SinonStub;
+	let dir: string;
+	let configPath: string;
 
 	setup(() => {
-		getConfigurationStub = sinon.stub(vscode.workspace, 'getConfiguration');
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pwb-defaults-'));
+		configPath = path.join(dir, 'providers.json');
 	});
 
 	teardown(() => {
-		sinon.restore();
+		fs.rmSync(dir, { recursive: true, force: true });
 	});
 
 	test('does nothing when not on PWB', async () => {
 		const { context, globalState } = makeContext();
-		await applyPwbPositAIDefault(context, false);
 
-		assert.strictEqual(getConfigurationStub.called, false);
+		await applyPwbPositAIDefault(context, false, { configPath });
+
+		assert.strictEqual(fs.existsSync(configPath), false);
 		assert.strictEqual(globalState.size, 0);
 	});
 
@@ -64,63 +54,43 @@ suite('applyPwbPositAIDefault', () => {
 		const { context, globalState } = makeContext();
 		globalState.set('positAI.pwbDefaultApplied', true);
 
-		await applyPwbPositAIDefault(context, true);
+		await applyPwbPositAIDefault(context, true, { configPath });
 
-		assert.strictEqual(getConfigurationStub.called, false);
+		assert.strictEqual(fs.existsSync(configPath), false);
 	});
 
-	test('disables Posit AI on first run when no explicit value is set', async () => {
+	test('disables positai in providers.json on first PWB run', async () => {
 		const { context, globalState } = makeContext();
-		const config = makeConfigStub({ currentValue: undefined });
-		getConfigurationStub.returns(config);
 
-		await applyPwbPositAIDefault(context, true);
+		await applyPwbPositAIDefault(context, true, { configPath });
 
-		assert.strictEqual(config.update.calledOnceWith('enable', false, vscode.ConfigurationTarget.Global), true);
+		const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+		assert.strictEqual(config.providers.positai.enabled, false);
 		assert.strictEqual(globalState.get('positAI.pwbDefaultApplied'), true);
 	});
 
-	test('skips update when already disabled', async () => {
+	test('does not clobber an explicit enabled value in providers.json', async () => {
 		const { context, globalState } = makeContext();
-		const config = makeConfigStub({ currentValue: false });
-		getConfigurationStub.returns(config);
+		writeConfig(configPath, { positai: { enabled: true } });
 
-		await applyPwbPositAIDefault(context, true);
+		await applyPwbPositAIDefault(context, true, { configPath });
 
-		assert.strictEqual(config.update.called, false);
+		const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+		assert.strictEqual(config.providers.positai.enabled, true);
 		assert.strictEqual(globalState.get('positAI.pwbDefaultApplied'), true);
 	});
 
-	test('skips update when user has an explicit global value', async () => {
+	test('marks as applied even when the write fails', async () => {
 		const { context, globalState } = makeContext();
-		const config = makeConfigStub({ currentValue: true, globalValue: true });
-		getConfigurationStub.returns(config);
+		// A file in place of a directory segment makes `mkdir` fail, so the
+		// providers.json write itself fails.
+		const blocker = path.join(dir, 'blocker');
+		fs.writeFileSync(blocker, 'not a directory');
+		const unwritablePath = path.join(blocker, 'providers.json');
 
-		await applyPwbPositAIDefault(context, true);
+		await applyPwbPositAIDefault(context, true, { configPath: unwritablePath });
 
-		assert.strictEqual(config.update.called, false);
-		assert.strictEqual(globalState.get('positAI.pwbDefaultApplied'), true);
-	});
-
-	test('skips update when user has an explicit workspace value', async () => {
-		const { context, globalState } = makeContext();
-		const config = makeConfigStub({ currentValue: true, workspaceValue: true });
-		getConfigurationStub.returns(config);
-
-		await applyPwbPositAIDefault(context, true);
-
-		assert.strictEqual(config.update.called, false);
-		assert.strictEqual(globalState.get('positAI.pwbDefaultApplied'), true);
-	});
-
-	test('marks as applied even when update is blocked by admin policy', async () => {
-		const { context, globalState } = makeContext();
-		const config = makeConfigStub({ updateError: new Error('policy enforced') });
-		getConfigurationStub.returns(config);
-
-		await applyPwbPositAIDefault(context, true);
-
-		assert.strictEqual(config.update.calledOnce, true);
+		assert.strictEqual(fs.existsSync(unwritablePath), false);
 		assert.strictEqual(globalState.get('positAI.pwbDefaultApplied'), true);
 	});
 });

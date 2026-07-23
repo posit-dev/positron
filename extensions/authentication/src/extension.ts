@@ -309,22 +309,6 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 			}
 		})
 	);
-
-	// Sync Workbench endpoint to auth extension setting
-	if (hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
-		const endpoint = vscode.workspace
-			.getConfiguration('posit.workbench.foundry')
-			.get<string>('endpoint', '');
-		if (endpoint) {
-			const normalized = normalizeToV1Url(endpoint);
-			vscode.workspace
-				.getConfiguration('authentication.foundry')
-				.update('baseUrl', normalized, vscode.ConfigurationTarget.Global)
-				.then(undefined, err =>
-					logger.logOperationError('sync Foundry endpoint', err)
-				);
-		}
-	}
 }
 
 async function registerSnowflakeProvider(context: vscode.ExtensionContext): Promise<void> {
