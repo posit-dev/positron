@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Schemas } from '../../../../base/common/network.js';
-import { URI } from '../../../../base/common/uri.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { AiProviderCatalogChannelClient } from '../../../../platform/positronAiProvider/common/aiProviderCatalogChannelClient.js';
@@ -37,8 +35,8 @@ export class BrowserAiProviderService extends AbstractAiProviderService {
 		return new AiProviderCatalogChannelClient(connection.getChannel(POSITRON_AI_PROVIDER_CHANNEL));
 	}
 
-	protected toConfigUri(path: string): URI {
-		return URI.from({ scheme: Schemas.vscodeRemote, authority: this._environmentService.remoteAuthority, path });
+	protected remoteAuthority(): string | undefined {
+		return this._environmentService.remoteAuthority;
 	}
 }
 

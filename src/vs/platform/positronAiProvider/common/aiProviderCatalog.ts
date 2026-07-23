@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../base/common/event.js';
+import { URI } from '../../../base/common/uri.js';
 
 export const POSITRON_AI_PROVIDER_CHANNEL = 'positronAiProviderCatalog';
 
@@ -41,5 +42,6 @@ export interface IProviderCatalogChangeData {
 export interface IAiProviderCatalog {
 	readonly onDidChangeCatalog: Event<IProviderCatalogChangeData>;
 	getCatalog(): Promise<readonly IResolvedProviderData[]>;
-	getConfigFilePath(): Promise<string>;
+	/** The providers.json location as a URI, built on the node host that owns the path. */
+	getConfigFileUri(): Promise<URI>;
 }

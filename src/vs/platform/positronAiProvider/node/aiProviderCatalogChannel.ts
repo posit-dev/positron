@@ -24,8 +24,8 @@ export class AiProviderCatalogChannel implements IServerChannel {
 		switch (command) {
 			case 'getCatalog':
 				return this._catalog.getCatalog() as Promise<T>;
-			case 'getConfigFilePath':
-				return this._catalog.getConfigFilePath() as Promise<T>;
+			case 'getConfigFileUri':
+				return this._catalog.getConfigFileUri() as Promise<T>;
 		}
 		throw new Error(`Unknown command: ${command}`);
 	}

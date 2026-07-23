@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../base/common/event.js';
+import { URI, UriComponents } from '../../../base/common/uri.js';
 import { IChannel } from '../../../base/parts/ipc/common/ipc.js';
 import { IAiProviderCatalog, IProviderCatalogChangeData, IResolvedProviderData } from './aiProviderCatalog.js';
 
@@ -18,7 +19,7 @@ export class AiProviderCatalogChannelClient implements IAiProviderCatalog {
 		return this._channel.call('getCatalog');
 	}
 
-	getConfigFilePath(): Promise<string> {
-		return this._channel.call('getConfigFilePath');
+	async getConfigFileUri(): Promise<URI> {
+		return URI.revive(await this._channel.call<UriComponents>('getConfigFileUri'));
 	}
 }

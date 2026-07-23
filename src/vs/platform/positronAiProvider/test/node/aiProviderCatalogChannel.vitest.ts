@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { Emitter } from '../../../../base/common/event.js';
+import { URI } from '../../../../base/common/uri.js';
 import { IAiProviderCatalog, IProviderCatalogChangeData, IResolvedProviderData } from '../../common/aiProviderCatalog.js';
 import { AiProviderCatalogChannel } from '../../node/aiProviderCatalogChannel.js';
 
@@ -24,7 +25,7 @@ function fakeCatalog(overrides: Partial<IAiProviderCatalog> = {}): IAiProviderCa
 	return {
 		onDidChangeCatalog: new Emitter<IProviderCatalogChangeData>().event,
 		getCatalog: async () => providers,
-		getConfigFilePath: async () => '/tmp/providers.json',
+		getConfigFileUri: async () => URI.file('/tmp/providers.json'),
 		...overrides,
 	};
 }
@@ -35,9 +36,9 @@ describe('AiProviderCatalogChannel', () => {
 		expect(await channel.call(null, 'getCatalog')).toEqual(providers);
 	});
 
-	it('routes getConfigFilePath to the catalog', async () => {
+	it('routes getConfigFileUri to the catalog', async () => {
 		const channel = new AiProviderCatalogChannel(fakeCatalog());
-		expect(await channel.call(null, 'getConfigFilePath')).toBe('/tmp/providers.json');
+		expect(await channel.call(null, 'getConfigFileUri')).toEqual(URI.file('/tmp/providers.json'));
 	});
 
 	it('relays onDidChangeCatalog events', async () => {

@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Schemas } from '../../../../base/common/network.js';
-import { URI } from '../../../../base/common/uri.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ISharedProcessService } from '../../../../platform/ipc/electron-browser/services.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -40,11 +38,8 @@ export class NativeAiProviderService extends AbstractAiProviderService {
 		return new AiProviderCatalogChannelClient(channel);
 	}
 
-	protected toConfigUri(path: string): URI {
-		const authority = this._environmentService.remoteAuthority;
-		return authority
-			? URI.from({ scheme: Schemas.vscodeRemote, authority, path })
-			: URI.file(path);
+	protected remoteAuthority(): string | undefined {
+		return this._environmentService.remoteAuthority;
 	}
 }
 

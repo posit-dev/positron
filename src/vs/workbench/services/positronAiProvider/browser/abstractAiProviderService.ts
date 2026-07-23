@@ -5,6 +5,7 @@
 
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IAiProviderCatalog, IProviderCatalogChangeData, IResolvedProviderData } from '../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
@@ -15,8 +16,8 @@ import { AiProviderServiceStatus, IAiProviderService } from '../common/aiProvide
  * The catalog-mirroring core: it warms a synchronous snapshot from the node-side
  * catalog, keeps it current from change events, and answers reads over the
  * cached map. It is environment-agnostic and depends only on the catalog port
- * ({@link createCatalogClient}) and the URI shaping ({@link toConfigUri}), which
- * are exactly what the interface tests fake.
+ * ({@link createCatalogClient}) and the remote authority ({@link remoteAuthority}),
+ * which are exactly what the interface tests fake.
  *
  * The concrete subclasses (and their service registrations) live in sibling
  * files so importing this base never registers a service.
@@ -38,8 +39,8 @@ export abstract class AbstractAiProviderService extends Disposable implements IA
 	/** Create the catalog client for this environment, or `undefined` if none is reachable. */
 	protected abstract createCatalogClient(): IAiProviderCatalog | undefined;
 
-	/** Shape the node-reported config-file path into an openable URI for this environment. */
-	protected abstract toConfigUri(path: string): URI;
+	/** The remote authority when connected to one, else `undefined` (local desktop). */
+	protected abstract remoteAuthority(): string | undefined;
 
 	constructor(protected readonly _logService: ILogService) {
 		super();
@@ -96,7 +97,11 @@ export abstract class AbstractAiProviderService extends Disposable implements IA
 		if (!client) {
 			throw new Error('No AI provider catalog channel available');
 		}
-		return this.toConfigUri(await client.getConfigFilePath());
+		// The catalog returns a file:// URI on its host; re-home it onto the
+		// remote authority when connected (the path is already encoded).
+		const uri = await client.getConfigFileUri();
+		const authority = this.remoteAuthority();
+		return authority ? uri.with({ scheme: Schemas.vscodeRemote, authority }) : uri;
 	}
 }
 

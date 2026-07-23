@@ -33,22 +33,22 @@ function fakeCatalog(options: {
 	catalog: IAiProviderCatalog;
 	onDidChangeCatalog: Emitter<IProviderCatalogChangeData>;
 	getCatalog: ReturnType<typeof vi.fn>;
-	getConfigFilePath: ReturnType<typeof vi.fn>;
+	getConfigFileUri: ReturnType<typeof vi.fn>;
 } {
 	const onDidChangeCatalog = new Emitter<IProviderCatalogChangeData>();
 	const getCatalog = vi.fn(options.getCatalog ?? (async () => options.catalog ?? []));
-	const getConfigFilePath = vi.fn(async () => options.configFilePath ?? '/home/user/providers.json');
+	const getConfigFileUri = vi.fn(async () => URI.file(options.configFilePath ?? '/home/user/providers.json'));
 	return {
-		catalog: { onDidChangeCatalog: onDidChangeCatalog.event, getCatalog, getConfigFilePath },
+		catalog: { onDidChangeCatalog: onDidChangeCatalog.event, getCatalog, getConfigFileUri },
 		onDidChangeCatalog,
 		getCatalog,
-		getConfigFilePath,
+		getConfigFileUri,
 	};
 }
 
-// A test subclass that hands the base a fixed fake catalog and a fixed URI
-// builder. Constructed directly (not via createInstance) so the test file avoids
-// DI parameter decorators the vitest transformer cannot parse.
+// A test subclass that hands the base a fixed fake catalog and a fixed remote
+// authority. Constructed directly (not via createInstance) so the test file
+// avoids DI parameter decorators the vitest transformer cannot parse.
 class TestAiProviderService extends AbstractAiProviderService {
 	constructor(
 		private readonly _fakeCatalog: IAiProviderCatalog | undefined,
@@ -60,10 +60,8 @@ class TestAiProviderService extends AbstractAiProviderService {
 	protected createCatalogClient(): IAiProviderCatalog | undefined {
 		return this._fakeCatalog;
 	}
-	protected toConfigUri(path: string): URI {
-		return this._remote
-			? URI.from({ scheme: Schemas.vscodeRemote, authority: 'remote-host', path })
-			: URI.file(path);
+	protected remoteAuthority(): string | undefined {
+		return this._remote ? 'remote-host' : undefined;
 	}
 }
 
@@ -76,7 +74,7 @@ describe('AiProviderService', () => {
 	const diChannel = {
 		call: (command: string) => command === 'getCatalog'
 			? Promise.resolve([provider('anthropic', true)])
-			: Promise.resolve('/home/user/providers.json'),
+			: Promise.resolve(URI.file('/home/user/providers.json').toJSON()),
 		listen: () => diChangeEmitter.event,
 	};
 	const ctx = createTestContainer()

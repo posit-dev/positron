@@ -6,6 +6,7 @@
 import type { ProviderCatalogChange, ResolvedProvider } from 'ai-config/node';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { Disposable, toDisposable } from '../../../base/common/lifecycle.js';
+import { URI } from '../../../base/common/uri.js';
 import { ILogService } from '../../log/common/log.js';
 import { IAiProviderCatalog, IProviderCatalogChangeData, IResolvedProviderData } from '../common/aiProviderCatalog.js';
 
@@ -20,7 +21,7 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 	readonly onDidChangeCatalog: Event<IProviderCatalogChangeData> = this._onDidChangeCatalog.event;
 
 	private _catalog: Promise<readonly IResolvedProviderData[]> | undefined;
-	private _configFilePath: Promise<string> | undefined;
+	private _configFileUri: Promise<URI> | undefined;
 	private _receivedChange = false;
 
 	constructor(
@@ -68,10 +69,11 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 		return this._receivedChange && this._catalog ? this._catalog : catalog.map(toProviderData);
 	}
 
-	getConfigFilePath(): Promise<string> {
-		this._configFilePath ??= import('ai-config/node').then(aiConfig =>
-			this._options?.configPath ?? aiConfig.PROVIDERS_CONFIG_PATH);
-		return this._configFilePath;
+	getConfigFileUri(): Promise<URI> {
+		// URI.file encodes the host's native path (e.g. a Windows drive path).
+		this._configFileUri ??= import('ai-config/node').then(aiConfig =>
+			URI.file(this._options?.configPath ?? aiConfig.PROVIDERS_CONFIG_PATH));
+		return this._configFileUri;
 	}
 }
 
