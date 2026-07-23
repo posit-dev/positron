@@ -49,6 +49,18 @@ const CHECKPOINT_VERSION = 1;
 export const OUTCOMES = ['fix-test', 'fix-product', 'file-issue', 'no-op'];
 
 /**
+ * Top-level scalar fields a `--set key=value` may write. Structural identity
+ * fields (version, triageId, testKey) are deliberately excluded so a stray
+ * `--set version=2` can't silently corrupt state that validateCheckpoint then
+ * rejects on the next read. Object fields (diagnosis, history, ...) go through
+ * `--patch`, not `--set`.
+ */
+export const SETTABLE_FIELDS = new Set([
+	'phase', 'nextAction', 'selectedPattern', 'lookbackDays', 'branch',
+	'outcome', 'outcomeRef', 'outcomeReason', 'diagnosisBlockRecorded',
+]);
+
+/**
  * Default next action for each phase. Advancing `phase` without also setting
  * `nextAction` would otherwise leave the init default stale, so a resume would
  * print a misleading step. `--set phase=X` derives the matching next action
@@ -86,6 +98,9 @@ export function applyMutations(state, patch, sets = []) {
 	}
 	next = { ...next };
 	for (const [k, rawV] of sets) {
+		if (!SETTABLE_FIELDS.has(k)) {
+			throw new Error(`--set ${k} is not a mutable field (allowed: ${[...SETTABLE_FIELDS].join(', ')}; object fields use --patch).`);
+		}
 		next[k] = coerce(rawV);
 		touched.add(k);
 	}
@@ -201,7 +216,7 @@ function statusAll() {
 }
 
 function main() {
-	const args = parseArgs(process.argv.slice(2), ['init', 'read', 'status', 'validate']);
+	const args = parseArgs(process.argv.slice(2), ['init', 'read', 'status', 'validate', 'force']);
 
 	if (args.status) { emit(statusAll()); return; }
 
@@ -210,6 +225,10 @@ function main() {
 	const sp = statePath(triageId);
 
 	if (args.init) {
+		if (fs.existsSync(sp) && !args.force) {
+			// Refuse to clobber a triage in progress; resume it, or pass --force to reset.
+			fail(`A checkpoint for triage "${triageId}" already exists -- resume it (--read) or pass --force to overwrite.`, { stateFile: path.relative(process.cwd(), sp) });
+		}
 		ensureDir(triageDir(triageId));
 		const state = newState(triageId, args);
 		writeJson(sp, state);
@@ -244,7 +263,11 @@ function main() {
 	}
 
 	if (!patch && sets.length === 0) { fail('Nothing to do (use --init/--read/--set/--patch/--status/--validate).'); }
-	state = applyMutations(state, patch, sets);
+	try {
+		state = applyMutations(state, patch, sets);
+	} catch (e) {
+		fail(e.message);
+	}
 
 	// Gate the terminal phase: refuse to persist phase=done until the triage has
 	// declared an outcome and recorded its diagnosis block (for PR/issue outcomes).

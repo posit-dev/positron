@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateCheckpoint, applyPatch, coerce, PHASES, PHASE_NEXT_ACTION, applyMutations, defaultNextAction, checkDoneGate, OUTCOMES } from '../checkpoint.js';
+import { validateCheckpoint, applyPatch, coerce, PHASES, PHASE_NEXT_ACTION, applyMutations, defaultNextAction, checkDoneGate, OUTCOMES, SETTABLE_FIELDS } from '../checkpoint.js';
 
 const valid = () => ({ version: 1, triageId: 'x', testKey: 'A > b|||spec.ts', phase: 'awaiting-pattern-selection' });
 
@@ -67,6 +67,15 @@ test('applyMutations leaves nextAction untouched when phase does not change', ()
 test('applyMutations derives nextAction from a phase set via --patch too', () => {
 	const out = applyMutations({ phase: 'x', nextAction: 'stale' }, { phase: 'hypothesis-ready' }, []);
 	assert.equal(out.nextAction, PHASE_NEXT_ACTION['hypothesis-ready']);
+});
+
+test('applyMutations rejects a --set on a non-mutable field', () => {
+	// Guards structural identity fields validateCheckpoint would later reject.
+	assert.throws(() => applyMutations({ version: 3 }, null, [['version', '2']]), /not a mutable field/);
+	assert.throws(() => applyMutations({ triageId: 'x' }, null, [['triageId', 'bad']]), /not a mutable field/);
+	// An allowed field still writes.
+	assert.equal(SETTABLE_FIELDS.has('phase'), true);
+	assert.equal(applyMutations({ phase: 'x' }, null, [['phase', 'implementation']]).phase, 'implementation');
 });
 
 test('checkDoneGate blocks done with no outcome set', () => {

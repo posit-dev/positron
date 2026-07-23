@@ -7,6 +7,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { execFileSync } from 'child_process';
 
@@ -34,16 +35,21 @@ export function triageDir(triageId) {
 
 /**
  * Derive a stable, filesystem-safe triage id from a test key or title.
- * Uses the leaf test title (last " > " segment) so ids stay short and readable.
+ * Uses the leaf test title (last " > " segment) for readability, plus a short
+ * hash of the *full* key so two tests that share a leaf name (e.g. "opens a
+ * file" under different describe blocks / specs) never collide on one work dir.
  */
 export function deriveTriageId(testKeyOrTitle) {
-	const title = String(testKeyOrTitle).split('|||')[0];
+	const full = String(testKeyOrTitle);
+	const title = full.split('|||')[0];
 	const leaf = title.split(' > ').pop() || title;
-	return leaf
+	const slug = leaf
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/^-+|-+$/g, '')
-		.slice(0, 60) || 'triage';
+		.slice(0, 51) || 'triage';
+	const hash = crypto.createHash('sha1').update(full).digest('hex').slice(0, 8);
+	return `${slug}-${hash}`;
 }
 
 export function ensureDir(dir) {

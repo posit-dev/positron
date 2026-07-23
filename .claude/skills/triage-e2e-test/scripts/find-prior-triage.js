@@ -137,8 +137,10 @@ function main() {
 	}
 
 	const afterFixCount = mergedAttempts.reduce((n, m) => n + m.afterFixFailureCount, 0);
-	// "Meaningful" is a judgement the model makes with run counts; default true
-	// unless every merged fix is younger than 3 days with no after-fix occurrences.
+	// We can only tell whether a merged fix held by checking occurrence SHAs for
+	// ancestry against the merge commit. With none supplied (--occurrence-shas
+	// omitted) there's nothing to check, so the verdict is too-recent-to-tell
+	// rather than a false "fix-holding".
 	const runsMeaningful = shas.length > 0;
 	const verdict = deriveVerdict({ openAttempts, mergedAttempts, afterFixCount, runsMeaningful });
 

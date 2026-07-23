@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizePattern, mergeHistory, classifyVerdict } from '../triage-history.js';
+import { normalizePattern, mergeHistory, classifyVerdict, patternLabel } from '../triage-history.js';
 
 const mkTest = (runs, patterns) => ({ history: { total_runs: runs }, failure_patterns: patterns });
 const occ = (sha, os = 'ubuntu', browser = 'electron') => ({ sha, os, browser, outcome: 'flaky', report_url: `https://x/${sha}/index.html` });
@@ -51,4 +51,15 @@ test('classifyVerdict: nonzero runs and no patterns is a clean bill', () => {
 	const v = classifyVerdict({ currentBranch: 'main', currentRuns: null, mainRuns: 300, patternCount: 0, queriedCurrent: false });
 	assert.equal(v.verdict, 'clean');
 	assert.equal(v.stop, true);
+});
+
+test('classifyVerdict: triaging on main with zero runs is a key mismatch, not clean', () => {
+	// queriedCurrent=false + mainRuns=0 must not fall through to the clean branch.
+	const v = classifyVerdict({ currentBranch: 'main', currentRuns: null, mainRuns: 0, patternCount: 0, queriedCurrent: false });
+	assert.equal(v.verdict, 'zero-runs-both');
+	assert.equal(v.stop, true);
+});
+
+test('patternLabel: A..Z then AA, AB for 27+ patterns (no non-letter overflow)', () => {
+	assert.deepEqual([0, 25, 26, 27].map(patternLabel), ['A', 'Z', 'AA', 'AB']);
 });

@@ -46,7 +46,12 @@ const CONFIDENCE_EMOJI = { high: '\u{1F7E2}', medium: '\u{1F7E1}', low: '\u{1F53
  *  "31/317 runs (9.8%), ubuntu/chromium". Returns null when unavailable. */
 export function deriveFrequency(history, selectedPattern) {
 	if (!history || !Array.isArray(history.patterns)) { return null; }
-	const p = history.patterns.find(x => x.id === selectedPattern) || history.patterns[0];
+	// When a pattern is selected, its stats or nothing -- never silently fall back
+	// to the dominant pattern, which would render wrong numbers in the block.
+	// The [0] default is only for the no-selection case.
+	const p = selectedPattern
+		? history.patterns.find(x => x.id === selectedPattern)
+		: history.patterns[0];
 	if (!p) { return null; }
 	const denom = history.branchSummary?.mainRuns || history.branchSummary?.currentBranchRuns;
 	const runs = denom ? `${p.count}/${denom} runs` : `${p.count} runs`;

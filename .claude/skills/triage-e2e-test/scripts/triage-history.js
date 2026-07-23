@@ -62,6 +62,21 @@ function occEnvironments(occurrences) {
  * @param {string} currentBranch
  * @param {number} occurrencesPerPattern
  */
+/**
+ * Spreadsheet-style pattern label: A..Z, then AA, AB, ... so 27+ patterns keep
+ * getting stable letter ids (used as selectedPattern values and evidence
+ * sub-directory names) instead of overflowing into non-letter ASCII.
+ */
+export function patternLabel(i) {
+	let n = i;
+	let label = '';
+	do {
+		label = String.fromCharCode(65 + (n % 26)) + label;
+		n = Math.floor(n / 26) - 1;
+	} while (n >= 0);
+	return label;
+}
+
 export function mergeHistory(current, main, currentBranch, occurrencesPerPattern = 1) {
 	const byKey = new Map();
 
@@ -107,7 +122,7 @@ export function mergeHistory(current, main, currentBranch, occurrencesPerPattern
 			const rep = entry.occurrences.find(o => o.branch === currentBranch) || entry.occurrences[0] || null;
 			const kept = entry.occurrences.slice(0, occurrencesPerPattern);
 			return {
-				id: String.fromCharCode(65 + i), // A, B, C, ...
+				id: patternLabel(i), // A, B, .. Z, AA, AB, ...
 				failure: entry.failure,
 				count: entry.count,
 				percentage: totalRuns ? Math.round((entry.count / totalRuns) * 1000) / 10 : null,
@@ -135,6 +150,11 @@ export function classifyVerdict({ currentBranch, currentRuns, mainRuns, patternC
 
 	if (queriedCurrent && currentZero && mainZero) {
 		return { verdict: 'zero-runs-both', stop: true, note: 'Both branches report total_runs=0 -- treat as a test-key mismatch (rebuild the full hierarchical key), not a clean record.' };
+	}
+	if (!queriedCurrent && mainZero) {
+		// Triaging on main directly: main is the only branch queried, so zero runs
+		// there is the same mismatch signal -- not a clean record.
+		return { verdict: 'zero-runs-both', stop: true, note: 'main reports total_runs=0 -- treat as a test-key mismatch (rebuild the full hierarchical key), not a clean record.' };
 	}
 	if (patternCount === 0) {
 		return { verdict: 'clean', stop: true, note: 'Nonzero runs and no failure patterns -- nothing to triage.' };

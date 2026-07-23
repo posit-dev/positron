@@ -62,4 +62,8 @@ test('deriveFrequency builds runs/percentage/env from the selected pattern', () 
 	assert.equal(deriveFrequency(history, 'A'), '31/317 runs (9.8%), ubuntu/chromium');
 	assert.equal(deriveFrequency(history, 'B'), '1/317 runs (0.3%), ubuntu/electron');
 	assert.equal(deriveFrequency(null, 'A'), null);
+	// A selected-but-unmatched pattern returns null, never the dominant pattern's numbers.
+	assert.equal(deriveFrequency(history, 'Z'), null);
+	// No selection falls back to the dominant (first) pattern.
+	assert.equal(deriveFrequency(history, null), '31/317 runs (9.8%), ubuntu/chromium');
 });
