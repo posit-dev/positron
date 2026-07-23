@@ -423,7 +423,6 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 				this._configService.getValue<string>(`authentication.${configKey}.baseUrl`) || undefined,
 			getCustomHeaders: configKey =>
 				this._configService.getValue<Record<string, string>>(`authentication.${configKey}.customHeaders`),
-			// temporary; Task 12 replaces this with the catalog read
 			getAws: () => ({
 				region: this._configService.getValue<{ AWS_REGION?: string }>('authentication.aws.credentials')?.AWS_REGION,
 			}),
