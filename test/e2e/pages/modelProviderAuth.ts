@@ -3,38 +3,32 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, test, chromium, Browser, BrowserContext, Locator, Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Modals } from './dialog-modals.js';
 import { HotKeys } from './hotKeys.js';
 import { Toasts } from './dialog-toasts.js';
+import {
+	ModelProvider,
+	OAuthDeviceCodeConfig,
+	LoginModelProviderOptions,
+	fillSecretValue,
+	getProviderAuthType,
+	providerRequiresBaseUrl,
+	getProviderBaseUrlEnvVarName,
+	getOAuthConfig,
+	getProviderEnvKey,
+	getProviderEnvVarName,
+	isProviderAutoSignedIn,
+	completeOAuthDeviceCodeLogin,
+} from './modelProviderShared.js';
+
+export type { ModelProvider } from './modelProviderShared.js';
 
 // Page object for the shared "Configure Language Model Providers" component.
 // Both Positron Assistant and Posit Assistant use this component to
 // authenticate against model providers, so the auth flow is replicated here
 // independent of either assistant's page object.
-
-/**
- * Fills an input element's value using evaluate() instead of Playwright's
- * fill() to prevent the value from being recorded in Playwright trace files.
- * Use this for sensitive values like API keys and passwords.
- */
-async function fillSecretValue(locator: Locator, value: string): Promise<void> {
-	await locator.evaluate((el: HTMLInputElement, val) => {
-		const nativeSetter = Object.getOwnPropertyDescriptor(
-			window.HTMLInputElement.prototype, 'value'
-		)?.set;
-		if (nativeSetter) {
-			nativeSetter.call(el, val);
-		} else {
-			el.value = val;
-		}
-		el.dispatchEvent(new Event('input', { bubbles: true }));
-	}, value);
-}
-
-// Positron modal dialog selectors (used by Posit AI)
-const POSITRON_MODAL_DIALOG = '.positron-modal-dialog-box';
 
 // Configure Providers modal controls
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
@@ -53,145 +47,6 @@ const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div
 const MS_FOUNDRY_BUTTON = 'button.positron-button.language-model.button:has(#ms-foundry-provider-button)';
 const OPENAI_BUTTON = 'button.positron-button.language-model.button:has(#openai-api-provider-button)';
 const POSIT_AI_BUTTON = 'button.positron-button.language-model.button:has(#posit-ai-provider-button)';
-
-// Posit OAuth login page selectors
-const POSIT_EMAIL_FIELD = 'input[name="email"]';
-const POSIT_PASSWORD_FIELD = 'input[name="password"]';
-const POSIT_CONTINUE_BUTTON = 'button[type="submit"]:has-text("Continue")';
-const POSIT_LOGIN_BUTTON = 'button[type="submit"]:has-text("Log in")';
-
-/**
- * Supported model providers for authentication.
- */
-export type ModelProvider =
-	| 'anthropic-api'
-	| 'amazon-bedrock'
-	| 'echo'
-	| 'error'
-	| 'ms-foundry'
-	| 'openai-api'
-	| 'posit-ai';
-
-/**
- * Authentication types for model providers.
- */
-type ProviderAuthType = 'none' | 'apiKey' | 'aws' | 'oauth';
-
-/**
- * Supported OAuth providers for device code flow.
- */
-export type OAuthProvider = 'posit';
-
-/**
- * Configuration for OAuth device code flow authentication.
- */
-export interface OAuthDeviceCodeConfig {
-	/** The OAuth provider (e.g., 'posit') */
-	provider: OAuthProvider;
-	/** URL to navigate to for device code entry (empty if constructed from env var) */
-	verificationUrl: string;
-	/** Environment variable name for the auth host base URL (used to construct verification URL) */
-	authHostEnvVar?: string;
-	/** Environment variable names for credentials */
-	envVars: {
-		username: string;
-		password: string;
-		otp?: string;
-	};
-}
-
-/**
- * Options for the loginModelProvider method.
- */
-export interface LoginModelProviderOptions {
-	/** API key for providers that support API key authentication */
-	apiKey?: string;
-	/** Base URL for providers that require one (e.g. ms-foundry); falls back to *_BASE_URL env var */
-	baseUrl?: string;
-	/** Timeout for verifying sign-in success (default: 15000ms) */
-	timeout?: number;
-	/** Whether to run the OAuth browser in headless mode (default: false) */
-	headless?: boolean;
-}
-
-function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
-	switch (provider.toLowerCase()) {
-		case 'echo':
-		case 'error':
-			return 'none';
-		case 'anthropic-api':
-		case 'openai-api':
-		case 'ms-foundry':
-			return 'apiKey';
-		case 'amazon-bedrock':
-			return 'aws';
-		case 'posit-ai':
-			return 'oauth';
-		default:
-			throw new Error(`Unknown provider: ${provider}`);
-	}
-}
-
-/**
- * Whether the provider requires a Base URL alongside its API key (e.g.
- * Microsoft Foundry's Azure endpoint). These providers expose a "Base URL"
- * field in the Configure Providers modal in addition to the API key field.
- */
-function providerRequiresBaseUrl(provider: ModelProvider): boolean {
-	return provider.toLowerCase() === 'ms-foundry';
-}
-
-function getProviderBaseUrlEnvVarName(provider: ModelProvider): string {
-	return `${provider.toUpperCase().replace(/-/g, '_')}_BASE_URL`;
-}
-
-function getOAuthConfig(provider: ModelProvider): OAuthDeviceCodeConfig {
-	switch (provider.toLowerCase()) {
-		case 'posit-ai':
-			return {
-				provider: 'posit',
-				verificationUrl: '',
-				authHostEnvVar: 'POSIT_AUTH_HOST',
-				envVars: {
-					username: 'POSIT_EMAIL',
-					password: 'POSIT_PASSWORD'
-				}
-			};
-		default:
-			throw new Error(`No OAuth configuration for provider: ${provider}`);
-	}
-}
-
-function getProviderEnvVarName(provider: ModelProvider): string {
-	switch (provider.toLowerCase()) {
-		case 'anthropic-api':
-			return 'ANTHROPIC_KEY';
-		case 'openai-api':
-			return 'OPENAI_KEY';
-		default:
-			return `${provider.toUpperCase().replace(/-/g, '_')}_KEY`;
-	}
-}
-
-function getProviderEnvKey(provider: ModelProvider): string | undefined {
-	return process.env[getProviderEnvVarName(provider)];
-}
-
-function getProviderAutoSignInEnvVarName(provider: ModelProvider): string | undefined {
-	switch (provider.toLowerCase()) {
-		case 'anthropic-api':
-			return 'ANTHROPIC_API_KEY';
-		case 'openai-api':
-			return 'OPENAI_API_KEY';
-		default:
-			return undefined;
-	}
-}
-
-function isProviderAutoSignedIn(provider: ModelProvider): boolean {
-	const envVarName = getProviderAutoSignInEnvVarName(provider);
-	return envVarName ? !!process.env[envVarName] : false;
-}
 
 /**
  * Page object for the shared "Configure Language Model Providers" dialog.
@@ -426,108 +281,9 @@ export class ModelProviderAuth {
 	 * signing in to the OAuth provider, and entering the verification code.
 	 */
 	async completeOAuthDeviceCodeFlow(config: OAuthDeviceCodeConfig, options: LoginModelProviderOptions = {}) {
-		// The Posit login page does not render in headless Chromium, so the
-		// default is headed. Callers may override per-invocation.
-		const { headless = false } = options;
-
 		await test.step(`Complete OAuth device code flow for ${config.provider}`, async () => {
 			await this.clickSignInButton();
-
-			const { verificationCode } = await this.extractDeviceCodeFromModal(config);
-
-			let finalVerificationUrl = config.verificationUrl;
-
-			if (!finalVerificationUrl && config.authHostEnvVar) {
-				const authHost = process.env[config.authHostEnvVar];
-				if (!authHost) {
-					throw new Error(
-						`OAuth auth host not configured. Please set ${config.authHostEnvVar} environment variable.`
-					);
-				}
-				const redirectPath = encodeURIComponent(`/oauth/device?user_code=${verificationCode}`);
-				finalVerificationUrl = `${authHost}/login?redirect=${redirectPath}`;
-			}
-
-			if (!finalVerificationUrl) {
-				throw new Error('No verification URL available for OAuth flow');
-			}
-
-			let browser: Browser | undefined;
-			let context: BrowserContext | undefined;
-			let page: Page | undefined;
-
-			try {
-				browser = await chromium.launch({ headless });
-				context = await browser.newContext();
-				page = await context.newPage();
-
-				await this.completePositLogin(page, config, verificationCode, finalVerificationUrl);
-			} finally {
-				if (context) {
-					await context.close();
-				}
-				if (browser) {
-					await browser.close();
-				}
-			}
+			await completeOAuthDeviceCodeLogin(this.code, config, options);
 		});
-	}
-
-	private async extractDeviceCodeFromModal(_config: OAuthDeviceCodeConfig): Promise<{ verificationCode: string }> {
-		const deviceCodeModalLocator = this.code.driver.currentPage.locator(`${POSITRON_MODAL_DIALOG}:has-text("You will need this code to sign in")`);
-		await expect(deviceCodeModalLocator).toBeVisible({ timeout: 30000 });
-
-		const modalHtml = await deviceCodeModalLocator.innerHTML();
-		if (!modalHtml) {
-			throw new Error('Could not read Positron device code modal content');
-		}
-
-		const codeMatch = modalHtml.match(/<code>([A-Z0-9-]+)<\/code>/i);
-		if (!codeMatch) {
-			// Do not embed modalHtml in the error: it contains the device code
-			// and other auth UI content that would otherwise leak into
-			// Playwright traces and CI logs.
-			throw new Error('Could not extract verification code from Positron device code modal (no <code> element found)');
-		}
-
-		const verificationCode = codeMatch[1];
-
-		const okButton = deviceCodeModalLocator.locator('button:has-text("OK"), button:has-text("Ok")');
-		await okButton.click();
-
-		return { verificationCode };
-	}
-
-	private async completePositLogin(page: Page, config: OAuthDeviceCodeConfig, _verificationCode: string, verificationUrl: string) {
-		const email = process.env[config.envVars.username];
-		const password = process.env[config.envVars.password];
-
-		if (!email || !password) {
-			throw new Error(
-				`Posit OAuth credentials not found. Please set ${config.envVars.username} and ${config.envVars.password} environment variables.`
-			);
-		}
-
-		await page.goto(verificationUrl);
-
-		await expect(page.locator(POSIT_EMAIL_FIELD)).toBeVisible({ timeout: 15000 });
-		await page.locator(POSIT_EMAIL_FIELD).fill(email);
-		await page.locator(POSIT_CONTINUE_BUTTON).click();
-
-		await expect(page.locator(POSIT_PASSWORD_FIELD)).toBeVisible({ timeout: 15000 });
-		await fillSecretValue(page.locator(POSIT_PASSWORD_FIELD), password);
-		await page.locator(POSIT_LOGIN_BUTTON).click();
-
-		const continueButton = page.locator('button[type="submit"]:has-text("Continue")');
-		await expect(continueButton).toBeVisible({ timeout: 15000 });
-		await continueButton.click();
-
-		const authorizeButton = page.locator('button[type="submit"]:has-text("Authorize")');
-		await expect(authorizeButton).toBeVisible({ timeout: 15000 });
-		await authorizeButton.click();
-
-		await expect(page.locator('body')).toContainText(/success|authorized|complete|congratulations/i, { timeout: 30000 });
-
-		await page.close();
 	}
 }
