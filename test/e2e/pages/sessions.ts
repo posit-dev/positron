@@ -170,6 +170,39 @@ export class Sessions {
 	}
 
 	/**
+	 * Action: Wait for a specific set of sessions to reattach after a window reload
+	 *
+	 * The extension host's own reconnect to the kernel supervisor lands after the
+	 * generic "workbench ready" signal (what `hotKeys.reloadWindow()` waits for)
+	 * already clears -- so a session can look briefly fine right after reload while
+	 * the supervisor reconnect is still in flight underneath it. Capture the
+	 * session ids that existed before the reload and pass them here afterward so a
+	 * following test can't reuse one that's still mid-reconnect.
+	 *
+	 * @param sessionIds the session ids to confirm have reattached (captured before the reload)
+	 */
+	async waitForSessionsReattached(sessionIds: string[], timeout = 60000): Promise<void> {
+		await test.step(`Wait for sessions to reattach: ${sessionIds.join(', ')}`, async () => {
+			for (const id of sessionIds) {
+				await expect(async () => {
+					if (await this.getSessionCount() > 1) {
+						const status = await this.getIconStatus(id);
+						expect(status).not.toBe('disconnected');
+						expect(status).not.toBe('unknown');
+					} else {
+						// No tab list is rendered for a lone session (ConsoleTabList is
+						// omitted whenever consoleSessionListCollapsed is true), so there's
+						// no tab icon to read -- fall back to the metadata dialog's state
+						// field, same as expectStatusToBe() does for this case.
+						const metadata = await this.getMetadata(id);
+						expect(metadata.state).not.toBe('disconnected');
+					}
+				}, `Wait for session to reattach: ${id}`).toPass({ timeout });
+			}
+		});
+	}
+
+	/**
 	 * Action: Delete the session via trash button
 	 *
 	 * @param sessionId - the id of the session

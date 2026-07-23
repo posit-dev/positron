@@ -106,7 +106,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 	test('R - Verify DataFrame output persists correctly after window reload', {
 		tag: [tags.DATA_EXPLORER]
 	}, async function ({ r, app, openFile, hotKeys }) {
-		const { editors, inlineQuarto, inlineDataExplorer } = app.workbench;
+		const { editors, inlineQuarto, inlineDataExplorer, sessions } = app.workbench;
 
 		const filePath = join('workspaces', 'quarto_inline_output', 'r_data_frame.qmd');
 
@@ -129,11 +129,18 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 			return;
 		}
 
+		// Capture the sessions active before reload so we can confirm they've
+		// all fully reattached afterward -- the next test in this file reuses
+		// one of them, and the kernel supervisor's own reconnect lands after
+		// the reload's generic "workbench ready" signal already clears.
+		const preReloadSessionIds = (await sessions.getAllSessionIdsAndNames()).map(s => s.id);
+
 		// Reload window - this kills the R session and data explorer comms,
 		// forcing the output to fall back to cached text/plain
 		await hotKeys.reloadWindow(true);
 
 		await editors.waitForActiveTab('r_data_frame.qmd', false);
+		await sessions.waitForSessionsReattached(preReloadSessionIds);
 
 		// Verify output persisted - should show text fallback with actual
 		// data frame content, not the "Hello, world!" stub from text/html

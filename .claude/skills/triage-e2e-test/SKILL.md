@@ -226,6 +226,15 @@ messages (e.g. two assertions racing against the same continuously-changing
 state) -- if they share a mechanism, there's nothing left to prioritize
 between and you can proceed on all of them together.
 
+**Once a pattern is chosen -- whether by the engineer answering this question,
+or by them naming it upfront in their original request -- stay on that pattern
+only.** Don't pull evidence for the other rows on your own initiative to check
+whether they "share a mechanism"; that's the same unscoped-investigation
+impulse this whole checkpoint exists to stop, just arriving one step later.
+If a same-mechanism check seems worth doing, ask for it explicitly ("want me
+to also check whether A and C are the same bug wearing a different error, or
+just stay on B?") and wait for a yes before broadening scope.
+
 These percentages are a snapshot of the raw lookback window, not necessarily
 the current state -- step 6's prior-art check can later reveal that a
 pattern's occurrences all predate an unrelated fix that happened to cover this
