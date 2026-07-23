@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { URI } from '../../../../../base/common/uri.js';
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
@@ -15,7 +15,7 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { TestRuntimeStartupService } from '../../../../services/runtimeStartup/test/common/testRuntimeStartupService.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionLocation, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, INotebookLanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IQuartoDocumentModel } from '../../common/quartoTypes.js';
 import { IQuartoDocumentModelService } from '../../browser/quartoDocumentModelService.js';
 import { IQuartoOutputCacheService } from '../../common/quartoExecutionTypes.js';
@@ -285,6 +285,74 @@ describe('QuartoKernelManager', () => {
 		// A URI with no matching visible editor yields no language, so there is
 		// no interpreter to name.
 		expect(kernelManager.getPreferredRuntimeForDocument(URI.file('/test/other.qmd'))).toBeUndefined();
+	});
+
+	it('ensureKernelForDocument waits for an adopted starting session to become ready', async () => {
+		// A session that is restoring after a window reload: present in the
+		// runtime session service but still Starting, not yet Ready. Returning
+		// it before it is ready lets callers execute into a session that drops
+		// the request (the inline-output-on-reload flake).
+		const stateEmitter = disposables.add(new Emitter<RuntimeState>());
+		let sessionState = RuntimeState.Starting;
+		const restoringSession = stubInterface<INotebookLanguageRuntimeSession>({
+			sessionId: 'restoring-session',
+			runtimeMetadata: pythonRuntime1,
+			getRuntimeState() { return sessionState; },
+			onDidChangeRuntimeState: stateEmitter.event,
+			onDidCompleteStartup: Event.None,
+			onDidEncounterStartupFailure: Event.None,
+			onDidEndSession: Event.None,
+			async shutdown() { },
+		});
+
+		const sessionService = stubInterface<IRuntimeSessionService>({
+			async startNewRuntimeSession(runtimeId: string) {
+				startedRuntimeIds.push(runtimeId);
+				return `session-${nextSessionId++}`;
+			},
+			getNotebookSessionForNotebookUri(_uri: URI) { return restoringSession; },
+			getActiveSessions() { return []; },
+			async shutdownNotebookSession() { },
+			onDidStartRuntime: Event.None,
+		});
+
+		const km = disposables.add(new QuartoKernelManager(
+			sessionService,
+			runtimeStartupService,
+			stubInterface<ILanguageRuntimeService>({ get registeredRuntimes() { return registeredRuntimes; } }),
+			stubInterface<IQuartoDocumentModelService>({ getModel() { return stubInterface<IQuartoDocumentModel>({ primaryLanguage: 'python', cells: [] }); } }),
+			stubInterface<IEditorService>({
+				findEditors() { return []; },
+				get visibleTextEditorControls() { return [] as unknown as IEditorService['visibleTextEditorControls']; },
+				onDidCloseEditor: Event.None as Event<IEditorCloseEvent>,
+			}),
+			new NullLogService(),
+			stubInterface<INotificationService>({ warn: vi.fn(), info: vi.fn(), notify: vi.fn() }),
+			new TestConfigurationService(),
+			storageService,
+			stubInterface<IQuartoOutputCacheService>({}),
+		));
+
+		let resolved = false;
+		const ensurePromise = km.ensureKernelForDocument(docUri).then(session => {
+			resolved = true;
+			return session;
+		});
+
+		// Let the async adopt path run. It must not resolve while the adopted
+		// session is still Starting.
+		await new Promise(resolve => setTimeout(resolve, 0));
+		expect(resolved).toBe(false);
+
+		// The session finishes starting.
+		sessionState = RuntimeState.Ready;
+		stateEmitter.fire(RuntimeState.Ready);
+
+		const session = await ensurePromise;
+		expect(resolved).toBe(true);
+		expect(session).toBe(restoringSession);
+		// No new session should have been started; the existing one was adopted.
+		expect(startedRuntimeIds).toEqual([]);
 	});
 
 	it('changeKernelForDocument fires state change events', async () => {

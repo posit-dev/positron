@@ -567,6 +567,12 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		if (adoptedSession) {
 			const state = adoptedSession.getRuntimeState();
 			if (state !== RuntimeState.Exited && state !== RuntimeState.Uninitialized) {
+				// The adopted session may still be starting (e.g. restoring after
+				// a window reload). Wait for it to become ready before returning,
+				// mirroring the start path, so callers don't execute into a
+				// not-yet-ready session that silently drops the request.
+				// (_waitForSessionReady resolves immediately if already ready.)
+				await this._waitForSessionReady(adoptedSession, token ?? CancellationToken.None);
 				return adoptedSession;
 			}
 		}
