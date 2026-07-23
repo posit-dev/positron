@@ -33,6 +33,22 @@ export const PHASES = [
 const CHECKPOINT_VERSION = 1;
 
 /**
+ * Terminal outcomes a triage can reach, along two axes -- what we found (test
+ * vs product) and what we did (fix / file / nothing):
+ *   fix-test     -- test bug, fixed in a PR
+ *   fix-product  -- product bug, fixed in a PR
+ *   file-issue   -- product bug, not fixed now, filed as a new issue
+ *   no-op        -- not fixed and not filed (accepted flake, dup of an existing
+ *                   issue, backlog note, or handed off); needs a stated reason
+ * `phase=done` is gated on one being set, so "done" can't be claimed the moment
+ * a fix compiles or a sub-tool (Explore, author-vitest-tests, positron-pr-helper)
+ * returns -- the triage still has to declare how it ended and record its
+ * diagnosis where it belongs. `outcome` is the PRIMARY artifact; a secondary
+ * note (e.g. a backlog mention while fixing the test) does not change it.
+ */
+export const OUTCOMES = ['fix-test', 'fix-product', 'file-issue', 'no-op'];
+
+/**
  * Default next action for each phase. Advancing `phase` without also setting
  * `nextAction` would otherwise leave the init default stale, so a resume would
  * print a misleading step. `--set phase=X` derives the matching next action
@@ -44,7 +60,7 @@ export const PHASE_NEXT_ACTION = {
 	'evidence-gathered': 'Reason through the evidence to a root-cause mechanism.',
 	'hypothesis-ready': 'Reproduce and verify the fix (diagnosis saved; safe to /clear and --resume).',
 	'awaiting-clear': 'Safe to /clear; resume with --resume to reproduce and fix.',
-	'implementation': 'Implement the fix and verify it (no single-green-run claims for a flake).',
+	'implementation': 'Implement + verify the fix (no single-green-run claims for a flake), then set an outcome and record the diagnosis block (record-diagnosis.js) before phase=done.',
 	'done': 'Triage complete; diagnosis recorded.',
 };
 
@@ -77,6 +93,35 @@ export function applyMutations(state, patch, sets = []) {
 		next.nextAction = defaultNextAction(next.phase);
 	}
 	return next;
+}
+
+/**
+ * Gate reaching `phase=done`. A triage is only "done" once it has declared how
+ * it ended (`outcome`) and, for outcomes that produce an external artifact,
+ * recorded its diagnosis block there. This is the mechanical guard that stops
+ * `done` from firing after a fix verifies but before the block is on the PR.
+ * Returns { ok, errors[] }.
+ */
+export function checkDoneGate(state) {
+	const errors = [];
+	if (!OUTCOMES.includes(state.outcome)) {
+		errors.push(`phase=done requires an outcome. Set --set outcome=${OUTCOMES.join('|')}.`);
+		return { ok: false, errors };
+	}
+	if (state.outcome === 'no-op') {
+		if (!state.outcomeReason) {
+			errors.push('outcome=no-op requires --set outcomeReason="<why the triage ends without a PR/issue>".');
+		}
+	} else {
+		// fix-test | fix-product | file-issue: an external artifact carries the block.
+		if (!state.outcomeRef) {
+			errors.push(`outcome=${state.outcome} requires outcomeRef (the PR/issue). Run record-diagnosis.js --pr <n> (or --issue <n>); it sets this.`);
+		}
+		if (state.diagnosisBlockRecorded !== true) {
+			errors.push('diagnosis block not recorded. Run record-diagnosis.js --triage-id <id> --pr <n> (or --issue <n>) to append the E2E Triage Diagnosis block; it sets diagnosisBlockRecorded.');
+		}
+	}
+	return { ok: errors.length === 0, errors };
 }
 
 /** Validate a checkpoint before resuming. Returns { ok, errors[] }. */
@@ -130,6 +175,10 @@ function newState(triageId, args) {
 		priorTriage: { status: 'unknown' },
 		evidence: null,
 		diagnosis: null,
+		outcome: null,
+		outcomeRef: null,
+		outcomeReason: null,
+		diagnosisBlockRecorded: false,
 		nextAction: PHASE_NEXT_ACTION['awaiting-pattern-selection'],
 		updatedAt: new Date().toISOString(),
 	};
@@ -196,6 +245,16 @@ function main() {
 
 	if (!patch && sets.length === 0) { fail('Nothing to do (use --init/--read/--set/--patch/--status/--validate).'); }
 	state = applyMutations(state, patch, sets);
+
+	// Gate the terminal phase: refuse to persist phase=done until the triage has
+	// declared an outcome and recorded its diagnosis block (for PR/issue outcomes).
+	if (state.phase === 'done') {
+		const gate = checkDoneGate(state);
+		if (!gate.ok) {
+			fail('phase=done blocked by the outcome gate.', { gate, phase: state.phase, outcome: state.outcome });
+		}
+	}
+
 	state.updatedAt = new Date().toISOString();
 	writeJson(sp, state);
 	emit({ ...state, stateFile: path.relative(process.cwd(), sp) });

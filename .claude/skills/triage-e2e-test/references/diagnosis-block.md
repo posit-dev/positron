@@ -1,9 +1,17 @@
 # Diagnosis block -- reference
 
-Read this only when the triage leads to a PR (fix-the-test or product-bug fix)
-or a durable triage record. This skill doesn't open PRs itself.
+Read this when the triage leads to a PR (fix-test / fix-product) or a filed
+issue (file-issue). This skill doesn't open PRs itself.
 
-Append an `### E2E Triage Diagnosis` block to the **end** of the PR body, after
+**`record-diagnosis.js` renders and appends this block for you** from the
+checkpoint `diagnosis` object (`confidence`, `summary`, `targetedFailure`,
+`signal`, `hypothesis`, optional `supersedes`) plus the test title / dashboard
+URL / frequency pulled from history. You don't hand-format it -- this reference
+explains what each field must contain so the saved diagnosis is worth
+rendering, and documents the invariants (immutability, per-test `Test` line)
+that the renderer relies on. Use `--dry-run` to preview before appending.
+
+The block lands at the **end** of the PR body, after
 whatever body template the change itself calls for (plain Summary/QA Notes for a
 test-only change; the product PR template for a source fix -- see
 `positron-pr-helper`'s `references/pr-templates.md` for required fields like

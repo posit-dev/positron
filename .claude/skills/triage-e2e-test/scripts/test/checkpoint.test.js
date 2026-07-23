@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateCheckpoint, applyPatch, coerce, PHASES, PHASE_NEXT_ACTION, applyMutations, defaultNextAction } from '../checkpoint.js';
+import { validateCheckpoint, applyPatch, coerce, PHASES, PHASE_NEXT_ACTION, applyMutations, defaultNextAction, checkDoneGate, OUTCOMES } from '../checkpoint.js';
 
 const valid = () => ({ version: 1, triageId: 'x', testKey: 'A > b|||spec.ts', phase: 'awaiting-pattern-selection' });
 
@@ -67,4 +67,28 @@ test('applyMutations leaves nextAction untouched when phase does not change', ()
 test('applyMutations derives nextAction from a phase set via --patch too', () => {
 	const out = applyMutations({ phase: 'x', nextAction: 'stale' }, { phase: 'hypothesis-ready' }, []);
 	assert.equal(out.nextAction, PHASE_NEXT_ACTION['hypothesis-ready']);
+});
+
+test('checkDoneGate blocks done with no outcome set', () => {
+	const gate = checkDoneGate({ phase: 'done' });
+	assert.equal(gate.ok, false);
+	assert.match(gate.errors[0], /requires an outcome/);
+});
+
+test('checkDoneGate: PR/issue outcomes need outcomeRef + recorded block', () => {
+	for (const outcome of ['fix-test', 'fix-product', 'file-issue']) {
+		assert.equal(checkDoneGate({ outcome }).ok, false, `${outcome} with nothing`);
+		assert.equal(checkDoneGate({ outcome, outcomeRef: 'x#1' }).ok, false, `${outcome} missing block`);
+		assert.equal(checkDoneGate({ outcome, diagnosisBlockRecorded: true }).ok, false, `${outcome} missing ref`);
+		assert.equal(checkDoneGate({ outcome, outcomeRef: 'x#1', diagnosisBlockRecorded: true }).ok, true, `${outcome} satisfied`);
+	}
+});
+
+test('checkDoneGate: no-op needs a reason, not a block', () => {
+	assert.equal(checkDoneGate({ outcome: 'no-op' }).ok, false);
+	assert.equal(checkDoneGate({ outcome: 'no-op', outcomeReason: 'accepted flake, tracked in #10016' }).ok, true);
+});
+
+test('OUTCOMES covers the found x decided matrix', () => {
+	assert.deepEqual(OUTCOMES, ['fix-test', 'fix-product', 'file-issue', 'no-op']);
 });

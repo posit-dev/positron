@@ -60,7 +60,15 @@ payloads to the per-triage work directory `.claude/work/triage-e2e-test/<id>/`
   on disk, generates a compact `summary.md`.
 - `scripts/checkpoint.js` -- durable state for start / resume / status. Setting
   `phase` auto-derives `nextAction`, so a resume always shows the right next
-  step (pass `--set nextAction=...` only to override).
+  step (pass `--set nextAction=...` only to override). Refuses `phase=done`
+  until an `outcome` is set and (for PR/issue outcomes) the diagnosis block is
+  recorded -- the mechanical guard against calling a triage done before the
+  block lands.
+- `scripts/record-diagnosis.js` -- renders the `### E2E Triage Diagnosis` block
+  from the checkpoint + history and appends it to the resolving PR (`--pr`) or
+  issue (`--issue`). Idempotent. Only writer of `diagnosisBlockRecorded`, so it
+  is what unblocks `phase=done`. Opening a PR via `positron-pr-helper` does NOT
+  record the block -- run this after.
 
 ## Start or resume
 
@@ -157,7 +165,12 @@ questions. It must not return full file contents, a repo tour, or speculation
 unsupported by evidence.
 
 Save the diagnosis to the checkpoint (`--patch` a `diagnosis` object) and set
-`phase=hypothesis-ready`.
+`phase=hypothesis-ready`. Save the fields `record-diagnosis.js` renders into the
+block: `confidence` (`high`|`medium`|`low`), `summary` (one-line hypothesis),
+`targetedFailure` (the surface error string), `signal` (the trace/timeline
+mechanism, not the bare assertion), `hypothesis` (root-cause mechanism), and
+optional `supersedes`. Test title, dashboard URL, and frequency come from
+history automatically -- don't duplicate them here.
 
 ## Reproduce and fix
 
@@ -184,11 +197,34 @@ In short:
 - Keep verification output on disk or in the background (the `--repeat-each`
   loop is noisy) -- read a summary, don't stream full runs into context.
 
-## Record the result
+## Record the result and close out
 
-When the triage leads to a PR or a durable record, read
-[`references/diagnosis-block.md`](references/diagnosis-block.md) and append the
-`### E2E Triage Diagnosis` block. Set `phase=done`.
+Every triage ends by declaring an `outcome` and recording its diagnosis -- this
+is not optional, and `checkpoint.js` refuses `phase=done` until it's satisfied.
+The outcome spans two axes (what you found x what you did):
+
+| Outcome | Meaning | Where the block goes | To reach `done` |
+|---|---|---|---|
+| `fix-test` | test bug, fixed in a PR | the PR | `record-diagnosis.js --pr <n>` |
+| `fix-product` | product bug, fixed in a PR | the PR | `record-diagnosis.js --pr <n>` |
+| `file-issue` | product bug, filed not fixed | the new issue | `record-diagnosis.js --issue <n>` |
+| `no-op` | not fixed and not filed (accepted flake, dup, backlog, handed off) | checkpoint only | `--set outcomeReason="..."` |
+
+`outcome` is the **primary** artifact -- a secondary note (e.g. mentioning a
+product race in the backlog while you fix the test) does not change it.
+
+**Do not treat a returning sub-tool as the end of the triage.** Opening the PR
+via `positron-pr-helper`, or a passing `author-vitest-tests` run, resolves a
+*step*, not the triage. After the PR/issue exists:
+
+1. `record-diagnosis.js --triage-id <id> --pr <n>` (or `--issue <n>`) -- renders
+   the block from the checkpoint diagnosis + history and appends it (idempotent;
+   read [`references/diagnosis-block.md`](references/diagnosis-block.md) for the
+   field meanings and the immutability rule). Pass `--outcome <o>` to set it here.
+2. `checkpoint.js --set phase=done` -- now passes the gate.
+
+For a `no-op`, skip step 1; set `--set outcome=no-op --set outcomeReason="..."`,
+then `phase=done`.
 
 ## Non-goals
 
