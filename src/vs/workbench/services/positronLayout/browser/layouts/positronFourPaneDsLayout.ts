@@ -15,6 +15,8 @@ export const positronFourPaneDsLayout: PositronLayoutInfo = {
 	codicon: 'positron-four-pane-ds-layout',
 	label: localize2('choseLayout.stacked', 'Stacked Layout'),
 	precondition: ContextKeyExpr.true(),
+	agentCompatible: true,
+	agentDescription: 'Switch the workbench to the four-pane stacked data-science layout (explorer, editor, console + terminal, variables + plots).',
 	layoutDescriptor: {
 		[Parts.SIDEBAR_PART]: {
 			size: '15%',

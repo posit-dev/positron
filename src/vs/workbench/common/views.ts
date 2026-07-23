@@ -316,7 +316,18 @@ export interface IViewDescriptor {
 
 	readonly workspace?: boolean;
 
-	readonly focusCommand?: { id: string; keybindings?: IKeybindings };
+	readonly focusCommand?: {
+		id: string;
+		keybindings?: IKeybindings;
+		// --- Start Positron ---
+		/**
+		 * When true, the auto-registered focus command is exposed to AI
+		 * agents via `positron.ai.getAgentAllowedCommands()`. See
+		 * `agentAllowedCommandsService.ts`.
+		 */
+		agentCompatible?: boolean;
+		// --- End Positron ---
+	};
 
 	// For contributed remote explorer views
 	readonly group?: string;

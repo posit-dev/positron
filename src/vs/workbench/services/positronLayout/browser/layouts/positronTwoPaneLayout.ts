@@ -15,6 +15,8 @@ export const positronTwoPaneLayout: PositronLayoutInfo = {
 	codicon: 'positron-two-pane-ds-layout',
 	label: localize2('choseLayout.sideBySide', 'Side-By-Side Layout'),
 	precondition: ContextKeyExpr.true(),
+	agentCompatible: true,
+	agentDescription: 'Switch the workbench to the side-by-side data-science layout (editor plus a wide session panel with variables and plots).',
 	layoutDescriptor: {
 		[Parts.PANEL_PART]: {
 			hidden: true,

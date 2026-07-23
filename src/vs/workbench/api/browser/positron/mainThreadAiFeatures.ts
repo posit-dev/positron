@@ -287,4 +287,5 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	): Promise<ISerializedValidateAndExecuteCommandResult> {
 		return this._agentAllowedCommandsService.validateAndExecute(commandId, args);
 	}
+
 }
