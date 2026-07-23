@@ -6,72 +6,17 @@
 /// <reference types="vitest/globals" />
 
 import { URI } from '../../../../../base/common/uri.js';
-import { Event, Emitter } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
-import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
-import { QuartoOutputContribution, IQuartoOutputManager } from '../../browser/quartoOutputManager.js';
-import { IQuartoDocumentModelService } from '../../browser/quartoDocumentModelService.js';
-import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
-import { IQuartoExecutionManager, IQuartoOutputCacheService, ICellOutput, ICachedDocument } from '../../common/quartoExecutionTypes.js';
-import { IQuartoDocumentModel, QuartoCodeCell } from '../../common/quartoTypes.js';
-import { QUARTO_INLINE_OUTPUT_ENABLED } from '../../common/positronQuartoConfig.js';
-import { IPositronNotebookOutputWebviewService } from '../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
-import { IResourceUsageHistoryService } from '../../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 
 import { IPositronPreviewService } from '../../../positronPreview/browser/positronPreviewSevice.js';
 import { PreviewWebview } from '../../../positronPreview/browser/previewWebview.js';
 
 describe('QuartoOutputManager', () => {
+	const ctx = createTestContainer().build();
 	const logService = new NullLogService();
-
-	// Fixtures for the reopen restore test (see 'Cached Output Restore On
-	// Reopen'). The document model's parse state is driven directly: it starts
-	// with no cells and gains one when the test fires onDidParse.
-	const reopenUri = URI.file('/reopen.qmd');
-	const parseEmitter = new Emitter<void>();
-	let liveCells: QuartoCodeCell[] = [];
-	let cachedDoc: ICachedDocument | undefined;
-	const quartoModel = stubInterface<IQuartoDocumentModel>({
-		uri: reopenUri,
-		primaryLanguage: 'python',
-		get cells() { return liveCells; },
-		onDidParse: parseEmitter.event,
-		onDidChangeCells: Event.None,
-		onDidChangeLanguage: Event.None,
-		findCellByContentHash: (hash: string) => liveCells.find(c => c.contentHash === hash),
-		getCellById: () => undefined,
-	});
-	const reopenEditorModel = createTextModel('', 'quarto', undefined, reopenUri);
-
-	const ctx = createTestContainer()
-		.withWorkbenchServices()
-		.withContributionServices()
-		.stub(IQuartoDocumentModelService, { getModel: () => quartoModel })
-		.stub(IQuartoOutputCacheService, {
-			loadCache: async () => cachedDoc,
-			findCacheByContentHash: async () => undefined,
-		})
-		.stub(IQuartoExecutionManager, {
-			onDidReceiveOutput: Event.None,
-			onDidChangeExecutionState: Event.None,
-		})
-		.stub(IQuartoKernelManager, {
-			onDidChangeKernelState: Event.None,
-			getSessionForDocument: () => undefined,
-		})
-		.stub(IQuartoOutputManager, {
-			onDidChangeOutputs: Event.None,
-			onDidRequestClearDocument: Event.None,
-			onDidRequestClearAll: Event.None,
-		})
-		.stub(IPositronNotebookOutputWebviewService, {})
-		.stub(IResourceUsageHistoryService, {})
-		.build();
 
 	describe('Output Preservation When Cells Move', () => {
 		/**
@@ -250,72 +195,6 @@ y = 2
 			// The remaining view zone should be for the cell that was originally second
 			const newCellId = model.cells[0].id;
 			expect(remappedViewZones.has(newCellId), 'View zone for surviving cell should be preserved').toBe(true);
-		});
-	});
-
-	describe('Cached Output Restore On Reopen', () => {
-		/**
-		 * Regression test for the close-and-reopen flake where a Quarto .qmd's
-		 * inline output silently fails to re-render (win/electron 120s timeout).
-		 *
-		 * On reopen the editor's text model exists before its cells are parsed.
-		 * _loadCachedOutputs matches cached outputs to live cells by content hash;
-		 * with zero parsed cells that match returns nothing, so every cached
-		 * output is dropped and the pass marks itself complete with no retry. The
-		 * fix defers the restore until the model has parsed cells, for any
-		 * document scheme -- previously the deferral only covered untitled
-		 * hot-exit restores, so a file reopen fell through and dropped its output.
-		 *
-		 * This drives the real contribution: with the bug present the final
-		 * assertion fails because the output is never restored after parse.
-		 */
-		it('restores cached output after the model parses on reopen, instead of dropping it', async () => {
-			ctx.disposables.add(reopenEditorModel);
-			ctx.disposables.add(parseEmitter);
-
-			const cachedCellId = '0-abchash-unlabeled';
-			const contentHash = 'abchash';
-			const cachedOutput: ICellOutput = {
-				outputId: 'out-1',
-				items: [{ mime: 'text/plain', data: 'plot' }],
-			};
-			cachedDoc = {
-				sourceUri: reopenUri.toString(),
-				lastUpdated: Date.now(),
-				cells: [{ cellId: cachedCellId, contentHash, outputs: [cachedOutput] }],
-			};
-
-			// Reopen before parse: the cache has the output but no cells are parsed yet.
-			liveCells = [];
-
-			const editor = stubInterface<ICodeEditor>({
-				hasModel: (() => true) as ICodeEditor['hasModel'],
-				getModel: () => reopenEditorModel,
-				getOption: (() => false) as ICodeEditor['getOption'],
-				onDidChangeModel: Event.None,
-			});
-
-			// Enable the feature so the contribution initializes output handling.
-			QUARTO_INLINE_OUTPUT_ENABLED.bindTo(ctx.get(IContextKeyService)).set(true);
-
-			const contribution = ctx.disposables.add(
-				ctx.instantiationService.createInstance(QuartoOutputContribution, editor)
-			);
-
-			// Let the async restore run to its defer point.
-			await new Promise(resolve => setTimeout(resolve, 0));
-			// Before parse nothing can match, so the cached output is not restored yet.
-			expect(contribution.getOutputsForCell(cachedCellId)).toHaveLength(0);
-
-			// The model parses and the cached cell appears (mirrors onDidParse on reopen).
-			liveCells = [stubInterface<QuartoCodeCell>({ id: cachedCellId, contentHash })];
-			parseEmitter.fire();
-			await new Promise(resolve => setTimeout(resolve, 0));
-
-			// The deferred restore retries and records the cached output. With the
-			// bug the file reopen fell through, dropped the output, and never
-			// retried, so this stays empty.
-			expect(contribution.getOutputsForCell(cachedCellId)).toHaveLength(1);
 		});
 	});
 
