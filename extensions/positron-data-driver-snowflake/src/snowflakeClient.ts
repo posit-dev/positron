@@ -79,8 +79,13 @@ interface SdkExecuteOptions {
 export interface ISnowflakeSdkConnection {
 	/** Connects using a synchronous authenticator (password, key-pair, PAT). */
 	connect(callback: (err: SnowflakeError | undefined, conn: ISnowflakeSdkConnection) => void): void;
-	/** Connects using an authenticator that needs an async step (OAuth token exchange, browser SSO). */
-	connectAsync(callback: (err: SnowflakeError | undefined, conn: ISnowflakeSdkConnection) => void): void;
+	/**
+	 * Connects using an authenticator that needs an async step (OAuth token exchange, browser SSO).
+	 * This is the SDK's promise-based API: it returns a promise that settles with the outcome, and
+	 * depending on the failure mode it may reject that promise *without* invoking the callback. Callers
+	 * must therefore consume the returned promise, not rely on the callback alone.
+	 */
+	connectAsync(callback?: (err: SnowflakeError | undefined, conn: ISnowflakeSdkConnection) => void): Promise<ISnowflakeSdkConnection>;
 	/** Runs a statement, delivering rows (or an error) to the `complete` callback. */
 	execute(options: SdkExecuteOptions): void;
 	/** Closes the connection. */
@@ -231,7 +236,11 @@ export class SnowflakeClient {
 		return new Promise<void>((resolve, reject) => {
 			const callback = (err: SnowflakeError | undefined) => err ? reject(err) : resolve();
 			if (useAsync) {
-				conn.connectAsync(callback);
+				// connectAsync (OAuth exchange, browser SSO) can report failure by rejecting its promise
+				// without ever calling the callback, which would leave this hanging until the SDK's
+				// internal timeout. Settle on whichever of the promise or the callback fires first; a
+				// Promise ignores settles after the first, so wiring both is safe.
+				conn.connectAsync(callback).then(() => resolve(), reject);
 			} else {
 				conn.connect(callback);
 			}

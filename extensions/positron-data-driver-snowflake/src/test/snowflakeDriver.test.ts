@@ -389,7 +389,7 @@ suite('Snowflake Reconnecting Client', () => {
 		destroyCount = 0;
 		constructor(private readonly _handler: (sql: string, binds?: unknown[]) => { rows: unknown[] }) { }
 		connect(cb: (err: any, conn: any) => void) { this.connectCount++; cb(undefined, this); }
-		connectAsync(cb: (err: any, conn: any) => void) { this.connectCount++; cb(undefined, this); }
+		connectAsync(cb: (err: any, conn: any) => void) { this.connectCount++; cb(undefined, this); return Promise.resolve(this); }
 		execute(opts: { sqlText: string; binds?: unknown[]; complete: (err: any, stmt: any, rows: any) => void }) {
 			try {
 				const { rows } = this._handler(opts.sqlText, opts.binds);
@@ -503,6 +503,25 @@ suite('Snowflake Reconnecting Client', () => {
 
 		await assert.rejects(() => client.connect(), /username or password/);
 		assert.strictEqual(state.attempts, 1, 'bad credentials should fail fast, not retry');
+	});
+
+	test('async-auth connect settles from the returned promise even when the callback never fires', async () => {
+		// Reproduces the hang: connectAsync rejects its promise without ever invoking the callback, as
+		// the browser-SSO / OAuth failure paths can. Callback-only wiring would wait for the SDK's
+		// internal timeout; consuming the returned promise rejects promptly.
+		const authError = Object.assign(new Error('Incorrect username or password was specified'), { code: '390100' });
+		const factory: SnowflakeConnectionFactory = () => {
+			// eslint-disable-next-line local/code-no-any-casts
+			return {
+				connect: (cb: (err: any, conn: any) => void) => cb(authError, undefined),
+				connectAsync: () => Promise.reject(authError),
+				execute: (opts: any) => opts.complete(undefined, {}, []),
+				destroy: (cb: (err: any, conn: any) => void) => cb(undefined, undefined),
+			} as any;
+		};
+		const client = new SnowflakeClient({ ...OPTIONS, authenticator: 'EXTERNALBROWSER' }, factory, async () => { });
+
+		await assert.rejects(() => client.connect(), /username or password/);
 	});
 });
 
