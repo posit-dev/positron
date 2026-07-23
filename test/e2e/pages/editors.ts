@@ -38,7 +38,7 @@ export class Editors {
 		});
 	}
 
-	async clickTab(tabName: string): Promise<void> {
+	async clickTab(tabName: string | RegExp): Promise<void> {
 		await test.step(`Click tab: ${tabName}`, async () => {
 			const tabLocator = this.code.driver.currentPage.getByRole('tab', { name: tabName });
 			await expect(tabLocator).toBeVisible();

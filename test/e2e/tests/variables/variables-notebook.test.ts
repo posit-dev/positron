@@ -106,8 +106,11 @@ test.describe('Variables Pane - Notebook', {
 		// Reload window
 		await hotKeys.reloadWindow(true);
 
-		// After reload a console session is foregrounded; click the notebook tab to surface its variables.
-		await app.workbench.editors.clickTab('Untitled-1.ipynb');
+		// After reload a console session is foregrounded; click the notebook tab to surface its
+		// variables. Match by the untitled .ipynb identity rather than a fixed index: on web the
+		// restored notebook can occasionally come back renumbered (Untitled-2), which is orthogonal
+		// to what this test verifies.
+		await app.workbench.editors.clickTab(/Untitled-\d+\.ipynb/);
 
 		// Ensure the variable is still present
 		await variables.expectVariableToBe('dict', `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`, 30000);
