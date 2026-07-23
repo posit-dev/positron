@@ -73,7 +73,12 @@
       {
         "command": "zed.quartoVisualMode",
         "category": "Zed",
-        "title": "Edit Quarto File in Visual Mode"
+        "title": "Edit Quarto File in Visual Mode",
+        "agent": {
+          "description": "Reopens the active Quarto file in the Quarto visual editor. Has no effect if no Quarto file is currently open.",
+          "args": [],
+          "returns": "void"
+        }
       }
     ],
     "menus": {
