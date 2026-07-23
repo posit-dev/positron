@@ -13,8 +13,8 @@
 // already carries a block, it re-affirms the flag without a second append.
 //
 // Usage:
-//   node record-diagnosis.js --triage-id <id> --pr <n> [--outcome test-fix-pr|product-bug]
-//   node record-diagnosis.js --triage-id <id> --issue <n> [--outcome product-bug]
+//   node record-diagnosis.js --triage-id <id> --pr <n> [--outcome fix-test|fix-product]
+//   node record-diagnosis.js --triage-id <id> --issue <n> [--outcome file-issue]
 //   node record-diagnosis.js --triage-id <id> --pr <n> --dry-run   # render only, no write
 //
 // Options:
@@ -22,7 +22,7 @@
 //   --pr <n>           target PR number   (one of --pr/--issue required unless --dry-run)
 //   --issue <n>        target issue number
 //   --repo <owner/repo>  default: posit-dev/positron
-//   --outcome <o>      also set checkpoint outcome (test-fix-pr | product-bug)
+//   --outcome <o>      also set checkpoint outcome (fix-test | fix-product | file-issue)
 //   --dry-run          print the rendered block; do not edit the artifact or checkpoint
 //
 // Output (stdout): compact JSON { block, target, alreadyPresent, recorded }.
@@ -33,8 +33,13 @@ import path from 'path';
 import {
 	triageDir, readJson, writeJson, writeText, emit, fail, tryRun, isMain, parseArgs,
 } from './lib.js';
+import { OUTCOMES } from './checkpoint.js';
 
 const BLOCK_HEADING = '### E2E Triage Diagnosis';
+
+// Outcomes this script can set: it records a block on an external artifact, so
+// no-op (checkpoint-only) is out of scope -- that goes through checkpoint.js.
+const ARTIFACT_OUTCOMES = OUTCOMES.filter(o => o !== 'no-op');
 const CONFIDENCE_EMOJI = { high: '\u{1F7E2}', medium: '\u{1F7E1}', low: '\u{1F534}' };
 
 /** Human frequency string from the selected history pattern, e.g.
@@ -99,6 +104,9 @@ function main() {
 	const args = parseArgs(process.argv.slice(2), ['dry-run']);
 	const triageId = args['triage-id'];
 	if (!triageId) { fail('Missing --triage-id.'); }
+	if (args.outcome && !ARTIFACT_OUTCOMES.includes(args.outcome)) {
+		fail(`--outcome must be one of ${ARTIFACT_OUTCOMES.join(' | ')} (use checkpoint.js for no-op).`);
+	}
 
 	const dir = triageDir(triageId);
 	const sp = path.join(dir, 'state.json');

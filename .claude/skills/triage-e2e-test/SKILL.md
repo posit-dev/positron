@@ -165,12 +165,10 @@ questions. It must not return full file contents, a repo tour, or speculation
 unsupported by evidence.
 
 Save the diagnosis to the checkpoint (`--patch` a `diagnosis` object) and set
-`phase=hypothesis-ready`. Save the fields `record-diagnosis.js` renders into the
-block: `confidence` (`high`|`medium`|`low`), `summary` (one-line hypothesis),
-`targetedFailure` (the surface error string), `signal` (the trace/timeline
-mechanism, not the bare assertion), `hypothesis` (root-cause mechanism), and
-optional `supersedes`. Test title, dashboard URL, and frequency come from
-history automatically -- don't duplicate them here.
+`phase=hypothesis-ready`. Include the fields `record-diagnosis.js` renders
+(`confidence`, `summary`, `targetedFailure`, `signal`, `hypothesis`, optional
+`supersedes`) -- see [`references/diagnosis-block.md`](references/diagnosis-block.md)
+for what each must contain.
 
 ## Reproduce and fix
 
@@ -185,13 +183,10 @@ Read [`references/reproduction.md`](references/reproduction.md) at this stage.
 In short:
 
 - When the mechanism is below the e2e layer, write a deterministic lower-level
-  regression test. **The RED bar is yours to hold** (`author-vitest-tests`
-  drives toward green and does not enforce RED-first): make it a real RED first
-  -- it must fail *inside the assertion, reproducing the diagnosed mechanism*
-  against current code; an import, compile, or setup error is not a RED. Use
-  `author-vitest-tests` for the builder/stub conventions and its
-  `review-vitest-tests` pass rather than hand-rolling; then apply the fix and
-  confirm GREEN.
+  regression test via `author-vitest-tests` (it owns the builder/stub
+  conventions and `review-vitest-tests`, but drives toward green -- **the RED
+  bar is yours to hold**: a valid RED reproduces the diagnosed mechanism inside
+  the assertion, not an import/compile/setup error. See `reproduction.md`).
 - Otherwise use the smallest CI-exercised e2e project and recreate the
   triggering condition, not just a rerun. For a race, one green run is not proof.
 - Keep verification output on disk or in the background (the `--repeat-each`
@@ -213,18 +208,14 @@ The outcome spans two axes (what you found x what you did):
 `outcome` is the **primary** artifact -- a secondary note (e.g. mentioning a
 product race in the backlog while you fix the test) does not change it.
 
-**Do not treat a returning sub-tool as the end of the triage.** Opening the PR
-via `positron-pr-helper`, or a passing `author-vitest-tests` run, resolves a
-*step*, not the triage. After the PR/issue exists:
+**A returning sub-tool is not the end of the triage** -- opening the PR via
+`positron-pr-helper` or a passing `author-vitest-tests` run resolves a *step*.
+Once the PR/issue exists:
 
-1. `record-diagnosis.js --triage-id <id> --pr <n>` (or `--issue <n>`) -- renders
-   the block from the checkpoint diagnosis + history and appends it (idempotent;
-   read [`references/diagnosis-block.md`](references/diagnosis-block.md) for the
-   field meanings and the immutability rule). Pass `--outcome <o>` to set it here.
-2. `checkpoint.js --set phase=done` -- now passes the gate.
-
-For a `no-op`, skip step 1; set `--set outcome=no-op --set outcomeReason="..."`,
-then `phase=done`.
+1. `record-diagnosis.js --triage-id <id> --pr <n>` (or `--issue <n>`) appends the
+   block and sets `outcomeRef` + `diagnosisBlockRecorded`. For a `no-op`, skip
+   this and `checkpoint.js --set outcome=no-op --set outcomeReason="..."` instead.
+2. `checkpoint.js --set phase=done`.
 
 ## Non-goals
 
