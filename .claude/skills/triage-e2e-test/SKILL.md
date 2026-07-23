@@ -45,8 +45,9 @@ Violating the letter of these rules is violating their spirit.
 ## Scripts
 
 Run from the repo root. All emit **compact JSON to stdout** and write full
-payloads to the per-triage work directory `.claude/work/triage-e2e-test/<id>/`
-(gitignored). They wrap the `e2e-failure-analyzer` scripts (no copies).
+payloads to the per-triage work directory under the shared git common dir
+(`<git-common-dir>/triage-e2e-test/<id>/`, so `--resume` works from any
+worktree). They wrap the `e2e-failure-analyzer` scripts (no copies).
 
 - `scripts/triage-history.js` -- dual-branch history retrieval + merge. Resolves
   the branch, queries the current branch and `main`, merges patterns by failure
