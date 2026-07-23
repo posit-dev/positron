@@ -869,17 +869,23 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			};
 		}
 
-		// Create and send the execute request.
+		// Create and send the execute request. The promise returned by
+		// `execute()` signals ACCEPTANCE of the code (the request has been
+		// dispatched to the kernel), not completion, so we do not await the
+		// reply here. The reply paired with `ExecuteRequest` is `execute_result`,
+		// which the kernel only emits for code that produces a result value;
+		// awaiting it would hang forever on assignments, `print(...)`, and any
+		// other statement without a value. For `Unprocessed` code the
+		// completeness check above already established acceptance (rejecting on
+		// incomplete/cancelled). The reply is logged out of band.
 		const execute = new ExecuteRequest(id, request, cellId as string);
-		try {
-			const reply = await this.sendRequest(execute);
+		this.sendRequest(execute).then((reply) => {
 			this.log(`Execution result: ${JSON.stringify(reply)}`, vscode.LogLevel.Debug);
-		} catch (err) {
+		}).catch((err) => {
 			// This should be exceedingly rare; it represents a failure to send
 			// the request to Kallichore rather than a failure to execute it
 			this.log(`Failed to send execution request for '${code}': ${err}`, vscode.LogLevel.Error);
-			throw err;
-		}
+		});
 	}
 
 	/**
