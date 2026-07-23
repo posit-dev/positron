@@ -290,6 +290,120 @@ suite('AuthProvider (credential chain)', () => {
 	});
 });
 
+suite('AuthProvider - invalidateChainSession', () => {
+	const providers: AuthProvider[] = [];
+
+	function track(provider: AuthProvider): AuthProvider {
+		providers.push(provider);
+		return provider;
+	}
+
+	teardown(() => {
+		while (providers.length) {
+			providers.pop()!.dispose();
+		}
+	});
+
+	function collectEvents(provider: AuthProvider): { added: number; removed: number; changed: number; changedTokens: string[] } {
+		const events = { added: 0, removed: 0, changed: 0, changedTokens: [] as string[] };
+		provider.onDidChangeSessions(e => {
+			events.added += e.added?.length ?? 0;
+			events.removed += e.removed?.length ?? 0;
+			events.changed += e.changed?.length ?? 0;
+			events.changedTokens.push(...(e.changed ?? []).map(s => s.accessToken));
+		});
+		return events;
+	}
+
+	test('re-resolves and fires changed when the token differs', async () => {
+		let count = 0;
+		const tokens = ['x', 'y'];
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{ resolve: async () => tokens[count++] }
+		));
+		await provider.resolveChainCredentials();
+
+		const events = collectEvents(provider);
+		await provider.invalidateChainSession();
+
+		assert.deepStrictEqual(
+			{ added: events.added, removed: events.removed, changed: events.changed },
+			{ added: 0, removed: 0, changed: 1 }
+		);
+		assert.deepStrictEqual(events.changedTokens, ['y']);
+	});
+
+	test('fires changed even when the token is unchanged (connection-only change)', async () => {
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{ resolve: async () => 'same-token' }
+		));
+		await provider.resolveChainCredentials();
+
+		const events = collectEvents(provider);
+		await provider.invalidateChainSession();
+
+		assert.deepStrictEqual(
+			{ added: events.added, removed: events.removed, changed: events.changed },
+			{ added: 0, removed: 0, changed: 1 }
+		);
+		assert.deepStrictEqual(events.changedTokens, ['same-token']);
+	});
+
+	test('fires removed when re-resolution fails', async () => {
+		let count = 0;
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{
+				resolve: async () => {
+					if (count++ === 0) { return 'x'; }
+					throw new Error('chain failed');
+				},
+			}
+		));
+		await provider.resolveChainCredentials();
+
+		const events = collectEvents(provider);
+		await provider.invalidateChainSession();
+
+		assert.deepStrictEqual(
+			{ added: events.added, removed: events.removed, changed: events.changed },
+			{ added: 0, removed: 1, changed: 0 }
+		);
+		assert.strictEqual((await provider.getSessions()).length, 0);
+	});
+
+	test('is a no-op when there is no cached session', async () => {
+		let count = 0;
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{ resolve: async () => { count++; return 'x'; } }
+		));
+
+		const events = collectEvents(provider);
+		await provider.invalidateChainSession();
+
+		assert.strictEqual(count, 0);
+		assert.deepStrictEqual(
+			{ added: events.added, removed: events.removed, changed: events.changed },
+			{ added: 0, removed: 0, changed: 0 }
+		);
+	});
+
+	test('is a no-op for a provider with no credential chain', async () => {
+		const provider = track(new AuthProvider('test', 'Test', createMockContext()));
+		const events = collectEvents(provider);
+
+		await provider.invalidateChainSession();
+
+		assert.deepStrictEqual(
+			{ added: events.added, removed: events.removed, changed: events.changed },
+			{ added: 0, removed: 0, changed: 0 }
+		);
+	});
+});
+
 suite('AuthProvider - credential chain refresh', () => {
 	const providers: AuthProvider[] = [];
 

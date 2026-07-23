@@ -399,6 +399,26 @@ export class AuthProvider
 	}
 
 	/**
+	 * Re-resolve the cached chain session so a catalog connection change takes
+	 * effect without waiting for expiry. Always fires a session-change event
+	 * when a cached session existed.
+	 */
+	async invalidateChainSession(): Promise<void> {
+		if (!this.credentialChain || !this._chainSession) {
+			return;
+		}
+		const previousToken = this._chainSession.accessToken;
+		await this.resolveChainCredentials();
+		if (this._chainSession && this._chainSession.accessToken === previousToken) {
+			// Connection-only change: the resolved token is unchanged, so
+			// doResolveChainCredentials fired nothing. Consumers still need
+			// the signal that the session was re-validated against the new
+			// connection.
+			this.fireSessionsChanged({ added: [], removed: [], changed: [this._chainSession] });
+		}
+	}
+
+	/**
 	 * Whether the cached chain credential is within the expiry buffer and
 	 * should be re-resolved before being handed out. Chains without an
 	 * expiration return false and rely on the timer or `shouldRefresh` instead.

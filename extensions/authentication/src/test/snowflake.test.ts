@@ -10,6 +10,8 @@ import {
 	isValidSnowflakeAccount,
 	constructSnowflakeBaseUrl,
 	detectSnowflakeCredentials,
+	getConfiguredSnowflakeAccount,
+	getSnowflakeConnectionsTomlPath,
 } from '../credentials/snowflake';
 
 suite('Snowflake Credentials', () => {
@@ -80,33 +82,44 @@ suite('Snowflake Credentials', () => {
 		});
 	});
 
-	suite('Credential Detection', () => {
-		let mockWorkspaceConfig: sinon.SinonStub;
-		let getConfigurationStub: sinon.SinonStub;
+	suite('Connection slice', () => {
 		let processEnvStub: sinon.SinonStub;
 
 		setup(() => {
-			mockWorkspaceConfig = sinon.stub();
-			const mockConfig: vscode.WorkspaceConfiguration = {
-				get: mockWorkspaceConfig,
-				has: sinon.stub(),
-				inspect: sinon.stub(),
-				update: sinon.stub()
-			};
-			getConfigurationStub = sinon.stub(vscode.workspace, 'getConfiguration').returns(mockConfig);
-			processEnvStub = sinon.stub(process, 'env').value({});
+			// Ensure a leftover env var can't leak into the parameterized
+			// helpers, which must read only their connection-slice argument.
+			processEnvStub = sinon.stub(process, 'env').value({
+				SNOWFLAKE_HOME: '/env/home',
+				SNOWFLAKE_ACCOUNT: 'env-account',
+			});
 		});
 
 		teardown(() => {
-			getConfigurationStub.restore();
 			processEnvStub.restore();
 		});
 
-		test('detectSnowflakeCredentials returns undefined when SNOWFLAKE_HOME not set', async () => {
-			mockWorkspaceConfig.withArgs('credentials', {}).returns({});
+		test('detectSnowflakeCredentials returns undefined when the slice has no home', async () => {
+			assert.strictEqual(await detectSnowflakeCredentials(undefined), undefined);
+			assert.strictEqual(await detectSnowflakeCredentials({}), undefined);
+		});
 
-			const result = await detectSnowflakeCredentials();
-			assert.strictEqual(result, undefined);
+		test('getSnowflakeConnectionsTomlPath derives the path from the slice home', () => {
+			assert.strictEqual(
+				getSnowflakeConnectionsTomlPath({ home: '/snowflake/home' }),
+				'/snowflake/home/connections.toml'
+			);
+			// Env-only home is ignored; the helper reads only its argument.
+			assert.strictEqual(getSnowflakeConnectionsTomlPath({}), undefined);
+			assert.strictEqual(getSnowflakeConnectionsTomlPath(undefined), undefined);
+		});
+
+		test('getConfiguredSnowflakeAccount reads the slice account, ignoring env', () => {
+			assert.strictEqual(
+				getConfiguredSnowflakeAccount({ account: 'myorg-acct' }),
+				'myorg-acct'
+			);
+			assert.strictEqual(getConfiguredSnowflakeAccount({}), '');
+			assert.strictEqual(getConfiguredSnowflakeAccount(undefined), '');
 		});
 	});
 });
