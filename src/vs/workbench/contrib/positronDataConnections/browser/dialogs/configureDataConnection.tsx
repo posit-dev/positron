@@ -128,14 +128,11 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			.map(parameter => parameter.id);
 
 		let disposed = false;
-		Promise.all(unmaskedSecretIds.map(async parameterId => {
-			const redacted = await positronDataConnectionsService.getRedactedParameterValue(profileId, parameterId);
-			return [parameterId, redacted] as const;
-		})).then(entries => {
+		positronDataConnectionsService.getRedactedParameterValues(profileId, unmaskedSecretIds).then(redacted => {
 			if (disposed) {
 				return;
 			}
-			setRedactedSecretValues(Object.fromEntries(entries.filter((entry): entry is [string, string] => entry[1] !== undefined)));
+			setRedactedSecretValues(redacted);
 		});
 
 		return () => { disposed = true; };
@@ -288,6 +285,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 				connectionName,
 				mechanismId: props.mechanism.id,
 				parameterValues,
+				preferredCodeVariants: props.profile?.preferredCodeVariants,
 			});
 		}
 	}, [connectionName, parameterFieldStates, props, storedSecretIds]);

@@ -15,6 +15,10 @@ const MODAL_DIALOG = '.positron-modal-dialog';
 const PARAMETER_FIELD = '.parameter-field';
 const DATA_CONNECTION_ENTRY_ROW = '.data-connection-entry-row';
 
+// The "Connect With" dialog, opened from a connection entry's Actions menu.
+const CONNECT_WITH_DIALOG_CONTENT = '.connect-data-connection-with';
+const CUSTOM_CONTEXT_MENU_ITEMS = '.custom-context-menu-items';
+
 // Tree row selectors. The tree renders inside a virtualized data grid; each row exposes a twisty
 // button (aria-label "Expand" when collapsed) and a content area holding the node label.
 const TREE_ROW = '.positron-tree-row';
@@ -60,6 +64,7 @@ export class DataConnections {
 	saveButton: Locator;
 	nextButton: Locator;
 	connectionEntries: Locator;
+	connectWithDialog: Locator;
 
 	/**
 	 * Optional override (in ms) for the built-in waits in this page object. Slow backends need more
@@ -77,6 +82,8 @@ export class DataConnections {
 		this.saveButton = this.dialog.getByRole('button', { name: 'Save' });
 		this.nextButton = this.dialog.getByRole('button', { name: 'Next' });
 		this.connectionEntries = page.locator(DATA_CONNECTION_ENTRY_ROW);
+		this.connectWithDialog = page.locator('.positron-dynamic-modal-dialog-box-container')
+			.filter({ has: page.locator(CONNECT_WITH_DIALOG_CONTENT) });
 	}
 
 	/**
@@ -156,6 +163,57 @@ export class DataConnections {
 		await expect(
 			this.connectionEntries.filter({ hasText: connectionName })
 		).toBeVisible({ timeout: this.actionTimeout });
+	}
+
+	/**
+	 * Opens the "Connect With" dialog for a connection's language, via the connection entry's
+	 * Actions menu.
+	 * @param connectionName The connection name shown in the tree.
+	 * @param languageName The connect-with menu item label, e.g. 'Python', 'R', 'SQL'.
+	 */
+	async openConnectWith(connectionName: string, languageName: string): Promise<void> {
+		await test.step(`Open Connect With ${languageName} for ${connectionName}`, async () => {
+			const row = this.connectionEntries.filter({ hasText: connectionName });
+			await this.revealNode(row);
+			await expect(row).toBeVisible();
+			await row.getByRole('button', { name: 'Actions' }).click();
+
+			const menu = this.code.driver.currentPage.locator(CUSTOM_CONTEXT_MENU_ITEMS);
+			await expect(menu).toBeVisible();
+			await menu.locator('.custom-context-menu-item', {
+				has: this.code.driver.currentPage.locator('.title', { hasText: languageName })
+			}).click();
+
+			await expect(this.connectWithDialog).toBeVisible();
+		});
+	}
+
+	/**
+	 * Selects a connection code variant (e.g. a package like 'SQLAlchemy') by its label in the
+	 * open Connect With dialog.
+	 * @param label The variant's label.
+	 */
+	async selectConnectionCodeVariant(label: string): Promise<void> {
+		await test.step(`Select connection code variant: ${label}`, async () => {
+			await this.connectWithDialog.getByRole('option', { name: label }).click();
+		});
+	}
+
+	/**
+	 * Asserts that the given connection code variant is currently selected in the open Connect
+	 * With dialog.
+	 * @param label The variant's label.
+	 */
+	async expectConnectionCodeVariantSelected(label: string): Promise<void> {
+		await expect(this.connectWithDialog.getByRole('option', { name: label })).toHaveAttribute('aria-selected', 'true');
+	}
+
+	/**
+	 * Closes the open Connect With dialog via its Cancel action.
+	 */
+	async closeConnectWith(): Promise<void> {
+		await this.connectWithDialog.getByRole('button', { name: 'Cancel' }).click();
+		await expect(this.connectWithDialog).toBeHidden();
 	}
 
 	/**

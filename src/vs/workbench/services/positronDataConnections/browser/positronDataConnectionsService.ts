@@ -200,44 +200,77 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
-	 * Gets a display-safe, redacted form of a stored secret parameter value. Resolves the cleartext
-	 * from secret storage, hands it to the driver for format-specific redaction, and returns only the
-	 * redacted result. See {@link IPositronDataConnectionsService.getRedactedParameterValue}.
+	 * Gets display-safe, redacted forms of stored secret parameter values. Resolves the profile
+	 * (with its secret values pulled from secret storage) and the driver/mechanism once, then
+	 * redacts every requested parameter from that single resolution -- redacting M secrets this way
+	 * costs one profile/secret-storage fetch, not M. See
+	 * {@link IPositronDataConnectionsService.getRedactedParameterValues}.
 	 * @param id The data connection profile id.
-	 * @param parameterId The id of the secret parameter to redact.
+	 * @param parameterIds The ids of the secret parameters to redact.
 	 */
-	async getRedactedParameterValue(id: string, parameterId: string): Promise<string | undefined> {
+	async getRedactedParameterValues(id: string, parameterIds: readonly string[]): Promise<Record<string, string>> {
+		const result: Record<string, string> = {};
+		if (parameterIds.length === 0) {
+			return result;
+		}
+
 		// Resolve the profile with its secret values pulled from secret storage.
 		const profile = await this.getProfileWithSecrets(id);
 		if (!profile) {
-			return undefined;
-		}
-
-		// Only string secret values can be redacted for display.
-		const value = profile.parameterValues[parameterId];
-		if (typeof value !== 'string') {
-			return undefined;
+			return result;
 		}
 
 		// Resolve the driver, and the mechanism the connection was configured with (falling back for
 		// profiles persisted before mechanisms existed).
 		const driver = this.driverManager.getDriver(profile.driverMetadata.id);
 		if (!driver) {
-			return undefined;
+			return result;
 		}
 		const mechanism = resolveDataConnectionMechanism(driver.metadata, profile.mechanismId);
 		if (!mechanism) {
-			return undefined;
+			return result;
 		}
 
-		// Ask the driver to redact the value. The cleartext stays within the service/driver; only the
+		// Ask the driver to redact each value. The cleartext stays within the service/driver; only the
 		// redacted string is returned to the caller.
-		try {
-			return await driver.redactParameterValue(mechanism.id, parameterId, value);
-		} catch (err) {
-			this._logService.error(`[DataConnections] Failed to redact ${id}/${parameterId}: ${err}`);
-			return undefined;
+		await Promise.all(parameterIds.map(async parameterId => {
+			// Only string secret values can be redacted for display.
+			const value = profile.parameterValues[parameterId];
+			if (typeof value !== 'string') {
+				return;
+			}
+			try {
+				const redacted = await driver.redactParameterValue(mechanism.id, parameterId, value);
+				if (redacted !== undefined) {
+					result[parameterId] = redacted;
+				}
+			} catch (err) {
+				this._logService.error(`[DataConnections] Failed to redact ${id}/${parameterId}: ${err}`);
+			}
+		}));
+
+		return result;
+	}
+
+	/**
+	 * Sets the user's preferred connection code variant for a profile and language, persisted
+	 * across sessions. A no-op if the profile is not found. Does not fire onDidChangeProfiles: like
+	 * the mechanism id backfill, this is metadata that does not affect how the profile is displayed
+	 * in the connections list.
+	 * @param profileId The data connection profile id.
+	 * @param languageId The language id the variant applies to (e.g. 'python', 'r').
+	 * @param variantId The id of the preferred variant.
+	 */
+	setPreferredCodeVariant(profileId: string, languageId: string, variantId: string): void {
+		const profile = this._profiles.find(_ => _.id === profileId);
+		if (!profile) {
+			return;
 		}
+
+		profile.preferredCodeVariants = { ...profile.preferredCodeVariants, [languageId]: variantId };
+		this._persistProfileMetadata(profile);
+
+		this._logService.trace(`[DataConnections] Set preferred code variant for ${profileId}/${languageId}: ${variantId}`);
 	}
 
 	/**
@@ -415,14 +448,25 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			return;
 		}
 		profile.mechanismId = mechanismId;
-		const secretParameterIds = this._readPersistedProfile(id)?.secretParameterIds ?? [];
+		this._persistProfileMetadata(profile);
+		this._logService.trace(`[DataConnections] Backfilled mechanism id '${mechanismId}' for profile ${id}`);
+	}
+
+	/**
+	 * Persists an in-memory profile's current fields to storage, preserving its existing secret
+	 * parameter id list. Used for metadata-only updates (preferred code variant, mechanism id
+	 * backfill) that don't go through {@link addUpdateProfile}'s secret-splitting logic because
+	 * they never touch parameterValues.
+	 * @param profile The in-memory data connection profile to persist.
+	 */
+	private _persistProfileMetadata(profile: IDataConnectionProfile): void {
+		const secretParameterIds = this._readPersistedProfile(profile.id)?.secretParameterIds ?? [];
 		this._storageService.store(
-			profileStorageKey(id),
+			profileStorageKey(profile.id),
 			JSON.stringify({ profile, secretParameterIds } satisfies IPersistedDataConnectionProfile),
 			StorageScope.PROFILE,
 			StorageTarget.USER,
 		);
-		this._logService.trace(`[DataConnections] Backfilled mechanism id '${mechanismId}' for profile ${id}`);
 	}
 
 	/**
@@ -464,11 +508,16 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		// a single mechanism, so only that mechanism's parameters define its secret schema.
 		const driver = this.driverManager.getDriver(profile.driverMetadata.id);
 		const mechanism = driver ? resolveDataConnectionMechanism(driver.metadata, profile.mechanismId) : undefined;
-		const secretParamIdSet = new Set(
-			mechanism?.parameters
+
+		// If the mechanism can't be resolved (the driver's extension isn't registered/activated at
+		// save time), fall back to the previously known secret schema instead of treating "unknown"
+		// as "no secrets" -- otherwise already-secret parameter values would be persisted in
+		// plaintext below.
+		const secretParamIdSet = mechanism
+			? new Set(mechanism.parameters
 				.filter(_ => (_.type === 'password' || _.type === 'string') && _.secret === true)
-				.map(_ => _.id) ?? []
-		);
+				.map(_ => _.id))
+			: previousSecretParameterIds;
 
 		// Build the public parameter values and the new list of secret parameter ids.
 		// Iterate the driver's current secret schema (not the form's parameterValues) so an absent
