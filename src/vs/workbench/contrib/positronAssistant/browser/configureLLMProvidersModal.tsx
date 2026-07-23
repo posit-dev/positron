@@ -20,7 +20,7 @@ import { ConnectProviderView } from './components/connectProviderView.js';
 import { ConnectedProviderView } from './components/connectedProviderView.js';
 import { NotYetSupportedView } from './components/notYetSupportedView.js';
 import { ProviderModalFooter } from './components/providerModalFooter.js';
-import { selectProviderView } from './providerConnection.js';
+import { deriveConnectAction, deriveDisconnectAction, selectProviderView } from './providerConnection.js';
 import { useProviderUpdates } from './useProviderUpdates.js';
 
 type OnAction = (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>;
@@ -142,18 +142,20 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 			{activeView === 'connect' && selectedSource &&
 				<ConnectProviderView
 					source={selectedSource}
-					onAction={props.onAction}
 					onBack={() => setView('list')}
+					onCancelSignIn={() => { props.onAction(selectedSource, selectedSource.defaults, 'cancel'); }}
 					onClose={close}
+					onConnect={config => props.onAction(selectedSource, config, deriveConnectAction(selectedSource))}
 					onPendingSignInChange={setPendingCancel}
+					onRemove={() => props.onAction(selectedSource, selectedSource.defaults, deriveDisconnectAction(selectedSource))}
 				/>
 			}
 			{activeView === 'connected' && selectedSource &&
 				<ConnectedProviderView
 					source={selectedSource}
-					onAction={props.onAction}
 					onBack={() => setView('list')}
 					onClose={close}
+					onDisconnect={() => props.onAction(selectedSource, selectedSource.defaults, deriveDisconnectAction(selectedSource))}
 				/>
 			}
 			{activeView === 'notSupported' &&

@@ -9,16 +9,17 @@ import { useState } from 'react';
 
 import { localize } from '../../../../../nls.js';
 import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/embeddedLink/EmbeddedLink.js';
-import { IPositronLanguageModelConfig, IPositronLanguageModelSource, LanguageModelAutoconfigureType } from '../../common/interfaces/positronAssistantService.js';
+import { IPositronLanguageModelSource, LanguageModelAutoconfigureType } from '../../common/interfaces/positronAssistantService.js';
 import { AuthMethod } from '../types.js';
-import { deriveAuthMethod, deriveDisconnectAction } from '../providerConnection.js';
+import { deriveAuthMethod } from '../providerConnection.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { ConnectProviderHeader, ProviderErrorBanner, ProviderNotice } from './connectProviderView.js';
 import { ProviderModalFooter } from './providerModalFooter.js';
 
 export interface ConnectedProviderViewProps {
 	source: IPositronLanguageModelSource;
-	onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>;
+	/** Disconnect the provider (OAuth sign-out or API-key removal). */
+	onDisconnect: () => Promise<void>;
 	/** Invoked by the footer Back button. */
 	onBack: () => void;
 	/** Invoked by the footer Close button. */
@@ -37,7 +38,7 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 		setPending(true);
 		setErrorMessage(undefined);
 		try {
-			await props.onAction(current, current.defaults, deriveDisconnectAction(current));
+			await props.onDisconnect();
 		} catch (e) {
 			setErrorMessage(e instanceof Error ? e.message : String(e));
 		} finally {

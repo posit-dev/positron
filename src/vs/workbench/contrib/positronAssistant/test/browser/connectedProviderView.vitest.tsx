@@ -10,7 +10,7 @@ import { userEvent } from '@testing-library/user-event';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { IPositronLanguageModelSource, LanguageModelAutoconfigureType, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
-import { ConnectedProviderView } from '../../browser/components/connectedProviderView.js';
+import { ConnectedProviderView, ConnectedProviderViewProps } from '../../browser/components/connectedProviderView.js';
 
 const positAi: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
@@ -26,18 +26,33 @@ describe('ConnectedProviderView', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
+	// Render with no-op handlers by default; tests that exercise disconnect
+	// override onDisconnect. The modal owns the source argument and action verb.
+	const renderView = (
+		source: IPositronLanguageModelSource,
+		props: Partial<ConnectedProviderViewProps> = {},
+	) => rtl.render(
+		<ConnectedProviderView
+			source={source}
+			onBack={vi.fn()}
+			onClose={vi.fn()}
+			onDisconnect={async () => { }}
+			{...props}
+		/>
+	);
+
 	it('shows how the provider is connected and reports a Sign Out footer action', () => {
-		rtl.render(<ConnectedProviderView source={positAi} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		renderView(positAi);
 		expect(screen.getByText(/connected via oauth/i)).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Sign Out' })).toBeInTheDocument();
 	});
 
-	it('dispatches oauth-signout when the footer action runs', async () => {
-		const onAction = vi.fn().mockResolvedValue(undefined);
+	it('invokes onDisconnect when the footer action runs', async () => {
+		const onDisconnect = vi.fn().mockResolvedValue(undefined);
 		const user = userEvent.setup();
-		rtl.render(<ConnectedProviderView source={positAi} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		renderView(positAi, { onDisconnect });
 		await user.click(screen.getByRole('button', { name: 'Sign Out' }));
-		expect(onAction).toHaveBeenCalledWith(positAi, expect.anything(), 'oauth-signout');
+		expect(onDisconnect).toHaveBeenCalled();
 	});
 
 	it('displays the current base URL for a provider that supports it', () => {
@@ -48,12 +63,12 @@ describe('ConnectedProviderView', () => {
 			signedIn: true,
 			defaults: { baseUrl: 'https://proxy.example/v1' },
 		};
-		rtl.render(<ConnectedProviderView source={anthropic} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		renderView(anthropic);
 		expect(screen.getByText('https://proxy.example/v1')).toBeInTheDocument();
 	});
 
 	it('omits the base URL row when the provider does not support it', () => {
-		rtl.render(<ConnectedProviderView source={positAi} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		renderView(positAi);
 		expect(screen.queryByText(/base url/i)).not.toBeInTheDocument();
 	});
 
@@ -67,7 +82,7 @@ describe('ConnectedProviderView', () => {
 			statusMessage: 'Bad base URL',
 			defaults: {},
 		};
-		rtl.render(<ConnectedProviderView source={broken} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		renderView(broken);
 		expect(screen.getByText('Bad base URL')).toBeInTheDocument();
 		expect(screen.queryByText(/connected to anthropic/i)).not.toBeInTheDocument();
 	});
@@ -82,7 +97,7 @@ describe('ConnectedProviderView', () => {
 				autoconfigure: { type: LanguageModelAutoconfigureType.EnvVariable, key: 'ANTHROPIC_API_KEY', signedIn: true },
 			},
 		};
-		rtl.render(<ConnectedProviderView source={envAnthropic} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		renderView(envAnthropic);
 		expect(screen.getByText(/connected via ANTHROPIC_API_KEY/i)).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
 	});
@@ -97,16 +112,16 @@ describe('ConnectedProviderView', () => {
 				autoconfigure: { type: LanguageModelAutoconfigureType.Custom, message: 'the Accounts menu.', signedIn: true },
 			},
 		};
-		rtl.render(<ConnectedProviderView source={copilot} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		renderView(copilot);
 		expect(screen.getByRole('link', { name: /manage accounts/i })).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Sign Out' })).not.toBeInTheDocument();
 	});
 
 	it('shows a spinner and "Signing Out..." on the button while signing out', async () => {
 		let resolveSignOut = () => { };
-		const onAction = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveSignOut = resolve; }));
+		const onDisconnect = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveSignOut = resolve; }));
 		const user = userEvent.setup();
-		rtl.render(<ConnectedProviderView source={positAi} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		renderView(positAi, { onDisconnect });
 		await user.click(screen.getByRole('button', { name: 'Sign Out' }));
 		const signingOut = screen.getByRole('button', { name: 'Signing Out...' });
 		expect(signingOut).toBeDisabled();
@@ -124,9 +139,9 @@ describe('ConnectedProviderView', () => {
 			defaults: {},
 		};
 		let resolveRemove = () => { };
-		const onAction = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveRemove = resolve; }));
+		const onDisconnect = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveRemove = resolve; }));
 		const user = userEvent.setup();
-		rtl.render(<ConnectedProviderView source={anthropic} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		renderView(anthropic, { onDisconnect });
 		await user.click(screen.getByRole('button', { name: 'Remove' }));
 		expect(screen.getByRole('button', { name: 'Removing...' })).toBeDisabled();
 		await act(async () => { resolveRemove(); });
@@ -134,9 +149,9 @@ describe('ConnectedProviderView', () => {
 
 	it('shows no separate progress bar while an action is in flight', async () => {
 		let resolve = () => { };
-		const onAction = vi.fn().mockImplementation(() => new Promise<void>(r => { resolve = r; }));
+		const onDisconnect = vi.fn().mockImplementation(() => new Promise<void>(r => { resolve = r; }));
 		const user = userEvent.setup();
-		rtl.render(<ConnectedProviderView source={positAi} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		renderView(positAi, { onDisconnect });
 		await user.click(screen.getByRole('button', { name: 'Sign Out' }));
 		expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 		await act(async () => { resolve(); });

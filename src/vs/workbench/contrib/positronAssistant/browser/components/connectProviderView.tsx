@@ -11,7 +11,7 @@ import { localize } from '../../../../../nls.js';
 import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/embeddedLink/EmbeddedLink.js';
 import { IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js';
 import { AuthMethod, AuthStatus } from '../types.js';
-import { deriveAuthMethod, deriveAuthStatus, deriveConnectAction } from '../providerConnection.js';
+import { deriveAuthMethod, deriveAuthStatus } from '../providerConnection.js';
 import { getProviderGettingStartedText, getProviderTermsOfServiceText, getProviderUsageDisclaimerText } from '../providerLegalText.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { LanguageModelIcon } from './languageModelButton.js';
@@ -19,7 +19,12 @@ import { ProviderModalFooter } from './providerModalFooter.js';
 
 export interface ConnectProviderViewProps {
 	source: IPositronLanguageModelSource;
-	onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>;
+	/** Connect using the config assembled from the form (API key / base URL). */
+	onConnect: (config: IPositronLanguageModelConfig) => Promise<void>;
+	/** Remove the provider (the Remove button shown while it is in an error state). */
+	onRemove: () => Promise<void>;
+	/** Abort an in-flight OAuth sign-in. */
+	onCancelSignIn: () => void;
 	/** Invoked by the footer Back button. */
 	onBack: () => void;
 	/** Invoked by the footer Close button. */
@@ -56,7 +61,7 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 				...(authMethod === AuthMethod.API_KEY ? { apiKey } : {}),
 				...(supportsBaseUrl ? { baseUrl } : {}),
 			};
-			await props.onAction(props.source, dispatchConfig, deriveConnectAction(props.source));
+			await props.onConnect(dispatchConfig);
 		} catch (e) {
 			setErrorMessage(e instanceof Error ? e.message : String(e));
 		} finally {
@@ -71,10 +76,9 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 		: authStatus !== AuthStatus.SIGN_IN_PENDING;
 
 	// Cancel an in-flight OAuth sign-in (the Posit device flow). Kept in a ref so
-	// the reported handler stays stable while dispatching against the latest state.
-	const cancelSignIn = () => { props.onAction(props.source, configRef.current, 'cancel'); };
-	const cancelSignInRef = useRef(cancelSignIn);
-	cancelSignInRef.current = cancelSignIn;
+	// the reported handler stays stable while calling the latest onCancelSignIn.
+	const cancelSignInRef = useRef(props.onCancelSignIn);
+	cancelSignInRef.current = props.onCancelSignIn;
 
 	// While an OAuth sign-in is in progress, report a cancel handler so dismissing
 	// the modal aborts the flow; clear it otherwise and when this view unmounts.
@@ -95,9 +99,7 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 			setPending('remove');
 			setErrorMessage(undefined);
 			try {
-				const method = deriveAuthMethod(props.source);
-				const action = method === AuthMethod.OAUTH ? 'oauth-signout' : 'delete';
-				await props.onAction(props.source, props.source.defaults, action);
+				await props.onRemove();
 				props.onBack?.();
 			} catch (e) {
 				setErrorMessage(e instanceof Error ? e.message : String(e));
