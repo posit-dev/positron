@@ -177,6 +177,10 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	// This prevents infinite loops when listening for model changes.
 	private _cachedOutputsLoaded = false;
 
+	// Track whether a cached-output restore is waiting for the document model to
+	// parse its cells, so we register the retry listener at most once per model.
+	private _awaitingParseRestore = false;
+
 	// Cells whose re-execution has started but not yet produced a replacement
 	// output. The previously cached output is kept until the first new output
 	// arrives (mirroring the view zone's "recomputing" behavior), so an
@@ -309,6 +313,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			// Reset initialization flags so we can re-initialize for the new document
 			this._outputHandlingInitialized = false;
 			this._cachedOutputsLoaded = false;
+			this._awaitingParseRestore = false;
 
 			// Re-check if this is a Quarto document and initialize if so
 			if (this._featureEnabled && this._isQuartoDocument() && !this._isInDiffEditor()) {
@@ -830,19 +835,23 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				}
 			}
 
-			// If no cache found and no cells available yet, subscribe to model parse events.
-			// This handles the case where an untitled document is being restored via hot exit
-			// and the content hasn't been loaded yet when _loadCachedOutputs is first called.
-			if ((!cachedDoc || cachedDoc.cells.length === 0) &&
-				quartoModel.cells.length === 0 &&
-				this._documentUri.scheme === 'untitled') {
+			// If the model has not parsed any cells yet, defer the restore until
+			// the next parse and retry once. Cached outputs are matched to live
+			// cells by content hash, so with zero parsed cells nothing matches
+			// and the pass below would mark the load complete and silently drop
+			// every cached output. This covers a file document reopened while its
+			// kernel session stays alive (the restore pass can run before the
+			// model parses) as well as an untitled document restored via hot exit.
+			// Previously this deferral was gated on an untitled scheme and an
+			// empty cache, so file reopens fell through and dropped their outputs.
+			if (quartoModel.cells.length === 0 && !this._awaitingParseRestore) {
+				this._awaitingParseRestore = true;
+				this._logService.debug('[QuartoOutputContribution] No cells parsed yet, waiting for parse to retry cache load');
 
-				this._logService.debug('[QuartoOutputContribution] No cells found for untitled document, waiting for content to be restored');
-
-				// Subscribe to parse events - when content is restored and parsed, cells will appear
+				// When content is parsed and cells appear, retry the restore once.
 				this._outputHandlingDisposables.add(quartoModel.onDidParse(() => {
-					// Only try once more after cells appear
 					if (quartoModel.cells.length > 0 && !this._cachedOutputsLoaded) {
+						this._awaitingParseRestore = false;
 						this._logService.debug('[QuartoOutputContribution] Cells found after parse, retrying cache load');
 						this._loadCachedOutputs();
 					}
