@@ -62,6 +62,29 @@ function spawnAsync(command: string, args: string[], opts: child_process.SpawnOp
 	});
 }
 
+// --- Start Positron ---
+/**
+ * Whether the given dir packages prebuilt per-arch *runtime* native bindings that
+ * must match the cross-build *target* architecture rather than the host. Keyed off a
+ * direct dependency on @duckdb/node-api (which pulls in @duckdb/node-bindings-<os>-<arch>
+ * as optional deps); this excludes host-tool dirs (ai-lib, build, ...) whose native
+ * optional deps -- e.g. the TypeScript 7 compiler binary -- must stay on the host arch.
+ * See the call site in npmInstallAsync and issue #15042.
+ */
+function dirShipsPrebuiltRuntimeBindings(dir: string): boolean {
+	const packageJsonPath = path.join(root, dir, 'package.json');
+	if (!fs.existsSync(packageJsonPath)) {
+		return false;
+	}
+	try {
+		const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+		return Boolean(pkg.dependencies?.['@duckdb/node-api'] || pkg.optionalDependencies?.['@duckdb/node-api']);
+	} catch {
+		return false;
+	}
+}
+// --- End Positron ---
+
 async function npmInstallAsync(dir: string, opts?: child_process.SpawnOptions): Promise<void> {
 	const finalOpts: child_process.SpawnOptions = {
 		env: { ...process.env },
@@ -69,6 +92,31 @@ async function npmInstallAsync(dir: string, opts?: child_process.SpawnOptions): 
 		cwd: path.join(root, dir),
 		shell: true,
 	};
+
+	// --- Start Positron ---
+	// When cross-building (e.g. an x64 build on an arm64 macOS machine) the build
+	// sets `npm_config_arch` to the *target* architecture. node-gyp reads that to
+	// compile native modules for the target, but npm ignores `arch` when choosing
+	// which platform-specific optional dependencies to install -- it filters those
+	// by the package's `cpu` field, which npm derives from `process.arch` unless the
+	// `--cpu` (`npm_config_cpu`) config overrides it. Without this, packages that
+	// ship prebuilt per-arch bindings via optional dependencies (e.g. @duckdb/node-api
+	// -> @duckdb/node-bindings-darwin-*) get the host-arch binding bundled instead of
+	// the target's, and fail to load at runtime with MODULE_NOT_FOUND.
+	//
+	// This must be scoped, NOT applied globally: `--cpu` also steers the optional
+	// deps of *build-time* tools that run on the host during install (e.g. the
+	// native TypeScript 7 compiler ships `@typescript/typescript-<os>-<arch>` and
+	// runs `tsc` on the host), and forcing those to the target arch makes the host
+	// tool unable to load its own binary. So only translate the arch for dirs that
+	// ship prebuilt per-arch *runtime* bindings we package into the app -- detected
+	// by a direct dependency on @duckdb/node-api, which excludes host-tool dirs like
+	// ai-lib and build. See
+	const env = finalOpts.env;
+	if (env && env['npm_config_arch'] && !env['npm_config_cpu'] && dirShipsPrebuiltRuntimeBindings(dir)) {
+		env['npm_config_cpu'] = env['npm_config_arch'];
+	}
+	// --- End Positron ---
 
 	const command = process.env['npm_command'] || 'install';
 
