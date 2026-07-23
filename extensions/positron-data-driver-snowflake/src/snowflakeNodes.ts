@@ -5,14 +5,17 @@
 
 // Schema-tree node builders for a Snowflake connection. A Snowflake connection can see every database
 // the active role can access, so the tree is always cross-database: the root is a "Databases" group,
-// and everything under it is browsed through that database's own `"<db>".INFORMATION_SCHEMA` views
-// with three-part `"db"."schema"."table"` references.
+// and everything under it is enumerated with SHOW/DESCRIBE metadata commands.
 //
-// The databases themselves come from `SHOW TERSE DATABASES`, which needs no current-database context;
-// every deeper query is fully qualified with the database name, so it works regardless of which
-// database (if any) the session currently has selected. Snowflake does not enforce primary keys (they
-// are metadata only, surfaced via SHOW PRIMARY KEYS rather than INFORMATION_SCHEMA), so no primary-key
-// detection is attempted and field nodes are never marked as primary keys.
+// Browsing deliberately uses SHOW (SHOW TERSE DATABASES / SCHEMAS / TABLES / VIEWS, SHOW STAGES) and
+// DESCRIBE rather than SELECTs against INFORMATION_SCHEMA. INFORMATION_SCHEMA views require an active
+// warehouse (compute), so querying them fails with "No active warehouse selected in the current
+// session" whenever the connection has no warehouse -- and warehouse is an optional connection field.
+// SHOW/DESCRIBE run on the cloud-services layer and need no warehouse, so the tree expands regardless.
+// (Previewing data in the Data Explorer still needs a warehouse, since that runs a real SELECT.) Each
+// command is scoped by fully-qualified object name, so it works no matter which database or schema the
+// session currently has selected. Snowflake does not enforce primary keys, so no primary-key detection
+// is attempted and field nodes are never marked as primary keys.
 
 import * as positron from 'positron';
 import { SnowflakeClient } from './snowflakeClient.js';
@@ -20,6 +23,11 @@ import { SnowflakeClient } from './snowflakeClient.js';
 /** Quotes and escapes an identifier for Snowflake by doubling embedded double-quotes. */
 function quoteIdentifier(name: string): string {
 	return '"' + name.replace(/"/g, '""') + '"';
+}
+
+/** Builds a double-quoted two-part `"<db>"."<schema>"` reference. */
+function schemaRef(database: string, schemaName: string): string {
+	return `${quoteIdentifier(database)}.${quoteIdentifier(schemaName)}`;
 }
 
 /**
@@ -67,19 +75,19 @@ export function createDatabaseNode(client: SnowflakeClient, host: ISnowflakePrev
 	};
 }
 
-/** Creates the "Schemas" group inside a database node, via `"<db>".INFORMATION_SCHEMA.SCHEMATA`. */
+/** Creates the "Schemas" group inside a database node, via `SHOW TERSE SCHEMAS`. */
 export function createSchemasGroupNode(client: SnowflakeClient, host: ISnowflakePreviewHost, database: string): positron.DataConnectionNode {
 	return {
 		name: 'Schemas',
 		kind: positron.DataConnectionNodeKind.GroupSchemas,
 		async getChildren() {
-			// Every schema is listed, including INFORMATION_SCHEMA -- Snowflake's INFORMATION_SCHEMA is a
-			// browsable schema of views (the native Snowflake catalog shows it), not noise to hide.
-			const result = await client.query(
-				`SELECT SCHEMA_NAME AS "schema_name" FROM ${quoteIdentifier(database)}.INFORMATION_SCHEMA.SCHEMATA ` +
-				`ORDER BY SCHEMA_NAME`
-			);
-			return result.rows.map(row => createSchemaNode(client, host, database, String(row.schema_name)));
+			// SHOW runs without a warehouse; SHOW returns a lowercase `name` column. Every schema is
+			// listed, including INFORMATION_SCHEMA -- it is a browsable schema, not noise to hide.
+			const result = await client.query(`SHOW TERSE SCHEMAS IN DATABASE ${quoteIdentifier(database)}`);
+			return result.rows
+				.map(row => String(row.name))
+				.sort((a, b) => a.localeCompare(b))
+				.map(name => createSchemaNode(client, host, database, name));
 		},
 	};
 }
@@ -102,58 +110,56 @@ export function createSchemaNode(client: SnowflakeClient, host: ISnowflakePrevie
 	};
 }
 
-/** Creates the "Tables" group inside a schema. Lists base tables via INFORMATION_SCHEMA.TABLES. */
+/** Creates the "Tables" group inside a schema. Lists base tables via `SHOW TERSE TABLES`. */
 function createTablesGroupNode(client: SnowflakeClient, host: ISnowflakePreviewHost, database: string, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: 'Tables',
 		kind: positron.DataConnectionNodeKind.GroupTables,
 		async getChildren() {
-			const result = await client.query(
-				`SELECT TABLE_NAME AS "table_name" FROM ${quoteIdentifier(database)}.INFORMATION_SCHEMA.TABLES ` +
-				`WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME`,
-				[schemaName]
-			);
-			return result.rows.map(row => createRelationNode(client, host, database, schemaName, String(row.table_name), 'table'));
+			// SHOW TABLES lists only base tables (views come from SHOW VIEWS) and needs no warehouse.
+			const result = await client.query(`SHOW TERSE TABLES IN SCHEMA ${schemaRef(database, schemaName)}`);
+			return result.rows
+				.map(row => String(row.name))
+				.sort((a, b) => a.localeCompare(b))
+				.map(name => createRelationNode(client, host, database, schemaName, name, 'table'));
 		},
 	};
 }
 
-/** Creates the "Views" group inside a schema. Lists views via INFORMATION_SCHEMA.TABLES. */
+/** Creates the "Views" group inside a schema. Lists views via `SHOW TERSE VIEWS`. */
 function createViewsGroupNode(client: SnowflakeClient, host: ISnowflakePreviewHost, database: string, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: 'Views',
 		kind: positron.DataConnectionNodeKind.GroupViews,
 		async getChildren() {
-			const result = await client.query(
-				`SELECT TABLE_NAME AS "table_name" FROM ${quoteIdentifier(database)}.INFORMATION_SCHEMA.TABLES ` +
-				`WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'VIEW' ORDER BY TABLE_NAME`,
-				[schemaName]
-			);
-			return result.rows.map(row => createRelationNode(client, host, database, schemaName, String(row.table_name), 'view'));
+			const result = await client.query(`SHOW TERSE VIEWS IN SCHEMA ${schemaRef(database, schemaName)}`);
+			return result.rows
+				.map(row => String(row.name))
+				.sort((a, b) => a.localeCompare(b))
+				.map(name => createRelationNode(client, host, database, schemaName, name, 'view'));
 		},
 	};
 }
 
 /**
- * Creates the "Stages" group inside a schema. Lists named stages via INFORMATION_SCHEMA.STAGES. Stages
- * hold files rather than tabular rows, so stage nodes are leaves: no Data Explorer preview and no
- * children (listing a stage's files is deliberately left for a follow-up). Takes no preview host for
- * that reason.
+ * Creates the "Stages" group inside a schema. Lists named stages via `SHOW STAGES`. Stages hold files
+ * rather than tabular rows, so stage nodes are leaves: no Data Explorer preview and no children
+ * (listing a stage's files is deliberately left for a follow-up). Takes no preview host for that
+ * reason.
  */
 function createStagesGroupNode(client: SnowflakeClient, database: string, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: 'Stages',
 		kind: positron.DataConnectionNodeKind.GroupStages,
 		async getChildren() {
-			const result = await client.query(
-				`SELECT STAGE_NAME AS "stage_name" FROM ${quoteIdentifier(database)}.INFORMATION_SCHEMA.STAGES ` +
-				`WHERE STAGE_SCHEMA = ? ORDER BY STAGE_NAME`,
-				[schemaName]
-			);
-			return result.rows.map(row => ({
-				name: String(row.stage_name),
-				kind: positron.DataConnectionNodeKind.Stage,
-			}));
+			const result = await client.query(`SHOW STAGES IN SCHEMA ${schemaRef(database, schemaName)}`);
+			return result.rows
+				.map(row => String(row.name))
+				.sort((a, b) => a.localeCompare(b))
+				.map(name => ({
+					name,
+					kind: positron.DataConnectionNodeKind.Stage,
+				}));
 		},
 	};
 }
@@ -180,9 +186,9 @@ function createRelationNode(
 }
 
 /**
- * Creates the "Columns" group inside a table or view. Columns come from INFORMATION_SCHEMA.COLUMNS.
+ * Creates the "Columns" group inside a table or view. Columns come from DESCRIBE TABLE/VIEW.
  * Primary-key detection is intentionally skipped: Snowflake does not enforce primary keys and does not
- * expose them through INFORMATION_SCHEMA.
+ * expose them for browsing.
  */
 function createColumnsGroupNode(
 	client: SnowflakeClient,
@@ -196,50 +202,22 @@ function createColumnsGroupNode(
 		name: 'Columns',
 		kind: positron.DataConnectionNodeKind.GroupColumns,
 		async getChildren() {
-			const result = await client.query(
-				`SELECT COLUMN_NAME AS "column_name", DATA_TYPE AS "data_type", ` +
-				`CHARACTER_MAXIMUM_LENGTH AS "character_maximum_length", ` +
-				`NUMERIC_PRECISION AS "numeric_precision", NUMERIC_SCALE AS "numeric_scale" ` +
-				`FROM ${quoteIdentifier(database)}.INFORMATION_SCHEMA.COLUMNS ` +
-				`WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION`,
-				[schemaName, relationName]
-			);
+			// DESCRIBE needs no warehouse and returns columns in ordinal order with a ready-formatted
+			// `type` string (e.g. NUMBER(38,0), TIMESTAMP_NTZ(9)), so no type assembly is needed. Use the
+			// keyword matching the relation kind.
+			const relationRef = `${schemaRef(database, schemaName)}.${quoteIdentifier(relationName)}`;
+			const command = kind === 'view' ? 'DESCRIBE VIEW' : 'DESCRIBE TABLE';
+			const result = await client.query(`${command} ${relationRef}`);
 			return result.rows.map(row => ({
-				name: String(row.column_name),
+				name: String(row.name),
 				kind: positron.DataConnectionNodeKind.Field,
-				dataType: formatDataType(row),
-				// Snowflake does not enforce or expose primary keys via INFORMATION_SCHEMA.
+				dataType: String(row.type),
+				// Snowflake does not enforce or expose primary keys for browsing.
 				isPrimaryKey: false,
 				preview() {
-					return host.previewColumn(client, database, schemaName, relationName, kind, String(row.column_name));
+					return host.previewColumn(client, database, schemaName, relationName, kind, String(row.name));
 				},
 			}));
 		},
 	};
-}
-
-/**
- * Formats a column's data type into a human-readable string, enriching text types with their length
- * and NUMBER types with precision/scale where available. Snowflake reports variable-length text as
- * 'TEXT' and fixed-point numbers as 'NUMBER' in INFORMATION_SCHEMA.COLUMNS.
- */
-function formatDataType(row: Record<string, unknown>): string {
-	const dataType = String(row.data_type);
-	const charLen = row.character_maximum_length;
-	const precision = row.numeric_precision;
-	const scale = row.numeric_scale;
-
-	// Text types with length, e.g. TEXT(255).
-	if (charLen !== null && charLen !== undefined) {
-		return `${dataType}(${Number(charLen)})`;
-	}
-
-	// NUMBER with precision and scale, e.g. NUMBER(10,2) or NUMBER(38).
-	if (dataType.toUpperCase() === 'NUMBER' && precision !== null && precision !== undefined) {
-		const p = Number(precision);
-		const s = scale === null || scale === undefined ? 0 : Number(scale);
-		return s > 0 ? `NUMBER(${p},${s})` : `NUMBER(${p})`;
-	}
-
-	return dataType;
 }

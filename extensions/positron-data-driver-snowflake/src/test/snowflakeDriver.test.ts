@@ -181,10 +181,10 @@ suite('Snowflake Driver Tests', () => {
 
 	// --- Schema browsing ---
 
-	test('database node expands to schema nodes via INFORMATION_SCHEMA.SCHEMATA', async () => {
+	test('database node expands to schema nodes via SHOW TERSE SCHEMAS', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('INFORMATION_SCHEMA.SCHEMATA')) {
-				return { rows: [{ schema_name: 'PUBLIC' }, { schema_name: 'STAGING' }] };
+			if (sql.includes('SHOW TERSE SCHEMAS')) {
+				return { rows: [{ name: 'PUBLIC' }, { name: 'STAGING' }] };
 			}
 			return { rows: [] };
 		});
@@ -202,11 +202,11 @@ suite('Snowflake Driver Tests', () => {
 
 	test('schema getChildren returns Tables and Views groups', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('INFORMATION_SCHEMA.TABLES') && sql.includes('BASE TABLE')) {
-				return { rows: [{ table_name: 'USERS' }, { table_name: 'ORDERS' }] };
+			if (sql.includes('SHOW TERSE TABLES')) {
+				return { rows: [{ name: 'USERS' }, { name: 'ORDERS' }] };
 			}
-			if (sql.includes('INFORMATION_SCHEMA.TABLES') && sql.includes("'VIEW'")) {
-				return { rows: [{ table_name: 'USER_ORDERS' }] };
+			if (sql.includes('SHOW TERSE VIEWS')) {
+				return { rows: [{ name: 'USER_ORDERS' }] };
 			}
 			return { rows: [] };
 		});
@@ -238,17 +238,18 @@ suite('Snowflake Driver Tests', () => {
 
 	// --- Stages within a schema ---
 
-	test('Stages group lists stage nodes as leaves via INFORMATION_SCHEMA.STAGES', async () => {
+	test('Stages group lists stage nodes as leaves via SHOW STAGES', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('INFORMATION_SCHEMA.STAGES')) {
-				return { rows: [{ stage_name: 'RAW_LOAD' }, { stage_name: 'EXPORTS' }] };
+			if (sql.includes('SHOW STAGES')) {
+				return { rows: [{ name: 'RAW_LOAD' }, { name: 'EXPORTS' }] };
 			}
 			return { rows: [] };
 		});
 
 		const schemaNode = createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC');
 		const stages = await stagesOf(schemaNode);
-		assert.deepStrictEqual(stages.map(s => s.name), ['RAW_LOAD', 'EXPORTS']);
+		// Names are sorted client-side, so EXPORTS precedes RAW_LOAD.
+		assert.deepStrictEqual(stages.map(s => s.name), ['EXPORTS', 'RAW_LOAD']);
 		stages.forEach(s => {
 			assert.strictEqual(s.kind, positron.DataConnectionNodeKind.Stage);
 			// Stages hold files, not rows: leaf nodes with no children and no preview.
@@ -261,18 +262,19 @@ suite('Snowflake Driver Tests', () => {
 
 	test('table Columns group returns field nodes with types', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('INFORMATION_SCHEMA.COLUMNS')) {
+			// DESCRIBE returns a ready-formatted `type` string per column, in ordinal order.
+			if (sql.includes('DESCRIBE TABLE')) {
 				return {
 					rows: [
-						{ column_name: 'ID', data_type: 'NUMBER', character_maximum_length: null, numeric_precision: 38, numeric_scale: 0 },
-						{ column_name: 'NAME', data_type: 'TEXT', character_maximum_length: 255, numeric_precision: null, numeric_scale: null },
-						{ column_name: 'PRICE', data_type: 'NUMBER', character_maximum_length: null, numeric_precision: 10, numeric_scale: 2 },
-						{ column_name: 'ACTIVE', data_type: 'BOOLEAN', character_maximum_length: null, numeric_precision: null, numeric_scale: null },
+						{ name: 'ID', type: 'NUMBER(38,0)' },
+						{ name: 'NAME', type: 'VARCHAR(255)' },
+						{ name: 'PRICE', type: 'NUMBER(10,2)' },
+						{ name: 'ACTIVE', type: 'BOOLEAN' },
 					]
 				};
 			}
-			if (sql.includes('INFORMATION_SCHEMA.TABLES') && sql.includes('BASE TABLE')) {
-				return { rows: [{ table_name: 'PRODUCTS' }] };
+			if (sql.includes('SHOW TERSE TABLES')) {
+				return { rows: [{ name: 'PRODUCTS' }] };
 			}
 			return { rows: [] };
 		});
@@ -286,12 +288,12 @@ suite('Snowflake Driver Tests', () => {
 
 		const idField = fields.find(f => f.name === 'ID')!;
 		assert.strictEqual(idField.kind, positron.DataConnectionNodeKind.Field);
-		assert.strictEqual(idField.dataType, 'NUMBER(38)');
-		// Snowflake does not expose primary keys through INFORMATION_SCHEMA, so no field is marked one.
+		assert.strictEqual(idField.dataType, 'NUMBER(38,0)');
+		// Snowflake does not expose primary keys for browsing, so no field is marked one.
 		assert.strictEqual(idField.isPrimaryKey, false);
 
 		const nameField = fields.find(f => f.name === 'NAME')!;
-		assert.strictEqual(nameField.dataType, 'TEXT(255)');
+		assert.strictEqual(nameField.dataType, 'VARCHAR(255)');
 
 		const priceField = fields.find(f => f.name === 'PRICE')!;
 		assert.strictEqual(priceField.dataType, 'NUMBER(10,2)');
@@ -310,8 +312,8 @@ suite('Snowflake Driver Tests', () => {
 
 	test('table getChildren returns only a Columns group', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('INFORMATION_SCHEMA.TABLES') && sql.includes('BASE TABLE')) {
-				return { rows: [{ table_name: 'PRODUCTS' }] };
+			if (sql.includes('SHOW TERSE TABLES')) {
+				return { rows: [{ name: 'PRODUCTS' }] };
 			}
 			return { rows: [] };
 		});
@@ -341,8 +343,8 @@ suite('Snowflake Driver Tests', () => {
 
 	test('preview does not throw', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('INFORMATION_SCHEMA.TABLES') && sql.includes('BASE TABLE')) {
-				return { rows: [{ table_name: 'T' }] };
+			if (sql.includes('SHOW TERSE TABLES')) {
+				return { rows: [{ name: 'T' }] };
 			}
 			return { rows: [] };
 		});
