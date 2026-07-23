@@ -58,7 +58,9 @@ payloads to the per-triage work directory `.claude/work/triage-e2e-test/<id>/`
 - `scripts/fetch-pattern-evidence.js` -- summary-first evidence for one
   occurrence. Runs the S3 processor filtered to this test, stores full evidence
   on disk, generates a compact `summary.md`.
-- `scripts/checkpoint.js` -- durable state for start / resume / status.
+- `scripts/checkpoint.js` -- durable state for start / resume / status. Setting
+  `phase` auto-derives `nextAction`, so a resume always shows the right next
+  step (pass `--set nextAction=...` only to override).
 
 ## Start or resume
 

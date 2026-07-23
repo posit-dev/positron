@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateCheckpoint, applyPatch, coerce, PHASES } from '../checkpoint.js';
+import { validateCheckpoint, applyPatch, coerce, PHASES, PHASE_NEXT_ACTION, applyMutations, defaultNextAction } from '../checkpoint.js';
 
 const valid = () => ({ version: 1, triageId: 'x', testKey: 'A > b|||spec.ts', phase: 'awaiting-pattern-selection' });
 
@@ -35,4 +35,36 @@ test('coerce turns obvious strings into typed values', () => {
 	assert.equal(coerce('null'), null);
 	assert.equal(coerce('14'), 14);
 	assert.equal(coerce('A'), 'A');
+});
+
+test('every phase has a default nextAction', () => {
+	for (const phase of PHASES) {
+		assert.ok(PHASE_NEXT_ACTION[phase], `missing nextAction for ${phase}`);
+		assert.equal(defaultNextAction(phase), PHASE_NEXT_ACTION[phase]);
+	}
+	assert.equal(defaultNextAction('bogus'), null);
+});
+
+test('applyMutations derives nextAction when phase advances without one', () => {
+	const state = { phase: 'awaiting-pattern-selection', nextAction: PHASE_NEXT_ACTION['awaiting-pattern-selection'], selectedPattern: null };
+	// The bug: advancing phase used to leave the stale init nextAction behind.
+	const out = applyMutations(state, null, [['phase', 'done']]);
+	assert.equal(out.phase, 'done');
+	assert.equal(out.nextAction, PHASE_NEXT_ACTION['done']);
+});
+
+test('applyMutations respects an explicit nextAction set alongside phase', () => {
+	const out = applyMutations({ phase: 'x' }, null, [['phase', 'implementation'], ['nextAction', 'custom step']]);
+	assert.equal(out.nextAction, 'custom step');
+});
+
+test('applyMutations leaves nextAction untouched when phase does not change', () => {
+	const out = applyMutations({ phase: 'evidence-gathered', nextAction: 'keep me' }, { selectedPattern: 'B' }, []);
+	assert.equal(out.selectedPattern, 'B');
+	assert.equal(out.nextAction, 'keep me');
+});
+
+test('applyMutations derives nextAction from a phase set via --patch too', () => {
+	const out = applyMutations({ phase: 'x', nextAction: 'stale' }, { phase: 'hypothesis-ready' }, []);
+	assert.equal(out.nextAction, PHASE_NEXT_ACTION['hypothesis-ready']);
 });

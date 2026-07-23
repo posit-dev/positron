@@ -32,6 +32,53 @@ export const PHASES = [
 
 const CHECKPOINT_VERSION = 1;
 
+/**
+ * Default next action for each phase. Advancing `phase` without also setting
+ * `nextAction` would otherwise leave the init default stale, so a resume would
+ * print a misleading step. `--set phase=X` derives the matching next action
+ * unless `nextAction` is set in the same invocation.
+ */
+export const PHASE_NEXT_ACTION = {
+	'awaiting-pattern-selection': 'Run the history helper, then select a failure pattern.',
+	'pattern-selected': 'Fetch evidence for the selected pattern\'s representative occurrence.',
+	'evidence-gathered': 'Reason through the evidence to a root-cause mechanism.',
+	'hypothesis-ready': 'Reproduce and verify the fix (diagnosis saved; safe to /clear and --resume).',
+	'awaiting-clear': 'Safe to /clear; resume with --resume to reproduce and fix.',
+	'implementation': 'Implement the fix and verify it (no single-green-run claims for a flake).',
+	'done': 'Triage complete; diagnosis recorded.',
+};
+
+export function defaultNextAction(phase) {
+	return PHASE_NEXT_ACTION[phase] || null;
+}
+
+/**
+ * Apply a `--patch` object and any number of `--set key=value` pairs to state.
+ * When `phase` changes but `nextAction` is not set in the same call, derive
+ * `nextAction` from the new phase. Pure -- returns a new state, no I/O.
+ *
+ * @param {object} state
+ * @param {object|null} patch
+ * @param {Array<[string,string]>} sets  raw [key, rawValue] pairs (values coerced here)
+ */
+export function applyMutations(state, patch, sets = []) {
+	const touched = new Set();
+	let next = state;
+	if (patch) {
+		next = applyPatch(next, patch);
+		for (const k of Object.keys(patch)) { touched.add(k); }
+	}
+	next = { ...next };
+	for (const [k, rawV] of sets) {
+		next[k] = coerce(rawV);
+		touched.add(k);
+	}
+	if (touched.has('phase') && !touched.has('nextAction') && defaultNextAction(next.phase)) {
+		next.nextAction = defaultNextAction(next.phase);
+	}
+	return next;
+}
+
 /** Validate a checkpoint before resuming. Returns { ok, errors[] }. */
 export function validateCheckpoint(state) {
 	const errors = [];
@@ -83,7 +130,7 @@ function newState(triageId, args) {
 		priorTriage: { status: 'unknown' },
 		evidence: null,
 		diagnosis: null,
-		nextAction: 'Run the history helper, then select a failure pattern.',
+		nextAction: PHASE_NEXT_ACTION['awaiting-pattern-selection'],
 		updatedAt: new Date().toISOString(),
 	};
 }
@@ -133,24 +180,22 @@ function main() {
 	}
 
 	// Mutations: --patch and/or repeated --set key=value.
-	let mutated = false;
+	let patch = null;
 	if (args.patch) {
-		let patch;
 		try { patch = JSON.parse(args.patch); } catch { fail('--patch must be valid JSON.'); }
-		state = applyPatch(state, patch);
-		mutated = true;
 	}
 	// parseArgs keeps only the last --set; collect all --set occurrences manually.
+	const sets = [];
 	const raw = process.argv.slice(2);
 	for (let i = 0; i < raw.length; i++) {
 		if (raw[i] === '--set' && raw[i + 1]) {
 			const [k, ...rest] = raw[i + 1].split('=');
-			state[k] = coerce(rest.join('='));
-			mutated = true;
+			sets.push([k, rest.join('=')]);
 		}
 	}
 
-	if (!mutated) { fail('Nothing to do (use --init/--read/--set/--patch/--status/--validate).'); }
+	if (!patch && sets.length === 0) { fail('Nothing to do (use --init/--read/--set/--patch/--status/--validate).'); }
+	state = applyMutations(state, patch, sets);
 	state.updatedAt = new Date().toISOString();
 	writeJson(sp, state);
 	emit({ ...state, stateFile: path.relative(process.cwd(), sp) });
