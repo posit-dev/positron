@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeReportUrl, buildEvidenceSummary } from '../fetch-pattern-evidence.js';
+import { normalizeReportUrl, buildEvidenceSummary, parseKeptRawLogDir } from '../fetch-pattern-evidence.js';
+
+test('parseKeptRawLogDir extracts the kept temp dir path from analyzer stderr', () => {
+	const stderr = 'Processing trace...\n(temp dir kept at /var/folders/x/e2e-process-s3-ab12cd34 -- pass --cleanup to remove)\n';
+	assert.equal(parseKeptRawLogDir(stderr), '/var/folders/x/e2e-process-s3-ab12cd34');
+	// No kept-dir line (e.g. --cleanup was passed) -> null.
+	assert.equal(parseKeptRawLogDir('Done. 3 attempts processed.\n'), null);
+	assert.equal(parseKeptRawLogDir(''), null);
+});
 
 test('normalizeReportUrl strips index.html + fragment and extracts testId', () => {
 	const url = 'https://cf.net/playwright-report-1-2-ubuntu/index.html#?testId=abc123-def';

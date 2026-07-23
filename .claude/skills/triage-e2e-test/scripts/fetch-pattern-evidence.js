@@ -19,8 +19,32 @@ import path from 'path';
 import fs from 'fs';
 import {
 	analyzerScript, triageDir, ensureDir, writeJson, writeText,
-	emit, fail, runNode, isMain, parseArgs, setMetricScript, recordMetric,
+	emit, fail, runNode, runNodeCapture, isMain, parseArgs, setMetricScript, recordMetric,
 } from './lib.js';
+
+/**
+ * Extract the kept temp-dir path from e2e-process-s3.js's stderr. Without
+ * --cleanup it prints "(temp dir kept at <path> -- pass --cleanup to remove)".
+ * Returns the path, or null if the line isn't present.
+ */
+export function parseKeptRawLogDir(stderr) {
+	const m = String(stderr || '').match(/temp dir kept at (.+?) --/);
+	return m ? m[1].trim() : null;
+}
+
+/**
+ * Copy the retained temp dir into the triage's evidence dir so kept raw logs
+ * survive resume (the OS temp dir is not durable). Removes the temp copy once
+ * ours lands. Returns the persisted dir, or null if nothing was kept.
+ */
+function persistRawLogs(stderr, evidenceDir) {
+	const src = parseKeptRawLogDir(stderr);
+	if (!src || !fs.existsSync(src)) { return null; }
+	const dest = path.join(evidenceDir, 'raw-logs');
+	fs.cpSync(src, dest, { recursive: true });
+	try { fs.rmSync(src, { recursive: true, force: true }); } catch { /* best effort */ }
+	return dest;
+}
 
 /**
  * Split a test-health report_url into the base directory URL the S3 processor
@@ -127,11 +151,22 @@ function main() {
 
 	const evidenceDir = ensureDir(path.join(triageDir(triageId), 'evidence', pattern));
 
+	const keepRaw = Boolean(args['keep-raw-logs']);
 	let stdout;
+	let rawLogDir = null;
 	try {
 		const procArgs = ['--report-url', baseUrl, '--output-dir', evidenceDir, ...filterArgs];
-		if (!args['keep-raw-logs']) { procArgs.push('--cleanup'); }
-		stdout = runNode(analyzerScript('e2e-process-s3.js'), procArgs);
+		if (!keepRaw) { procArgs.push('--cleanup'); }
+		if (keepRaw) {
+			// Capture stderr so we can find + persist the kept temp dir; re-emit it
+			// so the analyzer's progress output isn't lost.
+			const r = runNodeCapture(analyzerScript('e2e-process-s3.js'), procArgs);
+			stdout = r.stdout;
+			process.stderr.write(r.stderr);
+			rawLogDir = persistRawLogs(r.stderr, evidenceDir);
+		} else {
+			stdout = runNode(analyzerScript('e2e-process-s3.js'), procArgs);
+		}
 	} catch (err) {
 		fail(`e2e-process-s3.js failed (report may be 403/expired -- try the next occurrence's report_url): ${err.message}`, { triageId, pattern });
 	}
@@ -152,7 +187,7 @@ function main() {
 		timelineFile: rel(timelineFile),
 		snapshotFile: rel(summary.snapshotFile),
 		screenshots: (summary.screenshots || []).map(rel),
-		rawLogDir: args['keep-raw-logs'] ? '(kept -- see e2e-process-s3.js stderr for temp dir path)' : null,
+		rawLogDir: rel(rawLogDir),
 		rawEvidenceFile: rel(rawFile),
 		failure: summary.failure ? summary.failure.slice(0, 200) : null,
 	});
@@ -161,7 +196,7 @@ function main() {
 		phase: 'evidence',
 		pattern,
 		occurrencesFetched: 1,
-		rawLogsRetained: Boolean(args['keep-raw-logs']),
+		rawLogsRetained: Boolean(rawLogDir),
 		screenshots: (summary.screenshots || []).length,
 	});
 }

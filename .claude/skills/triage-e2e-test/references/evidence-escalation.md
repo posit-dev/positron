@@ -38,10 +38,11 @@ to the raw logs (Level 4).
 
 ## Reading raw logs (Level 4)
 
-Re-run `fetch-pattern-evidence.js` with `--keep-raw-logs`, or the underlying
-processor without `--cleanup`. The raw `logs-<shortId>.zip` is left in the OS
-temp dir, at the path the script prints to stderr on its last line:
-`(temp dir kept at /var/folders/.../T/e2e-process-s3-<hash> -- ...)`.
+Re-run `fetch-pattern-evidence.js` with `--keep-raw-logs`. The kept temp dir is
+copied into the triage's own evidence dir so it survives `/clear` + resume; the
+manifest's `rawLogDir` points at it:
+`.claude/work/triage-e2e-test/<id>/evidence/<pattern>/raw-logs/`. (The raw
+`logs-<shortId>.zip` lives inside.)
 
 Each extension's real output channel is its own file under
 `server/exthost2/<extension-id>/*.log` (e.g.
@@ -51,8 +52,8 @@ just matched lines -- the multi-step sequence (activate, create, cancel,
 reconnect) needed to see what actually happened often has no error line at all.
 
 ```bash
-# TMP is the exact path the script printed.
-LZ=$(find "$TMP" -name 'logs-*.zip' | head -1)
+# RL is the manifest's rawLogDir (persisted under the triage dir).
+LZ=$(find "$RL" -name 'logs-*.zip' | head -1)
 mkdir -p <scratch>/logs && unzip -o "$LZ" -d <scratch>/logs
 find <scratch>/logs -iname '*<extension-id-or-keyword>*'
 ```

@@ -9,7 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
-import { execFileSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -151,6 +151,25 @@ export function runNode(scriptPath, args) {
 		maxBuffer: 256 * 1024 * 1024,
 		stdio: ['ignore', 'pipe', 'inherit'],
 	});
+}
+
+/**
+ * Like runNode but also captures stderr (returns { stdout, stderr }) so the
+ * caller can parse progress lines. Throws on non-zero exit. Use when a wrapped
+ * script only surfaces a needed value (e.g. a kept temp-dir path) via stderr.
+ */
+export function runNodeCapture(scriptPath, args) {
+	const r = spawnSync('node', [scriptPath, ...args], {
+		cwd: repoRoot(),
+		encoding: 'utf8',
+		maxBuffer: 256 * 1024 * 1024,
+	});
+	if (r.status !== 0) {
+		const err = new Error(`node ${scriptPath} exited ${r.status}: ${String(r.stderr || '').slice(-500)}`);
+		err.stderr = r.stderr;
+		throw err;
+	}
+	return { stdout: r.stdout, stderr: r.stderr || '' };
 }
 
 /** Run a command, returning { ok, stdout, stderr, status }. Never throws. */
