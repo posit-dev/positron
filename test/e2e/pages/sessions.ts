@@ -526,11 +526,15 @@ export class Sessions {
 					});
 				} catch (e) {
 					// Auto-discovery is intermittent: POSITRON_PY_VER_SEL's interpreter
-					// can be missing from the quick pick on the first attempt. Force a
-					// rescan so the next retry of this `toPass` iteration sees it.
+					// can be missing from the quick pick on the first attempt -- notably
+					// on remote hosts, where interpreter registration can lag the
+					// discovery-complete signal. Force a fresh cross-host rescan so the
+					// next retry of this `toPass` iteration sees it. (The former
+					// `python.refreshInterpreters` command does not exist, so this
+					// recovery was silently a no-op.)
 					if (language === 'Python') {
 						await this.quickinput.closeQuickInput().catch(() => { });
-						await this.quickaccess.runCommand('python.refreshInterpreters').catch(() => { });
+						await this.quickaccess.runCommand('workbench.action.language.runtime.discoverAllRuntimes').catch(() => { });
 					}
 					throw e;
 				}
