@@ -5,8 +5,11 @@
 
 import * as assert from 'assert';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
-import { PROVIDER_METADATA } from '../providerSources';
+import * as vscode from 'vscode';
+import { getProviderSources, PROVIDER_METADATA } from '../providerSources';
+import { initProviderCatalog } from '../providerCatalog';
 
 /**
  * Guards against drift between PROVIDER_METADATA in providerSources.ts and the
@@ -81,5 +84,66 @@ suite('PROVIDER_METADATA package.json consistency', () => {
 		}
 
 		assert.deepStrictEqual(fromMetadata, enableSettings);
+	});
+});
+
+/** Minimal ExtensionContext stub: only `subscriptions` is read by initProviderCatalog. */
+function fakeContext(): vscode.ExtensionContext {
+	return { subscriptions: [] } as unknown as vscode.ExtensionContext;
+}
+
+function writeConfig(configPath: string, providers: Record<string, unknown>): void {
+	fs.writeFileSync(configPath, JSON.stringify({ version: 1, providers }));
+}
+
+suite('getProviderSources baseUrl defaults from the catalog', () => {
+	let dir: string;
+	let configPath: string;
+	let context: vscode.ExtensionContext;
+
+	setup(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'provider-sources-'));
+		configPath = path.join(dir, 'providers.json');
+		context = fakeContext();
+	});
+
+	teardown(() => {
+		for (const d of context.subscriptions) {
+			d.dispose();
+		}
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	test('a saved catalog baseUrl overrides the per-provider default literal', async () => {
+		writeConfig(configPath, { anthropic: { baseUrl: 'https://gateway.example.com' } });
+		await initProviderCatalog(context, { configPath });
+
+		const anthropic = getProviderSources().find(
+			s => s.provider.id === PROVIDER_METADATA.anthropic.id
+		);
+		assert.strictEqual(anthropic?.defaults.baseUrl, 'https://gateway.example.com');
+	});
+
+	test('falls back to the per-provider default literal when the catalog has no baseUrl', async () => {
+		writeConfig(configPath, {});
+		await initProviderCatalog(context, { configPath });
+
+		const anthropic = getProviderSources().find(
+			s => s.provider.id === PROVIDER_METADATA.anthropic.id
+		);
+		assert.strictEqual(anthropic?.defaults.baseUrl, 'https://api.anthropic.com');
+	});
+
+	test('an env-folded catalog baseUrl surfaces as the modal default', async () => {
+		writeConfig(configPath, {});
+		await initProviderCatalog(context, {
+			configPath,
+			envVars: { OPENAI_BASE_URL: 'https://env.example.com/v1' },
+		});
+
+		const openai = getProviderSources().find(
+			s => s.provider.id === PROVIDER_METADATA.openai.id
+		);
+		assert.strictEqual(openai?.defaults.baseUrl, 'https://env.example.com/v1');
 	});
 });

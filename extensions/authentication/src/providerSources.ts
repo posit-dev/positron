@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as positron from 'positron';
 import {
 	ANTHROPIC_AUTH_PROVIDER_ID,
@@ -19,10 +18,8 @@ import {
 import { getConfiguredSnowflakeAccount } from './credentials/snowflake';
 import { getCachedProvider } from './providerCatalog';
 
-function getSavedBaseUrl(configSection: string, fallback?: string): string | undefined {
-	return vscode.workspace
-		.getConfiguration(`authentication.${configSection}`)
-		.get<string>('baseUrl') || fallback;
+function getSavedBaseUrl(catalogId: string | undefined, fallback?: string): string | undefined {
+	return (catalogId && getCachedProvider(catalogId)?.connection.baseUrl) || fallback;
 }
 
 export interface ProviderMetadata {
@@ -129,7 +126,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 			defaults: {
 				model: 'claude-sonnet-4-latest',
-				baseUrl: getSavedBaseUrl('anthropic', 'https://api.anthropic.com'),
+				baseUrl: getSavedBaseUrl(PROVIDER_METADATA.anthropic.catalogId, 'https://api.anthropic.com'),
 				toolCalls: true,
 				autoconfigure: {
 					type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
@@ -163,7 +160,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 			defaults: {
 				model: 'model-router',
-				baseUrl: getSavedBaseUrl('foundry'),
+				baseUrl: getSavedBaseUrl(PROVIDER_METADATA.foundry.catalogId),
 				toolCalls: true,
 			},
 		},
@@ -192,7 +189,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 			defaults: {
 				model: 'openai',
-				baseUrl: getSavedBaseUrl('openai-api', 'https://api.openai.com/v1'),
+				baseUrl: getSavedBaseUrl(PROVIDER_METADATA.openai.catalogId, 'https://api.openai.com/v1'),
 				toolCalls: true,
 			},
 		},
@@ -202,7 +199,10 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			supportedOptions: ['baseUrl', 'apiKey'],
 			defaults: {
 				model: 'gemini-2.5-flash',
-				baseUrl: getSavedBaseUrl('google', 'https://generativelanguage.googleapis.com/v1beta'),
+				baseUrl: getSavedBaseUrl(
+					PROVIDER_METADATA.google.catalogId,
+					'https://generativelanguage.googleapis.com/v1beta'
+				),
 				apiKey: undefined,
 				toolCalls: true,
 			},
@@ -219,7 +219,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 				: ['baseUrl', 'toolCalls'],
 			defaults: {
 				model: 'gemini-2.5-flash',
-				baseUrl: getSavedBaseUrl('googleVertex', 'https://aiplatform.googleapis.com'),
+				baseUrl: getSavedBaseUrl(PROVIDER_METADATA.geap.catalogId, 'https://aiplatform.googleapis.com'),
 				toolCalls: true,
 				...(geapFromEnv && {
 					autoconfigure: {
@@ -249,7 +249,10 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 			defaults: {
 				model: 'openai-compatible',
-				baseUrl: getSavedBaseUrl('openai-compatible', 'https://localhost:1337/v1'),
+				baseUrl: getSavedBaseUrl(
+					PROVIDER_METADATA.customProvider.catalogId,
+					'https://localhost:1337/v1'
+				),
 				toolCalls: true,
 			},
 		},
@@ -259,7 +262,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 			defaults: {
 				model: 'deepseek-chat',
-				baseUrl: getSavedBaseUrl('deepseek-api', 'https://api.deepseek.com'),
+				baseUrl: getSavedBaseUrl(PROVIDER_METADATA.deepseek.catalogId, 'https://api.deepseek.com'),
 				toolCalls: true,
 				autoconfigure: {
 					type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,

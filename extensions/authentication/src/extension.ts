@@ -46,7 +46,13 @@ import { migrateSnowflakeSettings } from './migration/snowflake';
 import { registerProvidersJsonMigration } from './migration/providersJsonUi';
 import { AuthProviderLogger } from './authProviderLogger';
 import { applyPwbPositAIDefault } from './pwbDefaults';
-import { getCachedProvider, initProviderCatalog, onDidChangeProviderCatalog, saveSnowflakeAccount } from './providerCatalog';
+import {
+	getCachedProvider,
+	initProviderCatalog,
+	onDidChangeProviderCatalog,
+	saveProviderBaseUrl,
+	saveSnowflakeAccount,
+} from './providerCatalog';
 
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
@@ -182,12 +188,7 @@ async function registerAnthropicProvider(
 		validateApiKey: validateAnthropicApiKey,
 		onSave: async (config) => {
 			if (config.baseUrl) {
-				await vscode.workspace
-					.getConfiguration('authentication.anthropic')
-					.update(
-						'baseUrl', config.baseUrl,
-						vscode.ConfigurationTarget.Global
-					);
+				await saveProviderBaseUrl(PROVIDER_METADATA.anthropic.catalogId!, config.baseUrl);
 			}
 		},
 	});
@@ -292,9 +293,7 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 		onSave: async (config) => {
 			if (config.baseUrl) {
 				config.baseUrl = normalizeToV1Url(config.baseUrl);
-				await vscode.workspace
-					.getConfiguration('authentication.foundry')
-					.update('baseUrl', config.baseUrl, vscode.ConfigurationTarget.Global);
+				await saveProviderBaseUrl(PROVIDER_METADATA.foundry.catalogId!, config.baseUrl);
 			}
 		},
 	});
@@ -372,14 +371,12 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 	registerAuthProvider('snowflake-cortex', provider, {
 		validateApiKey: validateSnowflakeApiKey,
 		onSave: async (config) => {
-			// baseUrl holds the bare account; persist it to the catalog's
-			// snowflake.account field, not as a baseUrl setting like other
-			// providers do (#13750). saveSnowflakeAccount no-ops when unchanged.
+			// baseUrl carries the bare account (#13750); persist it as the
+			// catalog's snowflake account, not as a baseUrl.
 			const account = config.baseUrl?.trim();
-			if (!account) {
-				return;
+			if (account) {
+				await saveSnowflakeAccount(account);
 			}
-			await saveSnowflakeAccount(account);
 		},
 	});
 	await provider.resolveChainCredentials().catch(err =>
@@ -421,12 +418,7 @@ async function registerOpenaiProvider(
 		validateApiKey: validateOpenaiApiKey,
 		onSave: async (config) => {
 			if (config.baseUrl) {
-				await vscode.workspace
-					.getConfiguration(`authentication.${OPENAI_AUTH_PROVIDER_ID}`)
-					.update(
-						'baseUrl', config.baseUrl,
-						vscode.ConfigurationTarget.Global
-					);
+				await saveProviderBaseUrl(PROVIDER_METADATA.openai.catalogId!, config.baseUrl);
 			}
 		},
 	});
@@ -471,12 +463,7 @@ async function registerGeminiProvider(
 		validateApiKey: validateGeminiApiKey,
 		onSave: async (config) => {
 			if (config.baseUrl) {
-				await vscode.workspace
-					.getConfiguration(`authentication.${GEMINI_AUTH_PROVIDER_ID}`)
-					.update(
-						'baseUrl', config.baseUrl,
-						vscode.ConfigurationTarget.Global
-					);
+				await saveProviderBaseUrl(PROVIDER_METADATA.google.catalogId!, config.baseUrl);
 			}
 		},
 	});
@@ -514,12 +501,7 @@ async function registerGeapProvider(
 	registerAuthProvider(GOOGLE_CLOUD_AUTH_PROVIDER_ID, provider, {
 		onSave: async (config) => {
 			if (config.baseUrl) {
-				await vscode.workspace
-					.getConfiguration('authentication.googleVertex')
-					.update(
-						'baseUrl', config.baseUrl,
-						vscode.ConfigurationTarget.Global,
-					);
+				await saveProviderBaseUrl(PROVIDER_METADATA.geap.catalogId!, config.baseUrl);
 			}
 		},
 	});
@@ -561,12 +543,7 @@ async function registerDeepSeekProvider(
 		validateApiKey: validateDeepSeekApiKey,
 		onSave: async (config) => {
 			if (config.baseUrl) {
-				await vscode.workspace
-					.getConfiguration(`authentication.${DEEPSEEK_AUTH_PROVIDER_ID}`)
-					.update(
-						'baseUrl', config.baseUrl,
-						vscode.ConfigurationTarget.Global
-					);
+				await saveProviderBaseUrl(PROVIDER_METADATA.deepseek.catalogId!, config.baseUrl);
 			}
 		},
 	});
@@ -595,12 +572,7 @@ function registerCustomProvider(
 		validateApiKey: validateCustomProviderApiKey,
 		onSave: async (config) => {
 			if (config.baseUrl) {
-				await vscode.workspace
-					.getConfiguration(`authentication.${CUSTOM_PROVIDER_AUTH_PROVIDER_ID}`)
-					.update(
-						'baseUrl', config.baseUrl,
-						vscode.ConfigurationTarget.Global
-					);
+				await saveProviderBaseUrl(PROVIDER_METADATA.customProvider.catalogId!, config.baseUrl);
 			}
 		},
 	});
