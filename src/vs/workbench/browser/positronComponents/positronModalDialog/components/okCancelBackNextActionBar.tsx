@@ -27,6 +27,8 @@ export interface OKCancelBackNextActionBarProps {
 export interface ActionBarButtonConfig {
 	title?: string;
 	disable?: boolean;
+	/** When true, the button shows an in-button spinner and is disabled. */
+	loading?: boolean;
 	onClick?: () => void;
 }
 
@@ -36,28 +38,29 @@ export interface ActionBarButtonConfig {
  * @returns The rendered component.
  */
 export const OKCancelBackNextActionBar = ({ okButtonConfig, cancelButtonConfig, backButtonConfig, nextButtonConfig }: OKCancelBackNextActionBarProps) => {
-	const cancelButton = (cancelButtonConfig ?
-		<Button className='action-bar-button' disabled={cancelButtonConfig.disable ?? false} onPressed={cancelButtonConfig.onClick}>
-			{cancelButtonConfig.title ?? localize('positronCancel', "Cancel")}
-		</Button> : null);
-	const okButton = (okButtonConfig ?
-		<Button className='action-bar-button default' disabled={okButtonConfig.disable ?? false} onPressed={okButtonConfig.onClick}>
-			{okButtonConfig.title ?? localize('positronOK', "OK")}
-		</Button> : null);
-	const nextButton = (nextButtonConfig ?
-		<Button className='action-bar-button default' disabled={nextButtonConfig.disable ?? false} onPressed={nextButtonConfig.onClick}>
-			{nextButtonConfig.title ?? localize('positronNext', "Next")}
-		</Button> : null);
+	// Renders one action-bar button from its config, showing a spinner (and
+	// forcing the disabled state) while the button's action is loading.
+	const renderButton = (config: ActionBarButtonConfig | undefined, className: string, defaultTitle: string) => {
+		if (!config) {
+			return null;
+		}
+		return (
+			<Button className={className} disabled={(config.disable ?? false) || (config.loading ?? false)} onPressed={config.onClick}>
+				{config.loading && <span aria-hidden='true' className='codicon codicon-loading codicon-modifier-spin' />}
+				{config.title ?? defaultTitle}
+			</Button>
+		);
+	};
+
+	const cancelButton = renderButton(cancelButtonConfig, 'action-bar-button', localize('positronCancel', "Cancel"));
+	const okButton = renderButton(okButtonConfig, 'action-bar-button default', localize('positronOK', "OK"));
+	const nextButton = renderButton(nextButtonConfig, 'action-bar-button default', localize('positronNext', "Next"));
 
 	// Render.
 	return (
 		<div className='ok-cancel-back-action-bar'>
 			<div className='left-actions'>
-				{backButtonConfig ?
-					<Button className='action-bar-button' disabled={backButtonConfig.disable ?? false} onPressed={backButtonConfig.onClick}>
-						{backButtonConfig.title ?? localize('positronBack', "Back")}
-					</Button> : null
-				}
+				{renderButton(backButtonConfig, 'action-bar-button', localize('positronBack', "Back"))}
 			</div>
 			<div className='right-actions'>
 				{platform.isWindows

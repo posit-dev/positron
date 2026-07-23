@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -37,8 +37,12 @@
 }
 
 .positron-modal-dialog-box .ok-cancel-back-action-bar .action-bar-button:disabled {
-	color: var(--vscode-positronModalDialog-buttonDisabledForeground);
-	background-color: var(--vscode-positronModalDialog-buttonDisabledBackground) !important;
-	border: 1px solid var(--vscode-positronModalDialog-buttonDisabledBorder);
+	/* Dim the enabled button rather than restyling it, matching upstream's .monaco-button.disabled { opacity: 0.4 }. */
+	opacity: 0.4;
 	cursor: default;
+}
+
+/* Codicons in an action-bar button (e.g. the loading spinner) take the button's text color. */
+.positron-modal-dialog-box .ok-cancel-back-action-bar .action-bar-button .codicon {
+	color: inherit;
 }

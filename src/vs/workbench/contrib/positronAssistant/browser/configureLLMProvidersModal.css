@@ -136,3 +136,18 @@
 	align-self: flex-start;
 	margin-top: 4px;
 }
+
+/* Let the modal's action bar buttons grow to fit longer in-flight labels
+(e.g. "Signing Out...") and lay out the in-button spinner beside the label.
+Scoped to this modal (extra .positron-modal-dialog-box qualifier raises
+specificity above the shared width:80px rule) so other dialogs are unaffected. */
+.configure-llm-providers-modal .positron-modal-dialog-box .ok-cancel-back-action-bar .action-bar-button {
+	width: auto;
+	min-width: 80px;
+	padding: 0 12px;
+	display: inline-flex;
+	gap: 6px;
+	align-items: center;
+	justify-content: center;
+	white-space: nowrap;
+}

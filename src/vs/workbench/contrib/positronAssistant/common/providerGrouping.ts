@@ -33,7 +33,11 @@ function isDisplayable(source: IPositronLanguageModelSource): boolean {
 
 /** Which section a source belongs to, based on sign-in and connection status. */
 function sectionFor(source: IPositronLanguageModelSource): ProviderSectionId {
-	if (source.signedIn && source.status === 'error') {
+	// An error is surfaced regardless of sign-in state: the "Authentication
+	// expired" case is reported with signedIn === false (a configured provider
+	// whose credential no longer resolves), so it must still land here rather
+	// than looking like a fresh, unconfigured provider.
+	if (source.status === 'error') {
 		return 'needs-attention';
 	}
 	if (source.signedIn) {
@@ -42,15 +46,41 @@ function sectionFor(source: IPositronLanguageModelSource): ProviderSectionId {
 	return 'model-providers';
 }
 
+/**
+ * Sort rank within a section: Posit AI first, then stable providers (no
+ * status), then preview, then experimental. Mirrors the legacy modal's
+ * providerSortRank (languageModelModalDialog.tsx) so both dialogs order
+ * providers identically.
+ */
+function providerSortRank(source: IPositronLanguageModelSource): number {
+	if (source.provider.id === 'posit-ai') {
+		return 0;
+	}
+	switch (source.provider.status) {
+		case 'preview':
+			return 2;
+		case 'experimental':
+			return 3;
+		default:
+			return 1;
+	}
+}
+
 function compareSources(a: IPositronLanguageModelSource, b: IPositronLanguageModelSource): number {
+	const rankDelta = providerSortRank(a) - providerSortRank(b);
+	if (rankDelta !== 0) {
+		return rankDelta;
+	}
 	return a.provider.displayName.localeCompare(b.provider.displayName);
 }
 
 /**
  * Groups language model sources into ordered, non-empty sections for the
  * Configure LLM Providers modal: Connected, then Needs Attention, then Model
- * Providers. Within a section, providers are sorted alphabetically by display
- * name. The custom-provider template is handled by a separate section.
+ * Providers. Within a section, providers are ordered Posit AI first, then by
+ * maturity (stable, then preview, then experimental), and alphabetically by
+ * display name within the same rank. The custom-provider template is handled
+ * by a separate section.
  */
 export function groupProviders(sources: IPositronLanguageModelSource[]): ProviderSection[] {
 	const buckets = new Map<ProviderSectionId, IPositronLanguageModelSource[]>();

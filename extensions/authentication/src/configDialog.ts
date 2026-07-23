@@ -162,6 +162,13 @@ export async function providerAction(
 				}
 			} else {
 				await handleSave(source, config);
+				// Reflect saved connection settings back to the registered source
+				// so the dialog updates them like it does signedIn/status (via
+				// updateProvider, which merges defaults). Guarded to match the
+				// providers' onSave behavior, which only persists a non-empty URL.
+				if (config.baseUrl) {
+					positron.ai.updateProvider(providerId, { defaults: { baseUrl: config.baseUrl } });
+				}
 			}
 			vscode.window.showInformationMessage(
 				vscode.l10n.t('{0} has been added successfully.', source.provider.displayName)
@@ -171,6 +178,14 @@ export async function providerAction(
 		case 'delete':
 		case 'oauth-signout': {
 			await handleDelete(providerId);
+			// Re-sync status so a signed-out / reset provider leaves "Needs
+			// Attention" even when no session-change event fired -- an already
+			// expired credential has no live session to remove, so removeSession
+			// emits nothing.
+			const provider = authProviders.get(providerId);
+			if (provider) {
+				await updateProviderFromSessions(providerId, await provider.getSessions());
+			}
 			break;
 		}
 		case 'cancel': {
@@ -278,6 +293,17 @@ async function handleDelete(
 		);
 	}
 	const sessions = await provider.getSessions();
+	// No live session but the provider is still marked configured -- e.g. an
+	// expired credential sitting in "Needs Attention". There is nothing to
+	// remove, but we still clear the configured flag so signing out resets the
+	// provider out of the error group. removeSession(providerId) clears the
+	// chain-configured flag for credential-chain providers.
+	if (sessions.length === 0) {
+		if (await provider.isConfigured()) {
+			await provider.removeSession(providerId);
+		}
+		return;
+	}
 	// Credential-chain sessions (e.g. env var credentials) use the
 	// provider ID as their session ID. These cannot be removed via the
 	// UI -- the user must unset the environment variable and restart.
