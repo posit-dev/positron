@@ -423,8 +423,9 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 				this._configService.getValue<string>(`authentication.${configKey}.baseUrl`) || undefined,
 			getCustomHeaders: configKey =>
 				this._configService.getValue<Record<string, string>>(`authentication.${configKey}.customHeaders`),
-			getAwsRegion: () =>
-				this._configService.getValue<{ AWS_REGION?: string }>('authentication.aws.credentials')?.AWS_REGION,
+			getAws: () => ({
+				region: this._configService.getValue<{ AWS_REGION?: string }>('authentication.aws.credentials')?.AWS_REGION,
+			}),
 			getSnowflake: () => {
 				const cfg = this._configService.getValue<{ SNOWFLAKE_HOST?: string; SNOWFLAKE_ACCOUNT?: string }>('authentication.snowflake.credentials');
 				return { host: cfg?.SNOWFLAKE_HOST, account: cfg?.SNOWFLAKE_ACCOUNT };

@@ -19,7 +19,10 @@ export let dirs = [
 	'build/vite',
 	'extensions',
 	// --- Start Positron ---
-	'ai-lib/packages/ai-config',
+	// The ai-lib packages are npm workspace members of the root package.json
+	// (file: deps), so the root install manages their node_modules. Running npm
+	// in those dirs would walk up to the ai-lib workspace root and reify a
+	// second, conflicting tree at ai-lib/node_modules (see #15065).
 	'extensions/authentication',
 	'extensions/next-edit-suggestions',
 	'extensions/open-remote-ssh',

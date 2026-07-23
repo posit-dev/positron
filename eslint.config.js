@@ -1713,6 +1713,8 @@ export default defineConfig(
 						'ai-provider-bridge',
 						'ai-provider-bridge/providers',
 						'ai-provider-bridge/credential-shaping',
+						// AI provider catalog (Node egress).
+						'ai-config/node',
 						// --- End Positron ---
 					]
 				},
