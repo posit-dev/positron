@@ -1,0 +1,159 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.connect-provider-view {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	height: 100%;
+}
+
+.connect-provider-header {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.connect-provider-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 6px;
+	border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+	background-color: var(--vscode-editorWidget-background);
+	flex-shrink: 0;
+}
+
+.connect-provider-icon .language-model.icon {
+	width: 22px;
+	height: 22px;
+}
+
+.connect-provider-header-text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.connect-provider-name {
+	font-weight: 600;
+	font-size: 15px;
+}
+
+.connect-provider-subtitle {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.connect-provider-divider {
+	border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+}
+
+.connect-provider-banner {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	font-size: 13px;
+}
+
+.connect-provider-banner.success {
+	background: color-mix(
+		in srgb,
+		var(--vscode-charts-green) 12%,
+		var(--vscode-editor-background)
+	);
+	border-color: color-mix(in srgb, var(--vscode-charts-green) 40%, transparent);
+}
+
+.connect-provider-banner.error {
+	color: var(--vscode-input-foreground);
+	background: var(--vscode-input-background);
+	border-color: var(--vscode-input-border);
+}
+
+.connect-provider-banner-dot {
+	flex-shrink: 0;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--vscode-charts-green);
+}
+
+.connect-provider-banner .codicon {
+	flex-shrink: 0;
+}
+
+.connect-provider-banner.error .codicon {
+	color: var(--vscode-charts-red);
+}
+
+.connect-provider-detail {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	flex-grow: 1;
+}
+
+.connect-provider-detail-label {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.connect-provider-detail-value {
+	font-family: var(--monaco-monospace-font);
+	word-break: break-all;
+}
+
+.connect-provider-signin,
+.connect-provider-signout {
+	align-self: flex-start;
+}
+
+.connect-provider-apikey {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.connect-provider-apikey-label {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.connect-provider-apikey-input {
+	padding: 4px 8px;
+	color: var(--vscode-input-foreground);
+	background-color: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border, transparent);
+	border-radius: 2px;
+}
+
+.connect-provider-apikey-input:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.connect-provider-unsupported {
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+}
+
+.connect-provider-error {
+	color: var(--vscode-errorForeground);
+	font-size: 12px;
+}
+
+.connect-provider-notice {
+	border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+	padding-top: 12px;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
