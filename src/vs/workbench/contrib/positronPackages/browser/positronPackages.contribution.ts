@@ -118,6 +118,20 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			markdownDescription: nls.localize('positron.packages.r.renvAutoSnapshot', "When using renv, automatically run `renv::snapshot()` in the Console after installing, updating, or removing packages to keep `renv.lock` in sync. The snapshot runs independently, so its success or failure does not affect the package operation."),
 			tags: ['preview'],
 		},
+		'packages.python.useRequirementsFile': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.RESOURCE,
+			markdownDescription: nls.localize('positron.packages.python.useRequirementsFile', "Use the workspace root `requirements.txt` file (when present) as the source of truth for package install and update operations from the Packages pane. When enabled, changes are resolved against `requirements.txt`; when disabled, they resolve against the currently installed packages instead."),
+			tags: ['preview'],
+		},
+		'packages.python.autoUpdateRequirements': {
+			type: 'boolean',
+			default: false,
+			scope: ConfigurationScope.RESOURCE,
+			markdownDescription: nls.localize('positron.packages.python.autoUpdateRequirements', "When a `requirements.txt` file is present, automatically add newly installed packages to it and remove uninstalled ones. This runs independently, so its success or failure does not affect the package operation."),
+			tags: ['preview'],
+		},
 		[PACKAGE_METADATA_CACHE_ENABLED_SETTING]: {
 			type: 'boolean',
 			default: true,

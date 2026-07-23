@@ -472,7 +472,83 @@ version = "0.1.0"`;
         });
     });
 
-    suite('with python.packageManager.useRequirementsFile disabled', () => {
+    suite('UvPackageManager requirements sync', () => {
+        let terminalService: { show: sinon.SinonStub; sendCommand: sinon.SinonStub; sendText: sinon.SinonStub };
+        let originalGetConfiguration: typeof vscode.workspace.getConfiguration;
+        let reqPath: string;
+        let callMethod: sinon.SinonStub;
+
+        setup(() => {
+            originalGetConfiguration = vscode.workspace.getConfiguration;
+
+            sinon.stub(uvPackageManager, 'isUvAvailable').resolves(true);
+
+            // Workspace folder with a requirements.txt present (no pyproject -> env workflow).
+            const workspaceFolder = { uri: Uri.file('/w'), name: 'w', index: 0 };
+            reqPath = path.join(workspaceFolder.uri.fsPath, 'requirements.txt');
+            sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
+            (fileSystem.fileExists as sinon.SinonStub).withArgs(reqPath).resolves(true);
+            (fileSystem.readFile as sinon.SinonStub).resolves('flask==2.2.0\n');
+
+            const processService = { exec: sinon.stub() };
+            const processFactory = { create: sinon.stub().resolves(processService) };
+            terminalService = {
+                show: sinon.stub().resolves(),
+                sendCommand: sinon.stub().resolves(),
+                sendText: sinon.stub().resolves(),
+            };
+            const terminalFactory = { getTerminalService: sinon.stub().returns(terminalService) };
+            (serviceContainer.get as sinon.SinonStub)
+                .withArgs(IProcessServiceFactory)
+                .returns(processFactory)
+                .withArgs(ITerminalServiceFactory)
+                .returns(terminalFactory);
+
+            callMethod = sinon.stub().resolves([]);
+            callMethod.withArgs('getPackagesInstalled').resolves([{ name: 'flask' }, { name: 'pandas' }]);
+            session.callMethod = callMethod;
+
+            vscode.workspace.getConfiguration = (section?: string) =>
+                ({
+                    get: (key: string, defaultValue?: unknown) =>
+                        section === 'packages.python' && key === 'autoUpdateRequirements' ? true : defaultValue,
+                } as unknown as vscode.WorkspaceConfiguration);
+        });
+
+        teardown(() => {
+            vscode.workspace.getConfiguration = originalGetConfiguration;
+        });
+
+        test('env-branch install appends a newly installed undeclared package', async () => {
+            await uvPackageManager.installPackages([{ name: 'pandas' }]);
+
+            expect((fileSystem as any).getWritten()).to.equal('flask==2.2.0\npandas\n');
+        });
+
+        test('env-branch uninstall removes a declared package once it is gone', async () => {
+            (fileSystem.readFile as sinon.SinonStub).resolves('flask==2.2.0\nrequests\n');
+            callMethod.withArgs('getPackagesInstalled').resolves([{ name: 'flask' }]);
+
+            await uvPackageManager.uninstallPackages(['requests']);
+
+            expect((fileSystem as any).getWritten()).to.equal('flask==2.2.0\n');
+        });
+
+        test('project workflow does not touch the file', async () => {
+            // Force the project workflow: valid pyproject.toml and no requirements.txt.
+            const pyprojectPath = path.join('/w', 'pyproject.toml');
+            const pyprojectContent = `[project]\nname = "test-project"\nversion = "0.1.0"`;
+            (fileSystem.fileExists as sinon.SinonStub).withArgs(pyprojectPath).resolves(true);
+            (fileSystem.fileExists as sinon.SinonStub).withArgs(reqPath).resolves(false);
+            (fileSystem.readFile as sinon.SinonStub).withArgs(pyprojectPath).resolves(pyprojectContent);
+
+            await uvPackageManager.installPackages([{ name: 'pandas' }]);
+
+            expect((fileSystem.writeFile as sinon.SinonStub).called).to.equal(false);
+        });
+    });
+
+    suite('with packages.python.useRequirementsFile disabled', () => {
         let processService: { exec: sinon.SinonStub };
         let terminalService: { show: sinon.SinonStub; sendCommand: sinon.SinonStub; sendText: sinon.SinonStub };
         let originalGetConfiguration: typeof vscode.workspace.getConfiguration;
@@ -484,7 +560,7 @@ version = "0.1.0"`;
             vscode.workspace.getConfiguration = (section?: string) =>
                 ({
                     get: (key: string, defaultValue?: unknown) =>
-                        section === 'python' && key === 'packageManager.useRequirementsFile' ? false : defaultValue,
+                        section === 'packages.python' && key === 'useRequirementsFile' ? false : defaultValue,
                 } as any);
 
             sinon.stub(uvPackageManager, 'isUvAvailable').resolves(true);
