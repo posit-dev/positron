@@ -61,11 +61,17 @@ export abstract class AbstractAiProviderService extends Disposable implements IA
 			if (!client) {
 				throw new Error('No AI provider catalog channel available');
 			}
+			let receivedChange = false;
 			this._register(client.onDidChangeCatalog(change => {
+				receivedChange = true;
 				this.setSnapshot(change.catalog);
 				this._onDidChangeProviders.fire(change);
 			}));
-			this.setSnapshot(await client.getCatalog());
+			const initial = await client.getCatalog();
+			// Don't let the stale initial load overwrite a change that raced it.
+			if (!receivedChange) {
+				this.setSnapshot(initial);
+			}
 			this._status = 'ready';
 		} catch (error) {
 			this._status = 'error';
