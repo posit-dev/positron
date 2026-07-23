@@ -21,6 +21,7 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 
 	private _catalog: Promise<readonly IResolvedProviderData[]> | undefined;
 	private _configFilePath: Promise<string> | undefined;
+	private _receivedChange = false;
 
 	constructor(
 		private readonly _logService: ILogService,
@@ -35,8 +36,8 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 			configPath: this._options?.configPath,
 			envVars: this._options?.envVars,
 			logger: {
-				debug: (message: string) => this._logService.debug(`[ai provider catalog] ${message}`),
-				warn: (message: string) => this._logService.warn(`[ai provider catalog] ${message}`),
+				debug: (message: string) => this._logService.debug(`[AI Provider Catalog] ${message}`),
+				warn: (message: string) => this._logService.warn(`[AI Provider Catalog] ${message}`),
 			},
 		};
 	}
@@ -50,9 +51,11 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 		const aiConfig = await import('ai-config/node');
 		const opts = this.loadOptions();
 		const watcher = aiConfig.watchResolvedProviderCatalog((change: ProviderCatalogChange) => {
-			this._catalog = Promise.resolve(change.catalog.map(toProviderData));
+			const catalog = change.catalog.map(toProviderData);
+			this._receivedChange = true;
+			this._catalog = Promise.resolve(catalog);
 			this._onDidChangeCatalog.fire({
-				catalog: change.catalog.map(toProviderData),
+				catalog,
 				enabledChanged: change.enabledChanged,
 				connectionChanged: change.connectionChanged,
 				modelsChanged: change.modelsChanged,
@@ -60,7 +63,9 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 		}, opts);
 		this._register(toDisposable(() => watcher.dispose()));
 		const catalog = await aiConfig.loadResolvedProviderCatalog(opts);
-		return catalog.map(toProviderData);
+		// A change that arrived while the initial load was in flight already set a
+		// newer snapshot; don't let the stale initial load overwrite it.
+		return this._receivedChange && this._catalog ? this._catalog : catalog.map(toProviderData);
 	}
 
 	getConfigFilePath(): Promise<string> {

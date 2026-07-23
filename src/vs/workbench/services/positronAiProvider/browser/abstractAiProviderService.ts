@@ -69,7 +69,7 @@ export abstract class AbstractAiProviderService extends Disposable implements IA
 		} catch (error) {
 			this._status = 'error';
 			this._lastError = error instanceof Error ? error : new Error(String(error));
-			this._logService.error('[ai provider service] initial catalog fetch failed', error);
+			this._logService.error('[AI Provider Service] initial catalog fetch failed', error);
 			// Keep whatever snapshot we have (empty on first failure); never reject.
 		}
 	}
