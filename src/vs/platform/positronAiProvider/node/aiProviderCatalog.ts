@@ -12,9 +12,7 @@ import { IAiProviderCatalog, IProviderCatalogChangeData, IResolvedProviderData }
 
 /**
  * Owns the ai-config catalog lifecycle node-side: initial load, file/env
- * watch, and the resolved config file path. ai-config is ESM-only, so it is
- * loaded via dynamic import (same pattern as headlessLanguageModelEngine's
- * bridge import).
+ * watch, and the resolved config file path.
  */
 export class AiProviderCatalog extends Disposable implements IAiProviderCatalog {
 	private readonly _onDidChangeCatalog = this._register(new Emitter<IProviderCatalogChangeData>());
@@ -64,8 +62,7 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 		}, opts);
 		this._register(toDisposable(() => watcher.dispose()));
 		const catalog = await aiConfig.loadResolvedProviderCatalog(opts);
-		// A change that arrived while the initial load was in flight already set a
-		// newer snapshot; don't let the stale initial load overwrite it.
+		// Don't let the stale initial load overwrite a change that raced it.
 		return this._receivedChange && this._catalog ? this._catalog : catalog.map(toProviderData);
 	}
 

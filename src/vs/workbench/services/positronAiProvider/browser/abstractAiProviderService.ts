@@ -13,14 +13,10 @@ import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { AiProviderServiceStatus, IAiProviderService } from '../common/aiProviderService.js';
 
 /**
- * The catalog-mirroring core: it warms a synchronous snapshot from the node-side
+ * The catalog-mirroring core: warms a synchronous snapshot from the node-side
  * catalog, keeps it current from change events, and answers reads over the
- * cached map. It is environment-agnostic and depends only on the catalog port
- * ({@link createCatalogClient}) and the remote authority ({@link remoteAuthority}),
- * which are exactly what the interface tests fake.
- *
- * The concrete subclasses (and their service registrations) live in sibling
- * files so importing this base never registers a service.
+ * cached map. Environment specifics come from the subclasses; registrations
+ * live in the sibling variant files so importing this base registers nothing.
  */
 export abstract class AbstractAiProviderService extends Disposable implements IAiProviderService {
 
@@ -44,14 +40,9 @@ export abstract class AbstractAiProviderService extends Disposable implements IA
 
 	constructor(protected readonly _logService: ILogService) {
 		super();
-		// Defer the first fetch off the constructor stack: createCatalogClient()
-		// reads subclass parameter-properties (_remoteAgentService /
-		// _sharedProcessService) that are NOT yet assigned while this base
-		// constructor runs during super() -- the same hazard
-		// abstractHeadlessLanguageModelService.ts documents (it creates its engine
-		// lazily for this reason). A synchronous initialize() here would TypeError,
-		// get swallowed by its own catch, and leave every window in permanent
-		// status 'error' with an empty snapshot.
+		// Defer the first fetch off the super() stack: createCatalogClient() reads
+		// subclass parameter-properties not yet assigned while the base constructor
+		// runs, so a synchronous call here would throw and strand status 'error'.
 		this.whenInitialized = Promise.resolve().then(() => this.initialize());
 	}
 
@@ -112,15 +103,11 @@ export abstract class AbstractAiProviderService extends Disposable implements IA
 }
 
 /**
- * Instantiating the delayed {@link IAiProviderService} singleton kicks off the
- * initial catalog fetch, so this contribution injects it once at startup to warm
- * the snapshot before provider UI runs. Lives here (class only, no registration)
- * so both variants register it against their own singleton.
+ * Warms the catalog at startup: injecting the delayed {@link IAiProviderService}
+ * singleton instantiates it, which kicks off the initial fetch before provider
+ * UI runs. Class only (no registration) so each variant registers its own.
  */
 export class AiProviderServiceWarmer implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.positronAiProviderWarmer';
-	constructor(@IAiProviderService _aiProviderService: IAiProviderService) {
-		// Injection alone instantiates the delayed singleton, which kicks off the
-		// initial catalog fetch before provider UI can run.
-	}
+	constructor(@IAiProviderService _aiProviderService: IAiProviderService) { }
 }

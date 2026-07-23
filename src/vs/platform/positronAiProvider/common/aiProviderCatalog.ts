@@ -9,10 +9,9 @@ import { URI } from '../../../base/common/uri.js';
 export const POSITRON_AI_PROVIDER_CHANNEL = 'positronAiProviderCatalog';
 
 /**
- * Mirrors ai-config's ResolvedConnection as plain IPC-marshalable data.
- * Kept in sync by hand with the pinned ai-lib commit (same pattern as
- * platform/positronHeadlessLanguageModel/common/engine.ts mirroring the
- * bridge types); ai-config is imported node-side only.
+ * Mirrors ai-config's ResolvedConnection as plain IPC-marshalable data,
+ * hand-kept in sync with the pinned ai-lib commit (guarded by the shape-guard
+ * test). A deliberate reduced view: fields no consumer reads are omitted.
  */
 export interface IResolvedConnectionData {
 	readonly baseUrl?: string;
