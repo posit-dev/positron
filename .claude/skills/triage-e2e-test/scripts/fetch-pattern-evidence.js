@@ -22,6 +22,29 @@ import {
 	emit, fail, runNode, runNodeCapture, isMain, parseArgs, setMetricScript, recordMetric,
 } from './lib.js';
 
+// Max chars of the surface failure string echoed into the stdout manifest. The
+// full failure lives in the on-disk evidence; stdout only needs a label.
+export const MAX_FAILURE_CHARS = 200;
+
+/**
+ * Build the compact stdout manifest: file paths plus a capped failure label,
+ * never raw payload content. This is the boundary the refactor depends on --
+ * the ~MB evidence stays on disk (`rawEvidenceFile` is a path), and stdout stays
+ * small regardless of input size. `rel` maps absolute paths to display form.
+ */
+export function buildEvidenceManifest(parts, rel = p => p) {
+	return {
+		evidenceDir: rel(parts.evidenceDir),
+		summaryFile: rel(parts.summaryFile),
+		timelineFile: rel(parts.timelineFile),
+		snapshotFile: rel(parts.snapshotFile),
+		screenshots: (parts.screenshots || []).map(rel),
+		rawLogDir: rel(parts.rawLogDir),
+		rawEvidenceFile: rel(parts.rawEvidenceFile),
+		failure: parts.failure ? String(parts.failure).slice(0, MAX_FAILURE_CHARS) : null,
+	};
+}
+
 /**
  * Extract the kept temp-dir path from e2e-process-s3.js's stderr. Without
  * --cleanup it prints "(temp dir kept at <path> -- pass --cleanup to remove)".
@@ -181,16 +204,16 @@ function main() {
 	const timelineFile = summary.timeline ? writeText(path.join(evidenceDir, 'timeline.txt'), summary.timeline) : null;
 
 	const rel = p => (p ? path.relative(process.cwd(), p) : null);
-	emit({
-		evidenceDir: rel(evidenceDir),
-		summaryFile: rel(summaryFile),
-		timelineFile: rel(timelineFile),
-		snapshotFile: rel(summary.snapshotFile),
-		screenshots: (summary.screenshots || []).map(rel),
-		rawLogDir: rel(rawLogDir),
-		rawEvidenceFile: rel(rawFile),
-		failure: summary.failure ? summary.failure.slice(0, 200) : null,
-	});
+	emit(buildEvidenceManifest({
+		evidenceDir,
+		summaryFile,
+		timelineFile,
+		snapshotFile: summary.snapshotFile,
+		screenshots: summary.screenshots,
+		rawLogDir,
+		rawEvidenceFile: rawFile,
+		failure: summary.failure,
+	}, rel));
 	recordMetric({
 		triageId,
 		phase: 'evidence',

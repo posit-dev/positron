@@ -1,6 +1,28 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeReportUrl, buildEvidenceSummary, parseKeptRawLogDir } from '../fetch-pattern-evidence.js';
+import { normalizeReportUrl, buildEvidenceSummary, parseKeptRawLogDir, buildEvidenceManifest, MAX_FAILURE_CHARS } from '../fetch-pattern-evidence.js';
+
+test('buildEvidenceManifest keeps stdout compact: paths + capped failure, no raw payload', () => {
+	const huge = 'x'.repeat(50_000);
+	const m = buildEvidenceManifest({
+		evidenceDir: '/w/evidence/A',
+		summaryFile: '/w/evidence/A/summary.md',
+		timelineFile: null,
+		snapshotFile: null,
+		screenshots: ['/w/a.jpeg', '/w/b.jpeg'],
+		rawLogDir: null,
+		rawEvidenceFile: '/w/evidence/A/evidence-raw.json',
+		failure: huge,
+	});
+	// Failure is capped; the ~50KB input can't inflate the manifest.
+	assert.equal(m.failure.length, MAX_FAILURE_CHARS);
+	assert.ok(JSON.stringify(m).length < 1000, 'manifest must stay small and carry no raw payload');
+	// Exactly the manifest keys -- no accidental spread of the raw result object.
+	assert.deepEqual(
+		Object.keys(m).sort(),
+		['evidenceDir', 'failure', 'rawEvidenceFile', 'rawLogDir', 'screenshots', 'snapshotFile', 'summaryFile', 'timelineFile'],
+	);
+});
 
 test('parseKeptRawLogDir extracts the kept temp dir path from analyzer stderr', () => {
 	const stderr = 'Processing trace...\n(temp dir kept at /var/folders/x/e2e-process-s3-ab12cd34 -- pass --cleanup to remove)\n';
