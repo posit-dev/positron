@@ -1,0 +1,234 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import * as vscode from 'vscode';
+import type { BuiltinProviderBlock, ProvidersConfig, ResolvedConnection, ResolvedProvider } from 'ai-config';
+import type { ProviderCatalogChange } from 'ai-config/node';
+import { log } from './log';
+
+/**
+ * Structural view of a resolved provider the credential chain reads. Mirrors
+ * ai-config's `ResolvedProvider` down to the fields consumers here care about.
+ */
+export interface ResolvedProviderLike {
+	readonly id: string;
+	readonly enabled: boolean;
+	readonly connection: ResolvedConnection;
+}
+
+/**
+ * Payload of {@link onDidChangeProviderCatalog}. Extends ai-config's boolean
+ * change flags with the per-provider granularity the credential chain needs:
+ * `changedConnectionIds` (ids whose connection JSON differs) and `disabledIds`
+ * (ids whose `enabled` flipped to false).
+ */
+export interface ProviderCatalogChangeEvent {
+	readonly enabledChanged: boolean;
+	readonly connectionChanged: boolean;
+	readonly changedConnectionIds: string[];
+	readonly disabledIds: string[];
+}
+
+/** Test seam: `configPath`/`envVars` overrides; production passes nothing. */
+export interface ProviderCatalogOptions {
+	configPath?: string;
+	envVars?: Record<string, string | undefined>;
+}
+
+let cache = new Map<string, ResolvedProviderLike>();
+let watcher: { dispose(): void } | undefined;
+let currentOptions: ProviderCatalogOptions | undefined;
+
+const changeEmitter = new vscode.EventEmitter<ProviderCatalogChangeEvent>();
+
+/** Fires with the per-provider diff after the cache has been refreshed. */
+export const onDidChangeProviderCatalog: vscode.Event<ProviderCatalogChangeEvent> = changeEmitter.event;
+
+function toMap(catalog: readonly ResolvedProvider[]): Map<string, ResolvedProviderLike> {
+	const map = new Map<string, ResolvedProviderLike>();
+	for (const provider of catalog) {
+		map.set(provider.id, { id: provider.id, enabled: provider.enabled, connection: provider.connection });
+	}
+	return map;
+}
+
+/**
+ * Diffs the current cache against `next`, replaces the cache, and fires
+ * {@link onDidChangeProviderCatalog} when the diff is non-empty. Both the watch
+ * handler and {@link refreshProviderCatalog} funnel through here so a write
+ * helper's refresh produces the same per-provider diff an external file edit
+ * would.
+ */
+function applyCatalog(next: readonly ResolvedProvider[]): void {
+	const previous = cache;
+	const nextMap = toMap(next);
+
+	const changedConnectionIds: string[] = [];
+	const disabledIds: string[] = [];
+	for (const [id, provider] of nextMap) {
+		const before = previous.get(id);
+		if (!before || JSON.stringify(before.connection) !== JSON.stringify(provider.connection)) {
+			changedConnectionIds.push(id);
+		}
+		if (before?.enabled === true && provider.enabled === false) {
+			disabledIds.push(id);
+		}
+	}
+
+	cache = nextMap;
+
+	if (changedConnectionIds.length === 0 && disabledIds.length === 0) {
+		return;
+	}
+	changeEmitter.fire({
+		enabledChanged: disabledIds.length > 0,
+		connectionChanged: changedConnectionIds.length > 0,
+		changedConnectionIds,
+		disabledIds,
+	});
+}
+
+async function loadCatalog(options: ProviderCatalogOptions): Promise<readonly ResolvedProvider[]> {
+	const { loadResolvedProviderCatalog } = await import('ai-config/node');
+	return loadResolvedProviderCatalog({
+		baseline: { defaultEnabled: true },
+		configPath: options.configPath,
+		envVars: options.envVars,
+		logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
+	});
+}
+
+/**
+ * Loads the resolved provider catalog into the cache and starts watching for
+ * external changes. Idempotent: a re-init disposes the previous watcher and
+ * replaces the cache, so tests can re-init against fresh directories without a
+ * stale watcher firing into the shared emitter.
+ */
+export async function initProviderCatalog(
+	context: vscode.ExtensionContext,
+	options: ProviderCatalogOptions = {}
+): Promise<void> {
+	watcher?.dispose();
+	watcher = undefined;
+	currentOptions = options;
+
+	const { watchResolvedProviderCatalog } = await import('ai-config/node');
+	cache = toMap(await loadCatalog(options));
+
+	watcher = watchResolvedProviderCatalog(
+		(change: ProviderCatalogChange) => applyCatalog(change.catalog),
+		{
+			baseline: { defaultEnabled: true },
+			configPath: options.configPath,
+			envVars: options.envVars,
+			logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
+		}
+	);
+	context.subscriptions.push({ dispose: () => watcher?.dispose() });
+}
+
+/** Synchronous read over the cached catalog; undefined before init. */
+export function getCachedProvider(catalogId: string): ResolvedProviderLike | undefined {
+	return cache.get(catalogId);
+}
+
+/**
+ * Reloads the catalog now and fires {@link onDidChangeProviderCatalog} when the
+ * reload differs from the cache. A no-op before init (with no options remembered),
+ * so it never falls back to the real providers.json inside a test.
+ */
+export async function refreshProviderCatalog(): Promise<void> {
+	if (!currentOptions) {
+		return;
+	}
+	applyCatalog(await loadCatalog(currentOptions));
+}
+
+function effectiveOptions(override?: ProviderCatalogOptions): ProviderCatalogOptions {
+	return override ?? currentOptions ?? {};
+}
+
+/** All providers these helpers write are built-ins, so their blocks are `BuiltinProviderBlock`. */
+type BuiltinBlockMap = Record<string, BuiltinProviderBlock>;
+
+async function mutate(
+	mutator: (providers: BuiltinBlockMap) => void,
+	options: ProviderCatalogOptions
+): Promise<void> {
+	const { mutateProvidersConfig } = await import('ai-config/node');
+	await mutateProvidersConfig(
+		(current: ProvidersConfig): ProvidersConfig => {
+			const providers: BuiltinBlockMap = structuredClone(current.providers ?? {});
+			mutator(providers);
+			return { ...current, providers };
+		},
+		{
+			configPath: options.configPath,
+			logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
+		}
+	);
+	await refreshWith(options);
+}
+
+/**
+ * Refresh using an explicit options override when a write helper supplied one,
+ * so a helper called with `{ configPath }` in a test never reads the real file.
+ */
+async function refreshWith(options: ProviderCatalogOptions): Promise<void> {
+	const previous = currentOptions;
+	currentOptions = options;
+	try {
+		await refreshProviderCatalog();
+	} finally {
+		currentOptions = previous;
+	}
+}
+
+/** Writes providers.<id>.baseUrl, then refreshes the cache. */
+export async function saveProviderBaseUrl(
+	catalogId: string,
+	baseUrl: string,
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	const opts = effectiveOptions(options);
+	await mutate(providers => {
+		providers[catalogId] = { ...providers[catalogId], baseUrl };
+	}, opts);
+}
+
+/** Writes providers.snowflake-cortex.snowflake.account only when it changed. */
+export async function saveSnowflakeAccount(
+	account: string,
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	if (getCachedProvider('snowflake-cortex')?.connection.snowflake?.account === account) {
+		return;
+	}
+	const opts = effectiveOptions(options);
+	await mutate(providers => {
+		const block = providers['snowflake-cortex'] ?? {};
+		providers['snowflake-cortex'] = { ...block, snowflake: { ...block.snowflake, account } };
+	}, opts);
+}
+
+/**
+ * Writes providers.<id>.enabled, then refreshes the cache. With `onlyIfUnset`,
+ * leaves an already-set `enabled` value untouched.
+ */
+export async function saveProviderEnabled(
+	catalogId: string,
+	enabled: boolean,
+	onlyIfUnset: boolean,
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	const opts = effectiveOptions(options);
+	await mutate(providers => {
+		const block = providers[catalogId] ?? {};
+		if (onlyIfUnset && block.enabled !== undefined) {
+			return;
+		}
+		providers[catalogId] = { ...block, enabled };
+	}, opts);
+}

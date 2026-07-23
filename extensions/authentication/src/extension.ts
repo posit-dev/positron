@@ -46,6 +46,7 @@ import { migrateSnowflakeSettings } from './migration/snowflake';
 import { registerProvidersJsonMigration } from './migration/providersJsonUi';
 import { AuthProviderLogger } from './authProviderLogger';
 import { applyPwbPositAIDefault } from './pwbDefaults';
+import { initProviderCatalog } from './providerCatalog';
 
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
@@ -68,6 +69,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	await registerGeapProvider(context);
 	await registerDeepSeekProvider(context);
 	registerCustomProvider(context);
+
+	// Prime the cached provider catalog before registering providers so
+	// registration callbacks read connection config from it synchronously.
+	await initProviderCatalog(context);
 
 	// Register providers so the Settings UI shows per-provider
 	// enable toggles (positron.assistant.provider.<settingName>.enable).
