@@ -29,6 +29,10 @@ import {
 	setMetricScript, recordMetric,
 } from './lib.js';
 
+// Bump when the history-summary.json shape changes so a resume can detect a
+// checkpoint written by an older layout.
+export const HISTORY_SCHEMA_VERSION = 1;
+
 /** Normalize a failure-pattern string into a stable cross-branch match key. */
 export function normalizePattern(pattern) {
 	return String(pattern || '')
@@ -251,6 +255,7 @@ function main() {
 		note: verdict.note,
 		lookbackDays,
 		queriedAt: new Date().toISOString(),
+		historySchemaVersion: HISTORY_SCHEMA_VERSION,
 		rawResultFile: path.relative(process.cwd(), rawFile),
 	};
 

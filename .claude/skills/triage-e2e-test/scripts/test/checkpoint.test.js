@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateCheckpoint, applyPatch, coerce, PHASES, PHASE_NEXT_ACTION, applyMutations, defaultNextAction, checkDoneGate, OUTCOMES, SETTABLE_FIELDS } from '../checkpoint.js';
+import { validateCheckpoint, applyPatch, coerce, PHASES, PHASE_NEXT_ACTION, applyMutations, defaultNextAction, checkDoneGate, OUTCOMES, SETTABLE_FIELDS, computeHistoryFreshness } from '../checkpoint.js';
 
 const valid = () => ({ version: 1, triageId: 'x', testKey: 'A > b|||spec.ts', phase: 'awaiting-pattern-selection' });
 
@@ -67,6 +67,17 @@ test('applyMutations leaves nextAction untouched when phase does not change', ()
 test('applyMutations derives nextAction from a phase set via --patch too', () => {
 	const out = applyMutations({ phase: 'x', nextAction: 'stale' }, { phase: 'hypothesis-ready' }, []);
 	assert.equal(out.nextAction, PHASE_NEXT_ACTION['hypothesis-ready']);
+});
+
+test('computeHistoryFreshness flags stale history and handles missing/bad input', () => {
+	const now = Date.parse('2026-07-23T12:00:00.000Z');
+	// 2h old -> fresh.
+	assert.deepEqual(computeHistoryFreshness('2026-07-23T10:00:00.000Z', now), { queriedAt: '2026-07-23T10:00:00.000Z', ageHours: 2, stale: false });
+	// 30h old -> stale.
+	assert.equal(computeHistoryFreshness('2026-07-22T06:00:00.000Z', now).stale, true);
+	// No / unparseable timestamp -> null (can't judge).
+	assert.equal(computeHistoryFreshness(null, now), null);
+	assert.equal(computeHistoryFreshness('not-a-date', now), null);
 });
 
 test('applyMutations rejects a --set on a non-mutable field', () => {

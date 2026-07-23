@@ -139,6 +139,20 @@ export function checkDoneGate(state) {
 	return { ok: errors.length === 0, errors };
 }
 
+/**
+ * Freshness of the saved history relative to now. `queriedAt` is the ISO time
+ * triage-history recorded. Returns null when there's no usable timestamp.
+ * Distinguishes checkpoint validity (structural) from data freshness (temporal)
+ * so a resume can warn before reasoning over stale history.
+ */
+export function computeHistoryFreshness(queriedAt, nowMs = Date.now(), staleAfterHours = 24) {
+	if (!queriedAt) { return null; }
+	const t = Date.parse(queriedAt);
+	if (Number.isNaN(t)) { return null; }
+	const ageHours = Math.round(((nowMs - t) / 3_600_000) * 10) / 10;
+	return { queriedAt, ageHours, stale: ageHours >= staleAfterHours };
+}
+
 /** Validate a checkpoint before resuming. Returns { ok, errors[] }. */
 export function validateCheckpoint(state) {
 	const errors = [];
@@ -244,11 +258,16 @@ function main() {
 	if (args.read || args.validate) {
 		const v = validateCheckpoint(state);
 		if (args.validate) { emit({ ...v, phase: state.phase, nextAction: state.nextAction }); return; }
-		if (!v.ok) { emit({ ...state, _validation: v, stateFile: path.relative(process.cwd(), sp) }); return; }
-		emit({ ...state, stateFile: path.relative(process.cwd(), sp) });
+		// Attach history freshness so a resume can warn before reasoning over
+		// stale data (the checkpoint can be structurally valid but the history old).
+		const historyFile = path.join(triageDir(triageId), 'history-summary.json');
+		const queriedAt = fs.existsSync(historyFile) ? readJson(historyFile).queriedAt : null;
+		const freshness = computeHistoryFreshness(queriedAt);
+		if (!v.ok) { emit({ ...state, _validation: v, freshness, stateFile: path.relative(process.cwd(), sp) }); return; }
+		emit({ ...state, freshness, stateFile: path.relative(process.cwd(), sp) });
 		// A --read is the resume entry point: record it so metrics can compare
 		// resumed triages against fresh ones.
-		recordMetric({ triageId, phase: 'resume', resumed: true, resumedAtPhase: state.phase });
+		recordMetric({ triageId, phase: 'resume', resumed: true, resumedAtPhase: state.phase, historyStale: freshness?.stale ?? null });
 		return;
 	}
 

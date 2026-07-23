@@ -83,7 +83,10 @@ resume. `/triage-e2e-test --status` -- list saved triages.
 **On `--resume`:** run `node scripts/checkpoint.js --triage-id <id> --read`,
 validate it, and continue from `phase` / `nextAction`. Do **not** repeat
 completed history or evidence work unless the engineer asks to refresh, the
-saved data is invalid, or the branch/test identity changed.
+saved data is invalid, or the branch/test identity changed. The read output
+includes a `freshness` block; if `freshness.stale` is true (history older than
+~24h), tell the engineer how old it is and ask whether to re-run the history
+helper before continuing, rather than silently reasoning over stale data.
 
 **On `--status`:** `node scripts/checkpoint.js --status`.
 
