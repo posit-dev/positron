@@ -1,0 +1,60 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/// <reference types="vitest/globals" />
+
+import { screen } from '@testing-library/react';
+import { Event } from '../../../../../base/common/event.js';
+import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { ProviderList } from '../../browser/components/providerList.js';
+import { IPositronAssistantConfigurationService, IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
+import { IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
+
+function source(overrides: Partial<IPositronLanguageModelSource> & { id: string; displayName?: string }): IPositronLanguageModelSource {
+	const { id, displayName, ...rest } = overrides;
+	return {
+		type: PositronLanguageModelType.Chat,
+		provider: { id, displayName: displayName ?? id, settingName: id },
+		supportedOptions: [],
+		defaults: {},
+		...rest,
+	} as IPositronLanguageModelSource;
+}
+
+describe('ProviderList', () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IPositronAssistantConfigurationService, { onChangeProviderConfig: Event.None })
+		.stub(IAuthenticationService, { onDidChangeSessions: Event.None })
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('renders a heading per non-empty section', () => {
+		rtl.render(<ProviderList sources={[
+			source({ id: 'conn', displayName: 'Connected One', signedIn: true, status: 'ok' }),
+			source({ id: 'avail', displayName: 'Available One', signedIn: false }),
+		]} />);
+		expect(screen.getByText('Connected Providers')).toBeInTheDocument();
+		expect(screen.getByText('Model Providers')).toBeInTheDocument();
+	});
+
+	it('does not render empty built-in section headings', () => {
+		rtl.render(<ProviderList sources={[source({ id: 'avail', signedIn: false })]} />);
+		expect(screen.queryByText('Connected Providers')).not.toBeInTheDocument();
+		expect(screen.queryByText('Needs Attention')).not.toBeInTheDocument();
+	});
+
+	it('always renders the Custom Provider section with an add button', () => {
+		rtl.render(<ProviderList sources={[source({ id: 'avail', signedIn: false })]} />);
+		expect(screen.getByText('Custom Provider')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /Add custom provider/ })).toBeInTheDocument();
+	});
+
+	it('shows the built-in description for a known provider', () => {
+		rtl.render(<ProviderList sources={[source({ id: 'anthropic-api', displayName: 'Anthropic', signedIn: false })]} />);
+		expect(screen.getByText('Access Claude models directly via Anthropic API')).toBeInTheDocument();
+	});
+});
