@@ -40,6 +40,9 @@ const SUPPORTED_PYTHON_VERSION_RANGE = `${MINIMUM_PYTHON_VERSION.major}.${MINIMU
 
 export type HealthItemStatus = 'pass' | 'warn' | 'fail' | 'skipped';
 
+/** The four checks, in dependency order. */
+export type HealthItemId = 'discovery' | 'pythonInstalled' | 'dedicatedEnvironment' | 'environmentReady';
+
 export interface HealthItemFix {
     /** Extension OR core command id. */
     commandId: string;
@@ -51,7 +54,7 @@ export interface HealthItemFix {
 
 export interface HealthItem {
     /** Stable machine id, e.g. 'environmentReady'. */
-    id: string;
+    id: HealthItemId;
     status: HealthItemStatus;
     /** Localized one-liner. */
     summary: string;
@@ -405,11 +408,11 @@ interface ItemProducers {
     ready: () => Promise<HealthItem>;
 }
 
-function skipped(id: string): HealthItem {
+function skipped(id: HealthItemId): HealthItem {
     return { id, status: 'skipped', summary: id };
 }
 
-async function runItem(id: string, produce: () => HealthItem | Promise<HealthItem>): Promise<HealthItem> {
+async function runItem(id: HealthItemId, produce: () => HealthItem | Promise<HealthItem>): Promise<HealthItem> {
     try {
         return await produce();
     } catch (ex) {

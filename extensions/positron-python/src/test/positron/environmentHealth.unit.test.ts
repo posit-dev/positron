@@ -353,11 +353,11 @@ suite('Python Environment Health - environmentReady (item 4)', () => {
     });
 });
 
-import { assembleItems, HealthItem } from '../../client/positron/environmentHealth';
+import { assembleItems, HealthItem, HealthItemId } from '../../client/positron/environmentHealth';
 
 suite('Python Environment Health - orchestration', () => {
-    const pass = (id: string): HealthItem => ({ id, status: 'pass', summary: id });
-    const fail = (id: string): HealthItem => ({ id, status: 'fail', summary: id });
+    const pass = (id: HealthItemId): HealthItem => ({ id, status: 'pass', summary: id });
+    const fail = (id: HealthItemId): HealthItem => ({ id, status: 'fail', summary: id });
 
     test('fatal discovery skips items 2-4', async () => {
         const result = await assembleItems({
@@ -397,7 +397,7 @@ suite('Python Environment Health - orchestration', () => {
     });
 
     test('item 4 runs even when item 3 warns; warn does not affect ok', async () => {
-        const warn = (id: string): HealthItem => ({ id, status: 'warn', summary: id });
+        const warn = (id: HealthItemId): HealthItem => ({ id, status: 'warn', summary: id });
         const result = await assembleItems({
             discovery: () => pass('discovery'),
             pythonInstalled: async () => pass('pythonInstalled'),
