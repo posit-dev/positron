@@ -13,9 +13,10 @@ import { createJupyterKernelSpec } from './kernel-spec';
 import { LOGGER, supervisorApi } from './extension';
 import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
 import { getDefaultInterpreterPath } from './interpreter-settings.js';
-import { dirname } from 'path';
 import { getEnvironmentModulesApi } from './provider-module.js';
 import { setupArkJupyterKernel } from './kernel';
+import { getRTerminalEnvironmentMutations } from './terminal-environment';
+import { RSessionManager } from './session-manager';
 
 export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
@@ -31,6 +32,26 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	constructor(private readonly _context: vscode.ExtensionContext) {
 		this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
 		this.onDidCompleteDiscovery = this._onDidCompleteDiscoveryEmitter.event;
+
+		// Keep the contributed terminal environment in sync with the active R
+		// console. Creating or restoring a session updates it (see
+		// createSession/restoreSession); this handles the case where the user
+		// switches the foreground session between R consoles that are already
+		// running different R versions, so a newly launched terminal matches the
+		// console the user is currently working in. When multiple R consoles
+		// exist, the most recently focused one wins; this ambiguity is expected
+		// (https://github.com/posit-dev/positron/issues/7403).
+		this._context.subscriptions.push(
+			positron.runtime.onDidChangeForegroundSession(async (sessionId) => {
+				if (!sessionId) {
+					return;
+				}
+				const session = await RSessionManager.instance.getSessionById(sessionId);
+				if (session) {
+					this.updateEnvironment(session.runtimeMetadata);
+				}
+			})
+		);
 	}
 
 	/**
@@ -145,17 +166,31 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			return;
 		}
 
-		// Update the QUARTO_R environment variable to point to the script path
-		// of the R runtime, if needed. Note that our 'scriptpath' is the full
-		// path to the Rscript binary (foo/bar/Rscript), but Quarto expects the
-		// directory (foo/bar)
-		if (metadataExtra.scriptpath) {
-			const currentQuartoR = collection.get('QUARTO_R');
-			const scriptPath = dirname(metadataExtra.scriptpath);
-			if (currentQuartoR?.value !== scriptPath) {
-				collection.replace('QUARTO_R', scriptPath);
-				LOGGER.debug(`Updated QUARTO_R environment variable to ${scriptPath}`);
+		// Contribute environment variables so that terminals launched from
+		// Positron use the same R installation as the active console (PATH,
+		// R_HOME, QUARTO_R). This ensures that extensions which start R in a
+		// terminal (Quarto Preview, Shiny Run App, etc.) run against the R the
+		// user selected. Apply at both process creation and shell integration so
+		// the variables are present however the terminal resolves them.
+		const options = { applyAtProcessCreation: true, applyAtShellIntegration: true };
+		for (const mutation of getRTerminalEnvironmentMutations(metadataExtra)) {
+			// Skip variables that already hold the desired value, to avoid
+			// needlessly marking open terminals as stale.
+			if (collection.get(mutation.variable)?.value === mutation.value) {
+				continue;
 			}
+			switch (mutation.action) {
+				case 'replace':
+					collection.replace(mutation.variable, mutation.value, options);
+					break;
+				case 'prepend':
+					collection.prepend(mutation.variable, mutation.value, options);
+					break;
+				case 'append':
+					collection.append(mutation.variable, mutation.value, options);
+					break;
+			}
+			LOGGER.debug(`Updated terminal environment variable ${mutation.variable} (${mutation.action}) to ${mutation.value}`);
 		}
 
 		// Update the ark Jupyter kernel spec with this R's environment.
