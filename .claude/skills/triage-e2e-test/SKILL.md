@@ -172,10 +172,13 @@ Read [`references/reproduction.md`](references/reproduction.md) at this stage.
 In short:
 
 - When the mechanism is below the e2e layer, write a deterministic lower-level
-  regression test -- **invoke `author-vitest-tests` to write it** (it owns the
-  builder/stub conventions and the RED bar, and pairs with `review-vitest-tests`);
-  don't hand-roll one. A valid RED fails *inside the assertion for the diagnosed
-  mechanism* -- an import, compile, or setup error is not a RED.
+  regression test. **The RED bar is yours to hold** (`author-vitest-tests`
+  drives toward green and does not enforce RED-first): make it a real RED first
+  -- it must fail *inside the assertion, reproducing the diagnosed mechanism*
+  against current code; an import, compile, or setup error is not a RED. Use
+  `author-vitest-tests` for the builder/stub conventions and its
+  `review-vitest-tests` pass rather than hand-rolling; then apply the fix and
+  confirm GREEN.
 - Otherwise use the smallest CI-exercised e2e project and recreate the
   triggering condition, not just a rerun. For a race, one green run is not proof.
 - Keep verification output on disk or in the background (the `--repeat-each`

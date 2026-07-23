@@ -7,12 +7,13 @@ fix"). Save the diagnosis checkpoint first.
 
 If the root cause traces into a lower-level module with its own unit-test suite
 (e.g. an extension's process-spawning helper, not the e2e spec or a POM), write
-a deterministic unit test there instead of relying on the flaky e2e repro.
-**Invoke `author-vitest-tests` to write it** -- that skill owns the builder /
-`stubInterface` conventions and the RED bar, and pairs with `review-vitest-tests`.
-Don't hand-roll the test here. Model the exact event ordering that triggers the
-bug (e.g. a Node child-process `exit`/`close` race), confirm it fails against
-current code (RED), apply the fix, confirm it passes (GREEN).
+a deterministic unit test there instead of relying on the flaky e2e repro. Use
+`author-vitest-tests` for the builder / `stubInterface` conventions and its
+`review-vitest-tests` pass rather than hand-rolling -- but note that skill drives
+toward a passing test and does **not** enforce RED-first, so **the RED bar below
+is yours to hold**. Model the exact event ordering that triggers the bug (e.g. a
+Node child-process `exit`/`close` race), confirm it fails against current code
+(RED), apply the fix, confirm it passes (GREEN).
 
 **A valid RED fails inside the assertion, for the diagnosed mechanism** -- it
 reproduces the race/ordering the diagnosis predicts. An import, compile, or
