@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateCheckpoint, applyPatch, coerce, PHASES, PHASE_NEXT_ACTION, applyMutations, defaultNextAction, checkDoneGate, OUTCOMES, SETTABLE_FIELDS, computeHistoryFreshness } from '../checkpoint.js';
+import { validateCheckpoint, applyPatch, coerce, PHASES, PHASE_NEXT_ACTION, applyMutations, defaultNextAction, checkDoneGate, OUTCOMES, SETTABLE_FIELDS, computeHistoryFreshness, selectCompletedIds } from '../checkpoint.js';
 
 const valid = () => ({ version: 1, triageId: 'x', testKey: 'A > b|||spec.ts', phase: 'awaiting-pattern-selection' });
 
@@ -67,6 +67,16 @@ test('applyMutations leaves nextAction untouched when phase does not change', ()
 test('applyMutations derives nextAction from a phase set via --patch too', () => {
 	const out = applyMutations({ phase: 'x', nextAction: 'stale' }, { phase: 'hypothesis-ready' }, []);
 	assert.equal(out.nextAction, PHASE_NEXT_ACTION['hypothesis-ready']);
+});
+
+test('selectCompletedIds returns only phase=done ids', () => {
+	const entries = [
+		{ id: 'a', phase: 'done' },
+		{ id: 'b', phase: 'implementation' },
+		{ id: 'c', phase: 'done' },
+		{ id: 'd', phase: undefined },
+	];
+	assert.deepEqual(selectCompletedIds(entries), ['a', 'c']);
 });
 
 test('computeHistoryFreshness flags stale history and handles missing/bad input', () => {

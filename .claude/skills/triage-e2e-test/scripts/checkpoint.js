@@ -12,6 +12,8 @@
 //   node checkpoint.js --triage-id <id> --patch '<json>'     # deep-merge a JSON object
 //   node checkpoint.js --status                              # list all triages
 //   node checkpoint.js --triage-id <id> --validate
+//   node checkpoint.js --triage-id <id> --clean             # remove one triage dir
+//   node checkpoint.js --clean-completed                    # remove all done triages
 
 import fs from 'fs';
 import path from 'path';
@@ -213,31 +215,96 @@ function newState(triageId, args) {
 	};
 }
 
-function statusAll() {
+/** Total size in bytes of every file under `dir` (recursive). */
+function dirSize(dir) {
+	let total = 0;
+	for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+		const full = path.join(dir, e.name);
+		if (e.isDirectory()) { total += dirSize(full); }
+		else { try { total += fs.statSync(full).size; } catch { /* ignore */ } }
+	}
+	return total;
+}
+
+/** True if any evidence/<pattern>/raw-logs/ dir was retained under `dir`. */
+function hasRetainedRawLogs(dir) {
+	const evid = path.join(dir, 'evidence');
+	if (!fs.existsSync(evid)) { return false; }
+	return fs.readdirSync(evid).some(p => fs.existsSync(path.join(evid, p, 'raw-logs')));
+}
+
+/** Age in hours from an ISO timestamp; null if missing/unparseable. */
+function ageHoursOf(iso) {
+	const t = Date.parse(iso);
+	return Number.isNaN(t) ? null : Math.round(((Date.now() - t) / 3_600_000) * 10) / 10;
+}
+
+/** Ids of completed triages from a list of `{ id, phase }`. Pure (testable). */
+export function selectCompletedIds(entries) {
+	return entries.filter(e => e.phase === 'done').map(e => e.id);
+}
+
+/** Read every triage's state (skipping the metrics file and unreadable dirs). */
+function readTriageStates() {
 	const root = workRoot();
-	if (!fs.existsSync(root)) { return { triages: [] }; }
-	const triages = [];
+	if (!fs.existsSync(root)) { return []; }
+	const out = [];
 	for (const id of fs.readdirSync(root)) {
 		const sp = statePath(id);
 		if (!fs.existsSync(sp)) { continue; }
-		try {
-			const s = readJson(sp);
-			triages.push({ triageId: id, phase: s.phase, selectedPattern: s.selectedPattern, testKey: s.testKey, nextAction: s.nextAction, updatedAt: s.updatedAt });
-		} catch { triages.push({ triageId: id, phase: 'unreadable' }); }
+		try { out.push({ id, state: readJson(sp) }); }
+		catch { out.push({ id, state: null }); }
 	}
+	return out;
+}
+
+function statusAll() {
+	const triages = readTriageStates().map(({ id, state: s }) => {
+		if (!s) { return { triageId: id, phase: 'unreadable' }; }
+		const dir = triageDir(id);
+		return {
+			triageId: id,
+			phase: s.phase,
+			outcome: s.outcome ?? null,
+			selectedPattern: s.selectedPattern,
+			testKey: s.testKey,
+			nextAction: s.nextAction,
+			updatedAt: s.updatedAt,
+			ageHours: ageHoursOf(s.updatedAt),
+			diskBytes: dirSize(dir),
+			rawLogsRetained: hasRetainedRawLogs(dir),
+		};
+	});
 	triages.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
 	return { triages };
 }
 
+/** Remove every completed (phase=done) triage dir. Returns the ids removed. */
+function cleanCompleted() {
+	const entries = readTriageStates().map(({ id, state }) => ({ id, phase: state?.phase }));
+	const cleaned = selectCompletedIds(entries);
+	for (const id of cleaned) { fs.rmSync(triageDir(id), { recursive: true, force: true }); }
+	return { cleaned };
+}
+
 function main() {
 	setMetricScript('checkpoint');
-	const args = parseArgs(process.argv.slice(2), ['init', 'read', 'status', 'validate', 'force']);
+	const args = parseArgs(process.argv.slice(2), ['init', 'read', 'status', 'validate', 'force', 'clean', 'clean-completed']);
 
 	if (args.status) { emit(statusAll()); return; }
+	if (args['clean-completed']) { emit(cleanCompleted()); return; }
 
 	const triageId = args['triage-id'];
 	if (!triageId) { fail('Missing --triage-id (or use --status).'); }
 	const sp = statePath(triageId);
+
+	if (args.clean) {
+		const dir = triageDir(triageId);
+		if (!fs.existsSync(dir)) { fail(`No triage dir for "${triageId}".`); }
+		fs.rmSync(dir, { recursive: true, force: true });
+		emit({ cleaned: triageId });
+		return;
+	}
 
 	if (args.init) {
 		if (fs.existsSync(sp) && !args.force) {

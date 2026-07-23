@@ -88,7 +88,9 @@ includes a `freshness` block; if `freshness.stale` is true (history older than
 ~24h), tell the engineer how old it is and ask whether to re-run the history
 helper before continuing, rather than silently reasoning over stale data.
 
-**On `--status`:** `node scripts/checkpoint.js --status`.
+**On `--status`:** `node scripts/checkpoint.js --status` (per triage: phase,
+outcome, age, disk usage, raw-log retention). Prune finished work with
+`--triage-id <id> --clean` (one) or `--clean-completed` (all `phase=done`).
 
 **Otherwise (new triage):**
 
