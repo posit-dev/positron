@@ -523,6 +523,77 @@ suite('Snowflake Reconnecting Client', () => {
 
 		await assert.rejects(() => client.connect(), /username or password/);
 	});
+
+	// A fake sdk connection whose connect can be gated on an external promise, so a test can hold the
+	// client in the reconnect window (`_conn` null, `_open` pending) and act during it. `dead` makes the
+	// first execute report a dead-session error to trigger a reconnect; otherwise execute returns rows.
+	function gatedConn(opts: { connectGate?: Promise<void>; dead?: boolean }) {
+		const state = { destroyCount: 0 };
+		const conn = {
+			connect: (cb: (err: any, c: any) => void) => {
+				if (opts.connectGate) { opts.connectGate.then(() => cb(undefined, conn)); } else { cb(undefined, conn); }
+			},
+			connectAsync: (cb?: (err: any, c: any) => void) => { cb?.(undefined, conn); return Promise.resolve(conn); },
+			execute: (o: { complete: (err: any, stmt: any, rows: any) => void }) => {
+				if (opts.dead) { o.complete(new Error('Connection terminated unexpectedly'), {}, undefined); } else { o.complete(undefined, {}, [{ ok: true }]); }
+			},
+			destroy: (cb: (err: any, c: any) => void) => { state.destroyCount++; cb(undefined, conn); },
+		};
+		return { conn, state };
+	}
+
+	// Flushes pending microtasks/timers so the client settles into the reconnect window before a test
+	// acts (the reconnect's destroy + open callbacks resolve on the microtask/timer queue).
+	const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+
+	test('a query starting during a reconnect waits for it instead of failing as closed', async () => {
+		let openReplacement!: () => void;
+		const connectGate = new Promise<void>(resolve => { openReplacement = resolve; });
+		const first = gatedConn({ dead: true });
+		const replacement = gatedConn({ connectGate });
+		const built = [first, replacement];
+		let n = 0;
+		// eslint-disable-next-line local/code-no-any-casts
+		const factory: SnowflakeConnectionFactory = () => built[n++].conn as any;
+		const client = new SnowflakeClient(OPTIONS, factory, async () => { });
+		await client.connect();
+
+		// Query A hits the dead session and drives the reconnect; the replacement's connect is gated, so
+		// the client sits in the window with `_conn` null and `_reconnecting` pending.
+		const qa = client.query('SELECT A');
+		await settle();
+		// Query B starts squarely in that window; it must await the reconnect, not fail as closed.
+		const qb = client.query('SELECT B');
+		openReplacement();
+
+		const [ra, rb] = await Promise.all([qa, qb]);
+		assert.deepStrictEqual([ra.rows, rb.rows], [[{ ok: true }], [{ ok: true }]]);
+	});
+
+	test('end() during a reconnect tears down the connection the reconnect installs', async () => {
+		let openReplacement!: () => void;
+		const connectGate = new Promise<void>(resolve => { openReplacement = resolve; });
+		const first = gatedConn({ dead: true });
+		const replacement = gatedConn({ connectGate });
+		const built = [first, replacement];
+		let n = 0;
+		// eslint-disable-next-line local/code-no-any-casts
+		const factory: SnowflakeConnectionFactory = () => built[n++].conn as any;
+		const client = new SnowflakeClient(OPTIONS, factory, async () => { });
+		await client.connect();
+
+		const qa = client.query('SELECT A');
+		await settle();
+		// Close mid-reconnect, then let the replacement finish connecting.
+		const ending = client.end();
+		openReplacement();
+		await ending;
+
+		// The connection the reconnect brought up must not survive the close, and the client stays closed.
+		assert.strictEqual(replacement.state.destroyCount, 1, 'the reconnect-installed connection is destroyed');
+		await assert.rejects(() => qa, /closed/);
+		await assert.rejects(() => client.query('SELECT C'), /closed/);
+	});
 });
 
 suite('Snowflake Account Parsing', () => {

@@ -190,8 +190,14 @@ export class SnowflakeClient {
 	private _conn: ISnowflakeSdkConnection | null = null;
 
 	// In-flight reconnect, shared so concurrent queries that all hit the dead session rebuild the
-	// connection once rather than racing to create several.
+	// connection once rather than racing to create several. While it is set, `_conn` is transiently
+	// null even though the client is not closed, so callers must await it before reading `_conn`.
 	private _reconnecting: Promise<void> | null = null;
+
+	// True once end() has been called. Distinguishes a disposed client (a null `_conn` that stays null)
+	// from a client mid-reconnect (a null `_conn` that a pending `_reconnecting` will refill), so a
+	// query in the reconnect window waits instead of failing as "closed".
+	private _closed = false;
 
 	/**
 	 * @param _config The connection options.
@@ -258,6 +264,15 @@ export class SnowflakeClient {
 	 * parameters.
 	 */
 	async query(sqlText: string, binds?: unknown[]): Promise<SnowflakeQueryResult> {
+		// A reconnect nulls `_conn` while it rebuilds the session; wait for any in-flight reconnect
+		// rather than mistaking that transient gap for a closed client.
+		const inflight = this._reconnecting;
+		if (inflight) {
+			await inflight;
+		}
+		if (this._closed) {
+			throw new Error('Snowflake client is closed');
+		}
 		try {
 			return await this._queryOnce(sqlText, binds);
 		} catch (err) {
@@ -296,6 +311,9 @@ export class SnowflakeClient {
 	 * failures to destroy it are expected and ignored).
 	 */
 	private _reconnect(): Promise<void> {
+		if (this._closed) {
+			return Promise.reject(new Error('Snowflake client is closed'));
+		}
 		if (!this._reconnecting) {
 			this._reconnecting = (async () => {
 				const old = this._conn;
@@ -304,6 +322,13 @@ export class SnowflakeClient {
 					await this._destroy(old).catch(() => { /* already dead; nothing to clean up */ });
 				}
 				await this._open();
+				// If end() ran while we were rebuilding, don't leave the freshly opened connection
+				// installed: tear it down so a disposed client holds no live session.
+				if (this._closed && this._conn) {
+					const orphan = this._conn;
+					this._conn = null;
+					await this._destroy(orphan).catch(() => { /* nothing more to do */ });
+				}
 			})().finally(() => { this._reconnecting = null; });
 		}
 		return this._reconnecting;
@@ -311,6 +336,14 @@ export class SnowflakeClient {
 
 	/** Closes the connection. Idempotent. */
 	async end(): Promise<void> {
+		this._closed = true;
+		// If a reconnect is mid-flight, let it settle first: it owns `_conn` and will hand back whatever
+		// it installs (its own closed-check then tears that down), so awaiting it avoids racing a live
+		// connection into place after we return.
+		const inflight = this._reconnecting;
+		if (inflight) {
+			await inflight.catch(() => { /* a failed reconnect leaves nothing to close */ });
+		}
 		const conn = this._conn;
 		this._conn = null;
 		if (conn) {
