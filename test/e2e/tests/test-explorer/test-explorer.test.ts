@@ -6,7 +6,7 @@
 import path = require('path');
 import fs = require('fs');
 import { copyFixtureFolder } from '../../infra/test-runner';
-import { test, tags } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -167,5 +167,30 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		// 'Passed' must be cleared to 'Skipped', not left stale.
 		await testExplorer.runAllTests();
 		await testExplorer.expectTestStatus(AFTER, 'Skipped', 60000);
+	});
+
+	test('A running test can be cancelled', async function ({ app }, testInfo) {
+		const { testExplorer } = app.workbench;
+		const testthatDir = path.join(path.dirname(app.workspacePathOrFolder), fixtureFolderFor(testInfo.title, testInfo.workerIndex), 'tests', 'testthat');
+		const LABEL = 'a test that can be cancelled';
+
+		// This sentinel file triggers a long sleep in the test, which opens a
+		// nice window for us to cancel it here.
+		fs.writeFileSync(path.join(testthatDir, 'CANCEL'), '');
+
+		await testExplorer.expectTestItems(['test-cancel.R']);
+		await testExplorer.expandAllTests();
+		await testExplorer.runTest(LABEL);
+
+		// Make sure the test is actually running (not just queued), so we
+		// exercise the interrupt, rather than a no-op cancel of a queued run.
+		await testExplorer.expectTestIcon(LABEL, 'Running', 60000);
+		await testExplorer.cancelTestRun();
+
+		// Core marks any cancelled run Skipped, so also verify R was explicitly
+		// interrupted.
+		await expect.poll(() => fs.existsSync(path.join(testthatDir, 'ON.EXIT')), { timeout: 45000 }).toBe(true);
+		expect(fs.existsSync(path.join(testthatDir, 'SLEEP COMPLETED'))).toBe(false);
+		await testExplorer.expectTestStatus(LABEL, 'Skipped', 60000);
 	});
 });
