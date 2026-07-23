@@ -535,6 +535,26 @@ async function buildAiLib({ force }: { force: boolean }): Promise<void> {
 	// child_process.spawn refuses to launch a .cmd directly (EINVAL) without it.
 	await spawnAsync(npm, ['run', 'build:ai-lib'], { cwd: root, shell: true });
 }
+
+/**
+ * Remove @types/vscode from the root node_modules after the ai-lib build.
+ *
+ * The ai-lib packages devDepend on @types/vscode and npm hoists it into the
+ * root node_modules. Core compilation must not see it there: `import ... from
+ * 'vscode'` in src/ then resolves to that package instead of binding to the
+ * ambient `declare module 'vscode'` in src/vscode-dts/vscode.d.ts, producing
+ * duplicate-identifier storms (and, where the shapes merely differ, missing
+ * Positron API members). The package only needs to exist while buildAiLib
+ * compiles the packages, and `npm install` reifies it back from the lockfile
+ * before every postinstall, so pruning it here keeps both consumers working.
+ */
+function pruneRootVscodeTypes(): void {
+	const typesDir = path.join(root, 'node_modules', '@types', 'vscode');
+	if (fs.existsSync(typesDir)) {
+		log('node_modules/@types/vscode', 'Removing (conflicts with src/vscode-dts/vscode.d.ts)...');
+		fs.rmSync(typesDir, { recursive: true, force: true });
+	}
+}
 // --- End Positron ---
 
 async function main() {
@@ -567,8 +587,10 @@ async function main() {
 		await buildSqliteServerBinding();
 		// Likewise ensure the ai-lib packages' dist/ exists (Positron imports them
 		// at compile time). Nothing changed, so skip the rebuild if they're already
-		// there.
+		// there. The reify that preceded this postinstall restores the hoisted
+		// @types/vscode either way, so it must be pruned again.
 		await buildAiLib({ force: false });
+		pruneRootVscodeTypes();
 		child_process.execSync('git config pull.rebase merges');
 		child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
 		return;
@@ -693,6 +715,7 @@ async function main() {
 	// whenever that extension is restored from cache. Deps just changed, so force a
 	// rebuild rather than trusting a possibly-stale dist/.
 	await buildAiLib({ force: true });
+	pruneRootVscodeTypes();
 	// --- End Positron ---
 
 	child_process.execSync('git config pull.rebase merges');

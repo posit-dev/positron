@@ -25,7 +25,8 @@
 #    is skipped on a cache hit, so it only rebuilds outputs -- it does NOT reinstall
 #    node_modules. If you cache a built output (a dist/, a native binding), also cache
 #    the node_modules it require()s at runtime, or the artifact restores but fails to
-#    load. This is why both ai-config/dist AND ai-lib/node_modules are listed (#15065).
+#    load. This is why both ai-config/dist AND the ai-lib packages' node_modules are
+#    listed (#15065).
 # B. Changing the PATH SET must rotate the cache key. On a plain key hit, actions/cache
 #    restores the old blob and never re-saves -- so a path you add here stays MISSING
 #    until the key changes for some other reason. cache-paths.sh is folded into the key
@@ -99,12 +100,15 @@ fi
 #       fails ("Cannot find module 'ai-config/node'" / '.../credential-shaping'). The ai-lib
 #       submodule gitlink is folded into this cache's key so a bump rebuilds them
 #       (see generate-package-locks-hash.sh).
-# ai-lib/node_modules + ai-lib/packages/*/node_modules: ai-lib is an npm workspace root, so
-#       installing the packages (dirs.ts) hoists most deps (e.g. proper-lockfile, the AWS/AI
-#       SDKs) into ai-lib/node_modules, while version-pinned deps stay in each package's own
-#       node_modules. The built dist imports those at runtime, but postinstall only rebuilds
-#       dist on a cache hit -- it never reinstalls ai-lib's deps -- so without these paths the
-#       cached dist loads and then fails with ERR_MODULE_NOT_FOUND. Same gitlink key.
+# ai-lib/packages/*/node_modules: the ai-lib packages are workspace members of the ROOT
+#       package.json (file: deps), so the root npm install manages their deps -- shared ones
+#       hoist into the root node_modules, while version-pinned ones (e.g. the bridge's
+#       copilot-sdk 0.2.2) are placed in each package's own node_modules. Those per-package
+#       dirs live outside the root node_modules cache path, so they're listed here; without
+#       them a cached dist loads and then fails with ERR_MODULE_NOT_FOUND. Same gitlink key.
+#       ai-lib/node_modules must NOT exist (let alone be cached): it belongs to ai-lib's own
+#       standalone lockfile, sits on the require() walk-up path between the packages and the
+#       root, and shadows the root lockfile's placements with conflicting versions.
 #       NOTE: entries are read line-by-line, so no inline comments inside the heredoc.
 read -r -d '' NPM_CORE_PATHS << EOF || true
 .npm-cache
@@ -118,7 +122,6 @@ remote/reh-web/node_modules
 test/integration/browser/node_modules
 test/monaco/node_modules
 test/mcp/node_modules
-ai-lib/node_modules
 ai-lib/packages/ai-config/node_modules
 ai-lib/packages/ai-credentials/node_modules
 ai-lib/packages/ai-provider-bridge/node_modules
