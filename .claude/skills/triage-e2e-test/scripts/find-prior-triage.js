@@ -24,6 +24,7 @@
 import path from 'path';
 import {
 	triageDir, ensureDir, writeJson, emit, fail, tryRun, isMain, parseArgs,
+	setMetricScript, recordMetric,
 } from './lib.js';
 
 /** True when a PR body names this exact spec path (the per-test filter). */
@@ -102,6 +103,7 @@ function ancestryAfterFix(mergeSha, shas) {
 }
 
 function main() {
+	setMetricScript('find-prior-triage');
 	const args = parseArgs(process.argv.slice(2));
 	const specPath = args['spec-path'];
 	if (!specPath) { fail('Missing --spec-path.'); }
@@ -154,6 +156,14 @@ function main() {
 	}
 
 	emit({ ...result, rawResultFile });
+	recordMetric({
+		triageId,
+		phase: 'prior-triage',
+		prsSearched: search.prs.length,
+		prsMatched: matches.length,
+		occurrenceShasChecked: shas.length,
+		verdict,
+	});
 }
 
 if (isMain(import.meta.url)) { main(); }

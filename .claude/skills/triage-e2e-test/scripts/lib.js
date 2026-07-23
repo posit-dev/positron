@@ -63,19 +63,25 @@ export function readJson(file) {
 
 export function writeJson(file, data) {
 	ensureDir(path.dirname(file));
-	fs.writeFileSync(file, JSON.stringify(data, null, 2));
+	const s = JSON.stringify(data, null, 2);
+	fs.writeFileSync(file, s);
+	_rawBytesWritten += Buffer.byteLength(s);
 	return file;
 }
 
 export function writeText(file, text) {
 	ensureDir(path.dirname(file));
-	fs.writeFileSync(file, text);
+	const s = String(text);
+	fs.writeFileSync(file, s);
+	_rawBytesWritten += Buffer.byteLength(s);
 	return file;
 }
 
 /** Print a compact object as JSON to stdout (the model reads this). */
 export function emit(obj) {
-	process.stdout.write(JSON.stringify(obj, null, 2) + '\n');
+	const s = JSON.stringify(obj, null, 2) + '\n';
+	_stdoutBytes += Buffer.byteLength(s);
+	process.stdout.write(s);
 }
 
 /**
@@ -85,7 +91,56 @@ export function emit(obj) {
  */
 export function fail(message, extra = {}) {
 	emit({ error: message, ...extra });
+	recordMetric({ failed: true, error: String(message).slice(0, 200) });
 	process.exit(1);
+}
+
+// --- Cost instrumentation (best-effort; never breaks a triage) ------------
+// Each helper is a fresh process, so module-load time approximates process
+// start. `emit` / `writeJson` / `writeText` accumulate the byte counts that
+// prove the "raw to disk, compact to stdout" boundary; helpers add domain
+// counts (occurrencesFetched, prsReturned, ...) when they call recordMetric.
+const METRICS_START = Date.now();
+let _stdoutBytes = 0;
+let _rawBytesWritten = 0;
+let _script = null;
+
+/** Label the current helper for metrics (called once at the top of main). */
+export function setMetricScript(name) {
+	_script = name;
+}
+
+/** Shape one metrics record. Pure -- ctx carries the process-tracked fields. */
+export function buildMetricRecord(fields, ctx) {
+	return {
+		ts: ctx.ts,
+		script: ctx.script ?? null,
+		durationMs: ctx.durationMs,
+		stdoutBytes: ctx.stdoutBytes,
+		rawBytesWritten: ctx.rawBytesWritten,
+		...fields,
+	};
+}
+
+/**
+ * Append one metrics line to `<workRoot>/metrics.jsonl`. Auto-fills
+ * duration / stdout bytes / raw bytes written tracked across this process; the
+ * caller passes domain counts. Best-effort: any failure is swallowed so
+ * instrumentation can never break a triage.
+ */
+export function recordMetric(fields = {}) {
+	try {
+		const record = buildMetricRecord(fields, {
+			ts: new Date().toISOString(),
+			script: _script,
+			durationMs: Date.now() - METRICS_START,
+			stdoutBytes: _stdoutBytes,
+			rawBytesWritten: _rawBytesWritten,
+		});
+		const file = path.join(workRoot(), 'metrics.jsonl');
+		ensureDir(path.dirname(file));
+		fs.appendFileSync(file, JSON.stringify(record) + '\n');
+	} catch { /* metrics are best-effort */ }
 }
 
 /** Run a node script, capturing stdout. stderr streams through (progress messages). */

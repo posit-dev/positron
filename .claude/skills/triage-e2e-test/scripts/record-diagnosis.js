@@ -32,6 +32,7 @@ import fs from 'fs';
 import path from 'path';
 import {
 	triageDir, readJson, writeJson, writeText, emit, fail, tryRun, isMain, parseArgs,
+	setMetricScript, recordMetric,
 } from './lib.js';
 import { OUTCOMES } from './checkpoint.js';
 
@@ -106,6 +107,7 @@ function ghPatchBody(repo, kind, num, bodyFile) {
 }
 
 function main() {
+	setMetricScript('record-diagnosis');
 	const args = parseArgs(process.argv.slice(2), ['dry-run']);
 	const triageId = args['triage-id'];
 	if (!triageId) { fail('Missing --triage-id.'); }
@@ -171,6 +173,7 @@ function main() {
 		recorded: true,
 		outcome: state.outcome,
 	});
+	recordMetric({ triageId, phase: 'record-diagnosis', outcome: state.outcome, alreadyPresent });
 }
 
 if (isMain(import.meta.url)) { main(); }

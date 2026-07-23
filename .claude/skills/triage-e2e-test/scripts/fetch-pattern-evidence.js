@@ -19,7 +19,7 @@ import path from 'path';
 import fs from 'fs';
 import {
 	analyzerScript, triageDir, ensureDir, writeJson, writeText,
-	emit, fail, runNode, isMain, parseArgs,
+	emit, fail, runNode, isMain, parseArgs, setMetricScript, recordMetric,
 } from './lib.js';
 
 /**
@@ -111,6 +111,7 @@ export function buildEvidenceSummary(result, filter = {}) {
 }
 
 function main() {
+	setMetricScript('fetch-pattern-evidence');
 	const args = parseArgs(process.argv.slice(2), ['keep-raw-logs']);
 	const reportUrl = args['report-url'];
 	const triageId = args['triage-id'];
@@ -154,6 +155,14 @@ function main() {
 		rawLogDir: args['keep-raw-logs'] ? '(kept -- see e2e-process-s3.js stderr for temp dir path)' : null,
 		rawEvidenceFile: rel(rawFile),
 		failure: summary.failure ? summary.failure.slice(0, 200) : null,
+	});
+	recordMetric({
+		triageId,
+		phase: 'evidence',
+		pattern,
+		occurrencesFetched: 1,
+		rawLogsRetained: Boolean(args['keep-raw-logs']),
+		screenshots: (summary.screenshots || []).length,
 	});
 }
 

@@ -70,6 +70,11 @@ payloads to the per-triage work directory `.claude/work/triage-e2e-test/<id>/`
   is what unblocks `phase=done`. Opening a PR via `positron-pr-helper` does NOT
   record the block -- run this after.
 
+Each helper appends one line (duration, stdout bytes, raw bytes written, plus
+phase-specific counts) to `.claude/work/triage-e2e-test/metrics.jsonl` -- passive
+cost instrumentation, best-effort, nothing to invoke. See
+[`references/metrics.md`](references/metrics.md) to read or aggregate it.
+
 ## Start or resume
 
 `/triage-e2e-test "<test>"` -- start. `/triage-e2e-test --resume <triage-id>` --

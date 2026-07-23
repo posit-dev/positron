@@ -17,7 +17,7 @@ import fs from 'fs';
 import path from 'path';
 import {
 	workRoot, triageDir, ensureDir, readJson, writeJson,
-	emit, fail, isMain, parseArgs,
+	emit, fail, isMain, parseArgs, setMetricScript, recordMetric,
 } from './lib.js';
 
 export const PHASES = [
@@ -216,6 +216,7 @@ function statusAll() {
 }
 
 function main() {
+	setMetricScript('checkpoint');
 	const args = parseArgs(process.argv.slice(2), ['init', 'read', 'status', 'validate', 'force']);
 
 	if (args.status) { emit(statusAll()); return; }
@@ -233,6 +234,7 @@ function main() {
 		const state = newState(triageId, args);
 		writeJson(sp, state);
 		emit({ ...state, stateFile: path.relative(process.cwd(), sp) });
+		recordMetric({ triageId, phase: 'init', resumed: false });
 		return;
 	}
 
@@ -244,6 +246,9 @@ function main() {
 		if (args.validate) { emit({ ...v, phase: state.phase, nextAction: state.nextAction }); return; }
 		if (!v.ok) { emit({ ...state, _validation: v, stateFile: path.relative(process.cwd(), sp) }); return; }
 		emit({ ...state, stateFile: path.relative(process.cwd(), sp) });
+		// A --read is the resume entry point: record it so metrics can compare
+		// resumed triages against fresh ones.
+		recordMetric({ triageId, phase: 'resume', resumed: true, resumedAtPhase: state.phase });
 		return;
 	}
 

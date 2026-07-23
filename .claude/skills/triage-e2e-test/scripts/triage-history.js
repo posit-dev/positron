@@ -26,6 +26,7 @@ import path from 'path';
 import {
 	analyzerScript, triageDir, deriveTriageId, ensureDir,
 	writeJson, emit, fail, runNode, tryRun, isMain, parseArgs,
+	setMetricScript, recordMetric,
 } from './lib.js';
 
 /** Normalize a failure-pattern string into a stable cross-branch match key. */
@@ -179,6 +180,7 @@ function queryBranch(scriptPath, { repo, testKey, branch, lookbackDays, occ }) {
 }
 
 function main() {
+	setMetricScript('triage-history');
 	const args = parseArgs(process.argv.slice(2));
 	const testKey = args['test-key'];
 	if (!testKey || !testKey.includes('|||')) {
@@ -254,6 +256,14 @@ function main() {
 
 	const summaryFile = writeJson(path.join(dir, 'history-summary.json'), summary);
 	emit({ ...summary, summaryFile: path.relative(process.cwd(), summaryFile) });
+	recordMetric({
+		triageId,
+		phase: 'history',
+		queriedCurrent,
+		branchesQueried: queriedCurrent ? 2 : 1,
+		patternsFound: merged.patterns.length,
+		verdict: verdict.verdict,
+	});
 }
 
 if (isMain(import.meta.url)) { main(); }
