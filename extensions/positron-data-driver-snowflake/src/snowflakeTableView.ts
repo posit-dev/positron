@@ -169,12 +169,25 @@ const COMPARISON_OPS = new Map<FilterComparisonOp, string>([
 	[FilterComparisonOp.LtEq, '<=']
 ]);
 
-/** Formats a filter literal: string types are single-quoted and escaped; others pass through. */
+/**
+ * Formats a filter literal for its column type. String and temporal values are single-quoted and
+ * escaped; temporal values are additionally cast to their Snowflake type so the quoted string is
+ * compared as a date/time rather than parsed as bare arithmetic (e.g. `2026-07-22` would otherwise be
+ * read as `2026 - 7 - 22`). Numbers and booleans are safe unquoted, so they pass through.
+ */
 function formatLiteral(value: string, schema: ColumnSchema): string {
-	if (schema.type_display === ColumnDisplayType.String) {
-		return `'${quoteLiteral(value)}'`;
+	switch (schema.type_display) {
+		case ColumnDisplayType.String:
+			return `'${quoteLiteral(value)}'`;
+		case ColumnDisplayType.Date:
+			return `'${quoteLiteral(value)}'::DATE`;
+		case ColumnDisplayType.Datetime:
+			return `'${quoteLiteral(value)}'::TIMESTAMP`;
+		case ColumnDisplayType.Time:
+			return `'${quoteLiteral(value)}'::TIME`;
+		default:
+			return value;
 	}
-	return value;
 }
 
 /**

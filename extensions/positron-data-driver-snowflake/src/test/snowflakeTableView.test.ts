@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileType, FormatOptions } from 'positron-data-explorer-protocol';
-import { ISnowflakeQueryClient, SnowflakeSchemaEntry, SnowflakeTableView } from '../snowflakeTableView.js';
+import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileType, ColumnSchema, FilterComparisonOp, FormatOptions, RowFilter, RowFilterCondition, RowFilterType } from 'positron-data-explorer-protocol';
+import { ISnowflakeQueryClient, makeWhereExpr, SnowflakeSchemaEntry, SnowflakeTableView } from '../snowflakeTableView.js';
 
 // Minimal format options; only the numeric-summary path reads them.
 const FORMAT_OPTIONS: FormatOptions = {
@@ -247,5 +247,34 @@ suite('Snowflake Column Profiles', () => {
 		assert.strictEqual(queries.length, 1);
 		assert.deepStrictEqual(profiles.map(p => p.null_count), [0, 0]);
 		assert.deepStrictEqual(profiles[0][ColumnProfileType.SmallFrequencyTable], { values: [], counts: [], other_count: 0 });
+	});
+});
+
+suite('Snowflake Row Filter SQL', () => {
+
+	function columnSchema(column_name: string, type_display: ColumnDisplayType): ColumnSchema {
+		return { column_name, column_index: 0, type_name: 'x', type_display };
+	}
+
+	function compareFilter(column_name: string, type_display: ColumnDisplayType, value: string): RowFilter {
+		return {
+			filter_id: 'f',
+			filter_type: RowFilterType.Compare,
+			column_schema: columnSchema(column_name, type_display),
+			condition: RowFilterCondition.And,
+			params: { op: FilterComparisonOp.Eq, value },
+		};
+	}
+
+	test('temporal comparisons quote and cast the literal so it is not read as arithmetic', () => {
+		// A bare 2026-07-22 would be parsed as 2026 - 7 - 22; the cast forces a date comparison.
+		assert.strictEqual(makeWhereExpr(compareFilter('D', ColumnDisplayType.Date, '2026-07-22')), `"D" = '2026-07-22'::DATE`);
+		assert.strictEqual(makeWhereExpr(compareFilter('TS', ColumnDisplayType.Datetime, '2026-07-22 13:45:00')), `"TS" = '2026-07-22 13:45:00'::TIMESTAMP`);
+		assert.strictEqual(makeWhereExpr(compareFilter('T', ColumnDisplayType.Time, '13:45:00')), `"T" = '13:45:00'::TIME`);
+	});
+
+	test('string comparisons are quoted; numbers pass through unquoted', () => {
+		assert.strictEqual(makeWhereExpr(compareFilter('name', ColumnDisplayType.String, "O'Brien")), `"name" = 'O''Brien'`);
+		assert.strictEqual(makeWhereExpr(compareFilter('n', ColumnDisplayType.Integer, '42')), `"n" = 42`);
 	});
 });

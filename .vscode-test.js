@@ -114,6 +114,11 @@ const extensions = [
 		mocha: { timeout: 60_000 }
 	},
 	{
+		label: 'positron-data-driver-snowflake',
+		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-snowflake-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
 		label: 'positron-data-driver-sqlite',
 		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-sqlite-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
