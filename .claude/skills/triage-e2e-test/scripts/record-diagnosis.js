@@ -15,7 +15,13 @@
 // Usage:
 //   node record-diagnosis.js --triage-id <id> --pr <n> [--outcome fix-test|fix-product]
 //   node record-diagnosis.js --triage-id <id> --issue <n> [--outcome file-issue]
+//   node record-diagnosis.js --triage-id <id> --pr <n> --secondary   # extra artifact, keep outcomeRef
 //   node record-diagnosis.js --triage-id <id> --pr <n> --dry-run   # render only, no write
+//
+// A single triage can resolve across TWO artifacts -- e.g. a root-cause issue
+// (the `outcome`) plus a mitigation PR. Record the primary artifact first (the
+// one that matches `outcome`; it sets `outcomeRef`), then record the other with
+// `--secondary` so the block lands on both without repointing `outcomeRef`.
 //
 // Options:
 //   --triage-id <id>   work-dir id  [required]
@@ -23,6 +29,8 @@
 //   --issue <n>        target issue number
 //   --repo <owner/repo>  default: posit-dev/positron
 //   --outcome <o>      also set checkpoint outcome (fix-test | fix-product | file-issue)
+//   --secondary        append the block to a supplementary artifact; leave
+//                      `outcomeRef`/`outcome` untouched (the primary owns them)
 //   --dry-run          print the rendered block; do not edit the artifact or checkpoint
 //
 // Output (stdout): compact JSON { block, target, alreadyPresent, recorded }.
@@ -106,11 +114,14 @@ function ghPatchBody(repo, kind, num, bodyFile) {
 }
 
 function main() {
-	const args = parseArgs(process.argv.slice(2), ['dry-run']);
+	const args = parseArgs(process.argv.slice(2), ['dry-run', 'secondary']);
 	const triageId = args['triage-id'];
 	if (!triageId) { fail('Missing --triage-id.'); }
 	if (args.outcome && !ARTIFACT_OUTCOMES.includes(args.outcome)) {
 		fail(`--outcome must be one of ${ARTIFACT_OUTCOMES.join(' | ')} (use checkpoint.js for no-op).`);
+	}
+	if (args.secondary && args.outcome) {
+		fail('--secondary records a supplementary artifact and must not set --outcome (the primary owns the outcome).');
 	}
 
 	const dir = triageDir(triageId);
@@ -158,9 +169,14 @@ function main() {
 	}
 
 	// Update the checkpoint: this is the only writer of diagnosisBlockRecorded.
+	// A --secondary artifact still gets the block, but must not repoint the
+	// outcome or its ref -- those belong to the primary artifact recorded
+	// without --secondary. Fall back to setting outcomeRef only if none exists
+	// yet, so a lone/first call always leaves the done-gate a ref to check.
 	state.diagnosisBlockRecorded = true;
-	state.outcomeRef = htmlUrl || `${repo}#${num}`;
-	if (args.outcome) { state.outcome = args.outcome; }
+	const thisRef = htmlUrl || `${repo}#${num}`;
+	if (!args.secondary || !state.outcomeRef) { state.outcomeRef = thisRef; }
+	if (args.outcome && !args.secondary) { state.outcome = args.outcome; }
 	state.updatedAt = new Date().toISOString();
 	writeJson(sp, state);
 
