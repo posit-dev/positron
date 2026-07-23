@@ -50,10 +50,13 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 /**
- * Normalizes the Account field to a Snowflake account identifier. Accepts a bare identifier
- * (`myorg-myacct` or `xy12345.us-east-1`) or the full account URL the Snowflake console shows
- * (`https://myorg-myacct.snowflakecomputing.com`), stripping any scheme, path, and the
- * `.snowflakecomputing.*` host suffix (any realm) so pasting the console URL just works.
+ * Normalizes the Account field to a Snowflake account identifier. Accepts:
+ *   - a bare identifier (`myorg-myacct` or `xy12345.us-east-1`), returned unchanged;
+ *   - a legacy account URL whose host is the account (`https://myorg-myacct.snowflakecomputing.com`),
+ *     stripping the scheme, path, and `.snowflakecomputing.*` host suffix (any realm);
+ *   - a Snowsight console URL (`https://app.snowflake.com/<org>/<account>/...`), whose account lives in
+ *     the path rather than the host, resolved to the upper-cased `ORG-ACCOUNT` identifier.
+ * So pasting whichever form the browser shows just works.
  */
 export function parseSnowflakeAccount(input: string): string {
 	let s = input.trim();
@@ -62,20 +65,27 @@ export function parseSnowflakeAccount(input: string): string {
 	if (schemeIdx !== -1) {
 		s = s.slice(schemeIdx + 3);
 	}
-	// Strip any path.
+	// Split the host from any path.
 	const slashIdx = s.indexOf('/');
-	if (slashIdx !== -1) {
-		s = s.slice(0, slashIdx);
+	const host = slashIdx !== -1 ? s.slice(0, slashIdx) : s;
+	const pathPart = slashIdx !== -1 ? s.slice(slashIdx + 1) : '';
+
+	// Snowsight URLs (app.snowflake.com/<org>/<account>/...) identify the account by org and account
+	// name in the path, not the host. Join them into the org-account identifier the connector expects,
+	// upper-cased to the canonical form Snowflake shows.
+	if (host.toLowerCase() === 'app.snowflake.com') {
+		const segments = pathPart.split('/').filter(segment => segment.length > 0);
+		if (segments.length >= 2) {
+			return `${segments[0]}-${segments[1]}`.toUpperCase();
+		}
 	}
-	// Strip the account-URL host suffix, case-insensitively. Matches every realm's domain
-	// (.snowflakecomputing.com, .snowflakecomputing.cn, etc.) by cutting at the marker rather than a
-	// single hard-coded suffix.
+
+	// Otherwise the host is the account. Strip its realm suffix, case-insensitively, matching every
+	// realm's domain (.snowflakecomputing.com, .snowflakecomputing.cn, etc.) by cutting at the marker
+	// rather than a single hard-coded suffix.
 	const marker = '.snowflakecomputing.';
-	const markerIdx = s.toLowerCase().indexOf(marker);
-	if (markerIdx !== -1) {
-		s = s.slice(0, markerIdx);
-	}
-	return s;
+	const markerIdx = host.toLowerCase().indexOf(marker);
+	return markerIdx !== -1 ? host.slice(0, markerIdx) : host;
 }
 
 /**

@@ -532,4 +532,11 @@ suite('Snowflake Account Parsing', () => {
 	test('non-.com realm host suffix is stripped', () => {
 		assert.strictEqual(parseSnowflakeAccount('https://myorg-myacct.snowflakecomputing.cn'), 'myorg-myacct');
 	});
+
+	test('Snowsight console URL resolves to the upper-cased org-account identifier', () => {
+		assert.strictEqual(
+			parseSnowflakeAccount('https://app.snowflake.com/duloftf/posit_software_pbc_dev/'),
+			'DULOFTF-POSIT_SOFTWARE_PBC_DEV'
+		);
+	});
 });
