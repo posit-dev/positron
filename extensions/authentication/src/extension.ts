@@ -308,6 +308,23 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 			}
 		})
 	);
+
+	// Seed the Workbench-managed Foundry endpoint into the catalog so the
+	// provider reads it from providers.json like a user-configured base URL.
+	if (hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
+		const endpoint = vscode.workspace
+			.getConfiguration('posit.workbench.foundry')
+			.get<string>('endpoint', '');
+		const catalogId = PROVIDER_METADATA.foundry.catalogId!;
+		if (endpoint) {
+			const normalized = normalizeToV1Url(endpoint);
+			if (getCachedProvider(catalogId)?.connection.baseUrl !== normalized) {
+				saveProviderBaseUrl(catalogId, normalized).then(undefined, err =>
+					logger.logOperationError('sync Foundry endpoint', err)
+				);
+			}
+		}
+	}
 }
 
 async function registerSnowflakeProvider(context: vscode.ExtensionContext): Promise<void> {
