@@ -18,9 +18,8 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 	private readonly _onDidChangeCatalog = this._register(new Emitter<IProviderCatalogChangeData>());
 	readonly onDidChangeCatalog: Event<IProviderCatalogChangeData> = this._onDidChangeCatalog.event;
 
-	private _catalog: Promise<readonly IResolvedProviderData[]> | undefined;
+	private _catalog: readonly IResolvedProviderData[] | undefined;
 	private _configFileUri: Promise<URI> | undefined;
-	private _receivedChange = false;
 
 	constructor(
 		private readonly _logService: ILogService,
@@ -41,8 +40,10 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 		};
 	}
 
-	getCatalog(): Promise<readonly IResolvedProviderData[]> {
-		this._catalog ??= this.startCatalog();
+	async getCatalog(): Promise<readonly IResolvedProviderData[]> {
+		if (!this._catalog) {
+			this._catalog = await this.startCatalog();
+		}
 		return this._catalog;
 	}
 
@@ -50,11 +51,9 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 		const aiConfig = await import('ai-config/node');
 		const opts = this.loadOptions();
 		const watcher = aiConfig.watchResolvedProviderCatalog((change: ProviderCatalogChange) => {
-			const catalog = change.catalog.map(toProviderData);
-			this._receivedChange = true;
-			this._catalog = Promise.resolve(catalog);
+			this._catalog = change.catalog.map(toProviderData);
 			this._onDidChangeCatalog.fire({
-				catalog,
+				catalog: this._catalog,
 				enabledChanged: change.enabledChanged,
 				connectionChanged: change.connectionChanged,
 				modelsChanged: change.modelsChanged,
@@ -63,7 +62,7 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 		this._register(toDisposable(() => watcher.dispose()));
 		const catalog = await aiConfig.loadResolvedProviderCatalog(opts);
 		// Don't let the stale initial load overwrite a change that raced it.
-		return this._receivedChange && this._catalog ? this._catalog : catalog.map(toProviderData);
+		return this._catalog ?? catalog.map(toProviderData);
 	}
 
 	getConfigFileUri(): Promise<URI> {
