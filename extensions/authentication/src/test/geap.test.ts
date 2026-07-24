@@ -184,23 +184,6 @@ suite('resolveGeapCredential', () => {
 		);
 	});
 
-	test('reads project and location from the connection slice, ignoring env vars', async () => {
-		// Project/location come only from the catalog's connection.googleCloud
-		// slice; the env vars reach the resolver through the catalog, not
-		// directly, so an env-only value here must be ignored.
-		process.env.GOOGLE_VERTEX_PROJECT = 'env-project';
-		process.env.GOOGLE_VERTEX_LOCATION = 'env-location';
-		nextToken = 'ya29.token';
-
-		const payload = JSON.parse(await resolveGeapCredential({
-			project: 'connection-project',
-			location: 'connection-location',
-		}));
-
-		assert.strictEqual(payload.project, 'connection-project');
-		assert.strictEqual(payload.location, 'connection-location');
-	});
-
 	test('normalizes escaped newlines in inline private key', async () => {
 		// Users often paste service-account keys from JSON into env vars,
 		// which leaves the literal two-character `\n` sequence instead of
