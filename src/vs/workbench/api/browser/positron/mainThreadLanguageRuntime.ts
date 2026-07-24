@@ -13,7 +13,7 @@ import {
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, IRuntimeRootSignature, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeExecutionStatistics, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -240,6 +240,24 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	 */
 	private readonly _executionCodeLocations = new Map<string, ICodeLocation>();
 
+	/**
+	 * A bounded map of execution id to the timestamp (ms since epoch) at which
+	 * the execution was submitted to the runtime. Used to measure the latency
+	 * between submitting an execution and receiving its input echo back on
+	 * iopub. Entries are removed once the echo arrives; the map is bounded so a
+	 * missing echo can't cause unbounded growth.
+	 */
+	private readonly _pendingExecutionTimes = new Map<string, number>();
+
+	/** The number of executions submitted to the runtime. */
+	private _executionCount = 0;
+
+	/** The running total of measured input-echo latencies, in milliseconds. */
+	private _totalInputLatencyMs = 0;
+
+	/** The number of input-echo latency samples collected. */
+	private _inputLatencySamples = 0;
+
 	/** Lamport clock, used for event ordering */
 	private _eventClock = 0;
 
@@ -451,6 +469,14 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	}
 
 	emitDidReceiveRuntimeMessageInput(languageRuntimeMessageInput: ILanguageRuntimeMessageInput) {
+		// If this input echoes an execution we submitted, record the round-trip
+		// latency between submission and echo for diagnostics.
+		const submittedAt = this._pendingExecutionTimes.get(languageRuntimeMessageInput.parent_id);
+		if (submittedAt !== undefined) {
+			this._pendingExecutionTimes.delete(languageRuntimeMessageInput.parent_id);
+			this._totalInputLatencyMs += Date.now() - submittedAt;
+			this._inputLatencySamples++;
+		}
 		this._onDidReceiveRuntimeMessageInputEmitter.fire(languageRuntimeMessageInput);
 	}
 
@@ -617,6 +643,18 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	): Promise<void> {
 		this._lastUsed = Date.now();
 
+		// Track this execution for diagnostics: count it, and remember when it
+		// was submitted so we can measure the latency until its input echo
+		// arrives on iopub (see emitDidReceiveRuntimeMessageInput).
+		this._executionCount++;
+		this._pendingExecutionTimes.set(id, this._lastUsed);
+		if (this._pendingExecutionTimes.size > MAX_EXECUTION_CODE_LOCATIONS) {
+			const oldest = this._pendingExecutionTimes.keys().next().value;
+			if (oldest !== undefined) {
+				this._pendingExecutionTimes.delete(oldest);
+			}
+		}
+
 		let codeLocation: ICodeLocation | undefined = undefined;
 
 		if (attribution?.source === CodeAttributionSource.Script ||
@@ -641,6 +679,15 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 	getExecutionCodeLocation(executionId: string): ICodeLocation | undefined {
 		return this._executionCodeLocations.get(executionId);
+	}
+
+	getExecutionStatistics(): IRuntimeExecutionStatistics {
+		return {
+			executionCount: this._executionCount,
+			averageInputLatencyMs: this._inputLatencySamples > 0
+				? this._totalInputLatencyMs / this._inputLatencySamples
+				: undefined,
+		};
 	}
 
 	isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus> {

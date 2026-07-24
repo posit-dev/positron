@@ -108,6 +108,21 @@ export interface IRuntimeSessionMetadata {
 }
 
 /**
+ * Statistics about code execution in a session, surfaced for diagnostics.
+ */
+export interface IRuntimeExecutionStatistics {
+	/** The number of executions that have been submitted to the runtime. */
+	readonly executionCount: number;
+
+	/**
+	 * The average latency, in milliseconds, between submitting an execution and
+	 * receiving the corresponding input echo back from the runtime on iopub.
+	 * `undefined` if no latency samples have been collected yet.
+	 */
+	readonly averageInputLatencyMs: number | undefined;
+}
+
+/**
  * The main interface for interacting with a language runtime session.
  */
 
@@ -216,6 +231,13 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	 * @returns The associated code location, or `undefined` if unknown.
 	 */
 	getExecutionCodeLocation?(executionId: string): ICodeLocation | undefined;
+
+	/**
+	 * Returns statistics about code execution in this session (execution count
+	 * and average input-echo latency), for diagnostics. Optional; not all
+	 * session implementations track these.
+	 */
+	getExecutionStatistics?(): IRuntimeExecutionStatistics;
 
 	/**
 	 * Calls a runtime-specific method and returns the result.
