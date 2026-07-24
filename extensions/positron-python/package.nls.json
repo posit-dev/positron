@@ -47,6 +47,7 @@
     "python.command.python.refreshTensorBoard.title": "Refresh TensorBoard",
     "python.command.python.testing.copyTestId.title": "Copy Test Id",
     "python.command.python.interpreterDebugInfo.title": "Print interpreter debug information to Output",
+    "python.command.python.getEnvironmentHealth.title": "Print environment health report to Output",
     "python.createEnvironment.contentButton.description": "Show or hide Create Environment button in the editor for `requirements.txt` or other dependency files.",
     "python.createEnvironment.trigger.description": "Detect if environment creation is required for the current project",
     "python.menu.createNewFile.title": "Python File",
