@@ -18,15 +18,25 @@ import { Code } from '../infra/code';
  */
 export async function fillSecretValue(locator: Locator, value: string): Promise<void> {
 	await locator.evaluate((el: HTMLInputElement, val) => {
+		// Take the value setter from the element's OWN realm (its document's window)
+		// rather than the top-level window, so React's value tracker is bypassed
+		// correctly even when the workbench renders in a different browsing context
+		// (as it can on the web build). Falls back to the top window, then a direct
+		// assignment.
+		const view = el.ownerDocument.defaultView ?? window;
 		const nativeSetter = Object.getOwnPropertyDescriptor(
-			window.HTMLInputElement.prototype, 'value'
+			view.HTMLInputElement.prototype, 'value'
 		)?.set;
 		if (nativeSetter) {
 			nativeSetter.call(el, val);
 		} else {
 			el.value = val;
 		}
+		// Dispatch both input and change. React's onChange for a controlled input
+		// keys off the input event; change is dispatched too for any listener that
+		// relies on it and to more closely match a real user edit.
 		el.dispatchEvent(new Event('input', { bubbles: true }));
+		el.dispatchEvent(new Event('change', { bubbles: true }));
 	}, value);
 }
 
