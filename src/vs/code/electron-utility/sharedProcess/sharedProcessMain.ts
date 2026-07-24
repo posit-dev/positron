@@ -27,6 +27,9 @@ import { IDiagnosticsService } from '../../../platform/diagnostics/common/diagno
 import { HEADLESS_LM_ENGINE_CHANNEL } from '../../../platform/positronHeadlessLanguageModel/common/engine.js';
 import { HeadlessLanguageModelEngine } from '../../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngine.js';
 import { HeadlessLanguageModelEngineChannel } from '../../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngineChannel.js';
+import { POSITRON_AI_PROVIDER_CHANNEL } from '../../../platform/positronAiProvider/common/aiProviderCatalog.js';
+import { AiProviderCatalog } from '../../../platform/positronAiProvider/node/aiProviderCatalog.js';
+import { AiProviderCatalogChannel } from '../../../platform/positronAiProvider/node/aiProviderCatalogChannel.js';
 // --- End Positron ---
 import { DiagnosticsService } from '../../../platform/diagnostics/node/diagnosticsService.js';
 import { IDownloadService } from '../../../platform/download/common/download.js';
@@ -504,6 +507,12 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		// shared process; the workbench reaches it over this channel.
 		const headlessLmEngine = new HeadlessLanguageModelEngine(accessor.get(ILogService));
 		this.server.registerChannel(HEADLESS_LM_ENGINE_CHANNEL, new HeadlessLanguageModelEngineChannel(headlessLmEngine));
+
+		// AI provider catalog: resolves providers.json + enforced/default env
+		// fragments where they live (this process's HOME/env); the workbench
+		// reads it over this channel.
+		const aiProviderCatalog = this._store.add(new AiProviderCatalog(accessor.get(ILogService)));
+		this.server.registerChannel(POSITRON_AI_PROVIDER_CHANNEL, new AiProviderCatalogChannel(aiProviderCatalog));
 		// --- End Positron ---
 
 		const userDataSyncAccountChannel = new UserDataSyncAccountServiceChannel(accessor.get(IUserDataSyncAccountService));
