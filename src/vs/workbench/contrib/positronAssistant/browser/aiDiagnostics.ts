@@ -20,6 +20,7 @@ import { IWorkbenchEnvironmentService } from '../../../services/environment/comm
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IOutputService, isMultiSourceOutputChannelDescriptor, isSingleSourceOutputChannelDescriptor } from '../../../services/output/common/output.js';
 import { ChatConfiguration } from '../../chat/common/constants.js';
+import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
 
 /**
  * A single AI-related setting whose value differs from its registered default.
@@ -54,8 +55,21 @@ export interface IAIDiagnosticsExtension {
  * {@link generateAIDiagnosticsReport} formatter so the formatting is testable
  * without services.
  */
+/** One AI feature's on/off state, as shown in the report. */
+export interface IAIDiagnosticsFeature {
+	readonly label: string;
+	/** The setting key that controls this feature. */
+	readonly setting: string;
+	/** "Enabled", "Disabled", or a raw value for non-boolean toggles. */
+	readonly state: string;
+}
+
 export interface IAIDiagnosticsInputs {
 	readonly generatedAt: string;
+	/** The `ai.enabled` main switch; when false, every AI feature is off regardless of its own toggle. */
+	readonly aiEnabled: boolean;
+	/** Per-feature on/off state (NES, notebook AI, console Fix & Explain, Copilot chat). */
+	readonly features: readonly IAIDiagnosticsFeature[];
 	readonly application: string;
 	readonly positronVersion: string;
 	readonly positronBuildNumber: number;
@@ -100,6 +114,13 @@ export function generateAIDiagnosticsReport(inputs: IAIDiagnosticsInputs): strin
 
 	const optionalLine = (label: string, value: string | undefined) => value ? `\n- ${label}: ${value}` : '';
 
+	const featuresBlock = [
+		inputs.aiEnabled
+			? '- AI features (`ai.enabled`): Enabled'
+			: '- AI features (`ai.enabled`): **Disabled - all AI features below are off regardless of their own settings**',
+		...inputs.features.map(f => `- ${f.label} (\`${f.setting}\`): ${f.state}`),
+	].join('\n');
+
 	return `# AI Diagnostic Report
 
 Generated: ${inputs.generatedAt}
@@ -117,11 +138,17 @@ Generated: ${inputs.generatedAt}
 
 ${extensionsBlock}
 
-## Authenticated Providers
+## AI Features
+
+${featuresBlock}
+
+## Providers
+
+### Authenticated
 
 ${providerList(inputs.authenticatedProviders)}
 
-## Disabled Providers
+### Disabled
 
 ${providerList(inputs.disabledProviders)}
 
@@ -244,6 +271,21 @@ export function hasExplicitValue(inspected: IExplicitScopes): boolean {
 		?? inspected.workspaceValue ?? inspected.workspaceFolderValue ?? inspected.policyValue) !== undefined;
 }
 
+/**
+ * Renders a feature toggle's on/off state. Defaults (undefined) read as Enabled
+ * since Positron's AI feature settings default on; a non-boolean value is shown
+ * as-is.
+ */
+export function describeFeatureToggle(value: unknown): string {
+	if (value === false) {
+		return 'Disabled';
+	}
+	if (value === true || value === undefined) {
+		return 'Enabled';
+	}
+	return JSON.stringify(value);
+}
+
 /** The activation fields of `IExtensionsStatus` that the report renders. */
 interface IActivationStatus {
 	readonly activationStarted: boolean;
@@ -331,8 +373,20 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 
 		const providers = await collectProviderDiagnostics(extensionService, commandService);
 
+		// NES's `enabled` is a per-language-type map; the `*` wildcard is the
+		// overall on/off, so report that.
+		const nesEnabled = configurationService.getValue<Record<string, boolean>>('nextEditSuggestions.enabled')?.['*'];
+		const features: IAIDiagnosticsFeature[] = [
+			{ label: 'Posit AI NES', setting: 'nextEditSuggestions.enabled', state: describeFeatureToggle(nesEnabled) },
+			{ label: 'Notebook AI', setting: 'notebook.ai.enabled', state: describeFeatureToggle(configurationService.getValue('notebook.ai.enabled')) },
+			{ label: 'Console Fix & Explain', setting: 'console.assistantActions.enabled', state: describeFeatureToggle(configurationService.getValue('console.assistantActions.enabled')) },
+			{ label: 'GitHub Copilot Chat', setting: ChatConfiguration.AIDisabled, state: copilotEnabled ? 'Enabled' : 'Disabled' },
+		];
+
 		const report = generateAIDiagnosticsReport({
 			generatedAt: new Date().toISOString(),
+			aiEnabled: configurationService.getValue<boolean>(AI_ENABLED_KEY) !== false,
+			features,
 			application: productService.nameLong,
 			positronVersion: productService.positronVersion,
 			positronBuildNumber: productService.positronBuildNumber,

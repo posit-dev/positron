@@ -5,11 +5,18 @@
 
 /// <reference types="vitest/globals" />
 
-import { capLogLines, describeExtensionStatus, generateAIDiagnosticsReport, hasExplicitValue, IAIDiagnosticsInputs, isSensitiveSettingKey } from '../../browser/aiDiagnostics.js';
+import { capLogLines, describeExtensionStatus, describeFeatureToggle, generateAIDiagnosticsReport, hasExplicitValue, IAIDiagnosticsInputs, isSensitiveSettingKey } from '../../browser/aiDiagnostics.js';
 
 function inputs(overrides: Partial<IAIDiagnosticsInputs> = {}): IAIDiagnosticsInputs {
 	return {
 		generatedAt: '2026-07-23T00:00:00.000Z',
+		aiEnabled: true,
+		features: [
+			{ label: 'Posit AI NES', setting: 'nextEditSuggestions.enabled', state: 'Enabled' },
+			{ label: 'Notebook AI', setting: 'notebook.ai.enabled', state: 'Disabled' },
+			{ label: 'Console Fix & Explain', setting: 'console.assistantActions.enabled', state: 'Enabled' },
+			{ label: 'GitHub Copilot Chat', setting: 'chat.disableAIFeatures', state: 'Enabled' },
+		],
 		application: 'Positron',
 		positronVersion: '2026.07.0',
 		positronBuildNumber: 42,
@@ -61,12 +68,22 @@ describe('generateAIDiagnosticsReport', () => {
 			- Authentication: Version 1.0.0 (active)
 			- Posit AI NES: Not installed
 
-			## Authenticated Providers
+			## AI Features
+
+			- AI features (\`ai.enabled\`): Enabled
+			- Posit AI NES (\`nextEditSuggestions.enabled\`): Enabled
+			- Notebook AI (\`notebook.ai.enabled\`): Disabled
+			- Console Fix & Explain (\`console.assistantActions.enabled\`): Enabled
+			- GitHub Copilot Chat (\`chat.disableAIFeatures\`): Enabled
+
+			## Providers
+
+			### Authenticated
 
 			- GitHub Copilot
 			- Posit AI
 
-			## Disabled Providers
+			### Disabled
 
 			- DeepSeek
 			- Snowflake Cortex
@@ -116,8 +133,25 @@ describe('generateAIDiagnosticsReport', () => {
 
 	it('shows "None" for authenticated and disabled providers when both are empty', () => {
 		const report = generateAIDiagnosticsReport(inputs({ authenticatedProviders: [], disabledProviders: [] }));
-		expect(report).toContain('## Authenticated Providers\n\nNone');
-		expect(report).toContain('## Disabled Providers\n\nNone');
+		expect(report).toContain('### Authenticated\n\nNone');
+		expect(report).toContain('### Disabled\n\nNone');
+	});
+
+	it('flags when the ai.enabled main switch is off', () => {
+		expect(generateAIDiagnosticsReport(inputs({ aiEnabled: false })))
+			.toContain('- AI features (`ai.enabled`): **Disabled - all AI features below are off regardless of their own settings**');
+		expect(generateAIDiagnosticsReport(inputs())).toContain('- AI features (`ai.enabled`): Enabled');
+	});
+});
+
+describe('describeFeatureToggle', () => {
+	it('maps booleans and defaults to Enabled/Disabled, shows other values raw', () => {
+		expect({
+			on: describeFeatureToggle(true),
+			off: describeFeatureToggle(false),
+			def: describeFeatureToggle(undefined),
+			object: describeFeatureToggle({ '*': true, markdown: false }),
+		}).toEqual({ on: 'Enabled', off: 'Disabled', def: 'Enabled', object: '{"*":true,"markdown":false}' });
 	});
 });
 
