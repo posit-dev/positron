@@ -2092,7 +2092,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	private onExited(exitCode: number) {
-		if (this._restarting) {
+		// Gate the keep-socket decision on the exit reason rather than the
+		// `_restarting` flag. During a restart the server delivers two
+		// independent messages over the session websocket -- the old process's
+		// `exited` (which lands here) and the new process's `status: starting`
+		// (which clears `_restarting` in `onStateChange`) -- with no ordering
+		// guarantee. If `starting` is processed first, `_restarting` is already
+		// false by the time this runs, so gating on it would spuriously close a
+		// socket mid-restart. `_exitReason` is set to `Restart` in `restart()`
+		// and is not touched by `onStateChange`, so it survives the reorder.
+		// See https://github.com/posit-dev/positron/issues/10546.
+		if (this._exitReason === positron.RuntimeExitReason.Restart) {
 			// If we're restarting, wait for the kernel to start up again
 			this.log(`Kernel exited with code ${exitCode}; waiting for restart to finish.`, vscode.LogLevel.Info);
 		} else {
