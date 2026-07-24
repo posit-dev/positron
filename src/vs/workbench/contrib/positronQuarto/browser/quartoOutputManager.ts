@@ -7,7 +7,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
+import { IEditorContribution, ScrollType } from '../../../../editor/common/editorCommon.js';
 import { EditorOption } from '../../../../editor/common/config/editorOptions.js';
 import { Range } from '../../../../editor/common/core/range.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -25,7 +25,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
-import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, affectsQuartoConfig, getQuartoConfigValue, isQuartoDocument } from '../common/positronQuartoConfig.js';
+import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY, affectsQuartoConfig, getQuartoConfigValue, isQuartoDocument, usingQuartoInlineOutputAutoScroll } from '../common/positronQuartoConfig.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
@@ -151,6 +151,67 @@ export interface IQuartoOutputManager {
 }
 
 /**
+ * Vertical geometry needed to decide how far to scroll to reveal an output
+ * view zone. All values are in the editor's scroll-content coordinate space.
+ */
+export interface QuartoAutoScrollLayout {
+	/** Top of the output view zone (offset of its first pixel). */
+	readonly zoneTop: number;
+	/** Bottom of the output view zone (offset just past its last pixel). */
+	readonly zoneBottom: number;
+	/** The editor's current scrollTop. */
+	readonly scrollTop: number;
+	/** The height of the visible editor viewport. */
+	readonly viewportHeight: number;
+	/** The total scrollable height of the editor content. */
+	readonly scrollHeight: number;
+}
+
+/**
+ * Compute the scrollTop the editor should move to in order to reveal an output
+ * view zone, or `undefined` when no scroll is necessary.
+ *
+ * Output is emitted at the bottom of the zone, so we keep the bottom of the
+ * zone at the bottom of the viewport: freshly produced output stays in view
+ * even for a zone taller than the editor (which then tails, like a console).
+ * Scrolls the minimum amount needed -- while the bottom of the zone is already
+ * on screen the scroll position is left alone.
+ */
+export function computeAutoScrollTop(layout: QuartoAutoScrollLayout): number | undefined {
+	const { zoneTop, zoneBottom, scrollTop, viewportHeight, scrollHeight } = layout;
+
+	// Bail if the zone hasn't been laid out yet or there is no viewport.
+	if (zoneBottom <= zoneTop || viewportHeight <= 0) {
+		return undefined;
+	}
+
+	const scrollBottom = scrollTop + viewportHeight;
+
+	// Nothing to do while the bottom of the zone is already on screen -- the
+	// newest output is visible. This also covers a tall zone that is already
+	// tailing (bottom at the viewport bottom, top scrolled off above).
+	if (zoneBottom > scrollTop && zoneBottom <= scrollBottom) {
+		return undefined;
+	}
+
+	// Pin the bottom of the zone to the bottom of the viewport, whether it is
+	// currently below (grew past the bottom) or above (a cell that ran further
+	// up the document) the visible area.
+	let target = zoneBottom - viewportHeight;
+
+	// Clamp to the valid scroll range.
+	const maxScrollTop = Math.max(0, scrollHeight - viewportHeight);
+	target = Math.max(0, Math.min(target, maxScrollTop));
+
+	// Ignore sub-pixel adjustments (and no-ops after clamping).
+	if (Math.abs(target - scrollTop) < 1) {
+		return undefined;
+	}
+
+	return target;
+}
+
+/**
  * Editor contribution that manages output view zones for a single editor.
  * One instance per editor that displays a Quarto document.
  */
@@ -168,6 +229,17 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	private _featureEnabled: boolean;
 	private _outputHandlingInitialized = false;
 	private _maxLines: number;
+
+	// Whether the editor should scroll to follow inline output (the setting).
+	private _autoScrollEnabled: boolean;
+	// Whether auto-scroll is currently active. Armed by a fresh execution
+	// gesture and disarmed when the user moves the viewport themselves.
+	private _autoScrollArmed = false;
+	// The cell whose output view zone we are currently following.
+	private _autoScrollTrackedCellId: string | undefined;
+	// True while applying a programmatic scroll, so its scroll event isn't
+	// mistaken for the user scrolling away.
+	private _autoScrollProgrammatic = false;
 
 	// Track subscriptions from _initializeOutputHandling() separately so they can be
 	// disposed when the model changes, preventing duplicate event handlers
@@ -246,6 +318,9 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		// Get max lines configuration
 		this._maxLines = getQuartoConfigValue(this._configurationService, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, 40);
 
+		// Get auto-scroll configuration (defaults to on)
+		this._autoScrollEnabled = usingQuartoInlineOutputAutoScroll(this._configurationService);
+
 		// Check if feature is enabled (context key checks both setting and extension installation)
 		this._featureEnabled = this._contextKeyService.getContextKeyValue<boolean>(QUARTO_INLINE_OUTPUT_ENABLED.key) ?? false;
 
@@ -256,13 +331,19 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 		}));
 
-		// Listen for max lines configuration changes
+		// Listen for max lines and auto-scroll configuration changes
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (affectsQuartoConfig(e, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY)) {
 				this._maxLines = getQuartoConfigValue(this._configurationService, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, 40);
 				// Update all existing view zones
 				for (const viewZone of this._viewZones.values()) {
 					viewZone.maxLines = this._maxLines;
+				}
+			}
+			if (e.affectsConfiguration(QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY)) {
+				this._autoScrollEnabled = usingQuartoInlineOutputAutoScroll(this._configurationService);
+				if (!this._autoScrollEnabled) {
+					this._autoScrollArmed = false;
 				}
 			}
 		}));
@@ -356,6 +437,29 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 		}));
 
+		// Arm auto-scroll on a fresh execution gesture (Run Cell, Run All, ...)
+		// so the editor follows the output it produces.
+		this._outputHandlingDisposables.add(this._executionManager.onWillExecute(event => {
+			if (this._autoScrollEnabled && this._documentUri &&
+				event.documentUri.toString() === this._documentUri.toString()) {
+				this._autoScrollArmed = true;
+			}
+		}));
+
+		// Disarm auto-scroll once the user moves the viewport themselves. Only a
+		// vertical scroll we didn't initiate counts; a view zone growing changes
+		// the scroll height but not scrollTop, so it won't disarm.
+		this._outputHandlingDisposables.add(this._editor.onDidScrollChange(e => {
+			if (!e.scrollTopChanged) {
+				return;
+			}
+			if (this._autoScrollProgrammatic) {
+				this._autoScrollProgrammatic = false;
+				return;
+			}
+			this._autoScrollArmed = false;
+		}));
+
 		// Listen for execution state changes to manage recomputing state and update view zone button
 		this._outputHandlingDisposables.add(this._executionManager.onDidChangeExecutionState(event => {
 			if (this._featureEnabled &&
@@ -385,6 +489,14 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 						event.execution.startTime,
 						event.execution.endTime,
 					);
+				}
+
+				// Follow this cell while it runs so its status/output stays in
+				// view (no-op unless auto-scroll is armed). Tracking the running
+				// cell is what makes Run All scroll through the document.
+				if (isRunning) {
+					this._autoScrollTrackedCellId = cellId;
+					this._revealTrackedCell();
 				}
 
 				// Track execution info so it survives tab switches
@@ -1020,6 +1132,10 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		// Add output to view zone
 		viewZone.addOutput(output);
 
+		// Follow the output as it appears (no-op unless auto-scroll is armed).
+		this._autoScrollTrackedCellId = cellId;
+		this._revealTrackedCell();
+
 		// Save to cache and track content hash
 		if (this._documentUri) {
 			const model = this._editor.getModel();
@@ -1055,6 +1171,58 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			documentUri: this._documentUri!,
 			outputs: outputs,
 		});
+	}
+
+	/**
+	 * Scroll the editor to reveal the currently tracked cell's output view zone,
+	 * but only when auto-scroll is armed. A no-op when the feature is disabled,
+	 * the user has scrolled away, the zone isn't visible, or the bottom of the
+	 * zone (where new output appears) is already on screen. Keeps the bottom of
+	 * the zone at the bottom of the viewport (see {@link computeAutoScrollTop}).
+	 */
+	private _revealTrackedCell(): void {
+		if (!this._autoScrollEnabled || !this._autoScrollArmed || !this._autoScrollTrackedCellId) {
+			return;
+		}
+
+		const viewZone = this._viewZones.get(this._autoScrollTrackedCellId);
+		if (!viewZone || !viewZone.isVisible()) {
+			return;
+		}
+
+		const model = this._editor.getModel();
+		if (!model) {
+			return;
+		}
+
+		// The view zone sits after this (model) line; guard against a stale
+		// anchor after edits.
+		const afterLine = viewZone.afterLineNumber;
+		if (afterLine < 1 || afterLine > model.getLineCount()) {
+			return;
+		}
+
+		// Top of the zone is the offset just after its anchor line (Monaco's
+		// getBottomForLineNumber excludes view-zone whitespace); the zone's own
+		// reserved height gives the bottom. Using heightInPx avoids depending on
+		// the include-view-zones offset overload and handles a last-line anchor.
+		const zoneTop = this._editor.getBottomForLineNumber(afterLine);
+		const layoutInfo = this._editor.getLayoutInfo();
+		const target = computeAutoScrollTop({
+			zoneTop,
+			zoneBottom: zoneTop + viewZone.heightInPx,
+			scrollTop: this._editor.getScrollTop(),
+			viewportHeight: layoutInfo.height,
+			scrollHeight: this._editor.getScrollHeight(),
+		});
+
+		if (target === undefined) {
+			return;
+		}
+
+		// Mark the scroll as programmatic so its scroll event doesn't disarm us.
+		this._autoScrollProgrammatic = true;
+		this._editor.setScrollTop(target, ScrollType.Immediate);
 	}
 
 	private _createViewZone(cellId: string): QuartoOutputViewZone | undefined {
@@ -1123,6 +1291,14 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		// Set up popout handler
 		this._outputHandlingDisposables.add(viewZone.onPopoutRequested(request => {
 			this._handlePopoutRequest(request);
+		}));
+
+		// Keep this cell in view as its output grows (e.g. streaming text or an
+		// image finishing loading) while we're following it.
+		this._outputHandlingDisposables.add(viewZone.onDidChangeHeight(() => {
+			if (this._autoScrollTrackedCellId === cellId) {
+				this._revealTrackedCell();
+			}
 		}));
 
 		// Set initial execution state
