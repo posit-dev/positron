@@ -126,6 +126,8 @@ await expect(async () => {
 
 ### 8. No Cleanup in afterEach
 
+Leave the application in a clean state for the next test. Prefer cleanup in `afterEach` over relying on execution order or whatever state a prior test happened to leave behind -- state leakage between tests is one of the most common sources of e2e flakiness.
+
 **WRONG:**
 ```typescript
 test.describe('Tests', () => {
@@ -309,7 +311,13 @@ Page objects encapsulate:
 
 ### 15. Not Checking Page Object Methods First
 
-Before writing custom locator code, check the POM's source file in `test/e2e/pages/` for an existing method (see `references/page-objects.md`, "Finding the Exact Source", for how to locate it from `app.workbench.<name>`). Most common operations are already implemented -- copy the exact method name from source rather than guessing or paraphrasing it.
+Before writing custom locator code:
+
+1. Check the POM's source file in `test/e2e/pages/` for an existing method (see `references/page-objects.md`, "Finding the Exact Source", for how to locate it from `app.workbench.<name>`). Most common operations are already implemented -- copy the exact method name from source rather than guessing or paraphrasing it.
+2. If no method exists but the interaction is one other tests would plausibly need, add a reusable method to the page object instead of inlining locator code in the test.
+3. Only fall back to raw locator code in the test file itself when neither an existing nor a new reusable method fits -- e.g. a one-off check against structural markup no other test will need.
+
+This keeps locator logic in one place instead of duplicated (and potentially drifting) across tests.
 
 ```typescript
 // Instead of custom code, use:
@@ -326,6 +334,32 @@ await app.workbench.notebooks.selectInterpreter(...)
 
 Even a correctly-scoped `test.beforeAll` + `settings.set(...)` reloads the window, and for discovery/session-gating settings that reload can be flaky (it doesn't always re-run every cold-launch code path). Apply settings you know up front before the app launches instead. `references/fixtures.md`, "Custom Test Setup Files", covers the pre-launch options end to end: an existing base worker option via `test.use(...)`, a directory-wide `_test.setup.ts`, or a custom `beforeApp` override.
 
+## Fixed Waits
+
+### 17. Using page.waitForTimeout Instead of a Retrying Assertion
+
+**WRONG:**
+```typescript
+await button.click();
+await page.waitForTimeout(2000);  // Guesses how long the UI needs
+await expect(resultLocator).toBeVisible();
+```
+
+A fixed sleep either wastes time (waiting longer than necessary) or flakes under load (the UI needed more than the guessed duration). Prefer, in order:
+
+- a web-first assertion with an appropriate timeout: `await expect(resultLocator).toBeVisible({ timeout: 10000 })`
+- `expect.poll` for a non-Locator value that needs retrying (see `references/assertions.md`)
+- `toPass` when the action itself might need reissuing, not just the check
+- an existing POM wait helper (e.g. `console.waitForReady`) if one already encodes the right condition
+
+**CORRECT:**
+```typescript
+await button.click();
+await expect(resultLocator).toBeVisible({ timeout: 10000 });
+```
+
+Reach for `page.waitForTimeout` only for a genuinely unusual case with no observable condition to assert on -- and say why in a comment, since a reviewer will otherwise flag it as a race waiting to happen.
+
 ## Summary: Pre-Submit Checklist
 
 Before submitting a test, verify:
@@ -337,7 +371,9 @@ Before submitting a test, verify:
 - [ ] Settings known before the test runs are applied pre-launch (`beforeApp`/`settingsFile`), not via a mid-test `settings.set()` reload
 - [ ] Timeout overrides exist only where an operation is known to be slower (or should fail faster) than the 15s default -- not added reflexively to every assertion
 - [ ] Uses `toPass` for potentially flaky operations
+- [ ] No `page.waitForTimeout(...)` fixed sleeps unless there's no observable condition to assert on instead
 - [ ] Has cleanup in `afterEach`
 - [ ] Uses page object methods instead of raw locators where possible, with method names copied from source in `test/e2e/pages/` (not guessed)
 - [ ] Raw Playwright sequences (not already a POM call) are wrapped in `test.step()`; POM calls that already self-wrap are not double-wrapped
 - [ ] Test is independent (doesn't rely on other tests)
+- [ ] Every assertion validates something distinct -- no redundant checks that would all fail for the same reason, no scenarios added just because they were easy to write

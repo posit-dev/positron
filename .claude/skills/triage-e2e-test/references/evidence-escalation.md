@@ -38,6 +38,15 @@ to the raw logs (Level 4).
 
 ## Reading raw logs (Level 4)
 
+The S3 report is the complete source -- it keeps each attempt (attempt 0 = the
+failure). Do **not** hand-download a GitHub Actions artifact zip to get app-side
+logs: with CI `retries=1`, a flaky test's per-test logs
+(`server/.../positron.positron-supervisor/*.log`, kernel logs) are overwritten by
+the passing retry in the artifact, so it shows a *clean* run and will mislead you
+into thinking the failing logs are gone. `--keep-raw-logs` on the report is the
+path to the failing kernel/supervisor logs; never escalate to a ci-arm repro just
+to recapture logs the report already has.
+
 Re-run `fetch-pattern-evidence.js` with `--keep-raw-logs`, or the underlying
 processor without `--cleanup`. The raw `logs-<shortId>.zip` is left in the OS
 temp dir, at the path the script prints to stderr on its last line:
