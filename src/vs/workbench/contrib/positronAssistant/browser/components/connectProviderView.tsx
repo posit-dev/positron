@@ -112,7 +112,7 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 	return (
 		<>
 			<ContentArea>
-				<div className='connect-provider-view'>
+				<div className='connect-provider-view' data-testid='provider-connect-view'>
 					<ConnectProviderHeader source={props.source} />
 					{(authMethod === AuthMethod.API_KEY || supportsBaseUrl) &&
 						<div className='connect-provider-apikey'>
