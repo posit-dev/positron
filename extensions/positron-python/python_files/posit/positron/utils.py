@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import re
+import struct
 import sys
 import threading
 import urllib.parse
@@ -382,3 +383,10 @@ ansi_escape_re = re.compile(r"\x1b\[[0-9;]*m")
 def strip_ansi(text):
     """Strip ANSI escape sequences from text."""
     return ansi_escape_re.sub("", text)
+
+
+def png_pixel_size(data: bytes) -> tuple[int, int]:
+    """Read the (width, height) from a PNG's IHDR chunk."""
+    ihdr = data.index(b"IHDR")
+    # The next 8 bytes after "IHDR" are the width and height, big-endian.
+    return struct.unpack(">ii", data[ihdr + 4 : ihdr + 12])

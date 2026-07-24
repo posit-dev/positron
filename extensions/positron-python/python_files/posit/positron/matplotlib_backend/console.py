@@ -3,7 +3,7 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 """
-The matplotlib backend for Positron.
+Positron's matplotlib backend for console sessions.
 
 NOTE: DO NOT DIRECTLY IMPORT THIS MODULE!
 
@@ -343,8 +343,7 @@ class FigureCanvasPositron(FigureCanvasAgg):
         return hashlib.sha1(self.buffer_rgba()).hexdigest()
 
 
-# The original `plt.gca` saved when we install our redirect, so `deactivate` can restore it,
-# and the wrapper we installed, so `deactivate` only restores when ours is still in place.
+# The original and installed `plt.gca`, so `deactivate` can undo our changes.
 _original_gca = None
 _installed_gca = None
 
@@ -413,6 +412,7 @@ FigureManager = FigureManagerPositron
 
 
 def activate() -> None:
+    """Activate the Positron matplotlib console backend."""
     shell = get_ipython()
     if shell is None:
         logger.warning("No IPython shell found; matplotlib console backend not activated")
@@ -430,6 +430,7 @@ def activate() -> None:
 
 
 def deactivate() -> None:
+    """Deactivate the Positron matplotlib console backend."""
     shell = get_ipython()
     if shell is None:
         logger.warning("No IPython shell found; matplotlib console backend not deactivated")
@@ -440,6 +441,7 @@ def deactivate() -> None:
     _uninstall_library_gca_redirect()
 
 
+# If we are the selected backend, activate.
 # This is expected to run when the backend is selected. See the note at the top of the file.
 if matplotlib.get_backend() == BACKEND_NAME:
     activate()

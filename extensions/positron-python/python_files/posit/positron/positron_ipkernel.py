@@ -768,13 +768,27 @@ class PositronIPKernelApp(IPKernelApp):
         self.control_thread.join = with_logging(self.control_thread.join)
         return result
 
+    def init_extensions(self):
+        # Include Positron built-in extensions in default_extensions, which:
+        # 1. Always loads, regardless of user config, and
+        # 2. Loads before user-configured extensions.
+        self.default_extensions = [
+            # Parent default_extensions.
+            *self.default_extensions,
+            # Positron built-in extensions.
+        ]
+        super().init_extensions()
+
     def init_gui_pylab(self):
         # Enable the Positron matplotlib backend if we're not in a notebook.
         # If we're in a notebook, use IPython's default backend via the super() call below.
         # Matplotlib uses the MPLBACKEND environment variable to determine the backend to use.
         # It imports the backend module when it's first needed.
-        if self.session_mode != SessionMode.NOTEBOOK and not os.environ.get("MPLBACKEND"):
-            os.environ["MPLBACKEND"] = "module://positron.matplotlib_backend.console"
+        if not os.environ.get("MPLBACKEND"):
+            if self.session_mode == SessionMode.NOTEBOOK:
+                os.environ["MPLBACKEND"] = "module://positron.matplotlib_backend.notebook"
+            else:
+                os.environ["MPLBACKEND"] = "module://positron.matplotlib_backend.console"
 
         return super().init_gui_pylab()
 
