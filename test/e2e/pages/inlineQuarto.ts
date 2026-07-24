@@ -200,6 +200,34 @@ export class InlineQuarto {
 		});
 	}
 
+	/**
+	 * Run the cell at `cellLine` and wait for auto-scroll to bring its inline
+	 * output into the viewport. Deliberately does NOT navigate to the output
+	 * (which would scroll on its own and mask the behavior under test), so the
+	 * cell should be taller than the viewport for its output to start below the
+	 * fold.
+	 */
+	async runCellAndExpectOutputInViewport({ cellLine, timeout = 120000 }: { cellLine: number; timeout?: number }): Promise<void> {
+		await test.step(`Run cell at line ${cellLine} and expect its output scrolled into view`, async () => {
+			await this._runCellUntilStarted(cellLine, () => this.runCurrentCell());
+			await expect(this.outputContent.first()).toBeInViewport({ timeout });
+		});
+	}
+
+	/**
+	 * Run the cell at `cellLine` and confirm its inline output is NOT scrolled
+	 * into the viewport (used to verify auto-scroll stays off). Waits for the
+	 * kernel to go idle first so the output has actually been produced and just
+	 * remains below the fold.
+	 */
+	async runCellAndExpectOutputNotInViewport({ cellLine }: { cellLine: number }): Promise<void> {
+		await test.step(`Run cell at line ${cellLine} and expect its output to stay below the fold`, async () => {
+			await this._runCellUntilStarted(cellLine, () => this.runCurrentCell());
+			await this.expectKernelIdle();
+			await expect(this.outputContent.first()).not.toBeInViewport();
+		});
+	}
+
 	async clickToolbarRunButton(index = 0): Promise<void> {
 		await test.step(`Click run button on cell toolbar ${index}`, async () => {
 			const runButton = this.cellToolbar.nth(index).locator(TOOLBAR_RUN);
