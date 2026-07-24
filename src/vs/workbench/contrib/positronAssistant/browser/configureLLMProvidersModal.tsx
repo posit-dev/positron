@@ -43,7 +43,7 @@ export const showConfigureLLMProvidersModal = (
 ) => {
 	const renderer = new PositronModalReactRenderer();
 	renderer.render(
-		<div className='configure-llm-providers-modal'>
+		<div className='configure-llm-providers-modal' data-testid='configure-llm-providers-modal'>
 			<ConfigureLLMProviders renderer={renderer} sources={sources} onAction={onAction} onClose={onClose} />
 		</div>
 	);
