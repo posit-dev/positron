@@ -8,14 +8,46 @@ on:
       - "release/**"
 
 jobs:
+  docs-only:
+    name: docs-only check
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.check.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Compute docs-only flag
+        id: check
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+        run: |
+          # Skip heavy suites when a push changed only docs. Fails safe: a
+          # branch-creation / force-push where BEFORE is all-zeros (no valid
+          # diff base), or any git error, yields docs_only=false -> full CI.
+          ZERO="0000000000000000000000000000000000000000"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "$ZERO" ]; then
+            echo "No valid diff base; running full CI."
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CHANGED_FILES=$(git diff --name-only "$BEFORE" "$AFTER" || true)
+          DOCS_ONLY=$(printf '%s' "$CHANGED_FILES" | bash scripts/is-docs-only-change.sh)
+          echo "docs_only=$DOCS_ONLY"
+          echo "docs_only=$DOCS_ONLY" >> "$GITHUB_OUTPUT"
+
   setup:
     name: setup
+    needs: [docs-only]
+    if: ${{ needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
 
   e2e-electron:
     name: e2e
-    needs: [setup]
+    needs: [setup, docs-only]
+    if: ${{ needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
@@ -33,6 +65,8 @@ jobs:
 
   e2e-windows:
     name: e2e
+    needs: [docs-only]
+    if: ${{ needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-e2e-windows-run.yml
     secrets: inherit
     with:
@@ -48,7 +82,8 @@ jobs:
 
   e2e-ubuntu-chromium:
     name: e2e
-    needs: [setup]
+    needs: [setup, docs-only]
+    if: ${{ needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
@@ -66,6 +101,8 @@ jobs:
 
   unit-tests:
     name: test
+    needs: [docs-only]
+    if: ${{ needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
     with:
@@ -73,15 +110,18 @@ jobs:
 
   ext-host-tests:
     name: test
+    needs: [docs-only]
+    if: ${{ needs.docs-only.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test-ext-host.yml
     secrets: inherit
     with:
       pull_request: false
 
   slack-notify:
-    if: always()
+    if: ${{ always() && needs.docs-only.outputs.docs_only != 'true' }}
     needs:
       [
+        docs-only,
         setup,
         unit-tests,
         ext-host-tests,
