@@ -62,6 +62,22 @@ export const SETTABLE_FIELDS = new Set([
 ]);
 
 /**
+ * Every top-level field the state legitimately holds (the initState shape).
+ * `--patch` deep-merges, so a top-level key it *introduces* is almost always a
+ * nesting mistake: `--patch '{"confidence":"high"}'` meant `diagnosis.confidence`
+ * but silently creates a stray top-level `confidence` the renderer never reads.
+ * `applyMutations` rejects unknown top-level patch keys so that fails loudly,
+ * the same way `--set` rejects unknown fields. Deep keys under a known object
+ * (`diagnosis.mechanismMap`) stay free -- the check is top-level only.
+ */
+export const KNOWN_FIELDS = new Set([
+	'version', 'triageId', 'testKey', 'branch', 'lookbackDays', 'phase',
+	'history', 'patterns', 'selectedPattern', 'priorTriage', 'evidence',
+	'diagnosis', 'outcome', 'outcomeRef', 'outcomeReason',
+	'diagnosisBlockRecorded', 'nextAction', 'updatedAt',
+]);
+
+/**
  * Default next action for each phase. Advancing `phase` without also setting
  * `nextAction` would otherwise leave the init default stale, so a resume would
  * print a misleading step. `--set phase=X` derives the matching next action
@@ -94,6 +110,12 @@ export function applyMutations(state, patch, sets = []) {
 	const touched = new Set();
 	let next = state;
 	if (patch) {
+		const unknown = Object.keys(patch).filter(k => !KNOWN_FIELDS.has(k));
+		if (unknown.length) {
+			throw new Error(`--patch introduced unknown top-level field(s): ${unknown.join(', ')}. ` +
+				`Nest under a known object (e.g. {"diagnosis": {"${unknown[0]}": ...}}) or use --set for a scalar. ` +
+				`Known: ${[...KNOWN_FIELDS].join(', ')}.`);
+		}
 		next = applyPatch(next, patch);
 		for (const k of Object.keys(patch)) { touched.add(k); }
 	}
