@@ -180,6 +180,9 @@ export async function extractDeviceCodeFromModal(code: Code, _config: OAuthDevic
 
 	const codeMatch = modalHtml.match(/<code>([A-Z0-9-]+)<\/code>/i);
 	if (!codeMatch) {
+		// Do not embed modalHtml in the error: it contains the device code
+		// and other auth UI content that would otherwise leak into
+		// Playwright traces and CI logs.
 		throw new Error('Could not extract verification code from Positron device code modal (no <code> element found)');
 	}
 
@@ -230,6 +233,8 @@ async function completePositLogin(page: Page, config: OAuthDeviceCodeConfig, ver
  * Positron modal, then drives the external Posit login in a separate browser.
  */
 export async function completeOAuthDeviceCodeLogin(code: Code, config: OAuthDeviceCodeConfig, options: LoginModelProviderOptions = {}): Promise<void> {
+	// The Posit login page does not render in headless Chromium, so the
+	// default is headed. Callers may override per-invocation.
 	const { headless = false } = options;
 
 	const { verificationCode } = await extractDeviceCodeFromModal(code, config);
