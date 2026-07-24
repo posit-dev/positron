@@ -26,7 +26,6 @@ import { localize } from '../../../../nls.js';
 import { IAiProviderService } from '../../../services/positronAiProvider/common/aiProviderService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { catalogIdForSettingName } from '../common/providerCatalogIds.js';
 
 /**
  * PositronAssistantConfigurationService class.
@@ -180,7 +179,7 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	}
 
 	private isSourceEnabled(source: IPositronLanguageModelSource): boolean {
-		const catalogId = catalogIdForSettingName(source.provider.settingName);
+		const catalogId = source.provider.catalogId;
 		// Providers without a catalog entry (dev-only echo/error) follow the
 		// catalog baseline: enabled by default.
 		return catalogId === undefined || this._aiProviderService.isEnabled(catalogId);
@@ -198,10 +197,9 @@ export class PositronAssistantConfigurationService extends Disposable implements
 
 	isProviderEnabled(providerId: string): boolean {
 		for (const source of this._providerRegistrations.values()) {
-			const catalogId = catalogIdForSettingName(source.provider.settingName);
 			// Callers pass either the registered provider id (openai-api) or the
 			// vendor/catalog id (openai, copilot); both resolve to the same source.
-			if (source.provider.id === providerId || catalogId === providerId) {
+			if (source.provider.id === providerId || source.provider.catalogId === providerId) {
 				return this.isSourceEnabled(source);
 			}
 		}

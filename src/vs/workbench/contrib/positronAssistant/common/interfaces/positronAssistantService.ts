@@ -83,6 +83,12 @@ export interface IPositronProviderMetadata {
 	 */
 	settingName: string;
 	/**
+	 * Provider id in the resolved provider catalog (`~/.posit/ai/providers.json`),
+	 * used to resolve enablement and connection config. Undefined for providers
+	 * with no catalog entry, which are treated as enabled.
+	 */
+	catalogId?: string;
+	/**
 	 * Maturity status of the provider. Drives how it's presented in the
 	 * configuration modal: stable providers (no status) are listed first, then
 	 * 'preview', then 'experimental'.

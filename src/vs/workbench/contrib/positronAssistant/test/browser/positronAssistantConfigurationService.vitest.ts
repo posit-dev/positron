@@ -8,7 +8,6 @@
 import { Emitter } from '../../../../../base/common/event.js';
 import { PositronAssistantConfigurationService } from '../../browser/positronAssistantService.js';
 import { IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
-import { catalogIdForSettingName } from '../../common/providerCatalogIds.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { INotificationService, IPromptChoice } from '../../../../../platform/notification/common/notification.js';
@@ -17,10 +16,10 @@ import { IAiProviderService } from '../../../../services/positronAiProvider/comm
 import { IProviderCatalogChangeData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 
-function makeSource(id: string, settingName: string = id): IPositronLanguageModelSource {
+function makeSource(id: string, catalogId?: string): IPositronLanguageModelSource {
 	return {
 		type: PositronLanguageModelType.Chat,
-		provider: { id, displayName: `Display ${id}`, settingName },
+		provider: { id, displayName: `Display ${id}`, settingName: id, catalogId },
 		supportedOptions: [],
 		defaults: {},
 	};
@@ -50,9 +49,9 @@ describe('PositronAssistantConfigurationService', () => {
 		service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronAssistantConfigurationService));
 	});
 
-	function registerProvider(id: string, enabled = true) {
-		catalogEnabled.set(catalogIdForSettingName(id) ?? id, enabled);
-		service.registerProvider(makeSource(id));
+	function registerProvider(id: string, enabled = true, catalogId: string = id) {
+		catalogEnabled.set(catalogId, enabled);
+		service.registerProvider(makeSource(id, catalogId));
 	}
 
 	function registeredSource(id: string): IPositronLanguageModelSource {
@@ -179,8 +178,7 @@ describe('PositronAssistantConfigurationService', () => {
 		}
 
 		it('getEnabledProviders returns registered ids whose catalog id is enabled', () => {
-			registerProvider('openAI');
-			catalogEnabled.set('openai', true);
+			registerProvider('openAI', true, 'openai');
 
 			expect(service.getEnabledProviders()).toEqual(['openAI']);
 
@@ -189,8 +187,8 @@ describe('PositronAssistantConfigurationService', () => {
 			expect(service.getEnabledProviders()).toEqual([]);
 		});
 
-		it('isProviderEnabled accepts mismatched pairs: openai vs openai-api', () => {
-			service.registerProvider(makeSource('openai-api', 'openAI'));
+		it('isProviderEnabled resolves the registered id and its catalog id to the same source', () => {
+			service.registerProvider(makeSource('openai-api', 'openai'));
 			catalogEnabled.set('openai', true);
 
 			expect(service.isProviderEnabled('openai-api')).toBe(true);
