@@ -6,7 +6,7 @@
 import path = require('path');
 import fs = require('fs');
 import { copyFixtureFolder } from '../../infra/test-runner';
-import { test, tags } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -68,16 +68,37 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		await testExplorer.expectTestStatus('test_that number 2 fails', 'Failed');
 	});
 
-	// https://github.com/posit-dev/positron/issues/10133
-	test('Test with multi-line description can be run by itself', async function ({ app }) {
+	test('Tests with tricky descriptions report the correct status', async function ({ app }) {
 		const { testExplorer } = app.workbench;
-		const MULTI_LINE_LABEL = 'test_that with a multi-line description passes';
 
-		await testExplorer.expectTestItems(['test-multi-line-desc.R']);
+		await testExplorer.expectTestItems(['test-tricky-desc.R']);
+		await testExplorer.runAllTests();
+		await testExplorer.expectTestStatus('test-tricky-desc.R', 'Failed', 60000);
+
+		await testExplorer.expandAllTests();
+		await testExplorer.expectTestStatus('test_that with a multi-line description passes', 'Passed');
+		await testExplorer.expectTestStatus('test_that with \'single quotes\' fails', 'Failed');
+		await testExplorer.expectTestStatus('test_that with one \' single quote passes', 'Passed');
+		await testExplorer.expectTestStatus('test_that with `backticks` fails', 'Failed');
+		await testExplorer.expectTestStatus('test_that with an & ampersand passes', 'Passed');
+		await testExplorer.expectTestStatus('test_that with a slash / fails', 'Failed');
+	});
+
+	// https://github.com/posit-dev/positron/issues/10133
+	test('Tests with tricky descriptions can be run individually', async function ({ app }) {
+		const { testExplorer } = app.workbench;
+
+		await testExplorer.expectTestItems(['test-tricky-desc.R']);
 		await testExplorer.expandAllTests();
 
-		await testExplorer.runTest(MULTI_LINE_LABEL);
-		await testExplorer.expectTestStatus(MULTI_LINE_LABEL, 'Passed', 60000);
+		await testExplorer.runTest('test_that with a multi-line description passes');
+		await testExplorer.expectTestStatus('test_that with a multi-line description passes', 'Passed', 60000);
+
+		await testExplorer.runTest('test_that with \'single quotes\' fails');
+		await testExplorer.expectTestStatus('test_that with \'single quotes\' fails', 'Failed', 60000);
+
+		await testExplorer.runTest('test_that with `backticks` fails');
+		await testExplorer.expectTestStatus('test_that with `backticks` fails', 'Failed', 60000);
 	});
 
 	// https://github.com/posit-dev/positron/issues/2929
@@ -146,5 +167,30 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		// 'Passed' must be cleared to 'Skipped', not left stale.
 		await testExplorer.runAllTests();
 		await testExplorer.expectTestStatus(AFTER, 'Skipped', 60000);
+	});
+
+	test('A running test can be cancelled', async function ({ app }, testInfo) {
+		const { testExplorer } = app.workbench;
+		const testthatDir = path.join(path.dirname(app.workspacePathOrFolder), fixtureFolderFor(testInfo.title, testInfo.workerIndex), 'tests', 'testthat');
+		const LABEL = 'a test that can be cancelled';
+
+		// This sentinel file triggers a long sleep in the test, which opens a
+		// nice window for us to cancel it here.
+		fs.writeFileSync(path.join(testthatDir, 'CANCEL'), '');
+
+		await testExplorer.expectTestItems(['test-cancel.R']);
+		await testExplorer.expandAllTests();
+		await testExplorer.runTest(LABEL);
+
+		// Make sure the test is actually running (not just queued), so we
+		// exercise the interrupt, rather than a no-op cancel of a queued run.
+		await testExplorer.expectTestIcon(LABEL, 'Running', 60000);
+		await testExplorer.cancelTestRun();
+
+		// Core marks any cancelled run Skipped, so also verify R was explicitly
+		// interrupted.
+		await expect.poll(() => fs.existsSync(path.join(testthatDir, 'ON.EXIT')), { timeout: 45000 }).toBe(true);
+		expect(fs.existsSync(path.join(testthatDir, 'SLEEP COMPLETED'))).toBe(false);
+		await testExplorer.expectTestStatus(LABEL, 'Skipped', 60000);
 	});
 });
