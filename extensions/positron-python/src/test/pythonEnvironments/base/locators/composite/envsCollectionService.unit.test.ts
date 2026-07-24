@@ -29,6 +29,10 @@ import { OSType, getOSType } from '../../../../common';
 import * as nativeFinder from '../../../../../client/pythonEnvironments/base/locators/common/nativePythonFinder';
 
 class MockNativePythonFinder implements nativeFinder.NativePythonFinder {
+    // --- Start Positron ---
+    readonly lastDiscoveryError: string | undefined;
+    // --- End Positron ---
+
     find(_searchPath: string): Promise<nativeFinder.NativeEnvInfo[]> {
         throw new Error('Method not implemented.');
     }
