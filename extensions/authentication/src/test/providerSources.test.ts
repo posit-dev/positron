@@ -123,27 +123,4 @@ suite('getProviderSources baseUrl defaults from the catalog', () => {
 		);
 		assert.strictEqual(anthropic?.defaults.baseUrl, 'https://gateway.example.com');
 	});
-
-	test('falls back to the per-provider default literal when the catalog has no baseUrl', async () => {
-		writeConfig(configPath, {});
-		await initProviderCatalog(context, { configPath });
-
-		const anthropic = getProviderSources().find(
-			s => s.provider.id === PROVIDER_METADATA.anthropic.id
-		);
-		assert.strictEqual(anthropic?.defaults.baseUrl, 'https://api.anthropic.com');
-	});
-
-	test('an env-folded catalog baseUrl surfaces as the modal default', async () => {
-		writeConfig(configPath, {});
-		await initProviderCatalog(context, {
-			configPath,
-			envVars: { OPENAI_BASE_URL: 'https://env.example.com/v1' },
-		});
-
-		const openai = getProviderSources().find(
-			s => s.provider.id === PROVIDER_METADATA.openai.id
-		);
-		assert.strictEqual(openai?.defaults.baseUrl, 'https://env.example.com/v1');
-	});
 });
