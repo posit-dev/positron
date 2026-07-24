@@ -49,6 +49,7 @@ import { PositronNotebooks } from '../pages/notebooksPositron.js';
 import { VsCodeNotebooks } from '../pages/notebooksVscode.js';
 import { PositAssistant } from '../pages/positAssistant.js';
 import { ModelProviderAuth } from '../pages/modelProviderAuth.js';
+import { ModelProviderModal } from '../pages/modelProviderModal.js';
 import { InlineDataExplorer } from '../pages/inlineDataExplorer.js';
 import { InlineQuarto } from '../pages/inlineQuarto.js';
 import { Publisher } from '../pages/publisher.js';
@@ -105,6 +106,7 @@ export class Workbench {
 	readonly positConnect: PositConnect;
 	readonly positAssistant: PositAssistant;
 	readonly modelProviderAuth: ModelProviderAuth;
+	readonly modelProviderModal: ModelProviderModal;
 	readonly inlineDataExplorer: InlineDataExplorer;
 	readonly inlineQuarto: InlineQuarto;
 	readonly publisher: Publisher;
@@ -156,6 +158,7 @@ export class Workbench {
 		this.positConnect = new PositConnect(code);
 		this.positAssistant = new PositAssistant(code);
 		this.modelProviderAuth = new ModelProviderAuth(code, this.modals, this.toasts);
+		this.modelProviderModal = new ModelProviderModal(code, this.modals, this.toasts);
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.currentPage);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
 		this.publisher = new Publisher(this.quickInput);
