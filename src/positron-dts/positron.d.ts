@@ -3522,12 +3522,6 @@ declare module 'positron' {
 			 */
 			displayName: string;
 			/**
-			 * Setting name for user configuration in camelCase format (e.g., 'anthropic', 'openAI', 'gitHubCopilot').
-			 * Corresponds to `positron.assistant.provider.<settingName>.enable` in settings.json if visible in Settings UI.
-			 * Positron's Assistant Service automatically reads this from registered providers.
-			 */
-			settingName: string;
-			/**
 			 * Provider id in the resolved provider catalog (`~/.posit/ai/providers.json`), used to
 			 * resolve enablement and connection config. Undefined for providers with no catalog entry
 			 * (e.g. dev-only providers), which are treated as enabled.

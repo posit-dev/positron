@@ -25,7 +25,6 @@ function getSavedBaseUrl(catalogId: string | undefined, fallback?: string): stri
 export interface ProviderMetadata {
 	id: string;
 	displayName: string;
-	settingName: string;
 	/**
 	 * Maturity status of the provider, mirroring the `tags` on its
 	 * `*.enable` setting. The config modal lists stable providers (no status)
@@ -42,71 +41,60 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 	anthropic: {
 		id: ANTHROPIC_AUTH_PROVIDER_ID,
 		displayName: 'Anthropic',
-		settingName: 'anthropic',
 		catalogId: 'anthropic',
 	},
 	positAI: {
 		id: POSIT_AUTH_PROVIDER_ID,
 		displayName: 'Posit AI',
-		settingName: 'positAI',
 		catalogId: 'positai',
 	},
 	amazonBedrock: {
 		id: AWS_AUTH_PROVIDER_ID,
 		displayName: 'Amazon Bedrock',
-		settingName: 'amazonBedrock',
 		catalogId: 'bedrock',
 	},
 	foundry: {
 		id: FOUNDRY_AUTH_PROVIDER_ID,
 		displayName: 'Microsoft Foundry',
-		settingName: 'msFoundry',
 		catalogId: 'ms-foundry',
 	},
 	snowflake: {
 		id: 'snowflake-cortex',
 		displayName: 'Snowflake Cortex',
-		settingName: 'snowflakeCortex',
 		catalogId: 'snowflake-cortex',
 	},
 	openai: {
 		id: OPENAI_AUTH_PROVIDER_ID,
 		displayName: 'OpenAI',
-		settingName: 'openAI',
 		catalogId: 'openai',
 	},
 	google: {
 		id: GEMINI_AUTH_PROVIDER_ID,
 		displayName: 'Google Gemini',
-		settingName: 'google',
 		status: 'experimental',
 		catalogId: 'gemini',
 	},
 	geap: {
 		id: GOOGLE_CLOUD_AUTH_PROVIDER_ID,
 		displayName: 'Gemini Enterprise Agent Platform',
-		settingName: 'googleVertex',
 		status: 'experimental',
 		catalogId: 'google-vertex',
 	},
 	copilot: {
 		id: 'copilot-auth',
 		displayName: 'GitHub Copilot',
-		settingName: 'githubCopilot',
 		status: 'preview',
 		catalogId: 'copilot',
 	},
 	customProvider: {
 		id: CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
 		displayName: 'Custom Provider',
-		settingName: 'customProvider',
 		status: 'experimental',
 		catalogId: 'openai-compatible',
 	},
 	deepseek: {
 		id: DEEPSEEK_AUTH_PROVIDER_ID,
 		displayName: 'DeepSeek',
-		settingName: 'deepseek',
 		status: 'experimental',
 		catalogId: 'deepseek',
 	},

@@ -74,15 +74,6 @@ export interface IPositronProviderMetadata {
 	/** Display name shown in UI (e.g., 'Anthropic', 'GitHub Copilot') */
 	displayName: string;
 	/**
-	 * Setting name used in the per-provider enable key. Either
-	 * `assistant.provider.<settingName>.enabled` (for providers owned by
-	 * the authentication extension) or
-	 * `positron.assistant.provider.<settingName>.enable` (the legacy
-	 * form, still used by providers declared in
-	 * `extensions/positron-assistant/package.json`) toggles the provider.
-	 */
-	settingName: string;
-	/**
 	 * Provider id in the resolved provider catalog (`~/.posit/ai/providers.json`),
 	 * used to resolve enablement and connection config. Undefined for providers
 	 * with no catalog entry, which are treated as enabled.

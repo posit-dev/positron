@@ -19,7 +19,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 function makeSource(id: string, catalogId?: string): IPositronLanguageModelSource {
 	return {
 		type: PositronLanguageModelType.Chat,
-		provider: { id, displayName: `Display ${id}`, settingName: id, catalogId },
+		provider: { id, displayName: `Display ${id}`, catalogId },
 		supportedOptions: [],
 		defaults: {},
 	};

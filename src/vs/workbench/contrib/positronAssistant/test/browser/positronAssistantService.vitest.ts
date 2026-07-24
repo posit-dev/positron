@@ -172,7 +172,7 @@ describe('PositronAssistantService showLanguageModelModalDialog', () => {
 	function makeSource(id: string): IPositronLanguageModelSource {
 		return {
 			type: PositronLanguageModelType.Chat,
-			provider: { id, displayName: `Display ${id}`, settingName: id },
+			provider: { id, displayName: `Display ${id}` },
 			supportedOptions: [],
 			defaults: {},
 		};
