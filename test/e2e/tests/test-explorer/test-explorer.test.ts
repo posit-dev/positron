@@ -173,24 +173,38 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		const { testExplorer } = app.workbench;
 		const testthatDir = path.join(path.dirname(app.workspacePathOrFolder), fixtureFolderFor(testInfo.title, testInfo.workerIndex), 'tests', 'testthat');
 		const LABEL = 'a test that can be cancelled';
+		const heartbeat = path.join(testthatDir, 'HEARTBEAT');
 
-		// This sentinel file triggers a long sleep in the test, which opens a
-		// nice window for us to cancel it here.
+		// This sentinel makes the test emit a heartbeat for about a minute, so
+		// it runs long enough for us to cancel it.
 		fs.writeFileSync(path.join(testthatDir, 'CANCEL'), '');
 
 		await testExplorer.expectTestItems(['test-cancel.R']);
 		await testExplorer.expandAllTests();
 		await testExplorer.runTest(LABEL);
 
-		// Make sure the test is actually running (not just queued), so we
-		// exercise the interrupt, rather than a no-op cancel of a queued run.
+		// Cancel only once the test is genuinely running, so we exercise a real
+		// interrupt and not a no-op cancel of a still-queued run.
 		await testExplorer.expectTestIcon(LABEL, 'Running', 60000);
+		await expect.poll(() => fs.existsSync(heartbeat), { timeout: 60000 }).toBe(true);
+
 		await testExplorer.cancelTestRun();
 
-		// Core marks any cancelled run Skipped, so also verify R was explicitly
-		// interrupted.
-		await expect.poll(() => fs.existsSync(path.join(testthatDir, 'ON.EXIT')), { timeout: 45000 }).toBe(true);
-		expect(fs.existsSync(path.join(testthatDir, 'SLEEP COMPLETED'))).toBe(false);
+		// Has the heartbeat stopped?
+		let lastSize = -1;
+		await expect.poll(() => {
+			const size = fs.existsSync(heartbeat) ? fs.statSync(heartbeat).size : -1;
+			const frozen = size > 0 && size === lastSize;
+			lastSize = size;
+			return frozen;
+		}, { timeout: 30000, intervals: [500] }).toBe(true);
+		expect(fs.existsSync(path.join(testthatDir, 'COMPLETED'))).toBe(false);
+
+		// We can only do a graceful interrupt (SIGINT) on POSIX, not Windows.
+		if (process.platform !== 'win32') {
+			await expect.poll(() => fs.existsSync(path.join(testthatDir, 'ON.EXIT')), { timeout: 10000 }).toBe(true);
+		}
+
 		await testExplorer.expectTestStatus(LABEL, 'Skipped', 60000);
 	});
 });
