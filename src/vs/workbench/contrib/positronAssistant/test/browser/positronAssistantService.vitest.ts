@@ -266,12 +266,15 @@ describe('PositronAssistantService showLanguageModelModalDialog', () => {
 		expect(mockShowNewModal).not.toHaveBeenCalled();
 	});
 
-	it('renders the new provider modal when the feature switch is enabled', () => {
+	it('renders the new provider modal when the feature switch is enabled', async () => {
 		const sources = [makeSource('prov-a')];
 		getRegisteredSources.mockReturnValue(sources);
 		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('assistant.newProviderModal', true);
 
 		service.showLanguageModelModalDialog(vi.fn(), vi.fn());
+		whenInitializedDeferred.complete();
+		await whenInitializedDeferred.p;
+		await Promise.resolve();
 
 		expect(mockShowNewModal).toHaveBeenCalledTimes(1);
 		expect(mockShowNewModal.mock.calls[0][0]).toBe(sources);
