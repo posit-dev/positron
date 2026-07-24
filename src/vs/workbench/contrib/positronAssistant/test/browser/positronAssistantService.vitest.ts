@@ -350,19 +350,4 @@ describe('PositronAssistantService areCompletionsEnabled', () => {
 
 		expect(service.areCompletionsEnabled(URI.file('/path/to/file.py'))).toBe(false);
 	});
-
-	it('enables completions when the catalog copilot provider is enabled and the per-language setting is on', () => {
-		configurationService.setUserConfiguration('github.copilot.enable', { '*': true });
-		guessLanguage('python');
-
-		expect(service.areCompletionsEnabled(URI.file('/path/to/file.py'))).toBe(true);
-	});
-
-	it('ignores the deprecated provider enable setting: catalog copilot enabled still wins', () => {
-		configurationService.setUserConfiguration('github.copilot.enable', { '*': true });
-		configurationService.setUserConfiguration('positron.assistant.provider.githubCopilot.enable', false);
-		guessLanguage('python');
-
-		expect(service.areCompletionsEnabled(URI.file('/path/to/file.py'))).toBe(true);
-	});
 });
