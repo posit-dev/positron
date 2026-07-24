@@ -19,14 +19,12 @@ export interface ResolvedProviderLike {
 }
 
 /**
- * Payload of {@link onDidChangeProviderCatalog}. Extends ai-config's boolean
- * change flags with the per-provider granularity the credential chain needs:
- * `changedConnectionIds` (ids whose connection JSON differs) and `disabledIds`
- * (ids whose `enabled` flipped to false).
+ * Payload of {@link onDidChangeProviderCatalog}, carrying the per-provider
+ * granularity the credential chain needs: `changedConnectionIds` (ids whose
+ * connection JSON differs) and `disabledIds` (ids whose `enabled` flipped to
+ * false).
  */
 export interface ProviderCatalogChangeEvent {
-	readonly enabledChanged: boolean;
-	readonly connectionChanged: boolean;
 	readonly changedConnectionIds: string[];
 	readonly disabledIds: string[];
 }
@@ -82,12 +80,7 @@ function applyCatalog(next: readonly ResolvedProvider[]): void {
 	if (changedConnectionIds.length === 0 && disabledIds.length === 0) {
 		return;
 	}
-	changeEmitter.fire({
-		enabledChanged: disabledIds.length > 0,
-		connectionChanged: changedConnectionIds.length > 0,
-		changedConnectionIds,
-		disabledIds,
-	});
+	changeEmitter.fire({ changedConnectionIds, disabledIds });
 }
 
 async function loadCatalog(options: ProviderCatalogOptions): Promise<readonly ResolvedProvider[]> {
@@ -136,14 +129,17 @@ export function getCachedProvider(catalogId: string): ResolvedProviderLike | und
 
 /**
  * Reloads the catalog now and fires {@link onDidChangeProviderCatalog} when the
- * reload differs from the cache. A no-op before init (with no options remembered),
- * so it never falls back to the real providers.json inside a test.
+ * reload differs from the cache. `options` overrides the remembered options so a
+ * write helper called with `{ configPath }` in a test never reads the real file;
+ * without an override it's a no-op before init, so it never falls back to the
+ * real providers.json inside a test.
  */
-export async function refreshProviderCatalog(): Promise<void> {
-	if (!currentOptions) {
+export async function refreshProviderCatalog(options?: ProviderCatalogOptions): Promise<void> {
+	const opts = options ?? currentOptions;
+	if (!opts) {
 		return;
 	}
-	applyCatalog(await loadCatalog(currentOptions));
+	applyCatalog(await loadCatalog(opts));
 }
 
 function effectiveOptions(override?: ProviderCatalogOptions): ProviderCatalogOptions {
@@ -169,21 +165,7 @@ async function mutate(
 			logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
 		}
 	);
-	await refreshWith(options);
-}
-
-/**
- * Refresh using an explicit options override when a write helper supplied one,
- * so a helper called with `{ configPath }` in a test never reads the real file.
- */
-async function refreshWith(options: ProviderCatalogOptions): Promise<void> {
-	const previous = currentOptions;
-	currentOptions = options;
-	try {
-		await refreshProviderCatalog();
-	} finally {
-		currentOptions = previous;
-	}
+	await refreshProviderCatalog(options);
 }
 
 /** Writes providers.<id>.baseUrl, then refreshes the cache. */

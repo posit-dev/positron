@@ -68,7 +68,8 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 			}
 			const current = snapshotEnablement();
 			for (const [id, enabled] of current) {
-				if (lastEnabled.get(id) !== undefined && lastEnabled.get(id) !== enabled) {
+				const previous = lastEnabled.get(id);
+				if (previous !== undefined && previous !== enabled) {
 					this._proxy.$onDidChangeProviderEnablement(id, enabled);
 				}
 			}

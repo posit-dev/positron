@@ -95,7 +95,6 @@ suite('providerCatalog', () => {
 		writeConfig(configPath, { anthropic: { baseUrl: 'https://changed.example.com' } });
 
 		const change = await changePromise;
-		assert.ok(change.connectionChanged, 'connectionChanged should be true');
 		assert.ok(
 			change.changedConnectionIds.includes('anthropic'),
 			'changedConnectionIds should include anthropic'
@@ -118,7 +117,6 @@ suite('providerCatalog', () => {
 		writeConfig(configPath, { anthropic: { enabled: false } });
 
 		const change = await changePromise;
-		assert.ok(change.enabledChanged, 'enabledChanged should be true');
 		assert.ok(change.disabledIds.includes('anthropic'), 'disabledIds should include anthropic');
 		assert.strictEqual(getCachedProvider('anthropic')?.enabled, false);
 	});
@@ -145,7 +143,6 @@ suite('providerCatalog', () => {
 		sub.dispose();
 
 		assert.ok(payload, 'refresh should fire the change event');
-		assert.ok(payload.connectionChanged);
 		assert.deepStrictEqual(payload.changedConnectionIds, ['anthropic']);
 		assert.deepStrictEqual(payload.disabledIds, []);
 	});
