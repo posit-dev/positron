@@ -49,6 +49,41 @@ const BLOCK_HEADING = '### E2E Triage Diagnosis';
 // no-op (checkpoint-only) is out of scope -- that goes through checkpoint.js.
 const ARTIFACT_OUTCOMES = OUTCOMES.filter(o => o !== 'no-op');
 const CONFIDENCE_EMOJI = { high: '\u{1F7E2}', medium: '\u{1F7E1}', low: '\u{1F534}' };
+const CONFIDENCE_LEVELS = Object.keys(CONFIDENCE_EMOJI);
+// The summary is the one-line teaser inside <summary>. A multi-paragraph value
+// renders as a wall of text in the collapsed header; this bounds it generously
+// (a normal teaser is 150-350 chars) so the full mechanism stays in the bullets.
+const MAX_SUMMARY_LEN = 600;
+
+/**
+ * Validate the checkpoint fields that drive the rendered <summary> header.
+ * `renderBlock` is a forgiving renderer -- an unknown `confidence` silently
+ * falls back to a medium emoji plus a title-cased dump of the raw string, and
+ * an overlong `summary` lands whole inside the header. That produces a
+ * janky-but-valid block that sails onto a real PR. Fail loudly here, before the
+ * block is written, so the author fixes the diagnosis instead. Returns a
+ * human-readable error string, or null when the fields are clean.
+ */
+export function validateDiagnosis(d) {
+	const conf = String(d.confidence ?? '').toLowerCase();
+	if (!CONFIDENCE_LEVELS.includes(conf)) {
+		return `diagnosis.confidence must be one of ${CONFIDENCE_LEVELS.join(' | ')} ` +
+			`(got ${JSON.stringify(d.confidence)}); it maps to the emoji + label in the block header.`;
+	}
+	const summary = String(d.summary ?? '').trim();
+	if (!summary) {
+		return 'diagnosis.summary is required -- it is the one-line teaser in the <summary> header.';
+	}
+	if (/[\r\n]/.test(summary)) {
+		return 'diagnosis.summary must be a single line (no line breaks); ' +
+			'put the full mechanism in the Signal / Hypothesis bullets.';
+	}
+	if (summary.length > MAX_SUMMARY_LEN) {
+		return `diagnosis.summary is ${summary.length} chars; keep it under ${MAX_SUMMARY_LEN} ` +
+			'as a one-line teaser and put the full mechanism in the Signal / Hypothesis bullets.';
+	}
+	return null;
+}
 
 /** Human frequency string from the selected history pattern, e.g.
  *  "31/317 runs (9.8%), ubuntu/chromium". Returns null when unavailable. */
@@ -131,6 +166,10 @@ function main() {
 	if (!state.diagnosis || typeof state.diagnosis !== 'object') {
 		fail('Checkpoint has no diagnosis object. Save one (checkpoint.js --patch) before recording.');
 	}
+	// Guard the header fields before rendering, so a malformed diagnosis is
+	// caught at --dry-run / record time rather than shipping a janky block.
+	const problem = validateDiagnosis(state.diagnosis);
+	if (problem) { fail(problem); }
 
 	const historyFile = path.join(dir, 'history-summary.json');
 	const history = fs.existsSync(historyFile) ? readJson(historyFile) : null;
