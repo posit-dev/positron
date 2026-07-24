@@ -24,7 +24,13 @@ import {
 
 // New "Configure LLM Providers" modal (behind assistant.newProviderModal).
 // Same public surface as ModelProviderAuth so the sign-in test body is drop-in.
-const MODAL = '[data-testid="configure-llm-providers-modal"]';
+// The testid sits on a zero-size layout wrapper (its child dialog container is
+// position:absolute, so the wrapper collapses and Playwright reports it hidden).
+// Scope to the actual visible dialog box inside it, so visibility gates and
+// footer-button lookups target a real bounding box. The testid prefix keeps this
+// distinct from the OAuth device-code dialog, which is also a
+// .positron-modal-dialog-box.
+const MODAL = '[data-testid="configure-llm-providers-modal"] .positron-modal-dialog-box';
 const CONNECT_VIEW = '[data-testid="provider-connect-view"]';
 const CONNECTED_VIEW = '[data-testid="provider-connected-view"]';
 const APIKEY_INPUT = '#connect-provider-apikey-input';
