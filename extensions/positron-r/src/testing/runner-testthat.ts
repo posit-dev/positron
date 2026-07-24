@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, spawnSync, ChildProcess } from 'child_process';
 import split2 from 'split2';
 import { LOGGER } from '../extension';
 import { checkInstalled, getLocale } from '../session';
@@ -24,8 +24,8 @@ const testReporterPath = path
 const activeRunProcesses = new Set<ChildProcess>();
 
 // Signal the R test-run process by PID. POSIX SIGINT lets R unwind gracefully;
-// SIGKILL forces it. Windows has no per-process signal, so taskkill /F is always a
-// forceful terminate.
+// SIGKILL forces it. Windows has no per-process signal, so taskkill force-terminates;
+// /T also kills the child R process (the R.exe front-end spawns the actual R).
 function signalRunProcess(childProcess: ChildProcess, signal: NodeJS.Signals): void {
 	const pid = childProcess.pid;
 	if (pid === undefined) {
@@ -33,7 +33,8 @@ function signalRunProcess(childProcess: ChildProcess, signal: NodeJS.Signals): v
 	}
 	try {
 		if (process.platform === 'win32') {
-			spawn('taskkill', ['/pid', String(pid), '/F']);
+			const result = spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { encoding: 'utf8' });
+			LOGGER.info(`taskkill /T /F pid=${pid}: status=${result.status}, stdout=${result.stdout?.trim()}, stderr=${result.stderr?.trim()}`);
 		} else {
 			process.kill(pid, signal);
 		}
