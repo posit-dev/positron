@@ -1,6 +1,7 @@
 {
 	"extensions.allowed": {
 		"meta.pyrefly": false,
+		"charliermarsh.ruff": false,
 		"*": true
 	}
 }
