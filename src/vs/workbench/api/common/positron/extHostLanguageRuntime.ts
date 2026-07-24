@@ -908,6 +908,18 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return (await session.listMissingPackages?.(target, token)) ?? [];
 	}
 
+	async $getMissingPackageProbe(
+		handle: number,
+		error: positron.RuntimeConsoleError,
+		token: CancellationToken,
+	): Promise<string | undefined> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot get missing-package probe: session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		return (await session.getMissingPackageProbe?.(error, token)) ?? undefined;
+	}
+
 	async $getPackageDetail(
 		handle: number,
 		name: string,

@@ -1440,6 +1440,19 @@ declare module 'positron' {
 	}
 
 	/**
+	 * A runtime error surfaced in the console, passed to `getMissingPackageProbe`
+	 * so the runtime can recognize its own missing-package error format.
+	 */
+	export interface RuntimeConsoleError {
+		/** The error name, e.g. "ModuleNotFoundError". May be empty. */
+		readonly name: string;
+		/** The error message, e.g. "No module named 'foo'". */
+		readonly message: string;
+		/** The error traceback, one entry per line. */
+		readonly traceback: string[];
+	}
+
+	/**
 	 * Basic metadata about an active language runtime session, including
 	 * immutable metadata about the session itself and metadata about the
 	 * runtime with which it is associated.
@@ -1711,6 +1724,21 @@ declare module 'positron' {
 		 * @param token Optional cancellation token.
 		 */
 		listMissingPackages?(target: RuntimeMissingPackagesTarget, token?: vscode.CancellationToken): Thenable<RuntimeMissingPackage[]>;
+
+		/**
+		 * Given a console error produced by this session, return a minimal code
+		 * snippet that references the missing package (e.g. `import foo`), for
+		 * the frontend to feed back through `listMissingPackages` and confirm the
+		 * package is installable. Return undefined when the error is not a
+		 * recognized missing-package error.
+		 *
+		 * Owning error-message parsing here (rather than in the frontend) keeps
+		 * the frontend language-agnostic.
+		 *
+		 * @param error The console error to inspect.
+		 * @param token Optional cancellation token.
+		 */
+		getMissingPackageProbe?(error: RuntimeConsoleError, token?: vscode.CancellationToken): string | undefined | Thenable<string | undefined>;
 	}
 
 

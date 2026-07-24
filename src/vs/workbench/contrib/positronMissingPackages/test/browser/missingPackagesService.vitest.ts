@@ -260,6 +260,32 @@ describe('MissingPackagesService', () => {
 		expect(listMissingPackages).not.toHaveBeenCalled();
 	});
 
+	it('analyzeError probes the runtime then analyzes the probe snippet', async () => {
+		const service = createService();
+
+		// The session's runtime recognizes the error and returns a probe snippet
+		// referencing the missing package; analyzeError hands it to the same
+		// analyzeCode path, which reports it via listMissingPackages (its default
+		// resolved value, [{ name: 'requests' }]).
+		session.getMissingPackageProbe = vi.fn(async () => 'import requests');
+
+		const result = await service.analyzeError(sessionId, { name: 'ModuleNotFoundError', message: `No module named 'requests'`, traceback: [] });
+
+		expect(session.getMissingPackageProbe).toHaveBeenCalledWith(
+			{ name: 'ModuleNotFoundError', message: `No module named 'requests'`, traceback: [] },
+			undefined,
+		);
+		expect(result).toEqual([{ name: 'requests' }]);
+	});
+
+	it('analyzeError returns empty when the runtime does not recognize the error', async () => {
+		const service = createService();
+		session.getMissingPackageProbe = vi.fn(async () => undefined);
+
+		expect(await service.analyzeError(sessionId, { name: '', message: 'boom', traceback: [] })).toEqual([]);
+		expect(listMissingPackages).not.toHaveBeenCalled();
+	});
+
 	it('getCached never triggers work', () => {
 		const service = createService();
 

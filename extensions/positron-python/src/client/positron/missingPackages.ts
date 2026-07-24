@@ -58,6 +58,18 @@ function topLevelModule(module: string): string {
     return module.split('.')[0];
 }
 
+/** Python: `ModuleNotFoundError: No module named 'foo'`. */
+const PYTHON_MISSING_MODULE_REGEX = /No module named ['"]([^'"]+)['"]/;
+
+/**
+ * Build a probe snippet (`import foo`) from a Python missing-module error, or
+ * undefined when the message is not a missing-module error.
+ */
+export function pythonMissingPackageProbe(errorMessage: string): string | undefined {
+    const name = PYTHON_MISSING_MODULE_REGEX.exec(errorMessage)?.[1];
+    return name ? `import ${name}` : undefined;
+}
+
 /** PEP 503 canonicalization: lowercase and collapse runs of `-_.` to a dash. */
 function canonicalizeName(name: string): string {
     return name.replace(/[-_.]+/g, '-').toLowerCase();

@@ -37,6 +37,21 @@ export function parseRPackageReferences(code: string): string[] {
 }
 
 /**
+ * R: `Error in library(foo) : there is no package called 'foo'`. R renders the
+ * package name in curly quotes (U+2018/U+2019); accept those and straight quotes.
+ */
+const R_MISSING_PACKAGE_REGEX = /there is no package called ['"\u2018]([^'"\u2019]+)['"\u2019]/;
+
+/**
+ * Build a probe snippet (`library(foo)`) from an R missing-package error, or
+ * undefined when the message is not a missing-package error.
+ */
+export function rMissingPackageProbe(errorMessage: string): string | undefined {
+	const name = R_MISSING_PACKAGE_REGEX.exec(errorMessage)?.[1];
+	return name ? `library(${name})` : undefined;
+}
+
+/**
  * Analyzes R code and returns the packages it references that are not installed
  * AND that are available in the session's configured repositories.
  *

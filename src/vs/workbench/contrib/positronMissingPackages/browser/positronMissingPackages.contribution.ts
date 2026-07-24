@@ -13,10 +13,8 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { PositronActionBarWidgetRegistry } from '../../../../platform/positronActionBar/browser/positronActionBarWidgetRegistry.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from '../../../common/contributions.js';
-import { ResourceContextKey } from '../../../common/contextkeys.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../positronNotebook/common/positronNotebookCommon.js';
-import { QUARTO_LANGUAGE_IDS } from '../../positronQuarto/common/positronQuartoConfig.js';
 import { IMissingPackagesService } from '../common/missingPackagesService.js';
 import { MissingPackagesService } from './missingPackagesServiceImpl.js';
 import { MissingPackageFollowupContribution } from './missingPackageProvider.js';
@@ -24,6 +22,7 @@ import { MissingPackagesBadgeMount } from './missingPackagesBadgeMount.js';
 import { MissingPackagesPrecomputeContribution } from './missingPackagesPrecompute.js';
 import { IMissingPackagesPreflightService, MissingPackagesPreflightService } from './missingPackagesPreflightService.js';
 import { registerMissingPackagesCommands } from './missingPackagesCommands.js';
+import { MISSING_PACKAGES_SUPPORTED_KEY, MissingPackagesContextKeyContribution } from './missingPackagesContextKey.js';
 
 // Register the missing-packages services.
 registerSingleton(IMissingPackagesService, MissingPackagesService, InstantiationType.Delayed);
@@ -47,19 +46,21 @@ workbenchRegistry.registerWorkbenchContribution(MissingPackageFollowupContributi
 // Keep the cache warm for the active editor so the preflight check never blocks.
 workbenchRegistry.registerWorkbenchContribution(MissingPackagesPrecomputeContribution, LifecyclePhase.Restored);
 
-// Editor action bar badge (scenario 2) for Python and R scripts and Quarto
-// documents. The editor action bar is disabled for notebooks, so notebooks get
-// a separate mount below. Quarto documents are multi-language; the service
-// splits them into per-language code chunks and routes each to its session.
+// Maintains the capability context key that gates the editor badge and the
+// command-palette commands (scenario 2). Language-agnostic: driven by whether
+// the active editor's runtime supports missing-package checks.
+workbenchRegistry.registerWorkbenchContribution(MissingPackagesContextKeyContribution, LifecyclePhase.Restored);
+
+// Editor action bar badge (scenario 2) for scripts whose language has a session
+// that supports missing packages, and Quarto documents. The editor action bar
+// is disabled for notebooks, so notebooks get a separate mount below. Quarto
+// documents are multi-language; the service splits them into per-language code
+// chunks and routes each to its session.
 PositronActionBarWidgetRegistry.registerWidget({
 	id: 'positronMissingPackages.editorBadge',
 	menuId: MenuId.EditorActionsRight,
 	order: 95,
-	when: ContextKeyExpr.or(
-		ContextKeyExpr.equals(ResourceContextKey.LangId.key, 'python'),
-		ContextKeyExpr.equals(ResourceContextKey.LangId.key, 'r'),
-		...QUARTO_LANGUAGE_IDS.map(langId => ContextKeyExpr.equals(ResourceContextKey.LangId.key, langId)),
-	),
+	when: MISSING_PACKAGES_SUPPORTED_KEY,
 	selfContained: true,
 	componentFactory: (accessor) => () => React.createElement(MissingPackagesBadgeMount, { accessor }),
 });

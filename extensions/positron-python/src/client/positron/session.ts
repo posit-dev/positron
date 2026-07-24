@@ -41,7 +41,7 @@ import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
 import { getActiveInterpreterConfigTarget, whenTimeout } from './util';
 import { PackageManagerFactory } from './packages/packageManagerFactory';
 import { IPackageManager } from './packages/types';
-import { listMissingPythonPackages } from './missingPackages';
+import { listMissingPythonPackages, pythonMissingPackageProbe } from './missingPackages';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
 const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/;
@@ -394,6 +394,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             return [];
         }
         return listMissingPythonPackages(this, this._packageManager, target, token);
+    }
+
+    getMissingPackageProbe(error: positron.RuntimeConsoleError): string | undefined {
+        return pythonMissingPackageProbe(error.message);
     }
 
     private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {
