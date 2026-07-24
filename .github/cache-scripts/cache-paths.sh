@@ -109,6 +109,9 @@ fi
 #       ai-lib/node_modules must NOT exist (let alone be cached): it belongs to ai-lib's own
 #       standalone lockfile, sits on the require() walk-up path between the packages and the
 #       root, and shadows the root lockfile's placements with conflicting versions.
+# ai-lib/packages/ai-provider-bridge/.bridge-watch: the bridge's build coordinator records
+#       the completed generation here as it emits dist (ai-lib's clean script removes the two
+#       together). Cached with dist so a restored dist doesn't read as an unfinished build.
 #       NOTE: entries are read line-by-line, so no inline comments inside the heredoc.
 read -r -d '' NPM_CORE_PATHS << EOF || true
 .npm-cache
@@ -128,6 +131,7 @@ ai-lib/packages/ai-provider-bridge/node_modules
 ai-lib/packages/ai-config/dist
 ai-lib/packages/ai-credentials/dist
 ai-lib/packages/ai-provider-bridge/dist
+ai-lib/packages/ai-provider-bridge/.bridge-watch
 EOF
 
 # ----------------------------------------------------------------------------
