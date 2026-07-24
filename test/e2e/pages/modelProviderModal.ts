@@ -31,6 +31,9 @@ const APIKEY_INPUT = '#connect-provider-apikey-input';
 const BASEURL_INPUT = '#connect-provider-baseurl-input';
 
 // Footer buttons are rendered by the shared action bar; scope by text within the modal.
+// Substring match: also matches the in-flight "Connecting..." label, which is
+// harmless here - the click lands while the button still reads "Connect", and
+// there is only one primary button so there is no strict-mode collision.
 const CONNECT_BUTTON = `${MODAL} button.positron-button:has-text("Connect")`;
 const SIGN_OUT_BUTTON = `${MODAL} button.positron-button:has-text("Sign out")`;
 const REMOVE_BUTTON = `${MODAL} button.positron-button:has-text("Remove")`;
