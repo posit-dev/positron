@@ -7,7 +7,13 @@ import { test, tags } from '../_test.setup';
 import { ModelProvider } from '../../pages/modelProviderShared';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	// Launch the app with the auto-sign-in env vars unset so the API-key providers
+	// start disconnected and the test genuinely drives the modal's connect flow
+	// (typing ANTHROPIC_KEY / OPENAI_KEY) instead of finding them already signed in.
+	// AWS Bedrock keeps its environment credential chain (it has no key to type and
+	// authenticates from the environment by design).
+	extraEnv: { ANTHROPIC_API_KEY: undefined, OPENAI_API_KEY: undefined },
 });
 
 const NEW_PROVIDER_MODAL_KEY = 'assistant.newProviderModal';

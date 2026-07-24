@@ -18,7 +18,6 @@ import {
 	getOAuthConfig,
 	getProviderEnvKey,
 	getProviderEnvVarName,
-	isProviderAutoSignedIn,
 	completeOAuthDeviceCodeLogin,
 } from './modelProviderShared.js';
 
@@ -82,17 +81,14 @@ export class ModelProviderModal {
 	async loginModelProvider(provider: ModelProvider, options: LoginModelProviderOptions = {}) {
 		const { timeout = 15000 } = options;
 
-		// Providers auto-signed-in via env var (ANTHROPIC_API_KEY / OPENAI_API_KEY)
-		// need no UI action, matching the legacy page object.
-		if (isProviderAutoSignedIn(provider)) {
-			return;
-		}
-
 		await test.step(`Connect to ${provider} in new provider modal`, async () => {
 			await this.runConfigureProviders();
 			await expect(this.code.driver.currentPage.locator(MODAL)).toBeVisible({ timeout });
 
-			// Already connected (e.g. autoconfigured via a credential chain): nothing to do.
+			// Already connected (e.g. a provider autoconfigured from the environment,
+			// such as AWS Bedrock via the credential chain): nothing to do. This is
+			// read from the modal's live state, not a guess from process.env, so it
+			// stays correct whether or not the launched app scrubbed auth env vars.
 			if ((await this.providerSection(provider)) === 'connected') {
 				await this.clickCloseButton();
 				return;
@@ -149,10 +145,6 @@ export class ModelProviderModal {
 
 	async logoutModelProvider(provider: ModelProvider, options: { timeout?: number } = {}) {
 		const { timeout = 15000 } = options;
-
-		if (isProviderAutoSignedIn(provider)) {
-			return;
-		}
 
 		await test.step(`Disconnect ${provider} in new provider modal`, async () => {
 			await this.runConfigureProviders();
