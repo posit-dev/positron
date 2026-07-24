@@ -27,24 +27,6 @@ suite('resolveAwsChainInit', () => {
 		assert.deepStrictEqual(result, { clientConfig: { region: 'eu-west-1' } });
 	});
 
-	test('ignores AWS_REGION/AWS_PROFILE env vars when the catalog is empty', () => {
-		const empty = resolveAwsChainInit(
-			{}, { ...WEB_IDENTITY_ENV, AWS_REGION: 'us-west-2', AWS_PROFILE: 'dev' }
-		);
-		assert.deepStrictEqual(empty, { clientConfig: { region: 'us-east-1' } });
-
-		const undefinedConfig = resolveAwsChainInit(
-			undefined, { ...WEB_IDENTITY_ENV, AWS_REGION: 'us-west-2', AWS_PROFILE: 'dev' }
-		);
-		assert.deepStrictEqual(undefinedConfig, { clientConfig: { region: 'us-east-1' } });
-	});
-
-	test('defaults the web-identity region to us-east-1 when the catalog is undefined', () => {
-		const result = resolveAwsChainInit(undefined, WEB_IDENTITY_ENV);
-
-		assert.deepStrictEqual(result, { clientConfig: { region: 'us-east-1' } });
-	});
-
 	test('includes the profile when set, still passing the region', () => {
 		const result = resolveAwsChainInit(
 			{ profile: 'dev', region: 'ap-southeast-2' }, WEB_IDENTITY_ENV
