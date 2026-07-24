@@ -11,7 +11,7 @@ import { resolveAwsChainInit } from '../credentials/aws';
 const WEB_IDENTITY_ENV = { AWS_WEB_IDENTITY_TOKEN_FILE: '/var/run/token' };
 
 suite('resolveAwsChainInit', () => {
-	test('passes the catalog region to the STS client config', () => {
+	test('passes the configured region to the STS client config', () => {
 		const result = resolveAwsChainInit(
 			{ region: 'eu-west-1' }, WEB_IDENTITY_ENV
 		);
@@ -19,7 +19,7 @@ suite('resolveAwsChainInit', () => {
 		assert.deepStrictEqual(result, { clientConfig: { region: 'eu-west-1' } });
 	});
 
-	test('ignores the AWS_REGION env var; the catalog region wins', () => {
+	test('prefers the setting region over the AWS_REGION env var', () => {
 		const result = resolveAwsChainInit(
 			{ region: 'eu-west-1' }, { ...WEB_IDENTITY_ENV, AWS_REGION: 'us-west-2' }
 		);
@@ -28,8 +28,6 @@ suite('resolveAwsChainInit', () => {
 	});
 
 	test('ignores AWS_REGION/AWS_PROFILE env vars when the catalog is empty', () => {
-		// The env fallbacks were removed: env vars reach this function only
-		// through the catalog now, so an env-only region/profile is dropped.
 		const empty = resolveAwsChainInit(
 			{}, { ...WEB_IDENTITY_ENV, AWS_REGION: 'us-west-2', AWS_PROFILE: 'dev' }
 		);
@@ -49,11 +47,11 @@ suite('resolveAwsChainInit', () => {
 
 	test('includes the profile when set, still passing the region', () => {
 		const result = resolveAwsChainInit(
-			{ profile: 'work', region: 'ap-southeast-2' }, WEB_IDENTITY_ENV
+			{ profile: 'dev', region: 'ap-southeast-2' }, WEB_IDENTITY_ENV
 		);
 
 		assert.deepStrictEqual(result, {
-			profile: 'work',
+			profile: 'dev',
 			clientConfig: { region: 'ap-southeast-2' },
 		});
 	});
