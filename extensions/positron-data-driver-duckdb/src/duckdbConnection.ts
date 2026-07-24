@@ -4,9 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
-import { duckDBWorkerPool, IDuckDBWorkerLease } from './duckdbWorkerPool.js';
+import { duckDBWorkerPool, IDuckDBWorkerLease, IDuckDBDataExplorerHost } from 'positron-data-explorer-duckdb';
 import { createSchemasGroupNode, IDuckDBPreviewHost } from './duckdbNodes.js';
-import { DUCKDB_DATA_EXPLORER_PROVIDER_ID, IDuckDBDataExplorerHost } from './duckdbDataExplorerRpcHandler.js';
+
+/** The Data Explorer provider id this extension registers under and opens datasets with. */
+export const DUCKDB_DATA_EXPLORER_PROVIDER_ID = 'positron-data-driver-duckdb';
 
 /** Monotonically increasing id so each connection's previewed datasets get a unique key. */
 let nextConnectionId = 1;

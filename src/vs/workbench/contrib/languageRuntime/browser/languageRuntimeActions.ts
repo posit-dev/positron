@@ -22,7 +22,7 @@ import { getSessionDisplayName, getSessionIconClasses, isQuartoSession } from '.
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID, SELECT_KERNEL_ID_POSITRON } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IRuntimeDiscoveryCache } from '../../../services/runtimeStartup/common/runtimeDiscoveryCacheService.js';
-import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandMetadata, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { DisposableStore, dispose } from '../../../../base/common/lifecycle.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExplorerFolderContext } from '../../files/common/files.js';
@@ -478,7 +478,7 @@ export const selectNewLanguageRuntime = async (
 					iconPath: {
 						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
 					},
-					neverShowWhenFiltered: true
+					neverShowWhenFiltered: false
 				});
 			});
 		}
@@ -487,7 +487,7 @@ export const selectNewLanguageRuntime = async (
 		interpreterGroups.forEach(group => {
 			// Group runtimes by environment type
 			const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
-			const allRuntimes = [group.primaryRuntime, ...group.alternateRuntimes];
+			const allRuntimes = group.alternateRuntimes;
 
 			allRuntimes.forEach(runtime => {
 				const envType = `${runtime.runtimeSource}`;
@@ -839,7 +839,8 @@ export function registerLanguageRuntimeActions() {
 		id: string,
 		title: ILocalizedString,
 		action: (accessor: ServicesAccessor) => Promise<void>,
-		keybinding: Omit<IKeybindingRule, 'id'>[] | undefined = undefined): void => {
+		keybinding: Omit<IKeybindingRule, 'id'>[] | undefined = undefined,
+		metadata: ICommandMetadata | undefined = undefined): void => {
 		registerAction2(class extends Action2 {
 			// Constructor.
 			constructor() {
@@ -848,7 +849,8 @@ export function registerLanguageRuntimeActions() {
 					title,
 					f1: true,
 					category,
-					keybinding
+					keybinding,
+					metadata,
 				});
 			}
 
@@ -1145,7 +1147,11 @@ export function registerLanguageRuntimeActions() {
 				weight: KeybindingWeight.WorkbenchContrib,
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Digit0
 			},
-		]
+		],
+		{
+			description: localize('positron.languageRuntime.restartActiveInterpreterSession.description', "Restart the active interpreter runtime session."),
+			agentCompatible: true,
+		}
 	);
 
 	/**

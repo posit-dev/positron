@@ -134,7 +134,7 @@ We use Playwright as the test framework for end-to-end tests in Positron. Make s
 
 > [!TIP]
 > To manually run and debug Positron against Workbench (`e2e-workbench` project), see
-> [`docker/environments/pwb-local/README.md`](../../docker/environments/pwb-local/README.md) (`npm run pwb`).
+> [`docker/environments/wb-local/README.md`](../../docker/environments/wb-local/README.md) (`npm run pwb`).
 
 #### Running Specific Tests
 

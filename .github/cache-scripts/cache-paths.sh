@@ -20,6 +20,27 @@
 # 3. For stable extensions: Automatic (all non-volatile extensions)
 # 4. Run: .github/cache-scripts/verify-cache-paths.sh to validate changes
 #
+# GOTCHAS (each of these has bitten us; read before editing NPM_CORE_PATHS):
+# A. Cache a generated artifact's RUNTIME DEPS, not just the artifact. postinstall
+#    is skipped on a cache hit, so it only rebuilds outputs -- it does NOT reinstall
+#    node_modules. If you cache a built output (a dist/, a native binding), also cache
+#    the node_modules it require()s at runtime, or the artifact restores but fails to
+#    load. This is why both ai-config/dist AND ai-lib/node_modules are listed (#15065).
+# B. Changing the PATH SET must rotate the cache key. On a plain key hit, actions/cache
+#    restores the old blob and never re-saves -- so a path you add here stays MISSING
+#    until the key changes for some other reason. cache-paths.sh is folded into the key
+#    (generate-package-locks-hash.sh buildScripts) so editing it self-rotates the key.
+#    Keep it there.
+# C. A green PR-CI run does NOT prove a cache change works. The failure mode only appears
+#    on a cache HIT that actually EXECUTES the cached code (a build/compile step never
+#    runs it). Right after a key rotation everything is a cache MISS (full install), which
+#    masks the gap. Verify against a cache-hit run of a job that runs the code (e.g. ext-host).
+# D. Force a rebuild with the "vN" key prefix, not a hack. Each cache key in the restore/
+#    save action.yml carries a manual version (npm-core-v7, builtins-v2, ...). Bump it in
+#    BOTH action.yml files to invalidate a cache when no content hash would (a corrupt
+#    saved blob, a paths change you can't express as a hash input). The per-cache numbers
+#    are independent, so they need not match each other.
+#
 # USED BY:
 # • .github/actions/restore-build-caches/action.yml
 # • .github/actions/save-build-caches/action.yml
@@ -67,9 +88,21 @@ fi
 # What: Root node_modules, build tools, test dependencies, npm/node-gyp caches,
 #       and artifacts generated during postinstall (e.g., ESM dependencies)
 # Invalidates: When any core package-lock.json changes OR Node.js major version changes
-#              OR postinstall scripts change (see generate-package-locks-hash.sh)
+#              OR postinstall scripts change OR the ai-lib submodule is bumped
+#              (see generate-package-locks-hash.sh)
 # Why cache node-gyp: Avoids downloading Node.js headers (saves 10-30s, more reliable)
 # Node.js version: Major version included in cache key (ABI is stable within major versions)
+# ai-lib/packages/ai-config/dist: Built by extensions/authentication's postinstall
+#       (npm --prefix ../../ai-lib run build -w ai-config). It lives outside node_modules
+#       and outside extensions/, so neither the extension caches nor node_modules cover it;
+#       without this it goes missing on a cache hit. The ai-lib submodule gitlink is folded
+#       into this cache's key so a bump rebuilds it (see generate-package-locks-hash.sh).
+# ai-lib/node_modules + ai-lib/packages/ai-config/node_modules: ai-lib is an npm workspace
+#       root, so installing ai-config (dirs.ts) hoists its deps (e.g. proper-lockfile) into
+#       ai-lib/node_modules. ai-config/dist imports those at runtime, but postinstall only
+#       rebuilds dist on a cache hit -- it never reinstalls ai-lib's deps -- so without these
+#       paths the cached dist loads and then fails with ERR_MODULE_NOT_FOUND. Same gitlink key.
+#       NOTE: entries are read line-by-line, so no inline comments inside the heredoc.
 read -r -d '' NPM_CORE_PATHS << EOF || true
 .npm-cache
 $NODE_GYP_CACHE
@@ -82,6 +115,9 @@ remote/reh-web/node_modules
 test/integration/browser/node_modules
 test/monaco/node_modules
 test/mcp/node_modules
+ai-lib/node_modules
+ai-lib/packages/ai-config/node_modules
+ai-lib/packages/ai-config/dist
 EOF
 
 # ----------------------------------------------------------------------------

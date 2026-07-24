@@ -7,8 +7,11 @@ import { readFileSync } from 'fs';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { IDuckDBDataExplorerHost } from 'positron-data-explorer-duckdb';
 import { ConnectClient } from './connectClient.js';
+import { escapeDoubleQuoted } from './pinsCode.js';
 import { Logger, NULL_LOGGER } from './logging.js';
+import { PinsCache } from './pinsCache.js';
 import { PinsConnection } from './pinsConnection.js';
 
 /**
@@ -21,15 +24,6 @@ const API_KEY_MECHANISM_ID = 'apiKey';
 /** Type guard for a non-empty string. */
 function isNonEmptyString(value: unknown): value is string {
 	return typeof value === 'string' && value.length > 0;
-}
-
-/**
- * Escapes a value for embedding in a double-quoted Python or R string literal. Both languages treat
- * backslash as an escape character in double-quoted strings, so values containing backslashes or
- * quotes must be escaped.
- */
-function escapeDoubleQuoted(value: string): string {
-	return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 /**
@@ -92,9 +86,16 @@ function generatePythonCode(serverUrl: string | undefined, apiKey: string | unde
 /**
  * Creates the Posit Connect pins DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
+ * @param dataExplorerHandler Hosts the table views previewed pins are shown in.
+ * @param cache The on-disk cache downloaded pin data files are stored in.
  * @param logger Logs connect and browse activity; defaults to a no-op logger.
  */
-export function createPinsDriver(context: vscode.ExtensionContext, logger: Logger = NULL_LOGGER): positron.DataConnectionDriver {
+export function createPinsDriver(
+	context: vscode.ExtensionContext,
+	dataExplorerHandler: IDuckDBDataExplorerHost,
+	cache: PinsCache,
+	logger: Logger = NULL_LOGGER
+): positron.DataConnectionDriver {
 	// Load the SVG icon once at registration time.
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'connect.svg');
 	const iconSvg = readFileSync(iconPath, 'utf-8');
@@ -148,7 +149,7 @@ export function createPinsDriver(context: vscode.ExtensionContext, logger: Logge
 			const settings = await client.getServerSettings();
 			const user = await client.getCurrentUser();
 			logger.info(`Connected as ${user.username || '(unknown user)'}${settings.version ? ` (Connect ${settings.version})` : ''}`);
-			return new PinsConnection(client, logger);
+			return new PinsConnection(client, dataExplorerHandler, cache, logger);
 		},
 		async generateConnectionCode(mechanismId: string, languageId: string, params: positron.DataConnectionParameterValues): Promise<positron.ConnectionCodeVariant[]> {
 			if (mechanismId !== API_KEY_MECHANISM_ID) {

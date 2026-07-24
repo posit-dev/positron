@@ -42,16 +42,48 @@ function spawnAsync(command: string, args: string[], opts: child_process.SpawnOp
 		let output = '';
 		child.stdout?.on('data', (data: Buffer) => { output += data.toString(); });
 		child.stderr?.on('data', (data: Buffer) => { output += data.toString(); });
-		child.on('error', reject);
-		child.on('close', (code) => {
+		// Name the command and cwd on failure so a crash points at the process that
+		// died. Concurrent installs interleave output, and a bare "exited with code"
+		// (e.g. a native module aborting with the Windows 0xC0000409 / 3221226505 exit
+		// code) doesn't say which dir crashed; the cwd is what identifies it.
+		const where = opts.cwd ? ` (cwd: ${opts.cwd})` : '';
+		const commandLine = `${command} ${args.join(' ')}`.trim();
+		child.on('error', (err) => {
+			reject(new Error(`Failed to spawn "${commandLine}"${where}: ${err.message}`));
+		});
+		child.on('close', (code, signal) => {
 			if (code !== 0) {
-				reject(new Error(`Process exited with code: ${code}\n${output}`));
+				const sig = signal ? `, signal: ${signal}` : '';
+				reject(new Error(`Command "${commandLine}"${where} exited with code: ${code}${sig}\n${output}`));
 			} else {
 				resolve(output);
 			}
 		});
 	});
 }
+
+// --- Start Positron ---
+/**
+ * Whether the given dir packages prebuilt per-arch *runtime* native bindings that
+ * must match the cross-build *target* architecture rather than the host. Keyed off a
+ * direct dependency on @duckdb/node-api (which pulls in @duckdb/node-bindings-<os>-<arch>
+ * as optional deps); this excludes host-tool dirs (ai-lib, build, ...) whose native
+ * optional deps -- e.g. the TypeScript 7 compiler binary -- must stay on the host arch.
+ * See the call site in npmInstallAsync and issue #15042.
+ */
+function dirShipsPrebuiltRuntimeBindings(dir: string): boolean {
+	const packageJsonPath = path.join(root, dir, 'package.json');
+	if (!fs.existsSync(packageJsonPath)) {
+		return false;
+	}
+	try {
+		const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+		return Boolean(pkg.dependencies?.['@duckdb/node-api'] || pkg.optionalDependencies?.['@duckdb/node-api']);
+	} catch {
+		return false;
+	}
+}
+// --- End Positron ---
 
 async function npmInstallAsync(dir: string, opts?: child_process.SpawnOptions): Promise<void> {
 	const finalOpts: child_process.SpawnOptions = {
@@ -60,6 +92,31 @@ async function npmInstallAsync(dir: string, opts?: child_process.SpawnOptions): 
 		cwd: path.join(root, dir),
 		shell: true,
 	};
+
+	// --- Start Positron ---
+	// When cross-building (e.g. an x64 build on an arm64 macOS machine) the build
+	// sets `npm_config_arch` to the *target* architecture. node-gyp reads that to
+	// compile native modules for the target, but npm ignores `arch` when choosing
+	// which platform-specific optional dependencies to install -- it filters those
+	// by the package's `cpu` field, which npm derives from `process.arch` unless the
+	// `--cpu` (`npm_config_cpu`) config overrides it. Without this, packages that
+	// ship prebuilt per-arch bindings via optional dependencies (e.g. @duckdb/node-api
+	// -> @duckdb/node-bindings-darwin-*) get the host-arch binding bundled instead of
+	// the target's, and fail to load at runtime with MODULE_NOT_FOUND.
+	//
+	// This must be scoped, NOT applied globally: `--cpu` also steers the optional
+	// deps of *build-time* tools that run on the host during install (e.g. the
+	// native TypeScript 7 compiler ships `@typescript/typescript-<os>-<arch>` and
+	// runs `tsc` on the host), and forcing those to the target arch makes the host
+	// tool unable to load its own binary. So only translate the arch for dirs that
+	// ship prebuilt per-arch *runtime* bindings we package into the app -- detected
+	// by a direct dependency on @duckdb/node-api, which excludes host-tool dirs like
+	// ai-lib and build. See
+	const env = finalOpts.env;
+	if (env && env['npm_config_arch'] && !env['npm_config_cpu'] && dirShipsPrebuiltRuntimeBindings(dir)) {
+		env['npm_config_cpu'] = env['npm_config_arch'];
+	}
+	// --- End Positron ---
 
 	const command = process.env['npm_command'] || 'install';
 
@@ -355,24 +412,23 @@ function generateRehWebPackageJson() {
 }
 
 /**
- * If the ark submodule pointer recorded in this commit differs from what's
- * currently checked out in `extensions/positron-r/ark`, sync it — but only
- * when it's safe to do so. "Safe" means: the current submodule HEAD is
- * detached and is an ancestor of ark's `origin/main` (i.e., no in-progress
- * dev work would be lost). Anything else (named branch, unmerged commits,
- * offline, CI) is left alone.
+ * If the submodule pointer recorded in this commit differs from what's
+ * currently checked out, sync it — but only when it's safe to do so. "Safe"
+ * means: the current submodule HEAD is detached and is an ancestor of the
+ * submodule's `origin/main` (i.e., no in-progress dev work would be lost).
+ * Anything else (named branch, unmerged commits, offline, CI) is left alone.
  *
  * Runs before the dirs loop so the subsequent extensions install (which
- * triggers install-kernel) sees the synced submodule contents.
+ * triggers install-kernel and the authentication extension's postinstall)
+ * sees the synced submodule contents.
  */
-async function syncArkSubmoduleIfSafe(): Promise<void> {
+async function syncSubmoduleIfSafe(submodulePath: string): Promise<void> {
 	// Skip in CI — checkouts there already pin the submodule via `submodules: true`.
 	if (process.env['CI']) {
-		log('.', 'Skipping ark submodule sync in CI environment');
+		log(submodulePath, 'Skipping submodule sync in CI environment');
 		return;
 	}
 
-	const submodulePath = 'extensions/positron-r/ark';
 	const submoduleAbs = path.join(root, submodulePath);
 
 	// Not initialized yet — install-kernel's ensureSubmoduleReady handles that path.
@@ -404,7 +460,7 @@ async function syncArkSubmoduleIfSafe(): Promise<void> {
 		if (branch) {
 			log(submodulePath,
 				`Pointer differs (${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}), ` +
-				`but ark is on branch '${branch}'. Skipping auto-sync.`);
+				`but the submodule is on branch '${branch}'. Skipping auto-sync.`);
 			return;
 		}
 	} catch {
@@ -425,12 +481,12 @@ async function syncArkSubmoduleIfSafe(): Promise<void> {
 	} catch {
 		log(submodulePath,
 			`Pointer differs (${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}), ` +
-			`but HEAD is not reachable from ark's origin/main — looks like in-progress ` +
-			`work. Skipping. Run \`git submodule update -- ${submodulePath}\` to sync manually.`);
+			`but HEAD is not reachable from the submodule's origin/main — looks like ` +
+			`in-progress work. Skipping. Run \`git submodule update -- ${submodulePath}\` to sync manually.`);
 		return;
 	}
 
-	log(submodulePath, `Syncing ark submodule ${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}...`);
+	log(submodulePath, `Syncing submodule ${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}...`);
 	run('git', ['submodule', 'update', '--', submodulePath], { cwd: root, stdio: 'inherit' });
 }
 // --- End Positron ---
@@ -486,14 +542,62 @@ async function runWithConcurrency(tasks: (() => Promise<void>)[], concurrency: n
 	}
 }
 
+// --- Start Positron ---
+/**
+ * Build the ai-config package (from the ai-lib submodule).
+ *
+ * ai-config emits dist/ via tsc, and the authentication extension imports it at
+ * COMPILE time (`import ... from 'ai-config/node'`, resolved by the package's
+ * exports map to dist/). The build used to be a side effect of the
+ * authentication extension's own postinstall, but npm skips that postinstall
+ * whenever the extension's node_modules is restored from cache -- so on
+ * cache-hit runs (the common case) dist/ was never built and compilation failed
+ * with "Cannot find module 'ai-config/node'".
+ *
+ * Building here -- next to the always-run buildSqliteServerBinding, in both the
+ * up-to-date and full postinstall paths -- makes dist/ deterministic regardless
+ * of the extension cache state. dist/ is also cached on its own (cache-paths.sh,
+ * keyed on the ai-lib submodule gitlink) so full cache-hit runs that skip
+ * postinstall entirely still get it restored.
+ */
+async function buildAiConfig({ force }: { force: boolean }): Promise<void> {
+	const aiConfigDir = path.join(root, 'ai-lib', 'packages', 'ai-config');
+	if (!fs.existsSync(aiConfigDir)) {
+		// ai-lib submodule not checked out (e.g. a shallow/partial checkout that
+		// doesn't need it); nothing to build.
+		return;
+	}
+	// In the up-to-date fast path (force=false) skip the rebuild if dist/ is
+	// already present -- nothing changed, so rebuilding would just add tsc +
+	// generate-schema to every `npm install`. The full install path passes
+	// force=true because deps just changed and dist/ may be stale or absent.
+	if (!force && fs.existsSync(path.join(aiConfigDir, 'dist', 'index.js'))) {
+		return;
+	}
+	log('ai-lib/packages/ai-config', 'Building ai-config (generate-schema + tsc)...');
+	// shell: true is required on Windows, where `npm` resolves to npm.cmd -- Node's
+	// child_process.spawn refuses to launch a .cmd directly (EINVAL) without it.
+	await spawnAsync(npm, ['--prefix', 'ai-lib', 'run', 'build', '-w', 'ai-config'], { cwd: root, shell: true });
+}
+// --- End Positron ---
+
 async function main() {
 	// --- Start Positron ---
-	// Sync the ark submodule before anything else — extensions install runs
-	// install-kernel, which reads the submodule's working tree.
+	// Sync the submodules before anything else — extensions install runs
+	// install-kernel, which reads the ark submodule's working tree, and the
+	// authentication extension's postinstall, which builds ai-config from the
+	// ai-lib submodule. Unlike ark, ai-lib has no install step of its own to
+	// initialize it, so a missing ai-lib checkout is initialized here first —
+	// there is no working tree to lose.
 	try {
-		await syncArkSubmoduleIfSafe();
+		if (!fs.existsSync(path.join(root, 'ai-lib', '.git'))) {
+			log('ai-lib', 'Submodule not initialized; running `git submodule update --init`...');
+			run('git', ['submodule', 'update', '--init', '--', 'ai-lib'], { cwd: root, stdio: 'inherit' });
+		}
+		await syncSubmoduleIfSafe('extensions/positron-r/ark');
+		await syncSubmoduleIfSafe('ai-lib');
 	} catch (err) {
-		console.error('Error in syncArkSubmoduleIfSafe:', err);
+		console.error('Error syncing submodules:', err);
 		throw err;
 	}
 	// --- End Positron ---
@@ -505,6 +609,10 @@ async function main() {
 		// and cheap when the binary is already correct (see buildSqliteServerBinding),
 		// so a cached/already-installed node_modules still gets repaired here.
 		await buildSqliteServerBinding();
+		// Likewise ensure ai-config's dist/ exists (the authentication extension
+		// imports it at compile time). Nothing changed, so skip the rebuild if
+		// it's already there.
+		await buildAiConfig({ force: false });
 		child_process.execSync('git config pull.rebase merges');
 		child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
 		return;
@@ -623,6 +731,11 @@ async function main() {
 	// The SQLite data driver's native binding must also load in the server/remote
 	// extension host (plain Node, a different ABI than the desktop Electron host).
 	await buildSqliteServerBinding();
+	// Build ai-config's dist/ (imported by the authentication extension at
+	// compile time). Kept here rather than in the authentication postinstall,
+	// which npm skips whenever that extension is restored from cache. Deps just
+	// changed, so force a rebuild rather than trusting a possibly-stale dist/.
+	await buildAiConfig({ force: true });
 	// --- End Positron ---
 
 	child_process.execSync('git config pull.rebase merges');

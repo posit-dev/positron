@@ -269,7 +269,7 @@
 		},
 		{
 			"name": "posit.air-vscode",
-			"version": "0.26.0",
+			"version": "0.28.0",
 			"repo": "https://github.com/posit-dev/air",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
@@ -280,8 +280,8 @@
 		},
 		{
 			"name": "posit.shiny",
-			"version": "1.4.1",
-			"sha256": "f2562bd08ac9e9c5c8f0d103509f14d638ceb2b58dd6d91c4be96b1e0bcb8a9b",
+			"version": "1.4.2",
+			"sha256": "3aae12e054a7c9317ddbc41eeea3d6e98c0634f70db14f32f8623da7dfcaff27",
 			"repo": "https://github.com/posit-dev/shiny-vscode",
 			"metadata": {
 				"id": "7ffa9a66-85ab-44de-ab80-2eecce45b0fe",

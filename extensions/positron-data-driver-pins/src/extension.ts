@@ -5,8 +5,11 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { DuckDBDataExplorerRpcHandler } from 'positron-data-explorer-duckdb';
 import { Logger } from './logging.js';
+import { PinsCache } from './pinsCache.js';
 import { createPinsDriver } from './pinsDriver.js';
+import { PINS_DATA_EXPLORER_PROVIDER_ID } from './pinsConnection.js';
 
 /**
  * Builds a {@link Logger} backed by an output channel that is created on first use. Deferring
@@ -46,7 +49,17 @@ export function activate(context: vscode.ExtensionContext) {
 	// its gear menu) to see individual requests.
 	const logger = createLazyChannelLogger('Data Connections: Posit Connect Pins', context);
 
-	const driver = createPinsDriver(context, logger);
+	// Services Data Explorer RPCs for tabular pins previewed from a connection. Uses the shared DuckDB
+	// backend under this extension's own provider id.
+	const dataExplorerHandler = new DuckDBDataExplorerRpcHandler(PINS_DATA_EXPLORER_PROVIDER_ID);
+	context.subscriptions.push(dataExplorerHandler);
+
+	// Downloaded pin data files are cached under the extension's global storage. Prune stale entries
+	// once per session (best-effort; never blocks activation).
+	const cache = new PinsCache(context.globalStorageUri.fsPath);
+	void cache.prune();
+
+	const driver = createPinsDriver(context, dataExplorerHandler, cache, logger);
 	context.subscriptions.push(positron.dataConnections.registerDriver(driver));
 }
 

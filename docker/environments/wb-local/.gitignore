@@ -1,9 +1,4 @@
-# Ignore environment variables file
+# Local workbench QA stack secrets/config -- never commit
 .env
-
-# Ignore license files
-*.lic
-
-# Ignore any backup files that might be created
-*.bak
-*~
+# Auto-stop timer bookkeeping
+.ttl.pid

@@ -19,6 +19,7 @@ export let dirs = [
 	'build/vite',
 	'extensions',
 	// --- Start Positron ---
+	'ai-lib/packages/ai-config',
 	'extensions/authentication',
 	'extensions/next-edit-suggestions',
 	'extensions/open-remote-ssh',
@@ -29,6 +30,7 @@ export let dirs = [
 	'extensions/positron-duckdb',
 	'extensions/positron-environment',
 	'extensions/positron-data-explorer-protocol',
+	'extensions/positron-data-explorer-duckdb',
 	'extensions/positron-data-driver-duckdb',
 	'extensions/positron-data-driver-pins',
 	'extensions/positron-data-driver-postgresql',

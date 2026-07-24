@@ -1,0 +1,35 @@
+name: 'Test: cache scripts'
+
+# Unit tests for the CI cache tooling in .github/cache-scripts/. These scripts
+# gate the build (check-uncached-artifacts.sh) and define the cache key/paths, so
+# a regression is expensive and easy to miss -- hence a fast, dependency-free
+# scenario suite. Runs only when the cache scripts themselves change.
+on:
+  pull_request:
+    paths:
+      - '.github/cache-scripts/**'
+      - '.github/workflows/test-cache-scripts.yml'
+      # The hash test require()s dirs.ts, so a change there can rotate the key too.
+      - 'build/npm/dirs.ts'
+  push:
+    branches: [main]
+    paths:
+      - '.github/cache-scripts/**'
+      - '.github/workflows/test-cache-scripts.yml'
+      - 'build/npm/dirs.ts'
+
+jobs:
+  test:
+    name: cache-scenarios
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # generate-package-locks-hash.test.sh runs the real key generator, which
+      # requires('./build/npm/dirs.ts') -- Node >= 22.6 strips the types natively.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: check-uncached-artifacts scenarios
+        run: bash .github/cache-scripts/check-uncached-artifacts.test.sh
+      - name: generate-package-locks-hash scenarios
+        run: bash .github/cache-scripts/generate-package-locks-hash.test.sh

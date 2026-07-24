@@ -36,6 +36,14 @@ export const NES_ENABLE_SETTING = 'nextEditSuggestions.enabled';
 export const NES_CONTEXT_AVAILABLE = 'nextEditSuggestions.available';
 
 /** Context key (owned by the extension) that is true when signed in to Posit AI. */
+export const NES_CONTEXT_SIGNED_IN = 'nextEditSuggestions.signedIn';
+
+/**
+ * Context key (owned by the extension) that is true when Next Edit Suggestions
+ * is fully operational: AI is enabled, the feature is on for at least one file
+ * type, and the user is signed in. Distinct from {@link NES_CONTEXT_SIGNED_IN},
+ * which reflects auth alone.
+ */
 export const NES_CONTEXT_ACTIVE = 'nextEditSuggestions.active';
 
 /** Context key (owned by the extension) holding the name of the provider that powers suggestions. */
@@ -112,7 +120,7 @@ export class NextEditSuggestionsStatusDashboard extends DomWidget {
 		super();
 
 		this._store.add(this.contextKeyService.onDidChangeContext(e => {
-			if (e.affectsSome(new Set([NES_CONTEXT_ACTIVE, NES_CONTEXT_PROVIDER, NES_CONTEXT_MODEL]))) {
+			if (e.affectsSome(new Set([NES_CONTEXT_SIGNED_IN, NES_CONTEXT_PROVIDER, NES_CONTEXT_MODEL]))) {
 				this.renderContents();
 			}
 		}));
@@ -124,7 +132,7 @@ export class NextEditSuggestionsStatusDashboard extends DomWidget {
 		const disposables = this.contentDisposables.value = new DisposableStore();
 		clearNode(this.element);
 
-		const signedIn = this.contextKeyService.getContextKeyValue<boolean>(NES_CONTEXT_ACTIVE) ?? false;
+		const signedIn = this.contextKeyService.getContextKeyValue<boolean>(NES_CONTEXT_SIGNED_IN) ?? false;
 
 		this.createHeader(this.element, localize('positron.nes.title', "Next Edit Suggestions"), disposables);
 

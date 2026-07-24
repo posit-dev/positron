@@ -7,9 +7,20 @@
 # Creates a deterministic hash used as the cache key for npm-core cache.
 # The hash includes:
 # 1. All core package-lock.json files (dependency versions)
-# 2. Build scripts that affect postinstall behavior (what gets generated)
+# 2. Files that must invalidate the core cache when changed: install scripts
+#    (what gets generated) AND cache-paths.sh (what gets cached). See buildScripts.
+# 3. Gitlink SHAs of submodules that host a core dir (e.g. ai-lib). Their build
+#    output is cached (see cache-paths.sh) and regenerated only on a submodule
+#    bump, which moves the gitlink SHA. Deps-only signals would miss source-only
+#    bumps and restore a stale build.
 #
 # When any of these change, the hash changes and cache invalidates.
+#
+# NOT in this hash: Node.js major version, runner.os, and distro are separate
+# segments of the cache key, assembled in the restore/save action.yml
+# (key: npm-core-v7-node<major>-<os>-<distro>-<hash>). Don't add them here --
+# they'd be double-counted. The "vN" prefix (v7) is a manual force-invalidate
+# knob; bump it in BOTH action.yml files to rebuild without a content change.
 #
 # WHY INCLUDE BUILD SCRIPTS?
 # The postinstall script runs during `npm install` and generates artifacts
@@ -29,8 +40,11 @@
 # • test/integration/browser/
 # • test/monaco/
 # • test/mcp/
+# • ai-lib/packages/ai-config/ (workspace package inside the ai-lib submodule)
 #
 # Basically: Everything except extensions/ and .vscode/
+# Authoritative list = dirs.ts minus extensions/ and .vscode/ (see coreDirs below);
+# this bullet list is illustrative and may lag.
 #
 # WHY NOT EXTENSIONS?
 # Extensions have their own caches (npm-extensions-volatile and npm-extensions-stable)
@@ -97,22 +111,81 @@ console.error('Hashing ' + lockFiles.length + ' package-lock.json files:');
 lockFiles.forEach(f => console.error('  → ' + f));
 
 // ----------------------------------------------------------------------------
-// Step 3: Collect build scripts that affect postinstall behavior
+// Step 3: Collect files that must invalidate the core cache when changed
 // ----------------------------------------------------------------------------
-// These scripts control what runs during npm install and what artifacts are
-// generated. Changes to these should invalidate the cache even if package-lock
-// files haven't changed.
+// Two kinds live here, both beyond package-lock.json:
+//   - install scripts: control what runs during npm install and what artifacts
+//     get generated (a changed build step won't re-run on a cache hit otherwise).
+//   - cache-paths.sh: controls what the cache saves. Changing the path set must
+//     rotate the key, or a newly-added path stays missing until the key changes
+//     for some other reason (a plain key hit restores the old blob, never re-saves).
 //
-// NOTE: If you add a new script that runs during install, add it here!
+// NOTE: Add a file here if changing it must rebuild the core cache -- whether it
+// runs during install OR defines what gets cached.
 const buildScripts = [
   'build/npm/preinstall.ts',   // Preinstall script - installs build/ dependencies
   'build/npm/postinstall.ts',  // Postinstall script - runs npm install in all dirs
   'build/npm/dirs.ts',         // List of directories that get npm install
+  // Defines which paths this cache saves. Changing the set (e.g. adding a
+  // node_modules dir) must rotate the key: on a plain key hit actions/cache
+  // restores the old blob and never re-saves, so a newly-added path would stay
+  // missing until the key changes. Folding this file in rebuilds the cache the
+  // first time the path set changes.
+  '.github/cache-scripts/cache-paths.sh',
 ].sort();
 
 console.error('');
 console.error('Hashing ' + buildScripts.length + ' build scripts:');
 buildScripts.forEach(f => console.error('  → ' + f));
+
+// ----------------------------------------------------------------------------
+// Step 3.5: Collect submodule gitlink SHAs for core dirs hosted in a submodule
+// ----------------------------------------------------------------------------
+// A core dir such as 'ai-lib/packages/ai-config' lives inside the ai-lib
+// submodule. Its build output is cached (cache-paths.sh) but is regenerated
+// only when the submodule is bumped, which moves the gitlink SHA the parent
+// repo records for that submodule. Folding that SHA into the key busts the
+// cache on every bump, so a stale build is never restored. A package-lock.json
+// signal alone would miss source-only bumps (and ai-lib's lockfile isn't even
+// at the core-dir path -- it's the workspace root's).
+// spawnSync with an argument array (never a shell string) so submodule paths
+// parsed from .gitmodules can't be interpreted as shell syntax.
+const { spawnSync } = require('child_process');
+const git = (args) => {
+  const r = spawnSync('git', args, { encoding: 'utf8' });
+  if (r.status !== 0) {
+    throw new Error('git ' + args.join(' ') + ' failed: ' + (r.stderr || '').trim());
+  }
+  return r.stdout;
+};
+
+let submodulePaths = [];
+try {
+  const out = git(['config', '--file', '.gitmodules', '--get-regexp', 'path']);
+  submodulePaths = out.split('\n').map(l => l.trim().split(/\s+/)[1]).filter(Boolean);
+} catch {
+  // No .gitmodules (or no submodules) -- nothing to fold in.
+}
+
+const submoduleRoots = new Set();
+for (const dir of coreDirs) {
+  for (const sub of submodulePaths) {
+    if (dir === sub || dir.startsWith(sub + '/')) {
+      submoduleRoots.add(sub);
+    }
+  }
+}
+
+const submoduleGitlinks = [...submoduleRoots].sort().map(sub => ({
+  sub,
+  // Read the gitlink from the tree, so this works even when the submodule
+  // isn't checked out. Throws loudly if a declared submodule can't resolve.
+  sha: git(['rev-parse', 'HEAD:' + sub]).trim(),
+}));
+
+console.error('');
+console.error('Hashing ' + submoduleGitlinks.length + ' submodule gitlink(s):');
+submoduleGitlinks.forEach(({ sub, sha }) => console.error('  → ' + sub + ' @ ' + sha));
 
 // ----------------------------------------------------------------------------
 // Step 4: Hash all files together
@@ -121,6 +194,9 @@ buildScripts.forEach(f => console.error('  → ' + f));
 const hash = crypto.createHash('sha256');
 for (const file of [...lockFiles, ...buildScripts]) {
   hash.update(fs.readFileSync(file));
+}
+for (const { sub, sha } of submoduleGitlinks) {
+  hash.update(sub + ':' + sha);
 }
 
 const finalHash = hash.digest('hex');

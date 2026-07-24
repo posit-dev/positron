@@ -5,8 +5,9 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { DuckDBDataExplorerRpcHandler } from 'positron-data-explorer-duckdb';
 import { createDuckDBDriver } from './duckdbDriver.js';
-import { DuckDBDataExplorerRpcHandler } from './duckdbDataExplorerRpcHandler.js';
+import { DUCKDB_DATA_EXPLORER_PROVIDER_ID } from './duckdbConnection.js';
 
 /**
  * Activates the extension by registering the DuckDB data connection driver.
@@ -14,7 +15,7 @@ import { DuckDBDataExplorerRpcHandler } from './duckdbDataExplorerRpcHandler.js'
  */
 export function activate(context: vscode.ExtensionContext) {
 	// Services Data Explorer RPCs for tables/views previewed from a DuckDB connection.
-	const dataExplorerHandler = new DuckDBDataExplorerRpcHandler();
+	const dataExplorerHandler = new DuckDBDataExplorerRpcHandler(DUCKDB_DATA_EXPLORER_PROVIDER_ID);
 	context.subscriptions.push(dataExplorerHandler);
 
 	// Create and register the driver and its cleanup.
