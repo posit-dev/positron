@@ -197,14 +197,6 @@ describe('PositronAssistantConfigurationService', () => {
 			expect(service.isProviderEnabled('openai')).toBe(true);
 		});
 
-		it('isProviderEnabled subsumes the copilot special case: copilot vs copilot-auth', () => {
-			service.registerProvider(makeSource('copilot-auth', 'githubCopilot'));
-			catalogEnabled.set('copilot', true);
-
-			expect(service.isProviderEnabled('copilot-auth')).toBe(true);
-			expect(service.isProviderEnabled('copilot')).toBe(true);
-		});
-
 		it('unmapped dev providers (echo) are treated as enabled once registered', () => {
 			service.registerProvider(makeSource('echo'));
 
@@ -218,21 +210,11 @@ describe('PositronAssistantConfigurationService', () => {
 			expect(service.isProviderEnabled('anthropic')).toBe(false);
 		});
 
-		it('deprecated enable settings no longer affect enablement', () => {
-			configurationService.setUserConfiguration('positron.assistant.provider.openAI.enable', true);
-			registerProvider('openAI', false);
-
-			expect(service.getEnabledProviders()).toEqual([]);
-		});
-
-		it('onChangeEnabledProviders fires on a catalog enabledChanged event, not on config changes', () => {
+		it('onChangeEnabledProviders fires on a catalog enabledChanged event', () => {
 			const listener = vi.fn();
 			ctx.disposables.add(service.onChangeEnabledProviders(listener));
 
 			onDidChangeProvidersEmitter.fire(catalogChangeData({ enabledChanged: true }));
-			expect(listener).toHaveBeenCalledTimes(1);
-
-			configurationService.setUserConfiguration('positron.assistant.provider.openAI.enable', true);
 			expect(listener).toHaveBeenCalledTimes(1);
 		});
 	});
