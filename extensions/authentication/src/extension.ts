@@ -135,7 +135,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					}
 				}
 				if (e.changedConnectionIds.includes(catalogId)) {
-					await authProviders.get(id)?.invalidateChainSession();
+					await authProviders.get(id)?.resolveChainCredentials();
 				}
 			}
 		})
