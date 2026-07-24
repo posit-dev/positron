@@ -27,6 +27,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
+from .execute_request import PositronExecuteRequest
+
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
@@ -141,21 +143,16 @@ class FigureManagerPositron(FigureManagerBase):
         code: str = content.get("code", "")
 
         # Extract code_location from the positron metadata, if present
-        positron_meta = content.get("positron", {})
-        code_location = positron_meta.get("code_location", None) if positron_meta else None
-
+        code_location = PositronExecuteRequest.from_message(parent).code_location
         origin: PlotOrigin | None = None
-        if code_location:
-            loc_range = code_location.get("range", {})
-            start = loc_range.get("start", {})
-            end = loc_range.get("end", {})
+        if code_location is not None:
             origin = PlotOrigin(
-                uri=code_location["uri"],
+                uri=code_location.uri,
                 range=PlotRange(
-                    start_line=start.get("line", 0),
-                    start_character=start.get("character", 0),
-                    end_line=end.get("line", 0),
-                    end_character=end.get("character", 0),
+                    start_line=code_location.range.start.line,
+                    start_character=code_location.range.start.character,
+                    end_line=code_location.range.end.line,
+                    end_character=code_location.range.end.character,
                 ),
             )
 

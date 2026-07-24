@@ -38,6 +38,7 @@ from .access_keys import encode_access_key
 from .connections import ConnectionsService
 from .data_explorer import DataExplorerService, DataExplorerWarning
 from .debugger import PositronDebugger
+from .execute_request import PositronExecuteRequest
 from .help import HelpService, _distribution_to_modules, help  # noqa: A004
 from .lsp import LSPService
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
@@ -556,13 +557,11 @@ class PositronShell(ZMQInteractiveShell):
         """
         try:
             parent: dict[str, Any] = self.kernel.get_parent("shell")
-            content = parent.get("content", {})
-            metadata = content.get("positron", {})
-            code_location = metadata.get("code_location")
-            if not code_location:
+            code_location = PositronExecuteRequest.from_message(parent).code_location
+            if code_location is None:
                 return None
 
-            editor_uri = urlparse(code_location.get("uri", ""))
+            editor_uri = urlparse(code_location.uri)
             if editor_uri.scheme != "file":
                 return None
 
