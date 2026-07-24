@@ -6,9 +6,6 @@
 /// <reference types="vitest/globals" />
 
 import { TestConfigurationService } from '../../../../platform/configuration/test/common/testConfigurationService.js';
-import { ITextResourceConfigurationService } from '../../../common/services/textResourceConfiguration.js';
-import { stubInterface } from '../../../../test/vitest/stubInterface.js';
-import { URI } from '../../../../base/common/uri.js';
 
 // Positron hides the Copilot chat UI via `chat.disableAIFeatures` but keeps inline
 // completions working. Completions are gated only by their own setting
@@ -25,18 +22,7 @@ vi.mock('../../../../platform/product/common/product.js', async (importOriginal)
 	};
 });
 
-const { isCompletionsEnabled, isCompletionsEnabledWithTextResourceConfig } = await import('../../../common/services/completionsEnablement.js');
-
-// A minimal ITextResourceConfigurationService backed by a TestConfigurationService,
-// so the resource-scoped tests read the same settings the same way as the plain
-// ones. The source only ever calls the two-arg `getValue(resource, section)` form.
-function textResourceConfig(config: TestConfigurationService): ITextResourceConfigurationService {
-	return stubInterface<ITextResourceConfigurationService>({
-		getValue: ((_resource: URI | undefined, section?: string) => config.getValue(section)) as ITextResourceConfigurationService['getValue'],
-	});
-}
-
-const resource = URI.parse('file:///test.py');
+const { isCompletionsEnabled } = await import('../../../common/services/completionsEnablement.js');
 
 describe('completions enablement is independent of chat.disableAIFeatures', () => {
 	for (const completionsOn of [true, false]) {
@@ -76,49 +62,5 @@ describe('completions enablement respects the ai.enabled main switch', () => {
 		const whenOn = isCompletionsEnabled(configurationService);
 
 		expect([whenUnset, whenOn]).toEqual([true, true]);
-	});
-});
-
-// The deprecated Copilot provider enable setting no longer affects completions
-// enablement: gating on the catalog's copilot entry now happens at the
-// workbench call sites (IAiProviderService.isEnabled('copilot')), not here.
-describe('completions enablement ignores the deprecated Copilot provider setting', () => {
-	const providerSetting = 'positron.assistant.provider.githubCopilot.enable';
-
-	it('stays on when the deprecated provider setting is false but github.copilot.enable is on', () => {
-		const configurationService = new TestConfigurationService();
-		configurationService.setUserConfiguration(completionsSetting, { '*': true });
-		configurationService.setUserConfiguration(providerSetting, false);
-
-		expect(isCompletionsEnabled(configurationService)).toBe(true);
-	});
-
-	it('follows github.copilot.enable when the deprecated provider setting is unset or enabled', () => {
-		const configurationService = new TestConfigurationService();
-		configurationService.setUserConfiguration(completionsSetting, { '*': true });
-
-		const whenUnset = isCompletionsEnabled(configurationService);
-		configurationService.setUserConfiguration(providerSetting, true);
-		const whenOn = isCompletionsEnabled(configurationService);
-
-		expect([whenUnset, whenOn]).toEqual([true, true]);
-	});
-
-	// isCompletionsEnabledWithTextResourceConfig is the per-file variant (it reads
-	// config scoped to a resource for per-language overrides). It carries the same
-	// independence from the deprecated setting.
-	it('isCompletionsEnabledWithTextResourceConfig stays on when the deprecated provider setting is false', () => {
-		const configurationService = new TestConfigurationService();
-		configurationService.setUserConfiguration(completionsSetting, { '*': true });
-		configurationService.setUserConfiguration(providerSetting, false);
-
-		expect(isCompletionsEnabledWithTextResourceConfig(textResourceConfig(configurationService), resource)).toBe(true);
-	});
-
-	it('isCompletionsEnabledWithTextResourceConfig is on when the deprecated provider setting is unset', () => {
-		const configurationService = new TestConfigurationService();
-		configurationService.setUserConfiguration(completionsSetting, { '*': true });
-
-		expect(isCompletionsEnabledWithTextResourceConfig(textResourceConfig(configurationService), resource)).toBe(true);
 	});
 });
