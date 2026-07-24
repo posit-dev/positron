@@ -248,7 +248,7 @@ suite('Python Environment Health - shared helpers', () => {
 
 import { probeDedicatedEnvironment } from '../../client/positron/environmentHealth';
 
-suite('Python Environment Health - dedicatedEnvironment (item 3)', () => {
+suite('Python Environment Health - dedicatedEnvironment (item 4)', () => {
     const createEnvFix = { commandId: 'python.createEnvironmentAndRegister', label: 'c', args: [{}] };
     const newFolderFix = { commandId: 'positron.workbench.action.newFolderFromTemplate', label: 'n' };
 
@@ -303,7 +303,7 @@ suite('Python Environment Health - dedicatedEnvironment (item 3)', () => {
 
 import { probeEnvironmentReady } from '../../client/positron/environmentHealth';
 
-suite('Python Environment Health - environmentReady (item 4)', () => {
+suite('Python Environment Health - environmentReady (item 3)', () => {
     const recreateFix = { commandId: 'python.createEnvironmentAndRegister', label: 'r', args: [{}] };
     const installIpykernelFix = { commandId: 'python.installIpykernel', label: 'k', args: ['/py'] };
     const installNativePythonFix = { commandId: 'python.installPythonViaUv', label: 'n' };
@@ -363,16 +363,16 @@ suite('Python Environment Health - orchestration', () => {
         const result = await assembleItems({
             discovery: () => fail('discovery'),
             pythonInstalled: async () => pass('pythonInstalled'),
-            dedicated: async () => pass('dedicatedEnvironment'),
             ready: async () => pass('environmentReady'),
+            dedicated: async () => pass('dedicatedEnvironment'),
         });
         assert.deepStrictEqual(
             result.items.map((i) => [i.id, i.status]),
             [
                 ['discovery', 'fail'],
                 ['pythonInstalled', 'skipped'],
-                ['dedicatedEnvironment', 'skipped'],
                 ['environmentReady', 'skipped'],
+                ['dedicatedEnvironment', 'skipped'],
             ],
         );
         assert.isFalse(result.ok);
@@ -382,29 +382,56 @@ suite('Python Environment Health - orchestration', () => {
         const result = await assembleItems({
             discovery: () => pass('discovery'),
             pythonInstalled: async () => fail('pythonInstalled'),
-            dedicated: async () => pass('dedicatedEnvironment'),
             ready: async () => pass('environmentReady'),
+            dedicated: async () => pass('dedicatedEnvironment'),
         });
         assert.deepStrictEqual(
             result.items.map((i) => [i.id, i.status]),
             [
                 ['discovery', 'pass'],
                 ['pythonInstalled', 'fail'],
-                ['dedicatedEnvironment', 'skipped'],
                 ['environmentReady', 'skipped'],
+                ['dedicatedEnvironment', 'skipped'],
             ],
         );
     });
 
-    test('item 4 runs even when item 3 warns; warn does not affect ok', async () => {
+    test('failed environmentReady skips dedicatedEnvironment', async () => {
+        const result = await assembleItems({
+            discovery: () => pass('discovery'),
+            pythonInstalled: async () => pass('pythonInstalled'),
+            ready: async () => fail('environmentReady'),
+            dedicated: async () => pass('dedicatedEnvironment'),
+        });
+        assert.deepStrictEqual(
+            result.items.map((i) => [i.id, i.status]),
+            [
+                ['discovery', 'pass'],
+                ['pythonInstalled', 'pass'],
+                ['environmentReady', 'fail'],
+                ['dedicatedEnvironment', 'skipped'],
+            ],
+        );
+        assert.isFalse(result.ok);
+    });
+
+    test('dedicatedEnvironment runs when environmentReady warns; warn does not affect ok', async () => {
         const warn = (id: HealthItemId): HealthItem => ({ id, status: 'warn', summary: id });
         const result = await assembleItems({
             discovery: () => pass('discovery'),
             pythonInstalled: async () => pass('pythonInstalled'),
-            dedicated: async () => warn('dedicatedEnvironment'),
-            ready: async () => pass('environmentReady'),
+            ready: async () => warn('environmentReady'),
+            dedicated: async () => pass('dedicatedEnvironment'),
         });
-        assert.strictEqual(result.items[3].status, 'pass');
+        assert.deepStrictEqual(
+            result.items.map((i) => [i.id, i.status]),
+            [
+                ['discovery', 'pass'],
+                ['pythonInstalled', 'pass'],
+                ['environmentReady', 'warn'],
+                ['dedicatedEnvironment', 'pass'],
+            ],
+        );
         assert.isTrue(result.ok);
     });
 
@@ -414,8 +441,8 @@ suite('Python Environment Health - orchestration', () => {
             pythonInstalled: async () => {
                 throw new Error('boom');
             },
-            dedicated: async () => pass('dedicatedEnvironment'),
             ready: async () => pass('environmentReady'),
+            dedicated: async () => pass('dedicatedEnvironment'),
         });
         assert.strictEqual(result.items[1].status, 'fail');
         assert.include(result.items[1].detail ?? '', 'boom');

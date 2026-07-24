@@ -41,7 +41,7 @@ const SUPPORTED_PYTHON_VERSION_RANGE = `${MINIMUM_PYTHON_VERSION.major}.${MINIMU
 export type HealthItemStatus = 'pass' | 'warn' | 'fail' | 'skipped';
 
 /** The four checks, in dependency order. */
-export type HealthItemId = 'discovery' | 'pythonInstalled' | 'dedicatedEnvironment' | 'environmentReady';
+export type HealthItemId = 'discovery' | 'pythonInstalled' | 'environmentReady' | 'dedicatedEnvironment';
 
 export interface HealthItemFix {
     /** Extension OR core command id. */
@@ -404,8 +404,8 @@ export function probeEnvironmentReady(deps: {
 interface ItemProducers {
     discovery: () => HealthItem;
     pythonInstalled: () => Promise<HealthItem>;
-    dedicated: () => Promise<HealthItem>;
     ready: () => Promise<HealthItem>;
+    dedicated: () => Promise<HealthItem>;
 }
 
 function skipped(id: HealthItemId): HealthItem {
@@ -430,19 +430,31 @@ export async function assembleItems(producers: ItemProducers): Promise<Environme
     const discovery = await runItem('discovery', producers.discovery);
     items.push(discovery);
     if (discovery.status === 'fail') {
-        items.push(skipped('pythonInstalled'), skipped('dedicatedEnvironment'), skipped('environmentReady'));
+        items.push(skipped('pythonInstalled'), skipped('environmentReady'), skipped('dedicatedEnvironment'));
         return finalize(items);
     }
 
     const pythonInstalled = await runItem('pythonInstalled', producers.pythonInstalled);
     items.push(pythonInstalled);
     if (pythonInstalled.status === 'fail') {
-        items.push(skipped('dedicatedEnvironment'), skipped('environmentReady'));
+        items.push(skipped('environmentReady'), skipped('dedicatedEnvironment'));
+        return finalize(items);
+    }
+
+    // environmentReady precedes dedicatedEnvironment because the dedication verdict is derived
+    // from the interpreter's envType, which is only trustworthy when the interpreter actually
+    // resolves. An interpreter that cannot be run (e.g. a deleted venv) reports a degraded
+    // envType and would be misclassified as non-dedicated, so skip dedicatedEnvironment on a
+    // readiness failure and let the recreate fix stand alone rather than emit a misleading
+    // "use a dedicated environment" verdict alongside it.
+    const ready = await runItem('environmentReady', producers.ready);
+    items.push(ready);
+    if (ready.status === 'fail') {
+        items.push(skipped('dedicatedEnvironment'));
         return finalize(items);
     }
 
     items.push(await runItem('dedicatedEnvironment', producers.dedicated));
-    items.push(await runItem('environmentReady', producers.ready));
     return finalize(items);
 }
 
@@ -467,9 +479,10 @@ export async function getEnvironmentHealth(
     // waits out any in-flight discovery, so items 3-4 must read the interpreter list
     // AFTER that wait. Resolving it eagerly here would hand them a pre-wait (possibly
     // empty) snapshot, so item 2 could pass (it found Python during its wait) while
-    // item 4 fails with "No interpreter to evaluate". The producers run in order, so
-    // the first of items 3-4 populates the snapshot post-wait and the rest -- plus the
-    // reported interpreterPath -- reuse it.
+    // environmentReady fails with "No interpreter to evaluate". The producers run in order
+    // (environmentReady before dedicatedEnvironment), so environmentReady populates the
+    // snapshot post-wait and dedicatedEnvironment -- plus the reported interpreterPath --
+    // reuse it.
     let snapshot: { interp: PythonEnvironment | undefined; interpreters: PythonEnvironment[] } | undefined;
     const resolveSnapshot = async () => {
         if (!snapshot) {
@@ -495,8 +508,6 @@ export async function getEnvironmentHealth(
                 allowUvPythonInstall,
                 waitMs: DISCOVERY_WAIT_MS,
             }),
-        dedicated: async () =>
-            evaluateDedicated({ workspaceUri, uvInstalled, allowUvPythonInstall, ...(await resolveSnapshot()) }),
         ready: async () =>
             evaluateReady(serviceContainer, {
                 workspaceUri,
@@ -504,12 +515,16 @@ export async function getEnvironmentHealth(
                 allowUvPythonInstall,
                 ...(await resolveSnapshot()),
             }),
+        dedicated: async () =>
+            evaluateDedicated({ workspaceUri, uvInstalled, allowUvPythonInstall, ...(await resolveSnapshot()) }),
     });
     // Read the memoized snapshot directly rather than calling resolveSnapshot() again.
-    // When the skip cascade fired (items 3-4 skipped) the snapshot was never resolved, so
-    // it stays undefined and interpreterPath is omitted. Re-invoking resolveSnapshot() here
-    // would run getActiveInterpreter outside runItem, where a rejection escapes and breaks
-    // the "command never rejects" contract.
+    // When discovery or pythonInstalled failed, the cascade skipped environmentReady before it
+    // could resolve the snapshot, so it stays undefined and interpreterPath is omitted. (A
+    // readiness failure still resolves the snapshot, so the evaluated interpreter is reported
+    // even when dedicatedEnvironment is skipped.) Re-invoking resolveSnapshot() here would run
+    // getActiveInterpreter outside runItem, where a rejection escapes and breaks the "command
+    // never rejects" contract.
     result.interpreterPath = snapshot?.interp?.path;
 
     traceEnvironmentHealth(result);
