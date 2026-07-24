@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import enum
 import importlib.util
-import json
 import logging
 import os
 import re
@@ -29,7 +28,6 @@ from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
 from IPython.core import magic_arguments, oinspect, page
 from IPython.core.error import UsageError
-from IPython.core.formatters import DisplayFormatter, IPythonDisplayFormatter, catch_format_error
 from IPython.core.interactiveshell import ExecutionInfo, ExecutionResult, InteractiveShell
 from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class
 from IPython.utils import PyColorize
@@ -39,6 +37,7 @@ from .connections import ConnectionsService
 from .data_explorer import DataExplorerService, DataExplorerWarning
 from .debugger import PositronDebugger
 from .execute_request import PositronExecuteRequest
+from .formatters.display_formatter import PositronDisplayFormatter
 from .help import HelpService, _distribution_to_modules, help  # noqa: A004
 from .lsp import LSPService
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
@@ -47,7 +46,6 @@ from .patch.holoviews import set_holoviews_extension
 from .patch.plotly import patch_plotly_browser_renderer
 from .plots import PlotsService
 from .session_mode import SessionMode
-from .third_party import is_pandas, is_polars
 from .ui import UiService
 from .utils import BackgroundJobQueue, JsonRecord, get_qualname, with_logging
 from .variables import VariablesService
@@ -251,139 +249,6 @@ _traceback_file_link_re = re.compile(r"^(File \x1b\[\d+;\d+m)(.+):(\d+)")
 
 # keep reference to original showwarning
 original_showwarning = warnings.showwarning
-
-
-class PositronDisplayFormatter(DisplayFormatter):
-    parent: PositronShell
-
-    @property
-    def _kernel(self):
-        """Access kernel through parent shell."""
-        return self.parent.kernel if self.parent else None
-
-    @traitlets.default("ipython_display_formatter")
-    def _default_formatter(self):
-        return PositronIPythonDisplayFormatter(parent=self)
-
-    def _resolve_variable_name(self, obj) -> str | None:
-        """Find the top-level variable name for an object by scanning user_ns.
-
-        Returns the first non-hidden variable name whose value is the same
-        object (by identity), or None if no match is found.
-        """
-        shell = self.parent
-        if shell is None:
-            return None
-
-        user_ns = shell.user_ns or {}
-        hidden = shell.user_ns_hidden or {}
-
-        for name, value in user_ns.items():
-            if value is not obj:
-                continue
-            # Skip hidden variables (IPython internals like _, __, _oh, etc.)
-            # For _, only treat it as hidden if the value is the same object
-            # as in user_ns_hidden (i.e. the user hasn't reassigned it).
-            if name == "_":
-                if name in hidden and value is hidden[name]:
-                    continue
-            elif name in hidden:
-                continue
-            return name
-
-        return None
-
-    def format(self, obj, include=None, exclude=None):
-        """Format an object for display, with special handling for dataframes in notebooks."""
-        # Get the standard format result first
-        format_dict, metadata = super().format(obj, include=include, exclude=exclude)
-
-        # Only add inline data explorer for notebook mode
-        if self._kernel is None or self._kernel.session_mode != SessionMode.NOTEBOOK:
-            return format_dict, metadata
-
-        # Check if this is a supported table type (DataFrame or Series)
-        if not (is_pandas(obj) or is_polars(obj)):
-            return format_dict, metadata
-
-        # Register the table with data explorer service and get comm_id
-        try:
-            rows, cols = _get_table_shape(obj)
-            source = _get_table_source(obj)
-
-            # Try to resolve the top-level variable name
-            var_name = self._resolve_variable_name(obj)
-            if var_name is not None:
-                title = var_name
-                variable_path = [encode_access_key(var_name)]
-            else:
-                title = source
-                variable_path = None
-
-            comm_id = self._kernel.data_explorer_service.register_table(
-                obj,
-                title,
-                variable_path=variable_path,
-                inline_only=True,
-            )
-
-            payload: dict[str, Any] = {
-                "version": 1,
-                "comm_id": comm_id,
-                "shape": {"rows": rows, "columns": cols},
-                "title": title,
-                "source": source,
-            }
-            if variable_path is not None:
-                payload["variable_path"] = variable_path
-
-            format_dict[POSITRON_DATA_EXPLORER_MIME] = json.dumps(payload)
-
-        except Exception:
-            # If registration fails, just use the standard format
-            logger.debug("Failed to register table for inline data explorer", exc_info=True)
-
-        return format_dict, metadata
-
-
-class PositronIPythonDisplayFormatter(IPythonDisplayFormatter):
-    print_method = traitlets.ObjectName("_ipython_display_")
-    _return_type = (type(None), bool)
-
-    @catch_format_error
-    def __call__(self, obj):
-        """Compute the format for an object."""
-        try:
-            if obj.__module__ == "plotnine.ggplot":
-                obj.draw(show=True)
-                return True
-        except AttributeError:
-            pass
-        return super().__call__(obj)
-
-
-# MIME type for inline data explorer in notebooks
-POSITRON_DATA_EXPLORER_MIME = "application/vnd.positron.dataExplorer+json"
-
-
-def _get_table_source(obj) -> str:
-    """Get the source library name for a table object."""
-    if is_pandas(obj):
-        return "pandas"
-    if is_polars(obj):
-        return "polars"
-    return "unknown"
-
-
-def _get_table_shape(obj) -> tuple[int, int]:
-    """Get the shape (rows, columns) of a table object."""
-    if hasattr(obj, "shape"):
-        shape = obj.shape
-        # Handle Series which has 1D shape
-        if len(shape) == 1:
-            return (shape[0], 1)
-        return (shape[0], shape[1])
-    return (0, 0)
 
 
 class PositronShell(ZMQInteractiveShell):

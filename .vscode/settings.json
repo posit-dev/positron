@@ -139,7 +139,15 @@
 	// not source we maintain. Keep its many .py/.ipynb files out of Python analysis
 	// so they don't flood the Problems panel. `exclude` drops them from workspace
 	// indexing; `ignore` also suppresses diagnostics if such a file is opened.
+	// NOTE: specifying `exclude` REPLACES Pylance's default excludes, so the
+	// defaults (**/node_modules, **/__pycache__, **/.*) must be listed explicitly
+	// or the root workspace-folder service walks into things like a local .venv
+	// (1.8 GB, 30k+ files) and enumeration blows past its 10s / 2000-file limits.
 	"python.analysis.exclude": [
+		"**/node_modules",
+		"**/__pycache__",
+		"**/.*",
+		"**/.venv/**",
 		"**/test/e2e/test-files/**"
 	],
 	"python.analysis.ignore": [
