@@ -10,6 +10,7 @@ import { IPositronPlotsService } from '../../../services/positronPlots/common/po
 import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { IChatRequestData, IPositronAssistantService, IPositronAssistantConfigurationService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../common/interfaces/positronAssistantService.js';
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
+import { NEW_PROVIDER_MODAL_KEY, showConfigureLLMProvidersModal } from './configureLLMProvidersModal.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
@@ -326,7 +327,10 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 			onClose();
 			return;
 		}
-		showLanguageModelModalDialog(
+		// Feature switch: the new "Configure LLM Providers" modal
+		const useNewModal = this._configurationService.getValue<boolean>(NEW_PROVIDER_MODAL_KEY) === true;
+		const showModal = useNewModal ? showConfigureLLMProvidersModal : showLanguageModelModalDialog;
+		showModal(
 			sources,
 			onAction,
 			onClose,
