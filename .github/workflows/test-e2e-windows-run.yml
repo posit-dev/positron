@@ -411,10 +411,8 @@ jobs:
           # RSQLite). A dated snapshot keeps metadata and binaries consistent.
           PPM_REPO: https://packagemanager.posit.co/cran/2026-06-30
         run: |
-          Rscript -e "options(repos = c(CRAN = Sys.getenv('PPM_REPO'))); install.packages('pak')"
-          # openssl 2.4.1 Windows binary was never published to the package manager; pin to 2.4.2
-          # so pak doesn't attempt to download the missing binary.
-          Rscript -e "options(repos = c(CRAN = Sys.getenv('PPM_REPO'))); pak::pak('openssl@2.4.2')"
+          # pak is provided by rig (rig installs it on `rig add`), so there's no
+          # need to install it explicitly -- the macOS lane relies on the same.
           Rscript -e "options(repos = c(CRAN = Sys.getenv('PPM_REPO'))); pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
 
       - name: Save R packages cache
