@@ -14,6 +14,8 @@ const VIEWER_PANEL = '[id="workbench.panel.positronPreview"]';
 const ACTION_BAR = '.positron-action-bar';
 const OPEN_IN_DROPDOWN_BUTTON = '.preview-action-bar .action-bar-button-drop-down-button[aria-label="Select where to open"]';
 const OPEN_IN_PRIMARY_BUTTON = '.preview-action-bar .action-bar-button-action-button[aria-label="Select where to open"]';
+const PREVIOUS_VIEWER_ITEM_BUTTON = 'Show Previous Viewer Item';
+const NEXT_VIEWER_ITEM_BUTTON = 'Show Next Viewer Item';
 
 const FULL_APP = 'body';
 
@@ -66,6 +68,18 @@ export class Viewer {
 	async clickOpenInPrimaryButton() {
 		await test.step('Click primary half of "Open in..." split button', async () => {
 			await this.code.driver.currentPage.locator(OPEN_IN_PRIMARY_BUTTON).click();
+		});
+	}
+
+	async showPreviousViewerItem() {
+		await test.step('Show previous Viewer item', async () => {
+			await this.code.driver.currentPage.getByRole('button', { name: PREVIOUS_VIEWER_ITEM_BUTTON }).click();
+		});
+	}
+
+	async showNextViewerItem() {
+		await test.step('Show next Viewer item', async () => {
+			await this.code.driver.currentPage.getByRole('button', { name: NEXT_VIEWER_ITEM_BUTTON }).click();
 		});
 	}
 
