@@ -363,11 +363,23 @@ jobs:
         run: |
           winget install --id Posit.rig --accept-source-agreements --accept-package-agreements
 
-      # Install R 4.4.0 using rig
-      - name: Install R 4.4.0
+      # Resolve and install R via rig. The default (release) and alternate
+      # (oldrel-2) versions are resolved dynamically from the r-hub rversions
+      # API -- the same service r-lib/actions/setup-r uses -- so they track the
+      # current R release instead of being pinned. Both resolved numbers are
+      # emitted as step outputs and reused for the package cache key/path and
+      # the POSITRON_R_VER_SEL / POSITRON_R_ALT_VER_SEL selectors below.
+      - name: Install default R and resolve versions
+        id: r-versions
+        shell: pwsh
         run: |
-          rig add 4.4.0
-          rig default 4.4.0
+          $release = (Invoke-RestMethod -Uri 'https://api.r-hub.io/rversions/r-release' -MaximumRetryCount 3 -RetryIntervalSec 5).version
+          $oldrel2 = (Invoke-RestMethod -Uri 'https://api.r-hub.io/rversions/r-oldrel/2' -MaximumRetryCount 3 -RetryIntervalSec 5).version
+          Write-Host "Resolved R release=$release, oldrel-2=$oldrel2"
+          "r_version=$release" >> $env:GITHUB_OUTPUT
+          "r_alt_version=$oldrel2" >> $env:GITHUB_OUTPUT
+          rig add $release
+          rig default $release
           rig ls
 
       - name: Stage R DESCRIPTION file
@@ -385,12 +397,12 @@ jobs:
         with:
           path: |
             ~\AppData\Local\R\cache
-            C:\Program Files\R\R-4.4.0\library
-          key: ${{ runner.os }}-r-4.4.0-${{ steps.download-r-desc.outputs.description-hash }}
+            C:\Program Files\R\R-${{ steps.r-versions.outputs.r_version }}\library
+          key: ${{ runner.os }}-r-${{ steps.r-versions.outputs.r_version }}-${{ steps.download-r-desc.outputs.description-hash }}
           restore-keys: |
-            ${{ runner.os }}-r-4.4.0-
+            ${{ runner.os }}-r-${{ steps.r-versions.outputs.r_version }}-
 
-      - name: Install R packages for 4.4.0
+      - name: Install R packages (default R version)
         env:
           # Pin to a frozen PPM snapshot instead of `latest`. `latest` is a rolling
           # target: pak resolves a version from the metadata, but by the time it
@@ -412,13 +424,16 @@ jobs:
         with:
           path: |
             ~\AppData\Local\R\cache
-            C:\Program Files\R\R-4.4.0\library
-          key: ${{ runner.os }}-r-4.4.0-${{ steps.download-r-desc.outputs.description-hash }}
+            C:\Program Files\R\R-${{ steps.r-versions.outputs.r_version }}\library
+          key: ${{ runner.os }}-r-${{ steps.r-versions.outputs.r_version }}-${{ steps.download-r-desc.outputs.description-hash }}
 
-      # Install R 4.4.2 using rig
-      - name: Install R 4.4.2
+      # Install the alternate R version (oldrel-2). Added after the default's
+      # packages are installed so `rig default` stays on the release version
+      # during the package install above.
+      - name: Install alternate R (oldrel-2)
+        shell: pwsh
         run: |
-          rig add 4.4.2
+          rig add ${{ steps.r-versions.outputs.r_alt_version }}
           rig ls
 
       - name: Setup Graphviz
@@ -554,9 +569,9 @@ jobs:
         shell: bash
         env:
           POSITRON_PY_VER_SEL: 3.10.10
-          POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_R_VER_SEL: ${{ steps.r-versions.outputs.r_version }}
           POSITRON_PY_ALT_VER_SEL: 3.13.0
-          POSITRON_R_ALT_VER_SEL: 4.4.2
+          POSITRON_R_ALT_VER_SEL: ${{ steps.r-versions.outputs.r_alt_version }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
         run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "${{ inputs.project }}" --reporter=null
 
@@ -564,9 +579,9 @@ jobs:
         shell: bash
         env:
           POSITRON_PY_VER_SEL: 3.10.10
-          POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_R_VER_SEL: ${{ steps.r-versions.outputs.r_version }}
           POSITRON_PY_ALT_VER_SEL: 3.13.0
-          POSITRON_R_ALT_VER_SEL: 4.4.2
+          POSITRON_R_ALT_VER_SEL: ${{ steps.r-versions.outputs.r_alt_version }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
