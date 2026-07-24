@@ -79,6 +79,11 @@ export class AuthProvider
 		this.logger = new AuthProviderLogger(this.displayName);
 	}
 
+	/** Human-readable provider name, e.g. for diagnostics. */
+	get label(): string {
+		return this.displayName;
+	}
+
 	/** Whether this provider blocks sign-out for chain sessions. */
 	get chainPreventsSignOut(): boolean {
 		return !!this.credentialChain?.preventSignOut;
