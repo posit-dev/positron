@@ -35,17 +35,21 @@ export class SelectPositronNotebookKernelAction extends Action2 {
 				order: 0,
 			}],
 			metadata: {
-				description: localize('positron.selectKernel.description', "Select the kernel for the active notebook."),
+				description: localize('positronNotebookActions.selectKernel.description', "Select the kernel for the active notebook."),
 				agentCompatible: true,
 				args: [
 					{ name: 'runtimeId', isOptional: true, description: 'Runtime id to use as the notebook kernel. If omitted, a kernel picker opens.', schema: { type: 'string' } },
 				],
+				returns: 'True when a kernel was selected; false when no notebook is active or the picker was dismissed.',
 			},
 		});
 	}
 
 	async run(accessor: ServicesAccessor, runtimeId?: string): Promise<boolean> {
+		// The accessor is only valid synchronously, so resolve every service
+		// before the awaited picker below.
 		const notebookKernelService = accessor.get(INotebookKernelService);
+		const notificationService = accessor.get(INotificationService);
 		const activeNotebook = getNotebookInstanceFromActiveEditorPane(accessor.get(IEditorService));
 
 		if (!activeNotebook) {
@@ -57,16 +61,18 @@ export class SelectPositronNotebookKernelAction extends Action2 {
 			return false;
 		}
 
+		// Only treat a non-empty string as a supplied id: the kernel badge
+		// submenu forwards a context object as the first argument.
+		const suppliedRuntimeId = typeof runtimeId === 'string' && runtimeId.length > 0 ? runtimeId : undefined;
 		let runtime: ILanguageRuntimeMetadata | undefined;
-		if (runtimeId) {
+		if (suppliedRuntimeId) {
 			// A runtime id was supplied (e.g. by an agent): resolve it
 			// directly and skip the picker.
 			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
-			runtime = languageRuntimeService.getRegisteredRuntime(runtimeId);
+			runtime = languageRuntimeService.getRegisteredRuntime(suppliedRuntimeId);
 			if (!runtime) {
-				const notificationService = accessor.get(INotificationService);
 				const message = localize('positronNotebookActions.selectKernel.unknownRuntime',
-					"No registered runtime with id '{0}'.", runtimeId);
+					"No registered runtime with id '{0}'.", suppliedRuntimeId);
 				notificationService.error(message);
 				throw new Error(message);
 			}
@@ -90,6 +96,15 @@ export class SelectPositronNotebookKernelAction extends Action2 {
 			k => k.id === `${POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID}/${runtime.runtimeId}`
 		);
 		if (!kernel) {
+			// For an agent-supplied runtime id, surface the failure instead of
+			// returning false, which validateAndExecuteCommand would report as
+			// success.
+			if (suppliedRuntimeId) {
+				const message = localize('positronNotebookActions.selectKernel.noKernelForRuntime',
+					"No notebook kernel found for runtime id '{0}'.", suppliedRuntimeId);
+				notificationService.error(message);
+				throw new Error(message);
+			}
 			return false;
 		}
 

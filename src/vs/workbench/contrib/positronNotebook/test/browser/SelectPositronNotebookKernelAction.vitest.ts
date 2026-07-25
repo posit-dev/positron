@@ -7,6 +7,8 @@
 
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { IQuickInputService, IQuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
+import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -43,6 +45,7 @@ describe('SelectPositronNotebookKernelAction', () => {
 	const grabFocus = vi.fn();
 	const selectKernelForNotebook = vi.fn();
 	const notifyError = vi.fn();
+	let pick: TestQuickPick<IQuickPickItem>;
 
 	const ctx = createTestContainer()
 		.withRuntimeServices()
@@ -56,7 +59,14 @@ describe('SelectPositronNotebookKernelAction', () => {
 			},
 		})
 		.stub(INotificationService, stubInterface<INotificationService>({ error: notifyError }))
+		.stub(IQuickInputService, stubInterface<IQuickInputService>({
+			createQuickPick: (() => pick.asQuickPick()) as IQuickInputService['createQuickPick'],
+		}))
 		.build();
+
+	beforeEach(() => {
+		pick = ctx.disposables.add(new TestQuickPick<IQuickPickItem>());
+	});
 
 	function registerKernel(runtime: ILanguageRuntimeMetadata): INotebookKernel {
 		return stubInterface<INotebookKernel>({
@@ -105,5 +115,38 @@ describe('SelectPositronNotebookKernelAction', () => {
 		expect(notifyError).toHaveBeenCalledWith(expect.stringContaining('does-not-exist'));
 		expect(selectKernelForNotebook).not.toHaveBeenCalled();
 		expect(grabFocus).not.toHaveBeenCalled();
+	});
+
+	// A resolvable runtimeId with no matching notebook kernel must also
+	// surface a clear error: returning false would look like success to
+	// validateAndExecuteCommand.
+	it('throws and notifies when the runtime resolves but no notebook kernel matches', async () => {
+		const runtimeService = ctx.get(ILanguageRuntimeService);
+		const runtime = makeRuntime({ runtimeId: 'py-2' });
+		ctx.disposables.add(runtimeService.registerRuntime(runtime));
+		stubKernelService([]);
+
+		await expect(runAction('py-2')).rejects.toThrow(/py-2/);
+
+		expect(notifyError).toHaveBeenCalledWith(expect.stringContaining('py-2'));
+		expect(selectKernelForNotebook).not.toHaveBeenCalled();
+		expect(grabFocus).not.toHaveBeenCalled();
+	});
+
+	// The kernel badge submenu forwards a context object as the first
+	// argument; it must be treated as "no id supplied" (picker path), not
+	// as a runtime id.
+	it('opens the picker when a menu context object is forwarded as the argument', async () => {
+		stubKernelService([]);
+
+		const menuContext = { instance: {} };
+		const promise = runAction(menuContext as never);
+		await vi.waitFor(() => expect(pick.show).toHaveBeenCalled());
+
+		pick.cancel();
+
+		await expect(promise).resolves.toBe(false);
+		expect(notifyError).not.toHaveBeenCalled();
+		expect(selectKernelForNotebook).not.toHaveBeenCalled();
 	});
 });
