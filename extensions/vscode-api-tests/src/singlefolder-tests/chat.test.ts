@@ -22,7 +22,7 @@ suite('chat', () => {
 		disposables = [];
 		// --- Start Positron ---
 		positron.ai.registerProvider({
-			provider: { id: 'test-lm-vendor', displayName: 'Test LM Vendor', settingName: 'testLmVendor' },
+			provider: { id: 'test-lm-vendor', displayName: 'Test LM Vendor' },
 			type: positron.PositronLanguageModelType.Chat,
 			supportedOptions: [],
 			defaults: {},
@@ -30,7 +30,7 @@ suite('chat', () => {
 		// Register copilot provider so it's enabled in Positron
 		// The 'copilot' vendor is enabled via 'copilot-auth' provider with 'githubCopilot' setting (default: true)
 		positron.ai.registerProvider({
-			provider: { id: 'copilot-auth', displayName: 'Test Copilot', settingName: 'githubCopilot' },
+			provider: { id: 'copilot-auth', displayName: 'Test Copilot' },
 			type: positron.PositronLanguageModelType.Chat,
 			supportedOptions: [],
 			defaults: {},
