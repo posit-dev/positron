@@ -163,7 +163,7 @@ export class LookupHelpTopic extends Action2 {
 				description: localize('positron.help.lookupHelpTopic.description', "Look up a help topic for the active language."),
 				agentCompatible: true,
 				args: [
-					{ name: 'topic', isOptional: true, description: "Help topic to look up. When omitted, an input box opens.", schema: { type: 'string' } },
+					{ name: 'topic', isOptional: true, description: 'Help topic to look up. When omitted, an input box opens.', schema: { type: 'string' } },
 				],
 			},
 		});
