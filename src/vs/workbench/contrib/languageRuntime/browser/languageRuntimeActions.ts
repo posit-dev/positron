@@ -1325,7 +1325,11 @@ export function registerLanguageRuntimeActions() {
 				id: LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID,
 				title: localize2('workbench.action.language.runtime.discoverAllRuntimes', "Discover All Interpreters"),
 				f1: true,
-				category
+				category,
+				metadata: {
+					description: localize('positron.languageRuntime.discoverAllRuntimes.description', "Re-scan the machine for available interpreters and update the list of registered interpreter runtimes. Use this when an interpreter was installed or removed after startup and does not appear in the interpreter list."),
+					agentCompatible: true,
+				}
 			});
 		}
 
