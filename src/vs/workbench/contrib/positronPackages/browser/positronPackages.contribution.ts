@@ -309,8 +309,8 @@ class InstallPackageAction extends Action2 {
 				description: nls.localize('positron.installPackage.description', "Install a package in the active runtime session."),
 				agentCompatible: true,
 				args: [
-					{ name: 'name', description: "Name of the package to install.", schema: { type: 'string' } },
-					{ name: 'version', isOptional: true, description: "Target version, or 'latest' for the newest available version. When omitted, the newest version is installed.", schema: { type: 'string' } },
+					{ name: 'name', description: 'Name of the package to install.', schema: { type: 'string' } },
+					{ name: 'version', isOptional: true, description: 'Target version, or \'latest\' for the newest available version. When omitted, the newest version is installed.', schema: { type: 'string' } },
 				],
 			},
 		});
@@ -463,8 +463,8 @@ class UpdatePackageAction extends Action2 {
 				description: nls.localize('positron.updatePackage.description', "Update an installed package in the active runtime session."),
 				agentCompatible: true,
 				args: [
-					{ name: 'name', description: "Name of the package to update.", schema: { type: 'string' } },
-					{ name: 'version', isOptional: true, description: "Target version, or 'latest' for the newest available version. When omitted, a version picker opens.", schema: { type: 'string' } },
+					{ name: 'name', description: 'Name of the package to update.', schema: { type: 'string' } },
+					{ name: 'version', isOptional: true, description: 'Target version, or \'latest\' for the newest available version. When omitted, a version picker opens.', schema: { type: 'string' } },
 				],
 			},
 		});
