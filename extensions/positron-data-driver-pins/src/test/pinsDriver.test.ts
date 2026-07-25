@@ -10,17 +10,33 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { IDuckDBDataExplorerHost } from 'positron-data-explorer-duckdb';
+import { generateKeyPair, KeyAuthenticator } from '../connectAuth.js';
 import { ConnectClient } from '../connectClient.js';
 import { createPinsDriver } from '../pinsDriver.js';
 import { PinsCache } from '../pinsCache.js';
 import { PinsConnection } from '../pinsConnection.js';
+import { TokenClaimResult } from '../tokenAuth.js';
+import { SecretTokenCredentialStore } from '../tokenCredentialStore.js';
 
-/** A minimal ExtensionContext exposing only extensionPath, which is all the driver factory reads. */
+/** An in-memory SecretStorage for the fake context. */
+function memorySecrets(): vscode.SecretStorage {
+	const map = new Map<string, string>();
+	const secrets = {
+		get: async (k: string) => map.get(k),
+		store: async (k: string, v: string) => { map.set(k, v); },
+		delete: async (k: string) => { map.delete(k); },
+		onDidChange: () => ({ dispose() { } }),
+	};
+	// eslint-disable-next-line local/code-no-any-casts
+	return secrets as any as vscode.SecretStorage;
+}
+
+/** A minimal ExtensionContext exposing extensionPath (for the icon) and secret storage. */
 function fakeContext(): vscode.ExtensionContext {
 	// Compiled tests live in out/test/, so the extension root is two levels up (for the icon asset).
 	const extensionPath = path.join(__dirname, '..', '..');
 	// eslint-disable-next-line local/code-no-any-casts
-	return { extensionPath, subscriptions: [] } as any as vscode.ExtensionContext;
+	return { extensionPath, subscriptions: [], secrets: memorySecrets() } as any as vscode.ExtensionContext;
 }
 
 /** A no-op Data Explorer host: the tree tests browse and inspect nodes, they never open a preview. */
@@ -50,7 +66,7 @@ suite('Pins Driver', () => {
 	const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache());
 
 	test('marks the server URL and API key parameters required, with the key a secret', () => {
-		const [mechanism] = driver.mechanisms;
+		const mechanism = driver.mechanisms.find(m => m.id === 'apiKey')!;
 		const serverUrl = mechanism.parameters.find(p => p.id === 'serverUrl')!;
 		assert.strictEqual(serverUrl.required, true);
 
@@ -104,6 +120,143 @@ suite('Pins Driver', () => {
 	});
 });
 
+suite('Pins Driver mechanisms', () => {
+	// connectWithClient validates via getServerSettings then getCurrentUser, so both routes are needed.
+	const validatingRoutes = [
+		{ match: '/__api__/server_settings', body: '{"version":"2024.01.0"}' },
+		{ match: '/__api__/v1/user', body: '{"username":"julia"}' },
+	];
+	// A real RSA private key, so the token authenticator can actually sign the validation requests
+	// (the stubbed fetch never verifies the signature, but building it must not throw).
+	const realKey = generateKeyPair().privateKey;
+
+	test('exposes token, apiKey, and envvar mechanisms in that order', () => {
+		// Order is deliberate, not incidental: mechanisms[0] is the dialog's default selection, so
+		// token first is the "browser sign-in leads" choice. It is also safe for existing profiles,
+		// which all carry a persisted mechanismId (pins postdates mechanismId persistence) and so
+		// never fall back to mechanisms[0]. This assertion guards that intentional order; a reorder
+		// should be a conscious decision that updates it.
+		const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache());
+		assert.deepStrictEqual(driver.mechanisms.map(m => m.id), ['token', 'apiKey', 'envvar']);
+	});
+
+	test('the token mechanism takes only a required server URL', () => {
+		const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache());
+		const token = driver.mechanisms.find(m => m.id === 'token')!;
+		assert.deepStrictEqual(token.parameters.map(p => p.id), ['serverUrl']);
+		assert.strictEqual(token.parameters[0].required, true);
+	});
+
+	test('the envvar mechanism takes no parameters', () => {
+		const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache());
+		const envvar = driver.mechanisms.find(m => m.id === 'envvar')!;
+		assert.deepStrictEqual(envvar.parameters, []);
+	});
+
+	test('envvar connect fails clearly when the variables are unset', async () => {
+		const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache(), undefined, { env: {} });
+		await assert.rejects(async () => driver.connect('envvar', {}), /CONNECT_SERVER and CONNECT_API_KEY/);
+	});
+
+	test('envvar connect uses the environment variables and validates', async () => {
+		const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache(), undefined, {
+			env: { CONNECT_SERVER: 'https://c.example.com', CONNECT_API_KEY: 'k' },
+			fetch: routingFetch(validatingRoutes),
+		});
+		const connection = await driver.connect('envvar', {});
+		assert.strictEqual(await connection.isConnected(), true);
+	});
+
+	test('token connect runs the claim flow and persists the credential on first connect', async () => {
+		const context = fakeContext();
+		const store = new SecretTokenCredentialStore(context.secrets);
+		let claims = 0;
+		const claimFake = async (): Promise<TokenClaimResult> => {
+			claims++;
+			return { credential: { token: 'T-new', privateKey: realKey }, username: 'julia' };
+		};
+		const driver = createPinsDriver(context, fakeDataExplorerHandler(), fakeCache(), undefined, {
+			credentialStore: store, claimToken: claimFake, fetch: routingFetch(validatingRoutes),
+		});
+
+		const connection = await driver.connect('token', { serverUrl: 'https://c.example.com' });
+		assert.strictEqual(await connection.isConnected(), true);
+		assert.strictEqual(claims, 1);
+		assert.deepStrictEqual(await store.get('https://c.example.com'), { token: 'T-new', privateKey: realKey });
+	});
+
+	test('token connect reuses a stored credential without re-claiming when it validates', async () => {
+		const context = fakeContext();
+		const store = new SecretTokenCredentialStore(context.secrets);
+		await store.set('https://c.example.com', { token: 'T-stored', privateKey: realKey });
+		let claims = 0;
+		const claimFake = async (): Promise<TokenClaimResult> => { claims++; return { credential: { token: 'x', privateKey: realKey }, username: 'u' }; };
+		const driver = createPinsDriver(context, fakeDataExplorerHandler(), fakeCache(), undefined, {
+			credentialStore: store, claimToken: claimFake, fetch: routingFetch(validatingRoutes),
+		});
+
+		const connection = await driver.connect('token', { serverUrl: 'https://c.example.com' });
+		assert.strictEqual(await connection.isConnected(), true);
+		assert.strictEqual(claims, 0);
+	});
+
+	test('token connect re-claims when the stored credential is rejected', async () => {
+		const context = fakeContext();
+		const store = new SecretTokenCredentialStore(context.secrets);
+		await store.set('https://c.example.com', { token: 'T-stale', privateKey: realKey });
+		let claims = 0;
+		const claimFake = async (): Promise<TokenClaimResult> => { claims++; return { credential: { token: 'T-fresh', privateKey: realKey }, username: 'julia' }; };
+		// The first /v1/user call (validating the stored credential) is rejected, forcing a re-claim; the
+		// next call (connectWithClient after re-claim) succeeds. server_settings always succeeds.
+		let userCalls = 0;
+		const rejectThenAccept = (async (input: string | URL): Promise<Response> => {
+			const url = typeof input === 'string' ? input : input.toString();
+			if (url.includes('/__api__/server_settings')) {
+				return new Response('{"version":"2024.01.0"}', { status: 200 });
+			}
+			if (url.includes('/__api__/v1/user')) {
+				userCalls++;
+				return userCalls === 1
+					? new Response('no', { status: 401 })
+					: new Response('{"username":"julia"}', { status: 200 });
+			}
+			return new Response('', { status: 404 });
+		}) as typeof fetch;
+		const driver = createPinsDriver(context, fakeDataExplorerHandler(), fakeCache(), undefined, {
+			credentialStore: store, claimToken: claimFake, fetch: rejectThenAccept,
+		});
+
+		const connection = await driver.connect('token', { serverUrl: 'https://c.example.com' });
+		assert.strictEqual(await connection.isConnected(), true);
+		assert.strictEqual(claims, 1);
+		assert.deepStrictEqual(await store.get('https://c.example.com'), { token: 'T-fresh', privateKey: realKey });
+	});
+
+	test('token code-gen emits the bare default board open for R and Python', async () => {
+		// The bare `board_connect()` / `pins.board_connect()` is the intended output (user decision
+		// 2026-07-23), not a gap: pins resolves credentials through its own channels (R's rsconnect
+		// account registry, Python's CONNECT_* env vars), never the IDE's secret storage. This asserts
+		// that intended user-visible behavior; do not "fix" it by embedding the browser-sign-in token.
+		const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache());
+		const r = await driver.generateConnectionCode!('token', 'r', { serverUrl: 'https://c.example.com' });
+		assert.strictEqual(r.length, 1);
+		assert.ok(r[0].code.includes('board_connect()'));
+		assert.ok(!r[0].code.includes('CONNECT_API_KEY'));
+
+		const py = await driver.generateConnectionCode!('token', 'python', { serverUrl: 'https://c.example.com' });
+		assert.strictEqual(py.length, 1);
+		assert.ok(py[0].code.includes('pins.board_connect()'));
+		assert.ok(!py[0].code.includes('CONNECT_API_KEY'));
+	});
+
+	test('envvar code-gen emits only the environment-variable board open', async () => {
+		const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache());
+		const r = await driver.generateConnectionCode!('envvar', 'r', {});
+		assert.deepStrictEqual(r.map(v => v.id), ['envvar']);
+		assert.ok(r[0].code.includes('board_connect()'));
+	});
+});
+
 suite('Pins Connection tree', () => {
 	// Two owners, three pins; each pin's data.txt reports a distinct type.
 	const applications = JSON.stringify({
@@ -130,7 +283,7 @@ suite('Pins Connection tree', () => {
 
 	function connection(): PinsConnection {
 		return new PinsConnection(
-			new ConnectClient('https://c.example.com', 'key', routingFetch(routes)),
+			new ConnectClient('https://c.example.com', new KeyAuthenticator('key'), routingFetch(routes)),
 			fakeDataExplorerHandler(),
 			fakeCache(),
 		);
@@ -197,7 +350,7 @@ suite('Pins Connection tree', () => {
 			{ match: '/content/g-mixed/_rev5/', body: 'file: new.parquet\ntype: parquet\napi_version: 1\n' },
 		];
 		const conn = new PinsConnection(
-			new ConnectClient('https://c.example.com', 'key', routingFetch(mixedRoutes)),
+			new ConnectClient('https://c.example.com', new KeyAuthenticator('key'), routingFetch(mixedRoutes)),
 			fakeDataExplorerHandler(),
 			fakeCache(),
 		);
@@ -229,7 +382,7 @@ suite('Pins Connection tree', () => {
 			return new Response('', { status: 404 });
 		}) as typeof fetch;
 
-		const conn = new PinsConnection(new ConnectClient('https://c.example.com', 'key', failFirstFetch), fakeDataExplorerHandler(), fakeCache());
+		const conn = new PinsConnection(new ConnectClient('https://c.example.com', new KeyAuthenticator('key'), failFirstFetch), fakeDataExplorerHandler(), fakeCache());
 
 		// First browse fails...
 		await assert.rejects(() => conn.getChildren(), /network blip/);
@@ -253,7 +406,7 @@ suite('Pins Connection tree', () => {
 			return new Response(route ? route.body : '', { status: route ? 200 : 404 });
 		}) as typeof fetch;
 
-		const conn = new PinsConnection(new ConnectClient('https://c.example.com', 'key', failFirstMeta), fakeDataExplorerHandler(), fakeCache());
+		const conn = new PinsConnection(new ConnectClient('https://c.example.com', new KeyAuthenticator('key'), failFirstMeta), fakeDataExplorerHandler(), fakeCache());
 
 		// First expansion: the cars badge is missing because its metadata read failed.
 		const [julia1] = await conn.getChildren();
@@ -300,7 +453,7 @@ suite('Pins Connection tree', () => {
 		}) as typeof fetch;
 
 		ref.conn = new PinsConnection(
-			new ConnectClient('https://c.example.com', 'key', disconnectDuringDownload),
+			new ConnectClient('https://c.example.com', new KeyAuthenticator('key'), disconnectDuringDownload),
 			handler,
 			new PinsCache(cacheDir),
 		);
