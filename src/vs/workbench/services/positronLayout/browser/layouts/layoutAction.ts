@@ -7,6 +7,7 @@ import { ILocalizedString } from '../../../../../nls.js';
 import { Categories } from '../../../../../platform/action/common/actionCommonCategories.js';
 import { Action2 } from '../../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
+import { ICommandMetadata } from '../../../../../platform/commands/common/commands.js';
 import { ContextKeyExpression } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IPositronLayoutService } from '../interfaces/positronLayoutService.js';
 import { CustomPositronLayoutDescription } from '../../common/positronCustomViews.js';
@@ -27,6 +28,10 @@ export type PositronLayoutInfo = {
 	 * it in grey or for a command, do not allow to invoke it)
 	 */
 	precondition: ContextKeyExpression;
+	/**
+	 * Command metadata, e.g. to expose the layout command to AI agents.
+	 */
+	metadata?: ICommandMetadata;
 };
 
 export abstract class PositronLayoutAction extends Action2 {
@@ -40,7 +45,8 @@ export abstract class PositronLayoutAction extends Action2 {
 			title: layoutInfo.label,
 			category: Categories.View,
 			f1: showInPalette,
-			precondition: layoutInfo.precondition
+			precondition: layoutInfo.precondition,
+			metadata: layoutInfo.metadata
 		});
 
 		this._layout = layoutInfo.layoutDescriptor;

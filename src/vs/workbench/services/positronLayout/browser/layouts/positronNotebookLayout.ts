@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize2 } from '../../../../../nls.js';
+import { localize, localize2 } from '../../../../../nls.js';
 import { Action2, registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -17,6 +17,10 @@ export const positronNotebookLayout: PositronLayoutInfo = {
 	codicon: 'positron-notebook-layout',
 	label: localize2('chooseLayout.notebookLayout', 'Notebook Layout'),
 	precondition: ContextKeyExpr.true(),
+	metadata: {
+		description: localize('positron.chooseLayout.notebookLayout.description', "Switch to the notebook layout, optimized for notebook workflows: editor with the primary sidebar visible, the bottom panel hidden, and a secondary sidebar with variables."),
+		agentCompatible: true,
+	},
 	layoutDescriptor: {
 		[Parts.PANEL_PART]: {
 			size: '40%',
