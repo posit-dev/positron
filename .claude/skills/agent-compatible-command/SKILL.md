@@ -48,7 +48,22 @@ them as optional parameters that skip the prompt when present.
      enforced.
    - Optionally a `returns` string when the command returns something useful.
    - The `run()` change: accept the new optional parameter(s) and prompt only when a
-     parameter is missing (`const x = arg ?? await prompt()`).
+     usable value is missing. Treat only a non-empty string as supplied - menu items
+     can forward a context object as the first argument, so a bare truthiness or `??`
+     check misreads them:
+
+     ```ts
+     const suppliedX = typeof x === 'string' && x.length > 0 ? x : undefined;
+     const value = suppliedX ?? await prompt();
+     ```
+
+     Use `suppliedX` (not `x`) everywhere downstream, including any "was it
+     supplied?" branching.
+   - Fail loud on the agent path: when a supplied value cannot be resolved (an
+     unknown id, or a later lookup that depends on it finds nothing), notify the
+     user AND throw. A silent return reads as success through
+     `validateAndExecuteCommand`; a throw comes back as `{ok: false}` with the
+     message. The no-argument interactive path keeps its existing behavior.
 
    The `description`, each arg's `description`/`schema`, and `returns` are shown to the
    model verbatim in the assistant's system prompt, so write them for that reader. An
