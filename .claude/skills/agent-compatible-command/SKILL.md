@@ -9,8 +9,7 @@ Posit Assistant runs Positron commands through its `positronCommand` tool. It em
 the curated list from `positron.ai.getAgentAllowedCommands()` in its system prompt and
 executes a chosen command via `positron.ai.validateAndExecuteCommand(id, args)`, so a
 command is only usable by the assistant if it is advertised by that endpoint and can run
-without prompting. This skill makes one command agent-invocable using the project
-pattern (see `docs/superpowers/specs/2026-07-17-agent-invocable-commands-design.md`).
+without prompting. This skill makes one command agent-invocable using the pattern below.
 
 ## The pattern
 
@@ -36,7 +35,7 @@ them as optional parameters that skip the prompt when present.
    - If a caller passes the SAME argument an agent would (so argument-presence cannot
      tell a user from an agent - for example a destructive command whose UI also
      passes the item id), STOP and ask the user how to proceed. Do not silently change
-     the shared behavior. (This is why `uninstallPackage` was dropped from scope.)
+     the shared behavior.
 
 4. **Report the exact edits before applying:**
    - `agentCompatible: true` and a `description` in the command's `metadata`.
