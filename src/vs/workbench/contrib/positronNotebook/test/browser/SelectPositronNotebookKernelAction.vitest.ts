@@ -97,12 +97,11 @@ describe('SelectPositronNotebookKernelAction', () => {
 
 	// An unresolvable runtimeId must surface a clear error rather than
 	// silently falling back to the interactive picker.
-	it('notifies and returns false for an unknown runtimeId', async () => {
+	it('throws and notifies without selecting a kernel for an unknown runtimeId', async () => {
 		stubKernelService([]);
 
-		const result = await runAction('does-not-exist');
+		await expect(runAction('does-not-exist')).rejects.toThrow(/does-not-exist/);
 
-		expect(result).toBe(false);
 		expect(notifyError).toHaveBeenCalledWith(expect.stringContaining('does-not-exist'));
 		expect(selectKernelForNotebook).not.toHaveBeenCalled();
 		expect(grabFocus).not.toHaveBeenCalled();
