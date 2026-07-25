@@ -38,7 +38,7 @@ export class SelectPositronNotebookKernelAction extends Action2 {
 				description: localize('positron.selectKernel.description', "Select the kernel for the active notebook."),
 				agentCompatible: true,
 				args: [
-					{ name: 'runtimeId', isOptional: true, description: "Runtime id to use as the notebook kernel. If omitted, a kernel picker opens.", schema: { type: 'string' } },
+					{ name: 'runtimeId', isOptional: true, description: 'Runtime id to use as the notebook kernel. If omitted, a kernel picker opens.', schema: { type: 'string' } },
 				],
 			},
 		});
