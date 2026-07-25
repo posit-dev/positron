@@ -451,7 +451,14 @@ function registerOpenEditorAPICommands(): void {
 		},
 		metadata: {
 			description: 'Opens the provided resource in the editor.',
-			args: [{ name: 'Uri' }]
+			// --- Start Positron ---
+			// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands)
+			// and document the argument they should pass. A plain path string works:
+			// it is parsed into a file URI by the opener service.
+			agentCompatible: true,
+			// args: [{ name: 'Uri' }]
+			args: [{ name: 'Uri', description: 'Absolute file path or URI of the resource to open. Tabular data files such as .csv and .parquet open in the Data Explorer.', schema: { type: 'string' } }]
+			// --- End Positron ---
 		}
 	});
 
