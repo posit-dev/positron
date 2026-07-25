@@ -58,8 +58,10 @@ them as optional parameters that skip the prompt when present.
    - `npm run build-check` is clean.
    - In the running app, "Developer: Show All Agent-Compatible Commands" lists the
      command with the expected `args`.
-   - Calling the command with arguments runs without a prompt; calling it with none
-     still prompts (unchanged for users).
+   - Both code paths still work. Agent path: invoke the command with its argument
+     supplied (easiest way: ask the assistant) and it completes with no picker or
+     input box. User path: run it from the Command Palette, which passes no
+     arguments, and it prompts exactly as it did before the change.
 
 ## Worked references
 
