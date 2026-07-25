@@ -160,7 +160,7 @@ export class LookupHelpTopic extends Action2 {
 			category: Categories.Help,
 			f1: true,
 			metadata: {
-				description: localize('positron.help.lookupHelpTopic.description', "Look up a help topic for the active language."),
+				description: localize('positron.help.lookupHelpTopic.description', "Show help for a topic, such as a function name, in the Help pane, using the language of the active editor or foreground interpreter session."),
 				agentCompatible: true,
 				args: [
 					{ name: 'topic', isOptional: true, description: 'Help topic to look up. When omitted, an input box opens.', schema: { type: 'string' } },
@@ -217,8 +217,10 @@ export class LookupHelpTopic extends Action2 {
 		// Look up the friendly name of the language ID
 		const languageName = languageService.getLanguageName(languageId);
 
-		// Prompt the user for a help topic.
-		const topic = topicArg ?? await quickInputService.input({
+		// Only treat a non-empty string as a supplied topic; otherwise prompt
+		// the user for a help topic.
+		const suppliedTopic = typeof topicArg === 'string' ? topicArg.trim() : '';
+		const topic = suppliedTopic || await quickInputService.input({
 			prompt: localize('positron.help.enterHelpTopic', "Enter {0} help topic", languageName),
 			value: '',
 			ignoreFocusLost: true,
