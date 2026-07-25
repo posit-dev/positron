@@ -306,7 +306,7 @@ class InstallPackageAction extends Action2 {
 				order: 1
 			},
 			metadata: {
-				description: nls.localize('positron.installPackage.description', "Install a package in the active runtime session."),
+				description: nls.localize('positronPackages.installPackage.description', "Install a package in the active runtime session."),
 				agentCompatible: true,
 				args: [
 					{ name: 'name', description: 'Name of the package to install.', schema: { type: 'string' } },
@@ -460,7 +460,7 @@ class UpdatePackageAction extends Action2 {
 			f1: true,
 			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
 			metadata: {
-				description: nls.localize('positron.updatePackage.description', "Update an installed package in the active runtime session."),
+				description: nls.localize('positronPackages.updatePackage.description', "Update an installed package in the active runtime session."),
 				agentCompatible: true,
 				args: [
 					{ name: 'name', description: 'Name of the package to update.', schema: { type: 'string' } },
