@@ -347,6 +347,10 @@ export class ThemeConfiguration {
 		return undefined;
 	}
 
+	public isDetectingHighContrast(): boolean {
+		return this.configurationService.getValue(ThemeSettings.DETECT_HC);
+	}
+
 	public isDetectingColorScheme(): boolean {
 		return this.configurationService.getValue(ThemeSettings.DETECT_COLOR_SCHEME);
 	}

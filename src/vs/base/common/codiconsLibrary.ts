@@ -727,6 +727,7 @@ export const codiconsLibrary = {
 	vscodeInsidersOutline: register('vscode-insiders-outline', 0xecc9),
 	vscodeOutline: register('vscode-outline', 0xecca),
 	voiceMode: register('voice-mode', 0xeccb),
+	voiceModeCompact: register('voice-mode-compact', 0xeccc),
 	positronNew: register('positron-new', 0xf230),
 	positronOpen: register('positron-open', 0xf231),
 	positronSave: register('positron-save', 0xf232),

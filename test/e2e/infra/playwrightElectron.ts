@@ -69,7 +69,11 @@ async function launchElectron(configuration: IElectronConfiguration, options: La
 
 	let window = electron.windows()[0];
 	if (!window) {
-		window = await measureAndLog(() => electron.waitForEvent('window', { timeout: 0 }), 'playwright-electron#firstWindow', logger);
+		try {
+			window = await measureAndLog(() => electron.waitForEvent('window', { timeout: LAUNCH_TIMEOUT }), 'playwright-electron#firstWindow', logger);
+		} catch (error) {
+			throw enrichLaunchError(error, options);
+		}
 	}
 
 	const context = window.context();
@@ -114,4 +118,23 @@ async function launchElectron(configuration: IElectronConfiguration, options: La
 	});
 
 	return { electron, context, page: window };
+}
+
+/**
+ * Turns a low-level Playwright launch failure (e.g. a launch timeout caused by
+ * the Electron process crashing during startup) into an actionable error that
+ * points at the crash dumps and traces collected for this run.
+ */
+function enrichLaunchError(error: unknown, options: LaunchOptions): Error {
+	const original = error instanceof Error ? error.message : String(error);
+	const enriched = new Error(
+		`Failed to launch Electron within ${LAUNCH_TIMEOUT}ms. The Electron process likely crashed or hung during startup ` +
+		`(a native crash will leave a minidump in the crashes directory: '${options.crashesPath}'). ` +
+		`Inspect the crash dumps and the Playwright trace (https://trace.playwright.dev/) for details. Original error: ${original}`
+	);
+	if (error instanceof Error && error.stack) {
+		enriched.stack = `${enriched.name}: ${enriched.message}\nCaused by: ${error.stack}`;
+	}
+	options.logger.log(`Playwright (Electron) ERROR: ${enriched.message}`);
+	return enriched;
 }

@@ -22,7 +22,7 @@ configurationRegistry.registerConfiguration({
 			enum: ['none', 'manual', 'start', 'default'],
 			default: 'default',
 			scope: ConfigurationScope.APPLICATION,
-			description: localize('updateMode', "Configure whether you receive automatic updates. Requires a restart after change to take effect."),
+			description: localize('updateMode', "Configure whether you receive automatic updates."),
 			tags: ['usesOnlineServices'],
 			enumDescriptions: [
 				localize('none', "Disable updates."),
@@ -35,7 +35,7 @@ configurationRegistry.registerConfiguration({
 				category: PolicyCategory.Update,
 				minimumVersion: '1.67',
 				localization: {
-					description: { key: 'updateModePolicy', value: localize('updateModePolicy', "Configure whether you receive automatic updates. Requires a restart after change. The updates are fetched from a Microsoft online service."), },
+					description: { key: 'updateModePolicy', value: localize('updateModePolicy', "Configure whether you receive automatic updates."), },
 					enumDescriptions: [
 						{
 							key: 'none',
@@ -120,6 +120,7 @@ configurationRegistry.registerConfiguration({
 		'update.showPostInstallInfo': {
 			type: 'boolean',
 			default: false,
+			experiment: { mode: 'auto' },
 			scope: ConfigurationScope.APPLICATION,
 			description: localize('showPostInstallInfo', "Show a post-install update tooltip in the title bar instead of opening the release notes editor."),
 			tags: ['usesOnlineServices']
