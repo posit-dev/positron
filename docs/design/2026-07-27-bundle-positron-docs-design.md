@@ -15,6 +15,12 @@ verification, bounded the `getLocalDocs()` wait, scoped retry throttling to hard
 Step 2 into two PRs, and added the `POSITRON_DOCS_BUNDLE_URL` override that manual validation depends
 on.
 
+Revision 3 (2026-07-27), closing the gaps revision 2's digest sidecars introduced. Changes: specified
+sidecar-404 handling (strict, with a publish-order rule and a CI guard to shrink the race window),
+clarified that `state.json`'s `sha256` is recorded once and never recomputed, noted that manual
+validation's local server must host sidecars, and corrected two code references (the server build
+gulpfiles and the extension-host entry point).
+
 ## Goal
 
 Let Positron's AI assistant read product documentation from disk instead of fetching it from
@@ -45,8 +51,9 @@ The download has to run where the extension host runs, because the extension hos
 consumer.
 
 A browser/renderer-layer service cannot work. In Workbench the extension host is a Node process on
-the server (`src/vs/server/node/extensionHostConnection.ts:44`), while browser-layer `IFileService`
-writes to IndexedDB in the user's browser. The assistant could never read that. `base/node/zip.ts`
+the server: its entry point is `src/vs/workbench/api/node/extensionHostProcess.ts`, which
+`src/vs/server/node/extensionHostConnection.ts` spawns as a child process. Browser-layer
+`IFileService`, by contrast, writes to IndexedDB in the user's browser. The assistant could never read that. `base/node/zip.ts`
 is node-layer only, so unzipping in the renderer is not possible either.
 
 Two placements remained: an extension-host-resident API, or a `platform/` node service registered in
@@ -75,11 +82,13 @@ extension-activation path. That is a discipline requirement with a test assertin
 ### The spike's Workbench packaging prerequisite does not apply
 
 The spike's "Workbench carryover" section flags that confirming the docs folder is included in the
-server build is a prerequisite, and notes that `build/gulpfile.reh.ts` ships no workbench browser
-resources. **That prerequisite belonged to option B and is moot here.** Option A bakes nothing into
-any build; the bundle arrives at runtime on the extension host's own filesystem, which in Workbench is
-the server. No `gulpfile.reh.ts` or `vscodeResources` glob change is needed, and none of the
-`'!**/test/**'` or `node/` exclusion traps that would have applied to a baked folder are in play.
+server build is a prerequisite, since the desktop `vscodeResources` glob
+(`build/gulpfile.vscode.ts`), the REH `serverResources` glob (`build/gulpfile.reh.ts`), and the web
+client's resource globs (`build/gulpfile.vscode.web.ts`) are all defined independently. **That
+prerequisite belonged to option B and is moot here.** Option A bakes nothing into any build; the
+bundle arrives at runtime on the extension host's own filesystem, which in Workbench is the server.
+None of those three glob sets changes, and none of the `'!**/test/**'` or `node/` exclusion traps
+that would have applied to a baked folder are in play.
 
 Stated explicitly because a reader of the spike would otherwise carry an outstanding Workbench
 packaging task into implementation that does not exist.
@@ -124,6 +133,13 @@ The digest cannot live inside `bundle.json`, since that file is inside the archi
 sidecar is one extra tiny object per artifact and lets corruption be caught before anything is
 extracted. HTTPS already protects the transport; this covers CDN and disk storage corruption, which is
 the failure that would otherwise surface as a confusing parse error much later.
+
+**Publish order: sidecar first, then the zip, then the `latest` aliases.** Positron treats a missing
+sidecar as a verification failure and refuses to extract (see "Failure modes"), so a zip that is
+reachable before its digest is a window in which a cold-cache install gets no local docs. Uploading
+the sidecar first makes that window near zero, and moving the aliases last means the mutable path
+never points at a versioned object whose digest has not landed. Per profile the order is:
+`<version>.zip.sha256sum`, `<version>.zip`, then `latest.zip.sha256sum` and `latest.zip`.
 
 ### Where the URL rewriting happens, and why
 
@@ -180,6 +196,9 @@ The CI guard is the test:
 - the zip contains `llms.txt` and `bundle.json`
 - the extracted file count matches `bundle.json`'s `fileCount`
 - the `.sha256sum` sidecar matches the zip it accompanies
+- every uploaded zip has a reachable sidecar once the upload step completes, asserted after the
+  aliases move, so a publish that drops a sidecar fails the workflow rather than shipping a zip
+  Positron will refuse
 - both `latest` aliases carry `Cache-Control: no-cache` after upload
 
 Any failure fails the workflow.
@@ -334,10 +353,19 @@ This single rule governs every row of the failure table below, and it is what ma
 once, up front, the natural reading of "network failure -> `undefined`" would have a cached dailies
 user drop to web docs during an outage.
 
-"Valid" means what the validation step means: `bundle.json` parses, `schema === 1`, `llms.txt` is
-present, and the recorded `sha256` matches. `getLocalDocs()` returns the version directory named in
-`state.json`, and convergence replaces that directory atomically, so there is never a moment where
-the recorded path does not exist.
+"Valid" for an *already-cached* bundle means: `state.json` parses, its `version` directory exists,
+that directory's `bundle.json` parses with `schema === 1`, and `llms.txt` is present. `getLocalDocs()`
+returns the version directory named in `state.json`, and convergence replaces that directory
+atomically, so there is never a moment where the recorded path does not exist.
+
+**`state.json`'s `sha256` is recorded at download time and never recomputed.** It is a diagnostic
+record of what was verified before extraction, not a live checksum. Re-hashing on access would mean
+keeping the zip on disk after extracting it (we delete it) and would hash 150KB on a path that runs
+per docs need. Post-download disk corruption is caught by the cheap structural checks above --
+`bundle.json` parsing and `llms.txt` presence -- which is proportionate: the bundle is Markdown the
+assistant reads as text, so a corrupted byte inside a page degrades one answer rather than
+compromising anything. Digest verification exists to gate *extraction* of a freshly downloaded
+archive, which is the step where a bad payload could write outside the target.
 
 ### Version resolution and convergence
 
@@ -427,7 +455,8 @@ Root is `joinPath(dirname(initData.environment.globalStorageHome), 'positron-doc
 
 ```
 <userdata>/User/positron-docs/
-  state.json              # schema, version, requestedVersion, resolution, profile, sha256,
+  state.json              # schema, version, requestedVersion, resolution, profile,
+                          # sha256 (diagnostic; verified at download, never recomputed),
                           # etag, sourceUrl, fetchedAt, lastAttemptAt, lastFailureAt?, lastError?
   2026.05.0-179/          # extracted bundle, named by the bundle's own version
     bundle.json
@@ -498,12 +527,20 @@ and the "cache present" column is what happens otherwise.
 | Corrupt zip or extract error | discard temp and staging, `undefined` | discard temp and staging, serve cache unchanged |
 | `schema !== 1` | warn log, `undefined`; never guess at an unknown format | warn log, serve cache unchanged |
 | Validation or `sha256` mismatch | discard staging, `undefined` | discard staging, serve cache unchanged |
+| `sha256sum` sidecar 404 or unparseable | treat as a validation failure: discard temp, `undefined`, never extract unverified | same; serve cache unchanged |
 | Disk full or write error | warn log, `undefined` | warn log, serve cache unchanged |
 | Download exceeds the 5MB cap | abort, discard temp, `undefined` | abort, discard temp, serve cache unchanged |
 
 The cold-cache column produces one user-visible outcome: the assistant falls back to the web, exactly
 as it behaves today. **No notifications or error toasts** in either column. This is invisible
 infrastructure, and a docs download failing is not worth interrupting anyone over.
+
+**A missing sidecar is a hard no, never a soft pass.** A zip that cannot be verified is not extracted,
+even though that means a cold-cache install gets no local docs until the sidecar appears. Proceeding
+unverified would make the digest decorative: an attacker or a corrupted CDN object only has to also
+remove the sidecar to bypass it. The cost of strictness is bounded -- a transient publish-window race
+delays local docs by one launch and the next launch converges, which is the same behaviour as a 404 on
+the zip itself. Step 1's publish order below keeps that window near zero.
 
 ### Retry throttling
 
@@ -560,11 +597,13 @@ the real branching lives:
 - `schema !== 1`: rejected
 - `fileCount` mismatch: rejected
 - `sha256` mismatch: rejected, previous cache intact
+- sidecar `404`, and sidecar present but unparseable: both rejected without extracting, previous cache
+  intact
 - zip entry escaping the target: rejected
 - oversize download: aborted
 - two concurrent `ensure()` calls: one download
 - **cache-present rule:** for each failure kind (network, 5xx, corrupt zip, `schema` mismatch,
-  `sha256` mismatch, disk error), a warm cache is still served and only a cold cache yields
+  `sha256` mismatch, missing sidecar, disk error), a warm cache is still served and only a cold cache yields
   `undefined`. This is the finding that broke the first draft, so it gets explicit per-kind coverage
   rather than one representative case.
 - hard failure sets `lastFailureAt` and is not retried within the throttle window
@@ -606,13 +645,20 @@ Automated tests cannot prove the CDN integration works, so that part is manual:
 4. Delete the cache mid-session, call `getLocalDocs()`: lazy re-fetch, and a second concurrent call
    joins it.
 5. Point the bundle base URL at a local static server serving hand-made bundles: drive the 404, exact,
-   fallback, 304, and digest-mismatch transitions without waiting on a release cycle. This is what
-   makes the feature verifiable on demand.
+   fallback, 304, sidecar-404, and digest-mismatch transitions without waiting on a release cycle.
+   This is what makes the feature verifiable on demand.
 6. Two windows open at once against a cold cache: confirm one usable bundle, no spurious failure from
    the prune race.
 7. Workbench: profile resolves to `workbench`, and the cache lands on the server's filesystem where
    the remote extension host can read it.
 8. `POSITRON_DOCS_URL` set: confirm the skip.
+
+**Step 5's local server must host the sidecars too.** For every `<name>.zip` it serves it needs a
+`<name>.zip.sha256sum` next to it, containing that zip's hex digest -- the same naming as Step 1's
+objects. Without them every request lands on the sidecar-404 path and `getLocalDocs()` returns
+`undefined` with only a warn log to explain it, which reads as "the feature is broken" rather than
+"the fixture is incomplete". Generating a fixture is one `shasum -a 256` per zip; omitting one on
+purpose is how you drive the sidecar-404 and digest-mismatch transitions.
 
 **Step 5 needs a runtime override to be worth anything.** `product.json` is baked at build time, so
 overriding `positronDocsBundleUrl` would otherwise require a custom build -- which contradicts the
