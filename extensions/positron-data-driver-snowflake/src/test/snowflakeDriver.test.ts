@@ -341,7 +341,7 @@ suite('Snowflake Driver Tests', () => {
 
 	// --- Preview ---
 
-	test('preview does not throw', async () => {
+	test('table node preview opens the table in the Data Explorer with its full identity', async () => {
 		const mock = createMockClient((sql) => {
 			if (sql.includes('SHOW TERSE TABLES')) {
 				return { rows: [{ name: 'T' }] };
@@ -349,10 +349,17 @@ suite('Snowflake Driver Tests', () => {
 			return { rows: [] };
 		});
 
-		const schemaNode = createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC');
+		// Record the host call the node's preview closure makes, so we assert the wiring end-to-end:
+		// building the node through createSchemaNode must carry the database, schema, name, and kind
+		// through to previewObject.
+		const calls: unknown[][] = [];
+		const recordingHost = { ...noopHost, previewObject: async (...args: unknown[]) => { calls.push(args); } };
+
+		const schemaNode = createSchemaNode(mock, recordingHost, 'ANALYTICS', 'PUBLIC');
 		const tables = await tablesOf(schemaNode);
-		assert.ok(tables[0].preview);
 		await tables[0].preview!();
+
+		assert.deepStrictEqual(calls, [[mock, 'ANALYTICS', 'PUBLIC', 'T', 'table']]);
 	});
 
 	test('preview dataset ids do not collide for names containing delimiters', async () => {
