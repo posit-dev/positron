@@ -42,8 +42,11 @@ suite('Web app commands', () => {
             async runApplication(_options) {
                 assert.ok(!runAppOptions, 'runApplication called more than once');
                 runAppOptions = _options;
+                return undefined;
             },
-            async runApplicationInConsole() {},
+            async runApplicationInConsole() {
+                return undefined;
+            },
             async debugApplication(_options) {
                 assert.ok(!debugAppOptions, 'debugApplication called more than once');
                 debugAppOptions = _options;
