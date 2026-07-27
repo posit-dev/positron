@@ -4,7 +4,7 @@
 #
 
 import logging
-from typing import Optional, Union
+from typing import Optional, Union, cast
 
 from ._vendor.pydantic import (
     BaseModel,
@@ -80,3 +80,13 @@ class PositronExecuteRequest(BaseModel):
             except ValidationError:
                 logger.debug("Failed to parse positron execute request", exc_info=True)
                 return cls()
+
+
+def current_execute_request() -> PositronExecuteRequest:
+    """The Positron `execute_request` currently being handled, if any."""
+    # Imported lazily to avoid a circular import.
+    from .positron_ipkernel import PositronIPyKernel
+
+    kernel = cast("PositronIPyKernel", PositronIPyKernel.instance())
+    execute_request_message = kernel.get_parent("shell")
+    return PositronExecuteRequest.from_message(execute_request_message)
