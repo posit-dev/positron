@@ -70,9 +70,13 @@ registerAction2(class extends Action2 {
 		});
 	}
 
-	run(accessor: ServicesAccessor) {
+	async run(accessor: ServicesAccessor): Promise<void> {
 		const editorService = accessor.get(IEditorService);
 		const contrib = PositronStartupDiagnosticsContrib.get();
-		return editorService.openEditor(contrib.getEditorInput(), { pinned: true });
+		// Do not return the IEditorPane: this command is agent-compatible, and the
+		// result is marshalled across the extension host RPC boundary. A live editor
+		// pane is not serializable, so returning it makes the Assistant see a failure
+		// even though the editor opened. Await (surfacing any error) and return void.
+		await editorService.openEditor(contrib.getEditorInput(), { pinned: true });
 	}
 });
