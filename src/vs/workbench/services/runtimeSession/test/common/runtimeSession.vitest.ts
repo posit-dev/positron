@@ -16,7 +16,8 @@ import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionServic
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
-import { TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
+import { TestLifecycleService, TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
+import { ILifecycleService } from '../../../lifecycle/common/lifecycle.js';
 import { IConfigurationResolverService } from '../../../configurationResolver/common/configurationResolver.js';
 import { NotebookSetting } from '../../../../contrib/notebook/common/notebookCommon.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -1570,6 +1571,22 @@ describe('Positron - RuntimeSessionService', () => {
 			const session = await startConsole(browserRuntime);
 			await waitForRuntimeState(session, RuntimeState.Ready);
 
+			await disconnectViaExtensionHost(session);
+
+			// Not queued for reconnection, so deletion proceeds normally.
+			expect(await runtimeSessionService.deleteSession(session.sessionId)).toBe(true);
+		});
+
+		it('does not remember a session when the window is shutting down', async () => {
+			const machineRuntime = createTestLanguageRuntimeMetadata(
+				ctx.instantiationService, ctx.disposables, LanguageRuntimeSessionLocation.Machine);
+			const session = await startConsole(machineRuntime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+
+			// Quitting tears down the extension host too, producing the same
+			// exit reason, but there is no reconnect to wait for.
+			const lifecycleService = ctx.get(ILifecycleService) as TestLifecycleService;
+			lifecycleService.willShutdown = true;
 			await disconnectViaExtensionHost(session);
 
 			// Not queued for reconnection, so deletion proceeds normally.

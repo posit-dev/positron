@@ -20,6 +20,7 @@ import { IOpenerService } from '../../../../../platform/opener/common/opener.js'
 import { IStorageService } from '../../../../../platform/storage/common/storage.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { IExtensionService } from '../../../extensions/common/extensions.js';
+import { ILifecycleService } from '../../../lifecycle/common/lifecycle.js';
 import { LanguageRuntimeService } from '../../../languageRuntime/common/languageRuntime.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IPositronConsoleService } from '../../../positronConsole/browser/interfaces/positronConsoleService.js';
@@ -29,7 +30,7 @@ import { RuntimeSessionService } from '../../common/runtimeSession.js';
 import { IRuntimeSessionService, RuntimeStartMode } from '../../common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from './testLanguageRuntimeSession.js';
 import { TestOpenerService, TestPositronModalDialogService, TestCommandService, TestRuntimeSessionManager, TestConfigurationResolverService, TestDirectoryFileService, TestPathService } from '../../../../test/common/positronWorkbenchTestServices.js';
-import { TestExtensionService, TestStorageService, TestWorkspaceTrustManagementService, TestContextService } from '../../../../test/common/workbenchTestServices.js';
+import { TestExtensionService, TestLifecycleService, TestStorageService, TestWorkspaceTrustManagementService, TestContextService } from '../../../../test/common/workbenchTestServices.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IUpdateService } from '../../../../../platform/update/common/update.js';
 import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
@@ -60,6 +61,7 @@ export function createRuntimeServices(
 	instantiationService.stub(IKeybindingService, new MockKeybindingService());
 	instantiationService.stub(INotificationService, new TestNotificationService());
 	instantiationService.stub(IUpdateService, { updateActiveLanguages: () => { } });
+	instantiationService.stub(ILifecycleService, disposables.add(new TestLifecycleService()));
 	instantiationService.stub(IRuntimeSessionService, disposables.add(instantiationService.createInstance(RuntimeSessionService)));
 	return instantiationService;
 }

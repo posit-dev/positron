@@ -20,6 +20,7 @@ import { IModalDialogPromptInstance, IPositronModalDialogsService } from '../../
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
+import { ILifecycleService } from '../../lifecycle/common/lifecycle.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 import { IUpdateService } from '../../../../platform/update/common/update.js';
@@ -204,7 +205,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IFileService private readonly _fileService: IFileService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@IPathService private readonly _pathService: IPathService
+		@IPathService private readonly _pathService: IPathService,
+		@ILifecycleService private readonly _lifecycleService: ILifecycleService
 	) {
 
 		super();
@@ -2091,7 +2093,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				// here. Machine sessions in particular were previously dropped,
 				// leaving the main-thread adapter bound to the dead extension
 				// host and a later restart throwing "session handle not found".
+				//
+				// Don't queue anything once the window is shutting down. The
+				// extension host is torn down on quit too, and that emits the
+				// same exit reason, but there is no "comes back online" to wait
+				// for. Queueing there hands the session to a reconnect that can
+				// only fail, and the failure path calls back into code that
+				// rewrites the persisted session list from the set of live
+				// sessions, which is empty by then.
 				if (exit.reason === RuntimeExitReason.ExtensionHost &&
+					!this._lifecycleService.willShutdown &&
 					session.runtimeMetadata.sessionLocation !==
 					LanguageRuntimeSessionLocation.Browser) {
 					this._disconnectedSessions.set(session.sessionId, sessionInfo);
