@@ -86,6 +86,27 @@ interface RawApplicationsResponse {
 	applications?: RawApplication[];
 }
 
+/**
+ * A non-2xx response from Connect. Carries the HTTP status so callers can tell a rejected credential
+ * (401/403) from a transient server-side failure; transport failures and timeouts throw a plain Error,
+ * so they are never mistaken for a credential problem either.
+ */
+export class ConnectHttpError extends Error {
+	constructor(message: string, readonly status: number) {
+		super(message);
+		this.name = 'ConnectHttpError';
+	}
+}
+
+/**
+ * Whether an error is Connect rejecting the request's credential, as opposed to any other failure.
+ * Callers use this to decide whether a credential is worth discarding: a 503 or a dropped connection
+ * says nothing about the credential's validity.
+ */
+export function isAuthFailure(err: unknown): boolean {
+	return err instanceof ConnectHttpError && (err.status === 401 || err.status === 403);
+}
+
 /** The shape of a single item in the content bundles endpoint response. */
 interface RawBundle {
 	id?: string | number;
@@ -115,9 +136,10 @@ export function normalizeServerUrl(serverUrl: string): string {
 }
 
 /**
- * A typed HTTP client for the Posit Connect endpoints this driver needs. Every request carries the
- * `Authorization: Key <api_key>` header, so the client acts as the key's owner and sees exactly the
- * content that user can access.
+ * A typed HTTP client for the Posit Connect endpoints this driver needs. Every request carries the auth
+ * headers produced by the client's {@link RequestAuthenticator} (an API key or a signed browser sign-in
+ * token), so the client acts as that credential's owner and sees exactly the content that user can
+ * access.
  *
  * The one method that owns the pin-enumeration strategy is {@link listPins}; everything downstream
  * (metadata, and later versions and data files) is independent of how pins are enumerated, so a
@@ -343,14 +365,14 @@ export class ConnectClient {
 	}
 
 	/** Maps a non-2xx response to a clear error, distinguishing auth, not-found, and other failures. */
-	private async _responseError(response: Response): Promise<Error> {
+	private async _responseError(response: Response): Promise<ConnectHttpError> {
 		if (response.status === 401 || response.status === 403) {
 			// Use the authenticator's own remediation hint, so the guidance matches the credential the
 			// connection actually uses (API key vs browser sign-in) rather than a hard-coded mechanism.
-			return new Error(`The Connect server rejected the request (HTTP ${response.status}). ${this._auth.authFailureHint}`);
+			return new ConnectHttpError(`The Connect server rejected the request (HTTP ${response.status}). ${this._auth.authFailureHint}`, response.status);
 		}
 		if (response.status === 404) {
-			return new Error(`The Connect server returned Not Found (HTTP 404). The pin or server URL may be incorrect.`);
+			return new ConnectHttpError(`The Connect server returned Not Found (HTTP 404). The pin or server URL may be incorrect.`, 404);
 		}
 		// Summarize the body (if any) to aid diagnosis, keeping it short.
 		let body = '';
@@ -360,6 +382,6 @@ export class ConnectClient {
 			// Ignore: an unreadable body just yields a status-only message.
 		}
 		const suffix = body ? `: ${body}` : '';
-		return new Error(`The Connect server request failed (HTTP ${response.status})${suffix}`);
+		return new ConnectHttpError(`The Connect server request failed (HTTP ${response.status})${suffix}`, response.status);
 	}
 }
