@@ -158,6 +158,28 @@ suite('providerCatalog', () => {
 		assert.strictEqual(getCachedProvider('anthropic')?.connection.baseUrl, 'https://saved.example.com');
 	});
 
+	test('saveProviderBaseUrl appends the version segment when the bare public host is saved', async () => {
+		writeConfig(configPath, { anthropic: {} });
+		await initProviderCatalog(context, { configPath });
+
+		// Bare host (with a stray trailing slash) is rewritten to the versioned form.
+		await saveProviderBaseUrl('anthropic', 'https://api.anthropic.com/', { configPath });
+
+		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+		assert.strictEqual(written.providers.anthropic.baseUrl, 'https://api.anthropic.com/v1');
+	});
+
+	test('saveProviderBaseUrl leaves a custom host untouched', async () => {
+		writeConfig(configPath, { anthropic: {} });
+		await initProviderCatalog(context, { configPath });
+
+		// A proxy / non-public host is not the bare known host, so it passes through.
+		await saveProviderBaseUrl('anthropic', 'https://my-proxy.example.com', { configPath });
+
+		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+		assert.strictEqual(written.providers.anthropic.baseUrl, 'https://my-proxy.example.com');
+	});
+
 	test('saveSnowflakeAccount writes the snowflake account field, only when changed', async () => {
 		writeConfig(configPath, {});
 		await initProviderCatalog(context, { configPath });

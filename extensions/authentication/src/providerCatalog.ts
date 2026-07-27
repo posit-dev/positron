@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import type { BuiltinProviderBlock, ProvidersConfig, ResolvedConnection, ResolvedProvider } from 'ai-config';
 import type { ProviderCatalogChange } from 'ai-config/node';
+import { ANTHROPIC_DEFAULT_BASE_URL, GEMINI_DEFAULT_BASE_URL, OPENAI_DEFAULT_BASE_URL } from './constants';
 import { log } from './log';
 
 /**
@@ -168,15 +169,41 @@ async function mutate(
 	await refreshProviderCatalog(options);
 }
 
+// Bare public host -> the versioned form its `@ai-sdk/*` client expects, for the
+// providers whose SDK won't add the version segment itself. Mirrors
+// ai-provider-bridge's KNOWN_HOSTS. deepseek and vertex are absent on purpose:
+// their SDKs use the bare host.
+const VERSIONED_HOSTS: Record<string, { bare: string; versioned: string }> = {
+	anthropic: { bare: 'https://api.anthropic.com', versioned: ANTHROPIC_DEFAULT_BASE_URL },
+	openai: { bare: 'https://api.openai.com', versioned: OPENAI_DEFAULT_BASE_URL },
+	gemini: { bare: 'https://generativelanguage.googleapis.com', versioned: GEMINI_DEFAULT_BASE_URL },
+};
+
+/**
+ * Append the version segment a provider's SDK expects when the saved value is
+ * the bare public host, so a bare host never lands in providers.json (the layer
+ * the catalog's read-side normalization doesn't touch). Conservative on purpose:
+ * only an exact bare-host match is rewritten, so proxies and already-versioned
+ * URLs pass through untouched. Foundry has its own Azure-specific normalization.
+ */
+function normalizeSavedBaseUrl(catalogId: string, baseUrl: string): string {
+	const known = VERSIONED_HOSTS[catalogId];
+	if (!known) {
+		return baseUrl;
+	}
+	return baseUrl.trim().replace(/\/+$/, '') === known.bare ? known.versioned : baseUrl;
+}
+
 /** Writes providers.<id>.baseUrl, then refreshes the cache. */
 export async function saveProviderBaseUrl(
 	catalogId: string,
 	baseUrl: string,
 	options?: ProviderCatalogOptions
 ): Promise<void> {
+	const normalized = normalizeSavedBaseUrl(catalogId, baseUrl);
 	const opts = effectiveOptions(options);
 	await mutate(providers => {
-		providers[catalogId] = { ...providers[catalogId], baseUrl };
+		providers[catalogId] = { ...providers[catalogId], baseUrl: normalized };
 	}, opts);
 }
 
