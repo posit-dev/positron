@@ -52,7 +52,10 @@ export class MissingPackagesContextKeyContribution extends Disposable {
 		this._supported = MISSING_PACKAGES_SUPPORTED_KEY.bindTo(contextKeyService);
 		this._register(this._editorService.onDidActiveEditorChange(() => this._update()));
 		this._register(this._runtimeSessionService.onDidStartRuntime(() => this._update()));
+		this._register(this._runtimeSessionService.onDidFailStartRuntime(() => this._update()));
+		this._register(this._runtimeSessionService.onDidChangeRuntimeState(() => this._update()));
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(() => this._update()));
+		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession(() => this._update()));
 		this._update();
 	}
 
