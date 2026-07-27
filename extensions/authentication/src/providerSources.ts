@@ -114,7 +114,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 			defaults: {
 				model: 'claude-sonnet-4-latest',
-				baseUrl: getSavedBaseUrl(PROVIDER_METADATA.anthropic.catalogId, 'https://api.anthropic.com'),
+				baseUrl: getSavedBaseUrl(PROVIDER_METADATA.anthropic.catalogId, 'https://api.anthropic.com/v1'),
 				toolCalls: true,
 				autoconfigure: {
 					type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
