@@ -31,8 +31,7 @@ suite('Positron Create Environment APIs', () => {
     let handleCreateEnvironmentCommandStub: sinon.SinonStub;
     let getConfigurationStub: sinon.SinonStub;
     let getWorkspaceFolderStub: sinon.SinonStub;
-    let onDidChangeWorkspaceFoldersStub: sinon.SinonStub;
-    let workspaceFolderChangeHandlers: Array<() => void>;
+    let getWorkspaceFoldersStub: sinon.SinonStub;
 
     const disposables: IDisposableRegistry = [];
     const mockProvider = createTypeMoq<CreateEnvironmentProvider>();
@@ -96,12 +95,8 @@ suite('Positron Create Environment APIs', () => {
             uri.toString() === workspace1UriString ? workspace1 : undefined,
         );
 
-        workspaceFolderChangeHandlers = [];
-        onDidChangeWorkspaceFoldersStub = sinon.stub(workspaceApis, 'onDidChangeWorkspaceFolders');
-        onDidChangeWorkspaceFoldersStub.callsFake((handler: () => void) => {
-            workspaceFolderChangeHandlers.push(handler);
-            return { dispose: () => { } };
-        });
+        getWorkspaceFoldersStub = sinon.stub(workspaceApis, 'getWorkspaceFolders');
+        getWorkspaceFoldersStub.returns([workspace1]);
 
         registerCommandStub.callsFake((_command: string, _callback: (...args: any[]) => any) => ({
             dispose: () => {
@@ -191,56 +186,41 @@ suite('Positron Create Environment APIs', () => {
         assert.isUndefined(dispatched.workspaceFolder);
     });
 
-    test('Waits for a not-yet-visible workspace folder to register, then dispatches once it appears', async () => {
+    test('Matches by path when the URI scheme differs (remote ext host sees file://, caller sent vscode-remote://)', async () => {
         const resultPath = '/path/to/created/env';
         pythonRuntimeManager
             .setup((p) => p.registerLanguageRuntimeFromPath(resultPath))
             .returns(() => Promise.resolve(createTypeMoq<positron.LanguageRuntimeMetadata>().object));
         handleCreateEnvironmentCommandStub.returns(Promise.resolve({ path: resultPath }));
 
-        // Simulate a brand-new workspace folder that the extension host doesn't see yet.
+        // The caller sends the workbench/main-thread URI (vscode-remote://), but this
+        // extension host represents the same folder as file://. Exact-URI lookup misses;
+        // the path-based fallback against getWorkspaceFolders() should still resolve it.
+        const remoteUri = workspace1.uri.with({ scheme: 'vscode-remote', authority: 'localhost:9000' });
         getWorkspaceFolderStub.callsFake(() => undefined);
+        getWorkspaceFoldersStub.returns([workspace1]);
 
-        const resultPromise = createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+        await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
             ...envOptions,
+            workspaceFolder: remoteUri.toString(),
         });
 
-        assert.strictEqual(
-            workspaceFolderChangeHandlers.length,
-            1,
-            'should subscribe to workspace folder changes while waiting',
-        );
-        assert.isTrue(handleCreateEnvironmentCommandStub.notCalled, 'should not dispatch before the folder registers');
-
-        // The folder registers; fire the change event that should wake the wait.
-        getWorkspaceFolderStub.callsFake((uri: Uri) => (uri.toString() === workspace1UriString ? workspace1 : undefined));
-        workspaceFolderChangeHandlers[0]();
-
-        const result = await resultPromise;
-
-        assert.isDefined(result?.path);
         const dispatched = handleCreateEnvironmentCommandStub.firstCall.args[1];
         assert.strictEqual(dispatched.workspaceFolder, workspace1);
     });
 
-    test('Throws once the registration wait times out without the folder ever appearing', async () => {
-        const clock = sinon.useFakeTimers();
-        try {
-            getWorkspaceFolderStub.callsFake(() => undefined);
-            const unknownUri = Uri.file('/no/such/workspace').toString();
+    test('Throws when no workspace folder matches by exact URI or by path', async () => {
+        getWorkspaceFolderStub.callsFake(() => undefined);
+        getWorkspaceFoldersStub.returns([workspace1]);
+        const unknownUri = Uri.file('/no/such/workspace').toString();
 
-            const resultPromise = createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+        await assert.isRejected(
+            createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
                 ...envOptions,
                 workspaceFolder: unknownUri,
-            });
-            // Never fire a change event -- the folder never registers. Advance well
-            // past any reasonable wait bound instead of waiting in real time.
-            await clock.tickAsync(60_000);
-
-            await assert.isRejected(resultPromise, /Workspace folder not found/);
-            assert.isTrue(handleCreateEnvironmentCommandStub.notCalled);
-        } finally {
-            clock.restore();
-        }
+            }),
+            /Workspace folder not found/,
+        );
+        assert.isTrue(handleCreateEnvironmentCommandStub.notCalled);
     });
 });
