@@ -137,6 +137,12 @@ describe('generateAIDiagnosticsReport', () => {
 		expect(report).toContain('### Disabled\n\nNone');
 	});
 
+	it('adds the Assistant bundle section only when a bundle was requested', () => {
+		expect(generateAIDiagnosticsReport(inputs())).not.toContain('## Assistant Diagnostics Bundle');
+		expect(generateAIDiagnosticsReport(inputs({ bundle: 'Requested (with attachments).' })))
+			.toContain('## Assistant Diagnostics Bundle\n\nRequested (with attachments).');
+	});
+
 	it('flags when the ai.enabled main switch is off', () => {
 		expect(generateAIDiagnosticsReport(inputs({ aiEnabled: false })))
 			.toContain('- AI features (`ai.enabled`): **Disabled - all AI features below are off regardless of their own settings**');

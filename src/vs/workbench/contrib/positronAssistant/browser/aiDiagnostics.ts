@@ -3,13 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize2 } from '../../../../nls.js';
+import { localize, localize2 } from '../../../../nls.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { Action2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
@@ -86,6 +88,8 @@ export interface IAIDiagnosticsInputs {
 	readonly disabledProviders: readonly string[];
 	readonly settings: readonly IAIDiagnosticsSetting[];
 	readonly logs: readonly IAIDiagnosticsLogSection[];
+	/** Assistant diagnostics bundle result (path or status); omitted when not requested. */
+	readonly bundle?: string;
 }
 
 /**
@@ -161,7 +165,7 @@ ${settingsBlock}
 \`\`\`
 
 ${logsBlock}
-`;
+${inputs.bundle ? `\n## Assistant Diagnostics Bundle\n\n${inputs.bundle}\n` : ''}`;
 }
 
 /** Setting-key prefixes that identify AI-related settings. */
@@ -220,6 +224,10 @@ const AI_LOG_SOURCES: readonly { label: string; id: string; command: string }[] 
 /** The authentication extension and its bridge command reporting provider state. */
 const AUTH_EXTENSION_ID = 'positron.authentication';
 const AUTH_PROVIDERS_COMMAND = 'authentication.getProviderDiagnostics';
+
+/** The Posit Assistant extension and its bridge command producing the diagnostics bundle. */
+const ASSISTANT_EXTENSION_ID = 'posit.assistant';
+const ASSISTANT_BUNDLE_COMMAND = 'posit.assistant.collectDiagnosticsBundle';
 
 /** Shape returned by {@link AUTH_PROVIDERS_COMMAND}. */
 interface IProviderDiagnostics {
@@ -337,6 +345,20 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 		const outputService = accessor.get(IOutputService);
 		const fileService = accessor.get(IFileService);
 		const editorService = accessor.get(IEditorService);
+		const quickInputService = accessor.get(IQuickInputService);
+		const notificationService = accessor.get(INotificationService);
+
+		// When Posit Assistant is installed, ask up front whether to also produce
+		// its diagnostics bundle. The report is always generated; the bundle is
+		// opt-in. Escaping the prompt cancels the command.
+		let includeBundle = false;
+		if (await extensionService.getExtension(ASSISTANT_EXTENSION_ID)) {
+			const choice = await promptForBundle(quickInputService);
+			if (choice === undefined) {
+				return;
+			}
+			includeBundle = choice;
+		}
 
 		const settings = collectNonDefaultAISettings(configurationService);
 
@@ -373,6 +395,10 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 
 		const providers = await collectProviderDiagnostics(extensionService, commandService);
 
+		const bundle = includeBundle
+			? localize('positron.ai.diagnostics.bundleRequested', "Requested. Posit Assistant saves the bundle and shows its location in a notification.")
+			: undefined;
+
 		// NES's `enabled` is a per-language-type map; the `*` wildcard is the
 		// overall on/off, so report that.
 		const nesEnabled = configurationService.getValue<Record<string, boolean>>('nextEditSuggestions.enabled')?.['*'];
@@ -401,9 +427,19 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 			disabledProviders: providers.disabled,
 			settings,
 			logs,
+			bundle,
 		});
 
 		await editorService.openEditor({ resource: undefined, contents: report, languageId: 'markdown' });
+
+		// Fire the bundle after the report is open, and don't await it: the
+		// Assistant's command shows its own notification (and reveal/download),
+		// which would otherwise block the report from appearing until dismissed.
+		if (includeBundle) {
+			collectAssistantBundle(extensionService, commandService, false).catch(error => {
+				notificationService.warn(localize('positron.ai.diagnostics.bundleFailed', "Could not produce the Posit Assistant diagnostics bundle: {0}", error instanceof Error ? error.message : String(error)));
+			});
+		}
 	}
 }
 
@@ -482,6 +518,45 @@ async function collectProviderDiagnostics(
 	} catch {
 		return empty;
 	}
+}
+
+/**
+ * When Posit Assistant is installed, asks whether to also produce its diagnostics
+ * bundle - the extra artifact that carries the chat conversation. Returns the
+ * choice, or `undefined` if the user cancels (Escape), which aborts the command.
+ */
+async function promptForBundle(quickInputService: IQuickInputService): Promise<boolean | undefined> {
+	const items: (IQuickPickItem & { includeBundle: boolean })[] = [
+		{
+			label: localize('positron.ai.diagnostics.reportOnly', "Report only"),
+			detail: localize('positron.ai.diagnostics.reportOnly.detail', "Auth providers, feature enablement, settings, and recent logs."),
+			includeBundle: false,
+		},
+		{
+			label: localize('positron.ai.diagnostics.reportAndBundle', "Report and diagnostics bundle"),
+			detail: localize('positron.ai.diagnostics.reportAndBundle.detail', "A zip with detailed Assistant logs, recent model requests and errors, and the open conversation (if any)."),
+			includeBundle: true,
+		},
+	];
+	const picked = await quickInputService.pick(items, {
+		placeHolder: localize('positron.ai.diagnostics.bundlePrompt', "Include the diagnostics bundle? Add it if you need to share the chat conversation."),
+	});
+	return picked && picked.includeBundle;
+}
+
+/**
+ * Asks Posit Assistant to produce its diagnostics bundle via a bridge command.
+ * The Assistant writes the zip and handles its own reveal/download and progress
+ * UI, so this just kicks it off - the caller fires it after the report opens and
+ * doesn't await it, so the report isn't blocked behind the Assistant's UI.
+ */
+async function collectAssistantBundle(
+	extensionService: IExtensionService,
+	commandService: ICommandService,
+	includeAttachments: boolean,
+): Promise<void> {
+	await activateWithTimeout(extensionService, ASSISTANT_EXTENSION_ID);
+	await commandService.executeCommand(ASSISTANT_BUNDLE_COMMAND, { includeAttachments });
 }
 
 async function collectCopilotLogs(
