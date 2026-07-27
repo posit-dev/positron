@@ -191,10 +191,6 @@
 			"project": "vscode-workbench"
 		},
 		{
-			"name": "vs/workbench/contrib/positronStartupDiagnostics",
-			"project": "vscode-workbench"
-		},
-		{
 			"name": "vs/workbench/contrib/positronHelp",
 			"project": "vscode-workbench"
 		},
