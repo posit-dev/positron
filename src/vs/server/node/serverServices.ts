@@ -121,6 +121,9 @@ import { POSITRON_IDLE_TRACKING_CHANNEL_NAME, PositronIdleTrackingChannel } from
 import { HEADLESS_LM_ENGINE_CHANNEL } from '../../platform/positronHeadlessLanguageModel/common/engine.js';
 import { HeadlessLanguageModelEngine } from '../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngine.js';
 import { HeadlessLanguageModelEngineChannel } from '../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngineChannel.js';
+import { POSITRON_AI_PROVIDER_CHANNEL } from '../../platform/positronAiProvider/common/aiProviderCatalog.js';
+import { AiProviderCatalog } from '../../platform/positronAiProvider/node/aiProviderCatalog.js';
+import { AiProviderCatalogChannel } from '../../platform/positronAiProvider/node/aiProviderCatalogChannel.js';
 // --- End Positron ---
 
 const eventPrefix = 'monacoworkbench';
@@ -409,6 +412,12 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 		// originate from this remote host; the workbench reaches it here.
 		const headlessLmEngine = new HeadlessLanguageModelEngine(logService);
 		socketServer.registerChannel(HEADLESS_LM_ENGINE_CHANNEL, new HeadlessLanguageModelEngineChannel(headlessLmEngine));
+
+		// AI provider catalog: resolves providers.json + enforced/default env
+		// fragments where they live (this remote host's HOME/env); the
+		// workbench reaches it over this channel.
+		const aiProviderCatalog = disposables.add(new AiProviderCatalog(logService));
+		socketServer.registerChannel(POSITRON_AI_PROVIDER_CHANNEL, new AiProviderCatalogChannel(aiProviderCatalog));
 		// --- End Positron ---
 		// clean up extensions folder
 		remoteExtensionsScanner.whenExtensionsReady().then(() => extensionManagementService.cleanUp());

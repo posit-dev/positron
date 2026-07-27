@@ -141,7 +141,8 @@ If the dev asks for changes, revise the plan and re-present. Repeat until confir
 For each approved item:
 
 1. **Write the test** following the conventions in [`.claude/rules/vitest-tests.md`](../../rules/vitest-tests.md) (file layout, `/// <reference>`, assertions, builder usage, inline snapshots). For React tests, also follow [`.claude/rules/vitest-rtl.md`](../../rules/vitest-rtl.md). Authoring-specific quality bar:
-   - Each describe block: happy path, boundary case, and at least one negative case.
+   - Cover the meaningful behavioral partitions for the regression under test. Consider happy, boundary, error, absent-data, and negative cases where they represent distinct observable behavior -- happy/boundary/negative are heuristics, not a quota. Do not invent a test just to fill a category; a describe block with only a happy-path test is correct if no other partition is distinct.
+   - Favor fewer high-value tests over more low-value ones. Before adding a case, ask whether it would catch a regression a reviewer would actually care about -- skip artificial boundary probes, trivial negative cases, and assertions that duplicate a nearby test.
    - If setup exceeds ~20 lines of stubs, extract a helper function.
    - Minimize imports: if you're importing 5+ service identifiers just for `.stub()` calls, extract a helper.
 
@@ -155,7 +156,7 @@ For each approved item:
 
 6. Move to the next file. Do NOT ask the dev after each file.
 
-7. After all tests pass, run the full Vitest suite: `npm run test:positron`
+Don't run the full suite here -- it runs exactly once, after Phase 3 fixes land (see below). Running it now just duplicates that pass.
 
 ### Builder enforcement
 
@@ -183,7 +184,8 @@ Agent({
 For each issue:
 1. Apply the fix
 2. Re-run the affected test: `npx vitest run <path-to-test-file>`
-3. Re-run the full suite: `npx vitest run`
+
+After all fixes are applied, run the full suite exactly once: `npm run test:positron` (equivalent to `npx vitest run` -- pick one, don't run both). This is the only full-suite run in the whole workflow; preceding steps only ever run targeted files.
 
 Present the dev with a summary:
 - How many issues the review caught
@@ -193,6 +195,7 @@ Present the dev with a summary:
 ## Hard rules
 
 - **Test for regressions, not coverage.** Before writing any test, state what user-visible or system-observable regression it guards against. If you can't answer, skip the test. A test that verifies an internal counter, array index, or call count — where the real invariant is a downstream side-effect — is testing structure, not behavior. Coverage is a side-effect of good tests, not a goal.
+- **Don't pad for category coverage.** Happy/boundary/negative are heuristics for finding distinct behaviors, not a per-describe quota. When in doubt, write fewer high-value tests instead of more low-value ones.
 - **Don't over-test.** Test public behavior, not implementation details.
 - **Don't export internals for testing.** Test behavior through rendered output or public API.
 - **Don't write E2E tests.** Flag for E2E if needed, but don't write them.

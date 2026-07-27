@@ -60,6 +60,20 @@ describe('PositronDataExplorerExtensionBackend', () => {
 		});
 	});
 
+	it('sends the code syntax under the protocol parameter name for convertToCode', async () => {
+		const { backend, calls } = createBackend(() => ({ result: { converted_code: ['code'] } }));
+
+		await backend.convertToCode([], [], [], { code_syntax_name: 'R' });
+
+		// The backend handler reads `code_syntax_name` (the protocol/OpenRPC name); sending it under any
+		// other key leaves the selected syntax undefined for the handler.
+		expect(calls[0].rpc).toEqual({
+			method: DataExplorerBackendRequest.ConvertToCode,
+			uri: IDENTIFIER,
+			params: { column_filters: [], row_filters: [], sort_keys: [], code_syntax_name: { code_syntax_name: 'R' } },
+		});
+	});
+
 	it('rejects when the transport returns an error message', async () => {
 		const { backend } = createBackend(() => ({ error_message: 'boom' }));
 		await expect(backend.getState()).rejects.toThrow('boom');

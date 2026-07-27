@@ -42,16 +42,48 @@ function spawnAsync(command: string, args: string[], opts: child_process.SpawnOp
 		let output = '';
 		child.stdout?.on('data', (data: Buffer) => { output += data.toString(); });
 		child.stderr?.on('data', (data: Buffer) => { output += data.toString(); });
-		child.on('error', reject);
-		child.on('close', (code) => {
+		// Name the command and cwd on failure so a crash points at the process that
+		// died. Concurrent installs interleave output, and a bare "exited with code"
+		// (e.g. a native module aborting with the Windows 0xC0000409 / 3221226505 exit
+		// code) doesn't say which dir crashed; the cwd is what identifies it.
+		const where = opts.cwd ? ` (cwd: ${opts.cwd})` : '';
+		const commandLine = `${command} ${args.join(' ')}`.trim();
+		child.on('error', (err) => {
+			reject(new Error(`Failed to spawn "${commandLine}"${where}: ${err.message}`));
+		});
+		child.on('close', (code, signal) => {
 			if (code !== 0) {
-				reject(new Error(`Process exited with code: ${code}\n${output}`));
+				const sig = signal ? `, signal: ${signal}` : '';
+				reject(new Error(`Command "${commandLine}"${where} exited with code: ${code}${sig}\n${output}`));
 			} else {
 				resolve(output);
 			}
 		});
 	});
 }
+
+// --- Start Positron ---
+/**
+ * Whether the given dir packages prebuilt per-arch *runtime* native bindings that
+ * must match the cross-build *target* architecture rather than the host. Keyed off a
+ * direct dependency on @duckdb/node-api (which pulls in @duckdb/node-bindings-<os>-<arch>
+ * as optional deps); this excludes host-tool dirs (ai-lib, build, ...) whose native
+ * optional deps -- e.g. the TypeScript 7 compiler binary -- must stay on the host arch.
+ * See the call site in npmInstallAsync and issue #15042.
+ */
+function dirShipsPrebuiltRuntimeBindings(dir: string): boolean {
+	const packageJsonPath = path.join(root, dir, 'package.json');
+	if (!fs.existsSync(packageJsonPath)) {
+		return false;
+	}
+	try {
+		const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+		return Boolean(pkg.dependencies?.['@duckdb/node-api'] || pkg.optionalDependencies?.['@duckdb/node-api']);
+	} catch {
+		return false;
+	}
+}
+// --- End Positron ---
 
 async function npmInstallAsync(dir: string, opts?: child_process.SpawnOptions): Promise<void> {
 	const finalOpts: child_process.SpawnOptions = {
@@ -60,6 +92,31 @@ async function npmInstallAsync(dir: string, opts?: child_process.SpawnOptions): 
 		cwd: path.join(root, dir),
 		shell: true,
 	};
+
+	// --- Start Positron ---
+	// When cross-building (e.g. an x64 build on an arm64 macOS machine) the build
+	// sets `npm_config_arch` to the *target* architecture. node-gyp reads that to
+	// compile native modules for the target, but npm ignores `arch` when choosing
+	// which platform-specific optional dependencies to install -- it filters those
+	// by the package's `cpu` field, which npm derives from `process.arch` unless the
+	// `--cpu` (`npm_config_cpu`) config overrides it. Without this, packages that
+	// ship prebuilt per-arch bindings via optional dependencies (e.g. @duckdb/node-api
+	// -> @duckdb/node-bindings-darwin-*) get the host-arch binding bundled instead of
+	// the target's, and fail to load at runtime with MODULE_NOT_FOUND.
+	//
+	// This must be scoped, NOT applied globally: `--cpu` also steers the optional
+	// deps of *build-time* tools that run on the host during install (e.g. the
+	// native TypeScript 7 compiler ships `@typescript/typescript-<os>-<arch>` and
+	// runs `tsc` on the host), and forcing those to the target arch makes the host
+	// tool unable to load its own binary. So only translate the arch for dirs that
+	// ship prebuilt per-arch *runtime* bindings we package into the app -- detected
+	// by a direct dependency on @duckdb/node-api, which excludes host-tool dirs like
+	// ai-lib and build. See
+	const env = finalOpts.env;
+	if (env && env['npm_config_arch'] && !env['npm_config_cpu'] && dirShipsPrebuiltRuntimeBindings(dir)) {
+		env['npm_config_cpu'] = env['npm_config_arch'];
+	}
+	// --- End Positron ---
 
 	const command = process.env['npm_command'] || 'install';
 
@@ -487,15 +544,17 @@ async function runWithConcurrency(tasks: (() => Promise<void>)[], concurrency: n
 
 // --- Start Positron ---
 /**
- * Build the ai-config package (from the ai-lib submodule).
+ * Build the ai-lib workspace packages (from the ai-lib submodule), in dependency
+ * order: ai-config -> ai-credentials -> ai-provider-bridge.
  *
- * ai-config emits dist/ via tsc, and the authentication extension imports it at
- * COMPILE time (`import ... from 'ai-config/node'`, resolved by the package's
- * exports map to dist/). The build used to be a side effect of the
- * authentication extension's own postinstall, but npm skips that postinstall
- * whenever the extension's node_modules is restored from cache -- so on
- * cache-hit runs (the common case) dist/ was never built and compilation failed
- * with "Cannot find module 'ai-config/node'".
+ * These emit dist/ via tsc, and Positron imports them at COMPILE time (the
+ * authentication extension imports `ai-config/node`; core imports
+ * `ai-provider-bridge/credential-shaping`), resolved by each package's exports
+ * map to dist/. The build used to be a side effect of the authentication
+ * extension's own postinstall, but npm skips that postinstall whenever the
+ * extension's node_modules is restored from cache -- so on cache-hit runs (the
+ * common case) dist/ was never built and compilation failed with "Cannot find
+ * module".
  *
  * Building here -- next to the always-run buildSqliteServerBinding, in both the
  * up-to-date and full postinstall paths -- makes dist/ deterministic regardless
@@ -503,23 +562,28 @@ async function runWithConcurrency(tasks: (() => Promise<void>)[], concurrency: n
  * keyed on the ai-lib submodule gitlink) so full cache-hit runs that skip
  * postinstall entirely still get it restored.
  */
-async function buildAiConfig({ force }: { force: boolean }): Promise<void> {
-	const aiConfigDir = path.join(root, 'ai-lib', 'packages', 'ai-config');
-	if (!fs.existsSync(aiConfigDir)) {
+async function buildAiLib({ force }: { force: boolean }): Promise<void> {
+	const aiLibPackagesDir = path.join(root, 'ai-lib', 'packages');
+	if (!fs.existsSync(aiLibPackagesDir)) {
 		// ai-lib submodule not checked out (e.g. a shallow/partial checkout that
 		// doesn't need it); nothing to build.
 		return;
 	}
 	// In the up-to-date fast path (force=false) skip the rebuild if dist/ is
 	// already present -- nothing changed, so rebuilding would just add tsc +
-	// generate-schema to every `npm install`. The full install path passes
-	// force=true because deps just changed and dist/ may be stale or absent.
-	if (!force && fs.existsSync(path.join(aiConfigDir, 'dist', 'index.js'))) {
+	// generate-schema to every `npm install`. ai-provider-bridge builds LAST in the
+	// dependency order, so its dist/ is the reliable "all three built" marker. The
+	// full install path passes force=true because deps just changed and dist/ may
+	// be stale or absent.
+	if (!force && fs.existsSync(path.join(aiLibPackagesDir, 'ai-provider-bridge', 'dist', 'index.js'))) {
 		return;
 	}
-	log('ai-lib/packages/ai-config', 'Building ai-config (generate-schema + tsc)...');
-	await spawnAsync(npm, ['--prefix', 'ai-lib', 'run', 'build', '-w', 'ai-config'], { cwd: root });
+	log('ai-lib/packages', 'Building ai-lib packages (ai-config -> ai-credentials -> ai-provider-bridge)...');
+	// shell: true is required on Windows, where `npm` resolves to npm.cmd -- Node's
+	// child_process.spawn refuses to launch a .cmd directly (EINVAL) without it.
+	await spawnAsync(npm, ['run', 'build:ai-lib'], { cwd: root, shell: true });
 }
+
 // --- End Positron ---
 
 async function main() {
@@ -550,10 +614,10 @@ async function main() {
 		// and cheap when the binary is already correct (see buildSqliteServerBinding),
 		// so a cached/already-installed node_modules still gets repaired here.
 		await buildSqliteServerBinding();
-		// Likewise ensure ai-config's dist/ exists (the authentication extension
-		// imports it at compile time). Nothing changed, so skip the rebuild if
-		// it's already there.
-		await buildAiConfig({ force: false });
+		// Likewise ensure the ai-lib packages' dist/ exists (Positron imports them
+		// at compile time). Nothing changed, so skip the rebuild if they're already
+		// there.
+		await buildAiLib({ force: false });
 		child_process.execSync('git config pull.rebase merges');
 		child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
 		return;
@@ -672,11 +736,12 @@ async function main() {
 	// The SQLite data driver's native binding must also load in the server/remote
 	// extension host (plain Node, a different ABI than the desktop Electron host).
 	await buildSqliteServerBinding();
-	// Build ai-config's dist/ (imported by the authentication extension at
-	// compile time). Kept here rather than in the authentication postinstall,
-	// which npm skips whenever that extension is restored from cache. Deps just
-	// changed, so force a rebuild rather than trusting a possibly-stale dist/.
-	await buildAiConfig({ force: true });
+	// Build the ai-lib packages' dist/ (imported by Positron at compile time, and
+	// by the esm package bundling below via ai-provider-bridge/credential-shaping).
+	// Kept here rather than in the authentication postinstall, which npm skips
+	// whenever that extension is restored from cache. Deps just changed, so force a
+	// rebuild rather than trusting a possibly-stale dist/.
+	await buildAiLib({ force: true });
 	// --- End Positron ---
 
 	child_process.execSync('git config pull.rebase merges');

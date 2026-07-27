@@ -37,7 +37,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Docker Image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: docker/images/rocky_8
           file: ./docker/images/rocky_8/Dockerfile.positron-builds.rocky_8

@@ -502,7 +502,10 @@ export enum DataConnectionNodeKind {
 	GroupViews = 'group-views',
 	GroupColumns = 'group-columns',
 	GroupIndexes = 'group-indexes',
+	GroupStages = 'group-stages',
 	Index = 'index',
+	// A Snowflake stage: a named location for staging files (positron-data-driver-snowflake).
+	Stage = 'stage',
 	// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
 	Owner = 'owner',
 	// A pin on a Posit Connect server (positron-data-driver-pins).

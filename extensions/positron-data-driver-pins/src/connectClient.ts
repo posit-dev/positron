@@ -3,6 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { randomUUID } from 'crypto';
+import { createWriteStream } from 'fs';
+import { mkdir, rename, unlink } from 'fs/promises';
+import { dirname } from 'path';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 import { Logger, NULL_LOGGER } from './logging.js';
 import { parsePinMeta, PinMeta } from './meta.js';
 
@@ -222,6 +228,46 @@ export class ConnectClient {
 		return parsePinMeta(text);
 	}
 
+	/**
+	 * Downloads a single data file from a pin version to `destPath`, streamed to disk so a large pin
+	 * never materializes in memory. Served from the content's own URL (under `/content/`, matching
+	 * {@link getPinMeta}), which works with viewer access. The body is written to a per-call unique
+	 * temporary sibling and atomically renamed into place only on success. The unique name means two
+	 * concurrent downloads of the same file (e.g. previewing a pin and its active version at once)
+	 * each write their own temp rather than corrupting a shared one, and the atomic rename means
+	 * `destPath` is only ever absent or a complete file, so a failed/interrupted download never leaves
+	 * a partial file that a later immutable-skip would mistake for a complete one.
+	 *
+	 * No request timeout is applied: a pin's data file can be large and take longer than the API
+	 * timeout to transfer, and the fixed abort would kill an otherwise-healthy download.
+	 *
+	 * @param guid The pin's content GUID.
+	 * @param bundleId The bundle (version) id to read.
+	 * @param filename The data file name within the bundle (from the pin's `data.txt`).
+	 * @param destPath The absolute path to write the file to.
+	 */
+	async downloadPinFile(guid: string, bundleId: string, filename: string, destPath: string): Promise<void> {
+		const url = `${this._serverUrl}/content/${encodeURIComponent(guid)}/_rev${encodeURIComponent(bundleId)}/${encodeURIComponent(filename)}`;
+		this._logger.info(`Downloading ${filename} (${destPath}) for pin ${guid} version ${bundleId}`);
+		// GET with no abort timeout; the body may be large.
+		const response = await this._get(url, '*/*', 0);
+		if (!response.body) {
+			throw new Error(`The Connect server returned an empty response body for ${filename}.`);
+		}
+		await mkdir(dirname(destPath), { recursive: true });
+		// A per-call unique temp (a sibling, so the rename stays on the same filesystem and is atomic)
+		// keeps concurrent downloads of the same file from clobbering each other's in-progress writes.
+		const tempPath = `${destPath}.${randomUUID()}.download`;
+		try {
+			await pipeline(Readable.fromWeb(response.body), createWriteStream(tempPath));
+			await rename(tempPath, destPath);
+		} catch (err) {
+			// Best-effort cleanup of the partial file; the original error is what matters.
+			await unlink(tempPath).catch(() => { });
+			throw err;
+		}
+	}
+
 	/** Builds a URL under the server's `/__api__/` prefix. */
 	private _apiUrl(path: string): string {
 		return `${this._serverUrl}/__api__/${path}`;
@@ -246,11 +292,14 @@ export class ConnectClient {
 	/**
 	 * Performs a GET request with the auth header and a timeout, returning the response only when it
 	 * is successful. Maps transport failures, timeouts, and non-2xx statuses to clear errors.
+	 *
+	 * @param timeoutMs The abort timeout in milliseconds; pass 0 to disable it (for large downloads
+	 * whose transfer can legitimately exceed the API timeout).
 	 */
-	private async _get(url: string, accept: string): Promise<Response> {
+	private async _get(url: string, accept: string, timeoutMs: number = DEFAULT_TIMEOUT_MS): Promise<Response> {
 		this._logger.trace(`GET ${url}`);
 		const controller = new AbortController();
-		const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+		const timeout = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
 		let response: Response;
 		try {
 			response = await this._fetch(url, {

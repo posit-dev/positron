@@ -1,6 +1,6 @@
 ARG ARCH=amd64
 
-FROM --platform=linux/${ARCH} debian:12
+FROM --platform=linux/${ARCH} debian:13
 
 # Re-define ARCH after FROM to make it available in build stage
 ARG ARCH
@@ -50,7 +50,7 @@ ENV QT_QUICK_BACKEND=software
 ENV QT_XCB_GL_INTEGRATION=none
 
 # Install system dependencies, VNC server, and window manager
-ADD deps/debian12_packages_${ARCH}.txt /tmp/apt_packages.txt
+ADD deps/debian13_packages_${ARCH}.txt /tmp/apt_packages.txt
 RUN apt-get update && apt-get install -y $(cat /tmp/apt_packages.txt) \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
@@ -156,10 +156,10 @@ RUN curl -O https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/t
 ENV PATH="/root/.venv/bin:/root/.local/bin:$PATH"
 
 # Configure R for root user
-RUN echo 'options(\n  repos = c(RSPM = "https://packagemanager.posit.co/cran/__linux__/bookworm/latest"),\n  HTTPUserAgent = sprintf("R/%s (debian-12)", getRversion())\n)' > ~/.Rprofile
+RUN echo 'options(\n  repos = c(RSPM = "https://packagemanager.posit.co/cran/__linux__/trixie/latest"),\n  HTTPUserAgent = sprintf("R/%s (debian-13)", getRversion())\n)' > ~/.Rprofile
 
 # Stable CRAN mirror
-ENV RSPM=https://packagemanager.posit.co/cran/__linux__/bookworm/latest
+ENV RSPM=https://packagemanager.posit.co/cran/__linux__/trixie/latest
 
 # Use a shared site library (independent of $HOME)
 ENV R_LIBS_SITE=/usr/local/lib/R/site-library
@@ -176,18 +176,19 @@ RUN rig add 4.5.2 && rig default 4.5.2 && \
 # Install the project dev deps to the same site library
 # Use source packages for ARM64 and a source-only repo to avoid broken platform artifacts.
 #
-# Pin to a PPM snapshot from before terra 1.9 (first shipped 2026-03-08). terra
-# 1.9's source calls GDALMDArray::AsClassicDataset() with a signature that needs
-# GDAL >= 3.7, but Debian bookworm ships GDAL 3.6.2, so the source build fails.
-# The 2026-03-01 snapshot holds terra at the 1.8 series (1.8-93), which builds
-# against 3.6.2. Revisit when bookworm's GDAL is new enough for terra 1.9.
+# Historical note (carried over from the Debian 12/bookworm image): the snapshot
+# was pinned to 2026-03-01 -- before terra 1.9 (first shipped 2026-03-08) -- because
+# terra 1.9's source calls GDALMDArray::AsClassicDataset() with a signature that
+# needs GDAL >= 3.7, and bookworm shipped GDAL 3.6.2. Debian 13 (trixie) ships a
+# newer GDAL (>= 3.7), so this pin is no longer required for the terra/GDAL reason;
+# it is retained for now to isolate the OS bump and can likely be removed/bumped.
 RUN ARCH_NAME=$(uname -m) && \
     if [ "$ARCH_NAME" = "aarch64" ]; then \
         PKG_TYPE="source"; \
         R_REPO="https://packagemanager.posit.co/cran/${PPM_SNAPSHOT}"; \
     else \
         PKG_TYPE="both"; \
-        R_REPO="https://packagemanager.posit.co/cran/__linux__/bookworm/${PPM_SNAPSHOT}"; \
+        R_REPO="https://packagemanager.posit.co/cran/__linux__/trixie/${PPM_SNAPSHOT}"; \
     fi && \
     mkdir -p /tmp/test-content && cd /tmp/test-content && \
     curl -O https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/test-files/DESCRIPTION && \
@@ -214,8 +215,8 @@ RUN mkdir -p ${HOME}/scratch && \
 # Hidden R
 RUN mkdir -p ${HOME}/scratch/R-4.4.1 && \
     cd ${HOME}/scratch && \
-    curl -fLO "https://cdn.posit.co/r/debian-12/R-4.4.1-debian-12${R_ARCH_SUFFIX}.tar.gz" && \
-    tar -xzf R-4.4.1-debian-12${R_ARCH_SUFFIX}.tar.gz -C R-4.4.1 --strip-components=1 && \
+    curl -fLO "https://cdn.posit.co/r/debian-13/R-4.4.1-debian-13${R_ARCH_SUFFIX}.tar.gz" && \
+    tar -xzf R-4.4.1-debian-13${R_ARCH_SUFFIX}.tar.gz -C R-4.4.1 --strip-components=1 && \
     sed -i "s|/opt/R/4.4.1|${HOME}/scratch/R-4.4.1|g" ${HOME}/scratch/R-4.4.1/bin/R && \
     sed -i "s|/opt/R/4.4.1|${HOME}/scratch/R-4.4.1|g" ${HOME}/scratch/R-4.4.1/lib/R/etc/Renviron && \
     chmod +x ${HOME}/scratch/R-4.4.1/bin/R

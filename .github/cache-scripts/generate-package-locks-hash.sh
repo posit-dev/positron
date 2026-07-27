@@ -7,13 +7,20 @@
 # Creates a deterministic hash used as the cache key for npm-core cache.
 # The hash includes:
 # 1. All core package-lock.json files (dependency versions)
-# 2. Build scripts that affect postinstall behavior (what gets generated)
-# 3. Gitlink SHAs of submodules that host a core dir (e.g. ai-lib). Their build
-#    output is cached (see cache-paths.sh) and regenerated only on a submodule
-#    bump, which moves the gitlink SHA. Deps-only signals would miss source-only
-#    bumps and restore a stale build.
+# 2. Files that must invalidate the core cache when changed: install scripts
+#    (what gets generated) AND cache-paths.sh (what gets cached). See buildScripts.
+# 3. Gitlink SHAs of submodules that host a cached dir (e.g. ai-lib). Their
+#    build output is cached (see cache-paths.sh) and regenerated only on a
+#    submodule bump, which moves the gitlink SHA. Deps-only signals would miss
+#    source-only bumps and restore a stale build.
 #
 # When any of these change, the hash changes and cache invalidates.
+#
+# NOT in this hash: Node.js major version, runner.os, and distro are separate
+# segments of the cache key, assembled in the restore/save action.yml
+# (key: npm-core-v7-node<major>-<os>-<distro>-<hash>). Don't add them here --
+# they'd be double-counted. The "vN" prefix (v7) is a manual force-invalidate
+# knob; bump it in BOTH action.yml files to rebuild without a content change.
 #
 # WHY INCLUDE BUILD SCRIPTS?
 # The postinstall script runs during `npm install` and generates artifacts
@@ -35,6 +42,8 @@
 # • test/mcp/
 #
 # Basically: Everything except extensions/ and .vscode/
+# Authoritative list = dirs.ts minus extensions/ and .vscode/ (see coreDirs below);
+# this bullet list is illustrative and may lag.
 #
 # WHY NOT EXTENSIONS?
 # Extensions have their own caches (npm-extensions-volatile and npm-extensions-stable)
@@ -101,17 +110,27 @@ console.error('Hashing ' + lockFiles.length + ' package-lock.json files:');
 lockFiles.forEach(f => console.error('  → ' + f));
 
 // ----------------------------------------------------------------------------
-// Step 3: Collect build scripts that affect postinstall behavior
+// Step 3: Collect files that must invalidate the core cache when changed
 // ----------------------------------------------------------------------------
-// These scripts control what runs during npm install and what artifacts are
-// generated. Changes to these should invalidate the cache even if package-lock
-// files haven't changed.
+// Two kinds live here, both beyond package-lock.json:
+//   - install scripts: control what runs during npm install and what artifacts
+//     get generated (a changed build step won't re-run on a cache hit otherwise).
+//   - cache-paths.sh: controls what the cache saves. Changing the path set must
+//     rotate the key, or a newly-added path stays missing until the key changes
+//     for some other reason (a plain key hit restores the old blob, never re-saves).
 //
-// NOTE: If you add a new script that runs during install, add it here!
+// NOTE: Add a file here if changing it must rebuild the core cache -- whether it
+// runs during install OR defines what gets cached.
 const buildScripts = [
   'build/npm/preinstall.ts',   // Preinstall script - installs build/ dependencies
   'build/npm/postinstall.ts',  // Postinstall script - runs npm install in all dirs
   'build/npm/dirs.ts',         // List of directories that get npm install
+  // Defines which paths this cache saves. Changing the set (e.g. adding a
+  // node_modules dir) must rotate the key: on a plain key hit actions/cache
+  // restores the old blob and never re-saves, so a newly-added path would stay
+  // missing until the key changes. Folding this file in rebuilds the cache the
+  // first time the path set changes.
+  '.github/cache-scripts/cache-paths.sh',
 ].sort();
 
 console.error('');
@@ -119,15 +138,16 @@ console.error('Hashing ' + buildScripts.length + ' build scripts:');
 buildScripts.forEach(f => console.error('  → ' + f));
 
 // ----------------------------------------------------------------------------
-// Step 3.5: Collect submodule gitlink SHAs for core dirs hosted in a submodule
+// Step 3.5: Collect submodule gitlink SHAs for cached dirs hosted in a submodule
 // ----------------------------------------------------------------------------
-// A core dir such as 'ai-lib/packages/ai-config' lives inside the ai-lib
-// submodule. Its build output is cached (cache-paths.sh) but is regenerated
-// only when the submodule is bumped, which moves the gitlink SHA the parent
-// repo records for that submodule. Folding that SHA into the key busts the
-// cache on every bump, so a stale build is never restored. A package-lock.json
-// signal alone would miss source-only bumps (and ai-lib's lockfile isn't even
-// at the core-dir path -- it's the workspace root's).
+// A dir with cached artifacts can live inside a submodule: the ai-lib packages
+// (file: workspace members of the root package.json) have their dist/ and
+// per-package node_modules in cache-paths.sh, but those regenerate only when
+// the submodule is bumped, which moves the gitlink SHA the parent repo records.
+// Folding that SHA into the key busts the cache on every bump, so a stale
+// build is never restored. A package-lock.json signal alone would miss
+// source-only bumps. The file: dep paths are derived from the root manifest
+// because these packages are not in dirs.ts (the root install manages them).
 // spawnSync with an argument array (never a shell string) so submodule paths
 // parsed from .gitmodules can't be interpreted as shell syntax.
 const { spawnSync } = require('child_process');
@@ -147,8 +167,13 @@ try {
   // No .gitmodules (or no submodules) -- nothing to fold in.
 }
 
+const rootPkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+const fileDepDirs = Object.values(rootPkg.dependencies ?? {})
+  .filter(v => typeof v === 'string' && v.startsWith('file:'))
+  .map(v => path.posix.normalize(v.slice('file:'.length)));
+
 const submoduleRoots = new Set();
-for (const dir of coreDirs) {
+for (const dir of [...coreDirs, ...fileDepDirs]) {
   for (const sub of submodulePaths) {
     if (dir === sub || dir.startsWith(sub + '/')) {
       submoduleRoots.add(sub);

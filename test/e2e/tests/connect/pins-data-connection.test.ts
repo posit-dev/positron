@@ -13,13 +13,19 @@ test.use({
 
 const connectionName = 'e2e Connect Pins';
 
-// The pins the seed script publishes, both stored as rds, listed sorted by name (owner nodes list
-// their pins alphabetically).
+// Two of the pins the seed script publishes as rds, verified in the tree (owner nodes list their
+// pins sorted by name). The seed also publishes a csv pin (previewedPin below); rds pins are not
+// previewable, so they stay tree-only.
 const seededPins = ['e2e-iris', 'e2e-mtcars'];
 
 // The seed script publishes this pin twice, so it has two version nodes (the newest is the active
 // bundle). e2e-iris is published once and is left collapsed.
 const versionedPin = 'e2e-mtcars';
+
+// The seeded csv pin and its columns. csv is a tabular type DuckDB can read, so this pin is
+// previewable in the Data Explorer; its columns come straight from the seed data frame.
+const previewedPin = 'e2e-csv';
+const previewedColumns = ['id', 'group', 'value'];
 
 // The Connect API key resolved in beforeAll and used both to seed pins (via the R session) and to
 // configure the Data Connections driver.
@@ -49,7 +55,7 @@ test.describe('Data Connections - Posit Connect Pins', { tag: [tags.WORKBENCH, t
 
 	test('Add a Connect server and browse its pins in the tree', async function ({ app, r, executeCode }) {
 		test.slow();
-		const { console, dataConnections } = app.workbench;
+		const { console, dataConnections, dataExplorer } = app.workbench;
 
 		await test.step('Seed pins by publishing dummy data with the R pins package', async () => {
 			// board_connect() reads these env vars; set them on the session rather than baking the key
@@ -89,6 +95,14 @@ test.describe('Data Connections - Posit Connect Pins', { tag: [tags.WORKBENCH, t
 			// The pin was published twice, so it has two versions; the newest is the active bundle.
 			await dataConnections.expectVersionCount(2);
 			await dataConnections.expectActiveVersionVisible();
+		});
+
+		await test.step('Open a tabular pin in the Data Explorer and verify its columns', async () => {
+			// Double-clicking a csv pin downloads its data file, loads it into DuckDB, and opens the
+			// Data Explorer over it; the grid shows the seed data frame's columns.
+			await dataConnections.doubleClickNode(previewedPin);
+			await dataExplorer.waitForIdle();
+			await dataExplorer.grid.expectColumnHeadersToBe(previewedColumns);
 		});
 	});
 });

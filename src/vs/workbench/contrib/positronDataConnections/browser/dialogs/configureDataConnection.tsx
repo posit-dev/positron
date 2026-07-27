@@ -150,9 +150,17 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		for (const parameter of props.mechanism.parameters) {
 			// Get the default value for the parameter. Password parameters and secret string
 			// parameters do not have a default value in the type system.
-			const defaultValue = parameter.type === 'password' || (parameter.type === 'string' && parameter.secret)
-				? undefined
-				: parameter.defaultValue;
+			let defaultValue: boolean | number | string | undefined;
+			if (parameter.type === 'password' || (parameter.type === 'string' && parameter.secret)) {
+				defaultValue = undefined;
+			} else if (parameter.type === 'option') {
+				// A <select> always shows a selection (the first option when none is set) and only
+				// fires onChange when the selection changes. Seed the state to the option the control
+				// already displays, so a required option validates without the user re-picking it.
+				defaultValue = parameter.defaultValue ?? parameter.options[0];
+			} else {
+				defaultValue = parameter.defaultValue;
+			}
 
 			// Set the initial value for the parameter. Use the value from the profile if available;
 			// otherwise fall back to the default value (if any). For required parameters, leaving
