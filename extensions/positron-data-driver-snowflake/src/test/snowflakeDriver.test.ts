@@ -363,8 +363,12 @@ suite('Snowflake Driver Tests', () => {
 	});
 
 	test('preview dataset ids do not collide for names containing delimiters', async () => {
-		// Two distinct objects whose names differ only in where a '.' falls between schema and table
-		// would previously fold onto the same dataset id (schema.table joined unescaped).
+		// datasetKey escapes each part with encodeURIComponent, then joins on ':'. Two independent
+		// regressions could fold distinct objects onto one id, and each pair below guards one of them.
+		// In both pairs the two names differ only in where the delimiter falls between schema and table,
+		// so an unescaped/mis-joined key collapses them together while a correct key keeps all four apart.
+		//   - ':' pair: the join delimiter itself. Without encodeURIComponent both fold onto ...:DB:a:b:c.
+		//   - '.' pair: a regression of the join delimiter back to '.' would fold both onto ...DB.a.b.c.
 		const captured: string[] = [];
 		const recordingHost = { ...noopHost, openTableView: async (id: string) => { captured.push(id); } };
 		const mock = createMockClient();
@@ -372,10 +376,12 @@ suite('Snowflake Driver Tests', () => {
 		// eslint-disable-next-line local/code-no-any-casts
 		(conn as any)._client = mock;
 
+		await conn.previewObject(mock, 'DB', 'a:b', 'c', 'table');
+		await conn.previewObject(mock, 'DB', 'a', 'b:c', 'table');
 		await conn.previewObject(mock, 'DB', 'a.b', 'c', 'table');
 		await conn.previewObject(mock, 'DB', 'a', 'b.c', 'table');
 
-		assert.strictEqual(new Set(captured).size, 2, 'each object should get a distinct dataset id');
+		assert.strictEqual(new Set(captured).size, 4, 'each object should get a distinct dataset id');
 		await conn.disconnect();
 	});
 });
