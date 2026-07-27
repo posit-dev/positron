@@ -27,6 +27,26 @@ function claimingFetch(claimAfter: number): { fetch: typeof fetch; userCalls: ()
 	return { fetch: fetchFn, userCalls: () => userCallCount, registrationBody: () => registrationBody };
 }
 
+/**
+ * A fetch stand-in that never responds but honours the abort signal it is given, the way a real fetch
+ * against an unresponsive server behaves. Used to exercise the registration timeout and cancellation.
+ */
+function hangingFetch(): typeof fetch {
+	return (async (_input: string | URL, init?: RequestInit): Promise<Response> =>
+		new Promise<Response>((_resolve, reject) => {
+			const abort = () => {
+				const err = new Error('The operation was aborted.');
+				err.name = 'AbortError';
+				reject(err);
+			};
+			if (init?.signal?.aborted) {
+				abort();
+				return;
+			}
+			init?.signal?.addEventListener('abort', abort);
+		})) as typeof fetch;
+}
+
 suite('claimToken', () => {
 	test('registers, opens the claim URL, polls until claimed, and returns the credential and user', async () => {
 		const { fetch, userCalls, registrationBody } = claimingFetch(2);
@@ -55,6 +75,8 @@ suite('claimToken', () => {
 
 	test('throws when cancelled before the token is claimed', async () => {
 		const { fetch, userCalls } = claimingFetch(1000); // never claims in time
+		const controller = new AbortController();
+		controller.abort();
 		// Expect the cancellation error specifically (not a timeout): a loose /cancelled|timed out/
 		// would also pass if cancellation were ignored and the flow merely ran out of attempts.
 		await assert.rejects(
@@ -63,13 +85,48 @@ suite('claimToken', () => {
 				openExternal: async () => true,
 				delayMs: 0,
 				maxAttempts: 10,
-				isCancelled: () => true,
+				signal: controller.signal,
 			}),
 			/cancelled/i,
 		);
 		// Cancellation is checked at the top of the poll loop, so it must short-circuit before any
 		// /v1/user poll runs; a nonzero count would mean the flow polled despite being cancelled.
 		assert.strictEqual(userCalls(), 0);
+	});
+
+	test('cancelling while the registration request is in flight aborts it', async () => {
+		// Registration runs before polling starts, so cancellation has to reach the fetch itself. If the
+		// signal were only consulted by the poll loop, this would hang until the test timed out.
+		const opened: string[] = [];
+		const controller = new AbortController();
+		setTimeout(() => controller.abort(), 5);
+		await assert.rejects(
+			() => claimToken('https://connect.example.com', {
+				fetch: hangingFetch(),
+				openExternal: async (url) => { opened.push(url); return true; },
+				delayMs: 0,
+				maxAttempts: 1,
+				// Long enough that only the cancellation, not the timeout, can end the request.
+				registrationTimeoutMs: 60_000,
+				signal: controller.signal,
+			}),
+			/cancelled/i,
+		);
+		// The browser is opened only after registration returns a claim URL, so it must not have opened.
+		assert.deepStrictEqual(opened, []);
+	});
+
+	test('times out the registration request when the server never responds', async () => {
+		await assert.rejects(
+			() => claimToken('https://connect.example.com', {
+				fetch: hangingFetch(),
+				openExternal: async () => true,
+				delayMs: 0,
+				maxAttempts: 1,
+				registrationTimeoutMs: 10,
+			}),
+			/Timed out registering a sign-in token/,
+		);
 	});
 
 	test('throws a clear single sign-on error when registration is redirected off the Connect host', async () => {

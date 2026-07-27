@@ -232,6 +232,26 @@ suite('Pins Driver mechanisms', () => {
 		assert.deepStrictEqual(await store.get('https://c.example.com'), { token: 'T-fresh', privateKey: realKey });
 	});
 
+	test('token connect surfaces a transient failure instead of discarding the stored credential', async () => {
+		const context = fakeContext();
+		const store = new SecretTokenCredentialStore(context.secrets);
+		const storedCredential = { token: 'T-good', privateKey: realKey };
+		await store.set('https://c.example.com', storedCredential);
+		let claims = 0;
+		const claimFake = async (): Promise<TokenClaimResult> => { claims++; return { credential: { token: 'T-new', privateKey: realKey }, username: 'julia' }; };
+		// The server is briefly unavailable. A 503 says nothing about the credential, so it must not be
+		// treated as a revoked sign-in: re-claiming would throw away a working credential and open a
+		// browser window for a server-side blip.
+		const unavailable = (async (): Promise<Response> => new Response('bad gateway', { status: 503 })) as typeof fetch;
+		const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache(), undefined, {
+			credentialStore: store, claimToken: claimFake, fetch: unavailable,
+		});
+
+		await assert.rejects(async () => driver.connect('token', { serverUrl: 'https://c.example.com' }), /HTTP 503/);
+		assert.strictEqual(claims, 0);
+		assert.deepStrictEqual(await store.get('https://c.example.com'), storedCredential);
+	});
+
 	test('token code-gen emits the bare default board open for R and Python', async () => {
 		// The bare `board_connect()` / `pins.board_connect()` is the intended output (user decision
 		// 2026-07-23), not a gap: pins resolves credentials through its own channels (R's rsconnect
@@ -239,12 +259,14 @@ suite('Pins Driver mechanisms', () => {
 		// that intended user-visible behavior; do not "fix" it by embedding the browser-sign-in token.
 		const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache());
 		const r = await driver.generateConnectionCode!('token', 'r', { serverUrl: 'https://c.example.com' });
-		assert.strictEqual(r.length, 1);
+		// The variant is the package default, not the env-var path, so it must not be labelled as the
+		// env-var variant is (the two mechanisms emit the same snippet for different reasons).
+		assert.deepStrictEqual(r.map(v => v.id), ['default']);
 		assert.ok(r[0].code.includes('board_connect()'));
 		assert.ok(!r[0].code.includes('CONNECT_API_KEY'));
 
 		const py = await driver.generateConnectionCode!('token', 'python', { serverUrl: 'https://c.example.com' });
-		assert.strictEqual(py.length, 1);
+		assert.deepStrictEqual(py.map(v => v.id), ['default']);
 		assert.ok(py[0].code.includes('pins.board_connect()'));
 		assert.ok(!py[0].code.includes('CONNECT_API_KEY'));
 	});
