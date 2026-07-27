@@ -11,12 +11,22 @@ Edit the rubric here and all three pick up the change. Keep it runner-neutral: o
 ## For each failure (or group of related failures), determine
 
 1. **Root cause category** -- one of: flaky test | infrastructure issue | product regression | locator drift / stale selector (test maintenance) | test environment issue | timeout | test logic bug
-2. **Brief explanation** -- 1-2 sentences citing specific evidence from screenshots, the trace timeline, the error-context page snapshot, or logs.
+2. **Brief explanation** -- 1-2 sentences citing specific evidence from screenshots, the trace timeline, the error-context page snapshot, or logs. For a dismissal (flaky / timeout / infrastructure / test environment) or a *suspected* product regression, also state the confidence and the cited mechanism or missing evidence, per "Default to product regression until a dismissal is earned" below.
 3. **Suggested action** -- what a developer should do next.
 
 `timeout` is a last resort, not a default for anything that timed out. A `timedOut` status is a symptom, not a mechanism -- work through the sections below first; most timeouts resolve to **flaky test** (timing/interleaving), **test logic bug** (duplicated logic drift, over-broad selector), **infrastructure issue** (startup/runner slowness), or **product regression** (the awaited state never arrived). Only land on bare `timeout` when the evidence (trace, error-context snapshot, logs) genuinely gives no further signal to attribute it to one of those.
 
 **`infrastructure issue` vs. `test environment issue`:** infrastructure issue is about the CI runner/harness itself failing to produce a usable app (startup timeouts, resource exhaustion, network flakiness to CI services). Test environment issue is about shared *test-owned* state going bad mid-run in an otherwise-healthy app (the shared workspace directory, a fixture another worker's teardown deleted). If the workbench never came up, it's infrastructure; if the workbench is fine but the file/fixture it's operating on was mutated by something else, it's test environment.
+
+## Default to product regression until a dismissal is earned
+
+A triage verdict routes human attention, and the expensive error is a real regression waved through as "flaky": the retry goes green and no one looks again. So the dismissive categories -- **flaky test**, **timeout**, **infrastructure issue**, **test environment issue** -- are claims that must be EARNED with specific, cited evidence of their mechanism, not reached as a fallback because nothing else was proven. Hold them to the same standard `timeout` is held to above.
+
+- To call a failure **flaky**, cite the timing/interleaving mechanism (an element present-then-dismissed in the DOM-presence section, a race visible in the trace, a `:soft-fail` tag). "Passed on retry" or a flaky-looking history is NOT itself a mechanism -- a latent product bug also passes on retry and also looks flaky (see "Latent defects surface as flakes").
+- To call it **infrastructure** or **test environment**, cite the affirmative signal (the workbench never came up; an OOM/network error in the logs; a passing sibling plus a `git clean` teardown race).
+- When no dismissal is affirmatively supported AND the locator-drift decision below does not resolve to a stale selector, the residual is a **suspected product regression** -- not "flaky." Say so, label it with your confidence, and name the one piece of evidence that would confirm or refute it (e.g. "suspected product regression (low confidence) -- confirm by checking whether the triggering command fired in a fuller console log" or "-- refute by finding the stable label under different markup"). This is a confidence-qualified use of the existing **product regression** category, not a new category.
+
+This raises the bar for a *dismissal*; it does NOT lower the bar for a **confident** product-regression call, and it does NOT weaken the locator-drift decision or the "Action fired but nothing rendered" gate below. `NEVER present` alone still does not earn a confident product-bug verdict -- absent the command-fired signal or a confirmed-absent stable label, the strongest honest read is *suspected*, awaiting the confirmation you named. Only the residual changes: an unexplained failure now defaults to *suspected product regression awaiting confirmation* instead of to "flaky."
 
 ## Read the evidence before concluding
 
@@ -74,6 +84,7 @@ If historical test-health data is provided, use it to separate regressions from 
 
 - 0% pass rate on one platform but 100% on others = deterministic platform regression, NOT flaky. Always read the per-environment breakdown, not just the aggregate pass rate.
 - A failure pattern that starts on this run across all platforms at once points to a regression (or a change in code sourced outside the head commit, e.g. a bootstrapped extension), not a flake.
+- **A rising failure rate is a regression signal, not a flake signal.** If history shows the test was reliably green and then began failing or flaking noticeably more often from some point in the window, something changed -- treat that trend break as affirmative evidence for a regression (product, or product-adjacent like a bootstrapped extension floated to latest) and try to align the inflection with a SHA range (see "Check the triggering commit"). A flat, long-standing low pass rate is a standing flake; a step change from green to intermittent-red is not -- do not fold the latter into "known flaky."
 - **Intermittent does not mean "provisioning broke," even for "file not found" errors.** A truly missing/never-provisioned fixture fails the test EVERY run (0% on the affected platform). If the suite is mostly green with some flakes (e.g. 153/159 passing, several flaky), a "file not found" is far more likely a mid-run lifecycle/race (something deletes the file) than provisioning that never ran. Reconcile your root cause with the pass rate: a high pass rate contradicts a deterministic-missing-fixture conclusion.
 
 ## Check the triggering commit
