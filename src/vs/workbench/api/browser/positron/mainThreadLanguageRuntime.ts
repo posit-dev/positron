@@ -201,7 +201,7 @@ const MAX_EXECUTION_CODE_LOCATIONS = 32;
 
 // Adapter class; presents an ILanguageRuntime interface that connects to the
 // extension host proxy to supply language features.
-class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILanguageRuntimeSession {
+export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILanguageRuntimeSession {
 
 	private readonly _stateEmitter = new Emitter<RuntimeState>();
 	private readonly _startupEmitter = new Emitter<ILanguageRuntimeInfo>();
@@ -279,6 +279,23 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 		// Save handle
 		this.handle = initialState.handle;
+
+		// Wire the optional missing-package methods only when the extension's
+		// session implements them; see the field declarations.
+		if (initialState.capabilities.listMissingPackages) {
+			this.listMissingPackages = (target, token) =>
+				this._proxy.$listMissingPackages(this.handle, target, token ?? CancellationToken.None);
+		}
+		if (initialState.capabilities.getMissingPackageProbe) {
+			// Project to the declared IRuntimeConsoleError shape so extensions
+			// never receive extra frontend fields (e.g. sessionId, languageId).
+			this.getMissingPackageProbe = (error, token) =>
+				this._proxy.$getMissingPackageProbe(
+					this.handle,
+					{ name: error.name, message: error.message, traceback: error.traceback },
+					token ?? CancellationToken.None);
+		}
+
 		this.dynState = {
 			busy: false,
 			// If the session is a notebook session, set the current notebook URI
@@ -788,13 +805,14 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		return this._packageManager;
 	}
 
-	listMissingPackages(target: IRuntimeMissingPackagesTarget, token?: CancellationToken): Promise<IRuntimeMissingPackage[]> {
-		return this._proxy.$listMissingPackages(this.handle, target, token ?? CancellationToken.None);
-	}
-
-	getMissingPackageProbe(error: IRuntimeConsoleError, token?: CancellationToken): Promise<string | undefined> {
-		return this._proxy.$getMissingPackageProbe(this.handle, error, token ?? CancellationToken.None);
-	}
+	/**
+	 * Optional missing-package methods, assigned in the constructor only when
+	 * the extension's session implements them. Presence-as-capability: the
+	 * workbench gates features on `!!session.listMissingPackages`, and a
+	 * prototype method would read as "supported" for every session.
+	 */
+	readonly listMissingPackages?: (target: IRuntimeMissingPackagesTarget, token?: CancellationToken) => Promise<IRuntimeMissingPackage[]>;
+	readonly getMissingPackageProbe?: (error: IRuntimeConsoleError, token?: CancellationToken) => Promise<string | undefined>;
 
 	async showOutput(channel?: LanguageRuntimeSessionChannel): Promise<void> {
 		return this._proxy.$showOutputLanguageRuntime(this.handle, channel);
