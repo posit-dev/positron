@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { dirname, join } from 'path';
 import { ConnectClient, normalizeServerUrl } from '../connectClient.js';
 
 /** Records the requests made and returns responses from a route handler, standing in for fetch. */
@@ -127,5 +130,53 @@ suite('ConnectClient', () => {
 	test('maps other non-2xx to a failure with the body summary', async () => {
 		const { fetch } = recordingFetch(() => ({ status: 500, body: 'boom' }));
 		await assert.rejects(() => new ConnectClient(SERVER, KEY, fetch).getServerSettings(), /HTTP 500.*boom/);
+	});
+});
+
+suite('ConnectClient.downloadPinFile', () => {
+	const SERVER = 'https://connect.example.com';
+	const KEY = 'secret-key';
+	let dir: string;
+
+	setup(() => { dir = mkdtempSync(join(tmpdir(), 'pins-download-')); });
+	teardown(() => { rmSync(dir, { recursive: true, force: true }); });
+
+	test('streams the data file from the content _rev path to destPath', async () => {
+		const { fetch, calls } = recordingFetch(() => ({ body: 'PARQUET-BYTES' }));
+		const destPath = join(dir, 'nested', 'data.parquet');
+		await new ConnectClient(SERVER, KEY, fetch).downloadPinFile('g1', '42', 'data.parquet', destPath);
+
+		// Fetched from the content-served _rev path (not /__api__/), with the auth header, and written
+		// to destPath (parent directory created as needed).
+		assert.strictEqual(calls[0].url, `${SERVER}/content/g1/_rev42/data.parquet`);
+		assert.strictEqual(authHeaderOf(calls[0].init), `Key ${KEY}`);
+		assert.strictEqual(readFileSync(destPath, 'utf-8'), 'PARQUET-BYTES');
+	});
+
+	test('leaves no file behind when the request fails', async () => {
+		const { fetch } = recordingFetch(() => ({ status: 404, body: 'nope' }));
+		const destPath = join(dir, 'data.parquet');
+		await assert.rejects(() => new ConnectClient(SERVER, KEY, fetch).downloadPinFile('g1', '42', 'data.parquet', destPath), /Not Found/);
+		assert.strictEqual(existsSync(destPath), false);
+		assert.strictEqual(readdirSync(dir).filter(f => f.includes('.download')).length, 0);
+	});
+
+	test('concurrent downloads of the same file populate the cache without corruption', async () => {
+		// A body large enough that two writes interleaved into one shared temp would not match it.
+		const body = 'X'.repeat(200_000);
+		const { fetch } = recordingFetch(() => ({ body }));
+		const client = new ConnectClient(SERVER, KEY, fetch);
+		const destPath = join(dir, 'nested', 'data.parquet');
+
+		// Two previews of the same uncached version race to download it (each writes its own unique
+		// temp and atomically publishes a complete file).
+		await Promise.all([
+			client.downloadPinFile('g1', '5', 'data.parquet', destPath),
+			client.downloadPinFile('g1', '5', 'data.parquet', destPath),
+		]);
+
+		assert.strictEqual(readFileSync(destPath, 'utf-8'), body);
+		// No temporary files are left behind by either download.
+		assert.strictEqual(readdirSync(dirname(destPath)).filter(f => f.includes('.download')).length, 0);
 	});
 });

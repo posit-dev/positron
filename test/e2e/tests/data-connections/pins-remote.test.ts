@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup.js';
+import { expect, test, tags } from '../_test.setup.js';
 
 test.use({
 	suiteId: __filename,
@@ -24,9 +24,10 @@ const CONNECT_API_KEY = process.env.CONNECT_API_KEY;
 
 const connectionName = 'Remote Connect';
 // A pin known to exist on the target server, addressed as owner/name. Owners are the top-level
-// grouping in the tree; the pin is a leaf beneath its owner.
+// grouping in the tree; the pin is a leaf beneath its owner. This pin is stored in a tabular format
+// (parquet or csv), so it can also be opened in the Data Explorer.
 const ownerUsername = 'julia.silge';
-const pinName = 'what-numbers-are-these';
+const pinName = 'mtcars';
 
 test.describe('Data Connections - Posit Connect Pins (remote)', { tag: [tags.CONNECTIONS] }, () => {
 
@@ -34,7 +35,7 @@ test.describe('Data Connections - Posit Connect Pins (remote)', { tag: [tags.CON
 		test.skip(!CONNECT_SERVER || !CONNECT_API_KEY, 'Set CONNECT_SERVER and CONNECT_API_KEY to run this remote smoke test');
 		test.slow();
 
-		const { dataConnections } = app.workbench;
+		const { dataConnections, dataExplorer } = app.workbench;
 
 		await test.step('Add the Posit Connect Pins connection', async () => {
 			await dataConnections.openDataConnectionsView();
@@ -61,6 +62,15 @@ test.describe('Data Connections - Posit Connect Pins (remote)', { tag: [tags.CON
 			// anchor here (the real version count is unknown and each version's label is dynamic).
 			await dataConnections.expandNode(pinName);
 			await dataConnections.expectActiveVersionVisible();
+		});
+
+		await test.step(`Open ${pinName} in the Data Explorer`, async () => {
+			// Double-clicking the pin downloads its data file, loads it into DuckDB, and opens the Data
+			// Explorer. The pin's schema isn't asserted (a live server's data can change); reaching idle
+			// with at least one column is enough to confirm the download + open path worked.
+			await dataConnections.doubleClickNode(pinName);
+			await dataExplorer.waitForIdle();
+			await expect.poll(() => dataExplorer.grid.getColumnCount()).toBeGreaterThan(0);
 		});
 	});
 });

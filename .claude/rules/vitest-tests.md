@@ -113,6 +113,14 @@ Prefer `.stub()` via the builder for DI services -- `vi.mock` is the escape hatc
 
 **Inline snapshots:** Use `toMatchInlineSnapshot()` when you'd rather diff a known-good shape than maintain many separate assertions. Specifically: multi-property output (parser results, component markup), **exact-preservation** tests (round-trip fidelity, character-exact strings), **arrays of structured objects with 3+ entries**, **single objects projected to 3+ fields**, or when you'd otherwise write **3+ separate `.toBe()`/`.toEqual()` assertions against the same object** -- a known-good shape is easier to eyeball than a literal and survives field renames. Project structured objects to the relevant fields first: `expect({ kind, source, language }).toMatchInlineSnapshot(...)` beats snapshotting whole objects with irrelevant nested fields. For simple values, prefer `.toBe(...)`. Vitest fills and updates snapshots with `--update`; when one fails, read the diff before accepting.
 
+**Avoid snapshots when:**
+- an explicit assertion would be clearer about what's actually being checked (a single value, a boolean condition)
+- the output is large -- a snapshot that scrolls past a screen hides the one field that matters
+- the output is unstable -- timestamps, generated ids, or ordering that isn't guaranteed will cause spurious diffs unrelated to the behavior under test
+- only a few properties matter -- project to those fields (see above) rather than snapshotting the whole object as a substitute for picking the relevant assertions
+
+A snapshot should make the test easier to read and maintain, not just be the fastest thing to generate.
+
 ## Working examples
 
 - [positronUpdateUtils](../../src/vs/platform/update/test/common/positronUpdateUtils.vitest.ts) -- plain: pure function, no services, no builder

@@ -28,6 +28,12 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 const { mockShowDialog } = vi.hoisted(() => ({ mockShowDialog: vi.fn() }));
 vi.mock('../../browser/languageModelModalDialog.js', () => ({ showLanguageModelModalDialog: mockShowDialog }));
 
+const { mockShowNewModal } = vi.hoisted(() => ({ mockShowNewModal: vi.fn() }));
+vi.mock('../../browser/configureLLMProvidersModal.js', () => ({
+	NEW_PROVIDER_MODAL_KEY: 'assistant.newProviderModal',
+	showConfigureLLMProvidersModal: mockShowNewModal,
+}));
+
 // `areCompletionsEnabled` reads the completions enablement setting name from
 // product configuration. The vitest web fallback leaves that name empty, so
 // override only this one field (preserving the rest of the product config) to
@@ -195,6 +201,19 @@ describe('PositronAssistantService showLanguageModelModalDialog', () => {
 		expect(prompt).not.toHaveBeenCalled();
 		expect(mockShowDialog).toHaveBeenCalledTimes(1);
 		expect(mockShowDialog.mock.calls[0][0]).toBe(sources);
+		expect(mockShowNewModal).not.toHaveBeenCalled();
+	});
+
+	it('renders the new provider modal when the feature switch is enabled', () => {
+		const sources = [makeSource('prov-a')];
+		getRegisteredSources.mockReturnValue(sources);
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('assistant.newProviderModal', true);
+
+		service.showLanguageModelModalDialog(vi.fn(), vi.fn());
+
+		expect(mockShowNewModal).toHaveBeenCalledTimes(1);
+		expect(mockShowNewModal.mock.calls[0][0]).toBe(sources);
+		expect(mockShowDialog).not.toHaveBeenCalled();
 	});
 });
 

@@ -21,12 +21,13 @@
 		"onAuthenticationRequest:google-cloud",
 		"onAuthenticationRequest:deepseek-api",
 		"onCommand:authentication.configureProviders",
-		"onCommand:authentication.migrateApiKey"
+		"onCommand:authentication.migrateSettingsToProvidersJson"
 	],
 	"main": "./out/extension.js",
 	"dependencies": {
 		"@aws-sdk/credential-providers": "^3.734.0",
 		"@aws-sdk/types": "^3.734.0",
+		"ai-config": "file:../../ai-lib/packages/ai-config",
 		"google-auth-library": "^9.15.1"
 	},
 	"devDependencies": {
@@ -80,6 +81,11 @@
 				"command": "authentication.configureProviders",
 				"title": "%commands.configureProviders.title%",
 				"category": "%commands.category%"
+			},
+			{
+				"command": "authentication.migrateSettingsToProvidersJson",
+				"title": "%commands.migrateSettingsToProvidersJson.title%",
+				"category": "%commands.category%"
 			}
 		],
 		"configuration": {
@@ -102,6 +108,7 @@
 					"additionalProperties": false
 				},
 				"authentication.aws.inferenceProfileRegion": {
+					"markdownDeprecationMessage": "%configuration.deprecation.inferenceProfileRegion%",
 					"type": "string",
 					"default": null,
 					"markdownDescription": "%configuration.aws.inferenceProfileRegion.description%"
@@ -703,24 +710,6 @@
 					"items": {
 						"type": "string"
 					}
-				},
-				"positron.assistant.models.include": {
-					"type": "array",
-					"default": [],
-					"markdownDescription": "%configuration.models.include.description%",
-					"items": {
-						"type": "string"
-					},
-					"examples": [
-						[
-							"claude",
-							"gpt"
-						],
-						[
-							"Claude Sonnet 4.5",
-							"GPT-4o"
-						]
-					]
 				}
 			}
 		}

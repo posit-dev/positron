@@ -34,17 +34,17 @@ services:
       - postgres-data:/var/lib/postgresql
 
   test:
-    image: positron-debian12-arm64:latest
+    image: positron-debian13-arm64:latest
     build:
       context: .
-      dockerfile: Dockerfile.debian12
+      dockerfile: Dockerfile.debian13
       args:
         TOKEN: ${GITHUB_TOKEN}
         ARCH: arm64
         CPU_ARCH: aarch64
         NODE_ARCH: arm64
         NODE_VERSION: 24.15.0
-        # FROZEN: pinned for bookworm terra/GDAL (see Dockerfile). Do NOT bump with the rolling OSes.
+        # Carried over from the bookworm image (see Dockerfile). Likely removable now that trixie ships newer GDAL.
         PPM_SNAPSHOT: "2026-03-01"
         TINYTEX_ARCH: aarch64
         AWS_ARCH: aarch64

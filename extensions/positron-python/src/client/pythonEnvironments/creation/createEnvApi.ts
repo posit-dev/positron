@@ -44,6 +44,7 @@ import {
 } from '../common/environmentManagers/uvPythonInstaller';
 import {
     createEnvironmentAndRegister,
+    CreateEnvironmentAndRegisterOptions,
     getCreateEnvironmentProviders,
     isEnvProviderEnabled,
     isGlobalPython,
@@ -206,13 +207,10 @@ export async function registerCreateEnvironmentFeatures(
             const providers = _createEnvironmentProviders.getAll();
             return getCreateEnvironmentProviders(providers);
         }),
-        registerCommand(
-            Commands.Create_Environment_And_Register,
-            (options: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal) => {
-                const providers = _createEnvironmentProviders.getAll();
-                return createEnvironmentAndRegister(providers, pythonRuntimeManager, options);
-            },
-        ),
+        registerCommand(Commands.Create_Environment_And_Register, (options: CreateEnvironmentAndRegisterOptions) => {
+            const providers = _createEnvironmentProviders.getAll();
+            return createEnvironmentAndRegister(providers, pythonRuntimeManager, options);
+        }),
         registerCommand(Commands.Is_Conda_Installed, async (): Promise<boolean> => {
             const conda = await Conda.getConda();
             return conda !== undefined;

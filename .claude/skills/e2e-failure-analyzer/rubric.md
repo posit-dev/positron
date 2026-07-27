@@ -4,7 +4,7 @@ The single source of truth for how to categorize and reason about an e2e test fa
 
 - the **e2e-failure-analyzer skill** (`SKILL.md`, Step 7) -- interactive, run-centric triage,
 - the **e2e-failure-analyzer GitHub Action** (`analyze.mjs` injects this file verbatim into the model's system prompt), and
-- the **triage-e2e-test skill** (`../triage-e2e-test/SKILL.md`, Step 5) -- interactive, test-centric triage across a failure pattern's historical occurrences.
+- the **triage-e2e-test skill** (`../triage-e2e-test/SKILL.md`, Step 6) -- interactive, test-centric triage across a failure pattern's historical occurrences.
 
 Edit the rubric here and all three pick up the change. Keep it runner-neutral: output format and orchestration (which scripts to run, how to present results, what follow-ups to offer) live in each consumer, not here.
 

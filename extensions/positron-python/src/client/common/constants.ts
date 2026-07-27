@@ -87,6 +87,7 @@ export namespace Commands {
     export const Create_Pyproject_Toml = 'python.createPyprojectToml';
     export const InstallPackages = 'python.installPackages';
     export const InstallPythonViaUv = 'python.installPythonViaUv';
+    export const Get_Environment_Health = 'python.getEnvironmentHealth';
     // --- End Positron ---
     export const InstallJupyter = 'python.installJupyter';
     export const InstallPython = 'python.installPython';
