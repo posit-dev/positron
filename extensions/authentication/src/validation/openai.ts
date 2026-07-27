@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
+import { KEY_VALIDATION_TIMEOUT_MS, OPENAI_DEFAULT_BASE_URL } from '../constants';
 
 class OpenaiValidationError extends Error {
 	constructor(message: string) {
@@ -18,7 +18,7 @@ export async function validateOpenaiApiKey(
 	apiKey: string,
 	config: positron.ai.LanguageModelConfig
 ): Promise<void> {
-	const baseUrl = (config.baseUrl?.trim() || 'https://api.openai.com/v1')
+	const baseUrl = (config.baseUrl?.trim() || OPENAI_DEFAULT_BASE_URL)
 		.replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
 
