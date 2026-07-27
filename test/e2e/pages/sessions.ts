@@ -137,19 +137,31 @@ export class Sessions {
 					// session found, retrieve metadata
 					const foundSession = consoleTabActiveSessions[existingSessionIndex];
 
-					// Wait for the reused session to actually be reattached before reading its
-					// metadata -- the Console information button silently no-ops while a session
-					// is still reconnecting (e.g. right after another test's window reload reset
-					// every session's websocket), which otherwise strands getMetadata()'s dialog
-					// retry against a button that never opens it. Only checkable here when more
-					// than one session tab is rendered; a lone session's metadata already goes
-					// through this same dialog with no tab-based signal to wait on instead.
+					// When more than one session is open, bring the reused session to the
+					// foreground before returning. This used to happen as a side effect of
+					// getMetadata() clicking the session tab; now that getMetadata() reads via
+					// an internal command with no UI, foreground selection must be explicit so
+					// callers that type into the console target this session. First wait for
+					// the session to actually reattach -- a session still reconnecting (e.g.
+					// right after another test's window reload reset every session's websocket)
+					// may not accept the tab activation. A lone session is already in the
+					// foreground, so there is nothing to select.
 					if (await this.getSessionCount() > 1) {
 						await expect(async () => {
 							const status = await this.getIconStatus(foundSession.id);
 							expect(status).not.toBe('disconnected');
 							expect(status).not.toBe('unknown');
 						}, `Wait for reused session to reattach: ${foundSession.id}`).toPass({ timeout: 30000 });
+
+						const targetTab = this.getSessionTab(foundSession.id);
+						await expect(async () => {
+							// Use force to bypass notification toasts that may overlay the tab. A
+							// toast can also swallow the click outright (it's on top, so the real
+							// tab never receives it) -- verify the tab actually went active instead
+							// of assuming the click landed, and retry if it didn't.
+							await targetTab.click({ force: true });
+							await expect(targetTab).toHaveClass(/tab-button--active/);
+						}, `Select session tab: ${foundSession.id}`).toPass({ timeout: 10000 });
 					}
 
 					results.push(await this.getMetadata(foundSession.id));
