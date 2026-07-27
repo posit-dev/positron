@@ -299,6 +299,7 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 			'positron-data-driver-pins',
 			'positron-data-driver-postgresql',
 			'positron-data-driver-redshift',
+			'positron-data-driver-snowflake',
 			'positron-data-driver-sqlite'
 		];
 

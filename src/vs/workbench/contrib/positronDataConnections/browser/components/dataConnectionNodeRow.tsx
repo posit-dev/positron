@@ -48,6 +48,12 @@ const kindIcon = (dto: IDataConnectionNodeDTO): string => {
 		case 'group-columns':
 			return 'positron-db-columns';
 
+		// No dedicated stage glyph yet; reuse the built-in 'archive' icon for both the group and its
+		// leaves, since a stage is a file-staging location.
+		case 'group-stages':
+		case 'stage':
+			return 'archive';
+
 		case 'schema':
 			return 'positron-db-schema';
 
