@@ -65,8 +65,7 @@ function rehydrateWorkspaceFolder(workspaceFolderUri: string | undefined): Works
     }
     const targetUri = Uri.parse(workspaceFolderUri);
     const folder =
-        getWorkspaceFolder(targetUri) ??
-        (getWorkspaceFolders() ?? []).find((f) => f.uri.path === targetUri.path);
+        getWorkspaceFolder(targetUri) ?? (getWorkspaceFolders() ?? []).find((f) => f.uri.path === targetUri.path);
     if (!folder) {
         throw new Error(`Workspace folder not found for URI: ${workspaceFolderUri}`);
     }
