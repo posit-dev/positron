@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
 import { expect } from 'chai';
 import * as path from 'path';
 import * as sinon from 'sinon';
@@ -45,11 +44,11 @@ suite('parsePythonImports', () => {
 
 suite('pythonMissingPackageProbe', () => {
     test('returns an import snippet for a ModuleNotFoundError', () => {
-        assert.strictEqual(pythonMissingPackageProbe(`No module named 'requests'`), 'import requests');
+        expect(pythonMissingPackageProbe(`No module named 'requests'`)).to.equal('import requests');
     });
 
     test('returns undefined for an unrelated error', () => {
-        assert.strictEqual(pythonMissingPackageProbe('SyntaxError: invalid syntax'), undefined);
+        expect(pythonMissingPackageProbe('SyntaxError: invalid syntax')).to.equal(undefined);
     });
 });
 
