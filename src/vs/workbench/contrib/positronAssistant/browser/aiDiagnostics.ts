@@ -294,6 +294,16 @@ export function describeFeatureToggle(value: unknown): string {
 	return JSON.stringify(value);
 }
 
+/**
+ * Renders an extension-backed feature's state. When the owning extension isn't
+ * installed the setting is unregistered (`getValue` returns undefined), so
+ * report "not installed" rather than letting {@link describeFeatureToggle}
+ * default it to "Enabled".
+ */
+export function featureState(installed: boolean, value: unknown): string {
+	return installed ? describeFeatureToggle(value) : 'Not installed';
+}
+
 /** The activation fields of `IExtensionsStatus` that the report renders. */
 interface IActivationStatus {
 	readonly activationStarted: boolean;
@@ -351,8 +361,9 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 		// When Posit Assistant is installed, ask up front whether to also produce
 		// its diagnostics bundle. The report is always generated; the bundle is
 		// opt-in. Escaping the prompt cancels the command.
+		const assistantInstalled = !!await extensionService.getExtension(ASSISTANT_EXTENSION_ID);
 		let includeBundle = false;
-		if (await extensionService.getExtension(ASSISTANT_EXTENSION_ID)) {
+		if (assistantInstalled) {
 			const choice = await promptForBundle(quickInputService);
 			if (choice === undefined) {
 				return;
@@ -399,14 +410,20 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 			? localize('positron.ai.diagnostics.bundleRequested', "Requested. Posit Assistant saves the bundle and shows its location in a notification.")
 			: undefined;
 
-		// NES's `enabled` is a per-language-type map; the `*` wildcard is the
-		// overall on/off, so report that.
+		// Extension-backed toggles (Posit Assistant, NES, Copilot chat) read as
+		// "not installed" when their extension is absent, since the setting is then
+		// unregistered and would otherwise default to "Enabled" - contradicting the
+		// Extensions list. Notebook AI and console actions are core, so always show.
+		const nesInstalled = !!await extensionService.getExtension('positron.next-edit-suggestions');
+		const copilotChatInstalled = !!await extensionService.getExtension('GitHub.copilot-chat');
+		// NES's `enabled` is a per-language-type map; the `*` wildcard is the overall on/off.
 		const nesEnabled = configurationService.getValue<Record<string, boolean>>('nextEditSuggestions.enabled')?.['*'];
 		const features: IAIDiagnosticsFeature[] = [
-			{ label: 'Posit AI NES', setting: 'nextEditSuggestions.enabled', state: describeFeatureToggle(nesEnabled) },
+			{ label: 'Posit Assistant', setting: 'assistant.enabled', state: featureState(assistantInstalled, configurationService.getValue('assistant.enabled')) },
+			{ label: 'Posit AI NES', setting: 'nextEditSuggestions.enabled', state: featureState(nesInstalled, nesEnabled) },
 			{ label: 'Notebook AI', setting: 'notebook.ai.enabled', state: describeFeatureToggle(configurationService.getValue('notebook.ai.enabled')) },
 			{ label: 'Console Fix & Explain', setting: 'console.assistantActions.enabled', state: describeFeatureToggle(configurationService.getValue('console.assistantActions.enabled')) },
-			{ label: 'GitHub Copilot Chat', setting: ChatConfiguration.AIDisabled, state: copilotEnabled ? 'Enabled' : 'Disabled' },
+			{ label: 'GitHub Copilot Chat', setting: ChatConfiguration.AIDisabled, state: featureState(copilotChatInstalled, copilotEnabled) },
 		];
 
 		const report = generateAIDiagnosticsReport({

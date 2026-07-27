@@ -5,13 +5,14 @@
 
 /// <reference types="vitest/globals" />
 
-import { capLogLines, describeExtensionStatus, describeFeatureToggle, generateAIDiagnosticsReport, hasExplicitValue, IAIDiagnosticsInputs, isSensitiveSettingKey } from '../../browser/aiDiagnostics.js';
+import { capLogLines, describeExtensionStatus, describeFeatureToggle, featureState, generateAIDiagnosticsReport, hasExplicitValue, IAIDiagnosticsInputs, isSensitiveSettingKey } from '../../browser/aiDiagnostics.js';
 
 function inputs(overrides: Partial<IAIDiagnosticsInputs> = {}): IAIDiagnosticsInputs {
 	return {
 		generatedAt: '2026-07-23T00:00:00.000Z',
 		aiEnabled: true,
 		features: [
+			{ label: 'Posit Assistant', setting: 'assistant.enabled', state: 'Enabled' },
 			{ label: 'Posit AI NES', setting: 'nextEditSuggestions.enabled', state: 'Enabled' },
 			{ label: 'Notebook AI', setting: 'notebook.ai.enabled', state: 'Disabled' },
 			{ label: 'Console Fix & Explain', setting: 'console.assistantActions.enabled', state: 'Enabled' },
@@ -71,6 +72,7 @@ describe('generateAIDiagnosticsReport', () => {
 			## AI Features
 
 			- AI features (\`ai.enabled\`): Enabled
+			- Posit Assistant (\`assistant.enabled\`): Enabled
 			- Posit AI NES (\`nextEditSuggestions.enabled\`): Enabled
 			- Notebook AI (\`notebook.ai.enabled\`): Disabled
 			- Console Fix & Explain (\`console.assistantActions.enabled\`): Enabled
@@ -158,6 +160,24 @@ describe('describeFeatureToggle', () => {
 			def: describeFeatureToggle(undefined),
 			object: describeFeatureToggle({ '*': true, markdown: false }),
 		}).toEqual({ on: 'Enabled', off: 'Disabled', def: 'Enabled', object: '{"*":true,"markdown":false}' });
+	});
+});
+
+describe('featureState', () => {
+	it('reports "not installed" when the owning extension is absent, else the toggle', () => {
+		expect({
+			absent: featureState(false, undefined),
+			absentIgnoresValue: featureState(false, true),
+			installedOn: featureState(true, true),
+			installedOff: featureState(true, false),
+			installedDefault: featureState(true, undefined),
+		}).toEqual({
+			absent: 'Not installed',
+			absentIgnoresValue: 'Not installed',
+			installedOn: 'Enabled',
+			installedOff: 'Disabled',
+			installedDefault: 'Enabled',
+		});
 	});
 });
 
