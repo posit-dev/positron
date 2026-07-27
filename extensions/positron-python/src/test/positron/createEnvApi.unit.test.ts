@@ -31,6 +31,8 @@ suite('Positron Create Environment APIs', () => {
     let handleCreateEnvironmentCommandStub: sinon.SinonStub;
     let getConfigurationStub: sinon.SinonStub;
     let getWorkspaceFolderStub: sinon.SinonStub;
+    let onDidChangeWorkspaceFoldersStub: sinon.SinonStub;
+    let workspaceFolderChangeHandlers: Array<() => void>;
 
     const disposables: IDisposableRegistry = [];
     const mockProvider = createTypeMoq<CreateEnvironmentProvider>();
@@ -93,6 +95,13 @@ suite('Positron Create Environment APIs', () => {
         getWorkspaceFolderStub.callsFake((uri: Uri) =>
             uri.toString() === workspace1UriString ? workspace1 : undefined,
         );
+
+        workspaceFolderChangeHandlers = [];
+        onDidChangeWorkspaceFoldersStub = sinon.stub(workspaceApis, 'onDidChangeWorkspaceFolders');
+        onDidChangeWorkspaceFoldersStub.callsFake((handler: () => void) => {
+            workspaceFolderChangeHandlers.push(handler);
+            return { dispose: () => { } };
+        });
 
         registerCommandStub.callsFake((_command: string, _callback: (...args: any[]) => any) => ({
             dispose: () => {
@@ -182,16 +191,56 @@ suite('Positron Create Environment APIs', () => {
         assert.isUndefined(dispatched.workspaceFolder);
     });
 
-    test('Throws when workspaceFolder URI does not resolve to a known workspace folder', async () => {
-        const unknownUri = Uri.file('/no/such/workspace').toString();
+    test('Waits for a not-yet-visible workspace folder to register, then dispatches once it appears', async () => {
+        const resultPath = '/path/to/created/env';
+        pythonRuntimeManager
+            .setup((p) => p.registerLanguageRuntimeFromPath(resultPath))
+            .returns(() => Promise.resolve(createTypeMoq<positron.LanguageRuntimeMetadata>().object));
+        handleCreateEnvironmentCommandStub.returns(Promise.resolve({ path: resultPath }));
 
-        await assert.isRejected(
-            createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+        // Simulate a brand-new workspace folder that the extension host doesn't see yet.
+        getWorkspaceFolderStub.callsFake(() => undefined);
+
+        const resultPromise = createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+            ...envOptions,
+        });
+
+        assert.strictEqual(
+            workspaceFolderChangeHandlers.length,
+            1,
+            'should subscribe to workspace folder changes while waiting',
+        );
+        assert.isTrue(handleCreateEnvironmentCommandStub.notCalled, 'should not dispatch before the folder registers');
+
+        // The folder registers; fire the change event that should wake the wait.
+        getWorkspaceFolderStub.callsFake((uri: Uri) => (uri.toString() === workspace1UriString ? workspace1 : undefined));
+        workspaceFolderChangeHandlers[0]();
+
+        const result = await resultPromise;
+
+        assert.isDefined(result?.path);
+        const dispatched = handleCreateEnvironmentCommandStub.firstCall.args[1];
+        assert.strictEqual(dispatched.workspaceFolder, workspace1);
+    });
+
+    test('Throws once the registration wait times out without the folder ever appearing', async () => {
+        const clock = sinon.useFakeTimers();
+        try {
+            getWorkspaceFolderStub.callsFake(() => undefined);
+            const unknownUri = Uri.file('/no/such/workspace').toString();
+
+            const resultPromise = createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
                 ...envOptions,
                 workspaceFolder: unknownUri,
-            }),
-            /Workspace folder not found/,
-        );
-        assert.isTrue(handleCreateEnvironmentCommandStub.notCalled);
+            });
+            // Never fire a change event -- the folder never registers. Advance well
+            // past any reasonable wait bound instead of waiting in real time.
+            await clock.tickAsync(60_000);
+
+            await assert.isRejected(resultPromise, /Workspace folder not found/);
+            assert.isTrue(handleCreateEnvironmentCommandStub.notCalled);
+        } finally {
+            clock.restore();
+        }
     });
 });

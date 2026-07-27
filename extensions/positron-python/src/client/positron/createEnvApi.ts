@@ -17,7 +17,7 @@ import { IPythonRuntimeManager } from './manager';
 import { getExtension } from '../common/vscodeApis/extensionsApi';
 import { PythonExtension } from '../api/types';
 import { PVSC_EXTENSION_ID } from '../common/constants';
-import { getConfiguration, getWorkspaceFolder } from '../common/vscodeApis/workspaceApis';
+import { getConfiguration, getWorkspaceFolder, onDidChangeWorkspaceFolders } from '../common/vscodeApis/workspaceApis';
 import { CONDA_PROVIDER_ID } from '../pythonEnvironments/creation/provider/condaCreationProvider';
 import { VenvCreationProviderId } from '../pythonEnvironments/creation/provider/venvCreationProvider';
 import { UV_PROVIDER_ID } from '../pythonEnvironments/creation/provider/uvCreationProvider';
@@ -48,16 +48,55 @@ export interface CreateEnvironmentAndRegisterOptions
     workspaceFolder?: string;
 }
 
+// A folder just created by the New Folder Flow can take a moment to reach this
+// extension host's own `workspace.workspaceFolders` (worse on remote/web). Bound
+// the wait so a folder that genuinely never registers still fails instead of
+// hanging forever.
+const WORKSPACE_FOLDER_REGISTRATION_TIMEOUT_MS = 10_000;
+
 /**
- * Rehydrates a workspace folder URI string into a `WorkspaceFolder`.
+ * Waits for a workspace folder matching `targetUri` to appear in
+ * `workspace.workspaceFolders`, up to `timeoutMs`.
+ * @param targetUri The URI to watch for.
+ * @param timeoutMs The maximum time to wait.
+ * @returns The matching `WorkspaceFolder`, or undefined if the timeout elapsed first.
+ */
+function waitForWorkspaceFolder(targetUri: Uri, timeoutMs: number): Promise<WorkspaceFolder | undefined> {
+    return new Promise((resolve) => {
+        // `timer` and `disposable` each close over the other. Declaring `timer` (a
+        // setTimeout, which the spec guarantees never fires synchronously) first
+        // means `disposable` is always assigned before `timer`'s callback could run.
+        let disposable: ReturnType<typeof onDidChangeWorkspaceFolders>;
+        const timer = setTimeout(() => {
+            disposable.dispose();
+            resolve(undefined);
+        }, timeoutMs);
+        disposable = onDidChangeWorkspaceFolders(() => {
+            const folder = getWorkspaceFolder(targetUri);
+            if (folder) {
+                clearTimeout(timer);
+                disposable.dispose();
+                resolve(folder);
+            }
+        });
+    });
+}
+
+/**
+ * Rehydrates a workspace folder URI string into a `WorkspaceFolder`. If the folder
+ * isn't visible to this extension host yet, waits for it to register instead of
+ * failing immediately (see `WORKSPACE_FOLDER_REGISTRATION_TIMEOUT_MS`).
  * @param workspaceFolderUri The URI string of the workspace folder, or undefined.
  * @returns The corresponding `WorkspaceFolder`, or undefined if no URI was given.
  */
-function rehydrateWorkspaceFolder(workspaceFolderUri: string | undefined): WorkspaceFolder | undefined {
+async function rehydrateWorkspaceFolder(workspaceFolderUri: string | undefined): Promise<WorkspaceFolder | undefined> {
     if (!workspaceFolderUri) {
         return undefined;
     }
-    const folder = getWorkspaceFolder(Uri.parse(workspaceFolderUri));
+    const targetUri = Uri.parse(workspaceFolderUri);
+    const folder =
+        getWorkspaceFolder(targetUri) ??
+        (await waitForWorkspaceFolder(targetUri, WORKSPACE_FOLDER_REGISTRATION_TIMEOUT_MS));
     if (!folder) {
         throw new Error(`Workspace folder not found for URI: ${workspaceFolderUri}`);
     }
@@ -100,7 +139,7 @@ export async function createEnvironmentAndRegister(
     }
     const resolvedOptions: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal = {
         ...options,
-        workspaceFolder: rehydrateWorkspaceFolder(options.workspaceFolder),
+        workspaceFolder: await rehydrateWorkspaceFolder(options.workspaceFolder),
     };
     const result = await handleCreateEnvironmentCommand(providers, resolvedOptions);
     if (result?.path) {
