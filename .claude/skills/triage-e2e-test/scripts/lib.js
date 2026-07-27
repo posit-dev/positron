@@ -23,9 +23,27 @@ export function analyzerScript(name) {
 	return path.resolve(HERE, '..', '..', 'e2e-failure-analyzer', 'scripts', name);
 }
 
-/** Root of all triage work directories. Gitignored (.claude/work/**). */
+/**
+ * Root of all triage work directories.
+ *
+ * Anchored on the shared git *common* dir (e.g. <repo>/.git/triage-e2e-test) so
+ * a triage started in one worktree is visible from every other worktree and
+ * `--resume <id>` works no matter which checkout runs it. The previous location
+ * (.claude/work/**) is gitignored and per-worktree, so a resume from a different
+ * worktree silently found nothing. Falls back to that legacy path outside a git repo.
+ */
+let _workRootCache;
 export function workRoot() {
-	return path.join(repoRoot(), '.claude', 'work', 'triage-e2e-test');
+	if (_workRootCache) { return _workRootCache; }
+	const res = tryRun('git', ['rev-parse', '--git-common-dir']);
+	if (res.ok && res.stdout.trim()) {
+		// --git-common-dir is relative to repoRoot for the main worktree (".git")
+		// and absolute for linked worktrees; path.resolve handles both.
+		_workRootCache = path.join(path.resolve(repoRoot(), res.stdout.trim()), 'triage-e2e-test');
+	} else {
+		_workRootCache = path.join(repoRoot(), '.claude', 'work', 'triage-e2e-test');
+	}
+	return _workRootCache;
 }
 
 /** Per-triage work directory. */

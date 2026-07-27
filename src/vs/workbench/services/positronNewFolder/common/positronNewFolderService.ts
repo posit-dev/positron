@@ -494,7 +494,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 					await this._commandService.executeCommand(
 						createEnvCommand,
 						{
-							workspaceFolder,
+							workspaceFolder: workspaceFolder.uri.toString(),
 							providerId: provider,
 							interpreterPath,
 							condaPythonVersion,
@@ -526,7 +526,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 						createEnvCommand +
 						' with arguments: ' +
 						JSON.stringify({
-							workspaceFolder,
+							workspaceFolder: workspaceFolder.uri.toString(),
 							providerId: provider,
 							interpreterPath,
 						}) +

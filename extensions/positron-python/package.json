@@ -552,6 +552,11 @@
                 "category": "Python",
                 "command": "python.interpreters.debugInfo",
                 "title": "%python.command.python.interpreterDebugInfo.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.getEnvironmentHealth",
+                "title": "%python.command.python.getEnvironmentHealth.title%"
             }
         ],
         "configuration": {
