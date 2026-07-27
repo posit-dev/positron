@@ -36,11 +36,24 @@ if (Object.values(MainContext)[0].nid !== 1) {
 }
 
 /**
+ * Which optional missing-package methods the extension's session object
+ * implements. Method presence does not survive the RPC boundary (the
+ * main-thread adapter would otherwise have to define every method), so the
+ * extension host reports the capabilities explicitly when the session is
+ * created or restored, and the adapter wires only the supported methods.
+ */
+export interface RuntimeSessionCapabilities {
+	readonly listMissingPackages: boolean;
+	readonly getMissingPackageProbe: boolean;
+}
+
+/**
  * The initial state returned when starting or resuming a runtime session.
  */
 export interface RuntimeInitialState {
 	handle: number;
 	dynState: LanguageRuntimeDynState;
+	capabilities: RuntimeSessionCapabilities;
 }
 
 /**
