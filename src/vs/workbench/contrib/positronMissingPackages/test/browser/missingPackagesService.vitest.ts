@@ -286,6 +286,24 @@ describe('MissingPackagesService', () => {
 		expect(listMissingPackages).not.toHaveBeenCalled();
 	});
 
+	it('analyzeError returns empty when the session does not support probes', async () => {
+		const service = createService();
+		session.getMissingPackageProbe = undefined;
+
+		expect(await service.analyzeError(sessionId, { name: '', message: 'boom', traceback: [] })).toEqual([]);
+		expect(listMissingPackages).not.toHaveBeenCalled();
+	});
+
+	it('analyzeError returns empty when the probe rejects, without propagating', async () => {
+		const service = createService();
+		session.getMissingPackageProbe = vi.fn(async () => { throw new Error('ext host gone'); });
+
+		// The resilience guard: a broken runtime must degrade to "no suggestion",
+		// not surface an unhandled rejection to the console UI.
+		expect(await service.analyzeError(sessionId, { name: '', message: 'boom', traceback: [] })).toEqual([]);
+		expect(listMissingPackages).not.toHaveBeenCalled();
+	});
+
 	it('getCached never triggers work', () => {
 		const service = createService();
 
