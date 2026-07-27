@@ -209,8 +209,19 @@ export class InlineQuarto {
 	 */
 	async runCellAndExpectOutputInViewport({ cellLine, timeout = 120000 }: { cellLine: number; timeout?: number }): Promise<void> {
 		await test.step(`Run cell at line ${cellLine} and expect its output scrolled into view`, async () => {
-			await this._runCellUntilStarted(cellLine, () => this.runCurrentCell());
-			await expect(this.outputContent.first()).toBeInViewport({ timeout });
+			// Don't gate on the executing toolbar button (as `_runCellUntilStarted`
+			// does): auto-scroll reveals the output by scrolling the cell's top --
+			// and its floating toolbar, which hides itself once off-screen -- out of
+			// view the instant the cell starts running, so the button can vanish
+			// before Playwright observes it (a race that only loses under CI load).
+			// Re-fire the run instead (re-homing the cursor each attempt, to survive
+			// a swallowed run hotkey) until the output itself is scrolled into view,
+			// which is the behavior under test.
+			await expect(async () => {
+				await this.gotoLine(cellLine);
+				await this.runCurrentCell();
+				await expect(this.outputContent.first()).toBeInViewport({ timeout: 20000 });
+			}).toPass({ timeout, intervals: [2000] });
 		});
 	}
 
