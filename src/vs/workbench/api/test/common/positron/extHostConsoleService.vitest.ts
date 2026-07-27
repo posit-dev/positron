@@ -11,6 +11,8 @@ import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtil
 import { MainThreadConsoleServiceShape } from '../../../common/positron/extHost.positron.protocol.js';
 import { ExtHostConsoleService } from '../../../common/positron/extHostConsoleService.js';
 import { SingleProxyRPCProtocol } from '../testRPCProtocol.js';
+import { ExtHostDocumentsAndEditors } from '../../../common/extHostDocumentsAndEditors.js';
+import { ExtHostTextEditor } from '../../../common/extHostTextEditor.js';
 
 function createMockShape(activeSessionId: string | undefined = undefined) {
 	return new class extends mock<MainThreadConsoleServiceShape>() {
@@ -51,13 +53,24 @@ function createControllableMockShape() {
 	return { shape, resolveActiveSessionId: (id: string | undefined) => resolve(id) };
 }
 
+/** Minimal DocsAndEditors stub; `idToEditor` maps editor id → the ExtHostTextEditor stub. */
+function createDocsAndEditors(idToEditor: Record<string, ExtHostTextEditor> = {}) {
+	return new class extends mock<ExtHostDocumentsAndEditors>() {
+		override getEditor(id: string): ExtHostTextEditor | undefined {
+			return idToEditor[id];
+		}
+	};
+}
+
+const nullDocsAndEditors = createDocsAndEditors();
+
 describe('ExtHostConsoleService', function () {
 
 	const disposables = ensureNoLeakedDisposables();
 
 	it('normal order: $addConsole then $onDidChangeActiveConsole resolves activeConsole', function () {
 		const shape = createMockShape();
-		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService());
+		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), nullDocsAndEditors);
 
 		const fired: (import('positron').Console | undefined)[] = [];
 		disposables.add(svc.onDidChangeActiveConsole((c) => fired.push(c)));
@@ -72,7 +85,7 @@ describe('ExtHostConsoleService', function () {
 
 	it('race condition: $onDidChangeActiveConsole before $addConsole fires again on $addConsole', function () {
 		const shape = createMockShape();
-		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService());
+		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), nullDocsAndEditors);
 
 		const fired: (import('positron').Console | undefined)[] = [];
 		disposables.add(svc.onDidChangeActiveConsole((c) => fired.push(c)));
@@ -91,7 +104,7 @@ describe('ExtHostConsoleService', function () {
 
 	it('$onDidChangeActiveConsole(undefined) clears activeConsole and fires with undefined', function () {
 		const shape = createMockShape();
-		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService());
+		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), nullDocsAndEditors);
 
 		svc.$addConsole('session-1');
 		svc.$onDidChangeActiveConsole('session-1');
@@ -107,7 +120,7 @@ describe('ExtHostConsoleService', function () {
 
 	it('unknown sessionId: activeConsole is undefined when sessionId is not registered', function () {
 		const shape = createMockShape();
-		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService());
+		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), nullDocsAndEditors);
 
 		const fired: (import('positron').Console | undefined)[] = [];
 		disposables.add(svc.onDidChangeActiveConsole((c) => fired.push(c)));
@@ -119,7 +132,7 @@ describe('ExtHostConsoleService', function () {
 
 	it('startup race: $addConsole before $getActiveConsoleSessionId resolves still fires event', async function () {
 		const { shape, resolveActiveSessionId } = createControllableMockShape();
-		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService());
+		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), nullDocsAndEditors);
 
 		const fired: (import('positron').Console | undefined)[] = [];
 		disposables.add(svc.onDidChangeActiveConsole((c) => fired.push(c)));
@@ -140,7 +153,7 @@ describe('ExtHostConsoleService', function () {
 
 	it('startup race: live $onDidChangeActiveConsole before $getActiveConsoleSessionId resolves wins', async function () {
 		const { shape, resolveActiveSessionId } = createControllableMockShape();
-		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService());
+		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), nullDocsAndEditors);
 
 		svc.$addConsole('session-1');
 		svc.$addConsole('session-stale');
@@ -164,7 +177,7 @@ describe('ExtHostConsoleService', function () {
 
 	it('constructor seeds _activeConsoleSessionId from $getActiveConsoleSessionId', async function () {
 		const shape = createMockShape('session-preexisting');
-		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService());
+		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), nullDocsAndEditors);
 
 		// Wait for the async init promise to resolve
 		await new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -177,5 +190,94 @@ describe('ExtHostConsoleService', function () {
 		expect(svc.activeConsole).toBeDefined();
 		expect(fired.length).toBe(1);
 		expect(fired[0]).toBe(svc.activeConsole);
+	});
+
+	describe('$setActiveConsoleEditor / activeConsoleEditor', function () {
+
+		it('returns undefined initially', function () {
+			const shape = createMockShape();
+			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), nullDocsAndEditors);
+			expect(svc.activeConsoleEditor).toBeUndefined();
+		});
+
+		it('sets activeConsoleEditor from registered editor (derived via _activeConsoleSessionId)', function () {
+			const fakeValue = Object.freeze({}) as import('vscode').TextEditor;
+			const fakeExtEditor = { value: fakeValue } as unknown as ExtHostTextEditor;
+			// getEditor key matches `console-${sessionId}` format used by the getter
+			const docsAndEditors = createDocsAndEditors({ 'console-session-1': fakeExtEditor });
+
+			const shape = createMockShape();
+			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), docsAndEditors);
+
+			const fired: (import('vscode').TextEditor | undefined)[] = [];
+			disposables.add(svc.onDidChangeActiveConsoleEditor((e) => fired.push(e)));
+
+			// $onDidChangeActiveConsole sets _activeConsoleSessionId; $setActiveConsoleEditor fires the event
+			svc.$onDidChangeActiveConsole('session-1');
+			svc.$setActiveConsoleEditor('console-session-1');
+
+			expect(svc.activeConsoleEditor).toBe(fakeValue);
+			expect(fired).toEqual([fakeValue]);
+		});
+
+		it('clears activeConsoleEditor when session becomes null', function () {
+			const fakeValue = Object.freeze({}) as import('vscode').TextEditor;
+			const fakeExtEditor = { value: fakeValue } as unknown as ExtHostTextEditor;
+			const docsAndEditors = createDocsAndEditors({ 'console-session-1': fakeExtEditor });
+
+			const shape = createMockShape();
+			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), docsAndEditors);
+
+			svc.$onDidChangeActiveConsole('session-1');
+			svc.$setActiveConsoleEditor('console-session-1');
+			expect(svc.activeConsoleEditor).toBe(fakeValue);
+
+			const fired: (import('vscode').TextEditor | undefined)[] = [];
+			disposables.add(svc.onDidChangeActiveConsoleEditor((e) => fired.push(e)));
+
+			// Active console clears; $onDidChangeActiveConsole(undefined) precedes $setActiveConsoleEditor(null)
+			svc.$onDidChangeActiveConsole(undefined);
+			svc.$setActiveConsoleEditor(null);
+			expect(svc.activeConsoleEditor).toBeUndefined();
+			expect(fired).toEqual([undefined]);
+		});
+
+		it('yields undefined when no active session even with an editorId signal', function () {
+			const shape = createMockShape();
+			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), nullDocsAndEditors);
+
+			const fired: (import('vscode').TextEditor | undefined)[] = [];
+			disposables.add(svc.onDidChangeActiveConsoleEditor((e) => fired.push(e)));
+
+			// Without $onDidChangeActiveConsole, _activeConsoleSessionId is undefined
+			svc.$setActiveConsoleEditor('console-session-1');
+			expect(svc.activeConsoleEditor).toBeUndefined();
+			expect(fired).toEqual([undefined]);
+		});
+
+		it('fires onDidChangeActiveConsoleEditor on each session change', function () {
+			const fakeA = Object.freeze({}) as import('vscode').TextEditor;
+			const fakeB = Object.freeze({}) as import('vscode').TextEditor;
+			const docsAndEditors = createDocsAndEditors({
+				'console-session-a': { value: fakeA } as unknown as ExtHostTextEditor,
+				'console-session-b': { value: fakeB } as unknown as ExtHostTextEditor,
+			});
+
+			const shape = createMockShape();
+			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), docsAndEditors);
+
+			const fired: (import('vscode').TextEditor | undefined)[] = [];
+			disposables.add(svc.onDidChangeActiveConsoleEditor((e) => fired.push(e)));
+
+			svc.$onDidChangeActiveConsole('session-a');
+			svc.$setActiveConsoleEditor('console-session-a');
+			svc.$onDidChangeActiveConsole('session-b');
+			svc.$setActiveConsoleEditor('console-session-b');
+			svc.$onDidChangeActiveConsole(undefined);
+			svc.$setActiveConsoleEditor(null);
+
+			expect(fired).toEqual([fakeA, fakeB, undefined]);
+			expect(svc.activeConsoleEditor).toBeUndefined();
+		});
 	});
 });

@@ -1358,6 +1358,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private readonly _onDidRequestRevealExecutionEmitter = this._register(new Emitter<string>);
 
 	/**
+	 * Fires once when the ConsoleInput React component assigns the code editor.
+	 */
+	private readonly _onDidSetCodeEditorEmitter = this._register(new Emitter<ICodeEditor>());
+
+	/**
 	 * Provides access to the code editor, if it's available. Note that we generally prefer to
 	 * interact with this editor indirectly, since its state is managed by React.
 	 */
@@ -1465,6 +1470,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	set codeEditor(value: ICodeEditor | undefined) {
 		this._codeEditor = value;
+		if (value) {
+			this._onDidSetCodeEditorEmitter.fire(value);
+		}
 	}
 
 	get sessionMetadata(): IRuntimeSessionMetadata {
@@ -1653,6 +1661,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * onDidPasteText event.
 	 */
 	readonly onDidPasteText = this._onDidPasteTextEmitter.event;
+
+	/**
+	 * onDidSetCodeEditor event.
+	 */
+	readonly onDidSetCodeEditor = this._onDidSetCodeEditorEmitter.event;
 
 	/**
 	 * onDidSelectAll event.

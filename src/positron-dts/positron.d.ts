@@ -2585,14 +2585,18 @@ declare module 'positron' {
 		export function getConsoleForLanguage(languageId: string): Thenable<Console | undefined>;
 
 		/**
-		 * The currently active console, or `undefined` if no console is active.
+		 * The currently active console editor, or `undefined` if no console is active.
+		 * Provides the full `vscode.TextEditor` API for the console input, including
+		 * `document`, `selection`, `edit()`, and `insertSnippet()`.
+		 *
+		 * Note: this editor is intentionally NOT `vscode.window.activeTextEditor`.
 		 */
-		export const activeConsoleEditor: Console | undefined;
+		export const activeConsoleEditor: vscode.TextEditor | undefined;
 
 		/**
-		 * An event that fires when the active console changes.
+		 * An event that fires when the active console editor changes.
 		 */
-		export const onDidChangeActiveConsoleEditor: vscode.Event<Console | undefined>;
+		export const onDidChangeActiveConsoleEditor: vscode.Event<vscode.TextEditor | undefined>;
 
 		/**
 		 * Fires when the width of the console input changes. The new width is passed as

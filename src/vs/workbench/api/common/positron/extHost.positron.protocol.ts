@@ -26,6 +26,7 @@ import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronCon
 import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { EvalResult } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -171,6 +172,15 @@ export interface ExtHostConsoleServiceShape {
 	$addConsole(sessionId: string): void;
 	$removeConsole(sessionId: string): void;
 	$onDidChangeActiveConsole(sessionId: string | undefined): void;
+	$setActiveConsoleEditor(editorId: string | null): void;
+}
+
+/**
+ * Implemented by MainThreadDocumentsAndEditors to allow Positron-specific
+ * console editor registration without exposing the full upstream internals.
+ */
+export interface IMainThreadConsoleEditorManager {
+	registerConsoleEditor(id: string, codeEditor: ICodeEditor): IDisposable;
 }
 
 export interface MainThreadMethodsShape { }
@@ -498,6 +508,7 @@ export interface MainThreadPositronEphemeralStorageShape extends IDisposable {
 }
 
 export const MainPositronContext = {
+	MainThreadConsoleEditorManager: createProxyIdentifier<IMainThreadConsoleEditorManager>('MainThreadConsoleEditorManager'),
 	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
 	MainThreadPreviewPanel: createProxyIdentifier<MainThreadPreviewPanelShape>('MainThreadPreviewPanel'),
 	MainThreadModalDialogs: createProxyIdentifier<MainThreadModalDialogsShape>('MainThreadModalDialogs'),

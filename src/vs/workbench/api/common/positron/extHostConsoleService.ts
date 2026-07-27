@@ -4,11 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 import { Emitter } from '../../../../base/common/event.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { ExtHostConsole } from './extHostConsole.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { dispose } from '../../../../base/common/lifecycle.js';
+import { ExtHostDocumentsAndEditors } from '../extHostDocumentsAndEditors.js';
 
 export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServiceShape {
 
@@ -27,6 +29,8 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 
 	private readonly _onDidChangeActiveConsole = new Emitter<positron.Console | undefined>();
 
+	private readonly _onDidChangeActiveConsoleEditor = new Emitter<vscode.TextEditor | undefined>();
+
 	private _activeConsoleSessionId: string | undefined;
 
 	// Guards the startup seed: once a live $onDidChangeActiveConsole arrives we
@@ -38,6 +42,7 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
 		private readonly _logService: ILogService,
+		private readonly _extHostDocumentsAndEditors: ExtHostDocumentsAndEditors,
 	) {
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadConsoleService);
 
@@ -62,11 +67,19 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 
 	onDidChangeActiveConsole = this._onDidChangeActiveConsole.event;
 
+	onDidChangeActiveConsoleEditor = this._onDidChangeActiveConsoleEditor.event;
+
 	get activeConsole(): positron.Console | undefined {
 		if (this._activeConsoleSessionId === undefined) {
 			return undefined;
 		}
 		return this._extHostConsolesBySessionId.get(this._activeConsoleSessionId)?.getConsole();
+	}
+
+	get activeConsoleEditor(): vscode.TextEditor | undefined {
+		return this._activeConsoleSessionId
+			? this._extHostDocumentsAndEditors.getEditor(`console-${this._activeConsoleSessionId}`)?.value
+			: undefined;
 	}
 
 	/**
@@ -140,5 +153,11 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 		this._activeConsoleSessionId = sessionId;
 		this._onDidChangeActiveConsole.fire(this.activeConsole);
 	}
-}
 
+	// Called when the active console editor changes (separate from vscode.window.activeTextEditor).
+	// The editorId is derived from the active session, so we fire using the getter which derives
+	// the TextEditor from _activeConsoleSessionId (already updated by $onDidChangeActiveConsole).
+	$setActiveConsoleEditor(_editorId: string | null): void {
+		this._onDidChangeActiveConsoleEditor.fire(this.activeConsoleEditor);
+	}
+}

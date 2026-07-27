@@ -488,6 +488,12 @@ export interface IPositronConsoleInstance {
 	codeEditor: ICodeEditor | undefined;
 
 	/**
+	 * An event that fires when the code editor is assigned for the first time
+	 * (i.e. when the ConsoleInput React component mounts and sets the editor).
+	 */
+	readonly onDidSetCodeEditor: Event<ICodeEditor>;
+
+	/**
 	 * Toggles trace.
 	 */
 	toggleTrace(): void;

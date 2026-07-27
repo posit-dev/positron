@@ -313,6 +313,7 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 	private readonly _onDidAttachSessionEmitter = new Emitter<ILanguageRuntimeSession | undefined>();
 	private readonly _onDidChangeWidthInCharsEmitter = new Emitter<number>();
 	private readonly _onDidRequestRevealExecutionEmitter = new Emitter<string>();
+	private readonly _onDidSetCodeEditorEmitter = new Emitter<ICodeEditor>();
 
 	private _findWidget: IConsoleFindWidget | undefined;
 
@@ -404,6 +405,10 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 
 	get onDidRequestRevealExecution(): Event<string> {
 		return this._onDidRequestRevealExecutionEmitter.event;
+	}
+
+	get onDidSetCodeEditor(): Event<ICodeEditor> {
+		return this._onDidSetCodeEditorEmitter.event;
 	}
 
 	get onDidChangeWidthInChars(): Event<number> {

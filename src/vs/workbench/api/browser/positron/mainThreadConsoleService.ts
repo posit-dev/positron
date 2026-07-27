@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { ExtHostConsoleServiceShape, ExtHostPositronContext, MainPositronContext, MainThreadConsoleServiceShape } from '../../common/positron/extHost.positron.protocol.js';
+import { DisposableStore, IDisposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { ExtHostConsoleServiceShape, ExtHostPositronContext, IMainThreadConsoleEditorManager, MainPositronContext, MainThreadConsoleServiceShape } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IPositronConsoleInstance, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { MainThreadConsole } from './mainThreadConsole.js';
@@ -24,6 +24,9 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 	 * Kept in sync with consoles in `ExtHostConsoleService`
 	 */
 	private readonly _mainThreadConsolesBySessionId = new Map<string, MainThreadConsole>();
+
+	/** Disposables for registered console text editors, keyed by session id. */
+	private readonly _consoleEditorDisposables = new Map<string, MutableDisposable<IDisposable>>();
 
 	private readonly _proxy: ExtHostConsoleServiceShape;
 
@@ -53,6 +56,13 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 
 				// Then update main thread
 				this.addConsole(sessionId, console);
+
+				// Register the console's Monaco editor with the text editor tracking so
+				// extensions can access it via positron.window.activeConsoleEditor.
+				const manager = extHostContext.getRaw<IMainThreadConsoleEditorManager, IMainThreadConsoleEditorManager>(
+					MainPositronContext.MainThreadConsoleEditorManager
+				);
+				this._registerConsoleEditor(console, manager);
 			})
 		);
 
@@ -60,6 +70,7 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		this._disposables.add(
 			this._positronConsoleService.onDidChangeActivePositronConsoleInstance((instance) => {
 				this._proxy.$onDidChangeActiveConsole(instance?.sessionId);
+				this._notifyActiveConsoleEditor(instance);
 			})
 		);
 
@@ -85,6 +96,9 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 
 	dispose(): void {
 		this._disposables.dispose();
+		for (const d of this._consoleEditorDisposables.values()) {
+			d.dispose();
+		}
 	}
 
 	private addConsole(sessionId: string, console: IPositronConsoleInstance) {
@@ -99,6 +113,61 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 	// 	// No dispose() method to call
 	// 	this._mainThreadConsolesByLanguageId.delete(id);
 	// }
+
+	/**
+	 * Registers the Monaco editor for `instance` with the text editor tracking pipeline so
+	 * that extensions can use `positron.window.activeConsoleEditor` to access a full
+	 * `vscode.TextEditor` for the console input.
+	 *
+	 * The editor is intentionally NOT set as `vscode.window.activeTextEditor`.
+	 */
+	private _registerConsoleEditor(instance: IPositronConsoleInstance, manager: IMainThreadConsoleEditorManager): void {
+		const sessionId = instance.sessionMetadata.sessionId;
+		const editorId = `console-${sessionId}`;
+
+		const doRegister = () => {
+			const mutable = new MutableDisposable<IDisposable>();
+			this._consoleEditorDisposables.set(sessionId, mutable);
+			this._disposables.add(mutable);
+			mutable.value = manager.registerConsoleEditor(editorId, instance.codeEditor!);
+		};
+
+		if (instance.codeEditor) {
+			// Editor already mounted — register immediately.
+			doRegister();
+		} else {
+			// Editor not yet mounted (React component hasn't mounted yet).
+			// Wait for the first assignment.
+			const sub = instance.onDidSetCodeEditor(() => {
+				sub.dispose();
+				doRegister();
+
+				// If this instance is already the active console, notify now.
+				if (this._positronConsoleService.activePositronConsoleInstance === instance) {
+					this._proxy.$setActiveConsoleEditor(editorId);
+				}
+			});
+			this._disposables.add(sub);
+		}
+	}
+
+	/**
+	 * Notifies the extension host of the active console editor id so
+	 * `positron.window.activeConsoleEditor` can be updated.
+	 */
+	private _notifyActiveConsoleEditor(instance: IPositronConsoleInstance | undefined): void {
+		if (!instance) {
+			this._proxy.$setActiveConsoleEditor(null);
+			return;
+		}
+		const sessionId = instance.sessionMetadata.sessionId;
+		const editorId = `console-${sessionId}`;
+		// Only notify if the editor has been registered (codeEditor is set).
+		if (instance.codeEditor && this._consoleEditorDisposables.has(sessionId)) {
+			this._proxy.$setActiveConsoleEditor(editorId);
+		}
+		// If codeEditor isn't set yet, _registerConsoleEditor will notify once it mounts.
+	}
 
 	// --- from extension host process
 

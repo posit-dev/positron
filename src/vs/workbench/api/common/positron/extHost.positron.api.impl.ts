@@ -29,6 +29,7 @@ import { ExtHostLanguageFeatures } from '../extHostLanguageFeatures.js';
 import { createExtHostQuickOpen } from '../extHostQuickOpen.js';
 import { ExtHostOutputService } from '../extHostOutput.js';
 import { ExtHostConsoleService } from './extHostConsoleService.js';
+import { ExtHostDocumentsAndEditors } from '../extHostDocumentsAndEditors.js';
 import { ExtHostMethods } from './extHostMethods.js';
 import { ExtHostEditors } from '../extHostTextEditors.js';
 import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
@@ -80,13 +81,14 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		rpcProtocol.getRaw(ExtHostContext.ExtHostLanguageFeatures);
 	const extHostEditors: ExtHostEditors = rpcProtocol.getRaw(ExtHostContext.ExtHostEditors);
 	const extHostDocuments: ExtHostDocuments = rpcProtocol.getRaw(ExtHostContext.ExtHostDocuments);
+	const extHostDocumentsAndEditors: ExtHostDocumentsAndEditors = rpcProtocol.getRaw(ExtHostContext.ExtHostDocumentsAndEditors);
 	const extHostQuickOpen = rpcProtocol.set(ExtHostPositronContext.ExtHostQuickOpen, createExtHostQuickOpen(rpcProtocol, extHostWorkspace, extHostCommands));
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol, extHostLogService));
 	const extHostAiFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostAiFeatures, new ExtHostAiFeatures(rpcProtocol, extHostCommands));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 	const extHostContextKeyService = rpcProtocol.set(ExtHostPositronContext.ExtHostContextKeyService, new ExtHostContextKeyService(rpcProtocol));
-	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol, extHostLogService));
+	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol, extHostLogService, extHostDocumentsAndEditors));
 	const extHostPlotsService = rpcProtocol.set(ExtHostPositronContext.ExtHostPlotsService, new ExtHostPlotsService(rpcProtocol));
 	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods,
 		new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs,
@@ -236,10 +238,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostConsoleService.getConsoleForLanguage(languageId);
 			},
 			get activeConsoleEditor() {
-				return extHostConsoleService.activeConsole;
+				return extHostConsoleService.activeConsoleEditor;
 			},
 			get onDidChangeActiveConsoleEditor() {
-				return extHostConsoleService.onDidChangeActiveConsole;
+				return extHostConsoleService.onDidChangeActiveConsoleEditor;
 			},
 			get onDidChangeConsoleWidth() {
 				return extHostConsoleService.onDidChangeConsoleWidth;

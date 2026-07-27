@@ -54,7 +54,7 @@ const HelpLines = [
 	'busy X Y         - Simulates an interuptible busy state for X seconds that takes Y seconds to interrupt (default X = 5, Y = 1)',
 	'cd X             - Changes the current working directory to X, or to a random directory if X is not specified',
 	'clock            - Show a plot containing a clock, using the notebook renderer API',
-	'console active   - Show the current active console editor (tests positron.window.activeConsoleEditor)',
+	'console active   - Show the current active console editor URI, language, and text (tests positron.window.activeConsoleEditor)',
 	'console watch    - Subscribe to onDidChangeActiveConsoleEditor and print each change',
 	'console watch stop - Stop watching for active console changes',
 	'connection X     - Create a database connection, optionally named X',
@@ -947,10 +947,10 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 			}
 
 			case 'console active': {
-				const active = positron.window.activeConsoleEditor;
-				const msg = active
-					? `Active console: defined (session is live)`
-					: `Active console: none (no console is currently active)`;
+				const editor = positron.window.activeConsoleEditor;
+				const msg = editor
+					? `Active console editor: ${editor.document.uri.toString()}\nLanguage: ${editor.document.languageId}\nText: ${JSON.stringify(editor.document.getText())}`
+					: `Active console editor: none (no console is currently active)`;
 				this.simulateSuccessfulCodeExecution(id, code, msg);
 				break;
 			}
@@ -961,9 +961,9 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 					break;
 				}
 				const watchId = id;
-				this._consoleWatchDisposable = positron.window.onDidChangeActiveConsoleEditor((activeConsole) => {
-					const msg = activeConsole
-						? `[console watch] Active console changed: defined`
+				this._consoleWatchDisposable = positron.window.onDidChangeActiveConsoleEditor((editor) => {
+					const msg = editor
+						? `[console watch] Active console changed: ${editor.document.uri.toString()} (${editor.document.languageId})`
 						: `[console watch] Active console changed: none`;
 					this.simulateOutputMessage(watchId, msg + '\n');
 				});

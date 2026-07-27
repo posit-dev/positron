@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../base/common/event.js';
-import { combinedDisposable, DisposableStore, DisposableMap } from '../../../base/common/lifecycle.js';
+import { combinedDisposable, DisposableStore, DisposableMap, IDisposable, toDisposable } from '../../../base/common/lifecycle.js';
 import { ICodeEditor, isCodeEditor, isDiffEditor, IActiveCodeEditor } from '../../../editor/browser/editorBrowser.js';
 import { ICodeEditorService } from '../../../editor/browser/services/codeEditorService.js';
 import { IEditor } from '../../../editor/common/editorCommon.js';
@@ -33,6 +33,9 @@ import { IPaneCompositePartService } from '../../services/panecomposite/browser/
 import { ViewContainerLocation } from '../../common/views.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { IQuickDiffModelService } from '../../contrib/scm/browser/quickDiffModel.js';
+// --- Start Positron ---
+import { IMainThreadConsoleEditorManager, MainPositronContext } from '../common/positron/extHost.positron.protocol.js';
+// --- End Positron ---
 
 
 class TextEditorSnapshot {
@@ -274,7 +277,9 @@ class MainThreadDocumentAndEditorStateComputer {
 }
 
 @extHostCustomer
-export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator {
+// --- Start Positron ---
+export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, IMainThreadConsoleEditorManager {
+// --- End Positron ---
 
 	private readonly _toDispose = new DisposableStore();
 	private readonly _proxy: ExtHostDocumentsAndEditorsShape;
@@ -310,6 +315,11 @@ export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator {
 
 		// It is expected that the ctor of the state computer calls our `_onDelta`.
 		this._toDispose.add(new MainThreadDocumentAndEditorStateComputer(delta => this._onDelta(delta), _modelService, codeEditorService, this._editorService, paneCompositeService));
+
+		// --- Start Positron ---
+		// Register this instance so MainThreadConsoleService can reach it via getRaw.
+		extHostContext.set(MainPositronContext.MainThreadConsoleEditorManager, this);
+		// --- End Positron ---
 	}
 
 	dispose(): void {
@@ -433,4 +443,44 @@ export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator {
 	getEditor(id: string): MainThreadTextEditor | undefined {
 		return this._textEditors.get(id);
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Registers a console input editor so it is accessible as a `vscode.TextEditor` via
+	 * `positron.window.activeConsoleEditor`. The editor is NOT set as `vscode.window.activeTextEditor`.
+	 *
+	 * @param id A stable id for this editor (e.g. `console-<sessionId>`)
+	 * @param codeEditor The Monaco editor backing the console input
+	 * @returns A disposable that removes the editor from the ext host when disposed
+	 */
+	registerConsoleEditor(id: string, codeEditor: ICodeEditor): IDisposable {
+		const model = codeEditor.getModel();
+		if (!model) {
+			return toDisposable(() => { });
+		}
+
+		const editor = new MainThreadTextEditor(
+			id,
+			model,
+			codeEditor,
+			{ onGainedFocus() { }, onLostFocus() { } },
+			this._mainThreadDocuments,
+			this._modelService,
+			this._clipboardService,
+		);
+
+		this._textEditors.set(id, editor);
+		this._mainThreadEditors.handleTextEditorAdded(editor);
+		this._proxy.$acceptDocumentsAndEditorsDelta({
+			addedEditors: [this._toTextEditorAddData(editor)],
+		});
+
+		return toDisposable(() => {
+			this._textEditors.delete(id);
+			editor.dispose();
+			this._mainThreadEditors.handleTextEditorRemoved(id);
+			this._proxy.$acceptDocumentsAndEditorsDelta({ removedEditors: [id] });
+		});
+	}
+	// --- End Positron ---
 }
