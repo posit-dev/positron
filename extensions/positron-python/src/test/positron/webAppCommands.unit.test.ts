@@ -148,7 +148,8 @@ suite('Web app commands', () => {
 
     test('Exec Dash in terminal - without urlPrefix', async () => {
         await verifyRunAppCommand(Commands.Exec_Dash_In_Terminal, {
-            commandLine: `${runtimePath} ${documentPath}`,
+            command: runtimePath,
+            args: [documentPath],
             env: { PYTHONPATH: workspacePath },
         });
     });
@@ -157,7 +158,8 @@ suite('Web app commands', () => {
         await verifyRunAppCommand(
             Commands.Exec_Dash_In_Terminal,
             {
-                commandLine: `${runtimePath} ${documentPath}`,
+                command: runtimePath,
+                args: [documentPath],
                 env: {
                     PYTHONPATH: workspacePath,
                     DASH_URL_BASE_PATHNAME: urlPrefix,
@@ -169,7 +171,8 @@ suite('Web app commands', () => {
 
     test('Exec FastAPI in terminal - fastapi-cli installed', async () => {
         await verifyRunAppCommand(Commands.Exec_FastAPI_In_Terminal, {
-            commandLine: `${runtimePath} -m fastapi dev ${documentPath}`,
+            command: runtimePath,
+            args: ['-m', 'fastapi', 'dev', documentPath],
         });
     });
 
@@ -178,7 +181,7 @@ suite('Web app commands', () => {
 
         await verifyRunAppCommand(
             Commands.Exec_FastAPI_In_Terminal,
-            { commandLine: `${runtimePath} -m uvicorn --reload ${path.parse(documentPath).name}:app` },
+            { command: runtimePath, args: ['-m', 'uvicorn', '--reload', `${path.parse(documentPath).name}:app`] },
             { documentText: 'app = FastAPI()' },
         );
     });
@@ -192,14 +195,15 @@ suite('Web app commands', () => {
     test('Exec FastAPI in terminal - with urlPrefix', async () => {
         await verifyRunAppCommand(
             Commands.Exec_FastAPI_In_Terminal,
-            { commandLine: `${runtimePath} -m fastapi dev ${documentPath}` },
+            { command: runtimePath, args: ['-m', 'fastapi', 'dev', documentPath] },
             { urlPrefix },
         );
     });
 
     test('Exec Flask in terminal - without urlPrefix', async () => {
         await verifyRunAppCommand(Commands.Exec_Flask_In_Terminal, {
-            commandLine: `${runtimePath} -m flask --app ${documentPath} run`,
+            command: runtimePath,
+            args: ['-m', 'flask', '--app', documentPath, 'run'],
         });
     });
 
@@ -207,7 +211,8 @@ suite('Web app commands', () => {
         await verifyRunAppCommand(
             Commands.Exec_Flask_In_Terminal,
             {
-                commandLine: `${runtimePath} -m flask --app ${documentPath} run`,
+                command: runtimePath,
+                args: ['-m', 'flask', '--app', documentPath, 'run'],
             },
             { urlPrefix },
         );
@@ -215,7 +220,8 @@ suite('Web app commands', () => {
 
     test('Exec Gradio in terminal - without urlPrefix', async () => {
         await verifyRunAppCommand(Commands.Exec_Gradio_In_Terminal, {
-            commandLine: `${runtimePath} ${documentPath}`,
+            command: runtimePath,
+            args: [documentPath],
         });
     });
 
@@ -223,7 +229,8 @@ suite('Web app commands', () => {
         await verifyRunAppCommand(
             Commands.Exec_Gradio_In_Terminal,
             {
-                commandLine: `${runtimePath} ${documentPath}`,
+                command: runtimePath,
+                args: [documentPath],
             },
             { urlPrefix },
         );
@@ -231,7 +238,8 @@ suite('Web app commands', () => {
 
     test('Exec Streamlit in terminal - without urlPrefix', async () => {
         await verifyRunAppCommand(Commands.Exec_Streamlit_In_Terminal, {
-            commandLine: `${runtimePath} -m streamlit run ${documentPath} --server.headless true`,
+            command: runtimePath,
+            args: ['-m', 'streamlit', 'run', documentPath, '--server.headless', 'true'],
         });
     });
 
@@ -239,7 +247,8 @@ suite('Web app commands', () => {
         await verifyRunAppCommand(
             Commands.Exec_Streamlit_In_Terminal,
             {
-                commandLine: `${runtimePath} -m streamlit run ${documentPath} --server.headless true`,
+                command: runtimePath,
+                args: ['-m', 'streamlit', 'run', documentPath, '--server.headless', 'true'],
             },
             { urlPrefix },
         );
