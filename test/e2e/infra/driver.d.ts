@@ -43,4 +43,5 @@ export interface IWindowDriver {
 	getLogs(): Promise<ILogFile[]>;
 	whenWorkbenchRestored(): Promise<void>;
 	exitApplication(): Promise<void>;
+	executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T>;
 }

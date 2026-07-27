@@ -727,57 +727,22 @@ export class Sessions {
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
 		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
-			const isSingleSession = (await this.getSessionCount()) === 1;
+			// Read the metadata directly from the runtime session service via the
+			// internal `_positron.session.getMetadata` command (registered in
+			// positronSessionMetadataCommand.ts). This avoids selecting the
+			// session tab and scraping the info popup, which is slower and flaky
+			// when notification toasts overlay the tab.
+			const metadata = await this.code.driver.executeCommand<SessionMetaData | undefined>(
+				'_positron.session.getMetadata',
+				sessionId
+			);
 
-			if (!isSingleSession && sessionId) {
-				const targetTab = this.getSessionTab(sessionId);
-				await expect(async () => {
-					// Use force to bypass notification toasts that may overlay the tab. A
-					// toast can also swallow the click outright (it's on top, so the real
-					// tab never receives it) -- verify the tab actually went active instead
-					// of assuming the click landed, and retry if it didn't.
-					await targetTab.click({ force: true });
-					await expect(targetTab).toHaveClass(/tab-button--active/);
-				}, `Select session tab: ${sessionId}`).toPass({ timeout: 10000 });
+			if (!metadata) {
+				throw new Error(`No session metadata found for: ${sessionId ?? 'current session'}`);
 			}
-
-			const metadata = await this.extractMetadataFromDialog(sessionId);
-
-			// Close the metadata dialog
-			await this.page.keyboard.press('Escape');
 
 			return metadata;
 		});
-	}
-
-	/**
-	 * Helper: Extract metadata from the metadata dialog
-	 *
-	 * @param sessionId the session ID the dialog should reflect, if known
-	 */
-	private async extractMetadataFromDialog(sessionId?: string): Promise<SessionMetaData> {
-		let metadata: SessionMetaData | undefined;
-
-		await test.step('Extract metadata from dialog', async () => {
-			await expect(async () => {
-				await this.openMetadataDialog(sessionId);
-				const [name, id, state, path, source] = await Promise.all([
-					this.metadataDialog.getByTestId('session-name').textContent(),
-					this.metadataDialog.getByTestId('session-id').textContent(),
-					this.metadataDialog.getByTestId('session-state').textContent(),
-					this.metadataDialog.getByTestId('session-path').textContent(),
-					this.metadataDialog.getByTestId('session-source').textContent(),
-				]);
-				metadata = {
-					name: (name ?? '').trim(),
-					id: (id ?? '').replace('Session ID: ', ''),
-					state: (state ?? '').replace('State: ', '') as SessionState,
-					path: (path ?? '').replace('Path: ', ''),
-					source: (source ?? '').replace('Source: ', ''),
-				};
-			}, 'Extract session metadata').toPass({ intervals: [500], timeout: 10000 });
-		});
-		return metadata!;
 	}
 
 	/**
