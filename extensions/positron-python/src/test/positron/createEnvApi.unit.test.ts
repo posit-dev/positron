@@ -31,6 +31,7 @@ suite('Positron Create Environment APIs', () => {
     let handleCreateEnvironmentCommandStub: sinon.SinonStub;
     let getConfigurationStub: sinon.SinonStub;
     let getWorkspaceFolderStub: sinon.SinonStub;
+    let getWorkspaceFoldersStub: sinon.SinonStub;
 
     const disposables: IDisposableRegistry = [];
     const mockProvider = createTypeMoq<CreateEnvironmentProvider>();
@@ -93,6 +94,9 @@ suite('Positron Create Environment APIs', () => {
         getWorkspaceFolderStub.callsFake((uri: Uri) =>
             uri.toString() === workspace1UriString ? workspace1 : undefined,
         );
+
+        getWorkspaceFoldersStub = sinon.stub(workspaceApis, 'getWorkspaceFolders');
+        getWorkspaceFoldersStub.returns([workspace1]);
 
         registerCommandStub.callsFake((_command: string, _callback: (...args: any[]) => any) => ({
             dispose: () => {
@@ -182,7 +186,35 @@ suite('Positron Create Environment APIs', () => {
         assert.isUndefined(dispatched.workspaceFolder);
     });
 
-    test('Throws when workspaceFolder URI does not resolve to a known workspace folder', async () => {
+    test('Matches by path when the URI scheme differs (remote ext host sees file://, caller sent vscode-remote://)', async () => {
+        const resultPath = '/path/to/created/env';
+        pythonRuntimeManager
+            .setup((p) => p.registerLanguageRuntimeFromPath(resultPath))
+            .returns(() => Promise.resolve(createTypeMoq<positron.LanguageRuntimeMetadata>().object));
+        handleCreateEnvironmentCommandStub.returns(Promise.resolve({ path: resultPath }));
+
+        // The real remote case: the folder lives on a remote (POSIX) host. The caller sends
+        // the workbench/main-thread URI (vscode-remote://), but this extension host sees the
+        // same folder as file://, with an identical path. Exact-URI lookup misses on the
+        // scheme; the path-based fallback against getWorkspaceFolders() should resolve it.
+        const remoteFolderPath = '/home/user/new-uv_736628';
+        const extHostFolder = { uri: Uri.file(remoteFolderPath), name: 'new-uv_736628', index: 0 };
+        const callerUri = Uri.from({ scheme: 'vscode-remote', authority: 'localhost:9000', path: remoteFolderPath });
+        getWorkspaceFolderStub.callsFake(() => undefined);
+        getWorkspaceFoldersStub.returns([extHostFolder]);
+
+        await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+            ...envOptions,
+            workspaceFolder: callerUri.toString(),
+        });
+
+        const dispatched = handleCreateEnvironmentCommandStub.firstCall.args[1];
+        assert.strictEqual(dispatched.workspaceFolder, extHostFolder);
+    });
+
+    test('Throws when no workspace folder matches by exact URI or by path', async () => {
+        getWorkspaceFolderStub.callsFake(() => undefined);
+        getWorkspaceFoldersStub.returns([workspace1]);
         const unknownUri = Uri.file('/no/such/workspace').toString();
 
         await assert.isRejected(
