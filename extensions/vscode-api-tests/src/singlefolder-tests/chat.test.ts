@@ -27,10 +27,11 @@ suite('chat', () => {
 			supportedOptions: [],
 			defaults: {},
 		});
-		// Register copilot provider so it's enabled in Positron
-		// The 'copilot' vendor is enabled via 'copilot-auth' provider with 'githubCopilot' setting (default: true)
+		// Register copilot provider so it's enabled in Positron. The 'copilot'
+		// vendor resolves via the 'copilot-auth' provider's `catalogId: 'copilot'`,
+		// which the catalog enables by default.
 		positron.ai.registerProvider({
-			provider: { id: 'copilot-auth', displayName: 'Test Copilot' },
+			provider: { id: 'copilot-auth', displayName: 'Test Copilot', catalogId: 'copilot' },
 			type: positron.PositronLanguageModelType.Chat,
 			supportedOptions: [],
 			defaults: {},
