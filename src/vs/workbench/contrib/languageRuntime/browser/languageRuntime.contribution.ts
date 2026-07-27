@@ -5,7 +5,7 @@
 
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerLanguageRuntimeActions } from './languageRuntimeActions.js';
-import { registerSessionMetadataCommand } from './positronSessionMetadataCommand.js';
+import { registerSessionMetadataCommand } from './sessionMetadataCommand.js';
 import { PositronRuntimeLanguagesContextKeyContribution } from './languageRuntimeContextKeys.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from '../../../common/contributions.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
