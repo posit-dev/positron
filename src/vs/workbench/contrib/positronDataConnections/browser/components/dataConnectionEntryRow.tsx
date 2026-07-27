@@ -140,6 +140,7 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 				connectionName: profile.connectionName,
 				driver,
 				mechanismId,
+				profileId: profile.id,
 				// Regenerates the code with secret values (e.g. passwords) pulled from secret storage.
 				// Invoked only after the user confirms the Include Secrets action in the dialog.
 				generateSecretVariants: async () => {
