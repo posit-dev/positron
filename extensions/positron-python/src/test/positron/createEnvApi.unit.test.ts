@@ -193,20 +193,23 @@ suite('Positron Create Environment APIs', () => {
             .returns(() => Promise.resolve(createTypeMoq<positron.LanguageRuntimeMetadata>().object));
         handleCreateEnvironmentCommandStub.returns(Promise.resolve({ path: resultPath }));
 
-        // The caller sends the workbench/main-thread URI (vscode-remote://), but this
-        // extension host represents the same folder as file://. Exact-URI lookup misses;
-        // the path-based fallback against getWorkspaceFolders() should still resolve it.
-        const remoteUri = workspace1.uri.with({ scheme: 'vscode-remote', authority: 'localhost:9000' });
+        // The real remote case: the folder lives on a remote (POSIX) host. The caller sends
+        // the workbench/main-thread URI (vscode-remote://), but this extension host sees the
+        // same folder as file://, with an identical path. Exact-URI lookup misses on the
+        // scheme; the path-based fallback against getWorkspaceFolders() should resolve it.
+        const remoteFolderPath = '/home/user/new-uv_736628';
+        const extHostFolder = { uri: Uri.file(remoteFolderPath), name: 'new-uv_736628', index: 0 };
+        const callerUri = Uri.from({ scheme: 'vscode-remote', authority: 'localhost:9000', path: remoteFolderPath });
         getWorkspaceFolderStub.callsFake(() => undefined);
-        getWorkspaceFoldersStub.returns([workspace1]);
+        getWorkspaceFoldersStub.returns([extHostFolder]);
 
         await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
             ...envOptions,
-            workspaceFolder: remoteUri.toString(),
+            workspaceFolder: callerUri.toString(),
         });
 
         const dispatched = handleCreateEnvironmentCommandStub.firstCall.args[1];
-        assert.strictEqual(dispatched.workspaceFolder, workspace1);
+        assert.strictEqual(dispatched.workspaceFolder, extHostFolder);
     });
 
     test('Throws when no workspace folder matches by exact URI or by path', async () => {
