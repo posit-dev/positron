@@ -9,7 +9,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { IDuckDBDataExplorerHost } from 'positron-data-explorer-duckdb';
 import { KeyAuthenticator, TokenAuthenticator } from './connectAuth.js';
-import { ConnectClient } from './connectClient.js';
+import { ConnectClient, isAuthFailure } from './connectClient.js';
 import { escapeDoubleQuoted } from './pinsCode.js';
 import { Logger, NULL_LOGGER } from './logging.js';
 import { PinsCache } from './pinsCache.js';
@@ -239,24 +239,44 @@ export function createPinsDriver(
 					// not reopen the browser.
 					const stored = await credentialStore.get(serverUrl);
 					if (stored) {
+						const client = new ConnectClient(serverUrl, new TokenAuthenticator(stored), fetchFn, logger);
+						let rejected = false;
 						try {
-							const client = new ConnectClient(serverUrl, new TokenAuthenticator(stored), fetchFn, logger);
 							await client.getCurrentUser();
-							return connectWithClient(client);
-						} catch {
-							// The stored credential was rejected (revoked or expired); fall through to re-claim.
+						} catch (err) {
+							// Only an actual credential rejection (401/403) means the sign-in is revoked or
+							// expired. A transient failure (a 503, a dropped connection, a timeout) says
+							// nothing about the credential, so surface it instead of discarding a working
+							// sign-in and popping a browser window the user did not ask for.
+							if (!isAuthFailure(err)) {
+								throw err;
+							}
+							rejected = true;
 							logger.info('Stored sign-in was rejected; starting a new browser sign-in.');
+						}
+						if (!rejected) {
+							return connectWithClient(client);
 						}
 					}
 
 					const result = await vscode.window.withProgress(
 						{ location: vscode.ProgressLocation.Notification, cancellable: true, title: vscode.l10n.t('Waiting for sign-in in your browser...') },
-						(_progress, cancelToken) => claimTokenFn(serverUrl, {
-							fetch: fetchFn,
-							openExternal: (url: string) => vscode.env.openExternal(vscode.Uri.parse(url)),
-							isCancelled: () => cancelToken.isCancellationRequested,
-							logger,
-						}),
+						async (_progress, cancelToken) => {
+							// Bridge the notification's Cancel button to an abort signal, so cancelling also
+							// aborts the in-flight registration request (not just the poll loop).
+							const abort = new AbortController();
+							const subscription = cancelToken.onCancellationRequested(() => abort.abort());
+							try {
+								return await claimTokenFn(serverUrl, {
+									fetch: fetchFn,
+									openExternal: (url: string) => vscode.env.openExternal(vscode.Uri.parse(url)),
+									signal: abort.signal,
+									logger,
+								});
+							} finally {
+								subscription.dispose();
+							}
+						},
 					);
 					await credentialStore.set(serverUrl, result.credential);
 					const client = new ConnectClient(serverUrl, new TokenAuthenticator(result.credential), fetchFn, logger);
@@ -267,12 +287,21 @@ export function createPinsDriver(
 			}
 		},
 		async generateConnectionCode(mechanismId: string, languageId: string, params: positron.DataConnectionParameterValues): Promise<positron.ConnectionCodeVariant[]> {
-			// The env-var and token mechanisms both connect through the package default open (in R the
-			// default resolves to the rsconnect-registered credentials the browser sign-in establishes),
-			// so their generated code is that single default snippet.
+			// Both the env-var and token mechanisms generate the pins packages' default board open, but the
+			// two mean different things to the user, so they are labelled differently. For an env-var
+			// connection the default open reads CONNECT_SERVER and CONNECT_API_KEY, which is the
+			// mechanism's own configuration. For a browser sign-in there is no credential to name: the
+			// pins packages resolve credentials through their own channels (R's rsconnect account
+			// registry, Python's CONNECT_* variables) and cannot read the token this driver keeps in
+			// secret storage, so the snippet is only the package default and is labelled as such.
 			if (mechanismId === ENVVAR_MECHANISM_ID || mechanismId === TOKEN_MECHANISM_ID) {
 				const code = boardOpenCode(languageId);
-				return code ? [{ id: 'envvar', label: vscode.l10n.t('Environment Variables'), code }] : [];
+				if (!code) {
+					return [];
+				}
+				return mechanismId === ENVVAR_MECHANISM_ID
+					? [{ id: 'envvar', label: vscode.l10n.t('Environment Variables'), code }]
+					: [{ id: 'default', label: vscode.l10n.t('Default Connection'), code }];
 			}
 			if (mechanismId !== API_KEY_MECHANISM_ID) {
 				return [];
