@@ -11,7 +11,7 @@
  * This module is the migration-shaped wrapper over that translator.
  */
 
-import { legacySettingKeys, translateLegacyPositronSettings, type EnforcedProvidersConfig, type LoggerLike, type SettingMigration } from 'ai-config';
+import { legacySettingKeys, translateLegacyPositronSettings, type ProvidersConfigFragment, type LoggerLike, type SettingMigration } from 'ai-config';
 
 export type { SettingMigration };
 
@@ -26,7 +26,7 @@ export interface MappedProvidersConfig {
 	 * providersConfigSchema before writing, so a bad mapping fails loudly there
 	 * instead of writing malformed providers.json.
 	 */
-	config: EnforcedProvidersConfig;
+	config: ProvidersConfigFragment;
 	/** Number of settings.json entries consumed (for the success toast). */
 	settingCount: number;
 	/** Source-to-destination record of every value written (for logging). */
