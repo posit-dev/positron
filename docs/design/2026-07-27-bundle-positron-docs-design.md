@@ -12,7 +12,7 @@ Revision 2 (2026-07-27), after a design review of revision 1. Changes: added the
 (revision 1's failure table contradicted its own always-have-local-docs guarantee), specified what
 `getLocalDocs()` returns in `fallback`, addressed concurrency across windows, added digest
 verification, bounded the `getLocalDocs()` wait, scoped retry throttling to hard failures only, split
-Step 2 into two PRs, and added the `POSITRON_DOCS_BUNDLE_URL` override that manual validation depends
+Step 2 into two PRs, and added the `POSITRON_LLMS_DOCS_URL` override that manual validation depends
 on.
 
 Revision 3 (2026-07-27), closing the gaps revision 2's digest sidecars introduced. Changes: specified
@@ -20,6 +20,32 @@ sidecar-404 handling (strict, with a publish-order rule and a CI guard to shrink
 clarified that `state.json`'s `sha256` is recorded once and never recomputed, noted that manual
 validation's local server must host sidecars, and corrected two code references (the server build
 gulpfiles and the extension-host entry point).
+
+Revision 4 (2026-07-28), dropping the `POSITRON_DOCS_URL` skip rule. It rested on an unsound
+inference (a mirrored docs site does not imply an unreachable CDN), saved only one failed lookup per
+throttle window, could not deliver the mirror to the assistant anyway, and contradicted the same
+section's air-gap guidance to override the bundle URL. An unreachable CDN is now handled solely by the
+ordinary failure path.
+
+Revision 5 (2026-07-28), adding the schema versioning policy. Revision 1 defined what schema 1 means
+but never said when the number moves, leaving the next editor of the website pipeline without a rule.
+Adds the bump-versus-additive criteria, the dual-publish transition that keeps a bump from becoming a
+flag day for every deployed install, and a note that the assistant-side `schema` check is currently
+unreachable by design.
+
+Revision 6 (2026-07-28), dropping the "no E2E" non-goal, which ruled out integration coverage on the
+grounds that there is no user-visible workflow. Adds one gating `e2e-electron` test against a local
+fixture server, a scheduled non-gating contract check, and PRs 2c and 5 to carry them. The non-goal is
+deleted rather than narrowed, since Step 3 will make it false: once the assistant reads the bundle, the
+same test extends to a real user-visible assertion.
+
+Revision 7 (2026-07-28), renaming the bundle-URL override from `POSITRON_DOCS_BUNDLE_URL` to
+`POSITRON_LLMS_DOCS_URL`, and the `product.json` field from `positronDocsBundleUrl` to
+`positronLlmsDocsUrl`. The old name shared the `POSITRON_DOCS_` prefix with the pre-existing
+docs-website variable `POSITRON_DOCS_URL`, which caused a real misreading during review. `llms` is
+already the vocabulary of every artifact (`llms.txt`, `*.llms.md`, `positron-llms-<version>.zip`), so
+the new name diverges at the second word while staying greppable alongside other docs config. Nothing
+is shipped yet, so the rename is free.
 
 ## Goal
 
@@ -124,6 +150,63 @@ a `latest` alias. `docsBaseUrl` lets the assistant cite a real web link for a pa
 
 Roughly 655KB uncompressed across ~90 files, about 150KB zipped.
 
+### Schema versioning policy
+
+`schema` versions the bundle *layout*. It is the contract between one producer (this pipeline) and two
+consumers that ship on their own release trains (Positron core's `parseManifest`, and the assistant in
+`posit-dev/assistant`). Docs text changes on every publish and moves `version`; `schema` moves only
+when a reader written against the old layout would get a wrong answer from a new bundle.
+
+The check is not defensive boilerplate. Dev and daily builds fetch the **mutable** `latest` alias, so
+"an app from three months ago is handed a bundle from today's pipeline" is a normal runtime state, not
+a hypothetical. Without the stamp, a consumer would have to sniff the layout -- inspecting `llms.txt`
+to guess whether its paths are absolute or relative -- and guess wrong silently.
+
+**Bump when a schema-1 reader would misread the bundle:**
+
+- the `llms.txt` path convention changes (back to absolute URLs, or to a different root)
+- docs files are renamed away from `**/*.llms.md`
+- the directory layout changes in a way a consumer walks
+- a required `bundle.json` field changes type or meaning, or is removed
+
+**Do not bump for additive changes:** a new optional `bundle.json` field, additional files, a new
+profile, a different `fileCount`, or any change to the docs text itself.
+
+Getting this wrong is asymmetric. A layout change shipped *without* a bump leaves old installs parsing
+a bundle labelled `1` that is not one, and the symptom surfaces later as missing or wrong docs content
+rather than as a clean rejection. When in doubt, bump: a bump is visible and recoverable, a silent
+misparse is neither.
+
+#### A bump breaks every deployed client at once
+
+`parseManifest()` rejects any `schema !== 1` and a cold cache then yields `undefined` (see "Failure
+modes"). Because the `latest` alias is a single mutable path shared by every install, publishing
+schema 2 over it would stop local docs for **every Positron build that predates schema 2,
+simultaneously**. Warm caches keep serving their existing schema-1 bundle, but cold-cache installs get
+nothing until the user updates the app.
+
+Rejecting is still correct -- misparsing is worse -- so the mitigation is in the publish step, not the
+client: **publish the new schema at new keys and keep publishing the old one for a transition window.**
+
+```
+positron-llms-latest.zip          # schema 1, keep publishing
+positron-llms-v2-latest.zip       # schema 2, new clients request this by name
+```
+
+`resolveBundleRequest` already builds the requested URL, so a client asks for the highest schema it
+understands and older clients keep hitting the keys they already know. At 150KB per artifact the
+duplicate publish is negligible against the four objects per profile already being uploaded.
+
+**Retirement signal for the old keys:** stop publishing schema-1 once the oldest build still in support
+requests `v2-latest` -- that is, once no shipped `resolveBundleRequest` asks for the schema-1 keys.
+Naming the signal matters because "retire when the floor moves" has no test attached to it, and
+duplicate publishing is cheap enough that it will otherwise continue forever by default. Who owns the
+retirement is a question for the schema-2 rollout, not this spec, and belongs in the backlog item that
+introduces it.
+
+Stated here rather than deferred to the day it happens, because by then the flag-day cost is already
+priced in and the cheap fix is no longer available.
+
 ### Digest sidecar
 
 Each zip is published alongside a `<zipname>.sha256sum` sidecar containing the hex digest of the zip.
@@ -194,6 +277,10 @@ The CI guard is the test:
 
 - no bundled file matches `positron.posit.co`
 - the zip contains `llms.txt` and `bundle.json`
+- `bundle.json`'s `schema` equals a constant declared in the workflow, so changing the emitted schema
+  requires editing that constant deliberately and cannot happen as a side effect of a layout change
+  (see "Schema versioning policy")
+- every path in `llms.txt` is bundle-relative, which is the specific invariant schema 1 promises
 - the extracted file count matches `bundle.json`'s `fileCount`
 - the `.sha256sum` sidecar matches the zip it accompanies
 - every uploaded zip has a reachable sidecar once the upload step completes, asserted after the
@@ -326,7 +413,7 @@ Five new source files, four small edits, plus tests.
 | `version` | `formatPositronVersion(initData.positronVersion, initData.positronBuildNumber)`, giving `2026.05.0-179` and correctly omitting `-0` for dev builds |
 | `channel` | `initData.quality`: exactly `'releases'`, `'dailies'`, or `undefined` in dev builds |
 | `profile` | `process.env.RS_SERVER_URL` present means `'workbench'`, otherwise `'positron'` |
-| `baseUrl` | new `product.json` field `positronDocsBundleUrl`, default `https://cdn.posit.co/positron/releases/docs` |
+| `baseUrl` | new `product.json` field `positronLlmsDocsUrl`, default `https://cdn.posit.co/positron/releases/docs` |
 
 The version formatter already exists at
 `src/vs/platform/extensionManagement/common/positronGalleryTelemetry.ts:61`. A telemetry module is a
@@ -431,22 +518,36 @@ at construction. With `ai.enabled === false`, triggers 1 and 2 never fire and `g
 returns `undefined` without touching the network. Cached files are left on disk: 655KB is cheap
 enough that deleting them, only to re-download on toggle-back, is not worth it.
 
-### Skip rule for self-hosted docs
+### Self-hosted docs: `POSITRON_DOCS_URL` is a separate knob
 
-If `POSITRON_DOCS_URL` is set, an admin has deliberately redirected docs, often precisely because
-`cdn.posit.co` is unreachable. We skip the CDN fetch and return `undefined`, so the assistant uses
-the configured URL through the existing browser-side path. This avoids a guaranteed-failing network
-call on every launch of an air-gapped Workbench. The extension host reads this from `process.env`,
-inherited from the server process.
+`POSITRON_DOCS_URL` points `IPositronDocsService` at a mirror of the docs *website* for core UI links
+(`positronDocsService.ts:55`). It is unrelated to this feature, and the download path does not read it
+anywhere.
 
-**Expected format is an `https://` URL** pointing at a mirror of the docs *website*, which is how
-`IPositronDocsService` already treats it (`positronDocsService.ts:55`). A `file://` path is not
-supported and will not produce local docs: the variable names a site to browse, not a bundle to read.
+Revision 2 skipped the CDN fetch whenever it was set, on the theory that an admin only redirects docs
+because `cdn.posit.co` is unreachable. **That skip rule is dropped.** Three reasons:
 
-An air-gapped install that wants local docs should instead override `positronDocsBundleUrl` to an
-internal S3-compatible endpoint hosting the slim bundles, which is a separate knob from
-`POSITRON_DOCS_URL`. Conflating the two would mean guessing whether a given URL serves rendered HTML
-or zipped Markdown, so they stay distinct.
+- **The inference does not hold.** An admin may mirror the docs site for latency, version pinning, or
+  branding with full internet access. The skip would then disable local docs for exactly the
+  population that benefits most from them, since Workbench is where per-call WebFetch approvals and
+  token cost bite hardest.
+- **It saved almost nothing.** A hard failure sets `lastFailureAt` and is not retried for an hour (see
+  "Retry throttling"), so a genuinely air-gapped Workbench spends one failed DNS lookup per hour, not
+  one per launch.
+- **It bought the user nothing.** `IPositronDocsService` is browser-layer with no extension-facing
+  surface, so on skip the assistant would not have received the admin's mirror either -- it would fall
+  back to the same URL it uses today.
+
+An unreachable CDN is already covered by the ordinary failure path: one attempt, hard-failure
+throttling, and the cache-present rule. No special case needed.
+
+An air-gapped install that wants local docs sets `POSITRON_LLMS_DOCS_URL` (or overrides
+`positronLlmsDocsUrl`) to an internal S3-compatible endpoint hosting the slim bundles. The two
+variables stay distinct because one names a site to browse and the other a bundle to read; conflating
+them would mean guessing whether a given URL serves rendered HTML or zipped Markdown.
+
+Making the assistant honour an admin's docs mirror for the web links it cites is a real gap, but it
+needs its own work to expose `baseUrl` to extensions. It is not free today and is not claimed here.
 
 ### Cache layout
 
@@ -567,6 +668,26 @@ Logging goes through the extension-host `ILogService`, prefixed `[positron-docs]
 resolved URL, version, decision (cache hit, 304, downloaded) and timing; warn for validation and
 schema problems; no error level, since nothing here is user-actionable.
 
+**Where to read it.** The shared extension-host channel in the Output panel, filtered on
+`[positron-docs]`. Its name depends on where the extension host runs, which for this feature means the
+name differs between desktop and Workbench (`extHostLogService.ts:20`):
+
+| Setup | Output dropdown entry | Logger id |
+|---|---|---|
+| Positron Desktop, local | Extension Host | `exthost` |
+| Workbench, remote SSH, dev container | Extension Host (Remote) | `remoteexthost` |
+| Web worker extension host | Extension Host (Worker) | `workerexthost` |
+
+In Workbench the log is on the **server's** filesystem, under `<logsHome>/exthost/`, following the
+extension host as the rest of the feature does. Everything here is info level, so the default log
+level is sufficient.
+
+**No dedicated Output channel.** At roughly one line per session (one attempt per trigger, no
+in-session backoff), a permanent dropdown entry would be mostly empty, and an empty channel is harder
+to draw conclusions from than a filtered busy one. The `[positron-docs]` prefix is what makes filtering
+work, and it is why the prefix is specified rather than optional. Revisit only if per-operation logging
+arrives with the telemetry follow-up and volume actually grows.
+
 **No telemetry event in v1**, but tracked with an owner and a target release rather than left open --
 see "Tracked follow-up: telemetry" under Rollout.
 
@@ -620,7 +741,9 @@ pass even if the fallback never worked.
 
 - `ai.enabled === false` at launch: scheduler fires, `ensure()` never called
 - `ai.enabled` false to true: `ensure()` called once
-- `POSITRON_DOCS_URL` set: `getLocalDocs()` returns `undefined`, no `ensure()`
+- `POSITRON_LLMS_DOCS_URL` set: it takes precedence over the `product.json` value, **and `ensure()` is
+  still called** with the overridden URL. Asserting the second half is what stops the dropped skip rule
+  being reintroduced silently, since URL priority alone passes either way
 - `getLocalDocs()` during an in-flight fetch: joins, does not start a second
 - constructing the service performs zero port calls, asserting the failure-isolation discipline that
   is the one risk specific to this placement
@@ -630,28 +753,65 @@ pass even if the fallback never worked.
 **No extension-host Mocha test.** The API surface is a one-line delegation; an activated extension
 host would reveal nothing the unit tests do not.
 
-**No E2E.** This is invisible infrastructure with no user-visible workflow. An E2E would need either
-a real CDN round-trip or a fixture server, and would test the network rather than the product.
-Explicit non-goal.
+### Integration coverage
+
+Vitest drives the state machine through fake ports and the website guards check the bundle at publish
+time, so both sides are tested against a *model* of the other. Nothing exercises real HTTPS, real
+`base/node/zip.ts` extraction, a real digest over real bytes, or real writes to the real cache path.
+
+The v1 E2E asserts on the filesystem rather than on the UI, because there is no UI yet -- nothing is
+rendered, and no command or view exposes local docs. Once the assistant reads the bundle (Step 3) the
+same test extends to a genuine user-visible assertion: ask a question, see a cited local doc.
+
+**One gating E2E, `--project e2e-electron`.** A local static server serves a hand-made bundle plus its
+sidecar; the app launches with `POSITRON_LLMS_DOCS_URL` pointed at it and `ai.enabled` set pre-launch
+via `beforeApp`; the test polls for the extracted cache. Real client machinery, no network dependency.
+Asserts intermediate state, not just that a directory appeared: `bundle.json` parses with
+`schema === 1`, the extracted count matches `fileCount`, and `state.json`'s version matches the
+directory name.
+
+Needs two new pieces of harness: a worker option surfacing `extraEnv` (plumbed at
+`test/e2e/infra/code.ts:68` but not exposed to tests -- follow the `extraSettings` pattern in
+`test/e2e/tests/notebooks-positron/_test.setup.ts:20`), and a local HTTP server fixture, which no E2E
+in the suite has today. `beforeApp` and the `userDataDir` fixture already exist.
+
+**One scheduled contract check, non-gating.** `scripts/check-docs-bundle-contract.mts` fetches the real
+published `latest` bundle for both profiles and runs the consumer's own `parseManifest()` against it,
+plus digest and `fileCount`. It lives in Positron because the point is running real consumer code
+against the real artifact; a script rather than a `.vitest.ts` because `vitest.config.ts:10` has no
+opt-out glob and it would otherwise run on every PR. Weekly workflow with `workflow_dispatch`, notify
+on failure.
+
+**Not covered: Workbench.** `e2e-workbench` would exercise a different profile (hence a different CDN
+object), a server-side cache path, and env inheritance through the extension-host spawn. Deferred
+because that project needs `extraEnv` reaching the container, `docker exec` assertions, and a
+container-reachable fixture server. Manual step 7 covers it until the assistant-reads-docs E2E needs
+the same harness.
 
 ### Manual validation
 
-Automated tests cannot prove the CDN integration works, so that part is manual:
+The CDN integration is covered by the scheduled contract check above. What stays manual is the
+behaviour no automated check reaches -- multi-window races, mid-session toggles, and Workbench
+placement:
 
 1. Dev build: confirm `latest-by-policy`, cache at `<userdata>/User/positron-docs/<version>/`, and a
-   log line showing the resolved URL and decision.
+   log line showing the resolved URL and decision. Logs are in the extension-host Output channel
+   filtered on `[positron-docs]` -- see "Observability" for which channel, since steps 7 and 8 read a
+   different one than the desktop steps.
 2. `ai.enabled: false`: confirm no network egress and `getLocalDocs()` returning `undefined`.
 3. Flip `ai.enabled` on mid-session: fetch fires without a reload.
 4. Delete the cache mid-session, call `getLocalDocs()`: lazy re-fetch, and a second concurrent call
    joins it.
 5. Point the bundle base URL at a local static server serving hand-made bundles: drive the 404, exact,
    fallback, 304, sidecar-404, and digest-mismatch transitions without waiting on a release cycle.
-   This is what makes the feature verifiable on demand.
+   This is what makes the feature verifiable on demand, and the happy path of it is what the gating
+   E2E automates -- the transition matrix stays manual until someone wants it parameterised.
 6. Two windows open at once against a cold cache: confirm one usable bundle, no spurious failure from
    the prune race.
 7. Workbench: profile resolves to `workbench`, and the cache lands on the server's filesystem where
-   the remote extension host can read it.
-8. `POSITRON_DOCS_URL` set: confirm the skip.
+   the remote extension host can read it. **This is the one step with no automated backstop.**
+8. `POSITRON_DOCS_URL` set with the bundle URL left at its default: confirm the fetch still runs and
+   local docs still land, since the skip rule is gone.
 
 **Step 5's local server must host the sidecars too.** For every `<name>.zip` it serves it needs a
 `<name>.zip.sha256sum` next to it, containing that zip's hex digest -- the same naming as Step 1's
@@ -661,13 +821,13 @@ objects. Without them every request lands on the sidecar-404 path and `getLocalD
 purpose is how you drive the sidecar-404 and digest-mismatch transitions.
 
 **Step 5 needs a runtime override to be worth anything.** `product.json` is baked at build time, so
-overriding `positronDocsBundleUrl` would otherwise require a custom build -- which contradicts the
+overriding `positronLlmsDocsUrl` would otherwise require a custom build -- which contradicts the
 claim that this makes the feature verifiable on demand. So PR 2b must also honour a
-`POSITRON_DOCS_BUNDLE_URL` environment variable, read in the extension host next to the existing
-`POSITRON_DOCS_URL` read, taking precedence over the `product.json` value. An env var rather than a
-setting keeps it out of the Settings UI (this is a test and air-gapped-admin knob, not a user
-preference) and matches how `POSITRON_DOCS_URL` already works. This is a prerequisite for merging PR
-2b, not a follow-up.
+`POSITRON_LLMS_DOCS_URL` environment variable, read from `process.env` in the extension host and
+taking precedence over the `product.json` value. An env var rather than a setting keeps it out of the
+Settings UI (this is a test and air-gapped-admin knob, not a user preference) and matches how
+`POSITRON_DOCS_URL` is already plumbed for the docs site. This is a prerequisite for merging PR 2b,
+not a follow-up.
 
 ## Rollout
 
@@ -682,10 +842,20 @@ preference) and matches how `POSITRON_DOCS_URL` already works. This is a prerequ
    its own merits.
 
 3. **Positron PR 2b: the extension-host wiring.** `extHostDocs.ts`, `extHostDocsNode.ts`, the two
-   `registerSingleton` lines, `positron.d.ts`, `product.json`, and the `POSITRON_DOCS_BUNDLE_URL`
+   `registerSingleton` lines, `positron.d.ts`, `product.json`, and the `POSITRON_LLMS_DOCS_URL`
    override. Small enough to review as a diff.
 
-4. **Assistant PR (Step 3).** Out of scope here, unblocked by the handover contract below.
+4. **Positron PR 2c: the gating E2E.** The local-server fixture, the `extraEnv` worker option, and the
+   one `e2e-electron` test. Separate from 2b because it adds shared E2E harness that outlives this
+   feature, and a review round on new test infrastructure should not hold up the wiring. **Must not
+   merge before 2b** -- the test asserts behaviour 2b introduces, so merging it first turns the gating
+   suite red for everyone.
+
+5. **Contract-check PR.** `scripts/check-docs-bundle-contract.mts` plus the weekly workflow. Depends on
+   the website PR having published at least once, so it lands last. Non-gating, so it can land after 2b
+   without blocking anything.
+
+6. **Assistant PR (Step 3).** Out of scope here, unblocked by the handover contract below.
 
 Splitting 2a from 2b matters because the convergence state machine and the extraction security checks
 are the highest-risk code in the change, while the wiring is mechanical. Bundled together, a review
@@ -693,8 +863,8 @@ round on the state machine blocks the wiring, and the security-relevant diff com
 with `registerSingleton` lines. The seam already draws the line, so the PR boundary is free.
 
 **No new user-facing setting in v1.** `ai.enabled` is the documented single main switch for AI
-features and adding a second dilutes it, and the two environment variables cover the managed and
-air-gapped Workbench cases. Revisit only if a customer asks for a desktop-side opt-out.
+features and adding a second dilutes it, and `POSITRON_LLMS_DOCS_URL` covers the air-gapped
+Workbench case. Revisit only if a customer asks for a desktop-side opt-out.
 
 ### Tracked follow-up: telemetry
 
@@ -716,7 +886,10 @@ Written down so the assistant repo can proceed independently:
 - **On a result,** read `<path>/llms.txt` for the index. Its links are bundle-relative paths; read
   the named `.llms.md` files with ordinary filesystem APIs.
 - **To cite a web link,** join `docsBaseUrl` with the relative path and swap `.llms.md` for `.html`.
-- **Refuse the bundle** if `schema` is not a version it understands.
+- **Refuse the bundle** if `schema` is not a version it understands. Today this is future-proofing
+  rather than an active check: core's `parseManifest()` rejects `schema !== 1` first, so the assistant
+  can only ever observe `1`. Keep it anyway -- the assistant ships independently and may run against a
+  core that has relaxed the check to a range (see "Schema versioning policy").
 - **Caveat answers** when `isExactMatch === false`.
 
 ## Non-goals
