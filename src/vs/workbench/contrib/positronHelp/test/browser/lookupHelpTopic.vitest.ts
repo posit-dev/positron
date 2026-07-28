@@ -152,7 +152,7 @@ describe('LookupHelpTopic', () => {
 
 		const result = await run(undefined);
 
-		expect(result).toEqual({ found: false, message: 'No topic was provided.' });
+		expect(result).toEqual({ found: false, message: 'No help topic provided.' });
 		expect(showHelpTopic).not.toHaveBeenCalled();
 	});
 });

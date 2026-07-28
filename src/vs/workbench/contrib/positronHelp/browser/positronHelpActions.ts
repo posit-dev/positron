@@ -174,9 +174,9 @@ export class LookupHelpTopic extends Action2 {
 				description: localize('positron.help.lookupHelpTopic.description', "Show help for a topic, such as a function name, in the Help pane. Uses the language of the active editor, or of the foreground interpreter session when no editor is open. Requires a running interpreter session for that language."),
 				agentCompatible: true,
 				args: [
-					{ name: 'topic', isOptional: true, description: 'Help topic to look up, typically a bare function or symbol name (for example: mean). When omitted, an input box opens.', schema: { type: 'string' } },
+					{ name: 'topic', description: 'Help topic to look up, typically a bare function or symbol name (for example: mean).', schema: { type: 'string' } },
 				],
-				returns: 'An object with found, topic, languageId, and message. found is true when the help topic was shown in the Help pane, with topic and languageId confirming what was looked up and in which language; when found is false, message explains why (topic not found, no session for the language, or a lookup error).',
+				returns: 'An object with found, topic, languageId, and message. found is true when the help topic was shown in the Help pane, with topic and languageId confirming what was looked up and in which language; when found is false, message explains why (no topic provided, topic not found, no session for the language, or a lookup error).',
 			},
 		});
 	}
@@ -233,13 +233,14 @@ export class LookupHelpTopic extends Action2 {
 		// Look up the friendly name of the language ID
 		const languageName = languageService.getLanguageName(languageId);
 
+		const noTopicMessage = localize('positron.help.noTopic', "No help topic provided.");
 		const topic = suppliedTopic || await quickInputService.input({
 			prompt: localize('positron.help.enterHelpTopic', "Enter {0} help topic", languageName),
 			value: '',
 			ignoreFocusLost: true,
 			validateInput: async (value: string) => {
 				if (value.length === 0) {
-					return localize('positron.help.noTopic', "No help topic provided.");
+					return noTopicMessage;
 				}
 				return undefined;
 			}
@@ -247,7 +248,7 @@ export class LookupHelpTopic extends Action2 {
 
 		// The input box returns undefined when dismissed without a topic.
 		if (!topic) {
-			return { found: false, message: 'No topic was provided.' };
+			return { found: false, message: noTopicMessage };
 		}
 
 		let helpShown = false;
