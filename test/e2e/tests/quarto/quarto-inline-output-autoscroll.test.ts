@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { join } from 'path';
 import { test, tags } from './_test.setup';
 
@@ -54,5 +55,38 @@ test.describe('Quarto - Inline Output: Auto Scroll', {
 		await inlineQuarto.runCellAndExpectOutputNotInViewport({ cellLine: CELL_LINE });
 
 		await settings.set({ 'quarto.inlineOutput.autoScroll': true }, { reload: 'web' });
+	});
+
+	test('Python - running a cell in one split pane does not scroll the other pane', async function ({ python, app, openFile, runCommand }) {
+		const { editors, inlineQuarto } = app.workbench;
+
+		await openFile(join('workspaces', 'quarto_inline_output', 'autoscroll.qmd'));
+		await editors.waitForActiveTab('autoscroll.qmd');
+		await inlineQuarto.expectKernelStatusVisible();
+
+		// Open the same document in a second, side-by-side editor. The split
+		// leaves the new (right) group active and both panes scrolled to the top,
+		// so the cell's output starts below the fold in each.
+		await runCommand('workbench.action.splitEditorRight');
+		await editors.expectEditorGroupCount(2);
+		await editors.expectEditorGroupActive(1);
+
+		const leftOutput = inlineQuarto.getOutputContentInGroup(editors.editorGroup(0));
+		const rightOutput = inlineQuarto.getOutputContentInGroup(editors.editorGroup(1));
+
+		// Run the cell in the active (right) pane. Auto-scroll should reveal its
+		// output there. (Re-fire the run until the output scrolls into view, as
+		// the single-pane test does, to survive a swallowed run hotkey.)
+		await expect(async () => {
+			await inlineQuarto.gotoLine(CELL_LINE);
+			await inlineQuarto.runCurrentCell();
+			await expect(rightOutput.first()).toBeInViewport({ timeout: 20000 });
+		}).toPass({ timeout: 120000, intervals: [2000] });
+
+		// The run must not hijack the left pane: it never armed auto-scroll, so
+		// its viewport stays put and the same output remains below the fold.
+		// (Before the fix both panes armed off the URI-keyed execution event and
+		// the left pane scrolled in lockstep with the right.)
+		await expect(leftOutput.first()).not.toBeInViewport();
 	});
 });

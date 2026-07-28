@@ -438,11 +438,17 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		}));
 
 		// Arm auto-scroll on a fresh execution gesture (Run Cell, Run All, ...)
-		// so the editor follows the output it produces.
+		// so the editor follows the output it produces. The same Quarto document
+		// can be open in more than one editor at once (a split view); each has
+		// its own contribution and they all see this URI-keyed event. Only the
+		// editor the gesture came from -- the active one -- should follow it, so
+		// re-evaluate arming on every gesture: the active editor arms and any
+		// other pane showing the same document disarms. Without this a run in one
+		// pane would hijack the scroll position of the other.
 		this._outputHandlingDisposables.add(this._executionManager.onWillExecute(event => {
 			if (this._autoScrollEnabled && this._documentUri &&
 				event.documentUri.toString() === this._documentUri.toString()) {
-				this._autoScrollArmed = true;
+				this._autoScrollArmed = this._isActiveEditor();
 			}
 		}));
 
@@ -1171,6 +1177,17 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			documentUri: this._documentUri!,
 			outputs: outputs,
 		});
+	}
+
+	/**
+	 * Whether this contribution's editor is the one the user is currently
+	 * working in. The same Quarto document can be open in several editors at
+	 * once (a split view), each with its own contribution; only the active
+	 * editor should arm auto-scroll so running a cell in one pane doesn't yank
+	 * the scroll position of another pane showing the same file.
+	 */
+	private _isActiveEditor(): boolean {
+		return this._editorService.activeTextEditorControl === this._editor;
 	}
 
 	/**

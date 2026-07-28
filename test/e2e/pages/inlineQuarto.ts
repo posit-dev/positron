@@ -118,6 +118,16 @@ export class InlineQuarto {
 		return this.inlineOutput.nth(index).locator(OUTPUT_CONTENT);
 	}
 
+	/**
+	 * Inline output content scoped to a single editor group. The same Quarto
+	 * document can be open in more than one editor at once (a split view); each
+	 * group renders its own copy of the view zones, so scope by group to tell
+	 * the panes apart.
+	 */
+	getOutputContentInGroup(group: Locator): Locator {
+		return group.locator(`${INLINE_OUTPUT} ${OUTPUT_CONTENT}`);
+	}
+
 	getOutputItemAt(index: number): Locator {
 		return this.inlineOutput.nth(index).locator(OUTPUT_ITEM).first();
 	}
