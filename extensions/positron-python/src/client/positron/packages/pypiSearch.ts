@@ -255,6 +255,21 @@ export async function searchPyPIVersions(
             headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
             signal: createAbortSignal(token),
         });
+
+        // A project that does not exist is a routine outcome, not a failure: any
+        // caller can pass a name that was typed or guessed. PyPI answers 404 with
+        // the plain-text body `404 Not Found`, so the response must be checked
+        // before parsing -- feeding that body to `json()` throws an opaque
+        // "Unexpected non-whitespace character after JSON" instead.
+        if (response.status === 404) {
+            return [];
+        }
+        if (!response.ok) {
+            throw new Error(
+                `Could not look up versions of '${name}' on PyPI (HTTP ${response.status}).`,
+            );
+        }
+
         const json = (await response.json()) as { versions?: string[]; files?: PyPIFile[] };
         const versions = json.versions ?? [];
         const files = json.files ?? [];
