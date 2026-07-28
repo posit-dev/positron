@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandMetadata, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { isIMenuItem, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpression, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IJSONSchema } from '../../../../base/common/jsonSchema.js';
@@ -144,6 +144,38 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 		);
 	}
 
+	/**
+	 * Build the debug descriptor shared by both discovery passes. `meta` may
+	 * come from either the CommandsRegistry entry or the MenuRegistry
+	 * `ICommandAction`; `source` and `precondition` always come from MenuRegistry
+	 * (undefined for core commands with no menu entry).
+	 */
+	private _toDebugDescriptor(
+		id: string,
+		meta: ICommandMetadata,
+		source: ICommandActionSource | undefined,
+		precondition: ContextKeyExpression | undefined,
+		paletteIds: ReadonlySet<string>,
+	): IAgentCommandDebugDescriptor {
+		return {
+			id,
+			description: toDescription(meta.description),
+			args: meta.args?.map(a => ({
+				name: a.name,
+				description: a.description,
+				schema: a.schema,
+				required: a.isOptional !== true,
+			})),
+			returns: meta.returns,
+			source: source
+				? { type: 'extension', id: source.id, displayName: source.title }
+				: { type: 'builtin' },
+			enabled: !precondition || this._contextKeyService.contextMatchesRules(precondition),
+			precondition: precondition?.serialize(),
+			inPalette: paletteIds.has(id),
+		};
+	}
+
 	getAgentAllowedCommands(options: IGetAgentAllowedCommandsOptions = {}): IAgentCommandDescriptor[] {
 		const { f1Only = false, enabledOnly = true } = options;
 		const all = this.getAllAgentCompatibleCommands();
@@ -175,6 +207,7 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 		}
 
 		const result: IAgentCommandDebugDescriptor[] = [];
+		const seenIds = new Set<string>();
 
 		// Pass 1: CommandsRegistry is the canonical source and includes non-f1
 		// commands from registerAction2 that MenuRegistry would miss.
@@ -182,37 +215,17 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 			if (!command.metadata?.agentCompatible) {
 				continue;
 			}
-			const meta = command.metadata;
 			const menuCmd = MenuRegistry.getCommand(id);
 			if (!this._isTrustedCommandSource(menuCmd?.source)) {
 				continue;
 			}
-			const precondition = menuCmd?.precondition;
-			const enabled = !precondition || this._contextKeyService.contextMatchesRules(precondition);
-			const source: IAgentCommandSource = menuCmd?.source
-				? { type: 'extension', id: menuCmd.source.id, displayName: menuCmd.source.title }
-				: { type: 'builtin' };
-			result.push({
-				id,
-				description: toDescription(meta.description),
-				args: meta.args?.map(a => ({
-					name: a.name,
-					description: a.description,
-					schema: a.schema,
-					required: a.isOptional !== true,
-				})),
-				returns: meta.returns,
-				source,
-				enabled,
-				precondition: precondition?.serialize(),
-				inPalette: paletteIds.has(id),
-			});
+			result.push(this._toDebugDescriptor(id, command.metadata, menuCmd?.source, menuCmd?.precondition, paletteIds));
+			seenIds.add(id);
 		}
 
 		// Pass 2: Also surface commands declared in contributes.commands that
 		// live in MenuRegistry pre-activation (before the extension calls
 		// registerCommand and populates CommandsRegistry).
-		const seenIds = new Set(result.map(r => r.id));
 		for (const [id, menuCmd] of MenuRegistry.getCommands()) {
 			if (!menuCmd.metadata?.agentCompatible || seenIds.has(id)) {
 				continue;
@@ -220,27 +233,7 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 			if (!this._isTrustedCommandSource(menuCmd.source)) {
 				continue;
 			}
-			const meta = menuCmd.metadata;
-			const precondition = menuCmd.precondition;
-			const enabled = !precondition || this._contextKeyService.contextMatchesRules(precondition);
-			const source: IAgentCommandSource = menuCmd.source
-				? { type: 'extension', id: menuCmd.source.id, displayName: menuCmd.source.title }
-				: { type: 'builtin' };
-			result.push({
-				id,
-				description: toDescription(meta.description),
-				args: meta.args?.map(a => ({
-					name: a.name,
-					description: a.description,
-					schema: a.schema,
-					required: a.isOptional !== true,
-				})),
-				returns: meta.returns,
-				source,
-				enabled,
-				precondition: precondition?.serialize(),
-				inPalette: paletteIds.has(id),
-			});
+			result.push(this._toDebugDescriptor(id, menuCmd.metadata, menuCmd.source, menuCmd.precondition, paletteIds));
 		}
 		return result;
 	}
@@ -249,6 +242,12 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 		// Also check MenuRegistry for commands declared in contributes.commands whose
 		// extension has not yet activated. commandService.executeCommand fires the
 		// onCommand:<id> activation event which registers the handler before running it.
+		//
+		// Execution is intentionally NOT gated on agentCompatible or a trusted
+		// source: the Assistant team decided not to restrict which commands can be
+		// run (posit-dev/assistant#1810). The curated agentCompatible list only
+		// drives discovery (getAgentAllowedCommands); safety at execution time comes
+		// from the per-command user confirmation and prompting, not a hard gate.
 		if (!CommandsRegistry.getCommand(commandId) && !MenuRegistry.getCommand(commandId)) {
 			return { ok: false, reason: 'not-found' };
 		}
