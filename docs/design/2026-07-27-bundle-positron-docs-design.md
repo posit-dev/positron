@@ -663,6 +663,17 @@ Treat a mismatch on an alias as a transient publish-window race: discard the dow
 cache bad, and let the next trigger converge. A mismatch on a *versioned* object is different -- those
 are immutable and written once, so there the mismatch is real.
 
+**A version does not imply a unique digest.** Bundles are not byte-reproducible across runs:
+`bundle.json` carries a wall-clock `generated` field, and the staged files are written fresh each run,
+so re-running the release workflow for the same version produces a different zip and a different
+`sha256`. Observed directly - two runs for `2026.05.0-179` seventy-six seconds apart produced digests
+`3f8e5106...` and `49d06070...`. This does not break a client, because a client fetches the zip and its
+sidecar together and verifies them against each other, never against a remembered digest. But two
+installs nominally on the same version can legitimately hold bundles with different digests, so nothing
+downstream should treat `version` as a content identity or compare digests across installs to detect
+corruption. `immutable` in the cache-control header is a statement about caching policy, not a promise
+of byte-stability.
+
 **A bad versioned bundle cannot be recalled, and that is a gap this design does not close.** Versioned
 objects are published `immutable` with a one-year max-age, and a release build resolving `exact` is
 terminal: it reads `<basename>-<version>.zip` and never consults the alias again. So if a bad bundle
