@@ -210,6 +210,9 @@ case "$PROFILE" in
 esac
 
 ZIP_NAME="${BASENAME}-${VERSION}.zip"
+# Captured before any `cd`: the zip is written here, and step 6 zips from inside
+# $STAGE, so a relative path or $OLDPWD would resolve against the wrong dir.
+OUT_DIR="$PWD"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
@@ -219,12 +222,17 @@ if [ ! -f "$SITE_DIR/llms.txt" ]; then
 fi
 
 # 1. Copy llms.txt and every *.llms.md, preserving directory structure.
+# A tar pipe rather than `cp --parents`: that flag is GNU-only, and this script
+# must run on a contributor's macOS checkout as well as the Linux runner.
 cp "$SITE_DIR/llms.txt" "$STAGE/llms.txt"
-( cd "$SITE_DIR" && find . -name '*.llms.md' -type f -print0 ) \
-	| ( cd "$SITE_DIR" && xargs -0 -I{} cp --parents {} "$STAGE" )
+( cd "$SITE_DIR" && find . -name '*.llms.md' -type f -print0 | tar -cf - --null -T - ) \
+	| ( cd "$STAGE" && tar -xf - )
 
 # 2. Rewrite llms.txt to bundle-relative paths. This is what schema 1 promises.
-sed -i "s|${DOCS_BASE_URL}||g" "$STAGE/llms.txt"
+# Write-and-move rather than `sed -i`: in-place editing needs no suffix on GNU
+# sed and a mandatory one on BSD, so no single `-i` spelling is portable.
+sed "s|${DOCS_BASE_URL}||g" "$STAGE/llms.txt" > "$STAGE/llms.txt.rewritten"
+mv "$STAGE/llms.txt.rewritten" "$STAGE/llms.txt"
 
 # 3. Guard: no bundled file may still reference the site.
 if grep -rl 'positron\.posit\.co' "$STAGE" ; then
@@ -255,12 +263,20 @@ JSON
 
 # 6. Zip, then verify the archive round-trips the guards.
 rm -f "$ZIP_NAME"
-( cd "$STAGE" && zip -q -r -X "$OLDPWD/$ZIP_NAME" . )
+( cd "$STAGE" && zip -q -r -X "$OUT_DIR/$ZIP_NAME" . )
 
-unzip -l "$ZIP_NAME" | grep -q ' llms.txt$'   || { echo "error: zip missing llms.txt" >&2; exit 1; }
-unzip -l "$ZIP_NAME" | grep -q ' bundle.json$' || { echo "error: zip missing bundle.json" >&2; exit 1; }
+# Read the entry list once into a variable rather than piping `unzip` into
+# `grep -q` per check. Under `set -o pipefail` a `grep -q` that matches early
+# can close the pipe before `unzip` finishes writing, and the resulting SIGPIPE
+# (141) fails the pipeline even though the archive is fine.
+ENTRIES="$(unzip -Z1 "$ZIP_NAME")"
 
-ZIPPED_COUNT="$(unzip -Z1 "$ZIP_NAME" | grep -vc '/$')"
+grep -qx 'llms.txt' <<<"$ENTRIES"    || { echo "error: zip missing llms.txt" >&2; exit 1; }
+grep -qx 'bundle.json' <<<"$ENTRIES" || { echo "error: zip missing bundle.json" >&2; exit 1; }
+
+# `grep -c` exits 1 on a zero count, which `set -e` would treat as fatal, so
+# tolerate it and let the comparison below report the real mismatch.
+ZIPPED_COUNT="$(grep -vc '/$' <<<"$ENTRIES" || true)"
 DECLARED_COUNT="$((FILE_COUNT + 1))"
 if [ "$ZIPPED_COUNT" -ne "$DECLARED_COUNT" ]; then
 	echo "error: zip holds $ZIPPED_COUNT files but bundle.json declares $DECLARED_COUNT" >&2
@@ -1933,7 +1949,11 @@ export class PositronDocsCache {
 	 * as text.
 	 */
 	private async _readCached(state: IDocsCacheState | undefined): Promise<ILocalDocs | undefined> {
-		if (!state) {
+		// An empty version means `_recordFailure` wrote state with no bundle ever
+		// installed. `joinDocsPath` drops empty segments, so computing the path
+		// anyway would validate rootPath itself and warn that a cache which never
+		// existed is now unusable.
+		if (!state || !state.version) {
 			return undefined;
 		}
 		const dir = joinDocsPath(this._options.rootPath, state.version);
@@ -3184,7 +3204,7 @@ class NodeDocsFileStore implements IDocsFileStore {
 
 	async writeFile(target: string, data: string | Uint8Array): Promise<void> {
 		await fs.promises.mkdir(path.dirname(target), { recursive: true });
-		await pfs.Promises.writeFile(target, data as Uint8Array);
+		await pfs.Promises.writeFile(target, data);
 	}
 
 	async mkdir(target: string): Promise<void> {

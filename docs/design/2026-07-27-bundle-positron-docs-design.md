@@ -521,8 +521,9 @@ enough that deleting them, only to re-download on toggle-back, is not worth it.
 ### Self-hosted docs: `POSITRON_DOCS_URL` is a separate knob
 
 `POSITRON_DOCS_URL` points `IPositronDocsService` at a mirror of the docs *website* for core UI links
-(`positronDocsService.ts:55`). It is unrelated to this feature, and the download path does not read it
-anywhere.
+(named in `positronDocsService.ts:24-32`; line 55 reads its resolved form,
+`environmentService.positronDocsUrl`). It is unrelated to this feature, and the download path does not
+read it anywhere.
 
 Revision 2 skipped the CDN fetch whenever it was set, on the theory that an admin only redirects docs
 because `cdn.posit.co` is unreachable. **That skip rule is dropped.** Three reasons:
@@ -772,7 +773,7 @@ directory name.
 
 Needs two new pieces of harness: a worker option surfacing `extraEnv` (plumbed at
 `test/e2e/infra/code.ts:68` but not exposed to tests -- follow the `extraSettings` pattern in
-`test/e2e/tests/notebooks-positron/_test.setup.ts:20`), and a local HTTP server fixture, which no E2E
+`test/e2e/tests/notebooks-positron/_test.setup.ts:18`), and a local HTTP server fixture, which no E2E
 in the suite has today. `beforeApp` and the `userDataDir` fixture already exist.
 
 **One scheduled contract check, non-gating.** `scripts/check-docs-bundle-contract.mts` fetches the real
