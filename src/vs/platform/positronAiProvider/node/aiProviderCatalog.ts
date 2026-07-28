@@ -21,7 +21,7 @@ import { IAiProviderCatalog, IProviderCatalogChangeData, IResolvedProviderData }
  * coarse (any config change fires) — the catalog watch debounces and diffs.
  */
 export function createConfigurationLegacySettingsReader(
-	configurationService: IConfigurationService
+	configurationService: Pick<IConfigurationService, 'inspect' | 'onDidChangeConfiguration'>
 ): LegacySettingsReader {
 	return {
 		get: key => configurationService.inspect(key).userValue,
