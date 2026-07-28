@@ -74,19 +74,28 @@ test('validateDiagnosis rejects a multi-line or overlong summary', () => {
 	assert.match(validateDiagnosis({ ...diagnosis(), summary: 'x'.repeat(601) }), /chars; keep it under/);
 });
 
-test('deriveFrequency builds runs/percentage/env from the selected pattern', () => {
+test('deriveFrequency renders one clause per branch, scoped to matching environments (never blended)', () => {
 	const history = {
 		branchSummary: { mainRuns: 317 },
 		patterns: [
-			{ id: 'A', count: 31, percentage: 9.8, environments: ['ubuntu/chromium'] },
-			{ id: 'B', count: 1, percentage: 0.3, environments: ['ubuntu/electron'] },
+			{
+				id: 'A', count: 34, environments: ['ubuntu/chromium'],
+				rates: [
+					{ branch: 'feature/x', count: 4, environmentRuns: 4, ratePercent: 100 },
+					{ branch: 'main', count: 30, environmentRuns: 157, ratePercent: 19.1 },
+				],
+			},
+			{ id: 'B', count: 1, environments: ['ubuntu/electron'], rates: [{ branch: 'main', count: 1, environmentRuns: 317, ratePercent: 0.3 }] },
 		],
 	};
-	assert.equal(deriveFrequency(history, 'A'), '31/317 runs (9.8%), ubuntu/chromium');
-	assert.equal(deriveFrequency(history, 'B'), '1/317 runs (0.3%), ubuntu/electron');
+	assert.equal(deriveFrequency(history, 'A'), '4/4 runs (100%) on feature/x; 30/157 runs (19.1%) on main, ubuntu/chromium');
+	assert.equal(deriveFrequency(history, 'B'), '1/317 runs (0.3%) on main, ubuntu/electron');
 	assert.equal(deriveFrequency(null, 'A'), null);
 	// A selected-but-unmatched pattern returns null, never the dominant pattern's numbers.
 	assert.equal(deriveFrequency(history, 'Z'), null);
 	// No selection falls back to the dominant (first) pattern.
-	assert.equal(deriveFrequency(history, null), '31/317 runs (9.8%), ubuntu/chromium');
+	assert.equal(deriveFrequency(history, null), '4/4 runs (100%) on feature/x; 30/157 runs (19.1%) on main, ubuntu/chromium');
+	// Missing environment_breakdown data (environmentRuns null) still renders a count, no bogus rate.
+	const noBreakdown = { patterns: [{ id: 'C', count: 2, environments: [], rates: [{ branch: 'main', count: 2, environmentRuns: null, ratePercent: null }] }] };
+	assert.equal(deriveFrequency(noBreakdown, 'C'), '2 runs on main');
 });
