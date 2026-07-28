@@ -58,6 +58,13 @@ class PositronExecuteRequest(BaseModel):
         None, description="Output area device pixel ratio, e.g. 1.0 or 2.0"
     )
 
+    @property
+    def figure_size(self) -> Optional[tuple[float, float]]:
+        """The figure size in inches, if specified."""
+        if self.fig_width is not None and self.fig_height is not None:
+            return (self.fig_width, self.fig_height)
+        return None
+
     @classmethod
     def from_message(cls, message: dict) -> "PositronExecuteRequest":
         """Parse from a Jupyter shell message."""
