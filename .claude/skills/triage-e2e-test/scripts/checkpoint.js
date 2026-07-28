@@ -8,9 +8,13 @@
 //
 // Usage:
 //   node checkpoint.js --triage-id <id> --init --test-key <key> [--branch b] [--lookback-days n]
+//     -- also seeds history/patterns from this triage's history-summary.json, if present
 //   node checkpoint.js --triage-id <id> --read
 //   node checkpoint.js --triage-id <id> --set phase=hypothesis-ready --set selectedPattern=A
 //   node checkpoint.js --triage-id <id> --patch '<json>'     # deep-merge a JSON object
+//     -- WARNING: arrays (e.g. patterns) REPLACE wholesale, not merge by element.
+//     -- to annotate one pattern without resending the others, use --patch-pattern instead:
+//   node checkpoint.js --triage-id <id> --patch-pattern A --patch '{"note": "..."}'
 //   node checkpoint.js --status                              # list all triages
 //   node checkpoint.js --triage-id <id> --validate
 
@@ -186,6 +190,41 @@ export function applyPatch(state, patch) {
 	return out;
 }
 
+/**
+ * Merge a partial object into exactly ONE pattern (matched by id) inside the
+ * `patterns` array, leaving every other pattern untouched. A top-level
+ * `--patch '{"patterns": [...]}'` replaces the whole array (per applyPatch's
+ * array-replace rule above) -- a real footgun for annotating a single pattern,
+ * since it silently drops every other pattern's data unless the caller
+ * reconstructs and resends the full array. This is the safe path for that.
+ */
+export function mergePatternPatch(patterns, patternId, patch) {
+	const list = Array.isArray(patterns) ? patterns : [];
+	const idx = list.findIndex(p => p.id === patternId);
+	if (idx === -1) {
+		const have = list.map(p => p.id).join(', ') || 'none';
+		throw new Error(`No pattern with id "${patternId}" in this checkpoint (have: ${have}).`);
+	}
+	const merged = applyPatch(list[idx], patch);
+	return list.map((p, i) => i === idx ? merged : p);
+}
+
+/**
+ * Seed `history` + `patterns` from the on-disk `history-summary.json` that
+ * `triage-history.js` already wrote to this triage's work dir. Makes `--init`
+ * actually record the patterns (as the skill's workflow describes) instead of
+ * requiring a separate manual `--patch` of the full `patterns` array -- which
+ * is exactly the step where the array-replace footgun above bites.
+ */
+export function applyHistorySummary(state, summary) {
+	if (!summary || !Array.isArray(summary.patterns)) { return state; }
+	return {
+		...state,
+		history: { branchSummary: summary.branchSummary, verdict: summary.verdict },
+		patterns: summary.patterns,
+	};
+}
+
 /** Coerce `key=value` string values into booleans/numbers/null where obvious. */
 export function coerce(value) {
 	if (value === 'true') { return true; }
@@ -253,7 +292,14 @@ function main() {
 			fail(`A checkpoint for triage "${triageId}" already exists -- resume it (--read) or pass --force to overwrite.`, { stateFile: path.relative(process.cwd(), sp) });
 		}
 		ensureDir(triageDir(triageId));
-		const state = newState(triageId, args);
+		let state = newState(triageId, args);
+		// Auto-seed history + patterns from triage-history.js's already-written
+		// summary, if present -- see applyHistorySummary's doc comment.
+		const historyFile = path.join(triageDir(triageId), 'history-summary.json');
+		if (fs.existsSync(historyFile)) {
+			try { state = applyHistorySummary(state, readJson(historyFile)); }
+			catch { /* malformed summary file -- leave state as a bare init rather than failing */ }
+		}
 		writeJson(sp, state);
 		emit({ ...state, stateFile: path.relative(process.cwd(), sp) });
 		return;
@@ -270,7 +316,8 @@ function main() {
 		return;
 	}
 
-	// Mutations: --patch and/or repeated --set key=value.
+	// Mutations: --patch and/or repeated --set key=value, or --patch-pattern <id>
+	// to merge into just one pattern (see mergePatternPatch's doc comment).
 	let patch = null;
 	if (args.patch) {
 		try { patch = JSON.parse(args.patch); } catch { fail('--patch must be valid JSON.'); }
@@ -285,7 +332,16 @@ function main() {
 		}
 	}
 
-	if (!patch && sets.length === 0) { fail('Nothing to do (use --init/--read/--set/--patch/--status/--validate).'); }
+	const patchPatternId = args['patch-pattern'];
+	if (!patch && sets.length === 0 && !patchPatternId) {
+		fail('Nothing to do (use --init/--read/--set/--patch/--patch-pattern/--status/--validate).');
+	}
+	if (patchPatternId) {
+		if (!patch) { fail('--patch-pattern requires --patch \'<json>\' with the fields to merge into that one pattern.'); }
+		try { state = { ...state, patterns: mergePatternPatch(state.patterns, patchPatternId, patch) }; }
+		catch (e) { fail(e.message); }
+		patch = null; // consumed by the single-pattern merge, not a top-level patch
+	}
 	try {
 		state = applyMutations(state, patch, sets);
 	} catch (e) {

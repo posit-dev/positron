@@ -85,8 +85,12 @@ export function validateDiagnosis(d) {
 	return null;
 }
 
-/** Human frequency string from the selected history pattern, e.g.
- *  "31/317 runs (9.8%), ubuntu/chromium". Returns null when unavailable. */
+/** Human frequency string from the selected history pattern, one clause per
+ *  branch scoped to the environments the pattern actually occurred in, e.g.
+ *  "4/4 runs (100%) on feature/x; 3/157 runs (1.9%) on main, ubuntu/chromium".
+ *  Returns null when unavailable. Never blends counts/runs across branches or
+ *  environments -- that silently understates a pattern concentrated in one
+ *  environment on one branch (see triage-history.js scopedRunsForEnvironments). */
 export function deriveFrequency(history, selectedPattern) {
 	if (!history || !Array.isArray(history.patterns)) { return null; }
 	// When a pattern is selected, its stats or nothing -- never silently fall back
@@ -96,11 +100,16 @@ export function deriveFrequency(history, selectedPattern) {
 		? history.patterns.find(x => x.id === selectedPattern)
 		: history.patterns[0];
 	if (!p) { return null; }
-	const denom = history.branchSummary?.mainRuns || history.branchSummary?.currentBranchRuns;
-	const runs = denom ? `${p.count}/${denom} runs` : `${p.count} runs`;
-	const pct = typeof p.percentage === 'number' ? ` (${p.percentage}%)` : '';
 	const envs = Array.isArray(p.environments) && p.environments.length ? `, ${p.environments.join(', ')}` : '';
-	return `${runs}${pct}${envs}`;
+	if (!Array.isArray(p.rates) || !p.rates.length) {
+		return `${p.count} runs${envs}`;
+	}
+	const clauses = p.rates.map(r => {
+		const runs = r.environmentRuns ? `${r.count}/${r.environmentRuns} runs` : `${r.count} runs`;
+		const pct = typeof r.ratePercent === 'number' ? ` (${r.ratePercent}%)` : '';
+		return `${runs}${pct} on ${r.branch}`;
+	});
+	return `${clauses.join('; ')}${envs}`;
 }
 
 /**

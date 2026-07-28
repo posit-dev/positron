@@ -51,6 +51,29 @@ function occEnvironments(occurrences) {
 	return [...envs];
 }
 
+function envKey(os, browser) {
+	return [os, browser].filter(Boolean).join('/');
+}
+
+/**
+ * Sum `total_runs` from a test object's `environment_breakdown` for exactly the
+ * environments a pattern occurred in. Returns null when the breakdown is
+ * missing or none of its entries match (so callers can tell "no data" apart
+ * from a genuine zero).
+ */
+export function scopedRunsForEnvironments(environmentBreakdown, environments) {
+	if (!Array.isArray(environmentBreakdown) || !environments.length) { return null; }
+	let sum = 0;
+	let matched = false;
+	for (const e of environmentBreakdown) {
+		if (environments.includes(envKey(e.os, e.browser))) {
+			sum += e.total_runs || 0;
+			matched = true;
+		}
+	}
+	return matched ? sum : null;
+}
+
 /**
  * Merge the current-branch and main test objects into a single ordered pattern
  * list. Patterns are matched across branches by normalized failure text, never
@@ -89,6 +112,7 @@ export function mergeHistory(current, main, currentBranch, occurrencesPerPattern
 					fullPattern: p.pattern,
 					branches: new Set(),
 					count: 0,
+					branchCounts: new Map(),
 					environments: new Set(),
 					occurrences: [],
 				});
@@ -96,6 +120,7 @@ export function mergeHistory(current, main, currentBranch, occurrencesPerPattern
 			const entry = byKey.get(key);
 			entry.branches.add(branchLabel);
 			entry.count += p.count || 0;
+			entry.branchCounts.set(branchLabel, (entry.branchCounts.get(branchLabel) || 0) + (p.count || 0));
 			for (const e of occEnvironments(p.occurrences)) { entry.environments.add(e); }
 			for (const o of (p.occurrences || [])) {
 				entry.occurrences.push({ branch: branchLabel, ...o });
@@ -109,6 +134,7 @@ export function mergeHistory(current, main, currentBranch, occurrencesPerPattern
 	const currentRuns = current?.history?.total_runs ?? null;
 	const mainRuns = main?.history?.total_runs ?? null;
 	const totalRuns = (currentRuns || 0) + (mainRuns || 0);
+	const breakdownByBranch = { [currentBranch]: current?.environment_breakdown, main: main?.environment_breakdown };
 
 	const patterns = [...byKey.values()]
 		.sort((a, b) => b.count - a.count)
@@ -121,12 +147,26 @@ export function mergeHistory(current, main, currentBranch, occurrencesPerPattern
 			// One representative occurrence by default; prefer a current-branch one.
 			const rep = entry.occurrences.find(o => o.branch === currentBranch) || entry.occurrences[0] || null;
 			const kept = entry.occurrences.slice(0, occurrencesPerPattern);
+			const environments = [...entry.environments];
+			// Per-branch rate scoped to the environments this pattern actually occurred
+			// in -- NOT count/totalRuns (that blends branches and environments together
+			// and can understate a pattern by 100x when it is concentrated in one
+			// environment on one branch; see triage-history.md).
+			const rates = [...entry.branchCounts.entries()].map(([branch, count]) => {
+				const environmentRuns = scopedRunsForEnvironments(breakdownByBranch[branch], environments);
+				return {
+					branch,
+					count,
+					environmentRuns,
+					ratePercent: environmentRuns ? Math.round((count / environmentRuns) * 1000) / 10 : null,
+				};
+			});
 			return {
 				id: patternLabel(i), // A, B, .. Z, AA, AB, ...
 				failure: entry.failure,
 				count: entry.count,
-				percentage: totalRuns ? Math.round((entry.count / totalRuns) * 1000) / 10 : null,
-				environments: [...entry.environments],
+				rates,
+				environments,
 				seenOn,
 				representativeOccurrence: rep && {
 					branch: rep.branch, sha: rep.sha, os: rep.os,
@@ -240,7 +280,7 @@ function main() {
 			queriedBranches: queriedCurrent ? [currentBranch, 'main'] : ['main'],
 		},
 		patterns: merged.patterns.map(p => ({
-			id: p.id, failure: p.failure, count: p.count, percentage: p.percentage,
+			id: p.id, failure: p.failure, count: p.count, rates: p.rates,
 			environments: p.environments, seenOn: p.seenOn,
 			representativeOccurrence: p.representativeOccurrence,
 		})),
