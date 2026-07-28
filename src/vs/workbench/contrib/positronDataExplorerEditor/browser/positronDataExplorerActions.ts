@@ -330,7 +330,11 @@ class PositronDataExplorerCollapseSummaryAction extends Action2 {
 			},
 			category,
 			f1: true,
-			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR
+			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+			metadata: {
+				description: localize('positron.dataExplorer.collapseSummary.description', "Collapse the column summary panel in the active Data Explorer."),
+				agentCompatible: true,
+			},
 		});
 	}
 
@@ -408,7 +412,11 @@ class PositronDataExplorerExpandSummaryAction extends Action2 {
 			},
 			category,
 			f1: true,
-			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR
+			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+			metadata: {
+				description: localize('positron.dataExplorer.expandSummary.description', "Expand the column summary panel in the active Data Explorer."),
+				agentCompatible: true,
+			},
 		});
 	}
 

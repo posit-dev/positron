@@ -72,7 +72,11 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 			canToggleVisibility: false,
 			canMoveView: true,
 			containerIcon: positronSessionViewIcon,
-			when: POSITRON_PACKAGES_ENABLED
+			when: POSITRON_PACKAGES_ENABLED,
+			focusCommand: {
+				id: `${POSITRON_PACKAGES_VIEW_ID}.focus`,
+				agentCompatible: true,
+			},
 		}
 	],
 	viewContainer
