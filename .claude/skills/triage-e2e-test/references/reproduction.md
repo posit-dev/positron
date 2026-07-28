@@ -16,11 +16,8 @@ of the session.
   again on resume.
 - **Delegate source reading.** Finding a POM method, selector, command id, or
   call chain goes to an `Explore` subagent under the cap in the SKILL's
-  root-cause step (<=8 call-chain entries, <=5 files with exact line ranges, no
-  full file contents). Inline `sed`/`grep`/`cat` sweeps are the largest
-  avoidable line item in this phase.
-- **Keep run output on disk** -- already the rule for verification runs; it
-  applies to log spelunking too.
+  root-cause step. Inline `sed`/`grep`/`cat` sweeps and whole-file `Read`s are
+  the largest avoidable line item in this phase.
 
 ## Prefer a unit-level repro when the mechanism lives below the e2e layer
 

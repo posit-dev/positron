@@ -30,8 +30,7 @@ context than the last, so stop as soon as the mechanism is clear.
 
 A screenshot Read costs **~20k tokens** -- 10-20x a `timelineFile` or
 `snapshotFile` -- and it stays in context for every turn that follows, so one
-opened early in a long triage bills many times the read itself. Across past
-triages, screenshots were the single largest source of tool-result content.
+opened early in a long triage bills many times the read itself.
 
 - **Prefer `snapshotFile`.** It is text, it says what the DOM actually
   contained, and it answers "was the element there, what covered it" better
