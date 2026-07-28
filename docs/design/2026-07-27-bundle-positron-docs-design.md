@@ -644,6 +644,28 @@ remove the sidecar to bypass it. The cost of strictness is bounded -- a transien
 delays local docs by one launch and the next launch converges, which is the same behaviour as a 404 on
 the zip itself. Step 1's publish order below keeps that window near zero.
 
+**A digest mismatch on a `latest` alias is retryable, not terminal.** The two alias objects,
+`<basename>-latest.zip` and its `.sha256sum`, are both mutable and are uploaded by two separate
+`aws s3 cp` calls, so every release has a brief window in which the sidecar already carries the new
+digest while the zip is still the previous release's bytes. No publish order removes this -- zip-first
+merely inverts which side is stale -- and `no-cache` on both means a client can genuinely observe the
+mismatched pair rather than a pinned stale copy. A client that treats this as corruption and records a
+permanent failure would poison its own cache state over a condition that resolves in seconds.
+Treat a mismatch on an alias as a transient publish-window race: discard the download, do not mark the
+cache bad, and let the next trigger converge. A mismatch on a *versioned* object is different -- those
+are immutable and written once, so there the mismatch is real.
+
+**A bad versioned bundle cannot be recalled, and that is a gap this design does not close.** Versioned
+objects are published `immutable` with a one-year max-age, and a release build resolving `exact` is
+terminal: it reads `<basename>-<version>.zip` and never consults the alias again. So if a bad bundle
+ships for release version X, no lever reaches an install that already cached it -- re-uploading the key
+does nothing for existing clients, CloudFront invalidation only helps cold ones, and the `latest` alias
+is not what release builds read. The blast radius is bounded (docs are read-only context for the
+assistant, and a bad bundle degrades answers rather than breaking the IDE), which is why this is
+recorded rather than solved here. If that calculus changes, the two candidate levers are a revocation
+marker object the cache checks before serving, or a setting that forces web fallback. **Owner: revisit
+at the point the assistant's answers depend on bundled docs for anything load-bearing.**
+
 ### Retry throttling
 
 One attempt per trigger, with no in-session backoff loop. We do not re-attempt within a session
