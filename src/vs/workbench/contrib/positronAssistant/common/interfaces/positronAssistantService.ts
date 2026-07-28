@@ -171,14 +171,14 @@ export interface IPositronAssistantConfigurationService {
 
 	/**
 	 * Event that fires when enabled providers configuration changes.
-	 * Fires when either individual provider enable settings or the deprecated enabledProviders array changes.
+	 * Fires when provider enablement in the catalog (providers.json) changes.
 	 */
 	readonly onChangeEnabledProviders: Event<void>;
 
 	/**
 	 * Registers a language model provider with the configuration service.
 	 * Call once per provider during extension activation with all static config.
-	 * Creates a positron.assistant.provider.<settingName>.enable toggle in Settings.
+	 * Enablement is read from the provider catalog (providers.json), not a setting.
 	 *
 	 * @param source Provider source definition
 	 */
@@ -218,10 +218,7 @@ export interface IPositronAssistantConfigurationService {
 	 * Should only be used after the Positron Assistant extension has finished activation,
 	 * as enabled providers are registered as part of the extension activation flow.
 	 *
-	 * Reads from per-provider enable settings: either
-	 * `assistant.provider.<settingName>.enabled` or
-	 * `positron.assistant.provider.<settingName>.enable` toggles the
-	 * provider on.
+	 * Reads enablement from the resolved provider catalog (providers.json).
 	 *
 	 * @returns Array of enabled provider IDs
 	 */

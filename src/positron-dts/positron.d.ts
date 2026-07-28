@@ -3687,8 +3687,8 @@ declare module 'positron' {
 		 * Registers a language model provider with Positron.
 		 *
 		 * Call once per provider during extension activation. This registers
-		 * everything static about the provider. Creates a toggle
-		 * `positron.assistant.provider.<settingName>.enable` in Settings.
+		 * everything static about the provider. Enablement is read from the
+		 * resolved provider catalog (providers.json), not a per-provider setting.
 		 *
 		 * Returns a Disposable. When disposed, the provider is removed
 		 * from the configuration service.

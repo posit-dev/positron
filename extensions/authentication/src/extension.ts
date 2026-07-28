@@ -80,8 +80,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	await registerDeepSeekProvider(context);
 	registerCustomProvider(context);
 
-	// Register providers so the Settings UI shows per-provider
-	// enable toggles (positron.assistant.provider.<settingName>.enable).
+	// Register providers so the assistant knows about them; enablement is
+	// read from the provider catalog (providers.json), not a settings toggle.
 	for (const source of getProviderSources()) {
 		const disposable = positron.ai.registerProvider(source, providerAction);
 		context.subscriptions.push(disposable);
