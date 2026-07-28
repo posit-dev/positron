@@ -100,6 +100,7 @@ export class JointCompletionsProviderContribution extends Disposable implements 
 		@IExperimentationService private readonly _expService: IExperimentationService,
 		@IAuthenticationService private readonly _authenticationService: IAuthenticationService,
 		@IEnvService private readonly _envService: IEnvService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
 
@@ -116,16 +117,25 @@ export class JointCompletionsProviderContribution extends Disposable implements 
 		// ai.enabled is also checked at extension activation, but that only
 		// covers startup; reading it live here also handles runtime toggles
 		// (ai.enabled is permit-only, default true). The catalog's copilot
-		// enablement is read asynchronously and seeded to true (the catalog
-		// baseline) so registration is not suppressed while that first read is
-		// in flight; a false answer arrives shortly after and unregisters via
-		// the autorun below.
+		// enablement is read asynchronously and seeded to false, so a Copilot
+		// provider disabled in providers.json can never register or serve a
+		// suggestion during the in-flight first read. Registration waits for that
+		// answer (and re-runs on later enablement changes via the autorun below);
+		// the cost is a brief startup delay before Copilot suggestions appear.
 		const suggestionsAllowedEmitter = this._register(new Emitter<void>());
-		let copilotProviderEnabled = true;
-		positron.ai.isProviderEnabled('copilot').then(enabled => {
-			copilotProviderEnabled = enabled;
-			suggestionsAllowedEmitter.fire();
-		});
+		let copilotProviderEnabled = false;
+		positron.ai.isProviderEnabled('copilot').then(
+			enabled => {
+				copilotProviderEnabled = enabled;
+				suggestionsAllowedEmitter.fire();
+			},
+			err => {
+				// Fail closed: if the initial read fails we cannot confirm the
+				// provider is enabled, so leave Copilot suggestions off. A later
+				// enablement change corrects it via the listener below.
+				this._logService.error(err, 'Failed to read Copilot provider enablement; leaving Copilot suggestions disabled');
+			}
+		);
 		this._register(positron.ai.onDidChangeProviderEnablement(e => {
 			if (e.id === 'copilot') {
 				copilotProviderEnabled = e.enabled;
