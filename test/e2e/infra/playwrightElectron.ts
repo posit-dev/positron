@@ -15,6 +15,14 @@ const isDocker = () => {
 	return fs.existsSync('/.dockerenv');
 };
 
+/**
+ * Upper bound for how long we wait for the Electron process to launch and for
+ * its first window to appear. This is deliberately much smaller than Mocha's
+ * `before all` hook timeout (120s) so that a crashed or hung launch fails fast
+ * with an actionable error instead of bubbling up as an opaque hook timeout.
+ */
+const LAUNCH_TIMEOUT = 60_000;
+
 export async function launch(options: LaunchOptions): Promise<{ electronProcess: ChildProcess; driver: PlaywrightDriver; electronApp: playwright.ElectronApplication }> {
 
 	// Resolve electron config and update
