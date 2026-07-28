@@ -13,6 +13,7 @@ const DATA_CONNECTIONS_VIEW_FOCUS_COMMAND = 'workbench.panel.positronDataConnect
 // The "Add Data Connection" -> "Configure Data Connection" dialog and its surrounding modal.
 const MODAL_DIALOG = '.positron-modal-dialog';
 const PARAMETER_FIELD = '.parameter-field';
+const MECHANISM_CARD = '.mechanism-card';
 const DATA_CONNECTION_ENTRY_ROW = '.data-connection-entry-row';
 
 // The "Connect With" dialog, opened from a connection entry's Actions menu.
@@ -120,7 +121,9 @@ export class DataConnections {
 	 */
 	async selectConnectionMechanism(mechanismLabel: string): Promise<void> {
 		await test.step(`Select connection mechanism: ${mechanismLabel}`, async () => {
-			await this.dialog.locator('.mechanism-card').filter({ hasText: mechanismLabel }).click();
+			await this.dialog.locator(MECHANISM_CARD)
+				.filter({ has: this.code.driver.currentPage.getByText(mechanismLabel, { exact: true }) })
+				.click();
 			await this.nextButton.click();
 		});
 	}
