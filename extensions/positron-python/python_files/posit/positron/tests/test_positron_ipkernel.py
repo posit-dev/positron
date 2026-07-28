@@ -8,7 +8,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Any, Tuple, cast
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 from ipykernel.compiler import get_tmp_directory
@@ -21,7 +21,12 @@ from positron.session_mode import SessionMode
 from positron.utils import alias_home
 
 from .conftest import PositronShell
-from .utils import CapturedError, assert_register_table_called, capture_errors
+from .utils import (
+    CapturedError,
+    assert_register_table_called,
+    capture_errors,
+    patch_positron_execute_request,
+)
 
 try:
     import lightning
@@ -486,10 +491,7 @@ class TestEditorSysPath:
         editor_dir.mkdir()
         test_file = editor_dir / "test_module.py"
         test_file.write_text("x = 42")
-
-        # Set up the parent message with code_location pointing to the test file
         editor_uri = test_file.as_uri()
-        parent = {"content": {"positron": {"code_location": {"uri": editor_uri}}}}
 
         # Ensure we're in a different directory
         original_cwd = Path.cwd()
@@ -500,7 +502,8 @@ class TestEditorSysPath:
             sys.path.remove(str(editor_dir))
 
         # Add the path (simulates pre_run_cell)
-        with patch.object(shell.kernel, "get_parent", return_value=parent):
+        # with code_location pointing to the test file
+        with patch_positron_execute_request({"code_location": {"uri": editor_uri}}):
             added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Check that editor_dir was added to sys.path
@@ -523,17 +526,14 @@ class TestEditorSysPath:
         # Create a test file in cwd
         cwd = Path.cwd()
         test_file = cwd / "test_file_in_cwd.py"
-
-        # Set up the parent message with code_location pointing to a file in cwd
         editor_uri = test_file.as_uri()
-        parent = {"content": {"positron": {"code_location": {"uri": editor_uri}}}}
 
         # Count how many times cwd appears in sys.path before
         cwd_str = str(cwd)
         count_before = sys.path.count(cwd_str)
 
-        # Try to add the path
-        with patch.object(shell.kernel, "get_parent", return_value=parent):
+        # Try to add the path, with code_location pointing to a file in cwd
+        with patch_positron_execute_request({"code_location": {"uri": editor_uri}}):
             added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Should not have added anything since it's the cwd
@@ -547,13 +547,10 @@ class TestEditorSysPath:
         """Test that nothing happens when no code_location is in the execute request."""
         import sys
 
-        # Parent message without positron metadata (e.g. console input)
-        parent = {"content": {}}
-
         sys_path_before = sys.path.copy()
 
-        # Try to add the path
-        with patch.object(shell.kernel, "get_parent", return_value=parent):
+        # Try to add the path, without positron metadata (e.g. console input)
+        with patch_positron_execute_request():
             added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Should not have added anything
@@ -566,13 +563,10 @@ class TestEditorSysPath:
         """Test that non-file URIs are ignored."""
         import sys
 
-        # code_location with a non-file URI
-        parent = {"content": {"positron": {"code_location": {"uri": "untitled:Untitled-1"}}}}
-
         sys_path_before = sys.path.copy()
 
-        # Try to add the path
-        with patch.object(shell.kernel, "get_parent", return_value=parent):
+        # Try to add the path - code_location with a non-file URI
+        with patch_positron_execute_request({"code_location": {"uri": "untitled:Untitled-1"}}):
             added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Should not have added anything
@@ -607,10 +601,7 @@ class TestEditorSysPath:
         editor_dir.mkdir()
         test_module = editor_dir / "my_test_module.py"
         test_module.write_text("TEST_VALUE = 'hello from module'")
-
-        # Set up the parent message with code_location pointing to the test module
         editor_uri = test_module.as_uri()
-        parent = {"content": {"positron": {"code_location": {"uri": editor_uri}}}}
 
         # Remove editor_dir from sys.path if present
         while str(editor_dir) in sys.path:
@@ -621,7 +612,7 @@ class TestEditorSysPath:
 
         # Run a cell that imports the module - this should work because
         # _handle_pre_run_cell adds the editor directory via code_location
-        with patch.object(shell.kernel, "get_parent", return_value=parent):
+        with patch_positron_execute_request({"code_location": {"uri": editor_uri}}):
             result = shell.run_cell("import my_test_module; value = my_test_module.TEST_VALUE")
         result.raise_error()
 
@@ -650,9 +641,6 @@ class TestEditorSysPath:
         test_file = editor_dir / "test_module.py"
         test_file.write_text("x = 42")
 
-        # Parent message without code_location (e.g. code typed in console)
-        parent = {"content": {}}
-
         # Ensure we're in a different directory
         original_cwd = Path.cwd()
         assert str(editor_dir) != str(original_cwd)
@@ -663,8 +651,8 @@ class TestEditorSysPath:
 
         sys_path_before = sys.path.copy()
 
-        # Try to add the path
-        with patch.object(shell.kernel, "get_parent", return_value=parent):
+        # Try to add the path - with no code_location (e.g. code typed in console)
+        with patch_positron_execute_request():
             added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Should not have added anything since there is no code_location

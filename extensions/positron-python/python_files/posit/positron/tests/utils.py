@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any, Generator
 from unittest.mock import Mock, patch
 
 from IPython.core.getipython import get_ipython
@@ -150,8 +150,11 @@ def dummy_rpc_request(*args):
 
 
 @contextmanager
-def patch_positron_execute_request(shell, positron: dict | None = None):
+def patch_positron_execute_request(positron: dict | None = None):
     """Patch the shell's get_parent to return a message with the given positron dict."""
+    shell = get_ipython()
+    if shell is None:
+        raise RuntimeError("patch_positron_execute_request() must be used in an IPython shell")
     positron = positron or {}
     parent = {"content": {"positron": positron}}
     with patch.object(shell.kernel, "get_parent", return_value=parent):
@@ -174,7 +177,7 @@ class CapturedError:
 
 
 @contextmanager
-def capture_errors() -> Iterator[list[CapturedError]]:
+def capture_errors() -> Generator[list[CapturedError]]:
     """Capture errors published by the kernel."""
     shell = get_ipython()
     if shell is None:
@@ -185,7 +188,7 @@ def capture_errors() -> Iterator[list[CapturedError]]:
     original_send = session.send
 
     def send(stream, msg_or_type=None, content=None, *args, **kwargs):
-        if msg_or_type == "error":
+        if msg_or_type == "error" and content is not None:
             error = CapturedError(
                 ename=content["ename"],
                 evalue=content["evalue"],
