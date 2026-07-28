@@ -2294,7 +2294,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		}
 
 		if (mime.startsWith('image/')) {
-			return this._renderImage(mime, data, output.outputId);
+			return this._renderImage(mime, data, output.outputId, output.outputMetadata);
 		}
 
 		if (mime === 'text/html') {
@@ -2602,13 +2602,32 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		return container;
 	}
 
-	private _renderImage(mime: string, data: string, outputId: string): HTMLElement {
+	private _renderImage(
+		mime: string,
+		data: string,
+		outputId: string,
+		outputMetadata?: Record<string, unknown>
+	): HTMLElement {
 		const container = document.createElement('div');
 		container.className = 'quarto-output-image-container';
 
 		const img = document.createElement('img');
 		img.className = 'quarto-output-image';
 		img.setAttribute('alt', localize('outputImage', 'Output image'));
+
+		// Set width and height from output metadata if available.
+		// On high DPI displays, kernels render images at >1 pixel ratio
+		// and specify the actual display size in the metadata.
+		const meta = outputMetadata?.[mime];
+		if (meta && typeof meta === 'object') {
+			const { width, height } = meta as Record<string, unknown>;
+			if (typeof width === 'number') {
+				img.width = width;
+			}
+			if (typeof height === 'number') {
+				img.height = height;
+			}
+		}
 
 		// Cache the natural dimensions once the image loads so the collapse
 		// summary can show "Plot (WxH)".

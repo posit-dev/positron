@@ -111,6 +111,8 @@ export interface ICellOutput {
 	readonly items: ICellOutputItem[];
 	/** Optional metadata for webview rendering */
 	readonly webviewMetadata?: ICellOutputWebviewMetadata;
+	/** Optional per-mime output metadata e.g. `{ 'image/png': { width, height } }` */
+	readonly outputMetadata?: Record<string, unknown>;
 }
 
 /**

@@ -914,7 +914,7 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 		// Preserve webviewMetadata in the ipynb metadata field
 		// This is critical for interactive outputs (Plotly, widgets, etc.) that need
 		// webview rendering - without this metadata, they fall back to text rendering
-		const metadata: Record<string, unknown> = {};
+		const metadata: Record<string, unknown> = { ...output.outputMetadata };
 		if (output.webviewMetadata) {
 			metadata.quarto_webview_metadata = output.webviewMetadata;
 		}
@@ -967,16 +967,22 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 				break;
 		}
 
-		// Restore webviewMetadata from ipynb metadata if present
-		// This allows interactive outputs (Plotly, widgets, etc.) to render via webview
-		const webviewMetadata = (ipynbOutput.output_type === 'execute_result' || ipynbOutput.output_type === 'display_data')
-			? ipynbOutput.metadata?.quarto_webview_metadata as ICellOutputWebviewMetadata | undefined
-			: undefined;
+		// Restore webviewMetadata and outputMetadata from ipynb metadata if present:
+		// - webviewMetadata allows interactive outputs (Plotly, widgets, etc.) to render via webview
+		// - outputMetadata preserves output metadata e.g. image sizes on high DPI displays
+		let webviewMetadata: ICellOutputWebviewMetadata | undefined;
+		let outputMetadata: Record<string, unknown> | undefined;
+		if (ipynbOutput.output_type === 'execute_result' || ipynbOutput.output_type === 'display_data') {
+			const { quarto_webview_metadata, ...rest } = ipynbOutput.metadata ?? {};
+			webviewMetadata = quarto_webview_metadata as ICellOutputWebviewMetadata | undefined;
+			outputMetadata = rest;
+		}
 
 		return {
 			outputId: generateUuid(),
 			items,
 			webviewMetadata,
+			outputMetadata
 		};
 	}
 
