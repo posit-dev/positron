@@ -28,6 +28,8 @@ only when a stage needs them.
   than one. Never fetch evidence for a pattern the engineer didn't select --
   ask first, even to check a side theory about how patterns relate.
 - Fetch **one** representative occurrence first; a second needs a stated reason.
+- Agree the **fix approach** before the first edit, the same way you agree the
+  pattern before fetching evidence.
 - Escalate evidence only to answer a concrete question. Keep large output on
   disk, not in the conversation.
 - **Never** increase a timeout or add an arbitrary wait as the fix.
@@ -171,6 +173,11 @@ entries), <=5 files with exact line ranges, one mechanism summary, <=3 open
 questions. It must not return full file contents, a repo tour, or speculation
 unsupported by evidence.
 
+**Then agree the fix approach, before the clear.** Table the plausible fixes
+(approach / what it changes / risk) with your recommendation and let the
+engineer pick -- editing before the pick burns a context on a rejected
+approach. Carry the pick as `diagnosis.fixApproach`.
+
 Save the diagnosis to the checkpoint (`--patch` a `diagnosis` object) and set
 `phase=hypothesis-ready`. Include the fields `record-diagnosis.js` renders
 (`confidence`, `summary`, `targetedFailure`, `signal`, `hypothesis`, optional
@@ -189,6 +196,10 @@ clearing; on resume, set `phase=implementation`.
 Read [`references/reproduction.md`](references/reproduction.md) at this stage.
 In short:
 
+- **Clear again** at the first context warning or right after abandoning an
+  approach -- a dead end is re-read on every later turn. Edits stay on disk.
+- **Read source through `Explore`** under the tracing cap above; inline
+  `sed`/`grep` sweeps are this phase's main avoidable cost.
 - When the mechanism is below the e2e layer, write a deterministic lower-level
   regression test via `author-vitest-tests` (it owns the builder/stub
   conventions and `review-vitest-tests`, but drives toward green -- **the RED

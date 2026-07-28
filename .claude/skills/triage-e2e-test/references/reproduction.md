@@ -3,6 +3,25 @@
 Read this only once a supported diagnosis exists (SKILL step "Reproduce and
 fix"). Save the diagnosis checkpoint first.
 
+## Keep the implementation context small
+
+Implementation, not diagnosis, is where a triage's cost runs away: every turn
+re-reads the whole context, so a dead-end exploration keeps billing for the rest
+of the session.
+
+- **Re-clear.** `--set phase=awaiting-clear`, `/clear`, `--resume <id>` -- at the
+  first context warning, or immediately after the engineer redirects you off an
+  approach. Working-tree edits and the checkpoint both survive, so `git diff`
+  plus `diagnosis.fixApproach` is the whole handoff. Set `phase=implementation`
+  again on resume.
+- **Delegate source reading.** Finding a POM method, selector, command id, or
+  call chain goes to an `Explore` subagent under the cap in the SKILL's
+  root-cause step (<=8 call-chain entries, <=5 files with exact line ranges, no
+  full file contents). Inline `sed`/`grep`/`cat` sweeps are the largest
+  avoidable line item in this phase.
+- **Keep run output on disk** -- already the rule for verification runs; it
+  applies to log spelunking too.
+
 ## Prefer a unit-level repro when the mechanism lives below the e2e layer
 
 If the root cause traces into a lower-level module with its own unit-test suite
