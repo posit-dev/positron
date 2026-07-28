@@ -181,9 +181,11 @@ Once installation is complete, compile the code to check for compile errors:
 
 ### Step 5: Test
 
-Once the code installs and compiles successfully, install all e2e test
-dependencies and run the test suite. Investigate any failures and fix them if
-they are caused by the merge. Note your findings in the log file.
+Run the unit tests and the extension host tests. Investigate and fix any
+failures, and keep running until they pass.
+
+Next, install all e2e test dependencies and run the test suite. Investigate any
+failures and fix them if they are caused by the merge.
 
 ### Step 6: Document
 
@@ -191,9 +193,23 @@ Summarize all your findings and any design decisions you made during the merge
 at the end of the log file. Include any manual steps engineers will need to take
 when pulling down the merged code.
 
+## Step 7: Final Tests
+
+Prompt the user to commit the change (a prerequisite to running the CI lab
+tests). Tell them you're done with the merge and preliminary tests are passing,
+and you need a commit to run the next phase.
+
+After verifying that the user has commited the changes, run all the tests in the
+Docker CI lab environment. Again, investigate failures and fix them. Think about
+whether each failure is a real product bug or needs test code/expectations
+updated.
+
+Note all test failures and their resolution in the log file, especially if the
+test needed to be updated to match new or changed behavior.
+
 ## References
 
 See these references for more information:
 - `change-markers.md`: how to interpret, create and use change markers (Start Positron, Start PWB)
 - `package-json.md`: how to handle conflicts in package.json and package-lock.json files
--
+- `codicons.md`: how to handle conflicts in codicon.ttf and codiconLibrary.ts files
