@@ -53,6 +53,7 @@ export class InlineQuarto {
 	readonly visibleCellToolbar: Locator;
 	readonly toolbarRunButton: Locator;
 	readonly toolbarCancelButton: Locator;
+	readonly executingToolbarButton: Locator;
 	readonly closeButton: Locator;
 	readonly copyButton: Locator;
 	readonly saveButton: Locator;
@@ -84,6 +85,9 @@ export class InlineQuarto {
 		this.visibleCellToolbar = page.locator(`${CELL_TOOLBAR}.visible`);
 		this.toolbarRunButton = page.locator(`${CELL_TOOLBAR} ${TOOLBAR_RUN}`);
 		this.toolbarCancelButton = page.getByRole('button', { name: 'Cancel pending execution' });
+		// The run button toggles between run/queued/running; matches while the
+		// cell is queued or running, i.e. once a run has actually registered.
+		this.executingToolbarButton = page.getByRole('button', { name: /Cancel pending execution|Stop cell execution/ });
 		this.closeButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_CLOSE}`);
 		this.copyButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_COPY}`);
 		this.saveButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_SAVE}`);
@@ -112,6 +116,16 @@ export class InlineQuarto {
 
 	getOutputContentAt(index: number): Locator {
 		return this.inlineOutput.nth(index).locator(OUTPUT_CONTENT);
+	}
+
+	/**
+	 * Inline output content scoped to a single editor group. The same Quarto
+	 * document can be open in more than one editor at once (a split view); each
+	 * group renders its own copy of the view zones, so scope by group to tell
+	 * the panes apart.
+	 */
+	getOutputContentInGroup(group: Locator): Locator {
+		return group.locator(`${INLINE_OUTPUT} ${OUTPUT_CONTENT}`);
 	}
 
 	getOutputItemAt(index: number): Locator {
@@ -164,10 +178,25 @@ export class InlineQuarto {
 		});
 	}
 
+	/**
+	 * Fire a run action at `cellLine` and confirm the cell actually started
+	 * executing before returning. The Quarto run command is extension-contributed,
+	 * so a transient extension-host stall (e.g. right after a window reload) can
+	 * swallow the run hotkey and leave the cell idle -- which would otherwise burn
+	 * the full output timeout waiting on a run that never took. Re-fire (moving the
+	 * cursor back onto the cell each attempt) until the cell enters queued/running.
+	 */
+	private async _runCellUntilStarted(cellLine: number, run: () => Promise<void>): Promise<void> {
+		await expect(async () => {
+			await this.gotoLine(cellLine);
+			await run();
+			await expect(this.executingToolbarButton.first()).toBeVisible({ timeout: 10000 });
+		}).toPass({ timeout: 30000, intervals: [1000] });
+	}
+
 	async runCellAndWaitForOutput({ cellLine, outputLine, timeout = 120000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
 		await test.step(`Run cell at line ${cellLine} and wait for output at line ${outputLine}`, async () => {
-			await this.gotoLine(cellLine);
-			await this.runCurrentCell();
+			await this._runCellUntilStarted(cellLine, () => this.runCurrentCell());
 			await this.gotoLine(outputLine);
 			await expect(this.inlineOutput).toBeVisible({ timeout });
 		});
@@ -175,10 +204,48 @@ export class InlineQuarto {
 
 	async runCodeAndWaitForOutput({ cellLine, outputLine, timeout = 120000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
 		await test.step(`Run code at line ${cellLine} and wait for output at line ${outputLine}`, async () => {
-			await this.gotoLine(cellLine);
-			await this.runCurrentCode();
+			await this._runCellUntilStarted(cellLine, () => this.runCurrentCode());
 			await this.gotoLine(outputLine);
 			await expect(this.inlineOutput).toBeVisible({ timeout });
+		});
+	}
+
+	/**
+	 * Run the cell at `cellLine` and wait for auto-scroll to bring its inline
+	 * output into the viewport. Deliberately does NOT navigate to the output
+	 * (which would scroll on its own and mask the behavior under test), so the
+	 * cell should be taller than the viewport for its output to start below the
+	 * fold.
+	 */
+	async runCellAndExpectOutputInViewport({ cellLine, timeout = 120000 }: { cellLine: number; timeout?: number }): Promise<void> {
+		await test.step(`Run cell at line ${cellLine} and expect its output scrolled into view`, async () => {
+			// Don't gate on the executing toolbar button (as `_runCellUntilStarted`
+			// does): auto-scroll reveals the output by scrolling the cell's top --
+			// and its floating toolbar, which hides itself once off-screen -- out of
+			// view the instant the cell starts running, so the button can vanish
+			// before Playwright observes it (a race that only loses under CI load).
+			// Re-fire the run instead (re-homing the cursor each attempt, to survive
+			// a swallowed run hotkey) until the output itself is scrolled into view,
+			// which is the behavior under test.
+			await expect(async () => {
+				await this.gotoLine(cellLine);
+				await this.runCurrentCell();
+				await expect(this.outputContent.first()).toBeInViewport({ timeout: 20000 });
+			}).toPass({ timeout, intervals: [2000] });
+		});
+	}
+
+	/**
+	 * Run the cell at `cellLine` and confirm its inline output is NOT scrolled
+	 * into the viewport (used to verify auto-scroll stays off). Waits for the
+	 * kernel to go idle first so the output has actually been produced and just
+	 * remains below the fold.
+	 */
+	async runCellAndExpectOutputNotInViewport({ cellLine }: { cellLine: number }): Promise<void> {
+		await test.step(`Run cell at line ${cellLine} and expect its output to stay below the fold`, async () => {
+			await this._runCellUntilStarted(cellLine, () => this.runCurrentCell());
+			await this.expectKernelIdle();
+			await expect(this.outputContent.first()).not.toBeInViewport();
 		});
 	}
 

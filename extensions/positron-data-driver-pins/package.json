@@ -19,9 +19,11 @@
   },
   "contributes": {},
   "dependencies": {
+    "@duckdb/node-api": "^1.5.3-r.3",
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {
+    "positron-data-explorer-duckdb": "file:../positron-data-explorer-duckdb",
     "@types/js-yaml": "^4.0.5",
     "@types/mocha": "^9.1.0",
     "@types/node": "22.x",
