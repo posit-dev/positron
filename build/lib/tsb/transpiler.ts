@@ -364,10 +364,17 @@ export class ESBuildTranspiler implements ITranspiler {
 			throw Error('file.contents must be a Buffer');
 		}
 		const t1 = Date.now();
+		// --- Start Positron ---
+		// `.tsx` files need esbuild's `tsx` loader so JSX is parsed (the shared `ts` loader
+		// does not parse JSX), plus the automatic JSX runtime to match tsconfig's
+		// "jsx": "react-jsx". Without this, JSX attributes fail with `Expected ">"`.
+		const isTsx = file.path.endsWith('.tsx');
 		this._jobs.push(esbuild.transform(file.contents, {
 			...this._transformOpts,
+			...(isTsx ? { loader: 'tsx', jsx: 'automatic', jsxImportSource: 'react' } : {}),
 			sourcefile: file.path,
 		}).then(result => {
+		// --- End Positron ---
 
 			// check if output of a DTS-files isn't just "empty" and iff so
 			// skip this file
