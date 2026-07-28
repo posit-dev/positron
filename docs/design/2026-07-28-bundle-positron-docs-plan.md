@@ -225,6 +225,17 @@ fi
 # A tar pipe rather than `cp --parents`: that flag is GNU-only, and this script
 # must run on a contributor's macOS checkout as well as the Linux runner.
 cp "$SITE_DIR/llms.txt" "$STAGE/llms.txt"
+
+# Guard the empty case before taring: GNU tar refuses to create an empty archive
+# and exits non-zero while BSD tar exits 0, so without this the same broken
+# render fails cryptically on CI and silently on a Mac. A bundle of llms.txt
+# plus bundle.json and no docs is useless either way.
+DOC_COUNT="$(cd "$SITE_DIR" && find . -name '*.llms.md' -type f | wc -l | tr -d ' ')"
+if [ "$DOC_COUNT" -eq 0 ]; then
+	echo "error: no *.llms.md files under $SITE_DIR; the Quarto render produced no LLM docs." >&2
+	exit 1
+fi
+
 ( cd "$SITE_DIR" && find . -name '*.llms.md' -type f -print0 | tar -cf - --null -T - ) \
 	| ( cd "$STAGE" && tar -xf - )
 
@@ -338,7 +349,19 @@ confirm it fires before trusting it. Then undo the edit:
 printf '# Welcome\n\nHello.\n' > /tmp/fixture-site/welcome.llms.md
 ```
 
-- [ ] **Step 6: Verify the workbench profile names its output correctly**
+- [ ] **Step 6: Verify the empty-docs guard fires**
+
+```bash
+mkdir -p /tmp/empty-site
+cp /tmp/fixture-site/llms.txt /tmp/empty-site/llms.txt
+scripts/build-llms-bundle.sh /tmp/empty-site positron 2026.05.0-179 ; echo "exit=$?"
+```
+
+Expected: `error: no *.llms.md files under ...; the Quarto render produced no LLM docs.` and `exit=1`.
+This guard exists because GNU tar refuses to create an empty archive while BSD tar accepts one, so
+without it the same broken render fails cryptically on CI and silently on a Mac.
+
+- [ ] **Step 7: Verify the workbench profile names its output correctly**
 
 ```bash
 scripts/build-llms-bundle.sh /tmp/fixture-site workbench 2026.05.0-179
@@ -347,7 +370,7 @@ ls positron-workbench-llms-2026.05.0-179.zip positron-workbench-llms-2026.05.0-1
 
 Expected: both files exist. These names must match Task 11's `resolveBundleRequest` exactly.
 
-- [ ] **Step 7: Verify the sidecar catches corruption**
+- [ ] **Step 8: Verify the sidecar catches corruption**
 
 ```bash
 cp positron-llms-2026.05.0-179.zip corrupt.zip
@@ -367,11 +390,11 @@ untouched zip. Both halves matter: the clean check alone passes whether or not a
 actually detectable, so it cannot on its own tell you the sidecar is doing any work. The sidecar format
 is `<hex>  <filename>`, which is what Task 4's `parseSha256Sidecar` parses.
 
-- [ ] **Step 8: Clean up and commit**
+- [ ] **Step 9: Clean up and commit**
 
 ```bash
 rm -f positron-llms-2026.05.0-179.zip* positron-workbench-llms-2026.05.0-179.zip* corrupt.zip*
-rm -rf /tmp/fixture-site
+rm -rf /tmp/fixture-site /tmp/empty-site
 git add scripts/build-llms-bundle.sh
 git commit -m "Add slim LLM docs bundle build script with content guards"
 ```
