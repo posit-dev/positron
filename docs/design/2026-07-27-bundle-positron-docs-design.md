@@ -47,6 +47,14 @@ already the vocabulary of every artifact (`llms.txt`, `*.llms.md`, `positron-llm
 the new name diverges at the second word while staying greppable alongside other docs config. Nothing
 is shipped yet, so the rename is free.
 
+Revision 8 (2026-07-28), from the Part A implementation review. Adds two failure-mode rules the earlier
+revisions left implicit. First, a digest mismatch on a `latest` alias is retryable: both alias objects
+are mutable and uploaded separately, so every release has a window where the sidecar is new and the zip
+is not, and a client treating that as corruption would poison its cache over a condition that clears in
+seconds. Second, records that a bad *versioned* bundle cannot be recalled, because immutable publishing
+plus terminal `exact` resolution leaves no lever that reaches an install which already cached it -- noted
+with candidate levers rather than solved, since docs are read-only assistant context.
+
 ## Goal
 
 Let Positron's AI assistant read product documentation from disk instead of fetching it from
