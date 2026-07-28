@@ -182,6 +182,9 @@ lockfile is complete.
 Once installation is complete, compile the code to check for compile errors:
 `npm run compile`.
 
+Once the basic compilation test is passing, verify that you can run a release
+build. If you're on macOS: `npm run gulp vscode-darwin-arm64`
+
 ### Step 5: Test
 
 Run the unit tests and the extension host tests. Investigate and fix any

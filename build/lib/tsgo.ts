@@ -4,11 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import ansiColors from 'ansi-colors';
-import * as cp from 'child_process';
 import es from 'event-stream';
 import fancyLog from 'fancy-log';
 import { createRequire } from 'module';
 import * as path from 'path';
+// --- Start Positron ---
+// Spawn child processes via spawnWithRetry (instead of `child_process`
+// directly) so transient macOS `spawn EBADF` failures under a file-descriptor
+// spike are retried. Replaces the upstream `import * as cp from 'child_process';`.
+import { spawnWithRetry } from './spawnRetry.ts';
+// --- End Positron ---
 
 const root = path.dirname(path.dirname(import.meta.dirname));
 const ansiRegex = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
@@ -24,7 +29,11 @@ const timestampRegex = /^\[\d{2}:\d{2}:\d{2}\]\s*/;
  */
 const ts7TscPath = path.join(path.dirname(createRequire(import.meta.url).resolve('@typescript/native/package.json')), 'bin', 'tsc');
 
-export function spawnTsgo(projectPath: string, config: { taskName: string; noEmit?: boolean }, onComplete?: () => Promise<void> | void): Promise<void> {
+// --- Start Positron ---
+// Marked `async` so the body can `await spawnWithRetry` below (which retries a
+// transient macOS `spawn EBADF`). Upstream: `export function spawnTsgo(`.
+export async function spawnTsgo(projectPath: string, config: { taskName: string; noEmit?: boolean }, onComplete?: () => Promise<void> | void): Promise<void> {
+	// --- End Positron ---
 	function runReporter(output: string) {
 		const lines = (output || '').split('\n');
 		const errorLines = lines.filter(line => /error \w+:/.test(line));
@@ -40,10 +49,15 @@ export function spawnTsgo(projectPath: string, config: { taskName: string; noEmi
 	} else {
 		args.push('--sourceMap', '--inlineSources');
 	}
-	const child = cp.spawn(process.execPath, args, {
+	// --- Start Positron ---
+	// Spawn via spawnWithRetry so a transient macOS `spawn EBADF` under a
+	// file-descriptor spike is retried rather than failing the build. See
+	// spawnRetry.ts. Upstream: `const child = cp.spawn(process.execPath, args, {`.
+	const child = await spawnWithRetry(process.execPath, args, {
 		cwd: root,
 		stdio: ['ignore', 'pipe', 'pipe']
 	});
+	// --- End Positron ---
 
 	let stdoutData = '';
 	let stderrData = '';
