@@ -8,8 +8,10 @@
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import {
 	POSITRON_QUARTO_INLINE_OUTPUT_KEY,
+	QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY,
 	QUARTO_INLINE_OUTPUT_ENABLED_KEY,
 	getQuartoConfigValue,
+	usingQuartoInlineOutputAutoScroll,
 } from '../../common/positronQuartoConfig.js';
 
 describe('getQuartoConfigValue', () => {
@@ -40,6 +42,28 @@ describe('getQuartoConfigValue', () => {
 			oldOnly: true,
 			newOnly: true,
 			both: false,
+		});
+	});
+});
+
+describe('usingQuartoInlineOutputAutoScroll', () => {
+	it('defaults on and is only off when explicitly set to false', async () => {
+		const unset = new TestConfigurationService();
+
+		const off = new TestConfigurationService();
+		await off.setUserConfiguration(QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY, false);
+
+		const on = new TestConfigurationService();
+		await on.setUserConfiguration(QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY, true);
+
+		expect({
+			unset: usingQuartoInlineOutputAutoScroll(unset),
+			off: usingQuartoInlineOutputAutoScroll(off),
+			on: usingQuartoInlineOutputAutoScroll(on),
+		}).toEqual({
+			unset: true,
+			off: false,
+			on: true,
 		});
 	});
 });
