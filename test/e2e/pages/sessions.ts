@@ -177,6 +177,15 @@ export class Sessions {
 			}
 		}
 
+		// Park the mouse in a neutral corner before returning so a lingering
+		// session-picker tooltip can't intercept a later console click (e.g.
+		// maximizeConsole). The reuse scan above opens the session quick pick,
+		// which leaves the pointer over the picker button; getMetadata() used to
+		// move it away as a side effect of its dialog interaction, but the
+		// command-based read no longer touches the UI. Mirrors the same
+		// mouse.move(0, 0) that startAndSkipMetadata() does for this reason.
+		await this.page.mouse.move(0, 0);
+
 		// return single result or array based on input type
 		return (Array.isArray(sessions) ? results : results[0]) as any;
 	}
