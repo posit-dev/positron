@@ -11,7 +11,7 @@
  * This module is the migration-shaped wrapper over that translator.
  */
 
-import { legacySettingKeys, translateLegacyPositronSettings, type EnforcedProvidersConfig, type SettingMigration } from 'ai-config';
+import { legacySettingKeys, translateLegacyPositronSettings, type EnforcedProvidersConfig, type LoggerLike, type SettingMigration } from 'ai-config';
 
 export type { SettingMigration };
 
@@ -42,13 +42,17 @@ export const MIGRATABLE_SETTING_KEYS: readonly string[] = legacySettingKeys();
  * filtered). Base URLs are written in their corrected form (a bare
  * `https://api.anthropic.com` becomes `.../v1`) — providers.json gets no
  * runtime correction, so a verbatim bare host would be broken as written.
+ * Wrong-shaped values are dropped per key; `logger` receives one warning per
+ * dropped key, so a migration that skips a setting says so instead of
+ * silently reporting success.
  */
 export function buildProvidersConfigFromSettings(
-	reader: MigrationSettingsReader
+	reader: MigrationSettingsReader,
+	logger?: LoggerLike
 ): MappedProvidersConfig | undefined {
 	const { config, migrations } = translateLegacyPositronSettings({
 		get: key => reader.globalValue(key),
-	});
+	}, logger);
 	if (!config.providers || Object.keys(config.providers).length === 0) {
 		return undefined;
 	}

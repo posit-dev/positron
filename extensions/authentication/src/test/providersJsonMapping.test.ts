@@ -104,7 +104,7 @@ suite('buildProvidersConfigFromSettings', () => {
 		assert.strictEqual(result?.settingCount, 3);
 	});
 
-	test('maps enablement toggles with the newer generation winning', () => {
+	test('maps enablement toggles from both key generations', () => {
 		const result = buildProvidersConfigFromSettings(readerOf({
 			'positron.assistant.provider.anthropic.enable': false,
 			'positron.assistant.provider.google.enable': true,
@@ -113,6 +113,21 @@ suite('buildProvidersConfigFromSettings', () => {
 		assert.strictEqual(result?.config.providers?.anthropic?.enabled, false);
 		assert.strictEqual(result?.config.providers?.gemini?.enabled, true);
 		assert.strictEqual(result?.config.providers?.deepseek?.enabled, false);
+	});
+
+	test('warns through the supplied logger when a wrong-shaped value is dropped', () => {
+		const warnings: string[] = [];
+		const result = buildProvidersConfigFromSettings(
+			readerOf({
+				'authentication.anthropic.baseUrl': 42,
+				'authentication.openai-api.baseUrl': 'https://openai.example.com',
+			}),
+			{ debug: () => { }, warn: (message: string) => { warnings.push(message); } }
+		);
+		assert.strictEqual(result?.config.providers?.anthropic, undefined);
+		assert.deepStrictEqual(result?.config.providers?.openai, { baseUrl: 'https://openai.example.com' });
+		assert.strictEqual(warnings.length, 1);
+		assert.ok(warnings[0].includes('authentication.anthropic.baseUrl'));
 	});
 
 	test('converts model overrides to custom models with discovery off', () => {

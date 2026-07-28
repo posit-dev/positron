@@ -86,7 +86,10 @@ export async function userProvidersFileIsPopulated(configPath?: string): Promise
 export async function runMigration(opts: RunMigrationOptions): Promise<MigrationResult> {
 	const reader = opts.reader ?? createGlobalSettingsReader();
 	const { mutateProvidersConfig, providersConfigSchema } = await import('ai-config/node');
-	const mapped = buildProvidersConfigFromSettings(reader);
+	const mapped = buildProvidersConfigFromSettings(reader, {
+		debug: (m: string) => log.debug(m),
+		warn: (m: string) => log.warn(m),
+	});
 	if (!mapped) {
 		log.info('[migration] No provider settings to migrate');
 		return { outcome: 'nothing-to-migrate' };
