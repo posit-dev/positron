@@ -142,20 +142,11 @@ saved data is invalid, or the branch/test identity changed.
 
 ## Determine root cause
 
-This is a collaborative dig, not a rubber-stamped verdict. Use the
-`e2e-failure-analyzer` rubric ([`../e2e-failure-analyzer/rubric.md`](../e2e-failure-analyzer/rubric.md))
-for the root-cause catalog, the dismissal bar, and how to read each evidence
-type -- but **skip its "Use historical data when available" and "Check the
-triggering commit" sections**: both assume a single run with one head commit,
-and `triage-history.js` plus [`references/reproduction.md`](references/reproduction.md)
-already own the pattern-window versions of those questions. Where the rubric and
-[`references/evidence-escalation.md`](references/evidence-escalation.md) disagree
-on what to open, **the escalation ladder wins** -- the rubric ranks evidence by
-diagnostic value, not by what it costs to read.
-
-Don't force the failure into a "test-drift vs product-regression" binary --
-shared-workspace races, resource contention, and floated extension builds are
-none of those.
+This is a collaborative dig, not a rubber-stamped verdict. Read
+[`references/triage-rubric.md`](references/triage-rubric.md) -- the taxonomy,
+the dismissal bar, what each evidence type proves, and the locator-drift
+decision. It is this skill's reasoning contract; `e2e-failure-analyzer`'s rubric
+belongs to the batch Action and is no longer read here.
 
 State: the observed mechanism (citing trace step / log line / screenshot); what
 the evidence rules **in and out**; alternatives ruled out; remaining
