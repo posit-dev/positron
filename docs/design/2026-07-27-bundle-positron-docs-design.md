@@ -55,6 +55,15 @@ seconds. Second, records that a bad *versioned* bundle cannot be recalled, becau
 plus terminal `exact` resolution leaves no lever that reaches an install which already cached it -- noted
 with candidate levers rather than solved, since docs are read-only assistant context.
 
+Revision 9 (2026-07-28), from executing the Part A workflow end to end against a local S3 (moto) with
+bundles built by the real script from a real Quarto render. The publish path behaved as specified -- 8
+objects on `releases`, 4 on `staging` with the alias step correctly skipped, cache-control right per
+object kind, alias bytes identical to the versioned zip, and the assertion step genuinely failing on a
+missing object and on a wrong cache-control value. One new fact came out of it: a bundle version does
+not imply a unique digest, because `generated` is wall-clock and the stage is rebuilt each run. Harmless
+to a client, which verifies a zip against the sidecar it fetched alongside, but recorded so nothing
+downstream treats `version` as a content identity.
+
 ## Goal
 
 Let Positron's AI assistant read product documentation from disk instead of fetching it from
