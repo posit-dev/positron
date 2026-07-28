@@ -501,8 +501,23 @@ Immediately after the `Move latest aliases` step, add:
           CHANNEL: ${{ inputs.release_channel }}
         run: |
           set -euo pipefail
-          S3_PREFIX="s3://posit-positron-downloads/positron/${CHANNEL}/docs"
           S3_BUCKET="posit-positron-downloads"
+          # Bucket-relative key prefix, not an s3:// URL: head-object takes
+          # --bucket and --key separately.
+          KEY_PREFIX="positron/${CHANNEL}/docs"
+
+          # head-object rather than `aws s3 ls`: `ls` on an exact key is a prefix
+          # listing, and whether an empty listing exits non-zero depends on the
+          # AWS CLI major version (v2 exits 1, v1 exited 0). head-object fails on
+          # a missing key regardless, so the assertion does not silently weaken if
+          # the runner image's CLI ever changes.
+          assert_exists() {
+            local key="$1"
+            if ! aws s3api head-object --bucket "$S3_BUCKET" --key "$key" > /dev/null; then
+              echo "error: expected object $key is not present." >&2
+              exit 1
+            fi
+          }
 
           check_no_cache() {
             local key="$1"
@@ -521,17 +536,17 @@ Immediately after the `Move latest aliases` step, add:
             # Every uploaded zip must have a reachable sidecar. Positron refuses
             # to extract a zip it cannot verify, so a dropped sidecar ships a
             # bundle that no install will ever use.
-            aws s3 ls "${S3_PREFIX}/${ZIP}" > /dev/null
-            aws s3 ls "${S3_PREFIX}/${ZIP}.sha256sum" > /dev/null
+            assert_exists "${KEY_PREFIX}/${ZIP}"
+            assert_exists "${KEY_PREFIX}/${ZIP}.sha256sum"
           done
 
           if [ "$CHANNEL" = "releases" ]; then
             for BASENAME in positron-llms positron-workbench-llms; do
               ALIAS="${BASENAME}-latest.zip"
-              aws s3 ls "${S3_PREFIX}/${ALIAS}" > /dev/null
-              aws s3 ls "${S3_PREFIX}/${ALIAS}.sha256sum" > /dev/null
-              check_no_cache "positron/${CHANNEL}/docs/${ALIAS}"
-              check_no_cache "positron/${CHANNEL}/docs/${ALIAS}.sha256sum"
+              assert_exists "${KEY_PREFIX}/${ALIAS}"
+              assert_exists "${KEY_PREFIX}/${ALIAS}.sha256sum"
+              check_no_cache "${KEY_PREFIX}/${ALIAS}"
+              check_no_cache "${KEY_PREFIX}/${ALIAS}.sha256sum"
             done
           fi
 ```
