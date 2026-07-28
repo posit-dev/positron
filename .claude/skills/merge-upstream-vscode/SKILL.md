@@ -174,6 +174,9 @@ may need to `nvm install` first if the change introduces a new Node version.
 Stage any lockfile updates. If you see problems, fix them and run `npm install`
 again until all lockfile issues are resolved.
 
+Once `npm install` succeeds, run `npm ci` until it passes to confirm that the
+lockfile is complete.
+
 ### Step 4: Compile
 
 Once installation is complete, compile the code to check for compile errors:
