@@ -75,4 +75,72 @@ describe('AiProviderCatalog', () => {
 		await new Promise(r => setTimeout(r, 600));
 		expect(fired).not.toHaveBeenCalled();
 	}, 10_000);
+
+	// PROVIDER-SETTINGS-MIGRATION(legacy-positron) gate: delete this block with
+	// the loader option.
+	describe('legacyPositronSettings pass-through', () => {
+		function readerOf(values: Record<string, unknown>) {
+			return {
+				get: (key: string) => values[key],
+				watch: () => ({ dispose: () => { } }),
+			};
+		}
+
+		it('surfaces legacy settings in the catalog (below the user file)', async () => {
+			const configPath = join(dir, 'providers.json');
+			fs.writeFileSync(configPath, JSON.stringify({
+				version: 1,
+				providers: { openai: { baseUrl: 'https://user-openai.example/v1' } },
+			}));
+			catalog = new AiProviderCatalog(new NullLogService(), {
+				configPath,
+				envVars: {},
+				legacyPositronSettings: readerOf({
+					'authentication.anthropic.baseUrl': 'https://legacy.example/v1',
+					'authentication.openai-api.baseUrl': 'https://legacy-openai.example/v1',
+				}),
+			});
+			const providers = await catalog.getCatalog();
+			// Legacy contributes anthropic; the user file wins for openai.
+			expect(providers.find(p => p.id === 'anthropic')?.connection.baseUrl)
+				.toBe('https://legacy.example/v1');
+			expect(providers.find(p => p.id === 'openai')?.connection.baseUrl)
+				.toBe('https://user-openai.example/v1');
+		});
+
+		it('POSITRON_ENFORCED_SETTINGS beats the user file', async () => {
+			const configPath = join(dir, 'providers.json');
+			fs.writeFileSync(configPath, JSON.stringify({
+				version: 1,
+				providers: { anthropic: { enabled: true, baseUrl: 'https://user.example/v1' } },
+			}));
+			catalog = new AiProviderCatalog(new NullLogService(), {
+				configPath,
+				envVars: {
+					POSITRON_ENFORCED_SETTINGS: JSON.stringify({
+						'authentication.anthropic.baseUrl': 'https://enforced.example/v1',
+						'positron.assistant.provider.anthropic.enable': false,
+					}),
+				},
+				legacyPositronSettings: readerOf({}),
+			});
+			const anthropic = (await catalog.getCatalog()).find(p => p.id === 'anthropic')!;
+			expect({ enabled: anthropic.enabled, baseUrl: anthropic.connection.baseUrl })
+				.toEqual({ enabled: false, baseUrl: 'https://enforced.example/v1' });
+		});
+
+		it('no reader → no legacy layers, even with the env var set', async () => {
+			const configPath = join(dir, 'providers.json');
+			catalog = new AiProviderCatalog(new NullLogService(), {
+				configPath,
+				envVars: {
+					POSITRON_ENFORCED_SETTINGS: JSON.stringify({
+						'authentication.anthropic.baseUrl': 'https://enforced.example/v1',
+					}),
+				},
+			});
+			const anthropic = (await catalog.getCatalog()).find(p => p.id === 'anthropic')!;
+			expect(anthropic.connection.baseUrl).toBeUndefined();
+		});
+	});
 });

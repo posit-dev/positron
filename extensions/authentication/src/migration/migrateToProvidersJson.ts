@@ -8,7 +8,6 @@ import * as vscode from 'vscode';
 import { log } from '../log';
 import {
 	buildProvidersConfigFromSettings,
-	InferCapabilitiesFn,
 	MigrationSettingsReader,
 } from './providersJson';
 
@@ -24,8 +23,6 @@ export interface RunMigrationOptions {
 	configPath?: string;
 	/** Override the settings source (tests). */
 	reader?: MigrationSettingsReader;
-	/** Override capability inference (tests). */
-	inferCapabilities?: InferCapabilitiesFn;
 }
 
 /** Reads explicitly-set GLOBAL values only; defaults and workspace scopes are ignored. */
@@ -36,25 +33,11 @@ export function createGlobalSettingsReader(): MigrationSettingsReader {
 	};
 }
 
-/**
- * Zero-value capability synthesizer for presence checks. Capabilities only
- * shape the values written into custom models, never whether a setting
- * migrates, so hasMigratableSettings can stay synchronous instead of
- * dynamically importing ai-config's real inferModelCapabilities.
- */
-const PRESENCE_CHECK_CAPABILITIES: InferCapabilitiesFn = () => ({
-	maxContextLength: 0,
-	supportsTools: false,
-	supportsImages: false,
-	supportsToolResultImages: false,
-	supportsWebSearch: false,
-});
-
 /** True when the settings hold values the migration would actually write (empty values are filtered). */
 export function hasMigratableSettings(
 	reader: MigrationSettingsReader = createGlobalSettingsReader()
 ): boolean {
-	return buildProvidersConfigFromSettings(reader, PRESENCE_CHECK_CAPABILITIES) !== undefined;
+	return buildProvidersConfigFromSettings(reader) !== undefined;
 }
 
 /**
@@ -102,16 +85,16 @@ export async function userProvidersFileIsPopulated(configPath?: string): Promise
  */
 export async function runMigration(opts: RunMigrationOptions): Promise<MigrationResult> {
 	const reader = opts.reader ?? createGlobalSettingsReader();
-	const { mutateProvidersConfig, inferModelCapabilities, providersConfigSchema } = await import('ai-config/node');
-	const mapped = buildProvidersConfigFromSettings(reader, opts.inferCapabilities ?? inferModelCapabilities);
+	const { mutateProvidersConfig, providersConfigSchema } = await import('ai-config/node');
+	const mapped = buildProvidersConfigFromSettings(reader);
 	if (!mapped) {
 		log.info('[migration] No provider settings to migrate');
 		return { outcome: 'nothing-to-migrate' };
 	}
 
-	// The builder assembles loosely-typed blocks; validate the assembled config
-	// against ai-config's schema before writing so a bad mapping fails loudly
-	// here instead of writing malformed providers.json.
+	// Validate the assembled config against ai-config's schema before writing
+	// so a bad mapping fails loudly here instead of writing malformed
+	// providers.json.
 	const config = providersConfigSchema.parse(mapped.config);
 
 	if (!opts.overwrite && await userProvidersFileIsPopulated(opts.configPath)) {
