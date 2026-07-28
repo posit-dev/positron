@@ -57,6 +57,10 @@ const HelpLines = [
 	'console active   - Show the current active console editor URI, language, and text (tests positron.window.activeConsoleEditor)',
 	'console watch    - Subscribe to onDidChangeActiveConsoleEditor and print each change',
 	'console watch stop - Stop watching for active console changes',
+	'console edit X   - Replace the console input with X via TextEditor.edit() (tests the Editor interface)',
+	'console append X - Insert X at the end of the console input via TextEditor.edit()',
+	'console insert X - Insert X at the cursor via TextEditor.insertSnippet()',
+	'console select   - Select the entire console input and report TextEditor.selection',
 	'connection X     - Create a database connection, optionally named X',
 	'connection close - Close a random database connection',
 	'code X Y         - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
@@ -477,6 +481,13 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 			} else {
 				this.simulateConnection(id, code, title);
 			}
+			return;
+		} else if (match = code.match(/^console (edit|insert|append|select)(?: ([\s\S]*))?$/)) {
+			// Exercise the editing side of positron.window.activeConsoleEditor's
+			// vscode.TextEditor interface (edit(), insertSnippet(), selection).
+			const subcommand = match[1];
+			const arg = (match.length > 2 && match[2] !== undefined) ? match[2] : '';
+			this.simulateConsoleEditorCommand(id, code, subcommand, arg);
 			return;
 		}
 
@@ -2028,6 +2039,67 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 			this.simulateOutputMessage(parentId, output);
 		}
 		this.simulateIdleState(parentId);
+	}
+
+	/**
+	 * Exercises the mutating side of the `vscode.TextEditor` interface exposed by
+	 * `positron.window.activeConsoleEditor`. This complements the read-only `console active`
+	 * and `console watch` commands by verifying that `edit()`, `insertSnippet()`, and
+	 * `selection` operate on the live console input.
+	 * @param parentId The parent identifier.
+	 * @param code The originating command text.
+	 * @param subcommand The editor operation to perform: `edit`, `append`, `insert`, or `select`.
+	 * @param arg The text argument for `edit`, `append`, and `insert` (ignored for `select`).
+	 */
+	private simulateConsoleEditorCommand(parentId: string, code: string, subcommand: string, arg: string) {
+		const editor = positron.window.activeConsoleEditor;
+		if (!editor) {
+			this.simulateUnsuccessfulCodeExecution(parentId, code, 'No Active Console',
+				`No console editor is currently active.\n`, []);
+			return;
+		}
+
+		// The full range of the current console input, used for whole-document operations.
+		const fullRange = () => new vscode.Range(
+			editor.document.positionAt(0),
+			editor.document.positionAt(editor.document.getText().length));
+
+		switch (subcommand) {
+			case 'edit': {
+				// Replace the entire input with `arg`.
+				editor.edit(editBuilder => editBuilder.replace(fullRange(), arg)).then((applied) => {
+					this.simulateSuccessfulCodeExecution(parentId, code,
+						`edit() replace applied: ${applied}\nText: ${JSON.stringify(editor.document.getText())}`);
+				});
+				break;
+			}
+			case 'append': {
+				// Insert `arg` at the end of the input.
+				editor.edit(editBuilder => editBuilder.insert(fullRange().end, arg)).then((applied) => {
+					this.simulateSuccessfulCodeExecution(parentId, code,
+						`edit() insert applied: ${applied}\nText: ${JSON.stringify(editor.document.getText())}`);
+				});
+				break;
+			}
+			case 'insert': {
+				// Insert `arg` as a snippet at the current cursor position.
+				editor.insertSnippet(new vscode.SnippetString(arg)).then((applied) => {
+					this.simulateSuccessfulCodeExecution(parentId, code,
+						`insertSnippet() applied: ${applied}\nText: ${JSON.stringify(editor.document.getText())}`);
+				});
+				break;
+			}
+			case 'select': {
+				// Set the selection to cover the whole input, then read it back.
+				editor.selection = new vscode.Selection(fullRange().start, fullRange().end);
+				const selection = editor.selection;
+				this.simulateSuccessfulCodeExecution(parentId, code,
+					`Selection: [${selection.start.line}:${selection.start.character} - ` +
+					`${selection.end.line}:${selection.end.character}]\n` +
+					`Selected text: ${JSON.stringify(editor.document.getText(selection))}`);
+				break;
+			}
+		}
 	}
 
 	/**

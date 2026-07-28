@@ -454,33 +454,52 @@ export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, 
 	 * @returns A disposable that removes the editor from the ext host when disposed
 	 */
 	registerConsoleEditor(id: string, codeEditor: ICodeEditor): IDisposable {
+		const store = new DisposableStore();
+
+		const doRegister = (model: ITextModel) => {
+			const editor = new MainThreadTextEditor(
+				id,
+				model,
+				codeEditor,
+				{ onGainedFocus() { }, onLostFocus() { } },
+				this._mainThreadDocuments,
+				this._modelService,
+				this._clipboardService,
+			);
+
+			this._textEditors.set(id, editor);
+			this._mainThreadEditors.handleTextEditorAdded(editor);
+			this._proxy.$acceptDocumentsAndEditorsDelta({
+				addedEditors: [this._toTextEditorAddData(editor)],
+			});
+
+			store.add(toDisposable(() => {
+				this._textEditors.delete(id);
+				editor.dispose();
+				this._mainThreadEditors.handleTextEditorRemoved(id);
+				this._proxy.$acceptDocumentsAndEditorsDelta({ removedEditors: [id] });
+			}));
+		};
+
 		const model = codeEditor.getModel();
-		if (!model) {
-			return toDisposable(() => { });
+		if (model) {
+			doRegister(model);
+		} else {
+			// The console input assigns its code editor before attaching the text model, so the
+			// model may not be present yet. Wait for it rather than silently skipping registration,
+			// otherwise `positron.window.activeConsoleEditor` would never resolve this editor.
+			const sub = store.add(codeEditor.onDidChangeModel(e => {
+				if (e.newModelUrl) {
+					const newModel = codeEditor.getModel();
+					if (newModel) {
+						sub.dispose();
+						doRegister(newModel);
+					}
+				}
+			}));
 		}
 
-		const editor = new MainThreadTextEditor(
-			id,
-			model,
-			codeEditor,
-			{ onGainedFocus() { }, onLostFocus() { } },
-			this._mainThreadDocuments,
-			this._modelService,
-			this._clipboardService,
-		);
-
-		this._textEditors.set(id, editor);
-		this._mainThreadEditors.handleTextEditorAdded(editor);
-		this._proxy.$acceptDocumentsAndEditorsDelta({
-			addedEditors: [this._toTextEditorAddData(editor)],
-		});
-
-		return toDisposable(() => {
-			this._textEditors.delete(id);
-			editor.dispose();
-			this._mainThreadEditors.handleTextEditorRemoved(id);
-			this._proxy.$acceptDocumentsAndEditorsDelta({ removedEditors: [id] });
-		});
+		return store;
 	}
 	// --- End Positron ---
 }
