@@ -178,7 +178,7 @@ class CapturedError:
 
 
 @contextmanager
-def capture_errors() -> Generator[list[CapturedError]]:
+def capture_errors() -> Generator[list[CapturedError], None, None]:
     """Capture errors published by the kernel."""
     from positron.positron_ipkernel import PositronShell
 
