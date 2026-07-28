@@ -212,7 +212,7 @@ case "$PROFILE" in
 esac
 
 ZIP_NAME="${BASENAME}-${VERSION}.zip"
-# Captured before any `cd`: the zip is written here, and step 6 zips from inside
+# Captured before any `cd`: the zip is written here, and step 7 zips from inside
 # $STAGE, so a relative path or $OLDPWD would resolve against the wrong dir.
 OUT_DIR="$PWD"
 STAGE="$(mktemp -d)"
