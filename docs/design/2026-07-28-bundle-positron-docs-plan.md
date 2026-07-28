@@ -155,7 +155,9 @@ Read these before starting. Each one changes code the spec described differently
 # Part A: the slim bundle (posit-dev/positron-website)
 
 Executed from a `posit-dev/positron-website` checkout. One PR. Independently shippable: it adds new
-CDN objects and changes nothing existing.
+CDN objects and changes nothing existing **on the success path**. Task 2 Step 1 places the build step
+after the existing release and upload steps precisely so that a content guard firing cannot abort the
+pre-existing docs release; see that step for why the placement is load-bearing.
 
 ### Task 1: Bundle build script with content guards
 
@@ -245,22 +247,53 @@ fi
 sed "s|${DOCS_BASE_URL}||g" "$STAGE/llms.txt" > "$STAGE/llms.txt.rewritten"
 mv "$STAGE/llms.txt.rewritten" "$STAGE/llms.txt"
 
-# 3. Guard: no bundled file may still reference the site.
-if grep -rl 'positron\.posit\.co' "$STAGE" ; then
+# 3. Guard: no bundled file may still reference the site. Paths are reported
+# relative to $SITE_DIR, since a mktemp path is not actionable for an operator.
+if grep -rl 'positron\.posit\.co' "$STAGE" | sed "s|^$STAGE/|$SITE_DIR/|" | grep . ; then
 	echo "error: bundled files still reference positron.posit.co (listed above)." >&2
 	echo "The rewrite assumes only llms.txt carries site links. That assumption broke." >&2
 	exit 1
 fi
 
-# 4. Guard: every link in llms.txt must now be bundle-relative.
-if grep -oE '\]\([^)]+\)' "$STAGE/llms.txt" | grep -E '\((https?:)?//' ; then
-	echo "error: llms.txt still contains absolute links (listed above)." >&2
+# 4. Guard: every link in llms.txt must now be bundle-relative. Matches any
+# scheme case-insensitively, scheme-relative `//host`, and root-relative `/path`
+# - none of which resolve inside an extracted bundle.
+if grep -oE '\]\([^)]+\)' "$STAGE/llms.txt" | grep -Ei '\(([a-z][a-z0-9+.-]*:)?//|\(/' ; then
+	echo "error: llms.txt contains links that are not bundle-relative (listed above)." >&2
+	exit 1
+fi
+
+# 5. Guard: every link target must exist in the bundle. llms.txt is the
+# consumer's only index, and Quarto builds it from the page list rather than from
+# what it actually wrote, so a partial render yields an index pointing at files
+# that are not there. Nothing else in this script can catch that: the file count
+# is measured from $STAGE and compared against a zip built from $STAGE, so it is
+# self-consistent whatever is missing.
+MISSING_LINKS=0
+while IFS= read -r target; do
+	target="${target%%#*}"
+	[ -n "$target" ] || continue
+	if [ ! -f "$STAGE/$target" ]; then
+		echo "error: llms.txt links '$target', which is not in the bundle." >&2
+		MISSING_LINKS=$((MISSING_LINKS + 1))
+	fi
+done < <(grep -oE '\]\([^)]+\)' "$STAGE/llms.txt" | sed 's/^](//; s/)$//')
+if [ "$MISSING_LINKS" -ne 0 ]; then
+	echo "error: $MISSING_LINKS llms.txt link(s) do not resolve inside the bundle." >&2
+	echo "The Quarto render is probably incomplete." >&2
 	exit 1
 fi
 
 FILE_COUNT="$(find "$STAGE" -type f | wc -l | tr -d ' ')"
 
-# 5. Generate bundle.json, then include it in the count it reports.
+# llms.txt plus the docs counted at step 1. A mismatch means the tar pipe
+# dropped or duplicated something between the site dir and the stage.
+if [ "$FILE_COUNT" -ne "$((DOC_COUNT + 1))" ]; then
+	echo "error: staged $FILE_COUNT files, expected $((DOC_COUNT + 1))." >&2
+	exit 1
+fi
+
+# 6. Generate bundle.json, then include it in the count it reports.
 cat > "$STAGE/bundle.json" <<JSON
 {
   "schema": ${SCHEMA},
@@ -272,7 +305,7 @@ cat > "$STAGE/bundle.json" <<JSON
 }
 JSON
 
-# 6. Zip, then verify the archive round-trips the guards.
+# 7. Zip, then verify its entry list and count match what was staged.
 rm -f "$ZIP_NAME"
 ( cd "$STAGE" && zip -q -r -X "$OUT_DIR/$ZIP_NAME" . )
 
@@ -294,7 +327,7 @@ if [ "$ZIPPED_COUNT" -ne "$DECLARED_COUNT" ]; then
 	exit 1
 fi
 
-# 7. Digest sidecar. Positron refuses to extract without a matching one.
+# 8. Digest sidecar. Positron refuses to extract without a matching one.
 shasum -a 256 "$ZIP_NAME" > "${ZIP_NAME}.sha256sum"
 shasum -a 256 -c "${ZIP_NAME}.sha256sum"
 
@@ -361,7 +394,33 @@ Expected: `error: no *.llms.md files under ...; the Quarto render produced no LL
 This guard exists because GNU tar refuses to create an empty archive while BSD tar accepts one, so
 without it the same broken render fails cryptically on CI and silently on a Mac.
 
-- [ ] **Step 7: Verify the workbench profile names its output correctly**
+- [ ] **Step 7: Verify the bundle-relative link guard catches every non-relative shape**
+
+```bash
+for LINK in '/welcome.llms.md' 'https://example.com/x.md' 'HTTPS://example.com/x.md' '//host/x.md'; do
+  printf '# P\n\n- [W](%s)\n' "$LINK" > /tmp/fixture-site/llms.txt
+  scripts/build-llms-bundle.sh /tmp/fixture-site positron 2026.05.0-179 >/dev/null 2>&1
+  echo "$LINK -> exit=$?"
+done
+```
+
+Expected: `exit=1` for all four. Root-relative and uppercase-scheme links are the ones a naive
+`(https?:)?//` check misses, and they matter because the `workbench` profile sets no `site-url`
+(`_quarto-workbench.yml`), so its link shape is not the same known quantity the `positron` profile's is.
+
+- [ ] **Step 8: Verify the link-resolution guard catches a partial render**
+
+```bash
+printf '# Positron\n\n- [Welcome](https://positron.posit.co/welcome.llms.md)\n- [Gone](https://positron.posit.co/release-notes/never.llms.md)\n' > /tmp/fixture-site/llms.txt
+scripts/build-llms-bundle.sh /tmp/fixture-site positron 2026.05.0-179 ; echo "exit=$?"
+```
+
+Expected: names `release-notes/never.llms.md` as unresolved and `exit=1`. Then restore the fixture's
+`llms.txt` to the two-link version from Step 3 before continuing. This is the only guard that catches a
+truncated render: the file count is measured from the stage and compared against a zip built from that
+same stage, so it agrees with itself no matter what the render omitted.
+
+- [ ] **Step 9: Verify the workbench profile names its output correctly**
 
 ```bash
 scripts/build-llms-bundle.sh /tmp/fixture-site workbench 2026.05.0-179
@@ -370,7 +429,7 @@ ls positron-workbench-llms-2026.05.0-179.zip positron-workbench-llms-2026.05.0-1
 
 Expected: both files exist. These names must match Task 11's `resolveBundleRequest` exactly.
 
-- [ ] **Step 8: Verify the sidecar catches corruption**
+- [ ] **Step 10: Verify the sidecar catches corruption**
 
 ```bash
 cp positron-llms-2026.05.0-179.zip corrupt.zip
@@ -390,7 +449,7 @@ untouched zip. Both halves matter: the clean check alone passes whether or not a
 actually detectable, so it cannot on its own tell you the sidecar is doing any work. The sidecar format
 is `<hex>  <filename>`, which is what Task 4's `parseSha256Sidecar` parses.
 
-- [ ] **Step 9: Clean up and commit**
+- [ ] **Step 11: Clean up and commit**
 
 ```bash
 rm -f positron-llms-2026.05.0-179.zip* positron-workbench-llms-2026.05.0-179.zip* corrupt.zip*
@@ -413,15 +472,24 @@ git commit -m "Add slim LLM docs bundle build script with content guards"
   profile, each with a `.sha256sum`. Part C's default `positronLlmsDocsUrl` points at the CloudFront
   view of that prefix for the `releases` channel.
 
-**Publish order is load-bearing.** Positron treats a missing sidecar as a verification failure and
-refuses to extract, so per profile the order is: `<version>.zip.sha256sum`, `<version>.zip`, then
-`latest.zip.sha256sum`, then `latest.zip`. The mutable alias moves last so it never points at an
-object whose digest has not landed.
+**Publish order is load-bearing, for the versioned pair.** Positron treats a missing sidecar as a
+verification failure and refuses to extract, so per profile the order is: `<version>.zip.sha256sum`,
+`<version>.zip`, then `latest.zip.sha256sum`, then `latest.zip`. Because the versioned objects are
+immutable and written once, sidecar-first genuinely means a versioned zip is never reachable without
+its digest.
+
+**The alias pair cannot be made atomic, and the consumer must tolerate that.** `latest.zip` and
+`latest.zip.sha256sum` are both mutable, so between the two `aws s3 cp` calls the sidecar carries the
+new digest while the zip is still the previous release's bytes. No ordering removes this window -
+zip-first merely inverts which side is stale. It is short, and `no-cache` means CloudFront revalidates
+rather than pinning a stale pair, but it occurs on every release. **Part B therefore must treat a
+digest mismatch on a `latest` alias as retryable rather than as a permanent failure**, or a client that
+polls during that window would poison its own cache state. Recorded in the design spec.
 
 - [ ] **Step 1: Add the build step**
 
-In `.github/workflows/release-docs-bundles.yml`, immediately after the existing
-`- name: Create docs bundles` step, add:
+In `.github/workflows/release-docs-bundles.yml`, immediately **before** the `Upload slim LLM bundles
+to S3` step added in Step 2 - that is, after the existing `- name: Upload docs bundles to S3` - add:
 
 ```yaml
       - name: Create slim LLM docs bundles
@@ -430,9 +498,16 @@ In `.github/workflows/release-docs-bundles.yml`, immediately after the existing
           scripts/build-llms-bundle.sh _site-workbench workbench "${{ steps.get-version.outputs.release_version }}"
 ```
 
-The existing step ends with `cd ../_site-workbench`, so this new step starts in the workspace root
-only because each `run:` block gets a fresh shell at the default working directory. That is why the
-paths here are `_site` and `_site-workbench` rather than `../_site`.
+Each `run:` block gets a fresh shell at the default working directory, so the paths here are `_site`
+and `_site-workbench` rather than `../_site`, even though the earlier `Create docs bundles` step ends
+inside `_site-workbench`.
+
+**Placement is deliberate and matters.** The obvious home for this step is next to `Create docs
+bundles`, but that sits before `Delete existing release`, `Create Release`, and `Upload docs bundles to
+S3`. A new content guard firing there would abort the GitHub release and the two pre-existing docs
+zips - so a bug in this feature could block the docs release it was supposed to be independent of.
+Running it after the existing uploads confines the blast radius to the new objects. Both `_site` and
+`_site-workbench` still exist at that point, and the step needs no AWS credentials.
 
 - [ ] **Step 2: Add the upload step**
 
@@ -505,6 +580,8 @@ Immediately after the `Move latest aliases` step, add:
           # Bucket-relative key prefix, not an s3:// URL: head-object takes
           # --bucket and --key separately.
           KEY_PREFIX="positron/${CHANNEL}/docs"
+          # Must match the value the upload step sets, character for character.
+          IMMUTABLE_CC="public, max-age=31536000, immutable"
 
           # head-object rather than `aws s3 ls`: `ls` on an exact key is a prefix
           # listing, and whether an empty listing exits non-zero depends on the
@@ -519,14 +596,19 @@ Immediately after the `Move latest aliases` step, add:
             fi
           }
 
-          check_no_cache() {
+          # Assert both kinds, not just the aliases: `immutable` on a versioned
+          # object is the value that cannot be corrected later without an
+          # invalidation, so it is the more expensive one to get wrong.
+          check_cache_control() {
             local key="$1"
+            local expected="$2"
             local cc
             cc="$(aws s3api head-object --bucket "$S3_BUCKET" --key "$key" \
                     --query 'CacheControl' --output text)"
-            if [ "$cc" != "no-cache" ]; then
-              echo "error: $key has Cache-Control '$cc', expected 'no-cache'." >&2
-              echo "A cached alias makes every conditional GET answer 304 forever." >&2
+            if [ "$cc" != "$expected" ]; then
+              echo "error: $key has Cache-Control '$cc', expected '$expected'." >&2
+              echo "A cached alias makes every conditional GET answer 304 forever;" >&2
+              echo "a non-immutable versioned object wastes a revalidation on every read." >&2
               exit 1
             fi
           }
@@ -538,6 +620,8 @@ Immediately after the `Move latest aliases` step, add:
             # bundle that no install will ever use.
             assert_exists "${KEY_PREFIX}/${ZIP}"
             assert_exists "${KEY_PREFIX}/${ZIP}.sha256sum"
+            check_cache_control "${KEY_PREFIX}/${ZIP}" "$IMMUTABLE_CC"
+            check_cache_control "${KEY_PREFIX}/${ZIP}.sha256sum" "$IMMUTABLE_CC"
           done
 
           if [ "$CHANNEL" = "releases" ]; then
@@ -545,8 +629,8 @@ Immediately after the `Move latest aliases` step, add:
               ALIAS="${BASENAME}-latest.zip"
               assert_exists "${KEY_PREFIX}/${ALIAS}"
               assert_exists "${KEY_PREFIX}/${ALIAS}.sha256sum"
-              check_no_cache "${KEY_PREFIX}/${ALIAS}"
-              check_no_cache "${KEY_PREFIX}/${ALIAS}.sha256sum"
+              check_cache_control "${KEY_PREFIX}/${ALIAS}" "no-cache"
+              check_cache_control "${KEY_PREFIX}/${ALIAS}.sha256sum" "no-cache"
             done
           fi
 ```
@@ -581,8 +665,29 @@ gh pr create --repo posit-dev/positron-website \
   --body 'See posit-dev/positron docs/design/2026-07-27-bundle-positron-docs-design.md, Step 1.'
 ```
 
-Then trigger one `workflow_dispatch` run against the `releases` channel and confirm all eight objects
-land. Parts B and C do not block on this - manual validation step 5 in the spec uses a local server.
+**Do not trigger a validation run from this branch, and do not make the first one a `releases` run.**
+Two reasons, both structural:
+
+1. The workflow's `Check out repository` step pins `repository: posit-dev/positron-website, ref: main`.
+   A `workflow_dispatch` from this branch therefore runs the *new* workflow YAML against a *main*
+   checkout, where `scripts/build-llms-bundle.sh` does not exist. The build step would fail - and
+   because it runs after the release steps, it would fail *having already* published the release.
+   Validation is only meaningful post-merge.
+2. Post-merge, make the first run target the **`staging`** channel. That exercises the build, the
+   versioned uploads, and the assertion step's non-alias branch, while making it structurally
+   impossible to repoint the mutable `latest` alias that every install reads (the alias step is gated
+   on `release_channel == 'releases'`). Watch for `Upload assets to existing release` failing if no
+   GitHub release exists for that version.
+
+Then confirm the four versioned objects for that channel. Only after a clean staging run should a
+`releases` run move the aliases.
+
+**One thing no local test can establish:** whether the assertion step actually fails when an object is
+missing. Include a negative case in the first staging run - withhold one upload deliberately, or
+temporarily point one `assert_exists` call at a key you know is absent - and confirm the job goes red.
+An assertion nobody has seen fail is not yet known to work.
+
+Parts B and C do not block on any of this - manual validation step 5 in the spec uses a local server.
 
 ---
 
