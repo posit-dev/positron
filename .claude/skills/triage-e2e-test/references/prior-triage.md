@@ -37,23 +37,7 @@ If a merged fix didn't hold (`recurred-after-fix`), the eventual diagnosis block
 gets a **Supersedes** bullet naming it -- see
 [`diagnosis-block.md`](diagnosis-block.md).
 
-## Doing it by hand (fallback)
+## If the script itself is broken
 
-Only if `find-prior-triage.js` is broken:
-
-```bash
-gh search prs --repo posit-dev/positron --match body "E2E Triage Diagnosis" \
-  --json number,title,url,state,body --limit 50
-```
-
-Filter results yourself for a body containing this test's exact spec path.
-For merged matches, get the merge commit and partition occurrences by ancestry:
-
-```bash
-gh pr view <number> --json mergeCommit,mergedAt
-git merge-base --is-ancestor <fix-merge-sha> <occurrence-sha> \
-  && echo "after fix" || echo "before fix / unrelated history"
-```
-
-If a SHA isn't found locally, `git fetch origin` first -- occurrence SHAs come
-from CI runs across branches your clone may not have fetched.
+Only if `find-prior-triage.js` is broken, do the search and ancestry partition by
+hand -- see [`script-fallbacks.md`](script-fallbacks.md).

@@ -36,19 +36,8 @@ returns `{}` (API down or `E2E_INSIGHTS_API_KEY` unset). Say so and stop -- do
 **not** fall back to the other branch's result as if it were complete, and do
 not treat an empty response as "no failures."
 
-## Doing the dual-branch query by hand (fallback)
+## If the script itself is broken
 
 `triage-history.js` already runs both branch queries and merges them. Only drop
-to the raw script if the wrapper itself is broken:
-
-```bash
-node .claude/skills/e2e-failure-analyzer/scripts/e2e-query-history.js \
-  --repo positron --test-keys '["<key>"]' --branch <branch> \
-  --lookback-days 14 --occurrences-per-pattern 1
-```
-
-Query the current branch **and** `main`, then merge `failure_patterns[]` by
-failure text (not array position). Querying only the current branch risks two
-false negatives (a new branch reports zero runs; a branch with one passing run
-masks an established main flake); querying only main misses what the branch
-itself introduced. Evaluate zero-runs **per branch**, never on the merged total.
+to the raw script if the wrapper is broken -- see
+[`script-fallbacks.md`](script-fallbacks.md).

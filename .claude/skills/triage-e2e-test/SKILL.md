@@ -48,32 +48,19 @@ Violating the letter of these rules is violating their spirit.
 ## Scripts
 
 Run from the repo root. All emit **compact JSON to stdout** and write full
-payloads to the per-triage work directory under the shared git common dir
-(`<git-common-dir>/triage-e2e-test/<id>/`, so `--resume` works from any
-worktree). They wrap the `e2e-failure-analyzer` scripts (no copies).
+payloads to `<git-common-dir>/triage-e2e-test/<id>/` (shared git dir, so
+`--resume` works from any worktree). They wrap the `e2e-failure-analyzer`
+scripts (no copies). Flags and output contracts:
+[`scripts/README.md`](scripts/README.md). If a script itself breaks, see
+[`references/script-fallbacks.md`](references/script-fallbacks.md).
 
-- `scripts/triage-history.js` -- dual-branch history retrieval + merge. Resolves
-  the branch, queries the current branch and `main`, merges patterns by failure
-  text, computes counts/%/seen-on, classifies zero-run conditions, selects one
-  representative occurrence per pattern. Defaults to `--occurrences-per-pattern 1`.
-- `scripts/find-prior-triage.js` -- filtered prior-triage lookup. Finds PRs whose
-  body names this spec, extracts diagnosis fields, resolves merge SHAs, and
-  partitions occurrence SHAs into before-fix / after-fix.
-- `scripts/fetch-pattern-evidence.js` -- summary-first evidence for one
-  occurrence. Runs the S3 processor filtered to this test, stores full evidence
-  on disk, generates a compact `summary.md`.
-- `scripts/checkpoint.js` -- durable state for start / resume / status. Setting
-  `phase` auto-derives `nextAction`, so a resume always shows the right next
-  step (pass `--set nextAction=...` only to override). Refuses `phase=done`
-  until an `outcome` is set and (for PR/issue outcomes) the diagnosis block is
-  recorded -- the mechanical guard against calling a triage done before the
-  block lands.
-- `scripts/record-diagnosis.js` -- renders the `### E2E Triage Diagnosis` block
-  from the checkpoint + history and appends it to the resolving PR (`--pr`) or
-  issue (`--issue`). Idempotent. Only writer of `diagnosisBlockRecorded`, so it
-  is what unblocks `phase=done`. Opening a PR via `positron-pr-helper` does NOT
-  record the block -- run this after. `--secondary` appends the block to a
-  second artifact without repointing `outcomeRef` (see "Split outcome").
+| Script | Use it to |
+|---|---|
+| `triage-history.js` | get the failure patterns (dual-branch, merged, one occurrence each) |
+| `find-prior-triage.js` | check whether this spec was triaged before |
+| `fetch-pattern-evidence.js` | pull evidence for one occurrence of the selected pattern |
+| `checkpoint.js` | start / resume / status; `--set phase=X` auto-derives `nextAction` |
+| `record-diagnosis.js` | append the diagnosis block; only writer of `diagnosisBlockRecorded`, so it is what unblocks `phase=done` |
 
 ## Start or resume
 
@@ -153,9 +140,18 @@ saved data is invalid, or the branch/test identity changed.
 
 This is a collaborative dig, not a rubber-stamped verdict. Use the
 `e2e-failure-analyzer` rubric ([`../e2e-failure-analyzer/rubric.md`](../e2e-failure-analyzer/rubric.md))
-for the root-cause catalog and how to read each evidence type. Don't force the
-failure into a "test-drift vs product-regression" binary -- shared-workspace
-races, resource contention, and floated extension builds are none of those.
+for the root-cause catalog, the dismissal bar, and how to read each evidence
+type -- but **skip its "Use historical data when available" and "Check the
+triggering commit" sections**: both assume a single run with one head commit,
+and `triage-history.js` plus [`references/reproduction.md`](references/reproduction.md)
+already own the pattern-window versions of those questions. Where the rubric and
+[`references/evidence-escalation.md`](references/evidence-escalation.md) disagree
+on what to open, **the escalation ladder wins** -- the rubric ranks evidence by
+diagnostic value, not by what it costs to read.
+
+Don't force the failure into a "test-drift vs product-regression" binary --
+shared-workspace races, resource contention, and floated extension builds are
+none of those.
 
 State: the observed mechanism (citing trace step / log line / screenshot); what
 the evidence rules **in and out**; alternatives ruled out; remaining
@@ -186,29 +182,15 @@ for what each must contain.
 
 ## Reproduce and fix
 
-**Checkpoint the diagnosis, then `/clear` and `--resume <id>` before
-implementing.** History and evidence are durable on disk, so implementation
-should start from a **clean context carrying only the compact diagnosis** --
-don't drag the whole investigation into the fix, where cross-file edits, tests,
-and verification runs will grow context fast. Set `phase=awaiting-clear` before
-clearing; on resume, set `phase=implementation`.
+**Checkpoint the diagnosis, then `phase=awaiting-clear` -> `/clear` ->
+`--resume <id>` -> `phase=implementation` before implementing.** History,
+evidence, and working-tree edits are all durable on disk, so implementation
+starts from a clean context carrying only the compact diagnosis.
 
-Read [`references/reproduction.md`](references/reproduction.md) at this stage.
-In short:
-
-- **Clear again** at the first context warning or right after abandoning an
-  approach -- a dead end is re-read on every later turn. Edits stay on disk.
-- **Read source through `Explore`** under the tracing cap above; inline
-  `sed`/`grep` sweeps are this phase's main avoidable cost.
-- When the mechanism is below the e2e layer, write a deterministic lower-level
-  regression test via `author-vitest-tests` (it owns the builder/stub
-  conventions and `review-vitest-tests`, but drives toward green -- **the RED
-  bar is yours to hold**: a valid RED reproduces the diagnosed mechanism inside
-  the assertion, not an import/compile/setup error. See `reproduction.md`).
-- Otherwise use the smallest CI-exercised e2e project and recreate the
-  triggering condition, not just a rerun. For a race, one green run is not proof.
-- Keep verification output on disk or in the background (the `--repeat-each`
-  loop is noisy) -- read a summary, don't stream full runs into context.
+Read [`references/reproduction.md`](references/reproduction.md) now -- it owns
+re-clear discipline, project choice, race verification, and the RED bar **you**
+must hold when `author-vitest-tests` writes a lower-level regression test (that
+skill drives toward green; it does not enforce RED-first).
 
 ## Record the result and close out
 

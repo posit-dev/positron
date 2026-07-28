@@ -18,6 +18,10 @@ of the session.
   call chain goes to an `Explore` subagent under the cap in the SKILL's
   root-cause step. Inline `sed`/`grep`/`cat` sweeps and whole-file `Read`s are
   the largest avoidable line item in this phase.
+- **Keep verification output off the transcript.** Redirect runs to a file or
+  run them in the background and read a summary -- a `--repeat-each` loop is
+  noisy, and streaming full Playwright output into context bills it on every
+  later turn.
 
 ## Prefer a unit-level repro when the mechanism lives below the e2e layer
 
@@ -43,25 +47,32 @@ race, and it leaves behind a regression test the e2e repro wouldn't. Reach for
 an e2e-project repro when the mechanism is genuinely e2e-layer (a POM race, a
 shared fixture, UI timing).
 
-## Pick a project, easiest first
+## Pick a project from the pattern's environments
 
-Only three projects run in CI. Start at the top; move down only for a specific
-reason (e.g. the pattern's `environment_breakdown` concentrates on one):
+The selected pattern's `environment_breakdown` names the OS/browser combos it
+actually failed on. Pick the cheapest project that covers one of them, and move
+down only for a reason you can state:
 
-1. `e2e-electron` -- desktop app, no extra setup. macOS/Windows/Ubuntu in CI.
-   Try this first unless the test is web-only.
+1. `e2e-electron` -- desktop app, no extra setup. Try this first unless the
+   pattern occurred only in a browser environment.
 2. `e2e-chromium` -- browser against a managed server, no extra setup.
-   debian/sles/opensuse/rhel in CI.
 3. `e2e-workbench` -- browser against a container running Positron + Workbench.
    Requires `npm run pwb` first (add `-- --credentials=<databricks|snowflake|
    azure>` only if the test exercises a managed data-source connection); see
    `docker/environments/wb-local/README.md`.
 
-(`playwright.config.ts` defines others -- `e2e-server`, `e2e-firefox`,
-`e2e-webkit`, `e2e-edge`, `e2e-connect`, `e2e-remote-ssh`, `e2e-remote-wsl`,
-`e2e-jupyter`. Only `e2e-remote-ssh`, `e2e-remote-wsl`, and `e2e-jupyter` run in
-CI, each for narrowly-tagged tests; `e2e-server` isn't run in CI at all -- don't
-default to it.)
+`playwright.config.ts` defines more projects than CI runs, and which ones run
+changes over time -- so don't reproduce on a project from that file without
+first confirming CI exercises it for this test:
+
+```bash
+grep -rnw -- '<project>' .github/workflows/
+```
+
+No match means CI never runs it, so it produced none of the history you are
+triaging: a result there proves nothing either way. Matches only inside a
+narrowly-tagged workflow mean the project runs for that tag set only -- check
+the test carries the tag before using it.
 
 ```bash
 npx playwright test <spec> --project <project> --grep '<test name>'
