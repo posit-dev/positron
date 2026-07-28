@@ -13,9 +13,9 @@ context than the last, so stop as soon as the mechanism is clear.
 2. **Compact processed evidence** (`fetch-pattern-evidence.js` -> `summary.md`)
    -- one representative occurrence for the selected pattern. Read the summary
    only.
-3. **One specific artifact** -- open the full `timelineFile`, a `screenshot`,
-   the `snapshotFile` (error-context page snapshot), or a source file, only when
-   Level 2 raises a concrete unresolved question.
+3. **One specific artifact** -- open the full `timelineFile`, a `screenshot`
+   (see the cost note below), the `snapshotFile` (error-context page snapshot),
+   or a source file, only when Level 2 raises a concrete unresolved question.
 4. **Raw logs** -- read only when the issue depends on sequence/ordering,
    missing output, extension-channel behavior, or process termination -- a
    detail absent from processed evidence (see "raw logs" below).
@@ -25,6 +25,22 @@ context than the last, so stop as soon as the mechanism is clear.
    `fetch-pattern-evidence.js` with a different occurrence's `report_url`
    (widen `--occurrences-per-pattern 2` on `triage-history.js` first to get a
    second `report_url`).
+
+## Screenshots are the most expensive rung
+
+A screenshot Read costs **~20k tokens** -- 10-20x a `timelineFile` or
+`snapshotFile` -- and it stays in context for every turn that follows, so one
+opened early in a long triage bills many times the read itself. Across past
+triages, screenshots were the single largest source of tool-result content.
+
+- **Prefer `snapshotFile`.** It is text, it says what the DOM actually
+  contained, and it answers "was the element there, what covered it" better
+  than a picture does.
+- **Open a screenshot only for a genuinely visual question** -- layout, overlay,
+  z-order, rendering -- that the snapshot and timeline cannot answer.
+- **One frame, and never re-read it.** Take the frame showing the moment of
+  failure (usually `attempt0-frame2`), write down what you saw in a line or two,
+  and work from that description afterwards.
 
 ## Why the summary can't see everything
 
