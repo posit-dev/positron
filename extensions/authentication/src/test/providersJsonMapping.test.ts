@@ -4,23 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { buildProvidersConfigFromSettings, InferCapabilitiesFn, MIGRATABLE_SETTING_KEYS, MigrationSettingsReader } from '../migration/providersJson';
+import { inferModelCapabilities } from 'ai-config';
+import { buildProvidersConfigFromSettings, MIGRATABLE_SETTING_KEYS, MigrationSettingsReader } from '../migration/providersJson';
 
 function readerOf(values: Record<string, unknown>): MigrationSettingsReader {
 	return { globalValue: <T,>(key: string) => values[key] as T | undefined };
 }
 
-const fakeCaps: InferCapabilitiesFn = () => ({
-	maxContextLength: 128_000,
-	supportsTools: true,
-	supportsImages: false,
-	supportsToolResultImages: false,
-	supportsWebSearch: false,
-});
-
 suite('buildProvidersConfigFromSettings', () => {
 	test('returns undefined when nothing is set', () => {
-		assert.strictEqual(buildProvidersConfigFromSettings(readerOf({}), fakeCaps), undefined);
+		assert.strictEqual(buildProvidersConfigFromSettings(readerOf({})), undefined);
 	});
 
 	test('maps connection settings to provider blocks', () => {
@@ -28,7 +21,7 @@ suite('buildProvidersConfigFromSettings', () => {
 			'authentication.anthropic.baseUrl': 'https://gateway.example.com',
 			'authentication.anthropic.customHeaders': { 'x-team': 'data-science' },
 			'authentication.openai-api.baseUrl': 'https://openai.example.com',
-		}), fakeCaps);
+		}));
 		assert.deepStrictEqual(result?.config.providers?.anthropic, {
 			baseUrl: 'https://gateway.example.com',
 			customHeaders: { 'x-team': 'data-science' },
@@ -37,10 +30,24 @@ suite('buildProvidersConfigFromSettings', () => {
 		assert.strictEqual(result?.settingCount, 3);
 	});
 
+	test('corrects a bare public host to its versioned form', () => {
+		// providers.json gets no runtime correction, so writing the bare host
+		// verbatim would produce a broken config (posit-dev/positron#15171).
+		const result = buildProvidersConfigFromSettings(readerOf({
+			'authentication.anthropic.baseUrl': 'https://api.anthropic.com',
+		}));
+		assert.deepStrictEqual(result?.config.providers?.anthropic, {
+			baseUrl: 'https://api.anthropic.com/v1',
+		});
+		assert.deepStrictEqual(result?.migrations, [
+			{ source: 'authentication.anthropic.baseUrl', destination: 'providers.anthropic.baseUrl', value: '"https://api.anthropic.com/v1"' },
+		]);
+	});
+
 	test('copies the foundry base URL verbatim', () => {
 		const result = buildProvidersConfigFromSettings(readerOf({
 			'authentication.foundry.baseUrl': 'https://my-resource.services.ai.azure.com',
-		}), fakeCaps);
+		}));
 		assert.deepStrictEqual(result?.config.providers?.['ms-foundry'], {
 			baseUrl: 'https://my-resource.services.ai.azure.com',
 		});
@@ -50,7 +57,7 @@ suite('buildProvidersConfigFromSettings', () => {
 		assert.strictEqual(buildProvidersConfigFromSettings(readerOf({
 			'authentication.anthropic.baseUrl': '',
 			'authentication.anthropic.customHeaders': {},
-		}), fakeCaps), undefined);
+		})), undefined);
 	});
 
 	test('maps grouped credential settings to their sections', () => {
@@ -58,10 +65,26 @@ suite('buildProvidersConfigFromSettings', () => {
 			'authentication.aws.credentials': { AWS_PROFILE: 'default', AWS_REGION: 'us-east-1' },
 			'authentication.googleVertex.credentials': { GOOGLE_VERTEX_PROJECT: 'my-project', GOOGLE_VERTEX_LOCATION: 'us-central1' },
 			'authentication.snowflake.credentials': { SNOWFLAKE_ACCOUNT: 'MYORG-MYACCT', SNOWFLAKE_HOME: '/tmp/snow' },
-		}), fakeCaps);
+		}));
 		assert.deepStrictEqual(result?.config.providers?.bedrock, { aws: { profile: 'default', region: 'us-east-1' } });
 		assert.deepStrictEqual(result?.config.providers?.['google-vertex'], { googleCloud: { project: 'my-project', location: 'us-central1' } });
 		assert.deepStrictEqual(result?.config.providers?.['snowflake-cortex'], { snowflake: { account: 'MYORG-MYACCT', home: '/tmp/snow' } });
+	});
+
+	test('maps the snowflake host and the databricks section (union gains)', () => {
+		// Previously runtime-only reads; the shared map migrates them too.
+		const result = buildProvidersConfigFromSettings(readerOf({
+			'authentication.snowflake.credentials': { SNOWFLAKE_HOST: 'acct.snowflakecomputing.com' },
+			'authentication.databricks.credentials': { DATABRICKS_HOST: 'dbx.example.com' },
+			'authentication.databricks.customHeaders': { 'x-team': 'ml' },
+		}));
+		assert.deepStrictEqual(result?.config.providers?.['snowflake-cortex'], {
+			snowflake: { host: 'acct.snowflakecomputing.com' },
+		});
+		assert.deepStrictEqual(result?.config.providers?.databricks, {
+			databricks: { host: 'dbx.example.com' },
+			customHeaders: { 'x-team': 'ml' },
+		});
 	});
 
 	test('records source-to-destination migrations with log-safe values', () => {
@@ -69,7 +92,7 @@ suite('buildProvidersConfigFromSettings', () => {
 			'authentication.openai-api.baseUrl': 'https://openai.example.com',
 			'authentication.openai-api.customHeaders': { 'x-api-key': 'sk-secret-token', 'x-team': 'data-science' },
 			'authentication.aws.credentials': { AWS_PROFILE: 'default', AWS_REGION: 'us-east-1' },
-		}), fakeCaps);
+		}));
 		assert.deepStrictEqual(result?.migrations, [
 			{ source: 'authentication.openai-api.baseUrl', destination: 'providers.openai.baseUrl', value: '"https://openai.example.com"' },
 			// Header values can carry auth tokens; only names are logged.
@@ -86,7 +109,7 @@ suite('buildProvidersConfigFromSettings', () => {
 			'positron.assistant.provider.anthropic.enable': false,
 			'positron.assistant.provider.google.enable': true,
 			'assistant.provider.deepseek.enabled': false,
-		}), fakeCaps);
+		}));
 		assert.strictEqual(result?.config.providers?.anthropic?.enabled, false);
 		assert.strictEqual(result?.config.providers?.gemini?.enabled, true);
 		assert.strictEqual(result?.config.providers?.deepseek?.enabled, false);
@@ -98,41 +121,40 @@ suite('buildProvidersConfigFromSettings', () => {
 				{ name: 'Sonnet (team)', identifier: 'claude-sonnet-4-5', maxInputTokens: 300_000 },
 				{ identifier: 'missing-name' }, // malformed: skipped
 			],
-		}), fakeCaps);
-		// The malformed entry is skipped; maxContextLength floors at the user's
-		// maxInputTokens (300_000 > the fakeCaps 128_000).
-		assert.deepStrictEqual(result?.config.providers?.anthropic?.models, {
-			discovery: 'off',
-			custom: [{
-				id: 'claude-sonnet-4-5',
-				name: 'Sonnet (team)',
-				maxContextLength: 300_000,
-				maxInputTokens: 300_000,
-				supportsTools: true,
-				supportsImages: false,
-				supportsToolResultImages: false,
-				supportsWebSearch: false,
-			}],
-		});
+		}));
+		const models = result?.config.providers?.anthropic?.models;
+		assert.strictEqual(models?.discovery, 'off');
+		assert.strictEqual(models?.custom?.length, 1);
+		const model = models?.custom?.[0];
+		const caps = inferModelCapabilities('anthropic', 'claude-sonnet-4-5');
+		assert.strictEqual(model?.id, 'claude-sonnet-4-5');
+		assert.strictEqual(model?.name, 'Sonnet (team)');
+		// The user's token limit wins and floors maxContextLength.
+		assert.strictEqual(model?.maxInputTokens, 300_000);
+		assert.strictEqual(model?.maxContextLength, Math.max(caps.maxContextLength, 300_000));
+		// Capabilities are synthesized from ai-config's inference tables.
+		assert.strictEqual(model?.supportsTools, caps.supportsTools);
+		assert.strictEqual(model?.supportsImages, caps.supportsImages);
+		assert.strictEqual(model?.maxOutputTokens, caps.maxOutputTokens);
+		assert.deepStrictEqual(model?.thinkingEffortLevels, caps.thinkingEffortLevels);
 	});
 
 	test('an overrides array with only malformed entries maps nothing', () => {
 		assert.strictEqual(buildProvidersConfigFromSettings(readerOf({
 			'positron.assistant.models.overrides.openAI': [{ nope: true }],
-		}), fakeCaps), undefined);
+		})), undefined);
 	});
 
-	test('the real inferModelCapabilities satisfies the custom-model schema', async () => {
-		const { inferModelCapabilities, customModelSchema } = await import('ai-config/node');
+	test('synthesized custom models satisfy the custom-model schema', async () => {
+		const { customModelSchema } = await import('ai-config/node');
 		const result = buildProvidersConfigFromSettings(readerOf({
 			'positron.assistant.models.overrides.anthropic': [{ name: 'Sonnet', identifier: 'claude-sonnet-4-5' }],
-		}), inferModelCapabilities);
-		const models = result?.config.providers?.anthropic?.models as { custom?: unknown[] } | undefined;
-		customModelSchema.parse(models?.custom?.[0]);
+		}));
+		customModelSchema.parse(result?.config.providers?.anthropic?.models?.custom?.[0]);
 	});
 
 	test('every migratable setting maps to config the real ai-config schema accepts', async () => {
-		const { inferModelCapabilities, providersConfigSchema } = await import('ai-config/node');
+		const { providersConfigSchema } = await import('ai-config/node');
 		const values: Record<string, unknown> = {};
 		for (const key of MIGRATABLE_SETTING_KEYS) {
 			if (key === 'authentication.aws.credentials') {
@@ -140,7 +162,9 @@ suite('buildProvidersConfigFromSettings', () => {
 			} else if (key === 'authentication.googleVertex.credentials') {
 				values[key] = { GOOGLE_VERTEX_PROJECT: 'proj', GOOGLE_VERTEX_LOCATION: 'us-central1' };
 			} else if (key === 'authentication.snowflake.credentials') {
-				values[key] = { SNOWFLAKE_ACCOUNT: 'MYORG-MYACCT', SNOWFLAKE_HOME: '/opt/snowflake' };
+				values[key] = { SNOWFLAKE_ACCOUNT: 'MYORG-MYACCT', SNOWFLAKE_HOME: '/opt/snowflake', SNOWFLAKE_HOST: 'acct.snowflakecomputing.com' };
+			} else if (key === 'authentication.databricks.credentials') {
+				values[key] = { DATABRICKS_HOST: 'dbx.example.com' };
 			} else if (key.endsWith('.baseUrl')) {
 				values[key] = 'https://gateway.example.com';
 			} else if (key.endsWith('.customHeaders')) {
@@ -153,7 +177,7 @@ suite('buildProvidersConfigFromSettings', () => {
 				assert.fail(`unhandled migratable key ${key}; add a branch with a realistic value`);
 			}
 		}
-		const result = buildProvidersConfigFromSettings(readerOf(values), inferModelCapabilities);
+		const result = buildProvidersConfigFromSettings(readerOf(values));
 		assert.ok(result, 'buildProvidersConfigFromSettings returned undefined');
 		assert.strictEqual(result.settingCount, MIGRATABLE_SETTING_KEYS.length);
 		providersConfigSchema.parse(result.config);
@@ -162,7 +186,9 @@ suite('buildProvidersConfigFromSettings', () => {
 	test('MIGRATABLE_SETTING_KEYS covers a spot-check of each family', () => {
 		for (const key of [
 			'authentication.anthropic.baseUrl',
+			'authentication.github.customHeaders',
 			'authentication.aws.credentials',
+			'authentication.databricks.credentials',
 			'authentication.snowflake.customHeaders',
 			'positron.assistant.provider.githubCopilot.enable',
 			'assistant.provider.googleVertex.enabled',

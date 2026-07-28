@@ -430,6 +430,9 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 				const cfg = this._configService.getValue<{ SNOWFLAKE_HOST?: string; SNOWFLAKE_ACCOUNT?: string }>('authentication.snowflake.credentials');
 				return { host: cfg?.SNOWFLAKE_HOST, account: cfg?.SNOWFLAKE_ACCOUNT };
 			},
+			getDatabricks: () => ({
+				host: this._configService.getValue<{ DATABRICKS_HOST?: string }>('authentication.databricks.credentials')?.DATABRICKS_HOST,
+			}),
 		};
 	}
 }
