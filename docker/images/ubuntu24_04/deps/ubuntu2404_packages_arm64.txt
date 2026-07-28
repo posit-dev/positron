@@ -28,6 +28,8 @@ libenchant-2-2
 libffi-dev
 libflite1
 libgbm1
+libgdal-dev
+libgeos-dev
 libgif-dev
 libgl1
 libglpk40
@@ -47,12 +49,14 @@ libosmesa6
 libpango-1.0-0
 libpangocairo-1.0-0
 libpq-dev
+libproj-dev
 libreadline-dev
-libsecret-1-dev
 libsdl-pango-dev
+libsecret-1-dev
 libsodium-dev
 libsqlite3-dev
 libssl-dev
+libudunits2-dev
 libvpx9
 libwebpmux3
 libwoff1
