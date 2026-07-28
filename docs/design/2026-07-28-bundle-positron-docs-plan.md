@@ -352,16 +352,25 @@ Expected: both files exist. These names must match Task 11's `resolveBundleReque
 ```bash
 cp positron-llms-2026.05.0-179.zip corrupt.zip
 printf 'x' >> corrupt.zip
+
+# `shasum -c` reads the filename out of the sidecar, so point a copy of the
+# sidecar at the corrupted file while keeping the original's digest.
+sed 's|positron-llms-2026.05.0-179.zip|corrupt.zip|' \
+	positron-llms-2026.05.0-179.zip.sha256sum > corrupt.zip.sha256sum
+
+shasum -a 256 -c corrupt.zip.sha256sum ; echo "corrupt=$?"
 shasum -a 256 -c positron-llms-2026.05.0-179.zip.sha256sum ; echo "good=$?"
 ```
 
-Expected: `good=0` for the untouched zip. The sidecar format is `<hex>  <filename>`, which is what
-Task 4's `parseSha256Sidecar` parses.
+Expected: `corrupt.zip: FAILED` and `corrupt=1` for the tampered copy, then `OK` and `good=0` for the
+untouched zip. Both halves matter: the clean check alone passes whether or not a digest mismatch is
+actually detectable, so it cannot on its own tell you the sidecar is doing any work. The sidecar format
+is `<hex>  <filename>`, which is what Task 4's `parseSha256Sidecar` parses.
 
 - [ ] **Step 8: Clean up and commit**
 
 ```bash
-rm -f positron-llms-2026.05.0-179.zip* positron-workbench-llms-2026.05.0-179.zip* corrupt.zip
+rm -f positron-llms-2026.05.0-179.zip* positron-workbench-llms-2026.05.0-179.zip* corrupt.zip*
 rm -rf /tmp/fixture-site
 git add scripts/build-llms-bundle.sh
 git commit -m "Add slim LLM docs bundle build script with content guards"
