@@ -74,6 +74,18 @@ node .claude/skills/e2e-failure-analyzer/scripts/e2e-process-s3.js ... \
   | jq '.testDetails[0].attempts[0].trace.timeline'
 ```
 
+## Contrast the failing attempt against a passing one
+
+For a suspected race, the digest shows *what* failed but not *which
+interleaving* separates pass from fail. The S3 report retains every attempt
+(attempt 0 = the failure; later attempts = passing retries), so a green run's
+logs are already in the same report -- no second fetch, no ci-arm. Diff the two
+attempts' `[info]`-level orderings in the same channel file (e.g. the kernel /
+supervisor log): the line whose relative order flips between them is the race,
+and the direction of the flip tells you which ordering is the bug. This turns an
+"is it even a race" hunch into a named mechanism -- it's what separates a Signal
+that cites an ordering from one that only restates the timeout.
+
 ## Retrieval failures
 
 - **403 from the processor** means "this particular upload isn't fetchable"

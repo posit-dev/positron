@@ -78,6 +78,21 @@ test('applyMutations rejects a --set on a non-mutable field', () => {
 	assert.equal(applyMutations({ phase: 'x' }, null, [['phase', 'implementation']]).phase, 'implementation');
 });
 
+test('applyMutations rejects a --patch that introduces an unknown top-level field', () => {
+	// The footgun: `--patch {"confidence":...}` meant `diagnosis.confidence` but
+	// silently created a stray top-level key the renderer never reads.
+	assert.throws(() => applyMutations({ phase: 'x' }, { confidence: 'high' }, []), /unknown top-level field/);
+	assert.throws(() => applyMutations({ phase: 'x' }, { reproResult: 'note' }, []), /unknown top-level field/);
+});
+
+test('applyMutations allows a --patch on a known object field and its deep keys', () => {
+	// Nesting under a known object is the correct usage; deep keys stay free.
+	const out = applyMutations({ phase: 'x', diagnosis: { confidence: 'low' } },
+		{ diagnosis: { confidence: 'high', mechanismMap: 'anything' } }, []);
+	assert.equal(out.diagnosis.confidence, 'high');
+	assert.equal(out.diagnosis.mechanismMap, 'anything');
+});
+
 test('checkDoneGate blocks done with no outcome set', () => {
 	const gate = checkDoneGate({ phase: 'done' });
 	assert.equal(gate.ok, false);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderBlock, deriveFrequency } from '../record-diagnosis.js';
+import { renderBlock, deriveFrequency, validateDiagnosis } from '../record-diagnosis.js';
 import { extractDiagnosisFields } from '../find-prior-triage.js';
 
 const meta = () => ({
@@ -49,6 +49,29 @@ test('renderBlock falls back to a plain title when no dashboard url', () => {
 test('renderBlock maps confidence to emoji and defaults to medium', () => {
 	assert.match(renderBlock({ ...diagnosis(), confidence: 'low' }, meta()), /\u{1F534}/u);
 	assert.match(renderBlock({ hypothesis: 'x' }, meta()), /\u{1F7E1}/u); // medium default
+});
+
+test('validateDiagnosis accepts a clean diagnosis', () => {
+	assert.equal(validateDiagnosis(diagnosis()), null);
+});
+
+test('validateDiagnosis rejects a confidence outside high/medium/low', () => {
+	// The exact bug that shipped: a whole phrase as confidence renders 🟡 + a
+	// title-cased dump instead of a level.
+	assert.match(validateDiagnosis({ ...diagnosis(), confidence: 'high-root-cause-supervisor-ordering-race' }), /confidence must be one of/);
+	assert.match(validateDiagnosis({ ...diagnosis(), confidence: undefined }), /confidence must be one of/);
+});
+
+test('validateDiagnosis requires a summary', () => {
+	assert.match(validateDiagnosis({ ...diagnosis(), summary: '' }), /summary is required/);
+	assert.match(validateDiagnosis({ ...diagnosis(), summary: '   ' }), /summary is required/);
+});
+
+test('validateDiagnosis rejects a multi-line or overlong summary', () => {
+	// The other half of the shipped bug: the full mechanism dumped into the
+	// one-line <summary> header.
+	assert.match(validateDiagnosis({ ...diagnosis(), summary: 'line one\nline two' }), /single line/);
+	assert.match(validateDiagnosis({ ...diagnosis(), summary: 'x'.repeat(601) }), /chars; keep it under/);
 });
 
 test('deriveFrequency builds runs/percentage/env from the selected pattern', () => {
