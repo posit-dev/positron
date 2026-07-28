@@ -24,6 +24,34 @@ export function sortVersionsDescending(versions: string[]): string[] {
 }
 
 /**
+ * Prerelease and development suffixes, as PEP 440 and semver spell them:
+ * `2.0.0rc1`, `1.0a2`, `2.0.0-rc.1`, `1.0.0.dev1`, `3.0.0alpha1`.
+ *
+ * A trailing digit group is required, which is what keeps three things that only
+ * look similar out: conda's letter-suffixed builds (`1.1.1c`), R's patch levels
+ * (`1.0-3`), and PEP 440 post-releases (`1.0.post1`, which is *newer* than
+ * `1.0`, not a prerelease).
+ */
+const PRERELEASE_SUFFIX = /[-_.]?(?:a|b|c|rc|alpha|beta|pre|preview|dev)[-_.]?\d+$/i;
+
+/**
+ * Whether a version string names a prerelease.
+ *
+ * The string is tested directly as well as through semver, because semver alone
+ * is not enough: `semver.valid` rejects two-component versions like `1.0a2` and
+ * `2.0b1`, and `semver.coerce` then drops the suffix, so they would read as the
+ * stable `1.0.0` and `2.0.0`.
+ */
+function isPrerelease(version: string): boolean {
+	const trimmed = version.trim();
+	if (PRERELEASE_SUFFIX.test(trimmed)) {
+		return true;
+	}
+	const parsed = semver.valid(trimmed, true) || semver.coerce(trimmed);
+	return parsed ? !!semver.prerelease(parsed, true) : false;
+}
+
+/**
  * Pick the version to use when the caller asked for the newest available one.
  *
  * Prefers the newest stable release over a newer prerelease, matching what the
@@ -39,9 +67,5 @@ export function sortVersionsDescending(versions: string[]): string[] {
  */
 export function newestAvailableVersion(versions: string[]): string | undefined {
 	const sorted = sortVersionsDescending(versions);
-	const stable = sorted.find(version => {
-		const parsed = semver.valid(version, true) || semver.coerce(version);
-		return parsed ? !semver.prerelease(parsed, true) : true;
-	});
-	return stable ?? sorted.at(0);
+	return sorted.find(version => !isPrerelease(version)) ?? sorted.at(0);
 }
