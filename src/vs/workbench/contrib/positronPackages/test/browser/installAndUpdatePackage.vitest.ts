@@ -227,6 +227,35 @@ describe('packages install and update commands', () => {
 			expect(installPackages).not.toHaveBeenCalled();
 		});
 
+		// Every one of these falls through to the quick-pick rather than
+		// installing something unintended. A caller with no user in front of it
+		// gets the no-selection result once the picker is dismissed.
+		it('never installs anything when the arguments are malformed', async () => {
+			const results = [];
+			for (const args of [
+				[''],                          // empty name
+				['dplyr', ''],                 // empty version
+				['   ', '1.1.4'],              // whitespace-only name
+				[undefined, '1.1.4'],          // version with no name
+				['dplyr', 1.14],               // non-string version
+				[42, '1.1.4'],                 // non-string name
+				[null, null],                  // nulls
+				[],                            // no arguments at all (the palette)
+			]) {
+				results.push(await runInstall(...args));
+			}
+
+			expect(installPackages).not.toHaveBeenCalled();
+			expect(results.every(r => r.installed === false)).toBe(true);
+		});
+
+		it('ignores extra arguments beyond name and version', async () => {
+			const result = await runInstall('dplyr', '1.1.4', 'unexpected', { more: true });
+
+			expect(result).toEqual({ installed: true, name: 'dplyr', version: '1.1.4' });
+			expect(installPackages).toHaveBeenCalledWith([{ name: 'dplyr', version: '1.1.4' }], expect.anything());
+		});
+
 		it('returns the outcome of an install chosen in the quick-pick', async () => {
 			// The helper's fourth argument is the performInstall callback.
 			installPackageMock.mockImplementation(async (_accessor, _search, _versions, performInstall) =>
@@ -342,6 +371,25 @@ describe('packages install and update commands', () => {
 
 			expect(updatePackageMock.mock.calls[0][4]).toBeUndefined();
 			expect(result).toEqual({ updated: false, message: 'No package was selected.' });
+		});
+
+		it('never updates anything when the arguments are malformed', async () => {
+			const results = [];
+			for (const args of [
+				[''],
+				['dplyr', ''],
+				['   ', '1.1.4'],
+				[undefined, '1.1.4'],
+				['dplyr', 1.14],
+				[42, '1.1.4'],
+				[null, null],
+				[],
+			]) {
+				results.push(await runUpdate(...args));
+			}
+
+			expect(updatePackages).not.toHaveBeenCalled();
+			expect(results.every(r => r.updated === false)).toBe(true);
 		});
 
 		it('returns the outcome of an update chosen in the quick-pick', async () => {
