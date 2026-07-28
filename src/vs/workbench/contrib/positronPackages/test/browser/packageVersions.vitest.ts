@@ -132,4 +132,34 @@ describe('newestAvailableVersion', () => {
 	it('returns undefined when no versions are available', () => {
 		expect(newestAvailableVersion([])).toBeUndefined();
 	});
+
+	// Every numeric group counts, so these do not get truncated to three
+	// segments the way semver.coerce would truncate them. The quick-pick's
+	// sortVersionsDescending still does truncate; only automatic selection uses
+	// the precise comparison.
+	it('compares every numeric group rather than the first three', () => {
+		expect({
+			fourSegment: newestAvailableVersion(['1.2.3.4', '1.2.3.5']),
+			rPatchLevel: newestAvailableVersion(['1.0-3', '1.0-10']),
+			calendarVersion: newestAvailableVersion(['2024.1.1', '2024.1.2']),
+			missingGroupIsZero: newestAvailableVersion(['1.2', '1.2.1']),
+		}).toEqual({
+			fourSegment: '1.2.3.5',
+			rPatchLevel: '1.0-10',
+			calendarVersion: '2024.1.2',
+			missingGroupIsZero: '1.2.1',
+		});
+	});
+
+	it('ranks a higher PEP 440 epoch above a larger release number', () => {
+		expect(newestAvailableVersion(['3.0', '1!2.0'])).toBe('1!2.0');
+	});
+
+	it('ranks a post-release above the release it follows', () => {
+		expect(newestAvailableVersion(['1.0', '1.0.post1'])).toBe('1.0.post1');
+	});
+
+	it('falls back to string comparison for versions with no digits', () => {
+		expect(newestAvailableVersion(['alpha', 'beta'])).toBe('beta');
+	});
 });

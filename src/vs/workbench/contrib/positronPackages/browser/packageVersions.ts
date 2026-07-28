@@ -8,6 +8,11 @@ import * as semver from '../../../../base/common/semver/semver.js';
 /**
  * Sort version strings in descending order (newest first).
  * Uses semver comparison when possible, falls back to string comparison.
+ *
+ * This drives the version quick-pick, where the user picks from the whole list,
+ * so its ordering is deliberately left as-is. `newestAvailableVersion` does not
+ * use it: choosing a version automatically needs the more precise comparison
+ * below, because `semver.coerce` truncates anything past three segments.
  */
 export function sortVersionsDescending(versions: string[]): string[] {
 	return [...versions].sort((a, b) => {
@@ -52,6 +57,47 @@ function isPrerelease(version: string): boolean {
 }
 
 /**
+ * Split a version into the parts that decide which of two versions is newer: a
+ * PEP 440 epoch, and the numeric groups that follow it.
+ *
+ * Every numeric group is kept, however many there are, so four-segment versions
+ * (`1.2.3.4`) and R patch levels (`1.0-3`) compare on their real values rather
+ * than being truncated to three segments. Digits inside a suffix count too,
+ * which is what orders `1.0.post1` above `1.0` and `1.0.0rc2` above `1.0.0rc1`.
+ */
+function releaseKey(version: string): { epoch: number; segments: number[] } {
+	const trimmed = version.trim();
+	const epochSeparator = trimmed.indexOf('!');
+	const epoch = epochSeparator === -1 ? 0 : Number(trimmed.slice(0, epochSeparator)) || 0;
+	const release = epochSeparator === -1 ? trimmed : trimmed.slice(epochSeparator + 1);
+	const segments = (release.match(/\d+/g) ?? []).map(Number);
+	return { epoch, segments };
+}
+
+/**
+ * Compare two versions, newest first. A higher epoch always wins; otherwise the
+ * numeric groups are compared in order, treating a missing group as zero so
+ * `1.2` and `1.2.0` are equal. Versions with no digits at all fall back to
+ * string comparison.
+ */
+function compareVersionsDescending(a: string, b: string): number {
+	const aKey = releaseKey(a);
+	const bKey = releaseKey(b);
+	if (aKey.epoch !== bKey.epoch) {
+		return bKey.epoch - aKey.epoch;
+	}
+	const length = Math.max(aKey.segments.length, bKey.segments.length);
+	for (let i = 0; i < length; i++) {
+		const aSegment = aKey.segments[i] ?? 0;
+		const bSegment = bKey.segments[i] ?? 0;
+		if (aSegment !== bSegment) {
+			return bSegment - aSegment;
+		}
+	}
+	return a < b ? 1 : a > b ? -1 : 0;
+}
+
+/**
  * Pick the version to use when the caller asked for the newest available one.
  *
  * Prefers the newest stable release over a newer prerelease, matching what the
@@ -66,6 +112,6 @@ function isPrerelease(version: string): boolean {
  * prereleases, so a caller always gets a version if one exists.
  */
 export function newestAvailableVersion(versions: string[]): string | undefined {
-	const sorted = sortVersionsDescending(versions);
+	const sorted = [...versions].sort(compareVersionsDescending);
 	return sorted.find(version => !isPrerelease(version)) ?? sorted.at(0);
 }
