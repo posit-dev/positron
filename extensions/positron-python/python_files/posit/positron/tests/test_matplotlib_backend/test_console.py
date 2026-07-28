@@ -13,12 +13,13 @@ import matplotlib.pyplot as plt
 import pytest
 from PIL import Image
 
+from positron.matplotlib_backend.console import activate, deactivate
 from positron.plot_comm import PlotRenderFormat, PlotSize, PlotUnit
 from positron.plots import PlotsService
 from positron.positron_ipkernel import PositronIPyKernel, _CommTarget
 
-from .conftest import DummyComm, PositronShell
-from .utils import (
+from ..conftest import DummyComm, PositronShell
+from ..utils import (
     comm_close_message,
     json_rpc_request,
     json_rpc_response,
@@ -34,9 +35,14 @@ TARGET_NAME = "target_name"
 
 @pytest.fixture(autouse=True)
 def setup_positron_matplotlib_backend() -> None:
+    prev = matplotlib.get_backend()
     # The backend is set in the kernel app, which isn't currently available in our tests,
     # so set it here too.
-    matplotlib.use("module://positron.matplotlib_backend")
+    matplotlib.use("module://positron.matplotlib_backend.console")
+    activate()
+    yield
+    deactivate()
+    matplotlib.use(prev)
 
 
 @pytest.fixture(autouse=True)
@@ -560,7 +566,9 @@ def test_mpl_seaborn_figure_detached_after_cell(
     """
     # Create the figure as if it were produced by seaborn (detection is exercised
     # separately in test_mpl_detect_library_walks_call_stack).
-    monkeypatch.setattr("positron.matplotlib_backend._detect_plotting_library", lambda: "seaborn")
+    monkeypatch.setattr(
+        "positron.matplotlib_backend.console._detect_plotting_library", lambda: "seaborn"
+    )
     plot_comm = _create_mpl_plot(shell, plots_service)
 
     # Running any cell triggers the post-cell detach.
@@ -590,7 +598,9 @@ def test_mpl_seaborn_does_not_overwrite_existing_matplotlib_figure(
     assert plt.get_fignums() == [1]
 
     # Simulate a seaborn call resolving its axes via plt.gca().
-    monkeypatch.setattr("positron.matplotlib_backend._detect_plotting_library", lambda: "seaborn")
+    monkeypatch.setattr(
+        "positron.matplotlib_backend.console._detect_plotting_library", lambda: "seaborn"
+    )
     axes = plt.gca()
 
     # gca returned axes on a new figure (2), leaving the matplotlib figure (1) intact.
@@ -644,7 +654,7 @@ def test_mpl_detect_library_walks_call_stack() -> None:
 
     See https://github.com/posit-dev/positron/issues/8898.
     """
-    from positron.matplotlib_backend import _detect_plotting_library
+    from positron.matplotlib_backend.console import _detect_plotting_library
 
     # A plain call site is attributed to matplotlib.
     assert _detect_plotting_library() == "matplotlib"
@@ -654,6 +664,28 @@ def test_mpl_detect_library_walks_call_stack() -> None:
     namespace: Dict[str, Any] = {"__name__": "seaborn.matrix"}
     exec("def call(detect):\n    return detect()", namespace)
     assert namespace["call"](_detect_plotting_library) == "seaborn"
+
+
+def test_mpl_deactivate_restores_gca() -> None:
+    """`deactivate` restores the original `plt.gca` that `activate` patched over."""
+    import matplotlib.pyplot as plt
+
+    from positron.matplotlib_backend import console
+
+    # The autouse fixture already activated, installing our redirect.
+    assert console._installed_gca is not None  # noqa: SLF001
+    installed_gca = plt.gca
+    original_gca = console._original_gca  # noqa: SLF001
+
+    console.deactivate()
+
+    assert console._installed_gca is None  # noqa: SLF001
+    assert plt.gca is original_gca
+    assert plt.gca is not installed_gca
+
+    # Re-activate so later tests keep the redirect installed and the fixture's teardown
+    # `deactivate` (a no-op once uninstalled) stays balanced.
+    console.activate()
 
 
 def test_mpl_shutdown(shell: PositronShell, plots_service: PlotsService) -> None:
