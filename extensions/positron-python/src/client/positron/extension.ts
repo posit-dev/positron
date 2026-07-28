@@ -15,7 +15,7 @@ import { InstallOptions } from '../common/installer/types';
 import { activateAppDetection as activateWebAppDetection } from './webAppContexts';
 import { activateWebAppCommands } from './webAppCommands';
 import { activateWalkthroughCommands } from './walkthroughCommands';
-import { printInterpreterDebugInfo } from './interpreterSettings';
+import { printInterpreterDebugInfo } from './interpreterDebugInfo';
 import { registerLanguageServerManager } from './languageServerManager';
 import { registerPythonFilePasteAndDropProvider } from '../languageFeatures/pythonFilePasteAndDropProvider';
 

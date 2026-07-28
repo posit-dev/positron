@@ -25,6 +25,8 @@ import * as ws from '../../client/common/vscodeApis/workspaceApis';
 import * as uvApi from '../../client/pythonEnvironments/common/environmentManagers/uv';
 import * as externalDeps from '../../client/pythonEnvironments/common/externalDependencies';
 import * as nativeFinder from '../../client/pythonEnvironments/base/locators/common/nativePythonFinder';
+import { PythonEnvCollectionChangedEvent } from '../../client/pythonEnvironments/base/watcher';
+import { FileChangeType } from '../../client/common/platform/fileSystemWatcher';
 // --- End Positron ---
 
 suite('Native Python API', () => {
@@ -73,6 +75,9 @@ suite('Native Python API', () => {
         name: 'basic_python',
         type: undefined,
         version: { sysVersion: '3.12.0', major: 3, minor: 12, micro: 0 },
+        // --- Start Positron ---
+        nativeEnvKind: NativePythonEnvironmentKind.LinuxGlobal,
+        // --- End Positron ---
     };
 
     const conda: NativeEnvInfo = {
@@ -124,6 +129,9 @@ suite('Native Python API', () => {
         name: 'conda_python',
         type: PythonEnvType.Conda,
         version: { sysVersion: '3.12.0', major: 3, minor: 12, micro: 0 },
+        // --- Start Positron ---
+        nativeEnvKind: NativePythonEnvironmentKind.Conda,
+        // --- End Positron ---
     };
 
     const expectedConda2: PythonEnvInfo = {
@@ -144,6 +152,9 @@ suite('Native Python API', () => {
         name: 'conda_python',
         type: PythonEnvType.Conda,
         version: { sysVersion: undefined, major: -1, minor: -1, micro: -1 },
+        // --- Start Positron ---
+        nativeEnvKind: NativePythonEnvironmentKind.Conda,
+        // --- End Positron ---
     };
 
     setup(() => {
@@ -742,6 +753,77 @@ suite('Native Python API', () => {
             .sort();
         assert.deepEqual(envs, [exeA, exeB], 'both venvs should appear despite sharing a base interpreter');
     });
+
+    // --- Start Positron ---
+    // New test for Positron-only nativeEnvKind/nativeProject fields
+    test('carries raw PET kind and project through to PythonEnvInfo', async () => {
+        const homebrewEnv: NativeEnvInfo = {
+            displayName: 'Homebrew Python',
+            name: 'homebrew_python',
+            executable: '/opt/homebrew/bin/python3',
+            kind: NativePythonEnvironmentKind.Homebrew,
+            version: '3.13.1',
+            prefix: '/opt/homebrew',
+            project: '/repos/my-project',
+        };
+        mockFinder
+            .setup((f) => f.refresh())
+            .returns(() => {
+                async function* generator() {
+                    yield* [homebrewEnv];
+                }
+                return generator();
+            })
+            .verifiable(typemoq.Times.once());
+
+        mockFinder.setup((f) => f.resolve(typemoq.It.isAny())).verifiable(typemoq.Times.never());
+
+        await api.triggerRefresh();
+        const actual = api.getEnvs();
+        assert.lengthOf(actual, 1, 'expected one environment from refresh');
+        assert.strictEqual(actual[0].nativeEnvKind, NativePythonEnvironmentKind.Homebrew);
+        assert.strictEqual(actual[0].nativeProject, '/repos/my-project');
+    });
+
+    test('fires a Changed event when only the raw PET project changes', async () => {
+        // Every coarse field hasChanged already compares (name, executable, version,
+        // location, kind, arch) is identical across the two refreshes; only the raw PET
+        // project differs. Since that drives interpreter categorization, hasChanged must
+        // detect it -- otherwise categorization consumers stay stale.
+        sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([]);
+        const makeEnv = (project?: string): NativeEnvInfo => ({
+            displayName: 'Python 3.12.0',
+            name: 'proj',
+            executable: '/home/user/proj/.venv/bin/python',
+            kind: NativePythonEnvironmentKind.Venv,
+            version: '3.12.0',
+            prefix: '/home/user/proj/.venv',
+            project,
+        });
+
+        let yielded = makeEnv(undefined);
+        mockFinder
+            .setup((f) => f.refresh())
+            .returns(() => {
+                async function* generator() {
+                    yield* [yielded];
+                }
+                return generator();
+            });
+
+        await api.triggerRefresh();
+
+        const changes: PythonEnvCollectionChangedEvent[] = [];
+        const sub = api.onChanged((e) => changes.push(e));
+        yielded = makeEnv('/home/user/proj');
+        await api.triggerRefresh();
+        sub.dispose();
+
+        const changed = changes.filter((e) => e.type === FileChangeType.Changed);
+        assert.lengthOf(changed, 1, 'a Changed event should fire when nativeProject changes');
+        assert.strictEqual(changed[0].new?.nativeProject, '/home/user/proj');
+    });
+    // --- End Positron ---
 
     // Regression tests for issue #12500: `resolveEnv` must not pin an
     // `undefined` resolution for 30s when PET is still discovering the env.

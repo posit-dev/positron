@@ -114,3 +114,16 @@ export enum RuntimeExitReason {
     ExtensionHost = 'extensionHost',
     Unknown = 'unknown',
 }
+
+export enum LanguageRuntimeStartupBehavior {
+    Immediate = 'immediate',
+    Implicit = 'implicit',
+    Explicit = 'explicit',
+    Manual = 'manual',
+}
+
+export enum LanguageRuntimeSessionLocation {
+    Machine = 'machine',
+    Workspace = 'workspace',
+    Browser = 'browser',
+}

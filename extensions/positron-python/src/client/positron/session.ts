@@ -131,6 +131,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The Runtime is externally managed. eg. a reticulate runtime */
     private _isExternallyManaged: boolean;
 
+    /** Manager token (e.g. 'uv', 'conda', 'venv') used to select the package manager */
+    private _managerToken: string | undefined;
+
     /** Information about the runtime that is only available after starting */
     private _runtimeInfo?: positron.LanguageRuntimeInfo;
 
@@ -170,6 +173,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._pythonPath = extraData.pythonPath;
         this._ipykernelBundle = extraData.ipykernelBundle;
         this._isExternallyManaged = extraData.externallyManaged ?? false;
+        this._managerToken = extraData.managerToken;
 
         this._lspQueue = new PQueue({ concurrency: 1 });
 
@@ -539,7 +543,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // Create package manager now that kernel is available
             // Pass `this` (the session) which provides callMethod and interrupt
             this._packageManager = PackageManagerFactory.create(
-                this.runtimeMetadata.runtimeSource,
+                this._managerToken,
                 this._pythonPath,
                 this._messageEmitter,
                 this.serviceContainer,

@@ -11,12 +11,7 @@ import { Resource } from '../../common/types';
 import { Architecture } from '../../common/utils/platform';
 import { isActiveStateEnvironmentForWorkspace } from '../../pythonEnvironments/common/environmentManagers/activestate';
 import { isParentPath } from '../../pythonEnvironments/common/externalDependencies';
-import {
-    EnvironmentType,
-    PythonEnvironment,
-    virtualEnvTypes,
-    workspaceVirtualEnvTypes,
-} from '../../pythonEnvironments/info';
+import { EnvironmentType, PythonEnvironment } from '../../pythonEnvironments/info';
 import { PythonVersion } from '../../pythonEnvironments/info/pythonVersion';
 import { IInterpreterHelper } from '../contracts';
 import { IInterpreterComparer } from './types';
@@ -27,6 +22,9 @@ import { arePathsSame } from '../../common/platform/fs-paths';
 import { getPyenvDir } from '../../pythonEnvironments/common/environmentManagers/pyenv';
 import { readFileSync, pathExistsSync, checkParentDirs } from '../../pythonEnvironments/common/externalDependencies';
 import { MAXIMUM_PYTHON_VERSION_EXCLUSIVE, MINIMUM_PYTHON_VERSION } from '../../common/constants';
+import { categorizeEnvironment } from '../../positron/interpreterCategorization';
+import { getCustomEnvDirs } from '../../positron/interpreterSettings';
+import { getWorkspaceFolderPaths } from '../../common/vscodeApis/workspaceApis';
 // --- End Positron ---
 
 export enum EnvLocationHeuristic {
@@ -42,26 +40,57 @@ export enum EnvLocationHeuristic {
 
 @injectable()
 export class EnvironmentTypeComparer implements IInterpreterComparer {
-    private workspaceFolderPath: string;
+    // --- Start Positron ---
+    // Removed the workspaceFolderPath field: it was resolved once in the constructor, from a
+    // resource-less getActiveWorkspaceUri() call that returns nothing in a multi-root workspace.
+    // Sorting context is now resolved per sort in getComparator().
+    // private workspaceFolderPath: string;
+    // --- End Positron ---
 
     private preferredPyenvInterpreterPath = new Map<string, string | undefined>();
 
-    constructor(@inject(IInterpreterHelper) private readonly interpreterHelper: IInterpreterHelper) {
-        this.workspaceFolderPath = this.interpreterHelper.getActiveWorkspaceUri(undefined)?.folderUri.fsPath ?? '';
+    constructor(@inject(IInterpreterHelper) private readonly interpreterHelper: IInterpreterHelper) {}
+
+    // --- Start Positron ---
+    /**
+     * Return a comparator that sorts environments for a resource, newest Python first within
+     * each category.
+     *
+     * The categorization context is resolved once here rather than per comparison: it reads
+     * configuration, and {@link categorizeEnvironment} probes the filesystem for the PEP 668
+     * marker, neither of which belongs in a pairwise comparison.
+     *
+     * @param resource The resource whose workspace folder decides the preferred pyenv version.
+     */
+    public getComparator(resource: Resource): (a: PythonEnvironment, b: PythonEnvironment) => number {
+        const sortKey = categorizationSortKeys();
+        const workspacePath = this.interpreterHelper.getActiveWorkspaceUri(resource)?.folderUri.fsPath ?? '';
+        const preferredPyenv = this.preferredPyenvInterpreterPath.get(workspacePath);
+        return (a, b) => this.compare(a, b, sortKey, preferredPyenv);
     }
+    // --- End Positron ---
 
     /**
      * Compare 2 Python environments, sorting them by assumed usefulness.
      * Return 0 if both environments are equal, -1 if a should be closer to the beginning of the list, or 1 if a comes after b.
      *
-     * The comparison guidelines are:
-     * 1. Local environments first (same path as the workspace root);
-     * 2. Global environments next (anything not local), with conda environments at a lower priority, and "base" being last;
-     * 3. Globally-installed interpreters (/usr/bin/python3, Microsoft Store).
+     * Environments are ranked primarily by {@link categorizeEnvironment}'s sort key: project
+     * environments first, then global environments, then base interpreters, then externally
+     * managed interpreters (e.g. the conda "base" env, system Pythons).
      *
      * Always sort with newest version of Python first within each subgroup.
      */
-    public compare(a: PythonEnvironment, b: PythonEnvironment): number {
+    // --- Start Positron ---
+    // Takes the categorization sort keys and preferred pyenv path resolved by getComparator(),
+    // instead of reading constructor-time workspace state.
+    // public compare(a: PythonEnvironment, b: PythonEnvironment): number {
+    private compare(
+        a: PythonEnvironment,
+        b: PythonEnvironment,
+        sortKey: (env: PythonEnvironment) => number,
+        preferredPyenv: string | undefined,
+    ): number {
+        // --- End Positron ---
         if (isProblematicCondaEnvironment(a)) {
             return 1;
         }
@@ -77,14 +106,13 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
             return -1;
         }
         // --- End Positron ---
-        // Check environment location.
-        const envLocationComparison = compareEnvironmentLocation(a, b, this.workspaceFolderPath);
-        if (envLocationComparison !== 0) {
-            return envLocationComparison;
+        // Check environment category (project / global / base / externally managed).
+        const categoryComparison = Math.sign(sortKey(a) - sortKey(b));
+        if (categoryComparison !== 0) {
+            return categoryComparison;
         }
 
         if (a.envType === EnvironmentType.Pyenv && b.envType === EnvironmentType.Pyenv) {
-            const preferredPyenv = this.preferredPyenvInterpreterPath.get(this.workspaceFolderPath);
             if (preferredPyenv) {
                 if (arePathsSame(preferredPyenv, b.path)) {
                     return 1;
@@ -95,25 +123,10 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
             }
         }
 
-        // Check environment type.
-        const envTypeComparison = compareEnvironmentType(a, b);
-        if (envTypeComparison !== 0) {
-            return envTypeComparison;
-        }
-
         // Check Python version.
         const versionComparison = comparePythonVersionDescending(a.version, b.version);
         if (versionComparison !== 0) {
             return versionComparison;
-        }
-
-        // If we have the "base" Conda env, put it last in its Python version subgroup.
-        if (isBaseCondaEnvironment(a)) {
-            return 1;
-        }
-
-        if (isBaseCondaEnvironment(b)) {
-            return -1;
         }
 
         // Check alphabetical order.
@@ -137,9 +150,6 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
     }
 
     public getRecommended(interpreters: PythonEnvironment[], resource: Resource): PythonEnvironment | undefined {
-        // When recommending an intepreter for a workspace, we either want to return a local one
-        // or fallback on a globally-installed interpreter, and we don't want want to suggest a global environment
-        // because we would have to add a way to match environments to a workspace.
         const workspaceUri = this.interpreterHelper.getActiveWorkspaceUri(resource);
         // --- Start Positron ---
         const pyenvVersion = interpreters.some((i) => i.envType === EnvironmentType.Pyenv)
@@ -165,13 +175,6 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
             ) {
                 return false;
             }
-            if (getEnvLocationHeuristic(i, workspaceUri?.folderUri.fsPath || '') === EnvLocationHeuristic.Local) {
-                return true;
-            }
-            if (!workspaceVirtualEnvTypes.includes(i.envType) && virtualEnvTypes.includes(i.envType)) {
-                // These are global virtual envs so we're not sure if these envs were created for the workspace, skip them.
-                return false;
-            }
             if (i.version?.major === 2) {
                 return false;
             }
@@ -188,10 +191,40 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
             // --- End Positron ---
             return true;
         });
-        filteredInterpreters.sort(this.compare.bind(this));
+        // --- Start Positron ---
+        // filteredInterpreters.sort(this.compare.bind(this));
+        filteredInterpreters.sort(this.getComparator(resource));
+        // --- End Positron ---
         return filteredInterpreters.length ? filteredInterpreters[0] : undefined;
     }
 }
+
+// --- Start Positron ---
+/**
+ * Build a memoized categorization sort key lookup for a single sorting pass.
+ *
+ * Every open workspace folder counts as a project location and the user's custom interpreter
+ * dirs outrank other global environments, matching the runtime picker (see
+ * getRuntimeSourceAndShortName in positron/runtime.ts). Keys are memoized per environment because
+ * {@link categorizeEnvironment} probes the filesystem, and a sort compares each environment
+ * repeatedly.
+ */
+function categorizationSortKeys(): (env: PythonEnvironment) => number {
+    const ctx = {
+        workspaceFolders: getWorkspaceFolderPaths(),
+        customInterpreterDirs: getCustomEnvDirs(),
+    };
+    const keys = new Map<PythonEnvironment, number>();
+    return (env: PythonEnvironment) => {
+        let key = keys.get(env);
+        if (key === undefined) {
+            key = categorizeEnvironment(env, ctx).sortKey;
+            keys.set(env, key);
+        }
+        return key;
+    };
+}
+// --- End Positron ---
 
 function getSortName(info: PythonEnvironment, interpreterHelper: IInterpreterHelper): string {
     const sortNameParts: string[] = [];
@@ -238,16 +271,6 @@ function getArchitectureSortName(arch?: Architecture) {
         default:
             return '';
     }
-}
-
-// --- Start Positron ---
-// export this
-export function isBaseCondaEnvironment(environment: PythonEnvironment): boolean {
-    // --- End Positron ---
-    return (
-        environment.envType === EnvironmentType.Conda &&
-        (environment.envName === 'base' || environment.envName === 'miniconda')
-    );
 }
 
 // --- Start Positron ---
@@ -314,16 +337,6 @@ export function comparePythonVersionDescending(a: PythonVersion | undefined, b: 
 }
 
 /**
- * Compare 2 environment locations: return 0 if they are the same, -1 if a comes before b, 1 otherwise.
- */
-function compareEnvironmentLocation(a: PythonEnvironment, b: PythonEnvironment, workspacePath: string): number {
-    const aHeuristic = getEnvLocationHeuristic(a, workspacePath);
-    const bHeuristic = getEnvLocationHeuristic(b, workspacePath);
-
-    return Math.sign(aHeuristic - bHeuristic);
-}
-
-/**
  * Return a heuristic value depending on the environment type.
  */
 export function getEnvLocationHeuristic(environment: PythonEnvironment, workspacePath: string): EnvLocationHeuristic {
@@ -337,52 +350,6 @@ export function getEnvLocationHeuristic(environment: PythonEnvironment, workspac
     return EnvLocationHeuristic.Global;
 }
 
-/**
- * Compare 2 environment types: return 0 if they are the same, -1 if a comes before b, 1 otherwise.
- */
-function compareEnvironmentType(a: PythonEnvironment, b: PythonEnvironment): number {
-    // --- Start Positron ---
-    // if (!a.type && !b.type && a.envType !== EnvironmentType.Pyenv && b.envType !== EnvironmentType.Pyenv) {
-    // Don't lump Pyenv environments together with all other global interpreters.
-    // --- End Positron ---
-    if (!a.type && !b.type) {
-        if (a.envType === EnvironmentType.Pyenv && b.envType !== EnvironmentType.Pyenv) {
-            return -1;
-        }
-        if (a.envType !== EnvironmentType.Pyenv && b.envType === EnvironmentType.Pyenv) {
-            return 1;
-        }
-
-        return 0;
-    }
-    const envTypeByPriority = getPrioritizedEnvironmentType();
-    return Math.sign(envTypeByPriority.indexOf(a.envType) - envTypeByPriority.indexOf(b.envType));
-}
-
-function getPrioritizedEnvironmentType(): EnvironmentType[] {
-    return [
-        // Prioritize non-Conda environments.
-        // --- Start Positron ---
-        EnvironmentType.Uv,
-        // --- End Positron ---
-        EnvironmentType.Poetry,
-        EnvironmentType.Pipenv,
-        EnvironmentType.VirtualEnvWrapper,
-        EnvironmentType.Hatch,
-        EnvironmentType.Venv,
-        EnvironmentType.VirtualEnv,
-        EnvironmentType.ActiveState,
-        EnvironmentType.Conda,
-        EnvironmentType.Pyenv,
-        EnvironmentType.MicrosoftStore,
-        EnvironmentType.Global,
-        EnvironmentType.System,
-        // --- Start Positron ---
-        EnvironmentType.Custom,
-        // --- End Positron ---
-        EnvironmentType.Unknown,
-    ];
-}
 // --- Start Positron ---
 /**
  * Return true if the version name is not of the form x.y.z. This typically means it's a virtual environment name.

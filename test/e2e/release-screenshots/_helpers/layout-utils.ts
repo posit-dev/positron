@@ -194,14 +194,14 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
 /**
  * Rewrite the Python interpreter label Positron renders in chips and
  * session names (e.g. "Python 3.10.15 (uv: positron)", "Python 3.10.15
- * (Pyenv)") so docs screenshots show a clean, current display version.
+ * (pyenv)") so docs screenshots show a clean, current display version.
  * Two normalizations in one pass:
  *   - Version: pinned to `displayVersion` (default '3.13') so screenshots
  *     keep showing the latest major.minor regardless of which interpreter
  *     CI actually launched. This is a DOM-only override; CI continues to
  *     run whichever Python has the test deps installed.
- *   - Suffix: collapsed to a generic "(Venv: .venv)" so CI/runner internals
- *     (uv project paths, Pyenv, system labels) don't leak into docs.
+ *   - Suffix: collapsed to a generic "(venv: .venv)" so CI/runner internals
+ *     (uv project paths, pyenv, system labels) don't leak into docs.
  *
  * Scoped to the workbench surfaces that render the runtime label:
  *   - `.top-action-bar-session-picker-face`     (top-right interpreter face)
@@ -223,7 +223,7 @@ export async function overrideRuntimeLabel(page: Page, displayVersion: string = 
 			'a.kernel-label',
 		];
 		const PATTERN = /Python\s+[\d.]+\s+\([^)]+\)/g;
-		const REPLACEMENT = `Python ${displayVersion} (Venv: .venv)`;
+		const REPLACEMENT = `Python ${displayVersion} (venv: .venv)`;
 		for (const sel of SELECTORS) {
 			for (const root of document.querySelectorAll(sel)) {
 				const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);

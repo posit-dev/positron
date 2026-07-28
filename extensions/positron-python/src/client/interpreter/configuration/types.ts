@@ -70,7 +70,13 @@ export interface ISpecialQuickPickItem extends QuickPickItem {
 export const IInterpreterComparer = Symbol('IInterpreterComparer');
 export interface IInterpreterComparer {
     initialize(resource: Resource): Promise<void>;
-    compare(a: PythonEnvironment, b: PythonEnvironment): number;
+    // --- Start Positron ---
+    // Positron ranks environments by category, which depends on the open workspace folders and
+    // the user's custom interpreter dirs. Hand out a comparator built for a resource instead of
+    // a bare compare(a, b), so that context is resolved per sort rather than at construction.
+    // compare(a: PythonEnvironment, b: PythonEnvironment): number;
+    getComparator(resource: Resource): (a: PythonEnvironment, b: PythonEnvironment) => number;
+    // --- End Positron ---
     getRecommended(interpreters: PythonEnvironment[], resource: Resource): PythonEnvironment | undefined;
 }
 

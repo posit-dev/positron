@@ -4,6 +4,9 @@
 import { Uri } from 'vscode';
 import { Architecture } from '../../../common/utils/platform';
 import { BasicVersionInfo, VersionInfo } from '../../../common/utils/version';
+// --- Start Positron ---
+import { NativePythonEnvironmentKind } from '../locators/common/nativePythonUtils';
+// --- End Positron ---
 
 /**
  * IDs for the various supported Python environments.
@@ -231,6 +234,12 @@ export type PythonEnvInfo = _PythonEnvInfo & {
      * spawns. Used to de-duplicate environments; not user-facing.
      */
     symlinks?: string[];
+    /**
+     * Raw PET data preserved for interpreter categorization (kind is otherwise
+     * collapsed to EnvironmentType, and project is otherwise dropped).
+     */
+    nativeEnvKind?: NativePythonEnvironmentKind;
+    nativeProject?: string;
     // --- End Positron ---
 };
 

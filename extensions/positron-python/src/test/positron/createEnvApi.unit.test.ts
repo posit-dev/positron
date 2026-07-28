@@ -7,6 +7,7 @@
 import * as chaiAsPromised from 'chai-as-promised';
 import * as sinon from 'sinon';
 import * as typemoq from 'typemoq';
+import { capture, when } from 'ts-mockito';
 import { assert, use as chaiUse } from 'chai';
 import { Uri, WorkspaceConfiguration } from 'vscode';
 // eslint-disable-next-line import/no-unresolved
@@ -20,9 +21,11 @@ import { IDisposableRegistry, IPathUtils } from '../../client/common/types';
 import { registerCreateEnvironmentFeatures } from '../../client/pythonEnvironments/creation/createEnvApi';
 import { CreateEnvironmentProvider } from '../../client/pythonEnvironments/creation/proposed.createEnvApis';
 import { IPythonRuntimeManager } from '../../client/positron/manager';
+import { PythonEnvironmentCategory } from '../../client/positron/interpreterCategorization';
 import { IInterpreterQuickPick, IPythonPathUpdaterServiceManager } from '../../client/interpreter/configuration/types';
 import { createEnvironmentAndRegister, CreateEnvironmentAndRegisterOptions } from '../../client/positron/createEnvApi';
 import { createTypeMoq } from '../mocks/helper';
+import { mockedPositronNamespaces } from '../vscode-mock';
 
 chaiUse(chaiAsPromised.default);
 
@@ -225,5 +228,78 @@ suite('Positron Create Environment APIs', () => {
             /Workspace folder not found/,
         );
         assert.isTrue(handleCreateEnvironmentCommandStub.notCalled);
+    });
+
+    suite('uv install runtime picker item', () => {
+        function pythonRuntime(category: PythonEnvironmentCategory): positron.LanguageRuntimeMetadata {
+            return {
+                languageId: 'python',
+                runtimeSource: 'Virtual',
+                extraRuntimeData: { environmentCategory: category },
+            } as positron.LanguageRuntimeMetadata;
+        }
+
+        async function getUvInstallItems(): Promise<positron.runtime.RuntimePickerItem[]> {
+            const contribution = capture(
+                mockedPositronNamespaces.runtime!.registerRuntimePickerContribution as any,
+            ).last()[0] as positron.runtime.RuntimePickerContribution;
+            return contribution.getItems();
+        }
+
+        test('offers the uv install item when no python runtimes are registered', async () => {
+            when(mockedPositronNamespaces.runtime!.getRegisteredRuntimes()).thenReturn(Promise.resolve([]));
+
+            const items = await getUvInstallItems();
+
+            assert.strictEqual(items.length, 1);
+            assert.strictEqual(items[0].id, 'install-python-uv');
+        });
+
+        test('offers the uv install item when only base/externally-managed runtimes exist', async () => {
+            when(mockedPositronNamespaces.runtime!.getRegisteredRuntimes()).thenReturn(
+                Promise.resolve([
+                    pythonRuntime(PythonEnvironmentCategory.BaseInterpreter),
+                    pythonRuntime(PythonEnvironmentCategory.ExternallyManaged),
+                ]),
+            );
+
+            const items = await getUvInstallItems();
+
+            assert.strictEqual(items.length, 1);
+        });
+
+        test('hides the uv install item when a project environment exists', async () => {
+            when(mockedPositronNamespaces.runtime!.getRegisteredRuntimes()).thenReturn(
+                Promise.resolve([
+                    pythonRuntime(PythonEnvironmentCategory.ProjectEnvironment),
+                    pythonRuntime(PythonEnvironmentCategory.BaseInterpreter),
+                ]),
+            );
+
+            const items = await getUvInstallItems();
+
+            assert.strictEqual(items.length, 0);
+        });
+
+        test('hides the uv install item when a global environment exists', async () => {
+            when(mockedPositronNamespaces.runtime!.getRegisteredRuntimes()).thenReturn(
+                Promise.resolve([pythonRuntime(PythonEnvironmentCategory.GlobalEnvironment)]),
+            );
+
+            const items = await getUvInstallItems();
+
+            assert.strictEqual(items.length, 0);
+        });
+
+        test('offers the uv install item regardless when INTERNAL_alwaysShowUvInstallOption is set', async () => {
+            workspaceConfig.setup((c) => c.get<boolean>('INTERNAL_alwaysShowUvInstallOption')).returns(() => true);
+            when(mockedPositronNamespaces.runtime!.getRegisteredRuntimes()).thenReturn(
+                Promise.resolve([pythonRuntime(PythonEnvironmentCategory.ProjectEnvironment)]),
+            );
+
+            const items = await getUvInstallItems();
+
+            assert.strictEqual(items.length, 1);
+        });
     });
 });

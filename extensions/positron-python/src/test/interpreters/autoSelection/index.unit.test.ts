@@ -27,10 +27,17 @@ import { PythonEnvType } from '../../../client/pythonEnvironments/base/info';
 import { EnvironmentType, PythonEnvironment } from '../../../client/pythonEnvironments/info';
 import * as Telemetry from '../../../client/telemetry';
 import { EventName } from '../../../client/telemetry/constants';
+// --- Start Positron ---
+import * as workspaceApis from '../../../client/common/vscodeApis/workspaceApis';
+import * as interpreterSettings from '../../../client/positron/interpreterSettings';
+// --- End Positron ---
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 const preferredGlobalInterpreter = 'preferredGlobalPyInterpreter';
+// --- Start Positron ---
+const testWorkspacePath = path.join('path', 'to', 'workspace');
+// --- End Positron ---
 
 suite('Interpreters - Auto Selection', () => {
     let autoSelectionService: InterpreterAutoSelectionServiceTest;
@@ -67,6 +74,12 @@ suite('Interpreters - Auto Selection', () => {
         interpreterService = mock(InterpreterService);
         experimentService = mock<IExperimentService>();
         when(experimentService.inExperimentSync(anything())).thenReturn(false);
+
+        // --- Start Positron ---
+        // Categorization reads the open folders and the custom interpreter dirs from settings.
+        sinon.stub(workspaceApis, 'getWorkspaceFolderPaths').returns([testWorkspacePath]);
+        sinon.stub(interpreterSettings, 'getCustomEnvDirs').returns([]);
+        // --- End Positron ---
 
         const interpreterComparer = new EnvironmentTypeComparer(instance(helper));
 
@@ -126,7 +139,7 @@ suite('Interpreters - Auto Selection', () => {
         let eventFired: boolean;
 
         setup(() => {
-            workspacePath = path.join('path', 'to', 'workspace');
+            workspacePath = testWorkspacePath;
             resource = Uri.parse('resource');
             eventFired = false;
 
@@ -176,6 +189,7 @@ suite('Interpreters - Auto Selection', () => {
                 {
                     envType: EnvironmentType.System,
                     envPath: path.join('/', 'usr', 'bin'),
+                    path: path.join('/', 'usr', 'bin', 'python3'),
                     version: { major: 3, minor: 9, patch: 1 },
                 } as PythonEnvironment,
                 localEnv,
@@ -189,10 +203,15 @@ suite('Interpreters - Auto Selection', () => {
         });
 
         test('If there are no local environments, return a globally-installed interpreter', async () => {
-            const systemEnv = {
-                envType: EnvironmentType.System,
-                envPath: path.join('/', 'usr', 'bin'),
-                version: { major: 3, minor: 9, patch: 1 },
+            // --- Start Positron ---
+            // Categorization ranks a global named environment (conda/pipenv) above a plain
+            // system Python (externally managed), so the newest global env wins here, not
+            // the system interpreter.
+            // --- End Positron ---
+            const pipenvEnv = {
+                envType: EnvironmentType.Pipenv,
+                envPath: path.join('some', 'pipenv', 'env'),
+                version: { major: 3, minor: 10, patch: 0 },
             } as PythonEnvironment;
 
             when(interpreterService.getInterpreters(resource)).thenCall((_) => [
@@ -201,19 +220,20 @@ suite('Interpreters - Auto Selection', () => {
                     envPath: path.join('some', 'conda', 'env'),
                     version: { major: 3, minor: 7, patch: 2 },
                 } as PythonEnvironment,
-                systemEnv,
                 {
-                    envType: EnvironmentType.Pipenv,
-                    envPath: path.join('some', 'pipenv', 'env'),
-                    version: { major: 3, minor: 10, patch: 0 },
+                    envType: EnvironmentType.System,
+                    envPath: path.join('/', 'usr', 'bin'),
+                    path: path.join('/', 'usr', 'bin', 'python3'),
+                    version: { major: 3, minor: 9, patch: 1 },
                 } as PythonEnvironment,
+                pipenvEnv,
             ]);
 
             await autoSelectionService.autoSelectInterpreter(resource);
 
             expect(eventFired).to.deep.equal(true, 'event not fired');
             verify(interpreterService.getInterpreters(resource)).once();
-            verify(state.updateValue(systemEnv)).once();
+            verify(state.updateValue(pipenvEnv)).once();
         });
 
         test('getInterpreters is called with ignoreCache at true if there is no value set in the workspace persistent state', async () => {

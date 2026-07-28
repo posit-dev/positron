@@ -173,6 +173,43 @@ export class NewFolderFlow {
 	}
 
 	/**
+	 * Helper: Selects "Use an existing environment" in the new folder flow configuration step.
+	 */
+	async selectExistingEnvironment() {
+		await this.existingEnvRadioButton.click();
+	}
+
+	/**
+	 * Helper: Opens the new folder flow interpreter dropdown and reads back the visible entries in
+	 * display order, pairing each entry's name with its category group. Closes the dropdown
+	 * afterward without making a selection.
+	 * @returns The visible interpreter entries in display order.
+	 */
+	async getInterpreterDropdownOrder(): Promise<{ name: string; group: string }[]> {
+		// Wait for loading to finish
+		await expect(this.code.driver.currentPage.getByText(/Loading/)).toHaveCount(0, { timeout: 30000 });
+
+		await this.interpreterDropdown.click();
+
+		const entries = this.dropDropdownOptions;
+		// count() does not auto-wait, so wait for the popup to render at least one entry
+		// before counting; otherwise a slow render tick yields 0 entries intermittently.
+		await expect(entries.first()).toBeVisible({ timeout: 30000 });
+		const entryCount = await entries.count();
+		const order: { name: string; group: string }[] = [];
+
+		for (let i = 0; i < entryCount; i++) {
+			const entry = entries.nth(i);
+			const name = (await entry.locator('.dropdown-entry-title').textContent())?.trim() ?? '';
+			const group = (await entry.locator('.dropdown-entry-group').textContent())?.trim() ?? '';
+			order.push({ name, group });
+		}
+
+		await this.code.driver.currentPage.keyboard.press('Escape');
+		return order;
+	}
+
+	/**
 	 * Helper: Selects the interpreter corresponding to the given path in the new folder flow interpreter dropdown.
 	 * @param interpreterPath The path of the interpreter to select in the dropdown.
 	 */

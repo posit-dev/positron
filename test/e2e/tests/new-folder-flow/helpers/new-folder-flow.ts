@@ -74,13 +74,13 @@ export async function verifyCondaFilesArePresent(app: Application) {
 
 export async function verifyCondaEnvStarts(app: Application) {
 	await test.step('Verify conda environment starts', async () => {
-		await app.workbench.console.waitForConsoleContents(/\(Conda: .+\) started/, { timeout: 90000 });
+		await app.workbench.console.waitForConsoleContents(/\(conda: .+\) started/, { timeout: 90000 });
 	});
 }
 
 export async function verifyVenvEnvStarts(app: Application) {
 	await test.step('Verify venv environment starts', async () => {
-		await app.workbench.console.waitForConsoleContents(/\(Venv: .+\) started/, { timeout: 90000 });
+		await app.workbench.console.waitForConsoleContents(/\(venv: .+\) started/, { timeout: 90000 });
 	});
 }
 

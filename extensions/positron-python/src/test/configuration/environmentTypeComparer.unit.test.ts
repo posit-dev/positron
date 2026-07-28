@@ -16,13 +16,15 @@ import {
     isProblematicCondaEnvironment,
 } from '../../client/interpreter/configuration/environmentTypeComparer';
 import { IInterpreterHelper } from '../../client/interpreter/contracts';
-import { PythonEnvType } from '../../client/pythonEnvironments/base/info';
+import { NativePythonEnvironmentKind } from '../../client/pythonEnvironments/base/locators/common/nativePythonUtils';
 import * as pyenv from '../../client/pythonEnvironments/common/environmentManagers/pyenv';
 import { EnvironmentType, PythonEnvironment } from '../../client/pythonEnvironments/info';
 // --- Start Positron ---
 import * as externalDependencies from '../../client/pythonEnvironments/common/externalDependencies';
 import { getPyenvVersion } from '../../client/interpreter/configuration/environmentTypeComparer';
 import * as pyenvUtils from '../../client/pythonEnvironments/common/environmentManagers/pyenv';
+import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
+import * as interpreterSettings from '../../client/positron/interpreterSettings';
 // --- End Positron ---
 
 suite('Environment sorting', () => {
@@ -42,6 +44,14 @@ suite('Environment sorting', () => {
         } as unknown as IInterpreterHelper;
         const getActivePyenvForDirectory = sinon.stub(pyenv, 'getActivePyenvForDirectory');
         getActivePyenvForDirectory.resolves(preferredPyenv);
+        // --- Start Positron ---
+        // Test fixture paths don't exist on disk. Assume they do, so conda fixtures that aren't
+        // specifically testing isProblematicCondaEnvironment aren't flagged as problematic.
+        sinon.stub(externalDependencies, 'pathExistsSync').returns(true);
+        // Categorization reads the open folders and the custom interpreter dirs from settings.
+        sinon.stub(workspaceApis, 'getWorkspaceFolderPaths').returns([workspacePath]);
+        sinon.stub(interpreterSettings, 'getCustomEnvDirs').returns([]);
+        // --- End Positron ---
     });
 
     teardown(() => {
@@ -57,286 +67,172 @@ suite('Environment sorting', () => {
 
     const testcases: ComparisonTestCaseType[] = [
         {
-            title: 'Local virtual environment should come first',
+            title: 'A project environment should come before a global environment',
             envA: {
                 envType: EnvironmentType.Venv,
-                type: PythonEnvType.Virtual,
+                nativeEnvKind: NativePythonEnvironmentKind.Venv,
                 envPath: path.join(workspacePath, '.venv'),
+                path: path.join(workspacePath, '.venv', 'bin', 'python'),
                 version: { major: 3, minor: 10, patch: 2 },
             } as PythonEnvironment,
             envB: {
-                envType: EnvironmentType.System,
-                version: { major: 3, minor: 10, patch: 2 },
-            } as PythonEnvironment,
-            expected: -1,
-        },
-        {
-            title: "Non-local virtual environment should not come first when there's a local env",
-            envA: {
                 envType: EnvironmentType.Venv,
-                type: PythonEnvType.Virtual,
+                nativeEnvKind: NativePythonEnvironmentKind.Venv,
                 envPath: path.join('path', 'to', 'other', 'workspace', '.venv'),
+                path: path.join('path', 'to', 'other', 'workspace', '.venv', 'bin', 'python'),
                 version: { major: 3, minor: 10, patch: 2 },
             } as PythonEnvironment,
-            envB: {
-                envType: EnvironmentType.Venv,
-                type: PythonEnvType.Virtual,
-                envPath: path.join(workspacePath, '.venv'),
-                version: { major: 3, minor: 10, patch: 2 },
-            } as PythonEnvironment,
-            expected: 1,
+            expected: -1,
         },
         {
-            title: "Conda environment should not come first when there's a local env",
+            title: 'A global environment should come before a base interpreter',
             envA: {
                 envType: EnvironmentType.Conda,
-                type: PythonEnvType.Conda,
-                version: { major: 3, minor: 10, patch: 2 },
-            } as PythonEnvironment,
-            envB: {
-                envType: EnvironmentType.Venv,
-                type: PythonEnvType.Virtual,
-                envPath: path.join(workspacePath, '.venv'),
-                version: { major: 3, minor: 10, patch: 2 },
-            } as PythonEnvironment,
-            expected: 1,
-        },
-        {
-            title: 'Conda base environment should come after any other conda env',
-            envA: {
-                envType: EnvironmentType.Conda,
-                type: PythonEnvType.Conda,
-                envName: 'base',
-                version: { major: 3, minor: 10, patch: 2 },
-            } as PythonEnvironment,
-            envB: {
-                envType: EnvironmentType.Conda,
-                type: PythonEnvType.Conda,
-                envName: 'random-name',
-                version: { major: 3, minor: 10, patch: 2 },
-            } as PythonEnvironment,
-            expected: 1,
-        },
-        {
-            title: 'Pipenv environment should come before any other conda env',
-            envA: {
-                envType: EnvironmentType.Conda,
-                type: PythonEnvType.Conda,
+                nativeEnvKind: NativePythonEnvironmentKind.Conda,
                 envName: 'conda-env',
+                path: path.join('home', 'user', 'miniconda3', 'envs', 'conda-env', 'bin', 'python'),
                 version: { major: 3, minor: 10, patch: 2 },
             } as PythonEnvironment,
             envB: {
-                envType: EnvironmentType.Pipenv,
-                envName: 'pipenv-env',
+                envType: EnvironmentType.Global,
+                path: path.join('opt', 'python', 'bin', 'python3'),
                 version: { major: 3, minor: 10, patch: 2 },
             } as PythonEnvironment,
-
-            expected: 1,
+            expected: -1,
         },
         {
-            title: 'System environment should not come first when there are global envs',
+            title: 'A base interpreter should come before an externally managed (system) interpreter',
             envA: {
+                envType: EnvironmentType.Global,
+                path: path.join('opt', 'python', 'bin', 'python3'),
+                version: { major: 3, minor: 10, patch: 2 },
+            } as PythonEnvironment,
+            envB: {
                 envType: EnvironmentType.System,
+                path: '/usr/bin/python3',
                 version: { major: 3, minor: 10, patch: 2 },
-            } as PythonEnvironment,
-            envB: {
-                envType: EnvironmentType.Poetry,
-                type: PythonEnvType.Virtual,
-                envName: 'poetry-env',
-                version: { major: 3, minor: 10, patch: 2 },
-            } as PythonEnvironment,
-            expected: 1,
-        },
-        {
-            title: 'Pyenv interpreter should not come first when there are global envs',
-            envA: {
-                envType: EnvironmentType.Pyenv,
-                version: { major: 3, minor: 10, patch: 2 },
-            } as PythonEnvironment,
-            envB: {
-                envType: EnvironmentType.Pipenv,
-                type: PythonEnvType.Virtual,
-                envName: 'pipenv-env',
-                version: { major: 3, minor: 10, patch: 2 },
-            } as PythonEnvironment,
-            expected: 1,
-        },
-        // --- Start Positron ---
-        // We inherit the above test case from upstream but its description appears to be incorrect.
-        {
-            title: 'Pyenv interpreter SHOULD come before global/system envs',
-            envA: {
-                envType: EnvironmentType.Pyenv,
-                version: { major: 3, minor: 10, patch: 2 },
-            } as PythonEnvironment,
-            envB: {
-                envType: EnvironmentType.Global,
-                version: { major: 3, minor: 12, patch: 2 },
-            } as PythonEnvironment,
-            expected: -1,
-        },
-        // --- End Positron ---
-        {
-            title: 'Preferred Pyenv interpreter should come before any global interpreter',
-            envA: {
-                envType: EnvironmentType.Pyenv,
-                version: { major: 3, minor: 12, patch: 2 },
-                path: preferredPyenv,
-            } as PythonEnvironment,
-            envB: {
-                envType: EnvironmentType.Pyenv,
-                version: { major: 3, minor: 10, patch: 2 },
-                path: path.join('path', 'to', 'normal', 'pyenv'),
             } as PythonEnvironment,
             expected: -1,
         },
         {
-            title: 'Pyenv interpreters should come first when there are global interpreters',
+            title:
+                'A conda base environment should be categorized as externally managed, ' +
+                'behind a regular conda environment',
             envA: {
-                envType: EnvironmentType.Global,
+                envType: EnvironmentType.Conda,
+                nativeEnvKind: NativePythonEnvironmentKind.Conda,
+                envName: 'conda-env',
+                path: path.join('home', 'user', 'miniconda3', 'envs', 'conda-env', 'bin', 'python'),
                 version: { major: 3, minor: 10, patch: 2 },
             } as PythonEnvironment,
             envB: {
-                envType: EnvironmentType.Pyenv,
-                // --- Start Positron ---
-                // Positron puts unsupported Python versions at the end, so we need the Pyenv test
-                // version to be supported.
-                // version: { major: 3, minor: 7, patch: 2 },
-                version: { major: 3, minor: 9, patch: 2 },
-                // --- End Positron ---
-                path: path.join('path', 'to', 'normal', 'pyenv'),
+                envType: EnvironmentType.Conda,
+                nativeEnvKind: NativePythonEnvironmentKind.Conda,
+                envName: 'base',
+                path: path.join('home', 'user', 'miniconda3', 'bin', 'python'),
+                version: { major: 3, minor: 10, patch: 2 },
             } as PythonEnvironment,
-            expected: 1,
+            expected: -1,
         },
         {
-            title: 'Global environment should not come first when there are global envs',
+            title: 'Problematic environments should come last, ahead of category ranking',
             envA: {
-                envType: EnvironmentType.Global,
-                version: { major: 3, minor: 10, patch: 2 },
+                envType: EnvironmentType.Conda,
+                envPath: path.join(workspacePath, '.venv'),
+                path: 'python',
             } as PythonEnvironment,
             envB: {
-                envType: EnvironmentType.Poetry,
-                type: PythonEnvType.Virtual,
-                envName: 'poetry-env',
-                version: { major: 3, minor: 10, patch: 2 },
-            } as PythonEnvironment,
-            expected: 1,
-        },
-        {
-            title: 'Microsoft Store environment should not come first when there are global envs',
-            envA: {
-                envType: EnvironmentType.MicrosoftStore,
-                version: { major: 3, minor: 10, patch: 2 },
-            } as PythonEnvironment,
-            envB: {
-                envType: EnvironmentType.VirtualEnv,
-                type: PythonEnvType.Virtual,
-                envName: 'virtualenv-env',
+                envType: EnvironmentType.System,
+                path: '/usr/bin/python3',
                 version: { major: 3, minor: 10, patch: 2 },
             } as PythonEnvironment,
             expected: 1,
         },
         {
-            title: 'Microsoft Store interpreter should not come first when there are global interpreters with higher version',
-            envA: {
-                envType: EnvironmentType.MicrosoftStore,
-                version: { major: 3, minor: 10, patch: 2, raw: '3.10.2' },
-            } as PythonEnvironment,
-            envB: {
-                envType: EnvironmentType.Global,
-                version: { major: 3, minor: 11, patch: 2, raw: '3.11.2' },
-            } as PythonEnvironment,
-            expected: 1,
-        },
-        {
-            title: 'Unknown environment should not come first when there are global envs',
-            envA: {
-                envType: EnvironmentType.Unknown,
-                version: { major: 3, minor: 10, patch: 2 },
-            } as PythonEnvironment,
-            envB: {
-                envType: EnvironmentType.Pipenv,
-                type: PythonEnvType.Virtual,
-                envName: 'pipenv-env',
-                version: { major: 3, minor: 10, patch: 2 },
-            } as PythonEnvironment,
-            expected: 1,
-        },
-        {
-            title: 'If 2 environments are of the same type, the most recent Python version comes first',
+            title: 'Unsupported Python versions should come last, ahead of category ranking',
             envA: {
                 envType: EnvironmentType.Venv,
-                type: PythonEnvType.Virtual,
-                envPath: path.join(workspacePath, '.old-venv'),
+                nativeEnvKind: NativePythonEnvironmentKind.Venv,
+                envPath: path.join(workspacePath, '.venv'),
+                path: path.join(workspacePath, '.venv', 'bin', 'python'),
                 version: { major: 3, minor: 7, patch: 5, raw: '3.7.5' },
             } as PythonEnvironment,
             envB: {
-                envType: EnvironmentType.Venv,
-                type: PythonEnvType.Virtual,
-                envPath: path.join(workspacePath, '.venv'),
+                envType: EnvironmentType.System,
+                path: '/usr/bin/python3',
                 version: { major: 3, minor: 10, patch: 2, raw: '3.10.2' },
             } as PythonEnvironment,
             expected: 1,
         },
         {
-            title: "If 2 global environments have the same Python version and there's a Conda one, the Conda env should not come first",
+            title: 'Within the same category, the most recent Python version comes first',
             envA: {
                 envType: EnvironmentType.Conda,
-                type: PythonEnvType.Conda,
-                envName: 'conda-env',
-                version: { major: 3, minor: 10, patch: 2 },
+                nativeEnvKind: NativePythonEnvironmentKind.Conda,
+                envName: 'conda-old',
+                path: path.join('home', 'user', 'miniconda3', 'envs', 'conda-old', 'bin', 'python'),
+                // Must stay >= MINIMUM_PYTHON_VERSION (3.9.0): an unsupported version would hit
+                // the isVersionSupported guard before this test's own version tiebreak runs.
+                version: { major: 3, minor: 9, patch: 5, raw: '3.9.5' },
             } as PythonEnvironment,
             envB: {
-                envType: EnvironmentType.Pipenv,
-                type: PythonEnvType.Virtual,
-                envName: 'pipenv-env',
-                version: { major: 3, minor: 10, patch: 2 },
+                envType: EnvironmentType.Conda,
+                nativeEnvKind: NativePythonEnvironmentKind.Conda,
+                envName: 'conda-new',
+                path: path.join('home', 'user', 'miniconda3', 'envs', 'conda-new', 'bin', 'python'),
+                version: { major: 3, minor: 10, patch: 2, raw: '3.10.2' },
             } as PythonEnvironment,
             expected: 1,
         },
         {
-            title: 'If 2 global environments are of the same type and have the same Python version, they should be sorted by name',
+            title: 'Within the same category and version, environments are sorted by name',
             envA: {
                 envType: EnvironmentType.Conda,
-                type: PythonEnvType.Conda,
+                nativeEnvKind: NativePythonEnvironmentKind.Conda,
                 envName: 'conda-foo',
+                path: path.join('home', 'user', 'miniconda3', 'envs', 'conda-foo', 'bin', 'python'),
                 version: { major: 3, minor: 10, patch: 2 },
             } as PythonEnvironment,
             envB: {
                 envType: EnvironmentType.Conda,
-                type: PythonEnvType.Conda,
+                nativeEnvKind: NativePythonEnvironmentKind.Conda,
                 envName: 'conda-bar',
+                path: path.join('home', 'user', 'miniconda3', 'envs', 'conda-bar', 'bin', 'python'),
                 version: { major: 3, minor: 10, patch: 2 },
             } as PythonEnvironment,
             expected: 1,
         },
         {
-            title: 'If 2 global interpreters have the same Python version, they should be sorted by architecture',
+            title: 'Within the same category, version, and name, environments are sorted by architecture',
             envA: {
                 envType: EnvironmentType.Global,
+                path: path.join('opt', 'python-x86', 'bin', 'python3'),
                 architecture: Architecture.x86,
                 version: { major: 3, minor: 10, patch: 2 },
             } as PythonEnvironment,
             envB: {
                 envType: EnvironmentType.Global,
+                path: path.join('opt', 'python-x64', 'bin', 'python3'),
                 architecture: Architecture.x64,
                 version: { major: 3, minor: 10, patch: 2 },
             } as PythonEnvironment,
             expected: 1,
         },
         {
-            title: 'Problematic environments should come last',
+            title: 'The preferred pyenv interpreter should come before another pyenv interpreter in the same category',
             envA: {
-                envType: EnvironmentType.Conda,
-                type: PythonEnvType.Conda,
-                envPath: path.join(workspacePath, '.venv'),
-                path: 'python',
+                envType: EnvironmentType.Pyenv,
+                nativeEnvKind: NativePythonEnvironmentKind.Pyenv,
+                version: { major: 3, minor: 12, patch: 2 },
+                path: preferredPyenv,
             } as PythonEnvironment,
             envB: {
-                envType: EnvironmentType.System,
+                envType: EnvironmentType.Pyenv,
+                nativeEnvKind: NativePythonEnvironmentKind.Pyenv,
                 version: { major: 3, minor: 10, patch: 2 },
+                path: path.join('path', 'to', 'normal', 'pyenv'),
             } as PythonEnvironment,
-            expected: 1,
+            expected: -1,
         },
     ];
 
@@ -344,7 +240,7 @@ suite('Environment sorting', () => {
         test(title, async () => {
             const envTypeComparer = new EnvironmentTypeComparer(interpreterHelper);
             await envTypeComparer.initialize(undefined);
-            const result = envTypeComparer.compare(envA, envB);
+            const result = envTypeComparer.getComparator(undefined)(envA, envB);
 
             assert.strictEqual(result, expected);
         });
@@ -352,6 +248,81 @@ suite('Environment sorting', () => {
 });
 
 // --- Start Positron ---
+suite('Environment sorting context', () => {
+    const workspaceA = path.join('path', 'to', 'workspace-a');
+    const workspaceB = path.join('path', 'to', 'workspace-b');
+    const customDir = path.join('opt', 'shared');
+    let interpreterHelper: IInterpreterHelper;
+    let getWorkspaceFolderPathsStub: sinon.SinonStub;
+    let getCustomEnvDirsStub: sinon.SinonStub;
+
+    setup(() => {
+        interpreterHelper = {
+            // In a multi-root workspace this returns nothing unless a resource resolves to a
+            // folder, which is why the sorting context can't be derived from it.
+            getActiveWorkspaceUri: sinon.stub().returns(undefined),
+            getInterpreterTypeDisplayName: sinon.stub(),
+        } as unknown as IInterpreterHelper;
+        sinon.stub(externalDependencies, 'pathExistsSync').returns(true);
+        getWorkspaceFolderPathsStub = sinon.stub(workspaceApis, 'getWorkspaceFolderPaths').returns([]);
+        getCustomEnvDirsStub = sinon.stub(interpreterSettings, 'getCustomEnvDirs').returns([]);
+    });
+
+    teardown(() => {
+        sinon.restore();
+    });
+
+    // An env in the second folder of a multi-root workspace, and a newer global venv that would
+    // win if the project env were miscategorized as global.
+    const projectEnv = {
+        envType: EnvironmentType.Venv,
+        nativeEnvKind: NativePythonEnvironmentKind.Venv,
+        envPath: path.join(workspaceB, '.venv'),
+        path: path.join(workspaceB, '.venv', 'bin', 'python'),
+        version: { major: 3, minor: 10, patch: 2, raw: '3.10.2' },
+    } as PythonEnvironment;
+    const newerGlobalEnv = {
+        envType: EnvironmentType.Venv,
+        nativeEnvKind: NativePythonEnvironmentKind.Venv,
+        envPath: path.join('path', 'to', 'elsewhere', 'venv'),
+        path: path.join('path', 'to', 'elsewhere', 'venv', 'bin', 'python'),
+        version: { major: 3, minor: 13, patch: 1, raw: '3.13.1' },
+    } as PythonEnvironment;
+
+    test('An environment in any open folder is a project environment, not just the active one', () => {
+        getWorkspaceFolderPathsStub.returns([workspaceA, workspaceB]);
+        const envTypeComparer = new EnvironmentTypeComparer(interpreterHelper);
+
+        const result = envTypeComparer.getComparator(undefined)(projectEnv, newerGlobalEnv);
+
+        assert.strictEqual(result, -1);
+    });
+
+    test('getRecommended prefers a project environment in a multi-root workspace', () => {
+        getWorkspaceFolderPathsStub.returns([workspaceA, workspaceB]);
+        const envTypeComparer = new EnvironmentTypeComparer(interpreterHelper);
+
+        const result = envTypeComparer.getRecommended([newerGlobalEnv, projectEnv], undefined);
+
+        assert.strictEqual(result, projectEnv);
+    });
+
+    test('An interpreter in a custom interpreter dir outranks other global environments', () => {
+        getCustomEnvDirsStub.returns([customDir]);
+        const customEnv = {
+            envType: EnvironmentType.Custom,
+            nativeEnvKind: NativePythonEnvironmentKind.Custom,
+            path: path.join(customDir, '3.10.2', 'bin', 'python'),
+            version: { major: 3, minor: 10, patch: 2, raw: '3.10.2' },
+        } as PythonEnvironment;
+        const envTypeComparer = new EnvironmentTypeComparer(interpreterHelper);
+
+        const result = envTypeComparer.getComparator(undefined)(customEnv, newerGlobalEnv);
+
+        assert.strictEqual(result, -1);
+    });
+});
+
 suite('getPyenvVersion tests', () => {
     let pathExistsSyncStub: sinon.SinonStub;
     let readFileSyncStub: sinon.SinonStub;
@@ -389,6 +360,9 @@ suite('getPyenvVersion tests', () => {
         checkParentDirsStub = sinon.stub(externalDependencies, 'checkParentDirs');
         getPyenvDirStub = sinon.stub(pyenvUtils, 'getPyenvDir');
         getPyenvDirStub.withArgs().returns(globalPyenvDir);
+        // Categorization reads the open folders and the custom interpreter dirs from settings.
+        sinon.stub(workspaceApis, 'getWorkspaceFolderPaths').returns([workspacePath]);
+        sinon.stub(interpreterSettings, 'getCustomEnvDirs').returns([]);
     });
 
     teardown(() => {
@@ -421,18 +395,21 @@ suite('getPyenvVersion tests', () => {
             // pyenv version, does not match local .python-version or global pyenv
             path: 'path',
             envType: EnvironmentType.Pyenv,
+            nativeEnvKind: NativePythonEnvironmentKind.Pyenv,
             version: { major: 3, minor: 11, patch: 2, raw: '3.11.2' },
         } as PythonEnvironment;
         const envC = {
             // local pyenv version for the workspace
             path: 'path',
             envType: EnvironmentType.Pyenv,
+            nativeEnvKind: NativePythonEnvironmentKind.Pyenv,
             version: { major: 3, minor: 10, patch: 2, raw: '3.10.2' },
         } as PythonEnvironment;
         const envD = {
             // global pyenv version
             path: 'path',
             envType: EnvironmentType.Pyenv,
+            nativeEnvKind: NativePythonEnvironmentKind.Pyenv,
             version: { major: 3, minor: 11, patch: 3, raw: '3.11.3' },
             envName: 'my_global_pyenv',
         } as PythonEnvironment;
@@ -457,18 +434,21 @@ suite('getPyenvVersion tests', () => {
             // pyenv version, does not match local .python-version or global pyenv
             path: 'path',
             envType: EnvironmentType.Pyenv,
+            nativeEnvKind: NativePythonEnvironmentKind.Pyenv,
             version: { major: 3, minor: 11, patch: 2, raw: '3.11.2' },
         } as PythonEnvironment;
         const envC = {
             // local pyenv version for the workspace
             path: 'path',
             envType: EnvironmentType.Pyenv,
+            nativeEnvKind: NativePythonEnvironmentKind.Pyenv,
             version: { major: 3, minor: 10, patch: 2, raw: '3.10.2' },
         } as PythonEnvironment;
         const envD = {
             // global pyenv version
             path: 'path',
             envType: EnvironmentType.Pyenv,
+            nativeEnvKind: NativePythonEnvironmentKind.Pyenv,
             version: { major: 3, minor: 11, patch: 3, raw: '3.11.3' },
             envName: 'my_global_pyenv',
         } as PythonEnvironment;

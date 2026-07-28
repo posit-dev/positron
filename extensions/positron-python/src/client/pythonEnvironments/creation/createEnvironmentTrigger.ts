@@ -4,6 +4,7 @@
 // --- Start Positron ---
 // removed WorkspaceFolder import
 import { Disposable, Uri } from 'vscode';
+import { IInterpreterService } from '../../interpreter/contracts';
 // --- End Positron ---
 import {
     fileContainsInlineDependencies,
@@ -11,8 +12,8 @@ import {
     hasRequirementFiles,
     // --- Start Positron ---
     hasPyprojectToml,
+    activeInterpreterIsDedicated,
     // --- End Positron ---
-    isGlobalPythonSelected,
     shouldPromptToCreateEnv,
     isCreateEnvWorkspaceCheckNotRun,
     disableCreateEnvironmentTrigger,
@@ -55,7 +56,7 @@ export interface CreateEnvironmentTriggerOptions {
     force?: boolean;
 }
 
-async function createEnvironmentCheckForWorkspace(uri: Uri): Promise<void> {
+async function createEnvironmentCheckForWorkspace(uri: Uri, interpreterService: IInterpreterService): Promise<void> {
     const workspace = getWorkspaceFolder(uri);
     if (!workspace) {
         traceInfo(`CreateEnv Trigger - Workspace not found for ${uri.fsPath}`);
@@ -74,7 +75,7 @@ async function createEnvironmentCheckForWorkspace(uri: Uri): Promise<void> {
         hasRequirementFiles(workspace),
         hasPyprojectToml(workspace),
         hasKnownFiles(workspace),
-        isGlobalPythonSelected(workspace).then((isGlobal) => !isGlobal),
+        activeInterpreterIsDedicated(interpreterService, workspace),
     ]);
 
     const hasDepFiles = hasReqs || hasPyproject;
@@ -116,32 +117,41 @@ async function createEnvironmentCheckForWorkspace(uri: Uri): Promise<void> {
     // --- End Positron ---
 }
 
-function runOnceWorkspaceCheck(uri: Uri, options: CreateEnvironmentTriggerOptions = {}): Promise<void> {
+function runOnceWorkspaceCheck(
+    uri: Uri,
+    interpreterService: IInterpreterService,
+    options: CreateEnvironmentTriggerOptions = {},
+): Promise<void> {
     if (isCreateEnvWorkspaceCheckNotRun() || options?.force) {
-        return createEnvironmentCheckForWorkspace(uri);
+        return createEnvironmentCheckForWorkspace(uri, interpreterService);
     }
     sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_RESULT, undefined, { result: 'already-ran' });
     traceVerbose('CreateEnv Trigger - skipping this because it was already run');
     return Promise.resolve();
 }
 
-async function createEnvironmentCheckForFile(uri: Uri, options?: CreateEnvironmentTriggerOptions): Promise<void> {
+async function createEnvironmentCheckForFile(
+    uri: Uri,
+    interpreterService: IInterpreterService,
+    options?: CreateEnvironmentTriggerOptions,
+): Promise<void> {
     if (await fileContainsInlineDependencies(uri)) {
         // TODO: Handle create environment for each file here.
         // pending acceptance of PEP-722/PEP-723
 
         // For now we do the same thing as for workspace.
-        await runOnceWorkspaceCheck(uri, options);
+        await runOnceWorkspaceCheck(uri, interpreterService, options);
     }
 
     // If the file does not have any inline dependencies, then we do the same thing
     // as for workspace.
-    await runOnceWorkspaceCheck(uri, options);
+    await runOnceWorkspaceCheck(uri, interpreterService, options);
 }
 
 export async function triggerCreateEnvironmentCheck(
     kind: CreateEnvironmentCheckKind,
     uri: Resource,
+    interpreterService: IInterpreterService,
     options?: CreateEnvironmentTriggerOptions,
 ): Promise<void> {
     if (!uri) {
@@ -152,9 +162,9 @@ export async function triggerCreateEnvironmentCheck(
 
     if (shouldPromptToCreateEnv()) {
         if (kind === CreateEnvironmentCheckKind.File) {
-            await createEnvironmentCheckForFile(uri, options);
+            await createEnvironmentCheckForFile(uri, interpreterService, options);
         } else {
-            await runOnceWorkspaceCheck(uri, options);
+            await runOnceWorkspaceCheck(uri, interpreterService, options);
         }
     } else {
         sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_RESULT, undefined, { result: 'turned-off' });
@@ -165,18 +175,24 @@ export async function triggerCreateEnvironmentCheck(
 export function triggerCreateEnvironmentCheckNonBlocking(
     kind: CreateEnvironmentCheckKind,
     uri: Resource,
+    interpreterService: IInterpreterService,
     options?: CreateEnvironmentTriggerOptions,
 ): void {
     // The Event loop for Node.js runs functions with setTimeout() with lower priority than setImmediate.
     // This is done to intentionally avoid blocking anything that the user wants to do.
-    setTimeout(() => triggerCreateEnvironmentCheck(kind, uri, options).ignoreErrors(), 0);
+    setTimeout(() => triggerCreateEnvironmentCheck(kind, uri, interpreterService, options).ignoreErrors(), 0);
 }
 
-export function registerCreateEnvironmentTriggers(disposables: Disposable[]): void {
+export function registerCreateEnvironmentTriggers(
+    disposables: Disposable[],
+    interpreterService: IInterpreterService,
+): void {
     disposables.push(
         registerCommand(Commands.Create_Environment_Check, (file: Resource) => {
             sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_TRIGGER, undefined, { trigger: 'as-command' });
-            triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file, { force: true });
+            triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file, interpreterService, {
+                force: true,
+            });
         }),
     );
 }

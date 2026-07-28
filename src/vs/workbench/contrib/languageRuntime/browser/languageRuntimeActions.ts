@@ -14,6 +14,7 @@ import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybindi
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { getRuntimeDisplayPath, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { groupAndOrderRuntimes } from '../../../services/languageRuntime/common/runtimeGrouping.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
@@ -485,70 +486,20 @@ export const selectNewLanguageRuntime = async (
 
 
 		interpreterGroups.forEach(group => {
-			// Group runtimes by environment type
-			const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
-			const allRuntimes = group.alternateRuntimes;
-
-			allRuntimes.forEach(runtime => {
-				const envType = `${runtime.runtimeSource}`;
-				if (!runtimesByEnvType.has(envType)) {
-					runtimesByEnvType.set(envType, []);
-				}
-				runtimesByEnvType.get(envType)!.push(runtime);
-
-			});
-
-			const envTypes = Array.from(runtimesByEnvType.keys());
-
-			// Sort runtimes by version (decreasing), then alphabetically
-			envTypes.forEach(envType => {
-				items.push({ type: 'separator', label: envType });
-				runtimesByEnvType.get(envType)!
-					.sort((a, b) => {
-						// If both have version numbers, compare them
-						if (a.languageVersion && b.languageVersion) {
-							const aVersion = a.languageVersion.split('.').map(Number);
-							const bVersion = b.languageVersion.split('.').map(Number);
-
-							// Always list unsupported versions last
-							if (!(a.extraRuntimeData as { supported?: boolean })?.supported) {
-								return 1;
-							}
-							if (!(b.extraRuntimeData as { supported?: boolean })?.supported) {
-								return -1;
-							}
-							// Compare major version
-							if (aVersion[0] !== bVersion[0]) {
-								return bVersion[0] - aVersion[0];
-							}
-
-							// Compare minor version
-							if (aVersion[1] !== bVersion[1]) {
-								return bVersion[1] - aVersion[1];
-							}
-
-							// Compare patch version
-							if (aVersion[2] !== bVersion[2]) {
-								return bVersion[2] - aVersion[2];
-							}
-						}
-
-						// If versions are equal or not found, sort alphabetically
-						return a.runtimeName.localeCompare(b.runtimeName);
-					})
-					.forEach(runtime => {
-						items.push({
-							id: runtime.runtimeId,
-							label: runtime.runtimeName,
-							detail: getRuntimeDisplayPath(runtime),
-							iconPath: {
-								dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
-							},
-							neverShowWhenFiltered: false
-						});
+			for (const { label, runtimes } of groupAndOrderRuntimes(group.alternateRuntimes)) {
+				items.push({ type: 'separator', label });
+				runtimes.forEach(runtime => {
+					items.push({
+						id: runtime.runtimeId,
+						label: runtime.runtimeName,
+						detail: getRuntimeDisplayPath(runtime),
+						iconPath: {
+							dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+						},
+						neverShowWhenFiltered: false
 					});
-
-			});
+				});
+			}
 		});
 
 		// TODO: right now, these are added to the end of the list, but we may want to

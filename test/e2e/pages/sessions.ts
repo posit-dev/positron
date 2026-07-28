@@ -22,9 +22,10 @@ export const DISCONNECTED_STATUS_ICON = '.codicon-positron-runtime-status-discon
 // Python interpreter source markers to deprioritize when selecting an interpreter
 // by version. Several interpreters can share a version (e.g. a project venv and a
 // base pyenv both shown as "Python 3.10.12"); when that happens we want the real
-// environment, not the base install. The values match the "(<source>" portion of
-// the quick pick label produced by getRuntimeSourceAndShortName.
-export const DEPRIORITIZED_PYTHON_SOURCES = ['(Pyenv', '(Global', '(System', '(Unknown'];
+// environment, not the base install. The values match the "(<manager token>" portion
+// of the quick pick label produced by getRuntimeSourceAndShortName (Base Interpreter /
+// Externally Managed manager tokens: pyenv, system, Homebrew, python.org).
+export const DEPRIORITIZED_PYTHON_SOURCES = ['(pyenv', '(system', '(Homebrew', '(python.org'];
 
 // Quickpick labels - keep in sync with languageRuntimeActions.ts
 const INTERPRETER_SESSIONS_LABEL = 'Interpreter Sessions';
@@ -1358,8 +1359,8 @@ export class SessionQuickPick {
 	/**
 	 * Utils: Parse the full runtime name into language, version, and source.
 	 *
-	 * @param runtimeName - the full runtime name to parse. E.g., "Python 3.10.15 (Pyenv)"
-	 * @returns The parsed runtime name. E.g., { language: "Python", version: "3.10.15", source: "Pyenv" }
+	 * @param runtimeName - the full runtime name to parse. E.g., "Python 3.10.15 (pyenv)"
+	 * @returns The parsed runtime name. E.g., { language: "Python", version: "3.10.15", source: "pyenv" }
 	 */
 	async parseRuntimeName(runtimeName: string | null) {
 		if (!runtimeName) {
@@ -1375,7 +1376,7 @@ export class SessionQuickPick {
 		return {
 			language: match[1],  // e.g., "Python", "R"
 			version: match[2],   // e.g., "3.10.15", "4.4.1"
-			source: match[3] || undefined    // e.g., "Pyenv", "System"
+			source: match[3] || undefined    // e.g., "pyenv", "system"
 		};
 	}
 }
@@ -1405,7 +1406,7 @@ export type SessionInfo = {
 
 export interface ExtendedSessionInfo extends SessionInfo {
 	path: string;    // e.g. /usr/local/bin/python3
-	source?: string; // e.g. Pyenv, Global, System, etc
+	source?: string; // e.g. venv, conda, pyenv, uv, system, module, etc (may include ": <env name>")
 }
 
 export type SessionMetaData = {

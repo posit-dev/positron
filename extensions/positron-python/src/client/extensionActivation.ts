@@ -128,7 +128,11 @@ export async function activateFeatures(ext: ExtensionState, _components: Compone
     const workspaceService = ext.legacyIOC.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     const firstFolder = workspaceService.workspaceFolders?.[0];
     if (firstFolder) {
-        triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.Workspace, firstFolder.uri);
+        triggerCreateEnvironmentCheckNonBlocking(
+            CreateEnvironmentCheckKind.Workspace,
+            firstFolder.uri,
+            interpreterService,
+        );
     }
     // --- End Positron ---
     const executionHelper = ext.legacyIOC.serviceContainer.get<ICodeExecutionHelper>(ICodeExecutionHelper);
@@ -220,7 +224,7 @@ async function activateLegacy(ext: ExtensionState, startupStopWatch: StopWatch):
                 });
             disposables.push(terminalProvider);
 
-            registerCreateEnvironmentTriggers(disposables);
+            registerCreateEnvironmentTriggers(disposables, interpreterManager);
             initializePersistentStateForTriggers(ext.context);
         }
     }

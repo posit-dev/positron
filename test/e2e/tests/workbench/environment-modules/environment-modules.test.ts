@@ -40,10 +40,13 @@ test.describe('Environment Modules', { tag: [tags.WORKBENCH, tags.ENVIRONMENT_MO
 			['python/3.12.10']
 		);
 
-		// Verify the module environment was created with the correct category
+		// Verify the module environment was created with the module manager token.
+		// Module interpreters categorize as "Base Interpreters" (no named env), so the
+		// separator/category no longer reads "Module" -- the manager token in the item's
+		// own name is the reliable signal (see interpreterCategorization.ts).
 		await expect(async () => {
 			const runtimes = await app.workbench.sessions.getAllAvailableRuntimes();
-			const pythonModule = runtimes.find(r => r.name.includes('Python 3.12.10') && r.category.includes('Module'));
+			const pythonModule = runtimes.find(r => r.name.includes('Python 3.12.10') && r.name.includes('(module'));
 			expect(pythonModule).toBeDefined();
 		}).toPass({ timeout: 30000 });
 

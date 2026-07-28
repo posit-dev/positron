@@ -20,7 +20,7 @@ export class PackageManagerFactory {
     /**
      * Create the appropriate package manager for the given environment.
      *
-     * @param runtimeSource The environment type (e.g., 'Venv', 'Conda', 'Global', 'uv')
+     * @param managerToken The environment's manager token (e.g., 'venv', 'conda', 'uv', 'system')
      * @param pythonPath The path to the Python interpreter
      * @param messageEmitter The emitter for runtime messages
      * @param serviceContainer The service container for dependency injection
@@ -28,21 +28,21 @@ export class PackageManagerFactory {
      * @returns The appropriate package manager for the environment
      */
     static create(
-        runtimeSource: EnvironmentType | string | undefined,
+        managerToken: string | undefined,
         pythonPath: string,
         messageEmitter: MessageEmitter,
         serviceContainer: IServiceContainer,
         session: PackageSession,
     ): IPackageManager {
-        if (runtimeSource?.toLowerCase() === EnvironmentType.Uv.toLowerCase()) {
+        if (managerToken?.toLowerCase() === EnvironmentType.Uv.toLowerCase()) {
             return new UvPackageManager(pythonPath, messageEmitter, serviceContainer, session);
         }
 
-        if (runtimeSource?.toLowerCase() === EnvironmentType.Conda.toLowerCase()) {
+        if (managerToken?.toLowerCase() === EnvironmentType.Conda.toLowerCase()) {
             return new CondaPackageManager(pythonPath, messageEmitter, serviceContainer, session);
         }
 
-        if (runtimeSource?.toLowerCase() === EnvironmentType.Venv.toLowerCase()) {
+        if (managerToken?.toLowerCase() === EnvironmentType.Venv.toLowerCase()) {
             return new PipPackageManager(pythonPath, messageEmitter, serviceContainer, session);
         }
 

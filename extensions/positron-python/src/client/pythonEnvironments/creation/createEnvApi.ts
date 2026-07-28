@@ -33,6 +33,7 @@ import { PythonEnvironment } from '../../envExt/types';
 import * as positron from 'positron';
 import { getCondaPythonVersions } from './provider/condaUtils';
 import { IPythonRuntimeManager } from '../../positron/manager';
+import { PythonEnvironmentCategory } from '../../positron/interpreterCategorization';
 import { Conda } from '../common/environmentManagers/conda';
 import { getUvPythonVersions } from './provider/uvUtils';
 import { isUvInstalled } from '../common/environmentManagers/uv';
@@ -47,7 +48,6 @@ import {
     CreateEnvironmentAndRegisterOptions,
     getCreateEnvironmentProviders,
     isEnvProviderEnabled,
-    isGlobalPython,
 } from '../../positron/createEnvApi';
 import { traceError, traceLog } from '../../logging';
 import { getConfiguration } from '../../common/vscodeApis/workspaceApis';
@@ -242,7 +242,6 @@ export async function registerCreateEnvironmentFeatures(
                 return undefined;
             }
         }),
-        registerCommand(Commands.Is_Global_Python, (interpreterPath: string) => isGlobalPython(interpreterPath)),
     );
 
     // Register the runtime picker contribution for "Install Python via uv"
@@ -263,10 +262,17 @@ export async function registerCreateEnvironmentFeatures(
                 const runtimes = await positron.runtime.getRegisteredRuntimes();
                 const pythonRuntimes = runtimes.filter((r) => r.languageId === 'python');
 
-                // Check if we only have system/global Python (no virtual environments)
-                const hasOnlySystemPython =
-                    pythonRuntimes.length > 0 &&
-                    pythonRuntimes.every((r) => ['System', 'Global'].includes(r.runtimeSource));
+                // Check if a project or global environment is registered -- if so, the user
+                // already has something appropriate to use directly.
+                const hasProjectOrGlobalEnv = pythonRuntimes.some((r) => {
+                    const category = (
+                        r.extraRuntimeData as { environmentCategory?: PythonEnvironmentCategory } | undefined
+                    )?.environmentCategory;
+                    return (
+                        category === PythonEnvironmentCategory.ProjectEnvironment ||
+                        category === PythonEnvironmentCategory.GlobalEnvironment
+                    );
+                });
 
                 // Check if we should always show the option (for testing)
                 const alwaysShow =
@@ -275,8 +281,8 @@ export async function registerCreateEnvironmentFeatures(
                 // Show the install option if:
                 // - Always show is enabled (for testing), OR
                 // - No Python runtimes found, OR
-                // - Only system/global Python found (no virtual environments)
-                if (alwaysShow || pythonRuntimes.length === 0 || hasOnlySystemPython) {
+                // - No project or global environment found (only bases/externally managed)
+                if (alwaysShow || pythonRuntimes.length === 0 || !hasProjectOrGlobalEnv) {
                     return [
                         {
                             id: 'install-python-uv',

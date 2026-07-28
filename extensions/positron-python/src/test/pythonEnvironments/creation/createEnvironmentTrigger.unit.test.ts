@@ -19,6 +19,7 @@ import * as commandApis from '../../../client/common/vscodeApis/commandApis';
 // import { Common, CreateEnv } from '../../../client/common/utils/localize';
 import { Common } from '../../../client/common/utils/localize';
 import * as autoCreateVenv from '../../../client/pythonEnvironments/creation/provider/autoCreateVenv';
+import { IInterpreterService } from '../../../client/interpreter/contracts';
 // --- End Positron ---
 
 suite('Create Environment Trigger', () => {
@@ -27,7 +28,7 @@ suite('Create Environment Trigger', () => {
     let hasPrefixCondaEnvStub: sinon.SinonStub;
     let hasRequirementFilesStub: sinon.SinonStub;
     let hasKnownFilesStub: sinon.SinonStub;
-    let isGlobalPythonSelectedStub: sinon.SinonStub;
+    let activeInterpreterIsDedicatedStub: sinon.SinonStub;
     let showInformationMessageStub: sinon.SinonStub;
     let isCreateEnvWorkspaceCheckNotRunStub: sinon.SinonStub;
     let getWorkspaceFolderStub: sinon.SinonStub;
@@ -37,6 +38,10 @@ suite('Create Environment Trigger', () => {
     let disableCreateEnvironmentTriggerStub: sinon.SinonStub;
     // --- Start Positron ---
     let autoCreateVenvWithDepsStub: sinon.SinonStub;
+    // --- End Positron ---
+
+    // --- Start Positron ---
+    const interpreterService = {} as IInterpreterService;
     // --- End Positron ---
 
     const workspace1 = {
@@ -54,7 +59,7 @@ suite('Create Environment Trigger', () => {
         sinon.stub(triggerUtils, 'hasPyprojectToml').resolves(false);
         // --- End Positron ---
         hasKnownFilesStub = sinon.stub(triggerUtils, 'hasKnownFiles');
-        isGlobalPythonSelectedStub = sinon.stub(triggerUtils, 'isGlobalPythonSelected');
+        activeInterpreterIsDedicatedStub = sinon.stub(triggerUtils, 'activeInterpreterIsDedicated');
         showInformationMessageStub = sinon.stub(windowApis, 'showInformationMessage');
 
         isCreateEnvWorkspaceCheckNotRunStub = sinon.stub(triggerUtils, 'isCreateEnvWorkspaceCheckNotRun');
@@ -83,27 +88,27 @@ suite('Create Environment Trigger', () => {
     });
 
     test('No Uri', async () => {
-        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, undefined);
+        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, undefined, interpreterService);
         sinon.assert.notCalled(shouldPromptToCreateEnvStub);
     });
 
     test('Should not perform checks if user set trigger to "off"', async () => {
         shouldPromptToCreateEnvStub.returns(false);
 
-        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
+        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri, interpreterService);
 
         sinon.assert.calledOnce(shouldPromptToCreateEnvStub);
         sinon.assert.notCalled(hasVenvStub);
         sinon.assert.notCalled(hasPrefixCondaEnvStub);
         sinon.assert.notCalled(hasRequirementFilesStub);
         sinon.assert.notCalled(hasKnownFilesStub);
-        sinon.assert.notCalled(isGlobalPythonSelectedStub);
+        sinon.assert.notCalled(activeInterpreterIsDedicatedStub);
         sinon.assert.notCalled(showInformationMessageStub);
     });
 
     test('Should not perform checks even if force is true, if user set trigger to "off"', async () => {
         shouldPromptToCreateEnvStub.returns(false);
-        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri, {
+        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri, interpreterService, {
             force: true,
         });
 
@@ -112,7 +117,7 @@ suite('Create Environment Trigger', () => {
         sinon.assert.notCalled(hasPrefixCondaEnvStub);
         sinon.assert.notCalled(hasRequirementFilesStub);
         sinon.assert.notCalled(hasKnownFilesStub);
-        sinon.assert.notCalled(isGlobalPythonSelectedStub);
+        sinon.assert.notCalled(activeInterpreterIsDedicatedStub);
         sinon.assert.notCalled(showInformationMessageStub);
     });
 
@@ -122,15 +127,15 @@ suite('Create Environment Trigger', () => {
         hasPrefixCondaEnvStub.resolves(false);
         hasRequirementFilesStub.resolves(true);
         hasKnownFilesStub.resolves(false);
-        isGlobalPythonSelectedStub.resolves(true);
-        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
+        activeInterpreterIsDedicatedStub.resolves(false);
+        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri, interpreterService);
 
         sinon.assert.calledOnce(shouldPromptToCreateEnvStub);
         sinon.assert.calledOnce(hasVenvStub);
         sinon.assert.calledOnce(hasPrefixCondaEnvStub);
         sinon.assert.calledOnce(hasRequirementFilesStub);
         sinon.assert.calledOnce(hasKnownFilesStub);
-        sinon.assert.calledOnce(isGlobalPythonSelectedStub);
+        sinon.assert.calledOnce(activeInterpreterIsDedicatedStub);
         sinon.assert.notCalled(showInformationMessageStub);
     });
 
@@ -140,15 +145,15 @@ suite('Create Environment Trigger', () => {
         hasPrefixCondaEnvStub.resolves(true);
         hasRequirementFilesStub.resolves(true);
         hasKnownFilesStub.resolves(false);
-        isGlobalPythonSelectedStub.resolves(true);
-        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
+        activeInterpreterIsDedicatedStub.resolves(false);
+        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri, interpreterService);
 
         sinon.assert.calledOnce(shouldPromptToCreateEnvStub);
         sinon.assert.calledOnce(hasVenvStub);
         sinon.assert.calledOnce(hasPrefixCondaEnvStub);
         sinon.assert.calledOnce(hasRequirementFilesStub);
         sinon.assert.calledOnce(hasKnownFilesStub);
-        sinon.assert.calledOnce(isGlobalPythonSelectedStub);
+        sinon.assert.calledOnce(activeInterpreterIsDedicatedStub);
         sinon.assert.notCalled(showInformationMessageStub);
     });
 
@@ -158,15 +163,15 @@ suite('Create Environment Trigger', () => {
         hasPrefixCondaEnvStub.resolves(false);
         hasRequirementFilesStub.resolves(false);
         hasKnownFilesStub.resolves(false);
-        isGlobalPythonSelectedStub.resolves(true);
-        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
+        activeInterpreterIsDedicatedStub.resolves(false);
+        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri, interpreterService);
 
         sinon.assert.calledOnce(shouldPromptToCreateEnvStub);
         sinon.assert.calledOnce(hasVenvStub);
         sinon.assert.calledOnce(hasPrefixCondaEnvStub);
         sinon.assert.calledOnce(hasRequirementFilesStub);
         sinon.assert.calledOnce(hasKnownFilesStub);
-        sinon.assert.calledOnce(isGlobalPythonSelectedStub);
+        sinon.assert.calledOnce(activeInterpreterIsDedicatedStub);
         sinon.assert.notCalled(showInformationMessageStub);
     });
 
@@ -176,15 +181,15 @@ suite('Create Environment Trigger', () => {
         hasPrefixCondaEnvStub.resolves(false);
         hasRequirementFilesStub.resolves(false);
         hasKnownFilesStub.resolves(true);
-        isGlobalPythonSelectedStub.resolves(true);
-        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
+        activeInterpreterIsDedicatedStub.resolves(false);
+        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri, interpreterService);
 
         sinon.assert.calledOnce(shouldPromptToCreateEnvStub);
         sinon.assert.calledOnce(hasVenvStub);
         sinon.assert.calledOnce(hasPrefixCondaEnvStub);
         sinon.assert.calledOnce(hasRequirementFilesStub);
         sinon.assert.calledOnce(hasKnownFilesStub);
-        sinon.assert.calledOnce(isGlobalPythonSelectedStub);
+        sinon.assert.calledOnce(activeInterpreterIsDedicatedStub);
         sinon.assert.notCalled(showInformationMessageStub);
     });
 
@@ -194,15 +199,15 @@ suite('Create Environment Trigger', () => {
         hasPrefixCondaEnvStub.resolves(false);
         hasRequirementFilesStub.resolves(true);
         hasKnownFilesStub.resolves(false);
-        isGlobalPythonSelectedStub.resolves(false);
-        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
+        activeInterpreterIsDedicatedStub.resolves(true);
+        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri, interpreterService);
 
         sinon.assert.calledOnce(shouldPromptToCreateEnvStub);
         sinon.assert.calledOnce(hasVenvStub);
         sinon.assert.calledOnce(hasPrefixCondaEnvStub);
         sinon.assert.calledOnce(hasRequirementFilesStub);
         sinon.assert.calledOnce(hasKnownFilesStub);
-        sinon.assert.calledOnce(isGlobalPythonSelectedStub);
+        sinon.assert.calledOnce(activeInterpreterIsDedicatedStub);
         sinon.assert.notCalled(showInformationMessageStub);
     });
 
@@ -212,16 +217,16 @@ suite('Create Environment Trigger', () => {
         hasPrefixCondaEnvStub.resolves(false);
         hasRequirementFilesStub.resolves(true);
         hasKnownFilesStub.resolves(false);
-        isGlobalPythonSelectedStub.resolves(true);
+        activeInterpreterIsDedicatedStub.resolves(false);
         showInformationMessageStub.resolves(undefined);
-        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
+        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri, interpreterService);
 
         sinon.assert.calledOnce(shouldPromptToCreateEnvStub);
         sinon.assert.calledOnce(hasVenvStub);
         sinon.assert.calledOnce(hasPrefixCondaEnvStub);
         sinon.assert.calledOnce(hasRequirementFilesStub);
         sinon.assert.calledOnce(hasKnownFilesStub);
-        sinon.assert.calledOnce(isGlobalPythonSelectedStub);
+        sinon.assert.calledOnce(activeInterpreterIsDedicatedStub);
         sinon.assert.calledOnce(showInformationMessageStub);
 
         // --- Start Positron ---
@@ -236,19 +241,19 @@ suite('Create Environment Trigger', () => {
         hasPrefixCondaEnvStub.resolves(false);
         hasRequirementFilesStub.resolves(true);
         hasKnownFilesStub.resolves(false);
-        isGlobalPythonSelectedStub.resolves(true);
+        activeInterpreterIsDedicatedStub.resolves(false);
 
         // --- Start Positron ---
         showInformationMessageStub.resolves(Common.bannerLabelYes);
         // --- End Positron ---
-        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
+        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri, interpreterService);
 
         sinon.assert.calledOnce(shouldPromptToCreateEnvStub);
         sinon.assert.calledOnce(hasVenvStub);
         sinon.assert.calledOnce(hasPrefixCondaEnvStub);
         sinon.assert.calledOnce(hasRequirementFilesStub);
         sinon.assert.calledOnce(hasKnownFilesStub);
-        sinon.assert.calledOnce(isGlobalPythonSelectedStub);
+        sinon.assert.calledOnce(activeInterpreterIsDedicatedStub);
         sinon.assert.calledOnce(showInformationMessageStub);
 
         // --- Start Positron ---
@@ -263,17 +268,17 @@ suite('Create Environment Trigger', () => {
         hasPrefixCondaEnvStub.resolves(false);
         hasRequirementFilesStub.resolves(true);
         hasKnownFilesStub.resolves(false);
-        isGlobalPythonSelectedStub.resolves(true);
+        activeInterpreterIsDedicatedStub.resolves(false);
 
         showInformationMessageStub.resolves(Common.doNotShowAgain);
-        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
+        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri, interpreterService);
 
         sinon.assert.calledOnce(shouldPromptToCreateEnvStub);
         sinon.assert.calledOnce(hasVenvStub);
         sinon.assert.calledOnce(hasPrefixCondaEnvStub);
         sinon.assert.calledOnce(hasRequirementFilesStub);
         sinon.assert.calledOnce(hasKnownFilesStub);
-        sinon.assert.calledOnce(isGlobalPythonSelectedStub);
+        sinon.assert.calledOnce(activeInterpreterIsDedicatedStub);
         sinon.assert.calledOnce(showInformationMessageStub);
 
         // --- Start Positron ---

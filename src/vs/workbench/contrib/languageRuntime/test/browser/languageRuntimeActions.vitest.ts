@@ -260,12 +260,14 @@ describe('selectNewLanguageRuntime', () => {
 		it('sorts within an env type by version descending, unsupported runtimes last', async () => {
 			// Register a preferred runtime first so the three runtimes under test
 			// are all alternates (the primary is shown only under "Suggested").
+			// All three alternates share a runtimeSortKey, routing them through the
+			// same version/supported tiebreak that keyless runtimes also use.
 			await registerRuntime(makeRuntime({ runtimeId: 'py-pref', runtimeName: 'Python (preferred)' }));
-			await registerRuntime(makeRuntime({ runtimeId: 'py-310', languageVersion: '3.10.0', runtimeName: 'Python 3.10' }));
-			await registerRuntime(makeRuntime({ runtimeId: 'py-312', languageVersion: '3.12.0', runtimeName: 'Python 3.12' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-310', languageVersion: '3.10.0', runtimeName: 'Python 3.10', runtimeSortKey: 1000 }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-312', languageVersion: '3.12.0', runtimeName: 'Python 3.12', runtimeSortKey: 1000 }));
 			await registerRuntime(makeRuntime({
 				runtimeId: 'py-old', languageVersion: '3.8.0', runtimeName: 'Python 3.8 (unsupported)',
-				extraRuntimeData: { supported: false },
+				extraRuntimeData: { supported: false }, runtimeSortKey: 1000,
 			}));
 
 			const promise = runPicker();
@@ -277,6 +279,20 @@ describe('selectNewLanguageRuntime', () => {
 				.filter((item): item is IQuickPickItem => item.type !== 'separator')
 				.map(item => item.id);
 			expect(groupIds).toEqual(['py-312', 'py-310', 'py-old']);
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
+		it('orders environment-type groups by runtimeSortKey, not registration order', async () => {
+			await registerRuntime(makeRuntime({ runtimeId: 'py-pref', runtimeName: 'Python (preferred)' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'ext', runtimeName: 'ext-mgd', runtimeSource: 'Externally Managed', runtimeSortKey: 4000, languageVersion: '3.9.6' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'glob', runtimeName: 'global-venv', runtimeSource: 'Global Environments', runtimeSortKey: 2010, languageVersion: '3.13.2' }));
+
+			const promise = runPicker();
+			await waitUntilOpened();
+			const labels = pick.items.map(item => item.type === 'separator' ? `# ${item.label}` : item.id);
+			// Global Environments group appears before Externally Managed regardless of registration order.
+			expect(labels.indexOf('# Global Environments')).toBeLessThan(labels.indexOf('# Externally Managed'));
 			pick.cancel(QuickInputHideReason.Gesture);
 			await promise;
 		});

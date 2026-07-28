@@ -309,6 +309,10 @@ async function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[])
         // realpath is not the interpreter they run. Omitted (not undefined) when
         // absent so deep-equality comparisons of envs are unaffected.
         ...(nativeEnv.symlinks && { symlinks: nativeEnv.symlinks }),
+        // Preserve PET's un-collapsed kind + project for categorization. Omitted
+        // (not undefined) when absent so deep-equality env comparisons are unaffected.
+        ...(nativeEnv.kind && { nativeEnvKind: nativeEnv.kind }),
+        ...(nativeEnv.project && { nativeProject: nativeEnv.project }),
         // --- End Positron ---
         detailedDisplayName: displayName,
         display: displayName,
@@ -341,6 +345,17 @@ function hasChanged(old: PythonEnvInfo, newEnv: PythonEnvInfo): boolean {
     if (old.arch !== newEnv.arch) {
         return true;
     }
+    // --- Start Positron ---
+    // The collapsed `kind` above can stay identical while PET refines the raw kind
+    // (e.g. Uv -> UvWorkspace) or fills/changes the project path. Those drive
+    // interpreter categorization, so treat them as changes to fire a Changed event.
+    if (old.nativeEnvKind !== newEnv.nativeEnvKind) {
+        return true;
+    }
+    if (old.nativeProject !== newEnv.nativeProject) {
+        return true;
+    }
+    // --- End Positron ---
 
     return false;
 }

@@ -20,6 +20,8 @@ import { EnvironmentType, PythonEnvironment } from '../../../client/pythonEnviro
 import { getOSType, OSType } from '../../common';
 // --- Start Positron ---
 import * as externalDependencies from '../../../client/pythonEnvironments/common/externalDependencies';
+import * as workspaceApis from '../../../client/common/vscodeApis/workspaceApis';
+import * as interpreterSettings from '../../../client/positron/interpreterSettings';
 // --- End Positron ---
 
 const info: PythonEnvironment = {
@@ -81,7 +83,10 @@ suite('Interpreters - selector', () => {
             .setup((x) => x.arePathsSame(TypeMoq.It.isAnyString(), TypeMoq.It.isAnyString()))
             .returns((a: string, b: string) => a === b);
 
-        newComparer.setup((c) => c.compare(TypeMoq.It.isAny(), TypeMoq.It.isAny())).returns(() => 0);
+        // --- Start Positron ---
+        // newComparer.setup((c) => c.compare(TypeMoq.It.isAny(), TypeMoq.It.isAny())).returns(() => 0);
+        newComparer.setup((c) => c.getComparator(TypeMoq.It.isAny())).returns(() => () => 0);
+        // --- End Positron ---
         selector = new TestInterpreterSelector(interpreterService.object, newComparer.object, new PathUtils(false));
     });
 
@@ -152,6 +157,11 @@ suite('Interpreters - selector', () => {
 
     test('Should sort environments with local ones first', async () => {
         const workspacePath = path.join('path', 'to', 'workspace');
+        // --- Start Positron ---
+        // Categorization reads the open folders and the custom interpreter dirs from settings.
+        sinon.stub(workspaceApis, 'getWorkspaceFolderPaths').returns([workspacePath]);
+        sinon.stub(interpreterSettings, 'getCustomEnvDirs').returns([]);
+        // --- End Positron ---
 
         const environments: PythonEnvironment[] = [
             {

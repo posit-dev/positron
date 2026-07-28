@@ -77,7 +77,11 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                         sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_TRIGGER, undefined, {
                             trigger: 'run-in-terminal',
                         });
-                        triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file);
+                        triggerCreateEnvironmentCheckNonBlocking(
+                            CreateEnvironmentCheckKind.File,
+                            file,
+                            interpreterService,
+                        );
 
                         await this.executeFileInTerminal(file, trigger, {
                             newTerminalPerFile,
@@ -198,7 +202,7 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                     return;
                 }
                 sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_TRIGGER, undefined, { trigger: 'run-selection' });
-                triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file);
+                triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file, interpreterService);
                 await this.executeSelectionInTerminal().then(() => {
                     if (this.shouldTerminalFocusOnStart(file))
                         this.commandManager.executeCommand('workbench.action.terminal.focus');
@@ -216,7 +220,11 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                         return;
                     }
                     sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_TRIGGER, undefined, { trigger: 'run-selection' });
-                    triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file);
+                    triggerCreateEnvironmentCheckNonBlocking(
+                        CreateEnvironmentCheckKind.File,
+                        file,
+                        interpreterService,
+                    );
                     await this.executeSelectionInDjangoShell().then(() => {
                         if (this.shouldTerminalFocusOnStart(file))
                             this.commandManager.executeCommand('workbench.action.terminal.focus');

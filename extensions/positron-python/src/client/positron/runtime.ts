@@ -29,6 +29,8 @@ import {
 import { getShortVersionString, parseVersion } from '../pythonEnvironments/base/info/pythonVersion';
 import { EnvironmentType, virtualEnvTypes } from '../pythonEnvironments/info';
 import { isParentPath } from '../pythonEnvironments/common/externalDependencies';
+import { categorizeEnvironment, PythonEnvironmentCategory } from './interpreterCategorization';
+import { getCustomEnvDirs } from './interpreterSettings';
 
 /**
  * Module metadata for Python interpreters discovered via environment modules.
@@ -45,8 +47,23 @@ export interface PythonRuntimeExtraData {
     ipykernelBundle?: IpykernelBundle;
     externallyManaged?: boolean;
     supported?: boolean;
+    environmentCategory?: PythonEnvironmentCategory;
+    /**
+     * Machine-readable manager token (e.g. 'uv', 'conda', 'venv') derived from
+     * the raw PET kind. `runtimeSource` is a localized display label, so consumers
+     * that need to key off the environment's tooling (e.g. PackageManagerFactory)
+     * must use this instead.
+     */
+    managerToken?: string;
     /** Module metadata for interpreters discovered via environment modules */
     moduleMetadata?: PythonModuleMetadata;
+    /**
+     * Whether venv creation may use this interpreter as its base (see
+     * Categorization.validVenvSeed for the policy). Stamped on every Python runtime this
+     * extension registers; optional only because the interface is shared with consumers
+     * that read partial metadata.
+     */
+    isValidVenvSeed?: boolean;
 }
 
 /**
@@ -95,38 +112,50 @@ function isPythonRuntimeCacheable(interpreter: PythonEnvironment, workspaceFolde
 }
 
 /**
- * Compute the display source and short name for a Python runtime (e.g. source
- * `Venv` and short name `3.10.17 (Venv: my-project)`).
+ * Compute the display source, short name, sort key and category for a Python
+ * runtime (e.g. source `Project Environments` and short name
+ * `3.10.17 (venv: my-project)`).
  *
- * When module metadata is present it is authoritative for both: a module-managed
- * Python is often also visible to the native locator as a bare global, so the
- * interpreter's `envType` can be `Unknown` even though the runtime is
- * module-provided. Keying off the metadata keeps it labelled as `Module`
- * (mirroring classifyRRuntimeSource on the R side).
+ * Delegates to {@link categorizeEnvironment} for the manager token (e.g.
+ * `venv`, `conda`, `module`), the localized group label, and the sort key.
+ * This function only resolves the env name shown in the parenthetical: the
+ * parent directory name for `.venv`/`.conda` folders (like uv does), or the
+ * module's configured environment name for module-provided interpreters.
  *
- * @param interpreterPath The interpreter's executable path.
- * @param envType The environment type reported by discovery.
- * @param envName The environment name reported by discovery, if any.
+ * @param interpreter The Python environment being categorized.
  * @param pythonVersion The formatted Python version (e.g. '3.10.17').
  * @param moduleMetadata Module metadata for this interpreter, if module-provided.
- * @returns The runtime source and the short display name.
+ * @param ctx Workspace folders and custom interpreter dirs, used to decide whether
+ * the environment is project-associated.
+ * @returns The runtime source, short display name, sort key, and category.
  */
 export function getRuntimeSourceAndShortName(
-    interpreterPath: string,
-    envType: EnvironmentType,
-    envName: string | undefined,
+    interpreter: PythonEnvironment,
     pythonVersion: string,
     moduleMetadata: ModuleMetadata | undefined,
-): { runtimeSource: EnvironmentType; runtimeShortName: string } {
+    ctx: { workspaceFolders: string[]; customInterpreterDirs: string[] },
+): {
+    runtimeSource: string;
+    runtimeShortName: string;
+    sortKey: number;
+    category: PythonEnvironmentCategory;
+    managerToken: string;
+    validVenvSeed: boolean;
+} {
+    const categorization = categorizeEnvironment(interpreter, {
+        ...ctx,
+        hasModuleMetadata: moduleMetadata !== undefined,
+    });
+
     // Get the environment name, using parent directory name for .venv/.conda
     // folders (like uv does). Module environments use their configured name.
-    let resolvedEnvName = envName ?? '';
+    let resolvedEnvName = interpreter.envName ?? '';
     if (moduleMetadata) {
         resolvedEnvName = moduleMetadata.environmentName;
-    } else if ((resolvedEnvName === '.venv' || resolvedEnvName === '.conda') && interpreterPath) {
-        // interpreterPath is like /project/.venv/bin/python (Unix) or
+    } else if ((resolvedEnvName === '.venv' || resolvedEnvName === '.conda') && interpreter.path) {
+        // interpreter.path is like /project/.venv/bin/python (Unix) or
         // /project/.venv/Scripts/python.exe (Windows); extract "project".
-        const venvDir = path.dirname(path.dirname(interpreterPath)); // up from python to bin/Scripts, then to .venv
+        const venvDir = path.dirname(path.dirname(interpreter.path)); // up from python to bin/Scripts, then to .venv
         const projectDir = path.dirname(venvDir); // up from .venv to project
         const projectName = path.basename(projectDir);
         if (projectName) {
@@ -134,19 +163,22 @@ export function getRuntimeSourceAndShortName(
         }
     }
 
-    const runtimeSource = moduleMetadata ? EnvironmentType.Module : envType;
-
-    // Construct the display name for the runtime, like 'Python (Pyenv: venv-name)'.
-    let runtimeShortName = pythonVersion;
-    // Add the environment type (e.g. 'Pyenv', 'Global', 'Conda', etc.)
-    runtimeShortName += ` (${runtimeSource}`;
+    // Construct the display name for the runtime, like 'Python (venv: venv-name)'.
+    let runtimeShortName = `${pythonVersion} (${categorization.managerToken}`;
     // Add the environment name if it's not the same as the Python version
     if (resolvedEnvName.length > 0 && resolvedEnvName !== pythonVersion) {
         runtimeShortName += `: ${resolvedEnvName}`;
     }
     runtimeShortName += ')';
 
-    return { runtimeSource, runtimeShortName };
+    return {
+        runtimeSource: categorization.groupLabel,
+        runtimeShortName,
+        sortKey: categorization.sortKey,
+        category: categorization.category,
+        managerToken: categorization.managerToken,
+        validVenvSeed: categorization.validVenvSeed,
+    };
 }
 
 export async function createPythonRuntimeMetadata(
@@ -226,14 +258,17 @@ export async function createPythonRuntimeMetadata(
     await whenModuleMetadataReady();
     const moduleMetadata = moduleMetadataMap.get(interpreter.path);
 
-    // Determine the display source (e.g. 'Venv', 'Module') and short name.
-    const { runtimeSource, runtimeShortName } = getRuntimeSourceAndShortName(
-        interpreter.path,
-        interpreter.envType,
-        interpreter.envName,
-        pythonVersion,
-        moduleMetadata,
-    );
+    // Determine whether this runtime is eligible for the discovery cache, and
+    // categorize it (also used below to derive the display source/name).
+    const workspaceFolderPaths = (workspaceService.workspaceFolders ?? []).map((f) => f.uri.fsPath).filter((p) => !!p);
+
+    // Determine the display source (e.g. 'Project Environments'), short name,
+    // sort key, and category.
+    const { runtimeSource, runtimeShortName, sortKey, category, managerToken, validVenvSeed } =
+        getRuntimeSourceAndShortName(interpreter, pythonVersion, moduleMetadata, {
+            workspaceFolders: workspaceFolderPaths,
+            customInterpreterDirs: getCustomEnvDirs(),
+        });
 
     let supportedFlag = '';
     if (!isVersionSupported(interpreter.version)) {
@@ -256,6 +291,9 @@ export async function createPythonRuntimeMetadata(
         pythonPath: interpreter.path,
         ipykernelBundle,
         supported: isVersionSupported(interpreter.version),
+        environmentCategory: category,
+        managerToken,
+        isValidVenvSeed: validVenvSeed,
     };
 
     // Record the module metadata (looked up above) so the session launches with
@@ -274,8 +312,6 @@ export async function createPythonRuntimeMetadata(
             ? positron.LanguageRuntimeSessionLocation.Machine
             : positron.LanguageRuntimeSessionLocation.Workspace;
 
-    // Determine whether this runtime is eligible for the discovery cache.
-    const workspaceFolderPaths = (workspaceService.workspaceFolders ?? []).map((f) => f.uri.fsPath).filter((p) => !!p);
     const cacheable = isPythonRuntimeCacheable(interpreter, workspaceFolderPaths);
 
     // Create the metadata for the language runtime
@@ -296,6 +332,7 @@ export async function createPythonRuntimeMetadata(
         sessionLocation,
         extraRuntimeData,
         cacheable,
+        runtimeSortKey: sortKey,
     };
 
     return metadata;

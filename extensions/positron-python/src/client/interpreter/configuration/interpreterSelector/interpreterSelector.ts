@@ -28,14 +28,21 @@ export class InterpreterSelector implements IInterpreterSelector {
 
     public getSuggestions(resource: Resource, useFullDisplayName = false): IInterpreterQuickPickItem[] {
         const interpreters = this.interpreterManager.getInterpreters(resource);
-        interpreters.sort(this.envTypeComparer.compare.bind(this.envTypeComparer));
+        // --- Start Positron ---
+        // Sort with a comparator built for this resource; see IInterpreterComparer.
+        // interpreters.sort(this.envTypeComparer.compare.bind(this.envTypeComparer));
+        interpreters.sort(this.envTypeComparer.getComparator(resource));
+        // --- End Positron ---
 
         return interpreters.map((item) => this.suggestionToQuickPickItem(item, resource, useFullDisplayName));
     }
 
     public async getAllSuggestions(resource: Resource): Promise<IInterpreterQuickPickItem[]> {
         const interpreters = await this.interpreterManager.getAllInterpreters(resource);
-        interpreters.sort(this.envTypeComparer.compare.bind(this.envTypeComparer));
+        // --- Start Positron ---
+        // interpreters.sort(this.envTypeComparer.compare.bind(this.envTypeComparer));
+        interpreters.sort(this.envTypeComparer.getComparator(resource));
+        // --- End Positron ---
 
         return Promise.all(interpreters.map((item) => this.suggestionToQuickPickItem(item, resource)));
     }

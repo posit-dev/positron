@@ -12,11 +12,15 @@ import {
 } from '../pythonEnvironments/base/locators/common/nativePythonFinder';
 import {
     isVersionSupported,
-    isBaseCondaEnvironment,
     isProblematicCondaEnvironment,
     comparePythonVersionDescending,
 } from '../interpreter/configuration/environmentTypeComparer';
-import { EnvironmentType, PythonEnvironment, virtualEnvTypes } from '../pythonEnvironments/info';
+import { PythonEnvironment } from '../pythonEnvironments/info';
+import {
+    moduleMetadataMap,
+    whenModuleMetadataReady,
+} from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
+import { categorizeEnvironment, PythonEnvironmentCategory } from './interpreterCategorization';
 import { VenvCreationProviderId } from '../pythonEnvironments/creation/provider/venvCreationProvider';
 import { UV_PROVIDER_ID } from '../pythonEnvironments/creation/provider/uvCreationProvider';
 import { IServiceContainer } from '../ioc/types';
@@ -215,38 +219,50 @@ export async function resolveWouldBeUsedInterpreter(deps: {
 }
 
 /**
- * A "dedicated" environment is a workspace-local or named virtual environment. A global/system
- * install or conda `base` is NOT dedicated. Externally-managed standalone installs (PEP 668),
- * including uv-managed base Pythons, are classified as global (see the native locator) and are
- * excluded here on that basis.
+ * A "dedicated" environment is a project or global environment (categories 1-2): a workspace-local
+ * or named virtual environment. A base interpreter or externally-managed install (categories 3-4,
+ * e.g. a global/system Python or conda `base`) is NOT dedicated.
  */
-export function isDedicatedEnvironment(env: PythonEnvironment): boolean {
-    if (env.envType === EnvironmentType.Global || env.envType === EnvironmentType.System) {
-        return false;
-    }
-    if (isBaseCondaEnvironment(env)) {
-        return false;
-    }
-    return virtualEnvTypes.includes(env.envType);
+export function isDedicatedEnvironment(env: PythonEnvironment, workspaceFolders: string[]): boolean {
+    const { category } = categorizeEnvironment(env, { workspaceFolders, customInterpreterDirs: [] });
+    return (
+        category === PythonEnvironmentCategory.ProjectEnvironment ||
+        category === PythonEnvironmentCategory.GlobalEnvironment
+    );
 }
 
-// Env types safe to seed a new venv from: standalone global/system Pythons. Excludes virtual
-// envs, Unknown (unclassified - could be an undetected venv), Module (Linux environment-module
-// Pythons that must launch with the module loaded, not from the raw executable), MicrosoftStore
-// (venv-creation quirks), and ActiveState (managed runtime). New env types default to excluded.
-const supportedBaseTypes = [
-    EnvironmentType.Global,
-    EnvironmentType.System,
-    EnvironmentType.Pyenv,
-    EnvironmentType.Custom,
-];
-
-export function bestSupportedGlobalPython(interpreters: PythonEnvironment[]): PythonEnvironment | undefined {
-    const globals = interpreters.filter((i) => isVersionSupported(i.version) && supportedBaseTypes.includes(i.envType));
-    // Full-version comparator: orders by major/minor/patch and sorts unknown-version
-    // interpreters last, so an unparsed-version global is only ever chosen as a last resort.
-    globals.sort((a, b) => comparePythonVersionDescending(a.version, b.version));
-    return globals[0];
+export async function bestSupportedGlobalPython(
+    interpreters: PythonEnvironment[],
+    workspaceFolders: string[],
+): Promise<PythonEnvironment | undefined> {
+    // Module discovery runs asynchronously and re-keys its metadata onto the native path only
+    // once the pass finishes (see reconcileModuleEnvsWithNative), so wait for it to settle
+    // before reading the path-keyed map. The health check reaches here while a discovery pass
+    // is still in flight whenever a supported interpreter is already known (item 2 passes
+    // without joining the refresh), and reading the map too early would report a module Python
+    // as a valid seed -- venv creation would then spawn its raw executable without the module
+    // loaded. Resolves immediately when no pass is in flight.
+    await whenModuleMetadataReady();
+    const seeds = interpreters
+        .filter((i) => isVersionSupported(i.version))
+        // validVenvSeed encodes the seed-eligibility policy (base/externally-managed minus env
+        // types that are unsafe to spawn from the raw path -- see Categorization.validVenvSeed).
+        // hasModuleMetadata catches module Pythons that PET also discovered under a native path
+        // (envType is then not Module; see reconcileModuleEnvsWithNative).
+        .map((i) => ({
+            i,
+            cat: categorizeEnvironment(i, {
+                workspaceFolders,
+                customInterpreterDirs: [],
+                hasModuleMetadata: moduleMetadataMap.has(i.path),
+            }),
+        }))
+        .filter((x) => x.cat.validVenvSeed);
+    // Lowest sort key first (base interpreters before externally-managed installs, and each
+    // tier's preferred sources first); the full-version comparator breaks ties within a tier,
+    // sorting unknown-version interpreters last so an unparsed version is a last resort.
+    seeds.sort((a, b) => a.cat.sortKey - b.cat.sortKey || comparePythonVersionDescending(a.i.version, b.i.version));
+    return seeds[0]?.i;
 }
 
 export function buildCreateEnvFix(deps: {
@@ -545,19 +561,20 @@ async function evaluateDedicated(ctx: {
     uvInstalled: boolean;
     allowUvPythonInstall: boolean;
 }): Promise<HealthItem> {
+    const workspaceFolders = ctx.workspaceUri ? [ctx.workspaceUri.fsPath] : [];
     const createEnvFix =
         (ctx.workspaceUri &&
             buildCreateEnvFix({
                 workspaceUri: ctx.workspaceUri,
                 uvInstalled: ctx.uvInstalled,
                 allowUvPythonInstall: ctx.allowUvPythonInstall,
-                baseInterpreterPath: bestSupportedGlobalPython(ctx.interpreters)?.path,
+                baseInterpreterPath: (await bestSupportedGlobalPython(ctx.interpreters, workspaceFolders))?.path,
             })) ||
         buildNewFolderFix();
     return probeDedicatedEnvironment({
         workspaceOpen: ctx.workspaceUri !== undefined,
-        interpreterDedicated: ctx.interp !== undefined && isDedicatedEnvironment(ctx.interp),
-        anyDedicatedDiscovered: ctx.interpreters.some((i) => isDedicatedEnvironment(i)),
+        interpreterDedicated: ctx.interp !== undefined && isDedicatedEnvironment(ctx.interp, workspaceFolders),
+        anyDedicatedDiscovered: ctx.interpreters.some((i) => isDedicatedEnvironment(i, workspaceFolders)),
         createEnvFix,
         newFolderFix: buildNewFolderFix(),
     });
@@ -600,13 +617,14 @@ async function evaluateReady(
         isRosetta = os.arch() === 'arm64' && bundle.architecture === Architecture.x64;
     }
 
+    const workspaceFolders = ctx.workspaceUri ? [ctx.workspaceUri.fsPath] : [];
     const recreateFix =
         (ctx.workspaceUri &&
             buildCreateEnvFix({
                 workspaceUri: ctx.workspaceUri,
                 uvInstalled: ctx.uvInstalled,
                 allowUvPythonInstall: ctx.allowUvPythonInstall,
-                baseInterpreterPath: bestSupportedGlobalPython(ctx.interpreters)?.path,
+                baseInterpreterPath: (await bestSupportedGlobalPython(ctx.interpreters, workspaceFolders))?.path,
             })) ||
         buildNewFolderFix();
 

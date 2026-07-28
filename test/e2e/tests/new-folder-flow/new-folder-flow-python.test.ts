@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { FolderTemplate } from '../../infra';
-import { test, tags } from '../_test.setup';
+import { FlowButton, FolderTemplate } from '../../infra';
+import { test, tags, expect } from '../_test.setup';
 import { addRandomNumSuffix, createNewFolder, verifyCondaEnvStarts, verifyCondaFilesArePresent, verifyConsoleReady, verifyFolderCreation, verifyGitFilesArePresent, verifyGitStatus, verifyUvEnvStarts, verifyVenvEnvStarts, verifyPyprojectTomlCreated, verifyPyprojectTomlNotCreated } from './helpers/new-folder-flow.js';
 
 test.use({
@@ -105,6 +105,58 @@ test.describe('New Folder Flow: Python Project', {
 		await verifyConsoleReady(app, folderTemplate);
 		await verifyVenvEnvStarts(app);
 		await verifyPyprojectTomlNotCreated(app);
+	});
+
+	test('New env: interpreter dropdown orders by category, not alphabetically', { tag: [tags.INTERPRETER] }, async function ({ app, python }) {
+		const folderName = addRandomNumSuffix('venv-category-order');
+
+		await createNewFolder(app, {
+			folderTemplate,
+			folderName,
+			status: 'new',
+			pythonEnv: 'venv',
+			interpreterPath: venvBaseInterpreter,
+			createPyprojectToml: false,
+		});
+
+		await verifyFolderCreation(app, folderName);
+		await verifyConsoleReady(app, folderTemplate);
+		await verifyVenvEnvStarts(app);
+
+		// Open a second New Folder Flow dialog on top of the just-created project (still
+		// the active workspace). Its interpreter dropdown for "Use an existing environment"
+		// lists every registered Python runtime, unfiltered, ordered by category (Project ->
+		// Global -> Base -> Externally Managed -- see _getFilteredInterpreters in
+		// newFolderFlowState.ts). The project .venv just created above now categorizes as
+		// "Project Environments" (it's under the open workspace folder) and must sort ahead
+		// of the base interpreter that seeded it, even though alphabetically the base
+		// interpreter's manager token (e.g. "pyenv") often precedes "venv". Cancel out
+		// without creating a second folder.
+		await app.workbench.quickaccess.runCommand('positron.workbench.action.newFolderFromTemplate', { keepOpen: false });
+		await app.workbench.newFolderFlow.setFolderTemplate(folderTemplate);
+		await app.workbench.newFolderFlow.setFolderNameLocation({
+			folderTemplate,
+			folderName: addRandomNumSuffix('unused'),
+			createPyprojectToml: false,
+		});
+		await app.workbench.newFolderFlow.selectExistingEnvironment();
+
+		const order = await app.workbench.newFolderFlow.getInterpreterDropdownOrder();
+		await app.workbench.newFolderFlow.clickFlowButton(FlowButton.CANCEL);
+
+		const categoryRank: Record<string, number> = {
+			'Project Environments': 0,
+			'Global Environments': 1,
+			'Base Interpreters': 2,
+			'Externally Managed': 3,
+		};
+
+		const ranks = order
+			.map(entry => categoryRank[entry.group])
+			.filter((rank): rank is number => rank !== undefined);
+		expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+
+		expect(order.some(entry => entry.group === 'Project Environments')).toBe(true);
 	});
 
 	test('New env: uv environment', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {

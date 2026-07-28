@@ -727,6 +727,14 @@ declare module 'positron' {
 		 * (i.e. not a venv, renv library, pyenv/asdf shim, or proxy/remote runtime).
 		 */
 		cacheable?: boolean;
+
+		/**
+		 * Optional sort key. Positron's interpreter UIs sort runtimes ascending by
+		 * this key before grouping by runtimeSource; groups are ordered by their
+		 * smallest key; ties break by version descending, then name. Runtimes without
+		 * a key sort after those with one, in registration order.
+		 */
+		runtimeSortKey?: number;
 	}
 
 	/**

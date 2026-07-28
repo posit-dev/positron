@@ -26,9 +26,9 @@ test.describe.skip('New Folder Flow: Jupyter Project', {
 	});
 
 	// No WIN tag: the #14163 workaround below switches the notebook kernel to the
-	// global interpreter (POSITRON_PY_VER_SEL = System Python 3.10.10 on Windows),
+	// global interpreter (POSITRON_PY_VER_SEL = system Python 3.10.10 on Windows),
 	// which fails to start as a notebook kernel on the Windows runner ("Starting
-	// Python 3.10.10 (System) interpreter ... failed"), so the kernel never reaches
+	// Python 3.10.10 (system) interpreter ... failed"), so the kernel never reaches
 	// idle. Restore the WIN tag once #14163 is fixed and the workaround is removed.
 	test('Jupyter Folder Defaults', {
 		tag: [tags.CRITICAL, tags.INTERPRETER]

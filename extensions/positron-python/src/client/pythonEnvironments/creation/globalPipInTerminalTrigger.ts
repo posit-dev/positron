@@ -1,7 +1,7 @@
 import { Disposable, TerminalShellExecutionStartEvent } from 'vscode';
 import {
+    activeInterpreterIsDedicated,
     disableCreateEnvironmentTrigger,
-    isGlobalPythonSelected,
     shouldPromptToCreateEnv,
 } from './common/createEnvTriggerUtils';
 import { getWorkspaceFolder, getWorkspaceFolders } from '../../common/vscodeApis/workspaceApis';
@@ -13,6 +13,7 @@ import { CreateEnvironmentResult } from './proposed.createEnvApis';
 import { onDidStartTerminalShellExecution, showWarningMessage } from '../../common/vscodeApis/windowApis';
 import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
+import { IInterpreterService } from '../../interpreter/contracts';
 
 function checkCommand(command: string): boolean {
     const lower = command.toLowerCase();
@@ -24,7 +25,10 @@ function checkCommand(command: string): boolean {
     );
 }
 
-export function registerTriggerForPipInTerminal(disposables: Disposable[]): void {
+export function registerTriggerForPipInTerminal(
+    disposables: Disposable[],
+    interpreterService: IInterpreterService,
+): void {
     if (!shouldPromptToCreateEnv()) {
         return;
     }
@@ -45,7 +49,7 @@ export function registerTriggerForPipInTerminal(disposables: Disposable[]): void
             if (
                 workspaceFolder &&
                 !createEnvironmentTriggered.get(workspaceFolder.uri.fsPath) &&
-                (await isGlobalPythonSelected(workspaceFolder))
+                !(await activeInterpreterIsDedicated(interpreterService, workspaceFolder))
             ) {
                 if (e.execution.commandLine.isTrusted && checkCommand(e.execution.commandLine.value)) {
                     createEnvironmentTriggered.set(workspaceFolder.uri.fsPath, true);

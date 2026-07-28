@@ -13,19 +13,14 @@ import {
     INTERPRETERS_OVERRIDE_SETTING_KEY,
 } from '../common/constants';
 import { untildify } from '../common/helpers';
-import { PythonEnvironment } from '../pythonEnvironments/info';
 import { Resource, InspectInterpreterSettingType } from '../common/types';
-import {
-    comparePythonVersionDescending,
-    isVersionSupported,
-} from '../interpreter/configuration/environmentTypeComparer';
 
 /**
  * Gets the list of interpreters included in the settings.
  * Converts aliased paths to absolute paths. Relative paths are not included.
  * @returns List of interpreters included in the settings.
  */
-function getIncludedInterpreters(): string[] {
+export function getIncludedInterpreters(): string[] {
     const interpretersInclude = getConfiguration('python').get<string[]>(INTERPRETERS_INCLUDE_SETTING_KEY) ?? [];
     if (interpretersInclude.length > 0) {
         return interpretersInclude
@@ -47,7 +42,7 @@ function getIncludedInterpreters(): string[] {
  * Converts aliased paths to absolute paths. Relative paths are not included.
  * @returns List of interpreters excluded in the settings.
  */
-function getExcludedInterpreters(): string[] {
+export function getExcludedInterpreters(): string[] {
     const interpretersExclude = getConfiguration('python').get<string[]>(INTERPRETERS_EXCLUDE_SETTING_KEY) ?? [];
     if (interpretersExclude.length > 0) {
         return interpretersExclude
@@ -69,7 +64,7 @@ function getExcludedInterpreters(): string[] {
  * Converts aliased paths to absolute paths. Relative paths are not included.
  * @returns List of the only interpreters that should be included in the list of discovered interpreters.
  */
-function getOverrideInterpreters(): string[] {
+export function getOverrideInterpreters(): string[] {
     const interpretersOverride = getConfiguration('python').get<string[]>(INTERPRETERS_OVERRIDE_SETTING_KEY) ?? [];
     if (interpretersOverride.length > 0) {
         return interpretersOverride
@@ -169,7 +164,7 @@ export async function isCustomEnvironment(interpreterPath: string): Promise<bool
  * @returns True if the interpreter is included in the settings, false if it is not included
  * in the settings, and undefined if included interpreters have not been specified.
  */
-function isIncludedInterpreter(interpreterPath: string): boolean | undefined {
+export function isIncludedInterpreter(interpreterPath: string): boolean | undefined {
     const interpretersInclude = getIncludedInterpreters();
     if (interpretersInclude.length === 0) {
         return undefined;
@@ -185,7 +180,7 @@ function isIncludedInterpreter(interpreterPath: string): boolean | undefined {
  * @returns True if the interpreter is excluded in the settings, false if it is not excluded
  * in the settings, and undefined if excluded interpreters have not been specified.
  */
-function isExcludedInterpreter(interpreterPath: string): boolean | undefined {
+export function isExcludedInterpreter(interpreterPath: string): boolean | undefined {
     const interpretersExclude = getExcludedInterpreters();
     if (interpretersExclude.length === 0) {
         return undefined;
@@ -210,81 +205,6 @@ function isOverrideInterpreter(interpreterPath: string): boolean | undefined {
     return interpretersOverride.some(
         (overridePath) => isParentPath(interpreterPath, overridePath) || arePathsSame(interpreterPath, overridePath),
     );
-}
-
-/**
- * Interface for debug information about a Python interpreter.
- */
-interface InterpreterDebugInfo {
-    name: string; // e.g. 'Python 3.13.1 64-bit'
-    path: string;
-    versionInfo: {
-        version: string;
-        supportedVersion: boolean;
-    };
-    envInfo: {
-        envName: string;
-        envType: string;
-    };
-    enablementInfo: {
-        visibleInUI: boolean;
-        includedInSettings: boolean | undefined;
-        excludedInSettings: boolean | undefined;
-    };
-}
-
-/**
- * Print debug information about the Python interpreters discovered by the extension.
- * @param interpreters The list of Python interpreters discovered by the extension.
- */
-export function printInterpreterDebugInfo(interpreters: PythonEnvironment[]): void {
-    // Construct interpreter setting information
-    const interpreterSettingInfo = {
-        defaultInterpreterPath: getConfiguration('python').get<string>('defaultInterpreterPath'),
-        'interpreters.include': getIncludedInterpreters(),
-        'interpreters.exclude': getExcludedInterpreters(),
-        'interpreters.override': getOverrideInterpreters(),
-    };
-
-    // Construct debug information about each interpreter
-    const debugInfo = interpreters
-        .sort((a, b) => {
-            // Sort by path and then version descending
-            const pathCompare = a.path.localeCompare(b.path);
-            if (pathCompare !== 0) {
-                return pathCompare;
-            }
-            return comparePythonVersionDescending(a.version, b.version);
-        })
-        .map(
-            (interpreter): InterpreterDebugInfo => ({
-                name: interpreter.detailedDisplayName ?? interpreter.displayName ?? 'Python',
-                path: interpreter.path,
-                versionInfo: {
-                    version: interpreter.version?.raw ?? 'Unknown',
-                    supportedVersion: isVersionSupported(interpreter.version),
-                },
-                envInfo: {
-                    envType: interpreter.envType,
-                    envName: interpreter.envName ?? '',
-                },
-                enablementInfo: {
-                    visibleInUI: shouldIncludeInterpreter(interpreter.path),
-                    includedInSettings: isIncludedInterpreter(interpreter.path),
-                    excludedInSettings: isExcludedInterpreter(interpreter.path),
-                },
-            }),
-        );
-
-    // Print debug information
-    traceInfo('=====================================================================');
-    traceInfo('=============== [START] PYTHON INTERPRETER DEBUG INFO ===============');
-    traceInfo('=====================================================================');
-    traceInfo('Python interpreter settings:', interpreterSettingInfo);
-    traceInfo('Python interpreters discovered:', debugInfo);
-    traceInfo('=====================================================================');
-    traceInfo('================ [END] PYTHON INTERPRETER DEBUG INFO ================');
-    traceInfo('=====================================================================');
 }
 
 /**

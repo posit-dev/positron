@@ -41,13 +41,13 @@ In order to run the tests you'll need to have four environment variables set. Th
 ```bash
 POSITRON_PY_VER_SEL=3.11.5
 POSITRON_R_VER_SEL=4.2.1
-POSITRON_PY_ALT_VER_SEL=3.13.0 (Pyenv)
+POSITRON_PY_ALT_VER_SEL=3.13.0 (pyenv)
 POSITRON_R_ALT_VER_SEL=4.4.2
 ```
 
 Make sure you have the selected R and Python version installed that you are using for the environment variables.
 
-_Note: If you are using Pyenv for your alternate Python interpreter, please add ` (Pyenv)` to the variable value._
+_Note: If you are using Pyenv for your alternate Python interpreter, please add ` (pyenv)` to the variable value._
 
 ## Dependencies
 

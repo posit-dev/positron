@@ -39,13 +39,13 @@ test.describe('Default Interpreters - Python', {
 		await cleanup.discardAllChanges();
 	});
 
-	test('Python - Add a default interpreter (Conda)', async function ({ sessions, hotKeys }) {
+	test('Python - Add a default interpreter (conda)', async function ({ sessions, hotKeys }) {
 		// Get version from appropriate env var (hidden Python in CI, regular in local)
 		const pythonVersion = process.env.CI
-			? (process.env.POSITRON_HIDDEN_PY || '3.12.10').split(' ')[0] // Extract "3.12.10" from "3.12.10 (Conda)"
+			? (process.env.POSITRON_HIDDEN_PY || '3.12.10').split(' ')[0] // Extract "3.12.10" from "3.12.10 (conda)"
 			: process.env.POSITRON_PY_VER_SEL || '3.10.12';
 
-		// Match version with optional text after (e.g., "Python 3.12.10 (Conda)")
+		// Match version with optional text after (e.g., "Python 3.12.10 (conda)")
 		const versionRegex = new RegExp(`Python ${pythonVersion.replace(/\./g, '\\.')}(\\s.*)?`);
 
 		// Build environment-aware path regex

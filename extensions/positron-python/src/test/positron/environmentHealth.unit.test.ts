@@ -119,38 +119,73 @@ import {
     buildCreateEnvFix,
 } from '../../client/positron/environmentHealth';
 import { EnvironmentType } from '../../client/pythonEnvironments/info';
+import { NativePythonEnvironmentKind } from '../../client/pythonEnvironments/base/locators/common/nativePythonUtils';
+import {
+    moduleMetadataMap,
+    setModuleDiscoveryInFlight,
+} from '../../client/pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
 import { Uri } from 'vscode';
 
 function envOf(overrides: Partial<PythonEnvironment>): PythonEnvironment {
     return { path: '/py', envType: EnvironmentType.Venv, ...overrides } as PythonEnvironment;
 }
 
+const WS = '/work';
+
 suite('Python Environment Health - shared helpers', () => {
-    test('classifies dedicated vs non-dedicated environments', () => {
-        assert.isTrue(isDedicatedEnvironment(envOf({ envType: EnvironmentType.Venv })));
-        assert.isTrue(isDedicatedEnvironment(envOf({ envType: EnvironmentType.Conda, envName: 'myenv' })));
-        assert.isFalse(isDedicatedEnvironment(envOf({ envType: EnvironmentType.Conda, envName: 'base' })));
-        assert.isFalse(isDedicatedEnvironment(envOf({ envType: EnvironmentType.Global })));
-        assert.isFalse(isDedicatedEnvironment(envOf({ envType: EnvironmentType.System })));
-        // A uv venv keeps EnvironmentType.Uv and is dedicated; a uv-managed standalone install is
-        // classified as Global by the native locator, so it lands on the isFalse case above.
-        assert.isTrue(isDedicatedEnvironment(envOf({ envType: EnvironmentType.Uv })));
+    test('classifies dedicated (project/global) vs non-dedicated (base/externally-managed) environments', () => {
+        // Project environment: named venv inside the open workspace.
+        assert.isTrue(
+            isDedicatedEnvironment(envOf({ nativeEnvKind: NativePythonEnvironmentKind.Venv, envPath: `${WS}/.venv` }), [
+                WS,
+            ]),
+        );
+        // Global environment: named conda env outside the workspace.
+        assert.isTrue(
+            isDedicatedEnvironment(
+                envOf({
+                    nativeEnvKind: NativePythonEnvironmentKind.Conda,
+                    envName: 'myenv',
+                    envPath: '/home/user/.conda/envs/myenv',
+                }),
+                [WS],
+            ),
+        );
+        // Externally managed: conda base is never dedicated.
+        assert.isFalse(
+            isDedicatedEnvironment(envOf({ nativeEnvKind: NativePythonEnvironmentKind.Conda, envName: 'base' }), [WS]),
+        );
+        // Conda base is still recognized (and non-dedicated) when the raw PET kind is
+        // missing, falling back to envType.
+        assert.isFalse(isDedicatedEnvironment(envOf({ envType: EnvironmentType.Conda, envName: 'base' }), [WS]));
+        // Base interpreter: a plain python.org install is never dedicated.
+        assert.isFalse(
+            isDedicatedEnvironment(
+                envOf({ nativeEnvKind: NativePythonEnvironmentKind.MacPythonOrg, path: '/mac-base' }),
+                [WS],
+            ),
+        );
+        // A uv venv (not a uv-managed base install) is a named environment and dedicated.
+        assert.isTrue(
+            isDedicatedEnvironment(envOf({ nativeEnvKind: NativePythonEnvironmentKind.Uv, envPath: `${WS}/.venv` }), [
+                WS,
+            ]),
+        );
+        // A uv-managed base install lives under .../uv/python/... and is externally managed, not
+        // dedicated.
+        assert.isFalse(
+            isDedicatedEnvironment(
+                envOf({
+                    nativeEnvKind: NativePythonEnvironmentKind.Uv,
+                    path: '/home/user/.local/share/uv/python/cpython-3.12/bin/python3',
+                }),
+                [WS],
+            ),
+        );
     });
 
-    test('picks the highest-version safe base Python and ignores unsafe types', () => {
-        const v = (minor: number) => ({ major: 3, minor, patch: 0, raw: `3.${minor}.0`, build: [], prerelease: [] });
-        const older = envOf({ path: '/g1', envType: EnvironmentType.Global, version: v(10) });
-        const newer = envOf({ path: '/g2', envType: EnvironmentType.System, version: v(12) });
-        const custom = envOf({ path: '/c', envType: EnvironmentType.Custom, version: v(11) });
-        const venv = envOf({ path: '/v', envType: EnvironmentType.Venv, version: v(13) });
-        assert.strictEqual(bestSupportedGlobalPython([older, newer, custom, venv])?.path, '/g2');
-
-        // Custom is a safe base: when it is the only candidate it is picked.
-        assert.strictEqual(bestSupportedGlobalPython([custom, venv])?.path, '/c');
-
-        // Same minor, different patch: the full-version comparator picks the higher patch
-        // regardless of input order (the old minor-only sort left this order-dependent).
-        const p = (minor: number, patch: number) => ({
+    test('picks the base/externally-managed seed with the lowest sort key, then highest version', async () => {
+        const v = (minor: number, patch = 0) => ({
             major: 3,
             minor,
             patch,
@@ -158,14 +193,169 @@ suite('Python Environment Health - shared helpers', () => {
             build: [],
             prerelease: [],
         });
-        const lowPatch = envOf({ path: '/lo', envType: EnvironmentType.Global, version: p(12, 1) });
-        const highPatch = envOf({ path: '/hi', envType: EnvironmentType.Global, version: p(12, 9) });
-        assert.strictEqual(bestSupportedGlobalPython([lowPatch, highPatch])?.path, '/hi');
 
-        // Unknown and Module are non-virtual but unsafe bases, so they are never picked.
-        const unknown = envOf({ path: '/u', envType: EnvironmentType.Unknown, version: v(12) });
-        const module = envOf({ path: '/m', envType: EnvironmentType.Module, version: v(12) });
-        assert.isUndefined(bestSupportedGlobalPython([unknown, module]));
+        const projectVenv = envOf({
+            nativeEnvKind: NativePythonEnvironmentKind.Venv,
+            envPath: `${WS}/.venv`,
+            version: v(13),
+        });
+        const globalNamed = envOf({
+            nativeEnvKind: NativePythonEnvironmentKind.Conda,
+            envName: 'myenv',
+            envPath: '/home/user/.conda/envs/myenv',
+            version: v(13),
+        });
+        const pyenvBase = envOf({
+            path: '/pyenv-base',
+            nativeEnvKind: NativePythonEnvironmentKind.Pyenv,
+            version: v(10),
+        });
+        const macPythonOrgBase = envOf({
+            path: '/mac-base',
+            nativeEnvKind: NativePythonEnvironmentKind.MacPythonOrg,
+            version: v(13),
+        });
+        const condaBase = envOf({
+            path: '/conda-base',
+            nativeEnvKind: NativePythonEnvironmentKind.Conda,
+            envName: 'base',
+            version: v(13),
+        });
+
+        // Category 1/2 (project/global named environments) are never picked as seeds, even at
+        // the highest version. Within category 3 (base interpreter), Pyenv's tier beats
+        // MacPythonOrg's regardless of version.
+        assert.strictEqual(
+            (await bestSupportedGlobalPython([projectVenv, globalNamed, macPythonOrgBase, condaBase, pyenvBase], [WS]))
+                ?.path,
+            '/pyenv-base',
+        );
+
+        // Same tier (both MacPythonOrg base interpreters): the higher version wins.
+        const olderMacPythonOrg = envOf({
+            path: '/mac-older',
+            nativeEnvKind: NativePythonEnvironmentKind.MacPythonOrg,
+            version: v(11),
+        });
+        assert.strictEqual(
+            (await bestSupportedGlobalPython([olderMacPythonOrg, macPythonOrgBase], [WS]))?.path,
+            '/mac-base',
+        );
+
+        // Category 3 (base interpreter) beats category 4 (externally managed) even at a lower
+        // version.
+        assert.strictEqual((await bestSupportedGlobalPython([condaBase, macPythonOrgBase], [WS]))?.path, '/mac-base');
+
+        // Only an externally-managed candidate is available: it is still picked.
+        assert.strictEqual((await bestSupportedGlobalPython([condaBase], [WS]))?.path, '/conda-base');
+
+        // Unsupported versions are never picked.
+        const tooOld = envOf({
+            path: '/too-old',
+            nativeEnvKind: NativePythonEnvironmentKind.MacPythonOrg,
+            version: v(7),
+        });
+        assert.isUndefined(await bestSupportedGlobalPython([tooOld], [WS]));
+    });
+
+    test('excludes env types that are unsafe to shell out to as a venv seed, even when categorization alone would allow them', async () => {
+        // Categorization answers "how appropriate for the project", not "is this safe to spawn
+        // as a venv-creation seed". Venv creation invokes the interpreter path directly, so
+        // Categorization.validVenvSeed excludes these regardless of category:
+        // - Module: a Linux environment-module Python that must launch with the module loaded,
+        //   not from the raw executable.
+        // - ActiveState: a managed runtime, not a safe seed.
+        // MicrosoftStore is deliberately a valid seed (see Categorization.validVenvSeed).
+        const v = (minor: number) => ({ major: 3, minor, patch: 0, raw: `3.${minor}.0`, build: [], prerelease: [] });
+
+        const moduleEnv = envOf({
+            path: '/opt/apps/python/3.11/bin/python',
+            envType: EnvironmentType.Module,
+            version: v(11),
+        });
+        assert.isUndefined(await bestSupportedGlobalPython([moduleEnv], [WS]));
+
+        // A module Python that PET also discovered under a native path: envType is not Module,
+        // but the path is keyed in moduleMetadataMap (see reconcileModuleEnvsWithNative).
+        const reconciledModuleEnv = envOf({
+            path: '/opt/apps/python/3.12/bin/python',
+            envType: EnvironmentType.Unknown,
+            version: v(12),
+        });
+        moduleMetadataMap.set(reconciledModuleEnv.path, {
+            type: 'module',
+            environmentName: 'Python-3.12',
+            modules: ['python/3.12'],
+            startupCommand: 'module load python/3.12',
+            version: '3.12.0',
+        });
+        try {
+            assert.isUndefined(await bestSupportedGlobalPython([reconciledModuleEnv], [WS]));
+        } finally {
+            moduleMetadataMap.delete(reconciledModuleEnv.path);
+        }
+
+        const activeStateEnv = envOf({
+            path: '/home/user/.activestate/pythons/xyz/bin/python',
+            envType: EnvironmentType.ActiveState,
+            version: v(11),
+        });
+        assert.isUndefined(await bestSupportedGlobalPython([activeStateEnv], [WS]));
+
+        // MicrosoftStore stays seedable, and is picked when it is the only candidate.
+        const microsoftStoreEnv = envOf({
+            path: 'C:\\Program Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.11\\python.exe',
+            envType: EnvironmentType.MicrosoftStore,
+            nativeEnvKind: NativePythonEnvironmentKind.WindowsStore,
+            version: v(11),
+        });
+        assert.strictEqual((await bestSupportedGlobalPython([microsoftStoreEnv], [WS]))?.path, microsoftStoreEnv.path);
+
+        // A safe base interpreter is still picked when mixed in with unsafe candidates, and a
+        // python.org install outranks the Store python within the base tier.
+        const macPythonOrg = envOf({
+            path: '/mac-base',
+            nativeEnvKind: NativePythonEnvironmentKind.MacPythonOrg,
+            version: v(11),
+        });
+        assert.strictEqual(
+            (await bestSupportedGlobalPython([moduleEnv, microsoftStoreEnv, activeStateEnv, macPythonOrg], [WS]))?.path,
+            '/mac-base',
+        );
+    });
+
+    test('waits for an in-flight module discovery pass before judging seed eligibility', async () => {
+        // Module metadata is keyed onto the native path only when the discovery pass finishes,
+        // and the health check can run while a pass is still in flight (item 2 passes without
+        // joining the refresh when a supported interpreter is already known). Reading the map
+        // before the pass settles would offer this module Python as a venv seed.
+        const reconciledModuleEnv = envOf({
+            path: '/opt/apps/python/3.12/bin/python',
+            envType: EnvironmentType.Unknown,
+            version: { major: 3, minor: 12, patch: 0, raw: '3.12.0', build: [], prerelease: [] },
+        });
+        let landMetadata: () => void = () => undefined;
+        const pass = new Promise<void>((resolve) => {
+            landMetadata = () => {
+                moduleMetadataMap.set(reconciledModuleEnv.path, {
+                    type: 'module',
+                    environmentName: 'Python-3.12',
+                    modules: ['python/3.12'],
+                    startupCommand: 'module load python/3.12',
+                    version: '3.12.0',
+                });
+                resolve();
+            };
+        });
+        setModuleDiscoveryInFlight(pass);
+        try {
+            const seed = bestSupportedGlobalPython([reconciledModuleEnv], [WS]);
+            landMetadata();
+            assert.isUndefined(await seed);
+        } finally {
+            moduleMetadataMap.delete(reconciledModuleEnv.path);
+            setModuleDiscoveryInFlight(Promise.resolve());
+        }
     });
 
     test('resolves the active interpreter, falling back to the recommendation', async () => {

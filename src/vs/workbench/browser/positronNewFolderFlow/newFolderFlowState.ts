@@ -5,8 +5,10 @@
 
 // Other dependencies.
 import { ILanguageRuntimeMetadata, LanguageStartupBehavior, RuntimeStartupPhase } from '../../services/languageRuntime/common/languageRuntimeService.js';
+import { groupAndOrderRuntimes } from '../../services/languageRuntime/common/runtimeGrouping.js';
 import { EnvironmentSetupType, NewFolderFlowStep, PythonEnvironmentProvider } from './interfaces/newFolderFlowEnums.js';
 import { PythonEnvironmentProviderInfo } from './utilities/pythonEnvironmentStepUtils.js';
+import { isValidVenvSeed } from './utilities/interpreterDropDownUtils.js';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { FlowFormattedTextItem } from './components/flowFormattedText.js';
@@ -1016,8 +1018,8 @@ export class NewFolderFlowStateManager
 	/**
 	 * Retrieves the interpreters that match the current language ID and environment setup type if
 	 * applicable.
-	 * @returns The filtered interpreters sorted by runtime source, or undefined if runtime startup is
-	 * not complete or a Conda or uv environment is being used.
+	 * @returns The filtered interpreters ordered by the shared runtime grouping/ordering rules, or
+	 * undefined if runtime startup is not complete or a Conda or uv environment is being used.
 	 */
 	private async _getFilteredInterpreters(): Promise<ILanguageRuntimeMetadata[] | undefined> {
 		if (this._usesCondaEnv() || this._usesUvEnv()) {
@@ -1040,41 +1042,18 @@ export class NewFolderFlowStateManager
 			.filter(runtime => runtime.languageId === langId)
 			.filter(runtime => runtime.extraRuntimeData?.supported ?? true);
 
-		// If we're creating a new Python environment, only return Global runtimes.
-		if (langId === LanguageIds.Python
-			&& this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment
-		) {
-			const globalRuntimes = [];
-			for (const runtime of runtimesForLang) {
-				const interpreterPath = runtime.extraRuntimeData.pythonPath as string ?? runtime.runtimePath;
-				const isGlobal = await this.services.commandService.executeCommand(
-					'python.isGlobalPython',
-					interpreterPath
-				) satisfies boolean | undefined;
-				if (isGlobal === undefined) {
-					this._services.logService.error(
-						`[New Folder Flow] Unable to determine if Python interpreter '${interpreterPath}' is global`
-					);
-					continue;
-				}
-				if (isGlobal) {
-					globalRuntimes.push(runtime);
-				} else {
-					this._services.logService.trace(`[New Folder Flow] Skipping non-global Python interpreter '${interpreterPath}'`);
-				}
-			}
-			// If the global runtimes list is a different length than the original runtimes list,
-			// then we only want to show the global runtimes.
-			if (runtimesForLang.length !== globalRuntimes.length) {
-				runtimesForLang = globalRuntimes;
-			}
+		// If we're creating a new Python environment, only offer valid venv seeds
+		// (Base or Externally Managed interpreters that are safe to spawn from the
+		// raw path -- see isValidVenvSeed).
+		if (langId === LanguageIds.Python && this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment) {
+			runtimesForLang = runtimesForLang.filter(isValidVenvSeed);
 		}
 
-		// Return the runtimes, sorted by runtime source.
-		return runtimesForLang
-			.sort((left, right) =>
-				left.runtimeSource.localeCompare(right.runtimeSource)
-			);
+		// Return the runtimes, ordered by the shared runtime grouping/ordering rules.
+		// Flattening grouped runtimes (rather than a bare sort) keeps each runtimeSource
+		// contiguous, so the dropdown renders one separator per source. A bare sort can
+		// interleave keyless runtimes from different sources by version.
+		return groupAndOrderRuntimes(runtimesForLang).flatMap(group => group.runtimes);
 	}
 
 	/**

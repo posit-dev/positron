@@ -2,16 +2,14 @@
 // Licensed under the MIT License.
 
 // --- Start Positron ---
-import * as os from 'os';
 import { isPipInstallableToml } from '../provider/venvUtils';
+import { IInterpreterService } from '../../../interpreter/contracts';
+import { isDedicatedEnvironment } from '../../../positron/environmentHealth';
 // --- End Positron ---
 import * as path from 'path';
 import { ConfigurationTarget, Uri, WorkspaceFolder } from 'vscode';
 import * as fsapi from '../../../common/platform/fs-paths';
 import { getPipRequirementsFiles } from '../provider/venvUtils';
-import { getExtension } from '../../../common/vscodeApis/extensionsApi';
-import { PVSC_EXTENSION_ID } from '../../../common/constants';
-import { PythonExtension } from '../../../api/types';
 import { traceVerbose } from '../../../logging';
 import { getConfiguration } from '../../../common/vscodeApis/workspaceApis';
 import { getWorkspaceStateValue } from '../../../common/persistentState';
@@ -68,26 +66,15 @@ export async function hasKnownFiles(workspace: WorkspaceFolder): Promise<boolean
     return found;
 }
 
-export async function isGlobalPythonSelected(workspace: WorkspaceFolder): Promise<boolean> {
-    const extension = getExtension<PythonExtension>(PVSC_EXTENSION_ID);
-    if (!extension) {
-        return false;
-    }
-    const extensionApi: PythonExtension = extension.exports as PythonExtension;
-    const interpreter = extensionApi.environments.getActiveEnvironmentPath(workspace.uri);
-    const details = await extensionApi.environments.resolveEnvironment(interpreter);
-    // --- Start Positron ---
-    const execPath = details?.executable?.uri?.fsPath ?? interpreter.path;
-    // Also treat ~/.local installs as global - they are user-wide, not project-local.
-    const homeLocal = path.join(os.homedir(), '.local') + path.sep;
-    const isUnderHomeLocal = execPath.startsWith(homeLocal);
-    const isGlobal = details?.environment === undefined || isUnderHomeLocal;
-    // --- End Positron ---
-    if (isGlobal) {
-        traceVerbose(`Selected python for [${workspace.uri.fsPath}] is [global] type: ${interpreter.path}`);
-    }
-    return isGlobal;
+// --- Start Positron ---
+export async function activeInterpreterIsDedicated(
+    interpreterService: IInterpreterService,
+    workspace: WorkspaceFolder,
+): Promise<boolean> {
+    const env = await interpreterService.getActiveInterpreter(workspace.uri);
+    return env !== undefined && isDedicatedEnvironment(env, [workspace.uri.fsPath]);
 }
+// --- End Positron ---
 
 /**
  * Checks the setting `python.createEnvironment.trigger` to see if we should perform the checks

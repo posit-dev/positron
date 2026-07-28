@@ -66,8 +66,14 @@ export const RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT = 1;
  * written by older builds may still carry a `~`-shortened `runtimePath` and
  * no `runtimeDisplayPath`; bumping the version forces those entries to be
  * discarded and rediscovered rather than replayed as-is.
+ *
+ * v4: Python runtime metadata now carries `extraRuntimeData.environmentCategory`
+ * and `extraRuntimeData.isValidVenvSeed`. Entries written by older builds have
+ * neither, and a warm start that replays them reads every interpreter as an
+ * invalid venv seed -- emptying the new-folder flow's interpreter list. Bumping
+ * the version discards those entries so the fields are always present.
  */
-export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 3;
+export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 4;
 
 /**
  * Storage key under which all cache state is persisted. Embeds the schema

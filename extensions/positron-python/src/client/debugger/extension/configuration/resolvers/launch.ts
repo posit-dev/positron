@@ -91,7 +91,11 @@ export class LaunchConfigurationResolver extends BaseConfigurationResolver<Launc
             );
         }
         sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_TRIGGER, undefined, { trigger: 'debug' });
-        triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.Workspace, workspaceFolder);
+        triggerCreateEnvironmentCheckNonBlocking(
+            CreateEnvironmentCheckKind.Workspace,
+            workspaceFolder,
+            this.interpreterService,
+        );
         return debugConfiguration;
     }
 

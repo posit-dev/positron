@@ -39,7 +39,11 @@ export class DebugCommands implements IExtensionSingleActivationService {
                     return;
                 }
                 sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_TRIGGER, undefined, { trigger: 'debug-in-terminal' });
-                triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file);
+                triggerCreateEnvironmentCheckNonBlocking(
+                    CreateEnvironmentCheckKind.File,
+                    file,
+                    this.interpreterService,
+                );
                 const config = await DebugCommands.getDebugConfiguration(file);
                 this.debugService.startDebugging(undefined, config);
             }),
