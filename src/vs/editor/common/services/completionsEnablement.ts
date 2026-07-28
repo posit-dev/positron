@@ -14,6 +14,13 @@ import { URI } from '../../../base/common/uri.js';
 // included) are off, regardless of `github.copilot.enable`. Defined as a literal
 // because the editor layer can't import the workbench-level `AI_ENABLED_KEY`.
 const AI_ENABLED_SETTING = 'ai.enabled';
+// This deliberately does not check whether the Copilot provider is enabled in
+// providers.json. Provider-level enablement is enforced elsewhere: a disabled
+// Copilot provider never registers a completions provider, so nothing fires
+// regardless of this setting, and the workbench-layer callers fold in
+// `IAiProviderService.isEnabled('copilot')` for their status/API answers. The
+// editor layer can't read that service, so it only governs the
+// `github.copilot.enable` axis.
 // --- End Positron ---
 
 /**
