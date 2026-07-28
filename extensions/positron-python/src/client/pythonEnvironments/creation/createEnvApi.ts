@@ -245,20 +245,14 @@ export async function registerCreateEnvironmentFeatures(
         registerCommand(Commands.Is_Global_Python, (interpreterPath: string) => isGlobalPython(interpreterPath)),
     );
 
-    // Register the runtime picker contribution for "Install Python via uv"
-    // we need to guard against older Positron builds that don't have this API for tests
-    // but we can remove this guard once we have a stable Positron release with this API
-    if (typeof positron.runtime.registerRuntimePickerContribution === 'function') {
-        const contribution = positron.runtime.registerRuntimePickerContribution({
+    // Register the runtime picker contribution that offers environment setup actions:
+    // "Install Python via uv" when only system/global Pythons (or none) are registered,
+    // and "Create Python Environment" once a non-system Python exists.
+    disposables.push(
+        positron.runtime.registerRuntimePickerContribution({
             languageId: 'python',
 
             async getItems(): Promise<positron.runtime.RuntimePickerItem[]> {
-                // Check if Python installation via uv is allowed
-                const allowUvPythonInstall = getConfiguration('python').get<boolean>('allowUvPythonInstall') ?? true;
-                if (!allowUvPythonInstall) {
-                    return [];
-                }
-
                 // Get all registered runtimes to check what Python interpreters exist
                 const runtimes = await positron.runtime.getRegisteredRuntimes();
                 const pythonRuntimes = runtimes.filter((r) => r.languageId === 'python');
@@ -267,26 +261,40 @@ export async function registerCreateEnvironmentFeatures(
                 const hasOnlySystemPython =
                     pythonRuntimes.length > 0 &&
                     pythonRuntimes.every((r) => ['System', 'Global'].includes(r.runtimeSource));
+                const hasNonSystemPython = pythonRuntimes.some((r) => !['System', 'Global'].includes(r.runtimeSource));
+
+                // Check if Python installation via uv is allowed
+                const allowUvPythonInstall = getConfiguration('python').get<boolean>('allowUvPythonInstall') ?? true;
 
                 // Check if we should always show the option (for testing)
                 const alwaysShow =
                     getConfiguration('python').get<boolean>('INTERNAL_alwaysShowUvInstallOption') ?? false;
 
+                const items: positron.runtime.RuntimePickerItem[] = [];
+
                 // Show the install option if:
                 // - Always show is enabled (for testing), OR
                 // - No Python runtimes found, OR
                 // - Only system/global Python found (no virtual environments)
-                if (alwaysShow || pythonRuntimes.length === 0 || hasOnlySystemPython) {
-                    return [
-                        {
-                            id: 'install-python-uv',
-                            label: '$(add) Install Python via uv',
-                            separatorLabel: 'Install Python',
-                        },
-                    ];
+                if (allowUvPythonInstall && (alwaysShow || pythonRuntimes.length === 0 || hasOnlySystemPython)) {
+                    items.push({
+                        id: 'install-python-uv',
+                        label: '$(add) Install Python via uv',
+                        separatorLabel: 'Install Python',
+                    });
                 }
 
-                return [];
+                // Once a non-system Python exists the uv item hides; offer environment
+                // creation instead so the picker always has a setup affordance.
+                if (hasNonSystemPython) {
+                    items.push({
+                        id: 'create-python-env',
+                        label: '$(add) Create Python Environment',
+                        separatorLabel: 'Create Environment',
+                    });
+                }
+
+                return items;
             },
 
             async onDidSelectItem(itemId: string): Promise<string | undefined> {
@@ -300,13 +308,21 @@ export async function registerCreateEnvironmentFeatures(
                         await showUvInstallError(InterpreterQuickPickList.UvInstall.installCommandFailed);
                     }
                 }
+                if (itemId === 'create-python-env') {
+                    try {
+                        // The Positron fork of this command registers the created env's
+                        // runtime and starts it in the console, so resolve undefined:
+                        // returning a runtimeId would make the picker start a second
+                        // session for the same runtime.
+                        await executeCommand(Commands.Create_Environment);
+                    } catch (error) {
+                        traceError(`Create Python Environment from runtime picker failed: ${error}`);
+                    }
+                }
                 return undefined;
             },
-        });
-        if (contribution) {
-            disposables.push(contribution);
-        }
-    }
+        }),
+    );
     // --- End Positron ---
     disposables.push(
         registerCreateEnvironmentProvider(new VenvCreationProvider(interpreterQuickPick)),
