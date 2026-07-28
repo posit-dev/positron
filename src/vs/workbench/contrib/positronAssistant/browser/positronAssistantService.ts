@@ -338,7 +338,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 				options
 			);
 		}).catch(error => {
-			this._logService.error('[positron assistant] failed to show provider dialog', error);
+			this._logService.error('[assistant service] Failed to show provider dialog', error);
 			onClose();
 		});
 	}
