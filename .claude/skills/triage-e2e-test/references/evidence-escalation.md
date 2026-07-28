@@ -6,6 +6,19 @@ tests, error-shaped log lines, unresolved questions). **Escalate past the
 summary only to answer a concrete question it raised** -- each level costs more
 context than the last, so stop as soon as the mechanism is clear.
 
+## The gate
+
+Before **each** step past Level 2, write one line:
+
+```
+Q: <the unresolved question> | L<n>: <what you will open> | why L<n-1> can't answer it
+```
+
+If any of the three slots can't be filled, the escalation isn't justified --
+reason from what you already have, or say what you'd need and stop. "To be
+thorough", "to confirm", and "to get more context" are not questions; a question
+names a fact whose two possible values would change the diagnosis.
+
 ## The escalation ladder
 
 1. **History summary** (`triage-history.js`) -- identify active patterns. Do not
@@ -19,12 +32,19 @@ context than the last, so stop as soon as the mechanism is clear.
 4. **Raw logs** -- read only when the issue depends on sequence/ordering,
    missing output, extension-channel behavior, or process termination -- a
    detail absent from processed evidence (see "raw logs" below).
-5. **Additional occurrence** -- fetch a second only to validate repeatability,
-   test a race hypothesis, investigate same-file adjacency, reconcile
-   conflicting evidence, or check whether a previous fix held. Re-run
-   `fetch-pattern-evidence.js` with a different occurrence's `report_url`
+5. **Additional occurrence** -- fetch a second **only** for one of these five
+   reasons, and name which one in the gate line:
+   1. validate repeatability of the mechanism,
+   2. test a race hypothesis,
+   3. investigate same-file adjacency,
+   4. reconcile evidence that conflicts between occurrences,
+   5. check whether a previous fix held.
+
+   Re-run `fetch-pattern-evidence.js` with a different occurrence's `report_url`
    (widen `--occurrences-per-pattern 2` on `triage-history.js` first to get a
-   second `report_url`).
+   second `report_url`). Anything outside these five is not a reason -- a
+   retrieval failure (403 / `report_url: null`) is a *substitution* for the
+   first occurrence, not an escalation, and doesn't need one.
 
 ## Screenshots are the most expensive rung
 

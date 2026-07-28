@@ -110,6 +110,27 @@ race, evidence is a trend across enough runs, not one data point. **Never
 increase a timeout or add an arbitrary wait as the fix** -- it hides the race,
 contention, or isolation problem instead of closing it.
 
+### When verification is done
+
+The stopping condition is an argument, not a run count -- more repeats never
+convert a local pass into proof, so don't keep adding them hoping for a stronger
+claim. Verification is complete when all three hold:
+
+1. **The fix addresses the diagnosed mechanism.** State which step in
+   `diagnosis.signal` it changes. If you can't name one, the fix is unrelated to
+   what you diagnosed -- go back, don't run it again.
+2. **The forced-mechanism check ran, or you state why it couldn't.** Either the
+   assertion failed before the fix and passes after (step 1 above), or you say
+   plainly which contention you could not recreate locally.
+3. **The local result is reported literally.** "N/N passed locally; the
+   contention that surfaces this in CI wasn't recreated" -- never "confirmed
+   fixed."
+
+Then set the outcome and record the diagnosis. The real trend evidence arrives
+after merge: a later triage of the same test reads it as `fix-holding` or
+`recurred-after-fix`, which is why the block records a prediction rather than a
+result.
+
 ## Environment-specific failures
 
 If the pattern looks environment-specific (`environment_breakdown` shows it only

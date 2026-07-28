@@ -25,10 +25,6 @@ for the full worked example.
 | `zero-runs-both` | **every** queried branch reports `total_runs: 0` | **stop.** This is a key mismatch, not a clean record -- rebuild the full hierarchical key (above) and re-run |
 | `clean` | nonzero runs, no failure patterns | **stop.** Nothing to triage -- report a clean bill of health for the lookback window |
 
-A test with real CI history never reports zero total runs on every branch
-queried. Zero runs is **never** a clean result -- only a nonzero-run,
-empty-`failure_patterns` result is.
-
 ## API unreachable
 
 `triage-history.js` exits non-zero with `{ "error": ... }` when a branch query

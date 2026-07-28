@@ -12,7 +12,7 @@ partition; this file explains how to act on its verdict.
 | `none` | no PR body names this spec path | nothing to reconcile; proceed normally |
 | `open-attempt-in-flight` | an unmerged PR already diagnoses this test | **stop.** Point the engineer at the open PR (`openAttempts[].url`) instead of starting a parallel diagnosis |
 | `recurred-after-fix` | occurrences post-date a merged fix's commit | lead with this. Treat the prior hypothesis as **ruled out**, not a guess to re-test -- start from "why didn't that fix hold," not from re-deriving the same mechanism |
-| `fix-holding` | a merged fix exists, no occurrences post-date it, enough runs since | the fix looks like it held; if `failure_patterns` is now empty that's a clean bill, not a fresh triage |
+| `fix-holding` | a merged fix exists, no occurrences post-date it, enough runs since | the fix looks like it held; say so, and check whether the live pattern is a different failure mode than the one it closed |
 | `too-recent-to-tell` | merged fix is very recent, few/no runs since | say so explicitly; do not declare success or failure prematurely |
 
 ## Reading `mergedAttempts[]`

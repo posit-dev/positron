@@ -27,18 +27,17 @@ only when a stage needs them.
 - Investigate **one** selected pattern at a time; ask which when there's more
   than one. Never fetch evidence for a pattern the engineer didn't select --
   ask first, even to check a side theory about how patterns relate.
-- Fetch **one** representative occurrence first; a second needs a stated reason.
+- Fetch **one** representative occurrence first; a second only for one of the
+  five reasons in `references/evidence-escalation.md` -- name which.
 - Agree the **fix approach** before the first edit, the same way you agree the
   pattern before fetching evidence.
-- Escalate evidence only to answer a concrete question. Keep large output on
-  disk, not in the conversation.
+- Escalate evidence only to answer a concrete question, one escalation-gate line
+  per step (below). Keep large output on disk, not in the conversation.
 - **Never** increase a timeout or add an arbitrary wait as the fix.
 - **Never** claim a flaky test is fixed on one green run.
 - A previous merged fix must be checked against subsequent failures.
 - Root-cause claims cite observed evidence and the alternatives ruled out.
-- Checkpoint before pausing or beginning implementation.
-
-Violating the letter of these rules is violating their spirit.
+- Checkpoint at every phase transition.
 
 ## Prerequisites
 
@@ -86,7 +85,10 @@ saved data is invalid, or the branch/test identity changed.
 3. Act on its `verdict`. `stop: true` (`zero-runs-both`, `clean`) or an `error`
    field means stop and report -- read [`references/history-query.md`](references/history-query.md)
    for what each verdict means. Otherwise continue.
-4. Initialize a checkpoint and record the patterns:
+4. Initialize a checkpoint and record the patterns. **`<id>` is the `triageId`
+   from the history output, used verbatim in every later command** -- inventing
+   one silos the checkpoint from the work dir already holding the history and
+   evidence, which is what `--resume` reads:
    ```bash
    node .claude/skills/triage-e2e-test/scripts/checkpoint.js --triage-id <id> \
      --init --test-key '<key>'
@@ -130,9 +132,11 @@ saved data is invalid, or the branch/test identity changed.
    to this one test itself.)
 2. Read the generated `summary.md` (failure, timeline tail, sibling tests,
    error-shaped logs, unresolved questions). **Read only the summary first.**
-3. State the concrete questions that remain, then escalate to a single artifact
-   / raw logs / a second occurrence **only** to answer one of them. The
-   escalation ladder, raw-log spelunking, and 403/null handling are in
+3. State the concrete questions that remain. **Before each escalation past the
+   summary, write the gate line:** `Q: <question> | L<n>: <what you will open> |
+   why L<n-1> can't answer it`. Can't fill all three slots -- don't escalate.
+   The ladder, the five valid reasons for a second occurrence, raw-log
+   spelunking, and 403/null handling are in
    [`references/evidence-escalation.md`](references/evidence-escalation.md).
 4. Save `phase=evidence-gathered` to the checkpoint.
 
@@ -224,9 +228,3 @@ separately -- e.g. a product bug filed as an issue *plus* a fix PR -- the block
 goes on **both**. Do step 1 for the primary (the artifact matching `outcome`),
 then rerun `record-diagnosis.js --pr <n> --secondary` for the other: it appends
 the block but won't repoint `outcomeRef`/`outcome`. `outcome` stays single.
-
-## Non-goals
-
-- No new S3 uploads or API changes -- consumes the existing `test-health`
-  endpoint and existing S3 reports.
-- No run-level triage -- that is `e2e-failure-analyzer`'s job.
