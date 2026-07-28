@@ -11,8 +11,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generator
 from unittest.mock import Mock, patch
 
-from IPython.core.getipython import get_ipython
-
 if TYPE_CHECKING:
     from positron._vendor.pydantic import BaseModel
     from positron.utils import JsonData, JsonRecord
@@ -152,18 +150,21 @@ def dummy_rpc_request(*args):
 @contextmanager
 def patch_positron_execute_request(positron: dict | None = None):
     """Patch the shell's get_parent to return a message with the given positron dict."""
-    shell = get_ipython()
-    if shell is None:
-        raise RuntimeError("patch_positron_execute_request() must be used in an IPython shell")
+    from positron.positron_ipkernel import PositronIPyKernel
+
+    kernel = PositronIPyKernel.instance()
     positron = positron or {}
     parent = {"content": {"positron": positron}}
-    with patch.object(shell.kernel, "get_parent", return_value=parent):
+    with patch.object(kernel, "get_parent", return_value=parent):
         yield
 
 
-def run_with_metadata(shell, code: str, positron: dict | None = None):
+def run_with_metadata(code: str, positron: dict | None = None):
     """Run a cell with the given positron metadata."""
-    with patch_positron_execute_request(shell, positron):
+    from positron.positron_ipkernel import PositronShell
+
+    shell = PositronShell.instance()
+    with patch_positron_execute_request(positron):
         return shell.run_cell(code).raise_error()
 
 
@@ -179,12 +180,11 @@ class CapturedError:
 @contextmanager
 def capture_errors() -> Generator[list[CapturedError]]:
     """Capture errors published by the kernel."""
-    shell = get_ipython()
-    if shell is None:
-        raise RuntimeError("capture_errors() must be used in an IPython shell")
+    from positron.positron_ipkernel import PositronShell
 
+    shell = PositronShell.instance()
     errors: list[CapturedError] = []
-    session = shell.displayhook.session
+    session = shell.displayhook.session  # type: ignore
     original_send = session.send
 
     def send(stream, msg_or_type=None, content=None, *args, **kwargs):
