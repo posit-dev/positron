@@ -21,7 +21,7 @@ from positron.session_mode import SessionMode
 from positron.utils import alias_home
 
 from .conftest import PositronShell
-from .utils import assert_register_table_called
+from .utils import CapturedError, assert_register_table_called, capture_errors
 
 try:
     import lightning
@@ -187,9 +187,8 @@ def traceback_result(
     request: pytest.FixtureRequest,
     shell: PositronShell,
     tmp_path: Path,
-    mock_displayhook: Mock,
     monkeypatch,
-) -> tuple[Path, Any]:
+) -> tuple[Path, CapturedError]:
     # Ensure that we're in console mode.
     monkeypatch.setattr(shell, "session_mode", SessionMode.CONSOLE)
 
@@ -202,21 +201,14 @@ def traceback_result(
     file.write_text(code)
 
     # Temporarily add the module to sys.path and call a function from it, which should error.
-    with prepended_to_syspath(str(tmp_path)):
+    with prepended_to_syspath(str(tmp_path)), capture_errors() as errors:
         shell.run_cell(f"import {request.function.__name__} as test_traceback; test_traceback.g()")
 
-    # Check that a single message was sent to the frontend.
-    call_args_list = mock_displayhook.session.send.call_args_list
-    assert len(call_args_list) == 1
+    # Check that a single error was sent to the frontend.
+    assert len(errors) == 1
+    error = errors[0]
 
-    call_args = call_args_list[0]
-
-    # Check that the message was sent over the "error" stream.
-    assert call_args.args[1] == "error"
-
-    exc_content = call_args.args[2]
-
-    return (file, exc_content)
+    return (file, error)
 
 
 @pytest.mark.xfail(
@@ -224,7 +216,7 @@ def traceback_result(
     reason="IPython >= 9.0.0 does not support the old traceback format",
 )
 def test_console_traceback(shell: PositronShell, traceback_result) -> None:
-    file, exc_content = traceback_result
+    file, error = traceback_result
 
     # NOTE(seem): This is not elegant, but I'm not sure how else to test this than other than to
     # compare the beginning of each frame of the traceback. The escape codes make it particularly
@@ -251,7 +243,7 @@ def test_console_traceback(shell: PositronShell, traceback_result) -> None:
     traceback_frame_header = f"File {colors.filenameEm}{osc8};line={{line}};{uri}{st}{path}:{{line}}{osc8};;{st}{colors.Normal}, in {colors.vName}{{func}}{colors.valEm}(){colors.Normal}"
 
     # Check that two frames were included (the top frame is included in the exception value below).
-    traceback = exc_content["traceback"]
+    traceback = error.traceback
     assert len(traceback) == 2
 
     # Check the beginning of each frame.
@@ -259,12 +251,10 @@ def test_console_traceback(shell: PositronShell, traceback_result) -> None:
     assert_ansi_string_startswith(traceback[1], traceback_frame_header.format(line=2, func="f"))
 
     # Check the exception name.
-    assert exc_content["ename"] == "Exception"
+    assert error.ename == "Exception"
 
     # The exception value should include the top of the stack trace.
-    assert_ansi_string_startswith(
-        exc_content["evalue"], "This is an error!\nCell " + colors.filenameEm
-    )
+    assert_ansi_string_startswith(error.evalue, "This is an error!\nCell " + colors.filenameEm)
 
 
 @pytest.mark.xfail(
@@ -272,7 +262,7 @@ def test_console_traceback(shell: PositronShell, traceback_result) -> None:
     reason="IPython < 9.0.0 does not support the new traceback format",
 )
 def test_console_traceback_ipy9(shell: PositronShell, traceback_result) -> None:
-    file, exc_content = traceback_result
+    file, error = traceback_result
 
     # NOTE(seem): This is not elegant, but I'm not sure how else to test this than other than to
     # compare the beginning of each frame of the traceback. The escape codes make it particularly
@@ -300,7 +290,7 @@ def test_console_traceback_ipy9(shell: PositronShell, traceback_result) -> None:
     )
 
     # Check that two frames were included (the top frame is included in the exception value below).
-    traceback = exc_content["traceback"]
+    traceback = error.traceback
     assert len(traceback) == 2
 
     # Check the beginning of each frame.
@@ -308,18 +298,16 @@ def test_console_traceback_ipy9(shell: PositronShell, traceback_result) -> None:
     assert_ansi_string_startswith(traceback[1], traceback_frame_header.format(line=2, func="f"))
 
     # Check the exception name.
-    assert exc_content["ename"] == "Exception"
+    assert error.ename == "Exception"
 
     # The exception value should include the top of the stack trace.
     assert_ansi_string_startswith(
-        exc_content["evalue"],
+        error.evalue,
         "This is an error!\n" + colors.format([(ultratb.Token.NormalEm, "Cell")]),  # type: ignore
     )
 
 
-def test_notebook_traceback(
-    shell: PositronShell, tmp_path: Path, mock_displayhook: Mock, monkeypatch
-) -> None:
+def test_notebook_traceback(shell: PositronShell, tmp_path: Path, monkeypatch) -> None:
     # Ensure that we're in notebook mode.
     monkeypatch.setattr(shell, "session_mode", SessionMode.NOTEBOOK)
 
@@ -332,27 +320,20 @@ def test_notebook_traceback(
     file.write_text(code)
 
     # Temporarily add the module to sys.path and call a function from it, which should error.
-    with prepended_to_syspath(str(tmp_path)):
+    with prepended_to_syspath(str(tmp_path)), capture_errors() as errors:
         shell.run_cell("import test_traceback; test_traceback.g()")
 
     # Check that a single message was sent to the frontend.
-    call_args_list = mock_displayhook.session.send.call_args_list
-    assert len(call_args_list) == 1
-
-    call_args = call_args_list[0]
-
-    # Check that the message was sent over the "error" stream.
-    assert call_args.args[1] == "error"
-
-    exc_content = call_args.args[2]
+    assert len(errors) == 1
+    error = errors[0]
 
     # Check that we haven't removed any frames.
     # We don't check the traceback contents in this case since that's tested in IPython.
-    assert len(exc_content["traceback"]) == 6
+    assert len(error.traceback) == 6
 
     # Check that we haven't modified any other contents.
-    assert exc_content["ename"] == "Exception"
-    assert exc_content["evalue"] == "This is an error!"
+    assert error.ename == "Exception"
+    assert error.evalue == "This is an error!"
 
 
 def assert_ansi_string_startswith(actual: str, expected: str) -> None:
