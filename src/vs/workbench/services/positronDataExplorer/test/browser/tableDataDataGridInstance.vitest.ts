@@ -24,7 +24,7 @@ import {
 } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { TableDataDataGridInstance } from '../../browser/tableDataDataGridInstance.js';
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
-import { TableDataCache } from '../../common/tableDataCache.js';
+import { ColumnWidthCalculators, TableDataCache } from '../../common/tableDataCache.js';
 
 /**
  * The default column width the data grid falls back to when no calculated widths are available.
@@ -35,6 +35,12 @@ const DEFAULT_COLUMN_WIDTH = 200;
  * The width the test column header width calculator reports.
  */
 const CALCULATED_COLUMN_WIDTH = 321;
+
+/**
+ * The width a second set of column width calculators reports, standing in for the wider font a
+ * change to `editor.fontFamily` or `editor.fontSize` produces.
+ */
+const WIDER_COLUMN_WIDTH = 456;
 
 /**
  * Builds a backend state. The instance reads the table shape, the sort keys, and the supported
@@ -63,10 +69,11 @@ function backendState(): BackendState {
 
 /**
  * Returns column width calculators that report a fixed column header width.
+ * @param columnWidth The column header width to report.
  */
-function columnWidthCalculators() {
+function columnWidthCalculators(columnWidth = CALCULATED_COLUMN_WIDTH): ColumnWidthCalculators {
 	return {
-		columnHeaderWidthCalculator: () => CALCULATED_COLUMN_WIDTH,
+		columnHeaderWidthCalculator: () => columnWidth,
 		columnValueWidthCalculator: () => 50
 	};
 }
@@ -149,19 +156,29 @@ describe('TableDataDataGridInstance', () => {
 		expect(calculateColumnWidths).toHaveBeenCalledTimes(1);
 	});
 
-	it('does not recalculate the column widths when the calculators are set again', async () => {
+	it('recalculates the column widths whenever the calculators are set again', async () => {
+		instance.setColumnWidthCalculators(columnWidthCalculators());
+		await instance.setVisible(true);
+		expect(instance.firstColumn?.width).toBe(CALCULATED_COLUMN_WIDTH);
+
+		// Supplying calculators means the columns are to be measured with them. An editor font change
+		// rebuilds them, and they then measure column values -- and so the columns -- differently, so
+		// widths calculated with the previous set no longer fit their values.
+		instance.setColumnWidthCalculators(columnWidthCalculators(WIDER_COLUMN_WIDTH));
+
+		await vi.waitFor(() => expect(instance.firstColumn?.width).toBe(WIDER_COLUMN_WIDTH));
+	});
+
+	it('recalculates the column widths when the calculators are cleared and supplied again', async () => {
 		instance.setColumnWidthCalculators(columnWidthCalculators());
 		await instance.setVisible(true);
 
-		// The React tree that supplies the calculators is unmounted when this instance's editor pane
-		// is handed to another data explorer, and mounted again when the user comes back, so the
-		// setter is called again for an instance whose widths are already calculated. That must not
-		// cost another round trip.
-		const calculateColumnWidths = vi.spyOn(cache, 'calculateColumnWidths');
-		instance.setColumnWidthCalculators(columnWidthCalculators());
+		// Unmounting the panel clears the calculators, and mounting it again supplies a rebuilt set --
+		// which measures with the editor font as it stands then, whether or not it changed in between.
+		instance.setColumnWidthCalculators(undefined);
+		instance.setColumnWidthCalculators(columnWidthCalculators(WIDER_COLUMN_WIDTH));
 
-		expect(calculateColumnWidths).not.toHaveBeenCalled();
-		expect(instance.firstColumn?.width).toBe(CALCULATED_COLUMN_WIDTH);
+		await vi.waitFor(() => expect(instance.firstColumn?.width).toBe(WIDER_COLUMN_WIDTH));
 	});
 
 	it('does not update the layout twice when a backend state event arrives during the initial load', async () => {
@@ -199,21 +216,14 @@ describe('TableDataDataGridInstance', () => {
 		expect(instance.firstColumn?.width).toBe(CALCULATED_COLUMN_WIDTH);
 	});
 
-	it('recalculates the column widths only once when no widths can be calculated', async () => {
-		// A table with too many columns to auto-size returns no widths, however many times it's
-		// asked. Retrying on each remount would cost a backend round trip per switch back to the
-		// tab, so a recalculation that came back empty must not be attempted again.
-		const calculateColumnWidths = vi.spyOn(cache, 'calculateColumnWidths')
-			.mockResolvedValue(undefined);
+	it('leaves the column widths alone when none can be calculated', async () => {
+		// A table with too many columns to auto-size returns no widths. The columns keep the widths
+		// they have -- the default ones on a first load -- rather than being reset to nothing.
+		vi.spyOn(cache, 'calculateColumnWidths').mockResolvedValue(undefined);
 
+		instance.setColumnWidthCalculators(columnWidthCalculators());
 		await instance.setVisible(true);
-		calculateColumnWidths.mockClear();
 
-		instance.setColumnWidthCalculators(columnWidthCalculators());
-		await vi.waitFor(() => expect(calculateColumnWidths).toHaveBeenCalledTimes(1));
-
-		instance.setColumnWidthCalculators(columnWidthCalculators());
-		expect(calculateColumnWidths).toHaveBeenCalledTimes(1);
 		expect(instance.firstColumn?.width).toBe(DEFAULT_COLUMN_WIDTH);
 	});
 });

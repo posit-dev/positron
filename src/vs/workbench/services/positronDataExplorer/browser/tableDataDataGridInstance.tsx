@@ -102,12 +102,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private _initialLoadInProgress = false;
 
-	/**
-	 * Whether the last layout update calculated column widths. It doesn't when the column width
-	 * calculators haven't been supplied yet, which is used to recalculate them once they arrive.
-	 */
-	private _columnWidthsCalculated = false;
-
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -766,16 +760,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	setColumnWidthCalculators(columnWidthCalculators?: ColumnWidthCalculators) {
 		this._tableDataCache.setColumnWidthCalculators(columnWidthCalculators);
 
-		// The calculators come from the data explorer's React tree, which mounts asynchronously, so
-		// the initial load can calculate column widths before they arrive. That calculation returns
-		// no widths and nothing else asks for them again, leaving the columns at their default
-		// width. Recalculate now that the calculators are available.
-		//
-		// Only when the widths are actually missing. This instance's React tree is unmounted when
-		// its editor pane is handed to another data explorer, and mounted again when the user comes
-		// back to it, so this is called repeatedly for an instance that already has its widths --
-		// where recalculating would cost needless backend round trips.
-		if (columnWidthCalculators && this._initialLoadComplete && !this._columnWidthsCalculated) {
+		// Recalculate the column widths with the new calculators. Supplying calculators means the
+		// columns are to be measured with them, whether they are arriving for the first time -- the
+		// panel mounts asynchronously, so the initial load can run before they are here -- or
+		// replacing an earlier set that measured with a font the user has since changed.
+		if (columnWidthCalculators && this._initialLoadComplete) {
 			this.recalculateColumnWidths().catch(onUnexpectedError);
 		}
 	}
@@ -945,7 +934,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Set the layout entries.
 		this._columnLayoutManager.setEntries(state.table_shape.num_columns, columnWidths);
 		this._rowLayoutManager.setEntries(state.table_shape.num_rows);
-		this._columnWidthsCalculated = columnWidths !== undefined;
 
 		// For zero-row case (e.g., after filtering), ensure a full reset of scroll positions
 		if (state.table_shape.num_rows === 0) {
@@ -1005,11 +993,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			return;
 		}
 
-		// Calculate the column widths. This is only reached with the calculators in place, so the
-		// widths have now been calculated as well as they are going to be -- record that even if
-		// none came back, which is the case for a table with too many columns to auto-size. Leaving
-		// it unrecorded would retry this on every remount, for a result that cannot change.
-		this._columnWidthsCalculated = true;
+		// Calculate the column widths.
 		const columnWidths = await this._tableDataCache.calculateColumnWidths(
 			this.minimumColumnWidth,
 			this.maximumColumnWidth
