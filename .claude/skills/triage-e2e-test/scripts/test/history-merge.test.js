@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizePattern, mergeHistory, classifyVerdict, patternLabel, scopedRunsForEnvironments } from '../triage-history.js';
+import { normalizePattern, mergeHistory, classifyVerdict, patternLabel, scopedRunsForEnvironments, resolveLastSeen } from '../triage-history.js';
 
 const mkTest = (runs, patterns, environmentBreakdown) => ({ history: { total_runs: runs }, failure_patterns: patterns, environment_breakdown: environmentBreakdown });
 const occ = (sha, os = 'ubuntu', browser = 'electron') => ({ sha, os, browser, outcome: 'flaky', report_url: `https://x/${sha}/index.html` });
@@ -66,6 +66,39 @@ test('mergeHistory prefers a current-branch representative occurrence and keeps 
 	const { patterns } = mergeHistory(current, main, 'feature/x', 1);
 	assert.equal(patterns[0].representativeOccurrence.sha, 'cur');
 	assert.equal(patterns[0].keptOccurrences.length, 1);
+});
+
+test('resolveLastSeen picks the newest occurrence by date, not API order', () => {
+	const now = Date.parse('2026-07-29T00:00:00Z');
+	const dates = { old: '2026-07-20T10:00:00Z', new: '2026-07-28T10:00:00Z' };
+	// Deliberately out of order: the newest must win on date, not position.
+	const got = resolveLastSeen([occ('old'), occ('new')], o => dates[o.sha], now);
+	assert.deepEqual(got, { date: '2026-07-28', daysAgo: 1, sha: 'new' });
+});
+
+test('resolveLastSeen falls back to the first occurrence identity when no date resolves', () => {
+	// A shallow clone with no gh fallback must still name the latest occurrence
+	// (API order is most-recent-first) rather than dropping lastSeen entirely.
+	const got = resolveLastSeen([occ('a'), occ('b')], () => null);
+	assert.deepEqual(got, { date: null, daysAgo: null, sha: 'a' });
+	assert.equal(resolveLastSeen([], () => null), null);
+});
+
+test('mergeHistory surfaces lastSeen per pattern so a stale burst is distinguishable from a live drip', () => {
+	const now = Date.parse('2026-07-29T00:00:00Z');
+	const dates = { stale: '2026-07-24T10:00:00Z', live: '2026-07-29T10:00:00Z' };
+	const main = mkTest(100, [
+		{ pattern: 'acute burst, already fixed', count: 10, occurrences: [occ('stale')] },
+		{ pattern: 'ongoing drip', count: 3, occurrences: [occ('live')] },
+	]);
+	const { patterns } = mergeHistory(null, main, 'main', 1, o => dates[o.sha]);
+	// Sort stays count-descending; recency is surfaced, not used to reorder.
+	assert.deepEqual(
+		patterns.map(p => [p.failure, p.lastSeen.date]),
+		[['acute burst, already fixed', '2026-07-24'], ['ongoing drip', '2026-07-29']],
+	);
+	assert.equal(mergeHistory(null, main, 'main', 1, o => dates[o.sha]).patterns[0].lastSeen.daysAgo > 0, true);
+	assert.equal(resolveLastSeen([occ('live')], o => dates[o.sha], now).daysAgo, 0);
 });
 
 test('classifyVerdict: both branches zero-runs is a key mismatch, not clean', () => {
