@@ -172,6 +172,51 @@ describe('TableDataCache', () => {
 		});
 	});
 
+	it('survives the column width calculators being cleared mid-calculation', async () => {
+		ensureNoLeakedDisposables();
+
+		// calculateColumnWidths guards the calculators up front, then awaits several backend round
+		// trips before using them. setColumnWidthCalculators is public and can be called during those
+		// awaits, so the guard alone doesn't make the later dereferences safe -- previously this
+		// threw "Cannot read properties of undefined (reading 'columnHeaderWidthCalculator')" out
+		// of the width calculation.
+		cache.setColumnWidthCalculators({
+			columnHeaderWidthCalculator: () => 100,
+			columnValueWidthCalculator: () => 50,
+		});
+
+		// Clear them as soon as the first backend round trip is awaited.
+		getBackendState.mockImplementationOnce(async () => {
+			cache.setColumnWidthCalculators(undefined);
+			return backendState(true);
+		});
+
+		await expect(cache.calculateColumnWidths(50, 400)).resolves.toEqual([100, 100]);
+	});
+
+	it('measures with one set of column width calculators when they are replaced mid-calculation', async () => {
+		ensureNoLeakedDisposables();
+
+		// An editor font change replaces the calculators. A calculation already in flight has to
+		// finish with the set it started with, or one result would mix widths measured two ways.
+		cache.setColumnWidthCalculators({
+			columnHeaderWidthCalculator: () => 100,
+			columnValueWidthCalculator: () => 50,
+		});
+
+		// Replace them with calculators reporting much larger widths, as soon as the first backend
+		// round trip is awaited.
+		getBackendState.mockImplementationOnce(async () => {
+			cache.setColumnWidthCalculators({
+				columnHeaderWidthCalculator: () => 300,
+				columnValueWidthCalculator: () => 350,
+			});
+			return backendState(true);
+		});
+
+		await expect(cache.calculateColumnWidths(50, 400)).resolves.toEqual([100, 100]);
+	});
+
 	it('does not request row labels when the row selection is empty', async () => {
 		ensureNoLeakedDisposables();
 
