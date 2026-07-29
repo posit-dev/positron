@@ -13,13 +13,12 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
-import { ResourceContextKey } from '../../../common/contextkeys.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../positronNotebook/common/positronNotebookCommon.js';
-import { QUARTO_LANGUAGE_IDS } from '../../positronQuarto/common/positronQuartoConfig.js';
 import { IMissingPackagesResult, IMissingPackagesService } from '../common/missingPackagesService.js';
 import { installPackagesLabel, installingMessage } from './missingPackagesBadge.js';
 import { showMissingPackagesInstallModal } from './missingPackagesInstallModal.js';
+import { MISSING_PACKAGES_SUPPORTED_KEY } from './missingPackagesContextKey.js';
 
 /** Command category, matching the Packages pane commands. */
 const PACKAGES_CATEGORY = localize2('packages', 'Packages');
@@ -28,13 +27,12 @@ export const CHECK_MISSING_PACKAGES_COMMAND_ID = 'positron.missingPackages.check
 export const INSTALL_MISSING_PACKAGES_COMMAND_ID = 'positron.missingPackages.install';
 
 /**
- * The editors these commands apply to: Python and R scripts, Quarto documents,
- * and Positron notebooks. Matches where the editor/notebook badge appears.
+ * The editors these commands apply to: whatever the capability context key
+ * covers, plus Positron notebooks. Matches where the editor/notebook badge
+ * appears.
  */
 const MISSING_PACKAGES_SUPPORTED = ContextKeyExpr.or(
-	ContextKeyExpr.equals(ResourceContextKey.LangId.key, 'python'),
-	ContextKeyExpr.equals(ResourceContextKey.LangId.key, 'r'),
-	...QUARTO_LANGUAGE_IDS.map(langId => ContextKeyExpr.equals(ResourceContextKey.LangId.key, langId)),
+	MISSING_PACKAGES_SUPPORTED_KEY,
 	ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 );
 

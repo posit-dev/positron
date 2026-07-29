@@ -7,7 +7,7 @@ import './mocha-setup';
 
 import * as assert from 'assert';
 import * as positron from 'positron';
-import { listMissingRPackages, parseRPackageReferences } from '../missingPackages';
+import { listMissingRPackages, parseRPackageReferences, rMissingPackageProbe } from '../missingPackages';
 import { RPackageManager } from '../packages';
 
 function makePackage(name: string): positron.LanguageRuntimePackage {
@@ -40,6 +40,24 @@ suite('parseRPackageReferences', () => {
 			parseRPackageReferences(code).sort(),
 			['data.table', 'dplyr', 'ggplot2', 'jsonlite', 'stringr'].sort(),
 		);
+	});
+});
+
+suite('rMissingPackageProbe', () => {
+	test('returns a library() snippet for a missing-package error with curly quotes', () => {
+		assert.strictEqual(
+			rMissingPackageProbe('Error in library(tidyverse) : there is no package called ‘tidyverse’'),
+			'library(tidyverse)');
+	});
+
+	test('returns a library() snippet with straight quotes', () => {
+		assert.strictEqual(
+			rMissingPackageProbe(`there is no package called 'tidyverse'`),
+			'library(tidyverse)');
+	});
+
+	test('returns undefined for an unrelated error', () => {
+		assert.strictEqual(rMissingPackageProbe('object not found'), undefined);
 	});
 });
 
