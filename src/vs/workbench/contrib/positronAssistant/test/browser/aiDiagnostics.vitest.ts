@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { capLogLines, describeExtensionStatus, describeFeatureToggle, featureState, generateAIDiagnosticsReport, hasExplicitValue, IAIDiagnosticsInputs, isSensitiveSettingKey } from '../../browser/aiDiagnostics.js';
+import { capLogLines, describeExtensionStatus, describeFeatureToggle, featureState, generateAIDiagnosticsReport, hasExplicitValue, IAIDiagnosticsInputs, isSensitiveSettingKey, redactProvidersConfig } from '../../browser/aiDiagnostics.js';
 
 function inputs(overrides: Partial<IAIDiagnosticsInputs> = {}): IAIDiagnosticsInputs {
 	return {
@@ -33,6 +33,8 @@ function inputs(overrides: Partial<IAIDiagnosticsInputs> = {}): IAIDiagnosticsIn
 		],
 		authenticatedProviders: ['GitHub Copilot', 'Posit AI'],
 		disabledProviders: ['DeepSeek', 'Snowflake Cortex'],
+		providersConfig: '{\n  "version": 1,\n  "providers": {\n    "anthropic": {\n      "enabled": true\n    }\n  }\n}',
+		providersConfigPath: '/home/user/.posit/ai/providers.json',
 		settings: [
 			{ key: 'ai.enabled', value: false },
 			{ key: 'nextEditSuggestions.enabled', value: { python: true } },
@@ -52,7 +54,7 @@ describe('generateAIDiagnosticsReport', () => {
 
 			Generated: 2026-07-23T00:00:00.000Z
 
-			**Privacy Notice**: This report includes extension versions, non-default configuration settings, system information, and recent log entries. It does NOT include API keys or authentication tokens (those are stored separately, not in settings). However, configured base URLs may reveal internal endpoints. Please review before sharing.
+			**Privacy Notice**: This report includes extension versions, non-default configuration settings, provider connection config, system information, and recent log entries. It does NOT include API keys or authentication tokens (those are stored separately, not in settings or providers.json), and custom header values are redacted. However, configured base URLs may reveal internal endpoints. Please review before sharing.
 
 			## Version Information
 
@@ -89,6 +91,21 @@ describe('generateAIDiagnosticsReport', () => {
 
 			- DeepSeek
 			- Snowflake Cortex
+
+			### Configuration
+
+			Provider configuration from \`providers.json\` (\`/home/user/.posit/ai/providers.json\`):
+
+			\`\`\`json
+			{
+			  "version": 1,
+			  "providers": {
+			    "anthropic": {
+			      "enabled": true
+			    }
+			  }
+			}
+			\`\`\`
 
 			## Configuration Settings
 
@@ -137,6 +154,11 @@ describe('generateAIDiagnosticsReport', () => {
 		const report = generateAIDiagnosticsReport(inputs({ authenticatedProviders: [], disabledProviders: [] }));
 		expect(report).toContain('### Authenticated\n\nNone');
 		expect(report).toContain('### Disabled\n\nNone');
+	});
+
+	it('renders a placeholder in the JSON fence and omits the path when providers.json is unavailable', () => {
+		const report = generateAIDiagnosticsReport(inputs({ providersConfig: '// Provider catalog unavailable', providersConfigPath: undefined }));
+		expect(report).toContain('Provider configuration from `providers.json`:\n\n```json\n// Provider catalog unavailable\n```');
 	});
 
 	it('adds the Assistant bundle section only when a bundle was requested', () => {
@@ -203,6 +225,48 @@ describe('isSensitiveSettingKey', () => {
 			sensitive: sensitive.filter(isSensitiveSettingKey),
 			safe: safe.filter(isSensitiveSettingKey),
 		}).toEqual({ sensitive, safe: [] });
+	});
+});
+
+describe('redactProvidersConfig', () => {
+	it('keeps non-secret config verbatim, redacts custom header values (keeping names) and whole secret keys', () => {
+		const raw = JSON.stringify({
+			version: 1,
+			providers: {
+				anthropic: { enabled: true, baseUrl: 'https://api.anthropic.com/v1' },
+				gateway: {
+					enabled: true,
+					baseUrl: 'https://gateway.example.com/v1',
+					customHeaders: { Authorization: 'Bearer sk-secret', 'x-org': 'acme' },
+					apiKey: 'sk-should-not-be-here',
+				},
+			},
+		});
+		expect(redactProvidersConfig(raw)).toMatchInlineSnapshot(`
+			"{
+			  "version": 1,
+			  "providers": {
+			    "anthropic": {
+			      "enabled": true,
+			      "baseUrl": "https://api.anthropic.com/v1"
+			    },
+			    "gateway": {
+			      "enabled": true,
+			      "baseUrl": "https://gateway.example.com/v1",
+			      "customHeaders": {
+			        "Authorization": "<redacted>",
+			        "x-org": "<redacted>"
+			      },
+			      "apiKey": "<redacted>"
+			    }
+			  }
+			}"
+		`);
+	});
+
+	it('parses tolerantly (comments / trailing commas) and returns the raw text when it cannot parse', () => {
+		expect(redactProvidersConfig('{\n  // a comment\n  "version": 1,\n}')).toBe('{\n  "version": 1\n}');
+		expect(redactProvidersConfig('not json at all')).toBe('not json at all');
 	});
 });
 

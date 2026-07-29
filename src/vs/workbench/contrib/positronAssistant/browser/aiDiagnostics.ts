@@ -17,7 +17,10 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { PlatformToString, platform } from '../../../../base/common/platform.js';
 import { raceTimeout } from '../../../../base/common/async.js';
+import { parse } from '../../../../base/common/json.js';
+import { Schemas } from '../../../../base/common/network.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
+import { IAiProviderService } from '../../../services/positronAiProvider/common/aiProviderService.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IOutputService, isMultiSourceOutputChannelDescriptor, isSingleSourceOutputChannelDescriptor } from '../../../services/output/common/output.js';
@@ -86,6 +89,14 @@ export interface IAIDiagnosticsInputs {
 	readonly authenticatedProviders: readonly string[];
 	/** Provider labels turned off in settings (empty when none/unknown). */
 	readonly disabledProviders: readonly string[];
+	/**
+	 * Contents of providers.json, redacted and rendered inside a JSON fence. A
+	 * `// ...` comment line when the file is missing or the catalog is unavailable
+	 * (mirrors the settings block's placeholder).
+	 */
+	readonly providersConfig: string;
+	/** Path to providers.json, shown so support knows where the config lives; omitted when unknown. */
+	readonly providersConfigPath: string | undefined;
 	readonly settings: readonly IAIDiagnosticsSetting[];
 	readonly logs: readonly IAIDiagnosticsLogSection[];
 	/** Assistant diagnostics bundle result (path or status); omitted when not requested. */
@@ -129,7 +140,7 @@ export function generateAIDiagnosticsReport(inputs: IAIDiagnosticsInputs): strin
 
 Generated: ${inputs.generatedAt}
 
-**Privacy Notice**: This report includes extension versions, non-default configuration settings, system information, and recent log entries. It does NOT include API keys or authentication tokens (those are stored separately, not in settings). However, configured base URLs may reveal internal endpoints. Please review before sharing.
+**Privacy Notice**: This report includes extension versions, non-default configuration settings, provider connection config, system information, and recent log entries. It does NOT include API keys or authentication tokens (those are stored separately, not in settings or providers.json), and custom header values are redacted. However, configured base URLs may reveal internal endpoints. Please review before sharing.
 
 ## Version Information
 
@@ -155,6 +166,14 @@ ${providerList(inputs.authenticatedProviders)}
 ### Disabled
 
 ${providerList(inputs.disabledProviders)}
+
+### Configuration
+
+Provider configuration from \`providers.json\`${inputs.providersConfigPath ? ` (\`${inputs.providersConfigPath}\`)` : ''}:
+
+\`\`\`json
+${inputs.providersConfig}
+\`\`\`
 
 ## Configuration Settings
 
@@ -206,6 +225,53 @@ export const REDACTED_VALUE = '<redacted>';
 export function isSensitiveSettingKey(key: string): boolean {
 	const segment = key.split('.').pop()?.toLowerCase() ?? '';
 	return SENSITIVE_KEY_SEGMENTS.some(sensitive => segment.includes(sensitive));
+}
+
+/**
+ * Redacts secrets from providers.json for the report, keeping the file's own
+ * JSON shape. providers.json holds no secrets by design (API keys and tokens
+ * live in env vars and the credential store), but `customHeaders` is free-form,
+ * so a user can hand-place an auth token there. Header names are kept (so the
+ * shape stays visible) and their values redacted; any `apiKey`/`token`/`secret`/
+ * `password` key is redacted whole as a belt-and-suspenders guard.
+ *
+ * The input is parsed tolerantly (comments / trailing commas allowed), then
+ * re-serialized as clean JSON. If it can't be parsed, the raw text is returned
+ * unchanged - a malformed file is worth seeing, and it holds no secrets bar the
+ * customHeaders edge case.
+ */
+export function redactProvidersConfig(raw: string): string {
+	const parsed = parse(raw);
+	if (parsed === undefined || typeof parsed !== 'object') {
+		return raw;
+	}
+	return JSON.stringify(redactSensitiveValues(parsed), null, 2);
+}
+
+/** Recursively redacts sensitive values in a parsed providers.json object. */
+function redactSensitiveValues(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map(redactSensitiveValues);
+	}
+	if (value && typeof value === 'object') {
+		const out: Record<string, unknown> = {};
+		for (const [key, val] of Object.entries(value)) {
+			out[key] = isSensitiveSettingKey(key) ? redactSensitiveValue(key, val) : redactSensitiveValues(val);
+		}
+		return out;
+	}
+	return value;
+}
+
+/**
+ * Redacts one sensitive value. `customHeaders` is a name->value map, so redact
+ * each value but keep the names; everything else is replaced wholesale.
+ */
+function redactSensitiveValue(key: string, value: unknown): unknown {
+	if (key.toLowerCase().includes('customheaders') && value && typeof value === 'object' && !Array.isArray(value)) {
+		return Object.fromEntries(Object.keys(value).map(name => [name, REDACTED_VALUE]));
+	}
+	return REDACTED_VALUE;
 }
 
 /**
@@ -354,6 +420,7 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 		const environmentService = accessor.get(IWorkbenchEnvironmentService);
 		const outputService = accessor.get(IOutputService);
 		const fileService = accessor.get(IFileService);
+		const aiProviderService = accessor.get(IAiProviderService);
 		const editorService = accessor.get(IEditorService);
 		const quickInputService = accessor.get(IQuickInputService);
 		const notificationService = accessor.get(INotificationService);
@@ -405,6 +472,7 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 		}
 
 		const providers = await collectProviderDiagnostics(extensionService, commandService);
+		const providerConfig = await collectProvidersConfig(aiProviderService, fileService);
 
 		const bundle = includeBundle
 			? localize('positron.ai.diagnostics.bundleRequested', "Requested. Posit Assistant saves the bundle and shows its location in a notification.")
@@ -442,6 +510,8 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 			extensions,
 			authenticatedProviders: providers.authenticated,
 			disabledProviders: providers.disabled,
+			providersConfig: providerConfig.content,
+			providersConfigPath: providerConfig.path,
 			settings,
 			logs,
 			bundle,
@@ -534,6 +604,36 @@ async function collectProviderDiagnostics(
 		return (await raceTimeout(collect(), BRIDGE_TIMEOUT_MS)) ?? empty;
 	} catch {
 		return empty;
+	}
+}
+
+/**
+ * Reads providers.json for the report. Resolves its location from the catalog
+ * service (which re-homes the path onto the remote authority when connected),
+ * then reads the file fresh and redacts secrets. Reading the file directly -
+ * rather than the catalog's warmed snapshot - means the first invocation sees
+ * the real config even if the snapshot hasn't caught up yet. Returns a `// ...`
+ * placeholder (rendered inside the JSON fence) when the file is missing or the
+ * catalog is unreachable.
+ */
+async function collectProvidersConfig(
+	aiProviderService: IAiProviderService,
+	fileService: IFileService,
+): Promise<{ content: string; path: string | undefined }> {
+	let uri;
+	try {
+		uri = await aiProviderService.getConfigFileUri();
+	} catch {
+		return { content: '// Provider catalog unavailable', path: undefined };
+	}
+	const path = uri.scheme === Schemas.file ? uri.fsPath : uri.toString(true);
+	try {
+		const file = await fileService.readFile(uri);
+		return { content: redactProvidersConfig(file.value.toString()), path };
+	} catch {
+		// Most often the file doesn't exist yet: provider config falls back to
+		// built-in defaults until the user configures a provider.
+		return { content: '// No providers.json found (provider configuration is using defaults)', path };
 	}
 }
 
