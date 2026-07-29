@@ -1140,6 +1140,8 @@ export class ChatStatusDashboard extends DomWidget {
 			checkbox.disable();
 		}
 
+		// --- Start Positron ---
+		// Extracted so the catalog-change handler below can reuse it.
 		const updateNesEnablement = () => {
 			if (completionsSettingAccessor.readSetting() && this.canUseChat()) {
 				checkbox.enable();
@@ -1149,10 +1151,13 @@ export class ChatStatusDashboard extends DomWidget {
 				container.classList.add('disabled');
 			}
 		};
+		// --- End Positron ---
 
 		this._store.add(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(completionsSettingId)) {
+				// --- Start Positron ---
 				updateNesEnablement();
+				// --- End Positron ---
 			}
 		}));
 
