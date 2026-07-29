@@ -462,18 +462,17 @@ def test_set_matplotlib_formats_patch_restored_after_switch(
     assert backend_inline.set_matplotlib_formats is original
 
 
-def test_notebook_to_console_switch_reinstalls_patch(
+def test_notebook_to_console_switch_keeps_patch_installed(
     shell: PositronShell,
     notebook_backend: Flavor,  # noqa: ARG001
 ):
     """
-    A notebook -> console switch now uninstalls before installing.
+    A notebook -> console switch keeps the same `set_matplotlib_formats` patch installed.
 
-    Pins the registry's ordering guarantee: the outgoing flavor's `uninstall` runs
-    before the incoming flavor's `install`, so the shared `set_matplotlib_formats`
-    patch is torn down and reinstalled (a fresh closure) across the switch instead of
-    surviving unchanged as it did under the old activate-before-deactivate ordering.
-    It stays correctly installed and dispatching afterwards.
+    The patch's lifecycle is owned by `configure_positron_support` ("a Positron backend
+    is active"), not by the individual flavors, so a cross-flavor switch -- which never
+    lets `_active_backend` become `None` in between -- leaves the same patch object in
+    place instead of tearing it down and reinstalling a fresh one.
     """
     import matplotlib_inline.backend_inline as backend_inline
 
@@ -481,7 +480,7 @@ def test_notebook_to_console_switch_reinstalls_patch(
 
     shell.run_cell(f"%matplotlib {Backend.CONSOLE.short_name}").raise_error()
 
-    assert backend_inline.set_matplotlib_formats is not installed_before
+    assert backend_inline.set_matplotlib_formats is installed_before
     assert backend_inline.set_matplotlib_formats is formats._installed_set_matplotlib_formats  # noqa: SLF001
 
 

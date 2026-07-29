@@ -29,7 +29,7 @@ from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 from ..execute_request import PositronExecuteRequest
-from . import Backend, configure_positron_support, formats
+from . import Backend, configure_positron_support
 
 if TYPE_CHECKING:
     from IPython.core.interactiveshell import InteractiveShell
@@ -414,10 +414,6 @@ def install(shell: InteractiveShell) -> None:
 
     _install_library_gca_redirect()
 
-    # Intercept `set_matplotlib_formats`: it's a no-op here, since the Plots pane
-    # negotiates its own format via `canvas.render(format_=...)`.
-    formats.install_set_matplotlib_formats_patch()
-
 
 def uninstall(shell: InteractiveShell) -> None:
     """Remove the console backend's shell hooks. See `BackendModule`."""
@@ -427,8 +423,6 @@ def uninstall(shell: InteractiveShell) -> None:
         shell.events.unregister("post_execute", _detach_library_figures)
 
     _uninstall_library_gca_redirect()
-
-    formats.uninstall_set_matplotlib_formats_patch()
 
 
 # If we are the selected backend, activate through the registry, which also tears

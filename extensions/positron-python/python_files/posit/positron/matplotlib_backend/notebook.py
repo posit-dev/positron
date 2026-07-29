@@ -116,10 +116,6 @@ def install(shell: InteractiveShell) -> None:
     # `set_matplotlib_formats`).
     formats.apply_selected_formats(shell)
 
-    # Intercept `set_matplotlib_formats` so a user's call re-registers our formatters
-    # instead of IPython's.
-    formats.install_set_matplotlib_formats_patch()
-
 
 def uninstall(shell: InteractiveShell) -> None:
     """Remove the notebook backend's shell hooks. See `BackendModule`."""
@@ -130,8 +126,6 @@ def uninstall(shell: InteractiveShell) -> None:
 
     # Unregister our formatter(s) for matplotlib Figure objects.
     formats.pop_registered_formatters(shell)
-
-    formats.uninstall_set_matplotlib_formats_patch()
 
 
 # If we are the selected backend, activate through the registry, which also tears

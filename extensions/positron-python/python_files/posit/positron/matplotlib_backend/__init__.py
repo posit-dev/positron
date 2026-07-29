@@ -192,3 +192,13 @@ def configure_positron_support(backend: str | Backend) -> None:
         matplotlib.interactive(True)  # noqa: FBT003
         target.import_module().install(shell)
         _active_backend = target
+
+    # The `set_matplotlib_formats` patch is flavor-agnostic (it dispatches at call
+    # time on the live backend), so it's owned here rather than by the flavors:
+    # installed while any Positron backend is active, removed when none is.
+    from . import formats
+
+    if target is not None:
+        formats.install_set_matplotlib_formats_patch()
+    else:
+        formats.uninstall_set_matplotlib_formats_patch()

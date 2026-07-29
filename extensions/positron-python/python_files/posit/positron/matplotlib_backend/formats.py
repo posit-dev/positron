@@ -7,14 +7,13 @@ Positron's support for `matplotlib_inline.backend_inline.set_matplotlib_formats`
 
 That function (and its sibling `select_figure_formats`) operate entirely inside
 matplotlib-inline/IPython, with no Positron code on the stack, so the only way to
-intercept them is to patch `set_matplotlib_formats` itself. Both of Positron's
-matplotlib backend flavors (console, notebook) install the *same* patch and leave it
-dispatching at call time on whichever flavor is currently the active matplotlib
-backend -- see `install_set_matplotlib_formats_patch` for why a shared, call-time
-dispatch is needed instead of one patch per flavor.
+intercept them is to patch `set_matplotlib_formats` itself. The patch is installed
+by `configure_positron_support` whenever a Positron backend (console or notebook) is
+active, and removed once none is -- see `install_set_matplotlib_formats_patch` for why
+a shared, call-time dispatch is needed instead of one patch per flavor.
 
-NOTE: only ever imported from a flavor's `install`/`uninstall`, by which point
-matplotlib is guaranteed to be importable.
+NOTE: only ever imported from `configure_positron_support`, by which point matplotlib
+is guaranteed to be importable.
 """
 
 from __future__ import annotations
@@ -174,11 +173,12 @@ def install_set_matplotlib_formats_patch() -> None:
     """
     Patch `matplotlib_inline.backend_inline.set_matplotlib_formats`. Safe to call repeatedly.
 
-    The patch is shared by both flavors and dispatches at call time on
-    `matplotlib.get_backend()`, so it stays correct however the active flavor changes
-    between install and call time. Dispatching on the live backend string rather than
-    the registry's state is deliberate: a user can switch backends with a bare
-    `matplotlib.use(...)` that never goes through the registry.
+    Installed by `configure_positron_support` whenever a Positron backend is active,
+    and dispatches at call time on `matplotlib.get_backend()`, so it stays correct
+    however the active flavor changes between install and call time. Dispatching on
+    the live backend string rather than the registry's state is deliberate: a user can
+    switch backends with a bare `matplotlib.use(...)` that never goes through the
+    registry.
     """
     global _original_set_matplotlib_formats, _installed_set_matplotlib_formats
     if _installed_set_matplotlib_formats is not None:
