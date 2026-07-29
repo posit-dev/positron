@@ -13,10 +13,11 @@ import pytest
 from IPython.core.display import _pngxy
 from IPython.utils.capture import RichOutput, capture_output
 
-from positron.matplotlib_backend import Backend, configure_positron_support
+from positron.matplotlib_backend import Backend
 from positron.session_mode import SessionMode
 
 from ..utils import run_with_metadata
+from .conftest import active_backend
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -36,14 +37,8 @@ def _setup(shell, monkeypatch):
 @pytest.fixture
 def backend(shell):
     """A fixture that configures matplotlib to use the Positron notebook backend."""
-    prev = matplotlib.get_backend()
-    matplotlib.use("module://positron.matplotlib_backend.notebook")
-    configure_positron_support(Backend.NOTEBOOK)
-
-    yield NotebookBackendFixture(shell)
-
-    configure_positron_support(prev)
-    matplotlib.use(prev)
+    with active_backend(Backend.NOTEBOOK):
+        yield NotebookBackendFixture(shell)
 
 
 def _parse_png_output(output: RichOutput) -> tuple[bytes, dict]:

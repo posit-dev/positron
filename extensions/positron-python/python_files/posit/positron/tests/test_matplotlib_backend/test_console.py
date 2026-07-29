@@ -8,7 +8,6 @@ import io
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Tuple, cast
 
-import matplotlib
 import matplotlib.pyplot as plt
 import pytest
 from PIL import Image
@@ -25,6 +24,7 @@ from ..utils import (
     json_rpc_response,
     percent_difference,
 )
+from .conftest import active_backend
 
 #
 # Matplotlib backend + shell + plots service integration tests.
@@ -35,14 +35,10 @@ TARGET_NAME = "target_name"
 
 @pytest.fixture(autouse=True)
 def setup_positron_matplotlib_backend() -> None:
-    prev = matplotlib.get_backend()
     # The backend is set in the kernel app, which isn't currently available in our tests,
     # so set it here too.
-    matplotlib.use("module://positron.matplotlib_backend.console")
-    configure_positron_support(Backend.CONSOLE)
-    yield
-    configure_positron_support(prev)
-    matplotlib.use(prev)
+    with active_backend(Backend.CONSOLE):
+        yield
 
 
 @pytest.fixture(autouse=True)

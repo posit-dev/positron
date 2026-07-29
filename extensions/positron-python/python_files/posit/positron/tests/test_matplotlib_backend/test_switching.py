@@ -36,6 +36,7 @@ from positron.matplotlib_backend import (
 from positron.session_mode import SessionMode
 
 from ..utils import run_with_metadata
+from .conftest import active_backend
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -135,17 +136,11 @@ def _session_with_backend(
     # Entering a gui event loop needs a running kernel application, which tests don't have.
     monkeypatch.setattr(shell, "enable_gui", lambda gui=None: None)  # noqa: ARG005
 
-    previous_backend = matplotlib.get_backend()
-    matplotlib.use(flavor.backend.full_name)
-    matplotlib_backend.configure_positron_support(flavor.backend)
-
-    yield flavor
-
-    matplotlib_backend.configure_positron_support(previous_backend)
-    _reset_matplotlib_inline(shell)
-    shell.kernel.plots_service.shutdown()
-    plt.close("all")
-    matplotlib.use(previous_backend)
+    with active_backend(flavor.backend):
+        yield flavor
+        _reset_matplotlib_inline(shell)
+        shell.kernel.plots_service.shutdown()
+        plt.close("all")
 
 
 def _reset_matplotlib_inline(shell: PositronShell) -> None:

@@ -28,6 +28,7 @@ from positron.matplotlib_backend import Backend, configure_positron_support, for
 from positron.session_mode import SessionMode
 
 from ..utils import run_with_metadata
+from .conftest import active_backend
 
 if TYPE_CHECKING:
     from positron.positron_ipkernel import PositronShell
@@ -48,14 +49,8 @@ def _setup(shell, monkeypatch):
 @pytest.fixture
 def backend(shell: PositronShell) -> Iterator[PositronShell]:
     """A fixture that configures matplotlib to use the Positron notebook backend."""
-    prev = matplotlib.get_backend()
-    matplotlib.use("module://positron.matplotlib_backend.notebook")
-    configure_positron_support(Backend.NOTEBOOK)
-
-    yield shell
-
-    configure_positron_support(prev)
-    matplotlib.use(prev)
+    with active_backend(Backend.NOTEBOOK):
+        yield shell
 
     # `_selected_formats` is module state that intentionally survives a backend round
     # trip (see `test_preference_survives_backend_round_trip`), so it doesn't reset
