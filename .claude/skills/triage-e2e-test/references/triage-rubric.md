@@ -10,28 +10,25 @@ fields and format ([`diagnosis-block.md`](diagnosis-block.md)).
 
 ## Taxonomy
 
-Name the mechanism, not the symptom:
+Name the mechanism, not the symptom. Every diagnosis states a mechanism **and**
+an owner; the last column says whether the category fixes the owner for you.
 
-- **product regression** -- the app failed to do the thing. Includes open-path
-  bugs (handler ran, UI never rendered) and latent defects predating the run.
-- **locator drift / stale selector** -- the element exists; the selector no
-  longer matches it.
-- **test logic bug** -- the test asserts the wrong thing: an over-broad
-  selector, or a check it re-derives instead of reading the product's signal.
-- **race** -- ordering or timing inside one test or the app under it.
-- **contention** -- load, resource pressure, or concurrent workers pushing
-  something past a budget.
-- **isolation / state leakage** -- another test, worker, or teardown mutated
-  state this test depends on.
-- **infrastructure** -- the runner or harness never produced a usable app.
+| Mechanism | What it means | Owner |
+|---|---|---|
+| **product regression** | the app failed to do the thing -- includes open-path bugs (dispatch succeeded, UI never appeared) and latent defects predating the run | product |
+| **locator drift / stale selector** | the element exists; the selector no longer matches it | test code |
+| **test logic bug** | the test asserts the wrong thing: an over-broad selector, or a check it re-derives instead of reading the product's signal | test code |
+| **race** | ordering or timing inside one test or the app under it | *state it* |
+| **contention** | load, resource pressure, or concurrent workers pushing something past a budget | *state it* |
+| **isolation / state leakage** | another test, worker, or teardown mutated state this test depends on | *state it* |
+| **infrastructure** | the runner or harness never produced a usable app | infrastructure |
 
-**A mechanism is not a diagnosis on its own.** Race, contention, and isolation
-say *how* it failed, not *whose* it is -- so state both: **product**, **test
-code**, **shared test environment**, or **infrastructure**. Write "product
-race", "test isolation failure", "test-environment contention". A bare "race"
-doesn't route the fix, and the same interleaving can be a product bug or a test
-that assumed an ordering it never guaranteed. Product regression, locator drift,
-and test logic bug already carry their owner.
+*State it* means the mechanism says *how* it failed, not *whose* it is: pick
+**product**, **test code**, **shared test environment**, or **infrastructure**
+and write the pair -- "product race", "test isolation failure",
+"test-environment contention". A bare "race" doesn't route the fix, and the same
+interleaving can be a product bug or a test that assumed an ordering it never
+guaranteed.
 
 `timeout` is **not** a category. A `timedOut` status is a symptom; work the
 sections below and it usually resolves to a race, test logic bug, contention, or
@@ -63,14 +60,12 @@ a cited mechanism, not reached because nothing else was proven.
 
 - **To call it a race**, cite the interleaving: an element present-then-gone in
   DOM presence, an ordering visible in the trace or in the two attempts' logs.
-  "Passed on retry" is not a mechanism -- a latent product bug also passes on
-  retry.
 - **To call it contention or infrastructure**, cite the affirmative signal: the
   workbench never came up, an OOM or network error in the logs, a concurrent
   worker's teardown in the timeline.
-- **`:soft-fail` is context, not a mechanism.** It says the test is known
-  unstable; it earns a flaky verdict no more than "passed on retry" does. Name
-  and support the race, contention, or isolation anyway.
+- **Neither "passed on retry" nor a `:soft-fail` tag is a mechanism.** Both only
+  say the test is known unstable -- which a latent product bug also produces.
+  They are context; name and support the race, contention, or isolation anyway.
 - **When no dismissal is supported and the locator-drift decision does not
   resolve to a stale selector**, the residual is a *suspected product
   regression* -- not "flaky." This is a safety-biased default, not a finding:
@@ -96,8 +91,7 @@ evidence rules something out; little of it proves a mechanism.
 
 - **Error-context snapshot** -- the accessibility tree at the moment of failure,
   including same-origin webview iframes. The evidence that separates "never
-  rendered" (product) from "rendered as different markup" (stale selector); a
-  screenshot cannot make that call.
+  rendered" (product) from "rendered as different markup" (stale selector).
 - **Aria-live / status regions in that snapshot** are the component's own report
   of what it decided ("dropped over droppable area 11") -- strong evidence of
   internal state, and it outranks the *test's interpretation* of the same event,
@@ -110,9 +104,9 @@ evidence rules something out; little of it proves a mechanism.
 - **DOM presence** -- whether the selector's structural token ever matched a
   frame. It is a strong negative filter and a weak positive one.
   - `present in N/M` **rules out** "never rendered at all" for that token, and
-    nothing more. A timing or dismiss race is only one survivor; so are a
-    permanently hidden or disabled state, an overlay intercepting the
-    interaction, a broad selector matching the wrong surface, and a node that
+    nothing more. What survives is the **not-usable set**: a timing or dismiss
+    race, a permanently hidden or disabled state, an overlay intercepting the
+    interaction, a broad selector matching the wrong surface, or a node that
     mounts before the state it needs is ready. Separate them with the trace
     (when it appeared, what was attempted against it) and by confirming which
     surface owns the matched node.
@@ -167,9 +161,8 @@ structural class or id, which is the part that drifts.
   and the unconfirmed condition names the evidence to go get.
 - Element **present with its expected role**, error is a visibility or
   interactability timeout ⇒ not drift. The element is there, so the question
-  moves to *why it wasn't usable*: a timing race, a permanently hidden or
-  disabled state, or something intercepting the interaction. Use the trace and
-  DOM presence to pick between them rather than defaulting to race.
+  moves to *why it wasn't usable*: work the **not-usable set** above rather than
+  defaulting to race.
 - A **matched** locator is not proof until you confirm it matched the element the
   test *means*. A broad `getByLabel` / `getByText` / `getByRole`, or a container
   selector not scoped to one editor group, tab, or dialog, can resolve to a
@@ -224,9 +217,10 @@ threshold: the product's real signal is what should be asserted.
 ## Race, contention, and isolation
 
 - **Startup failures** are usually infrastructure -- but a *specific control*
-  that never responds right after startup (command fired, no UI) is a product
-  open-path bug. Reserve "infrastructure" for the app as a whole failing to come
-  up.
+  that never responds right after startup is not an infrastructure claim; run it
+  through the post-dispatch localization above. Reserve "infrastructure" for the
+  app as a whole failing to come up.
+
 The next two heuristics rest on harness configuration that changes. **Confirm
 the premise in the current tree before applying either** -- a one-line check,
 and a heuristic built on a stale premise is worse than none.
@@ -277,12 +271,10 @@ and a heuristic built on a stale premise is worse than none.
   unguarded await, a platform timing assumption -- can start failing when a
   slower runner tips it over, and it will look known-flaky in history. An
   unrelated head commit and a flaky-looking history therefore do **not** rule
-  out a product bug. A known-flaky test that also shows the product signal
-  (command fired, UI never rendered) is an unfixed product bug wearing a flake
-  costume: flag it for a fix, not a retry. "Shows the product signal" means the
-  post-dispatch localization above, which supports a product defect without
-  naming which step failed -- enough to stop dismissing it, not enough to skip
-  the mechanism.
+  out a product bug. A known-flaky test that also reaches the **post-dispatch
+  localization** ("Action fired but nothing rendered") is an unfixed product bug
+  wearing a flake costume: flag it for a fix, not a retry. That localization is
+  enough to stop dismissing it, not enough to skip naming the step.
 
 ## Before you commit to the diagnosis
 
