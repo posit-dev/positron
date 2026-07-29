@@ -43,6 +43,11 @@ const CALCULATED_COLUMN_WIDTH = 321;
 const WIDER_COLUMN_WIDTH = 456;
 
 /**
+ * The width a superseded calculation reports, which must never reach the columns.
+ */
+const STALE_COLUMN_WIDTH = 111;
+
+/**
  * Builds a backend state. The instance reads the table shape, the sort keys, and the supported
  * features from it, so the rest is filler.
  */
@@ -179,6 +184,60 @@ describe('TableDataDataGridInstance', () => {
 		instance.setColumnWidthCalculators(columnWidthCalculators(WIDER_COLUMN_WIDTH));
 
 		await vi.waitFor(() => expect(instance.firstColumn?.width).toBe(WIDER_COLUMN_WIDTH));
+	});
+
+	it('ignores a column width calculation that a later one has superseded', async () => {
+		instance.setColumnWidthCalculators(columnWidthCalculators());
+		await instance.setVisible(true);
+
+		// Two editor font changes in quick succession start two calculations. Hold the first one so
+		// it resolves after the second, which is what varying backend round trip times produce.
+		let resolveSuperseded!: (columnWidths: number[]) => void;
+		const superseded = new Promise<number[]>(resolve => {
+			resolveSuperseded = resolve;
+		});
+		const calculateColumnWidths = vi.spyOn(cache, 'calculateColumnWidths')
+			.mockReturnValueOnce(superseded)
+			.mockResolvedValueOnce([WIDER_COLUMN_WIDTH, WIDER_COLUMN_WIDTH]);
+
+		instance.setColumnWidthCalculators(columnWidthCalculators());
+		instance.setColumnWidthCalculators(columnWidthCalculators(WIDER_COLUMN_WIDTH));
+
+		// The second calculation lands first and its widths are applied.
+		await vi.waitFor(() => expect(instance.firstColumn?.width).toBe(WIDER_COLUMN_WIDTH));
+
+		// The first now resolves. Its widths were measured with the font the user has already
+		// changed away from, so they must not replace the ones the columns have.
+		resolveSuperseded([STALE_COLUMN_WIDTH, STALE_COLUMN_WIDTH]);
+		await vi.waitFor(() => expect(calculateColumnWidths).toHaveBeenCalledTimes(2));
+
+		expect(instance.firstColumn?.width).toBe(WIDER_COLUMN_WIDTH);
+	});
+
+	it('ignores a column width calculation that a layout update has superseded', async () => {
+		instance.setColumnWidthCalculators(columnWidthCalculators());
+		await instance.setVisible(true);
+
+		// A font change starts a calculation; hold it so that a layout update -- a backend state
+		// change, a schema update, a filter -- applies its own widths while it is still in flight.
+		let resolveSuperseded!: (columnWidths: number[]) => void;
+		const superseded = new Promise<number[]>(resolve => {
+			resolveSuperseded = resolve;
+		});
+		const calculateColumnWidths = vi.spyOn(cache, 'calculateColumnWidths')
+			.mockReturnValueOnce(superseded)
+			.mockResolvedValueOnce([WIDER_COLUMN_WIDTH, WIDER_COLUMN_WIDTH]);
+
+		instance.setColumnWidthCalculators(columnWidthCalculators());
+		backendStateEmitter.fire(backendState());
+
+		await vi.waitFor(() => expect(instance.firstColumn?.width).toBe(WIDER_COLUMN_WIDTH));
+
+		// The held calculation now resolves against layout entries that have moved on.
+		resolveSuperseded([STALE_COLUMN_WIDTH, STALE_COLUMN_WIDTH]);
+		await vi.waitFor(() => expect(calculateColumnWidths).toHaveBeenCalledTimes(2));
+
+		expect(instance.firstColumn?.width).toBe(WIDER_COLUMN_WIDTH);
 	});
 
 	it('does not update the layout twice when a backend state event arrives during the initial load', async () => {

@@ -102,6 +102,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private _initialLoadInProgress = false;
 
+	/**
+	 * Counts the column width calculations that have been started. A calculation compares the
+	 * generation it started in against this before applying its widths, so that a slower
+	 * calculation cannot overwrite the widths of a later one that has already finished.
+	 */
+	private _columnWidthsGeneration = 0;
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -931,7 +938,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			this.maximumColumnWidth
 		);
 
-		// Set the layout entries.
+		// Set the layout entries. These widths are the newest, so a column width calculation still
+		// awaiting the backend is now stale and drops its result rather than overwriting them.
+		this._columnWidthsGeneration++;
 		this._columnLayoutManager.setEntries(state.table_shape.num_columns, columnWidths);
 		this._rowLayoutManager.setEntries(state.table_shape.num_rows);
 
@@ -994,13 +1003,17 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		}
 
 		// Calculate the column widths.
+		const generation = ++this._columnWidthsGeneration;
 		const columnWidths = await this._tableDataCache.calculateColumnWidths(
 			this.minimumColumnWidth,
 			this.maximumColumnWidth
 		);
 
-		// If the widths could not be calculated, leave the layout entries as they are.
-		if (!columnWidths) {
+		// If newer widths have been applied while this calculation was awaiting the backend, these
+		// ones are stale -- two editor font changes in quick succession start two calculations, and
+		// the slower one must not win. If the widths could not be calculated, leave the layout
+		// entries as they are.
+		if (generation !== this._columnWidthsGeneration || !columnWidths) {
 			return;
 		}
 
