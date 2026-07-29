@@ -341,7 +341,7 @@ if [[ -n "$CHANGED_FILES" && -f "$MAP_FILE" ]]; then
 		# An upstream dir surfaces here when it holds a Posit-owned file (see
 		# find_unmapped_positron_dirs' owner-root fallback). Tagging the whole dir
 		# would fire suites on every upstream merge touching it, hence the pairing.
-		echo "If the dir is upstream and only holds a few Posit-owned files, map it to [] and add a tagged entry per file (longest matching key wins)."
+		echo "  Note: if any dir above is upstream and only Posit-owned files live in it, map it to [] and add a tagged entry per Posit-owned file (longest matching key wins)."
 	fi
 fi
 echo "unmapped_dirs=$(printf '%s' "$UNMAPPED_DIRS" | paste -sd, -)" >> "$GITHUB_OUTPUT"
