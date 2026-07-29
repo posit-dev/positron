@@ -750,7 +750,7 @@ export class Sessions {
 		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
 			// Read the metadata directly from the runtime session service via the
 			// internal `_positron.session.getMetadata` command (registered in
-			// sessionMetadataCommand.ts). This avoids selecting the
+			// languageRuntimeActionsForSmokeTests.ts). This avoids selecting the
 			// session tab and scraping the info popup, which is slower and flaky
 			// when notification toasts overlay the tab.
 			const metadata = await this.code.driver.executeCommand<SessionMetaData | undefined>(
