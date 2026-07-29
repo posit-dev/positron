@@ -7,10 +7,11 @@
 import './dataConnectionEntryRow.css';
 
 // React.
-import { useRef } from 'react';
+import { MouseEvent as ReactMouseEvent, useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ConfigureDataConnection } from '../dialogs/configureDataConnection.js';
 import { showConnectDataConnectionWith } from '../dialogs/connectDataConnectionWith.js';
 import { DataConnectionEntry } from '../classes/dataConnectionsTreeInstance.js';
@@ -20,6 +21,7 @@ import { PYTHON_ICON_BASE64, R_ICON_BASE64 } from '../../../../services/positron
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
+import { AnchorPoint } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { resolveDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
@@ -28,18 +30,27 @@ import { resolveDataConnectionMechanism } from '../../../../services/positronDat
 interface DataConnectionEntryRowProps {
 	// The data connection entry to render.
 	entry: DataConnectionEntry;
+
+	// Reloads this connection's subtree. Supplied by the tree, which binds it to this row's node id.
+	onRefresh: () => void;
+
+	// Tells the tree this row is opening a menu, so it can select the row and hold its focused
+	// appearance. Dispose the returned handle when the menu closes.
+	onMenuOpening: () => IDisposable;
 }
 
 /**
  * DataConnectionEntryRow component. Renders a root-level entry: the saved profile plus, when
  * connected, a live-status indicator. Twistie click (handled by PositronTree) opens or closes
- * the connection; the actions menu exposes runtime-language connect options and edit/remove.
+ * the connection; the actions menu -- reachable from the actions button or by right-clicking the
+ * row -- exposes refresh, runtime-language connect options, and edit/remove.
  */
-export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) => {
+export const DataConnectionEntryRow = ({ entry, onMenuOpening, onRefresh }: DataConnectionEntryRowProps) => {
 	// Services.
 	const { notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 
 	// Reference hooks.
+	const rowRef = useRef<HTMLDivElement>(null);
 	const actionsButtonRef = useRef<HTMLButtonElement>(null);
 
 	// Extract the profile from the entry for easy access.
@@ -100,14 +111,13 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 	};
 
 	/**
-	 * Shows the actions menu for this connection entry.
+	 * Shows the actions menu for this connection entry, anchored to the supplied element (the
+	 * actions button when the menu was opened from it; the row itself on right-click). A right
+	 * click also supplies the pointer position, so the menu opens where the user clicked rather
+	 * than at the row's edge; opening from the button has no pointer position to honor and lines
+	 * up with the button instead.
 	 */
-	const showActionsMenu = () => {
-		// Guard: if the ref isn't set, we have no anchor for the menu, so do nothing.
-		if (!actionsButtonRef.current) {
-			return;
-		}
-
+	const showActionsMenu = (anchorElement: HTMLElement, anchorPoint?: AnchorPoint) => {
 		// Get the driver.
 		const driver = positronDataConnectionsService.driverManager.getDriver(profile.driverMetadata.id);
 		if (!driver) {
@@ -159,8 +169,15 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 		const rSupported = driver.metadata.supportedLanguageIds.includes('r');
 		const sqlSupported = driver.metadata.supportedLanguageIds.includes('sql');
 
-		// Build the menu entries.
+		// Build the menu entries. Refresh leads, separated from the profile actions below it --
+		// Edit Connection is always present, so the separator always has something under it.
 		const entries: CustomContextMenuEntry[] = [
+			new CustomContextMenuItem({
+				icon: 'refresh',
+				label: localize('positron.dataConnections.refresh', "Refresh"),
+				onSelected: onRefresh,
+			}),
+			new CustomContextMenuSeparator(),
 			new CustomContextMenuItem({
 				icon: 'edit',
 				label: localize('positron.dataConnections.editConnection', "Edit Connection"),
@@ -211,19 +228,53 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 				onSelected: () => positronDataConnectionsService.removeProfile(profile.id),
 			}));
 
+		// Announced before the menu shows so the row is already selected and the tree still reads
+		// as focused when the menu paints over it. Acquired here rather than on entry to the
+		// function so the early returns above can't leave a hold outstanding.
+		const menuHold = onMenuOpening();
+
 		// Show the menu.
 		showCustomContextMenu({
-			anchorElement: actionsButtonRef.current,
+			anchorElement,
+			anchorPoint,
 			popupPosition: 'auto',
 			popupAlignment: 'auto',
 			width: 'auto',
-			entries
+			entries,
+			onClose: () => menuHold.dispose()
 		});
+	};
+
+	/**
+	 * Opens the actions menu from the actions button.
+	 */
+	const onActionsClick = () => {
+		// Guard: if the ref isn't set, we have no anchor for the menu, so do nothing.
+		if (actionsButtonRef.current) {
+			showActionsMenu(actionsButtonRef.current);
+		}
+	};
+
+	/**
+	 * Opens the actions menu from a right-click anywhere on the row.
+	 */
+	const onContextMenu = (e: ReactMouseEvent<HTMLDivElement>) => {
+		// Guard: if the ref isn't set, we have no anchor for the menu, so do nothing.
+		if (!rowRef.current) {
+			return;
+		}
+		e.preventDefault();
+		e.stopPropagation();
+		showActionsMenu(rowRef.current, { clientX: e.clientX, clientY: e.clientY });
 	};
 
 	// Render.
 	return (
-		<div className='data-connection-entry-row'>
+		// The row is a presentational element inside a tree that owns focus and keyboard
+		// navigation; right-click is a pointer affordance for the actions menu, which the
+		// keyboard-reachable actions button also opens. Matches VS Code's tree behavior.
+		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
+		<div ref={rowRef} className='data-connection-entry-row' onContextMenu={onContextMenu}>
 			<div className='codicon codicon-positron-db-database data-connection-entry-icon' />
 			<div className='data-connection-entry-text'>
 				{profile.connectionName}
@@ -234,7 +285,7 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 				ref={actionsButtonRef}
 				aria-label={localize('positron.dataConnections.actions', "Actions")}
 				className='data-connection-entry-actions'
-				onClick={showActionsMenu}
+				onClick={onActionsClick}
 			>
 				<div className='codicon codicon-ellipsis' />
 			</button>

@@ -16,6 +16,10 @@ export interface TreeProjectionInput<T> {
 	readonly loading: ReadonlySet<string>;
 	readonly errors: ReadonlyMap<string, unknown>;
 	readonly children: ReadonlyMap<string, readonly TreeNode<T>[]>;
+	readonly refreshing: ReadonlySet<string>;
+
+	// Recently refreshed node ids, each mapped to the generation of the reload that marked it.
+	readonly recentlyRefreshed: ReadonlyMap<string, number>;
 }
 
 /**
@@ -37,25 +41,42 @@ export interface TreeProjectionInput<T> {
  * expanded set whose children have never loaded (e.g. the very first frame after expand() was
  * called) renders with expandState 'loading' and no visible children -- a fetch is in flight
  * or queued, and the next projection rebuild after children arrive will reveal them.
+ *
+ * A node being reloaded is the exception: it keeps its current expandState (and so its currently
+ * loaded children stay on screen) and carries `refreshing` instead, because a reload replaces the
+ * subtree in a single commit rather than emptying it first. Everything beneath it is marked
+ * `stale` for the duration, since those rows are about to be replaced.
  */
 export function buildVisibleNodes<T>(input: TreeProjectionInput<T>): readonly VisibleNode<T>[] {
 	const result: VisibleNode<T>[] = [];
 
-	const walk = (siblings: readonly TreeNode<T>[], depth: number): void => {
+	const walk = (siblings: readonly TreeNode<T>[], depth: number, stale: boolean): void => {
 		for (const node of siblings) {
 			const expandState = computeExpandState(node, input);
-			result.push({ node, depth, expandState });
+			const refreshGeneration = input.recentlyRefreshed.get(node.id);
+			result.push({
+				node,
+				depth,
+				expandState,
+				refreshing: input.refreshing.has(node.id),
+				recentlyRefreshed: refreshGeneration !== undefined,
+				refreshGeneration: refreshGeneration ?? 0,
+				stale,
+			});
 
 			if (expandState === 'expanded') {
 				const loaded = input.children.get(node.id);
 				if (loaded !== undefined) {
-					walk(loaded, depth + 1);
+					// Staleness inherits: everything under a refreshing node is on its way out, so
+					// the flag passes down from wherever it was first set. The refreshing node
+					// itself is not stale -- it is the one being replaced into, not replaced.
+					walk(loaded, depth + 1, stale || input.refreshing.has(node.id));
 				}
 			}
 		}
 	};
 
-	walk(input.roots, 0);
+	walk(input.roots, 0, false);
 	return result;
 }
 
