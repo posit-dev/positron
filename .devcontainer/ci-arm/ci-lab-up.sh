@@ -22,8 +22,11 @@
 # A cold build takes ~10 minutes -- run this in the background and wait for it to exit. Re-running is
 # safe and fast when nothing changed.
 #
-# CHECKING THE RESULT: grep the output for `ci-lab-up: SUCCESS` or `ci-lab-up: FAILED`. Do not rely
-# on `$?` if you piped this through `tee` -- the pipeline reports tee's status, not this script's.
+# CHECKING THE RESULT: grep stdout for `ci-lab-up: SUCCESS` or `ci-lab-up: FAILED` (the latter names
+# the phase). Do not rely on `$?` if you piped through `tee` -- the pipeline reports tee's status, not
+# this script's. Capture with `2>&1` so the diagnostics behind a failure land in the log too:
+#
+#   ./.devcontainer/ci-arm/ci-lab-up.sh <ref> 2>&1 | tee /tmp/ci-lab-up.log
 set -euo pipefail
 
 BRANCH=""
@@ -43,11 +46,15 @@ cd "$SCRIPT_DIR"                                             # so `docker compos
 # Every phase announces itself and records itself, so the EXIT trap below can name the phase that
 # failed. That trailer is the only reliable failure signal a caller has: the usual
 # `ci-lab-up.sh ... 2>&1 | tee log` invocation reports tee's exit status (always 0), masking ours.
+#
+# Both trailers go to stdout, deliberately. Diagnostics belong on stderr, but a status trailer that
+# lands on a different stream than its SUCCESS counterpart is a trap: `... | tee log` would capture
+# SUCCESS and drop FAILED, leaving a log with no failure marker at all.
 CURRENT_STEP="startup"
 step() { CURRENT_STEP="$1"; printf '\n=== ci-lab-up: %s ===\n' "$1"; }
 on_exit() {
 	local rc=$?
-	[ "$rc" -eq 0 ] || printf '\nci-lab-up: FAILED at step %s (exit %d)\n' "'$CURRENT_STEP'" "$rc" >&2
+	[ "$rc" -eq 0 ] || printf '\nci-lab-up: FAILED at step %s (exit %d)\n' "'$CURRENT_STEP'" "$rc"
 }
 trap on_exit EXIT
 
@@ -80,14 +87,21 @@ if [ -n "$BRANCH" ]; then
 			$DIRTY
 		EOF
 
-		if [ -n "$DRIFTED" ] && [ "$OTHER_DIRT" = false ]; then
+		# Report drift whenever it's present, even alongside ordinary edits: stashing everything
+		# and retrying would leave the gitlink exactly where it was and fail again.
+		if [ -n "$DRIFTED" ]; then
 			echo "ci-lab-up: ERROR: submodule pointer(s) differ from what HEAD records:$DRIFTED" >&2
-			echo "ci-lab-up: that is a stale submodule checkout, not local work -- do NOT commit it. Restore with:" >&2
+			echo "ci-lab-up: that is a stale submodule checkout, not local work -- do NOT commit or stash it. Restore with:" >&2
 			echo "ci-lab-up:   git -C '$REPO_ROOT' submodule update --init --recursive$DRIFTED" >&2
-			exit 1
 		fi
-		echo "ci-lab-up: ERROR: working tree is dirty; commit or stash before switching refs" >&2
-		git -C "$REPO_ROOT" status --short >&2
+		if [ "$OTHER_DIRT" = true ]; then
+			if [ -n "$DRIFTED" ]; then
+				echo "ci-lab-up: ERROR: separately, there are uncommitted changes; commit or stash those too" >&2
+			else
+				echo "ci-lab-up: ERROR: working tree is dirty; commit or stash before switching refs" >&2
+			fi
+			git -C "$REPO_ROOT" status --short >&2
+		fi
 		exit 1
 	fi
 

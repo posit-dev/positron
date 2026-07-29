@@ -187,7 +187,12 @@ steps 1-2 are done (worktree created, secrets added). The build runs through thi
    > [!IMPORTANT]
    > **Check the result by grepping the output for `ci-lab-up: SUCCESS` or `ci-lab-up: FAILED`,**
    > which names the phase that failed. Don't rely on `$?` if you piped through `tee` -- a pipeline
-   > reports tee's exit status (always 0), not the script's, so a failed run looks green.
+   > reports tee's exit status (always 0), not the script's, so a failed run looks green. Both
+   > trailers go to stdout; redirect with `2>&1` so the diagnostics behind a failure are captured too:
+   >
+   > ```bash
+   > ./ci-lab-up.sh <ref> 2>&1 | tee /tmp/ci-lab-up.log
+   > ```
 
 2. **Run a spec** in the container (from the same `.devcontainer/ci-arm` dir, so Compose finds this
    project's `docker-compose.yml` and `.env`):
@@ -371,8 +376,9 @@ It removes this project's dev container, its data volumes (root + e2e + remote `
   before digging further.
 - **A drifted submodule pointer looks like a dirty tree.** A stale submodule checkout from an earlier
   session shows up as ` M ai-lib` or ` M extensions/positron-r/ark`, and "commit or stash" is the wrong
-  advice -- committing a drifted pointer is actively harmful. `ci-lab-up.sh` detects the
-  submodule-only case and prints the `git submodule update --init --recursive <path>` that fixes it.
+  advice -- committing a drifted pointer is actively harmful, and stashing it leaves the gitlink where
+  it was. `ci-lab-up.sh` calls out any drifted submodule it sees and prints the
+  `git submodule update --init --recursive <path>` that fixes it, separately from any ordinary edits.
 - **Generating a patch? Use `git diff --no-color`.** If your git config forces color on, a plain
   `git diff > x.patch` embeds ANSI escapes and `git apply` rejects the file with the unhelpful
   `No valid patches in input`.
