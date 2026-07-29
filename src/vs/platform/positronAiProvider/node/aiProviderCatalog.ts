@@ -110,6 +110,7 @@ function toProviderData(provider: ResolvedProvider): IResolvedProviderData {
 			aws: connection.aws,
 			googleCloud: connection.googleCloud,
 			snowflake: connection.snowflake,
+			databricks: connection.databricks,
 		},
 	};
 }
