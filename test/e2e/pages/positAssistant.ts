@@ -197,6 +197,14 @@ export class PositAssistant {
 			}
 			throw e;
 		}
+		// The click is handled asynchronously: for up to ~1s the pane still shows
+		// the outgoing conversation, its model selection, and an editable input, so
+		// `waitForReady()` alone is satisfied against the old conversation. The
+		// button flips to disabled only once the fresh conversation has actually
+		// landed -- which is also when the model selection is dropped -- so wait for
+		// that here, or a model the caller selects next gets clobbered mid-test and
+		// Send stays disabled.
+		await expect(button).toBeDisabled();
 		await this.waitForReady();
 	}
 
@@ -239,9 +247,16 @@ export class PositAssistant {
 
 	/**
 	 * Clicks the send button to submit the current message.
+	 *
+	 * Send is disabled until the input has text and a model is selected. Waiting
+	 * for it to be enabled first turns "the model selection was dropped" into a
+	 * named assertion failure instead of a 30s click timeout that reports the send
+	 * button as the culprit.
 	 */
 	async clickSend(): Promise<void> {
-		await this.frame.locator(SEND_BUTTON).click();
+		const sendButton = this.frame.locator(SEND_BUTTON);
+		await expect(sendButton).toBeEnabled();
+		await sendButton.click();
 	}
 
 	/**
