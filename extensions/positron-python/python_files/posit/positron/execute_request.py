@@ -61,8 +61,9 @@ class PositronExecuteRequest(BaseModel):
     @property
     def figure_size(self) -> Optional[tuple[float, float]]:
         """The figure size in inches, if specified."""
-        if self.fig_width is not None and self.fig_height is not None:
-            return (self.fig_width, self.fig_height)
+        w, h = self.fig_width, self.fig_height
+        if w is not None and h is not None and w > 0 and h > 0:
+            return (w, h)
         return None
 
     @classmethod
@@ -71,7 +72,7 @@ class PositronExecuteRequest(BaseModel):
         content = message.get("content", {})
         positron = content.get("positron", {}) if isinstance(content, dict) else {}
         if not isinstance(positron, dict):
-            return cls()
+            return cls.parse_obj({})
 
         try:
             return cls.parse_obj(positron)
@@ -86,7 +87,7 @@ class PositronExecuteRequest(BaseModel):
                 return cls.parse_obj(cleaned)
             except ValidationError:
                 logger.debug("Failed to parse positron execute request", exc_info=True)
-                return cls()
+                return cls.parse_obj({})
 
 
 def current_execute_request() -> PositronExecuteRequest:

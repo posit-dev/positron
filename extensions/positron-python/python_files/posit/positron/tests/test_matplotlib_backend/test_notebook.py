@@ -48,6 +48,7 @@ def backend(shell):
 
 def _parse_png_output(output: RichOutput) -> tuple[bytes, dict]:
     result = output._repr_png_()
+    assert result is not None, "Expected a PNG output, but got None."
     data, metadata = result if len(result) == 2 else (result, {})
     png = base64.b64decode(data)
     return png, metadata
@@ -93,7 +94,7 @@ class NotebookBackendFixture:
 
         # Run the code and capture the output.
         with capture_output() as captured:
-            run_with_metadata(self.shell, code, meta)
+            run_with_metadata(code, meta)
 
         # Return the created plot.
         assert len(captured.outputs) == 1

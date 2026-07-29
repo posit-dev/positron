@@ -22,10 +22,11 @@ from __future__ import annotations
 import io
 import logging
 from binascii import b2a_base64
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 import matplotlib
 import matplotlib.pyplot as plt
+from IPython.core.formatters import DisplayFormatter
 from IPython.core.getipython import get_ipython
 from IPython.display import display
 from matplotlib._pylab_helpers import Gcf
@@ -50,27 +51,32 @@ def new_figure_manager(
     *args,
     FigureClass=Figure,  # noqa: N803
     # 3-tuple with unit is only available in matplotlib >= 3.11.
-    figsize: tuple[int, int] | tuple[float, float, Literal["in", "cm", "px"]] | None = None,
+    figsize: tuple[float, float] | tuple[float, float, Literal["in", "cm", "px"]] | None = None,
     **kwargs,
 ) -> FigureManagerPositronNotebook:
     """Called by matplotlib when a new figure is created."""
     # Get the current execute request.
     execute_request = current_execute_request()
 
-    # Prefer the user's explicit figsize (e.g. plt.figure(figsize=...) or plt.subplots(figsize=...))
-    # over the execute request's figure size.
+    # Sizing precedence:
+    # 1. per-figure code (`plt.figure(figsize=...)` or `plt.subplots(figsize=...)`),
+    #    which passes non-None figsize
+    # 2. cell execute request (`#| fig-width`` and `#| fig-height`)
+    # 3. matplotlib config (`plt.rcParams`)
     figsize = figsize or execute_request.figure_size
     figure = FigureClass(*args, figsize=figsize, **kwargs)
 
     # Also provide the execute request to the figure manager.
-    manager: FigureManagerPositronNotebook = FigureCanvasPositronNotebook.new_manager(figure, num)
+    manager: FigureManagerPositronNotebook = cast(
+        "FigureManagerPositronNotebook", FigureCanvasPositronNotebook.new_manager(figure, num)
+    )
     manager.set_execute_request(execute_request)
 
     return manager
 
 
 class FigureManagerPositronNotebook(FigureManagerBase):
-    canvas: FigureCanvasPositronNotebook
+    canvas: FigureCanvasPositronNotebook  # type: ignore
 
     def show(self):
         """Called by matplotlib when a figure is shown via `plt.show()` or `figure.show()`."""
@@ -93,13 +99,13 @@ class FigureManagerPositronNotebook(FigureManagerBase):
 
 
 class FigureCanvasPositronNotebook(FigureCanvasAgg):
-    manager_class = FigureManagerPositronNotebook
+    manager_class = FigureManagerPositronNotebook  # type: ignore
 
     def set_execute_request(self, execute_request: PositronExecuteRequest) -> None:
         """Set the current execute request."""
         # Set the device pixel ratio to the execute request's value, if provided.
         if (pixel_ratio := execute_request.output_pixel_ratio) is not None:
-            self._set_device_pixel_ratio(pixel_ratio)
+            self._set_device_pixel_ratio(pixel_ratio)  # type: ignore
 
 
 def _display_figure(fig: Figure, *, format_="png") -> tuple[str, dict] | None:
@@ -149,6 +155,7 @@ FigureManager = FigureManagerPositronNotebook
 
 def _get_png_formatter(shell: InteractiveShell) -> PNGFormatter:
     """Get the shell's PNG formatter."""
+    assert isinstance(shell.display_formatter, DisplayFormatter)
     return shell.display_formatter.formatters["image/png"]
 
 

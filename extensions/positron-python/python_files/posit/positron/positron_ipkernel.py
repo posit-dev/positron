@@ -125,7 +125,7 @@ def _is_module_on_disk(name: str) -> bool:
 
 @magics_class
 class PositronMagics(Magics):
-    shell: PositronShell
+    shell: PositronShell  # type: ignore
 
     # This will override the default `clear` defined in `ipykernel.zmqshell.KernelMagics`.
     @line_magic
@@ -767,17 +767,6 @@ class PositronIPKernelApp(IPKernelApp):
         self.control_thread.stop = with_logging(self.control_thread.stop)
         self.control_thread.join = with_logging(self.control_thread.join)
         return result
-
-    def init_extensions(self):
-        # Include Positron built-in extensions in default_extensions, which:
-        # 1. Always loads, regardless of user config, and
-        # 2. Loads before user-configured extensions.
-        self.default_extensions = [
-            # Parent default_extensions.
-            *self.default_extensions,
-            # Positron built-in extensions.
-        ]
-        super().init_extensions()
 
     def init_gui_pylab(self):
         # Enable the Positron matplotlib backend if we're not in a notebook.

@@ -126,7 +126,7 @@ class FigureManagerPositron(FigureManagerBase):
         The canvas for this figure.
     """
 
-    canvas: FigureCanvasPositron
+    canvas: FigureCanvasPositron  # type: ignore
 
     def __init__(self, canvas: FigureCanvasPositron, num: int | str):
         from ..plot_comm import PlotOrigin, PlotRange
@@ -235,7 +235,7 @@ class FigureCanvasPositron(FigureCanvasAgg):
         The manager for this canvas.
     """
 
-    manager: FigureManagerPositron
+    manager: FigureManagerPositron  # type: ignore
 
     manager_class = FigureManagerPositron  # type: ignore
 
@@ -267,28 +267,21 @@ class FigureCanvasPositron(FigureCanvasAgg):
         finally:
             # Do nothing if the canvas has not been rendered yet, to avoid an unnecessary update
             # since opening the comm will trigger a render from the frontend.
-            if not self._first_render_completed:
-                return  # noqa: B012
-
-            # Do nothing if the canvas is currently being rendered, to avoid an infinite draw-render loop.
-            if is_rendering:
-                return  # noqa: B012
-
+            if not self._first_render_completed or is_rendering:
+                pass
             # If the plot was closed after being opened, request an update to re-open the plot.
-            if self.manager.closed:
+            elif self.manager.closed:
                 self.manager.update()
-                return  # noqa: B012
-
-            # Check if the canvas contents have changed, and request an update if they have.
-            current_hash = self._hash_buffer_rgba()
-            logger.debug(f"Canvas: previous hash: {self._previous_hash[:6]}")
-            logger.debug(f"Canvas: current hash: {current_hash[:6]}")
-            if current_hash == self._previous_hash:
-                logger.debug("Canvas: hash is the same, no need to update")
-                return  # noqa: B012
-
-            logger.debug("Canvas: hash changed, requesting an update")
-            self.manager.update()
+            else:
+                # Check if the canvas contents have changed, and request an update if they have.
+                current_hash = self._hash_buffer_rgba()
+                logger.debug(f"Canvas: previous hash: {self._previous_hash[:6]}")
+                logger.debug(f"Canvas: current hash: {current_hash[:6]}")
+                if current_hash == self._previous_hash:
+                    logger.debug("Canvas: hash is the same, no need to update")
+                else:
+                    logger.debug("Canvas: hash changed, requesting an update")
+                    self.manager.update()
 
     def render(self, size: PlotSize | None, pixel_ratio: float, format_: str) -> bytes:
         # Set the device pixel ratio to the requested value.
@@ -384,6 +377,7 @@ def _install_library_gca_redirect() -> None:
             # Drawing library differs from the active figure's library: start fresh so
             # the existing figure isn't overwritten.
             return plt.figure().gca()
+        assert _original_gca is not None
         return _original_gca(*args, **kwargs)
 
     plt.gca = _installed_gca = gca

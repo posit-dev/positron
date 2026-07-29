@@ -3,6 +3,8 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+import pytest
+
 from positron.execute_request import PositronExecuteRequest
 
 
@@ -125,3 +127,25 @@ def test_unknown_keys_are_ignored() -> None:
     meta = PositronExecuteRequest.from_message(message)
 
     assert meta.fig_width == 6.4
+
+
+@pytest.mark.parametrize(
+    ("fig_width", "fig_height", "expected"),
+    [
+        (6.4, 4.8, (6.4, 4.8)),
+        (None, 4.8, None),
+        (6.4, None, None),
+        (None, None, None),
+        (-1.0, 4.8, None),
+        (6.4, -1.0, None),
+    ],
+)
+def test_figure_size(
+    fig_width: float | None, fig_height: float | None, expected: tuple[float, float] | None
+) -> None:
+    """The `figure_size` property returns a tuple of (width, height) if both are positive."""
+    message = {"content": {"positron": {"fig-width": fig_width, "fig-height": fig_height}}}
+
+    meta = PositronExecuteRequest.from_message(message)
+
+    assert meta.figure_size == expected
