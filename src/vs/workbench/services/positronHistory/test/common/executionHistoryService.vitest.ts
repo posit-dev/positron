@@ -9,7 +9,7 @@ import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent, INotebookLanguageRuntimeSession, IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IExecutionHistoryService, ExecutionEntryType, IExecutionHistoryEntry, projectExecutionEntriesToConsoleContent } from '../../common/executionHistoryService.js';
+import { IExecutionHistoryService, ExecutionEntryType, IExecutionHistoryEntry, projectExecutionEntriesToConsoleContent, DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT } from '../../common/executionHistoryService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ExecutionHistoryService } from '../../common/executionHistory.js';
@@ -1101,5 +1101,21 @@ describe('projectExecutionEntriesToConsoleContent', () => {
 		expect(projectExecutionEntriesToConsoleContent(entries)).toEqual([
 			{ input: 'real()', output: '42', when: 3 },
 		]);
+	});
+
+	it('limits to the most recent DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT when no count is given', () => {
+		const entries = Array.from({ length: 8 }, (_, i) => entry({ input: `cmd${i}`, when: i }));
+
+		const result = projectExecutionEntriesToConsoleContent(entries);
+
+		expect(result.map(e => e.input)).toEqual(['cmd3', 'cmd4', 'cmd5', 'cmd6', 'cmd7']);
+		expect(result).toHaveLength(DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT);
+	});
+
+	it('limits to the most recent numberOfEntries when given, and falls back to the default for non-positive values', () => {
+		const entries = Array.from({ length: 8 }, (_, i) => entry({ input: `cmd${i}`, when: i }));
+
+		expect(projectExecutionEntriesToConsoleContent(entries, 2).map(e => e.input)).toEqual(['cmd6', 'cmd7']);
+		expect(projectExecutionEntriesToConsoleContent(entries, 0)).toHaveLength(DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT);
 	});
 });

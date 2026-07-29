@@ -85,15 +85,23 @@ export interface IConsoleContentEntry {
 	when: number;
 }
 
+/** Default number of recent console entries returned when no count is requested. */
+export const DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT = 5;
+
 /**
  * Projects raw execution history entries down to the console content relevant
  * to a reader: only completed code executions (skipping the startup banner and
  * entries recorded without input, e.g. output produced outside an execution),
- * each mapped to its input, textual output, error, and timestamp. Entries are
- * returned in their stored order (oldest first).
+ * each mapped to its input, textual output, error, and timestamp, and limited
+ * to the most recent `numberOfEntries` (oldest first, so a reader sees them in
+ * chronological order).
+ *
+ * @param entries The raw execution history entries, in stored (oldest-first) order.
+ * @param numberOfEntries The number of most recent entries to return. Defaults to
+ *  {@link DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT}; non-positive values fall back to it.
  */
-export function projectExecutionEntriesToConsoleContent(entries: IExecutionHistoryEntry<unknown>[]): IConsoleContentEntry[] {
-	return entries
+export function projectExecutionEntriesToConsoleContent(entries: IExecutionHistoryEntry<unknown>[], numberOfEntries?: number): IConsoleContentEntry[] {
+	const projected = entries
 		.filter(entry => entry.outputType === ExecutionEntryType.Execution && entry.input)
 		.map(entry => ({
 			input: entry.input,
@@ -101,6 +109,9 @@ export function projectExecutionEntriesToConsoleContent(entries: IExecutionHisto
 			error: entry.error,
 			when: entry.when,
 		}));
+
+	const count = numberOfEntries && numberOfEntries > 0 ? numberOfEntries : DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT;
+	return projected.slice(-count);
 }
 
 /**

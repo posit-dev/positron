@@ -3103,10 +3103,12 @@ declare module 'positron' {
 		 *
 		 * @param sessionId The session ID of the session to read console content
 		 *  from.
+		 * @param numberOfEntries The number of most recent entries to return.
+		 *  Defaults to 5. Pass a larger value to look further back in the history.
 		 * @returns A Thenable that resolves with the console entries, or an empty
 		 *  array when the session has no console history.
 		 */
-		export function getConsoleContent(sessionId: string): Thenable<ConsoleContentEntry[]>;
+		export function getConsoleContent(sessionId: string, numberOfEntries?: number): Thenable<ConsoleContentEntry[]>;
 
 		/**
 		 * Register a handler for runtime client instances. This handler will be called

@@ -1985,9 +1985,9 @@ export class MainThreadLanguageRuntime
 		return querySessionTables(this._positronVariablesService, sessionId, accessKeys, queryTypes);
 	}
 
-	async $getConsoleContent(sessionId: string): Promise<ISerializedConsoleContentEntry[]> {
+	async $getConsoleContent(sessionId: string, numberOfEntries?: number): Promise<ISerializedConsoleContentEntry[]> {
 		return projectExecutionEntriesToConsoleContent(
-			this._executionHistoryService.getExecutionEntries(sessionId));
+			this._executionHistoryService.getExecutionEntries(sessionId), numberOfEntries);
 	}
 
 	/**
