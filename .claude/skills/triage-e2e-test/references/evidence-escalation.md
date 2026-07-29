@@ -3,8 +3,46 @@
 `fetch-pattern-evidence.js` gives you Level 1-2 for one occurrence: a compact
 manifest plus a deterministic `summary.md` (failure, timeline tail, sibling
 tests, error-shaped log lines, unresolved questions). **Escalate past the
-summary only to answer a concrete question it raised** -- each level costs more
-context than the last, so stop as soon as the mechanism is clear.
+summary only to answer a concrete question it raised**, and stop as soon as the
+mechanism is clear -- every artifact you open stays in context for every turn
+that follows.
+
+## The gate
+
+Before each escalation beyond Level 2, emit an evidence block:
+
+```text
+Evidence Level 4 (Raw logs)
+
+Question:
+Did the execute request ever reach the kernel?
+
+Next artifact:
+Quarto extension channel
+Python kernel log
+
+Reason:
+The timeline records command dispatch but not extension-level execution or
+kernel messages.
+```
+
+Use the heading to identify the evidence level and primary artifact category:
+(Page snapshot), (Timeline), (Raw logs), (Screenshot), or
+(Second occurrence). If several artifacts are opened, name the one the
+question depends on.
+
+Reason identifies why the current evidence cannot answer the question. For a
+second occurrence, state the reason that justifies comparing another run.
+
+Emit this block for every escalation beyond Level 2. It is structured
+diagnostic metadata, not narration.
+
+Do not escalate unless all three fields can be completed. Otherwise, reason from
+the current evidence or state what evidence is missing and stop.
+
+“To be thorough”, “to confirm”, and “to get more context” are not valid
+questions. A valid question identifies a fact whose possible answers would
+change the diagnosis.
 
 ## The escalation ladder
 
@@ -13,18 +51,30 @@ context than the last, so stop as soon as the mechanism is clear.
 2. **Compact processed evidence** (`fetch-pattern-evidence.js` -> `summary.md`)
    -- one representative occurrence for the selected pattern. Read the summary
    only.
-3. **One specific artifact** -- open the full `timelineFile`, a `screenshot`,
-   the `snapshotFile` (error-context page snapshot), or a source file, only when
-   Level 2 raises a concrete unresolved question.
+3. **One specific artifact** -- open the full `timelineFile`, the `snapshotFile`
+   (error-context page snapshot), or a source file, only when Level 2 raises a
+   concrete unresolved question. **A `screenshot` is the most expensive artifact
+   on the ladder** (~20k tokens, 10-20x a `timelineFile`) and the last to reach
+   for: prefer `snapshotFile`, which is text and says what the DOM actually
+   contained. Open one frame -- the moment of failure, per the manifest -- only
+   for a genuinely visual question (layout, overlay, z-order) the snapshot and
+   timeline cannot answer, write down what you saw, and never re-read it.
 4. **Raw logs** -- read only when the issue depends on sequence/ordering,
    missing output, extension-channel behavior, or process termination -- a
    detail absent from processed evidence (see "raw logs" below).
-5. **Additional occurrence** -- fetch a second only to validate repeatability,
-   test a race hypothesis, investigate same-file adjacency, reconcile
-   conflicting evidence, or check whether a previous fix held. Re-run
-   `fetch-pattern-evidence.js` with a different occurrence's `report_url`
+5. **Additional occurrence** -- fetch a second **only** for one of these five
+   reasons, and name which one in the block's `Reason`:
+   1. validate repeatability of the mechanism,
+   2. test a race hypothesis,
+   3. investigate same-file adjacency,
+   4. reconcile evidence that conflicts between occurrences,
+   5. check whether a previous fix held.
+
+   Re-run `fetch-pattern-evidence.js` with a different occurrence's `report_url`
    (widen `--occurrences-per-pattern 2` on `triage-history.js` first to get a
-   second `report_url`).
+   second `report_url`). Anything outside these five is not a reason -- a
+   retrieval failure (403 / `report_url: null`) is a *substitution* for the
+   first occurrence, not an escalation, and doesn't need one.
 
 ## Why the summary can't see everything
 
@@ -73,6 +123,18 @@ To slice the raw processor JSON instead of reading the whole dump, pipe through
 node .claude/skills/e2e-failure-analyzer/scripts/e2e-process-s3.js ... \
   | jq '.testDetails[0].attempts[0].trace.timeline'
 ```
+
+## Contrast the failing attempt against a passing one
+
+For a suspected race, the digest shows *what* failed but not *which
+interleaving* separates pass from fail. The S3 report retains every attempt
+(attempt 0 = the failure; later attempts = passing retries), so a green run's
+logs are already in the same report -- no second fetch, no ci-arm. Diff the two
+attempts' `[info]`-level orderings in the same channel file (e.g. the kernel /
+supervisor log): the line whose relative order flips between them is the race,
+and the direction of the flip tells you which ordering is the bug. This turns an
+"is it even a race" hunch into a named mechanism -- it's what separates a Signal
+that cites an ordering from one that only restates the timeout.
 
 ## Retrieval failures
 

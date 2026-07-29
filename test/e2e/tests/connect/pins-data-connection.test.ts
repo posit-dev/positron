@@ -73,6 +73,7 @@ test.describe('Data Connections - Posit Connect Pins', { tag: [tags.WORKBENCH, t
 			await dataConnections.openDataConnectionsView();
 			await dataConnections.clickAddConnection();
 			await dataConnections.selectProvider('Posit Connect Pins');
+			await dataConnections.selectConnectionMechanism('API Key');
 			await dataConnections.fillConnectionInputs({
 				'Connection Name': connectionName,
 				'Server URL': connectServer,

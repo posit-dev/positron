@@ -19,11 +19,12 @@ const GEAP_ENV_KEYS = [
 
 /**
  * Default project/location used by tests that don't focus on the
- * project/location requirement. Set in the resolver suite's `setup` so
- * the JSON envelope carries valid values.
+ * project/location requirement. Passed to the resolver as the catalog's
+ * `connection.googleCloud` slice so the JSON envelope carries valid values.
  */
 const TEST_PROJECT = 'test-project';
 const TEST_LOCATION = 'us-central1';
+const TEST_CLOUD = { project: TEST_PROJECT, location: TEST_LOCATION };
 
 function snapshotEnv(): Record<string, string | undefined> {
 	const snapshot: Record<string, string | undefined> = {};
@@ -110,11 +111,6 @@ suite('resolveGeapCredential', () => {
 		nextToken = undefined;
 		nextError = undefined;
 		constructorCalls = [];
-		// Project and location are required for the resolver to produce a
-		// session payload. Provide them by default; the "missing
-		// project/location" test deletes them explicitly.
-		process.env.GOOGLE_VERTEX_PROJECT = TEST_PROJECT;
-		process.env.GOOGLE_VERTEX_LOCATION = TEST_LOCATION;
 	});
 
 	teardown(() => {
@@ -126,7 +122,7 @@ suite('resolveGeapCredential', () => {
 		process.env.GOOGLE_PRIVATE_KEY = '-----BEGIN PRIVATE KEY-----\\nABC\\n-----END PRIVATE KEY-----';
 		nextToken = 'ya29.inline-token';
 
-		const payload = await resolveGeapCredential();
+		const payload = await resolveGeapCredential(TEST_CLOUD);
 
 		assert.deepStrictEqual(JSON.parse(payload), {
 			token: 'ya29.inline-token',
@@ -143,7 +139,7 @@ suite('resolveGeapCredential', () => {
 	test('falls back to ADC when inline env vars are absent', async () => {
 		nextToken = 'ya29.adc-token';
 
-		const payload = await resolveGeapCredential();
+		const payload = await resolveGeapCredential(TEST_CLOUD);
 
 		assert.deepStrictEqual(JSON.parse(payload), {
 			token: 'ya29.adc-token',
@@ -159,7 +155,7 @@ suite('resolveGeapCredential', () => {
 		nextToken = null;
 
 		await assert.rejects(
-			resolveGeapCredential(),
+			resolveGeapCredential(TEST_CLOUD),
 			/No Gemini Enterprise Agent Platform credentials found/,
 		);
 	});
@@ -174,52 +170,18 @@ suite('resolveGeapCredential', () => {
 		nextError = new Error('invalid_grant: Invalid JWT Signature.');
 
 		await assert.rejects(
-			resolveGeapCredential(),
+			resolveGeapCredential(TEST_CLOUD),
 			/Inline service-account credentials failed: invalid_grant/,
 		);
 	});
 
 	test('throws when project is missing even if credentials resolve', async () => {
 		nextToken = 'ya29.adc-token';
-		delete process.env.GOOGLE_VERTEX_PROJECT;
 
 		await assert.rejects(
-			resolveGeapCredential(),
+			resolveGeapCredential({ location: TEST_LOCATION }),
 			/requires a project and location/,
 		);
-	});
-
-	test('settings take precedence over env vars for project and location', async () => {
-		// The resolver reads project/location from settings first, then falls
-		// back to env vars. If the order ever got reversed, env-var-only
-		// users would silently override what they explicitly configured.
-		process.env.GOOGLE_VERTEX_PROJECT = 'env-project';
-		process.env.GOOGLE_VERTEX_LOCATION = 'env-location';
-		nextToken = 'ya29.token';
-
-		const vscode = require('vscode');
-		const originalGetConfiguration = vscode.workspace.getConfiguration;
-		vscode.workspace.getConfiguration = (section?: string) => {
-			if (section === 'authentication.googleVertex') {
-				return {
-					get: (key: string) => key === 'credentials'
-						? {
-							GOOGLE_VERTEX_PROJECT: 'settings-project',
-							GOOGLE_VERTEX_LOCATION: 'settings-location',
-						}
-						: undefined,
-				};
-			}
-			return originalGetConfiguration.call(vscode.workspace, section);
-		};
-
-		try {
-			const payload = JSON.parse(await resolveGeapCredential());
-			assert.strictEqual(payload.project, 'settings-project');
-			assert.strictEqual(payload.location, 'settings-location');
-		} finally {
-			vscode.workspace.getConfiguration = originalGetConfiguration;
-		}
 	});
 
 	test('normalizes escaped newlines in inline private key', async () => {
@@ -231,7 +193,7 @@ suite('resolveGeapCredential', () => {
 		process.env.GOOGLE_PRIVATE_KEY = '-----BEGIN PRIVATE KEY-----\\nABC\\nDEF\\n-----END PRIVATE KEY-----';
 		nextToken = 'ya29.token';
 
-		await resolveGeapCredential();
+		await resolveGeapCredential(TEST_CLOUD);
 
 		assert.strictEqual(
 			constructorCalls[0].credentials?.private_key,

@@ -14,12 +14,13 @@ import { URI } from '../../../base/common/uri.js';
 // included) are off, regardless of `github.copilot.enable`. Defined as a literal
 // because the editor layer can't import the workbench-level `AI_ENABLED_KEY`.
 const AI_ENABLED_SETTING = 'ai.enabled';
-// GitHub Copilot's provider enable setting. When off, Copilot completions are
-// disabled (the provider isn't registered), so treat them as disabled here too
-// -- this is what the completions status bar and the `areCompletionsEnabled`
-// API read. Literal because the editor layer can't import the authentication
-// extension's constant. Default is on, so only an explicit `false` disables.
-const COPILOT_PROVIDER_ENABLE_SETTING = 'positron.assistant.provider.githubCopilot.enable';
+// This deliberately does not check whether the Copilot provider is enabled in
+// providers.json. Provider-level enablement is enforced elsewhere: a disabled
+// Copilot provider never registers a completions provider, so nothing fires
+// regardless of this setting, and the workbench-layer callers fold in
+// `IAiProviderService.isEnabled('copilot')` for their status/API answers. The
+// editor layer can't read that service, so it only governs the
+// `github.copilot.enable` axis.
 // --- End Positron ---
 
 /**
@@ -41,9 +42,6 @@ export function isCompletionsEnabled(configurationService: IConfigurationService
 	// --- Start Positron ---
 	if (configurationService.getValue(AI_ENABLED_SETTING) === false) {
 		return false; // main AI switch off
-	}
-	if (configurationService.getValue(COPILOT_PROVIDER_ENABLE_SETTING) === false) {
-		return false; // GitHub Copilot provider disabled
 	}
 	// --- End Positron ---
 	const settingName = getCompletionsEnablementSettingName();
@@ -69,9 +67,6 @@ export function isCompletionsEnabledWithTextResourceConfig(configurationService:
 	// --- Start Positron ---
 	if (configurationService.getValue<boolean>(resource, AI_ENABLED_SETTING) === false) {
 		return false; // main AI switch off
-	}
-	if (configurationService.getValue<boolean>(resource, COPILOT_PROVIDER_ENABLE_SETTING) === false) {
-		return false; // GitHub Copilot provider disabled
 	}
 	// --- End Positron ---
 	const settingName = getCompletionsEnablementSettingName();

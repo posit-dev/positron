@@ -290,6 +290,18 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	 * @param token Optional cancellation token.
 	 */
 	listMissingPackages?(target: IRuntimeMissingPackagesTarget, token?: CancellationToken): Promise<IRuntimeMissingPackage[]>;
+
+	/**
+	 * Given a console error from this session, return a code snippet that
+	 * references the missing package (for the frontend to analyze via
+	 * `listMissingPackages`), or undefined when the error is not a recognized
+	 * missing-package error. Returns undefined if the runtime does not support
+	 * this.
+	 *
+	 * @param error The console error to inspect.
+	 * @param token Optional cancellation token.
+	 */
+	getMissingPackageProbe?(error: IRuntimeConsoleError, token?: CancellationToken): Promise<string | undefined>;
 }
 
 export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata {
@@ -402,6 +414,18 @@ export interface IRuntimeMissingPackagesTarget {
 
 	/** URI of a saved file to analyze. The runtime may read/parse it directly. */
 	readonly uri?: string;
+}
+
+/**
+ * A runtime error surfaced in the console, passed to `getMissingPackageProbe`.
+ */
+export interface IRuntimeConsoleError {
+	/** The error name, e.g. "ModuleNotFoundError". May be empty. */
+	readonly name: string;
+	/** The error message, e.g. "No module named 'foo'". */
+	readonly message: string;
+	/** The error traceback, one entry per line. */
+	readonly traceback: string[];
 }
 
 /**

@@ -354,6 +354,12 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private readonly _onDidChangeCollapsed = this._register(new Emitter<boolean>());
 	readonly onDidChangeCollapsed: VSEvent<boolean> = this._onDidChangeCollapsed.event;
 
+	// Fires whenever the view zone's laid-out height changes (output added,
+	// truncated, or an async output such as an image finishing loading). Used by
+	// the output manager to keep growing output in view while auto-scrolling.
+	private readonly _onDidChangeHeight = this._register(new Emitter<void>());
+	readonly onDidChangeHeight: VSEvent<void> = this._onDidChangeHeight.event;
+
 	// Quick-fix support for error outputs (suppressed by default; the live
 	// execution path calls enableQuickFix() to opt in).
 	private _quickFixEnabled = false;
@@ -3005,6 +3011,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._editor.changeViewZones(accessor => {
 				accessor.layoutZone(this._zoneId!);
 			});
+
+			// Notify listeners so a growing output can be kept in view.
+			this._onDidChangeHeight.fire();
 		} else if (!this._zoneId) {
 			this.heightInPx = newHeight;
 		}

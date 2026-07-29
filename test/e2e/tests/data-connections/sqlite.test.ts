@@ -121,4 +121,22 @@ test.describe('Data Connections - SQLite', {
 		await dataExplorer.waitForIdle();
 		await dataExplorer.grid.expectColumnHeadersToBe(['first_name']);
 	});
+
+	test('Remembers the preferred code variant when reopening Connect With', async function ({ app }) {
+		const { dataConnections } = app.workbench;
+
+		await test.step('Select a non-default variant', async () => {
+			await dataConnections.openConnectWith(connectionName, 'Python');
+			await dataConnections.expectConnectionCodeVariantSelected('sqlite3');
+			await dataConnections.selectConnectionCodeVariant('SQLAlchemy');
+			await dataConnections.expectConnectionCodeVariantSelected('SQLAlchemy');
+			await dataConnections.closeConnectWith();
+		});
+
+		await test.step('Reopen Connect With and confirm the selection is remembered', async () => {
+			await dataConnections.openConnectWith(connectionName, 'Python');
+			await dataConnections.expectConnectionCodeVariantSelected('SQLAlchemy');
+			await dataConnections.closeConnectWith();
+		});
+	});
 });

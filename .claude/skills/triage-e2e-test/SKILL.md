@@ -1,6 +1,6 @@
 ---
 name: triage-e2e-test
-description: Triage a specific Positron e2e test that is already failing or flaking in CI. Given a test name, surface its recent distinct failure modes from history, pull evidence for one mode, and reason to a root cause collaboratively with the engineer, landing on a concrete test fix or a product-bug repro. Test-centric counterpart to e2e-failure-analyzer (run-centric). For authoring a brand-new test, use author-e2e-tests.
+description: Triage a specific Positron e2e test that is already failing or flaking in CI. Given a test name, surface its recent distinct failure modes from history, pull evidence for one mode, and reason to a root cause collaboratively with the engineer, landing on a concrete test fix or a product-bug repro. For authoring a brand-new test, use author-e2e-tests.
 disable-model-invocation: true
 ---
 
@@ -16,8 +16,6 @@ only when a stage needs them.
 
 - You picked up a specific e2e test already failing or flaking in CI, and want
   its history and evidence without hunting for the runs by hand.
-- The test must already have CI history. For a brand-new test, use
-  `author-e2e-tests`. For triaging a whole CI run, use `e2e-failure-analyzer`.
 
 ## Non-negotiable rules
 
@@ -25,17 +23,19 @@ only when a stage needs them.
   patterns is.
 - Resolve the exact **full hierarchical** test title and spec path.
 - Investigate **one** selected pattern at a time; ask which when there's more
-  than one.
-- Fetch **one** representative occurrence first; a second needs a stated reason.
-- Escalate evidence only to answer a concrete question. Keep large output on
-  disk, not in the conversation.
+  than one. Never fetch evidence for a pattern the engineer didn't select --
+  ask first, even to check a side theory about how patterns relate.
+- Fetch **one** representative occurrence first; a second only for a listed
+  reason in `references/evidence-escalation.md` -- name which.
+- Agree the **fix approach** before the first edit, the same way you agree the
+  pattern before fetching evidence.
+- Escalate evidence only to answer a concrete question, one evidence block per
+  step (below). Keep large output on disk, not in the conversation.
 - **Never** increase a timeout or add an arbitrary wait as the fix.
 - **Never** claim a flaky test is fixed on one green run.
 - A previous merged fix must be checked against subsequent failures.
 - Root-cause claims cite observed evidence and the alternatives ruled out.
-- Checkpoint before pausing or beginning implementation.
-
-Violating the letter of these rules is violating their spirit.
+- Checkpoint at every phase transition.
 
 ## Prerequisites
 
@@ -44,33 +44,17 @@ Violating the letter of these rules is violating their spirit.
 
 ## Scripts
 
-Run from the repo root. All emit **compact JSON to stdout** and write full
-payloads to the per-triage work directory under the shared git common dir
-(`<git-common-dir>/triage-e2e-test/<id>/`, so `--resume` works from any
-worktree). They wrap the `e2e-failure-analyzer` scripts (no copies).
+Run from the repo root. Flags and output contracts:
+[`scripts/README.md`](scripts/README.md). If a script itself breaks, see
+[`references/script-fallbacks.md`](references/script-fallbacks.md).
 
-- `scripts/triage-history.js` -- dual-branch history retrieval + merge. Resolves
-  the branch, queries the current branch and `main`, merges patterns by failure
-  text, computes counts/%/seen-on, classifies zero-run conditions, selects one
-  representative occurrence per pattern. Defaults to `--occurrences-per-pattern 1`.
-- `scripts/find-prior-triage.js` -- filtered prior-triage lookup. Finds PRs whose
-  body names this spec, extracts diagnosis fields, resolves merge SHAs, and
-  partitions occurrence SHAs into before-fix / after-fix.
-- `scripts/fetch-pattern-evidence.js` -- summary-first evidence for one
-  occurrence. Runs the S3 processor filtered to this test, stores full evidence
-  on disk, generates a compact `summary.md`.
-- `scripts/checkpoint.js` -- durable state for start / resume / status. Setting
-  `phase` auto-derives `nextAction`, so a resume always shows the right next
-  step (pass `--set nextAction=...` only to override). Refuses `phase=done`
-  until an `outcome` is set and (for PR/issue outcomes) the diagnosis block is
-  recorded -- the mechanical guard against calling a triage done before the
-  block lands.
-- `scripts/record-diagnosis.js` -- renders the `### E2E Triage Diagnosis` block
-  from the checkpoint + history and appends it to the resolving PR (`--pr`) or
-  issue (`--issue`). Idempotent. Only writer of `diagnosisBlockRecorded`, so it
-  is what unblocks `phase=done`. Opening a PR via `positron-pr-helper` does NOT
-  record the block -- run this after. `--secondary` appends the block to a
-  second artifact without repointing `outcomeRef` (see "Split outcome").
+| Script | Use it to |
+|---|---|
+| `triage-history.js` | get the failure patterns (dual-branch, merged, one occurrence each) |
+| `find-prior-triage.js` | check whether this spec was triaged before |
+| `fetch-pattern-evidence.js` | pull evidence for one occurrence of the selected pattern |
+| `checkpoint.js` | start / resume / status; `--set phase=X` auto-derives `nextAction` |
+| `record-diagnosis.js` | append the diagnosis block; it is what unblocks `phase=done` |
 
 ## Start or resume
 
@@ -96,7 +80,10 @@ saved data is invalid, or the branch/test identity changed.
 3. Act on its `verdict`. `stop: true` (`zero-runs-both`, `clean`) or an `error`
    field means stop and report -- read [`references/history-query.md`](references/history-query.md)
    for what each verdict means. Otherwise continue.
-4. Initialize a checkpoint and record the patterns:
+4. Initialize a checkpoint and record the patterns. **`<id>` is the `triageId`
+   from the history output, used verbatim in every later command** -- inventing
+   one silos the checkpoint from the work dir already holding the history and
+   evidence, which is what `--resume` reads:
    ```bash
    node .claude/skills/triage-e2e-test/scripts/checkpoint.js --triage-id <id> \
      --init --test-key '<key>'
@@ -109,19 +96,25 @@ saved data is invalid, or the branch/test identity changed.
    ```
    A non-`none` verdict changes the plan -- read [`references/prior-triage.md`](references/prior-triage.md).
    `open-attempt-in-flight` means stop and point at the open PR.
-6. **Present the failure modes as a table** (never a run-on sentence). Include a
-   "Seen on" column whenever two branches were queried:
+6. **Present the failure modes as a table** (never a run-on sentence). The Rate
+   column comes from each pattern's `rates` array, never `count / totalRuns`;
+   Last seen renders `lastSeen` as `5d ago (Jul 24)`, or just `today` at 0d.
+   Include a "Seen on" column whenever two branches were queried:
 
-   | # | Failure mode | Count | % | Environments | Seen on |
-   |---|---|---|---|---|---|
-   | A | `toBeVisible()` timeout: `getByLabel('...')` | 104 | 99% | ubuntu/electron | both |
-   | B | `locator.click` timeout: `.monaco-list-row` | 1 | 1% | win/electron | main only |
+   | # | Failure mode | Count | Rate | Last seen | Environments | Seen on |
+   |---|---|---|---|---|---|---|
+   | A | `locator.click` timeout: `.codicon-maximize` | 4 | 100% on feature/x | 5d ago (Jul 24) | ubuntu/chromium | feature/x only |
+   | B | `toBeVisible()` timeout: `getByLabel('...')` | 3 | 1.9% on main | today | ubuntu/electron | main only |
+
+   Count and Rate are cumulative over the lookback, so they cannot separate an
+   acute burst a merged fix already closed from an ongoing drip. **A pattern whose
+   `daysAgo` is stale next to the others is an already-fixed candidate: say so in
+   your recommendation** instead of steering the engineer there on count alone.
 
 7. **Ask which pattern to prioritize whenever the table has more than one row.**
    Give your own read ("A is dominant at 99% -- start there, or focus on B?")
-   but let the engineer decide; they may know a recent fix made the dominant
-   share stale, or already know which failure they care about. A single pattern
-   needs no choice. Save the selection to the checkpoint (`--set
+   but let the engineer decide; they may already know which failure they care
+   about. A single pattern needs no choice. Save the selection to the checkpoint (`--set
    selectedPattern=A --set phase=pattern-selected`).
 
 ## Investigate the selected pattern
@@ -136,28 +129,25 @@ saved data is invalid, or the branch/test identity changed.
    to this one test itself.)
 2. Read the generated `summary.md` (failure, timeline tail, sibling tests,
    error-shaped logs, unresolved questions). **Read only the summary first.**
-3. State the concrete questions that remain, then escalate to a single artifact
-   / raw logs / a second occurrence **only** to answer one of them. The
-   escalation ladder, raw-log spelunking, and 403/null handling are in
-   [`references/evidence-escalation.md`](references/evidence-escalation.md).
+3. State the concrete questions that remain. **Before each escalation past the
+   summary, emit the evidence block** (`Question` / `Next artifact` / `Reason`)
+   defined in [`references/evidence-escalation.md`](references/evidence-escalation.md)
+   -- can't fill all three fields, don't escalate. That reference owns the block
+   format, the ladder, the reasons a second occurrence is allowed, raw-log
+   spelunking, and 403/null handling.
 4. Save `phase=evidence-gathered` to the checkpoint.
 
 ## Determine root cause
 
-This is a collaborative dig, not a rubber-stamped verdict. Use the
-`e2e-failure-analyzer` rubric ([`../e2e-failure-analyzer/rubric.md`](../e2e-failure-analyzer/rubric.md))
-for the root-cause catalog and how to read each evidence type. Don't force the
-failure into a "test-drift vs product-regression" binary -- shared-workspace
-races, resource contention, and floated extension builds are none of those.
+This is a collaborative dig, not a rubber-stamped verdict. Read
+[`references/triage-rubric.md`](references/triage-rubric.md) -- the taxonomy,
+the dismissal bar, what each evidence type proves, and the locator-drift
+decision.
 
-State: the observed mechanism (citing trace step / log line / screenshot); what
-the evidence rules **in and out**; alternatives ruled out; remaining
-uncertainty; and a fix that could plausibly change the failure rate (a fix that
-couldn't is not a fix -- keep digging).
-
-**Actively try to falsify your leading hypothesis, not just confirm it.** When
-two mechanisms would both explain the symptom, grep the raw logs for evidence
-that separates them.
+State: the observed mechanism (citing trace step / log line / snapshot); what
+the evidence rules **in and out**; the surviving alternatives; and a fix that
+could plausibly change the failure rate (a fix that couldn't is not a fix --
+keep digging).
 
 **Delegate cross-file tracing to an `Explore` subagent** only after the evidence
 names a concrete symbol / selector / event / subsystem. Give it the specific
@@ -166,33 +156,29 @@ entries), <=5 files with exact line ranges, one mechanism summary, <=3 open
 questions. It must not return full file contents, a repo tour, or speculation
 unsupported by evidence.
 
+**Then agree the fix approach, before the clear.** Table the plausible fixes
+(approach / what it changes / risk) with your recommendation and let the
+engineer pick -- editing before the pick burns a context on a rejected
+approach. Carry the pick as `diagnosis.fixApproach`.
+
 Save the diagnosis to the checkpoint (`--patch` a `diagnosis` object) and set
 `phase=hypothesis-ready`. Include the fields `record-diagnosis.js` renders
 (`confidence`, `summary`, `targetedFailure`, `signal`, `hypothesis`, optional
-`supersedes`) -- see [`references/diagnosis-block.md`](references/diagnosis-block.md)
-for what each must contain.
+`supersedes`) **plus `fixApproach` from the gate above** -- see
+[`references/diagnosis-block.md`](references/diagnosis-block.md) for what each
+must contain.
 
 ## Reproduce and fix
 
-**Checkpoint the diagnosis, then `/clear` and `--resume <id>` before
-implementing.** History and evidence are durable on disk, so implementation
-should start from a **clean context carrying only the compact diagnosis** --
-don't drag the whole investigation into the fix, where cross-file edits, tests,
-and verification runs will grow context fast. Set `phase=awaiting-clear` before
-clearing; on resume, set `phase=implementation`.
+**Checkpoint the diagnosis, then `phase=awaiting-clear` -> `/clear` ->
+`--resume <id>` -> `phase=implementation` before implementing.** History,
+evidence, and working-tree edits are all durable on disk, so implementation
+starts from a clean context carrying only the compact diagnosis.
 
-Read [`references/reproduction.md`](references/reproduction.md) at this stage.
-In short:
-
-- When the mechanism is below the e2e layer, write a deterministic lower-level
-  regression test via `author-vitest-tests` (it owns the builder/stub
-  conventions and `review-vitest-tests`, but drives toward green -- **the RED
-  bar is yours to hold**: a valid RED reproduces the diagnosed mechanism inside
-  the assertion, not an import/compile/setup error. See `reproduction.md`).
-- Otherwise use the smallest CI-exercised e2e project and recreate the
-  triggering condition, not just a rerun. For a race, one green run is not proof.
-- Keep verification output on disk or in the background (the `--repeat-each`
-  loop is noisy) -- read a summary, don't stream full runs into context.
+Read [`references/reproduction.md`](references/reproduction.md) now -- it owns
+when to re-clear again, project choice, race verification, and the RED bar
+**you** must hold when `author-vitest-tests` writes a lower-level regression
+test (that skill drives toward green; it does not enforce RED-first).
 
 ## Record the result and close out
 
@@ -226,9 +212,3 @@ separately -- e.g. a product bug filed as an issue *plus* a fix PR -- the block
 goes on **both**. Do step 1 for the primary (the artifact matching `outcome`),
 then rerun `record-diagnosis.js --pr <n> --secondary` for the other: it appends
 the block but won't repoint `outcomeRef`/`outcome`. `outcome` stays single.
-
-## Non-goals
-
-- No new S3 uploads or API changes -- consumes the existing `test-health`
-  endpoint and existing S3 reports.
-- No run-level triage -- that is `e2e-failure-analyzer`'s job.

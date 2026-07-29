@@ -14,18 +14,21 @@ import {
 
 export const MIGRATE_COMMAND_ID = 'authentication.migrateSettingsToProvidersJson';
 
+/** Registers the migration command and runs the one-time automatic migration. */
 export function registerProvidersJsonMigration(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(MIGRATE_COMMAND_ID, () => runMigrationCommand())
 	);
-	// Automatic migration is disabled until providers.json is fully in use
-	// maybeAutoMigrate().catch(err =>
-	// 	log.error(`providers.json automatic migration failed: ${err}`)
-	// );
+	// Fire-and-forget: never block activation on the migration.
+	maybeAutoMigrate().catch(err =>
+		log.error(`providers.json automatic migration failed: ${err}`)
+	);
 }
 
 async function runMigrationCommand(): Promise<void> {
+	log.info('[migration] Manual migration command invoked');
 	if (!hasMigratableSettings()) {
+		log.info('[migration] No migratable provider settings; nothing to do');
 		vscode.window.showInformationMessage(
 			vscode.l10n.t('No provider settings to migrate.')
 		);
@@ -34,6 +37,7 @@ async function runMigrationCommand(): Promise<void> {
 
 	let overwrite = false;
 	if (await userProvidersFileIsPopulated()) {
+		log.info('[migration] providers.json is already populated; prompting to overwrite');
 		const overwriteAction = vscode.l10n.t('Overwrite');
 		const choice = await vscode.window.showWarningMessage(
 			vscode.l10n.t('~/.posit/ai/providers.json already contains provider configuration that Positron is using. Overwrite it with the values from your Positron settings?'),
@@ -41,8 +45,10 @@ async function runMigrationCommand(): Promise<void> {
 			overwriteAction
 		);
 		if (choice !== overwriteAction) {
+			log.info('[migration] User declined the overwrite; aborting');
 			return;
 		}
+		log.info('[migration] User confirmed the overwrite');
 		overwrite = true;
 	}
 
@@ -51,14 +57,17 @@ async function runMigrationCommand(): Promise<void> {
 
 async function maybeAutoMigrate(): Promise<void> {
 	if (!hasMigratableSettings()) {
+		log.debug('[migration] Auto-migration: no migratable provider settings; skipping');
 		return;
 	}
 	if (await userProvidersFileIsPopulated()) {
 		// Self-extinguishing: once providers.json is populated by any means,
 		// migration never runs again.
+		log.debug('[migration] Auto-migration: providers.json already populated; skipping');
 		return;
 	}
 
+	log.info('[migration] Auto-migration: migratable settings found and providers.json is empty; migrating');
 	await migrateAndReport({ overwrite: false });
 }
 
@@ -68,13 +77,18 @@ async function migrateAndReport(opts: { overwrite: boolean }): Promise<void> {
 		result = await runMigration(opts);
 	} catch (err) {
 		const detail = formatMigrationError(err);
-		log.error(`providers.json migration failed: ${detail}`);
+		// The toast shows the concise detail; the log also carries the stack for
+		// real errors so a failure is diagnosable. Zod errors are skipped here:
+		// their stack is noise and the flattened detail is already the useful part.
+		const stack = err instanceof Error && !isZodLikeError(err) ? `\n${err.stack}` : '';
+		log.error(`providers.json migration failed: ${detail}${stack}`);
 		vscode.window.showErrorMessage(
 			vscode.l10n.t('Failed to migrate provider settings: {0}. No changes were made to your settings.', detail)
 		);
 		return;
 	}
 
+	log.info(`[migration] Migration finished with outcome: ${result.outcome}`);
 	switch (result.outcome) {
 		case 'migrated': {
 			const viewFileAction = vscode.l10n.t('View File');
@@ -85,6 +99,7 @@ async function migrateAndReport(opts: { overwrite: boolean }): Promise<void> {
 				showLogAction
 			);
 			if (choice === viewFileAction) {
+				log.info('[migration] Opening providers.json in an editor');
 				const { PROVIDERS_CONFIG_PATH } = await import('ai-config/node');
 				const doc = await vscode.workspace.openTextDocument(PROVIDERS_CONFIG_PATH);
 				await vscode.window.showTextDocument(doc);

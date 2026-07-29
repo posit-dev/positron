@@ -137,19 +137,36 @@ export class Sessions {
 					// session found, retrieve metadata
 					const foundSession = consoleTabActiveSessions[existingSessionIndex];
 
-					// Wait for the reused session to actually be reattached before reading its
-					// metadata -- the Console information button silently no-ops while a session
-					// is still reconnecting (e.g. right after another test's window reload reset
-					// every session's websocket), which otherwise strands getMetadata()'s dialog
-					// retry against a button that never opens it. Only checkable here when more
-					// than one session tab is rendered; a lone session's metadata already goes
-					// through this same dialog with no tab-based signal to wait on instead.
+					// When more than one session is open, bring the reused session to the
+					// foreground before returning. This used to happen as a side effect of
+					// getMetadata() clicking the session tab; now that getMetadata() reads via
+					// an internal command with no UI, foreground selection must be explicit so
+					// callers that type into the console target this session. First wait for
+					// the session to actually reattach -- a session still reconnecting (e.g.
+					// right after another test's window reload reset every session's websocket)
+					// may not accept the tab activation. A lone session is already in the
+					// foreground, so there is nothing to select.
 					if (await this.getSessionCount() > 1) {
 						await expect(async () => {
 							const status = await this.getIconStatus(foundSession.id);
 							expect(status).not.toBe('disconnected');
 							expect(status).not.toBe('unknown');
 						}, `Wait for reused session to reattach: ${foundSession.id}`).toPass({ timeout: 30000 });
+
+						const targetTab = this.getSessionTab(foundSession.id);
+
+						await expect(async () => {
+							// Toasts render over the session tab bar, and their auto-dismiss timer
+							// is held open while the pointer sits on them -- keep the mouse clear.
+							await this.page.mouse.move(0, 0);
+
+							// No force: let Playwright wait until the tab itself receives the
+							// click, rather than dispatching it into whatever is on top. Inner
+							// timeouts stay well under the outer budget, otherwise the first
+							// attempt consumes it and this never retries.
+							await targetTab.click({ timeout: 5000 });
+							await expect(targetTab).toHaveClass(/tab-button--active/, { timeout: 2000 });
+						}, `Select session tab: ${foundSession.id}`).toPass({ timeout: 30000 });
 					}
 
 					results.push(await this.getMetadata(foundSession.id));
@@ -164,6 +181,15 @@ export class Sessions {
 				results.push(await createSession(session));
 			}
 		}
+
+		// Park the mouse in a neutral corner before returning so a lingering
+		// session-picker tooltip can't intercept a later console click (e.g.
+		// maximizeConsole). The reuse scan above opens the session quick pick,
+		// which leaves the pointer over the picker button; getMetadata() used to
+		// move it away as a side effect of its dialog interaction, but the
+		// command-based read no longer touches the UI. Mirrors the same
+		// mouse.move(0, 0) that startAndSkipMetadata() does for this reason.
+		await this.page.mouse.move(0, 0);
 
 		// return single result or array based on input type
 		return (Array.isArray(sessions) ? results : results[0]) as any;
@@ -727,57 +753,22 @@ export class Sessions {
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
 		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
-			const isSingleSession = (await this.getSessionCount()) === 1;
+			// Read the metadata directly from the runtime session service via the
+			// internal `_positron.session.getMetadata` command (registered in
+			// languageRuntimeActionsForSmokeTests.ts). This avoids selecting the
+			// session tab and scraping the info popup, which is slower and flaky
+			// when notification toasts overlay the tab.
+			const metadata = await this.code.driver.executeCommand<SessionMetaData | undefined>(
+				'_positron.session.getMetadata',
+				sessionId
+			);
 
-			if (!isSingleSession && sessionId) {
-				const targetTab = this.getSessionTab(sessionId);
-				await expect(async () => {
-					// Use force to bypass notification toasts that may overlay the tab. A
-					// toast can also swallow the click outright (it's on top, so the real
-					// tab never receives it) -- verify the tab actually went active instead
-					// of assuming the click landed, and retry if it didn't.
-					await targetTab.click({ force: true });
-					await expect(targetTab).toHaveClass(/tab-button--active/);
-				}, `Select session tab: ${sessionId}`).toPass({ timeout: 10000 });
+			if (!metadata) {
+				throw new Error(`No session metadata found for: ${sessionId ?? 'current session'}`);
 			}
-
-			const metadata = await this.extractMetadataFromDialog(sessionId);
-
-			// Close the metadata dialog
-			await this.page.keyboard.press('Escape');
 
 			return metadata;
 		});
-	}
-
-	/**
-	 * Helper: Extract metadata from the metadata dialog
-	 *
-	 * @param sessionId the session ID the dialog should reflect, if known
-	 */
-	private async extractMetadataFromDialog(sessionId?: string): Promise<SessionMetaData> {
-		let metadata: SessionMetaData | undefined;
-
-		await test.step('Extract metadata from dialog', async () => {
-			await expect(async () => {
-				await this.openMetadataDialog(sessionId);
-				const [name, id, state, path, source] = await Promise.all([
-					this.metadataDialog.getByTestId('session-name').textContent(),
-					this.metadataDialog.getByTestId('session-id').textContent(),
-					this.metadataDialog.getByTestId('session-state').textContent(),
-					this.metadataDialog.getByTestId('session-path').textContent(),
-					this.metadataDialog.getByTestId('session-source').textContent(),
-				]);
-				metadata = {
-					name: (name ?? '').trim(),
-					id: (id ?? '').replace('Session ID: ', ''),
-					state: (state ?? '').replace('State: ', '') as SessionState,
-					path: (path ?? '').replace('Path: ', ''),
-					source: (source ?? '').replace('Source: ', ''),
-				};
-			}, 'Extract session metadata').toPass({ intervals: [500], timeout: 10000 });
-		});
-		return metadata!;
 	}
 
 	/**

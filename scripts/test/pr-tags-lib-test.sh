@@ -41,7 +41,9 @@ cat > "$MAP" <<'JSON'
   "extensions/positron-python/python_files/posit/positron/data_explorer": ["@:data-explorer"],
   "extensions/positron-python/python_files/posit/positron/variables": ["@:variables"],
   "extensions/positron-python/python_files/posit/positron/_vendor/": [],
-  "src/vs/workbench/contrib/positronTelemetry/": []
+  "src/vs/workbench/contrib/positronTelemetry/": [],
+  "src/vs/workbench/contrib/upstreamThing/": [],
+  "src/vs/workbench/contrib/upstreamThing/browser/positronBit.ts": ["@:welcome"]
 }
 JSON
 
@@ -69,6 +71,13 @@ assert_eq "parent still applies outside the leaf" "@:interpreter,@:console,@:pac
 # Two files, one leaf one parent: union of the winning entry per file.
 assert_eq "leaf + parent union across files" "@:packages-pane,@:interpreter,@:console" \
 	"$(derive_map_tags "$(printf 'extensions/positron-python/src/client/positron/packages/x.ts\nextensions/positron-python/src/client/positron/session.ts')" "$MAP")"
+# An upstream dir carrying a few Posit-owned files is mapped [] so the dir counts
+# as mapped without tagging every upstream change in it; the Positron file gets
+# its own tagged leaf key. Verify both halves of that pairing.
+assert_eq "tagged leaf under an empty upstream parent" "@:welcome" \
+	"$(derive_map_tags "src/vs/workbench/contrib/upstreamThing/browser/positronBit.ts" "$MAP")"
+assert_eq "upstream sibling under the empty parent stays untagged" "" \
+	"$(derive_map_tags "src/vs/workbench/contrib/upstreamThing/browser/other.ts" "$MAP")"
 
 # Three-level layering (parent -> python_files default -> per-feature file leaf).
 # A kernel-side feature file wins with its precise tag, dropping the coarser
@@ -571,6 +580,17 @@ assert_eq "dir_of: outside src/extensions -> empty" "" "$(positron_dir_of "docs/
 assert_eq "dir_of: base/ positron -> empty" "" "$(positron_dir_of "src/vs/base/browser/positron/dom.ts")"
 assert_eq "dir_of: workbench/api positron -> empty" "" "$(positron_dir_of "src/vs/workbench/api/common/positron/x.ts")"
 assert_eq "dir_of: positron-dts -> empty" "" "$(positron_dir_of "src/positron-dts/positron.d.ts")"
+# A positron*-named FILE inside a non-positron dir has no positron DIRECTORY, so
+# there's nothing to map here -- the caller's owner-root fallback handles it.
+# Returning "<file>/" instead would name a dir that doesn't exist and can never
+# match a map key.
+assert_eq "dir_of: positron-named file, no positron dir -> empty" "" \
+	"$(positron_dir_of "src/vs/workbench/common/positronSmokeTestCommands.ts")"
+assert_eq "dir_of: positron-named file in mapped owner root -> empty" "" \
+	"$(positron_dir_of "extensions/copilot/src/extension/prompts/node/base/positronAssistant.tsx")"
+# A real positron dir still wins even when the basename is also positron-named.
+assert_eq "dir_of: positron file inside positron dir -> the dir" "src/vs/workbench/browser/positronModalDialogs/" \
+	"$(positron_dir_of "src/vs/workbench/browser/positronModalDialogs/positronModalDialog.tsx")"
 
 # --- find_unmapped_positron_dirs ---
 MAP2="$(mktemp)"

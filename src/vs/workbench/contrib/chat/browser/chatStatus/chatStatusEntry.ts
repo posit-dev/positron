@@ -31,11 +31,7 @@ import { InEditorZenModeContext } from '../../../../common/contextkeys.js';
 import { ChatConfiguration } from '../../common/constants.js';
 // --- Start Positron ---
 import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
-// GitHub Copilot's provider enable setting (declared in the authentication
-// extension's package.json). When false, Copilot is off, so the status shows
-// the disabled state rather than "Signed out"/"Finish Setup". Literal because
-// the setting is owned by an extension, not a workbench constant.
-const COPILOT_PROVIDER_ENABLE_KEY = 'positron.assistant.provider.githubCopilot.enable';
+import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
 // --- End Positron ---
 
 /**
@@ -138,6 +134,9 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 		@IInlineCompletionsService private readonly completionsService: IInlineCompletionsService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IStorageService private readonly storageService: IStorageService,
+		// --- Start Positron ---
+		@IAiProviderService private readonly aiProviderService: IAiProviderService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -196,14 +195,22 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 				// --- Start Positron ---
 				// Toggling either the chat-hiding setting or the AI main switch adds or
 				// removes the completions-only entry, so re-run without a reload.
-				// Toggling the GitHub Copilot provider changes the disabled state below.
 				|| e.affectsConfiguration(ChatConfiguration.AIDisabled) || e.affectsConfiguration(AI_ENABLED_KEY)
-				|| e.affectsConfiguration(COPILOT_PROVIDER_ENABLE_KEY)
 				// --- End Positron ---
 			) {
 				this.update();
 			}
 		}));
+
+		// --- Start Positron ---
+		// The Copilot provider's catalog-backed enablement changes the disabled
+		// state below, so re-run when the catalog reports it changed.
+		this._register(this.aiProviderService.onDidChangeProviders(e => {
+			if (e.enabledChanged) {
+				this.update();
+			}
+		}));
+		// --- End Positron ---
 	}
 
 	private onDidActiveEditorChange(): void {
@@ -373,11 +380,11 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 		let kind: StatusbarEntryKind | undefined;
 
 		// --- Start Positron ---
-		// When the GitHub Copilot provider is disabled, Copilot (chat and inline
-		// completions) is off, so show the disabled state below rather than a
-		// sign-in/entitlement state ("Signed out", "Finish Setup"), which would be
-		// misleading.
-		const copilotProviderDisabled = this.configurationService.getValue(COPILOT_PROVIDER_ENABLE_KEY) === false;
+		// When the GitHub Copilot provider is disabled in the catalog, Copilot
+		// (chat and inline completions) is off, so show the disabled state below
+		// rather than a sign-in/entitlement state ("Signed out", "Finish Setup"),
+		// which would be misleading.
+		const copilotProviderDisabled = !this.aiProviderService.isEnabled('copilot');
 		// --- End Positron ---
 
 		// --- Start Positron ---

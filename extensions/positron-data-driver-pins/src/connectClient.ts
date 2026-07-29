@@ -9,11 +9,15 @@ import { mkdir, rename, unlink } from 'fs/promises';
 import { dirname } from 'path';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
+import { md5Checksum, RequestAuthenticator } from './connectAuth.js';
 import { Logger, NULL_LOGGER } from './logging.js';
 import { parsePinMeta, PinMeta } from './meta.js';
 
 /** The default per-request timeout, in milliseconds. */
 const DEFAULT_TIMEOUT_MS = 30_000;
+
+/** The base64 MD5 checksum of an empty body, signed for the driver's (bodyless) GET requests. */
+const EMPTY_BODY_CHECKSUM = md5Checksum(undefined);
 
 /**
  * The maximum number of pins the legacy applications endpoint returns in one request. This matches
@@ -82,6 +86,27 @@ interface RawApplicationsResponse {
 	applications?: RawApplication[];
 }
 
+/**
+ * A non-2xx response from Connect. Carries the HTTP status so callers can tell a rejected credential
+ * (401/403) from a transient server-side failure; transport failures and timeouts throw a plain Error,
+ * so they are never mistaken for a credential problem either.
+ */
+export class ConnectHttpError extends Error {
+	constructor(message: string, readonly status: number) {
+		super(message);
+		this.name = 'ConnectHttpError';
+	}
+}
+
+/**
+ * Whether an error is Connect rejecting the request's credential, as opposed to any other failure.
+ * Callers use this to decide whether a credential is worth discarding: a 503 or a dropped connection
+ * says nothing about the credential's validity.
+ */
+export function isAuthFailure(err: unknown): boolean {
+	return err instanceof ConnectHttpError && (err.status === 401 || err.status === 403);
+}
+
 /** The shape of a single item in the content bundles endpoint response. */
 interface RawBundle {
 	id?: string | number;
@@ -111,9 +136,10 @@ export function normalizeServerUrl(serverUrl: string): string {
 }
 
 /**
- * A typed HTTP client for the Posit Connect endpoints this driver needs. Every request carries the
- * `Authorization: Key <api_key>` header, so the client acts as the key's owner and sees exactly the
- * content that user can access.
+ * A typed HTTP client for the Posit Connect endpoints this driver needs. Every request carries the auth
+ * headers produced by the client's {@link RequestAuthenticator} (an API key or a signed browser sign-in
+ * token), so the client acts as that credential's owner and sees exactly the content that user can
+ * access.
  *
  * The one method that owns the pin-enumeration strategy is {@link listPins}; everything downstream
  * (metadata, and later versions and data files) is independent of how pins are enumerated, so a
@@ -125,13 +151,13 @@ export class ConnectClient {
 
 	/**
 	 * @param serverUrl The Connect server URL (normalized on construction).
-	 * @param _apiKey The API key sent as `Authorization: Key <api_key>`.
+	 * @param _auth The request authenticator (API key or browser sign-in token).
 	 * @param _fetch The fetch implementation, injectable for testing; defaults to global fetch.
 	 * @param _logger Logs requests and failures; defaults to a no-op logger.
 	 */
 	constructor(
 		serverUrl: string,
-		private readonly _apiKey: string,
+		private readonly _auth: RequestAuthenticator,
 		private readonly _fetch: typeof fetch = fetch,
 		private readonly _logger: Logger = NULL_LOGGER
 	) {
@@ -302,9 +328,16 @@ export class ConnectClient {
 		const timeout = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
 		let response: Response;
 		try {
+			// The signed path is the pathname only; Connect's token signature does NOT cover the query
+			// string (verified against Posit's Publisher client, which signs the axios request path
+			// before params are serialized), so signing `pathname + search` makes the one query-string
+			// GET (listPins) fail with a 401 while every other request succeeds. The body is empty for
+			// these GETs. KeyAuthenticator ignores the request details; TokenAuthenticator signs them.
+			const { pathname } = new URL(url);
+			const authHeaders = this._auth.headers('GET', pathname, EMPTY_BODY_CHECKSUM);
 			response = await this._fetch(url, {
 				headers: {
-					'Authorization': `Key ${this._apiKey}`,
+					...authHeaders,
 					'Accept': accept,
 				},
 				signal: controller.signal,
@@ -332,12 +365,14 @@ export class ConnectClient {
 	}
 
 	/** Maps a non-2xx response to a clear error, distinguishing auth, not-found, and other failures. */
-	private async _responseError(response: Response): Promise<Error> {
+	private async _responseError(response: Response): Promise<ConnectHttpError> {
 		if (response.status === 401 || response.status === 403) {
-			return new Error(`The Connect server rejected the request (HTTP ${response.status}). Check your API key and its permissions.`);
+			// Use the authenticator's own remediation hint, so the guidance matches the credential the
+			// connection actually uses (API key vs browser sign-in) rather than a hard-coded mechanism.
+			return new ConnectHttpError(`The Connect server rejected the request (HTTP ${response.status}). ${this._auth.authFailureHint}`, response.status);
 		}
 		if (response.status === 404) {
-			return new Error(`The Connect server returned Not Found (HTTP 404). The pin or server URL may be incorrect.`);
+			return new ConnectHttpError(`The Connect server returned Not Found (HTTP 404). The pin or server URL may be incorrect.`, 404);
 		}
 		// Summarize the body (if any) to aid diagnosis, keeping it short.
 		let body = '';
@@ -347,6 +382,6 @@ export class ConnectClient {
 			// Ignore: an unreadable body just yields a status-only message.
 		}
 		const suffix = body ? `: ${body}` : '';
-		return new Error(`The Connect server request failed (HTTP ${response.status})${suffix}`);
+		return new ConnectHttpError(`The Connect server request failed (HTTP ${response.status})${suffix}`, response.status);
 	}
 }

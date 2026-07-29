@@ -10,7 +10,7 @@ import { DebugAdapterTrackerFactory } from './debugAdapterTrackerFactory';
 import { log } from './extension';
 import { DebugAppOptions, PositronRunApp, PreviewMode, RunAppOptions, RunConsoleAppOptions } from './positron-run-app';
 import { AppUrlDetector } from './appUrlDetector';
-import { raceTimeout, SequencerByKey } from './utils';
+import { buildCommandLine, raceTimeout, SequencerByKey } from './utils';
 import { DAP_CONFIGURATION_TIMEOUT, IS_POSITRON_WEB, IS_RUNNING_ON_PWB, SHELL_INTEGRATION_TIMEOUT } from './constants.js';
 import { AppPreviewOptions, Config, PositronProxyInfo } from './types.js';
 import { shouldUsePositronProxy, showShellIntegrationNotSupportedMessage, showEnableShellIntegrationMessage } from './api-utils.js';
@@ -156,6 +156,13 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			return;
 		}
 
+		// Resolve the command line to run. Callers provide either a pre-escaped
+		// `commandLine` string or a `command`/`args` pair that we escape for the
+		// terminal's shell (the two forms are mutually exclusive).
+		const commandLine = terminalOptions.command !== undefined
+			? buildCommandLine(vscode.env.shell, terminalOptions.command, terminalOptions.args)
+			: terminalOptions.commandLine;
+
 		// Show shell integration prompts and check if shell integration is:
 		// - enabled in the workspace, and
 		// - supported in the terminal.
@@ -169,6 +176,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		// Create a new terminal for the application.
 		const terminal = vscode.window.createTerminal({
 			name: options.name,
+			cwd: terminalOptions.cwd,
 			env: terminalOptions.env,
 		});
 
@@ -254,7 +262,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			await this.setShellIntegrationSupported(true);
 
 			// Execute the command.
-			const execution = shellIntegration.executeCommand(terminalOptions.commandLine);
+			const execution = shellIntegration.executeCommand(commandLine);
 
 			// Wait for the server URL in the execution output.
 			if (preview !== 'none') {
@@ -287,7 +295,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			//       then open the URL in the viewer pane.
 
 			// Execute the command without shell integration.
-			terminal.sendText(terminalOptions.commandLine, true);
+			terminal.sendText(commandLine, true);
 
 			// Remember that shell integration is not supported to display the guide in future runs.
 			await this.setShellIntegrationSupported(false);
@@ -538,6 +546,19 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 		const debugAppRequestId = debugConfig.debugAppRequestId = randomUUID();
 
+		// Resolve how to preview the app once its URL is detected. Honors the
+		// per-app `preview` option and, via `parsePreviewMode`, the user's
+		// `positron.runApp.previewMode` setting.
+		const preview = parsePreviewMode(options.preview);
+
+		// When previewing is disabled, skip URL detection entirely and just
+		// start the debug session.
+		if (preview === 'none') {
+			progress.report({ message: vscode.l10n.t('Starting application...') });
+			await vscode.debug.startDebugging(undefined, debugConfig);
+			return;
+		}
+
 		// Create a promise that resolves when the server URL has been previewed,
 		// or an error has occurred, or it times out.
 		const debugPreviewTimeout = (options.urlDetectionTimeout ?? readUrlDetectionTimeout()) + 5_000;
@@ -556,6 +577,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 							if (await e.terminal.processId === processId) {
 								const previewOptions: AppPreviewOptions = {
+									preview,
 									terminalPid: processId,
 									proxyInfo,
 									urlPath: options.urlPath,

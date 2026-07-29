@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
+import { GEMINI_DEFAULT_BASE_URL, KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 
 class GeminiValidationError extends Error {
 	constructor(message: string) {
@@ -19,7 +19,7 @@ export async function validateGeminiApiKey(
 	config: positron.ai.LanguageModelConfig
 ): Promise<void> {
 	const baseUrl = (
-		config.baseUrl?.trim() || 'https://generativelanguage.googleapis.com/v1beta'
+		config.baseUrl?.trim() || GEMINI_DEFAULT_BASE_URL
 	).replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
 

@@ -12,7 +12,7 @@ partition; this file explains how to act on its verdict.
 | `none` | no PR body names this spec path | nothing to reconcile; proceed normally |
 | `open-attempt-in-flight` | an unmerged PR already diagnoses this test | **stop.** Point the engineer at the open PR (`openAttempts[].url`) instead of starting a parallel diagnosis |
 | `recurred-after-fix` | occurrences post-date a merged fix's commit | lead with this. Treat the prior hypothesis as **ruled out**, not a guess to re-test -- start from "why didn't that fix hold," not from re-deriving the same mechanism |
-| `fix-holding` | a merged fix exists, no occurrences post-date it, enough runs since | the fix looks like it held; if `failure_patterns` is now empty that's a clean bill, not a fresh triage |
+| `fix-holding` | a merged fix exists, no occurrences post-date it, enough runs since | the fix looks like it held; say so, and check whether the live pattern is a different failure mode than the one it closed |
 | `too-recent-to-tell` | merged fix is very recent, few/no runs since | say so explicitly; do not declare success or failure prematurely |
 
 ## Reading `mergedAttempts[]`
@@ -37,23 +37,7 @@ If a merged fix didn't hold (`recurred-after-fix`), the eventual diagnosis block
 gets a **Supersedes** bullet naming it -- see
 [`diagnosis-block.md`](diagnosis-block.md).
 
-## Doing it by hand (fallback)
+## If the script itself is broken
 
-Only if `find-prior-triage.js` is broken:
-
-```bash
-gh search prs --repo posit-dev/positron --match body "E2E Triage Diagnosis" \
-  --json number,title,url,state,body --limit 50
-```
-
-Filter results yourself for a body containing this test's exact spec path.
-For merged matches, get the merge commit and partition occurrences by ancestry:
-
-```bash
-gh pr view <number> --json mergeCommit,mergedAt
-git merge-base --is-ancestor <fix-merge-sha> <occurrence-sha> \
-  && echo "after fix" || echo "before fix / unrelated history"
-```
-
-If a SHA isn't found locally, `git fetch origin` first -- occurrence SHAs come
-from CI runs across branches your clone may not have fetched.
+Only if `find-prior-triage.js` is broken, do the search and ancestry partition by
+hand -- see [`script-fallbacks.md`](script-fallbacks.md).
