@@ -16,6 +16,7 @@ the backend is set by matplotlib.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import inspect
 import io
@@ -29,6 +30,7 @@ from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 from ..execute_request import PositronExecuteRequest
+from . import selects_module
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -36,8 +38,6 @@ if TYPE_CHECKING:
     from ..plot_comm import PlotSize
 
 logger = logging.getLogger(__name__)
-
-BACKEND_NAME = "module://positron.matplotlib_backend.console"
 
 
 # High-level libraries that build on matplotlib. A figure produced by one of these is
@@ -405,8 +405,17 @@ FigureCanvas = FigureCanvasPositron
 FigureManager = FigureManagerPositron
 
 
+# True while this backend's shell hooks are installed, so that repeated activation
+# (e.g. `%matplotlib inline` twice) doesn't register duplicate hooks.
+_active = False
+
+
 def activate() -> None:
-    """Activate the Positron matplotlib console backend."""
+    """Activate the Positron matplotlib console backend. Safe to call repeatedly."""
+    global _active
+    if _active:
+        return
+
     shell = get_ipython()
     if shell is None:
         logger.warning("No IPython shell found; matplotlib console backend not activated")
@@ -422,20 +431,28 @@ def activate() -> None:
 
     _install_library_gca_redirect()
 
+    _active = True
+
 
 def deactivate() -> None:
-    """Deactivate the Positron matplotlib console backend."""
+    """Deactivate the Positron matplotlib console backend. Safe to call repeatedly."""
+    global _active
+    _active = False
+
     shell = get_ipython()
     if shell is None:
         logger.warning("No IPython shell found; matplotlib console backend not deactivated")
         return
 
-    shell.events.unregister("post_execute", _detach_library_figures)
+    # Suppress ValueError so that deactivating a backend that was never activated is a
+    # no-op.
+    with contextlib.suppress(ValueError):
+        shell.events.unregister("post_execute", _detach_library_figures)
 
     _uninstall_library_gca_redirect()
 
 
 # If we are the selected backend, activate.
 # This is expected to run when the backend is selected. See the note at the top of the file.
-if matplotlib.get_backend() == BACKEND_NAME:
+if selects_module(matplotlib.get_backend(), __name__):
     activate()

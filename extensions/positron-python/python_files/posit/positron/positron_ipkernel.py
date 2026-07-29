@@ -40,6 +40,7 @@ from .execute_request import PositronExecuteRequest
 from .formatters.display_formatter import PositronDisplayFormatter
 from .help import HelpService, _distribution_to_modules, help  # noqa: A004
 from .lsp import LSPService
+from .matplotlib_backend import Backend
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
 from .patch.haystack import patch_haystack_is_in_jupyter
 from .patch.holoviews import set_holoviews_extension
@@ -250,6 +251,31 @@ _traceback_file_link_re = re.compile(r"^(File \x1b\[\d+;\d+m)(.+):(\d+)")
 # keep reference to original showwarning
 original_showwarning = warnings.showwarning
 
+_MATPLOTLIB_INLINE_MODULE = "matplotlib_inline.backend_inline"
+_MATPLOTLIB_INLINE_BACKENDS = ("inline", f"module://{_MATPLOTLIB_INLINE_MODULE}")
+
+
+def _needs_inline_support(shell: InteractiveShell, backend: str) -> bool:
+    """
+    Whether matplotlib-inline's `configure_inline_support` should be called for `backend`.
+
+    Only when matplotlib-inline is the backend being switched to, or when it's currently
+    active and needs tearing down. Calling it in any other case would instantiate
+    `InlineBackend` into `shell.configurables`, arming a traitlets observer that re-runs
+    `select_figure_formats` -- popping Positron's figure formatter -- on any later
+    `%config InlineBackend.*` assignment.
+    """
+    if backend in _MATPLOTLIB_INLINE_BACKENDS:
+        return True
+
+    # matplotlib-inline is active if its post execute hook is registered, whether by an
+    # earlier switch through here or by its backend module self-activating on import.
+    module = sys.modules.get(_MATPLOTLIB_INLINE_MODULE)
+    flush_figures = getattr(module, "flush_figures", None)
+    return flush_figures is not None and flush_figures in shell.events.callbacks.get(
+        "post_execute", []
+    )
+
 
 class PositronShell(ZMQInteractiveShell):
     kernel: PositronIPyKernel
@@ -339,6 +365,75 @@ class PositronShell(ZMQInteractiveShell):
     def init_display_formatter(self):
         self.display_formatter = PositronDisplayFormatter(parent=self)
         self.configurables.append(self.display_formatter)  # type: ignore IPython type annotation is wrong
+
+    def enable_matplotlib(self, gui=None):
+        """
+        Enable interactive matplotlib and inline figure support.
+
+        Overrides IPython so that bare `%matplotlib` and `%matplotlib inline` both
+        activate the Positron matplotlib backend that suits the session mode, and so
+        that switching to and from another backend (`%matplotlib qt`) installs and
+        removes its shell hooks.
+
+        Mirrors `InteractiveShell.enable_matplotlib` as of IPython 9.14. The body is
+        inlined rather than delegated to `super()` because upstream unconditionally calls
+        `matplotlib_inline`'s `configure_inline_support`, which instantiates
+        `InlineBackend` into `shell.configurables` -- arming a traitlets observer that
+        pops Positron's figure formatter on any later `%config InlineBackend.*`
+        assignment. Drift on IPython upgrades is caught by the backend switch tests.
+        """
+        from IPython.core import pylabtools as pt
+
+        from .matplotlib_backend import configure_positron_support
+
+        # 1. Select the matplotlib backend and gui event loop.
+        requested = gui.lower() if isinstance(gui, str) else gui
+        if requested in (None, "auto", "inline"):
+            # Positron's backend is both the session's default and its inline backend.
+            # This is a reroute through the full switch path rather than a no-op when
+            # already active, so that `%matplotlib inline` after `%matplotlib qt`
+            # switches back. See https://github.com/posit-dev/positron/issues/15116.
+            #
+            # An explicit `%matplotlib positron-console`/`positron-notebook` intentionally
+            # falls through to the `else` branch instead: `pt.find_gui_and_backend` below
+            # resolves those names through matplotlib's backend registry on matplotlib
+            # >= 3.9, same as any other named backend.
+            gui, backend = None, Backend.for_session_mode(self.session_mode).preferred_name
+        else:
+            gui, backend = pt.find_gui_and_backend(gui, self.pylab_gui_select)
+            if gui is not None:
+                # If we have our first gui selection, store it.
+                if self.pylab_gui_select is None:
+                    self.pylab_gui_select = gui
+                # Otherwise if they are different, stay with the first one.
+                elif gui != self.pylab_gui_select:
+                    print(
+                        f"Warning: Cannot change to a different GUI toolkit: {gui}."
+                        f" Using {self.pylab_gui_select} instead."
+                    )
+                    gui, backend = pt.find_gui_and_backend(self.pylab_gui_select)
+
+        # 2. Set up matplotlib for interactive use with that backend.
+        pt.activate_matplotlib(backend)
+
+        # 3. Configure inline figure display: matplotlib-inline only when it's involved,
+        #    and Positron's backend on every switch. Positron's goes last: tearing down
+        #    matplotlib-inline re-runs `select_figure_formats`, which pops the figure
+        #    formatter that activating Positron's backend then registers.
+        if _needs_inline_support(self, backend):
+            from matplotlib_inline.backend_inline import configure_inline_support
+
+            configure_inline_support(self, backend)
+        configure_positron_support(backend)
+
+        # 4. Enable the selected gui event loop, and fix %run to take plot updates into
+        #    account.
+        self.enable_gui(gui)
+        self.magics_manager.registry["ExecutionMagics"].default_runner = pt.mpl_runner(
+            self.safe_execfile
+        )
+
+        return gui, backend
 
     def _inspect(self, meth, oname, namespaces=None, **kw):
         # For `?name`, if the name isn't a live object but is an installed
@@ -769,15 +864,15 @@ class PositronIPKernelApp(IPKernelApp):
         return result
 
     def init_gui_pylab(self):
-        # Enable the Positron matplotlib backend if we're not in a notebook.
-        # If we're in a notebook, use IPython's default backend via the super() call below.
+        # Enable the Positron matplotlib backend that matches the session mode.
         # Matplotlib uses the MPLBACKEND environment variable to determine the backend to use.
-        # It imports the backend module when it's first needed.
+        # It imports the backend module when it's first needed, which is when the backend
+        # activates itself.
+        # Use the `module://` spelling rather than a short name: it works on every
+        # matplotlib version, whereas the short names need the backend registry
+        # (matplotlib >= 3.9).
         if not os.environ.get("MPLBACKEND"):
-            if self.session_mode == SessionMode.NOTEBOOK:
-                os.environ["MPLBACKEND"] = "module://positron.matplotlib_backend.notebook"
-            else:
-                os.environ["MPLBACKEND"] = "module://positron.matplotlib_backend.console"
+            os.environ["MPLBACKEND"] = Backend.for_session_mode(self.session_mode).full_name
 
         return super().init_gui_pylab()
 

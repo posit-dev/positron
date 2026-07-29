@@ -19,6 +19,7 @@ the backend is set by matplotlib.
 
 from __future__ import annotations
 
+import contextlib
 import io
 import logging
 from binascii import b2a_base64
@@ -36,14 +37,13 @@ from matplotlib.figure import Figure
 
 from ..execute_request import PositronExecuteRequest, current_execute_request
 from ..utils import png_pixel_size
+from . import selects_module
 
 if TYPE_CHECKING:
     from IPython.core.formatters import PNGFormatter
     from IPython.core.interactiveshell import InteractiveShell
 
 logger = logging.getLogger(__name__)
-
-BACKEND_NAME = "module://positron.matplotlib_backend.notebook"
 
 
 def new_figure_manager(
@@ -167,8 +167,17 @@ def _show_figures():
         logger.exception("Error showing figures in post execute hook")
 
 
+# True while this backend's shell hooks are installed, so that repeated activation
+# (e.g. `%matplotlib inline` twice) doesn't register duplicate hooks.
+_active = False
+
+
 def activate() -> None:
-    """Activate the Positron matplotlib notebook backend."""
+    """Activate the Positron matplotlib notebook backend. Safe to call repeatedly."""
+    global _active
+    if _active:
+        return
+
     shell = get_ipython()
     if shell is None:
         logger.warning("No IPython shell found; matplotlib notebook backend not activated")
@@ -184,29 +193,37 @@ def activate() -> None:
     # Register our formatter for matplotlib Figure objects.
     _get_png_formatter(shell).for_type(Figure, _display_figure)
 
+    _active = True
+
 
 def deactivate() -> None:
-    """Deactivate the Positron matplotlib notebook backend."""
+    """Deactivate the Positron matplotlib notebook backend. Safe to call repeatedly."""
+    global _active
+    _active = False
+
     shell = get_ipython()
     if shell is None:
         logger.warning("No IPython shell found; matplotlib notebook backend not deactivated")
         return
 
-    # Unregister the post execute hook.
-    shell.events.unregister("post_execute", _show_figures)
+    # Unregister the post execute hook. Suppress ValueError so that deactivating a
+    # backend that was never activated is a no-op.
+    with contextlib.suppress(ValueError):
+        shell.events.unregister("post_execute", _show_figures)
 
-    # Unregister our formatter for matplotlib Figure objects.
+    # Unregister our formatter for matplotlib Figure objects. Note `lookup_by_type` and
+    # not `lookup`: the latter takes an instance, so it would never find our formatter.
     png_formatter = _get_png_formatter(shell)
     try:
-        if png_formatter.lookup(Figure) is _display_figure:
+        if png_formatter.lookup_by_type(Figure) is _display_figure:
             # It's still our formatter, remove it.
             png_formatter.pop(Figure)
     except KeyError:
-        # `lookup` raises if there's no formatter for the type, nothing to do.
+        # `lookup_by_type` raises if there's no formatter for the type, nothing to do.
         pass
 
 
 # If we are the selected backend, activate.
 # This is expected to run when the backend is selected. See the note at the top of the file.
-if matplotlib.get_backend() == BACKEND_NAME:
+if selects_module(matplotlib.get_backend(), __name__):
     activate()
