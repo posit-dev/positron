@@ -571,6 +571,17 @@ assert_eq "dir_of: outside src/extensions -> empty" "" "$(positron_dir_of "docs/
 assert_eq "dir_of: base/ positron -> empty" "" "$(positron_dir_of "src/vs/base/browser/positron/dom.ts")"
 assert_eq "dir_of: workbench/api positron -> empty" "" "$(positron_dir_of "src/vs/workbench/api/common/positron/x.ts")"
 assert_eq "dir_of: positron-dts -> empty" "" "$(positron_dir_of "src/positron-dts/positron.d.ts")"
+# A positron*-named FILE inside a non-positron dir has no positron DIRECTORY, so
+# there's nothing to map here -- the caller's owner-root fallback handles it.
+# Returning "<file>/" instead would name a dir that doesn't exist and can never
+# match a map key.
+assert_eq "dir_of: positron-named file, no positron dir -> empty" "" \
+	"$(positron_dir_of "src/vs/workbench/common/positronSmokeTestCommands.ts")"
+assert_eq "dir_of: positron-named file in mapped owner root -> empty" "" \
+	"$(positron_dir_of "extensions/copilot/src/extension/prompts/node/base/positronAssistant.tsx")"
+# A real positron dir still wins even when the basename is also positron-named.
+assert_eq "dir_of: positron file inside positron dir -> the dir" "src/vs/workbench/browser/positronModalDialogs/" \
+	"$(positron_dir_of "src/vs/workbench/browser/positronModalDialogs/positronModalDialog.tsx")"
 
 # --- find_unmapped_positron_dirs ---
 MAP2="$(mktemp)"
