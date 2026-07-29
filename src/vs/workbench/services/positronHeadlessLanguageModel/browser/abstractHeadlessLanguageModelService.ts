@@ -10,8 +10,8 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { SelfHealingLazyPromise } from '../../../../base/common/positron/async.js';
 import { hasKey } from '../../../../base/common/types.js';
-import { IConfigurationChangeEvent, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IAiProviderService } from '../../positronAiProvider/common/aiProviderService.js';
 import { AuthenticationSession, IAuthenticationService } from '../../authentication/common/authentication.js';
 import { ICredentials, IHeadlessLanguageModelEngine, IModelDescriptor, IProviderMapping } from '../../../../platform/positronHeadlessLanguageModel/common/engine.js';
 import {
@@ -29,6 +29,8 @@ import { type CredentialConfig, shapeCredentials } from 'ai-provider-bridge/cred
 interface IResolvedState {
 	readonly models: readonly IModelDescriptor[];
 	readonly anyCredential: boolean;
+	/** Whether any enabled, registered provider was a candidate at all (vs. genuine absence). */
+	readonly anyProvider: boolean;
 }
 
 /**
@@ -89,7 +91,7 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 
 	constructor(
 		@IAuthenticationService private readonly _authService: IAuthenticationService,
-		@IConfigurationService private readonly _configService: IConfigurationService,
+		@IAiProviderService private readonly _aiProviderService: IAiProviderService,
 		@ILogService protected readonly _logService: ILogService,
 	) {
 		super();
@@ -104,13 +106,13 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 			}
 		}));
 
-		// Availability also depends on per-provider config the credential shaping
-		// reads (base URLs, custom headers, AWS region, Snowflake host/account).
-		// A change to any of those keys can flip a provider's availability or the
-		// listed models, so the cached state must be dropped. Same guard as
-		// above: if mappings have not loaded there is no state to invalidate.
-		this._register(this._configService.onDidChangeConfiguration(e => {
-			if (this.affectsCredentialConfig(e)) {
+		// Availability also depends on the resolved provider catalog the credential
+		// shaping reads (base URLs, custom headers, AWS region/profile, Snowflake
+		// host/account) and on each provider's enabled state. A change to either
+		// can flip a provider's availability or the listed models, so drop the
+		// cached state.
+		this._register(this._aiProviderService.onDidChangeProviders(e => {
+			if (e.enabledChanged || e.connectionChanged) {
 				this._invalidate();
 			}
 		}));
@@ -140,27 +142,6 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 	/** Whether an auth provider id backs a loaded mapping. False until mappings load (nothing cached to invalidate yet). */
 	private _isMappedAuthProvider(authProviderId: string): boolean {
 		return !!this._loadedMappings?.some(mapping => mapping.authProviderId === authProviderId);
-	}
-
-	/**
-	 * Whether a config change touches any key the credential shaping reads for a
-	 * loaded mapping: each apikey mapping's `authentication.<configKey>.baseUrl` /
-	 * `.customHeaders`, plus the fixed `authentication.aws.credentials` and
-	 * `authentication.snowflake.credentials` namespaces. Returns false until
-	 * mappings load (nothing cached to invalidate yet).
-	 */
-	private affectsCredentialConfig(e: IConfigurationChangeEvent): boolean {
-		const mappings = this._loadedMappings;
-		if (!mappings) {
-			return false;
-		}
-		if (e.affectsConfiguration('authentication.aws.credentials')
-			|| e.affectsConfiguration('authentication.snowflake.credentials')) {
-			return true;
-		}
-		return mappings.some(mapping =>
-			e.affectsConfiguration(`authentication.${mapping.configKey}.baseUrl`)
-			|| e.affectsConfiguration(`authentication.${mapping.configKey}.customHeaders`));
 	}
 
 	/** Create the engine for this environment, or `undefined` if none is reachable. */
@@ -273,6 +254,13 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 			if (!state) {
 				return { ok: false, reason: 'temporarily-unavailable' };
 			}
+			// No enabled, registered provider at all is genuine absence; an enabled
+			// provider with no session is the actionable sign-in case. A catalog
+			// fetch failure never reaches here -- computeState throws, landing at
+			// the catch below as temporarily-unavailable.
+			if (!state.anyProvider) {
+				return { ok: false, reason: 'no-providers-configured' };
+			}
 			if (!state.anyCredential) {
 				return { ok: false, reason: 'sign-in-required' };
 			}
@@ -311,18 +299,30 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 	private async computeState(): Promise<IResolvedState> {
 		const engine = this.getEngine();
 		if (!engine) {
-			return { models: [], anyCredential: false };
+			return { models: [], anyCredential: false, anyProvider: false };
+		}
+
+		// Wait for the catalog snapshot before reading enablement/connection: a
+		// listing computed against the pre-init empty snapshot would spuriously
+		// exclude every provider. A failed first fetch surfaces as the retryable
+		// temporarily-unavailable outcome (the caller's catch), never as genuine
+		// absence.
+		await this._aiProviderService.whenInitialized;
+		if (this._aiProviderService.status === 'error') {
+			throw new Error('AI provider catalog unavailable');
 		}
 
 		const mappings = await this._mappings.get();
 
-		// Only query providers whose auth backend is actually registered. Calling
-		// getSessions for an unregistered provider would fire its activation event
-		// and time out waiting for it to register (e.g. 'deepseek-api' when the
-		// user has no DeepSeek auth) -- both slow and, uncaught, fatal to the whole
-		// sweep. The user's real sign-ins are registered, so this loses nothing.
+		// Only query providers whose auth backend is actually registered and whose
+		// catalog entry is enabled. Calling getSessions for an unregistered provider
+		// would fire its activation event and time out waiting for it to register
+		// (e.g. 'deepseek-api' when the user has no DeepSeek auth) -- both slow and,
+		// uncaught, fatal to the whole sweep. The user's real sign-ins are
+		// registered, so this loses nothing.
 		const registered = new Set(this._authService.getProviderIds());
-		const relevant = mappings.filter(mapping => registered.has(mapping.authProviderId));
+		const relevant = mappings.filter(mapping =>
+			registered.has(mapping.authProviderId) && this._aiProviderService.isEnabled(mapping.providerId));
 
 		// Read-only credential lookup across every registered mapped provider.
 		const credentialed = (await Promise.all(relevant.map(async mapping => {
@@ -341,7 +341,11 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 			}
 		}));
 
-		return { models: distinct(byPriority(listed.flat()), model => model.id), anyCredential: credentialed.length > 0 };
+		return {
+			models: distinct(byPriority(listed.flat()), model => model.id),
+			anyCredential: credentialed.length > 0,
+			anyProvider: relevant.length > 0,
+		};
 	}
 
 	/**
@@ -411,24 +415,25 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 	}
 
 	/**
-	 * The settings-reading half supplied to the bridge's `shapeCredentials`. Reads
-	 * the same `authentication.*` keys the assistant uses, off IConfigurationService.
-	 * The renderer has no process env, so region/host come from settings only;
-	 * `shapeCredentials` owns which key each value maps to (the `us-east-1` default
-	 * included).
+	 * The connection-reading half supplied to the bridge's `shapeCredentials`,
+	 * backed by the resolved provider catalog. `shapeCredentials` owns which
+	 * value each provider needs (including the AWS `us-east-1` default); this
+	 * only resolves a `configKey` to its provider's `connection`. `bedrock` /
+	 * `snowflake-cortex` are bridge-vocabulary catalog ids for the two providers
+	 * whose connection details are keyed by provider rather than `configKey`.
 	 */
 	private credentialConfig(): CredentialConfig {
+		const connectionFor = (configKey: string) => {
+			const providerId = this._loadedMappings?.find(m => m.configKey === configKey)?.providerId;
+			return providerId ? this._aiProviderService.getProvider(providerId)?.connection : undefined;
+		};
 		return {
-			getBaseUrl: configKey =>
-				this._configService.getValue<string>(`authentication.${configKey}.baseUrl`) || undefined,
-			getCustomHeaders: configKey =>
-				this._configService.getValue<Record<string, string>>(`authentication.${configKey}.customHeaders`),
-			getAws: () => ({
-				region: this._configService.getValue<{ AWS_REGION?: string }>('authentication.aws.credentials')?.AWS_REGION,
-			}),
+			getBaseUrl: configKey => connectionFor(configKey)?.baseUrl || undefined,
+			getCustomHeaders: configKey => connectionFor(configKey)?.customHeaders,
+			getAws: () => this._aiProviderService.getProvider('bedrock')?.connection.aws,
 			getSnowflake: () => {
-				const cfg = this._configService.getValue<{ SNOWFLAKE_HOST?: string; SNOWFLAKE_ACCOUNT?: string }>('authentication.snowflake.credentials');
-				return { host: cfg?.SNOWFLAKE_HOST, account: cfg?.SNOWFLAKE_ACCOUNT };
+				const snowflake = this._aiProviderService.getProvider('snowflake-cortex')?.connection.snowflake;
+				return snowflake && { host: snowflake.host, account: snowflake.account };
 			},
 		};
 	}

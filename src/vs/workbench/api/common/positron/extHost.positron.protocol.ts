@@ -388,6 +388,7 @@ export interface MainThreadAiFeaturesShape {
 	$getProviders(): Thenable<IPositronChatProvider[]>;
 	$setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 	$getEnabledProviders(): Thenable<string[]>;
+	$isProviderEnabled(id: string): Thenable<boolean>;
 	$getAgentAllowedCommands(): Promise<ISerializedAgentCommand[]>;
 	$validateAndExecuteCommand(
 		commandId: string,
@@ -399,6 +400,7 @@ export interface ExtHostAiFeaturesShape {
 	$responseProviderAction(source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string): Thenable<void>;
 	$onCompleteLanguageModelConfig(id: string): void;
 	$onDidChangeProviderConfig(source: IPositronLanguageModelSource): void;
+	$onDidChangeProviderEnablement(id: string, enabled: boolean): void;
 	getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
 	getCurrentChatMode(): Thenable<string | undefined>;
 	getProviders(): Thenable<IPositronChatProvider[]>;
