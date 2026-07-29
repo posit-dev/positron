@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import sys
 from enum import Enum
 from typing import TYPE_CHECKING, Protocol, cast
 
@@ -202,3 +203,73 @@ def configure_positron_support(backend: str | Backend) -> None:
         formats.install_set_matplotlib_formats_patch()
     else:
         formats.uninstall_set_matplotlib_formats_patch()
+
+
+_MATPLOTLIB_INLINE_MODULE = "matplotlib_inline.backend_inline"
+_MATPLOTLIB_INLINE_BACKENDS = ("inline", f"module://{_MATPLOTLIB_INLINE_MODULE}")
+
+
+def _needs_inline_support(shell: InteractiveShell, backend: str) -> bool:
+    """
+    Whether matplotlib-inline's `configure_inline_support` should be called for `backend`.
+
+    Only when matplotlib-inline is the backend being switched to, or when it's currently
+    active and needs tearing down. Calling it in any other case would instantiate
+    `InlineBackend` into `shell.configurables`, arming a traitlets observer that re-runs
+    `select_figure_formats` -- popping Positron's figure formatter -- on any later
+    `%config InlineBackend.*` assignment.
+    """
+    if backend in _MATPLOTLIB_INLINE_BACKENDS:
+        return True
+
+    # matplotlib-inline is active if its post execute hook is registered, whether by an
+    # earlier switch through here or by its backend module self-activating on import.
+    module = sys.modules.get(_MATPLOTLIB_INLINE_MODULE)
+    flush_figures = getattr(module, "flush_figures", None)
+    return flush_figures is not None and flush_figures in shell.events.callbacks.get(
+        "post_execute", []
+    )
+
+
+# The real `configure_inline_support`, captured when the switch hook is installed.
+_original_configure_inline_support = None
+
+
+def install_backend_switch_hook() -> None:
+    """
+    Wrap `matplotlib_inline.backend_inline.configure_inline_support` with Positron's seam.
+
+    IPython's `enable_matplotlib` imports that function from the module at call time on
+    every backend switch, so wrapping the module attribute makes every switch -- including
+    ones to foreign backends via `super()` -- run `configure_matplotlib_support`.
+    Idempotent. Installed lazily (not at kernel init) because importing matplotlib_inline
+    pulls in matplotlib, which may not be installed until the user actually plots.
+    Never uninstalled, matching the kernel's other third-party patches; the wrapper
+    preserves upstream behavior whenever Positron isn't involved.
+    """
+    global _original_configure_inline_support
+    if _original_configure_inline_support is not None:
+        return
+
+    import matplotlib_inline.backend_inline as backend_inline
+
+    _original_configure_inline_support = backend_inline.configure_inline_support
+    backend_inline.configure_inline_support = configure_matplotlib_support
+
+
+def configure_matplotlib_support(shell: InteractiveShell, backend: str) -> None:
+    """
+    Configure inline figure display after a matplotlib backend switch.
+
+    matplotlib-inline is configured only when it's involved (see
+    `_needs_inline_support`): calling it for any other switch would instantiate
+    `InlineBackend` into `shell.configurables`, arming a traitlets observer that pops
+    Positron's figure formatter on any later `%config InlineBackend.*` assignment.
+    Positron's support is configured on every switch, and goes last: tearing down
+    matplotlib-inline re-runs `select_figure_formats`, which pops the figure formatter
+    that activating Positron's backend then registers.
+    """
+    install_backend_switch_hook()
+    if _needs_inline_support(shell, backend):
+        _original_configure_inline_support(shell, backend)
+    configure_positron_support(backend)

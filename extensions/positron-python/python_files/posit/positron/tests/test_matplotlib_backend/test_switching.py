@@ -534,3 +534,19 @@ def test_preferred_name_falls_back_to_module_name(flavor: Flavor, monkeypatch: p
     monkeypatch.setattr(matplotlib_backend, "_get_backend_registry", lambda: None)
 
     assert flavor.backend.preferred_name == flavor.backend.full_name
+
+
+def test_install_backend_switch_hook_is_idempotent():
+    """Calling `install_backend_switch_hook` twice doesn't double-wrap `configure_inline_support`."""
+    import matplotlib_inline.backend_inline as backend_inline
+
+    matplotlib_backend.install_backend_switch_hook()
+    matplotlib_backend.install_backend_switch_hook()
+
+    assert (
+        backend_inline.configure_inline_support is matplotlib_backend.configure_matplotlib_support
+    )
+    assert (
+        matplotlib_backend._original_configure_inline_support  # noqa: SLF001
+        is not matplotlib_backend.configure_matplotlib_support
+    )
