@@ -17,6 +17,12 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { getWindow } from '../../../../base/browser/dom.js';
 
+/** Current execution state of the cell, mirrored onto the toolbar's DOM node. */
+const EXECUTION_STATE_ATTR = 'data-execution-state';
+
+/** Id of the cell's most recent execution; retained after that execution ends. */
+const EXECUTION_ID_ATTR = 'data-execution-id';
+
 /**
  * A toolbar widget that appears in the upper-right corner of Quarto code cells.
  * Provides buttons for Run Cell, Run Above, and Run Below actions.
@@ -158,6 +164,11 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	 * instead of being destroyed and recreated.
 	 */
 	updateCell(cell: QuartoCodeCell, cellIndex: number, totalCells: number): void {
+		if (cell.id !== this._cell.id) {
+			// Re-pointed at a different cell, so the retained execution id belongs to
+			// the old one. Drop it rather than let it read as this cell's last run.
+			this._domNode.removeAttribute(EXECUTION_ID_ATTR);
+		}
 		this._cell = cell;
 		this._cellIndex = cellIndex;
 		this._totalCells = totalCells;
@@ -167,9 +178,19 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 
 	/**
 	 * Set the execution state of the cell, which affects the Run/Stop button.
+	 *
+	 * `executionId` is recorded on the DOM node and kept there after the run ends.
+	 * The run button only reflects the queued/running state for as long as the cell
+	 * is actually executing, which can be a couple hundred milliseconds -- too
+	 * short for an e2e test to reliably observe. The retained id is what lets a
+	 * test confirm a run registered at all, after the fact.
 	 */
-	setExecutionState(state: CellExecutionState): void {
+	setExecutionState(state: CellExecutionState, executionId?: string): void {
 		this._executionState = state;
+		this._domNode.setAttribute(EXECUTION_STATE_ATTR, state);
+		if (executionId) {
+			this._domNode.setAttribute(EXECUTION_ID_ATTR, executionId);
+		}
 		this._updateRunButton();
 	}
 
@@ -259,6 +280,7 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	private _createDomNode(): HTMLElement {
 		const container = document.createElement('div');
 		container.className = 'quarto-cell-toolbar';
+		container.setAttribute(EXECUTION_STATE_ATTR, this._executionState);
 
 		// Run/Stop button (rendered first, styled distinctly in green)
 		this._runButton = document.createElement('button');

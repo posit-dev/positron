@@ -4,12 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 /// <reference types="vitest/globals" />
+/// <reference types="@testing-library/jest-dom/vitest" />
 
 import { URI } from '../../../../../base/common/uri.js';
+import { Event } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
+import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { EditorLayoutInfo, EditorMinimapLayoutInfo } from '../../../../../editor/common/config/editorOptions.js';
+import { IManagedHover } from '../../../../../base/browser/ui/hover/hover.js';
+import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
+import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
+import { QuartoCellToolbar } from '../../browser/quartoCellToolbar.js';
+import { CellExecutionState } from '../../common/quartoExecutionTypes.js';
 
 describe('QuartoCellToolbar - Position Updates', () => {
 	const ctx = createTestContainer().build();
@@ -215,5 +225,109 @@ y = 2
 			// The key insight: a toolbar controller listening to onDidParse
 			// can refresh cell references and update positions correctly
 		});
+	});
+});
+
+describe('QuartoCellToolbar - Execution State DOM', () => {
+	const ctx = createTestContainer().build();
+	const logService = new NullLogService();
+
+	const TWO_CELLS = `\`\`\`{python}
+x = 1
+\`\`\`
+
+\`\`\`{python}
+y = 2
+\`\`\`
+`;
+
+	/**
+	 * Build a toolbar for `cellIndex` of a two-cell document, along with the parsed
+	 * cells so a test can re-point the toolbar at a different one.
+	 */
+	function createToolbar(cellIndex = 0) {
+		const textModel = createTextModel(TWO_CELLS, null, undefined, URI.file('/test.qmd'));
+		ctx.disposables.add(textModel);
+		const model = new QuartoDocumentModel(textModel, logService);
+		ctx.disposables.add(model);
+
+		const editor = stubInterface<ICodeEditor>({
+			addOverlayWidget: vi.fn(),
+			removeOverlayWidget: vi.fn(),
+			onDidScrollChange: Event.None,
+			onDidLayoutChange: Event.None,
+			getTopForLineNumber: () => 0,
+			getScrollTop: () => 0,
+			getLayoutInfo: () => stubInterface<EditorLayoutInfo>({
+				height: 500,
+				verticalScrollbarWidth: 10,
+				minimap: stubInterface<EditorMinimapLayoutInfo>({ minimapWidth: 0 }),
+			}),
+			// `getOption` is generic over the option id, so a fixed line height can't
+			// be expressed in its signature.
+			getOption: (() => 18) as ICodeEditor['getOption'],
+		});
+		const hoverService = stubInterface<IHoverService>({
+			setupManagedHover: () => stubInterface<IManagedHover>({ dispose: () => { } }),
+		});
+		const keybindingService = stubInterface<IKeybindingService>({ lookupKeybinding: () => undefined });
+
+		const toolbar = new QuartoCellToolbar(
+			editor, model.cells[cellIndex], cellIndex, model.cells.length,
+			() => { }, () => { }, () => { }, () => { }, () => { }, () => { },
+			hoverService, keybindingService
+		);
+		ctx.disposables.add(toolbar);
+
+		return { toolbar, cells: model.cells, domNode: toolbar.getDomNode() };
+	}
+
+	it('retains the execution id after the run finishes', () => {
+		const { toolbar, domNode } = createToolbar();
+
+		toolbar.setExecutionState(CellExecutionState.Queued, 'quarto-exec-1');
+		toolbar.setExecutionState(CellExecutionState.Running, 'quarto-exec-1');
+		toolbar.setExecutionState(CellExecutionState.Completed, 'quarto-exec-1');
+
+		// The queued/running button state is gone once the cell finishes, so the
+		// retained id is the only durable evidence the run happened at all.
+		expect(domNode).toHaveAttribute('data-execution-id', 'quarto-exec-1');
+		expect(domNode).toHaveAttribute('data-execution-state', 'completed');
+	});
+
+	it('records a fresh execution id on a re-run of the same cell', () => {
+		const { toolbar, domNode } = createToolbar();
+
+		toolbar.setExecutionState(CellExecutionState.Completed, 'quarto-exec-1');
+		toolbar.setExecutionState(CellExecutionState.Running, 'quarto-exec-2');
+
+		expect(domNode).toHaveAttribute('data-execution-id', 'quarto-exec-2');
+	});
+
+	it('reports idle before any execution', () => {
+		const { domNode } = createToolbar();
+
+		expect(domNode).not.toHaveAttribute('data-execution-id');
+		expect(domNode).toHaveAttribute('data-execution-state', 'idle');
+	});
+
+	it('drops the retained execution id when re-pointed at another cell', () => {
+		const { toolbar, cells, domNode } = createToolbar();
+		toolbar.setExecutionState(CellExecutionState.Completed, 'quarto-exec-1');
+
+		toolbar.updateCell(cells[1], 1, cells.length);
+
+		expect(domNode).not.toHaveAttribute('data-execution-id');
+	});
+
+	it('keeps the retained execution id when re-pointed at the same cell', () => {
+		const { toolbar, cells, domNode } = createToolbar();
+		toolbar.setExecutionState(CellExecutionState.Completed, 'quarto-exec-1');
+
+		// Cell content is unchanged, so the toolbar is being reused rather than
+		// reassigned -- the cell's last run still belongs to it.
+		toolbar.updateCell(cells[0], 0, cells.length);
+
+		expect(domNode).toHaveAttribute('data-execution-id', 'quarto-exec-1');
 	});
 });

@@ -15,6 +15,10 @@ const INLINE_OUTPUT = '.quarto-inline-output';
 const OUTPUT_CONTENT = '.quarto-output-content';
 const OUTPUT_ITEM = '.quarto-output-item';
 const CELL_TOOLBAR = '.quarto-cell-toolbar';
+// Set by the cell toolbar on every execution state change and retained after the
+// execution ends, unlike the queued/running run button.
+const EXECUTION_ID_ATTR = 'data-execution-id';
+const EXECUTED_CELL_TOOLBAR = `${CELL_TOOLBAR}[${EXECUTION_ID_ATTR}]`;
 const TOOLBAR_RUN = '.quarto-toolbar-run';
 const TOOLBAR_MORE = '.quarto-toolbar-more';
 const OUTPUT_CLOSE = '.quarto-output-close';
@@ -51,9 +55,9 @@ export class InlineQuarto {
 	readonly outputItem: Locator;
 	readonly cellToolbar: Locator;
 	readonly visibleCellToolbar: Locator;
+	readonly executedCellToolbar: Locator;
 	readonly toolbarRunButton: Locator;
 	readonly toolbarCancelButton: Locator;
-	readonly executingToolbarButton: Locator;
 	readonly closeButton: Locator;
 	readonly copyButton: Locator;
 	readonly saveButton: Locator;
@@ -83,11 +87,9 @@ export class InlineQuarto {
 		this.outputItem = page.locator(`${INLINE_OUTPUT} ${OUTPUT_ITEM}`);
 		this.cellToolbar = page.locator(CELL_TOOLBAR);
 		this.visibleCellToolbar = page.locator(`${CELL_TOOLBAR}.visible`);
+		this.executedCellToolbar = page.locator(EXECUTED_CELL_TOOLBAR);
 		this.toolbarRunButton = page.locator(`${CELL_TOOLBAR} ${TOOLBAR_RUN}`);
 		this.toolbarCancelButton = page.getByRole('button', { name: 'Cancel pending execution' });
-		// The run button toggles between run/queued/running; matches while the
-		// cell is queued or running, i.e. once a run has actually registered.
-		this.executingToolbarButton = page.getByRole('button', { name: /Cancel pending execution|Stop cell execution/ });
 		this.closeButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_CLOSE}`);
 		this.copyButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_COPY}`);
 		this.saveButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_SAVE}`);
@@ -179,18 +181,39 @@ export class InlineQuarto {
 	}
 
 	/**
+	 * Every execution id the cell toolbars have recorded so far. A toolbar keeps its
+	 * cell's most recent execution id after that run finishes, so an id here is
+	 * durable evidence a run registered -- it does not expire the way the toolbar's
+	 * queued/running button state does.
+	 */
+	private async _recordedExecutionIds(): Promise<string[]> {
+		const toolbars = await this.executedCellToolbar.all();
+		const ids = await Promise.all(toolbars.map(toolbar => toolbar.getAttribute(EXECUTION_ID_ATTR)));
+		return ids.filter((id): id is string => id !== null);
+	}
+
+	/**
 	 * Fire a run action at `cellLine` and confirm the cell actually started
 	 * executing before returning. The Quarto run command is extension-contributed,
 	 * so a transient extension-host stall (e.g. right after a window reload) can
 	 * swallow the run hotkey and leave the cell idle -- which would otherwise burn
 	 * the full output timeout waiting on a run that never took. Re-fire (moving the
-	 * cursor back onto the cell each attempt) until the cell enters queued/running.
+	 * cursor back onto the cell each attempt) until a new execution is recorded.
+	 *
+	 * Waits for an execution id the toolbars had not recorded before this call
+	 * rather than for the toolbar's queued/running button: a short cell can finish
+	 * in a couple hundred milliseconds, and the toolbar is only rendered while the
+	 * cursor is in its cell and it is on screen, so that button routinely comes and
+	 * goes between polls under CI load even though the run took fine.
 	 */
 	private async _runCellUntilStarted(cellLine: number, run: () => Promise<void>): Promise<void> {
+		const before = new Set(await this._recordedExecutionIds());
 		await expect(async () => {
 			await this.gotoLine(cellLine);
 			await run();
-			await expect(this.executingToolbarButton.first()).toBeVisible({ timeout: 10000 });
+			await expect
+				.poll(async () => (await this._recordedExecutionIds()).some(id => !before.has(id)), { timeout: 10000, intervals: [250] })
+				.toBe(true);
 		}).toPass({ timeout: 30000, intervals: [1000] });
 	}
 
