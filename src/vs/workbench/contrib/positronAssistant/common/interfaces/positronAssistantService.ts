@@ -271,7 +271,9 @@ export interface IPositronAssistantService {
 	getChatExport(): IExportableChatData | undefined;
 
 	/**
-	 * Checks if completions are enabled for the given file.
+	 * Checks if Copilot inline completions are enabled for the given file.
+	 * Scoped to Copilot: gated on the Copilot catalog provider. Posit AI Next Edit
+	 * Suggestions (NES) has its own separate enablement and does not use this.
 	 * @param uri The file URI to check if completions are enabled.
 	 * @returns true if completions should be enabled for the file, false otherwise.
 	 */

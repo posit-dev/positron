@@ -227,7 +227,8 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	/**
-	 * Check if a file should be enabled for AI completions based on configuration settings.
+	 * Check if a file should be enabled for Copilot inline completions based on
+	 * configuration settings. Scoped to Copilot; Posit AI NES has its own separate gate.
 	 */
 	async $areCompletionsEnabled(file: UriComponents): Promise<boolean> {
 		const uri = URI.revive(file);

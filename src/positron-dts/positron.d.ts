@@ -3786,7 +3786,9 @@ declare module 'positron' {
 		export const onDidChangeProviderEnablement: vscode.Event<{ readonly id: string; readonly enabled: boolean }>;
 
 		/**
-		 * Checks if completions are enabled for the given file.
+		 * Checks if Copilot inline completions are enabled for the given file.
+		 * Scoped to Copilot: gated on the Copilot catalog provider. Posit AI Next Edit
+		 * Suggestions (NES) has its own separate enablement and does not use this.
 		 * @param uri The file URI to check if completions are enabled.
 		 * @returns A Thenable that resolves to true if completions should be enabled for the file, false otherwise.
 		 */
