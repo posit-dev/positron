@@ -3,11 +3,26 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, BrowserContext } from '@playwright/test';
+import { expect, BrowserContext, Page } from '@playwright/test';
 import { Code } from '../../infra/code.js';
 import { QuickInput } from '../quickInput.js';
 import { generateTOTP } from '../../utils/totp.js';
 import { isOktaLockedOut, otpRetryDelayMs } from '../../utils/otpRetry.js';
+
+/**
+ * The OAuth flow is complete once the provider redirects back to Workbench.
+ *
+ * Matched on host rather than by searching the whole URL for the callback path: Databricks
+ * carries `redirect_uri=...%2Foauth_redirect_callback` in the query string of its own consent
+ * screen, so a substring match reports "complete" while still sitting on the provider's page.
+ */
+const isWorkbenchCallback = (url: URL) => url.host === 'localhost:8787';
+
+/**
+ * Databricks ends its OAuth flow on an "Authorize as.." consent screen under `/oauth-prompt/`
+ * (currently `/oauth-prompt/select-group`) before redirecting to the callback.
+ */
+const isDatabricksAuthorizePrompt = (url: URL) => url.pathname.startsWith('/oauth-prompt/');
 
 export class DashboardPage {
 	get title() { return this.code.driver.currentPage.getByRole('link', { name: 'Workbench projects' }); }
@@ -252,7 +267,13 @@ export class DashboardPage {
 			await verifyOtpButton.click();
 
 			try {
-				await oauthPage.waitForURL(/oauth_redirect_callback|localhost:8787/, { timeout: 15000 });
+				// Okta hands the flow back to Databricks, which either redirects straight to the
+				// callback or first shows its "Authorize as.." consent screen. Reaching either one
+				// means the OTP was accepted, so stop retrying and finish the flow below.
+				await oauthPage.waitForURL(
+					url => isWorkbenchCallback(url) || isDatabricksAuthorizePrompt(url),
+					{ timeout: 15000 }
+				);
 				otpAccepted = true;
 				break;
 			} catch {
@@ -274,6 +295,10 @@ export class DashboardPage {
 			}
 		}
 
+		if (otpAccepted && !oauthPage.isClosed()) {
+			await this.confirmDatabricksAuthorizePrompt(oauthPage);
+		}
+
 		try {
 			if (otpAccepted) {
 				await oauthPage.waitForTimeout(2000);
@@ -288,6 +313,36 @@ export class DashboardPage {
 		// Verify credentials are enabled
 		await expect(enabledWidget).toBeVisible({ timeout: 30000 });
 		this.code.logger.log('Databricks OAuth setup complete');
+	}
+
+	/**
+	 * Confirms the "Authorize as.." consent screen Databricks shows at the end of its OAuth flow.
+	 *
+	 * The screen preselects the group to authorize as (the service account belongs to one), so we
+	 * only have to confirm it. "Continue" is rendered as a link, not a button. Databricks skips the
+	 * screen in some cases (e.g. an existing grant), so a missing prompt is not a failure -- the
+	 * caller's credential-widget assertion is the real verdict.
+	 *
+	 * @param oauthPage The OAuth tab, parked on the consent screen or already past it
+	 */
+	private async confirmDatabricksAuthorizePrompt(oauthPage: Page): Promise<void> {
+		if (!isDatabricksAuthorizePrompt(new URL(oauthPage.url()))) {
+			this.code.logger.log('No Databricks "Authorize as.." prompt; OAuth flow continued without it');
+			return;
+		}
+
+		const continueLink = oauthPage.getByRole('link', { name: 'Continue', exact: true });
+		await expect(continueLink).toBeVisible({ timeout: 15000 });
+		await continueLink.click();
+		this.code.logger.log('Confirmed Databricks "Authorize as.." prompt');
+
+		try {
+			await oauthPage.waitForURL(isWorkbenchCallback, { timeout: 15000 });
+		} catch {
+			// The tab often closes itself the moment the callback lands, which cancels the wait.
+			// Defer to the caller's credential-widget check rather than failing here.
+			this.code.logger.log('Did not observe the OAuth callback after confirming; deferring to widget check');
+		}
 	}
 
 	/**
