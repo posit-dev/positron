@@ -748,12 +748,14 @@ export class PlaywrightDriver {
 		return this.evaluateWithDriver(([driver]) => driver.whenWorkbenchRestored());
 	}
 
+	// --- Start Positron ---
 	async executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T> {
 		return this.page.evaluate(
 			([driver, id, args]) => driver.executeCommand<T>(id, ...args),
 			[await this.getDriverHandle(), id, args] as const
 		);
 	}
+	// --- End Positron ---
 
 	private async getDriverHandle(): Promise<playwright.JSHandle<IWindowDriver>> {
 		return this.page.evaluateHandle('window.driver');
