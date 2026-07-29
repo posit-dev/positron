@@ -20,29 +20,24 @@ the backend is set by matplotlib.
 from __future__ import annotations
 
 import contextlib
-import io
 import logging
-from binascii import b2a_base64
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 import matplotlib
 import matplotlib.pyplot as plt
-from IPython.core.getipython import get_ipython
 from IPython.display import display
 from matplotlib._pylab_helpers import Gcf
 from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 
-from ..execute_request import PositronExecuteRequest, current_execute_request
-from ..utils import jpeg_pixel_size, png_pixel_size
-from . import formats, selects_module
+from ..execute_request import current_execute_request
+from . import Backend, configure_positron_support, formats
+
+if TYPE_CHECKING:
+    from IPython.core.interactiveshell import InteractiveShell
 
 logger = logging.getLogger(__name__)
-
-# The pixel-size reader for each raster format's metadata. svg scales natively and
-# pdf isn't rendered inline, so neither needs a pixel-size-derived `width`/`height`.
-_PIXEL_SIZE_BY_FORMAT = {"png": png_pixel_size, "jpeg": jpeg_pixel_size}
 
 
 def new_figure_manager(
@@ -69,7 +64,9 @@ def new_figure_manager(
     manager: FigureManagerPositronNotebook = cast(
         "FigureManagerPositronNotebook", FigureCanvasPositronNotebook.new_manager(figure, num)
     )
-    manager.set_execute_request(execute_request)
+    # Set the device pixel ratio to the execute request's value, if provided.
+    if (pixel_ratio := execute_request.output_pixel_ratio) is not None:
+        manager.canvas._set_device_pixel_ratio(pixel_ratio)  # type: ignore  # noqa: SLF001
 
     return manager
 
@@ -91,68 +88,9 @@ class FigureManagerPositronNotebook(FigureManagerBase):
             if Gcf.get_all_fig_managers():
                 plt.close("all")
 
-    def set_execute_request(self, execute_request: PositronExecuteRequest):
-        """Set the current execute request."""
-        self.execute_request = execute_request
-        self.canvas.set_execute_request(execute_request)
-
 
 class FigureCanvasPositronNotebook(FigureCanvasAgg):
     manager_class = FigureManagerPositronNotebook  # type: ignore
-
-    def set_execute_request(self, execute_request: PositronExecuteRequest) -> None:
-        """Set the current execute request."""
-        # Set the device pixel ratio to the execute request's value, if provided.
-        if (pixel_ratio := execute_request.output_pixel_ratio) is not None:
-            self._set_device_pixel_ratio(pixel_ratio)  # type: ignore
-
-
-def _display_figure(
-    fig: Figure, *, format_="png", **print_figure_kwargs
-) -> tuple[str, dict] | None:
-    """Render a figure to its Jupyter display wire format."""
-    # NOTE: This implementation must match `IPython.core.pylabtools.print_figure` otherwise
-    #       users will get different results in Positron vs other notebook editors.
-
-    # Don't display empty figures; mirrors IPython.
-    if not fig.axes and not fig.lines:
-        return None
-
-    # Render the figure to bytes.
-    canvas = fig.canvas
-    kw = {
-        "format": format_,
-        # Must pass `fig.dpi` otherwise `print_figure` renders at a pixel ratio of 1.
-        "dpi": fig.dpi,
-        # Tight bbox mirrors IPython.
-        "bbox_inches": "tight",
-    }
-    # Explicit kwargs (e.g. `set_matplotlib_formats(..., pil_kwargs=...)`) win, matching
-    # upstream's `print_figure`.
-    kw.update(print_figure_kwargs)
-    with io.BytesIO() as figure_buffer:
-        canvas.print_figure(figure_buffer, **kw)
-        data = figure_buffer.getvalue()
-
-    # Decode bytes to string.
-    if format_ == "svg":
-        decoded = data.decode("utf-8")
-    else:
-        decoded = b2a_base64(data, newline=False).decode("ascii")
-
-    # Prepare figure metadata.
-    metadata = {}
-
-    # If the canvas has a custom device pixel ratio, include the intended pixel size in
-    # the metadata. Only raster formats (png, jpeg) support this: svg scales natively,
-    # and pdf isn't rendered inline.
-    pixel_size = _PIXEL_SIZE_BY_FORMAT.get(format_)
-    if pixel_size is not None and (ratio := canvas.device_pixel_ratio) != 1:
-        w, h = pixel_size(data)
-        metadata["width"] = int(w) / ratio
-        metadata["height"] = int(h) / ratio
-
-    return decoded, metadata
 
 
 # Fulfil the matplotlib backend API.
@@ -168,26 +106,8 @@ def _show_figures():
         logger.exception("Error showing figures in post execute hook")
 
 
-# True while this backend's shell hooks are installed, so that repeated activation
-# (e.g. `%matplotlib inline` twice) doesn't register duplicate hooks.
-_active = False
-
-
-def activate() -> None:
-    """Activate the Positron matplotlib notebook backend. Safe to call repeatedly."""
-    global _active
-    if _active:
-        return
-
-    shell = get_ipython()
-    if shell is None:
-        logger.warning("No IPython shell found; matplotlib notebook backend not activated")
-        return
-
-    # I think the only part of enable_matplotlib_integration that we really need
-    # is to set interactive mode and to register the flush hook (below).
-    matplotlib.interactive(True)  # noqa: FBT003
-
+def install(shell: InteractiveShell) -> None:
+    """Install the notebook backend's shell hooks. See `BackendModule`."""
     # Register a hook to show all figures after cell execution.
     shell.events.register("post_execute", _show_figures)
 
@@ -200,32 +120,25 @@ def activate() -> None:
     # instead of IPython's.
     formats.install_set_matplotlib_formats_patch()
 
-    _active = True
 
-
-def deactivate() -> None:
-    """Deactivate the Positron matplotlib notebook backend. Safe to call repeatedly."""
-    global _active
-    _active = False
-
-    shell = get_ipython()
-    if shell is None:
-        logger.warning("No IPython shell found; matplotlib notebook backend not deactivated")
-        return
-
-    # Unregister the post execute hook. Suppress ValueError so that deactivating a
-    # backend that was never activated is a no-op.
+def uninstall(shell: InteractiveShell) -> None:
+    """Remove the notebook backend's shell hooks. See `BackendModule`."""
+    # Suppress ValueError in case user code unregistered the hook itself; a backend
+    # switch shouldn't crash over it.
     with contextlib.suppress(ValueError):
         shell.events.unregister("post_execute", _show_figures)
 
     # Unregister our formatter(s) for matplotlib Figure objects.
     formats.pop_registered_formatters(shell)
 
-    # Undo the `set_matplotlib_formats` patch, unless the console flavor is still active.
     formats.uninstall_set_matplotlib_formats_patch()
 
 
-# If we are the selected backend, activate.
-# This is expected to run when the backend is selected. See the note at the top of the file.
-if selects_module(matplotlib.get_backend(), __name__):
-    activate()
+# If we are the selected backend, activate through the registry, which also tears
+# down the other flavor if it was active. This runs when matplotlib imports the
+# module to switch to it. See the note at the top of the file. `Backend.from_name`
+# matches both spellings, which matters here: matplotlib can still report our short
+# name via `get_backend()` at this point, before it settles into the `module://`
+# spelling.
+if Backend.from_name(matplotlib.get_backend()) is Backend.NOTEBOOK:
+    configure_positron_support(Backend.NOTEBOOK)

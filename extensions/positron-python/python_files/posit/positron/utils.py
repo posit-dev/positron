@@ -11,7 +11,6 @@ import json
 import logging
 import os
 import re
-import struct
 import sys
 import threading
 import urllib.parse
@@ -383,36 +382,3 @@ ansi_escape_re = re.compile(r"\x1b\[[0-9;]*m")
 def strip_ansi(text):
     """Strip ANSI escape sequences from text."""
     return ansi_escape_re.sub("", text)
-
-
-def png_pixel_size(data: bytes) -> tuple[int, int]:
-    """Read the (width, height) from a PNG's IHDR chunk."""
-    ihdr = data.index(b"IHDR")
-    # The next 8 bytes after "IHDR" are the width and height, big-endian.
-    return struct.unpack(">ii", data[ihdr + 4 : ihdr + 12])
-
-
-# SOFn (start of frame) marker bytes that carry a JPEG's height/width. Excludes 0xC4
-# (DHT), 0xC8 (JPG, reserved), and 0xCC (DAC), which share the 0xC0-0xCF range but
-# aren't SOF markers.
-_JPEG_SOF_MARKERS = frozenset(range(0xC0, 0xD0)) - {0xC4, 0xC8, 0xCC}
-# Markers with no length-prefixed payload to skip over: SOI/EOI and the RST markers.
-_JPEG_STANDALONE_MARKERS = frozenset({0xD8, 0xD9, *range(0xD0, 0xD8)})
-
-
-def jpeg_pixel_size(data: bytes) -> tuple[int, int]:
-    """Read the (width, height) from a JPEG's first SOFn (start of frame) segment."""
-    i = 2  # Skip the SOI marker (0xFFD8).
-    while i < len(data) - 1:
-        marker = data[i + 1]
-        i += 2
-        if marker in _JPEG_STANDALONE_MARKERS:
-            continue
-        length = struct.unpack(">H", data[i : i + 2])[0]
-        if marker in _JPEG_SOF_MARKERS:
-            # SOFn payload: 1 byte precision, then height, width, both big-endian.
-            _, height, width = struct.unpack(">BHH", data[i + 2 : i + 7])
-            return width, height
-        # Not a SOF marker; skip its payload and keep scanning.
-        i += length
-    raise ValueError("No SOF marker found in JPEG data")

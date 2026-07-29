@@ -14,16 +14,18 @@ non-Positron backend.
 from __future__ import annotations
 
 import base64
+import io
 from typing import TYPE_CHECKING, Iterator
 
 import matplotlib
 import pytest
+from IPython.core.display import _jpegxy, _pngxy
 from IPython.utils.capture import RichOutput, capture_output
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+from PIL import Image
 
-from positron.matplotlib_backend import formats, notebook
+from positron.matplotlib_backend import Backend, configure_positron_support, formats
 from positron.session_mode import SessionMode
-from positron.utils import jpeg_pixel_size, png_pixel_size
 
 from ..utils import run_with_metadata
 
@@ -48,11 +50,11 @@ def backend(shell: PositronShell) -> Iterator[PositronShell]:
     """A fixture that configures matplotlib to use the Positron notebook backend."""
     prev = matplotlib.get_backend()
     matplotlib.use("module://positron.matplotlib_backend.notebook")
-    notebook.activate()
+    configure_positron_support(Backend.NOTEBOOK)
 
     yield shell
 
-    notebook.deactivate()
+    configure_positron_support(prev)
     matplotlib.use(prev)
 
     # `_selected_formats` is module state that intentionally survives a backend round
@@ -104,14 +106,14 @@ def test_retina_aliases_to_png(backend: PositronShell):
     _set_formats(backend, "set_matplotlib_formats('retina')")
 
     baseline = _plot(meta={"output_pixel_ratio": 1})
-    baseline_w, baseline_h = png_pixel_size(base64.b64decode(baseline.data["image/png"]))
+    baseline_w, baseline_h = _pngxy(base64.b64decode(baseline.data["image/png"]))
 
     ratio = 3
     output = _plot(meta={"output_pixel_ratio": ratio})
 
     assert "image/png" in output.data
     assert "image/jpeg" not in output.data
-    w, h = png_pixel_size(base64.b64decode(output.data["image/png"]))
+    w, h = _pngxy(base64.b64decode(output.data["image/png"]))
     metadata = output.metadata.get("image/png", {})
     # Actual pixels scale with the requested ratio ...
     assert w == pytest.approx(ratio * baseline_w, abs=5)
@@ -129,7 +131,7 @@ def test_jpeg_with_pixel_ratio(backend: PositronShell):
 
     assert "image/jpeg" in output.data
     jpeg = base64.b64decode(output.data["image/jpeg"])
-    w, h = jpeg_pixel_size(jpeg)
+    w, h = _jpegxy(jpeg)
     metadata = output.metadata.get("image/jpeg", {})
     assert metadata["width"] == pytest.approx(w / 2, abs=5)
     assert metadata["height"] == pytest.approx(h / 2, abs=5)
@@ -191,14 +193,30 @@ def test_from_import_binding(backend: PositronShell):
     assert "image/png" not in output.data
 
 
+def test_savefig_facecolor_rcparam_is_ignored(backend: PositronShell):
+    """Inline output uses the figure's own facecolor, not `savefig.facecolor`, matching Jupyter."""
+    try:
+        backend.run_cell(
+            "import matplotlib.pyplot as plt\nplt.rcParams['savefig.facecolor'] = 'red'"
+        ).raise_error()
+        output = _plot()
+        png = base64.b64decode(output.data["image/png"])
+        image = Image.open(io.BytesIO(png)).convert("RGB")
+        # The corner comes from the figure's default facecolor, not the red rcParam.
+        assert image.getpixel((0, 0)) != (255, 0, 0)
+    finally:
+        # rcParams are process-global and shared with the test shell; restore.
+        matplotlib.rcParams["savefig.facecolor"] = matplotlib.rcParamsDefault["savefig.facecolor"]
+
+
 def test_preference_survives_backend_round_trip(backend: PositronShell):
     """A format selection survives deactivating and reactivating the notebook backend."""
     _set_formats(backend, "set_matplotlib_formats('svg')")
 
     # Simulate switching to a non-Positron backend and back (e.g. `%matplotlib qt` then
     # `%matplotlib inline`).
-    notebook.deactivate()
-    notebook.activate()
+    configure_positron_support("agg")
+    configure_positron_support(Backend.NOTEBOOK)
 
     output = _plot()
 

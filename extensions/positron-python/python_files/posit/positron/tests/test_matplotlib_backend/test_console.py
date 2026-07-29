@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import pytest
 from PIL import Image
 
-from positron.matplotlib_backend.console import activate, deactivate
+from positron.matplotlib_backend import Backend, configure_positron_support
 from positron.plot_comm import PlotRenderFormat, PlotSize, PlotUnit
 from positron.plots import PlotsService
 from positron.positron_ipkernel import PositronIPyKernel, _CommTarget
@@ -39,9 +39,9 @@ def setup_positron_matplotlib_backend() -> None:
     # The backend is set in the kernel app, which isn't currently available in our tests,
     # so set it here too.
     matplotlib.use("module://positron.matplotlib_backend.console")
-    activate()
+    configure_positron_support(Backend.CONSOLE)
     yield
-    deactivate()
+    configure_positron_support(prev)
     matplotlib.use(prev)
 
 
@@ -667,25 +667,21 @@ def test_mpl_detect_library_walks_call_stack() -> None:
 
 
 def test_mpl_deactivate_restores_gca() -> None:
-    """`deactivate` restores the original `plt.gca` that `activate` patched over."""
+    """Switching away restores the original `plt.gca` that installation patched over."""
     import matplotlib.pyplot as plt
 
     from positron.matplotlib_backend import console
 
-    # The autouse fixture already activated, installing our redirect.
+    # The autouse fixture activated the console backend, installing our redirect.
     assert console._installed_gca is not None  # noqa: SLF001
     installed_gca = plt.gca
     original_gca = console._original_gca  # noqa: SLF001
 
-    console.deactivate()
+    configure_positron_support("agg")
 
     assert console._installed_gca is None  # noqa: SLF001
     assert plt.gca is original_gca
     assert plt.gca is not installed_gca
-
-    # Re-activate so later tests keep the redirect installed and the fixture's teardown
-    # `deactivate` (a no-op once uninstalled) stays balanced.
-    console.activate()
 
 
 def test_mpl_shutdown(shell: PositronShell, plots_service: PlotsService) -> None:

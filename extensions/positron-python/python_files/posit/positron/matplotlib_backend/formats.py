@@ -13,19 +13,25 @@ dispatching at call time on whichever flavor is currently the active matplotlib
 backend -- see `install_set_matplotlib_formats_patch` for why a shared, call-time
 dispatch is needed instead of one patch per flavor.
 
-NOTE: only ever imported from a flavor's `activate`/`deactivate`, by which point
+NOTE: only ever imported from a flavor's `install`/`uninstall`, by which point
 matplotlib is guaranteed to be importable.
 """
 
 from __future__ import annotations
 
+import contextlib
 import logging
-import sys
+from binascii import b2a_base64
 from functools import partial
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, cast
 
 import matplotlib
+
+# Same private helpers IPython's own retina path uses for identical metadata;
+# stable for 10+ years.
+from IPython.core.display import _jpegxy, _pngxy
 from IPython.core.getipython import get_ipython
+from IPython.core.pylabtools import print_figure
 from matplotlib.figure import Figure
 
 from . import Backend
@@ -50,20 +56,57 @@ _MIME_BY_FORMAT = {
 # The formats IPython's `select_figure_formats` accepts; anything else is a `ValueError`.
 _SUPPORTED_FORMATS = frozenset({"png", "retina", "png2x", "jpg", "jpeg", "svg", "pdf"})
 
-# The formats currently selected; applied on the notebook backend's `activate()` so the
+# The pixel-size reader for each raster format's metadata. svg scales natively and
+# pdf isn't rendered inline, so neither needs a pixel-size-derived `width`/`height`.
+_PIXEL_SIZE_BY_FORMAT = {"png": _pngxy, "jpeg": _jpegxy}
+
+# The formats currently selected; applied on the notebook backend's `install()` so the
 # user's choice survives a round trip through a non-Positron backend (e.g.
 # `%matplotlib qt` then back to `%matplotlib inline`).
 _selected_formats: set[str] = {"png"}
-
-# The (mime type, formatter callable) pairs registered by the last `select_figure_formats`
-# call, so `pop_registered_formatters` pops exactly ours and nothing else.
-_registered: list[tuple[str, Callable]] = []
 
 
 def _formatters(shell: InteractiveShell):
     """The shell's mime-to-formatter mapping, asserting the display formatter exists."""
     assert shell.display_formatter is not None
     return shell.display_formatter.formatters
+
+
+def _display_figure(
+    fig: Figure, *, format_="png", **print_figure_kwargs
+) -> tuple[str, dict] | None:
+    """
+    Render a figure to its Jupyter display wire format.
+
+    Rendering is delegated to `IPython.core.pylabtools.print_figure` -- the function
+    IPython's own inline formatters wrap -- so output matches other Jupyter frontends
+    (empty-figure suppression, kwarg precedence, facecolor handling, dpi). On top of
+    that, Positron attaches the intended logical size as metadata when rendering at a
+    device pixel ratio other than 1.
+    """
+    # `bbox_inches="tight"` is `print_figure`'s own default; deliberately not passed
+    # here so a user-supplied `bbox_inches` in `print_figure_kwargs` can't collide
+    # with a duplicate keyword.
+    data = print_figure(fig, fmt=format_, **print_figure_kwargs)
+    if data is None:
+        # Empty figure: display nothing, mirroring IPython.
+        return None
+
+    # svg comes back as an already-decoded string and scales natively, so it carries
+    # no size metadata; everything else is raw bytes to base64-encode.
+    if format_ == "svg":
+        # `print_figure` returns `str` only for svg; narrowed by the `format_` check above.
+        return cast("str", data), {}
+    decoded = b2a_base64(cast("bytes", data), newline=False).decode("ascii")
+
+    metadata = {}
+    pixel_size = _PIXEL_SIZE_BY_FORMAT.get(format_)
+    if pixel_size is not None and (ratio := fig.canvas.device_pixel_ratio) != 1:
+        w, h = pixel_size(cast("bytes", data))
+        metadata["width"] = int(w) / ratio
+        metadata["height"] = int(h) / ratio
+
+    return decoded, metadata
 
 
 def select_figure_formats(shell: InteractiveShell, formats, **print_figure_kwargs) -> None:
@@ -79,11 +122,6 @@ def select_figure_formats(shell: InteractiveShell, formats, **print_figure_kwarg
     touched, so a typo (e.g. `'bmp'`) leaves a previously working selection in place
     instead of clobbering it.
     """
-    # Imported lazily: `notebook` imports this module at top level, so importing it
-    # back here at module scope would be circular. By call time both modules are
-    # fully loaded.
-    from .notebook import _display_figure
-
     if isinstance(formats, str):
         formats = {formats}
     formats = set(formats)
@@ -99,36 +137,31 @@ def select_figure_formats(shell: InteractiveShell, formats, **print_figure_kwarg
     # before this patch was in place).
     for formatter in _formatters(shell).values():
         formatter.pop(Figure, None)
-    _registered.clear()
 
     for requested in formats:
         normalized = _FORMAT_ALIASES.get(requested, requested)
         mime = _MIME_BY_FORMAT[normalized]
         callable_ = partial(_display_figure, format_=normalized, **print_figure_kwargs)
         _formatters(shell)[mime].for_type(Figure, callable_)
-        _registered.append((mime, callable_))
 
     _selected_formats.clear()
     _selected_formats.update(formats)
 
 
 def apply_selected_formats(shell: InteractiveShell) -> None:
-    """Register the currently selected formats. Called by the notebook backend's `activate`."""
+    """Register the currently selected formats. Called by the notebook backend's `install`."""
     select_figure_formats(shell, _selected_formats)
 
 
 def pop_registered_formatters(shell: InteractiveShell) -> None:
-    """Unregister the formatters `select_figure_formats` registered. Called by `deactivate`."""
-    for mime, callable_ in _registered:
-        formatter = _formatters(shell)[mime]
-        try:
-            if formatter.lookup_by_type(Figure) is callable_:
-                # It's still ours, remove it.
+    """Unregister the formatters `select_figure_formats` registered. Called by `uninstall`."""
+    for formatter in _formatters(shell).values():
+        # `lookup_by_type` raises KeyError if there's no formatter for the type.
+        with contextlib.suppress(KeyError):
+            current = formatter.lookup_by_type(Figure)
+            if isinstance(current, partial) and current.func is _display_figure:
+                # It's still ours (a `partial` binding `_display_figure`), remove it.
                 formatter.pop(Figure)
-        except KeyError:
-            # `lookup_by_type` raises if there's no formatter for the type, nothing to do.
-            pass
-    _registered.clear()
 
 
 # The original and installed `set_matplotlib_formats`, so `uninstall_...` can undo
@@ -142,11 +175,10 @@ def install_set_matplotlib_formats_patch() -> None:
     Patch `matplotlib_inline.backend_inline.set_matplotlib_formats`. Safe to call repeatedly.
 
     The patch is shared by both flavors and dispatches at call time on
-    `matplotlib.get_backend()`, rather than being installed/uninstalled per flavor.
-    `configure_positron_support` iterates flavors in a fixed order, so on e.g. a
-    notebook -> console switch the new flavor's activate runs before the old flavor's
-    deactivate; a per-flavor install/uninstall would have that deactivate unpatch the
-    patch the activate just installed.
+    `matplotlib.get_backend()`, so it stays correct however the active flavor changes
+    between install and call time. Dispatching on the live backend string rather than
+    the registry's state is deliberate: a user can switch backends with a bare
+    `matplotlib.use(...)` that never goes through the registry.
     """
     global _original_set_matplotlib_formats, _installed_set_matplotlib_formats
     if _installed_set_matplotlib_formats is not None:
@@ -184,10 +216,6 @@ def uninstall_set_matplotlib_formats_patch() -> None:
     if _installed_set_matplotlib_formats is None:
         return
 
-    if _any_flavor_active():
-        # Another flavor is still active; leave the shared patch installed for it.
-        return
-
     import matplotlib_inline.backend_inline as backend_inline
 
     # Only restore if our patch is still installed; something else may have patched
@@ -197,14 +225,3 @@ def uninstall_set_matplotlib_formats_patch() -> None:
 
     _original_set_matplotlib_formats = None
     _installed_set_matplotlib_formats = None
-
-
-def _any_flavor_active() -> bool:
-    """Whether either of Positron's matplotlib backend flavors is currently active."""
-    for candidate in Backend:
-        # Only check a module that's already imported: one that was never imported
-        # was never active, and importing it now would self-activate it for nothing.
-        module = sys.modules.get(candidate.module_name)
-        if module is not None and getattr(module, "_active", False):
-            return True
-    return False

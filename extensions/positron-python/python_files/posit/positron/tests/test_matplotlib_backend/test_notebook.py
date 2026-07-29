@@ -10,11 +10,11 @@ from typing import TYPE_CHECKING
 
 import matplotlib
 import pytest
+from IPython.core.display import _pngxy
 from IPython.utils.capture import RichOutput, capture_output
 
-from positron.matplotlib_backend.notebook import activate, deactivate
+from positron.matplotlib_backend import Backend, configure_positron_support
 from positron.session_mode import SessionMode
-from positron.utils import png_pixel_size
 
 from ..utils import run_with_metadata
 
@@ -38,11 +38,11 @@ def backend(shell):
     """A fixture that configures matplotlib to use the Positron notebook backend."""
     prev = matplotlib.get_backend()
     matplotlib.use("module://positron.matplotlib_backend.notebook")
-    activate()
+    configure_positron_support(Backend.NOTEBOOK)
 
     yield NotebookBackendFixture(shell)
 
-    deactivate()
+    configure_positron_support(prev)
     matplotlib.use(prev)
 
 
@@ -66,7 +66,7 @@ class PlotResult:
 
     @property
     def png_pixel_size(self):
-        return png_pixel_size(self.png)
+        return _pngxy(self.png)
 
 
 class NotebookBackendFixture:

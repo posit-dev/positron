@@ -25,14 +25,14 @@ from typing import TYPE_CHECKING, Any, cast
 
 import matplotlib
 import matplotlib.pyplot as plt
-from IPython.core.getipython import get_ipython
 from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 from ..execute_request import PositronExecuteRequest
-from . import formats, selects_module
+from . import Backend, configure_positron_support, formats
 
 if TYPE_CHECKING:
+    from IPython.core.interactiveshell import InteractiveShell
     from matplotlib.figure import Figure
 
     from ..plot_comm import PlotSize
@@ -336,7 +336,7 @@ class FigureCanvasPositron(FigureCanvasAgg):
         return hashlib.sha1(self.buffer_rgba()).hexdigest()
 
 
-# The original and installed `plt.gca`, so `deactivate` can undo our changes.
+# The original and installed `plt.gca`, so `uninstall` can undo our changes.
 _original_gca = None
 _installed_gca = None
 
@@ -405,25 +405,8 @@ FigureCanvas = FigureCanvasPositron
 FigureManager = FigureManagerPositron
 
 
-# True while this backend's shell hooks are installed, so that repeated activation
-# (e.g. `%matplotlib inline` twice) doesn't register duplicate hooks.
-_active = False
-
-
-def activate() -> None:
-    """Activate the Positron matplotlib console backend. Safe to call repeatedly."""
-    global _active
-    if _active:
-        return
-
-    shell = get_ipython()
-    if shell is None:
-        logger.warning("No IPython shell found; matplotlib console backend not activated")
-        return
-
-    # Enable interactive mode (i.e. redraw after every plotting command).
-    matplotlib.interactive(True)  # noqa: FBT003
-
+def install(shell: InteractiveShell) -> None:
+    """Install the console backend's shell hooks. See `BackendModule`."""
     # Detach high-level plotting library figures (e.g. seaborn) so that re-running
     # plotting code starts a fresh figure instead of drawing onto the previous one.
     # See https://github.com/posit-dev/positron/issues/8898.
@@ -435,31 +418,24 @@ def activate() -> None:
     # negotiates its own format via `canvas.render(format_=...)`.
     formats.install_set_matplotlib_formats_patch()
 
-    _active = True
 
-
-def deactivate() -> None:
-    """Deactivate the Positron matplotlib console backend. Safe to call repeatedly."""
-    global _active
-    _active = False
-
-    shell = get_ipython()
-    if shell is None:
-        logger.warning("No IPython shell found; matplotlib console backend not deactivated")
-        return
-
-    # Suppress ValueError so that deactivating a backend that was never activated is a
-    # no-op.
+def uninstall(shell: InteractiveShell) -> None:
+    """Remove the console backend's shell hooks. See `BackendModule`."""
+    # Suppress ValueError in case user code unregistered the hook itself; a backend
+    # switch shouldn't crash over it.
     with contextlib.suppress(ValueError):
         shell.events.unregister("post_execute", _detach_library_figures)
 
     _uninstall_library_gca_redirect()
 
-    # Undo the `set_matplotlib_formats` patch, unless the notebook flavor is still active.
     formats.uninstall_set_matplotlib_formats_patch()
 
 
-# If we are the selected backend, activate.
-# This is expected to run when the backend is selected. See the note at the top of the file.
-if selects_module(matplotlib.get_backend(), __name__):
-    activate()
+# If we are the selected backend, activate through the registry, which also tears
+# down the other flavor if it was active. This runs when matplotlib imports the
+# module to switch to it. See the note at the top of the file. `Backend.from_name`
+# matches both spellings, which matters here: matplotlib can still report our short
+# name via `get_backend()` at this point, before it settles into the `module://`
+# spelling.
+if Backend.from_name(matplotlib.get_backend()) is Backend.CONSOLE:
+    configure_positron_support(Backend.CONSOLE)

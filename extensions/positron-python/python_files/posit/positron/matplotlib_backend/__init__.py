@@ -19,11 +19,18 @@ lazily, and only once they're actually needed.
 from __future__ import annotations
 
 import importlib
-import sys
+import logging
 from enum import Enum
-from typing import Protocol, cast
+from typing import TYPE_CHECKING, Protocol, cast
+
+from IPython.core.getipython import get_ipython
 
 from ..session_mode import SessionMode
+
+if TYPE_CHECKING:
+    from IPython.core.interactiveshell import InteractiveShell
+
+logger = logging.getLogger(__name__)
 
 _MODULE_PREFIX = "module://"
 
@@ -54,7 +61,15 @@ class Backend(Enum):
 
     @classmethod
     def from_name(cls, backend: str) -> Backend | None:
-        """The Positron backend that `backend` selects, or None if `backend` isn't ours."""
+        """
+        The Positron backend that `backend` selects, or None if `backend` isn't ours.
+
+        Matches either spelling (short name or `module://` name). That matters at a
+        backend module's self-activation time (see the trailer at the bottom of
+        `console.py`/`notebook.py`): when matplotlib switches to a short name,
+        `matplotlib.get_backend()` at module-import time can still report the short
+        name rather than the `module://` spelling it eventually settles into.
+        """
         # Short names are case-insensitive in matplotlib's registry; `module://` names
         # aren't, since everything after the prefix is an importable module path.
         normalized = backend if backend.startswith(_MODULE_PREFIX) else backend.lower()
@@ -92,24 +107,18 @@ class Backend(Enum):
 
 
 class BackendModule(Protocol):
-    """The lifecycle that each Positron matplotlib backend module implements."""
-
-    def activate(self) -> None: ...
-
-    def deactivate(self) -> None: ...
-
-
-def selects_module(backend: str, module_name: str) -> bool:
     """
-    Whether `backend` selects the Positron backend module `module_name`.
+    The hooks each Positron backend module implements.
 
-    True for the module's own `module://` name and its short name. Checking the short
-    name matters at self-activation time: when matplotlib switches to a short name,
-    `matplotlib.get_backend()` at module-import time can still report the short name
-    rather than the `module://` spelling it eventually settles into.
+    Called only by `configure_positron_support`, which owns activation state and
+    guarantees pairing and ordering: the previously active backend is uninstalled
+    before the next one is installed. `install` and `uninstall` are therefore not
+    idempotent and hold no activation state of their own.
     """
-    candidate = Backend.from_name(backend)
-    return candidate is not None and candidate.module_name == module_name
+
+    def install(self, shell: InteractiveShell) -> None: ...
+
+    def uninstall(self, shell: InteractiveShell) -> None: ...
 
 
 def register_with_legacy_ipython() -> None:
@@ -144,21 +153,42 @@ def _get_backend_registry():
         return None
 
 
-def configure_positron_support(backend: str) -> None:
+# The Positron backend whose hooks are currently installed. Owned exclusively by
+# `configure_positron_support`; backend modules hold no activation state of their own.
+_active_backend: Backend | None = None
+
+
+def configure_positron_support(backend: str | Backend) -> None:
     """
     Activate or deactivate Positron's matplotlib backend for a switch to `backend`.
 
     Mirrors `matplotlib_inline.backend_inline.configure_inline_support`, the de facto
     IPython interface for switch-time lifecycle: called on every backend switch, and
-    self-dispatching on whether the new backend is its own. Activating installs the
-    backend's shell hooks; deactivating removes them, so switching to another backend
-    (`%matplotlib qt`) no longer leaves them behind.
+    self-dispatching on whether the new backend is its own.
+
+    Sole owner of activation state: the previously active backend's hooks are
+    uninstalled before the new backend's are installed, and a switch to the already
+    active backend is a no-op.
     """
-    target = Backend.from_name(backend)
-    for candidate in Backend:
-        if candidate is target:
-            candidate.import_module().activate()
-        elif candidate.module_name in sys.modules:
-            # Only deactivate a module that's already imported. Importing one just to
-            # deactivate it would pull in matplotlib and self-activate for nothing.
-            candidate.import_module().deactivate()
+    global _active_backend
+
+    target = backend if isinstance(backend, Backend) else Backend.from_name(backend)
+    if target is _active_backend:
+        return
+
+    shell = get_ipython()
+    if shell is None:
+        logger.warning("No IPython shell found; Positron matplotlib support not configured")
+        return
+
+    if _active_backend is not None:
+        _active_backend.import_module().uninstall(shell)
+        _active_backend = None
+
+    if target is not None:
+        # Enable interactive mode (i.e. redraw after every plotting command).
+        import matplotlib
+
+        matplotlib.interactive(True)  # noqa: FBT003
+        target.import_module().install(shell)
+        _active_backend = target

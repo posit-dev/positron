@@ -9,8 +9,8 @@ Exercises `PositronShell.enable_matplotlib`: bare `%matplotlib` and `%matplotlib
 keep the session's own Positron backend active, an explicit `positron-console` or
 `positron-notebook` activates that flavor outright (even across session modes), another
 backend tears Positron's hooks down, and switching back restores them. `agg` is the
-"other" backend throughout so the tests run headless. Also covers `selects_module` and
-`Backend`'s name-resolution helpers behind all of this.
+"other" backend throughout so the tests run headless. Also covers `Backend`'s
+name-resolution helper (`from_name`) behind all of this.
 """
 
 from __future__ import annotations
@@ -32,7 +32,6 @@ from positron.matplotlib_backend import (
     console,
     formats,
     notebook,
-    selects_module,
 )
 from positron.session_mode import SessionMode
 
@@ -73,7 +72,7 @@ def _notebook_integration_installed(shell: PositronShell) -> bool:
         # `formats.select_figure_formats`), not the bare function, since it also binds
         # `format_` and any `print_figure_kwargs`.
         current = formatter.lookup_by_type(Figure)
-        return isinstance(current, partial) and current.func is notebook._display_figure  # noqa: SLF001
+        return isinstance(current, partial) and current.func is formats._display_figure  # noqa: SLF001
     return False
 
 
@@ -116,6 +115,12 @@ def notebook_backend(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> I
     yield from _session_with_backend(NOTEBOOK, shell, monkeypatch)
 
 
+@pytest.fixture
+def console_backend(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Iterator[Flavor]:
+    """A console session with Positron's console backend active."""
+    yield from _session_with_backend(CONSOLE, shell, monkeypatch)
+
+
 def _session_with_backend(
     flavor: Flavor, shell: PositronShell, monkeypatch: pytest.MonkeyPatch
 ) -> Iterator[Flavor]:
@@ -132,12 +137,11 @@ def _session_with_backend(
 
     previous_backend = matplotlib.get_backend()
     matplotlib.use(flavor.backend.full_name)
-    flavor.module.activate()
+    matplotlib_backend.configure_positron_support(flavor.backend)
 
     yield flavor
 
-    console.deactivate()
-    notebook.deactivate()
+    matplotlib_backend.configure_positron_support(previous_backend)
     _reset_matplotlib_inline(shell)
     shell.kernel.plots_service.shutdown()
     plt.close("all")
@@ -281,6 +285,44 @@ def test_explicit_short_name_selects_other_flavor_across_modes(
     }
 
 
+def test_console_flavor_in_notebook_session_routes_to_plots_pane(
+    shell: PositronShell,
+    notebook_backend: Flavor,  # noqa: ARG001
+):
+    """
+    In a notebook session, `%matplotlib positron-console` routes figures to the Plots pane.
+
+    The cross-mode switch is a feature: a notebook (or Quarto inline output) session can
+    opt its figures out of inline display and into the Plots pane's comm-based rendering.
+    """
+    shell.run_cell(f"%matplotlib {Backend.CONSOLE.short_name}").raise_error()
+
+    with capture_output() as captured:
+        shell.run_cell("import matplotlib.pyplot as plt\nfig, ax = plt.subplots()").raise_error()
+
+    # The figure opened a plot comm (the Plots pane) instead of displaying inline.
+    assert len(shell.kernel.plots_service._plots) == 1  # noqa: SLF001
+    assert not captured.outputs
+
+
+def test_notebook_flavor_in_console_session_displays_inline(
+    shell: PositronShell,
+    console_backend: Flavor,  # noqa: ARG001
+):
+    """In a console session, `%matplotlib positron-notebook` displays figures inline."""
+    shell.run_cell(f"%matplotlib {Backend.NOTEBOOK.short_name}").raise_error()
+
+    with capture_output() as captured:
+        shell.run_cell(
+            "import matplotlib.pyplot as plt\nfig, ax = plt.subplots()\nax.plot([0, 1], [0, 1])"
+        ).raise_error()
+
+    # The figure displayed inline (as a PNG) instead of opening a plot comm.
+    assert not shell.kernel.plots_service._plots  # noqa: SLF001
+    assert len(captured.outputs) == 1
+    assert captured.outputs[0]._repr_png_() is not None
+
+
 def test_positron_short_names_are_listed_backends(shell: PositronShell):
     """Both of Positron's backends are first-class names, so they show up in `%matplotlib -l`."""
     with capture_output() as captured:
@@ -351,10 +393,10 @@ def test_switching_back_reactivates(shell: PositronShell, positron_backend: Flav
     assert _state(shell, positron_backend) == _positron_active(positron_backend)
 
 
-def test_deactivate_before_activate(shell: PositronShell, positron_backend: Flavor):
-    """Deactivating a backend that was never activated is a no-op, not an error."""
-    positron_backend.module.deactivate()
-    positron_backend.module.deactivate()
+def test_deactivate_twice_is_noop(shell: PositronShell, positron_backend: Flavor):
+    """A second teardown for a non-Positron backend is a no-op, not an error."""
+    matplotlib_backend.configure_positron_support(OTHER_BACKEND_NAME)
+    matplotlib_backend.configure_positron_support(OTHER_BACKEND_NAME)
 
     assert _state(shell, positron_backend) == {
         "backend": positron_backend.backend.full_name,
@@ -420,17 +462,18 @@ def test_set_matplotlib_formats_patch_restored_after_switch(
     assert backend_inline.set_matplotlib_formats is original
 
 
-def test_notebook_to_console_switch_keeps_patch_installed(
+def test_notebook_to_console_switch_reinstalls_patch(
     shell: PositronShell,
     notebook_backend: Flavor,  # noqa: ARG001
 ):
     """
-    A notebook -> console switch runs activate-before-deactivate; the shared patch survives.
+    A notebook -> console switch now uninstalls before installing.
 
-    Pins the call-time-dispatch / shared-uninstall design in
-    `formats.install_set_matplotlib_formats_patch`: a per-flavor install/uninstall would
-    have the console flavor's activate immediately followed by the notebook flavor's
-    deactivate, unpatching the patch the activate just installed.
+    Pins the registry's ordering guarantee: the outgoing flavor's `uninstall` runs
+    before the incoming flavor's `install`, so the shared `set_matplotlib_formats`
+    patch is torn down and reinstalled (a fresh closure) across the switch instead of
+    surviving unchanged as it did under the old activate-before-deactivate ordering.
+    It stays correctly installed and dispatching afterwards.
     """
     import matplotlib_inline.backend_inline as backend_inline
 
@@ -438,33 +481,33 @@ def test_notebook_to_console_switch_keeps_patch_installed(
 
     shell.run_cell(f"%matplotlib {Backend.CONSOLE.short_name}").raise_error()
 
-    assert backend_inline.set_matplotlib_formats is installed_before
+    assert backend_inline.set_matplotlib_formats is not installed_before
     assert backend_inline.set_matplotlib_formats is formats._installed_set_matplotlib_formats  # noqa: SLF001
 
 
-def test_selects_module_recognizes_own_names(flavor: Flavor):
-    """`selects_module` accepts a flavor's own short name and its `module://` name."""
-    assert selects_module(flavor.backend.short_name, flavor.module.__name__)
-    assert selects_module(flavor.backend.full_name, flavor.module.__name__)
+def test_from_name_recognizes_own_names(flavor: Flavor):
+    """`Backend.from_name` accepts a flavor's own short name and its `module://` name."""
+    assert Backend.from_name(flavor.backend.short_name) is flavor.backend
+    assert Backend.from_name(flavor.backend.full_name) is flavor.backend
 
 
-def test_selects_module_rejects_other_names(flavor: Flavor):
-    """`selects_module` rejects the other flavor's names and a foreign backend."""
+def test_from_name_rejects_other_names(flavor: Flavor):
+    """`Backend.from_name` doesn't resolve the other flavor's names to this flavor, or a foreign backend at all."""
     other = _other_flavor(flavor)
 
-    assert not selects_module(other.backend.short_name, flavor.module.__name__)
-    assert not selects_module(other.backend.full_name, flavor.module.__name__)
-    assert not selects_module(OTHER_BACKEND_NAME, flavor.module.__name__)
+    assert Backend.from_name(other.backend.short_name) is not flavor.backend
+    assert Backend.from_name(other.backend.full_name) is not flavor.backend
+    assert Backend.from_name(OTHER_BACKEND_NAME) is None
 
 
-def test_selects_module_short_name_case_insensitive(flavor: Flavor):
+def test_from_name_short_name_case_insensitive(flavor: Flavor):
     """Short names match case-insensitively, like matplotlib's backend registry."""
-    assert selects_module(flavor.backend.short_name.upper(), flavor.module.__name__)
+    assert Backend.from_name(flavor.backend.short_name.upper()) is flavor.backend
 
 
-def test_selects_module_full_name_case_sensitive(flavor: Flavor):
+def test_from_name_full_name_case_sensitive(flavor: Flavor):
     """The path after `module://` is an importable module path, so case matters."""
-    assert not selects_module(f"module://{flavor.module.__name__.upper()}", flavor.module.__name__)
+    assert Backend.from_name(f"module://{flavor.module.__name__.upper()}") is None
 
 
 @pytest.mark.parametrize(
