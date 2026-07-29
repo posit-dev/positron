@@ -265,9 +265,7 @@ export async function searchPyPIVersions(
             return [];
         }
         if (!response.ok) {
-            throw new Error(
-                `Could not look up versions of '${name}' on PyPI (HTTP ${response.status}).`,
-            );
+            throw new Error(`Could not look up versions of '${name}' on PyPI (HTTP ${response.status}).`);
         }
 
         const json = (await response.json()) as { versions?: string[]; files?: PyPIFile[] };
