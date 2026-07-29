@@ -36,6 +36,14 @@ const lmstudio: IPositronLanguageModelSource = {
 	defaults: { baseUrl: 'http://localhost:1234/v1' },
 };
 
+const custom: IPositronLanguageModelSource = {
+	type: PositronLanguageModelType.Chat,
+	provider: { id: 'openai-compatible', displayName: 'Custom Provider', settingName: 'openai-compatible' },
+	supportedOptions: ['apiKey', 'baseUrl', 'protocol'],
+	signedIn: false,
+	defaults: { protocol: 'openai-chat' },
+};
+
 describe('ConnectProviderView', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -148,6 +156,37 @@ describe('ConnectProviderView', () => {
 		await user.type(baseUrlInput, 'http://localhost:4321/v1');
 		await user.click(screen.getByRole('button', { name: 'Connect' }));
 		expect(onAction).toHaveBeenCalledWith(lmstudio, expect.objectContaining({ baseUrl: 'http://localhost:4321/v1' }), 'save');
+	});
+
+	it('renders an API Type dropdown defaulting to OpenAI Chat Completions with its example path', () => {
+		rtl.render(<ConnectProviderView source={custom} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		expect(screen.getByText('OpenAI Chat Completions')).toBeInTheDocument();
+		expect(screen.getByText('/chat/completions')).toBeInTheDocument();
+	});
+
+	it('dispatches the default API type in the saved config', async () => {
+		const onAction = vi.fn().mockResolvedValue(undefined);
+		const user = userEvent.setup();
+		rtl.render(<ConnectProviderView source={custom} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		await user.type(screen.getByLabelText(/api key/i), 'sk-test');
+		await user.click(screen.getByRole('button', { name: 'Connect' }));
+		expect(onAction).toHaveBeenCalledWith(custom, expect.objectContaining({ protocol: 'openai-chat' }), 'save');
+	});
+
+	it('dispatches the API type chosen from the dropdown', async () => {
+		const onAction = vi.fn().mockResolvedValue(undefined);
+		const user = userEvent.setup();
+		rtl.render(<ConnectProviderView source={custom} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		await user.type(screen.getByLabelText(/api key/i), 'sk-test');
+		await user.click(screen.getByText('OpenAI Chat Completions'));
+		await user.click(screen.getByText('Anthropic Messages'));
+		await user.click(screen.getByRole('button', { name: 'Connect' }));
+		expect(onAction).toHaveBeenCalledWith(custom, expect.objectContaining({ protocol: 'anthropic-messages' }), 'save');
+	});
+
+	it('shows no API Type dropdown for a provider without protocol support', () => {
+		rtl.render(<ConnectProviderView source={anthropic} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		expect(screen.queryByText(/openai chat completions/i)).not.toBeInTheDocument();
 	});
 
 	it('shows a spinner and "Connecting..." on the primary button while the sign-in is in flight', async () => {

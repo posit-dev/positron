@@ -3613,6 +3613,13 @@ declare module 'positron' {
 			maxInputTokens?: number;
 			maxOutputTokens?: number;
 			completions?: boolean;
+			/**
+			 * Wire protocol (API type) the provider speaks, e.g. 'openai-chat'
+			 * (Chat Completions) or 'openai-responses' (Responses). Routes custom
+			 * / OpenAI-compatible providers to the right API. Omit to let the
+			 * provider decide.
+			 */
+			protocol?: string;
 			autoconfigure?: LanguageModelAutoconfigure;
 		}
 

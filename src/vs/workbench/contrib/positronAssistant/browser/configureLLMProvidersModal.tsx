@@ -7,11 +7,11 @@
 import './configureLLMProvidersModal.css';
 
 // React.
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
-import { IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../common/interfaces/positronAssistantService.js';
+import { IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
 import { PositronModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { ContentArea } from '../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
@@ -34,6 +34,28 @@ type OnAction = (source: IPositronLanguageModelSource, config: IPositronLanguage
  * to opt in to the in-progress modal. It defaults to `false` (legacy dialog).
  */
 export const NEW_PROVIDER_MODAL_KEY = 'assistant.newProviderModal';
+
+/** Internal id for the in-modal "Add custom provider" draft (view selection only). */
+const CUSTOM_PROVIDER_DRAFT_ID = 'custom-provider-draft';
+
+/**
+ * A blank source for the "Add custom provider" flow. There is no registered
+ * source for a not-yet-created custom provider, so the modal supplies one: an
+ * API-key + base-URL + API-type form. The connect view dispatches `save`; the
+ * companion extension persists it into providers.json, deriving the provider
+ * `type` (client kind) from the chosen protocol.
+ */
+function createCustomProviderDraftSource(): IPositronLanguageModelSource {
+	return {
+		type: PositronLanguageModelType.Chat,
+		provider: {
+			id: CUSTOM_PROVIDER_DRAFT_ID,
+			displayName: localize('positron.configureLLMProvidersModal.customProviderName', "Custom Provider"),
+		},
+		supportedOptions: ['apiKey', 'baseUrl', 'protocol'],
+		defaults: { protocol: 'openai-chat' },
+	};
+}
 
 export const showConfigureLLMProvidersModal = (
 	sources: IPositronLanguageModelSource[],
@@ -92,9 +114,15 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 		},
 	);
 
+	// A blank draft used only for the "Add custom provider" flow, which has no
+	// registered source to select.
+	const customDraftSource = useMemo(() => createCustomProviderDraftSource(), []);
+
 	// The selected provider, always read from the fresh sources. Defensive: if it
-	// ever cannot be resolved while on a detail view, fall back to the list.
-	const selectedSource = sources.find(s => s.provider.id === selectedProviderId);
+	// ever cannot be resolved while on a detail view, fall back to the list. The
+	// custom-provider draft resolves to its synthetic source instead.
+	const selectedSource = sources.find(s => s.provider.id === selectedProviderId)
+		?? (selectedProviderId === CUSTOM_PROVIDER_DRAFT_ID ? customDraftSource : undefined);
 	const activeView = (view === 'connect' || view === 'connected') && !selectedSource ? 'list' : view;
 
 	// A cancel handler reported by the connect view while an OAuth sign-in is in
@@ -132,7 +160,7 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 					<ContentArea>
 						<ProviderList
 							sources={sources}
-							onAddCustomProvider={() => { setSelectedProviderId(undefined); setView('notSupported'); }}
+							onAddCustomProvider={() => { setSelectedProviderId(CUSTOM_PROVIDER_DRAFT_ID); setView('connect'); }}
 							onSelectProvider={source => { setSelectedProviderId(source.provider.id); setView(selectProviderView(source)); }}
 						/>
 					</ContentArea>
