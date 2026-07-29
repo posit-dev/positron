@@ -38,17 +38,14 @@ timeout symptom**, state confidence, and name the missing evidence that would
 classify it ("unresolved timeout, low confidence -- needs the console digest to
 show whether the command fired").
 
-**Reading an Action report.** The batch analyzer uses a coarser list. Translate,
-don't adopt:
+**Reading an Action report.** The batch analyzer uses a coarser list. Only three
+of its categories need translating; every other name it reports is the same
+mechanism above, and carries the owner requirement from the table.
 
-| Action / report category | Here |
+| Action / report says | Read it as |
 |---|---|
-| product regression | product regression |
-| locator drift / stale selector | locator drift |
-| test logic bug | test logic bug |
 | flaky test | race, contention, or isolation -- say which, and whose |
 | test environment issue | isolation / state leakage, or contention |
-| infrastructure issue | infrastructure |
 | timeout | unresolved symptom, not a verdict |
 
 ## The dismissal bar
