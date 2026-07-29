@@ -84,6 +84,14 @@ test.describe('Packages Pane', {
 		});
 
 	test.describe('Help button', { tag: [tags.HELP] }, () => {
+		test.beforeAll(async function ({ runCommand }) {
+			// Session tabs render at the right edge of the console pane, in the same band
+			// where notification toasts stack upward from the bottom of the window. The
+			// package install/uninstall tests above raise those toasts, so maximize the
+			// panel to lift the tabs clear of them.
+			await runCommand('workbench.action.maximizePanel');
+		});
+
 		test('R - Opens package help in Help pane', async function ({ app, r: _r }) {
 			const { packages } = app.workbench;
 

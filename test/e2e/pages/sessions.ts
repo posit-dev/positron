@@ -731,14 +731,19 @@ export class Sessions {
 
 			if (!isSingleSession && sessionId) {
 				const targetTab = this.getSessionTab(sessionId);
+
 				await expect(async () => {
-					// Use force to bypass notification toasts that may overlay the tab. A
-					// toast can also swallow the click outright (it's on top, so the real
-					// tab never receives it) -- verify the tab actually went active instead
-					// of assuming the click landed, and retry if it didn't.
-					await targetTab.click({ force: true });
-					await expect(targetTab).toHaveClass(/tab-button--active/);
-				}, `Select session tab: ${sessionId}`).toPass({ timeout: 10000 });
+					// Toasts render over the session tab bar, and their auto-dismiss timer
+					// is held open while the pointer sits on them -- keep the mouse clear.
+					await this.page.mouse.move(0, 0);
+
+					// No force: let Playwright wait until the tab itself receives the
+					// click, rather than dispatching it into whatever is on top. Inner
+					// timeouts stay well under the outer budget, otherwise the first
+					// attempt consumes it and this never retries.
+					await targetTab.click({ timeout: 5000 });
+					await expect(targetTab).toHaveClass(/tab-button--active/, { timeout: 2000 });
+				}, `Select session tab: ${sessionId}`).toPass({ timeout: 30000 });
 			}
 
 			const metadata = await this.extractMetadataFromDialog(sessionId);
