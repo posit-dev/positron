@@ -3,6 +3,26 @@
 Read this only once a supported diagnosis exists (SKILL step "Reproduce and
 fix"). Save the diagnosis checkpoint first.
 
+## Keep the implementation context small
+
+Implementation, not diagnosis, is where a triage's cost runs away: every turn
+re-reads the whole context, so a dead-end exploration keeps billing for the rest
+of the session.
+
+- **Re-clear.** `--set phase=awaiting-clear`, `/clear`, `--resume <id>` -- at the
+  first context warning, or immediately after the engineer redirects you off an
+  approach. Working-tree edits and the checkpoint both survive, so `git diff`
+  plus `diagnosis.fixApproach` is the whole handoff. Set `phase=implementation`
+  again on resume.
+- **Delegate source reading.** Finding a POM method, selector, command id, or
+  call chain goes to an `Explore` subagent under the cap in the SKILL's
+  root-cause step. Inline `sed`/`grep`/`cat` sweeps and whole-file `Read`s are
+  the largest avoidable line item in this phase.
+- **Keep verification output off the transcript.** Redirect runs to a file or
+  run them in the background and read a summary -- a `--repeat-each` loop is
+  noisy, and streaming full Playwright output into context bills it on every
+  later turn.
+
 ## Prefer a unit-level repro when the mechanism lives below the e2e layer
 
 If the root cause traces into a lower-level module with its own unit-test suite
@@ -27,25 +47,32 @@ race, and it leaves behind a regression test the e2e repro wouldn't. Reach for
 an e2e-project repro when the mechanism is genuinely e2e-layer (a POM race, a
 shared fixture, UI timing).
 
-## Pick a project, easiest first
+## Pick a project from the pattern's environments
 
-Only three projects run in CI. Start at the top; move down only for a specific
-reason (e.g. the pattern's `environment_breakdown` concentrates on one):
+The selected pattern's `environment_breakdown` names the OS/browser combos it
+actually failed on. Pick the cheapest project that covers one of them, and move
+down only for a reason you can state:
 
-1. `e2e-electron` -- desktop app, no extra setup. macOS/Windows/Ubuntu in CI.
-   Try this first unless the test is web-only.
+1. `e2e-electron` -- desktop app, no extra setup. Try this first unless the
+   pattern occurred only in a browser environment.
 2. `e2e-chromium` -- browser against a managed server, no extra setup.
-   debian/sles/opensuse/rhel in CI.
 3. `e2e-workbench` -- browser against a container running Positron + Workbench.
    Requires `npm run pwb` first (add `-- --credentials=<databricks|snowflake|
    azure>` only if the test exercises a managed data-source connection); see
    `docker/environments/wb-local/README.md`.
 
-(`playwright.config.ts` defines others -- `e2e-server`, `e2e-firefox`,
-`e2e-webkit`, `e2e-edge`, `e2e-connect`, `e2e-remote-ssh`, `e2e-remote-wsl`,
-`e2e-jupyter`. Only `e2e-remote-ssh`, `e2e-remote-wsl`, and `e2e-jupyter` run in
-CI, each for narrowly-tagged tests; `e2e-server` isn't run in CI at all -- don't
-default to it.)
+`playwright.config.ts` defines more projects than CI runs, and which ones run
+changes over time -- so don't reproduce on a project from that file without
+first confirming CI exercises it for this test:
+
+```bash
+grep -rnw -- '<project>' .github/workflows/
+```
+
+No match means CI never runs it, so it produced none of the history you are
+triaging: a result there proves nothing either way. Matches only inside a
+narrowly-tagged workflow mean the project runs for that tag set only -- check
+the test carries the tag before using it.
 
 ```bash
 npx playwright test <spec> --project <project> --grep '<test name>'
@@ -82,6 +109,27 @@ worker interleaving you can't force on demand.
 race, evidence is a trend across enough runs, not one data point. **Never
 increase a timeout or add an arbitrary wait as the fix** -- it hides the race,
 contention, or isolation problem instead of closing it.
+
+### When verification is done
+
+The stopping condition is an argument, not a run count -- more repeats never
+convert a local pass into proof, so don't keep adding them hoping for a stronger
+claim. Verification is complete when all three hold:
+
+1. **The fix addresses the diagnosed mechanism.** State which step in
+   `diagnosis.signal` it changes. If you can't name one, the fix is unrelated to
+   what you diagnosed -- go back, don't run it again.
+2. **The forced-mechanism check ran, or you state why it couldn't.** Either the
+   assertion failed before the fix and passes after (step 1 above), or you say
+   plainly which contention you could not recreate locally.
+3. **The local result is reported literally.** "N/N passed locally; the
+   contention that surfaces this in CI wasn't recreated" -- never "confirmed
+   fixed."
+
+Then set the outcome and record the diagnosis. The real trend evidence arrives
+after merge: a later triage of the same test reads it as `fix-holding` or
+`recurred-after-fix`, which is why the block records a prediction rather than a
+result.
 
 ## Environment-specific failures
 

@@ -3,13 +3,13 @@
 Read this when the triage leads to a PR (fix-test / fix-product) or a filed
 issue (file-issue). This skill doesn't open PRs itself.
 
-**`record-diagnosis.js` renders and appends this block for you** from the
-checkpoint `diagnosis` object (`confidence`, `summary`, `targetedFailure`,
-`signal`, `hypothesis`, optional `supersedes`) plus the test title / dashboard
-URL / frequency pulled from history. You don't hand-format it -- this reference
-explains what each field must contain so the saved diagnosis is worth
-rendering, and documents the invariants (immutability, per-test `Test` line)
-that the renderer relies on. Use `--dry-run` to preview before appending.
+**`record-diagnosis.js` renders and appends the block for you** from the
+checkpoint `diagnosis` object plus the test title / dashboard URL / frequency
+pulled from history. **Never hand-write or reconstruct it** -- hand-formatting
+drifts from the renderer, breaks the per-test `Test` line a scorer greps for, and
+leaves `diagnosisBlockRecorded` unset (which gates `phase=done`). Save the fields
+below and use `--dry-run` to preview the exact output. This reference covers what
+each field must contain and the invariants the renderer relies on.
 
 The block lands at the **end** of the PR body, after
 whatever body template the change itself calls for (plain Summary/QA Notes for a
@@ -19,25 +19,27 @@ test-only change; the product PR template for a source fix -- see
 diagnosis block is top of mind). The block is an **immutable snapshot** of the
 root-cause prediction at authoring time, so its accuracy can be scored later.
 
-```
-### E2E Triage Diagnosis
+## Required fields
 
-<details>
-<summary>🟢 <b>High confidence</b> -- <one-line hypothesis summary></summary>
+Saved on the checkpoint under `diagnosis`, validated by `record-diagnosis.js`
+before it renders. These are the rendered fields, not every key on `diagnosis`:
 
-- **Test:** [<full hierarchical test title>](<test_detail_view_url>)
-- **Targeted failure:** <exact surface error/assertion string, e.g. `Test timeout of 120000ms exceeded`>
-- **Signal:** <trace-timeline mechanism observation, not the bare assertion string>
-- **Frequency:** <auto-derived, one clause per branch scoped to the pattern's environments, e.g. "4/4 runs (100%) on feature/x; 5/313 runs (1.6%) on main, ubuntu/electron">
-- **Hypothesis:** <root-cause mechanism -- race / isolation / contention / infra / product-bug>
+| Field | Required | Shape |
+|---|---|---|
+| `confidence` | yes | `high` \| `medium` \| `low` (renders as 🟢 / 🟡 / 🔴 beside the word "confidence", kept in plain text so scoring can grep it) |
+| `summary` | yes | one line, no newlines, not overlong |
+| `targetedFailure` | yes | see below |
+| `signal` | yes | see below |
+| `hypothesis` | yes | race / isolation / contention / infra / product-bug |
+| `supersedes` | only after `recurred-after-fix` | `#123 (hypothesized <one-line>, recurred N times after merge)` |
 
-</details>
-```
+`fixApproach` is also saved on `diagnosis`, by the fix-approach gate, so the
+agreed direction survives the `/clear`. It is checkpoint-only -- neither
+validated nor rendered -- which is why it isn't in the table above. Save it
+anyway.
 
-If prior triage found a merged PR whose fix didn't hold, add a **Supersedes**
-bullet: `Supersedes: #123 (hypothesized <one-line>, recurred N times after
-merge)` so a later reader sees this is attempt #2 without re-running the
-ancestry check.
+The test title, dashboard link, and **Frequency** clause are not yours to write
+-- the renderer pulls them from history so they can't drift from the data.
 
 ## Field notes
 
@@ -55,8 +57,6 @@ ancestry check.
     app behind auth (anonymous fetch 401s) -- that's fine, it's a link for a
     logged-in human. If the field is absent (older API), fall back to the plain
     unlinked title (still no backticks).
-- **Confidence emoji:** 🟢 high, 🟡 medium, 🔴 low. Keep the word "confidence"
-  in plain text next to the emoji so the block stays greppable for scoring.
 - **Targeted failure names the surface error, not the mechanism.** The row from
   the failure table you set out to fix -- the raw assertion/timeout string as CI
   reported it, nothing more -- so a later scorer can tell whether a recurrence
@@ -78,13 +78,5 @@ Do NOT edit the block after merge to record whether the hypothesis was right --
 that rewrites a merged PR description as ground truth arrives late. Outcome
 scoring lives in a separate log keyed by PR number.
 
-To find every PR carrying a diagnosis:
-
-```bash
-gh search prs --repo posit-dev/positron --match body "E2E Triage Diagnosis" \
-  --json number,title,url
-```
-
-When appending to an existing PR, edit the body with
-`gh api repos/<owner>/<repo>/pulls/<n> -X PATCH -F body=@<file>` -- `gh pr edit`
-fails on the Projects-classic GraphQL deprecation.
+Searching for existing blocks, and appending one without the script, are in
+[`script-fallbacks.md`](script-fallbacks.md).
