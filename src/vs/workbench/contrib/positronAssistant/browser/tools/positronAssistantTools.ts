@@ -235,7 +235,7 @@ interface IGetConsoleContentToolInput {
 }
 
 /** Default number of recent console entries returned when the model doesn't ask for a specific count. */
-const DEFAULT_CONSOLE_ENTRY_COUNT = 10;
+const DEFAULT_CONSOLE_ENTRY_COUNT = 5;
 
 const getConsoleContentToolData: IToolData = {
 	id: PositronAssistantToolName.GetConsoleContent,
