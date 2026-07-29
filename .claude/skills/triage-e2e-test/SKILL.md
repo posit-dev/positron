@@ -97,19 +97,24 @@ saved data is invalid, or the branch/test identity changed.
    A non-`none` verdict changes the plan -- read [`references/prior-triage.md`](references/prior-triage.md).
    `open-attempt-in-flight` means stop and point at the open PR.
 6. **Present the failure modes as a table** (never a run-on sentence). The Rate
-   column comes from each pattern's `rates` array, never `count / totalRuns`.
+   column comes from each pattern's `rates` array, never `count / totalRuns`;
+   Last seen renders `lastSeen` as `5d ago (Jul 24)`, or just `today` at 0d.
    Include a "Seen on" column whenever two branches were queried:
 
-   | # | Failure mode | Count | Rate | Environments | Seen on |
-   |---|---|---|---|---|---|
-   | A | `locator.click` timeout: `.codicon-maximize` | 4 | 100% on feature/x | ubuntu/chromium | feature/x only |
-   | B | `toBeVisible()` timeout: `getByLabel('...')` | 3 | 1.9% on main | ubuntu/electron | main only |
+   | # | Failure mode | Count | Rate | Last seen | Environments | Seen on |
+   |---|---|---|---|---|---|---|
+   | A | `locator.click` timeout: `.codicon-maximize` | 4 | 100% on feature/x | 5d ago (Jul 24) | ubuntu/chromium | feature/x only |
+   | B | `toBeVisible()` timeout: `getByLabel('...')` | 3 | 1.9% on main | today | ubuntu/electron | main only |
+
+   Count and Rate are cumulative over the lookback, so they cannot separate an
+   acute burst a merged fix already closed from an ongoing drip. **A pattern whose
+   `daysAgo` is stale next to the others is an already-fixed candidate: say so in
+   your recommendation** instead of steering the engineer there on count alone.
 
 7. **Ask which pattern to prioritize whenever the table has more than one row.**
    Give your own read ("A is dominant at 99% -- start there, or focus on B?")
-   but let the engineer decide; they may know a recent fix made the dominant
-   share stale, or already know which failure they care about. A single pattern
-   needs no choice. Save the selection to the checkpoint (`--set
+   but let the engineer decide; they may already know which failure they care
+   about. A single pattern needs no choice. Save the selection to the checkpoint (`--set
    selectedPattern=A --set phase=pattern-selected`).
 
 ## Investigate the selected pattern
