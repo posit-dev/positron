@@ -27,12 +27,12 @@ only when a stage needs them.
 - Investigate **one** selected pattern at a time; ask which when there's more
   than one. Never fetch evidence for a pattern the engineer didn't select --
   ask first, even to check a side theory about how patterns relate.
-- Fetch **one** representative occurrence first; a second only for one of the
-  five reasons in `references/evidence-escalation.md` -- name which.
+- Fetch **one** representative occurrence first; a second only for a listed
+  reason in `references/evidence-escalation.md` -- name which.
 - Agree the **fix approach** before the first edit, the same way you agree the
   pattern before fetching evidence.
-- Escalate evidence only to answer a concrete question, one escalation-gate line
-  per step (below). Keep large output on disk, not in the conversation.
+- Escalate evidence only to answer a concrete question, one evidence block per
+  step (below). Keep large output on disk, not in the conversation.
 - **Never** increase a timeout or add an arbitrary wait as the fix.
 - **Never** claim a flaky test is fixed on one green run.
 - A previous merged fix must be checked against subsequent failures.
@@ -46,10 +46,7 @@ only when a stage needs them.
 
 ## Scripts
 
-Run from the repo root. All emit **compact JSON to stdout** and write full
-payloads to `<git-common-dir>/triage-e2e-test/<id>/` (shared git dir, so
-`--resume` works from any worktree). They wrap the `e2e-failure-analyzer`
-scripts (no copies). Flags and output contracts:
+Run from the repo root. Flags and output contracts:
 [`scripts/README.md`](scripts/README.md). If a script itself breaks, see
 [`references/script-fallbacks.md`](references/script-fallbacks.md).
 
@@ -59,7 +56,7 @@ scripts (no copies). Flags and output contracts:
 | `find-prior-triage.js` | check whether this spec was triaged before |
 | `fetch-pattern-evidence.js` | pull evidence for one occurrence of the selected pattern |
 | `checkpoint.js` | start / resume / status; `--set phase=X` auto-derives `nextAction` |
-| `record-diagnosis.js` | append the diagnosis block; only writer of `diagnosisBlockRecorded`, so it is what unblocks `phase=done` |
+| `record-diagnosis.js` | append the diagnosis block; it is what unblocks `phase=done` |
 
 ## Start or resume
 
@@ -101,12 +98,9 @@ saved data is invalid, or the branch/test identity changed.
    ```
    A non-`none` verdict changes the plan -- read [`references/prior-triage.md`](references/prior-triage.md).
    `open-attempt-in-flight` means stop and point at the open PR.
-6. **Present the failure modes as a table** (never a run-on sentence). Use each
-   pattern's `rates` array (per branch, scoped to the environments it occurred
-   in) for the Rate column -- never `count / totalRuns`: that blends branches
-   and environments together and can understate a pattern confined to one
-   environment on one branch by 100x. Include a "Seen on" column whenever two
-   branches were queried:
+6. **Present the failure modes as a table** (never a run-on sentence). The Rate
+   column comes from each pattern's `rates` array, never `count / totalRuns`.
+   Include a "Seen on" column whenever two branches were queried:
 
    | # | Failure mode | Count | Rate | Environments | Seen on |
    |---|---|---|---|---|---|
@@ -133,11 +127,11 @@ saved data is invalid, or the branch/test identity changed.
 2. Read the generated `summary.md` (failure, timeline tail, sibling tests,
    error-shaped logs, unresolved questions). **Read only the summary first.**
 3. State the concrete questions that remain. **Before each escalation past the
-   summary, write the gate line:** `Q: <question> | L<n>: <what you will open> |
-   why L<n-1> can't answer it`. Can't fill all three slots -- don't escalate.
-   The ladder, the five valid reasons for a second occurrence, raw-log
-   spelunking, and 403/null handling are in
-   [`references/evidence-escalation.md`](references/evidence-escalation.md).
+   summary, emit the evidence block** (`Question` / `Next artifact` / `Reason`)
+   defined in [`references/evidence-escalation.md`](references/evidence-escalation.md)
+   -- can't fill all three fields, don't escalate. That reference owns the block
+   format, the ladder, the reasons a second occurrence is allowed, raw-log
+   spelunking, and 403/null handling.
 4. Save `phase=evidence-gathered` to the checkpoint.
 
 ## Determine root cause
@@ -148,14 +142,10 @@ the dismissal bar, what each evidence type proves, and the locator-drift
 decision. It is this skill's reasoning contract; `e2e-failure-analyzer`'s rubric
 belongs to the batch Action and is no longer read here.
 
-State: the observed mechanism (citing trace step / log line / screenshot); what
-the evidence rules **in and out**; alternatives ruled out; remaining
-uncertainty; and a fix that could plausibly change the failure rate (a fix that
-couldn't is not a fix -- keep digging).
-
-**Actively try to falsify your leading hypothesis, not just confirm it.** When
-two mechanisms would both explain the symptom, grep the raw logs for evidence
-that separates them.
+State: the observed mechanism (citing trace step / log line / snapshot); what
+the evidence rules **in and out**; the surviving alternatives; and a fix that
+could plausibly change the failure rate (a fix that couldn't is not a fix --
+keep digging).
 
 **Delegate cross-file tracing to an `Explore` subagent** only after the evidence
 names a concrete symbol / selector / event / subsystem. Give it the specific
@@ -183,9 +173,9 @@ evidence, and working-tree edits are all durable on disk, so implementation
 starts from a clean context carrying only the compact diagnosis.
 
 Read [`references/reproduction.md`](references/reproduction.md) now -- it owns
-re-clear discipline, project choice, race verification, and the RED bar **you**
-must hold when `author-vitest-tests` writes a lower-level regression test (that
-skill drives toward green; it does not enforce RED-first).
+when to re-clear again, project choice, race verification, and the RED bar
+**you** must hold when `author-vitest-tests` writes a lower-level regression
+test (that skill drives toward green; it does not enforce RED-first).
 
 ## Record the result and close out
 

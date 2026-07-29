@@ -3,18 +3,37 @@
 `fetch-pattern-evidence.js` gives you Level 1-2 for one occurrence: a compact
 manifest plus a deterministic `summary.md` (failure, timeline tail, sibling
 tests, error-shaped log lines, unresolved questions). **Escalate past the
-summary only to answer a concrete question it raised** -- each level costs more
-context than the last, so stop as soon as the mechanism is clear.
+summary only to answer a concrete question it raised**, and stop as soon as the
+mechanism is clear -- every artifact you open stays in context for every turn
+that follows.
 
 ## The gate
 
-Before **each** step past Level 2, write one line:
+Before **each** step past Level 2, emit the evidence block -- the level and the
+artifact you are about to open as a scannable heading, then three fields:
 
-```
-Q: <the unresolved question> | L<n>: <what you will open> | why L<n-1> can't answer it
+```text
+Evidence Level 4 (Raw logs)
+
+Question:
+Did the execute request ever reach the kernel?
+
+Next artifact:
+Raw logs -- Quarto extension channel and Python kernel log
+
+Reason:
+The timeline records command dispatch but not extension-level execution or
+kernel messages.
 ```
 
-If any of the three slots can't be filled, the escalation isn't justified --
+Name the artifact, not a description of the step -- `(Page snapshot)`,
+`(Timeline)`, `(Raw logs)`, `(Screenshot)`, `(Second occurrence)`; if a step
+opens several, pick the one the question turns on. `Reason` names the gap in the
+evidence you already have -- for a second occurrence, that gap is the listed
+reason you are invoking. The same block goes on every escalation: it is
+structured diagnostic metadata a reader scans, not narration.
+
+If any of the three fields can't be filled, the escalation isn't justified --
 reason from what you already have, or say what you'd need and stop. "To be
 thorough", "to confirm", and "to get more context" are not questions; a question
 names a fact whose two possible values would change the diagnosis.
@@ -26,14 +45,19 @@ names a fact whose two possible values would change the diagnosis.
 2. **Compact processed evidence** (`fetch-pattern-evidence.js` -> `summary.md`)
    -- one representative occurrence for the selected pattern. Read the summary
    only.
-3. **One specific artifact** -- open the full `timelineFile`, a `screenshot`
-   (see the cost note below), the `snapshotFile` (error-context page snapshot),
-   or a source file, only when Level 2 raises a concrete unresolved question.
+3. **One specific artifact** -- open the full `timelineFile`, the `snapshotFile`
+   (error-context page snapshot), or a source file, only when Level 2 raises a
+   concrete unresolved question. **A `screenshot` is the most expensive artifact
+   on the ladder** (~20k tokens, 10-20x a `timelineFile`) and the last to reach
+   for: prefer `snapshotFile`, which is text and says what the DOM actually
+   contained. Open one frame -- the moment of failure, per the manifest -- only
+   for a genuinely visual question (layout, overlay, z-order) the snapshot and
+   timeline cannot answer, write down what you saw, and never re-read it.
 4. **Raw logs** -- read only when the issue depends on sequence/ordering,
    missing output, extension-channel behavior, or process termination -- a
    detail absent from processed evidence (see "raw logs" below).
 5. **Additional occurrence** -- fetch a second **only** for one of these five
-   reasons, and name which one in the gate line:
+   reasons, and name which one in the block's `Reason`:
    1. validate repeatability of the mechanism,
    2. test a race hypothesis,
    3. investigate same-file adjacency,
@@ -45,21 +69,6 @@ names a fact whose two possible values would change the diagnosis.
    second `report_url`). Anything outside these five is not a reason -- a
    retrieval failure (403 / `report_url: null`) is a *substitution* for the
    first occurrence, not an escalation, and doesn't need one.
-
-## Screenshots are the most expensive rung
-
-A screenshot Read costs **~20k tokens** -- 10-20x a `timelineFile` or
-`snapshotFile` -- and it stays in context for every turn that follows, so one
-opened early in a long triage bills many times the read itself.
-
-- **Prefer `snapshotFile`.** It is text, it says what the DOM actually
-  contained, and it answers "was the element there, what covered it" better
-  than a picture does.
-- **Open a screenshot only for a genuinely visual question** -- layout, overlay,
-  z-order, rendering -- that the snapshot and timeline cannot answer.
-- **One frame, and never re-read it.** Take the frame showing the moment of
-  failure (usually `attempt0-frame2`), write down what you saw in a line or two,
-  and work from that description afterwards.
 
 ## Why the summary can't see everything
 
