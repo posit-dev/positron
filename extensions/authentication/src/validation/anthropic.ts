@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { ANTHROPIC_API_VERSION, KEY_VALIDATION_TIMEOUT_MS } from '../constants';
+import { ANTHROPIC_API_VERSION, ANTHROPIC_DEFAULT_BASE_URL, KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 
 class ApiKeyValidationError extends Error {
 	constructor(message: string) {
@@ -15,7 +15,7 @@ class ApiKeyValidationError extends Error {
 }
 
 export async function validateAnthropicApiKey(apiKey: string, config: positron.ai.LanguageModelConfig): Promise<void> {
-	const baseUrl = (config.baseUrl?.trim() || 'https://api.anthropic.com/v1').replace(/\/+$/, '');
+	const baseUrl = (config.baseUrl?.trim() || ANTHROPIC_DEFAULT_BASE_URL).replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
 
 	const controller = new AbortController();

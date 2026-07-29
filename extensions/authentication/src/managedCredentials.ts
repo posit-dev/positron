@@ -29,8 +29,6 @@ export interface EnvVarCredentialConfig {
 	readonly envVar: string;
 	/** Validator function to confirm the env var value for managed credentials. */
 	readonly validator: (value: string) => boolean;
-	/** Optional setting key under `authentication.<key>.credentials` for fallback lookup. */
-	readonly settingKey?: string;
 }
 
 /**
@@ -63,7 +61,6 @@ export const SNOWFLAKE_MANAGED_CREDENTIALS: EnvVarCredentialConfig = {
 	kind: 'env-var',
 	displayName: 'OAuth (Managed)',
 	envVar: 'SNOWFLAKE_HOME',
-	settingKey: 'snowflake',
 	validator: (value: string) => value.includes('posit-workbench'),
 };
 
@@ -72,9 +69,10 @@ export const SNOWFLAKE_MANAGED_CREDENTIALS: EnvVarCredentialConfig = {
  * credential configuration on Posit Workbench.
  */
 export function hasManagedCredentials(
-	credentialConfig: ManagedCredentialConfig
+	credentialConfig: ManagedCredentialConfig,
+	isRunningOnPwb = IS_RUNNING_ON_PWB
 ): boolean {
-	if (!IS_RUNNING_ON_PWB) {
+	if (!isRunningOnPwb) {
 		return false;
 	}
 
@@ -87,16 +85,7 @@ export function hasManagedCredentials(
 			return credentialConfig.validator();
 		}
 		case 'env-var': {
-			let envValue = process.env[credentialConfig.envVar];
-
-			// Also check settings if a setting key is configured
-			if (!envValue && credentialConfig.settingKey) {
-				const settings = vscode.workspace
-					.getConfiguration(`authentication.${credentialConfig.settingKey}`)
-					.get<Record<string, string>>('credentials', {});
-				envValue = settings[credentialConfig.envVar];
-			}
-
+			const envValue = process.env[credentialConfig.envVar];
 			return !!envValue && credentialConfig.validator(envValue);
 		}
 	}

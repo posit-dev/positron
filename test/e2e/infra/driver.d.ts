@@ -43,4 +43,7 @@ export interface IWindowDriver {
 	getLogs(): Promise<ILogFile[]>;
 	whenWorkbenchRestored(): Promise<void>;
 	exitApplication(): Promise<void>;
+	// --- Start Positron ---
+	executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T>;
+	// --- End Positron ---
 }
