@@ -295,6 +295,18 @@ y = 2
 		expect(domNode).toHaveAttribute('data-execution-state', 'completed');
 	});
 
+	it('retains the execution id after the run errors', () => {
+		const { toolbar, domNode } = createToolbar();
+
+		toolbar.setExecutionState(CellExecutionState.Running, 'quarto-exec-err');
+		toolbar.setExecutionState(CellExecutionState.Error, 'quarto-exec-err');
+
+		// A cell that errors still registered a run, so the gate must see it --
+		// otherwise a failing cell reads as a run that never dispatched.
+		expect(domNode).toHaveAttribute('data-execution-id', 'quarto-exec-err');
+		expect(domNode).toHaveAttribute('data-execution-state', 'error');
+	});
+
 	it('records a fresh execution id on a re-run of the same cell', () => {
 		const { toolbar, domNode } = createToolbar();
 

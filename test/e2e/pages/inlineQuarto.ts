@@ -185,6 +185,11 @@ export class InlineQuarto {
 	 * cell's most recent execution id after that run finishes, so an id here is
 	 * durable evidence a run registered -- it does not expire the way the toolbar's
 	 * queued/running button state does.
+	 *
+	 * Document-scoped, not cell-scoped: the toolbar DOM carries no cell identity, so
+	 * a new id proves *some* cell ran, not which one. That is enough here because
+	 * Quarto executes a document's cells one at a time, and the caller goes on to
+	 * wait for output at a specific line anyway.
 	 */
 	private async _recordedExecutionIds(): Promise<string[]> {
 		const toolbars = await this.executedCellToolbar.all();
