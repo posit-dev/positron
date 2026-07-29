@@ -486,7 +486,7 @@ def open_or_update_tracked_bump(
         "--state",
         "open",
         "--json",
-        "number,url,author",
+        "number,url,author,title,body",
     )
     pr = prs[0] if prs else None
 
@@ -510,27 +510,39 @@ def open_or_update_tracked_bump(
     tip = branch_head_sha(branch)
     if tip is None:
         ensure_branch(target_sha, title, branch)
+        branch_changed = True
     else:
         main_tip = main_tip_sha()
-        if branch_submodule_sha(branch) != target_sha or missing_main_tip(tip, main_tip):
+        branch_changed = branch_submodule_sha(branch) != target_sha or missing_main_tip(
+            tip, main_tip
+        )
+        if branch_changed:
             eprint(f"Advancing {branch} to {target_sha}")
             stack_submodule_commit(branch, target_sha, title, tip, main_tip)
+        else:
+            eprint(f"{branch} is already at {target_sha} and up to date with {BASE_BRANCH}. Nothing to advance.")
 
     if pr:
-        gh(
-            "api",
-            "-X",
-            "PATCH",
-            f"repos/{POSITRON_REPO}/pulls/{pr['number']}",
-            "--input",
-            "-",
-            input_obj={"title": title, "body": body},
-        )
-        eprint(f"Updated {pr['url']}")
+        # A branch move already implies new content for the PR (at minimum the
+        # commit list), so only compare title/body against the existing PR when the
+        # branch itself didn't change.
+        if branch_changed or pr["title"] != title or pr["body"] != body:
+            gh(
+                "api",
+                "-X",
+                "PATCH",
+                f"repos/{POSITRON_REPO}/pulls/{pr['number']}",
+                "--input",
+                "-",
+                input_obj={"title": title, "body": body},
+            )
+            eprint(f"Updated PR #{pr['number']}")
+        else:
+            eprint(f"PR #{pr['number']} is already up to date. Nothing to change.")
         print(pr["url"])
         return
 
-    url = gh_json(
+    created = gh_json(
         "api",
         "-X",
         "POST",
@@ -538,9 +550,9 @@ def open_or_update_tracked_bump(
         "--input",
         "-",
         input_obj={"title": title, "head": branch, "base": BASE_BRANCH, "body": body},
-    )["html_url"]
-    eprint(f"Opened {url}")
-    print(url)
+    )
+    eprint(f"Opened PR #{created['number']}")
+    print(created["html_url"])
 
 
 # True when we must refuse: a main bump (`enforce_author`) with an open PR that
