@@ -755,6 +755,28 @@ export class PlaywrightDriver {
 			[await this.getDriverHandle(), id, args] as const
 		);
 	}
+
+	/**
+	 * Whether `window.driver` is present on the page, i.e. whether the smoke-test driver
+	 * (and with it `executeCommand` and the `registerCommandIfSmokeTestDriver` commands)
+	 * is available.
+	 *
+	 * The driver only registers when the app runs with `--enable-smoke-test-driver`, which
+	 * our Electron and browser harnesses pass themselves. The Workbench lane connects to a
+	 * server that Posit Workbench launched, so there is no such flag and no driver -- tests
+	 * that would otherwise use the driver need a UI-based path there. Note that `isAlive()`
+	 * cannot answer this: `evaluateHandle('window.driver')` resolves to an `undefined`
+	 * handle rather than throwing.
+	 */
+	async isDriverAvailable(): Promise<boolean> {
+		try {
+			return await this.page.evaluate(() => Reflect.get(window, 'driver') !== undefined);
+		} catch {
+			// Page navigating or closed; treat the driver as unavailable rather than throwing
+			// from what callers use as a capability probe.
+			return false;
+		}
+	}
 	// --- End Positron ---
 
 	private async getDriverHandle(): Promise<playwright.JSHandle<IWindowDriver>> {

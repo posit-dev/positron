@@ -753,11 +753,19 @@ export class Sessions {
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
 		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
-			// Read the metadata directly from the runtime session service via the
+			// Prefer reading the metadata directly from the runtime session service via the
 			// internal `_positron.session.getMetadata` command (registered in
 			// languageRuntimeActionsForSmokeTests.ts). This avoids selecting the
 			// session tab and scraping the info popup, which is slower and flaky
 			// when notification toasts overlay the tab.
+			//
+			// Both the command and the `executeCommand` bridge it travels over are gated on
+			// `--enable-smoke-test-driver`, which the Workbench lane never has: Posit Workbench
+			// launches the Positron server itself. Scrape the info popup there instead.
+			if (!await this.code.driver.isDriverAvailable()) {
+				return await this.getMetadataFromDialog(sessionId);
+			}
+
 			const metadata = await this.code.driver.executeCommand<SessionMetaData | undefined>(
 				'_positron.session.getMetadata',
 				sessionId
@@ -769,6 +777,64 @@ export class Sessions {
 
 			return metadata;
 		});
+	}
+
+	/**
+	 * Helper: Read session metadata by opening the console session info popup.
+	 *
+	 * Fallback for environments without the smoke-test driver -- see `getMetadata()`. Unlike
+	 * the command-based read this drives the UI, so it has to bring the target session tab to
+	 * the foreground first and dismiss the popup afterwards.
+	 *
+	 * @param sessionId the session ID to get metadata for, otherwise will use the current session
+	 * @returns the metadata of the session
+	 */
+	private async getMetadataFromDialog(sessionId?: string): Promise<SessionMetaData> {
+		// Kept structurally identical to the pre-command implementation (including the
+		// `console.focus()` that getSessionCount() does on the way past), since that is the
+		// version proven against the Workbench lane.
+		const isSingleSession = (await this.getSessionCount()) === 1;
+
+		if (!isSingleSession && sessionId) {
+			const targetTab = this.getSessionTab(sessionId);
+
+			await expect(async () => {
+				// Toasts render over the session tab bar, and their auto-dismiss timer
+				// is held open while the pointer sits on them -- keep the mouse clear.
+				await this.page.mouse.move(0, 0);
+
+				// No force: let Playwright wait until the tab itself receives the
+				// click, rather than dispatching it into whatever is on top. Inner
+				// timeouts stay well under the outer budget, otherwise the first
+				// attempt consumes it and this never retries.
+				await targetTab.click({ timeout: 5000 });
+				await expect(targetTab).toHaveClass(/tab-button--active/, { timeout: 2000 });
+			}, `Select session tab: ${sessionId}`).toPass({ timeout: 30000 });
+		}
+
+		let metadata: SessionMetaData | undefined;
+
+		await expect(async () => {
+			await this.openMetadataDialog(sessionId);
+			const [name, id, state, path, source] = await Promise.all([
+				this.metadataDialog.getByTestId('session-name').textContent(),
+				this.metadataDialog.getByTestId('session-id').textContent(),
+				this.metadataDialog.getByTestId('session-state').textContent(),
+				this.metadataDialog.getByTestId('session-path').textContent(),
+				this.metadataDialog.getByTestId('session-source').textContent(),
+			]);
+			metadata = {
+				name: (name ?? '').trim(),
+				id: (id ?? '').replace('Session ID: ', ''),
+				state: (state ?? '').replace('State: ', '') as SessionState,
+				path: (path ?? '').replace('Path: ', ''),
+				source: (source ?? '').replace('Source: ', ''),
+			};
+		}, 'Extract session metadata').toPass({ intervals: [500], timeout: 10000 });
+
+		await this.page.keyboard.press('Escape');
+
+		return metadata!;
 	}
 
 	/**
