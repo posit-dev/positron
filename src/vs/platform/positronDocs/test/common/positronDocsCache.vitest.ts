@@ -273,11 +273,18 @@ describe('PositronDocsCache: convergence', () => {
 		await ctx.cache.ensure(request());
 		const before = ctx.files.listUnder(ROOT);
 
+		ctx.advance(5 * 60 * 1000);
 		const second = await ctx.makeCache().ensure(request());
 
 		expect(second?.version).toBe('2026.04.0-100');
 		expect(ctx.files.listUnder(ROOT)).toEqual(before);
 		expect(ctx.logger.infos.join('\n')).toContain('unchanged (304)');
+		// listUnder only compares paths, so it cannot see whether _touchState
+		// ran. Assert the content moved too, or a regression that stopped
+		// touching state would pass unnoticed.
+		const state = JSON.parse(await ctx.files.readFile(`${ROOT}/state.json`));
+		expect(state.resolution).toBe('fallback');
+		expect(state.lastAttemptAt).toBe(1_000_000 + 5 * 60 * 1000);
 	});
 
 	it('replaces the cached bundle when latest moves', async () => {
@@ -398,6 +405,23 @@ describe('PositronDocsCache: single flight', () => {
 		// The one in-session re-attempt the spec allows: an ai.enabled flip.
 		ctx.cache.invalidate();
 		await ctx.cache.ensure(request());
+		expect(ctx.http.headCalls.length).toBeGreaterThan(afterFirst);
+	});
+
+	it('honours invalidate() called while a fetch is in flight', async () => {
+		const ctx = setup();
+		ctx.http.route(EXACT_ZIP, { status: 404 });
+		ctx.http.route(LATEST_ZIP, { status: 404 });
+
+		// An ai.enabled flip can land mid-download. The completing attempt must
+		// not re-arm the session gate and swallow the retry.
+		const inFlight = ctx.cache.ensure(request());
+		ctx.cache.invalidate();
+		await inFlight;
+		const afterFirst = ctx.http.headCalls.length;
+
+		await ctx.cache.ensure(request());
+
 		expect(ctx.http.headCalls.length).toBeGreaterThan(afterFirst);
 	});
 });

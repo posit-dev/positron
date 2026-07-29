@@ -61,6 +61,8 @@ export class PositronDocsCache {
 	private _inFlight: Promise<ILocalDocs | undefined> | undefined;
 	private _attempted = false;
 	private _result: ILocalDocs | undefined;
+	/** Bumped by `invalidate()` so a mid-flight call is not overwritten. */
+	private _generation = 0;
 
 	constructor(private readonly _options: IPositronDocsCacheOptions) { }
 
@@ -76,11 +78,19 @@ export class PositronDocsCache {
 		if (this._inFlight) {
 			return await this._inFlight;
 		}
+		const generation = this._generation;
 		this._inFlight = this._ensureOnce(request);
 		try {
-			this._result = await this._inFlight;
-			this._attempted = true;
-			return this._result;
+			const result = await this._inFlight;
+			// Only close the session gate if no invalidate() landed while this
+			// attempt was in flight. Without the check, an `ai.enabled` flip
+			// during a download would be swallowed by the completing attempt and
+			// the caller would get no retry until the next launch.
+			if (generation === this._generation) {
+				this._result = result;
+				this._attempted = true;
+			}
+			return result;
 		} finally {
 			this._inFlight = undefined;
 		}
@@ -90,10 +100,14 @@ export class PositronDocsCache {
 	 * Permit one more attempt this session. The only caller is the
 	 * `ai.enabled` false-to-true transition, which is the single case the
 	 * design allows to re-attempt without a relaunch.
+	 *
+	 * Safe to call while a fetch is in flight: that attempt still resolves for
+	 * its own callers, but it no longer closes the gate.
 	 */
 	invalidate(): void {
 		this._attempted = false;
 		this._result = undefined;
+		this._generation++;
 	}
 
 	private async _ensureOnce(request: IDocsBundleRequest): Promise<ILocalDocs | undefined> {
@@ -137,7 +151,14 @@ export class PositronDocsCache {
 		// docs version longer than the fallback policy intends.
 		let exactExists = false;
 		try {
-			exactExists = (await http.head(resolved.exact.zipUrl)).status === 200;
+			const status = (await http.head(resolved.exact.zipUrl)).status;
+			exactExists = status === 200;
+			// 404 is the expected "not published yet" answer and stays quiet.
+			// Anything else means the CDN is unhealthy rather than not ready, and
+			// would otherwise fall through to the latest alias with no trace.
+			if (!exactExists && status !== 404) {
+				logger.info(`${LOG_PREFIX} unexpected HTTP ${status} from HEAD ${resolved.exact.zipUrl}`);
+			}
 		} catch (error) {
 			logger.info(`${LOG_PREFIX} exact HEAD failed for ${resolved.exact.zipUrl}: ${errorMessage(error)}`);
 		}
@@ -234,7 +255,16 @@ export class PositronDocsCache {
 			lastAttemptAt: now,
 		});
 		this._options.logger.info(`${LOG_PREFIX} installed ${outcome.manifest.version} from ${target.zipUrl}`);
-		await this._prune(outcome.manifest.version);
+		// Best-effort, for the same reason as _writeState: the bundle is already
+		// on disk and must be served. A readdir or unlink failure here would
+		// otherwise throw out of ensure() and discard a successful install.
+		// Awaited rather than fire-and-forget so the next launch (and the tests)
+		// observe a settled cache directory instead of racing the sweep.
+		try {
+			await this._prune(outcome.manifest.version);
+		} catch (error) {
+			this._options.logger.warn(`${LOG_PREFIX} could not prune the cache directory: ${errorMessage(error)}`);
+		}
 	}
 
 	/**

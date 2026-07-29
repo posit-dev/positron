@@ -46,6 +46,20 @@ describe('validateExtractedBundle', () => {
 		expect(result.ok && result.manifest.version).toBe('2026.05.0-179');
 	});
 
+	it('does not count an empty directory as a file', async () => {
+		// Real extractors materialise explicit directory entries, so an empty
+		// directory inside a bundle is reachable. Counting it as a file would
+		// reject a perfectly good bundle with file-count-mismatch.
+		const files = store({
+			'/c/2026.05.0-179/bundle.json': manifest,
+			'/c/2026.05.0-179/llms.txt': '# Positron\n',
+			'/c/2026.05.0-179/welcome.llms.md': '# Welcome\n',
+		});
+		await files.mkdir('/c/2026.05.0-179/reference');
+
+		expect(await validateExtractedBundle(files, '/c/2026.05.0-179')).toMatchObject({ ok: true });
+	});
+
 	it('rejects a missing bundle.json', async () => {
 		const files = store({ '/c/x/llms.txt': '# Positron\n' });
 		expect(await validateExtractedBundle(files, '/c/x')).toMatchObject({ ok: false, reason: 'missing-manifest' });
