@@ -47,6 +47,7 @@ import { registerProvidersJsonMigration } from './migration/providersJsonUi';
 import { AuthProviderLogger } from './authProviderLogger';
 import { applyPwbPositAIDefault } from './pwbDefaults';
 import {
+	createConfigurationLegacySettingsReader,
 	getCachedProvider,
 	initProviderCatalog,
 	onDidChangeProviderCatalog,
@@ -59,7 +60,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Prime the cached provider catalog before registering providers so
 	// registration callbacks resolve connection config from it synchronously.
-	await initProviderCatalog(context);
+	// The legacy-settings reader keeps this cache in sync with the core catalog
+	// during the providers.json migration window.
+	await initProviderCatalog(context, {
+		legacyPositronSettings: createConfigurationLegacySettingsReader(),
+	});
 
 	await registerAnthropicProvider(context);
 	registerPositAIProvider(context);
