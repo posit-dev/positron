@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, IDisposable } from '../../base/common/lifecycle.js';
-import { CommandsRegistry, ICommandHandler } from '../../platform/commands/common/commands.js';
-import { IWorkbenchEnvironmentService } from '../services/environment/common/environmentService.js';
+import { Disposable, IDisposable } from '../../../base/common/lifecycle.js';
+import { CommandsRegistry, ICommandHandler } from '../../../platform/commands/common/commands.js';
+import { IWorkbenchEnvironmentService } from '../../services/environment/common/environmentService.js';
 
 /**
  * Registers `id` with the command registry, but only when the smoke-test driver
