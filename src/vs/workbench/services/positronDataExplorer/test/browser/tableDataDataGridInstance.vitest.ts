@@ -275,14 +275,18 @@ describe('TableDataDataGridInstance', () => {
 		expect(instance.firstColumn?.width).toBe(CALCULATED_COLUMN_WIDTH);
 	});
 
-	it('leaves the column widths alone when none can be calculated', async () => {
-		// A table with too many columns to auto-size returns no widths. The columns keep the widths
-		// they have -- the default ones on a first load -- rather than being reset to nothing.
-		vi.spyOn(cache, 'calculateColumnWidths').mockResolvedValue(undefined);
-
+	it('keeps the calculated column widths when a later calculation produces none', async () => {
 		instance.setColumnWidthCalculators(columnWidthCalculators());
 		await instance.setVisible(true);
+		expect(instance.firstColumn?.width).toBe(CALCULATED_COLUMN_WIDTH);
 
-		expect(instance.firstColumn?.width).toBe(DEFAULT_COLUMN_WIDTH);
+		// A table that has grown past the auto-size limit returns no widths. The columns keep the
+		// widths they have rather than falling back to the default ones.
+		const calculateColumnWidths = vi.spyOn(cache, 'calculateColumnWidths')
+			.mockResolvedValue(undefined);
+		instance.setColumnWidthCalculators(columnWidthCalculators(WIDER_COLUMN_WIDTH));
+
+		await vi.waitFor(() => expect(calculateColumnWidths).toHaveBeenCalled());
+		expect(instance.firstColumn?.width).toBe(CALCULATED_COLUMN_WIDTH);
 	});
 });

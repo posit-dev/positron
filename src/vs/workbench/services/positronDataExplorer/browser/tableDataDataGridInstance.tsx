@@ -995,13 +995,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * wide dataset that the user may have dismissed.
 	 */
 	private async recalculateColumnWidths(): Promise<void> {
-		// Get the cached backend state for the column count. The initial load populated it, so this
-		// is a guard rather than a real case.
-		const state = this._dataExplorerClientInstance.cachedBackendState;
-		if (!state) {
-			return;
-		}
-
 		// Calculate the column widths.
 		const generation = ++this._columnWidthsGeneration;
 		const columnWidths = await this._tableDataCache.calculateColumnWidths(
@@ -1014,6 +1007,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// the slower one must not win. If the widths could not be calculated, leave the layout
 		// entries as they are.
 		if (generation !== this._columnWidthsGeneration || !columnWidths) {
+			return;
+		}
+
+		// Take the column count from the backend state the calculation itself worked from:
+		// calculateColumnWidths awaits getBackendState, which leaves its result in
+		// cachedBackendState, so reading it here pairs the count with the widths rather than with a
+		// state that may have moved on since. The initial load populated it, so the guard is for
+		// completeness rather than a real case.
+		const state = this._dataExplorerClientInstance.cachedBackendState;
+		if (!state) {
 			return;
 		}
 
