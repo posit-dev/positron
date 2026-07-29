@@ -32,6 +32,15 @@ test.describe('Posit Assistant', {
 			test(`${provider} - Open Posit Assistant and verify welcome page`, async function ({ app }) {
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
+				// Posit Assistant persists client state (including the active
+				// conversation) in a file store shared machine-wide (assistant#1888,
+				// wave-2 conversation substrate), so a fresh Positron instance
+				// restores the last conversation left by ANY earlier suite on the
+				// same runner (e.g. the sign-in suite's "Say hello" chats) instead
+				// of showing the welcome page. Start a fresh conversation first so
+				// the landing page renders deterministically.
+				// See https://github.com/posit-dev/positron/issues/15187
+				await app.workbench.positAssistant.startNewConversation();
 				await app.workbench.positAssistant.expectWelcomeVisible();
 			});
 

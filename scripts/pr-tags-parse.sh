@@ -338,6 +338,10 @@ if [[ -n "$CHANGED_FILES" && -f "$MAP_FILE" ]]; then
 	if [[ -n "$UNMAPPED_DIRS" ]]; then
 		echo "Unmapped Positron dirs touched by this PR (add to test-tag-paths-map.json):"
 		while IFS= read -r d; do [[ -n "$d" ]] && printf '  - %s\n' "$d"; done <<< "$UNMAPPED_DIRS"
+		# An upstream dir surfaces here when it holds a Posit-owned file (see
+		# find_unmapped_positron_dirs' owner-root fallback). Tagging the whole dir
+		# would fire suites on every upstream merge touching it, hence the pairing.
+		echo "  Note: if any dir above is upstream and only Posit-owned files live in it, map it to [] and add a tagged entry per Posit-owned file (longest matching key wins)."
 	fi
 fi
 echo "unmapped_dirs=$(printf '%s' "$UNMAPPED_DIRS" | paste -sd, -)" >> "$GITHUB_OUTPUT"
