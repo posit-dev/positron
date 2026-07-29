@@ -9,8 +9,7 @@ that follows.
 
 ## The gate
 
-Before **each** step past Level 2, emit the evidence block -- the level and the
-artifact you are about to open as a scannable heading, then three fields:
+Before each escalation beyond Level 2, emit an evidence block:
 
 ```text
 Evidence Level 4 (Raw logs)
@@ -19,24 +18,31 @@ Question:
 Did the execute request ever reach the kernel?
 
 Next artifact:
-Raw logs -- Quarto extension channel and Python kernel log
+Quarto extension channel
+Python kernel log
 
 Reason:
 The timeline records command dispatch but not extension-level execution or
 kernel messages.
 ```
 
-Name the artifact, not a description of the step -- `(Page snapshot)`,
-`(Timeline)`, `(Raw logs)`, `(Screenshot)`, `(Second occurrence)`; if a step
-opens several, pick the one the question turns on. `Reason` names the gap in the
-evidence you already have -- for a second occurrence, that gap is the listed
-reason you are invoking. The same block goes on every escalation: it is
-structured diagnostic metadata a reader scans, not narration.
+Use the heading to identify the evidence level and primary artifact category:
+(Page snapshot), (Timeline), (Raw logs), (Screenshot), or
+(Second occurrence). If several artifacts are opened, name the one the
+question depends on.
 
-If any of the three fields can't be filled, the escalation isn't justified --
-reason from what you already have, or say what you'd need and stop. "To be
-thorough", "to confirm", and "to get more context" are not questions; a question
-names a fact whose two possible values would change the diagnosis.
+Reason identifies why the current evidence cannot answer the question. For a
+second occurrence, state the reason that justifies comparing another run.
+
+Emit this block for every escalation beyond Level 2. It is structured
+diagnostic metadata, not narration.
+
+Do not escalate unless all three fields can be completed. Otherwise, reason from
+the current evidence or state what evidence is missing and stop.
+
+“To be thorough”, “to confirm”, and “to get more context” are not valid
+questions. A valid question identifies a fact whose possible answers would
+change the diagnosis.
 
 ## The escalation ladder
 

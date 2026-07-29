@@ -1,6 +1,6 @@
 ---
 name: triage-e2e-test
-description: Triage a specific Positron e2e test that is already failing or flaking in CI. Given a test name, surface its recent distinct failure modes from history, pull evidence for one mode, and reason to a root cause collaboratively with the engineer, landing on a concrete test fix or a product-bug repro. Test-centric counterpart to e2e-failure-analyzer (run-centric). For authoring a brand-new test, use author-e2e-tests.
+description: Triage a specific Positron e2e test that is already failing or flaking in CI. Given a test name, surface its recent distinct failure modes from history, pull evidence for one mode, and reason to a root cause collaboratively with the engineer, landing on a concrete test fix or a product-bug repro. For authoring a brand-new test, use author-e2e-tests.
 disable-model-invocation: true
 ---
 
@@ -16,8 +16,6 @@ only when a stage needs them.
 
 - You picked up a specific e2e test already failing or flaking in CI, and want
   its history and evidence without hunting for the runs by hand.
-- The test must already have CI history. For a brand-new test, use
-  `author-e2e-tests`. For triaging a whole CI run, use `e2e-failure-analyzer`.
 
 ## Non-negotiable rules
 
@@ -139,8 +137,7 @@ saved data is invalid, or the branch/test identity changed.
 This is a collaborative dig, not a rubber-stamped verdict. Read
 [`references/triage-rubric.md`](references/triage-rubric.md) -- the taxonomy,
 the dismissal bar, what each evidence type proves, and the locator-drift
-decision. It is this skill's reasoning contract; `e2e-failure-analyzer`'s rubric
-belongs to the batch Action and is no longer read here.
+decision.
 
 State: the observed mechanism (citing trace step / log line / snapshot); what
 the evidence rules **in and out**; the surviving alternatives; and a fix that
