@@ -22,7 +22,7 @@ root-cause prediction at authoring time, so its accuracy can be scored later.
 ## Required fields
 
 Saved on the checkpoint under `diagnosis`, validated by `record-diagnosis.js`
-before it renders:
+before it renders. These are the rendered fields, not every key on `diagnosis`:
 
 | Field | Required | Shape |
 |---|---|---|
@@ -32,6 +32,11 @@ before it renders:
 | `signal` | yes | see below |
 | `hypothesis` | yes | race / isolation / contention / infra / product-bug |
 | `supersedes` | only after `recurred-after-fix` | `#123 (hypothesized <one-line>, recurred N times after merge)` |
+
+`fixApproach` is also saved on `diagnosis`, by the fix-approach gate, so the
+agreed direction survives the `/clear`. It is checkpoint-only -- neither
+validated nor rendered -- which is why it isn't in the table above. Save it
+anyway.
 
 The test title, dashboard link, and **Frequency** clause are not yours to write
 -- the renderer pulls them from history so they can't drift from the data.

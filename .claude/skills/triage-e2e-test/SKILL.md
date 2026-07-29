@@ -162,8 +162,9 @@ approach. Carry the pick as `diagnosis.fixApproach`.
 Save the diagnosis to the checkpoint (`--patch` a `diagnosis` object) and set
 `phase=hypothesis-ready`. Include the fields `record-diagnosis.js` renders
 (`confidence`, `summary`, `targetedFailure`, `signal`, `hypothesis`, optional
-`supersedes`) -- see [`references/diagnosis-block.md`](references/diagnosis-block.md)
-for what each must contain.
+`supersedes`) **plus `fixApproach` from the gate above** -- see
+[`references/diagnosis-block.md`](references/diagnosis-block.md) for what each
+must contain.
 
 ## Reproduce and fix
 
