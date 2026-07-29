@@ -157,3 +157,25 @@
 	font-size: 12px;
 	color: var(--vscode-descriptionForeground);
 }
+
+.connect-provider-apitype-entry {
+	display: grid;
+	grid-template-columns: [title] max-content [path] 1fr [end];
+	align-items: center;
+	width: 100%;
+}
+
+.connect-provider-apitype-entry > .connect-provider-apitype-title {
+	grid-column: title / path;
+	white-space: nowrap;
+}
+
+.connect-provider-apitype-entry > .connect-provider-apitype-path {
+	grid-column: path / end;
+	margin-left: 0.6em;
+	font-size: 0.9em;
+	opacity: 0.7;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

@@ -14,9 +14,31 @@ import { AuthMethod, AuthStatus } from '../types.js';
 import { deriveAuthMethod, deriveAuthStatus, deriveConnectAction } from '../providerConnection.js';
 import { getProviderGettingStartedText, getProviderTermsOfServiceText, getProviderUsageDisclaimerText } from '../providerLegalText.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
+import { DropDownListBox } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
+import { DropDownListBoxItem } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { LanguageModelIcon } from './languageModelButton.js';
 import { getBaseUrlLabel } from '../providerFieldLabels.js';
 import { ProviderModalFooter } from './providerModalFooter.js';
+
+/**
+ * API types (wire protocols) offered for a custom provider. The form fixes auth
+ * to an API key + base URL, so this lists the protocols whose bridge client runs
+ * on an API key: anthropic-messages (anthropic client) and openai-chat /
+ * openai-responses (openai-compatible client). bedrock-converse and
+ * google-generative are omitted for now (Bedrock needs AWS SigV4; Gemini needs
+ * the `gemini` custom client kind added to ai-config first). The companion
+ * extension derives the provider `type` from the chosen protocol on save. Values
+ * match ai-config's `Protocol` vocabulary.
+ */
+const API_TYPE_ANTHROPIC = 'anthropic-messages';
+const API_TYPE_CHAT = 'openai-chat';
+const API_TYPE_RESPONSES = 'openai-responses';
+
+/** The label and example request path shown for each API type in the dropdown. */
+interface ApiTypeOption {
+	title: string;
+	path: string;
+}
 
 export interface ConnectProviderViewProps {
 	source: IPositronLanguageModelSource;
@@ -43,7 +65,15 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 	const [errorMessage, setErrorMessage] = useState<string>();
 	const [apiKey, setApiKey] = useState<string>(() => props.source.defaults.apiKey ?? '');
 	const [baseUrl, setBaseUrl] = useState<string>(() => props.source.defaults.baseUrl ?? '');
+	const [protocol, setProtocol] = useState<string>(() => props.source.defaults.protocol ?? API_TYPE_CHAT);
 	const supportsBaseUrl = props.source.supportedOptions.includes('baseUrl');
+	const supportsProtocol = props.source.supportedOptions.includes('protocol');
+
+	const apiTypeEntries = [
+		new DropDownListBoxItem<string, ApiTypeOption>({ identifier: API_TYPE_ANTHROPIC, value: { title: localize('positron.connectProvider.apiType.anthropic', "Anthropic Messages"), path: '/v1/messages' } }),
+		new DropDownListBoxItem<string, ApiTypeOption>({ identifier: API_TYPE_CHAT, value: { title: localize('positron.connectProvider.apiType.chat', "OpenAI Chat Completions"), path: '/chat/completions' } }),
+		new DropDownListBoxItem<string, ApiTypeOption>({ identifier: API_TYPE_RESPONSES, value: { title: localize('positron.connectProvider.apiType.responses', "OpenAI Responses"), path: '/responses' } }),
+	];
 
 	const authMethod = deriveAuthMethod(props.source);
 	const authStatus = deriveAuthStatus(props.source, { showProgress: inFlight, apiKey });
@@ -56,6 +86,7 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 				...configRef.current,
 				...(authMethod === AuthMethod.API_KEY ? { apiKey } : {}),
 				...(supportsBaseUrl ? { baseUrl } : {}),
+				...(supportsProtocol ? { protocol } : {}),
 			};
 			await props.onAction(props.source, dispatchConfig, deriveConnectAction(props.source));
 		} catch (e) {
@@ -147,6 +178,21 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 									/>
 								</>
 							}
+							{supportsProtocol &&
+								<>
+									<label className='connect-provider-apikey-label' id='connect-provider-apitype-label'>
+										{localize('positron.connectProvider.apiTypeLabel', "API Type")}
+									</label>
+									<DropDownListBox
+										className='connect-provider-apitype'
+										createItem={item => <ApiTypeEntry option={item.options.value} />}
+										entries={apiTypeEntries}
+										selectedIdentifier={protocol}
+										title={localize('positron.connectProvider.apiTypePlaceholder', "Select API Type")}
+										onSelectionChanged={item => setProtocol(item.options.identifier)}
+									/>
+								</>
+							}
 						</div>
 					}
 					{errorMessage && <ProviderErrorBanner message={errorMessage} />}
@@ -170,6 +216,14 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 		</>
 	);
 };
+
+/** One API-type row: protocol name with its example request path dimmed alongside. */
+const ApiTypeEntry = (props: { option: ApiTypeOption }) => (
+	<div className='connect-provider-apitype-entry'>
+		<span className='connect-provider-apitype-title'>{props.option.title}</span>
+		<span className='connect-provider-apitype-path'>{props.option.path}</span>
+	</div>
+);
 
 export const ConnectProviderHeader = (props: { source: IPositronLanguageModelSource; subtitle?: string }) => (
 	<div className='connect-provider-header'>
