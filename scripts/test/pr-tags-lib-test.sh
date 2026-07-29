@@ -41,7 +41,9 @@ cat > "$MAP" <<'JSON'
   "extensions/positron-python/python_files/posit/positron/data_explorer": ["@:data-explorer"],
   "extensions/positron-python/python_files/posit/positron/variables": ["@:variables"],
   "extensions/positron-python/python_files/posit/positron/_vendor/": [],
-  "src/vs/workbench/contrib/positronTelemetry/": []
+  "src/vs/workbench/contrib/positronTelemetry/": [],
+  "src/vs/workbench/contrib/upstreamThing/": [],
+  "src/vs/workbench/contrib/upstreamThing/browser/positronBit.ts": ["@:welcome"]
 }
 JSON
 
@@ -69,6 +71,13 @@ assert_eq "parent still applies outside the leaf" "@:interpreter,@:console,@:pac
 # Two files, one leaf one parent: union of the winning entry per file.
 assert_eq "leaf + parent union across files" "@:packages-pane,@:interpreter,@:console" \
 	"$(derive_map_tags "$(printf 'extensions/positron-python/src/client/positron/packages/x.ts\nextensions/positron-python/src/client/positron/session.ts')" "$MAP")"
+# An upstream dir carrying a few Posit-owned files is mapped [] so the dir counts
+# as mapped without tagging every upstream change in it; the Positron file gets
+# its own tagged leaf key. Verify both halves of that pairing.
+assert_eq "tagged leaf under an empty upstream parent" "@:welcome" \
+	"$(derive_map_tags "src/vs/workbench/contrib/upstreamThing/browser/positronBit.ts" "$MAP")"
+assert_eq "upstream sibling under the empty parent stays untagged" "" \
+	"$(derive_map_tags "src/vs/workbench/contrib/upstreamThing/browser/other.ts" "$MAP")"
 
 # Three-level layering (parent -> python_files default -> per-feature file leaf).
 # A kernel-side feature file wins with its precise tag, dropping the coarser
