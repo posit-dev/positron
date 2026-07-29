@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import {
-	DOCS_BUNDLE_SCHEMA, DOCS_MAX_DOWNLOAD_BYTES, DOCS_STATE_FILENAME, DocsResolution,
+	DOCS_BUNDLE_SCHEMA, DOCS_FAILURE_THROTTLE_MS, DOCS_MAX_DOWNLOAD_BYTES, DOCS_PRUNE_IDLE_MS,
+	DOCS_STATE_FILENAME, DocsResolution,
 	IDocsBundleManifest, IDocsBundleRequest, IDocsCacheState, IResolvedBundle, IResolvedBundleRequest,
 	parseSha256Sidecar, resolveBundleRequest,
 } from './positronDocsBundle.js';
@@ -57,9 +58,45 @@ function toLocalDocs(path: string, manifest: IDocsBundleManifest, isExactMatch: 
  */
 export class PositronDocsCache {
 
+	private _inFlight: Promise<ILocalDocs | undefined> | undefined;
+	private _attempted = false;
+	private _result: ILocalDocs | undefined;
+
 	constructor(private readonly _options: IPositronDocsCacheOptions) { }
 
+	/**
+	 * Resolve local docs, running at most one fetch at a time and at most one
+	 * attempt per session. Concurrent callers join the in-flight operation
+	 * rather than racing it.
+	 */
 	async ensure(request: IDocsBundleRequest): Promise<ILocalDocs | undefined> {
+		if (this._attempted) {
+			return this._result;
+		}
+		if (this._inFlight) {
+			return await this._inFlight;
+		}
+		this._inFlight = this._ensureOnce(request);
+		try {
+			this._result = await this._inFlight;
+			this._attempted = true;
+			return this._result;
+		} finally {
+			this._inFlight = undefined;
+		}
+	}
+
+	/**
+	 * Permit one more attempt this session. The only caller is the
+	 * `ai.enabled` false-to-true transition, which is the single case the
+	 * design allows to re-attempt without a relaunch.
+	 */
+	invalidate(): void {
+		this._attempted = false;
+		this._result = undefined;
+	}
+
+	private async _ensureOnce(request: IDocsBundleRequest): Promise<ILocalDocs | undefined> {
 		const resolved = resolveBundleRequest(request);
 		const state = await this._readState();
 		const cached = await this._readCached(state, resolved.exact.version);
@@ -69,6 +106,12 @@ export class PositronDocsCache {
 		// would keep an updated app pinned to its predecessor's docs.
 		if (cached && state?.resolution === 'exact' && state.version === resolved.exact.version) {
 			this._options.logger.info(`${LOG_PREFIX} exact cache hit for ${state.version}; no network`);
+			return cached;
+		}
+
+		const lastFailureAt = state?.lastFailureAt;
+		if (lastFailureAt !== undefined && this._options.now() - lastFailureAt < DOCS_FAILURE_THROTTLE_MS) {
+			this._options.logger.info(`${LOG_PREFIX} skipping fetch; a hard failure is still inside the throttle window`);
 			return cached;
 		}
 
@@ -136,6 +179,9 @@ export class PositronDocsCache {
 			return outcome.docs;
 		}
 		this._logOutcome(outcome, resolved.latest);
+		if (outcome.kind === 'failed') {
+			await this._recordFailure(state, request, resolved.exact.version, resolution, outcome.reason);
+		}
 		if (outcome.kind === 'not-modified' && state) {
 			await this._touchState(state, resolution, resolved.exact.version);
 		}
@@ -188,6 +234,7 @@ export class PositronDocsCache {
 			lastAttemptAt: now,
 		});
 		this._options.logger.info(`${LOG_PREFIX} installed ${outcome.manifest.version} from ${target.zipUrl}`);
+		await this._prune(outcome.manifest.version);
 	}
 
 	/**
@@ -295,11 +342,26 @@ export class PositronDocsCache {
 		}
 	}
 
+	/**
+	 * Persist cache state, best-effort.
+	 *
+	 * Swallowing the error is deliberate. State is bookkeeping, not the served
+	 * artefact: losing it costs one redundant fetch next launch. Letting it
+	 * throw would be strictly worse, because the disk errors that break this
+	 * write are the same ones that break a download - so the throw would
+	 * propagate out of `ensure()` and withdraw a perfectly good cached bundle,
+	 * violating the cache-present rule.
+	 */
 	private async _writeState(state: IDocsCacheState): Promise<void> {
-		const { files, newId, rootPath } = this._options;
+		const { files, logger, newId, rootPath } = this._options;
 		const tmp = joinDocsPath(rootPath, `.state-${newId()}.json`);
-		await files.writeFile(tmp, JSON.stringify(state, undefined, '\t'));
-		await files.rename(tmp, joinDocsPath(rootPath, DOCS_STATE_FILENAME));
+		try {
+			await files.writeFile(tmp, JSON.stringify(state, undefined, '\t'));
+			await files.rename(tmp, joinDocsPath(rootPath, DOCS_STATE_FILENAME));
+		} catch (error) {
+			logger.warn(`${LOG_PREFIX} could not persist cache state: ${errorMessage(error)}`);
+			await this._safeDelete(tmp);
+		}
 	}
 
 	/**
@@ -327,6 +389,63 @@ export class PositronDocsCache {
 		// Derived from the running build, not from state.resolution: after an
 		// app update a bundle recorded as `exact` no longer is one.
 		return toLocalDocs(dir, validation.manifest, validation.manifest.version === exactVersion);
+	}
+
+	/**
+	 * Persist a hard failure so the next session honours the throttle.
+	 *
+	 * `lastAttemptAt` records every attempt for diagnostics; `lastFailureAt` is
+	 * the field the throttle reads. Keeping them separate avoids a bug where a
+	 * successful 304 silently suppresses the next convergence check.
+	 */
+	private async _recordFailure(
+		state: IDocsCacheState | undefined,
+		request: IDocsBundleRequest,
+		requestedVersion: string,
+		resolution: DocsResolution,
+		reason: string,
+	): Promise<void> {
+		const now = this._options.now();
+		await this._writeState({
+			schema: DOCS_BUNDLE_SCHEMA,
+			version: state?.version ?? '',
+			requestedVersion,
+			resolution: state?.resolution ?? resolution,
+			profile: request.profile,
+			sha256: state?.sha256 ?? '',
+			etag: state?.etag,
+			sourceUrl: state?.sourceUrl ?? '',
+			fetchedAt: state?.fetchedAt ?? 0,
+			lastAttemptAt: now,
+			lastFailureAt: now,
+			lastError: reason,
+		});
+	}
+
+	/**
+	 * Drop superseded version directories and abandoned transient entries.
+	 *
+	 * The mtime guard is what makes this safe across windows: each window has
+	 * its own extension host, so window A must not delete window B's in-flight
+	 * `.tmp-*` or `.staging-*`. Only entries idle for ten minutes are touched,
+	 * which are by definition leftovers. No lock file needed.
+	 */
+	private async _prune(keepVersion: string): Promise<void> {
+		const { files, now, rootPath } = this._options;
+		const cutoff = now() - DOCS_PRUNE_IDLE_MS;
+		for (const name of await files.readdir(rootPath)) {
+			if (name === DOCS_STATE_FILENAME || name === keepVersion) {
+				continue;
+			}
+			const path = joinDocsPath(rootPath, name);
+			if (name.startsWith('.')) {
+				const mtime = await files.mtime(path);
+				if (mtime === undefined || mtime > cutoff) {
+					continue;
+				}
+			}
+			await this._safeDelete(path);
+		}
 	}
 
 	private async _safeDelete(path: string): Promise<void> {
