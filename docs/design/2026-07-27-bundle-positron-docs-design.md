@@ -64,6 +64,17 @@ not imply a unique digest, because `generated` is wall-clock and the stage is re
 to a client, which verifies a zip against the sidecar it fetched alongside, but recorded so nothing
 downstream treats `version` as a content identity.
 
+Revision 10 (2026-07-29), correcting the launch trigger's anchor. Revisions 1 through 9 fired the
+launch fetch 5 seconds after extension-host *construction*, which is the wrong reference point. The
+delay exists to keep a download from competing with startup, and construction happens before eager
+extensions activate -- so on a cold start with slow interpreter discovery, a construction-anchored 5
+seconds lands in the middle of the burst it was meant to avoid. The trigger now waits for the
+startup-finished moment and then adds 5 seconds, which self-adjusts to the machine instead of guessing
+how long activation takes. That moment is not publicly exposed today, so this adds a third Positron
+block to `extHostExtensionService.ts`, and anchors on upstream's own 10-second-capped race rather than
+the uncapped `_eagerExtensionsActivated` barrier, so a hung eager extension delays the download by a
+bounded amount instead of suppressing it entirely.
+
 ## Goal
 
 Let Positron's AI assistant read product documentation from disk instead of fetching it from
@@ -84,7 +95,7 @@ Further decisions made during design:
 | Spec scope | Step 1 (positron-website slim bundle) and Step 2 (Positron download/cache/advertise). Step 3 (the assistant read path) is out of scope, covered by a handover contract. |
 | Consumers | The AI assistant only. Core UI keeps using web URLs. |
 | Version policy | Release builds fetch their exact version; dailies fetch the newest published bundle. A release build whose exact bundle is not yet published falls back to the newest published bundle and keeps converging to exact. |
-| Trigger | On launch (gated on `ai.enabled`), on `ai.enabled` flipping true, and joined by a first-need call. |
+| Trigger | On launch, 5 seconds after eager extension activation settles (gated on `ai.enabled`); on `ai.enabled` flipping true; and joined by a first-need call. |
 | Placement | Extension-host-resident `positron.docs` API, with all logic in a host-agnostic module behind injected ports. |
 | URL rewriting | Done in the website pipeline, enforced by a CI guard. |
 
@@ -108,8 +119,10 @@ The extension host wins on three counts:
   host. An extHost-resident download lands there, co-located with its consumer. A platform service
   would have two instances (local shared process plus remote server) and would need a rule for which
   one serves the extension host versus core UI.
-- **Merge surface.** One upstream file changes by one line, versus three or four for the platform
-  route. Positron's upstream-compatibility guidance favours the smaller surface.
+- **Merge surface.** Three upstream files change -- two by a single `registerSingleton` line, one by a
+  small wrapped block -- versus the platform route's registrations in `sharedProcessMain.ts` and
+  `serverServices.ts` plus an IPC channel and a main-thread bridge. Positron's upstream-compatibility
+  guidance favours the smaller surface.
 - **The "core might want this later" argument is weaker than it looks.** Help, the welcome page, and
   release notes render HTML. The slim bundle is Markdown with no chrome, so core UI would need the
   full 67MB bundle or a Markdown renderer regardless of where the download lives.
@@ -355,9 +368,10 @@ The seam lives in `platform/`, importable from anywhere, with no DI and no node 
    Derives its inputs (below), owns the triggers, and delegates to the cache.
 
 Registered `Eager` in `extHost.node.services.ts` so the launch trigger has something to fire from,
-but the constructor only installs a `RunOnceScheduler` and the `ai.enabled` listener. It never
-touches the network inline. That is the discipline that keeps a slow download off the activation
-path.
+but the constructor only awaits the startup-finished signal, arms a `RunOnceScheduler` off it, and
+installs the `ai.enabled` listener. It never touches the network inline, and it does not block on the
+signal -- the await is a floating continuation, so construction returns immediately. That is the
+discipline that keeps a slow download off the activation path.
 
 `ExtHostDocsUnsupported` is registered in `extHost.worker.services.ts`.
 
@@ -414,12 +428,24 @@ The new API is purely additive, so none of those call sites carries risk from th
 
 ### Merge surface
 
-Almost everything is new files. Two upstream files change by one `registerSingleton` line each,
-inside `// --- Start Positron ---` markers: `extHost.node.services.ts` and
-`extHost.worker.services.ts`. The rest (`extHost.positron.api.impl.ts`, `positron.d.ts`,
-`product.json`) is already Positron-owned.
+Almost everything is new files. Three upstream files change, all inside `// --- Start Positron ---`
+markers:
 
-Five new source files, four small edits, plus tests.
+- `extHost.node.services.ts` -- one `registerSingleton` line.
+- `extHost.worker.services.ts` -- one `registerSingleton` line.
+- `api/common/extHostExtensionService.ts` -- a `Barrier` field, one `.open()` call inside the existing
+  `Promise.race([eagerExtensionsActivation, timeout(10000)])` continuation in
+  `_handleEagerExtensions()`, and a public `whenStartupFinished()` accessor on
+  `IExtHostExtensionService`. Positron already carries two wrapped blocks in this file (`:518`,
+  `:532`), so it is not a new merge surface, just a slightly wider one.
+
+The rest (`extHost.positron.api.impl.ts`, `positron.d.ts`, `product.json`) is already Positron-owned.
+
+Five new source files, five small edits, plus tests.
+
+The `extHostExtensionService.ts` block is the one piece of this design that could not be done without
+touching upstream. The alternative -- a fixed delay from construction -- needs no upstream change, and
+was rejected for the reasons in "The launch anchor".
 
 ## Behaviour
 
@@ -513,8 +539,8 @@ directory survives until a replacement is safely swapped in.
 
 ### Triggers: three entry points, one operation
 
-1. **Launch.** A `RunOnceScheduler` fires 5 seconds after extension-host construction. Skips entirely
-   if `ai.enabled !== true`.
+1. **Launch.** A `RunOnceScheduler` fires 5 seconds after eager extension activation settles (see
+   "The launch anchor" below). Skips entirely if `ai.enabled !== true`.
 2. **Config flip.** `onDidChangeConfiguration` for `AI_ENABLED_KEY`, false to true.
 3. **First need.** `getLocalDocs()` starts the operation if idle, joins it if in flight, or returns
    the cached result if complete.
@@ -534,6 +560,49 @@ Triggers 1 and 2 have no timeout, since nothing is waiting on them.
 at construction. With `ai.enabled === false`, triggers 1 and 2 never fire and `getLocalDocs()`
 returns `undefined` without touching the network. Cached files are left on disk: 655KB is cheap
 enough that deleting them, only to re-download on toggle-back, is not worth it.
+
+### The launch anchor
+
+The launch delay exists to keep the download from **competing** with startup for disk, CPU, and
+network. It is not there to avoid blocking a constructor -- that is handled by doing no work in the
+constructor at all. Getting the anchor right therefore means anchoring on when the contention ends,
+not on a fixed early point.
+
+Two candidate reference points, several seconds apart on a cold start:
+
+- **Extension-host construction** -- the moment our service object is created. Nothing has been
+  discovered yet: no extension has run a line of its own code, the workspace is unscanned, interpreter
+  discovery has not started. A fixed 5 seconds from here is a *guess* about how long the activation
+  burst takes. On a fast machine with a small workspace it clears the burst; on a cold start with a
+  large repo and slow Python or R discovery it lands squarely inside it, and the delay has bought
+  nothing.
+- **Startup finished** -- after eager extensions (`*`, `workspaceContains:`, remote resolver) have had
+  their `activate()` calls settle. This is a *semantic* point rather than a guess, so 5 seconds past it
+  self-adjusts: slower machines fire later, faster ones earlier, but neither fires during the burst.
+
+**We anchor on startup finished, plus 5 seconds.**
+
+Upstream already computes this moment in `_handleEagerExtensions()`
+(`api/common/extHostExtensionService.ts:688`), where it races eager activation against a 10-second
+timeout and then fires `onStartupFinished`. It is not exposed to other extension-host services, so
+Positron adds a barrier opened at that same point and a public accessor to await it. See "Merge
+surface".
+
+**Anchor on the capped race, not the `_eagerExtensionsActivated` barrier.** The existing barrier
+(`:834`) opens off the *un-raced* activation promise, so awaiting it is unbounded -- a single eager
+extension that never finishes activating would suppress the docs download entirely, for the whole
+session. Upstream's 10-second race is the bounded form of the same moment, so worst case the fetch is
+delayed by roughly 15 seconds rather than lost. The two differ only when something is already wrong,
+which is exactly when the download should still happen.
+
+**The delay costs almost nothing on the read side**, because trigger 3 covers the window: a user who
+asks a docs question before the scheduler fires does not wait for it, and single-flighting means the
+scheduler later joins rather than duplicates. The only case that fetches nothing is a session shorter
+than the anchor plus 5 seconds, which had no docs need anyway.
+
+Reading `onStartupFinished` by calling `activateByEvent('onStartupFinished')` would be wrong: that
+*fires* the event and forces those extensions to activate early, rather than observing when startup
+settled.
 
 ### Self-hosted docs: `POSITRON_DOCS_URL` is a separate knob
 
@@ -719,6 +788,14 @@ Logging goes through the extension-host `ILogService`, prefixed `[positron-docs]
 resolved URL, version, decision (cache hit, 304, downloaded) and timing; warn for validation and
 schema problems; no error level, since nothing here is user-actionable.
 
+**The launch trigger logs how long it waited for its anchor.** Without it, the difference between a
+correctly-anchored fetch and a construction-anchored regression is invisible in the field, since both
+produce the same download line. Upstream already logs `Eager extensions activated` at info
+(`extHostExtensionService.ts:835`), so the two timestamps together show whether the fetch landed after
+the burst. Note they can legitimately disagree: that upstream line comes off the uncapped barrier while
+our anchor is the 10-second-capped race, so on a hung eager extension the fetch is expected to run
+*before* it.
+
 **Where to read it.** The shared extension-host channel in the Output panel, filtered on
 `[positron-docs]`. Its name depends on where the extension host runs, which for this feature means the
 name differs between desktop and Workbench (`extHostLogService.ts:20`):
@@ -792,6 +869,11 @@ pass even if the fallback never worked.
 
 - `ai.enabled === false` at launch: scheduler fires, `ensure()` never called
 - `ai.enabled` false to true: `ensure()` called once
+- the launch scheduler is armed only after the startup-finished signal resolves, and does not fire
+  while that signal is pending. This is the anchor assertion: a construction-anchored regression would
+  fire the scheduler with the signal still outstanding, and nothing else in the suite would notice
+- a startup-finished signal that never resolves leaves `ensure()` uncalled from trigger 1 while
+  `getLocalDocs()` still works, documenting that trigger 3 is the backstop for a wedged anchor
 - `POSITRON_LLMS_DOCS_URL` set: it takes precedence over the `product.json` value, **and `ensure()` is
   still called** with the overridden URL. Asserting the second half is what stops the dropped skip rule
   being reintroduced silently, since URL priority alone passes either way
@@ -863,6 +945,10 @@ placement:
    the remote extension host can read it. **This is the one step with no automated backstop.**
 8. `POSITRON_DOCS_URL` set with the bundle URL left at its default: confirm the fetch still runs and
    local docs still land, since the skip rule is gone.
+9. Cold start on a large workspace with Python and R discovery both running: confirm the
+   `[positron-docs]` fetch line lands after upstream's `Eager extensions activated` line, not during
+   the burst. This is the anchor check, and it needs a slow real startup -- the unit test proves the
+   scheduler is armed off the signal, but only a real cold start shows the ordering that motivated it.
 
 **Step 5's local server must host the sidecars too.** For every `<name>.zip` it serves it needs a
 `<name>.zip.sha256sum` next to it, containing that zip's hex digest -- the same naming as Step 1's

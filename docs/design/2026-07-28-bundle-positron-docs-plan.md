@@ -55,9 +55,10 @@ Every task's requirements implicitly include this section.
 - **Wide-interface partial stubs** use `stubInterface<T>(overrides)` from
   `src/vs/test/vitest/stubInterface.ts`, never `{...} as unknown as T`.
 - **Upstream edits** are wrapped in `// --- Start Positron ---` / `// --- End Positron ---` with a
-  one-line reason. Only two upstream files change in this plan:
-  `src/vs/workbench/api/node/extHost.node.services.ts` and
-  `src/vs/workbench/api/worker/extHost.worker.services.ts`.
+  one-line reason. Three upstream files change in this plan:
+  `src/vs/workbench/api/node/extHost.node.services.ts`,
+  `src/vs/workbench/api/worker/extHost.worker.services.ts`, and
+  `src/vs/workbench/api/common/extHostExtensionService.ts` (the startup-finished signal, Task 11a).
 - **Prefer `async`/`await` over `.then()`** (Positron team convention). Where a constructor needs an
   async subscription, call a named private `async` helper and ignore its promise deliberately.
 - **Commit staging:** never `git add -A` in this worktree (a `node_modules` symlink gets tracked).
@@ -107,6 +108,7 @@ Every task's requirements implicitly include this section.
 | `product.json` (modify) | Ship the default CDN base. |
 | `src/positron-dts/positron.d.ts` (modify) | Declare `namespace docs`. |
 | `src/vs/workbench/api/common/positron/extHostDocs.ts` (create) | `IExtHostDocs` decorator + interface + `WorkerExtHostDocs`. |
+| `src/vs/workbench/api/common/extHostExtensionService.ts` (modify) | `Barrier` + `whenStartupFinished()`, opened at upstream's capped startup-finished point. |
 | `src/vs/workbench/api/node/positron/extHostDocsNode.ts` (create) | `NodeExtHostDocs`: real port adapters, input derivation, triggers. |
 | `src/vs/workbench/api/worker/extHost.worker.services.ts` (modify) | One `registerSingleton` line. |
 | `src/vs/workbench/api/node/extHost.node.services.ts` (modify) | One `registerSingleton` line. |
@@ -2833,8 +2835,9 @@ git push -u origin mi/bundle-docs
 
 # Part C: the extension-host wiring (Positron PR 2b)
 
-Small enough to review as a diff. Two upstream files change by one `registerSingleton` line each;
-everything else is new or Positron-owned.
+Small enough to review as a diff. Three upstream files change: two by one `registerSingleton` line
+each, and `api/common/extHostExtensionService.ts` by a small wrapped block (Task 11a). Everything else
+is new or Positron-owned.
 
 **Build daemons are needed from here on.** Start them before Task 8 and leave them running:
 
@@ -3528,7 +3531,8 @@ At the end of `src/vs/workbench/api/node/extHost.node.services.ts` (after line 5
 
 // --- Start Positron ---
 // Eager so the launch trigger has something to fire from. The constructor only
-// installs a scheduler and a config listener; it never touches the network.
+// arms a scheduler off the startup-finished signal and installs a config
+// listener; it never touches the network.
 registerSingleton(IExtHostDocs, NodeExtHostDocs, InstantiationType.Eager);
 // --- End Positron ---
 ```
@@ -3562,6 +3566,111 @@ Expected: `build-check` clean, grep silent.
 
 ---
 
+### Task 11a: Publish the startup-finished signal (upstream edit)
+
+**Files:**
+- Modify: `src/vs/workbench/api/common/extHostExtensionService.ts`
+
+**Interfaces:**
+- Produces, relied on by Task 12: `AbstractExtHostExtensionService.whenStartupFinished(): Promise<void>`
+
+The launch trigger fires 5 seconds after eager extension activation settles, not 5 seconds after
+construction (design spec, "The launch anchor"). Upstream computes that moment but does not expose it,
+so this task publishes it.
+
+**Why not the existing `_eagerExtensionsActivated` barrier.** It opens off the *un-raced* activation
+promise (`:832-834`), so awaiting it is unbounded: one eager extension that never finishes activating
+would suppress the docs download for the whole session. `_handleEagerExtensions()` already races the
+same activation against `timeout(10000)` to fire `onStartupFinished` (`:699`), which is the bounded form
+of the same moment. Open the new barrier there.
+
+**Why a new barrier rather than reusing the race promise.** The race is a fire-and-forget continuation
+with no reference kept. A barrier is the idiom already used in this file for one-shot startup points and
+is safe to await after the fact.
+
+Positron already carries two wrapped blocks in this file (`:518`, `:532`), so this widens an existing
+merge surface rather than opening a new one.
+
+- [ ] **Step 1: Add the barrier field**
+
+Next to the existing barrier declarations (`:105-108`):
+
+```ts
+	// --- Start Positron ---
+	// Opened at the same 10-second-capped point upstream fires onStartupFinished,
+	// so background work can defer until the activation burst has drained.
+	private readonly _positronStartupFinished: Barrier;
+	// --- End Positron ---
+```
+
+And initialise it alongside the others (`:157-160`):
+
+```ts
+		// --- Start Positron ---
+		this._positronStartupFinished = new Barrier();
+		// --- End Positron ---
+```
+
+`Barrier` is already imported at `:10`, so no import change.
+
+- [ ] **Step 2: Open it at the capped startup-finished point**
+
+In `_handleEagerExtensions()` (`:699-701`), inside the existing continuation:
+
+```ts
+		Promise.race([eagerExtensionsActivation, timeout(10000)]).then(() => {
+			this._activateAllStartupFinished();
+			// --- Start Positron ---
+			// Positron: see whenStartupFinished(). Opened here rather than off
+			// _eagerExtensionsActivated because that barrier waits on the uncapped
+			// activation promise, and a hung eager extension must delay dependent
+			// background work rather than suppress it.
+			this._positronStartupFinished.open();
+			// --- End Positron ---
+		});
+```
+
+- [ ] **Step 3: Add the public accessor**
+
+As a public method on `AbstractExtHostExtensionService`. **No edit to the `IExtHostExtensionService`
+interface block is needed** -- it is declared `extends AbstractExtHostExtensionService` (`:1178`), so
+public members flow through automatically.
+
+```ts
+	// --- Start Positron ---
+	/**
+	 * Resolves once eager extension activation has settled, at the same point
+	 * upstream fires `onStartupFinished`. Capped at 10 seconds, so a hung eager
+	 * extension delays this rather than never resolving it. Background work that
+	 * must not compete with startup waits on this instead of guessing a delay
+	 * from construction time.
+	 */
+	public async whenStartupFinished(): Promise<void> {
+		await this._positronStartupFinished.wait();
+	}
+	// --- End Positron ---
+```
+
+`Barrier.wait()` returns `Promise<boolean>`, hence the `await` rather than returning it directly.
+
+- [ ] **Step 4: Verify and commit**
+
+No test in this task: the barrier is asserted through Task 12's trigger tests, which inject their own
+signal. There is no unit-test seam for `_handleEagerExtensions()` that does not require booting an
+extension host, and the ordering it produces is covered by manual validation step 9.
+
+```bash
+npm run build-check
+npx eslint --max-warnings 0 src/vs/workbench/api/common/extHostExtensionService.ts
+npm run precommit -- src/vs/workbench/api/common/extHostExtensionService.ts
+git add src/vs/workbench/api/common/extHostExtensionService.ts
+git commit -m "Publish the extension-host startup-finished moment as an awaitable signal"
+```
+
+Expected: `build-check` clean.
+
+---
+
 ### Task 12: Triggers, gating, and the bounded wait
 
 **Files:**
@@ -3569,6 +3678,10 @@ Expected: `build-check` clean, grep silent.
 - Create: `src/vs/platform/positronDocs/test/common/positronDocsTriggers.vitest.ts`
 - Modify: `src/vs/platform/positronDocs/common/positronDocsCache.ts` (add `peek`)
 - Modify: `src/vs/workbench/api/node/positron/extHostDocsNode.ts`
+- Modify: `src/vs/workbench/api/test/node/positron/extHostDocsNode.vitest.ts` (Step 6b: new
+  constructor argument, plus the launch-anchor cases)
+
+**Depends on Task 11a** for `whenStartupFinished()`.
 
 **Interfaces:**
 - Produces, relied on by Task 13:
@@ -3577,9 +3690,9 @@ Expected: `build-check` clean, grep silent.
   - `class PositronDocsTriggers { runBackgroundFetch(); getLocalDocs(); onAiEnabledFlippedTrue() }`
 
 The trigger logic lives in `common` rather than in the extension-host class so it is testable with no
-DI container and no ext-host stubs. `NodeExtHostDocs` keeps only the `RunOnceScheduler` and the
-configuration subscription, which is what makes "constructing the service performs zero port calls"
-easy to hold true.
+DI container and no ext-host stubs. `NodeExtHostDocs` keeps only the `RunOnceScheduler`, the
+startup-finished await that arms it, and the configuration subscription, which is what makes
+"constructing the service performs zero port calls" easy to hold true.
 
 - [ ] **Step 1: Add `peek` to the cache**
 
@@ -3846,12 +3959,16 @@ In `extHostDocsNode.ts`:
 
 ```ts
 import { RunOnceScheduler } from '../../../../base/common/async.js';
+import { IExtHostExtensionService } from '../../common/extHostExtensionService.js';
 import { PositronDocsTriggers } from '../../../../platform/positronDocs/common/positronDocsTriggers.js';
 ```
 
 2. Add the constant near the others:
 
 ```ts
+// Measured from the startup-finished signal, not from construction: the delay
+// exists to stay clear of the eager-activation burst, and construction happens
+// before it. See the design spec, "The launch anchor".
 const LAUNCH_DELAY_MS = 5_000;
 const GET_LOCAL_DOCS_WAIT_MS = 10_000;
 ```
@@ -3865,6 +3982,7 @@ const GET_LOCAL_DOCS_WAIT_MS = 10_000;
 	constructor(
 		@IExtHostInitDataService initData: IExtHostInitDataService,
 		@IExtHostConfiguration private readonly _configuration: IExtHostConfiguration,
+		@IExtHostExtensionService private readonly _extensionService: IExtHostExtensionService,
 		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
@@ -3898,13 +4016,40 @@ const GET_LOCAL_DOCS_WAIT_MS = 10_000;
 		});
 
 		// Launch trigger. Nothing above touched the network or the disk: the
-		// constructor only installs a scheduler and a config listener. That
+		// constructor only arms a scheduler and installs a config listener. That
 		// discipline is what keeps a slow download off the extension
 		// activation path, and Task 11's test asserts it.
-		const launch = this._register(new RunOnceScheduler(() => { void this._triggers.runBackgroundFetch(); }, LAUNCH_DELAY_MS));
-		launch.schedule();
+		this._launch = this._register(new RunOnceScheduler(() => { void this._triggers.runBackgroundFetch(); }, LAUNCH_DELAY_MS));
+		void this._scheduleLaunchAfterStartup();
 
 		void this._listenForAiEnabledFlip();
+	}
+```
+
+Note the scheduler is *created* here but not scheduled. The `void` on
+`_scheduleLaunchAfterStartup()` is what keeps construction synchronous: the constructor returns
+immediately and the continuation runs later.
+
+3a. Add the `_launch` field alongside `_triggers`, and the helper that arms it:
+
+```ts
+	private readonly _launch: RunOnceScheduler;
+```
+
+```ts
+	/**
+	 * The launch delay is measured from the startup-finished signal rather than
+	 * from construction, so the download stays clear of the eager-activation
+	 * burst instead of guessing how long that burst takes. The signal is capped
+	 * at 10 seconds upstream, so a hung eager extension delays this fetch rather
+	 * than suppressing it. Trigger 3 (getLocalDocs) is the backstop either way.
+	 */
+	private async _scheduleLaunchAfterStartup(): Promise<void> {
+		await this._extensionService.whenStartupFinished();
+		if (this._store.isDisposed) {
+			return;
+		}
+		this._launch.schedule();
 	}
 ```
 
@@ -3947,15 +4092,79 @@ The `_cache` and `_request` fields are gone; delete their declarations.
 	}
 ```
 
+- [ ] **Step 6b: Update and extend `extHostDocsNode.vitest.ts` for the new anchor**
+
+The constructor gained a fourth parameter, so Task 11's `NodeExtHostDocs construction` test no longer
+compiles. Add a third argument to the existing `new NodeExtHostDocs(...)` call, before the
+`NullLogService`:
+
+```ts
+			stubInterface<IExtHostExtensionService>({
+				// Never resolves: construction must not depend on startup finishing.
+				whenStartupFinished: () => new Promise<void>(() => { }),
+			}),
+```
+
+Import `IExtHostExtensionService` from `'../../../common/extHostExtensionService.js'`.
+
+That existing test now carries a second meaning worth keeping: with a signal that never resolves, the
+constructor still returns and still creates no directory.
+
+Then add the anchor cases. These are the only tests that distinguish the new behaviour from the old --
+a construction-anchored regression passes every other test in the suite.
+
+```ts
+describe('NodeExtHostDocs launch anchor', () => {
+	function build(startupFinished: Promise<void>) {
+		const getLocalDocs = vi.fn(async () => undefined);
+		// ... same initData / configuration stubs as above, with ai.enabled true
+		return { service, getLocalDocs };
+	}
+
+	it('does not fetch while the startup-finished signal is pending', async () => {
+		const ctx = build(new Promise<void>(() => { }));
+		await vi.advanceTimersByTimeAsync(60_000);
+		expect(ctx.getLocalDocs).not.toHaveBeenCalled();
+		ctx.service.dispose();
+	});
+
+	it('fetches 5 seconds after the signal resolves', async () => {
+		let resolve!: () => void;
+		const ctx = build(new Promise<void>(r => { resolve = r; }));
+		resolve();
+		await vi.advanceTimersByTimeAsync(4_000);
+		expect(ctx.getLocalDocs).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(2_000);
+		expect(ctx.getLocalDocs).toHaveBeenCalledOnce();
+		ctx.service.dispose();
+	});
+
+	it('does not fetch if disposed between the signal and the delay', async () => {
+		let resolve!: () => void;
+		const ctx = build(new Promise<void>(r => { resolve = r; }));
+		resolve();
+		ctx.service.dispose();
+		await vi.advanceTimersByTimeAsync(60_000);
+		expect(ctx.getLocalDocs).not.toHaveBeenCalled();
+	});
+});
+```
+
+The first case is the one that fails against a construction anchor: it advances well past
+`LAUNCH_DELAY_MS` with the signal still outstanding, so a scheduler armed at construction fires and the
+assertion fails. Use `vi.useFakeTimers()` in `beforeEach` and `vi.useRealTimers()` in `afterEach` for
+this describe block; `advanceTimersByTimeAsync` is needed rather than the sync form because the arming
+path awaits a promise.
+
 - [ ] **Step 7: Verify and commit**
 
 ```bash
-npx vitest run src/vs/platform/positronDocs/
+npx vitest run src/vs/platform/positronDocs/ src/vs/workbench/api/test/node/positron/
 npm run build-check
-npm run test:positron:check-ts 2>&1 | grep 'positronDocsTriggers.vitest.ts'
-npx eslint --max-warnings 0 src/vs/platform/positronDocs/common/positronDocsTriggers.ts src/vs/platform/positronDocs/test/common/positronDocsTriggers.vitest.ts src/vs/workbench/api/node/positron/extHostDocsNode.ts
-npm run precommit -- src/vs/platform/positronDocs/common/positronDocsTriggers.ts src/vs/platform/positronDocs/common/positronDocsCache.ts src/vs/platform/positronDocs/test/common/positronDocsTriggers.vitest.ts src/vs/workbench/api/node/positron/extHostDocsNode.ts
-git add src/vs/platform/positronDocs/common/positronDocsTriggers.ts src/vs/platform/positronDocs/common/positronDocsCache.ts src/vs/platform/positronDocs/test/common/positronDocsTriggers.vitest.ts src/vs/workbench/api/node/positron/extHostDocsNode.ts
+npm run test:positron:check-ts 2>&1 | grep -E 'positronDocsTriggers.vitest.ts|extHostDocsNode.vitest.ts'
+npx eslint --max-warnings 0 src/vs/platform/positronDocs/common/positronDocsTriggers.ts src/vs/platform/positronDocs/test/common/positronDocsTriggers.vitest.ts src/vs/workbench/api/node/positron/extHostDocsNode.ts src/vs/workbench/api/test/node/positron/extHostDocsNode.vitest.ts
+npm run precommit -- src/vs/platform/positronDocs/common/positronDocsTriggers.ts src/vs/platform/positronDocs/common/positronDocsCache.ts src/vs/platform/positronDocs/test/common/positronDocsTriggers.vitest.ts src/vs/workbench/api/node/positron/extHostDocsNode.ts src/vs/workbench/api/test/node/positron/extHostDocsNode.vitest.ts
+git add src/vs/platform/positronDocs/common/positronDocsTriggers.ts src/vs/platform/positronDocs/common/positronDocsCache.ts src/vs/platform/positronDocs/test/common/positronDocsTriggers.vitest.ts src/vs/workbench/api/node/positron/extHostDocsNode.ts src/vs/workbench/api/test/node/positron/extHostDocsNode.vitest.ts
 git commit -m "Add docs fetch triggers with ai.enabled gating and a bounded wait"
 ```
 
