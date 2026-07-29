@@ -41,8 +41,16 @@ export interface IDocsFileStore {
 	rename(from: string, to: string): Promise<void>;
 	/** Recursive; succeeds if the path does not exist. */
 	delete(path: string): Promise<void>;
-	/** Immediate children, names only. Empty array if the path is missing. */
+	/**
+	 * Immediate children, names only. Empty array if the path is missing.
+	 * Only meaningful for directories - call `isDirectory` first rather than
+	 * inferring file-ness from an empty result, since an empty directory and a
+	 * file are indistinguishable here (and a node-backed store throws ENOTDIR
+	 * on a file).
+	 */
 	readdir(path: string): Promise<string[]>;
+	/** True for a directory, false for a file and for a missing path. */
+	isDirectory(path: string): Promise<boolean>;
 	/** Epoch millis, or undefined if the path is missing. Used by the prune guard. */
 	mtime(path: string): Promise<number | undefined>;
 	/** Lowercase hex digest of the file's bytes. */
@@ -79,5 +87,8 @@ export function joinDocsPath(...segments: string[]): string {
 	return segments
 		.filter(segment => segment.length > 0)
 		.map((segment, index) => index === 0 ? segment.replace(/\/+$/, '') : segment.replace(/^\/+|\/+$/g, ''))
+		// Filtered again after stripping: an all-slashes segment strips to empty
+		// and would otherwise join into a stray trailing or doubled slash.
+		.filter((segment, index) => index === 0 || segment.length > 0)
 		.join('/');
 }

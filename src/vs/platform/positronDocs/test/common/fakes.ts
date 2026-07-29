@@ -113,6 +113,13 @@ export class FakeFileStore implements IDocsFileStore {
 		return [...names];
 	}
 
+	async isDirectory(path: string): Promise<boolean> {
+		// A path present in `files` holds contents, so it is a file. Note
+		// `isDir` alone is not enough: writeFile records an mtime for file paths
+		// too, which isDir reads as a directory marker.
+		return this.files.has(path) ? false : this.isDir(path);
+	}
+
 	async mtime(path: string): Promise<number | undefined> {
 		return this.mtimes.get(path);
 	}
@@ -186,7 +193,11 @@ export class FakeHttpClient implements IDocsHttpClient {
 
 /**
  * Fake archive. A "zip" is the string the file store holds at its path, of the
- * form `zip:<entry>=<contents>;<entry>=<contents>`.
+ * form `zip:<json object of entry name to contents>`.
+ *
+ * JSON rather than a flat `name=contents;...` encoding: entry contents include
+ * bundle.json and Markdown, so any separator character can legitimately appear
+ * inside a value. A flat format would silently mis-split instead of failing.
  */
 export class FakeArchive implements IDocsArchive {
 	constructor(private readonly files: FakeFileStore) { }
@@ -196,11 +207,13 @@ export class FakeArchive implements IDocsArchive {
 		if (raw === undefined || !raw.startsWith('zip:')) {
 			throw new Error(`end of central directory record signature not found: ${zipPath}`);
 		}
-		return raw.slice(4).split(';').filter(part => part.length > 0)
-			.map(part => {
-				const index = part.indexOf('=');
-				return [part.slice(0, index), part.slice(index + 1)] as [string, string];
-			});
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(raw.slice(4));
+		} catch {
+			throw new Error(`end of central directory record signature not found: ${zipPath}`);
+		}
+		return Object.entries(parsed as Record<string, string>);
 	}
 
 	async entryNames(zipPath: string): Promise<string[]> {
@@ -216,7 +229,7 @@ export class FakeArchive implements IDocsArchive {
 
 /** Build the fake-zip payload string for a set of entries. */
 export function fakeZip(entries: Record<string, string>): string {
-	return `zip:${Object.entries(entries).map(([name, contents]) => `${name}=${contents}`).join(';')}`;
+	return `zip:${JSON.stringify(entries)}`;
 }
 
 export function recordingLogger(): IDocsLogger & { readonly infos: string[]; readonly warns: string[] } {

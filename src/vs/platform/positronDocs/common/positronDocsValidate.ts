@@ -81,12 +81,14 @@ async function countFiles(files: IDocsFileStore, dir: string): Promise<number> {
 	let count = 0;
 	for (const name of await files.readdir(dir)) {
 		const child = joinDocsPath(dir, name);
-		// A path that reads as a file is one; anything else recurses.
-		const children = await files.readdir(child);
-		if (children.length === 0) {
-			count += 1;
-		} else {
+		// Ask the store what the child is rather than inferring it from an empty
+		// readdir. An empty directory would otherwise count as one file - and
+		// real extractors do create them, from explicit directory entries in the
+		// archive - producing a spurious file-count-mismatch.
+		if (await files.isDirectory(child)) {
 			count += await countFiles(files, child);
+		} else {
+			count += 1;
 		}
 	}
 	return count;
