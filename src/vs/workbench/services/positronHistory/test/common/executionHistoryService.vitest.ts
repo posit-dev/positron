@@ -9,7 +9,7 @@ import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent, INotebookLanguageRuntimeSession, IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IExecutionHistoryService, ExecutionEntryType } from '../../common/executionHistoryService.js';
+import { IExecutionHistoryService, ExecutionEntryType, IExecutionHistoryEntry, projectExecutionEntriesToConsoleContent } from '../../common/executionHistoryService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ExecutionHistoryService } from '../../common/executionHistory.js';
@@ -1059,5 +1059,47 @@ describe('ExecutionHistoryService', () => {
 		// Verify storage was nulled out (store(key, null, ...)) to delete the histories.
 		// store() signature is (key, value, scope, target) -- match scope/target with expect.any(Number).
 		expect(storeSpy).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`positron\\..*\\.${sessionId}`)), null, expect.any(Number), expect.any(Number));
+	});
+});
+
+describe('projectExecutionEntriesToConsoleContent', () => {
+	/** Build an execution history entry, defaulting to a completed code execution. */
+	function entry(overrides: Partial<IExecutionHistoryEntry<unknown>>): IExecutionHistoryEntry<unknown> {
+		return {
+			id: 'id',
+			when: 0,
+			prompt: '',
+			input: '',
+			outputType: ExecutionEntryType.Execution,
+			output: '',
+			durationMs: 0,
+			...overrides,
+		};
+	}
+
+	it('projects completed executions to input/output/error/when, oldest first', () => {
+		const entries = [
+			entry({ input: 'a <- 1', output: '', when: 1 }),
+			entry({ input: 'stop("boom")', output: '', error: { name: 'error', message: 'boom', traceback: [] }, when: 2 }),
+			entry({ input: 'print(2)', output: '[1] 2\n', when: 3 }),
+		];
+
+		expect(projectExecutionEntriesToConsoleContent(entries)).toEqual([
+			{ input: 'a <- 1', output: '', when: 1 },
+			{ input: 'stop("boom")', output: '', error: { name: 'error', message: 'boom', traceback: [] }, when: 2 },
+			{ input: 'print(2)', output: '[1] 2\n', when: 3 },
+		]);
+	});
+
+	it('excludes the startup banner, entries without input, and coerces non-string output', () => {
+		const entries = [
+			entry({ outputType: ExecutionEntryType.Startup, input: '', output: 'banner', when: 1 }),
+			entry({ input: '', output: 'orphan output', when: 2 }),
+			entry({ input: 'real()', output: 42, when: 3 }),
+		];
+
+		expect(projectExecutionEntriesToConsoleContent(entries)).toEqual([
+			{ input: 'real()', output: '42', when: 3 },
+		]);
 	});
 });

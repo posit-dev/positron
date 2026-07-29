@@ -18,7 +18,6 @@ import { CountTokensCallback, ILanguageModelToolsService, IPreparedToolInvocatio
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { IExecutionHistoryService, projectExecutionEntriesToConsoleContent } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { getSessionVariables, querySessionTables } from '../../../../services/positronVariables/common/helpers/sessionVariableQueries.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -226,76 +225,6 @@ export class GetTableSummaryTool implements IToolImpl {
 
 //#endregion
 
-//#region getConsoleContent
-
-/** Input for the get-console-content tool. */
-interface IGetConsoleContentToolInput {
-	sessionIdentifier?: string;
-	numberOfEntries?: number;
-}
-
-/** Default number of recent console entries returned when the model doesn't ask for a specific count. */
-const DEFAULT_CONSOLE_ENTRY_COUNT = 5;
-
-const getConsoleContentToolData: IToolData = {
-	id: PositronAssistantToolName.GetConsoleContent,
-	toolReferenceName: PositronAssistantToolName.GetConsoleContent,
-	source: ToolDataSource.Internal,
-	when: aiEnabledWhen,
-	canBeReferencedInPrompt: true,
-	icon: ThemeIcon.fromId('terminal'),
-	tags: positronSessionToolTags,
-	displayName: localize('positron.assistant.tool.getConsoleContent.displayName', "Get Console Content"),
-	userDescription: localize('positron.assistant.tool.getConsoleContent.userDescription', "Read recent console commands and their output."),
-	modelDescription: 'Retrieve recent console history for a session: the commands that have already run, each paired with its output and any error. This is a read-only tool that does not execute any code. Use it to inspect what has already happened in the console (for example, a recent error or a printed value) without running anything.',
-	inputSchema: {
-		type: 'object',
-		properties: {
-			sessionIdentifier: {
-				type: 'string',
-				description: 'The identifier of the session to read console content from. Optional; defaults to the active session.',
-			},
-			numberOfEntries: {
-				type: 'number',
-				description: `The number of most recent console entries to return. Optional; defaults to ${DEFAULT_CONSOLE_ENTRY_COUNT}. Use a larger value to look further back in the console history.`,
-			},
-		},
-	},
-};
-
-export class GetConsoleContentTool implements IToolImpl {
-	constructor(
-		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
-		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService,
-	) { }
-
-	async invoke(invocation: IToolInvocation, _countTokens: CountTokensCallback, _progress: ToolProgress, _token: CancellationToken): Promise<IToolResult> {
-		const input = invocation.parameters as IGetConsoleContentToolInput;
-
-		const sessionId = resolveSessionId(this._runtimeSessionService, input.sessionIdentifier);
-		if (!sessionId) {
-			return createToolSimpleTextResult('No console session is available to read content from.');
-		}
-
-		// Project to completed code executions only (see helper); the history
-		// service does not record errors that occur outside an execution, nor
-		// in-flight executions that have not yet completed.
-		const entries = projectExecutionEntriesToConsoleContent(
-			this._executionHistoryService.getExecutionEntries(sessionId));
-
-		// Return the most recent entries, oldest first so the model reads them in
-		// chronological order.
-		const count = input.numberOfEntries && input.numberOfEntries > 0
-			? input.numberOfEntries
-			: DEFAULT_CONSOLE_ENTRY_COUNT;
-		const recent = entries.slice(-count);
-
-		return createToolSimpleTextResult(JSON.stringify(recent));
-	}
-}
-
-//#endregion
-
 //#region executeCode
 
 const executeCodeToolData: IToolData = {
@@ -425,7 +354,6 @@ export class PositronAssistantToolsContribution extends Disposable implements IW
 		super();
 
 		this._register(toolsService.registerTool(executeCodeToolData, instantiationService.createInstance(ExecuteCodeTool)));
-		this._register(toolsService.registerTool(getConsoleContentToolData, instantiationService.createInstance(GetConsoleContentTool)));
 		this._register(toolsService.registerTool(getPlotToolData, instantiationService.createInstance(GetPlotTool)));
 		this._register(toolsService.registerTool(inspectVariablesToolData, instantiationService.createInstance(InspectVariablesTool)));
 		this._register(toolsService.registerTool(getTableSummaryToolData, instantiationService.createInstance(GetTableSummaryTool)));
