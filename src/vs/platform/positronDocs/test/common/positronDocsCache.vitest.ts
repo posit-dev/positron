@@ -44,13 +44,18 @@ function setup() {
 	const logger = recordingLogger();
 	let clock = 1_000_000;
 	let ids = 0;
-	const cache = new PositronDocsCache({
+	// A fresh cache over the same fakes stands in for a new session: it
+	// re-reads state.json from the shared file store, exactly as a relaunch
+	// would. Tests that model "the next launch" must use this rather than
+	// calling ensure() twice on one instance.
+	const makeCache = () => new PositronDocsCache({
 		rootPath: ROOT, http, files, archive, logger,
 		now: () => clock,
 		newId: () => `id${++ids}`,
 	});
+	const cache = makeCache();
 	return {
-		cache, files, http, archive, logger,
+		cache, makeCache, files, http, archive, logger,
 		advance: (ms: number) => { clock += ms; },
 		/** Serve `zipUrl` with a matching, correctly-formatted sidecar. */
 		publish: (zipUrl: string, body: string, etag?: string) => {
@@ -122,15 +127,18 @@ describe('PositronDocsCache: warm exact cache', () => {
 		const ctx = setup();
 		ctx.publish(EXACT_ZIP, payload('2026.05.0-179'));
 		await ctx.cache.ensure(request());
-		const callsAfterInstall = ctx.http.getCalls.length;
+		const getsAfterInstall = ctx.http.getCalls.length;
+		const headsAfterInstall = ctx.http.headCalls.length;
 
-		const docs = await ctx.cache.ensure(request());
+		const docs = await ctx.makeCache().ensure(request());
 
 		expect(docs?.isExactMatch).toBe(true);
 		// Release builds are network-free once exactly matched. This is the
-		// whole point of version-stamping the cache directory.
-		expect(ctx.http.getCalls.length).toBe(callsAfterInstall);
-		expect(ctx.http.headCalls).toEqual([]);
+		// whole point of version-stamping the cache directory. Counted as a
+		// delta rather than an absolute: the install itself HEADs the exact URL,
+		// so what matters is that the next launch adds nothing.
+		expect(ctx.http.getCalls.length).toBe(getsAfterInstall);
+		expect(ctx.http.headCalls.length).toBe(headsAfterInstall);
 	});
 });
 
@@ -231,5 +239,136 @@ describe('PositronDocsCache: download rejections on a cold cache', () => {
 		// The logger port has no error level on purpose - a docs download
 		// failing is not worth interrupting anyone over.
 		expect(Object.keys(ctx.logger)).not.toContain('error');
+	});
+});
+
+describe('PositronDocsCache: convergence', () => {
+	it('serves the fallback bundle first, then converges to exact', async () => {
+		const ctx = setup();
+		// Exact is not published yet; latest holds an older release's docs.
+		ctx.http.route(EXACT_ZIP, { status: 404 });
+		ctx.http.route(`${EXACT_ZIP}.sha256sum`, { status: 404 });
+		ctx.publish(LATEST_ZIP, payload('2026.04.0-100'), 'etag-april');
+
+		// Intermediate state matters: a test that checked only the end state
+		// would pass even if the fallback never worked.
+		const first = await ctx.cache.ensure(request());
+		expect(first?.version).toBe('2026.04.0-100');
+		expect(first?.isExactMatch).toBe(false);
+		expect(JSON.parse(await ctx.files.readFile(`${ROOT}/state.json`)).resolution).toBe('fallback');
+
+		// The release's docs publish. The next launch converges.
+		ctx.publish(EXACT_ZIP, payload('2026.05.0-179'));
+
+		const second = await ctx.makeCache().ensure(request());
+		expect(second?.version).toBe('2026.05.0-179');
+		expect(second?.isExactMatch).toBe(true);
+		expect(JSON.parse(await ctx.files.readFile(`${ROOT}/state.json`)).resolution).toBe('exact');
+	});
+
+	it('keeps the cached bundle when latest answers 304', async () => {
+		const ctx = setup();
+		ctx.http.route(EXACT_ZIP, { status: 404 });
+		ctx.publish(LATEST_ZIP, payload('2026.04.0-100'), 'etag-april');
+		await ctx.cache.ensure(request());
+		const before = ctx.files.listUnder(ROOT);
+
+		const second = await ctx.makeCache().ensure(request());
+
+		expect(second?.version).toBe('2026.04.0-100');
+		expect(ctx.files.listUnder(ROOT)).toEqual(before);
+		expect(ctx.logger.infos.join('\n')).toContain('unchanged (304)');
+	});
+
+	it('replaces the cached bundle when latest moves', async () => {
+		const ctx = setup();
+		ctx.http.route(EXACT_ZIP, { status: 404 });
+		ctx.publish(LATEST_ZIP, payload('2026.04.0-100'), 'etag-april');
+		await ctx.cache.ensure(request());
+
+		ctx.publish(LATEST_ZIP, payload('2026.05.0-179'), 'etag-may');
+		const second = await ctx.makeCache().ensure(request());
+
+		expect(second?.version).toBe('2026.05.0-179');
+	});
+
+	it('re-enters fallback when the app updates past the cached bundle', async () => {
+		const ctx = setup();
+		ctx.publish(EXACT_ZIP, payload('2026.05.0-179'));
+		const first = await ctx.cache.ensure(request());
+		expect(first?.isExactMatch).toBe(true);
+
+		// The user updates to a release whose docs have not published yet.
+		const updated = request({ positronVersion: '2026.06.0', positronBuildNumber: 42 });
+		ctx.http.route(`${BASE}/positron-llms-2026.06.0-42.zip`, { status: 404 });
+		ctx.http.route(LATEST_ZIP, { status: 404 });
+
+		const second = await ctx.makeCache().ensure(updated);
+
+		// Local docs never silently regress to web-only because of an update.
+		expect(second?.version).toBe('2026.05.0-179');
+		expect(second?.isExactMatch).toBe(false);
+	});
+
+	it('never HEADs the exact URL on a dailies build', async () => {
+		const ctx = setup();
+		ctx.publish(LATEST_ZIP, payload('2026.05.0-179'));
+		await ctx.cache.ensure(request({ quality: 'dailies' }));
+		expect(ctx.http.headCalls).toEqual([]);
+	});
+
+	it('HEADs the exact URL again on the very next launch while in fallback', async () => {
+		const ctx = setup();
+		ctx.http.route(EXACT_ZIP, { status: 404 });
+		ctx.publish(LATEST_ZIP, payload('2026.04.0-100'), 'etag-april');
+		await ctx.cache.ensure(request());
+		await ctx.makeCache().ensure(request());
+
+		// The 404 convergence check is deliberately never throttled.
+		expect(ctx.http.headCalls.filter(url => url === EXACT_ZIP)).toHaveLength(2);
+	});
+});
+
+describe('PositronDocsCache: cache-present rule', () => {
+	/** Install a good bundle, then break the next launch's fetch. */
+	async function withWarmCache(breakIt: (ctx: ReturnType<typeof setup>) => void) {
+		const ctx = setup();
+		ctx.publish(LATEST_ZIP, payload('2026.04.0-100'), 'etag-april');
+		const first = await ctx.cache.ensure(request({ quality: 'dailies' }));
+		expect(first?.version).toBe('2026.04.0-100');
+
+		breakIt(ctx);
+		return { ctx, second: await ctx.makeCache().ensure(request({ quality: 'dailies' })) };
+	}
+
+	// This is the finding that broke the first draft of the design, so every
+	// failure kind gets explicit coverage rather than one representative case.
+	it.each([
+		['network failure', (c: ReturnType<typeof setup>) => c.http.route(LATEST_ZIP, { status: 0, throws: 'ENOTFOUND' })],
+		['5xx', (c: ReturnType<typeof setup>) => c.http.route(LATEST_ZIP, { status: 503 })],
+		['404 on latest', (c: ReturnType<typeof setup>) => c.http.route(LATEST_ZIP, { status: 404 })],
+		['corrupt zip', (c: ReturnType<typeof setup>) => c.publish(LATEST_ZIP, 'not-a-zip')],
+		['schema 2', (c: ReturnType<typeof setup>) => c.publish(LATEST_ZIP, fakeZip({
+			'bundle.json': JSON.stringify({ schema: 2, profile: 'positron', version: 'v', generated: 'g', docsBaseUrl: 'd', fileCount: 2 }),
+			'llms.txt': 'x',
+		}))],
+		['digest mismatch', (c: ReturnType<typeof setup>) => {
+			c.http.route(LATEST_ZIP, { status: 200, body: payload('2026.05.0-179') });
+			c.http.route(`${LATEST_ZIP}.sha256sum`, { status: 200, body: `${'d'.repeat(64)}  x` });
+		}],
+		['missing sidecar', (c: ReturnType<typeof setup>) => {
+			c.http.route(LATEST_ZIP, { status: 200, body: payload('2026.05.0-179') });
+			c.http.route(`${LATEST_ZIP}.sha256sum`, { status: 404 });
+		}],
+		['disk error', (c: ReturnType<typeof setup>) => {
+			c.publish(LATEST_ZIP, payload('2026.05.0-179'));
+			c.files.failWritesUnder = ROOT;
+		}],
+	])('still serves the warm cache after %s', async (_label, breakIt) => {
+		const { ctx, second } = await withWarmCache(breakIt);
+
+		expect(second?.version).toBe('2026.04.0-100');
+		// The previously installed directory survives untouched.
+		expect(await ctx.files.exists(`${ROOT}/2026.04.0-100/llms.txt`)).toBe(true);
 	});
 });

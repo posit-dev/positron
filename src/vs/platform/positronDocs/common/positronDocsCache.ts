@@ -5,7 +5,7 @@
 
 import {
 	DOCS_BUNDLE_SCHEMA, DOCS_MAX_DOWNLOAD_BYTES, DOCS_STATE_FILENAME, DocsResolution,
-	IDocsBundleManifest, IDocsBundleRequest, IDocsCacheState, IResolvedBundle,
+	IDocsBundleManifest, IDocsBundleRequest, IDocsCacheState, IResolvedBundle, IResolvedBundleRequest,
 	parseSha256Sidecar, resolveBundleRequest,
 } from './positronDocsBundle.js';
 import { IDocsArchive, IDocsFileStore, IDocsHttpClient, IDocsLogger, ILocalDocs, joinDocsPath } from './positronDocsPorts.js';
@@ -60,31 +60,93 @@ export class PositronDocsCache {
 	constructor(private readonly _options: IPositronDocsCacheOptions) { }
 
 	async ensure(request: IDocsBundleRequest): Promise<ILocalDocs | undefined> {
-		const { logger } = this._options;
 		const resolved = resolveBundleRequest(request);
 		const state = await this._readState();
-		const cached = await this._readCached(state);
+		const cached = await this._readCached(state, resolved.exact.version);
 
-		// Terminal: a release build holding its own version never touches the
-		// network again.
-		if (cached && state?.resolution === 'exact') {
-			logger.info(`${LOG_PREFIX} exact cache hit for ${state.version}; no network`);
+		// Terminal: a release build already holding its own version never
+		// touches the network again. Both halves matter - `resolution` alone
+		// would keep an updated app pinned to its predecessor's docs.
+		if (cached && state?.resolution === 'exact' && state.version === resolved.exact.version) {
+			this._options.logger.info(`${LOG_PREFIX} exact cache hit for ${state.version}; no network`);
 			return cached;
 		}
 
-		const target = resolved.wantsExact ? resolved.exact : resolved.latest;
-		const resolution: DocsResolution = resolved.wantsExact ? 'exact' : 'latest-by-policy';
-		logger.info(`${LOG_PREFIX} fetching ${target.zipUrl} (${resolution})`);
+		return resolved.wantsExact
+			? await this._ensureRelease(request, resolved, state, cached)
+			: await this._ensureLatest(request, resolved, state, cached);
+	}
 
-		const outcome = await this._downloadAndInstall(target, resolution, state?.etag);
+	/**
+	 * Release channel: target the exact version, fall back to latest until it
+	 * publishes, and keep converging on every launch.
+	 */
+	private async _ensureRelease(
+		request: IDocsBundleRequest,
+		resolved: IResolvedBundleRequest,
+		state: IDocsCacheState | undefined,
+		cached: ILocalDocs | undefined,
+	): Promise<ILocalDocs | undefined> {
+		const { http, logger } = this._options;
+
+		// This convergence check is never throttled. A HEAD is a few hundred
+		// bytes, and throttling it would let an install sit on a known-wrong
+		// docs version longer than the fallback policy intends.
+		let exactExists = false;
+		try {
+			exactExists = (await http.head(resolved.exact.zipUrl)).status === 200;
+		} catch (error) {
+			logger.info(`${LOG_PREFIX} exact HEAD failed for ${resolved.exact.zipUrl}: ${errorMessage(error)}`);
+		}
+
+		if (exactExists) {
+			const outcome = await this._downloadAndInstall(resolved.exact, resolved.exact.version, undefined);
+			if (outcome.kind === 'installed') {
+				await this._recordInstall(outcome, request, resolved.exact.version, 'exact', resolved.exact);
+				return outcome.docs;
+			}
+			this._logOutcome(outcome, resolved.exact);
+		}
+
+		return await this._fetchLatest(request, resolved, state, cached, 'fallback');
+	}
+
+	/** Dailies and dev builds: latest is the intended target, not a fallback. */
+	private async _ensureLatest(
+		request: IDocsBundleRequest,
+		resolved: IResolvedBundleRequest,
+		state: IDocsCacheState | undefined,
+		cached: ILocalDocs | undefined,
+	): Promise<ILocalDocs | undefined> {
+		return await this._fetchLatest(request, resolved, state, cached, 'latest-by-policy');
+	}
+
+	private async _fetchLatest(
+		request: IDocsBundleRequest,
+		resolved: IResolvedBundleRequest,
+		state: IDocsCacheState | undefined,
+		cached: ILocalDocs | undefined,
+		resolution: DocsResolution,
+	): Promise<ILocalDocs | undefined> {
+		// Conditional on the stored ETag. Using the `latest` alias rather than
+		// comparing versions keeps this monotonic without a version comparator.
+		const outcome = await this._downloadAndInstall(resolved.latest, resolved.exact.version, state?.etag);
 		if (outcome.kind === 'installed') {
-			await this._recordInstall(outcome, request, resolved.exact.version, resolution, target);
+			await this._recordInstall(outcome, request, resolved.exact.version, resolution, resolved.latest);
 			return outcome.docs;
 		}
-		this._logOutcome(outcome, target);
+		this._logOutcome(outcome, resolved.latest);
+		if (outcome.kind === 'not-modified' && state) {
+			await this._touchState(state, resolution, resolved.exact.version);
+		}
 
 		// Cache-present rule: a failed attempt never withdraws a served bundle.
 		return cached;
+	}
+
+	private async _touchState(state: IDocsCacheState, resolution: DocsResolution, requestedVersion: string): Promise<void> {
+		const now = this._options.now();
+		await this._writeState({ ...state, resolution, requestedVersion, fetchedAt: now, lastAttemptAt: now });
 	}
 
 	private _logOutcome(outcome: InstallOutcome, target: IResolvedBundle): void {
@@ -136,7 +198,7 @@ export class PositronDocsCache {
 	 * before anything is extracted so a bad payload can never write to disk
 	 * outside the staging directory.
 	 */
-	private async _downloadAndInstall(target: IResolvedBundle, resolution: DocsResolution, etag: string | undefined): Promise<InstallOutcome> {
+	private async _downloadAndInstall(target: IResolvedBundle, exactVersion: string, etag: string | undefined): Promise<InstallOutcome> {
 		const { archive, files, http, newId } = this._options;
 		const id = newId();
 		const tmpZip = joinDocsPath(this._options.rootPath, `.tmp-${id}.zip`);
@@ -189,7 +251,7 @@ export class PositronDocsCache {
 				return { kind: 'rejected', reason: `extracted bundle invalid (${validation.reason})` };
 			}
 
-			const docs = await this._swapIn(staging, validation.manifest, resolution, id);
+			const docs = await this._swapIn(staging, validation.manifest, exactVersion, id);
 			return { kind: 'installed', docs, manifest: validation.manifest, digest: actual, etag: zip.etag };
 		} catch (error) {
 			return { kind: 'failed', reason: errorMessage(error) };
@@ -203,7 +265,7 @@ export class PositronDocsCache {
 	 * Atomic swap. The rename means a killed process can never leave a
 	 * half-populated version directory that later looks like a cache hit.
 	 */
-	private async _swapIn(staging: string, manifest: IDocsBundleManifest, resolution: DocsResolution, id: string): Promise<ILocalDocs> {
+	private async _swapIn(staging: string, manifest: IDocsBundleManifest, exactVersion: string, id: string): Promise<ILocalDocs> {
 		const { files } = this._options;
 		const target = joinDocsPath(this._options.rootPath, manifest.version);
 		if (await files.exists(target)) {
@@ -217,7 +279,7 @@ export class PositronDocsCache {
 		} else {
 			await files.rename(staging, target);
 		}
-		return toLocalDocs(target, manifest, resolution === 'exact');
+		return toLocalDocs(target, manifest, manifest.version === exactVersion);
 	}
 
 	private async _readState(): Promise<IDocsCacheState | undefined> {
@@ -248,7 +310,7 @@ export class PositronDocsCache {
 	 * checks here are the proportionate ones for Markdown the assistant reads
 	 * as text.
 	 */
-	private async _readCached(state: IDocsCacheState | undefined): Promise<ILocalDocs | undefined> {
+	private async _readCached(state: IDocsCacheState | undefined, exactVersion: string): Promise<ILocalDocs | undefined> {
 		// An empty version means `_recordFailure` wrote state with no bundle ever
 		// installed. `joinDocsPath` drops empty segments, so computing the path
 		// anyway would validate rootPath itself and warn that a cache which never
@@ -262,7 +324,9 @@ export class PositronDocsCache {
 			this._options.logger.warn(`${LOG_PREFIX} cached bundle at ${dir} is unusable (${validation.reason})`);
 			return undefined;
 		}
-		return toLocalDocs(dir, validation.manifest, state.resolution === 'exact');
+		// Derived from the running build, not from state.resolution: after an
+		// app update a bundle recorded as `exact` no longer is one.
+		return toLocalDocs(dir, validation.manifest, validation.manifest.version === exactVersion);
 	}
 
 	private async _safeDelete(path: string): Promise<void> {
