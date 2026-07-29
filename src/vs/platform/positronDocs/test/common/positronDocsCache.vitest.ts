@@ -372,3 +372,122 @@ describe('PositronDocsCache: cache-present rule', () => {
 		expect(await ctx.files.exists(`${ROOT}/2026.04.0-100/llms.txt`)).toBe(true);
 	});
 });
+
+describe('PositronDocsCache: single flight', () => {
+	it('joins two concurrent calls into one download', async () => {
+		const ctx = setup();
+		ctx.publish(EXACT_ZIP, payload('2026.05.0-179'));
+
+		const [a, b] = await Promise.all([ctx.cache.ensure(request()), ctx.cache.ensure(request())]);
+
+		expect(a?.version).toBe('2026.05.0-179');
+		expect(b?.version).toBe('2026.05.0-179');
+		expect(ctx.http.getCalls.filter(url => url === EXACT_ZIP)).toHaveLength(1);
+	});
+
+	it('does not re-attempt within a session, but invalidate() permits one more', async () => {
+		const ctx = setup();
+		ctx.http.route(EXACT_ZIP, { status: 404 });
+		ctx.http.route(LATEST_ZIP, { status: 404 });
+		await ctx.cache.ensure(request());
+		const afterFirst = ctx.http.headCalls.length;
+
+		await ctx.cache.ensure(request());
+		expect(ctx.http.headCalls.length).toBe(afterFirst);
+
+		// The one in-session re-attempt the spec allows: an ai.enabled flip.
+		ctx.cache.invalidate();
+		await ctx.cache.ensure(request());
+		expect(ctx.http.headCalls.length).toBeGreaterThan(afterFirst);
+	});
+});
+
+describe('PositronDocsCache: hard-failure throttling', () => {
+	it('records lastFailureAt and skips the next session inside the window', async () => {
+		const ctx = setup();
+		ctx.http.route(EXACT_ZIP, { status: 503 });
+		ctx.http.route(LATEST_ZIP, { status: 503 });
+		await ctx.cache.ensure(request());
+		expect(JSON.parse(await ctx.files.readFile(`${ROOT}/state.json`)).lastFailureAt).toBeDefined();
+
+		ctx.advance(59 * 60 * 1000);
+		const callsBefore = ctx.http.getCalls.length;
+		await ctx.makeCache().ensure(request());
+
+		expect(ctx.http.getCalls.length).toBe(callsBefore);
+	});
+
+	it('retries once the throttle window has passed', async () => {
+		const ctx = setup();
+		ctx.http.route(EXACT_ZIP, { status: 503 });
+		ctx.http.route(LATEST_ZIP, { status: 503 });
+		await ctx.cache.ensure(request());
+		const callsBefore = ctx.http.getCalls.length;
+
+		ctx.advance(61 * 60 * 1000);
+		await ctx.makeCache().ensure(request());
+
+		expect(ctx.http.getCalls.length).toBeGreaterThan(callsBefore);
+	});
+
+	it('does not throttle a 404, so convergence keeps running', async () => {
+		const ctx = setup();
+		ctx.http.route(EXACT_ZIP, { status: 404 });
+		ctx.publish(LATEST_ZIP, payload('2026.04.0-100'), 'etag-april');
+		await ctx.cache.ensure(request());
+
+		const state = JSON.parse(await ctx.files.readFile(`${ROOT}/state.json`));
+		expect(state.lastFailureAt).toBeUndefined();
+
+		ctx.advance(60 * 1000);
+		await ctx.makeCache().ensure(request());
+		expect(ctx.http.headCalls.filter(url => url === EXACT_ZIP)).toHaveLength(2);
+	});
+
+	it('still serves the cache when persisting the failure marker fails', async () => {
+		// A full disk breaks both the download and the throttle bookkeeping.
+		// The bookkeeping is best-effort: it must never turn a served bundle
+		// into web-only, which is what an unhandled write error would do.
+		const ctx = setup();
+		ctx.publish(LATEST_ZIP, payload('2026.04.0-100'), 'etag-april');
+		expect(await ctx.cache.ensure(request({ quality: 'dailies' }))).toBeDefined();
+
+		ctx.publish(LATEST_ZIP, payload('2026.05.0-179'), 'etag-may');
+		ctx.files.failWritesUnder = ROOT;
+
+		const second = await ctx.makeCache().ensure(request({ quality: 'dailies' }));
+		expect(second?.version).toBe('2026.04.0-100');
+	});
+});
+
+describe('PositronDocsCache: pruning', () => {
+	it('deletes superseded version directories on success', async () => {
+		const ctx = setup();
+		ctx.http.route(EXACT_ZIP, { status: 404 });
+		ctx.publish(LATEST_ZIP, payload('2026.04.0-100'), 'etag-april');
+		await ctx.cache.ensure(request());
+
+		ctx.publish(LATEST_ZIP, payload('2026.05.0-179'), 'etag-may');
+		await ctx.makeCache().ensure(request());
+
+		expect(await ctx.files.exists(`${ROOT}/2026.05.0-179/llms.txt`)).toBe(true);
+		expect(await ctx.files.exists(`${ROOT}/2026.04.0-100`)).toBe(false);
+	});
+
+	it('leaves another window in-flight temp entries alone but collects abandoned ones', async () => {
+		const ctx = setup();
+		ctx.publish(EXACT_ZIP, payload('2026.05.0-179'));
+
+		// Two windows share this directory. A recent temp file belongs to a
+		// live download; an old one is an abandoned leftover.
+		await ctx.files.writeFile(`${ROOT}/.tmp-otherwindow.zip`, 'in flight');
+		ctx.files.mtimes.set(`${ROOT}/.tmp-otherwindow.zip`, 1_000_000);
+		await ctx.files.writeFile(`${ROOT}/.staging-abandoned/x`, 'stale');
+		ctx.files.mtimes.set(`${ROOT}/.staging-abandoned`, 1_000_000 - 11 * 60 * 1000);
+
+		await ctx.cache.ensure(request());
+
+		expect(await ctx.files.exists(`${ROOT}/.tmp-otherwindow.zip`)).toBe(true);
+		expect(await ctx.files.exists(`${ROOT}/.staging-abandoned`)).toBe(false);
+	});
+});

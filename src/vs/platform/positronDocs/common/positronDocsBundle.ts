@@ -176,3 +176,19 @@ export function parseSha256Sidecar(raw: string): string | undefined {
 	const first = raw.trim().split(/\s+/)[0]?.toLowerCase();
 	return first && SHA256_HEX.test(first) ? first : undefined;
 }
+
+/**
+ * How long a hard failure (network, DNS, connection, 5xx, disk) suppresses the
+ * next attempt. This stops a persistent CDN or configuration problem turning
+ * into a per-launch request from every install at once. Deliberately does NOT
+ * apply to the 404 convergence check.
+ */
+export const DOCS_FAILURE_THROTTLE_MS = 60 * 60 * 1000;
+
+/**
+ * How long a transient `.tmp-*`, `.staging-*`, or `.stale-*` entry must have
+ * been idle before pruning may remove it. Each window has its own extension
+ * host sharing this cache directory, so anything younger may be another
+ * window's in-flight work.
+ */
+export const DOCS_PRUNE_IDLE_MS = 10 * 60 * 1000;
