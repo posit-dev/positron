@@ -17,10 +17,9 @@ import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronAssistantCo
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
-import { ExtHostAiFeaturesShape, ExtHostPositronContext, ISerializedAgentCommand, ISerializedConsoleContentEntry, ISerializedValidateAndExecuteCommandResult, MainPositronContext, MainThreadAiFeaturesShape } from '../../common/positron/extHost.positron.protocol.js';
+import { ExtHostAiFeaturesShape, ExtHostPositronContext, ISerializedAgentCommand, ISerializedValidateAndExecuteCommandResult, MainPositronContext, MainThreadAiFeaturesShape } from '../../common/positron/extHost.positron.protocol.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IExecutionHistoryService, projectExecutionEntriesToConsoleContent } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { ChatModeKind } from '../../../contrib/chat/common/constants.js';
 import { PromptRenderer } from '../../../contrib/positronAssistant/browser/prompts/promptRenderer.js';
 import { getPositronContextPrompts } from '../../../contrib/positronAssistant/browser/prompts/positronContextPrompts.js';
@@ -45,7 +44,6 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IFileService private readonly _fileService: IFileService,
 		@IAgentAllowedCommandsService private readonly _agentAllowedCommandsService: IAgentAllowedCommandsService,
-		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService,
 	) {
 		super();
 		// Create the proxy for the extension host.
@@ -288,19 +286,5 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		args: unknown[] | undefined,
 	): Promise<ISerializedValidateAndExecuteCommandResult> {
 		return this._agentAllowedCommandsService.validateAndExecute(commandId, args);
-	}
-
-	/**
-	 * Return the recent console history for a session (or the foreground
-	 * session when none is given), projected to the fields a model needs.
-	 */
-	async $getConsoleContent(sessionId: string | undefined): Promise<ISerializedConsoleContentEntry[]> {
-		const resolvedSessionId = sessionId ?? this._runtimeSessionService.foregroundSession?.sessionId;
-		if (!resolvedSessionId) {
-			return [];
-		}
-
-		return projectExecutionEntriesToConsoleContent(
-			this._executionHistoryService.getExecutionEntries(resolvedSessionId));
 	}
 }

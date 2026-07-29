@@ -179,6 +179,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				Thenable<Array<positron.QueryTableSummaryResult>> {
 				return extHostLanguageRuntime.querySessionTables(sessionId, accessKeys, queryTypes);
 			},
+			getConsoleContent(sessionId: string): Thenable<positron.runtime.ConsoleContentEntry[]> {
+				return extHostLanguageRuntime.getConsoleContent(sessionId);
+			},
 			registerClientHandler(handler: positron.RuntimeClientHandler): vscode.Disposable {
 				return extHostLanguageRuntime.registerClientHandler(handler);
 			},
@@ -537,9 +540,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				args?: unknown[],
 			): Thenable<positron.ai.ValidateAndExecuteCommandResult> {
 				return extHostAiFeatures.validateAndExecuteCommand(commandId, args);
-			},
-			getConsoleContent(sessionId?: string): Thenable<positron.ai.ConsoleContentEntry[]> {
-				return extHostAiFeatures.getConsoleContent(sessionId);
 			},
 			LanguageModelAutoconfigureType: extHostTypes.LanguageModelAutoconfigureType
 		};
