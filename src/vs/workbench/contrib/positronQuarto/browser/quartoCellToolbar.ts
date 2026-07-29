@@ -165,8 +165,9 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	 */
 	updateCell(cell: QuartoCodeCell, cellIndex: number, totalCells: number): void {
 		if (cell.id !== this._cell.id) {
-			// Re-pointed at a different cell, so the retained execution id belongs to
-			// the old one. Drop it rather than let it read as this cell's last run.
+			// Cell ids embed index and content hash, so this fires both for a genuinely
+			// different cell and for the same cell after an edit. Drop in both cases: a
+			// retained id must never outlive the run it describes.
 			this._domNode.removeAttribute(EXECUTION_ID_ATTR);
 		}
 		this._cell = cell;
@@ -179,11 +180,9 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	/**
 	 * Set the execution state of the cell, which affects the Run/Stop button.
 	 *
-	 * `executionId` is recorded on the DOM node and kept there after the run ends.
-	 * The run button only reflects the queued/running state for as long as the cell
-	 * is actually executing, which can be a couple hundred milliseconds -- too
-	 * short for an e2e test to reliably observe. The retained id is what lets a
-	 * test confirm a run registered at all, after the fact.
+	 * `executionId` is mirrored onto the DOM node and retained after the run ends, so
+	 * a test can confirm a run registered even though the queued/running button state
+	 * is gone by then.
 	 */
 	setExecutionState(state: CellExecutionState, executionId?: string): void {
 		this._executionState = state;

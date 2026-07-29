@@ -55,7 +55,9 @@ export class InlineQuarto {
 	readonly outputItem: Locator;
 	readonly cellToolbar: Locator;
 	readonly visibleCellToolbar: Locator;
-	readonly executedCellToolbar: Locator;
+	// Backs the run gate only; keeping it private keeps the `data-execution-id`
+	// contract an implementation detail that can be swapped without touching tests.
+	private readonly executedCellToolbar: Locator;
 	readonly toolbarRunButton: Locator;
 	readonly toolbarCancelButton: Locator;
 	readonly closeButton: Locator;
@@ -181,20 +183,15 @@ export class InlineQuarto {
 	}
 
 	/**
-	 * Every execution id the cell toolbars have recorded so far. A toolbar keeps its
-	 * cell's most recent execution id after that run finishes, so an id here is
-	 * durable evidence a run registered -- it does not expire the way the toolbar's
-	 * queued/running button state does.
-	 *
-	 * Document-scoped, not cell-scoped: the toolbar DOM carries no cell identity, so
-	 * a new id proves *some* cell ran, not which one. That is enough here because
-	 * Quarto executes a document's cells one at a time, and the caller goes on to
-	 * wait for output at a specific line anyway.
+	 * Execution ids recorded across all cell toolbars. Document-scoped, not
+	 * cell-scoped: the toolbar DOM carries no cell identity, so a new id proves
+	 * *some* cell ran, not which one.
 	 */
 	private async _recordedExecutionIds(): Promise<string[]> {
-		const toolbars = await this.executedCellToolbar.all();
-		const ids = await Promise.all(toolbars.map(toolbar => toolbar.getAttribute(EXECUTION_ID_ATTR)));
-		return ids.filter((id): id is string => id !== null);
+		return this.executedCellToolbar.evaluateAll(
+			(toolbars, attr) => toolbars.map(toolbar => toolbar.getAttribute(attr)!),
+			EXECUTION_ID_ATTR
+		);
 	}
 
 	/**
@@ -205,11 +202,10 @@ export class InlineQuarto {
 	 * the full output timeout waiting on a run that never took. Re-fire (moving the
 	 * cursor back onto the cell each attempt) until a new execution is recorded.
 	 *
-	 * Waits for an execution id the toolbars had not recorded before this call
-	 * rather than for the toolbar's queued/running button: a short cell can finish
-	 * in a couple hundred milliseconds, and the toolbar is only rendered while the
-	 * cursor is in its cell and it is on screen, so that button routinely comes and
-	 * goes between polls under CI load even though the run took fine.
+	 * Gates on a newly recorded execution id rather than the toolbar's
+	 * queued/running button: a short cell can finish in a couple hundred
+	 * milliseconds, and that button is only visible while the cursor is in its cell
+	 * and it is on screen, so it comes and goes between polls under CI load.
 	 */
 	private async _runCellUntilStarted(cellLine: number, run: () => Promise<void>): Promise<void> {
 		const before = new Set(await this._recordedExecutionIds());
