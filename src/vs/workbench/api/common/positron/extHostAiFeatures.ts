@@ -199,4 +199,10 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return this._proxy.$validateAndExecuteCommand(commandId, args);
 	}
 
+	async getConsoleContent(
+		sessionId: string | undefined,
+	): Promise<extHostProtocol.ISerializedConsoleContentEntry[]> {
+		return this._proxy.$getConsoleContent(sessionId);
+	}
+
 }

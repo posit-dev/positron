@@ -71,6 +71,39 @@ export interface IExecutionHistoryError {
 }
 
 /**
+ * A single console execution projected to the fields relevant to a model or an
+ * extension: the code that ran, its output, and any error.
+ */
+export interface IConsoleContentEntry {
+	/** The code that was executed. */
+	input: string;
+	/** The textual output produced by the execution. */
+	output: string;
+	/** The error produced by the execution, if any. */
+	error?: IExecutionHistoryError;
+	/** Time the execution occurred, in milliseconds since the Epoch. */
+	when: number;
+}
+
+/**
+ * Projects raw execution history entries down to the console content relevant
+ * to a reader: only completed code executions (skipping the startup banner and
+ * entries recorded without input, e.g. output produced outside an execution),
+ * each mapped to its input, textual output, error, and timestamp. Entries are
+ * returned in their stored order (oldest first).
+ */
+export function projectExecutionEntriesToConsoleContent(entries: IExecutionHistoryEntry<unknown>[]): IConsoleContentEntry[] {
+	return entries
+		.filter(entry => entry.outputType === ExecutionEntryType.Execution && entry.input)
+		.map(entry => ({
+			input: entry.input,
+			output: typeof entry.output === 'string' ? entry.output : String(entry.output ?? ''),
+			error: entry.error,
+			when: entry.when,
+		}));
+}
+
+/**
  * Represents an input code fragment sent to a language runtime.
  */
 export interface IInputHistoryEntry {

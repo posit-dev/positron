@@ -355,6 +355,13 @@ export type ISerializedValidateAndExecuteCommandResult =
 		message?: string;
 	};
 
+export interface ISerializedConsoleContentEntry {
+	input: string;
+	output: string;
+	error?: { name: string; message: string; traceback: string[] };
+	when: number;
+}
+
 export interface MainThreadAiFeaturesShape {
 	$registerChatAgent(agentData: IChatAgentData): Thenable<void>;
 	$unregisterChatAgent(id: string): void;
@@ -379,6 +386,7 @@ export interface MainThreadAiFeaturesShape {
 		commandId: string,
 		args: unknown[] | undefined,
 	): Promise<ISerializedValidateAndExecuteCommandResult>;
+	$getConsoleContent(sessionId: string | undefined): Promise<ISerializedConsoleContentEntry[]>;
 }
 
 export interface ExtHostAiFeaturesShape {

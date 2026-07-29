@@ -3882,6 +3882,45 @@ declare module 'positron' {
 			commandId: string,
 			args?: unknown[]
 		): Thenable<ValidateAndExecuteCommandResult>;
+
+		/**
+		 * A single console execution: a command that ran in a runtime session,
+		 * paired with its output and any error.
+		 */
+		export interface ConsoleContentEntry {
+			/** The code that was executed. */
+			input: string;
+			/** The textual output produced by the execution. */
+			output: string;
+			/** The error produced by the execution, if any. */
+			error?: {
+				/** The name of the error. */
+				name: string;
+				/** The error message. */
+				message: string;
+				/** The error stack trace. */
+				traceback: string[];
+			};
+			/** Time the execution occurred, in milliseconds since the Epoch. */
+			when: number;
+		}
+
+		/**
+		 * Returns the recent console history for a runtime session: the code
+		 * fragments that have already run, each paired with its output and any
+		 * error. This is read-only; it does not execute anything.
+		 *
+		 * Only completed code executions are returned, oldest first. The startup
+		 * banner and entries recorded without input (e.g. output produced outside
+		 * an execution) are omitted, matching what the console shows as a command
+		 * history.
+		 *
+		 * @param sessionId The identifier of the session to read console content
+		 *  from. Defaults to the foreground session when omitted.
+		 * @returns A Thenable that resolves to the console entries, or an empty
+		 *  array when no session is available.
+		 */
+		export function getConsoleContent(sessionId?: string): Thenable<ConsoleContentEntry[]>;
 	}
 
 	/**

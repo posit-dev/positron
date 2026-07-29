@@ -18,7 +18,7 @@ import { CountTokensCallback, ILanguageModelToolsService, IPreparedToolInvocatio
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { ExecutionEntryType, IExecutionHistoryError, IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
+import { IExecutionHistoryService, projectExecutionEntriesToConsoleContent } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { getSessionVariables, querySessionTables } from '../../../../services/positronVariables/common/helpers/sessionVariableQueries.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -263,18 +263,6 @@ const getConsoleContentToolData: IToolData = {
 	},
 };
 
-/** A single console entry projected to the fields relevant to the model. */
-interface IConsoleContentEntry {
-	/** The code that was executed. */
-	input: string;
-	/** The textual output produced by the execution. */
-	output: string;
-	/** The error produced by the execution, if any. */
-	error?: IExecutionHistoryError;
-	/** Time the execution occurred, in milliseconds since the Epoch. */
-	when: number;
-}
-
 export class GetConsoleContentTool implements IToolImpl {
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
@@ -289,24 +277,18 @@ export class GetConsoleContentTool implements IToolImpl {
 			return createToolSimpleTextResult('No console session is available to read content from.');
 		}
 
-		// Only completed code executions are of interest: skip the startup banner
-		// and any entry without input (e.g. output recorded outside an execution).
-		// Note the history service does not record errors that occur outside an
-		// execution, nor in-flight executions that have not yet completed.
-		const entries = this._executionHistoryService.getExecutionEntries(sessionId)
-			.filter(entry => entry.outputType === ExecutionEntryType.Execution && entry.input);
+		// Project to completed code executions only (see helper); the history
+		// service does not record errors that occur outside an execution, nor
+		// in-flight executions that have not yet completed.
+		const entries = projectExecutionEntriesToConsoleContent(
+			this._executionHistoryService.getExecutionEntries(sessionId));
 
 		// Return the most recent entries, oldest first so the model reads them in
 		// chronological order.
 		const count = input.numberOfEntries && input.numberOfEntries > 0
 			? input.numberOfEntries
 			: DEFAULT_CONSOLE_ENTRY_COUNT;
-		const recent: IConsoleContentEntry[] = entries.slice(-count).map(entry => ({
-			input: entry.input,
-			output: typeof entry.output === 'string' ? entry.output : String(entry.output ?? ''),
-			error: entry.error,
-			when: entry.when,
-		}));
+		const recent = entries.slice(-count);
 
 		return createToolSimpleTextResult(JSON.stringify(recent));
 	}
