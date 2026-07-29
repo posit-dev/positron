@@ -30,7 +30,7 @@ from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 from ..execute_request import PositronExecuteRequest
-from . import selects_module
+from . import formats, selects_module
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -431,6 +431,10 @@ def activate() -> None:
 
     _install_library_gca_redirect()
 
+    # Intercept `set_matplotlib_formats`: it's a no-op here, since the Plots pane
+    # negotiates its own format via `canvas.render(format_=...)`.
+    formats.install_set_matplotlib_formats_patch()
+
     _active = True
 
 
@@ -450,6 +454,9 @@ def deactivate() -> None:
         shell.events.unregister("post_execute", _detach_library_figures)
 
     _uninstall_library_gca_redirect()
+
+    # Undo the `set_matplotlib_formats` patch, unless the notebook flavor is still active.
+    formats.uninstall_set_matplotlib_formats_patch()
 
 
 # If we are the selected backend, activate.

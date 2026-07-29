@@ -704,6 +704,26 @@ def test_mpl_shutdown(shell: PositronShell, plots_service: PlotsService) -> None
     assert all(comm._closed for comm in plot_comms)  # noqa: SLF001
 
 
+def test_set_matplotlib_formats_is_noop_in_console(shell: PositronShell) -> None:
+    """
+    `set_matplotlib_formats` is a silent no-op in console mode.
+
+    The console backend routes figures to the Plots pane via `canvas.render`, which
+    negotiates its own format; running IPython's `select_figure_formats` here would
+    register stray inline `image/*` display formatters alongside it (see
+    `formats.install_set_matplotlib_formats_patch`).
+    """
+    from matplotlib.figure import Figure
+
+    shell.run_cell(
+        "from matplotlib_inline.backend_inline import set_matplotlib_formats\n"
+        "set_matplotlib_formats('png')"
+    ).raise_error()
+
+    for formatter in shell.display_formatter.formatters.values():
+        assert Figure not in formatter
+
+
 def test_plotnine_close_then_show(shell: PositronShell, plots_service: PlotsService) -> None:
     """Test that a plotnine plot renders and then closes comm correctly."""
     shell.run_cell("""\

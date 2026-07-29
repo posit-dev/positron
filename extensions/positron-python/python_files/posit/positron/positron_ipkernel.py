@@ -40,7 +40,7 @@ from .execute_request import PositronExecuteRequest
 from .formatters.display_formatter import PositronDisplayFormatter
 from .help import HelpService, _distribution_to_modules, help  # noqa: A004
 from .lsp import LSPService
-from .matplotlib_backend import Backend
+from .matplotlib_backend import Backend, register_with_legacy_ipython
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
 from .patch.haystack import patch_haystack_is_in_jupyter
 from .patch.holoviews import set_holoviews_extension
@@ -345,6 +345,10 @@ class PositronShell(ZMQInteractiveShell):
         # Register Positron's custom magics.
         self.register_magics(PositronMagics)
 
+        # On IPython versions that don't read matplotlib's backend registry, add
+        # Positron's backends to the static table that `%matplotlib -l` lists.
+        register_with_legacy_ipython()
+
     def init_user_ns(self):
         super().init_user_ns()
 
@@ -388,17 +392,20 @@ class PositronShell(ZMQInteractiveShell):
 
         # 1. Select the matplotlib backend and gui event loop.
         requested = gui.lower() if isinstance(gui, str) else gui
+        requested_backend = Backend.from_name(requested) if isinstance(requested, str) else None
         if requested in (None, "auto", "inline"):
             # Positron's backend is both the session's default and its inline backend.
             # This is a reroute through the full switch path rather than a no-op when
             # already active, so that `%matplotlib inline` after `%matplotlib qt`
             # switches back. See https://github.com/posit-dev/positron/issues/15116.
-            #
-            # An explicit `%matplotlib positron-console`/`positron-notebook` intentionally
-            # falls through to the `else` branch instead: `pt.find_gui_and_backend` below
-            # resolves those names through matplotlib's backend registry on matplotlib
-            # >= 3.9, same as any other named backend.
             gui, backend = None, Backend.for_session_mode(self.session_mode).preferred_name
+        elif requested_backend is not None:
+            # An explicit `%matplotlib positron-console`/`positron-notebook` (either
+            # spelling) selects that flavor outright, even across session modes.
+            # Resolved here rather than through `pt.find_gui_and_backend`, which only
+            # knows entry-point backends like ours on IPython >= 8.24 with matplotlib
+            # >= 3.9; earlier IPython raises KeyError for them.
+            gui, backend = None, requested_backend.preferred_name
         else:
             gui, backend = pt.find_gui_and_backend(gui, self.pylab_gui_select)
             if gui is not None:

@@ -23,11 +23,10 @@ import contextlib
 import io
 import logging
 from binascii import b2a_base64
-from typing import TYPE_CHECKING, Literal, cast
+from typing import Literal, cast
 
 import matplotlib
 import matplotlib.pyplot as plt
-from IPython.core.formatters import DisplayFormatter
 from IPython.core.getipython import get_ipython
 from IPython.display import display
 from matplotlib._pylab_helpers import Gcf
@@ -36,14 +35,14 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 
 from ..execute_request import PositronExecuteRequest, current_execute_request
-from ..utils import png_pixel_size
-from . import selects_module
-
-if TYPE_CHECKING:
-    from IPython.core.formatters import PNGFormatter
-    from IPython.core.interactiveshell import InteractiveShell
+from ..utils import jpeg_pixel_size, png_pixel_size
+from . import formats, selects_module
 
 logger = logging.getLogger(__name__)
+
+# The pixel-size reader for each raster format's metadata. svg scales natively and
+# pdf isn't rendered inline, so neither needs a pixel-size-derived `width`/`height`.
+_PIXEL_SIZE_BY_FORMAT = {"png": png_pixel_size, "jpeg": jpeg_pixel_size}
 
 
 def new_figure_manager(
@@ -108,7 +107,9 @@ class FigureCanvasPositronNotebook(FigureCanvasAgg):
             self._set_device_pixel_ratio(pixel_ratio)  # type: ignore
 
 
-def _display_figure(fig: Figure, *, format_="png") -> tuple[str, dict] | None:
+def _display_figure(
+    fig: Figure, *, format_="png", **print_figure_kwargs
+) -> tuple[str, dict] | None:
     """Render a figure to its Jupyter display wire format."""
     # NOTE: This implementation must match `IPython.core.pylabtools.print_figure` otherwise
     #       users will get different results in Positron vs other notebook editors.
@@ -119,15 +120,18 @@ def _display_figure(fig: Figure, *, format_="png") -> tuple[str, dict] | None:
 
     # Render the figure to bytes.
     canvas = fig.canvas
+    kw = {
+        "format": format_,
+        # Must pass `fig.dpi` otherwise `print_figure` renders at a pixel ratio of 1.
+        "dpi": fig.dpi,
+        # Tight bbox mirrors IPython.
+        "bbox_inches": "tight",
+    }
+    # Explicit kwargs (e.g. `set_matplotlib_formats(..., pil_kwargs=...)`) win, matching
+    # upstream's `print_figure`.
+    kw.update(print_figure_kwargs)
     with io.BytesIO() as figure_buffer:
-        canvas.print_figure(
-            figure_buffer,
-            format=format_,
-            # Must pass `fig.dpi` otherwise `print_figure` renders at a pixel ratio of 1.
-            dpi=fig.dpi,
-            # Tight bbox mirrors IPython.
-            bbox_inches="tight",
-        )
+        canvas.print_figure(figure_buffer, **kw)
         data = figure_buffer.getvalue()
 
     # Decode bytes to string.
@@ -139,9 +143,12 @@ def _display_figure(fig: Figure, *, format_="png") -> tuple[str, dict] | None:
     # Prepare figure metadata.
     metadata = {}
 
-    # If the canvas has a custom device pixel ratio, include the intended pixel size in the metadata.
-    if (ratio := canvas.device_pixel_ratio) != 1:
-        w, h = png_pixel_size(data)
+    # If the canvas has a custom device pixel ratio, include the intended pixel size in
+    # the metadata. Only raster formats (png, jpeg) support this: svg scales natively,
+    # and pdf isn't rendered inline.
+    pixel_size = _PIXEL_SIZE_BY_FORMAT.get(format_)
+    if pixel_size is not None and (ratio := canvas.device_pixel_ratio) != 1:
+        w, h = pixel_size(data)
         metadata["width"] = int(w) / ratio
         metadata["height"] = int(h) / ratio
 
@@ -151,12 +158,6 @@ def _display_figure(fig: Figure, *, format_="png") -> tuple[str, dict] | None:
 # Fulfil the matplotlib backend API.
 FigureCanvas = FigureCanvasPositronNotebook
 FigureManager = FigureManagerPositronNotebook
-
-
-def _get_png_formatter(shell: InteractiveShell) -> PNGFormatter:
-    """Get the shell's PNG formatter."""
-    assert isinstance(shell.display_formatter, DisplayFormatter)
-    return shell.display_formatter.formatters["image/png"]
 
 
 def _show_figures():
@@ -190,8 +191,14 @@ def activate() -> None:
     # Register a hook to show all figures after cell execution.
     shell.events.register("post_execute", _show_figures)
 
-    # Register our formatter for matplotlib Figure objects.
-    _get_png_formatter(shell).for_type(Figure, _display_figure)
+    # Register our formatter(s) for matplotlib Figure objects, for the currently
+    # selected format(s) (`png` unless the user previously called
+    # `set_matplotlib_formats`).
+    formats.apply_selected_formats(shell)
+
+    # Intercept `set_matplotlib_formats` so a user's call re-registers our formatters
+    # instead of IPython's.
+    formats.install_set_matplotlib_formats_patch()
 
     _active = True
 
@@ -211,16 +218,11 @@ def deactivate() -> None:
     with contextlib.suppress(ValueError):
         shell.events.unregister("post_execute", _show_figures)
 
-    # Unregister our formatter for matplotlib Figure objects. Note `lookup_by_type` and
-    # not `lookup`: the latter takes an instance, so it would never find our formatter.
-    png_formatter = _get_png_formatter(shell)
-    try:
-        if png_formatter.lookup_by_type(Figure) is _display_figure:
-            # It's still our formatter, remove it.
-            png_formatter.pop(Figure)
-    except KeyError:
-        # `lookup_by_type` raises if there's no formatter for the type, nothing to do.
-        pass
+    # Unregister our formatter(s) for matplotlib Figure objects.
+    formats.pop_registered_formatters(shell)
+
+    # Undo the `set_matplotlib_formats` patch, unless the console flavor is still active.
+    formats.uninstall_set_matplotlib_formats_patch()
 
 
 # If we are the selected backend, activate.

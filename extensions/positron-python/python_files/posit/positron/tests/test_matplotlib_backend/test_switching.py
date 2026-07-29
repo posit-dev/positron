@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import contextlib
 import sys
+from functools import partial
 from typing import TYPE_CHECKING, Callable, Iterator, NamedTuple
 
 import matplotlib
@@ -29,6 +30,7 @@ from positron import matplotlib_backend
 from positron.matplotlib_backend import (
     Backend,
     console,
+    formats,
     notebook,
     selects_module,
 )
@@ -67,7 +69,11 @@ def _notebook_integration_installed(shell: PositronShell) -> bool:
     formatter = shell.display_formatter.formatters["image/png"]
     with contextlib.suppress(KeyError):
         # `lookup_by_type` raises KeyError when no formatter is registered for the type.
-        return formatter.lookup_by_type(Figure) is notebook._display_figure  # noqa: SLF001
+        # The registered callable is a `partial` binding `_display_figure` (see
+        # `formats.select_figure_formats`), not the bare function, since it also binds
+        # `format_` and any `print_figure_kwargs`.
+        current = formatter.lookup_by_type(Figure)
+        return isinstance(current, partial) and current.func is notebook._display_figure  # noqa: SLF001
     return False
 
 
@@ -284,6 +290,47 @@ def test_positron_short_names_are_listed_backends(shell: PositronShell):
     assert Backend.NOTEBOOK.short_name in captured.stdout
 
 
+def test_explicit_short_name_without_registry_resolution(
+    shell: PositronShell, positron_backend: Flavor, monkeypatch: pytest.MonkeyPatch
+):
+    """
+    Explicit short names select the backend even when IPython can't resolve them.
+
+    IPython < 8.24 resolves `%matplotlib <name>` through a static table that raises
+    KeyError for entry-point backends like Positron's, instead of matplotlib's backend
+    registry. Simulate that here: the switch must not reach `find_gui_and_backend`.
+    """
+    from IPython.core import pylabtools as pt
+
+    def legacy_find_gui_and_backend(gui=None, gui_select=None):  # noqa: ARG001
+        raise KeyError(gui)
+
+    monkeypatch.setattr(pt, "find_gui_and_backend", legacy_find_gui_and_backend)
+
+    shell.run_cell(f"%matplotlib {positron_backend.backend.short_name}").raise_error()
+
+    assert _state(shell, positron_backend) == _positron_active(positron_backend)
+
+
+def test_register_with_legacy_ipython_adds_short_names(monkeypatch: pytest.MonkeyPatch):
+    """On IPython < 8.24, the short names are added to the static backend table for `-l`."""
+    from IPython.core import pylabtools as pt
+
+    # Simulate IPython < 8.24: no registry-based lister, `-l` reads `pt.backends`.
+    if hasattr(pt, "_list_matplotlib_backends_and_gui_loops"):
+        monkeypatch.delattr(pt, "_list_matplotlib_backends_and_gui_loops")
+    legacy_table = {"inline": INLINE_BACKEND_NAME}
+    monkeypatch.setattr(pt, "backends", legacy_table)
+
+    matplotlib_backend.register_with_legacy_ipython()
+
+    assert legacy_table == {
+        "inline": INLINE_BACKEND_NAME,
+        Backend.CONSOLE.short_name: Backend.CONSOLE.full_name,
+        Backend.NOTEBOOK.short_name: Backend.NOTEBOOK.full_name,
+    }
+
+
 def test_other_backend_deactivates(shell: PositronShell, positron_backend: Flavor):
     """Switching to another backend removes Positron's hooks instead of leaving them."""
     shell.run_cell(f"%matplotlib {OTHER_BACKEND_NAME}").raise_error()
@@ -350,6 +397,49 @@ def test_matplotlib_inline_escape_hatch(shell: PositronShell, positron_backend: 
         "inline_hooks": 1,
     }
     assert _state(shell, positron_backend) == _positron_active(positron_backend)
+
+
+def test_set_matplotlib_formats_patch_installed_while_active(positron_backend: Flavor):  # noqa: ARG001
+    """The shared `set_matplotlib_formats` patch is installed while a Positron flavor is active."""
+    import matplotlib_inline.backend_inline as backend_inline
+
+    assert backend_inline.set_matplotlib_formats is formats._installed_set_matplotlib_formats  # noqa: SLF001
+
+
+def test_set_matplotlib_formats_patch_restored_after_switch(
+    shell: PositronShell,
+    positron_backend: Flavor,  # noqa: ARG001
+):
+    """Switching to a non-Positron backend restores the original `set_matplotlib_formats`."""
+    import matplotlib_inline.backend_inline as backend_inline
+
+    original = formats._original_set_matplotlib_formats  # noqa: SLF001
+
+    shell.run_cell(f"%matplotlib {OTHER_BACKEND_NAME}").raise_error()
+
+    assert backend_inline.set_matplotlib_formats is original
+
+
+def test_notebook_to_console_switch_keeps_patch_installed(
+    shell: PositronShell,
+    notebook_backend: Flavor,  # noqa: ARG001
+):
+    """
+    A notebook -> console switch runs activate-before-deactivate; the shared patch survives.
+
+    Pins the call-time-dispatch / shared-uninstall design in
+    `formats.install_set_matplotlib_formats_patch`: a per-flavor install/uninstall would
+    have the console flavor's activate immediately followed by the notebook flavor's
+    deactivate, unpatching the patch the activate just installed.
+    """
+    import matplotlib_inline.backend_inline as backend_inline
+
+    installed_before = backend_inline.set_matplotlib_formats
+
+    shell.run_cell(f"%matplotlib {Backend.CONSOLE.short_name}").raise_error()
+
+    assert backend_inline.set_matplotlib_formats is installed_before
+    assert backend_inline.set_matplotlib_formats is formats._installed_set_matplotlib_formats  # noqa: SLF001
 
 
 def test_selects_module_recognizes_own_names(flavor: Flavor):
