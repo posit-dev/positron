@@ -25,7 +25,8 @@ only when a stage needs them.
   patterns is.
 - Resolve the exact **full hierarchical** test title and spec path.
 - Investigate **one** selected pattern at a time; ask which when there's more
-  than one.
+  than one. Never fetch evidence for a pattern the engineer didn't select --
+  ask first, even to check a side theory about how patterns relate.
 - Fetch **one** representative occurrence first; a second needs a stated reason.
 - Escalate evidence only to answer a concrete question. Keep large output on
   disk, not in the conversation.
@@ -109,13 +110,17 @@ saved data is invalid, or the branch/test identity changed.
    ```
    A non-`none` verdict changes the plan -- read [`references/prior-triage.md`](references/prior-triage.md).
    `open-attempt-in-flight` means stop and point at the open PR.
-6. **Present the failure modes as a table** (never a run-on sentence). Include a
-   "Seen on" column whenever two branches were queried:
+6. **Present the failure modes as a table** (never a run-on sentence). Use each
+   pattern's `rates` array (per branch, scoped to the environments it occurred
+   in) for the Rate column -- never `count / totalRuns`: that blends branches
+   and environments together and can understate a pattern confined to one
+   environment on one branch by 100x. Include a "Seen on" column whenever two
+   branches were queried:
 
-   | # | Failure mode | Count | % | Environments | Seen on |
+   | # | Failure mode | Count | Rate | Environments | Seen on |
    |---|---|---|---|---|---|
-   | A | `toBeVisible()` timeout: `getByLabel('...')` | 104 | 99% | ubuntu/electron | both |
-   | B | `locator.click` timeout: `.monaco-list-row` | 1 | 1% | win/electron | main only |
+   | A | `locator.click` timeout: `.codicon-maximize` | 4 | 100% on feature/x | ubuntu/chromium | feature/x only |
+   | B | `toBeVisible()` timeout: `getByLabel('...')` | 3 | 1.9% on main | ubuntu/electron | main only |
 
 7. **Ask which pattern to prioritize whenever the table has more than one row.**
    Give your own read ("A is dominant at 99% -- start there, or focus on B?")

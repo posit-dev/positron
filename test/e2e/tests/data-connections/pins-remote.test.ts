@@ -41,6 +41,7 @@ test.describe('Data Connections - Posit Connect Pins (remote)', { tag: [tags.CON
 			await dataConnections.openDataConnectionsView();
 			await dataConnections.clickAddConnection();
 			await dataConnections.selectProvider('Posit Connect Pins');
+			await dataConnections.selectConnectionMechanism('API Key');
 			await dataConnections.fillConnectionInputs({
 				'Connection Name': connectionName,
 				// The driver normalizes a bare host to https://, so either form of CONNECT_SERVER works.

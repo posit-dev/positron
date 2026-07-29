@@ -17,6 +17,8 @@ export const positronNotebookLayout: PositronLayoutInfo = {
 	codicon: 'positron-notebook-layout',
 	label: localize2('chooseLayout.notebookLayout', 'Notebook Layout'),
 	precondition: ContextKeyExpr.true(),
+	agentCompatible: true,
+	agentDescription: 'Switch the workbench to the notebook layout (optimised for working with a single notebook, with the console panel hidden).',
 	layoutDescriptor: {
 		[Parts.PANEL_PART]: {
 			size: '40%',

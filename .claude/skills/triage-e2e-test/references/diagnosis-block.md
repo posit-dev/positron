@@ -28,7 +28,7 @@ root-cause prediction at authoring time, so its accuracy can be scored later.
 - **Test:** [<full hierarchical test title>](<test_detail_view_url>)
 - **Targeted failure:** <exact surface error/assertion string, e.g. `Test timeout of 120000ms exceeded`>
 - **Signal:** <trace-timeline mechanism observation, not the bare assertion string>
-- **Frequency:** <count/percentage + environment, e.g. "5/313 runs (1.6%), ubuntu/electron">
+- **Frequency:** <auto-derived, one clause per branch scoped to the pattern's environments, e.g. "4/4 runs (100%) on feature/x; 5/313 runs (1.6%) on main, ubuntu/electron">
 - **Hypothesis:** <root-cause mechanism -- race / isolation / contention / infra / product-bug>
 
 </details>

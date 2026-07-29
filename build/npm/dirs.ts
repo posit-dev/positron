@@ -38,6 +38,7 @@ export let dirs = [
 	'extensions/positron-data-driver-pins',
 	'extensions/positron-data-driver-postgresql',
 	'extensions/positron-data-driver-redshift',
+	'extensions/positron-data-driver-snowflake',
 	'extensions/positron-data-driver-sqlite',
 	'extensions/positron-environment-modules',
 	'extensions/positron-file-transfer',
