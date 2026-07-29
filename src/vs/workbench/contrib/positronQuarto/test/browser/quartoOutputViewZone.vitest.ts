@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { chooseHtmlRenderMode, isInertHtml, isWebviewOverlayShown } from '../../browser/quartoOutputViewZone.js';
+import { chooseHtmlRenderMode, isInertHtml, isWebviewOverlayShown, shouldExpandOnFreshOutput } from '../../browser/quartoOutputViewZone.js';
 
 // The inline-output webview is a fixed-position overlay anchored to a
 // placeholder inside the editor view zone. It must be shown only while its view
@@ -90,5 +90,27 @@ describe('chooseHtmlRenderMode', () => {
 
 	it('falls back to the warning only when no webview service exists', () => {
 		expect(chooseHtmlRenderMode(activeHtml, false)).toBe('warning');
+	});
+});
+
+// A cell's output can arrive hundreds of ms after the user collapsed it, while
+// the zone is still in its recomputing window. Expanding on fresh output is the
+// default so new results are visible, but doing it after an explicit collapse
+// discards the user's action and inverts the next toggle: the following toggle
+// reads the collapsed flag as false and collapses again instead of expanding.
+// That is the quarto-inline-output-collapse flake.
+describe('shouldExpandOnFreshOutput', () => {
+	it('expands a collapsed output when the user did not collapse during this execution', () => {
+		// The case the behavior exists for: collapsed before the re-run started.
+		expect(shouldExpandOnFreshOutput(true, false)).toBe(true);
+	});
+
+	it('leaves it collapsed when the user collapsed during this execution', () => {
+		expect(shouldExpandOnFreshOutput(true, true)).toBe(false);
+	});
+
+	it('does nothing when the output is already expanded', () => {
+		expect(shouldExpandOnFreshOutput(false, false)).toBe(false);
+		expect(shouldExpandOnFreshOutput(false, true)).toBe(false);
 	});
 });
