@@ -3,7 +3,6 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
-from http.server import HTTPServer
 from typing import Iterable
 from unittest.mock import MagicMock, Mock
 
@@ -162,27 +161,6 @@ def mock_ui_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mo
 def mock_help_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
     mock = Mock()
     monkeypatch.setattr(shell.kernel, "help_service", mock)
-    return mock
-
-
-@pytest.fixture
-def mock_displayhook(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
-    mock = Mock()
-    monkeypatch.setattr(shell, "displayhook", mock)
-    return mock
-
-
-@pytest.fixture
-def mock_display_pub(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
-    mock = Mock()
-    monkeypatch.setattr(shell, "display_pub", mock)
-    return mock
-
-
-@pytest.fixture
-def mock_handle_request(monkeypatch: pytest.MonkeyPatch) -> Mock:
-    mock = Mock()
-    monkeypatch.setattr(HTTPServer, "handle_request", mock)
     return mock
 
 
