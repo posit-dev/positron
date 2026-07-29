@@ -12,6 +12,7 @@
  */
 export enum PositronAssistantToolName {
 	ExecuteCode = 'executeCode',
+	GetConsoleContent = 'getConsoleContent',
 	GetTableSummary = 'getTableSummary',
 	GetPlot = 'getPlot',
 	InspectVariables = 'inspectVariables',

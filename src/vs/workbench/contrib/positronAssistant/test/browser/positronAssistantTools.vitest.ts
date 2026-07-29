@@ -14,11 +14,12 @@ import { ILanguageRuntimeMessageResult, ILanguageRuntimeMetadata } from '../../.
 import { VariablesClientInstance } from '../../../../services/languageRuntime/common/languageRuntimeVariablesClient.js';
 import { InspectedVariable, PositronVariablesComm, QueryTableSummaryResult, Variable, VariableList } from '../../../../services/languageRuntime/common/positronVariablesComm.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { IPositronVariablesInstance } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { CountTokensCallback, IToolInvocation, IToolResult, ToolProgress } from '../../../chat/common/tools/languageModelToolsService.js';
-import { ExecuteCodeTool, GetPlotTool, GetTableSummaryTool, InspectVariablesTool } from '../../browser/tools/positronAssistantTools.js';
+import { ExecuteCodeTool, GetConsoleContentTool, GetPlotTool, GetTableSummaryTool, InspectVariablesTool } from '../../browser/tools/positronAssistantTools.js';
 import { IPositronAssistantService } from '../../common/interfaces/positronAssistantService.js';
 
 const SESSION_ID = 'session-1';
@@ -150,6 +151,73 @@ describe('GetTableSummaryTool', () => {
 		const variablesService = variablesServiceWith({ rootVariables: [variable('df', 'key_df')], tableSummary });
 
 		expect(JSON.parse(textOf(await invoke(runtimeSessionService, variablesService, { sessionIdentifier: SESSION_ID, variableNames: ['df'] })))).toEqual([tableSummary]);
+	});
+});
+
+describe('GetConsoleContentTool', () => {
+	/** Build an execution history entry, defaulting to a completed code execution. */
+	function entry(overrides: Partial<IExecutionHistoryEntry<unknown>>): IExecutionHistoryEntry<unknown> {
+		return {
+			id: 'id',
+			when: 0,
+			prompt: '',
+			input: '',
+			outputType: ExecutionEntryType.Execution,
+			output: '',
+			durationMs: 0,
+			...overrides,
+		};
+	}
+
+	const foreground = stubInterface<IRuntimeSessionService>({
+		foregroundSession: stubInterface<ILanguageRuntimeSession>({ sessionId: SESSION_ID }),
+	});
+
+	function invoke(runtimeSessionService: IRuntimeSessionService, entries: IExecutionHistoryEntry<unknown>[], parameters: Record<string, unknown> = {}): Promise<IToolResult> {
+		const executionHistoryService = stubInterface<IExecutionHistoryService>({ getExecutionEntries: () => entries });
+		const tool = new GetConsoleContentTool(runtimeSessionService, executionHistoryService);
+		return tool.invoke(invocation(parameters), countTokens, progress, CancellationToken.None);
+	}
+
+	it('reports a descriptive message when no session can be resolved', async () => {
+		const runtimeSessionService = stubInterface<IRuntimeSessionService>({ foregroundSession: undefined });
+
+		expect(textOf(await invoke(runtimeSessionService, []))).toBe('No console session is available to read content from.');
+	});
+
+	it('returns recent execution entries paired with output and error, oldest first', async () => {
+		const entries = [
+			entry({ input: 'a <- 1', output: '', when: 1 }),
+			entry({ input: 'stop("boom")', output: '', error: { name: 'error', message: 'boom', traceback: [] }, when: 2 }),
+			entry({ input: 'print(2)', output: '[1] 2\n', when: 3 }),
+		];
+
+		expect(JSON.parse(textOf(await invoke(foreground, entries)))).toEqual([
+			{ input: 'a <- 1', output: '', when: 1 },
+			{ input: 'stop("boom")', output: '', error: { name: 'error', message: 'boom', traceback: [] }, when: 2 },
+			{ input: 'print(2)', output: '[1] 2\n', when: 3 },
+		]);
+	});
+
+	it('returns only the most recent entries up to numberOfEntries', async () => {
+		const entries = [1, 2, 3, 4, 5].map(n => entry({ input: `cmd${n}`, output: `out${n}`, when: n }));
+
+		expect(JSON.parse(textOf(await invoke(foreground, entries, { numberOfEntries: 2 })))).toEqual([
+			{ input: 'cmd4', output: 'out4', when: 4 },
+			{ input: 'cmd5', output: 'out5', when: 5 },
+		]);
+	});
+
+	it('excludes the startup banner and entries recorded without input', async () => {
+		const entries = [
+			entry({ outputType: ExecutionEntryType.Startup, input: '', output: 'banner', when: 1 }),
+			entry({ input: '', output: 'orphan output', when: 2 }),
+			entry({ input: 'real()', output: 'ok', when: 3 }),
+		];
+
+		expect(JSON.parse(textOf(await invoke(foreground, entries)))).toEqual([
+			{ input: 'real()', output: 'ok', when: 3 },
+		]);
 	});
 });
 
