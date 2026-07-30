@@ -9,6 +9,7 @@ import base64
 from typing import TYPE_CHECKING
 
 import matplotlib
+import matplotlib.pyplot as plt
 import pytest
 from IPython.core.display import _pngxy
 from IPython.utils.capture import RichOutput, capture_output
@@ -70,6 +71,12 @@ class NotebookBackendFixture:
 
     def import_matplotlib(self) -> None:
         self.shell.run_cell("import matplotlib.pyplot as plt").raise_error()
+
+    def run(self, *lines: str) -> list[RichOutput]:
+        """Run a cell and return its display outputs."""
+        with capture_output() as captured:
+            self.shell.run_cell("\n".join(lines)).raise_error()
+        return captured.outputs
 
     def plot(
         self,
@@ -183,4 +190,42 @@ def test_pixel_ratio_zero_raises(backend, ratio):
         backend.plot(meta={"output_pixel_ratio": ratio})
 
 
-# TODO: Test plt.show and other apis, display(fig)?
+def test_plt_show_displays_figure(backend):
+    """An explicit `plt.show()` displays the figure inline."""
+    outputs = backend.run(
+        "import matplotlib.pyplot as plt",
+        "fig, ax = plt.subplots()",
+        "ax.plot([0, 1], [0, 1])",
+        "plt.show()",
+    )
+
+    # The lone output comes from the explicit `plt.show()`: it closes every figure, so the
+    # post-execute hook has nothing left to display.
+    assert len(outputs) == 1
+    assert plt.get_fignums() == []
+    png, _metadata = _parse_png_output(outputs[0])
+    assert png.startswith(b"\x89PNG")
+
+
+def test_figure_show_displays_figure(backend):
+    """An explicit `fig.show()` displays the figure inline."""
+    outputs = backend.run(
+        "import matplotlib.pyplot as plt",
+        "fig, ax = plt.subplots()",
+        "ax.plot([0, 1], [0, 1])",
+        "fig.show()",
+    )
+
+    # Two outputs: the explicit `fig.show()`, then the post-execute hook, which still finds
+    # the figure since `Figure.show` doesn't close it.
+    assert len(outputs) == 2
+
+
+def test_figures_do_not_accumulate_across_cells(backend):
+    """Figures are closed once shown, so a later cell doesn't re-display earlier ones."""
+    backend.plot()
+    assert plt.get_fignums() == []
+
+    # `plot` asserts a single output, which would also fail if the first figure lingered.
+    backend.plot()
+    assert plt.get_fignums() == []
