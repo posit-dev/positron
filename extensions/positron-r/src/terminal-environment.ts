@@ -59,16 +59,9 @@ export function getRTerminalEnvironmentMutations(
 		});
 	}
 
-	// Set R_HOME so tools that read it (rather than deriving it from the R
-	// binary) find the selected installation. R_HOME is R-specific, so setting
-	// it in the terminal does not affect unrelated programs.
-	if (metadataExtra.homepath) {
-		mutations.push({
-			action: 'replace',
-			variable: 'R_HOME',
-			value: metadataExtra.homepath,
-		});
-	}
+	// We do not set R_HOME here: R's launcher scripts (`R`/`Rscript`) derive it
+	// themselves from their own location, so once PATH points at the selected R,
+	// R_HOME is redundant.
 
 	// Point QUARTO_R at the directory containing Rscript so that `quarto render`
 	// (and the bundled Quarto extension) use the selected R version. Note that

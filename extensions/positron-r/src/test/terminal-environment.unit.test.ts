@@ -52,13 +52,10 @@ suite('getRTerminalEnvironmentMutations', () => {
 		assert.strictEqual(path!.value, 'C:/R/R-4.4.0/bin/x64;');
 	});
 
-	test('replaces R_HOME with the home path', () => {
+	test('does not set R_HOME (R launcher scripts derive it themselves)', () => {
 		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), 'darwin');
-		const rHome = find(mutations, 'R_HOME');
 
-		assert.ok(rHome, 'expected an R_HOME mutation');
-		assert.strictEqual(rHome!.action, 'replace');
-		assert.strictEqual(rHome!.value, '/opt/R/4.4.0/lib/R');
+		assert.strictEqual(find(mutations, 'R_HOME'), undefined);
 	});
 
 	test('sets QUARTO_R to the directory containing Rscript, not Rscript itself', () => {
@@ -92,7 +89,6 @@ suite('getRTerminalEnvironmentMutations', () => {
 
 		assert.strictEqual(find(mutations, 'PATH'), undefined);
 		// The other variables are still contributed.
-		assert.ok(find(mutations, 'R_HOME'));
 		assert.ok(find(mutations, 'QUARTO_R'));
 	});
 
@@ -104,13 +100,12 @@ suite('getRTerminalEnvironmentMutations', () => {
 
 		assert.strictEqual(find(mutations, 'QUARTO_R'), undefined);
 		assert.ok(find(mutations, 'PATH'));
-		assert.ok(find(mutations, 'R_HOME'));
 	});
 
 	test('contributes only the expected variables', () => {
 		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), 'darwin');
 		const variables = mutations.map(m => m.variable).sort();
 
-		assert.deepStrictEqual(variables, ['PATH', 'QUARTO_R', 'R_HOME']);
+		assert.deepStrictEqual(variables, ['PATH', 'QUARTO_R']);
 	});
 });

@@ -168,7 +168,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 		// Contribute environment variables so that terminals launched from
 		// Positron use the same R installation as the active console (PATH,
-		// R_HOME, QUARTO_R). This ensures that extensions which start R in a
+		// QUARTO_R). This ensures that extensions which start R in a
 		// terminal (Quarto Preview, Shiny Run App, etc.) run against the R the
 		// user selected. Apply at both process creation and shell integration so
 		// the variables are present however the terminal resolves them.
