@@ -320,10 +320,6 @@ class PositronShell(ZMQInteractiveShell):
         # Register Positron's custom magics.
         self.register_magics(PositronMagics)
 
-        # On IPython versions that don't read matplotlib's backend registry, add
-        # Positron's backends to the static table that `%matplotlib -l` lists.
-        register_with_legacy_ipython()
-
     def init_user_ns(self):
         super().init_user_ns()
 
@@ -351,9 +347,14 @@ class PositronShell(ZMQInteractiveShell):
 
         Overrides IPython so that bare `%matplotlib`, `%matplotlib inline`, and
         Positron's own backend names activate the Positron backend that suits the
-        session mode (or the explicitly named flavor). Every other backend is
+        session mode (or the explicitly named backend). Every other backend is
         delegated to IPython, whose switch path runs through the hook installed by
         `install_backend_switch_hook`, so switching away tears Positron's hooks down.
+
+        Overriding here rather than the `%matplotlib` magic also covers
+        `--matplotlib`/`--pylab` and their config-file equivalents:
+        `InteractiveShellApp.init_gui_pylab` calls `shell.enable_matplotlib` directly at
+        startup, never going through the magic.
         """
         from IPython.core import pylabtools as pt
 
@@ -362,12 +363,19 @@ class PositronShell(ZMQInteractiveShell):
             install_backend_switch_hook,
         )
 
-        # Install the seam before any switch below can need it. Idempotent; lazy
-        # because it imports matplotlib (see its docstring).
+        # Both calls are idempotent bootstrap steps that only have to be done before the
+        # first switch, so they're done lazily here rather than at shell init.
+        # Install the seam before any switch below can need it; lazy because it imports
+        # matplotlib (see its docstring).
         install_backend_switch_hook()
+        # On IPython versions that don't read matplotlib's backend registry, add
+        # Positron's backends to the static table that `%matplotlib -l` lists.
+        register_with_legacy_ipython()
 
+        # Only the sentinel check case-folds: `Backend.from_name` normalizes short names
+        # itself, and keeps `module://` paths case-sensitive since they're module paths.
         requested = gui.lower() if isinstance(gui, str) else gui
-        target = Backend.from_name(requested) if isinstance(requested, str) else None
+        target = Backend.from_name(gui) if isinstance(gui, str) else None
         if requested in (None, "auto", "inline"):
             # Positron's backend is both the session's default and its inline backend.
             # This is a reroute through the full switch path rather than a no-op when
