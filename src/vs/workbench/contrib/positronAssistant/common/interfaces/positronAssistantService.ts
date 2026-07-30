@@ -136,6 +136,13 @@ export interface IPositronLanguageModelConfig {
 	maxOutputTokens?: number;
 	completions?: boolean;
 	/**
+	 * Display name entered when creating the custom provider in the modal, used
+	 * as its provider key/name. Only a single custom provider is supported for
+	 * now; multiple named custom providers are tracked in #12747. Create-flow
+	 * only; not part of the public `positron.d.ts` API.
+	 */
+	name?: string;
+	/**
 	 * Wire protocol (API type) the provider speaks, e.g. 'openai-chat' (Chat
 	 * Completions) or 'openai-responses' (Responses). Routes custom /
 	 * OpenAI-compatible providers to the right API. Omit to let the provider

@@ -52,7 +52,7 @@ function createCustomProviderDraftSource(): IPositronLanguageModelSource {
 			id: CUSTOM_PROVIDER_DRAFT_ID,
 			displayName: localize('positron.configureLLMProvidersModal.customProviderName', "Custom Provider"),
 		},
-		supportedOptions: ['apiKey', 'baseUrl', 'protocol'],
+		supportedOptions: ['name', 'apiKey', 'baseUrl', 'protocol'],
 		defaults: { protocol: 'openai-chat' },
 	};
 }
