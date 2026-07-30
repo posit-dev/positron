@@ -95,6 +95,9 @@ saved data is invalid, or the branch/test identity changed.
      --occurrence-shas '["<sha1>","<sha2>"]'
    ```
    A non-`none` verdict changes the plan -- read [`references/prior-triage.md`](references/prior-triage.md).
+   `none` is not conclusive -- it matches spec paths, so a POM/helper-only fix
+   never registers. If the failing locator is gone from the working tree, read
+   that file anyway.
    `open-attempt-in-flight` means stop and point at the open PR.
 6. **Present the failure modes as a table** (never a run-on sentence). The Rate
    column comes from each pattern's `rates` array, never `count / totalRuns`;

@@ -31,6 +31,45 @@ pattern's occurrences all predating a fix, another's all postdating it -- that
 split **is** the diagnosis: the predating pattern is old news, the postdating
 one is what's still live. Lead with the split.
 
+## When `none` is not proof there was no prior fix
+
+The script matches **spec paths** in PR bodies. A fix that only touched a POM,
+fixture, or helper never names the spec, so it returns `none` while a merged fix
+exists. Whenever the failing locator or helper is **absent from the working
+tree**, it was replaced -- find by what, before trusting `none`:
+
+```bash
+git log --oneline -S'<failing locator or helper name>' -- test/e2e/
+```
+
+## Verifying a suspected fix by hand
+
+1. **Get every failure SHA.** `triage-history.js` keeps 1; the API allows 20.
+   Above 20 it returns 400 and leaves the *previous* raw JSON in place, which
+   reads as "the API only has one occurrence" -- it doesn't.
+   ```bash
+   node .claude/skills/e2e-failure-analyzer/scripts/e2e-query-history.js \
+     --repo positron --test-keys '["<key>"]' --branch main \
+     --lookback-days 14 --occurrences-per-pattern 20
+   ```
+2. **Partition them:** `git merge-base --is-ancestor <fixSha> <occSha>` per SHA.
+3. **Bracket the onset:** sweep `--lookback-days` (2/3/6/8/11/14). The smallest
+   window where the count saturates brackets it; clean runs in the window
+   immediately before a suspected regressor confirm it.
+4. **Get the denominator.** The API returns SHAs for failures only, so count
+   post-fix runs from CI instead:
+   ```bash
+   gh api 'repos/posit-dev/positron/actions/runs?branch=main&created=>=<YYYY-MM-DD>' \
+     --jq '.workflow_runs[] | select(.name=="Test: Merge to branch")
+           | [.head_sha, .created_at, (.conclusion//"running")] | @tsv'
+   ```
+   Exclude in-flight runs. A workflow `conclusion` of `failure` is the whole
+   suite, not this test -- it is not an occurrence.
+5. **State sufficiency as a number.** Zero failures in N post-fix runs at
+   baseline rate p is only worth `(1-p)^N`: at p~0.5, N=4 is ~0.06 --
+   suggestive, not proof. Report the figure and what N would settle it. Never
+   call a fix closed on a handful of green runs.
+
 ## Supersedes
 
 If a merged fix didn't hold (`recurred-after-fix`), the eventual diagnosis block
