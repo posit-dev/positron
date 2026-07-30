@@ -29,7 +29,8 @@ from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 from ..execute_request import PositronExecuteRequest
-from . import Backend, configure_positron_support
+from .backend import Backend
+from .registry import registry
 
 if TYPE_CHECKING:
     from IPython.core.interactiveshell import InteractiveShell
@@ -426,10 +427,10 @@ def uninstall(shell: InteractiveShell) -> None:
 
 
 # If we are the selected backend, activate through the registry, which also tears
-# down the other flavor if it was active. This runs when matplotlib imports the
+# down the other backend if it was active. This runs when matplotlib imports the
 # module to switch to it. See the note at the top of the file. `Backend.from_name`
 # matches both spellings, which matters here: matplotlib can still report our short
 # name via `get_backend()` at this point, before it settles into the `module://`
 # spelling.
 if Backend.from_name(matplotlib.get_backend()) is Backend.CONSOLE:
-    configure_positron_support(Backend.CONSOLE)
+    registry.activate(Backend.CONSOLE)

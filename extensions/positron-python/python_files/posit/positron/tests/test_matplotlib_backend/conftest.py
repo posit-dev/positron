@@ -10,20 +10,26 @@ from typing import TYPE_CHECKING
 
 import matplotlib
 
-from positron.matplotlib_backend import Backend, configure_positron_support
+from positron.matplotlib_backend.registry import registry
 
 if TYPE_CHECKING:
-    from typing import Iterator
+    from typing import Generator
+
+    from positron.matplotlib_backend.backend import Backend
 
 
 @contextlib.contextmanager
-def active_backend(backend: Backend) -> Iterator[None]:
+def active_backend(backend: Backend) -> Generator[None, None, None]:
     """Activate a Positron matplotlib backend, restoring the previous backend on exit."""
     prev = matplotlib.get_backend()
     matplotlib.use(backend.full_name)
-    configure_positron_support(backend)
+    # matplotlib has no switch-callback API (`pyplot.switch_backend` notifies nothing), so
+    # in production the backend module's import-time trailer is what activates Positron's
+    # support. `matplotlib.use` here often finds the module already imported, so that
+    # trailer doesn't re-run; activate manually to simulate it.
+    registry.activate(backend)
     try:
         yield
     finally:
-        configure_positron_support(prev)
+        registry.activate(prev)
         matplotlib.use(prev)

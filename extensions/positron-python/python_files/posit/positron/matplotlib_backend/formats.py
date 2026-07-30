@@ -8,12 +8,12 @@ Positron's support for `matplotlib_inline.backend_inline.set_matplotlib_formats`
 That function (and its sibling `select_figure_formats`) operate entirely inside
 matplotlib-inline/IPython, with no Positron code on the stack, so the only way to
 intercept them is to patch `set_matplotlib_formats` itself. The patch is installed
-by `configure_positron_support` whenever a Positron backend (console or notebook) is
-active, and removed once none is -- see `install_set_matplotlib_formats_patch` for why
-a shared, call-time dispatch is needed instead of one patch per flavor.
+by `PositronBackendRegistry.activate` whenever a Positron backend (console or notebook)
+is active, and removed once none is -- see `install_set_matplotlib_formats_patch` for
+why a shared, call-time dispatch is needed instead of one patch per backend.
 
-NOTE: only ever imported from `configure_positron_support`, by which point matplotlib
-is guaranteed to be importable.
+NOTE: only ever imported from `PositronBackendRegistry.activate`, by which point
+matplotlib is guaranteed to be importable.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from IPython.core.getipython import get_ipython
 from IPython.core.pylabtools import print_figure
 from matplotlib.figure import Figure
 
-from . import Backend
+from .backend import Backend
 
 if TYPE_CHECKING:
     from IPython.core.interactiveshell import InteractiveShell
@@ -96,6 +96,8 @@ def _display_figure(
     if format_ == "svg":
         # `print_figure` returns `str` only for svg; narrowed by the `format_` check above.
         return cast("str", data), {}
+    # Same encoding `print_figure(base64=True)` would have applied, done here instead so
+    # the raw bytes stay available for `_pngxy`/`_jpegxy` below.
     decoded = b2a_base64(cast("bytes", data), newline=False).decode("ascii")
 
     metadata = {}
@@ -173,9 +175,10 @@ def install_set_matplotlib_formats_patch() -> None:
     """
     Patch `matplotlib_inline.backend_inline.set_matplotlib_formats`. Safe to call repeatedly.
 
-    Installed by `configure_positron_support` whenever a Positron backend is active,
-    and dispatches at call time on `matplotlib.get_backend()`, so it stays correct
-    however the active flavor changes between install and call time. Dispatching on
+    Installed by `PositronBackendRegistry.activate` whenever a Positron backend is
+    active, and dispatches at call time on `matplotlib.get_backend()`, so it stays
+    correct however the active backend changes between install and call time.
+    Dispatching on
     the live backend string rather than the registry's state is deliberate: a user can
     switch backends with a bare `matplotlib.use(...)` that never goes through the
     registry.
@@ -198,7 +201,7 @@ def install_set_matplotlib_formats_patch() -> None:
             # The Plots pane negotiates its own format via `canvas.render(format_=...)`;
             # running `select_figure_formats` here would emit stray inline outputs
             # alongside it. Silent no-op, matching the deliberate
-            # `%config InlineBackend.*` no-op precedent (see test_switching.py).
+            # `%config InlineBackend.*` no-op precedent (see test_enable_matplotlib.py).
             logger.debug("set_matplotlib_formats is a no-op in Positron's console backend")
         else:
             # A non-Positron backend is active (e.g. the user called

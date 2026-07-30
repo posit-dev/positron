@@ -40,7 +40,8 @@ from .execute_request import PositronExecuteRequest
 from .formatters.display_formatter import PositronDisplayFormatter
 from .help import HelpService, _distribution_to_modules, help  # noqa: A004
 from .lsp import LSPService
-from .matplotlib_backend import Backend, register_with_legacy_ipython
+from .matplotlib_backend.backend import Backend
+from .matplotlib_backend.compat import register_with_legacy_ipython
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
 from .patch.haystack import patch_haystack_is_in_jupyter
 from .patch.holoviews import set_holoviews_extension
@@ -358,7 +359,7 @@ class PositronShell(ZMQInteractiveShell):
         """
         from IPython.core import pylabtools as pt
 
-        from .matplotlib_backend import (
+        from .matplotlib_backend.registry import (
             configure_matplotlib_support,
             install_backend_switch_hook,
         )
