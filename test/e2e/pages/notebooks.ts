@@ -9,7 +9,7 @@ import { QuickAccess } from './quickaccess';
 import { basename } from 'path';
 import test, { expect, FrameLocator, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
-import { DEPRIORITIZED_PYTHON_SOURCES } from './sessions';
+import { ALLOW_DEPRIORITIZED_PYTHON_FALLBACK, DEPRIORITIZED_PYTHON_SOURCES } from './sessions';
 import { escapeRegExp } from '../utils/strings';
 
 const KERNEL_DROPDOWN = 'a.kernel-label';
@@ -94,6 +94,7 @@ export class Notebooks {
 			await this.quickinput.type(desiredKernel);
 			await this.quickinput.selectQuickInputElementContaining(`${kernelGroup} ${desiredKernel}`, {
 				deprioritize: kernelGroup === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
+				allowDeprioritizedFallback: ALLOW_DEPRIORITIZED_PYTHON_FALLBACK,
 			});
 			await this.quickinput.waitForQuickInputClosed();
 

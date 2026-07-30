@@ -26,6 +26,13 @@ export const DISCONNECTED_STATUS_ICON = '.codicon-positron-runtime-status-discon
 // the quick pick label produced by getRuntimeSourceAndShortName.
 export const DEPRIORITIZED_PYTHON_SOURCES = ['(Pyenv', '(Global', '(System', '(Unknown'];
 
+// Whether clicking a deprioritized row is acceptable when it is the only match.
+// The Linux CI images provide a venv interpreter at the selected version, so rows
+// that are all deprioritized there mean the venv has not registered yet and the
+// selection should be retried. Windows and macOS CI install a bare System/Pyenv
+// Python, where every row is legitimately deprioritized.
+export const ALLOW_DEPRIORITIZED_PYTHON_FALLBACK = process.platform !== 'linux';
+
 // Quickpick labels - keep in sync with languageRuntimeActions.ts
 const INTERPRETER_SESSIONS_LABEL = 'Interpreter Sessions';
 const START_NEW_CONSOLE_SESSION_LABEL = 'Start New Console Session';
@@ -549,6 +556,7 @@ export class Sessions {
 					await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, {
 						timeout: 2000,
 						deprioritize: language === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
+						allowDeprioritizedFallback: ALLOW_DEPRIORITIZED_PYTHON_FALLBACK,
 					});
 				} catch (e) {
 					// Auto-discovery is intermittent: POSITRON_PY_VER_SEL's interpreter
