@@ -98,7 +98,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(inputs.matrix) }}
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
       # --device/--cap-add give the container a TUN device so the Tailscale step can bring up
       # kernel-mode networking (transparent routing to the tailnet, needed by the Redshift test).
       options: --user 0:0 --init --device /dev/net/tun --cap-add=NET_ADMIN
@@ -107,7 +107,7 @@ jobs:
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres:24.15.0
+        image: ghcr.io/posit-dev/positron-postgres:24.18.0
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
