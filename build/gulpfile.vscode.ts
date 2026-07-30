@@ -405,7 +405,25 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 		const root = path.resolve(path.join(import.meta.dirname, '..'));
 		const productionDependencies = getProductionDependencies(root);
-		const dependenciesSrc = productionDependencies.map(d => path.relative(root, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat().concat('!**/*.mk');
+		// --- Start Positron ---
+		// `node_modules.asar` is packed with its root at the top-level `node_modules`
+		// (see `createAsar` below), so every dependency handed to it must live under
+		// that directory. `npm ls --all` also reports the private, nested
+		// `node_modules` of our `file:`-linked ai-lib packages (ai-config,
+		// ai-credentials, ai-provider-bridge) -- e.g.
+		// `ai-lib/packages/ai-config/node_modules/@types/node`. Those paths sit under
+		// `ai-lib/`, outside the archive root, so asar computes a `../ai-lib/...`
+		// relative path and crashes with "Cannot read properties of undefined
+		// (reading 'files')". They are redundant anyway: the packages themselves are
+		// packed via their `node_modules/<name>` symlinks, and their genuine runtime
+		// deps are hoisted into the top-level `node_modules`. Drop anything that does
+		// not resolve under the top-level `node_modules`.
+		const nodeModulesPrefix = `node_modules${path.sep}`;
+		const dependenciesSrc = productionDependencies
+			.map(d => path.relative(root, d))
+			.filter(d => d === 'node_modules' || d.startsWith(nodeModulesPrefix))
+			.map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat().concat('!**/*.mk');
+		// --- End Positron ---
 
 		const depFilterPattern = ['**', `!**/${config.version}/**`, '!**/bin/darwin-arm64-87/**', '!**/package-lock.json', '!**/yarn.lock'];
 		if (stripSourceMapsInPackagingTasks) {
