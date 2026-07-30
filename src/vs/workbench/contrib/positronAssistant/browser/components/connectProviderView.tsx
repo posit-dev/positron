@@ -62,9 +62,11 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 	const [pending, setPending] = useState<'connect' | 'remove' | undefined>(undefined);
 	const inFlight = pending !== undefined;
 	const [errorMessage, setErrorMessage] = useState<string>();
+	const [name, setName] = useState<string>(() => props.source.defaults.name ?? '');
 	const [apiKey, setApiKey] = useState<string>(() => props.source.defaults.apiKey ?? '');
 	const [baseUrl, setBaseUrl] = useState<string>(() => props.source.defaults.baseUrl ?? '');
 	const [protocol, setProtocol] = useState<string>(() => props.source.defaults.protocol ?? API_TYPE_CHAT);
+	const supportsName = props.source.supportedOptions.includes('name');
 	const supportsBaseUrl = props.source.supportedOptions.includes('baseUrl');
 	const supportsProtocol = props.source.supportedOptions.includes('protocol');
 
@@ -83,6 +85,7 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 		try {
 			const dispatchConfig = {
 				...configRef.current,
+				...(supportsName ? { name: name.trim() } : {}),
 				...(authMethod === AuthMethod.API_KEY ? { apiKey } : {}),
 				...(supportsBaseUrl ? { baseUrl } : {}),
 				...(supportsProtocol ? { protocol } : {}),
@@ -97,9 +100,11 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 
 	// The footer Connect button: for OAuth it is disabled only while a sign-in is
 	// in flight; otherwise it enables once the form input makes sign-in possible.
-	const connectDisabled = authMethod === AuthMethod.OAUTH
+	// A named custom provider also needs a name before it can be saved.
+	const authDisabled = authMethod === AuthMethod.OAUTH
 		? authStatus === AuthStatus.SIGNING_IN
 		: authStatus !== AuthStatus.SIGN_IN_PENDING;
+	const connectDisabled = authDisabled || (supportsName && name.trim().length === 0);
 
 	// Cancel an in-flight OAuth sign-in (the Posit device flow). Kept in a ref so
 	// the reported handler stays stable while dispatching against the latest state.
@@ -143,8 +148,24 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 			<ContentArea>
 				<div className='connect-provider-view'>
 					<ConnectProviderHeader source={props.source} />
-					{(authMethod === AuthMethod.API_KEY || supportsBaseUrl) &&
+					{(authMethod === AuthMethod.API_KEY || supportsBaseUrl || supportsName) &&
 						<div className='connect-provider-apikey'>
+							{supportsName &&
+								<>
+									<label className='connect-provider-apikey-label' htmlFor='connect-provider-name-input'>
+										{localize('positron.connectProvider.nameLabel', "Name")}
+									</label>
+									<input
+										autoComplete='off'
+										className='connect-provider-apikey-input'
+										id='connect-provider-name-input'
+										spellCheck={false}
+										type='text'
+										value={name}
+										onChange={e => setName(e.target.value)}
+									/>
+								</>
+							}
 							{authMethod === AuthMethod.API_KEY &&
 								<>
 									<label className='connect-provider-apikey-label' htmlFor='connect-provider-apikey-input'>
