@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 /// <reference types="vitest/globals" />
 
-import { DocsProfile, IDocsBundleRequest } from '../../common/positronDocsBundle.js';
+import { DocsProfile, DOCS_MAX_DOWNLOAD_BYTES, IDocsBundleRequest } from '../../common/positronDocsBundle.js';
 import { PositronDocsCache } from '../../common/positronDocsCache.js';
 import { fakeDigest, fakeZip, FakeArchive, FakeFileStore, FakeHttpClient, recordingLogger } from './fakes.js';
 
@@ -208,9 +208,9 @@ describe('PositronDocsCache: download rejections on a cold cache', () => {
 		});
 	});
 
-	it('aborts a download that exceeds the 5MB cap', async () => {
+	it('aborts a download that exceeds the size cap', async () => {
 		await expectRejected(c => {
-			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179'), byteLength: 6 * 1024 * 1024 });
+			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179'), byteLength: DOCS_MAX_DOWNLOAD_BYTES + 1 });
 			c.http.route(`${EXACT_ZIP}.sha256sum`, { status: 200, body: `${'c'.repeat(64)}  x` });
 		});
 	});
