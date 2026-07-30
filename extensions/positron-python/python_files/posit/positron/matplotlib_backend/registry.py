@@ -117,10 +117,11 @@ class PositronBackendRegistry:
         IPython's `enable_matplotlib` imports that function from the module at call time
         on every backend switch, so wrapping the module attribute makes every switch --
         including ones to foreign backends via `super()` -- run
-        `configure_matplotlib_support`. It also covers the switch that never reaches
-        `enable_matplotlib` at all: `matplotlib_inline.backend_inline` self-activates at
-        import (`_enable_matplotlib_integration`) and calls `configure_inline_support`
-        directly, so a bare `matplotlib.use("inline")` only goes through Positron here.
+        `configure_matplotlib_support`. Wrapping this function rather than overriding the
+        `%matplotlib` magic is also the only way to catch the switch that bypasses
+        IPython entirely: `matplotlib_inline.backend_inline` self-activates at import
+        (`_enable_matplotlib_integration`) and calls `configure_inline_support` directly,
+        so a bare `matplotlib.use("inline")` never reaches `enable_matplotlib`.
 
         Idempotent, and returns the real `configure_inline_support` the seam wraps.
         Installed lazily (not at kernel init) because importing matplotlib_inline pulls
