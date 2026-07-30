@@ -3,12 +3,14 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 """
-Tests for `set_matplotlib_formats` support in Positron's notebook matplotlib backend.
+Tests for `set_matplotlib_formats` support in Positron's matplotlib backends.
 
-Exercises `matplotlib_backend/formats.py`: format selection and aliasing
-(`retina`/`png2x` -> `png`), kwargs passthrough, the `set_matplotlib_formats` patch's
-`from`-import binding, and that a format selection survives a round trip through a
-non-Positron backend.
+Exercises `matplotlib_backend/formats.py` against the notebook backend, which honours
+the call: format selection and aliasing (`retina`/`png2x` -> `png`), kwargs passthrough,
+the `set_matplotlib_formats` patch's `from`-import binding, and that a format selection
+survives a round trip through a non-Positron backend. Also covers the console backend,
+where the call is a silent no-op because figures go to the Plots pane, which negotiates
+its own format.
 """
 
 from __future__ import annotations
@@ -40,25 +42,32 @@ _IMPORT_SET_FORMATS = "from matplotlib_inline.backend_inline import set_matplotl
 _PLOT_CODE = "import matplotlib.pyplot as plt\nfig, ax = plt.subplots()\nax.plot([0, 1], [0, 1])"
 
 
-@pytest.fixture(autouse=True)
-def _setup(shell, monkeypatch):
-    """Configure the shell to match the notebook environment."""
-    monkeypatch.setattr(shell, "session_mode", SessionMode.NOTEBOOK)
-
-
 @pytest.fixture
-def backend(shell: PositronShell) -> Iterator[PositronShell]:
-    """A fixture that configures matplotlib to use the Positron notebook backend."""
+def notebook_backend(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[PositronShell]:
+    """A notebook session with Positron's notebook backend active."""
+    monkeypatch.setattr(shell, "session_mode", SessionMode.NOTEBOOK)
     with active_backend(Backend.NOTEBOOK):
         yield shell
 
     # `_selected_formats` is module state that intentionally survives a backend round
     # trip (see `test_preference_survives_backend_round_trip`), so it doesn't reset
     # itself on `deactivate`. Reset it here to the default so a format selected in one
-    # test doesn't leak into the next (e.g. other test files' `backend` fixtures expect
+    # test doesn't leak into the next (e.g. other test files' backend fixtures expect
     # `png` on activation).
     formats._selected_formats.clear()  # noqa: SLF001
     formats._selected_formats.add("png")  # noqa: SLF001
+
+
+@pytest.fixture
+def console_backend(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[PositronShell]:
+    """A console session with Positron's console backend active."""
+    monkeypatch.setattr(shell, "session_mode", SessionMode.CONSOLE)
+    with active_backend(Backend.CONSOLE):
+        yield shell
 
 
 def _set_formats(shell: PositronShell, call: str) -> None:
@@ -74,9 +83,9 @@ def _plot(*, meta: dict | None = None) -> RichOutput:
     return captured.outputs[0]
 
 
-def test_svg(backend: PositronShell):
+def test_svg(notebook_backend: PositronShell):
     """`set_matplotlib_formats('svg')` displays only svg, decoded as utf-8 text."""
-    _set_formats(backend, "set_matplotlib_formats('svg')")
+    _set_formats(notebook_backend, "set_matplotlib_formats('svg')")
 
     output = _plot()
 
@@ -85,7 +94,7 @@ def test_svg(backend: PositronShell):
     assert isinstance(output.data["image/svg+xml"], str)
 
 
-def test_retina_aliases_to_png(backend: PositronShell):
+def test_retina_aliases_to_png(notebook_backend: PositronShell):
     """
     `retina` still renders as `image/png`, at Positron's own device pixel ratio.
 
@@ -98,7 +107,7 @@ def test_retina_aliases_to_png(backend: PositronShell):
     Uses ratio=3 (not 2): IPython's fixed 2x doubling would coincidentally produce
     the same numbers at ratio=2, masking a regression back to the old behavior.
     """
-    _set_formats(backend, "set_matplotlib_formats('retina')")
+    _set_formats(notebook_backend, "set_matplotlib_formats('retina')")
 
     baseline = _plot(meta={"output_pixel_ratio": 1})
     baseline_w, baseline_h = _pngxy(base64.b64decode(baseline.data["image/png"]))
@@ -118,9 +127,9 @@ def test_retina_aliases_to_png(backend: PositronShell):
     assert metadata["height"] == pytest.approx(baseline_h, abs=5)
 
 
-def test_jpeg_with_pixel_ratio(backend: PositronShell):
+def test_jpeg_with_pixel_ratio(notebook_backend: PositronShell):
     """`jpeg` output is present and its metadata reflects the requested pixel ratio."""
-    _set_formats(backend, "set_matplotlib_formats('jpeg')")
+    _set_formats(notebook_backend, "set_matplotlib_formats('jpeg')")
 
     output = _plot(meta={"output_pixel_ratio": 2})
 
@@ -132,9 +141,9 @@ def test_jpeg_with_pixel_ratio(backend: PositronShell):
     assert metadata["height"] == pytest.approx(h / 2, abs=5)
 
 
-def test_multiple_formats(backend: PositronShell):
+def test_multiple_formats(notebook_backend: PositronShell):
     """`set_matplotlib_formats('png', 'svg')` displays both mimes in one output."""
-    _set_formats(backend, "set_matplotlib_formats('png', 'svg')")
+    _set_formats(notebook_backend, "set_matplotlib_formats('png', 'svg')")
 
     output = _plot()
 
@@ -142,13 +151,13 @@ def test_multiple_formats(backend: PositronShell):
     assert "image/svg+xml" in output.data
 
 
-def test_unknown_format_raises(backend: PositronShell):
+def test_unknown_format_raises(notebook_backend: PositronShell):
     """An unrecognized format raises `ValueError`, matching IPython's contract."""
     with pytest.raises(ValueError):
-        _set_formats(backend, "set_matplotlib_formats('bmp')")
+        _set_formats(notebook_backend, "set_matplotlib_formats('bmp')")
 
 
-def test_kwargs_passthrough(backend: PositronShell, monkeypatch: pytest.MonkeyPatch):
+def test_kwargs_passthrough(notebook_backend: PositronShell, monkeypatch: pytest.MonkeyPatch):
     """Explicit kwargs (e.g. `pil_kwargs`) reach `canvas.print_figure`."""
     # Asserting on the rendered jpeg bytes would be flaky (encoder-dependent), so spy on
     # the call instead.
@@ -161,14 +170,14 @@ def test_kwargs_passthrough(backend: PositronShell, monkeypatch: pytest.MonkeyPa
 
     monkeypatch.setattr(FigureCanvasAgg, "print_figure", spy)
 
-    _set_formats(backend, "set_matplotlib_formats('jpeg', pil_kwargs={'quality': 90})")
+    _set_formats(notebook_backend, "set_matplotlib_formats('jpeg', pil_kwargs={'quality': 90})")
     _plot()
 
     assert len(calls) == 1
     assert calls[0]["pil_kwargs"] == {"quality": 90}
 
 
-def test_from_import_binding(backend: PositronShell):
+def test_from_import_binding(notebook_backend: PositronShell):
     """
     `from matplotlib_inline.backend_inline import set_matplotlib_formats` binds ours.
 
@@ -176,7 +185,7 @@ def test_from_import_binding(backend: PositronShell):
     already Positron's patch: it's installed at backend activation, before any user
     code runs.
     """
-    _set_formats(backend, "set_matplotlib_formats('svg')")
+    _set_formats(notebook_backend, "set_matplotlib_formats('svg')")
 
     output = _plot()
 
@@ -188,10 +197,10 @@ def test_from_import_binding(backend: PositronShell):
     assert "image/png" not in output.data
 
 
-def test_savefig_facecolor_rcparam_is_ignored(backend: PositronShell):
+def test_savefig_facecolor_rcparam_is_ignored(notebook_backend: PositronShell):
     """Inline output uses the figure's own facecolor, not `savefig.facecolor`, matching Jupyter."""
     try:
-        backend.run_cell(
+        notebook_backend.run_cell(
             "import matplotlib.pyplot as plt\nplt.rcParams['savefig.facecolor'] = 'red'"
         ).raise_error()
         output = _plot()
@@ -204,9 +213,9 @@ def test_savefig_facecolor_rcparam_is_ignored(backend: PositronShell):
         matplotlib.rcParams["savefig.facecolor"] = matplotlib.rcParamsDefault["savefig.facecolor"]
 
 
-def test_preference_survives_backend_round_trip(backend: PositronShell):
+def test_preference_survives_backend_round_trip(notebook_backend: PositronShell):
     """A format selection survives deactivating and reactivating the notebook backend."""
-    _set_formats(backend, "set_matplotlib_formats('svg')")
+    _set_formats(notebook_backend, "set_matplotlib_formats('svg')")
 
     # Simulate switching to a non-Positron backend and back (e.g. `%matplotlib qt` then
     # `%matplotlib inline`).
@@ -216,3 +225,20 @@ def test_preference_survives_backend_round_trip(backend: PositronShell):
     output = _plot()
 
     assert "image/svg+xml" in output.data
+
+
+def test_is_noop_in_console(console_backend: PositronShell):
+    """
+    `set_matplotlib_formats` is a silent no-op in console mode.
+
+    The console backend routes figures to the Plots pane via `canvas.render`, which
+    negotiates its own format; running IPython's `select_figure_formats` here would
+    register stray inline `image/*` display formatters alongside it (see
+    `formats.install_set_matplotlib_formats_patch`).
+    """
+    from matplotlib.figure import Figure
+
+    _set_formats(console_backend, "set_matplotlib_formats('png')")
+
+    for formatter in console_backend.display_formatter.formatters.values():
+        assert Figure not in formatter

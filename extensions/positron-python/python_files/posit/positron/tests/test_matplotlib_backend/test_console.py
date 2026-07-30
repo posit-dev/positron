@@ -6,7 +6,7 @@
 import base64
 import io
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional, Tuple, cast
+from typing import Any, Dict, Iterable, Iterator, Optional, Tuple, cast
 
 import matplotlib.pyplot as plt
 import pytest
@@ -34,7 +34,7 @@ TARGET_NAME = "target_name"
 
 
 @pytest.fixture(autouse=True)
-def setup_positron_matplotlib_backend() -> None:
+def setup_positron_matplotlib_backend() -> Iterator[None]:
     # The backend is set in the kernel app, which isn't currently available in our tests,
     # so set it here too.
     with active_backend(Backend.CONSOLE):
@@ -694,26 +694,6 @@ def test_mpl_shutdown(shell: PositronShell, plots_service: PlotsService) -> None
     # Plots are closed and cleared.
     assert not plots_service._plots  # noqa: SLF001
     assert all(comm._closed for comm in plot_comms)  # noqa: SLF001
-
-
-def test_set_matplotlib_formats_is_noop_in_console(shell: PositronShell) -> None:
-    """
-    `set_matplotlib_formats` is a silent no-op in console mode.
-
-    The console backend routes figures to the Plots pane via `canvas.render`, which
-    negotiates its own format; running IPython's `select_figure_formats` here would
-    register stray inline `image/*` display formatters alongside it (see
-    `formats.install_set_matplotlib_formats_patch`).
-    """
-    from matplotlib.figure import Figure
-
-    shell.run_cell(
-        "from matplotlib_inline.backend_inline import set_matplotlib_formats\n"
-        "set_matplotlib_formats('png')"
-    ).raise_error()
-
-    for formatter in shell.display_formatter.formatters.values():
-        assert Figure not in formatter
 
 
 def test_plotnine_close_then_show(shell: PositronShell, plots_service: PlotsService) -> None:
