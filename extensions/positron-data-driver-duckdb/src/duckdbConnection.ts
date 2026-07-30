@@ -95,9 +95,10 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 	/**
 	 * Opens the given table or view in the Data Explorer. Registers a table view with the RPC
 	 * handler under a stable per-connection dataset id, then asks Positron to open (or focus) the
-	 * explorer backed by this extension's provider.
+	 * explorer backed by this extension's provider. Returns the dataset id it was opened under, which
+	 * Positron uses to tell that this connection has a Data Explorer open on it.
 	 */
-	async previewObject(schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void> {
+	async previewObject(schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<string> {
 		this._ensureConnected();
 		const datasetId = `duckdbconn:${this._connectionId}:${kind}:${schemaName}.${tableName}`;
 		await this._dataExplorerHandler.openTableView(datasetId, this._lease!.client, schemaName, tableName, kind);
@@ -107,13 +108,15 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 			datasetId,
 			displayName: tableName,
 		});
+		return datasetId;
 	}
 
 	/**
 	 * Opens a single column of the given table or view in the Data Explorer as a one-column grid.
-	 * Uses a dataset id distinct from the table's so both can be open at once.
+	 * Uses a dataset id distinct from the table's so both can be open at once. Returns the dataset id
+	 * it was opened under.
 	 */
-	async previewColumn(schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
+	async previewColumn(schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string> {
 		this._ensureConnected();
 		const datasetId = `duckdbconn:${this._connectionId}:column:${schemaName}.${tableName}.${columnName}`;
 		await this._dataExplorerHandler.openColumnView(datasetId, this._lease!.client, schemaName, tableName, kind, columnName);
@@ -123,6 +126,7 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 			datasetId,
 			displayName: `${tableName}.${columnName}`,
 		});
+		return datasetId;
 	}
 
 	/** Returns whether this connection was opened in read-only mode. */

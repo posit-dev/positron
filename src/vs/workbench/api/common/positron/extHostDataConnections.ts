@@ -257,8 +257,12 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		return this._serializeNodes(connectionHandle, children);
 	}
 
-	/** Triggers a data preview for a node (e.g. SELECT * FROM table LIMIT 100). */
-	async $nodePreview(connectionHandle: number, nodeHandle: number): Promise<void> {
+	/**
+	 * Triggers a data preview for a node (e.g. SELECT * FROM table LIMIT 100). Returns the dataset
+	 * id the driver opened the preview under, so core can relate the resulting Data Explorer back to
+	 * this connection. Drivers may return nothing, in which case there is nothing to relate.
+	 */
+	async $nodePreview(connectionHandle: number, nodeHandle: number): Promise<string | undefined> {
 		const nodeMap = this._nodes.get(connectionHandle);
 		if (!nodeMap) {
 			throw new Error(`Connection handle ${connectionHandle} not found`);
@@ -267,7 +271,8 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		if (!node || !node.preview) {
 			throw new Error(`Node handle ${nodeHandle} does not support preview`);
 		}
-		await node.preview();
+		const datasetId = await node.preview();
+		return typeof datasetId === 'string' ? datasetId : undefined;
 	}
 
 	/** Frees a connection handle and all its associated node handles. */

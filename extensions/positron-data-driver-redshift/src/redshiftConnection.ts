@@ -109,9 +109,10 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 	/**
 	 * Opens the given table or view in the Data Explorer. Registers a table view with the RPC handler
 	 * under a stable per-connection dataset id, then asks Positron to open (or focus) the explorer
-	 * backed by this extension's provider.
+	 * backed by this extension's provider. Returns the dataset id it was opened under, which Positron
+	 * uses to tell that this connection has a Data Explorer open on it.
 	 */
-	async previewObject(client: RedshiftClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void> {
+	async previewObject(client: RedshiftClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<string> {
 		this._ensureConnected();
 		const datasetId = `redshift:${this._connectionId}:${database ?? ''}:${kind}:${schemaName}.${tableName}`;
 		await this._dataExplorerHandler.openTableView(datasetId, this._queryClient(client), database, schemaName, tableName, kind);
@@ -121,13 +122,15 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 			datasetId,
 			displayName: tableName,
 		});
+		return datasetId;
 	}
 
 	/**
 	 * Opens a single column of the given table or view in the Data Explorer as a one-column grid.
-	 * Uses a dataset id distinct from the table's so both can be open at once.
+	 * Uses a dataset id distinct from the table's so both can be open at once. Returns the dataset id
+	 * it was opened under.
 	 */
-	async previewColumn(client: RedshiftClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
+	async previewColumn(client: RedshiftClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string> {
 		this._ensureConnected();
 		const datasetId = `redshift:${this._connectionId}:${database ?? ''}:column:${schemaName}.${tableName}.${columnName}`;
 		await this._dataExplorerHandler.openColumnView(datasetId, this._queryClient(client), database, schemaName, tableName, kind, columnName);
@@ -137,6 +140,7 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 			datasetId,
 			displayName: `${tableName}.${columnName}`,
 		});
+		return datasetId;
 	}
 
 	/** A query client over the given pg client, for the Data Explorer table views. */

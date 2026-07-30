@@ -14,6 +14,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { CustomContextMenuSeparator } from '../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionHandle } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { DataConnectionNodeRow } from '../../browser/components/dataConnectionNodeRow.js';
 
 // showCustomContextMenu renders a modal popup into the workbench DOM, which isn't what these tests
@@ -25,7 +26,13 @@ vi.mock('../../../../browser/positronComponents/customContextMenu/customContextM
 }));
 
 describe('DataConnectionNodeRow', () => {
-	const ctx = createTestContainer().withReactServices().build();
+	// The row previews through the service rather than the handle, so the connection can record the
+	// Data Explorer it opened.
+	const previewNode = vi.fn().mockResolvedValue(undefined);
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IPositronDataConnectionsService, { previewNode })
+		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	function createDto(overrides: Partial<IDataConnectionNodeDTO> = {}): IDataConnectionNodeDTO {
@@ -40,13 +47,12 @@ describe('DataConnectionNodeRow', () => {
 	}
 
 	/**
-	 * Renders a row and right-clicks it. Returns the handle's nodePreview spy, the row's callbacks,
-	 * and the labels of the menu entries the row offered ('---' for a separator), or undefined when
-	 * the row declined to open a menu at all.
+	 * Renders a row and right-clicks it. Returns the row's connection handle, its callbacks, and the
+	 * labels of the menu entries the row offered ('---' for a separator), or undefined when the row
+	 * declined to open a menu at all.
 	 */
 	async function rightClickRow(dto: IDataConnectionNodeDTO, stale = false) {
-		const nodePreview = vi.fn().mockResolvedValue(undefined);
-		const handle = stubInterface<IDataConnectionHandle>({ handle: 1, nodePreview });
+		const handle = stubInterface<IDataConnectionHandle>({ handle: 1 });
 		const onRefresh = vi.fn();
 		const disposeHold = vi.fn();
 		// A plain IDisposable rather than toDisposable(), so the tracker doesn't count the tests
@@ -74,7 +80,7 @@ describe('DataConnectionNodeRow', () => {
 			entry instanceof CustomContextMenuSeparator ? '---' : (entry as { options: { label: string } }).options.label
 		);
 
-		return { labels, call, rowText, user, nodePreview, onRefresh, onMenuOpening, disposeHold };
+		return { labels, call, rowText, user, handle, onRefresh, onMenuOpening, disposeHold };
 	}
 
 	it('offers Refresh above Open in Data Explorer for a previewable node with children', async () => {
@@ -143,19 +149,19 @@ describe('DataConnectionNodeRow', () => {
 	});
 
 	it('does not open a preview when a stale row is double-clicked', async () => {
-		const { rowText, user, nodePreview } = await rightClickRow(createDto({ hasPreview: true }), true);
+		const { rowText, user } = await rightClickRow(createDto({ hasPreview: true }), true);
 
 		await user.dblClick(rowText);
 
-		expect(nodePreview).not.toHaveBeenCalled();
+		expect(previewNode).not.toHaveBeenCalled();
 	});
 
 	it('opens a preview when a previewable row is double-clicked', async () => {
-		const { rowText, user, nodePreview } = await rightClickRow(createDto({ nodeHandle: 42, hasPreview: true }));
+		const { rowText, user, handle } = await rightClickRow(createDto({ nodeHandle: 42, hasPreview: true }));
 
 		await user.dblClick(rowText);
 
-		expect(nodePreview).toHaveBeenCalledWith(42);
+		expect(previewNode).toHaveBeenCalledWith(handle, 42);
 	});
 
 	it('holds the tree focused while the menu is open and releases the hold when it closes', async () => {

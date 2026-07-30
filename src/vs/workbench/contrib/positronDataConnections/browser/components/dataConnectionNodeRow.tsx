@@ -118,7 +118,7 @@ interface DataConnectionNodeRowProps {
  * can have children offer a "Refresh" action that re-fetches the subtree.
  */
 export const DataConnectionNodeRow = ({ dto, handle, onMenuOpening, onRefresh, stale }: DataConnectionNodeRowProps) => {
-	const { notificationService } = usePositronReactServicesContext();
+	const { notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 	const rowRef = useRef<HTMLDivElement>(null);
 	// Opening a preview can take a moment (a driver may download data first). Track it so the row can
 	// show a spinner for the duration, matching the tree's busy treatment on expansion.
@@ -131,7 +131,10 @@ export const DataConnectionNodeRow = ({ dto, handle, onMenuOpening, onRefresh, s
 		}
 		setOpening(true);
 		try {
-			await handle.nodePreview(dto.nodeHandle);
+			// Preview through the service rather than the handle so the Data Explorer this opens is
+			// recorded against the connection; collapsing the connection consults that record before
+			// deciding whether it can be closed.
+			await positronDataConnectionsService.previewNode(handle, dto.nodeHandle);
 		} catch (error) {
 			notificationService.error(localize(
 				'positron.dataConnections.openInDataExplorerFailed',

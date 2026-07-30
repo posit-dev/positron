@@ -9,12 +9,15 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ISecretStorageService } from '../../../../platform/secrets/common/secrets.js';
 import { DataConnectionsDriverManager } from './dataConnectionsDriverManager.js';
+import { IEditorIdentifier } from '../../../common/editor.js';
+import { IEditorService } from '../../editor/common/editorService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IDataConnectionInstance } from '../common/interfaces/dataConnectionInstance.js';
+import { PositronDataExplorerUri } from '../../positronDataExplorer/common/positronDataExplorerUri.js';
 import { IPositronDataConnectionsService } from '../common/interfaces/positronDataConnectionsService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { IDataConnectionProfile, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionHandle, IDataConnectionProfile, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from '../common/interfaces/dataConnectionsDriverManager.js';
 
 // Storage key prefix for persisted data connection profiles. Each data connection profile gets
@@ -52,6 +55,18 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// Data connection instances.
 	private readonly _instances: IDataConnectionInstance[] = [];
 
+	// Dataset ids that previews opened in the Data Explorer, keyed by the profile whose connection
+	// they were previewed from. Recorded by previewNode and dropped when the profile disconnects.
+	// A recorded id outlives its editor -- the user can close the tab at any time -- so this is a
+	// record of what was opened, not of what is still open; countOpenDataExplorers resolves the
+	// difference against the editor service.
+	private readonly _previewedDatasetIds = new Map<string, Set<string>>();
+
+	// Profiles whose connection should close as soon as their last Data Explorer does. Populated by
+	// disconnectWhenUnused, drained when an editor closes and leaves the profile with none open, and
+	// cleared when the connection is wanted again or closes by another route.
+	private readonly _disconnectWhenUnused = new Set<string>();
+
 	// Fires when data connection profiles change.
 	private readonly _onDidChangeProfilesEmitter = this._register(new Emitter<IDataConnectionProfile[]>());
 
@@ -65,12 +80,14 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	/**
 	 * Constructor.
 	 * @param extensionService The extension service.
+	 * @param _editorService The editor service (used to see which previews are still open).
 	 * @param _logService The log service.
 	 * @param _secretStorageService The secret storage service (secret parameter values).
 	 * @param _storageService The storage service (profile metadata).
 	 */
 	constructor(
 		@IExtensionService extensionService: IExtensionService,
+		@IEditorService private readonly _editorService: IEditorService,
 		@ILogService private readonly _logService: ILogService,
 		@ISecretStorageService private readonly _secretStorageService: ISecretStorageService,
 		@IStorageService private readonly _storageService: IStorageService,
@@ -84,6 +101,10 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		// Load data connection profiles from storage. Secret values stay in secret storage and are
 		// fetched on demand by getProfileWithSecrets.
 		this._loadProfiles();
+
+		// A closing editor may have been the last Data Explorer holding a connection open. The event
+		// fires after the editor leaves its group, so the count below already reflects the close.
+		this._register(this._editorService.onDidCloseEditor(() => this._disconnectUnusedProfiles()));
 	}
 
 	//#endregion Constructor & Dispose
@@ -284,6 +305,12 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			return;
 		}
 
+		// Close the profile's Data Explorers and its connection. Removing the profile takes its row
+		// out of the Data Connections panel, so a connection left open here would stay open and
+		// unreachable for the rest of the session. Fire-and-forget: the removal shouldn't wait on the
+		// round trips that close the editors and the channel.
+		void this._closeConnectionAndDataExplorers(id);
+
 		// Remove the data connection profile.
 		this._profiles.splice(index, 1);
 
@@ -366,6 +393,12 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		const instance = this._instances[index];
 		this._instances.splice(index, 1);
 
+		// The connection is going away, so its previewed datasets are no longer meaningful: the
+		// driver tears their backends down, and a later reconnect mints fresh dataset ids. Any
+		// pending close is moot for the same reason, whichever route brought us here.
+		this._previewedDatasetIds.delete(profileId);
+		this._disconnectWhenUnused.delete(profileId);
+
 		try {
 			await instance.connectionHandle.disconnect();
 		} catch (err) {
@@ -377,6 +410,64 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 		this._logService.trace(`[DataConnections] Disconnected instance ${instance.id} (profile ${profileId})`);
 		this._onDidChangeInstancesEmitter.fire([...this._instances]);
+	}
+
+	/**
+	 * Previews a node in the Data Explorer, recording the dataset id the driver opened it under
+	 * against the connection's profile.
+	 */
+	async previewNode(handle: IDataConnectionHandle, nodeHandle: number): Promise<string | undefined> {
+		const datasetId = await handle.nodePreview(nodeHandle);
+		if (datasetId === undefined) {
+			return undefined;
+		}
+
+		// Attribute the dataset to the profile this handle belongs to. A handle with no live
+		// instance (e.g. one already disconnected) has nothing to attribute it to; the preview
+		// still happened, it just isn't tracked.
+		const profileId = this._instances.find(i => i.connectionHandle === handle)?.profileId;
+		if (profileId !== undefined) {
+			const datasetIds = this._previewedDatasetIds.get(profileId);
+			if (datasetIds) {
+				datasetIds.add(datasetId);
+			} else {
+				this._previewedDatasetIds.set(profileId, new Set([datasetId]));
+			}
+		}
+
+		return datasetId;
+	}
+
+	/**
+	 * Gets how many Data Explorers are open on data previewed from the given profile's connection.
+	 */
+	countOpenDataExplorers(profileId: string): number {
+		return this._openDataExplorers(profileId).length;
+	}
+
+	/**
+	 * Closes the profile's connection as soon as nothing is using it.
+	 */
+	disconnectWhenUnused(profileId: string): void {
+		if (this.getInstanceForProfile(profileId) === undefined) {
+			return;
+		}
+
+		// Still in use: wait for the last Data Explorer to close. Otherwise close it now. Disconnect
+		// is fire-and-forget either way -- callers shouldn't block on the round trip that closes the
+		// channel.
+		if (this.countOpenDataExplorers(profileId) > 0) {
+			this._disconnectWhenUnused.add(profileId);
+		} else {
+			void this.disconnect(profileId);
+		}
+	}
+
+	/**
+	 * Cancels a pending disconnectWhenUnused for the profile.
+	 */
+	cancelDisconnectWhenUnused(profileId: string): void {
+		this._disconnectWhenUnused.delete(profileId);
 	}
 
 	/**
@@ -401,6 +492,51 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	//#endregion IPositronDataConnectionsService Implementation
+
+	//#region Private Methods
+
+	/**
+	 * Closes the connections of any profiles waiting on their last Data Explorer, now that one has
+	 * closed. A profile whose other Data Explorers are still open keeps waiting.
+	 */
+	private _disconnectUnusedProfiles(): void {
+		// Iterate a copy: disconnect() mutates the pending set.
+		for (const profileId of [...this._disconnectWhenUnused]) {
+			if (this.countOpenDataExplorers(profileId) === 0) {
+				void this.disconnect(profileId);
+			}
+		}
+	}
+
+	/**
+	 * Gets the editors of the Data Explorers open on data previewed from the given profile's
+	 * connection. The editor service is the authority on what is still open: a recorded dataset whose
+	 * tab the user has since closed has no editors, so it doesn't appear here.
+	 */
+	private _openDataExplorers(profileId: string): readonly IEditorIdentifier[] {
+		const datasetIds = this._previewedDatasetIds.get(profileId);
+		if (datasetIds === undefined) {
+			return [];
+		}
+		return [...datasetIds].flatMap(datasetId =>
+			this._editorService.findEditors(PositronDataExplorerUri.generate(datasetId))
+		);
+	}
+
+	/**
+	 * Closes the Data Explorers previewed from the given profile's connection, then the connection
+	 * itself. The Data Explorers go first because their backends die with the connection: a tab left
+	 * open would show a grid that errors on the next scroll or filter rather than any useful data.
+	 */
+	private async _closeConnectionAndDataExplorers(profileId: string): Promise<void> {
+		const editors = this._openDataExplorers(profileId);
+		if (editors.length > 0) {
+			await this._editorService.closeEditors(editors);
+		}
+		await this.disconnect(profileId);
+	}
+
+	//#endregion Private Methods
 
 	//#region Persistence
 

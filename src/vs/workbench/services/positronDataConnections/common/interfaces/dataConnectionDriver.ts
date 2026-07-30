@@ -188,6 +188,10 @@ export interface IDataConnectionHandle {
 	disconnect(): Promise<void>;
 	isConnected(): Promise<boolean>;
 	nodeGetChildren(nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
-	nodePreview(nodeHandle: number): Promise<void>;
+	/**
+	 * Previews a node's data in the Data Explorer. Resolves to the dataset id the preview was
+	 * opened under, or undefined when the driver did not report one.
+	 */
+	nodePreview(nodeHandle: number): Promise<string | undefined>;
 	release(): void;
 }
