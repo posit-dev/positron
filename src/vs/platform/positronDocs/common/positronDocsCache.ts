@@ -375,7 +375,7 @@ export class PositronDocsCache {
 	 * Persist cache state, best-effort.
 	 *
 	 * Swallowing the error is deliberate. State is bookkeeping, not the served
-	 * artefact: losing it costs one redundant fetch next launch. Letting it
+	 * artifact: losing it costs one redundant fetch next launch. Letting it
 	 * throw would be strictly worse, because the disk errors that break this
 	 * write are the same ones that break a download - so the throw would
 	 * propagate out of `ensure()` and withdraw a perfectly good cached bundle,
