@@ -20,8 +20,17 @@ export const DOCS_STATE_FILENAME = 'state.json';
 export const DOCS_MANIFEST_FILENAME = 'bundle.json';
 export const DOCS_INDEX_FILENAME = 'llms.txt';
 
-/** Refuse anything larger. The real bundle is about 150KB. */
-export const DOCS_MAX_DOWNLOAD_BYTES = 5 * 1024 * 1024;
+/**
+ * Refuse anything larger. This is a disk-fill and expansion guard against a
+ * wrong or hostile object, not a size expectation: the digest is verified only
+ * after the bytes land, so something has to bound the write. Deliberately far
+ * above the real bundle (about 150KB zipped, 655KB across ~90 files) because
+ * the cap is baked into a shipped client while the bundle is published on the
+ * website's cadence - a client that trips this silently falls back to web docs
+ * and cannot be fixed after the fact. The publish pipeline enforces the real
+ * size budget, where exceeding it fails a build someone can react to.
+ */
+export const DOCS_MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
 
 export type DocsProfile = 'positron' | 'workbench';
 
