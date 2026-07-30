@@ -352,6 +352,45 @@ describe('HeadlessLanguageModelService', () => {
 			expect(models[0]).not.toHaveProperty('providerId');
 		});
 
+		it('exposes provider identity and the queried providers through the diagnostics accessor', async () => {
+			signedInAuthProviders.add('anthropic-api');
+			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic', 'Anthropic')] } }));
+			expect(await service.getModelListingDiagnostics()).toEqual({
+				queriedProviders: ['anthropic'],
+				models: [{ id: 'claude-haiku', name: 'Claude Haiku', vendor: 'Anthropic', providerId: 'anthropic' }],
+			});
+		});
+
+		it('keeps a de-duplicated model visible to diagnostics under both providers', async () => {
+			signedInAuthProviders.add('posit-ai');
+			signedInAuthProviders.add('anthropic-api');
+			const service = createService(fakeEngine({
+				models: {
+					positai: [model('claude-haiku', 'Claude Haiku', 'positai', 'Anthropic')],
+					anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic', 'Anthropic')],
+				},
+			}));
+
+			// A picker sees the winning copy only.
+			expect(await service.getAvailableModels()).toEqual([{ id: 'claude-haiku', name: 'Claude Haiku', vendor: 'Anthropic' }]);
+
+			// Diagnostics sees both, so "anthropic returned nothing" and "anthropic
+			// lost the dedupe" don't look the same in the report.
+			expect(await service.getModelListingDiagnostics()).toEqual({
+				queriedProviders: ['positai', 'anthropic'],
+				models: [
+					{ id: 'claude-haiku', name: 'Claude Haiku', vendor: 'Anthropic', providerId: 'positai' },
+					{ id: 'claude-haiku', name: 'Claude Haiku', vendor: 'Anthropic', providerId: 'anthropic' },
+				],
+			});
+		});
+
+		it('reports a provider that was queried but returned no models', async () => {
+			signedInAuthProviders.add('anthropic-api');
+			const service = createService(fakeEngine({ models: {} }));
+			expect(await service.getModelListingDiagnostics()).toEqual({ queriedProviders: ['anthropic'], models: [] });
+		});
+
 		it('fires onDidChangeAvailableModels only when a mapped provider changes', async () => {
 			const service = createService(fakeEngine());
 			// Provider mappings load from the engine asynchronously; wait for them

@@ -12,7 +12,9 @@ import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '.
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
+import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { PlatformToString, platform } from '../../../../base/common/platform.js';
@@ -21,9 +23,11 @@ import { parse } from '../../../../base/common/json.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IAiProviderService } from '../../../services/positronAiProvider/common/aiProviderService.js';
+import { IHeadlessLanguageModelService, IModelListingDiagnostics } from '../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IOutputService, isMultiSourceOutputChannelDescriptor, isSingleSourceOutputChannelDescriptor } from '../../../services/output/common/output.js';
+import { ILanguageModelsService } from '../../chat/common/languageModels.js';
 import { ChatConfiguration } from '../../chat/common/constants.js';
 import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
 
@@ -33,6 +37,25 @@ import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
 export interface IAIDiagnosticsSetting {
 	readonly key: string;
 	readonly value: unknown;
+}
+
+/**
+ * One model registered with the built-in language model API, projected to the
+ * few fields the report shows.
+ */
+export interface IAIDiagnosticsBuiltinModel {
+	readonly id: string;
+	readonly name: string;
+	/** The provider that registered it (e.g. "copilot"); groups the model in the report. */
+	readonly provider: string;
+}
+
+/** One model row under a provider, from either source. */
+interface IAIDiagnosticsModelRow {
+	readonly id: string;
+	readonly name: string;
+	/** The vendor the provider branded the model as, where it reports one. */
+	readonly vendor?: string;
 }
 
 /**
@@ -90,6 +113,26 @@ export interface IAIDiagnosticsInputs {
 	/** Provider labels turned off in settings (empty when none/unknown). */
 	readonly disabledProviders: readonly string[];
 	/**
+	 * What each provider actually contributed, as opposed to what providers.json
+	 * declares. Reported per queried provider so a provider that returned nothing,
+	 * or whose models all lost the cross-provider de-duplication, is visible rather
+	 * than silently absent.
+	 */
+	readonly modelListing: IModelListingDiagnostics;
+	/**
+	 * Models registered with the built-in language model API, which is where
+	 * GitHub Copilot's live. Merged into the same per-provider listing as
+	 * {@link modelListing}: which of the two paths a model arrived through is
+	 * Positron's plumbing, not something the report should make the reader parse.
+	 */
+	readonly builtinModels: readonly IAIDiagnosticsBuiltinModel[];
+	/**
+	 * True when a model listing timed out or failed, so the section above is
+	 * partial. Kept separate from "no models" because the two look identical in
+	 * the data and mean opposite things to whoever reads the report.
+	 */
+	readonly modelsIncomplete: boolean;
+	/**
 	 * Contents of providers.json, redacted and rendered inside a JSON fence. A
 	 * `// ...` comment line when the file is missing or the catalog is unavailable
 	 * (mirrors the settings block's placeholder).
@@ -126,6 +169,58 @@ export function generateAIDiagnosticsReport(inputs: IAIDiagnosticsInputs): strin
 
 	const providerList = (providers: readonly string[]) =>
 		providers.length === 0 ? 'None' : providers.map(p => `- ${p}`).join('\n');
+
+	// One list per provider, merging both places models can come from (the
+	// provider sweep and the built-in language model API). Which of the two a
+	// model arrived through is Positron's plumbing, not something a reader should
+	// have to reason about, so it isn't shown. Group by provider rather than by
+	// the model's vendor: vendor is only what the provider branded the model as,
+	// and an OpenAI-compatible gateway reports "OpenAI" for a Google model.
+	const byProvider = new Map<string, IAIDiagnosticsModelRow[]>();
+	const groupFor = (providerId: string): IAIDiagnosticsModelRow[] => {
+		let models = byProvider.get(providerId);
+		if (!models) {
+			models = [];
+			byProvider.set(providerId, models);
+		}
+		return models;
+	};
+	// Seed every queried provider so one that returned nothing still gets a
+	// heading: "signed in but contributed zero models" is worth seeing.
+	for (const providerId of inputs.modelListing.queriedProviders) {
+		groupFor(providerId);
+	}
+	for (const model of inputs.modelListing.models) {
+		groupFor(model.providerId).push(model);
+	}
+	for (const model of inputs.builtinModels) {
+		const models = groupFor(model.provider);
+		// A provider reachable both ways lists the same model twice; keep the
+		// sweep's copy, which carries the vendor.
+		if (!models.some(existing => existing.id === model.id)) {
+			models.push({ id: model.id, name: model.name });
+		}
+	}
+
+	const modelsBlock = byProvider.size === 0
+		? (inputs.modelsIncomplete
+			? 'Could not be retrieved in time. Re-run the report: the listing is cached once it succeeds, so a second run usually has it.'
+			: 'None. No provider was queried (each was disabled, had no registered auth backend, or had no credentials) and no extension registered a chat model.')
+		: [...byProvider]
+			.map(([providerId, models]) => {
+				if (models.length === 0) {
+					return `**${providerId}** (0)\n\nQueried, but returned no models.`;
+				}
+				return `**${providerId}** (${models.length})\n\n${models
+					.map(m => `- \`${m.id}\` (${m.name && m.name !== m.id ? `${m.name}${m.vendor ? ', ' : ''}` : ''}${m.vendor ?? ''})`)
+					.join('\n')}`;
+			})
+			.join('\n\n');
+
+	const totalModels = [...byProvider.values()].reduce((count, models) => count + models.length, 0);
+	const incompleteNote = inputs.modelsIncomplete && byProvider.size > 0
+		? '\n\nSome providers did not respond in time, so this list may be incomplete.'
+		: '';
 
 	const optionalLine = (label: string, value: string | undefined) => value ? `\n- ${label}: ${value}` : '';
 
@@ -166,6 +261,12 @@ ${providerList(inputs.authenticatedProviders)}
 ### Disabled
 
 ${providerList(inputs.disabledProviders)}
+
+### Available Models
+
+Models each provider offers (${totalModels} total).${incompleteNote}
+
+${modelsBlock}
 
 ### Configuration
 
@@ -319,6 +420,16 @@ const MAX_LOG_LINES = 500;
 /** Bound activation + bridge calls so a stuck extension can't hang the report. */
 const BRIDGE_TIMEOUT_MS = 5000;
 
+/**
+ * Model listings get a longer bound than the bridge calls. They are the only
+ * step that reaches the network, and the built-in listing resolves every chat
+ * vendor, which can mean activating an extension and fetching its model list.
+ * The bound exists to guarantee the report appears at all, not to keep the wait
+ * short, so it is generous: cutting it too fine drops providers that would have
+ * answered. On timeout the section says so rather than claiming there are none.
+ */
+const MODEL_LISTING_TIMEOUT_MS = 10000;
+
 /** Trims log content to the most recent {@link MAX_LOG_LINES} lines. */
 export function capLogLines(content: string): string {
 	const lines = content.split('\n');
@@ -421,9 +532,13 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 		const outputService = accessor.get(IOutputService);
 		const fileService = accessor.get(IFileService);
 		const aiProviderService = accessor.get(IAiProviderService);
+		const headlessLanguageModelService = accessor.get(IHeadlessLanguageModelService);
+		const languageModelsService = accessor.get(ILanguageModelsService);
 		const editorService = accessor.get(IEditorService);
 		const quickInputService = accessor.get(IQuickInputService);
 		const notificationService = accessor.get(INotificationService);
+		const progressService = accessor.get(IProgressService);
+		const logService = accessor.get(ILogService);
 
 		// When Posit Assistant is installed, ask up front whether to also produce
 		// its diagnostics bundle. The report is always generated; the bundle is
@@ -438,83 +553,106 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 			includeBundle = choice;
 		}
 
-		const settings = collectNonDefaultAISettings(configurationService);
+		// Collection is a handful of bounded steps, each waiting on an extension
+		// bridge, a file read, or a provider listing. Usually a second or two, but
+		// a stuck extension can push it to the sum of the timeouts, so report which
+		// step is running rather than leaving the window silent.
+		const report = await progressService.withProgress({
+			location: ProgressLocation.Notification,
+			title: localize('positron.ai.diagnostics.generating', "Generating AI diagnostic report"),
+		}, async progress => {
+			const settings = collectNonDefaultAISettings(configurationService);
 
-		const statuses = extensionService.getExtensionsStatus();
-		const statusFor = (id: string): string =>
-			describeExtensionStatus(Object.entries(statuses).find(([key]) => ExtensionIdentifier.equals(key, id))?.[1]);
+			const statuses = extensionService.getExtensionsStatus();
+			const statusFor = (id: string): string =>
+				describeExtensionStatus(Object.entries(statuses).find(([key]) => ExtensionIdentifier.equals(key, id))?.[1]);
 
-		const extensions: IAIDiagnosticsExtension[] = [];
-		const logs: IAIDiagnosticsLogSection[] = [];
+			const extensions: IAIDiagnosticsExtension[] = [];
+			const logs: IAIDiagnosticsLogSection[] = [];
 
-		// Posit-owned surfaces: bridge command per extension.
-		for (const source of AI_LOG_SOURCES) {
-			const extension = await extensionService.getExtension(source.id);
-			extensions.push({ label: source.label, id: source.id, version: extension?.version, status: extension ? statusFor(source.id) : undefined });
-			if (!extension) {
-				logs.push({ label: source.label, content: 'Extension not installed' });
-				continue;
+			// Posit-owned surfaces: bridge command per extension.
+			progress.report({ message: localize('positron.ai.diagnostics.collectingLogs', "Collecting extension logs") });
+			for (const source of AI_LOG_SOURCES) {
+				const extension = await extensionService.getExtension(source.id);
+				extensions.push({ label: source.label, id: source.id, version: extension?.version, status: extension ? statusFor(source.id) : undefined });
+				if (!extension) {
+					logs.push({ label: source.label, content: 'Extension not installed' });
+					continue;
+				}
+				logs.push({ label: source.label, content: await collectBridgedLogs(source, extensionService, commandService) });
 			}
-			logs.push({ label: source.label, content: await collectBridgedLogs(source, extensionService, commandService) });
-		}
 
-		// GitHub Copilot: third-party, so no bridge command. Read its log file(s)
-		// directly, and only when Copilot is enabled (`chat.disableAIFeatures` off).
-		const copilotEnabled = configurationService.getValue(ChatConfiguration.AIDisabled) !== true;
-		for (const channel of COPILOT_CHANNELS) {
-			const extension = await extensionService.getExtension(channel.extensionId);
-			extensions.push({ label: channel.label, id: channel.extensionId, version: extension?.version, status: extension ? statusFor(channel.extensionId) : undefined });
-			if (!copilotEnabled) {
-				logs.push({ label: channel.label, content: 'Skipped (GitHub Copilot is disabled)' });
-				continue;
+			// GitHub Copilot: third-party, so no bridge command. Read its log file(s)
+			// directly, and only when Copilot is enabled (`chat.disableAIFeatures` off).
+			const copilotEnabled = configurationService.getValue(ChatConfiguration.AIDisabled) !== true;
+			for (const channel of COPILOT_CHANNELS) {
+				const extension = await extensionService.getExtension(channel.extensionId);
+				extensions.push({ label: channel.label, id: channel.extensionId, version: extension?.version, status: extension ? statusFor(channel.extensionId) : undefined });
+				if (!copilotEnabled) {
+					logs.push({ label: channel.label, content: 'Skipped (GitHub Copilot is disabled)' });
+					continue;
+				}
+				logs.push({ label: channel.label, content: await collectCopilotLogs(channel, extensionService, outputService, fileService) });
 			}
-			logs.push({ label: channel.label, content: await collectCopilotLogs(channel, extensionService, outputService, fileService) });
-		}
 
-		const providers = await collectProviderDiagnostics(extensionService, commandService);
-		const providerConfig = await collectProvidersConfig(aiProviderService, fileService);
+			progress.report({ message: localize('positron.ai.diagnostics.collectingProviders', "Reading provider configuration") });
+			const providers = await collectProviderDiagnostics(extensionService, commandService);
+			const providerConfig = await collectProvidersConfig(aiProviderService, fileService);
 
-		const bundle = includeBundle
-			? localize('positron.ai.diagnostics.bundleRequested', "Requested. Posit Assistant saves the bundle and shows its location in a notification.")
-			: undefined;
+			// Independent sources, so run them together: the section's worst case is
+			// one timeout, not two. Either coming back undefined leaves the report
+			// intact and marks the listing incomplete.
+			progress.report({ message: localize('positron.ai.diagnostics.listingModels', "Listing available models") });
+			const [listing, builtin] = await Promise.all([
+				collectAvailableModels(headlessLanguageModelService, logService),
+				collectBuiltinModels(languageModelsService, logService),
+			]);
 
-		// Extension-backed toggles (Posit Assistant, NES, Copilot chat) read as
-		// "not installed" when their extension is absent, since the setting is then
-		// unregistered and would otherwise default to "Enabled" - contradicting the
-		// Extensions list. Notebook AI and console actions are core, so always show.
-		const nesInstalled = !!await extensionService.getExtension('positron.next-edit-suggestions');
-		const copilotChatInstalled = !!await extensionService.getExtension('GitHub.copilot-chat');
-		// NES's `enabled` is a per-language-type map; the `*` wildcard is the overall on/off.
-		const nesEnabled = configurationService.getValue<Record<string, boolean>>('nextEditSuggestions.enabled')?.['*'];
-		const features: IAIDiagnosticsFeature[] = [
-			{ label: 'Posit Assistant', setting: 'assistant.enabled', state: featureState(assistantInstalled, configurationService.getValue('assistant.enabled')) },
-			{ label: 'Posit AI NES', setting: 'nextEditSuggestions.enabled', state: featureState(nesInstalled, nesEnabled) },
-			{ label: 'Notebook AI', setting: 'notebook.ai.enabled', state: describeFeatureToggle(configurationService.getValue('notebook.ai.enabled')) },
-			{ label: 'Console Fix & Explain', setting: 'console.assistantActions.enabled', state: describeFeatureToggle(configurationService.getValue('console.assistantActions.enabled')) },
-			{ label: 'GitHub Copilot Chat', setting: ChatConfiguration.AIDisabled, state: featureState(copilotChatInstalled, copilotEnabled) },
-		];
+			const bundle = includeBundle
+				? localize('positron.ai.diagnostics.bundleRequested', "Requested. Posit Assistant saves the bundle and shows its location in a notification.")
+				: undefined;
 
-		const report = generateAIDiagnosticsReport({
-			generatedAt: new Date().toISOString(),
-			aiEnabled: configurationService.getValue<boolean>(AI_ENABLED_KEY) !== false,
-			features,
-			application: productService.nameLong,
-			positronVersion: productService.positronVersion,
-			positronBuildNumber: productService.positronBuildNumber,
-			vscodeVersion: productService.version,
-			commit: productService.commit,
-			buildDate: productService.date,
-			quality: productService.quality,
-			os: PlatformToString(platform),
-			remote: environmentService.remoteAuthority,
-			extensions,
-			authenticatedProviders: providers.authenticated,
-			disabledProviders: providers.disabled,
-			providersConfig: providerConfig.content,
-			providersConfigPath: providerConfig.path,
-			settings,
-			logs,
-			bundle,
+			// Extension-backed toggles (Posit Assistant, NES, Copilot chat) read as
+			// "not installed" when their extension is absent, since the setting is then
+			// unregistered and would otherwise default to "Enabled" - contradicting the
+			// Extensions list. Notebook AI and console actions are core, so always show.
+			const nesInstalled = !!await extensionService.getExtension('positron.next-edit-suggestions');
+			const copilotChatInstalled = !!await extensionService.getExtension('GitHub.copilot-chat');
+			// NES's `enabled` is a per-language-type map; the `*` wildcard is the overall on/off.
+			const nesEnabled = configurationService.getValue<Record<string, boolean>>('nextEditSuggestions.enabled')?.['*'];
+			const features: IAIDiagnosticsFeature[] = [
+				{ label: 'Posit Assistant', setting: 'assistant.enabled', state: featureState(assistantInstalled, configurationService.getValue('assistant.enabled')) },
+				{ label: 'Posit AI NES', setting: 'nextEditSuggestions.enabled', state: featureState(nesInstalled, nesEnabled) },
+				{ label: 'Notebook AI', setting: 'notebook.ai.enabled', state: describeFeatureToggle(configurationService.getValue('notebook.ai.enabled')) },
+				{ label: 'Console Fix & Explain', setting: 'console.assistantActions.enabled', state: describeFeatureToggle(configurationService.getValue('console.assistantActions.enabled')) },
+				{ label: 'GitHub Copilot Chat', setting: ChatConfiguration.AIDisabled, state: featureState(copilotChatInstalled, copilotEnabled) },
+			];
+
+			return generateAIDiagnosticsReport({
+				generatedAt: new Date().toISOString(),
+				aiEnabled: configurationService.getValue<boolean>(AI_ENABLED_KEY) !== false,
+				features,
+				application: productService.nameLong,
+				positronVersion: productService.positronVersion,
+				positronBuildNumber: productService.positronBuildNumber,
+				vscodeVersion: productService.version,
+				commit: productService.commit,
+				buildDate: productService.date,
+				quality: productService.quality,
+				os: PlatformToString(platform),
+				remote: environmentService.remoteAuthority,
+				extensions,
+				authenticatedProviders: providers.authenticated,
+				disabledProviders: providers.disabled,
+				modelListing: listing ?? { queriedProviders: [], models: [] },
+				builtinModels: builtin ?? [],
+				modelsIncomplete: listing === undefined || builtin === undefined,
+				providersConfig: providerConfig.content,
+				providersConfigPath: providerConfig.path,
+				settings,
+				logs,
+				bundle,
+			});
 		});
 
 		await editorService.openEditor({ resource: undefined, contents: report, languageId: 'markdown' });
@@ -556,6 +694,58 @@ async function activateWithTimeout(extensionService: IExtensionService, id: stri
 		extensionService.activateById(identifier, { startup: false, extensionId: identifier, activationEvent: 'api' }),
 		BRIDGE_TIMEOUT_MS,
 	);
+}
+
+/**
+ * Asks the headless language model service what the configured providers
+ * actually list. This is a live call, so it can hit the network - that's the
+ * point, since it reports reality rather than what providers.json declares. The
+ * result is cached by the service, so it's free when a feature already listed
+ * this session.
+ *
+ * Returns `undefined` when the listing didn't come back, which the report shows
+ * as "could not be retrieved". Distinct from an empty listing: a slow provider
+ * must not be reported as "you have no models".
+ */
+async function collectAvailableModels(service: IHeadlessLanguageModelService, logService: ILogService): Promise<IModelListingDiagnostics | undefined> {
+	try {
+		const listing = await raceTimeout(service.getModelListingDiagnostics(), MODEL_LISTING_TIMEOUT_MS);
+		if (!listing) {
+			logService.warn(`[ai-diagnostics] Model listing timed out after ${MODEL_LISTING_TIMEOUT_MS}ms; report omits it.`);
+		}
+		return listing;
+	} catch (error) {
+		logService.warn(`[ai-diagnostics] Model listing failed; report omits it: ${error}`);
+		return undefined;
+	}
+}
+
+/**
+ * Lists the built-in language model API's models. An empty selector matches
+ * everything and resolves each vendor lazily, so this can activate a chat
+ * extension that hasn't started yet - acceptable for a report the user asked
+ * for, and the same thing the bridge log collection already does.
+ *
+ * Returns `undefined` when the listing didn't come back, for the same reason as
+ * {@link collectAvailableModels}.
+ */
+async function collectBuiltinModels(service: ILanguageModelsService, logService: ILogService): Promise<readonly IAIDiagnosticsBuiltinModel[] | undefined> {
+	try {
+		const identifiers = await raceTimeout(service.selectLanguageModels({}), MODEL_LISTING_TIMEOUT_MS);
+		if (!identifiers) {
+			logService.warn(`[ai-diagnostics] Built-in model listing timed out after ${MODEL_LISTING_TIMEOUT_MS}ms; report omits it.`);
+			return undefined;
+		}
+		return identifiers.flatMap(identifier => {
+			const metadata = service.lookupLanguageModel(identifier);
+			return metadata
+				? [{ id: metadata.id, name: metadata.name, provider: metadata.vendor }]
+				: [];
+		});
+	} catch (error) {
+		logService.warn(`[ai-diagnostics] Built-in model listing failed; report omits it: ${error}`);
+		return undefined;
+	}
 }
 
 async function collectBridgedLogs(

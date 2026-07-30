@@ -24,6 +24,7 @@ function fakeService(result: StreamTextResult): IHeadlessLanguageModelService {
 		_serviceBrand: undefined,
 		streamText: async () => result,
 		getAvailableModels: async () => [],
+		getModelListingDiagnostics: async () => [],
 		onDidChangeAvailableModels: Event.None,
 	};
 }

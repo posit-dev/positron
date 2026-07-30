@@ -33,6 +33,28 @@ function inputs(overrides: Partial<IAIDiagnosticsInputs> = {}): IAIDiagnosticsIn
 		],
 		authenticatedProviders: ['GitHub Copilot', 'Posit AI'],
 		disabledProviders: ['DeepSeek', 'Snowflake Cortex'],
+		modelListing: {
+			queriedProviders: ['positai', 'copilot', 'deepseek'],
+			models: [
+				{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', vendor: 'Anthropic', providerId: 'positai' },
+				// Vendor is what the provider branded it as, so an OpenAI-compatible
+				// gateway reports "OpenAI" for a Google model. It must still group
+				// under the provider that returned it.
+				{ id: 'google/gemma-4-26B', name: 'Gemma 4 26B', vendor: 'OpenAI', providerId: 'positai' },
+				// Copilot offers a model Posit AI also offers. It loses the service's
+				// dedupe, so it only reaches the report because the listing is
+				// reported pre-dedupe.
+				{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', vendor: 'Anthropic', providerId: 'copilot' },
+				{ id: 'gpt-5', name: 'gpt-5', vendor: 'OpenAI', providerId: 'copilot' },
+			],
+		},
+		builtinModels: [
+			// `gpt-5` also came back from the provider sweep below, so it must not
+			// be listed twice under copilot.
+			{ id: 'gpt-5', name: 'GPT-5', provider: 'copilot' },
+			{ id: 'gemini-3-pro', name: 'Gemini 3 Pro', provider: 'copilot' },
+		],
+		modelsIncomplete: false,
 		providersConfig: '{\n  "version": 1,\n  "providers": {\n    "anthropic": {\n      "enabled": true\n    }\n  }\n}',
 		providersConfigPath: '/home/user/.posit/ai/providers.json',
 		settings: [
@@ -54,7 +76,7 @@ describe('generateAIDiagnosticsReport', () => {
 
 			Generated: 2026-07-23T00:00:00.000Z
 
-			**Privacy Notice**: This report includes extension versions, non-default configuration settings, provider connection config, system information, and recent log entries. It does NOT include API keys or authentication tokens (those are stored separately, not in settings or providers.json), and custom header values are redacted. However, configured base URLs may reveal internal endpoints. Please review before sharing.
+			**Privacy Notice**: This report includes extension versions, non-default configuration settings, provider connection config, system information, and recent log entries. Known secret fields are redacted: API keys, tokens, and custom header values are replaced with \`<redacted>\`, and keys/tokens are stored separately from settings and providers.json to begin with. Everything else is shown as you configured it, including base URLs (which may reveal internal endpoints) and connection settings. Please read through the whole report and remove anything sensitive before you share it.
 
 			## Version Information
 
@@ -91,6 +113,25 @@ describe('generateAIDiagnosticsReport', () => {
 
 			- DeepSeek
 			- Snowflake Cortex
+
+			### Available Models
+
+			Models each provider offers (5 total).
+
+			**positai** (2)
+
+			- \`claude-sonnet-4-5\` (Claude Sonnet 4.5, Anthropic)
+			- \`google/gemma-4-26B\` (Gemma 4 26B, OpenAI)
+
+			**copilot** (3)
+
+			- \`claude-sonnet-4-5\` (Claude Sonnet 4.5, Anthropic)
+			- \`gpt-5\` (OpenAI)
+			- \`gemini-3-pro\` (Gemini 3 Pro)
+
+			**deepseek** (0)
+
+			Queried, but returned no models.
 
 			### Configuration
 
@@ -154,6 +195,54 @@ describe('generateAIDiagnosticsReport', () => {
 		const report = generateAIDiagnosticsReport(inputs({ authenticatedProviders: [], disabledProviders: [] }));
 		expect(report).toContain('### Authenticated\n\nNone');
 		expect(report).toContain('### Disabled\n\nNone');
+	});
+
+	it('explains the empty case rather than showing a bare "None" for available models', () => {
+		const report = generateAIDiagnosticsReport(inputs({ modelListing: { queriedProviders: [], models: [] }, builtinModels: [] }));
+		expect(report).toContain('None. No provider was queried (each was disabled, had no registered auth backend, or had no credentials) and no extension registered a chat model.');
+	});
+
+	it('shows a queried provider that returned nothing instead of omitting it', () => {
+		const report = generateAIDiagnosticsReport(inputs({
+			modelListing: { queriedProviders: ['positai', 'copilot'], models: [] },
+			builtinModels: [],
+		}));
+		expect(report).toContain('**copilot** (0)\n\nQueried, but returned no models.');
+	});
+
+	it('lists a model under every provider that offers it, not just the one that wins de-duplication', () => {
+		const report = generateAIDiagnosticsReport(inputs());
+		expect(report.split('`claude-sonnet-4-5`')).toHaveLength(3);
+	});
+
+	it('lists built-in language model API models under the same provider heading, without duplicating a model both sources report', () => {
+		const report = generateAIDiagnosticsReport(inputs());
+		// One copilot group holding both sources' models, and `gpt-5` once.
+		expect(report).toContain('**copilot** (3)\n\n- `claude-sonnet-4-5` (Claude Sonnet 4.5, Anthropic)\n- `gpt-5` (OpenAI)\n- `gemini-3-pro` (Gemini 3 Pro)');
+		expect(report.split('`gpt-5`')).toHaveLength(2);
+	});
+
+	it('gives a provider only the built-in API knows about its own heading', () => {
+		const report = generateAIDiagnosticsReport(inputs({
+			modelListing: { queriedProviders: [], models: [] },
+			builtinModels: [{ id: 'gpt-5', name: 'GPT-5', provider: 'copilot' }],
+		}));
+		expect(report).toContain('**copilot** (1)\n\n- `gpt-5` (GPT-5)');
+	});
+
+	it('says the model listing could not be retrieved rather than claiming there are none', () => {
+		const report = generateAIDiagnosticsReport(inputs({
+			modelListing: { queriedProviders: [], models: [] },
+			builtinModels: [],
+			modelsIncomplete: true,
+		}));
+		expect(report).toContain('Could not be retrieved in time. Re-run the report: the listing is cached once it succeeds, so a second run usually has it.');
+	});
+
+	it('flags a partial model listing while still showing what came back', () => {
+		const report = generateAIDiagnosticsReport(inputs({ modelsIncomplete: true }));
+		expect(report).toContain('Some providers did not respond in time, so this list may be incomplete.');
+		expect(report).toContain('**positai** (2)');
 	});
 
 	it('renders a placeholder in the JSON fence and omits the path when providers.json is unavailable', () => {
