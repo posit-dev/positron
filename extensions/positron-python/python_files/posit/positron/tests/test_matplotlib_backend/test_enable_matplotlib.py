@@ -372,6 +372,41 @@ def test_register_with_legacy_ipython_adds_short_names(monkeypatch: pytest.Monke
     }
 
 
+def test_legacy_ipython_lists_short_names_without_a_switch(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+):
+    """
+    On IPython < 8.24, `%matplotlib -l` lists Positron's backends before any switch.
+
+    Legacy `%matplotlib -l` prints `list(pylabtools.backends)` from inside the magic
+    (verified in IPython 8.23's `core/magics/pylab.py`), so it never reaches
+    `enable_matplotlib`. Registering the short names on the switch path instead of at
+    shell init would therefore leave them out of `-l` until the user had already
+    switched backends, which is why `PositronShell.init_magics` is the registration site.
+
+    The magic's own `-l` branch can't be driven here, since the installed IPython lists
+    from matplotlib's registry rather than the static table; this asserts on the table
+    that legacy `-l` reads.
+    """
+    from IPython.core import pylabtools as pt
+
+    # Simulate IPython < 8.24: no registry-based lister, `-l` reads `pt.backends`.
+    if hasattr(pt, "_list_matplotlib_backends_and_gui_loops"):
+        monkeypatch.delattr(pt, "_list_matplotlib_backends_and_gui_loops")
+    monkeypatch.setattr(pt, "backends", {"inline": INLINE_BACKEND_NAME})
+
+    # The shell was constructed before the simulation was in place, so re-run the hook
+    # that registers the names. Notably not `enable_matplotlib`: nothing here switches
+    # backends, because `-l` has to list them without one.
+    shell.init_magics()
+
+    assert set(pt.backends) == {
+        "inline",
+        Backend.CONSOLE.short_name,
+        Backend.NOTEBOOK.short_name,
+    }
+
+
 def test_other_backend_deactivates(shell: PositronShell, positron_backend: BackendCase):
     """Switching to another backend removes Positron's hooks instead of leaving them."""
     shell.run_cell(f"%matplotlib {OTHER_BACKEND_NAME}").raise_error()

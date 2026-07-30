@@ -321,6 +321,13 @@ class PositronShell(ZMQInteractiveShell):
         # Register Positron's custom magics.
         self.register_magics(PositronMagics)
 
+        # On IPython versions that don't read matplotlib's backend registry, add
+        # Positron's backends to the static table that `%matplotlib -l` lists. This
+        # belongs here, next to the magic that reads the table: `-l` is handled inside
+        # `%matplotlib` and never reaches `enable_matplotlib`, so registering lazily on
+        # the switch path would leave the names out of `-l` until after a switch.
+        register_with_legacy_ipython()
+
     def init_user_ns(self):
         super().init_user_ns()
 
@@ -364,14 +371,9 @@ class PositronShell(ZMQInteractiveShell):
             install_backend_switch_hook,
         )
 
-        # Both calls are idempotent bootstrap steps that only have to be done before the
-        # first switch, so they're done lazily here rather than at shell init.
-        # Install the seam before any switch below can need it; lazy because it imports
-        # matplotlib (see its docstring).
+        # Install the seam before any switch below can need it. Idempotent; lazy
+        # because it imports matplotlib (see its docstring).
         install_backend_switch_hook()
-        # On IPython versions that don't read matplotlib's backend registry, add
-        # Positron's backends to the static table that `%matplotlib -l` lists.
-        register_with_legacy_ipython()
 
         # Only the sentinel check case-folds: `Backend.from_name` normalizes short names
         # itself, and keeps `module://` paths case-sensitive since they're module paths.
