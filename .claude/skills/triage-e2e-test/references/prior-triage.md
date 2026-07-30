@@ -53,6 +53,8 @@ construction, never `fix-holding`. Read three fields off it:
   luck anyway. Quote it. At p~0.5, N=4 is ~0.06: suggestive, not proof.
 - `runsNeeded` -- clean runs required to clear the bar. A rare flake needs far
   more than a frequent one, so this is what "check back later" should mean.
+  Very sensitive to `p` -- one real triage needed 4 runs at a 54% burst rate but
+  15 at the 19% lookback rate. Feed the lookback rate from `rates[]`; say which.
 - `scopeWarning` -- set when `--environment` was omitted. Both numbers must
   describe **one** os/browser lane; a test-health `total_runs` spans them all,
   and mixing it with a lane-specific rate inflates N and clears the bar on runs
