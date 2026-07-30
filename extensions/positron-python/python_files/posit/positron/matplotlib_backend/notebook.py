@@ -52,13 +52,14 @@ def new_figure_manager(
     # Get the current execute request.
     execute_request = current_execute_request()
 
-    # Sizing precedence:
-    # 1. per-figure code (`plt.figure(figsize=...)` or `plt.subplots(figsize=...)`),
-    #    which passes non-None figsize
-    # 2. cell execute request (`#| fig-width`` and `#| fig-height`)
-    # 3. matplotlib config (`plt.rcParams`)
+    # Sizing precedence: an explicit size from user code (`plt.figure(figsize=...)`,
+    # `plt.subplots(figsize=...)`) wins, else the cell's `#| fig-width`/`#| fig-height`,
+    # else matplotlib's `figure.figsize` rcParam, which `Figure` applies for a None figsize.
     figsize = figsize or execute_request.figure_size
-    figure = FigureClass(*args, figsize=figsize, **kwargs)
+    # `Figure` only accepts the 3-tuple form in matplotlib >= 3.11, but we pass whatever
+    # matplotlib handed us straight back to it, so the pair always matches at runtime.
+    # The cast keeps pyright quiet against the older pins (CI type-checks on 3.9).
+    figure = FigureClass(*args, figsize=cast("tuple[float, float] | None", figsize), **kwargs)
 
     # Also provide the execute request to the figure manager.
     manager: FigureManagerPositronNotebook = cast(
@@ -66,7 +67,7 @@ def new_figure_manager(
     )
     # Set the device pixel ratio to the execute request's value, if provided.
     if (pixel_ratio := execute_request.output_pixel_ratio) is not None:
-        manager.canvas._set_device_pixel_ratio(pixel_ratio)  # type: ignore  # noqa: SLF001
+        manager.canvas.set_device_pixel_ratio(pixel_ratio)
 
     return manager
 
@@ -75,7 +76,10 @@ class FigureManagerPositronNotebook(FigureManagerBase):
     canvas: FigureCanvasPositronNotebook  # type: ignore
 
     def show(self):
-        """Called by matplotlib when a figure is shown via `plt.show()` or `figure.show()`."""
+        """Called by matplotlib when a figure is shown via `plt.show()` or `figure.show()`.
+
+        Displays the figure inline, as an output of the currently executing cell.
+        """
         display(self.canvas.figure)
 
     @classmethod
@@ -91,6 +95,14 @@ class FigureManagerPositronNotebook(FigureManagerBase):
 
 class FigureCanvasPositronNotebook(FigureCanvasAgg):
     manager_class = FigureManagerPositronNotebook  # type: ignore
+
+    def set_device_pixel_ratio(self, ratio: float) -> None:
+        """Scale rendered pixels by `ratio`, leaving the figure's size in inches unchanged.
+
+        A public seam over matplotlib's protected setter, since the ratio is applied by
+        `new_figure_manager` from outside the canvas.
+        """
+        self._set_device_pixel_ratio(ratio)  # type: ignore
 
 
 # Fulfil the matplotlib backend API.
