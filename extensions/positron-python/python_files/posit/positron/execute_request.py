@@ -92,6 +92,9 @@ class PositronExecuteRequest(BaseModel):
 
 def current_execute_request() -> PositronExecuteRequest:
     """The Positron `execute_request` currently being handled, if any."""
+    # No contextvar of our own needed here: ipykernel's `get_parent("shell")` is
+    # already backed by a `ContextVar` (see `_shell_parent` in kernelbase.py), so
+    # this is async/thread-safe as-is.
     # Imported lazily to avoid a circular import.
     from .positron_ipkernel import PositronIPyKernel
 

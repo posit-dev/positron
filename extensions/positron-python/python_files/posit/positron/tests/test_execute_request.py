@@ -3,9 +3,18 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import pytest
 
-from positron.execute_request import PositronExecuteRequest
+from positron.execute_request import PositronExecuteRequest, current_execute_request
+
+if TYPE_CHECKING:
+    from positron.positron_ipkernel import PositronIPyKernel
+
+    from .conftest import MockSession
 
 
 def test_parses_code_location() -> None:
@@ -149,3 +158,27 @@ def test_figure_size(
     meta = PositronExecuteRequest.from_message(message)
 
     assert meta.figure_size == expected
+
+
+def test_current_execute_request_reads_figure_size(
+    kernel: PositronIPyKernel, session: MockSession
+) -> None:
+    """`current_execute_request` parses the kernel's current shell parent message."""
+    message = session.msg(
+        "execute_request", content={"positron": {"fig-width": 6.4, "fig-height": 4.8}}
+    )
+
+    kernel.set_parent([], message, channel="shell")
+
+    assert current_execute_request().figure_size == (6.4, 4.8)
+
+
+def test_current_execute_request_with_no_metadata(
+    kernel: PositronIPyKernel, session: MockSession
+) -> None:
+    """A shell parent message without `content.positron` yields an empty model."""
+    message = session.msg("execute_request", content={})
+
+    kernel.set_parent([], message, channel="shell")
+
+    assert current_execute_request().figure_size is None
