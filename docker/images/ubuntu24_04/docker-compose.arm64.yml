@@ -43,7 +43,7 @@ services:
         ARCH: arm64
         CPU_ARCH: aarch64
         NODE_ARCH: arm64
-        NODE_VERSION: 24.15.0
+        NODE_VERSION: 24.18.0
         PPM_SNAPSHOT: "2026-06-30"
         TINYTEX_ARCH: aarch64
         AWS_ARCH: aarch64

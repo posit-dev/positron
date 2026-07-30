@@ -2047,7 +2047,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			}
 			// Cast to ILanguageRuntimeMessageWebOutput to get resource_roots if available
 			const webMessage = message as ILanguageRuntimeMessageWebOutput;
-			this._handleOutputMessage(tracker, documentUri, message.data, webMessage);
+			this._handleOutputMessage(tracker, documentUri, message.data, message.outputMetadata, webMessage);
 		}));
 
 		// Handle result messages (execute_result) - these are computation results like "2 + 3"
@@ -2055,7 +2055,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			if (message.parent_id !== executionId) {
 				return;
 			}
-			this._handleOutputMessage(tracker, documentUri, message.data);
+			this._handleOutputMessage(tracker, documentUri, message.data, message.outputMetadata);
 		}));
 
 		// Handle stream messages (stdout/stderr)
@@ -2106,6 +2106,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		tracker: ExecutionTracker,
 		documentUri: URI,
 		data: Record<string, unknown>,
+		outputMetadata?: Record<string, unknown>,
 		runtimeMessage?: ILanguageRuntimeMessageWebOutput
 	): void {
 		const outputItems: ICellOutputItem[] = [];
@@ -2190,7 +2191,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				};
 			}
 
-			this._addOutput(tracker, documentUri, outputItems, webviewMetadata);
+			this._addOutput(tracker, documentUri, outputItems, webviewMetadata, outputMetadata);
 		}
 	}
 
@@ -2201,7 +2202,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		tracker: ExecutionTracker,
 		documentUri: URI,
 		items: ICellOutputItem[],
-		webviewMetadata?: ICellOutputWebviewMetadata
+		webviewMetadata?: ICellOutputWebviewMetadata,
+		outputMetadata?: Record<string, unknown>
 	): void {
 		// Check output limits
 		if (tracker.outputCount >= DEFAULT_EXECUTION_CONFIG.maxOutputItems) {
@@ -2249,6 +2251,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			outputId: generateUuid(),
 			items,
 			webviewMetadata,
+			outputMetadata,
 		};
 
 		// Store output

@@ -10,6 +10,19 @@ import { Explorer } from './explorer';
 
 const TEST_EXPLORER_ICON = '.composite-bar .codicon-test-view-icon';
 
+// Codicon classes on a test row's `.computed-state` icon, per result state. The icon
+// tracks transient states (Queued/Running) live, unlike the aria-label. Running is a
+// generic spinner; the rest are testing-specific icons.
+const STATE_ICON_CLASS = {
+	Unset: 'codicon-testing-unset-icon',
+	Queued: 'codicon-testing-queued-icon',
+	Running: 'codicon-modifier-spin',
+	Passed: 'codicon-testing-passed-icon',
+	Failed: 'codicon-testing-failed-icon',
+	Errored: 'codicon-testing-error-icon',
+	Skipped: 'codicon-testing-skipped-icon',
+} as const;
+
 /*
  *  Reuseable Positron test explorer functionality for tests to leverage.
  */
@@ -32,6 +45,10 @@ export class TestExplorer extends Explorer {
 
 	async clearAllTestResults(): Promise<void> {
 		await this.quickaccess.runCommand('testing.clearTestResults');
+	}
+
+	async cancelTestRun(): Promise<void> {
+		await this.quickaccess.runCommand('testing.cancelRun');
 	}
 
 	async expectTestItems(labels: string[], timeout?: number): Promise<void> {
@@ -73,5 +90,11 @@ export class TestExplorer extends Explorer {
 	async expectTestStatus(label: string, state: 'Passed' | 'Failed' | 'Errored' | 'Skipped', timeout?: number): Promise<void> {
 		const tree = this.code.driver.currentPage.locator('.test-explorer');
 		await expect(tree.getByLabel(`${label} (${state})`)).toBeVisible({ timeout });
+	}
+
+	async expectTestIcon(label: string, state: keyof typeof STATE_ICON_CLASS, timeout?: number): Promise<void> {
+		const tree = this.code.driver.currentPage.locator('.test-explorer');
+		const row = tree.locator('.monaco-list-row', { hasText: label });
+		await expect(row.locator('.computed-state')).toHaveClass(new RegExp(STATE_ICON_CLASS[state]), { timeout });
 	}
 }
