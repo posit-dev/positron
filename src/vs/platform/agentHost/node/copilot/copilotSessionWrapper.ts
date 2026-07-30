@@ -16,7 +16,10 @@ export class CopilotSessionWrapper extends Disposable {
 
 	private readonly _handledEventTypes = new Set<SessionEventType>();
 	private readonly _onUnhandledEvent = this._register(new Emitter<SessionEvent>());
-	readonly onUnhandledEvent = this._onUnhandledEvent.event;
+	// --- Start Positron ---
+	// Add an explicit type annotation to avoid TS2742 during declaration emit.
+	readonly onUnhandledEvent: Event<SessionEvent> = this._onUnhandledEvent.event;
+	// --- End Positron ---
 
 	constructor(readonly session: CopilotSession) {
 		super();
