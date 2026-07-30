@@ -12,8 +12,8 @@ partition; this file explains how to act on its verdict.
 | `none` | no PR body names this spec path | nothing to reconcile; proceed normally |
 | `open-attempt-in-flight` | an unmerged PR already diagnoses this test | **stop.** Point the engineer at the open PR (`openAttempts[].url`) instead of starting a parallel diagnosis |
 | `recurred-after-fix` | occurrences post-date a merged fix's commit | lead with this. Treat the prior hypothesis as **ruled out**, not a guess to re-test -- start from "why didn't that fix hold," not from re-deriving the same mechanism |
-| `fix-holding` | a merged fix exists, no occurrences post-date it, enough runs since | the fix looks like it held; say so, and check whether the live pattern is a different failure mode than the one it closed |
-| `too-recent-to-tell` | merged fix is very recent, few/no runs since | say so explicitly; do not declare success or failure prematurely |
+| `fix-holding` | a merged fix exists, no occurrences post-date it, and enough post-fix runs in the failing lane to mean something | the fix looks like it held; quote `sufficiency.probabilityIfUnfixed`, and check whether the live pattern is a different failure mode than the one it closed |
+| `too-recent-to-tell` | too few post-fix runs to judge -- **including none supplied at all** | say so explicitly; do not declare success or failure prematurely. `sufficiency.runsNeeded` is how many clean runs would settle it |
 
 ## Reading `mergedAttempts[]`
 
@@ -33,42 +33,30 @@ one is what's still live. Lead with the split.
 
 ## When `none` is not proof there was no prior fix
 
-The script matches **spec paths** in PR bodies. A fix that only touched a POM,
-fixture, or helper never names the spec, so it returns `none` while a merged fix
-exists. Whenever the failing locator or helper is **absent from the working
-tree**, it was replaced -- find by what, before trusting `none`:
+The search matches **spec paths** in PR bodies, so a fix that only touched a POM,
+fixture, or helper never registers. If the failing locator is absent from the
+working tree it was replaced -- find by what, then re-run with `--fix-sha` so the
+ancestry partition and verdict still apply:
 
 ```bash
-git log --oneline -S'<failing locator or helper name>' -- test/e2e/
+git log --oneline -S'<failing locator or helper>' -- test/e2e/
 ```
 
-## Verifying a suspected fix by hand
+## Judging whether a fix held
 
-1. **Get every failure SHA.** `triage-history.js` keeps 1; the API allows 20.
-   Above 20 it returns 400 and leaves the *previous* raw JSON in place, which
-   reads as "the API only has one occurrence" -- it doesn't.
-   ```bash
-   node .claude/skills/e2e-failure-analyzer/scripts/e2e-query-history.js \
-     --repo positron --test-keys '["<key>"]' --branch main \
-     --lookback-days 14 --occurrences-per-pattern 20
-   ```
-2. **Partition them:** `git merge-base --is-ancestor <fixSha> <occSha>` per SHA.
-3. **Bracket the onset:** sweep `--lookback-days` (2/3/6/8/11/14). The smallest
-   window where the count saturates brackets it; clean runs in the window
-   immediately before a suspected regressor confirm it.
-4. **Get the denominator.** The API returns SHAs for failures only, so count
-   post-fix runs from CI instead:
-   ```bash
-   gh api 'repos/posit-dev/positron/actions/runs?branch=main&created=>=<YYYY-MM-DD>' \
-     --jq '.workflow_runs[] | select(.name=="Test: Merge to branch")
-           | [.head_sha, .created_at, (.conclusion//"running")] | @tsv'
-   ```
-   Exclude in-flight runs. A workflow `conclusion` of `failure` is the whole
-   suite, not this test -- it is not an occurrence.
-5. **State sufficiency as a number.** Zero failures in N post-fix runs at
-   baseline rate p is only worth `(1-p)^N`: at p~0.5, N=4 is ~0.06 --
-   suggestive, not proof. Report the figure and what N would settle it. Never
-   call a fix closed on a handful of green runs.
+Occurrence SHAs are the numerator only. Pass `--post-fix-runs` (and
+`--baseline-rate` from the pattern's `rates[]`) to get a scored `sufficiency`
+object; without a denominator the verdict is `too-recent-to-tell` by
+construction, never `fix-holding`. Read three fields off it:
+
+- `probabilityIfUnfixed` -- `(1-p)^N`: how often that clean streak happens by
+  luck anyway. Quote it. At p~0.5, N=4 is ~0.06: suggestive, not proof.
+- `runsNeeded` -- clean runs required to clear the bar. A rare flake needs far
+  more than a frequent one, so this is what "check back later" should mean.
+- `scopeWarning` -- set when `--environment` was omitted. Both numbers must
+  describe **one** os/browser lane; a test-health `total_runs` spans them all,
+  and mixing it with a lane-specific rate inflates N and clears the bar on runs
+  that never exercised the failing lane.
 
 ## Supersedes
 
