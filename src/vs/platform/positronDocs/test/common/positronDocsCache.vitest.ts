@@ -41,9 +41,7 @@ function request(overrides: Partial<IDocsBundleRequest> = {}): IDocsBundleReques
 function setup() {
 	let clock = 1_000_000;
 	let ids = 0;
-	// The store shares the test's clock so a written entry carries the mtime a
-	// real write would, rather than reading as epoch-old to the prune cutoff.
-	const files = new FakeFileStore({}, () => clock);
+	const files = new FakeFileStore();
 	const http = new FakeHttpClient();
 	const archive = new FakeArchive(files);
 	const logger = recordingLogger();
@@ -316,6 +314,8 @@ describe('PositronDocsCache: convergence', () => {
 		expect(second?.version).toBe('2026.05.0-179');
 		expect(second?.isExactMatch).toBe(true);
 		expect((await ctx.readState()).resolution).toBe('exact');
+		// Converging also cleans up: the fallback bundle is superseded.
+		expect(await ctx.files.exists(`${ROOT}/2026.04.0-100`)).toBe(false);
 	});
 
 	it('keeps the cached bundle when latest answers 304', async () => {
@@ -536,8 +536,8 @@ describe('PositronDocsCache: hard-failure throttling', () => {
 	});
 });
 
-describe('PositronDocsCache: pruning', () => {
-	it('deletes superseded version directories on success', async () => {
+describe('PositronDocsCache: superseded version cleanup', () => {
+	it('deletes the superseded version directory on install', async () => {
 		const ctx = setup();
 		ctx.http.route(EXACT_ZIP, { status: 404 });
 		ctx.publish(LATEST_ZIP, payload('2026.04.0-100'), 'etag-april');
@@ -550,20 +550,18 @@ describe('PositronDocsCache: pruning', () => {
 		expect(await ctx.files.exists(`${ROOT}/2026.04.0-100`)).toBe(false);
 	});
 
-	it('leaves another window in-flight temp entries alone but collects abandoned ones', async () => {
+	it('never touches entries it did not supersede, including another window in-flight work', async () => {
 		const ctx = setup();
 		ctx.publish(EXACT_ZIP, payload('2026.05.0-179'));
 
-		// Two windows share this directory. A recent temp file belongs to a
-		// live download; an old one is an abandoned leftover.
+		// Two windows share this directory. Cleanup deletes only the version
+		// the previous state named - there is no sweep - so a concurrent
+		// window's temp file survives an install here unconditionally.
 		await ctx.files.writeFile(`${ROOT}/.tmp-otherwindow.zip`, 'in flight');
-		ctx.files.mtimes.set(`${ROOT}/.tmp-otherwindow.zip`, 1_000_000);
-		await ctx.files.writeFile(`${ROOT}/.staging-abandoned/x`, 'stale');
-		ctx.files.mtimes.set(`${ROOT}/.staging-abandoned`, 1_000_000 - 11 * 60 * 1000);
 
 		await ctx.cache.ensure(request());
 
 		expect(await ctx.files.exists(`${ROOT}/.tmp-otherwindow.zip`)).toBe(true);
-		expect(await ctx.files.exists(`${ROOT}/.staging-abandoned`)).toBe(false);
+		expect(await ctx.files.exists(`${ROOT}/2026.05.0-179/llms.txt`)).toBe(true);
 	});
 });

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import {
-	DOCS_BUNDLE_SCHEMA, DOCS_FAILURE_THROTTLE_MS, DOCS_MAX_DOWNLOAD_BYTES, DOCS_PRUNE_IDLE_MS,
+	DOCS_BUNDLE_SCHEMA, DOCS_FAILURE_THROTTLE_MS, DOCS_MAX_DOWNLOAD_BYTES,
 	DOCS_STATE_FILENAME, DocsResolution,
 	IDocsBundleManifest, IDocsBundleRequest, IDocsCacheState, IResolvedBundle, IResolvedBundleRequest,
 	parseDigestFile, resolveBundleRequest,
@@ -166,7 +166,7 @@ export class PositronDocsCache {
 		if (exactExists) {
 			const outcome = await this._downloadAndInstall(resolved.exact, resolved.exact.version, undefined);
 			if (outcome.kind === 'installed') {
-				await this._recordInstall(outcome, request, resolved.exact.version, 'exact', resolved.exact);
+				await this._recordInstall(outcome, request, resolved.exact.version, 'exact', resolved.exact, state?.version);
 				return outcome.docs;
 			}
 			this._logOutcome(outcome, resolved.exact);
@@ -196,7 +196,7 @@ export class PositronDocsCache {
 		// comparing versions keeps this monotonic without a version comparator.
 		const outcome = await this._downloadAndInstall(resolved.latest, resolved.exact.version, state?.etag);
 		if (outcome.kind === 'installed') {
-			await this._recordInstall(outcome, request, resolved.exact.version, resolution, resolved.latest);
+			await this._recordInstall(outcome, request, resolved.exact.version, resolution, resolved.latest, state?.version);
 			return outcome.docs;
 		}
 		this._logOutcome(outcome, resolved.latest);
@@ -240,6 +240,7 @@ export class PositronDocsCache {
 		requestedVersion: string,
 		resolution: DocsResolution,
 		target: IResolvedBundle,
+		previousVersion: string | undefined,
 	): Promise<void> {
 		const now = this._options.now();
 		await this._writeState({
@@ -255,15 +256,13 @@ export class PositronDocsCache {
 			lastAttemptAt: now,
 		});
 		this._options.logger.info(`${LOG_PREFIX} installed ${outcome.manifest.version} from ${target.zipUrl}`);
-		// Best-effort, for the same reason as _writeState: the bundle is already
-		// on disk and must be served. A readdir or unlink failure here would
-		// otherwise throw out of ensure() and discard a successful install.
-		// Awaited rather than fire-and-forget so the next launch (and the tests)
-		// observe a settled cache directory instead of racing the sweep.
-		try {
-			await this._prune(outcome.manifest.version);
-		} catch (error) {
-			this._options.logger.warn(`${LOG_PREFIX} could not prune the cache directory: ${errorMessage(error)}`);
+		// Targeted cleanup: this install supersedes exactly one directory, the
+		// version the previous state named. Deleting it by name is what keeps a
+		// dailies cache bounded without scanning the directory, so there is no
+		// sweep that could collide with another window's in-flight work.
+		// Best-effort: a cleanup failure must not discard a successful install.
+		if (previousVersion && previousVersion !== outcome.manifest.version) {
+			await this._safeDelete(joinDocsPath(this._options.rootPath, previousVersion));
 		}
 	}
 
@@ -452,37 +451,12 @@ export class PositronDocsCache {
 		});
 	}
 
-	/**
-	 * Drop superseded version directories and abandoned transient entries.
-	 *
-	 * The mtime guard is what makes this safe across windows: each window has
-	 * its own extension host, so window A must not delete window B's in-flight
-	 * `.tmp-*` or `.staging-*`. Only entries idle for ten minutes are touched,
-	 * which are by definition leftovers. No lock file needed.
-	 */
-	private async _prune(keepVersion: string): Promise<void> {
-		const { files, now, rootPath } = this._options;
-		const cutoff = now() - DOCS_PRUNE_IDLE_MS;
-		for (const name of await files.readdir(rootPath)) {
-			if (name === DOCS_STATE_FILENAME || name === keepVersion) {
-				continue;
-			}
-			const path = joinDocsPath(rootPath, name);
-			if (name.startsWith('.')) {
-				const mtime = await files.mtime(path);
-				if (mtime === undefined || mtime > cutoff) {
-					continue;
-				}
-			}
-			await this._safeDelete(path);
-		}
-	}
-
 	private async _safeDelete(path: string): Promise<void> {
 		try {
 			await this._options.files.delete(path);
 		} catch {
-			// Cleanup is best-effort; the prune pass collects anything left.
+			// Cleanup is best-effort. Anything left behind is a few hundred KB
+			// of crash debris, bounded by the number of crashes, not by time.
 		}
 	}
 }

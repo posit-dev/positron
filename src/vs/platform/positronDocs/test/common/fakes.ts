@@ -24,21 +24,16 @@ export function fakeDigest(contents: string): string {
  */
 export class FakeFileStore implements IDocsFileStore {
 	readonly files = new Map<string, string>();
-	readonly mtimes = new Map<string, number>();
+	/** Directories created explicitly via mkdir; implicit ones live in `files` keys. */
+	readonly dirs = new Set<string>();
 	/** Set to a path prefix to make every write under it fail, simulating a full disk. */
 	failWritesUnder: string | undefined;
 	/** Digest overrides, keyed by path. Defaults to a hash of the contents. */
 	readonly digests = new Map<string, string>();
 
-	/**
-	 * @param now Clock the store stamps mtimes from. Pass the test's clock:
-	 * with the default, everything written reads as epoch-old and so sits past
-	 * any prune cutoff, which is the opposite of how a real write behaves.
-	 */
-	constructor(initial: Record<string, string> = {}, private readonly now: () => number = () => 0) {
+	constructor(initial: Record<string, string> = {}) {
 		for (const [path, contents] of Object.entries(initial)) {
 			this.files.set(path, contents);
-			this.mtimes.set(path, 0);
 		}
 	}
 
@@ -49,7 +44,7 @@ export class FakeFileStore implements IDocsFileStore {
 				return true;
 			}
 		}
-		return this.mtimes.has(path);
+		return this.dirs.has(path);
 	}
 
 	async exists(path: string): Promise<boolean> {
@@ -72,11 +67,10 @@ export class FakeFileStore implements IDocsFileStore {
 		// bytes through this method, and FakeArchive must be able to read them
 		// back as its fake-zip payload string.
 		this.files.set(path, typeof data === 'string' ? data : new TextDecoder().decode(data));
-		this.mtimes.set(path, this.now());
 	}
 
 	async mkdir(path: string): Promise<void> {
-		this.mtimes.set(path, this.mtimes.get(path) ?? this.now());
+		this.dirs.add(path);
 	}
 
 	async rename(from: string, to: string): Promise<void> {
@@ -86,10 +80,10 @@ export class FakeFileStore implements IDocsFileStore {
 				this.files.set(to + key.slice(from.length), value);
 			}
 		}
-		for (const [key, value] of [...this.mtimes]) {
+		for (const key of [...this.dirs]) {
 			if (key === from || key.startsWith(`${from}/`)) {
-				this.mtimes.delete(key);
-				this.mtimes.set(to + key.slice(from.length), value);
+				this.dirs.delete(key);
+				this.dirs.add(to + key.slice(from.length));
 			}
 		}
 	}
@@ -100,9 +94,9 @@ export class FakeFileStore implements IDocsFileStore {
 				this.files.delete(key);
 			}
 		}
-		for (const key of [...this.mtimes.keys()]) {
+		for (const key of [...this.dirs]) {
 			if (key === path || key.startsWith(`${path}/`)) {
-				this.mtimes.delete(key);
+				this.dirs.delete(key);
 			}
 		}
 	}
@@ -110,7 +104,7 @@ export class FakeFileStore implements IDocsFileStore {
 	async readdir(path: string): Promise<string[]> {
 		const prefix = `${path}/`;
 		const names = new Set<string>();
-		for (const key of [...this.files.keys(), ...this.mtimes.keys()]) {
+		for (const key of [...this.files.keys(), ...this.dirs]) {
 			if (key.startsWith(prefix)) {
 				names.add(key.slice(prefix.length).split('/')[0]);
 			}
@@ -119,14 +113,8 @@ export class FakeFileStore implements IDocsFileStore {
 	}
 
 	async isDirectory(path: string): Promise<boolean> {
-		// A path present in `files` holds contents, so it is a file. Note
-		// `isDir` alone is not enough: writeFile records an mtime for file paths
-		// too, which isDir reads as a directory marker.
+		// A path present in `files` holds contents, so it is a file.
 		return this.files.has(path) ? false : this.isDir(path);
-	}
-
-	async mtime(path: string): Promise<number | undefined> {
-		return this.mtimes.get(path);
 	}
 
 	async sha256(path: string): Promise<string> {

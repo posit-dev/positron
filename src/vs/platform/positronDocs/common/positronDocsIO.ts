@@ -51,8 +51,6 @@ export interface IDocsFileStore {
 	readdir(path: string): Promise<string[]>;
 	/** True for a directory, false for a file and for a missing path. */
 	isDirectory(path: string): Promise<boolean>;
-	/** Epoch millis, or undefined if the path is missing. Used by the prune guard. */
-	mtime(path: string): Promise<number | undefined>;
 	/** Lowercase hex digest of the file's bytes. */
 	sha256(path: string): Promise<string>;
 }

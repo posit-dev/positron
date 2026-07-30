@@ -200,10 +200,3 @@ export function parseDigestFile(raw: string): string | undefined {
  */
 export const DOCS_FAILURE_THROTTLE_MS = 60 * 60 * 1000;
 
-/**
- * How long a transient `.tmp-*`, `.staging-*`, or `.stale-*` entry must have
- * been idle before pruning may remove it. Each window has its own extension
- * host sharing this cache directory, so anything younger may be another
- * window's in-flight work.
- */
-export const DOCS_PRUNE_IDLE_MS = 10 * 60 * 1000;
