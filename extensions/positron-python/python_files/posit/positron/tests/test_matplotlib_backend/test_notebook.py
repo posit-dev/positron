@@ -207,8 +207,8 @@ def test_plt_show_displays_figure(backend):
     assert png.startswith(b"\x89PNG")
 
 
-def test_figure_show_displays_figure(backend):
-    """An explicit `fig.show()` displays the figure inline."""
+def test_figure_show_displays_figure_once(backend):
+    """An explicit `fig.show()` displays the figure inline, exactly once."""
     outputs = backend.run(
         "import matplotlib.pyplot as plt",
         "fig, ax = plt.subplots()",
@@ -216,9 +216,32 @@ def test_figure_show_displays_figure(backend):
         "fig.show()",
     )
 
-    # Two outputs: the explicit `fig.show()`, then the post-execute hook, which still finds
-    # the figure since `Figure.show` doesn't close it.
+    # `Figure.show` doesn't close the figure, so the post-execute hook still finds it; it
+    # skips the figure since the explicit show already displayed it.
+    assert len(outputs) == 1
+
+
+def test_repeated_figure_show_displays_each_time(backend):
+    """Only the automatic end-of-cell display is skipped; explicit shows always display."""
+    outputs = backend.run(
+        "import matplotlib.pyplot as plt",
+        "fig, ax = plt.subplots()",
+        "fig.show()",
+        "ax.plot([0, 1], [0, 1])",
+        "fig.show()",
+    )
+
     assert len(outputs) == 2
+
+
+def test_explicit_show_does_not_suppress_a_later_cell(backend):
+    """A cell's explicit show doesn't suppress the automatic display in the next cell."""
+    shown = backend.run("import matplotlib.pyplot as plt", "fig, ax = plt.subplots()", "fig.show()")
+    assert len(shown) == 1
+
+    # No explicit show in this cell, so the post-execute hook must display its figure. A
+    # "displayed" flag that outlived the previous cell would silently swallow the output.
+    assert len(backend.run("fig, ax = plt.subplots()", "ax.plot([0, 1], [0, 1])")) == 1
 
 
 def test_figures_do_not_accumulate_across_cells(backend):

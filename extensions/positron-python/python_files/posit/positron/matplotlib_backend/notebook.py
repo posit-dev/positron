@@ -75,12 +75,18 @@ def new_figure_manager(
 class FigureManagerPositronNotebook(FigureManagerBase):
     canvas: FigureCanvasPositronNotebook  # type: ignore
 
+    # Whether this figure has already been displayed during the current cell. Only the
+    # post-execute hook reads it, so an explicit show always displays. Public because
+    # `_show_figures` reads it off another object.
+    displayed = False
+
     def show(self):
         """Called by matplotlib when a figure is shown via `plt.show()` or `figure.show()`.
 
         Displays the figure inline, as an output of the currently executing cell.
         """
         display(self.canvas.figure)
+        self.displayed = True
 
     @classmethod
     def pyplot_show(cls, *, block: bool | None = None) -> None:
@@ -88,9 +94,7 @@ class FigureManagerPositronNotebook(FigureManagerBase):
         try:
             super().pyplot_show(block=block)
         finally:
-            # Close all figures after showing them.
-            if Gcf.get_all_fig_managers():
-                plt.close("all")
+            _close_all_figures()
 
 
 class FigureCanvasPositronNotebook(FigureCanvasAgg):
@@ -110,12 +114,37 @@ FigureCanvas = FigureCanvasPositronNotebook
 FigureManager = FigureManagerPositronNotebook
 
 
+def _close_all_figures() -> None:
+    """Close all figures, so that they don't accumulate across cells."""
+    # `close("all")` triggers a gc collect, which can be slow, so skip it if there's
+    # nothing to close.
+    if Gcf.get_all_fig_managers():
+        plt.close("all")
+
+
 def _show_figures():
-    """Post execute hook to show all figures and log errors."""
+    """Post execute hook to show the cell's figures and log errors."""
     try:
-        return FigureManagerPositronNotebook.pyplot_show()
+        # Don't reuse `pyplot_show` here: it shows every figure, which would emit a second
+        # output for a figure that user code already displayed via `plt.show()`/`fig.show()`.
+        # Matplotlib's own loop adds nothing else for a non-GUI backend - it only handles
+        # `NonGuiException` (our `show` displays instead of raising) and blocks on a main
+        # loop we don't have.
+        for manager in Gcf.get_all_fig_managers():
+            if not isinstance(manager, FigureManagerPositronNotebook):
+                manager.show()
+                continue
+
+            if not manager.displayed:
+                manager.show()
+
+            # Reset even though the figure is about to be closed: should one ever outlive
+            # the cell, showing it again beats silently swallowing its output.
+            manager.displayed = False
     except Exception:
         logger.exception("Error showing figures in post execute hook")
+    finally:
+        _close_all_figures()
 
 
 def install(shell: InteractiveShell) -> None:
