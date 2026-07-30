@@ -51,6 +51,8 @@ dist/**
 l10n/
 tags
 # --- Start Positron ---
+# The old location, kept so clones that ran the pre-split suite stay clean.
+python_files/posit/positron/tests/images
 python_files/posit/positron/tests/test_matplotlib_backend/images
 python_files/posit/positron/_vendor/**
 scripts/*.js
