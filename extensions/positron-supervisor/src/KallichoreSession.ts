@@ -68,6 +68,23 @@ export enum DisconnectReason {
 }
 
 /**
+ * Environment variables that hold a delimiter-separated list of library search
+ * paths. When a kernel spec supplies one of these, it must be *prepended* to any
+ * value already present in the environment (e.g. entries added by `module load`
+ * or inherited from the launching shell) rather than replacing it wholesale.
+ *
+ * The R kernel spec injects `$R_HOME/lib` on these to help ark find R's shared
+ * libraries (a workaround for #1619 / #3732). Applying that as a Replace would
+ * clobber the user's module-derived paths, so packages needing module-provided
+ * shared libraries would fail to link. See #15191.
+ */
+const LIBRARY_PATH_ENV_VARS: ReadonlySet<string> = new Set([
+	'LD_LIBRARY_PATH',
+	'DYLD_LIBRARY_PATH',
+	'DYLD_FALLBACK_LIBRARY_PATH',
+]);
+
+/**
  * The event emitted when the session's websocket is disconnected from the kernel.
  */
 export interface DisconnectedEvent {
@@ -368,11 +385,24 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		if (specEnv) {
 			for (const [key, value] of Object.entries(specEnv)) {
 				if (typeof value === 'string') {
-					const action: VarAction = {
-						action: VarActionType.Replace,
-						name: key,
-						value
-					};
+					// Library search path variables (e.g. LD_LIBRARY_PATH) must be
+					// prepended so that any value already present in the
+					// environment -- such as paths added by `module load` or
+					// inherited from the launching shell -- is preserved rather
+					// than clobbered. The supervisor server performs a raw string
+					// insert for Prepend actions, so we include a trailing
+					// delimiter in the value to keep the entries separated (#15191).
+					const action: VarAction = LIBRARY_PATH_ENV_VARS.has(key)
+						? {
+							action: VarActionType.Prepend,
+							name: key,
+							value: value + path.delimiter
+						}
+						: {
+							action: VarActionType.Replace,
+							name: key,
+							value
+						};
 					varActions.push(action);
 				}
 			}
