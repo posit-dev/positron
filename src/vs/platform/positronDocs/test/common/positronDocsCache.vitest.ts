@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 /// <reference types="vitest/globals" />
 
-import { DocsProfile, DOCS_MAX_DOWNLOAD_BYTES, IDocsBundleRequest } from '../../common/positronDocsBundle.js';
+import { DOCS_MAX_DOWNLOAD_BYTES, IDocsBundleRequest } from '../../common/positronDocsBundle.js';
 import { PositronDocsCache } from '../../common/positronDocsCache.js';
 import { fakeDigest, fakeZip, FakeArchive, FakeFileStore, FakeHttpClient, recordingLogger } from './fakes.js';
 
@@ -12,6 +12,7 @@ const ROOT = '/userdata/User/positron-docs';
 const BASE = 'https://cdn.posit.co/positron/releases/docs';
 const EXACT_ZIP = `${BASE}/positron-llms-2026.05.0-179.zip`;
 const LATEST_ZIP = `${BASE}/positron-llms-latest.zip`;
+const STATE_PATH = `${ROOT}/state.json`;
 
 /** A fake-zip payload whose manifest declares the three files it contains. */
 function payload(version: string): string {
@@ -31,19 +32,21 @@ function request(overrides: Partial<IDocsBundleRequest> = {}): IDocsBundleReques
 		quality: 'releases',
 		positronVersion: '2026.05.0',
 		positronBuildNumber: 179,
-		profile: 'positron' as DocsProfile,
+		profile: 'positron',
 		baseUrl: BASE,
 		...overrides,
 	};
 }
 
 function setup() {
-	const files = new FakeFileStore();
+	let clock = 1_000_000;
+	let ids = 0;
+	// The store shares the test's clock so a written entry carries the mtime a
+	// real write would, rather than reading as epoch-old to the prune cutoff.
+	const files = new FakeFileStore({}, () => clock);
 	const http = new FakeHttpClient();
 	const archive = new FakeArchive(files);
 	const logger = recordingLogger();
-	let clock = 1_000_000;
-	let ids = 0;
 	// A fresh cache over the same fakes stands in for a new session: it
 	// re-reads state.json from the shared file store, exactly as a relaunch
 	// would. Tests that model "the next launch" must use this rather than
@@ -57,6 +60,8 @@ function setup() {
 	return {
 		cache, makeCache, files, http, archive, logger,
 		advance: (ms: number) => { clock += ms; },
+		/** The persisted cache state, parsed. */
+		readState: async () => JSON.parse(await files.readFile(STATE_PATH)),
 		/** Serve `zipUrl` with a matching, correctly-formatted sidecar. */
 		publish: (zipUrl: string, body: string, etag?: string) => {
 			http.route(zipUrl, { status: 200, body, etag });
@@ -89,7 +94,7 @@ describe('PositronDocsCache: cold cache install', () => {
 		ctx.publish(EXACT_ZIP, payload('2026.05.0-179'));
 		await ctx.cache.ensure(request());
 
-		const state = JSON.parse(await ctx.files.readFile(`${ROOT}/state.json`));
+		const state = await ctx.readState();
 		expect({
 			version: state.version, requestedVersion: state.requestedVersion,
 			resolution: state.resolution, profile: state.profile, sourceUrl: state.sourceUrl,
@@ -109,7 +114,9 @@ describe('PositronDocsCache: cold cache install', () => {
 		ctx.publish(EXACT_ZIP, payload('2026.05.0-179'));
 		await ctx.cache.ensure(request());
 
-		expect(ctx.files.listUnder(ROOT).filter(p => p.includes('/.'))).toEqual([]);
+		// readdir rather than listUnder: an empty leftover staging directory has no
+		// file keys, so listUnder cannot see the leak this test is named for.
+		expect((await ctx.files.readdir(ROOT)).filter(name => name.startsWith('.'))).toEqual([]);
 	});
 
 	it('fetches the latest alias for a dailies build', async () => {
@@ -146,48 +153,53 @@ describe('PositronDocsCache: download rejections on a cold cache', () => {
 	// Each of these must leave no version directory behind and return
 	// undefined, so the assistant falls back to the web exactly as it does
 	// today. Task 6 asserts the same failures against a warm cache.
-	async function expectRejected(configure: (ctx: ReturnType<typeof setup>) => void) {
+	// `expectedLog` is what makes each case falsifiable: every rejection produces
+	// the same three observable outcomes, so without a distinct reason a test
+	// would still pass if the code refused the bundle for the wrong reason.
+	// Matched across both levels on purpose - which level each outcome kind logs
+	// at is asserted separately below.
+	async function expectRejected(configure: (ctx: ReturnType<typeof setup>) => void, expectedLog: string) {
 		const ctx = setup();
 		configure(ctx);
 		const docs = await ctx.cache.ensure(request());
 		expect(docs).toBeUndefined();
 		expect(await ctx.files.exists(`${ROOT}/2026.05.0-179`)).toBe(false);
 		expect(ctx.files.listUnder(ROOT).filter(p => p.includes('/.tmp-') || p.includes('/.staging-'))).toEqual([]);
+		expect([...ctx.logger.warns, ...ctx.logger.infos].join('\n')).toContain(expectedLog);
 		return ctx;
 	}
 
 	it('rejects when the digest sidecar 404s', async () => {
-		const ctx = await expectRejected(c => {
+		await expectRejected(c => {
 			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179') });
 			c.http.route(`${EXACT_ZIP}.sha256sum`, { status: 404 });
-		});
-		expect(ctx.logger.warns.join('\n')).toContain('digest sidecar');
+		}, 'digest sidecar unavailable (HTTP 404)');
 	});
 
 	it('rejects when the sidecar is unparseable', async () => {
 		await expectRejected(c => {
 			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179') });
 			c.http.route(`${EXACT_ZIP}.sha256sum`, { status: 200, body: '<!DOCTYPE html><html>404</html>' });
-		});
+		}, 'digest sidecar is not a sha256 digest');
 	});
 
 	it('rejects when the digest does not match the zip', async () => {
 		await expectRejected(c => {
 			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179') });
 			c.http.route(`${EXACT_ZIP}.sha256sum`, { status: 200, body: `${'b'.repeat(64)}  bundle.zip` });
-		});
+		}, 'digest mismatch');
 	});
 
 	it('rejects a corrupt archive', async () => {
 		await expectRejected(c => {
 			c.publish(EXACT_ZIP, 'not-a-zip-at-all');
-		});
+		}, 'corrupt archive');
 	});
 
 	it('rejects an archive entry that escapes the target', async () => {
 		await expectRejected(c => {
 			c.publish(EXACT_ZIP, fakeZip({ 'llms.txt': 'x', '../../evil.sh': 'rm -rf /' }));
-		});
+		}, 'archive entry escapes the target: ../../evil.sh');
 	});
 
 	it('rejects a bundle whose schema is not 1', async () => {
@@ -196,7 +208,7 @@ describe('PositronDocsCache: download rejections on a cold cache', () => {
 				'bundle.json': JSON.stringify({ schema: 2, profile: 'positron', version: '2026.05.0-179', generated: 'g', docsBaseUrl: 'd', fileCount: 2 }),
 				'llms.txt': '# Positron\n',
 			}));
-		});
+		}, 'extracted bundle invalid (bad-manifest)');
 	});
 
 	it('rejects a bundle whose fileCount does not match', async () => {
@@ -205,40 +217,80 @@ describe('PositronDocsCache: download rejections on a cold cache', () => {
 				'bundle.json': JSON.stringify({ schema: 1, profile: 'positron', version: '2026.05.0-179', generated: 'g', docsBaseUrl: 'd', fileCount: 99 }),
 				'llms.txt': '# Positron\n',
 			}));
-		});
+		}, 'extracted bundle invalid (file-count-mismatch)');
 	});
 
 	it('aborts a download that exceeds the size cap', async () => {
 		await expectRejected(c => {
 			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179'), byteLength: DOCS_MAX_DOWNLOAD_BYTES + 1 });
 			c.http.route(`${EXACT_ZIP}.sha256sum`, { status: 200, body: `${'c'.repeat(64)}  x` });
-		});
+		}, `exceeds ${DOCS_MAX_DOWNLOAD_BYTES} bytes`);
 	});
 
 	it('returns undefined on a network failure', async () => {
 		await expectRejected(c => {
 			c.http.route(EXACT_ZIP, { status: 0, throws: 'getaddrinfo ENOTFOUND cdn.posit.co' });
-		});
+		}, 'getaddrinfo ENOTFOUND cdn.posit.co');
 	});
 
 	it('returns undefined on a 5xx', async () => {
 		await expectRejected(c => {
 			c.http.route(EXACT_ZIP, { status: 503 });
-		});
+		}, 'unexpected HTTP 503 from HEAD');
 	});
 
 	it('returns undefined on a disk write error', async () => {
 		await expectRejected(c => {
 			c.publish(EXACT_ZIP, payload('2026.05.0-179'));
 			c.files.failWritesUnder = ROOT;
-		});
+		}, 'ENOSPC');
 	});
 
-	it('never notifies: nothing is logged at a level above warn', async () => {
-		const ctx = await expectRejected(c => { c.http.route(EXACT_ZIP, { status: 503 }); });
-		// The logger port has no error level on purpose - a docs download
-		// failing is not worth interrupting anyone over.
-		expect(Object.keys(ctx.logger)).not.toContain('error');
+	it('logs a fetch failure at info, and a refused payload at warn', async () => {
+		// A docs download failing is not worth interrupting anyone over, so an
+		// unreachable CDN stays at info. A payload that arrived and was refused
+		// is different: something is wrong with what was published, and that
+		// earns a warn.
+		const failed = await expectRejected(c => {
+			c.http.route(EXACT_ZIP, { status: 404 });
+			c.http.route(LATEST_ZIP, { status: 0, throws: 'getaddrinfo ENOTFOUND cdn.posit.co' });
+		}, 'fetch failed for');
+		expect(failed.logger.warns).toEqual([]);
+
+		const refused = await expectRejected(c => {
+			c.publish(EXACT_ZIP, 'not-a-zip-at-all');
+		}, 'corrupt archive');
+		expect(refused.logger.warns.join('\n')).toContain('rejected bundle from');
+	});
+});
+
+describe('PositronDocsCache: damaged cache state', () => {
+	it('reinstalls when state names a version directory that is gone', async () => {
+		const ctx = setup();
+		ctx.publish(EXACT_ZIP, payload('2026.05.0-179'));
+		await ctx.cache.ensure(request());
+
+		// Someone cleared part of the cache directory by hand, leaving state.json
+		// pointing at nothing. The bundle must come back, not be served from a
+		// path that no longer exists.
+		await ctx.files.delete(`${ROOT}/2026.05.0-179`);
+
+		const docs = await ctx.makeCache().ensure(request());
+
+		expect(docs?.version).toBe('2026.05.0-179');
+		expect(await ctx.files.exists(`${ROOT}/2026.05.0-179/llms.txt`)).toBe(true);
+		expect(ctx.logger.warns.join('\n')).toContain('is unusable (missing-manifest)');
+	});
+
+	it('treats an unparseable state.json as a cold cache', async () => {
+		const ctx = setup();
+		ctx.publish(EXACT_ZIP, payload('2026.05.0-179'));
+		await ctx.files.writeFile(STATE_PATH, '{ not json');
+
+		const docs = await ctx.cache.ensure(request());
+
+		expect(docs?.version).toBe('2026.05.0-179');
+		expect((await ctx.readState()).resolution).toBe('exact');
 	});
 });
 
@@ -255,7 +307,7 @@ describe('PositronDocsCache: convergence', () => {
 		const first = await ctx.cache.ensure(request());
 		expect(first?.version).toBe('2026.04.0-100');
 		expect(first?.isExactMatch).toBe(false);
-		expect(JSON.parse(await ctx.files.readFile(`${ROOT}/state.json`)).resolution).toBe('fallback');
+		expect((await ctx.readState()).resolution).toBe('fallback');
 
 		// The release's docs publish. The next launch converges.
 		ctx.publish(EXACT_ZIP, payload('2026.05.0-179'));
@@ -263,7 +315,7 @@ describe('PositronDocsCache: convergence', () => {
 		const second = await ctx.makeCache().ensure(request());
 		expect(second?.version).toBe('2026.05.0-179');
 		expect(second?.isExactMatch).toBe(true);
-		expect(JSON.parse(await ctx.files.readFile(`${ROOT}/state.json`)).resolution).toBe('exact');
+		expect((await ctx.readState()).resolution).toBe('exact');
 	});
 
 	it('keeps the cached bundle when latest answers 304', async () => {
@@ -282,7 +334,7 @@ describe('PositronDocsCache: convergence', () => {
 		// listUnder only compares paths, so it cannot see whether _touchState
 		// ran. Assert the content moved too, or a regression that stopped
 		// touching state would pass unnoticed.
-		const state = JSON.parse(await ctx.files.readFile(`${ROOT}/state.json`));
+		const state = await ctx.readState();
 		expect(state.resolution).toBe('fallback');
 		expect(state.lastAttemptAt).toBe(1_000_000 + 5 * 60 * 1000);
 	});
@@ -432,7 +484,7 @@ describe('PositronDocsCache: hard-failure throttling', () => {
 		ctx.http.route(EXACT_ZIP, { status: 503 });
 		ctx.http.route(LATEST_ZIP, { status: 503 });
 		await ctx.cache.ensure(request());
-		expect(JSON.parse(await ctx.files.readFile(`${ROOT}/state.json`)).lastFailureAt).toBeDefined();
+		expect((await ctx.readState()).lastFailureAt).toBeDefined();
 
 		ctx.advance(59 * 60 * 1000);
 		const callsBefore = ctx.http.getCalls.length;
@@ -460,7 +512,7 @@ describe('PositronDocsCache: hard-failure throttling', () => {
 		ctx.publish(LATEST_ZIP, payload('2026.04.0-100'), 'etag-april');
 		await ctx.cache.ensure(request());
 
-		const state = JSON.parse(await ctx.files.readFile(`${ROOT}/state.json`));
+		const state = await ctx.readState();
 		expect(state.lastFailureAt).toBeUndefined();
 
 		ctx.advance(60 * 1000);

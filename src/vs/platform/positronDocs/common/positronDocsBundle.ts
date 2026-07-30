@@ -60,6 +60,12 @@ export interface IDocsCacheState {
 	/** Version the app asked for, which may differ while in `fallback`. */
 	readonly requestedVersion: string;
 	readonly resolution: DocsResolution;
+	/**
+	 * Profile the bundle was fetched for. Diagnostic only, like `sha256`: it is
+	 * never compared on read. A single install's profile is fixed at build time,
+	 * so a cache directory cannot legitimately hold two, and `_readCached` takes
+	 * the profile it reports from the extracted manifest instead.
+	 */
 	readonly profile: string;
 	/**
 	 * Digest verified before extraction. Diagnostic only: recorded once and

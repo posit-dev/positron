@@ -42,8 +42,8 @@ describe('validateExtractedBundle', () => {
 			'/c/2026.05.0-179/llms.txt': '# Positron\n',
 			'/c/2026.05.0-179/welcome.llms.md': '# Welcome\n',
 		});
-		const result = await validateExtractedBundle(files, '/c/2026.05.0-179');
-		expect(result.ok && result.manifest.version).toBe('2026.05.0-179');
+		expect(await validateExtractedBundle(files, '/c/2026.05.0-179'))
+			.toMatchObject({ ok: true, manifest: { version: '2026.05.0-179' } });
 	});
 
 	it('does not count an empty directory as a file', async () => {
