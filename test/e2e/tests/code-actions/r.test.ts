@@ -19,9 +19,7 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 	});
 
 
-	// Skipped: the Ark LSP can hang, so the statement range request never
-	// resolves and nothing is sent to the console. Un-skip when #15211 is fixed.
-	test.skip('R - Can execute code in untitled file with Ctrl+Enter', {
+	test('R - Can execute code in untitled file with Ctrl+Enter', {
 		annotation: [
 			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/11533' },
 			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/15211' }
