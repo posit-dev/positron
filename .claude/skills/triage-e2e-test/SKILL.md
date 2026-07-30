@@ -33,7 +33,8 @@ only when a stage needs them.
   step (below). Keep large output on disk, not in the conversation.
 - **Never** increase a timeout or add an arbitrary wait as the fix.
 - **Never** claim a flaky test is fixed on one green run.
-- A previous merged fix must be checked against subsequent failures.
+- A previous merged fix must be checked against subsequent failures, and that
+  check reported as four lines, not a triage report (`references/prior-triage.md`).
 - Root-cause claims cite observed evidence and the alternatives ruled out.
 - Checkpoint at every phase transition.
 

@@ -60,6 +60,20 @@ construction, never `fix-holding`. Read three fields off it:
   and mixing it with a lane-specific rate inflates N and clears the bar on runs
   that never exercised the failing lane.
 
+## Reporting the check
+
+A fix-held check is a status line, not a triage report. The engineer already
+knows the mechanism, so restating the diagnosis, the failure-mode table, the
+onset commit, or how you counted is noise. Four lines, in this order:
+
+1. **Verdict** -- holding / too early / recurred, in a few words.
+2. **Evidence** -- clean post-fix runs against `runsNeeded`, plus
+   `probabilityIfUnfixed` phrased as "happens by luck X% of the time anyway".
+3. **When it settles** -- the remaining runs, in wall-clock time.
+4. **Action** -- usually "nothing to do"; on `recurred`, the next step.
+
+Add nothing else unless asked.
+
 ## Supersedes
 
 If a merged fix didn't hold (`recurred-after-fix`), the eventual diagnosis block
