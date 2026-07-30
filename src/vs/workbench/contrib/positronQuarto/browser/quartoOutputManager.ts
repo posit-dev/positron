@@ -1580,7 +1580,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	 */
 	setAllOutputsCollapsed(collapsed: boolean): void {
 		for (const viewZone of this._viewZones.values()) {
-			viewZone.setCollapsed(collapsed);
+			viewZone.setCollapsed(collapsed, true);
 		}
 	}
 
