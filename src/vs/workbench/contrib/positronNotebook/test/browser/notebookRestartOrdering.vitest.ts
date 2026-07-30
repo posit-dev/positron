@@ -15,7 +15,6 @@ import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } fr
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { INotebookKernelService } from '../../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../../notebook/common/notebookService.js';
-import { RuntimeNotebookKernel } from '../../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 
 /**
