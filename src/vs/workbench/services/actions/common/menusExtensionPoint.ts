@@ -29,6 +29,7 @@ import { ApiProposalName } from '../../../../platform/extensions/common/extensio
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { PositronActionBarOptions, PositronActionBarButtonOptions, PositronActionBarCheckboxOptions, PositronActionBarToggleOptions } from '../../../../platform/action/common/action.js';
+import { ICommandMetadata } from '../../../../platform/commands/common/commands.js';
 // --- End Positron ---
 
 // --- Start Positron ---
@@ -1085,7 +1086,7 @@ namespace schema {
 				required: ['description'],
 				properties: {
 					description: {
-						description: localize('positron.vscode.extension.contributes.commandType.agent.description', 'Natural-language description for an AI agent.'),
+						description: localize('positron.vscode.extension.contributes.commandType.agent.description', 'Natural-language description for an AI agent. This text may also be shown to users in the Command Palette.'),
 						type: 'string',
 					},
 					args: {
@@ -1125,6 +1126,30 @@ namespace schema {
 }
 
 const _commandRegistrations = new DisposableStore();
+
+// --- Start Positron ---
+/**
+ * Maps the `agent` sub-object of a `contributes.commands` entry to the
+ * `ICommandMetadata` shape stored on the command, opting the command into the
+ * agent-compatible set. Returns `undefined` when no `agent` field is present.
+ */
+export function toAgentMetadata(agent: schema.IUserFriendlyCommand['agent']): ICommandMetadata | undefined {
+	if (!agent) {
+		return undefined;
+	}
+	return {
+		description: agent.description,
+		agentCompatible: true,
+		args: agent.args?.map(a => ({
+			name: a.name,
+			description: a.description,
+			isOptional: a.required === false,
+			schema: a.schema as IJSONSchema | undefined,
+		})),
+		returns: agent.returns,
+	};
+}
+// --- End Positron ---
 
 export const commandsExtensionPoint = ExtensionsRegistry.registerExtensionPoint<schema.IUserFriendlyCommand | schema.IUserFriendlyCommand[]>({
 	extensionPoint: 'commands',
@@ -1213,17 +1238,7 @@ commandsExtensionPoint.setHandler(extensions => {
 			icon: absoluteIcon,
 			// --- Start Positron ---
 			positronActionBarOptions,
-			metadata: agent ? {
-				description: agent.description,
-				agentCompatible: true,
-				args: agent.args?.map(a => ({
-					name: a.name,
-					description: a.description,
-					isOptional: a.required === false,
-					schema: a.schema as IJSONSchema | undefined,
-				})),
-				returns: agent.returns,
-			} : undefined,
+			metadata: toAgentMetadata(agent),
 			// --- End Positron ---
 		}));
 	}
