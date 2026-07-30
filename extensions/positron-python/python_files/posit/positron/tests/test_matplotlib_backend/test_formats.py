@@ -24,7 +24,9 @@ from IPython.utils.capture import RichOutput, capture_output
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from PIL import Image
 
-from positron.matplotlib_backend import Backend, configure_positron_support, formats
+from positron.matplotlib_backend import formats
+from positron.matplotlib_backend.backend import Backend
+from positron.matplotlib_backend.registry import registry
 from positron.session_mode import SessionMode
 
 from ..utils import run_with_metadata
@@ -210,8 +212,8 @@ def test_preference_survives_backend_round_trip(backend: PositronShell):
 
     # Simulate switching to a non-Positron backend and back (e.g. `%matplotlib qt` then
     # `%matplotlib inline`).
-    configure_positron_support("agg")
-    configure_positron_support(Backend.NOTEBOOK)
+    registry.activate("agg")
+    registry.activate(Backend.NOTEBOOK)
 
     output = _plot()
 

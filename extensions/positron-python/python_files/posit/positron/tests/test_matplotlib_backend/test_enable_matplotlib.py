@@ -7,10 +7,10 @@ Tests for switching matplotlib backends with `%matplotlib` in a Positron session
 
 Exercises `PositronShell.enable_matplotlib`: bare `%matplotlib` and `%matplotlib inline`
 keep the session's own Positron backend active, an explicit `positron-console` or
-`positron-notebook` activates that flavor outright (even across session modes), another
+`positron-notebook` activates that backend outright (even across session modes), another
 backend tears Positron's hooks down, and switching back restores them. `agg` is the
-"other" backend throughout so the tests run headless. Also covers `Backend`'s
-name-resolution helper (`from_name`) behind all of this.
+"other" backend throughout so the tests run headless. `Backend`'s name resolution behind
+all of this is covered by `test_backend.py`.
 """
 
 from __future__ import annotations
@@ -26,12 +26,12 @@ import pytest
 from IPython.utils.capture import capture_output
 from matplotlib.figure import Figure
 
-from positron import matplotlib_backend
-from positron.matplotlib_backend import (
-    Backend,
-    console,
-    formats,
-    notebook,
+from positron.matplotlib_backend import compat, console, formats, notebook
+from positron.matplotlib_backend.backend import Backend
+from positron.matplotlib_backend.registry import (
+    configure_matplotlib_support,
+    install_backend_switch_hook,
+    registry,
 )
 from positron.session_mode import SessionMode
 
@@ -50,13 +50,13 @@ INLINE_BACKEND_NAME = f"module://{INLINE_MODULE_NAME}"
 OTHER_BACKEND_NAME = "agg"
 
 
-class Flavor(NamedTuple):
+class BackendCase(NamedTuple):
     """One of Positron's matplotlib backends, and how to detect that it's installed."""
 
     session_mode: SessionMode
     module: ModuleType
     backend: Backend
-    # Whether the flavor's non-hook integration is installed: the console backend's
+    # Whether the backend's non-hook integration is installed: the console backend's
     # `plt.gca` redirect, or the notebook backend's figure formatter.
     integration_installed: Callable[[PositronShell], bool]
 
@@ -77,13 +77,13 @@ def _notebook_integration_installed(shell: PositronShell) -> bool:
     return False
 
 
-CONSOLE = Flavor(
+CONSOLE = BackendCase(
     SessionMode.CONSOLE,
     console,
     Backend.CONSOLE,
     _console_integration_installed,
 )
-NOTEBOOK = Flavor(
+NOTEBOOK = BackendCase(
     SessionMode.NOTEBOOK,
     notebook,
     Backend.NOTEBOOK,
@@ -91,53 +91,55 @@ NOTEBOOK = Flavor(
 )
 
 
-def _other_flavor(flavor: Flavor) -> Flavor:
-    """The flavor that isn't `flavor`."""
-    return NOTEBOOK if flavor is CONSOLE else CONSOLE
+def _other_case(case: BackendCase) -> BackendCase:
+    """The Positron backend that isn't `case`."""
+    return NOTEBOOK if case is CONSOLE else CONSOLE
 
 
 @pytest.fixture(params=[pytest.param(CONSOLE, id="console"), pytest.param(NOTEBOOK, id="notebook")])
-def flavor(request: pytest.FixtureRequest) -> Flavor:
+def backend_case(request: pytest.FixtureRequest) -> BackendCase:
     """Each of Positron's matplotlib backends, one per session mode."""
     return request.param
 
 
 @pytest.fixture
 def positron_backend(
-    flavor: Flavor, shell: PositronShell, monkeypatch: pytest.MonkeyPatch
-) -> Iterator[Flavor]:
-    """A session with the parametrized flavor's Positron backend active."""
-    yield from _session_with_backend(flavor, shell, monkeypatch)
+    backend_case: BackendCase, shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[BackendCase]:
+    """A session with the parametrized Positron backend active."""
+    yield from _session_with_backend(backend_case, shell, monkeypatch)
 
 
 @pytest.fixture
-def notebook_backend(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Iterator[Flavor]:
+def notebook_backend(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[BackendCase]:
     """A notebook session with Positron's notebook backend active."""
     yield from _session_with_backend(NOTEBOOK, shell, monkeypatch)
 
 
 @pytest.fixture
-def console_backend(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Iterator[Flavor]:
+def console_backend(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Iterator[BackendCase]:
     """A console session with Positron's console backend active."""
     yield from _session_with_backend(CONSOLE, shell, monkeypatch)
 
 
 def _session_with_backend(
-    flavor: Flavor, shell: PositronShell, monkeypatch: pytest.MonkeyPatch
-) -> Iterator[Flavor]:
+    case: BackendCase, shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[BackendCase]:
     """
-    Fixture body: a session with `flavor`'s backend active, as it is at kernel startup.
+    Fixture body: a session with `case`'s backend active, as it is at kernel startup.
 
-    Restores matplotlib's backend, both flavors' hooks and any matplotlib-inline state
+    Restores matplotlib's backend, both backends' hooks and any matplotlib-inline state
     afterwards, since matplotlib and the shell are process-wide singletons.
     """
-    monkeypatch.setattr(shell, "session_mode", flavor.session_mode)
+    monkeypatch.setattr(shell, "session_mode", case.session_mode)
 
     # Entering a gui event loop needs a running kernel application, which tests don't have.
     monkeypatch.setattr(shell, "enable_gui", lambda gui=None: None)  # noqa: ARG005
 
-    with active_backend(flavor.backend):
-        yield flavor
+    with active_backend(case.backend):
+        yield case
         _reset_matplotlib_inline(shell)
         shell.kernel.plots_service.shutdown()
         plt.close("all")
@@ -180,34 +182,34 @@ def _hook_count(shell: PositronShell, module_name: str) -> int:
     )
 
 
-def _state(shell: PositronShell, flavor: Flavor) -> dict:
+def _state(shell: PositronShell, case: BackendCase) -> dict:
     """A snapshot of the backend state that a `%matplotlib` switch should manage."""
     return {
         "backend": matplotlib.get_backend(),
-        "positron_hooks": _hook_count(shell, flavor.module.__name__),
-        "positron_integration": flavor.integration_installed(shell),
+        "positron_hooks": _hook_count(shell, case.module.__name__),
+        "positron_integration": case.integration_installed(shell),
         "inline_hooks": _hook_count(shell, INLINE_MODULE_NAME),
     }
 
 
-def _positron_active(flavor: Flavor) -> dict:
-    """The backend state after activating `flavor`'s Positron backend, inline uninvolved."""
+def _positron_active(case: BackendCase) -> dict:
+    """The backend state after activating `case`'s Positron backend, inline uninvolved."""
     return {
-        "backend": flavor.backend.short_name,
+        "backend": case.backend.short_name,
         "positron_hooks": 1,
         "positron_integration": True,
         "inline_hooks": 0,
     }
 
 
-def test_inline_keeps_positron_backend(shell: PositronShell, positron_backend: Flavor):
+def test_inline_keeps_positron_backend(shell: PositronShell, positron_backend: BackendCase):
     """`%matplotlib inline`, the boilerplate first cell of countless notebooks, is ours."""
     shell.run_cell("%matplotlib inline").raise_error()
 
     assert _state(shell, positron_backend) == _positron_active(positron_backend)
 
 
-def test_inline_is_idempotent(shell: PositronShell, positron_backend: Flavor):
+def test_inline_is_idempotent(shell: PositronShell, positron_backend: BackendCase):
     """Repeated `%matplotlib inline` registers the post execute hook exactly once."""
     shell.run_cell("%matplotlib inline").raise_error()
     shell.run_cell("%matplotlib inline").raise_error()
@@ -215,7 +217,7 @@ def test_inline_is_idempotent(shell: PositronShell, positron_backend: Flavor):
     assert _state(shell, positron_backend) == _positron_active(positron_backend)
 
 
-def test_inline_still_creates_positron_figures(shell: PositronShell, positron_backend: Flavor):
+def test_inline_still_creates_positron_figures(shell: PositronShell, positron_backend: BackendCase):
     """Figures created after `%matplotlib inline` still go through Positron's backend."""
     shell.run_cell("%matplotlib inline").raise_error()
     # Record the canvas type in the cell that creates the figure: the notebook backend
@@ -227,7 +229,7 @@ def test_inline_still_creates_positron_figures(shell: PositronShell, positron_ba
     assert shell.user_ns["canvas_type"] is positron_backend.module.FigureCanvas
 
 
-def test_inline_keeps_figure_sizing(shell: PositronShell, notebook_backend: Flavor):  # noqa: ARG001
+def test_inline_keeps_figure_sizing(shell: PositronShell, notebook_backend: BackendCase):  # noqa: ARG001
     """`#| fig-width` and `#| fig-height` still size figures after `%matplotlib inline`."""
     shell.run_cell("%matplotlib inline").raise_error()
     run_with_metadata(
@@ -238,7 +240,7 @@ def test_inline_keeps_figure_sizing(shell: PositronShell, notebook_backend: Flav
     assert shell.user_ns["fig"].get_size_inches().tolist() == [8.0, 4.0]
 
 
-def test_bare_magic_selects_positron(shell: PositronShell, positron_backend: Flavor):
+def test_bare_magic_selects_positron(shell: PositronShell, positron_backend: BackendCase):
     """Bare `%matplotlib` selects Positron's backend, and prints a name users can reuse."""
     with capture_output() as captured:
         shell.run_cell("%matplotlib").raise_error()
@@ -249,29 +251,31 @@ def test_bare_magic_selects_positron(shell: PositronShell, positron_backend: Fla
     assert _state(shell, positron_backend) == _positron_active(positron_backend)
 
 
-def test_explicit_short_name_selects_own_flavor(shell: PositronShell, positron_backend: Flavor):
-    """`%matplotlib <flavor's own short name>` selects that flavor."""
+def test_explicit_short_name_selects_own_backend(
+    shell: PositronShell, positron_backend: BackendCase
+):
+    """`%matplotlib <the session's own short name>` selects that backend."""
     shell.run_cell(f"%matplotlib {positron_backend.backend.short_name}").raise_error()
 
     assert _state(shell, positron_backend) == _positron_active(positron_backend)
 
 
-def test_explicit_short_name_selects_other_flavor_across_modes(
-    shell: PositronShell, positron_backend: Flavor
+def test_explicit_short_name_selects_other_backend_across_modes(
+    shell: PositronShell, positron_backend: BackendCase
 ):
     """
-    `%matplotlib <other flavor's short name>` activates that flavor outright.
+    `%matplotlib <the other backend's short name>` activates that backend outright.
 
-    Cross-mode selection is intentional now that each flavor has its own short name:
+    Cross-mode selection is intentional now that each backend has its own short name:
     unlike the session-relative `positron` name it replaces, an explicit short name
     always wins over the session's own mode.
     """
-    other = _other_flavor(positron_backend)
+    other = _other_case(positron_backend)
 
     shell.run_cell(f"%matplotlib {other.backend.short_name}").raise_error()
 
     assert _state(shell, other) == _positron_active(other)
-    # The flavor that was active coming in has been torn down.
+    # The backend that was active coming in has been torn down.
     assert _state(shell, positron_backend) == {
         "backend": other.backend.short_name,
         "positron_hooks": 0,
@@ -280,9 +284,9 @@ def test_explicit_short_name_selects_other_flavor_across_modes(
     }
 
 
-def test_console_flavor_in_notebook_session_routes_to_plots_pane(
+def test_console_backend_in_notebook_session_routes_to_plots_pane(
     shell: PositronShell,
-    notebook_backend: Flavor,  # noqa: ARG001
+    notebook_backend: BackendCase,  # noqa: ARG001
 ):
     """
     In a notebook session, `%matplotlib positron-console` routes figures to the Plots pane.
@@ -300,9 +304,9 @@ def test_console_flavor_in_notebook_session_routes_to_plots_pane(
     assert not captured.outputs
 
 
-def test_notebook_flavor_in_console_session_displays_inline(
+def test_notebook_backend_in_console_session_displays_inline(
     shell: PositronShell,
-    console_backend: Flavor,  # noqa: ARG001
+    console_backend: BackendCase,  # noqa: ARG001
 ):
     """In a console session, `%matplotlib positron-notebook` displays figures inline."""
     shell.run_cell(f"%matplotlib {Backend.NOTEBOOK.short_name}").raise_error()
@@ -328,7 +332,7 @@ def test_positron_short_names_are_listed_backends(shell: PositronShell):
 
 
 def test_explicit_short_name_without_registry_resolution(
-    shell: PositronShell, positron_backend: Flavor, monkeypatch: pytest.MonkeyPatch
+    shell: PositronShell, positron_backend: BackendCase, monkeypatch: pytest.MonkeyPatch
 ):
     """
     Explicit short names select the backend even when IPython can't resolve them.
@@ -359,7 +363,7 @@ def test_register_with_legacy_ipython_adds_short_names(monkeypatch: pytest.Monke
     legacy_table = {"inline": INLINE_BACKEND_NAME}
     monkeypatch.setattr(pt, "backends", legacy_table)
 
-    matplotlib_backend.register_with_legacy_ipython()
+    compat.register_with_legacy_ipython()
 
     assert legacy_table == {
         "inline": INLINE_BACKEND_NAME,
@@ -368,7 +372,7 @@ def test_register_with_legacy_ipython_adds_short_names(monkeypatch: pytest.Monke
     }
 
 
-def test_other_backend_deactivates(shell: PositronShell, positron_backend: Flavor):
+def test_other_backend_deactivates(shell: PositronShell, positron_backend: BackendCase):
     """Switching to another backend removes Positron's hooks instead of leaving them."""
     shell.run_cell(f"%matplotlib {OTHER_BACKEND_NAME}").raise_error()
 
@@ -380,7 +384,7 @@ def test_other_backend_deactivates(shell: PositronShell, positron_backend: Flavo
     }
 
 
-def test_switching_back_reactivates(shell: PositronShell, positron_backend: Flavor):
+def test_switching_back_reactivates(shell: PositronShell, positron_backend: BackendCase):
     """`%matplotlib inline` after another backend switches back instead of staying stuck."""
     shell.run_cell(f"%matplotlib {OTHER_BACKEND_NAME}").raise_error()
     shell.run_cell("%matplotlib inline").raise_error()
@@ -388,10 +392,10 @@ def test_switching_back_reactivates(shell: PositronShell, positron_backend: Flav
     assert _state(shell, positron_backend) == _positron_active(positron_backend)
 
 
-def test_deactivate_twice_is_noop(shell: PositronShell, positron_backend: Flavor):
+def test_deactivate_twice_is_noop(shell: PositronShell, positron_backend: BackendCase):
     """A second teardown for a non-Positron backend is a no-op, not an error."""
-    matplotlib_backend.configure_positron_support(OTHER_BACKEND_NAME)
-    matplotlib_backend.configure_positron_support(OTHER_BACKEND_NAME)
+    registry.activate(OTHER_BACKEND_NAME)
+    registry.activate(OTHER_BACKEND_NAME)
 
     assert _state(shell, positron_backend) == {
         "backend": positron_backend.backend.full_name,
@@ -401,7 +405,7 @@ def test_deactivate_twice_is_noop(shell: PositronShell, positron_backend: Flavor
     }
 
 
-def test_inline_backend_config_stays_inert(shell: PositronShell, positron_backend: Flavor):
+def test_inline_backend_config_stays_inert(shell: PositronShell, positron_backend: BackendCase):
     """
     `%config InlineBackend.*` stays a no-op across switches that never target inline.
 
@@ -420,7 +424,7 @@ def test_inline_backend_config_stays_inert(shell: PositronShell, positron_backen
     assert _state(shell, positron_backend) == _positron_active(positron_backend)
 
 
-def test_matplotlib_inline_escape_hatch(shell: PositronShell, positron_backend: Flavor):
+def test_matplotlib_inline_escape_hatch(shell: PositronShell, positron_backend: BackendCase):
     """The real matplotlib-inline backend stays reachable by its `module://` name."""
     shell.run_cell(f"%matplotlib {INLINE_BACKEND_NAME}").raise_error()
     inline_state = _state(shell, positron_backend)
@@ -436,8 +440,8 @@ def test_matplotlib_inline_escape_hatch(shell: PositronShell, positron_backend: 
     assert _state(shell, positron_backend) == _positron_active(positron_backend)
 
 
-def test_set_matplotlib_formats_patch_installed_while_active(positron_backend: Flavor):  # noqa: ARG001
-    """The shared `set_matplotlib_formats` patch is installed while a Positron flavor is active."""
+def test_set_matplotlib_formats_patch_installed_while_active(positron_backend: BackendCase):  # noqa: ARG001
+    """The shared `set_matplotlib_formats` patch is installed while a Positron backend is active."""
     import matplotlib_inline.backend_inline as backend_inline
 
     assert backend_inline.set_matplotlib_formats is formats._installed_set_matplotlib_formats  # noqa: SLF001
@@ -445,7 +449,7 @@ def test_set_matplotlib_formats_patch_installed_while_active(positron_backend: F
 
 def test_set_matplotlib_formats_patch_restored_after_switch(
     shell: PositronShell,
-    positron_backend: Flavor,  # noqa: ARG001
+    positron_backend: BackendCase,  # noqa: ARG001
 ):
     """Switching to a non-Positron backend restores the original `set_matplotlib_formats`."""
     import matplotlib_inline.backend_inline as backend_inline
@@ -459,14 +463,14 @@ def test_set_matplotlib_formats_patch_restored_after_switch(
 
 def test_notebook_to_console_switch_keeps_patch_installed(
     shell: PositronShell,
-    notebook_backend: Flavor,  # noqa: ARG001
+    notebook_backend: BackendCase,  # noqa: ARG001
 ):
     """
     A notebook -> console switch keeps the same `set_matplotlib_formats` patch installed.
 
-    The patch's lifecycle is owned by `configure_positron_support` ("a Positron backend
-    is active"), not by the individual flavors, so a cross-flavor switch -- which never
-    lets `_active_backend` become `None` in between -- leaves the same patch object in
+    The patch's lifecycle is owned by `PositronBackendRegistry` ("a Positron backend is
+    active"), not by the individual backends, so a cross-backend switch -- which never
+    lets the active backend become `None` in between -- leaves the same patch object in
     place instead of tearing it down and reinstalling a fresh one.
     """
     import matplotlib_inline.backend_inline as backend_inline
@@ -479,69 +483,15 @@ def test_notebook_to_console_switch_keeps_patch_installed(
     assert backend_inline.set_matplotlib_formats is formats._installed_set_matplotlib_formats  # noqa: SLF001
 
 
-def test_from_name_recognizes_own_names(flavor: Flavor):
-    """`Backend.from_name` accepts a flavor's own short name and its `module://` name."""
-    assert Backend.from_name(flavor.backend.short_name) is flavor.backend
-    assert Backend.from_name(flavor.backend.full_name) is flavor.backend
-
-
-def test_from_name_rejects_other_names(flavor: Flavor):
-    """`Backend.from_name` doesn't resolve the other flavor's names to this flavor, or a foreign backend at all."""
-    other = _other_flavor(flavor)
-
-    assert Backend.from_name(other.backend.short_name) is not flavor.backend
-    assert Backend.from_name(other.backend.full_name) is not flavor.backend
-    assert Backend.from_name(OTHER_BACKEND_NAME) is None
-
-
-def test_from_name_short_name_case_insensitive(flavor: Flavor):
-    """Short names match case-insensitively, like matplotlib's backend registry."""
-    assert Backend.from_name(flavor.backend.short_name.upper()) is flavor.backend
-
-
-def test_from_name_full_name_case_sensitive(flavor: Flavor):
-    """The path after `module://` is an importable module path, so case matters."""
-    assert Backend.from_name(f"module://{flavor.module.__name__.upper()}") is None
-
-
-@pytest.mark.parametrize(
-    ("session_mode", "expected"),
-    [
-        (SessionMode.CONSOLE, Backend.CONSOLE),
-        (SessionMode.NOTEBOOK, Backend.NOTEBOOK),
-        # BACKGROUND sessions have no notebook to render into, so they get the console
-        # backend, which routes figures to the plots pane.
-        (SessionMode.BACKGROUND, Backend.CONSOLE),
-    ],
-)
-def test_backend_for_session_mode(session_mode: SessionMode, expected: Backend):
-    """Each session mode maps to the Positron backend that suits it."""
-    assert Backend.for_session_mode(session_mode) is expected
-
-
-def test_preferred_name_prefers_short_name(flavor: Flavor):
-    """The flavor's short name is preferred when matplotlib's backend registry knows it."""
-    assert flavor.backend.preferred_name == flavor.backend.short_name
-
-
-def test_preferred_name_falls_back_to_module_name(flavor: Flavor, monkeypatch: pytest.MonkeyPatch):
-    """Falls back to the `module://` name before matplotlib 3.9, which has no registry."""
-    monkeypatch.setattr(matplotlib_backend, "_get_backend_registry", lambda: None)
-
-    assert flavor.backend.preferred_name == flavor.backend.full_name
-
-
 def test_install_backend_switch_hook_is_idempotent():
     """Calling `install_backend_switch_hook` twice doesn't double-wrap `configure_inline_support`."""
     import matplotlib_inline.backend_inline as backend_inline
 
-    matplotlib_backend.install_backend_switch_hook()
-    matplotlib_backend.install_backend_switch_hook()
+    install_backend_switch_hook()
+    install_backend_switch_hook()
 
+    assert backend_inline.configure_inline_support is configure_matplotlib_support
     assert (
-        backend_inline.configure_inline_support is matplotlib_backend.configure_matplotlib_support
-    )
-    assert (
-        matplotlib_backend._original_configure_inline_support  # noqa: SLF001
-        is not matplotlib_backend.configure_matplotlib_support
+        registry._original_configure_inline_support  # noqa: SLF001
+        is not configure_matplotlib_support
     )

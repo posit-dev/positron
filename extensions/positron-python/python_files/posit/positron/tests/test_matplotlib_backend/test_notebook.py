@@ -13,7 +13,7 @@ import pytest
 from IPython.core.display import _pngxy
 from IPython.utils.capture import RichOutput, capture_output
 
-from positron.matplotlib_backend import Backend
+from positron.matplotlib_backend.backend import Backend
 from positron.session_mode import SessionMode
 
 from ..utils import run_with_metadata

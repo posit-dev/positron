@@ -12,7 +12,8 @@ import matplotlib.pyplot as plt
 import pytest
 from PIL import Image
 
-from positron.matplotlib_backend import Backend, configure_positron_support
+from positron.matplotlib_backend.backend import Backend
+from positron.matplotlib_backend.registry import registry
 from positron.plot_comm import PlotRenderFormat, PlotSize, PlotUnit
 from positron.plots import PlotsService
 from positron.positron_ipkernel import PositronIPyKernel, _CommTarget
@@ -673,7 +674,7 @@ def test_mpl_deactivate_restores_gca() -> None:
     installed_gca = plt.gca
     original_gca = console._original_gca  # noqa: SLF001
 
-    configure_positron_support("agg")
+    registry.activate("agg")
 
     assert console._installed_gca is None  # noqa: SLF001
     assert plt.gca is original_gca
