@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import type { BuiltinProviderBlock, ProvidersConfig, ResolvedConnection, ResolvedProvider } from 'ai-config';
+import type { BuiltinProviderBlock, LegacySettingsReader, ProvidersConfig, ResolvedConnection, ResolvedProvider } from 'ai-config';
 import type { ProviderCatalogChange } from 'ai-config/node';
 import { ANTHROPIC_DEFAULT_BASE_URL, GEMINI_DEFAULT_BASE_URL, OPENAI_DEFAULT_BASE_URL } from './constants';
 import { log } from './log';
@@ -30,10 +30,35 @@ export interface ProviderCatalogChangeEvent {
 	readonly disabledIds: string[];
 }
 
-/** Test seam: `configPath`/`envVars` overrides; production passes nothing. */
+/**
+ * Test seam: `configPath`/`envVars` overrides. Production passes only
+ * `legacyPositronSettings` (see {@link createConfigurationLegacySettingsReader});
+ * tests leave it unset so real user settings never leak into a `configPath`-based
+ * fixture.
+ */
 export interface ProviderCatalogOptions {
 	configPath?: string;
 	envVars?: Record<string, string | undefined>;
+	// PROVIDER-SETTINGS-MIGRATION(legacy-positron)
+	legacyPositronSettings?: LegacySettingsReader;
+}
+
+/**
+ * PROVIDER-SETTINGS-MIGRATION(legacy-positron): a LegacySettingsReader over the
+ * extension-host configuration, handed to the catalog loader's
+ * `legacyPositronSettings` option so this cache folds in the same legacy layer
+ * the core catalog does (see `platform/positronAiProvider`). Without it the two
+ * caches diverge whenever a legacy setting isn't represented in providers.json.
+ * `get` reads `inspect(key).globalValue` -- the user-set value only, never
+ * policy/default values, so enforced settings cannot leak into the non-enforced
+ * legacy layer (the loader reads POSITRON_ENFORCED_SETTINGS itself). The watch
+ * is coarse (any config change fires); the catalog watch debounces and diffs.
+ */
+export function createConfigurationLegacySettingsReader(): LegacySettingsReader {
+	return {
+		get: key => vscode.workspace.getConfiguration().inspect(key)?.globalValue,
+		watch: onChange => vscode.workspace.onDidChangeConfiguration(() => onChange()),
+	};
 }
 
 let cache = new Map<string, ResolvedProviderLike>();
@@ -90,6 +115,7 @@ async function loadCatalog(options: ProviderCatalogOptions): Promise<readonly Re
 		baseline: { defaultEnabled: true },
 		configPath: options.configPath,
 		envVars: options.envVars,
+		legacyPositronSettings: options.legacyPositronSettings,
 		logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
 	});
 }
@@ -117,6 +143,7 @@ export async function initProviderCatalog(
 			baseline: { defaultEnabled: true },
 			configPath: options.configPath,
 			envVars: options.envVars,
+			legacyPositronSettings: options.legacyPositronSettings,
 			logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
 		}
 	);

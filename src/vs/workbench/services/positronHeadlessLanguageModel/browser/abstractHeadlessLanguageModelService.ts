@@ -435,6 +435,7 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 				const snowflake = this._aiProviderService.getProvider('snowflake-cortex')?.connection.snowflake;
 				return snowflake && { host: snowflake.host, account: snowflake.account };
 			},
+			getDatabricks: () => this._aiProviderService.getProvider('databricks')?.connection.databricks,
 		};
 	}
 }

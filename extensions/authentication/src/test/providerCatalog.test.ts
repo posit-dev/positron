@@ -197,6 +197,36 @@ suite('providerCatalog', () => {
 		assert.strictEqual(fs.statSync(configPath).mtimeMs, mtimeBefore, 'unchanged account should not rewrite the file');
 	});
 
+	test('legacyPositronSettings fills gaps below the user file, and the user file wins', async () => {
+		// User file configures anthropic only.
+		writeConfig(configPath, { anthropic: { baseUrl: 'https://user-file.example.com' } });
+
+		// Legacy settings set the same anthropic field (must lose to the user
+		// file) plus an openai field the user file never mentions (must surface).
+		const legacy: Record<string, unknown> = {
+			'authentication.anthropic.baseUrl': 'https://legacy-anthropic.example.com',
+			'authentication.openai-api.baseUrl': 'https://legacy-openai.example.com',
+		};
+		await initProviderCatalog(context, {
+			configPath,
+			legacyPositronSettings: {
+				get: key => legacy[key],
+				watch: () => ({ dispose: () => { } }),
+			},
+		});
+
+		assert.strictEqual(
+			getCachedProvider('anthropic')?.connection.baseUrl,
+			'https://user-file.example.com',
+			'user file must win over the legacy layer'
+		);
+		assert.strictEqual(
+			getCachedProvider('openai')?.connection.baseUrl,
+			'https://legacy-openai.example.com',
+			'legacy layer must fill a provider the user file omits'
+		);
+	});
+
 	test('saveProviderEnabled with onlyIfUnset does not clobber an existing enabled value', async () => {
 		writeConfig(configPath, { anthropic: { enabled: false } });
 		await initProviderCatalog(context, { configPath });
