@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { IS_RUNNING_ON_PWB } from './constants';
 import { log } from './log';
+import { ProviderCatalogOptions, saveProviderEnabled } from './providerCatalog';
 
 /**
  * On PWB, Posit AI defaults to disabled so admins control AI access.
@@ -23,7 +24,8 @@ import { log } from './log';
  */
 export async function applyPwbPositAIDefault(
 	context: vscode.ExtensionContext,
-	isRunningOnPwb = IS_RUNNING_ON_PWB
+	isRunningOnPwb = IS_RUNNING_ON_PWB,
+	options?: ProviderCatalogOptions
 ): Promise<void> {
 	if (!isRunningOnPwb) {
 		return;
@@ -34,23 +36,10 @@ export async function applyPwbPositAIDefault(
 		return;
 	}
 
-	const config = vscode.workspace.getConfiguration('positron.assistant.provider.positAI');
-	const currentValue = config.get<boolean>('enable');
-
-	if (currentValue !== false) {
-		const enableInspect = config.inspect<boolean>('enable');
-		const hasExplicitValue = enableInspect?.globalValue !== undefined ||
-			enableInspect?.workspaceValue !== undefined ||
-			enableInspect?.workspaceFolderValue !== undefined;
-
-		if (!hasExplicitValue) {
-			try {
-				await config.update('enable', false, vscode.ConfigurationTarget.Global);
-			} catch (e) {
-				// Setting may be enforced by admin policy; log and continue
-				log.warn(`Posit AI enablement enforced by admin policy and cannot be updated: ${e instanceof Error ? e.message : String(e)}`);
-			}
-		}
+	try {
+		await saveProviderEnabled('positai', false, /* onlyIfUnset */ true, options);
+	} catch (error) {
+		log.warn(`Failed to write the Posit AI PWB default: ${error}`);
 	}
 
 	await context.globalState.update(pwbDefaultAppliedKey, true);

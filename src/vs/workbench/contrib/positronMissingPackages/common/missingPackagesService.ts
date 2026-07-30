@@ -7,7 +7,7 @@ import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { IRuntimeMissingPackage } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeConsoleError, IRuntimeMissingPackage } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 export const IMissingPackagesService = createDecorator<IMissingPackagesService>('missingPackagesService');
 
@@ -76,6 +76,15 @@ export interface IMissingPackagesService {
 	 * when the session is gone, cannot analyze packages, or is shutting down.
 	 */
 	analyzeCode(sessionId: string, code: string, token?: CancellationToken): Promise<IRuntimeMissingPackage[]>;
+
+	/**
+	 * Given a console error from a session, ask the session's runtime for a probe
+	 * snippet that references the missing package, then analyze it (sharing the
+	 * same cache, dedupe, and resilience as {@link analyzeCode}). Returns an empty
+	 * array when the runtime does not recognize the error, the package is
+	 * installed, or the runtime does not support this.
+	 */
+	analyzeError(sessionId: string, error: IRuntimeConsoleError, token?: CancellationToken): Promise<IRuntimeMissingPackage[]>;
 
 	/**
 	 * Installs the given group's packages against its session. Resolves when the

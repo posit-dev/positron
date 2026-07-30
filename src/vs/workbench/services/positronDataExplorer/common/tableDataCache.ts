@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -19,9 +19,9 @@ const TRIM_CACHE_TIMEOUT = 3_000;
 const CHUNK_SIZE = 4_096;
 
 /**
- * WidthCalculators interface.
+ * ColumnWidthCalculators interface.
  */
-export interface WidthCalculators {
+export interface ColumnWidthCalculators {
 	columnHeaderWidthCalculator: (columnName: string, typeName: string) => number;
 	columnValueWidthCalculator: (length: number) => number;
 }
@@ -151,9 +151,9 @@ export class TableDataCache extends Disposable {
 	private _hasRowLabels = false;
 
 	/**
-	 * Gets or sets the width calculators.
+	 * Gets or sets the column width calculators.
 	 */
-	private _widthCalculators?: WidthCalculators;
+	private _columnWidthCalculators?: ColumnWidthCalculators;
 
 	/**
 	 * Gets the column schema cache.
@@ -231,11 +231,11 @@ export class TableDataCache extends Disposable {
 	//#region Public Methods
 
 	/**
-	 * Sets the width calculators.
-	 * @param widthCalculators The width calculators.
+	 * Sets the column width calculators.
+	 * @param columnWidthCalculators The column width calculators.
 	 */
-	setWidthCalculators(widthCalculators?: WidthCalculators) {
-		this._widthCalculators = widthCalculators;
+	setColumnWidthCalculators(columnWidthCalculators?: ColumnWidthCalculators) {
+		this._columnWidthCalculators = columnWidthCalculators;
 	}
 
 	/**
@@ -248,8 +248,15 @@ export class TableDataCache extends Disposable {
 		minimumColumnWidth: number,
 		maximumColumnWidth: number
 	): Promise<number[] | undefined> {
-		// If the width calculators are not set, return undefined.
-		if (!this._widthCalculators) {
+		// If the column width calculators are not set, return undefined.
+		//
+		// Captured into a local rather than read from the field on each use. The calculators are
+		// set through a public setter while this method awaits several backend round trips, so a
+		// later read of the field can find a different value -- or undefined -- even though the
+		// guard below passed. TypeScript carries the narrowing across the awaits and doesn't catch
+		// it. Working from the local also keeps every width in one result measured consistently.
+		const columnWidthCalculators = this._columnWidthCalculators;
+		if (!columnWidthCalculators) {
 			return undefined;
 		}
 
@@ -277,7 +284,7 @@ export class TableDataCache extends Disposable {
 			for (let i = 0; i < tableSchema.columns.length; i++) {
 				const columnSchema = tableSchema.columns[i];
 				columnWidths[columnIndex + i] = pinToRange(
-					this._widthCalculators.columnHeaderWidthCalculator(
+					columnWidthCalculators.columnHeaderWidthCalculator(
 						columnSchema.column_name,
 						columnSchema.type_name
 					),
@@ -316,7 +323,7 @@ export class TableDataCache extends Disposable {
 
 					// Calculate the column value width.
 					const columnValueWidth = pinToRange(
-						this._widthCalculators.columnValueWidthCalculator(
+						columnWidthCalculators.columnValueWidthCalculator(
 							dataCell.formatted.length
 						),
 						minimumColumnWidth,

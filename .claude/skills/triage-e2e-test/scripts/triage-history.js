@@ -3,7 +3,7 @@
 //
 // Wraps e2e-failure-analyzer/scripts/e2e-query-history.js: resolves the branch,
 // queries the current branch and main, merges their failure patterns by failure
-// text, computes counts/percentages/seen-on, detects zero-run conditions,
+// text, computes counts/percentages/seen-on/last-seen, detects zero-run conditions,
 // selects ONE representative occurrence per pattern, writes the full responses
 // to disk, and prints only a compact JSON summary to stdout.
 //
@@ -55,6 +55,64 @@ function envKey(os, browser) {
 	return [os, browser].filter(Boolean).join('/');
 }
 
+const occurrenceDateCache = new Map();
+
+/**
+ * Calendar date of one failure occurrence. The test-health API returns no
+ * timestamp on occurrences, so derive one: the local git commit date of the sha
+ * (offline and instant, and within minutes of the CI run), falling back to the
+ * GitHub run's created_at when the sha is not in the local clone (shallow clone,
+ * force-push, or a branch never fetched). Returns null when neither answers.
+ */
+export function occurrenceDate(o) {
+	const key = o?.sha || o?.run_url;
+	if (!key) { return null; }
+	if (occurrenceDateCache.has(key)) { return occurrenceDateCache.get(key); }
+
+	let iso = null;
+	if (o.sha) {
+		const r = tryRun('git', ['show', '-s', '--format=%cI', o.sha]);
+		if (r.ok) { iso = r.stdout.trim().split('\n').pop() || null; }
+	}
+	if (!iso && o.run_url) {
+		const runId = String(o.run_url).match(/\/runs\/(\d+)/)?.[1];
+		if (runId) {
+			// {owner}/{repo} are resolved by gh from the working directory.
+			const r = tryRun('gh', ['api', `repos/{owner}/{repo}/actions/runs/${runId}`, '--jq', '.created_at']);
+			if (r.ok) { iso = r.stdout.trim() || null; }
+		}
+	}
+	occurrenceDateCache.set(key, iso);
+	return iso;
+}
+
+/**
+ * Most recent occurrence of a pattern. Recency is what separates an acute burst
+ * that a merged fix already closed from an ongoing drip -- without it a stale
+ * pattern and a live one look identical in the failure table.
+ *
+ * Occurrences arrive most-recent-first from the API, so index 0 is the fallback
+ * identity when no date resolves: a stale clone must still report *which*
+ * occurrence was latest, just without a date.
+ */
+export function resolveLastSeen(occurrences, dateFor, now = Date.now()) {
+	let best = null;
+	for (const o of occurrences || []) {
+		const t = Date.parse(dateFor(o) || '');
+		if (Number.isNaN(t)) { continue; }
+		if (!best || t > best.t) { best = { t, iso: dateFor(o), o }; }
+	}
+	if (!best) {
+		const first = (occurrences || [])[0];
+		return first ? { date: null, daysAgo: null, sha: first.sha ?? null } : null;
+	}
+	return {
+		date: best.iso.slice(0, 10),
+		daysAgo: Math.max(0, Math.round((now - best.t) / 86400000)),
+		sha: best.o.sha ?? null,
+	};
+}
+
 /**
  * Sum `total_runs` from a test object's `environment_breakdown` for exactly the
  * environments a pattern occurred in. Returns null when the breakdown is
@@ -100,7 +158,7 @@ export function patternLabel(i) {
 	return label;
 }
 
-export function mergeHistory(current, main, currentBranch, occurrencesPerPattern = 1) {
+export function mergeHistory(current, main, currentBranch, occurrencesPerPattern = 1, dateFor = () => null) {
 	const byKey = new Map();
 
 	const ingest = (testObj, branchLabel) => {
@@ -168,6 +226,7 @@ export function mergeHistory(current, main, currentBranch, occurrencesPerPattern
 				rates,
 				environments,
 				seenOn,
+				lastSeen: resolveLastSeen(entry.occurrences, dateFor),
 				representativeOccurrence: rep && {
 					branch: rep.branch, sha: rep.sha, os: rep.os,
 					browser: rep.browser, outcome: rep.outcome, report_url: rep.report_url,
@@ -258,7 +317,7 @@ function main() {
 	const testName = (mainTest || currentTest)?.testName || testKey.split('|||')[0];
 	const specPath = (mainTest || currentTest)?.specPath || testKey.split('|||')[1];
 
-	const merged = mergeHistory(currentTest, mainTest, currentBranch, occ);
+	const merged = mergeHistory(currentTest, mainTest, currentBranch, occ, occurrenceDate);
 	const verdict = classifyVerdict({
 		currentBranch,
 		currentRuns: merged.currentRuns,
@@ -281,7 +340,7 @@ function main() {
 		},
 		patterns: merged.patterns.map(p => ({
 			id: p.id, failure: p.failure, count: p.count, rates: p.rates,
-			environments: p.environments, seenOn: p.seenOn,
+			environments: p.environments, seenOn: p.seenOn, lastSeen: p.lastSeen,
 			representativeOccurrence: p.representativeOccurrence,
 		})),
 		verdict: verdict.verdict,

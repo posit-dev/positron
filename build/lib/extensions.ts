@@ -229,16 +229,11 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 		// node_modules out of the packaged extension.
 		return listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.None });
 	}).then(fileNames => {
-		const files = fileNames
-			.map(fileName => path.join(extensionPath, fileName))
-			.map(filePath => new File({
-				path: filePath,
-				stat: fs.statSync(filePath),
-				base: extensionPath,
-				contents: fs.createReadStream(filePath)
-			}));
-
-		es.readArray(files).pipe(result);
+		// Stream the files sequentially rather than eagerly opening a read
+		// stream for every file up front, matching fromLocalEsbuild and
+		// fromLocalNormal. Avoids exhausting the open-file limit (EMFILE/EBADF)
+		// when packaging extensions with many files. See posit-dev/positron#14998.
+		createSequentialFileStream(extensionPath, fileNames).pipe(result);
 	}).catch(err => {
 		console.error(extensionPath);
 		result.emit('error', err);

@@ -6,6 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { resolveGeapCredential } from '../credentials/geap';
+import { getCachedProvider } from '../providerCatalog';
+import { PROVIDER_METADATA } from '../providerSources';
 
 class GeapValidationError extends Error {
 	constructor(message: string) {
@@ -28,7 +30,8 @@ export async function validateGeapCredentials(
 	_config: positron.ai.LanguageModelConfig,
 ): Promise<void> {
 	try {
-		await resolveGeapCredential();
+		const googleCloud = getCachedProvider(PROVIDER_METADATA.geap.catalogId!)?.connection.googleCloud;
+		await resolveGeapCredential(googleCloud);
 	} catch (err) {
 		const detail = err instanceof Error ? err.message : String(err);
 		throw new GeapValidationError(vscode.l10n.t(

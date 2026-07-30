@@ -82,6 +82,13 @@ export function initialize() {
     generatePositronMock('methods');
     generatePositronMock('runtime');
     generatePositronMock('window');
+
+    // Registration APIs always return a disposable, but ts-mockito returns null for
+    // unstubbed methods. Callers that keep the registration in a disposable registry
+    // would then throw when the registry is disposed during test teardown.
+    when(mockedPositronNamespaces.runtime!.registerRuntimePickerContribution(anything())).thenReturn({
+        dispose: () => undefined,
+    });
     // --- End Positron ---
 
     // When upgrading to npm 9-10, this might have to change, as we could have explicit imports (named imports).

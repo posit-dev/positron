@@ -28,6 +28,17 @@ import { ICodeLocation } from '../../../services/positronConsole/common/codeLoca
 import * as typeConvert from '../extHostTypeConverters.js';
 
 /**
+ * Derives the session's optional-method capabilities for the main thread,
+ * which cannot observe method presence across the RPC boundary.
+ */
+function sessionCapabilities(session: positron.LanguageRuntimeSession): extHostProtocol.RuntimeSessionCapabilities {
+	return {
+		listMissingPackages: !!session.listMissingPackages,
+		getMissingPackageProbe: !!session.getMissingPackageProbe,
+	};
+}
+
+/**
  * Interface for code execution observers
  */
 interface IExecutionObserver {
@@ -434,7 +445,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 			const initalState = {
 				handle,
-				dynState: await session.getDynState()
+				dynState: await session.getDynState(),
+				capabilities: sessionCapabilities(session),
 			};
 			return initalState;
 		} else {
@@ -569,7 +581,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				const handle = this.attachToSession(session);
 				const initalState = {
 					handle,
-					dynState: await session.getDynState()
+					dynState: await session.getDynState(),
+					capabilities: sessionCapabilities(session),
 				};
 				return initalState;
 			} else {
@@ -906,6 +919,18 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 		const session = this._runtimeSessions[handle];
 		return (await session.listMissingPackages?.(target, token)) ?? [];
+	}
+
+	async $getMissingPackageProbe(
+		handle: number,
+		error: positron.RuntimeConsoleError,
+		token: CancellationToken,
+	): Promise<string | undefined> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot get missing-package probe: session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		return session.getMissingPackageProbe?.(error, token);
 	}
 
 	async $getPackageDetail(

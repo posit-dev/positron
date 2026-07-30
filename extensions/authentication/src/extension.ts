@@ -20,7 +20,7 @@ import {
 } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders } from './configDialog';
-import { getProviderSources } from './providerSources';
+import { getProviderSources, PROVIDER_METADATA } from './providerSources';
 import {
 	normalizeToV1Url,
 	validateAnthropicApiKey,
@@ -46,21 +46,69 @@ import { migrateSnowflakeSettings } from './migration/snowflake';
 import { registerProvidersJsonMigration } from './migration/providersJsonUi';
 import { AuthProviderLogger } from './authProviderLogger';
 import { applyPwbPositAIDefault } from './pwbDefaults';
+import {
+	createConfigurationLegacySettingsReader,
+	getCachedProvider,
+	initProviderCatalog,
+	onDidChangeProviderCatalog,
+	ProviderCatalogOptions,
+	saveProviderBaseUrl,
+	saveSnowflakeAccount,
+} from './providerCatalog';
+
+/** A settings migration, named so a failure says which one gave up. */
+interface SettingsMigration {
+	readonly name: string;
+	readonly run: () => Promise<void>;
+}
+
+const SETTINGS_MIGRATIONS: readonly SettingsMigration[] = [
+	{ name: 'AWS', run: migrateAwsSettings },
+	{ name: 'Snowflake', run: migrateSnowflakeSettings },
+];
+
+/**
+ * Runs the settings migrations, then primes the cached provider catalog.
+ *
+ * The order matters: the legacy-settings reader hands the catalog the same
+ * `authentication.aws.credentials` / `authentication.snowflake.credentials`
+ * keys these migrations write, so a catalog primed first misses migrated
+ * AWS/Snowflake connections on the first run and resolves credentials against
+ * the wrong profile until the debounced catalog watch catches up.
+ *
+ * `catalogOptions` and `migrations` are test seams; production passes neither.
+ */
+export async function migrateSettingsAndPrimeCatalog(
+	context: vscode.ExtensionContext,
+	catalogOptions: ProviderCatalogOptions = {},
+	migrations: readonly SettingsMigration[] = SETTINGS_MIGRATIONS,
+): Promise<void> {
+	for (const { name, run } of migrations) {
+		await run().catch(err =>
+			log.error(`${name} settings migration failed: ${err}`)
+		);
+	}
+
+	// Prime the cached provider catalog before registering providers so
+	// registration callbacks resolve connection config from it synchronously.
+	// The legacy-settings reader keeps this cache in sync with the core catalog
+	// during the providers.json migration window.
+	await initProviderCatalog(context, {
+		legacyPositronSettings: createConfigurationLegacySettingsReader(),
+		...catalogOptions,
+	});
+}
 
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
+
+	await migrateSettingsAndPrimeCatalog(context);
 
 	await registerAnthropicProvider(context);
 	registerPositAIProvider(context);
 	registerFoundryProvider(context);
 
-	// Migrate settings before registering providers so they
-	// read the migrated values during initialization.
 	await registerAwsProvider(context);
-
-	await migrateSnowflakeSettings().catch(err =>
-		log.error(`Snowflake settings migration failed: ${err}`)
-	);
 	await registerSnowflakeProvider(context);
 
 	await registerOpenaiProvider(context);
@@ -69,8 +117,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	await registerDeepSeekProvider(context);
 	registerCustomProvider(context);
 
-	// Register providers so the Settings UI shows per-provider
-	// enable toggles (positron.assistant.provider.<settingName>.enable).
+	// Register providers so the assistant knows about them; enablement is
+	// read from the provider catalog (providers.json), not a settings toggle.
 	for (const source of getProviderSources()) {
 		const disposable = positron.ai.registerProvider(source, providerAction);
 		context.subscriptions.push(disposable);
@@ -106,27 +154,25 @@ export async function activate(context: vscode.ExtensionContext) {
 	const githubSession = await vscode.authentication.getSession('github', [], { silent: true });
 	await updateProviderFromSessions('copilot-auth', githubSession ? [githubSession] : []);
 
-	// Remove auth sessions when a provider is disabled in settings.
+	// React to provider-catalog changes: drop sessions for providers disabled
+	// in the catalog, and re-resolve chain sessions whose connection changed.
 	context.subscriptions.push(
-		vscode.workspace.onDidChangeConfiguration(async (e) => {
-			for (const source of getProviderSources()) {
-				const settingKeys = [
-					`assistant.provider.${source.provider.settingName}.enabled`,
-					`positron.assistant.provider.${source.provider.settingName}.enable`,
-				];
-				if (settingKeys.some(key => e.affectsConfiguration(key))) {
-					const isEnabled = settingKeys.some(
-						key => vscode.workspace.getConfiguration().get<boolean>(key)
-					);
-					if (!isEnabled) {
-						const provider = authProviders.get(source.provider.id);
-						if (provider) {
-							const sessions = await provider.getSessions();
-							for (const session of sessions) {
-								await provider.removeSession(session.id);
-							}
+		onDidChangeProviderCatalog(async (e) => {
+			for (const metadata of Object.values(PROVIDER_METADATA)) {
+				const { id, catalogId } = metadata;
+				if (!catalogId) {
+					continue;
+				}
+				if (e.disabledIds.includes(catalogId)) {
+					const provider = authProviders.get(id);
+					if (provider) {
+						for (const session of await provider.getSessions()) {
+							await provider.removeSession(session.id);
 						}
 					}
+				}
+				if (e.changedConnectionIds.includes(catalogId)) {
+					await authProviders.get(id)?.resolveChainCredentials();
 				}
 			}
 		})
@@ -152,20 +198,6 @@ async function registerAnthropicProvider(
 ): Promise<void> {
 	const logger = new AuthProviderLogger('Anthropic');
 
-	// Sync ANTHROPIC_BASE_URL env var to the config setting before
-	// chain resolution so validation uses the correct endpoint.
-	const envBaseUrl = process.env.ANTHROPIC_BASE_URL;
-	if (envBaseUrl) {
-		await vscode.workspace
-			.getConfiguration('authentication.anthropic')
-			.update(
-				'baseUrl', envBaseUrl,
-				vscode.ConfigurationTarget.Global
-			).then(undefined, err =>
-				logger.logOperationError('sync Anthropic base URL', err)
-			);
-	}
-
 	const provider = new AuthProvider(
 		ANTHROPIC_AUTH_PROVIDER_ID, 'Anthropic', context,
 		undefined,
@@ -175,9 +207,7 @@ async function registerAnthropicProvider(
 				if (!apiKey) {
 					throw new Error('ANTHROPIC_API_KEY not set');
 				}
-				const baseUrl = vscode.workspace
-					.getConfiguration('authentication.anthropic')
-					.get<string>('baseUrl') || undefined;
+				const baseUrl = getCachedProvider(PROVIDER_METADATA.anthropic.catalogId!)?.connection.baseUrl;
 				await validateAnthropicApiKey(apiKey, { baseUrl });
 				return apiKey;
 			},
@@ -195,12 +225,7 @@ async function registerAnthropicProvider(
 		validateApiKey: validateAnthropicApiKey,
 		onSave: async (config) => {
 			if (config.baseUrl) {
-				await vscode.workspace
-					.getConfiguration('authentication.anthropic')
-					.update(
-						'baseUrl', config.baseUrl,
-						vscode.ConfigurationTarget.Global
-					);
+				await saveProviderBaseUrl(PROVIDER_METADATA.anthropic.catalogId!, config.baseUrl);
 			}
 		},
 	});
@@ -242,25 +267,14 @@ async function registerAwsProvider(
 ): Promise<void> {
 	const logger = new AuthProviderLogger('AWS');
 
-	await migrateAwsSettings().catch(err =>
-		logger.logOperationError('settings migration', err)
-	);
-
-	const awsConfig = vscode.workspace
-		.getConfiguration('authentication.aws')
-		.get<{ AWS_PROFILE?: string; AWS_REGION?: string }>(
-			'credentials', {}
-		);
-
-	const chainInit = resolveAwsChainInit(awsConfig, process.env);
-
-	const credentialProvider = fromNodeProviderChain(chainInit);
-
 	const provider = new AuthProvider(
 		AWS_AUTH_PROVIDER_ID, 'AWS', context,
 		undefined,
 		{
 			resolve: async () => {
+				const aws = getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws;
+				const chainInit = resolveAwsChainInit(aws, process.env);
+				const credentialProvider = fromNodeProviderChain(chainInit);
 				const resolved = await credentialProvider();
 				return {
 					token: JSON.stringify({
@@ -312,9 +326,7 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 		onSave: async (config) => {
 			if (config.baseUrl) {
 				config.baseUrl = normalizeToV1Url(config.baseUrl);
-				await vscode.workspace
-					.getConfiguration('authentication.foundry')
-					.update('baseUrl', config.baseUrl, vscode.ConfigurationTarget.Global);
+				await saveProviderBaseUrl(PROVIDER_METADATA.foundry.catalogId!, config.baseUrl);
 			}
 		},
 	});
@@ -330,19 +342,20 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 		})
 	);
 
-	// Sync Workbench endpoint to auth extension setting
+	// Seed the Workbench-managed Foundry endpoint into the catalog so the
+	// provider reads it from providers.json like a user-configured base URL.
 	if (hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
 		const endpoint = vscode.workspace
 			.getConfiguration('posit.workbench.foundry')
 			.get<string>('endpoint', '');
+		const catalogId = PROVIDER_METADATA.foundry.catalogId!;
 		if (endpoint) {
 			const normalized = normalizeToV1Url(endpoint);
-			vscode.workspace
-				.getConfiguration('authentication.foundry')
-				.update('baseUrl', normalized, vscode.ConfigurationTarget.Global)
-				.then(undefined, err =>
+			if (getCachedProvider(catalogId)?.connection.baseUrl !== normalized) {
+				saveProviderBaseUrl(catalogId, normalized).then(undefined, err =>
 					logger.logOperationError('sync Foundry endpoint', err)
 				);
+			}
 		}
 	}
 }
@@ -357,29 +370,18 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 		undefined,
 		{
 			resolve: async () => {
-				const credentials = await detectSnowflakeCredentials();
+				const snowflake = getCachedProvider(PROVIDER_METADATA.snowflake.catalogId!)?.connection.snowflake;
+				const credentials = await detectSnowflakeCredentials(snowflake);
 				if (!credentials) {
 					throw new Error('No Snowflake credentials found');
 				}
-				// Sync detected account to global settings for baseUrl
-				// derivation. Use inspect() to read only the global scope
-				// so workspace-scoped values are not copied into global.
+				// Persist the detected account to the catalog so the Cortex
+				// baseUrl derivation picks it up. saveSnowflakeAccount no-ops
+				// when the account is unchanged.
 				if (credentials.account) {
-					const cfg = vscode.workspace.getConfiguration(
-						'authentication.snowflake'
+					await saveSnowflakeAccount(credentials.account).then(undefined, err =>
+						logger.logOperationError('sync Snowflake account', err)
 					);
-					const inspection = cfg.inspect<Record<string, string>>(
-						'credentials'
-					);
-					const globalValue = inspection?.globalValue ?? {};
-					if (globalValue.SNOWFLAKE_ACCOUNT !== credentials.account) {
-						await cfg.update('credentials',
-							{ ...globalValue, SNOWFLAKE_ACCOUNT: credentials.account },
-							vscode.ConfigurationTarget.Global
-						).then(undefined, err =>
-							logger.logOperationError('sync Snowflake account', err)
-						);
-					}
 				}
 				// Advance mtime only after successful resolve so a failed
 				// attempt retries on the next getSessions call.
@@ -390,7 +392,8 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 				return credentials.token;
 			},
 			shouldRefresh: async () => {
-				const tomlPath = getSnowflakeConnectionsTomlPath();
+				const snowflake = getCachedProvider(PROVIDER_METADATA.snowflake.catalogId!)?.connection.snowflake;
+				const tomlPath = getSnowflakeConnectionsTomlPath(snowflake);
 				if (!tomlPath) {
 					return false;
 				}
@@ -418,22 +421,11 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 	registerAuthProvider('snowflake-cortex', provider, {
 		validateApiKey: validateSnowflakeApiKey,
 		onSave: async (config) => {
-			// baseUrl holds the bare account; persist it as SNOWFLAKE_ACCOUNT,
-			// not as a baseUrl setting like other providers do (#13750).
+			// baseUrl carries the bare account (#13750); persist it as the
+			// catalog's snowflake account, not as a baseUrl.
 			const account = config.baseUrl?.trim();
-			if (!account) {
-				return;
-			}
-			// Read the global scope only, matching the resolve() sync above.
-			const cfg = vscode.workspace.getConfiguration('authentication.snowflake');
-			const inspection = cfg.inspect<Record<string, string>>('credentials');
-			const globalValue = inspection?.globalValue ?? {};
-			if (globalValue.SNOWFLAKE_ACCOUNT !== account) {
-				await cfg.update(
-					'credentials',
-					{ ...globalValue, SNOWFLAKE_ACCOUNT: account },
-					vscode.ConfigurationTarget.Global
-				);
+			if (account) {
+				await saveSnowflakeAccount(account);
 			}
 		},
 	});
@@ -449,18 +441,6 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 async function registerOpenaiProvider(
 	context: vscode.ExtensionContext
 ): Promise<void> {
-	const envBaseUrl = process.env.OPENAI_BASE_URL;
-	if (envBaseUrl) {
-		await vscode.workspace
-			.getConfiguration(`authentication.${OPENAI_AUTH_PROVIDER_ID}`)
-			.update(
-				'baseUrl', envBaseUrl,
-				vscode.ConfigurationTarget.Global
-			).then(undefined, err =>
-				log.error(`Failed to sync OpenAI base URL: ${err}`)
-			);
-	}
-
 	const provider = new AuthProvider(
 		OPENAI_AUTH_PROVIDER_ID, 'OpenAI', context,
 		undefined,
@@ -470,9 +450,7 @@ async function registerOpenaiProvider(
 				if (!apiKey) {
 					throw new Error('OPENAI_API_KEY not set');
 				}
-				const baseUrl = vscode.workspace
-					.getConfiguration(`authentication.${OPENAI_AUTH_PROVIDER_ID}`)
-					.get<string>('baseUrl') || undefined;
+				const baseUrl = getCachedProvider(PROVIDER_METADATA.openai.catalogId!)?.connection.baseUrl;
 				await validateOpenaiApiKey(apiKey, { baseUrl });
 				return apiKey;
 			},
@@ -490,12 +468,7 @@ async function registerOpenaiProvider(
 		validateApiKey: validateOpenaiApiKey,
 		onSave: async (config) => {
 			if (config.baseUrl) {
-				await vscode.workspace
-					.getConfiguration(`authentication.${OPENAI_AUTH_PROVIDER_ID}`)
-					.update(
-						'baseUrl', config.baseUrl,
-						vscode.ConfigurationTarget.Global
-					);
+				await saveProviderBaseUrl(PROVIDER_METADATA.openai.catalogId!, config.baseUrl);
 			}
 		},
 	});
@@ -510,18 +483,6 @@ async function registerOpenaiProvider(
 async function registerGeminiProvider(
 	context: vscode.ExtensionContext
 ): Promise<void> {
-	const envBaseUrl = process.env.GEMINI_BASE_URL;
-	if (envBaseUrl) {
-		await vscode.workspace
-			.getConfiguration(`authentication.${GEMINI_AUTH_PROVIDER_ID}`)
-			.update(
-				'baseUrl', envBaseUrl,
-				vscode.ConfigurationTarget.Global
-			).then(undefined, err =>
-				log.error(`Failed to sync Gemini base URL: ${err}`)
-			);
-	}
-
 	const provider = new AuthProvider(
 		GEMINI_AUTH_PROVIDER_ID, 'Google Gemini', context,
 		undefined,
@@ -534,9 +495,7 @@ async function registerGeminiProvider(
 						'GEMINI_API_KEY or GOOGLE_API_KEY not set'
 					);
 				}
-				const baseUrl = vscode.workspace
-					.getConfiguration(`authentication.${GEMINI_AUTH_PROVIDER_ID}`)
-					.get<string>('baseUrl') || undefined;
+				const baseUrl = getCachedProvider(PROVIDER_METADATA.google.catalogId!)?.connection.baseUrl;
 				await validateGeminiApiKey(apiKey, { baseUrl });
 				return apiKey;
 			},
@@ -554,12 +513,7 @@ async function registerGeminiProvider(
 		validateApiKey: validateGeminiApiKey,
 		onSave: async (config) => {
 			if (config.baseUrl) {
-				await vscode.workspace
-					.getConfiguration(`authentication.${GEMINI_AUTH_PROVIDER_ID}`)
-					.update(
-						'baseUrl', config.baseUrl,
-						vscode.ConfigurationTarget.Global
-					);
+				await saveProviderBaseUrl(PROVIDER_METADATA.google.catalogId!, config.baseUrl);
 			}
 		},
 	});
@@ -575,23 +529,15 @@ async function registerGeapProvider(
 	context: vscode.ExtensionContext,
 ): Promise<void> {
 	const logger = new AuthProviderLogger('Gemini Enterprise Agent Platform');
-	const envBaseUrl = process.env.GOOGLE_VERTEX_BASE_URL;
-	if (envBaseUrl) {
-		await vscode.workspace
-			.getConfiguration('authentication.googleVertex')
-			.update(
-				'baseUrl', envBaseUrl,
-				vscode.ConfigurationTarget.Global,
-			).then(undefined, err =>
-				logger.logOperationError('sync Gemini Enterprise Agent Platform base URL', err)
-			);
-	}
 
 	const provider = new AuthProvider(
 		GOOGLE_CLOUD_AUTH_PROVIDER_ID, 'Gemini Enterprise Agent Platform', context,
 		undefined,
 		{
-			resolve: () => resolveGeapCredential(logger),
+			resolve: () => {
+				const googleCloud = getCachedProvider(PROVIDER_METADATA.geap.catalogId!)?.connection.googleCloud;
+				return resolveGeapCredential(googleCloud, logger);
+			},
 			refreshIntervalMs: CREDENTIAL_REFRESH_INTERVAL_MS,
 		}
 	);
@@ -605,12 +551,7 @@ async function registerGeapProvider(
 	registerAuthProvider(GOOGLE_CLOUD_AUTH_PROVIDER_ID, provider, {
 		onSave: async (config) => {
 			if (config.baseUrl) {
-				await vscode.workspace
-					.getConfiguration('authentication.googleVertex')
-					.update(
-						'baseUrl', config.baseUrl,
-						vscode.ConfigurationTarget.Global,
-					);
+				await saveProviderBaseUrl(PROVIDER_METADATA.geap.catalogId!, config.baseUrl);
 			}
 		},
 	});
@@ -625,18 +566,6 @@ async function registerGeapProvider(
 async function registerDeepSeekProvider(
 	context: vscode.ExtensionContext
 ): Promise<void> {
-	const envBaseUrl = process.env.DEEPSEEK_BASE_URL;
-	if (envBaseUrl) {
-		await vscode.workspace
-			.getConfiguration(`authentication.${DEEPSEEK_AUTH_PROVIDER_ID}`)
-			.update(
-				'baseUrl', envBaseUrl,
-				vscode.ConfigurationTarget.Global
-			).then(undefined, err =>
-				log.error(`Failed to sync DeepSeek base URL: ${err}`)
-			);
-	}
-
 	const provider = new AuthProvider(
 		DEEPSEEK_AUTH_PROVIDER_ID, 'DeepSeek', context,
 		undefined,
@@ -646,9 +575,7 @@ async function registerDeepSeekProvider(
 				if (!apiKey) {
 					throw new Error('DEEPSEEK_API_KEY not set');
 				}
-				const baseUrl = vscode.workspace
-					.getConfiguration(`authentication.${DEEPSEEK_AUTH_PROVIDER_ID}`)
-					.get<string>('baseUrl') || undefined;
+				const baseUrl = getCachedProvider(PROVIDER_METADATA.deepseek.catalogId!)?.connection.baseUrl;
 				await validateDeepSeekApiKey(apiKey, { baseUrl });
 				return apiKey;
 			},
@@ -666,12 +593,7 @@ async function registerDeepSeekProvider(
 		validateApiKey: validateDeepSeekApiKey,
 		onSave: async (config) => {
 			if (config.baseUrl) {
-				await vscode.workspace
-					.getConfiguration(`authentication.${DEEPSEEK_AUTH_PROVIDER_ID}`)
-					.update(
-						'baseUrl', config.baseUrl,
-						vscode.ConfigurationTarget.Global
-					);
+				await saveProviderBaseUrl(PROVIDER_METADATA.deepseek.catalogId!, config.baseUrl);
 			}
 		},
 	});
@@ -700,12 +622,7 @@ function registerCustomProvider(
 		validateApiKey: validateCustomProviderApiKey,
 		onSave: async (config) => {
 			if (config.baseUrl) {
-				await vscode.workspace
-					.getConfiguration(`authentication.${CUSTOM_PROVIDER_AUTH_PROVIDER_ID}`)
-					.update(
-						'baseUrl', config.baseUrl,
-						vscode.ConfigurationTarget.Global
-					);
+				await saveProviderBaseUrl(PROVIDER_METADATA.customProvider.catalogId!, config.baseUrl);
 			}
 		},
 	});
