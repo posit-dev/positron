@@ -4,17 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 /// <reference types="vitest/globals" />
 
-import { DocsProfile, parseManifest, parseSha256Sidecar, resolveBundleRequest } from '../../common/positronDocsBundle.js';
+import { IDocsBundleRequest, parseManifest, parseSha256Sidecar, resolveBundleRequest } from '../../common/positronDocsBundle.js';
 
 const BASE = 'https://cdn.posit.co/positron/releases/docs';
 
-function request(overrides: { profile?: DocsProfile; build?: number } = {}) {
+/** Same shape as the helper in positronDocsCache.vitest.ts, deliberately. */
+function request(overrides: Partial<IDocsBundleRequest> = {}): IDocsBundleRequest {
 	return {
-		quality: 'releases' as string | undefined,
+		quality: 'releases',
 		positronVersion: '2026.05.0',
-		positronBuildNumber: overrides.build ?? 179,
-		profile: overrides.profile ?? ('positron' as DocsProfile),
+		positronBuildNumber: 179,
+		profile: 'positron',
 		baseUrl: BASE,
+		...overrides,
 	};
 }
 
@@ -26,7 +28,7 @@ describe('resolveBundleRequest', () => {
 		['dailies', false],
 		[undefined, false],
 	])('quality %s => wantsExact %s', (quality, wantsExact) => {
-		expect(resolveBundleRequest({ ...request(), quality }).wantsExact).toBe(wantsExact);
+		expect(resolveBundleRequest(request({ quality })).wantsExact).toBe(wantsExact);
 	});
 
 	it('builds exact and latest URLs plus sidecars for the positron profile', () => {
@@ -55,11 +57,11 @@ describe('resolveBundleRequest', () => {
 	});
 
 	it('omits the -0 suffix for dev builds', () => {
-		expect(resolveBundleRequest(request({ build: 0 })).exact.version).toBe('2026.05.0');
+		expect(resolveBundleRequest(request({ positronBuildNumber: 0 })).exact.version).toBe('2026.05.0');
 	});
 
 	it('tolerates a trailing slash on the base URL', () => {
-		expect(resolveBundleRequest({ ...request(), baseUrl: `${BASE}/` }).latest.zipUrl)
+		expect(resolveBundleRequest(request({ baseUrl: `${BASE}/` })).latest.zipUrl)
 			.toBe(`${BASE}/positron-llms-latest.zip`);
 	});
 });
