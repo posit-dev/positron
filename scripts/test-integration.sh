@@ -210,11 +210,39 @@ else
 	kill_app() { killall $INTEGRATION_TEST_APP_NAME || true; }
 fi
 
+# --- Start Positron ---
+# Headless Electron intermittently GP-faults on startup in libexpat while
+# fontconfig initializes fonts on a glib worker thread (a thread-safety race in
+# the system font libraries; crash stack: libexpat <- libfontconfig <-
+# libpangoft2). It happens before any test runs, exits 139 (SIGSEGV), and takes
+# the whole suite down with it. The race lives in system libraries we can't
+# patch, so retry an invocation that dies with a startup segfault: a fresh
+# process is a new roll of the dice and succeeds nearly every time. Only exit
+# 139 is retried -- any other non-zero exit is a real test failure and is
+# returned immediately so it is never masked. Mirrors the helper in
+# test-remote-integration.sh.
+run_integration_test() {
+	local attempt=1 max_attempts=3 status
+	while true; do
+		set +e
+		"$@"
+		status=$?
+		set -e
+		if [ "$status" -ne 139 ] || [ "$attempt" -ge "$max_attempts" ]; then
+			return "$status"
+		fi
+		echo "Electron exited 139 (startup segfault, likely fontconfig race); retrying (attempt $((attempt + 1))/$max_attempts)..."
+		kill_app
+		attempt=$((attempt + 1))
+	done
+}
+# --- End Positron ---
+
 if should_run_suite api-folder; then
 echo
 echo "### API tests (folder)"
 echo
-"$INTEGRATION_TEST_ELECTRON_PATH" $ROOT/extensions/vscode-api-tests/testWorkspace --enable-proposed-api=vscode.vscode-api-tests --extensionDevelopmentPath=$ROOT/extensions/vscode-api-tests --extensionTestsPath=$ROOT/extensions/vscode-api-tests/out/singlefolder-tests $API_TESTS_EXTRA_ARGS
+run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" $ROOT/extensions/vscode-api-tests/testWorkspace --enable-proposed-api=vscode.vscode-api-tests --extensionDevelopmentPath=$ROOT/extensions/vscode-api-tests --extensionTestsPath=$ROOT/extensions/vscode-api-tests/out/singlefolder-tests $API_TESTS_EXTRA_ARGS
 kill_app
 fi
 
@@ -222,7 +250,7 @@ if should_run_suite api-workspace; then
 echo
 echo "### API tests (workspace)"
 echo
-"$INTEGRATION_TEST_ELECTRON_PATH" $ROOT/extensions/vscode-api-tests/testworkspace.code-workspace --enable-proposed-api=vscode.vscode-api-tests --extensionDevelopmentPath=$ROOT/extensions/vscode-api-tests --extensionTestsPath=$ROOT/extensions/vscode-api-tests/out/workspace-tests $API_TESTS_EXTRA_ARGS
+run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" $ROOT/extensions/vscode-api-tests/testworkspace.code-workspace --enable-proposed-api=vscode.vscode-api-tests --extensionDevelopmentPath=$ROOT/extensions/vscode-api-tests --extensionTestsPath=$ROOT/extensions/vscode-api-tests/out/workspace-tests $API_TESTS_EXTRA_ARGS
 kill_app
 fi
 
@@ -249,7 +277,7 @@ if should_run_suite typescript; then
 echo
 echo "### TypeScript tests"
 echo
-"$INTEGRATION_TEST_ELECTRON_PATH" $ROOT/extensions/typescript-language-features/test-workspace --extensionDevelopmentPath=$ROOT/extensions/typescript-language-features --extensionTestsPath=$ROOT/extensions/typescript-language-features/out/test/unit $API_TESTS_EXTRA_ARGS
+run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" $ROOT/extensions/typescript-language-features/test-workspace --extensionDevelopmentPath=$ROOT/extensions/typescript-language-features --extensionTestsPath=$ROOT/extensions/typescript-language-features/out/test/unit $API_TESTS_EXTRA_ARGS
 kill_app
 fi
 
@@ -265,7 +293,7 @@ if should_run_suite emmet; then
 echo
 echo "### Emmet tests"
 echo
-"$INTEGRATION_TEST_ELECTRON_PATH" $ROOT/extensions/emmet/test-workspace --extensionDevelopmentPath=$ROOT/extensions/emmet --extensionTestsPath=$ROOT/extensions/emmet/out/test $API_TESTS_EXTRA_ARGS
+run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" $ROOT/extensions/emmet/test-workspace --extensionDevelopmentPath=$ROOT/extensions/emmet --extensionTestsPath=$ROOT/extensions/emmet/out/test $API_TESTS_EXTRA_ARGS
 kill_app
 fi
 
@@ -273,7 +301,7 @@ if should_run_suite git; then
 echo
 echo "### Git tests"
 echo
-"$INTEGRATION_TEST_ELECTRON_PATH" $(mktemp -d 2>/dev/null) --extensionDevelopmentPath=$ROOT/extensions/git --extensionTestsPath=$ROOT/extensions/git/out/test $API_TESTS_EXTRA_ARGS
+run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" $(mktemp -d 2>/dev/null) --extensionDevelopmentPath=$ROOT/extensions/git --extensionTestsPath=$ROOT/extensions/git/out/test $API_TESTS_EXTRA_ARGS
 kill_app
 fi
 
@@ -375,6 +403,18 @@ echo
 echo "### Positron DuckDB tests"
 echo
 npm run test-extension -- -l positron-duckdb
+kill_app
+
+echo
+echo "### Positron DuckDB data connection tests"
+echo
+npm run test-extension -- -l positron-data-driver-duckdb
+kill_app
+
+echo
+echo "### Positron SQLite data connection tests"
+echo
+npm run test-extension -- -l positron-data-driver-sqlite
 kill_app
 
 echo

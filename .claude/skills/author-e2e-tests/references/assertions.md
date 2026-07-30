@@ -58,6 +58,14 @@ because other skill files point at this as the canonical order.
 3. **Text content** -- `getByText('Python')`, `filter({ hasText: 'expected' })`
 4. **CSS selectors** -- `page.locator('.monaco-workbench')`. Least stable; use only when nothing above fits.
 
+## Assertion Quality
+
+More assertions is not more confidence. Before adding one, check that it validates something the others in the test don't already cover:
+
+- Prefer the one assertion that uniquely identifies the regression over several that would all fail for the same underlying reason (e.g. assert the final rendered value rather than every intermediate state that led to it).
+- Don't assert on behavior incidental to what the test is named for (e.g. checking a row count in a test whose regression is about cell text).
+- A test with more assertions isn't inherently more thorough -- it's often checking more than its name promises, and harder to debug when it fails, since it's unclear which assertion caught the regression.
+
 ## Positron assertion helpers
 
 Most Positron assertions go through POM methods rather than raw locators. See

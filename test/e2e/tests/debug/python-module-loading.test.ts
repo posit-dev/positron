@@ -27,7 +27,7 @@ test.describe('Python Debugging', {
 
 			await openFile(join('workspaces', 'python_module_caching', 'app.py'));
 
-			await app.workbench.editor.pressPlay(true);
+			await app.workbench.editor.pressPlay({ skipToastVerification: true });
 
 			await app.workbench.console.waitForConsoleContents('Hello World');
 
@@ -47,7 +47,7 @@ test.describe('Python Debugging', {
 		await test.step('Re-run with edited helper', async () => {
 			await openFile(join('workspaces', 'python_module_caching', 'app.py'));
 
-			await app.workbench.editor.pressPlay(true);
+			await app.workbench.editor.pressPlay({ skipToastVerification: true });
 
 			await app.workbench.console.waitForConsoleContents('Goodbye World');
 		});

@@ -590,7 +590,14 @@ export class KCApi implements PositronSupervisorApi {
 				wrapperPath = 'powershell.exe';
 				// Build the arguments for the wrapper script
 				const escapedWrapper = kernelWrapper.replace(/'/g, "''");
-				const escapedArgs = shellArgs.map(arg => `'${arg.replace(/'/g, "''")}'`).join(', ');
+				const escapedArgs = shellArgs.map(arg => {
+					const escapedArg = arg.replace(/'/g, "''");
+					// Start-Process joins -ArgumentList elements with spaces when
+					// building the cmd.exe command line for .bat invocation. Wrap
+					// args that contain spaces in double-quotes so cmd.exe treats
+					// them as single tokens.
+					return arg.includes(' ') ? `'"${escapedArg}"'` : `'${escapedArg}'`;
+				}).join(', ');
 				shellArgs = [
 					'-WindowStyle', 'Hidden',
 					'-Command',

@@ -7,10 +7,12 @@
 
 import { act, screen } from '@testing-library/react';
 import { URI } from '../../../../../base/common/uri.js';
-import { Emitter } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { IEditorGroup } from '../../../../services/editor/common/editorGroupsService.js';
+import { EditorGroupContext } from '../../../../browser/parts/editor/editorGroupContext.js';
+import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IQuartoKernelManager, QuartoKernelState, QuartoKernelStateChangeEvent } from '../../browser/quartoKernelManager.js';
 import { QuartoKernelStatusBadge } from '../../browser/QuartoKernelStatusBadge.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -19,17 +21,23 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 
 describe('QuartoKernelStatusBadge', () => {
 	const stateChange = new Emitter<QuartoKernelStateChangeEvent>();
-	const editorChange = new Emitter<void>();
 	const displayStateEmitter = new Emitter<{ sessionId: string; state: RuntimeState }>();
 	const registerRuntimeEmitter = new Emitter<ILanguageRuntimeMetadata>();
 	const startupPhaseEmitter = new Emitter<RuntimeStartupPhase>();
 	let displayState: RuntimeState | undefined;
 
-	const editorServiceStub = {
-		activeEditor: { resource: URI.file('/tmp/notebook.qmd') },
-		activeTextEditorControl: undefined as unknown,
-		onDidActiveEditorChange: editorChange.event,
-	};
+	const quartoUri = URI.file('/tmp/notebook.qmd');
+
+	// The badge binds to its own editor group, not the globally active editor
+	// (posit-dev/positron#14826). Rendering inside this group -- whose active
+	// editor is the .qmd -- is what drives the badge; the ambient IEditorService
+	// deliberately has no Quarto editor active, so a regression to reading the
+	// global active editor would surface as "No Kernel" and fail these tests.
+	const editorGroupStub = stubInterface<IEditorGroup>({
+		activeEditor: stubInterface<EditorInput>({ resource: quartoUri }),
+		activeEditorPane: undefined,
+		onDidActiveEditorChange: Event.None,
+	});
 
 	const kernelManagerStub = {
 		onDidChangeKernelState: stateChange.event,
@@ -40,7 +48,6 @@ describe('QuartoKernelStatusBadge', () => {
 
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(IEditorService, editorServiceStub)
 		.stub(IQuartoKernelManager, kernelManagerStub)
 		.stub(IRuntimeSessionService, {
 			onDidChangeDisplayRuntimeState: displayStateEmitter.event,
@@ -52,6 +59,13 @@ describe('QuartoKernelStatusBadge', () => {
 		})
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	// Render the badge inside its editor group, the way the action bar does.
+	const renderBadge = () => rtl.render(
+		<EditorGroupContext.Provider value={editorGroupStub}>
+			<QuartoKernelStatusBadge accessor={ctx.instantiationService} />
+		</EditorGroupContext.Provider>
+	);
 
 	function makeSession(initial: RuntimeState, sessionId = 's1') {
 		const emitter = new Emitter<RuntimeState>();
@@ -66,14 +80,13 @@ describe('QuartoKernelStatusBadge', () => {
 
 	beforeEach(() => {
 		displayState = undefined;
-		editorServiceStub.activeEditor = { resource: URI.file('/tmp/notebook.qmd') };
 		kernelManagerStub.getKernelState = () => QuartoKernelState.None;
 		kernelManagerStub.getSessionForDocument = () => undefined;
 		kernelManagerStub.getPreferredRuntimeForDocument = () => undefined;
 	});
 
 	it('shows disconnected icon and "No Kernel" label when no session, no preferred runtime, and state is None', () => {
-		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
+		renderBadge();
 		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
 		expect(screen.getByText('No Kernel')).toBeInTheDocument();
 	});
@@ -83,7 +96,7 @@ describe('QuartoKernelStatusBadge', () => {
 		// name it instead of showing "No Kernel".
 		kernelManagerStub.getPreferredRuntimeForDocument = () =>
 			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' });
-		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
+		renderBadge();
 		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
 		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
 	});
@@ -92,7 +105,7 @@ describe('QuartoKernelStatusBadge', () => {
 		// Interpreter discovery can finish after the editor opens: the badge
 		// starts with "No Kernel" and should adopt the interpreter name once a
 		// preferred runtime becomes available and a registration event fires.
-		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
+		renderBadge();
 		expect(screen.getByText('No Kernel')).toBeInTheDocument();
 
 		kernelManagerStub.getPreferredRuntimeForDocument = () =>
@@ -106,7 +119,7 @@ describe('QuartoKernelStatusBadge', () => {
 	it('recomputes the preferred runtime when the startup phase changes', () => {
 		// The preferred runtime can resolve as the runtime startup sequence
 		// advances, so a startup-phase change should also refresh the label.
-		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
+		renderBadge();
 		expect(screen.getByText('No Kernel')).toBeInTheDocument();
 
 		kernelManagerStub.getPreferredRuntimeForDocument = () =>
@@ -122,13 +135,13 @@ describe('QuartoKernelStatusBadge', () => {
 		kernelManagerStub.getKernelState = () => QuartoKernelState.Error;
 		kernelManagerStub.getPreferredRuntimeForDocument = () =>
 			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' });
-		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
+		renderBadge();
 		expect(screen.getByText('Kernel Error')).toBeInTheDocument();
 	});
 
 	it('shows disconnected icon when manager reports an Error state', () => {
 		kernelManagerStub.getKernelState = () => QuartoKernelState.Error;
-		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
+		renderBadge();
 		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
 		expect(screen.getByText('Kernel Error')).toBeInTheDocument();
 	});
@@ -138,7 +151,7 @@ describe('QuartoKernelStatusBadge', () => {
 		kernelManagerStub.getSessionForDocument = () => session;
 		kernelManagerStub.getKernelState = () => QuartoKernelState.Ready;
 		displayState = RuntimeState.Idle;
-		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
+		renderBadge();
 		expect(screen.getByTestId('runtime-status-idle')).toBeInTheDocument();
 		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
 	});
@@ -148,7 +161,7 @@ describe('QuartoKernelStatusBadge', () => {
 		kernelManagerStub.getSessionForDocument = () => session;
 		kernelManagerStub.getKernelState = () => QuartoKernelState.Ready;
 		displayState = RuntimeState.Idle;
-		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
+		renderBadge();
 		act(() => displayStateEmitter.fire({ sessionId: 's1', state: RuntimeState.Busy }));
 		expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
 	});
@@ -158,17 +171,35 @@ describe('QuartoKernelStatusBadge', () => {
 		kernelManagerStub.getSessionForDocument = () => a.session;
 		kernelManagerStub.getKernelState = () => QuartoKernelState.Ready;
 		displayState = RuntimeState.Idle;
-		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
+		renderBadge();
 
 		const b = makeSession(RuntimeState.Starting, 'sB');
 		displayState = RuntimeState.Starting;
 		act(() => stateChange.fire({
-			documentUri: URI.file('/tmp/notebook.qmd'),
+			documentUri: quartoUri,
 			oldState: QuartoKernelState.Ready,
 			newState: QuartoKernelState.Starting,
 			session: b.session,
 		}));
 
 		expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
+	});
+
+	it('keeps its running kernel visible when another editor is globally active (#14826)', () => {
+		// The Settings dialog opens in a modal overlay that becomes the globally
+		// active editor. Previously the badge read the global active editor, so a
+		// running .qmd kernel reset to "No Kernel" while the modal was in front and
+		// recovered on dismiss. The badge now reads its own group (the .qmd, with a
+		// live session), so its kernel stays visible regardless of what is globally
+		// active -- represented here by the container's ambient IEditorService,
+		// which has no Quarto editor active.
+		const { session } = makeSession(RuntimeState.Idle);
+		kernelManagerStub.getSessionForDocument = () => session;
+		kernelManagerStub.getKernelState = () => QuartoKernelState.Ready;
+		displayState = RuntimeState.Idle;
+		renderBadge();
+
+		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
+		expect(screen.queryByText('No Kernel')).not.toBeInTheDocument();
 	});
 });

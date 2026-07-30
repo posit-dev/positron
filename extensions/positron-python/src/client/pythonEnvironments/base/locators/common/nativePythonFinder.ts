@@ -110,6 +110,17 @@ export interface NativePythonFinder extends Disposable {
      * Used only for telemetry.
      */
     getCondaInfo(): Promise<NativeCondaInfo>;
+    // --- Start Positron ---
+    /**
+     * The last fatal discovery error (PET failed to spawn/respond), or `undefined` if
+     * discovery is operational. Set when the finder process errors, the RPC connection
+     * errors, or a refresh request rejects, and cleared when a refresh completes
+     * successfully so a recovered PET stops reporting a stale failure; these are
+     * otherwise only logged. Read by the environment health check (item 1) to
+     * distinguish a broken locator from an empty one.
+     */
+    readonly lastDiscoveryError: string | undefined;
+    // --- End Positron ---
 }
 
 interface NativeLog {
@@ -187,6 +198,14 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
 
     private readonly suppressErrorNotification: IPersistentStorage<boolean>;
 
+    // --- Start Positron ---
+    private _lastDiscoveryError: string | undefined;
+
+    public get lastDiscoveryError(): string | undefined {
+        return this._lastDiscoveryError;
+    }
+    // --- End Positron ---
+
     constructor(private readonly cacheDirectory?: Uri, private readonly context?: IExtensionContext) {
         super();
         this.suppressErrorNotification = this.context
@@ -261,6 +280,9 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
             proc.on('error', (error) => {
                 this.outputChannel.error(`Python Locator process error: ${error.message}`);
                 this.outputChannel.error(`Error details: ${JSON.stringify(error)}`);
+                // --- Start Positron ---
+                this._lastDiscoveryError = error.message;
+                // --- End Positron ---
                 this.handleSpawnError(error.message);
             });
 
@@ -277,6 +299,9 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
                     if (signal) {
                         this.outputChannel.error(`Exit signal: ${signal}`);
                     }
+                    // --- Start Positron ---
+                    this._lastDiscoveryError = errorMessage;
+                    // --- End Positron ---
                     this.handleSpawnError(errorMessage);
                 }
             });
@@ -309,6 +334,9 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
             connection.onError((ex) => {
                 disposeStreams.dispose();
                 this.outputChannel.error('Connection Error:', ex);
+                // --- Start Positron ---
+                this._lastDiscoveryError = `Connection error: ${String(ex)}`;
+                // --- End Positron ---
             }),
             connection.onNotification('log', (data: NativeLog) => {
                 switch (data.level) {
@@ -423,8 +451,16 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
                     .then(({ duration }) => {
                         this.outputChannel.info(`Refresh completed in ${duration}ms`);
                         this.initialRefreshMetrics.timeToRefresh = stopWatch.elapsedTime;
+                        // --- Start Positron ---
+                        this._lastDiscoveryError = undefined;
+                        // --- End Positron ---
                     })
-                    .catch((ex) => this.outputChannel.error('Refresh error', ex)),
+                    .catch((ex) => {
+                        this.outputChannel.error('Refresh error', ex);
+                        // --- Start Positron ---
+                        this._lastDiscoveryError = `Refresh error: ${ex instanceof Error ? ex.message : String(ex)}`;
+                        // --- End Positron ---
+                    }),
             ),
         );
 
@@ -621,6 +657,9 @@ export function getNativePythonFinder(context?: IExtensionContext): NativePython
                 traceError('Python discovery not supported in untrusted workspace');
                 return {} as unknown as NativeCondaInfo;
             },
+            // --- Start Positron ---
+            lastDiscoveryError: undefined,
+            // --- End Positron ---
             dispose() {
                 // do nothing
             },

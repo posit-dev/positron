@@ -5,7 +5,11 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as snowflake from 'snowflake-sdk';
+// Import the Snowflake SDK for its types only. The runtime module is large and
+// pulls in a sizable dependency tree, so it is loaded lazily via
+// loadSnowflakeSdk() rather than at extension activation. See that function for
+// details.
+import type * as snowflake from 'snowflake-sdk';
 import {
 	CatalogNode,
 	CatalogProvider,
@@ -19,6 +23,31 @@ import { getSnowflakeConnectionOptions, SnowflakeConnectionOptions } from '../cr
 import { l10n } from 'vscode';
 
 export type SnowflakeLogLevel = 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'TRACE';
+
+/**
+ * Cached Snowflake SDK module, populated on first use by {@link loadSnowflakeSdk}.
+ */
+let snowflakeSdk: typeof import('snowflake-sdk') | undefined;
+
+/**
+ * Lazily load the Snowflake SDK.
+ *
+ * The SDK and its dependency tree are only needed once the user actually
+ * connects to Snowflake, so the module is imported on demand instead of at
+ * extension activation. This keeps it (and its many transitive dependencies)
+ * out of the extension host's memory for users who never use Snowflake.
+ *
+ * The SDK logger is configured on first load, before any connection is
+ * established (connecting is what triggers the SDK's first log writes).
+ */
+async function loadSnowflakeSdk(context: vscode.ExtensionContext): Promise<typeof import('snowflake-sdk')> {
+	if (!snowflakeSdk) {
+		const sdk = await import('snowflake-sdk');
+		await configureSnowflakeLogging(context, sdk);
+		snowflakeSdk = sdk;
+	}
+	return snowflakeSdk;
+}
 
 export const registration: CatalogProviderRegistration = {
 	label: l10n.t('Snowflake'),
@@ -95,17 +124,21 @@ export async function ensureSnowflakeLogDirectory(context: vscode.ExtensionConte
  * there. Point the log file at the extension's log directory instead so it stays
  * out of the user's home directory.
  *
- * This is configured once at activation so the log path is set before any
- * Snowflake connection is established (connecting is what triggers the SDK's
- * first log writes).
+ * This is configured once when the SDK is first loaded (see
+ * {@link loadSnowflakeSdk}) so the log path is set before any Snowflake
+ * connection is established (connecting is what triggers the SDK's first log
+ * writes).
  */
-export async function configureSnowflakeLogging(context: vscode.ExtensionContext): Promise<void> {
+async function configureSnowflakeLogging(
+	context: vscode.ExtensionContext,
+	sdk: typeof import('snowflake-sdk'),
+): Promise<void> {
 	const config = vscode.workspace.getConfiguration('catalogExplorer');
 	const logLevelStr = config.get<string>('logLevel', 'INFO') as SnowflakeLogLevel;
 
 	await ensureSnowflakeLogDirectory(context);
 
-	snowflake.configure({
+	sdk.configure({
 		logLevel: logLevelStr,
 		logFilePath: getSnowflakeLogFilePath(context),
 	});
@@ -201,7 +234,8 @@ export async function registerSnowflakeCatalog(
 		});
 	}
 
-	const connection = snowflake.createConnection(connectionOptions);
+	const sdk = await loadSnowflakeSdk(context);
+	const connection = sdk.createConnection(connectionOptions);
 
 	return await vscode.window.withProgress(
 		{

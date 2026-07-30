@@ -45,6 +45,9 @@ import { IChatStatusItemService, ChatStatusEntry } from './chatStatusItemService
 import { GitHubPaths, IDefaultAccountService } from '../../../../../platform/defaultAccount/common/defaultAccount.js';
 import product from '../../../../../platform/product/common/product.js';
 import { isCompletionsEnabled } from '../../../../../editor/common/services/completionsEnablement.js';
+// --- Start Positron ---
+import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
+// --- End Positron ---
 
 const defaultChat = product.defaultChatAgent;
 
@@ -144,6 +147,9 @@ export class ChatStatusDashboard extends DomWidget {
 		@IContextViewService private readonly contextViewService: IContextViewService,
 		@IStorageService private readonly storageService: IStorageService,
 		@IDefaultAccountService private readonly defaultAccountService: IDefaultAccountService,
+		// --- Start Positron ---
+		@IAiProviderService private readonly aiProviderService: IAiProviderService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -318,10 +324,7 @@ export class ChatStatusDashboard extends DomWidget {
 			}
 
 			let chatQuotaIndicator: ((quota: IQuotaSnapshot | string) => void) | undefined;
-			// --- Start Positron ---
-			// Hide the "Chat messages" quota row in completions-only mode (chat is hidden).
-			if (!this.options?.disableChatSections && chatQuota && !chatQuota.unlimited && (!this.chatEntitlementService.quotas.usageBasedBilling || this.chatEntitlementService.entitlement === ChatEntitlement.Free)) {
-				// --- End Positron ---
+			if (chatQuota && !chatQuota.unlimited && (!this.chatEntitlementService.quotas.usageBasedBilling || this.chatEntitlementService.entitlement === ChatEntitlement.Free)) {
 				const chatLabel = this.chatEntitlementService.quotas.usageBasedBilling && this.chatEntitlementService.entitlement === ChatEntitlement.Free
 					? localize('creditsLabel', "Credits")
 					: localize('chatsLabel', "Chat messages");
@@ -329,10 +332,7 @@ export class ChatStatusDashboard extends DomWidget {
 			}
 
 			let premiumChatQuotaIndicator: ((quota: IQuotaSnapshot | string) => void) | undefined;
-			// --- Start Positron ---
-			// Hide the "Premium requests" quota row in completions-only mode (chat is hidden).
-			if (!this.options?.disableChatSections && premiumChatQuota && !premiumChatQuota.unlimited && premiumChatQuota.percentRemaining >= 0) {
-				// --- End Positron ---
+			if (premiumChatQuota && !premiumChatQuota.unlimited && premiumChatQuota.percentRemaining >= 0) {
 				const isUBB = this.chatEntitlementService.quotas.usageBasedBilling;
 				const premiumChatLabel = isUBB
 					? localize('creditsLabel', "Credits")
@@ -385,10 +385,7 @@ export class ChatStatusDashboard extends DomWidget {
 		}
 
 		// Anonymous Indicator
-		// --- Start Positron ---
-		// Hide the anonymous "Chat messages" quota row in completions-only mode (chat is hidden).
-		else if (!this.options?.disableChatSections && this.chatEntitlementService.anonymous && this.chatEntitlementService.sentiment.completed) {
-			// --- End Positron ---
+		else if (this.chatEntitlementService.anonymous && this.chatEntitlementService.sentiment.completed) {
 			this.createQuotaIndicator(container, localize('quotaLimited', "Limited"), localize('chatsLabel', "Chat messages"));
 		}
 	}
@@ -403,9 +400,11 @@ export class ChatStatusDashboard extends DomWidget {
 			if (!this.canUseChat()) {
 				return localize('inlineSuggestionsDisabled', "Disabled");
 			}
-			const enabled = activeLanguageId
+			// --- Start Positron ---
+			const enabled = this.aiProviderService.isEnabled('copilot') && (activeLanguageId
 				? isCompletionsEnabled(this.configurationService, activeLanguageId)
-				: isCompletionsEnabled(this.configurationService);
+				: isCompletionsEnabled(this.configurationService));
+			// --- End Positron ---
 			return enabled
 				? localize('inlineSuggestionsEnabled', "Enabled")
 				: localize('inlineSuggestionsDisabled', "Disabled");
@@ -456,6 +455,15 @@ export class ChatStatusDashboard extends DomWidget {
 					statusEl!.textContent = getStatusText();
 				}
 			}));
+			// --- Start Positron ---
+			// The Copilot provider's catalog-backed enablement also changes the
+			// status text, so re-run when the catalog reports it changed.
+			this._store.add(this.aiProviderService.onDidChangeProviders(e => {
+				if (e.enabledChanged) {
+					statusEl!.textContent = getStatusText();
+				}
+			}));
+			// --- End Positron ---
 		}
 
 		this.renderInlineSuggestionsContent(collapsibleInner);
@@ -965,6 +973,16 @@ export class ChatStatusDashboard extends DomWidget {
 			}
 		}));
 
+		// --- Start Positron ---
+		// The Copilot provider's catalog-backed enablement can also affect this
+		// accessor's reading (e.g. completions), so re-evaluate on catalog changes.
+		this._store.add(this.aiProviderService.onDidChangeProviders(e => {
+			if (e.enabledChanged) {
+				checkbox.checked = Boolean(accessor.readSetting());
+			}
+		}));
+		// --- End Positron ---
+
 		if (!this.canUseChat()) {
 			container.classList.add('disabled');
 			checkbox.disable();
@@ -1078,7 +1096,9 @@ export class ChatStatusDashboard extends DomWidget {
 		const settingId = defaultChat.completionsEnablementSetting;
 
 		return {
-			readSetting: () => isCompletionsEnabled(this.configurationService, modeId),
+			// --- Start Positron ---
+			readSetting: () => this.aiProviderService.isEnabled('copilot') && isCompletionsEnabled(this.configurationService, modeId),
+			// --- End Positron ---
 			writeSetting: (value: boolean) => {
 				this.telemetryService.publicLog2<ChatSettingChangedEvent, ChatSettingChangedClassification>('chatStatus.settingChanged', {
 					settingIdentifier: settingId,
@@ -1120,23 +1140,44 @@ export class ChatStatusDashboard extends DomWidget {
 			checkbox.disable();
 		}
 
+		// --- Start Positron ---
+		// Extracted so the catalog-change handler below can reuse it.
+		const updateNesEnablement = () => {
+			if (completionsSettingAccessor.readSetting() && this.canUseChat()) {
+				checkbox.enable();
+				container.classList.remove('disabled');
+			} else {
+				checkbox.disable();
+				container.classList.add('disabled');
+			}
+		};
+		// --- End Positron ---
+
 		this._store.add(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(completionsSettingId)) {
-				if (completionsSettingAccessor.readSetting() && this.canUseChat()) {
-					checkbox.enable();
-					container.classList.remove('disabled');
-				} else {
-					checkbox.disable();
-					container.classList.add('disabled');
-				}
+				// --- Start Positron ---
+				updateNesEnablement();
+				// --- End Positron ---
 			}
 		}));
+
+		// --- Start Positron ---
+		// NES enablement also depends on the catalog-backed copilot enablement
+		// folded into completionsSettingAccessor.readSetting().
+		this._store.add(this.aiProviderService.onDidChangeProviders(e => {
+			if (e.enabledChanged) {
+				updateNesEnablement();
+			}
+		}));
+		// --- End Positron ---
 	}
 
 	private createCompletionsSnooze(container: HTMLElement, label: string): void {
 		const isEnabled = () => {
-			const completionsEnabled = isCompletionsEnabled(this.configurationService);
-			const completionsEnabledActiveLanguage = isCompletionsEnabled(this.configurationService, this.editorService.activeTextEditorLanguageId);
+			// --- Start Positron ---
+			const completionsEnabled = this.aiProviderService.isEnabled('copilot') && isCompletionsEnabled(this.configurationService);
+			const completionsEnabledActiveLanguage = this.aiProviderService.isEnabled('copilot') && isCompletionsEnabled(this.configurationService, this.editorService.activeTextEditorLanguageId);
+			// --- End Positron ---
 			return completionsEnabled || completionsEnabledActiveLanguage;
 		};
 
@@ -1212,5 +1253,16 @@ export class ChatStatusDashboard extends DomWidget {
 		this._store.add(this.inlineCompletionsService.onDidChangeIsSnoozing(() => {
 			updateIntervalTimer();
 		}));
+
+		// --- Start Positron ---
+		// The Copilot provider's catalog-backed enablement also feeds isEnabled()
+		// above, so re-run the same updates when the catalog reports it changed.
+		this._store.add(this.aiProviderService.onDidChangeProviders(e => {
+			if (e.enabledChanged) {
+				button.enabled = isEnabled();
+				updateIntervalTimer();
+			}
+		}));
+		// --- End Positron ---
 	}
 }

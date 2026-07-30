@@ -8,6 +8,12 @@
 		}
 	],
 	"settings": {
-		"search.followSymlinks": false
-    }
+		"search.followSymlinks": false,
+		// The Vitest extension registers one file watcher per workspace folder from
+		// this pattern, which defaults to "**/*". That covers out/ and .build/, which
+		// churn constantly under the build daemons, and extension-created watchers do
+		// not inherit files.watcherExclude -- the event volume then saturates the
+		// extension host. Narrow it to the sources the root vitest.config.ts collects.
+		"vitest.filesWatcherInclude": "src/vs/**/*.{ts,tsx}"
+	}
 }

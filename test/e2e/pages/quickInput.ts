@@ -162,13 +162,24 @@ export class QuickInput {
 		keepOpen?: boolean,
 	): Promise<void> {
 		await this.waitForQuickInputOpened();
-		await this.code.driver.currentPage
+
+		const row = this.code.driver.currentPage
 			.locator(QuickInput.QUICK_INPUT_RESULT)
-			.nth(index)
-			.click();
+			.nth(index);
+		const input = this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT);
+		await row.click();
 
 		if (!keepOpen) {
-			await this.waitForQuickInputClosed();
+			// The accept-click occasionally fails to register under parallel-load
+			// focus contention (something steals focus from the picker), leaving it
+			// open. Re-click the row until the picker closes rather than waiting out
+			// a single click; re-accepting the same row is idempotent.
+			await expect(async () => {
+				if (await input.isVisible()) {
+					await row.click();
+				}
+				await expect(input).not.toBeVisible({ timeout: 2000 });
+			}).toPass({ timeout: 15000 });
 		}
 	}
 

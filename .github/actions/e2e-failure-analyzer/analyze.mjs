@@ -126,9 +126,24 @@ function renderProjectFailures(projects, historyMap) {
 		const hardKeys = new Set(finalFailures.map(f => `${f.title}|||${normalizeSpecPath(f.file)}`));
 
 		const details = result.testDetails || [];
+		// Flaky tests (passed on retry) get a compact one-line mention -- name +
+		// history -- and are collected here; hard failures get the full evidence
+		// block inline. A flaky test did NOT break this run (it went green on
+		// retry), so the run-centric analyzer does not deep-analyze it: that is
+		// the test-centric triage-e2e-test skill's job. This keeps flakies visible
+		// for handoff while restricting the dominant token cost (per-attempt image
+		// and trace evidence, which the model reads) to hard failures only.
+		const flakyLines = [];
 		for (const t of details) {
 			const key = `${t.title}|||${normalizeSpecPath(t.file)}`;
 			const severity = hardKeys.has(key) ? 'HARD' : 'FLAKY';
+
+			if (severity !== 'HARD') {
+				const hist = findHistoryFor(historyMap, t.title, t.file);
+				flakyLines.push(`- ${t.title} (${t.file})${hist ? ` -- ${historyOneLiner(hist)}` : ''}`);
+				continue;
+			}
+
 			out.push('');
 			out.push(`- Test: ${t.title}`);
 			out.push(`  File: ${t.file}`);
@@ -179,8 +194,23 @@ function renderProjectFailures(projects, historyMap) {
 				out.push(indent(capTimeline(String(t.logExcerpt)), '    '));
 			}
 		}
+
+		if (flakyLines.length) {
+			out.push('');
+			out.push(`#### Flaky (passed on retry) -- listed for awareness, NOT deep-analyzed`);
+			out.push(`These recovered on retry and did not break the run. Do not fetch their evidence or write a detailed analysis for them; if one looks like a real intermittent product bug, note it in one line and recommend the triage-e2e-test skill.`);
+			out.push(...flakyLines);
+		}
 	}
 	return out.join('\n');
+}
+
+/** One-line history summary for a flaky test's compact mention. */
+function historyOneLiner(entry) {
+	const h = entry.history || {};
+	const passRate = h.pass_rate != null ? `${(h.pass_rate * 100).toFixed(0)}% pass` : 'pass rate n/a';
+	const insight = entry.insight?.type ? `, ${entry.insight.type}` : '';
+	return `history: ${passRate} over ${h.total_runs ?? '?'} runs${insight}`;
 }
 
 /**
@@ -340,9 +370,11 @@ Apply the analysis rubric below to every failure. It is the shared source of tru
 // Runner-specific instructions appended after the shared rubric: pre-computed
 // severity (the Action computes it; the model must not second-guess it) and the
 // exact step-summary output contract.
-const SYSTEM_PROMPT_TAIL = `This run also provides pre-computed severity and requires a specific output format.
+const SYSTEM_PROMPT_TAIL = `This run deep-analyzes HARD failures (failed all retries) only, and requires a specific output format.
 
-- The Severity for each test is pre-computed and labeled in the input ("Severity: HARD" or "Severity: FLAKY"). Use that label VERBATIM in your output. Do NOT recompute severity from retry counts, root cause, or history -- the input label is authoritative. A test can have root cause "flaky test" and severity "HARD" simultaneously: that means the test failed all retries on this run AND its history shows it's prone to flaking.
+- Each hard failure in the input is labeled "Severity: HARD" and carries full evidence (screenshots, trace, error-context). Analyze these fully.
+- Flaky tests (passed on retry) are NOT deep-analyzed. They appear only in the input's compact "Flaky (passed on retry)" list -- name + history, no evidence. Do NOT fetch evidence or write a detailed analysis for them: they went green on retry so they did not break this run, and per-test flaky investigation is the triage-e2e-test skill's job. If one's history clearly reads as a real intermittent product bug, you may flag it in a single line pointing to that skill; otherwise just list it.
+- Product source is checked out under \`$REPO_ROOT/{src,extensions}\` (see the REPO_ROOT line). Use it to settle a code-vs-test attribution for a hard failure -- but ONLY to confirm a hypothesis the trace / page snapshot / console digest / logs already point to. Prefer Grep, read narrowly, and do not go spelunking; if the evidence doesn't already implicate a specific area, don't go hunting through the tree.
 
 Output the FINAL REPORT as your last message. The report MUST be valid GitHub-flavored markdown starting with the heading \`## Summary\`. Do not include images, raw JSON, or commentary outside the report. Do not include any text before \`## Summary\` in the final message.
 
@@ -352,18 +384,22 @@ Report structure:
 
 | Test | Platform | Root cause | Severity |
 |------|----------|------------|----------|
-| <test name> | <project / OS> | <category> | hard \\| flaky |
+| <test name> | <project / OS> | <category> | hard |
 
-Order the rows: **all hard-severity failures first, then all flaky-severity failures**. The severity is the label from the input ("Severity: HARD" or "Severity: FLAKY"), not the root cause category. Within each severity group, keep failures from the same test file adjacent. Non-e2e job failures (unit tests, build failures, etc.) are hard severity by definition -- include them as rows in the hard-severity section with the job name as the test name.
+List every HARD failure as a row (severity is always "hard" in this table). Keep failures from the same test file adjacent. Non-e2e job failures (unit tests, build failures, etc.) are hard by definition -- include them as rows with the job name as the test name. Do NOT put flaky tests in this table.
 
 ## Detailed Analysis
 
-For each distinct failure (or group), provide:
+For each distinct HARD failure (or group), provide:
 - **<test name>** (<platform>) -- <root cause category>
   - Evidence: <1-2 sentences citing what the screenshot/trace/page snapshot shows>
   - Commit: <relevant changed files, or "no related changes">
   - History: <history line, or "no data available">
   - Action: <what the developer should do>
+
+## Flaky (passed on retry)
+
+One sentence noting these recovered on retry and were not deep-analyzed. Then list each flaky test as a compact bullet (name + the one-line history from the input). Recommend the triage-e2e-test skill for any worth per-test investigation. Omit this whole section if the input had no flaky tests.
 
 Constraints:
 - Keep the report focused. For runs with many failures, group related ones.
@@ -416,8 +452,8 @@ async function main() {
 
 	const historyMap = buildHistoryByKey(history);
 	const repoRootLine = REPO_ROOT
-		? `REPO_ROOT: ${REPO_ROOT} (test source available at $REPO_ROOT/test/e2e/{tests,pages,fixtures,infra})`
-		: 'REPO_ROOT: not set (test source not available; analyze from screenshots/traces only)';
+		? `REPO_ROOT: ${REPO_ROOT} (test source at $REPO_ROOT/test/e2e/{tests,pages,fixtures,infra}; PRODUCT source at $REPO_ROOT/{src,extensions}. Read product source only to CONFIRM a code-vs-test hypothesis the evidence already points to -- prefer Grep, read narrowly, don't spelunk.)`
+		: 'REPO_ROOT: not set (source not available; analyze from screenshots/traces only)';
 	const sections = [
 		'## Run metadata',
 		renderRunHeader(runInfo),

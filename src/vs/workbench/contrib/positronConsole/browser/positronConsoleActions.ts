@@ -243,6 +243,10 @@ export function registerPositronConsoleActions() {
 						primary: KeyMod.WinCtrl | KeyCode.KeyL
 					}
 				},
+				metadata: {
+					description: localize('workbench.action.positronConsole.clearConsole.description', "Clear all output from the active Console pane."),
+					agentCompatible: true,
+				},
 			});
 		}
 

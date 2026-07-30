@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
-import { PinInfo } from './connectClient.js';
+import { BundleInfo, PinInfo } from './connectClient.js';
+import { isPreviewablePinType } from './pinTypes.js';
 
 /**
  * The maximum number of `data.txt` requests made in parallel when resolving the type badges for an
@@ -24,6 +25,27 @@ export interface IPinsBrowseHost {
 	 * than failing the whole owner expansion.
 	 */
 	getPinType(pin: PinInfo): Promise<string | undefined>;
+
+	/**
+	 * Resolves a specific version's storage type, or undefined when it can't be determined. Used to
+	 * gate each version's preview on its own format, since a pin's type can differ across versions.
+	 */
+	getVersionType(pin: PinInfo, bundleId: string): Promise<string | undefined>;
+
+	/** Lists a pin's versions (bundles), newest first, when the pin node is expanded. */
+	getBundles(pin: PinInfo): Promise<BundleInfo[]>;
+
+	/**
+	 * Opens a pin version's tabular data in the Data Explorer: downloads the version's data file
+	 * (cached), loads it into DuckDB, and opens the explorer over it. Only invoked for previewable pin
+	 * types (see {@link isPreviewablePinType}).
+	 *
+	 * @param pin The pin.
+	 * @param bundleId The bundle (version) id whose data to preview.
+	 * @param isActiveVersion Whether `bundleId` is the pin's active version; the active version reads
+	 * as the latest, so its generated code omits the explicit `version` argument.
+	 */
+	previewPin(pin: PinInfo, bundleId: string, isActiveVersion: boolean): Promise<void>;
 }
 
 /**
@@ -61,23 +83,73 @@ export function createOwnerNode(host: IPinsBrowseHost, ownerUsername: string, pi
 		async getChildren() {
 			const sorted = [...pins].sort((a, b) => a.name.localeCompare(b.name));
 			const types = await mapWithConcurrency(sorted, MAX_METADATA_CONCURRENCY, pin => host.getPinType(pin));
-			return sorted.map((pin, index) => createPinNode(pin, types[index]));
+			return sorted.map((pin, index) => createPinNode(host, pin, types[index]));
 		},
 	};
 }
 
 /**
- * Creates a pin node. In PR 1 pins are leaves: no children and no preview (previewing tabular pins
- * in the Data Explorer comes in a later PR). The type badge shows the pin's storage format when
- * known.
+ * Creates a pin node. Expanding it lists the pin's versions (bundles), newest first. A previewable
+ * pin (a tabular type; see {@link isPreviewablePinType}) can be opened in the Data Explorer, which
+ * previews its active version. The type badge shows the pin's storage format when known.
  *
+ * @param host The browse host used to list versions and open the preview.
  * @param pin The pin.
  * @param type The pin's storage type for the badge, or undefined when unknown.
  */
-export function createPinNode(pin: PinInfo, type: string | undefined): positron.DataConnectionNode {
+export function createPinNode(host: IPinsBrowseHost, pin: PinInfo, type: string | undefined): positron.DataConnectionNode {
 	return {
 		name: pin.name,
 		kind: positron.DataConnectionNodeKind.Pin,
 		dataType: type,
+		async getChildren() {
+			const bundles = await host.getBundles(pin);
+			// A pin's storage type can differ across versions, so resolve each version's own type
+			// (bounded concurrency, like the per-owner badge fetch) to gate its preview correctly.
+			const versionTypes = await mapWithConcurrency(bundles, MAX_METADATA_CONCURRENCY, bundle => host.getVersionType(pin, bundle.id));
+			return bundles.map((bundle, index) => createVersionNode(host, pin, versionTypes[index], bundle));
+		},
+		// A previewable pin opens its active version in the Data Explorer.
+		preview: isPreviewablePinType(type)
+			? () => host.previewPin(pin, pin.activeBundleId, true)
+			: undefined,
 	};
+}
+
+/**
+ * Creates a version node: one bundle of a pin. A version stored in a previewable (tabular) format
+ * can be opened in the Data Explorer (that specific version's data); others are leaves. Preview is
+ * gated on this version's own storage type, since a pin's type can differ across versions. The
+ * active (currently served) version is flagged with an "active" badge; the name pairs the creation
+ * time with the bundle id, e.g. "2024-01-15 09:30 (#421)".
+ *
+ * @param host The browse host used to open the preview.
+ * @param pin The pin this version belongs to.
+ * @param versionType This version's own storage type, used to decide whether it is previewable.
+ * @param bundle The bundle (version).
+ */
+export function createVersionNode(host: IPinsBrowseHost, pin: PinInfo, versionType: string | undefined, bundle: BundleInfo): positron.DataConnectionNode {
+	const timestamp = formatBundleTimestamp(bundle.createdTime);
+	return {
+		name: timestamp ? `${timestamp} (#${bundle.id})` : `#${bundle.id}`,
+		kind: positron.DataConnectionNodeKind.Version,
+		dataType: bundle.active ? 'active' : undefined,
+		preview: isPreviewablePinType(versionType)
+			? () => host.previewPin(pin, bundle.id, bundle.active)
+			: undefined,
+	};
+}
+
+/**
+ * Formats a bundle's ISO 8601 creation timestamp as "YYYY-MM-DD HH:MM" in UTC, for stable,
+ * timezone-unambiguous version labels. Returns an empty string when the timestamp is missing or
+ * unparseable, so the caller can fall back to a bare bundle id.
+ */
+function formatBundleTimestamp(iso: string): string {
+	const date = new Date(iso);
+	if (iso === '' || isNaN(date.getTime())) {
+		return '';
+	}
+	const pad = (n: number) => String(n).padStart(2, '0');
+	return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }

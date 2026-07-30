@@ -106,6 +106,21 @@ jobs:
           POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
           POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
           POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
+          REDSHIFT_TEST_HOST: "op://Positron/Redshift_Test_Environment/hostname"
+          REDSHIFT_TEST_USERNAME: "op://Positron/Redshift_Test_Environment/username"
+          REDSHIFT_TEST_PASSWORD: "op://Positron/Redshift_Test_Environment/password"
+          TS_OAUTH_CLIENT_ID: "op://Positron/Tailscale_OAuth/client_id"
+          TS_OAUTH_SECRET: "op://Positron/Tailscale_OAuth/client_secret"
+
+      # Bring up Tailscale so tests can reach private test infrastructure (e.g. the serverless
+      # Redshift workgroup used by the data-connections e2e tests). OAuth creds are loaded from
+      # 1Password in the previous step.
+      - name: Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ env.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ env.TS_OAUTH_SECRET }}
+          tags: tag:positron-gha
 
       - name: Configure display resolution
         run: |
@@ -163,12 +178,21 @@ jobs:
           fi
 
       - name: Install Rig and R
+        id: r-versions
         run: |
           if brew list --cask | grep -q "^r$"; then
             brew uninstall r
           fi
-          R_VERSION="4.5.2"
-          R_ALTERNATE_VERSION="4.3.0"
+          # Resolve the default (release) and alternate (oldrel-2) R versions
+          # dynamically from the r-hub rversions API -- the same service
+          # r-lib/actions/setup-r uses -- so they track the current R release
+          # instead of being pinned. Emitted as step outputs for the
+          # POSITRON_R_VER_SEL / POSITRON_R_ALT_VER_SEL selectors below.
+          R_VERSION=$(curl -fsSL --retry 3 --retry-delay 2 https://api.r-hub.io/rversions/r-release | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
+          R_ALTERNATE_VERSION=$(curl -fsSL --retry 3 --retry-delay 2 https://api.r-hub.io/rversions/r-oldrel/2 | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
+          echo "Resolved R release=$R_VERSION, oldrel-2=$R_ALTERNATE_VERSION"
+          echo "r_version=$R_VERSION" >> "$GITHUB_OUTPUT"
+          echo "r_alt_version=$R_ALTERNATE_VERSION" >> "$GITHUB_OUTPUT"
           # Install rig from its official release .pkg rather than Homebrew.
           # The r-lib/rig brew tap has been unreliable (third-party tap trust
           # prompts and cask checksum mismatches); the .pkg is the method
@@ -195,7 +219,7 @@ jobs:
           echo "Installing R version $R_ALTERNATE_VERSION using Rig..."
           rig add "$R_ALTERNATE_VERSION"
 
-      - name: Install R packages for 4.5.2
+      - name: Install R packages (default R version)
         env:
           # Pin to a frozen PPM snapshot instead of `latest`. `latest` is a rolling
           # target: pak resolves a version from the metadata, but by the time it
@@ -278,9 +302,9 @@ jobs:
       - name: Run Tests (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.10.10
-          POSITRON_R_VER_SEL: 4.5.2
+          POSITRON_R_VER_SEL: ${{ steps.r-versions.outputs.r_version }}
           POSITRON_PY_ALT_VER_SEL: 3.11.0
-          POSITRON_R_ALT_VER_SEL: 4.3.0
+          POSITRON_R_ALT_VER_SEL: ${{ steps.r-versions.outputs.r_alt_version }}
           REPORTER_REPO_NAME: positron
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}

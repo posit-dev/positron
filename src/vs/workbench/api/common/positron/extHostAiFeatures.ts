@@ -28,8 +28,10 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	private readonly _providerActionCallbacks = new Map<string, (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Thenable<void>>();
 	private readonly _dialogSessions = new Map<string, { resolve: () => void }>();
 	private readonly _onDidChangeProviderConfigEmitter = this._disposables.add(new Emitter<IPositronLanguageModelSource>());
+	private readonly _onDidChangeProviderEnablementEmitter = this._disposables.add(new Emitter<{ id: string; enabled: boolean }>());
 
 	readonly onDidChangeProviderConfig = this._onDidChangeProviderConfigEmitter.event;
+	readonly onDidChangeProviderEnablement = this._onDidChangeProviderEnablementEmitter.event;
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
@@ -88,6 +90,10 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 	$onDidChangeProviderConfig(source: IPositronLanguageModelSource): void {
 		this._onDidChangeProviderConfigEmitter.fire(source);
+	}
+
+	$onDidChangeProviderEnablement(id: string, enabled: boolean): void {
+		this._onDidChangeProviderEnablementEmitter.fire({ id, enabled });
 	}
 
 	async showLanguageModelConfig(options?: positron.ai.ShowLanguageModelConfigOptions): Promise<void> {
@@ -186,6 +192,21 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 	async getEnabledProviders(): Promise<string[]> {
 		return this._proxy.$getEnabledProviders();
+	}
+
+	async isProviderEnabled(id: string): Promise<boolean> {
+		return this._proxy.$isProviderEnabled(id);
+	}
+
+	async getAgentAllowedCommands(): Promise<extHostProtocol.ISerializedAgentCommand[]> {
+		return this._proxy.$getAgentAllowedCommands();
+	}
+
+	async validateAndExecuteCommand(
+		commandId: string,
+		args: unknown[] | undefined,
+	): Promise<extHostProtocol.ISerializedValidateAndExecuteCommandResult> {
+		return this._proxy.$validateAndExecuteCommand(commandId, args);
 	}
 
 }

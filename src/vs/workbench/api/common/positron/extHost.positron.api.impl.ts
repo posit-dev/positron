@@ -511,6 +511,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					disposables
 				);
 			},
+			onDidChangeProviderEnablement: (listener, thisArgs?, disposables?) => {
+				return extHostAiFeatures.onDidChangeProviderEnablement(listener, thisArgs, disposables);
+			},
 			areCompletionsEnabled(file: vscode.Uri): Promise<boolean> {
 				return extHostAiFeatures.areCompletionsEnabled(file);
 			},
@@ -528,6 +531,18 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			getEnabledProviders(): Thenable<string[]> {
 				return extHostAiFeatures.getEnabledProviders();
+			},
+			isProviderEnabled(id: string): Thenable<boolean> {
+				return extHostAiFeatures.isProviderEnabled(id);
+			},
+			getAgentAllowedCommands(): Thenable<positron.ai.AgentCommand[]> {
+				return extHostAiFeatures.getAgentAllowedCommands();
+			},
+			validateAndExecuteCommand(
+				commandId: string,
+				args?: unknown[],
+			): Thenable<positron.ai.ValidateAndExecuteCommandResult> {
+				return extHostAiFeatures.validateAndExecuteCommand(commandId, args);
 			},
 			LanguageModelAutoconfigureType: extHostTypes.LanguageModelAutoconfigureType
 		};

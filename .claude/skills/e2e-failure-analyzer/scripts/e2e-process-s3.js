@@ -9,7 +9,7 @@
 //
 // Usage:
 //   node e2e-process-s3.js --report-url <S3_URL> --output-dir <DIR> \
-//     [--last N] [--screenshots N] [--cleanup]
+//     [--last N] [--screenshots N] [--cleanup] [--title <string>] [--test-id <string>]
 //
 // <S3_URL> is a Playwright HTML report base URL, e.g.:
 //   https://d38p2avprg8il3.cloudfront.net/playwright-report-<run>-<attempt>-<id>-<os>/
@@ -20,6 +20,12 @@
 //   --last <N>           Number of trace actions to show (default: 500)
 //   --screenshots <N>    Number of trailing screencast frames to extract per attempt (default: 3)
 //   --cleanup            Remove the intermediate tmp dir after processing (default: keep)
+//   --title <string>     Only process the failed test with this exact title -- skips
+//                         downloading/parsing traces and logs for every other failed test
+//                         in the report. A CI report often bundles several unrelated
+//                         failures; use this when you already know which one you want.
+//   --test-id <string>   Same idea, matched against the Playwright testId instead of the
+//                         title (e.g. the value after "testId=" in a report_url fragment).
 
 import { readFileSync, existsSync, mkdirSync, writeFileSync, rmSync, readdirSync } from 'fs';
 import { join, resolve } from 'path';
@@ -36,6 +42,8 @@ let outputDir = null;
 let lastN = 500;
 let screenshotsN = 3;
 let doCleanup = false;
+let titleFilter = null;
+let testIdFilter = null;
 
 function parseNonNegInt(name, raw) {
 	const n = Number(raw);
@@ -53,6 +61,8 @@ for (let i = 0; i < cliArgs.length; i++) {
 		case '--last': lastN = parseNonNegInt('--last', cliArgs[++i]); break;
 		case '--screenshots': screenshotsN = parseNonNegInt('--screenshots', cliArgs[++i]); break;
 		case '--cleanup': doCleanup = true; break;
+		case '--title': titleFilter = cliArgs[++i]; break;
+		case '--test-id': testIdFilter = cliArgs[++i]; break;
 		default:
 			console.error(`Unknown argument: ${cliArgs[i]}`);
 			process.exit(1);
@@ -60,8 +70,18 @@ for (let i = 0; i < cliArgs.length; i++) {
 }
 
 if (!reportUrl || !outputDir) {
-	console.error('Usage: node e2e-process-s3.js --report-url <S3_URL> --output-dir <DIR> [--last N] [--screenshots N] [--cleanup]');
+	console.error('Usage: node e2e-process-s3.js --report-url <S3_URL> --output-dir <DIR> [--last N] [--screenshots N] [--cleanup] [--title <string>] [--test-id <string>]');
 	process.exit(1);
+}
+
+/** True when the test matches every filter that was actually supplied on the CLI. */
+function matchesFilter(test) {
+	if (titleFilter !== null) {
+		const fullTitle = [...(test.path || []), test.title].filter(Boolean).join(' > ');
+		if (fullTitle !== titleFilter) { return false; }
+	}
+	if (testIdFilter !== null && test.testId !== testIdFilter) { return false; }
+	return true;
 }
 
 // Normalize report URL to end with a single slash for clean joins.
@@ -129,6 +149,130 @@ function unzipAll(zipPath, destDir) {
 }
 
 /**
+ * Collect the selectors involved in FAILED actions/assertions: the selector on
+ * the nearest preceding `before`, plus any `locator('...')` mined from the error
+ * message.
+ */
+function collectFailingSelectors(evts) {
+	const selectors = new Set();
+	for (let i = 0; i < evts.length; i++) {
+		const e = evts[i];
+		if (e.type !== 'after' || !e.error) { continue; }
+		for (let j = i - 1; j >= 0; j--) {
+			if (evts[j].type === 'before') {
+				if (evts[j].params?.selector) { selectors.add(evts[j].params.selector); }
+				break;
+			}
+		}
+		for (const m of String(e.error.message || '').matchAll(/locator\(['"`]([^'"`]+)['"`]\)/g)) {
+			selectors.add(m[1]);
+		}
+	}
+	return [...selectors];
+}
+
+/** Pull stable class/id tokens out of selector strings. */
+function selectorTokens(selectors) {
+	const tokens = new Set();
+	for (const sel of selectors) {
+		for (const m of String(sel).matchAll(/\.([A-Za-z_][\w-]{2,})/g)) { tokens.add(m[1]); }
+		for (const m of String(sel).matchAll(/\[id=["']([^"']+)["']\]/g)) { tokens.add(m[1]); }
+	}
+	return [...tokens];
+}
+
+/**
+ * Report whether each failing-selector token ever entered the DOM across the
+ * trace's frame snapshots. "NEVER present" => the element never rendered (a
+ * product open-path bug), not a render-then-dismiss.
+ */
+function buildDomPresence(evts, tokens) {
+	if (!tokens.length) { return null; }
+	const snaps = evts
+		.filter(e => e.type === 'frame-snapshot' && e.snapshot?.timestamp != null)
+		.map(s => ({ ts: s.snapshot.timestamp, json: JSON.stringify(s) }));
+	if (!snaps.length) { return null; }
+	const span = `t=${Math.round(snaps[0].ts)}..${Math.round(snaps[snaps.length - 1].ts)}`;
+	const out = [`\n=== DOM presence across ${snaps.length} frame snapshots (${span}) ===`];
+	out.push("Whether the failing selector's class/id token ever matched a DOM snapshot. 'present in N/M' => the element WAS in the DOM (rules out never-rendered; a visibility/timeout error is then a timing or dismiss race). 'NEVER present' is AMBIGUOUS on its own: the exact class never matched, which fits BOTH a never-rendered element (product open-path bug -- strongest when the console digest shows its command fired) AND locator drift (the element rendered under different markup). Disambiguate with the error-context snapshot's stable text/label, not this line alone.");
+	for (const tok of tokens) {
+		const hits = snaps.filter(s => s.json.includes(tok));
+		if (!hits.length) {
+			out.push(`- '${tok}': NEVER present in any snapshot`);
+		} else {
+			out.push(`- '${tok}': present in ${hits.length}/${snaps.length} snapshots (t=${Math.round(hits[0].ts)}..${Math.round(hits[hits.length - 1].ts)})`);
+		}
+	}
+	return out.join('\n');
+}
+
+/** Strip the `%c`/`color:#…` console-formatting noise VS Code prepends. */
+function cleanConsole(text) {
+	return String(text)
+		.replace(/%c/g, '')
+		.replace(/(?:background|color):\s*#?[0-9a-fA-F]{3,6}/g, '')
+		.replace(/\s;\s/g, ' ')
+		.replace(/\s{2,}/g, ' ')
+		.replace(/^[\s;:-]+/, '')
+		.trim();
+}
+
+// Console lines that match the allowlist / error levels but carry no diagnostic
+// value: internal context-key churn, the dev-only disposable-leak tracker, and
+// benign environment probes on CI runners.
+const CONSOLE_NOISE_RE = /(_setContext|LEAKED DISPOSABLE|No pandoc executable|MetadataLookupWarning|received unexpected error = network timeout)/i;
+
+/**
+ * Digest of high-signal renderer-console lines around the failure window:
+ * command executions, runtime-startup phase transitions, and errors/warnings.
+ * Distinguishes "click was swallowed" from "command ran but nothing rendered."
+ */
+function buildConsoleDigest(evts) {
+	const ALLOW = /(CommandService#executeCommand|Runtime startup][^\n]*Phase changed|Discovery completed|Uncaught|Unhandled)/i;
+	const MAX_LINES = 28;
+	// Look back far enough to catch a command that fired and then left the test
+	// waiting on UI that never came: the classic "click did nothing" timeout has
+	// the triggering command ~15-30s before the failing assertion, so a tight
+	// window would drop the very command-fired signal this digest exists to
+	// surface. 30s covers Playwright's max default timeout; the tight allowlist,
+	// dedup, and priority cap below keep the wider window from getting noisy.
+	const LOOKBACK_MS = 30000;
+	const consoles = evts.filter(e => e.type === 'console' && typeof e.text === 'string');
+	if (!consoles.length) { return null; }
+	const errTimes = evts.filter(e => e.type === 'after' && e.error).map(e => e.endTime ?? e.startTime).filter(t => t != null);
+	const focusStart = errTimes.length ? Math.min(...errTimes) - LOOKBACK_MS : -Infinity;
+	const focusEnd = errTimes.length ? Math.max(...errTimes) + 1000 : Infinity;
+	const picked = consoles.filter(e =>
+		(e.time == null || (e.time >= focusStart && e.time <= focusEnd)) &&
+		(e.messageType === 'error' || e.messageType === 'warning' || ALLOW.test(e.text)) &&
+		!CONSOLE_NOISE_RE.test(e.text));
+	if (!picked.length) { return null; }
+
+	const entries = [];
+	for (const e of picked) {
+		const text = cleanConsole(e.text).slice(0, 200);
+		const last = entries[entries.length - 1];
+		if (last && last.text === text) { last.count++; continue; }
+		// Command/phase/error lines are the load-bearing signal; warnings are
+		// context. Track priority so the cap can never drop a command-fired or
+		// phase line in favor of a warning.
+		const high = ALLOW.test(e.text) || e.messageType === 'error';
+		entries.push({ time: e.time, level: e.messageType || 'log', text, count: 1, high });
+	}
+
+	// Over the cap, keep high-signal lines first (stable sort preserves time
+	// order within each tier), then restore chronological order for display.
+	const shown = entries.length <= MAX_LINES
+		? entries
+		: [...entries].sort((a, b) => Number(b.high) - Number(a.high)).slice(0, MAX_LINES).sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
+	const out = [`\n=== Console digest near failure (${shown.length}${entries.length > shown.length ? ` of ${entries.length}` : ''} high-signal lines) ===`];
+	for (const e of shown) {
+		out.push(`t=${Math.round(e.time ?? 0)} [${e.level}] ${e.text}${e.count > 1 ? ` (x${e.count})` : ''}`);
+	}
+	return out.join('\n');
+}
+
+/**
  * Parse a Playwright trace.trace file into a timeline plus the trailing
  * screencast frames. Identical to the parser in e2e-process-project.js; kept
  * inline here to avoid cross-script imports.
@@ -189,6 +333,14 @@ function parseTrace(tracePath) {
 			timelineLines.push(`- ${err}`);
 		}
 	}
+
+	// DOM-presence of the failing selector(s) + a console digest near the
+	// failure -- separates "the control never rendered" / "the command fired but
+	// nothing happened" from a pure environment flake.
+	const domPresence = buildDomPresence(events, selectorTokens(collectFailingSelectors(events)));
+	if (domPresence) { timelineLines.push(domPresence); }
+	const consoleDigest = buildConsoleDigest(events);
+	if (consoleDigest) { timelineLines.push(consoleDigest); }
 
 	return {
 		timeline: timelineLines.join('\n'),
@@ -334,6 +486,7 @@ for (const fileSummary of report.files || []) {
 
 	for (const test of detail.tests || []) {
 		if (test.outcome !== 'unexpected' && test.outcome !== 'flaky') continue;
+		if (!matchesFilter(test)) continue;
 
 		const failedResults = (test.results || []).filter(r => FAIL.has(r.status));
 
@@ -370,6 +523,9 @@ for (const fileSummary of report.files || []) {
 }
 
 process.stderr.write(`Found ${failures.length} hard failures, ${failedTests.length} failed attempts across ${testDetailsList.length} unique failed tests.\n`);
+if ((titleFilter !== null || testIdFilter !== null) && testDetailsList.length === 0) {
+	process.stderr.write(`WARN: --title/--test-id filter matched 0 failed tests in this report -- check the exact title/testId.\n`);
+}
 
 // ---------------------------------------------------------------------------
 // Step 3: per-attempt processing -- download traces + error-context, parse,

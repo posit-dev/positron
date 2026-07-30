@@ -21,6 +21,8 @@ $ARGUMENTS should contain the test file path(s) to review. For each test file, a
 
 Evaluate each test file against this checklist. Report ONLY items that fail -- don't list passing items. Also flag any cross-file inconsistencies (e.g., same service stubbed differently, different assertion styles for the same pattern).
 
+**Weight findings by impact.** Correctness bugs (0, 2, 9), missing behavioral coverage (5), flaky/nondeterministic tests (7, 9), and incorrect abstractions (2's private-method-seam and wide-cast checks) matter most -- lead with those in the report. Findings that are purely stylistic (1's naming/import tidiness, 6's consistency) are worth reporting only when there's a concrete maintainability or correctness benefit; don't create churn over preference alone.
+
 ### 0. Test value and falsifiability
 
 For each test, ask: **what specific production code change would make it fail, and does that change represent a user-visible or system-observable regression?**
@@ -53,7 +55,7 @@ Any stubs that mock more than what the tests actually exercise? Any stub objects
 
 ### 5. Edge case coverage
 
-For each public method or event tested, is there: (a) a happy-path test, (b) a no-op or boundary test, (c) at least one negative or interaction test? List specific missing cases.
+For each public method or event tested, is there a distinct behavioral partition that's untested -- a happy path, a boundary, an error, an absent-data case, or a negative/interaction case that would represent genuinely different observable behavior? List specific missing cases. Don't flag a missing category just because the checklist names it; only flag it if that partition is actually distinct from what's already covered and would catch a real regression.
 
 ### 6. Pattern consistency
 
@@ -74,6 +76,10 @@ Any `new Emitter()` created inside an `it()` callback whose `.event` is expected
 ### 10. Spy cleanup
 
 Any `vi.spyOn(console, ...)` or `vi.spyOn(obj, 'method')` without a corresponding restore? Accept only `restoreMocks: true` in the vitest config, `afterEach(() => vi.restoreAllMocks())`, or `spy.mockRestore()` inside a `finally` block. Flag inline `mockRestore()` placed after `expect` calls as fragile -- a failing assertion skips it, and the spy leaks into subsequent tests. (Note: the project's `vitest.config.ts` already sets `restoreMocks: true` globally, so most new tests need no per-file cleanup.)
+
+### 11. Snapshot appropriateness
+
+For each `toMatchInlineSnapshot()` call, check against the criteria in `.claude/rules/vitest-tests.md`'s Inline snapshots section. Flag it if: explicit assertions would be clearer for what's actually being checked, the snapshotted output is large or has unstable fields (timestamps, generated ids, ordering), or only a few properties matter and the rest is noise the reader has to skip past. Suggest projecting to the relevant fields (`expect({ kind, source })...`) or replacing with a direct `.toBe()`/`.toEqual()` where that would read more clearly.
 
 ## Output format
 

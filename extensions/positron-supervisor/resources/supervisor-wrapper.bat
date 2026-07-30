@@ -18,7 +18,7 @@ if "%~2"=="" (
 )
 
 REM The first argument is the output file; consume it.
-set output_file=%1
+set "output_file=%~1"
 shift
 
 REM `shift` doesn't affect `%*`, so we have to manually remove the first argument

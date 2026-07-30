@@ -399,6 +399,36 @@ describe('ExtHostLanguageRuntime', () => {
 			await expect(runtime.$disposeLanguageRuntime(secondHandle)).resolves.toBeUndefined();
 		});
 	});
+
+	describe('$createLanguageRuntimeSession capabilities', () => {
+		/** A session that implements the optional missing-package methods. */
+		class CapableSession extends TestSession {
+			override async listMissingPackages(): Promise<positron.RuntimeMissingPackage[]> {
+				return [];
+			}
+			override getMissingPackageProbe(): string | undefined {
+				return undefined;
+			}
+		}
+
+		it('reports false for optional missing-package methods the session lacks', async () => {
+			runtime.registerLanguageRuntimeManager(extension, 'r', new TestManager(new TestSession()));
+
+			const init = await runtime.$createLanguageRuntimeSession(runtimeMetadata, sessionMetadata, 'test');
+
+			expect(init.capabilities).toEqual({ listMissingPackages: false, getMissingPackageProbe: false });
+			await runtime.$disposeLanguageRuntime(init.handle);
+		});
+
+		it('reports true for optional missing-package methods the session implements', async () => {
+			runtime.registerLanguageRuntimeManager(extension, 'r', new TestManager(new CapableSession()));
+
+			const init = await runtime.$createLanguageRuntimeSession(runtimeMetadata, sessionMetadata, 'test');
+
+			expect(init.capabilities).toEqual({ listMissingPackages: true, getMissingPackageProbe: true });
+			await runtime.$disposeLanguageRuntime(init.handle);
+		});
+	});
 });
 
 /**

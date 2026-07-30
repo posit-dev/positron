@@ -39,11 +39,11 @@ runs:
       shell: bash
       run: |
         # Create connect directory if it doesn't exist
-        mkdir -p docker/environments/pwb-local/connect
+        mkdir -p docker/environments/wb-local/connect
         # Copy Connect license to the location expected by docker-compose volume mount
         if [ -f "${{ inputs.connect-license-path }}" ]; then
-          cp "${{ inputs.connect-license-path }}" docker/environments/pwb-local/connect/connect.lic
-          echo "Connect license copied to docker/environments/pwb-local/connect/connect.lic"
+          cp "${{ inputs.connect-license-path }}" docker/environments/wb-local/connect/connect.lic
+          echo "Connect license copied to docker/environments/wb-local/connect/connect.lic"
         else
           echo "Warning: Connect license not found at ${{ inputs.connect-license-path }}"
         fi
@@ -53,7 +53,7 @@ runs:
       run: |
         docker compose \
           -p "${{ inputs.run-id }}" \
-          -f docker/environments/pwb-local/docker-compose.workbench.yml \
+          -f docker/environments/wb-local/docker-compose.workbench.yml \
           up -d
 
     - name: Setup workbench scripts

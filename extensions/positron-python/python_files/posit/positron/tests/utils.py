@@ -3,17 +3,20 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+from __future__ import annotations
+
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, List, Optional, Set
-from unittest.mock import Mock
+from typing import TYPE_CHECKING, Any, Generator
+from unittest.mock import Mock, patch
 
-from positron._vendor.pydantic import BaseModel
-from positron.utils import JsonData, JsonRecord
+if TYPE_CHECKING:
+    from positron._vendor.pydantic import BaseModel
+    from positron.utils import JsonData, JsonRecord
 
 
-def assert_pydantic_model_equal(actual: BaseModel, expected: BaseModel, exclude: Set[str]) -> None:
+def assert_pydantic_model_equal(actual: BaseModel, expected: BaseModel, exclude: set[str]) -> None:
     actual_dict = actual.dict(exclude=exclude)
     expected_dict = expected.dict(exclude=exclude)
     assert actual_dict == expected_dict
@@ -30,7 +33,7 @@ def preserve_working_directory():
 
 
 def assert_register_table_called(
-    mock_dataexplorer_service: Mock, obj: Any, title: str, variable_path: Optional[List[str]] = None
+    mock_dataexplorer_service: Mock, obj: Any, title: str, variable_path: list[str] | None = None
 ) -> None:
     call_args_list = mock_dataexplorer_service.register_table.call_args_list
     assert len(call_args_list) == 1
@@ -48,7 +51,7 @@ def assert_register_table_called(
 
 
 def comm_message(
-    data: Optional[JsonRecord] = None,
+    data: JsonRecord | None = None,
 ) -> JsonRecord:
     if data is None:
         data = {}
@@ -64,7 +67,7 @@ def comm_request(data: JsonRecord, **kwargs) -> JsonRecord:
     return {"content": {"data": data, **kwargs.pop("content", {})}, **kwargs}
 
 
-def comm_open_message(target_name: str, data: Optional[JsonRecord] = None) -> JsonRecord:
+def comm_open_message(target_name: str, data: JsonRecord | None = None) -> JsonRecord:
     return {
         **comm_message(data),
         "target_name": target_name,
@@ -92,7 +95,7 @@ def json_rpc_error(code: int, message: str) -> JsonRecord:
     )
 
 
-def json_rpc_notification(method: str, params: Optional[JsonRecord] = None) -> JsonRecord:
+def json_rpc_notification(method: str, params: JsonRecord | None = None) -> JsonRecord:
     return comm_message(
         {
             "jsonrpc": "2.0",
@@ -104,7 +107,7 @@ def json_rpc_notification(method: str, params: Optional[JsonRecord] = None) -> J
 
 def json_rpc_request(
     method: str,
-    params: Optional[JsonRecord] = None,
+    params: JsonRecord | None = None,
     **content: JsonData,
 ) -> JsonRecord:
     data = {"params": params} if params else {}
@@ -142,3 +145,60 @@ def percent_difference(actual: float, expected: float) -> float:
 
 def dummy_rpc_request(*args):
     return json_rpc_request(*args, comm_id="dummy_comm_id")
+
+
+@contextmanager
+def patch_positron_execute_request(positron: dict | None = None):
+    """Patch the shell's get_parent to return a message with the given positron dict."""
+    from positron.positron_ipkernel import PositronIPyKernel
+
+    kernel = PositronIPyKernel.instance()
+    positron = positron or {}
+    parent = {"content": {"positron": positron}}
+    with patch.object(kernel, "get_parent", return_value=parent):
+        yield
+
+
+def run_with_metadata(code: str, positron: dict | None = None):
+    """Run a cell with the given positron metadata."""
+    from positron.positron_ipkernel import PositronShell
+
+    shell = PositronShell.instance()
+    with patch_positron_execute_request(positron):
+        return shell.run_cell(code).raise_error()
+
+
+class CapturedError:
+    """A captured kernel error message."""
+
+    def __init__(self, ename: str, evalue: str, traceback: list[str]):
+        self.ename = ename
+        self.evalue = evalue
+        self.traceback = traceback
+
+
+@contextmanager
+def capture_errors() -> Generator[list[CapturedError], None, None]:
+    """Capture errors published by the kernel."""
+    from positron.positron_ipkernel import PositronShell
+
+    shell = PositronShell.instance()
+    errors: list[CapturedError] = []
+    session = shell.displayhook.session  # type: ignore
+    original_send = session.send
+
+    def send(stream, msg_or_type=None, content=None, *args, **kwargs):
+        if msg_or_type == "error" and content is not None:
+            error = CapturedError(
+                ename=content["ename"],
+                evalue=content["evalue"],
+                traceback=content["traceback"],
+            )
+            errors.append(error)
+        return original_send(stream, msg_or_type, content, *args, **kwargs)
+
+    session.send = send
+    try:
+        yield errors
+    finally:
+        session.send = original_send

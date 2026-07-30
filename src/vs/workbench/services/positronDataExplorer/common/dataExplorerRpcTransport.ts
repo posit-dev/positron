@@ -47,4 +47,12 @@ export interface IDataExplorerRpcTransport {
 	 * @param rpc The request envelope.
 	 */
 	handleRpc(providerId: string, rpc: IDataExplorerRpcDto): Promise<IDataExplorerResponseDto>;
+
+	/**
+	 * Notifies the providing extension that a dataset's Data Explorer has closed, so it can release
+	 * per-dataset resources. Fire-and-forget; does not activate a dormant provider.
+	 * @param providerId The provider the dataset belongs to (e.g. 'positron-duckdb').
+	 * @param datasetId The dataset identifier (the RPC `uri`) that was closed.
+	 */
+	disposeBackend(providerId: string, datasetId: string): void;
 }

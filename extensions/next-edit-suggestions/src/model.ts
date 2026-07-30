@@ -119,6 +119,16 @@ async function getGatewayCompletionModel(baseUrl: string, accessToken: string): 
 	return selectedModel;
 }
 
+/**
+ * Whether the user is signed in to Posit AI. Checked without fetching the model
+ * list so callers can learn the auth state cheaply, even when Next Edit
+ * Suggestions is disabled and {@link getLLMConfiguration} is never called.
+ */
+export async function isSignedIn(): Promise<boolean> {
+	const session = await vscode.authentication.getSession('posit-ai', [], { silent: true });
+	return !!session?.accessToken;
+}
+
 export async function getLLMConfiguration(): Promise<LLMConfig | null> {
 	const session = await vscode.authentication.getSession('posit-ai', [], { silent: true });
 	if (!session?.accessToken) {

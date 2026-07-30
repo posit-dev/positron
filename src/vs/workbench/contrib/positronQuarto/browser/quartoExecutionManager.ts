@@ -38,6 +38,7 @@ import {
 	IQuartoExecutionManager,
 	DEFAULT_EXECUTION_CONFIG,
 	DATA_EXPLORER_MIME_TYPE,
+	WillExecuteEvent,
 } from '../common/quartoExecutionTypes.js';
 import { usingQuartoInlineOutputStatementSplitting } from '../common/positronQuartoConfig.js';
 import { RuntimeOnlineState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -199,6 +200,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	private readonly _onDidExecuteCode = this._register(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
 	readonly onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent> = this._onDidExecuteCode.event;
 
+	private readonly _onWillExecute = this._register(new Emitter<WillExecuteEvent>());
+	readonly onWillExecute: Event<WillExecuteEvent> = this._onWillExecute.event;
+
 	constructor(
 		@IQuartoKernelManager private readonly _kernelManager: IQuartoKernelManager,
 		@IQuartoDocumentModelService private readonly _documentModelService: IQuartoDocumentModelService,
@@ -285,6 +289,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			this._logService.debug(`[QuartoExecutionManager] All cells filtered out by eval: false`);
 			return;
 		}
+
+		// Signal a fresh execution gesture so consumers (e.g. auto-scroll) re-arm.
+		this._onWillExecute.fire({ documentUri });
 
 		// Add filtered cells to queue with Queued state
 		for (const cell of filteredCells) {
@@ -525,6 +532,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			this._logService.debug(`[QuartoExecutionManager] All cells filtered out by eval: false`);
 			return;
 		}
+
+		// Signal a fresh execution gesture so consumers (e.g. auto-scroll) re-arm.
+		this._onWillExecute.fire({ documentUri });
 
 		// Add all ranges to queued state with decorations.
 		// Use effectiveCodeRange (excluding option lines like #| label: ...) so
@@ -2037,7 +2047,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			}
 			// Cast to ILanguageRuntimeMessageWebOutput to get resource_roots if available
 			const webMessage = message as ILanguageRuntimeMessageWebOutput;
-			this._handleOutputMessage(tracker, documentUri, message.data, webMessage);
+			this._handleOutputMessage(tracker, documentUri, message.data, message.outputMetadata, webMessage);
 		}));
 
 		// Handle result messages (execute_result) - these are computation results like "2 + 3"
@@ -2045,7 +2055,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			if (message.parent_id !== executionId) {
 				return;
 			}
-			this._handleOutputMessage(tracker, documentUri, message.data);
+			this._handleOutputMessage(tracker, documentUri, message.data, message.outputMetadata);
 		}));
 
 		// Handle stream messages (stdout/stderr)
@@ -2096,6 +2106,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		tracker: ExecutionTracker,
 		documentUri: URI,
 		data: Record<string, unknown>,
+		outputMetadata?: Record<string, unknown>,
 		runtimeMessage?: ILanguageRuntimeMessageWebOutput
 	): void {
 		const outputItems: ICellOutputItem[] = [];
@@ -2180,7 +2191,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				};
 			}
 
-			this._addOutput(tracker, documentUri, outputItems, webviewMetadata);
+			this._addOutput(tracker, documentUri, outputItems, webviewMetadata, outputMetadata);
 		}
 	}
 
@@ -2191,7 +2202,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		tracker: ExecutionTracker,
 		documentUri: URI,
 		items: ICellOutputItem[],
-		webviewMetadata?: ICellOutputWebviewMetadata
+		webviewMetadata?: ICellOutputWebviewMetadata,
+		outputMetadata?: Record<string, unknown>
 	): void {
 		// Check output limits
 		if (tracker.outputCount >= DEFAULT_EXECUTION_CONFIG.maxOutputItems) {
@@ -2239,6 +2251,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			outputId: generateUuid(),
 			items,
 			webviewMetadata,
+			outputMetadata,
 		};
 
 		// Store output

@@ -68,7 +68,11 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 		mnemonicTitle: nls.localize({ key: 'miOpenConsole', comment: ['&& denotes a mnemonic'] }, "&&Console"),
 		keybindings: {},
 		order: 3,
-	}
+	},
+	focusCommand: {
+		id: `${POSITRON_CONSOLE_VIEW_ID}.focus`,
+		agentCompatible: true,
+	},
 }], VIEW_CONTAINER);
 
 // Below we define keybindings so we can refer to them in the console context

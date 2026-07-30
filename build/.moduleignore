@@ -262,3 +262,26 @@ zone.js/dist/**
 # in websocket's browser.js inside a try/catch with a globalThis fallback,
 # so it is unnecessary in the browsers/runtimes VS Code supports.
 es5-ext/**
+
+# --- Start Positron ---
+# lightningcss is a build-time CSS tool pulled in transitively as an optional
+# dependency of vite (a devDependency of the ai-lib file: packages ai-config,
+# ai-credentials, and ai-provider-bridge). Positron does not load it at runtime,
+# so none of its platform binaries should ship. In particular, the
+# lightningcss-linux-x64-musl / lightningcss-linux-arm64-musl .node files break
+# the Linux .deb/.rpm packaging step: dpkg-shlibdeps analyzes every bundled
+# *.node file and aborts because it cannot resolve libc.musl-*.so.1 in the
+# glibc build sysroot. Strip lightningcss and all its platform packages.
+lightningcss/**
+lightningcss-android-arm64/**
+lightningcss-darwin-arm64/**
+lightningcss-darwin-x64/**
+lightningcss-freebsd-x64/**
+lightningcss-linux-arm-gnueabihf/**
+lightningcss-linux-arm64-gnu/**
+lightningcss-linux-arm64-musl/**
+lightningcss-linux-x64-gnu/**
+lightningcss-linux-x64-musl/**
+lightningcss-win32-arm64-msvc/**
+lightningcss-win32-x64-msvc/**
+# --- End Positron ---

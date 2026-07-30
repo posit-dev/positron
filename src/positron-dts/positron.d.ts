@@ -1440,6 +1440,19 @@ declare module 'positron' {
 	}
 
 	/**
+	 * A runtime error surfaced in the console, passed to `getMissingPackageProbe`
+	 * so the runtime can recognize its own missing-package error format.
+	 */
+	export interface RuntimeConsoleError {
+		/** The error name, e.g. "ModuleNotFoundError". May be empty. */
+		readonly name: string;
+		/** The error message, e.g. "No module named 'foo'". */
+		readonly message: string;
+		/** The error traceback, one entry per line. */
+		readonly traceback: string[];
+	}
+
+	/**
 	 * Basic metadata about an active language runtime session, including
 	 * immutable metadata about the session itself and metadata about the
 	 * runtime with which it is associated.
@@ -1711,6 +1724,21 @@ declare module 'positron' {
 		 * @param token Optional cancellation token.
 		 */
 		listMissingPackages?(target: RuntimeMissingPackagesTarget, token?: vscode.CancellationToken): Thenable<RuntimeMissingPackage[]>;
+
+		/**
+		 * Given a console error produced by this session, return a minimal code
+		 * snippet that references the missing package (e.g. `import foo`), for
+		 * the frontend to feed back through `listMissingPackages` and confirm the
+		 * package is installable. Return undefined when the error is not a
+		 * recognized missing-package error.
+		 *
+		 * Owning error-message parsing here (rather than in the frontend) keeps
+		 * the frontend language-agnostic.
+		 *
+		 * @param error The console error to inspect.
+		 * @param token Optional cancellation token.
+		 */
+		getMissingPackageProbe?(error: RuntimeConsoleError, token?: vscode.CancellationToken): string | undefined | Thenable<string | undefined>;
 	}
 
 
@@ -2279,11 +2307,16 @@ declare module 'positron' {
 		GroupViews = 'group-views',
 		GroupColumns = 'group-columns',
 		GroupIndexes = 'group-indexes',
+		GroupStages = 'group-stages',
 		Index = 'index',
+		// A Snowflake stage: a named location for staging files (positron-data-driver-snowflake).
+		Stage = 'stage',
 		// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
 		Owner = 'owner',
 		// A pin on a Posit Connect server (positron-data-driver-pins).
 		Pin = 'pin',
+		// A version (bundle) of a pin on a Posit Connect server (positron-data-driver-pins).
+		Version = 'version',
 	}
 
 	export interface DataConnectionNode {
@@ -3307,6 +3340,14 @@ declare module 'positron' {
 		 * @returns The response (a result or an error message).
 		 */
 		handleRpc(request: DataExplorerRpcRequest): Thenable<DataExplorerRpcResponse>;
+
+		/**
+		 * Notifies the provider that the Data Explorer for a dataset has closed, so
+		 * it can release any per-dataset resources. A provider may use this to shut
+		 * down idle work once its last dataset closes. Optional.
+		 * @param datasetId The identifier of the dataset that was closed.
+		 */
+		closeDataset?(datasetId: string): void;
 	}
 
 	/**
@@ -3512,11 +3553,11 @@ declare module 'positron' {
 			 */
 			displayName: string;
 			/**
-			 * Setting name for user configuration in camelCase format (e.g., 'anthropic', 'openAI', 'gitHubCopilot').
-			 * Corresponds to `positron.assistant.provider.<settingName>.enable` in settings.json if visible in Settings UI.
-			 * Positron's Assistant Service automatically reads this from registered providers.
+			 * Provider id in the resolved provider catalog (`~/.posit/ai/providers.json`), used to
+			 * resolve enablement and connection config. Undefined for providers with no catalog entry
+			 * (e.g. dev-only providers), which are treated as enabled.
 			 */
-			settingName: string;
+			catalogId?: string;
 			/**
 			 * Maturity status of the provider. Drives how it's presented in the
 			 * configuration modal: stable providers (no status) are listed first,
@@ -3677,8 +3718,8 @@ declare module 'positron' {
 		 * Registers a language model provider with Positron.
 		 *
 		 * Call once per provider during extension activation. This registers
-		 * everything static about the provider. Creates a toggle
-		 * `positron.assistant.provider.<settingName>.enable` in Settings.
+		 * everything static about the provider. Enablement is read from the
+		 * resolved provider catalog (providers.json), not a per-provider setting.
 		 *
 		 * Returns a Disposable. When disposed, the provider is removed
 		 * from the configuration service.
@@ -3764,11 +3805,125 @@ declare module 'positron' {
 		export function getEnabledProviders(): Thenable<string[]>;
 
 		/**
-		 * Checks if completions are enabled for the given file.
+		 * Whether the provider with the given CATALOG id (e.g. 'copilot',
+		 * 'anthropic') is enabled in the resolved provider catalog. Unlike
+		 * getEnabledProviders(), ids are catalog ids, not registered auth-provider
+		 * ids, and no provider registration is required: the catalog's
+		 * default-enabled baseline answers for providers with no configuration.
+		 */
+		export function isProviderEnabled(id: string): Thenable<boolean>;
+
+		/** Fires when a provider's catalog enablement flips. Ids are catalog ids. */
+		export const onDidChangeProviderEnablement: vscode.Event<{ readonly id: string; readonly enabled: boolean }>;
+
+		/**
+		 * Checks if Copilot inline completions are enabled for the given file.
+		 * Scoped to Copilot: gated on the Copilot catalog provider. Posit AI Next Edit
+		 * Suggestions (NES) has its own separate enablement and does not use this.
 		 * @param uri The file URI to check if completions are enabled.
 		 * @returns A Thenable that resolves to true if completions should be enabled for the file, false otherwise.
 		 */
 		export function areCompletionsEnabled(uri: vscode.Uri): Thenable<boolean>;
+
+		/**
+		 * A positional parameter accepted by an agent-compatible command.
+		 *
+		 * The entry's position in `AgentCommand.args` is the positional index the
+		 * command handler expects.
+		 */
+		export interface AgentCommandArg {
+			/** Parameter name. */
+			name: string;
+			/** Human-readable description of the parameter. */
+			description?: string;
+			/** JSON Schema describing valid values for this argument. */
+			schema?: object;
+			/** Whether the argument is required. Defaults to `true`. */
+			required?: boolean;
+		}
+
+		/**
+		 * Where an agent-compatible command was registered from.
+		 */
+		export interface AgentCommandSource {
+			/** `'builtin'` for core Positron/VS Code commands; `'extension'` for extension-contributed commands. */
+			type: 'builtin' | 'extension';
+			/** Extension identifier (e.g. `ms-python.python`). Only present when `type` is `'extension'`. */
+			id?: string;
+			/** Extension display name. Only present when `type` is `'extension'`. */
+			displayName?: string;
+		}
+
+		/**
+		 * Metadata for a single Positron command exposed to AI agents.
+		 */
+		export interface AgentCommand {
+			/** Unique command identifier (e.g. `workbench.action.files.save`). */
+			id: string;
+			/** Model-facing description of what the command does. */
+			description?: string;
+			/** Ordered list of positional arguments the command accepts. */
+			args?: AgentCommandArg[];
+			/** Description of the command's return value, if meaningful. */
+			returns?: string;
+			/** Where the command was registered from. */
+			source: AgentCommandSource;
+		}
+
+		/**
+		 * Result of {@link validateAndExecuteCommand}.
+		 *
+		 * On success, `ok` is `true` and `result` carries the handler's return
+		 * value. On failure, `ok` is `false` and `reason` explains what went
+		 * wrong so the caller can respond intelligibly:
+		 * - `'not-found'`: no command is registered with this id in the current
+		 *   build.
+		 * - `'disabled'`: the command's precondition context-key expression
+		 *   evaluated to false. `precondition` contains the serialized
+		 *   expression for diagnostics.
+		 * - `'error'`: the handler threw. `message` contains the error message.
+		 * - `'unknown'`: the failure cause could not be determined.
+		 */
+		export type ValidateAndExecuteCommandResult =
+			| { ok: true; result: unknown }
+			| {
+				ok: false;
+				reason: 'not-found' | 'disabled' | 'error' | 'unknown';
+				precondition?: string;
+				message?: string;
+			};
+
+		/**
+		 * Returns the curated list of Positron commands that are available to
+		 * AI agents, including their IDs, descriptions, and parameter and
+		 * return-value metadata.
+		 *
+		 * The list is assembled from commands whose registration marks them as
+		 * agent-compatible; any curated id that is not registered in the
+		 * current build is dropped so the returned list is guaranteed to
+		 * resolve.
+		 *
+		 * @returns A Thenable that resolves to an array of command descriptors.
+		 */
+		export function getAgentAllowedCommands(): Thenable<AgentCommand[]>;
+
+		/**
+		 * Validate and execute a Positron command.
+		 *
+		 * Unlike `vscode.commands.executeCommand`, this call first checks that
+		 * the command exists and that its precondition (the context-key
+		 * expression that would grey the command out in menus and the command
+		 * palette) currently holds, then runs it and reports the outcome as a
+		 * structured result instead of a UI notification.
+		 *
+		 * @param commandId The identifier of the command to execute.
+		 * @param args Positional arguments to pass to the command handler.
+		 * @returns A Thenable that resolves to the structured result.
+		 */
+		export function validateAndExecuteCommand(
+			commandId: string,
+			args?: unknown[]
+		): Thenable<ValidateAndExecuteCommandResult>;
 	}
 
 	/**

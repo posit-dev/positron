@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,6 +10,7 @@ import * as sinon from 'sinon';
 import * as fileUtils from '../../../../client/pythonEnvironments/common/externalDependencies';
 import {
     isUvEnvironment,
+    isUvManagedBasePython,
     isUvInstalled,
     getUvDirs,
     getUvPythonVersionInfo,
@@ -21,7 +22,7 @@ import * as logging from '../../../../client/logging';
 import * as simplevenv from '../../../../client/pythonEnvironments/common/environmentManagers/simplevirtualenvs';
 
 suite('uv Environment Tests', () => {
-    let resolveSymbolicLinkStub: sinon.SinonStub;
+    let canonicalizePathStub: sinon.SinonStub;
     let getOSTypeStub: sinon.SinonStub;
     let getEnvironmentVariableStub: sinon.SinonStub;
     let execStub: sinon.SinonStub;
@@ -34,7 +35,7 @@ suite('uv Environment Tests', () => {
     const exampleUvPython = `${customDir}/cpython-3.12`;
 
     setup(() => {
-        resolveSymbolicLinkStub = sinon.stub(fileUtils, 'resolveSymbolicLink');
+        canonicalizePathStub = sinon.stub(fileUtils, 'canonicalizePath');
         getOSTypeStub = sinon.stub(platformUtils, 'getOSType');
         getEnvironmentVariableStub = sinon.stub(platformUtils, 'getEnvironmentVariable');
         execStub = sinon.stub(fileUtils, 'exec');
@@ -46,6 +47,9 @@ suite('uv Environment Tests', () => {
         getPyvenvConfigPathsStub.returns([]);
         getOSTypeStub.returns(platformUtils.OSType.Linux);
         execStub.resolves({ stdout: customDir });
+        // Default to identity: a path with no symlinks canonicalizes to itself. Individual
+        // tests override withArgs to model a symlink/mount resolving to a different real path.
+        canonicalizePathStub.callsFake(async (p: string) => p);
     });
 
     teardown(() => {
@@ -95,7 +99,9 @@ suite('uv Environment Tests', () => {
         test('Works on Windows', async () => {
             const appData = 'C:\\Users\\user\\AppData\\Roaming';
             const uvDir = `${appData}\\uv\\data\\python`;
-            const interpreter = `${uvDir}\\env123\\Scripts\\python.exe`;
+            // Build the interpreter under uvDir with path.join so the path-boundary match lines
+            // up with the host separator (this suite simulates Windows on a POSIX test host).
+            const interpreter = path.join(uvDir, 'env123', 'Scripts', 'python.exe');
             getOSTypeStub.returns(platformUtils.OSType.Windows);
             getEnvironmentVariableStub
                 .withArgs('APPDATA')
@@ -108,23 +114,26 @@ suite('uv Environment Tests', () => {
             assert.strictEqual(result, true);
         });
 
-        test('Works with a symlink to the python dir', async () => {
+        test('Works with a symlink into the python dir', async () => {
             const interpreter = '/path/to/venv/bin/python';
-            resolveSymbolicLinkStub.withArgs(interpreter).resolves(exampleUvPython);
+            canonicalizePathStub.withArgs(interpreter).resolves(exampleUvPython);
 
             assert.ok(await isUvEnvironment(interpreter));
         });
 
-        test('symlink resolution fails', async () => {
-            const interpreter = '/path/to/venv/bin/python';
-            resolveSymbolicLinkStub.withArgs(interpreter).rejects(new Error('Failed to resolve symlink'));
-            assert.strictEqual(await isUvEnvironment(interpreter), false);
+        test('Canonicalizes intermediate directory symlinks into the python dir', async () => {
+            // uv installs a real `cpython-3.14.6-<platform>` dir and a `cpython-3.14-<platform>`
+            // symlink to it (issue #14489). An interpreter reached through the symlinked dir is
+            // not itself a symlink, so full canonicalization (not leaf-only) is what matches it.
+            const interpreter = `${customDir}/cpython-3.14-linux/bin/python`;
+            canonicalizePathStub.withArgs(interpreter).resolves(`${customDir}/cpython-3.14.6-linux/bin/python`);
+
+            assert.strictEqual(await isUvEnvironment(interpreter), true);
         });
 
-        test('symlink resolves but not to uv directory', async () => {
+        test('Resolves but not to uv directory', async () => {
             const interpreter = '/path/to/venv/bin/python';
-            const resolvedPath = '/path/to/other/venv/bin/python';
-            resolveSymbolicLinkStub.withArgs(interpreter).resolves(resolvedPath);
+            canonicalizePathStub.withArgs(interpreter).resolves('/path/to/other/venv/bin/python');
             assert.strictEqual(await isUvEnvironment(interpreter), false);
         });
     });
@@ -200,6 +209,66 @@ suite('uv Environment Tests', () => {
 
             assert.strictEqual(result, false);
             assert.ok(traceVerboseStub.calledWith(sinon.match.string));
+        });
+    });
+
+    suite('isUvManagedBasePython Tests', () => {
+        test('True for an interpreter directly under the uv python dir', async () => {
+            assert.strictEqual(await isUvManagedBasePython(exampleUvPython), true);
+        });
+
+        test('True for a symlink that resolves into the uv python dir', async () => {
+            const interpreter = '/home/user/.local/bin/python3.13';
+            canonicalizePathStub.withArgs(interpreter).resolves(exampleUvPython);
+
+            assert.strictEqual(await isUvManagedBasePython(interpreter), true);
+        });
+
+        test('False when uv is not installed', async () => {
+            execStub.rejects(new Error('Command failed'));
+
+            assert.strictEqual(await isUvManagedBasePython(exampleUvPython), false);
+        });
+
+        test('False for a uv venv (pyvenv.cfg uv key, not under the uv dir)', async () => {
+            // A uv-created venv is a uv environment but NOT a standalone base install: its
+            // interpreter lives in the venv, and only a pyvenv.cfg uv key identifies it.
+            const interpreterPath = '/path/to/venv/bin/python';
+            const configPath = '/path/to/venv/pyvenv.cfg';
+            getPyvenvConfigPathsStub.returns([configPath]);
+            pathExistsStub.withArgs(configPath).resolves(true);
+            readFileStub.withArgs(configPath).resolves('home = /usr/bin\nuv = 0.1.0\nversion = 3.11.0');
+
+            assert.strictEqual(await isUvManagedBasePython(interpreterPath), false);
+            // Same env IS recognized as a uv environment, just not a base install.
+            assert.strictEqual(await isUvEnvironment(interpreterPath), true);
+        });
+
+        test('False for a uv venv whose interpreter symlinks into the uv python dir', async () => {
+            // Regression: a uv-created venv's `.venv/bin/python` symlinks to the uv-managed base
+            // it was built from, which lives under the uv python dir. It is still a venv, so the
+            // pyvenv.cfg check must win over the canonicalizes-into-the-uv-dir signal.
+            // Build the paths with path.join so the pyvenv.cfg lookup inside isVenvEnvironment
+            // (which uses path.join) lines up with the host separator (this suite runs on both
+            // POSIX and Windows hosts).
+            const venvDir = path.join(path.sep, 'workspace', '.venv');
+            const interpreterPath = path.join(venvDir, 'bin', 'python');
+            const configPath = path.join(venvDir, 'pyvenv.cfg');
+            getPyvenvConfigPathsStub.returns([configPath]);
+            pathExistsStub.withArgs(configPath).resolves(true);
+            canonicalizePathStub.withArgs(interpreterPath).resolves(exampleUvPython);
+
+            assert.strictEqual(await isUvManagedBasePython(interpreterPath), false);
+            // The same interpreter is still recognized as a uv environment.
+            assert.strictEqual(await isUvEnvironment(interpreterPath), true);
+        });
+
+        test('False for an interpreter in a sibling dir sharing the uv dir path prefix', async () => {
+            // Regression: `<uvDir>-backup/...` shares a string prefix with the uv dir but is not
+            // inside it, so a bare prefix match must not classify it as a uv-managed base Python.
+            const interpreterPath = `${customDir}-backup/cpython-3.12/bin/python`;
+
+            assert.strictEqual(await isUvManagedBasePython(interpreterPath), false);
         });
     });
 

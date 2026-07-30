@@ -8,7 +8,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Any, Tuple, cast
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 from ipykernel.compiler import get_tmp_directory
@@ -21,7 +21,12 @@ from positron.session_mode import SessionMode
 from positron.utils import alias_home
 
 from .conftest import PositronShell
-from .utils import assert_register_table_called
+from .utils import (
+    CapturedError,
+    assert_register_table_called,
+    capture_errors,
+    patch_positron_execute_request,
+)
 
 try:
     import lightning
@@ -187,9 +192,8 @@ def traceback_result(
     request: pytest.FixtureRequest,
     shell: PositronShell,
     tmp_path: Path,
-    mock_displayhook: Mock,
     monkeypatch,
-) -> tuple[Path, Any]:
+) -> tuple[Path, CapturedError]:
     # Ensure that we're in console mode.
     monkeypatch.setattr(shell, "session_mode", SessionMode.CONSOLE)
 
@@ -202,21 +206,14 @@ def traceback_result(
     file.write_text(code)
 
     # Temporarily add the module to sys.path and call a function from it, which should error.
-    with prepended_to_syspath(str(tmp_path)):
+    with prepended_to_syspath(str(tmp_path)), capture_errors() as errors:
         shell.run_cell(f"import {request.function.__name__} as test_traceback; test_traceback.g()")
 
-    # Check that a single message was sent to the frontend.
-    call_args_list = mock_displayhook.session.send.call_args_list
-    assert len(call_args_list) == 1
+    # Check that a single error was sent to the frontend.
+    assert len(errors) == 1
+    error = errors[0]
 
-    call_args = call_args_list[0]
-
-    # Check that the message was sent over the "error" stream.
-    assert call_args.args[1] == "error"
-
-    exc_content = call_args.args[2]
-
-    return (file, exc_content)
+    return (file, error)
 
 
 @pytest.mark.xfail(
@@ -224,7 +221,7 @@ def traceback_result(
     reason="IPython >= 9.0.0 does not support the old traceback format",
 )
 def test_console_traceback(shell: PositronShell, traceback_result) -> None:
-    file, exc_content = traceback_result
+    file, error = traceback_result
 
     # NOTE(seem): This is not elegant, but I'm not sure how else to test this than other than to
     # compare the beginning of each frame of the traceback. The escape codes make it particularly
@@ -251,7 +248,7 @@ def test_console_traceback(shell: PositronShell, traceback_result) -> None:
     traceback_frame_header = f"File {colors.filenameEm}{osc8};line={{line}};{uri}{st}{path}:{{line}}{osc8};;{st}{colors.Normal}, in {colors.vName}{{func}}{colors.valEm}(){colors.Normal}"
 
     # Check that two frames were included (the top frame is included in the exception value below).
-    traceback = exc_content["traceback"]
+    traceback = error.traceback
     assert len(traceback) == 2
 
     # Check the beginning of each frame.
@@ -259,12 +256,10 @@ def test_console_traceback(shell: PositronShell, traceback_result) -> None:
     assert_ansi_string_startswith(traceback[1], traceback_frame_header.format(line=2, func="f"))
 
     # Check the exception name.
-    assert exc_content["ename"] == "Exception"
+    assert error.ename == "Exception"
 
     # The exception value should include the top of the stack trace.
-    assert_ansi_string_startswith(
-        exc_content["evalue"], "This is an error!\nCell " + colors.filenameEm
-    )
+    assert_ansi_string_startswith(error.evalue, "This is an error!\nCell " + colors.filenameEm)
 
 
 @pytest.mark.xfail(
@@ -272,7 +267,7 @@ def test_console_traceback(shell: PositronShell, traceback_result) -> None:
     reason="IPython < 9.0.0 does not support the new traceback format",
 )
 def test_console_traceback_ipy9(shell: PositronShell, traceback_result) -> None:
-    file, exc_content = traceback_result
+    file, error = traceback_result
 
     # NOTE(seem): This is not elegant, but I'm not sure how else to test this than other than to
     # compare the beginning of each frame of the traceback. The escape codes make it particularly
@@ -300,7 +295,7 @@ def test_console_traceback_ipy9(shell: PositronShell, traceback_result) -> None:
     )
 
     # Check that two frames were included (the top frame is included in the exception value below).
-    traceback = exc_content["traceback"]
+    traceback = error.traceback
     assert len(traceback) == 2
 
     # Check the beginning of each frame.
@@ -308,18 +303,16 @@ def test_console_traceback_ipy9(shell: PositronShell, traceback_result) -> None:
     assert_ansi_string_startswith(traceback[1], traceback_frame_header.format(line=2, func="f"))
 
     # Check the exception name.
-    assert exc_content["ename"] == "Exception"
+    assert error.ename == "Exception"
 
     # The exception value should include the top of the stack trace.
     assert_ansi_string_startswith(
-        exc_content["evalue"],
+        error.evalue,
         "This is an error!\n" + colors.format([(ultratb.Token.NormalEm, "Cell")]),  # type: ignore
     )
 
 
-def test_notebook_traceback(
-    shell: PositronShell, tmp_path: Path, mock_displayhook: Mock, monkeypatch
-) -> None:
+def test_notebook_traceback(shell: PositronShell, tmp_path: Path, monkeypatch) -> None:
     # Ensure that we're in notebook mode.
     monkeypatch.setattr(shell, "session_mode", SessionMode.NOTEBOOK)
 
@@ -332,27 +325,20 @@ def test_notebook_traceback(
     file.write_text(code)
 
     # Temporarily add the module to sys.path and call a function from it, which should error.
-    with prepended_to_syspath(str(tmp_path)):
+    with prepended_to_syspath(str(tmp_path)), capture_errors() as errors:
         shell.run_cell("import test_traceback; test_traceback.g()")
 
     # Check that a single message was sent to the frontend.
-    call_args_list = mock_displayhook.session.send.call_args_list
-    assert len(call_args_list) == 1
-
-    call_args = call_args_list[0]
-
-    # Check that the message was sent over the "error" stream.
-    assert call_args.args[1] == "error"
-
-    exc_content = call_args.args[2]
+    assert len(errors) == 1
+    error = errors[0]
 
     # Check that we haven't removed any frames.
     # We don't check the traceback contents in this case since that's tested in IPython.
-    assert len(exc_content["traceback"]) == 6
+    assert len(error.traceback) == 6
 
     # Check that we haven't modified any other contents.
-    assert exc_content["ename"] == "Exception"
-    assert exc_content["evalue"] == "This is an error!"
+    assert error.ename == "Exception"
+    assert error.evalue == "This is an error!"
 
 
 def assert_ansi_string_startswith(actual: str, expected: str) -> None:
@@ -505,10 +491,7 @@ class TestEditorSysPath:
         editor_dir.mkdir()
         test_file = editor_dir / "test_module.py"
         test_file.write_text("x = 42")
-
-        # Set up the parent message with code_location pointing to the test file
         editor_uri = test_file.as_uri()
-        parent = {"content": {"positron": {"code_location": {"uri": editor_uri}}}}
 
         # Ensure we're in a different directory
         original_cwd = Path.cwd()
@@ -519,7 +502,8 @@ class TestEditorSysPath:
             sys.path.remove(str(editor_dir))
 
         # Add the path (simulates pre_run_cell)
-        with patch.object(shell.kernel, "get_parent", return_value=parent):
+        # with code_location pointing to the test file
+        with patch_positron_execute_request({"code_location": {"uri": editor_uri}}):
             added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Check that editor_dir was added to sys.path
@@ -542,17 +526,14 @@ class TestEditorSysPath:
         # Create a test file in cwd
         cwd = Path.cwd()
         test_file = cwd / "test_file_in_cwd.py"
-
-        # Set up the parent message with code_location pointing to a file in cwd
         editor_uri = test_file.as_uri()
-        parent = {"content": {"positron": {"code_location": {"uri": editor_uri}}}}
 
         # Count how many times cwd appears in sys.path before
         cwd_str = str(cwd)
         count_before = sys.path.count(cwd_str)
 
-        # Try to add the path
-        with patch.object(shell.kernel, "get_parent", return_value=parent):
+        # Try to add the path, with code_location pointing to a file in cwd
+        with patch_positron_execute_request({"code_location": {"uri": editor_uri}}):
             added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Should not have added anything since it's the cwd
@@ -566,13 +547,10 @@ class TestEditorSysPath:
         """Test that nothing happens when no code_location is in the execute request."""
         import sys
 
-        # Parent message without positron metadata (e.g. console input)
-        parent = {"content": {}}
-
         sys_path_before = sys.path.copy()
 
-        # Try to add the path
-        with patch.object(shell.kernel, "get_parent", return_value=parent):
+        # Try to add the path, without positron metadata (e.g. console input)
+        with patch_positron_execute_request():
             added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Should not have added anything
@@ -585,13 +563,10 @@ class TestEditorSysPath:
         """Test that non-file URIs are ignored."""
         import sys
 
-        # code_location with a non-file URI
-        parent = {"content": {"positron": {"code_location": {"uri": "untitled:Untitled-1"}}}}
-
         sys_path_before = sys.path.copy()
 
-        # Try to add the path
-        with patch.object(shell.kernel, "get_parent", return_value=parent):
+        # Try to add the path - code_location with a non-file URI
+        with patch_positron_execute_request({"code_location": {"uri": "untitled:Untitled-1"}}):
             added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Should not have added anything
@@ -626,10 +601,7 @@ class TestEditorSysPath:
         editor_dir.mkdir()
         test_module = editor_dir / "my_test_module.py"
         test_module.write_text("TEST_VALUE = 'hello from module'")
-
-        # Set up the parent message with code_location pointing to the test module
         editor_uri = test_module.as_uri()
-        parent = {"content": {"positron": {"code_location": {"uri": editor_uri}}}}
 
         # Remove editor_dir from sys.path if present
         while str(editor_dir) in sys.path:
@@ -640,7 +612,7 @@ class TestEditorSysPath:
 
         # Run a cell that imports the module - this should work because
         # _handle_pre_run_cell adds the editor directory via code_location
-        with patch.object(shell.kernel, "get_parent", return_value=parent):
+        with patch_positron_execute_request({"code_location": {"uri": editor_uri}}):
             result = shell.run_cell("import my_test_module; value = my_test_module.TEST_VALUE")
         result.raise_error()
 
@@ -669,9 +641,6 @@ class TestEditorSysPath:
         test_file = editor_dir / "test_module.py"
         test_file.write_text("x = 42")
 
-        # Parent message without code_location (e.g. code typed in console)
-        parent = {"content": {}}
-
         # Ensure we're in a different directory
         original_cwd = Path.cwd()
         assert str(editor_dir) != str(original_cwd)
@@ -682,8 +651,8 @@ class TestEditorSysPath:
 
         sys_path_before = sys.path.copy()
 
-        # Try to add the path
-        with patch.object(shell.kernel, "get_parent", return_value=parent):
+        # Try to add the path - with no code_location (e.g. code typed in console)
+        with patch_positron_execute_request():
             added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Should not have added anything since there is no code_location
@@ -691,96 +660,3 @@ class TestEditorSysPath:
 
         # sys.path should be unchanged
         assert sys.path == sys_path_before
-
-
-class TestInlineDataExplorerVariableResolution:
-    """Tests for variable name resolution in inline data explorer formatting."""
-
-    def test_resolves_top_level_variable(
-        self, shell: PositronShell, mock_dataexplorer_service: Mock, monkeypatch
-    ) -> None:
-        """When obj is bound to a top-level variable, use that name as the title."""
-        pd = pytest.importorskip("pandas")
-        monkeypatch.setattr(shell.kernel, "session_mode", SessionMode.NOTEBOOK)
-        mock_dataexplorer_service.register_table.return_value = "test-comm-id"
-
-        frame = pd.DataFrame({"a": [1, 2]})
-        shell.user_ns["my_df"] = frame
-
-        format_dict, _ = shell.display_formatter.format(frame)
-
-        # Check register_table was called with the variable name and path
-        mock_dataexplorer_service.register_table.assert_called_once()
-        args, kwargs = mock_dataexplorer_service.register_table.call_args
-        assert args[1] == "my_df"
-        assert kwargs["variable_path"] == [encode_access_key("my_df")]
-
-        # Check the MIME payload
-        import json
-
-        from positron.positron_ipkernel import POSITRON_DATA_EXPLORER_MIME
-
-        payload = json.loads(format_dict[POSITRON_DATA_EXPLORER_MIME])
-        assert payload["title"] == "my_df"
-        assert payload["variable_path"] == [encode_access_key("my_df")]
-
-    def test_falls_back_to_source_for_unbound_expression(
-        self, shell: PositronShell, mock_dataexplorer_service: Mock, monkeypatch
-    ) -> None:
-        """When obj is not in user_ns, fall back to the source library name."""
-        pd = pytest.importorskip("pandas")
-        monkeypatch.setattr(shell.kernel, "session_mode", SessionMode.NOTEBOOK)
-        mock_dataexplorer_service.register_table.return_value = "test-comm-id"
-
-        frame = pd.DataFrame({"a": [1, 2]})
-        # Do NOT add frame to shell.user_ns
-
-        format_dict, _ = shell.display_formatter.format(frame)
-
-        args, kwargs = mock_dataexplorer_service.register_table.call_args
-        assert args[1] == "pandas"
-        assert kwargs["variable_path"] is None
-
-        import json
-
-        from positron.positron_ipkernel import POSITRON_DATA_EXPLORER_MIME
-
-        payload = json.loads(format_dict[POSITRON_DATA_EXPLORER_MIME])
-        assert payload["title"] == "pandas"
-        assert "variable_path" not in payload
-
-    def test_skips_hidden_variables(
-        self, shell: PositronShell, mock_dataexplorer_service: Mock, monkeypatch
-    ) -> None:
-        """Hidden variables (like _) should be skipped during resolution."""
-        pd = pytest.importorskip("pandas")
-        monkeypatch.setattr(shell.kernel, "session_mode", SessionMode.NOTEBOOK)
-        mock_dataexplorer_service.register_table.return_value = "test-comm-id"
-
-        frame = pd.DataFrame({"a": [1, 2]})
-        shell.user_ns["_"] = frame
-        shell.user_ns_hidden["_"] = frame
-
-        _format_dict, _ = shell.display_formatter.format(frame)
-
-        args, kwargs = mock_dataexplorer_service.register_table.call_args
-        assert args[1] == "pandas"
-        assert kwargs["variable_path"] is None
-
-    def test_resolves_first_non_hidden_match(
-        self, shell: PositronShell, mock_dataexplorer_service: Mock, monkeypatch
-    ) -> None:
-        """When multiple variables point to the same object, use the first non-hidden one."""
-        pd = pytest.importorskip("pandas")
-        monkeypatch.setattr(shell.kernel, "session_mode", SessionMode.NOTEBOOK)
-        mock_dataexplorer_service.register_table.return_value = "test-comm-id"
-
-        frame = pd.DataFrame({"a": [1, 2]})
-        shell.user_ns["first_df"] = frame
-        shell.user_ns["second_df"] = frame
-
-        _format_dict, _ = shell.display_formatter.format(frame)
-
-        args, kwargs = mock_dataexplorer_service.register_table.call_args
-        assert args[1] == "first_df"
-        assert kwargs["variable_path"] == [encode_access_key("first_df")]

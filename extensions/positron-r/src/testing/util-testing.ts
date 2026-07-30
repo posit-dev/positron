@@ -39,15 +39,12 @@ export function uriToFileNodeId(uri: vscode.Uri): string {
 }
 
 /**
- * Escape a test label for use as the `desc` argument when running a single test
- * via R. The label is embedded in an R single-quoted string literal, itself inside
- * a double-quoted shell `-e` argument, so embedded quotes and backticks must be
- * escaped. The `\n` inside a multi-line description must also be escaped for
- * proper handling on Windows (#10133).
+ * Escape a test label for embedding in a call like
+ * `devtools::test_active_file(..., desc = 'LABEL')`.
  */
 export function escapeLabelForRDesc(label: string): string {
 	return label
-		.replace(/(['"`])/g, '\\$1')
+		.replace(/'/g, '\\\'')
 		.replace(/\n/g, '\\n');
 }
 
