@@ -74,6 +74,11 @@
         "command": "zed.quartoVisualMode",
         "category": "Zed",
         "title": "Edit Quarto File in Visual Mode"
+      },
+      {
+        "command": "zed.getConsoleContent",
+        "category": "Zed",
+        "title": "Get Console Content"
       }
     ],
     "menus": {
@@ -81,6 +86,10 @@
         {
           "category": "Zed",
           "command": "zed.quartoVisualMode"
+        },
+        {
+          "category": "Zed",
+          "command": "zed.getConsoleContent"
         }
       ]
     }
