@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DOCS_INDEX_FILENAME, DOCS_MANIFEST_FILENAME, IDocsBundleManifest, parseManifest } from './positronDocsBundle.js';
-import { IDocsFileStore, joinDocsPath } from './positronDocsPorts.js';
+import { IDocsFileStore, joinDocsPath } from './positronDocsIO.js';
 
 export type DocsValidationFailure =
 	| 'missing-manifest'

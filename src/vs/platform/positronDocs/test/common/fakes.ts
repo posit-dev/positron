@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IDocsArchive, IDocsFileStore, IDocsHttpClient, IDocsHttpGetOptions, IDocsHttpResponse, IDocsLogger } from '../../common/positronDocsPorts.js';
+import { IDocsArchive, IDocsFileStore, IDocsHttpClient, IDocsHttpGetOptions, IDocsHttpResponse, IDocsLogger } from '../../common/positronDocsIO.js';
 
 /**
  * Deterministic stand-in for a real sha256. Only equality matters in these
- * tests, and exporting it lets a test compute the digest a sidecar should
+ * tests, and exporting it lets a test compute the digest a checksum file should
  * carry without duplicating the algorithm.
  */
 export function fakeDigest(contents: string): string {
