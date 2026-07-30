@@ -3908,6 +3908,19 @@ declare module 'positron' {
 		export function getAgentAllowedCommands(): Thenable<AgentCommand[]>;
 
 		/**
+		 * Returns filesystem roots holding the agent skills that ship with this
+		 * Positron build.
+		 *
+		 * Each root is a directory whose immediate subdirectories are skills, one
+		 * `SKILL.md` per subdirectory. Resolved on whichever machine the extension
+		 * host runs on, so the paths are valid for an extension reading them.
+		 *
+		 * @returns A Thenable resolving to absolute paths, empty when this build
+		 * ships no agent skills.
+		 */
+		export function getAgentSkillRoots(): Thenable<string[]>;
+
+		/**
 		 * Validate and execute a Positron command.
 		 *
 		 * Unlike `vscode.commands.executeCommand`, this call first checks that

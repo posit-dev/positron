@@ -83,7 +83,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostDocuments: ExtHostDocuments = rpcProtocol.getRaw(ExtHostContext.ExtHostDocuments);
 	const extHostQuickOpen = rpcProtocol.set(ExtHostPositronContext.ExtHostQuickOpen, createExtHostQuickOpen(rpcProtocol, extHostWorkspace, extHostCommands));
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol, extHostLogService));
-	const extHostAiFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostAiFeatures, new ExtHostAiFeatures(rpcProtocol, extHostCommands, extHostWorkspace));
+	const extHostAiFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostAiFeatures, new ExtHostAiFeatures(rpcProtocol, extHostCommands, extHostWorkspace, initData));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 	const extHostContextKeyService = rpcProtocol.set(ExtHostPositronContext.ExtHostContextKeyService, new ExtHostContextKeyService(rpcProtocol));
@@ -537,6 +537,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			getAgentAllowedCommands(): Thenable<positron.ai.AgentCommand[]> {
 				return extHostAiFeatures.getAgentAllowedCommands();
+			},
+			getAgentSkillRoots(): Thenable<string[]> {
+				return extHostAiFeatures.getAgentSkillRoots();
 			},
 			validateAndExecuteCommand(
 				commandId: string,

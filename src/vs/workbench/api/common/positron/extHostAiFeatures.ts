@@ -20,6 +20,8 @@ import { ChatAgentLocation, ChatModeKind } from '../../../contrib/chat/common/co
 import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
 import { IExtHostWorkspace } from '../extHostWorkspace.js';
 import { getEnabledTools as filterEnabledTools } from './positronToolFilter.js';
+import { IExtHostInitDataService } from '../extHostInitDataService.js';
+import { getAgentSkillRoots } from './positronSkillRoots.js';
 
 export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape {
 
@@ -37,6 +39,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		mainContext: extHostProtocol.IMainPositronContext,
 		private readonly _commands: ExtHostCommands,
 		private readonly _extHostWorkspace: IExtHostWorkspace,
+		private readonly _initData: IExtHostInitDataService,
 	) {
 		// Trigger creation of proxy to main thread
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadAiFeatures);
@@ -200,6 +203,14 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 	async getAgentAllowedCommands(): Promise<extHostProtocol.ISerializedAgentCommand[]> {
 		return this._proxy.$getAgentAllowedCommands();
+	}
+
+	/**
+	 * Filesystem roots holding the agent skills that ship with this Positron
+	 * build. Empty when the build ships none.
+	 */
+	async getAgentSkillRoots(): Promise<string[]> {
+		return getAgentSkillRoots(this._initData.environment.appRoot);
 	}
 
 	async validateAndExecuteCommand(
