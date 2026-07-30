@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Ports for the docs cache. Deliberately three narrow interfaces rather than
- * one wide one, so each test fake stays small and the seam can be re-hosted in
- * a node service later without a rewrite.
+ * The I/O interfaces the docs cache is built against. Deliberately three narrow
+ * ones rather than a single wide one, so each test fake stays small and the seam
+ * can be re-hosted in a node service later without a rewrite.
  *
  * Paths are plain strings joined with forward slashes. Node's fs accepts
  * forward slashes on Windows, so no platform-specific joining is needed here

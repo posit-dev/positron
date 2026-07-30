@@ -62,7 +62,7 @@ function setup() {
 		advance: (ms: number) => { clock += ms; },
 		/** The persisted cache state, parsed. */
 		readState: async () => JSON.parse(await files.readFile(STATE_PATH)),
-		/** Serve `zipUrl` with a matching, correctly-formatted sidecar. */
+		/** Serve `zipUrl` with a matching, correctly-formatted checksum file. */
 		publish: (zipUrl: string, body: string, etag?: string) => {
 			http.route(zipUrl, { status: 200, body, etag });
 			http.route(`${zipUrl}.sha256sum`, { status: 200, body: `${fakeDigest(body)}  bundle.zip\n` });
@@ -169,18 +169,18 @@ describe('PositronDocsCache: download rejections on a cold cache', () => {
 		return ctx;
 	}
 
-	it('rejects when the digest sidecar 404s', async () => {
+	it('rejects when the checksum file 404s', async () => {
 		await expectRejected(c => {
 			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179') });
 			c.http.route(`${EXACT_ZIP}.sha256sum`, { status: 404 });
-		}, 'digest sidecar unavailable (HTTP 404)');
+		}, 'checksum file unavailable (HTTP 404)');
 	});
 
-	it('rejects when the sidecar is unparseable', async () => {
+	it('rejects when the checksum file is unparseable', async () => {
 		await expectRejected(c => {
 			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179') });
 			c.http.route(`${EXACT_ZIP}.sha256sum`, { status: 200, body: '<!DOCTYPE html><html>404</html>' });
-		}, 'digest sidecar is not a sha256 digest');
+		}, 'checksum file does not hold a sha256 digest');
 	});
 
 	it('rejects when the digest does not match the zip', async () => {
@@ -415,7 +415,7 @@ describe('PositronDocsCache: cache-present rule', () => {
 			c.http.route(LATEST_ZIP, { status: 200, body: payload('2026.05.0-179') });
 			c.http.route(`${LATEST_ZIP}.sha256sum`, { status: 200, body: `${'d'.repeat(64)}  x` });
 		}],
-		['missing sidecar', (c: ReturnType<typeof setup>) => {
+		['missing checksum file', (c: ReturnType<typeof setup>) => {
 			c.http.route(LATEST_ZIP, { status: 200, body: payload('2026.05.0-179') });
 			c.http.route(`${LATEST_ZIP}.sha256sum`, { status: 404 });
 		}],

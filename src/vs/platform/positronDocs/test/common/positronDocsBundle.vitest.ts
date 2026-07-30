@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 /// <reference types="vitest/globals" />
 
-import { IDocsBundleRequest, parseManifest, parseSha256Sidecar, resolveBundleRequest } from '../../common/positronDocsBundle.js';
+import { IDocsBundleRequest, parseManifest, parseDigestFile, resolveBundleRequest } from '../../common/positronDocsBundle.js';
 
 const BASE = 'https://cdn.posit.co/positron/releases/docs';
 
@@ -31,7 +31,7 @@ describe('resolveBundleRequest', () => {
 		expect(resolveBundleRequest(request({ quality })).wantsExact).toBe(wantsExact);
 	});
 
-	it('builds exact and latest URLs plus sidecars for the positron profile', () => {
+	it('builds exact and latest URLs plus checksum files for the positron profile', () => {
 		const { exact, latest } = resolveBundleRequest(request());
 		expect({ exact, latest }).toMatchInlineSnapshot(`
 			{
@@ -95,7 +95,7 @@ describe('parseManifest', () => {
 	});
 });
 
-describe('parseSha256Sidecar', () => {
+describe('parseDigestFile', () => {
 	const digest = 'a'.repeat(64);
 
 	it.each([
@@ -103,7 +103,7 @@ describe('parseSha256Sidecar', () => {
 		['bare hex', `${digest}\n`],
 		['uppercase hex', `${digest.toUpperCase()}  x.zip`],
 	])('accepts %s', (_label, raw) => {
-		expect(parseSha256Sidecar(raw)).toBe(digest);
+		expect(parseDigestFile(raw)).toBe(digest);
 	});
 
 	it.each([
@@ -112,6 +112,6 @@ describe('parseSha256Sidecar', () => {
 		['non-hex', `${'z'.repeat(64)}  x.zip`],
 		['an HTML error page', '<!DOCTYPE html><html><body>404</body></html>'],
 	])('rejects %s', (_label, raw) => {
-		expect(parseSha256Sidecar(raw)).toBeUndefined();
+		expect(parseDigestFile(raw)).toBeUndefined();
 	});
 });

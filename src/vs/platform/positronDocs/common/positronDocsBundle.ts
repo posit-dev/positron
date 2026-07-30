@@ -181,13 +181,13 @@ export function parseManifest(raw: string): IDocsBundleManifest | undefined {
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
 /**
- * Read the hex digest out of a `.sha256sum` sidecar.
+ * Read the hex digest out of a `.sha256sum` checksum file.
  *
  * Accepts both `shasum -a 256` output (`<hex>  <name>`) and a bare digest.
  * Returns undefined for anything else, including an HTML error page served in
  * place of a missing object - which the caller must treat as a hard failure.
  */
-export function parseSha256Sidecar(raw: string): string | undefined {
+export function parseDigestFile(raw: string): string | undefined {
 	const first = raw.trim().split(/\s+/)[0]?.toLowerCase();
 	return first && SHA256_HEX.test(first) ? first : undefined;
 }

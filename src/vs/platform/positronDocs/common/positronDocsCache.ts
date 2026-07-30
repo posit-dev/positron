@@ -7,9 +7,9 @@ import {
 	DOCS_BUNDLE_SCHEMA, DOCS_FAILURE_THROTTLE_MS, DOCS_MAX_DOWNLOAD_BYTES, DOCS_PRUNE_IDLE_MS,
 	DOCS_STATE_FILENAME, DocsResolution,
 	IDocsBundleManifest, IDocsBundleRequest, IDocsCacheState, IResolvedBundle, IResolvedBundleRequest,
-	parseSha256Sidecar, resolveBundleRequest,
+	parseDigestFile, resolveBundleRequest,
 } from './positronDocsBundle.js';
-import { IDocsArchive, IDocsFileStore, IDocsHttpClient, IDocsLogger, ILocalDocs, joinDocsPath } from './positronDocsPorts.js';
+import { IDocsArchive, IDocsFileStore, IDocsHttpClient, IDocsLogger, ILocalDocs, joinDocsPath } from './positronDocsIO.js';
 import { guardEntryNames, validateExtractedBundle } from './positronDocsValidate.js';
 
 const LOG_PREFIX = '[positron-docs]';
@@ -296,15 +296,15 @@ export class PositronDocsCache {
 			}
 
 			// A zip that cannot be verified is never extracted, even though
-			// that means a cold cache gets no local docs until the sidecar
+			// that means a cold cache gets no local docs until the checksum file
 			// appears. Proceeding unverified would make the digest decorative.
-			const sidecar = await http.get(target.sha256Url);
-			if (sidecar.status !== 200 || !sidecar.body) {
-				return { kind: 'rejected', reason: `digest sidecar unavailable (HTTP ${sidecar.status})` };
+			const checksum = await http.get(target.sha256Url);
+			if (checksum.status !== 200 || !checksum.body) {
+				return { kind: 'rejected', reason: `checksum file unavailable (HTTP ${checksum.status})` };
 			}
-			const expected = parseSha256Sidecar(new TextDecoder().decode(sidecar.body));
+			const expected = parseDigestFile(new TextDecoder().decode(checksum.body));
 			if (!expected) {
-				return { kind: 'rejected', reason: 'digest sidecar is not a sha256 digest' };
+				return { kind: 'rejected', reason: 'checksum file does not hold a sha256 digest' };
 			}
 
 			await files.writeFile(tmpZip, zip.body);

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 /// <reference types="vitest/globals" />
 
-import { joinDocsPath } from '../../common/positronDocsPorts.js';
+import { joinDocsPath } from '../../common/positronDocsIO.js';
 
 describe('joinDocsPath', () => {
 	it.each([
