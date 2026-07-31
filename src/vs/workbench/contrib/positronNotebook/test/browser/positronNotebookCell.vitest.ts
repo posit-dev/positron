@@ -10,6 +10,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { CellEditType, CellKind, NotebookCellsChangeType } from '../../../notebook/common/notebookCommon.js';
 import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { PositronNotebookCodeCell } from '../../browser/PositronNotebookCells/PositronNotebookCodeCell.js';
+import { computeRangeRevealScrollTop } from '../../browser/PositronNotebookCells/PositronNotebookCell.js';
 
 describe('PositronNotebookCell', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
@@ -309,6 +310,53 @@ describe('PositronNotebookCell tags', () => {
 		notebook.toggleCellTagsHidden();
 		expect(cell.tagUIVisible.get()).toBe(false);
 		expect(cell.tags.get()).toEqual(['tag']);
+	});
+});
+
+describe('computeRangeRevealScrollTop', () => {
+	it('returns undefined when the range is already fully visible', () => {
+		expect(computeRangeRevealScrollTop({
+			scrollTop: 100, viewportHeight: 500, rangeTop: 200, rangeBottom: 220,
+		})).toBe(undefined);
+	});
+
+	it('returns undefined when the range exactly spans the viewport edges', () => {
+		expect(computeRangeRevealScrollTop({
+			scrollTop: 100, viewportHeight: 500, rangeTop: 100, rangeBottom: 600,
+		})).toBe(undefined);
+	});
+
+	it('centers a range below the viewport', () => {
+		// Range center is 2010; viewport height 500 -> scrollTop 2010 - 250 = 1760
+		expect(computeRangeRevealScrollTop({
+			scrollTop: 0, viewportHeight: 500, rangeTop: 2000, rangeBottom: 2020,
+		})).toBe(1760);
+	});
+
+	it('centers a range above the viewport', () => {
+		// Range center is 60; viewport height 500 -> centering would need -190, clamped to 0
+		expect(computeRangeRevealScrollTop({
+			scrollTop: 1000, viewportHeight: 500, rangeTop: 50, rangeBottom: 70,
+		})).toBe(0);
+	});
+
+	it('centers a partially visible range at the bottom edge', () => {
+		// Range [590, 610] straddles the bottom edge of viewport [100, 600]
+		expect(computeRangeRevealScrollTop({
+			scrollTop: 100, viewportHeight: 500, rangeTop: 590, rangeBottom: 610,
+		})).toBe(350);
+	});
+
+	it('aligns to the range top when the range is taller than the viewport', () => {
+		expect(computeRangeRevealScrollTop({
+			scrollTop: 0, viewportHeight: 500, rangeTop: 2000, rangeBottom: 2800,
+		})).toBe(2000);
+	});
+
+	it('never returns a negative scrollTop', () => {
+		expect(computeRangeRevealScrollTop({
+			scrollTop: 500, viewportHeight: 800, rangeTop: 10, rangeBottom: 30,
+		})).toBe(0);
 	});
 });
 
