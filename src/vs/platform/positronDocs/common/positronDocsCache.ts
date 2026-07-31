@@ -119,6 +119,21 @@ export class PositronDocsCache {
 		this._generation++;
 	}
 
+	/**
+	 * The cached bundle, if any, without touching the network.
+	 *
+	 * Used when a caller has stopped waiting for an in-flight fetch: the
+	 * cache-present rule says a valid cache is served regardless, and awaiting
+	 * `ensure()` would defeat the point of the timeout.
+	 */
+	async peek(request: IDocsBundleRequest): Promise<ILocalDocs | undefined> {
+		if (this._attempted) {
+			return this._result;
+		}
+		const exactVersion = resolveBundleRequest(request).exact.version;
+		return await this._readCached(await this._readState(), exactVersion);
+	}
+
 	private async _ensureOnce(request: IDocsBundleRequest): Promise<ILocalDocs | undefined> {
 		const resolved = resolveBundleRequest(request);
 		const state = await this._readState();

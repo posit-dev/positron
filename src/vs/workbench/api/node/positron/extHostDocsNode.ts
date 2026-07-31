@@ -6,6 +6,7 @@
 import { createHash } from 'crypto';
 import * as fs from 'fs';
 import type * as positron from 'positron';
+import { RunOnceScheduler } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { dirname as pathDirname } from '../../../../base/common/path.js';
@@ -19,8 +20,10 @@ import product from '../../../../platform/product/common/product.js';
 import { DocsProfile, IDocsBundleRequest } from '../../../../platform/positronDocs/common/positronDocsBundle.js';
 import { PositronDocsCache } from '../../../../platform/positronDocs/common/positronDocsCache.js';
 import { IDocsArchive, IDocsFileStore, IDocsHttpClient, IDocsHttpGetOptions, IDocsHttpResponse } from '../../../../platform/positronDocs/common/positronDocsIO.js';
+import { PositronDocsTriggers } from '../../../../platform/positronDocs/common/positronDocsTriggers.js';
 import { AI_ENABLED_KEY } from '../../../contrib/positronAssistant/common/positronAIConfigurationKeys.js';
 import { IExtHostConfiguration } from '../../common/extHostConfiguration.js';
+import { IExtHostExtensionService } from '../../common/extHostExtensionService.js';
 import { IExtHostInitDataService } from '../../common/extHostInitDataService.js';
 import { IExtHostDocs } from '../../common/positron/extHostDocs.js';
 
@@ -28,6 +31,11 @@ const CACHE_DIR_NAME = 'positron-docs';
 const DEFAULT_BUNDLE_BASE_URL = 'https://cdn.posit.co/positron/releases/docs';
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_REDIRECTS = 3;
+// Measured from the startup-finished signal, not from construction: the delay
+// exists to stay clear of the eager-activation burst, and construction happens
+// before it. See the design spec, "The launch anchor".
+const LAUNCH_DELAY_MS = 5_000;
+const GET_LOCAL_DOCS_WAIT_MS = 10_000;
 
 /**
  * HTTP over node's https/http. The extension host already proxy-patches these
@@ -203,12 +211,13 @@ export class NodeExtHostDocs extends Disposable implements IExtHostDocs {
 
 	readonly _serviceBrand: undefined;
 
-	private readonly _cache: PositronDocsCache;
-	private readonly _request: IDocsBundleRequest;
+	private readonly _triggers: PositronDocsTriggers;
+	private readonly _launch: RunOnceScheduler;
 
 	constructor(
 		@IExtHostInitDataService initData: IExtHostInitDataService,
 		@IExtHostConfiguration private readonly _configuration: IExtHostConfiguration,
+		@IExtHostExtensionService private readonly _extensionService: IExtHostExtensionService,
 		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
@@ -216,27 +225,82 @@ export class NodeExtHostDocs extends Disposable implements IExtHostDocs {
 		// A sibling of globalStorage, so there is no risk of colliding with an
 		// extension id. Profile-scoped, which is one 655KB copy per profile.
 		const root = joinPath(dirname(initData.environment.globalStorageHome), CACHE_DIR_NAME);
+		const request = deriveBundleRequest(initData, process.env);
+		const logger = {
+			info: (message: string) => this._logService.info(message),
+			warn: (message: string) => this._logService.warn(message),
+		};
 
-		this._request = deriveBundleRequest(initData, process.env);
-		this._cache = new PositronDocsCache({
+		const cache = new PositronDocsCache({
 			rootPath: root.fsPath,
 			http: new NodeDocsHttpClient(),
 			files: new NodeDocsFileStore(),
 			archive: new NodeDocsArchive(),
-			logger: {
-				info: message => this._logService.info(message),
-				warn: message => this._logService.warn(message),
-			},
+			logger,
 			now: () => Date.now(),
 			newId: () => generateUuid(),
 		});
+
+		this._triggers = new PositronDocsTriggers({
+			cache,
+			request,
+			logger,
+			isAiEnabled: () => this._isAiEnabled(),
+			waitMs: GET_LOCAL_DOCS_WAIT_MS,
+			delay: ms => new Promise(resolve => setTimeout(resolve, ms)),
+		});
+
+		// Launch trigger. Nothing above touched the network or the disk: the
+		// constructor only arms a scheduler and installs a config listener. That
+		// discipline is what keeps a slow download off the extension
+		// activation path, and the construction test asserts it.
+		this._launch = this._register(new RunOnceScheduler(() => { void this._triggers.runBackgroundFetch(); }, LAUNCH_DELAY_MS));
+		void this._scheduleLaunchAfterStartup();
+
+		void this._listenForAiEnabledFlip();
 	}
 
 	async getLocalDocs(): Promise<positron.docs.LocalDocs | undefined> {
-		if (!await this._isAiEnabled()) {
-			return undefined;
+		return await this._triggers.getLocalDocs();
+	}
+
+	/**
+	 * The launch delay is measured from the startup-finished signal rather than
+	 * from construction, so the download stays clear of the eager-activation
+	 * burst instead of guessing how long that burst takes. The signal is capped
+	 * at 10 seconds upstream, so a hung eager extension delays this fetch rather
+	 * than suppressing it. Trigger 3 (getLocalDocs) is the backstop either way.
+	 */
+	private async _scheduleLaunchAfterStartup(): Promise<void> {
+		await this._extensionService.whenStartupFinished();
+		if (this._store.isDisposed) {
+			return;
 		}
-		return await this._cache.ensure(this._request);
+		this._launch.schedule();
+	}
+
+	/**
+	 * ai.enabled toggles without a window reload, so a mid-session flip must
+	 * work. getConfigProvider() is barrier-gated, hence the async helper rather
+	 * than an inline subscription.
+	 */
+	private async _listenForAiEnabledFlip(): Promise<void> {
+		const provider = await this._configuration.getConfigProvider();
+		if (this._store.isDisposed) {
+			return;
+		}
+		let enabled = provider.getConfiguration().get<boolean>(AI_ENABLED_KEY) === true;
+		this._register(provider.onDidChangeConfiguration(async event => {
+			if (!event.affectsConfiguration(AI_ENABLED_KEY)) {
+				return;
+			}
+			const next = provider.getConfiguration().get<boolean>(AI_ENABLED_KEY) === true;
+			const flippedOn = next && !enabled;
+			enabled = next;
+			if (flippedOn) {
+				await this._triggers.onAiEnabledFlippedTrue();
+			}
+		}));
 	}
 
 	/**

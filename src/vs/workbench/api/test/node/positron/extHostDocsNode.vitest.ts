@@ -6,12 +6,16 @@
 
 import { randomUUID } from 'crypto';
 import { existsSync } from 'fs';
+import type * as vscode from 'vscode';
 import { tmpdir } from 'os';
+import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { join } from '../../../../../base/common/path.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { PositronDocsTriggers } from '../../../../../platform/positronDocs/common/positronDocsTriggers.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { IExtHostConfiguration } from '../../../common/extHostConfiguration.js';
+import { ExtHostConfigProvider, IExtHostConfiguration } from '../../../common/extHostConfiguration.js';
+import { IExtHostExtensionService } from '../../../common/extHostExtensionService.js';
 import { IExtHostInitDataService } from '../../../common/extHostInitDataService.js';
 import { deriveBundleRequest, NodeExtHostDocs } from '../../../node/positron/extHostDocsNode.js';
 
@@ -67,9 +71,10 @@ describe('deriveBundleRequest', () => {
 describe('NodeExtHostDocs construction', () => {
 	// The one risk specific to hosting this on the extension host is a slow or
 	// hung download landing on an activation path. The constructor must only
-	// install a scheduler and a config listener, so it must not have created
-	// the cache directory or resolved the barrier-gated config provider.
-	it('performs no filesystem or configuration work', async () => {
+	// arm a scheduler and start installing a config listener, so with a config
+	// provider and a startup signal that never resolve it must still return,
+	// having created no cache directory.
+	it('performs no filesystem work and does not wait on startup or configuration', async () => {
 		const root = join(tmpdir(), `positron-docs-ctor-${randomUUID()}`);
 		const getConfigProvider = vi.fn(() => new Promise<never>(() => { }));
 		const service = new NodeExtHostDocs(
@@ -82,11 +87,76 @@ describe('NodeExtHostDocs construction', () => {
 				}),
 			}),
 			stubInterface<IExtHostConfiguration>({ getConfigProvider }),
+			stubInterface<IExtHostExtensionService>({
+				// Never resolves: construction must not depend on startup finishing.
+				whenStartupFinished: () => new Promise<void>(() => { }),
+			}),
 			new NullLogService(),
 		);
 
 		expect(existsSync(join(root, 'positron-docs'))).toBe(false);
-		expect(getConfigProvider).not.toHaveBeenCalled();
+		// Called, but never awaited to completion - the listener install is a
+		// detached continuation, not part of construction.
+		expect(getConfigProvider).toHaveBeenCalledTimes(1);
 		service.dispose();
+	});
+});
+
+describe('NodeExtHostDocs launch anchor', () => {
+	beforeEach(() => vi.useFakeTimers());
+	afterEach(() => vi.useRealTimers());
+
+	function build(startupFinished: Promise<void>) {
+		// Spying on the trigger rather than the ports: this asserts *when* the
+		// launch fetch fires, and running the real one would reach the network.
+		const runBackgroundFetch = vi.spyOn(PositronDocsTriggers.prototype, 'runBackgroundFetch')
+			.mockResolvedValue(undefined);
+		const root = join(tmpdir(), `positron-docs-anchor-${randomUUID()}`);
+		const service = new NodeExtHostDocs(
+			stubInterface<IExtHostInitDataService>({
+				quality: 'dailies',
+				positronVersion: '2026.05.0',
+				positronBuildNumber: 179,
+				environment: stubInterface<IExtHostInitDataService['environment']>({
+					globalStorageHome: URI.file(join(root, 'globalStorage')),
+				}),
+			}),
+			stubInterface<IExtHostConfiguration>({
+				getConfigProvider: async () => stubInterface<ExtHostConfigProvider>({
+					getConfiguration: () => stubInterface<vscode.WorkspaceConfiguration>({ get: () => true }),
+					onDidChangeConfiguration: () => Disposable.None,
+				}),
+			}),
+			stubInterface<IExtHostExtensionService>({ whenStartupFinished: () => startupFinished }),
+			new NullLogService(),
+		);
+		return { service, runBackgroundFetch };
+	}
+
+	it('does not fetch while the startup-finished signal is pending', async () => {
+		const ctx = build(new Promise<void>(() => { }));
+		await vi.advanceTimersByTimeAsync(60_000);
+		expect(ctx.runBackgroundFetch).not.toHaveBeenCalled();
+		ctx.service.dispose();
+	});
+
+	it('fetches 5 seconds after the signal resolves', async () => {
+		let resolve!: () => void;
+		const ctx = build(new Promise<void>(r => { resolve = r; }));
+		resolve();
+		await vi.advanceTimersByTimeAsync(4_000);
+		expect(ctx.runBackgroundFetch).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(2_000);
+		expect(ctx.runBackgroundFetch).toHaveBeenCalledOnce();
+		ctx.service.dispose();
+	});
+
+	it('does not fetch if disposed between the signal and the delay', async () => {
+		let resolve!: () => void;
+		const ctx = build(new Promise<void>(r => { resolve = r; }));
+		resolve();
+		ctx.service.dispose();
+		await vi.advanceTimersByTimeAsync(60_000);
+		expect(ctx.runBackgroundFetch).not.toHaveBeenCalled();
 	});
 });
