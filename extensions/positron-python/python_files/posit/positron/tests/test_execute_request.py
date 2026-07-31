@@ -142,17 +142,22 @@ def test_unknown_keys_are_ignored() -> None:
     ("fig_width", "fig_height", "expected"),
     [
         (6.4, 4.8, (6.4, 4.8)),
-        (None, 4.8, None),
-        (6.4, None, None),
+        # A lone dimension passes through; the caller fills the other from its default.
+        (None, 4.8, (None, 4.8)),
+        (6.4, None, (6.4, None)),
         (None, None, None),
-        (-1.0, 4.8, None),
-        (6.4, -1.0, None),
+        # A non-positive dimension counts as unspecified.
+        (-1.0, 4.8, (None, 4.8)),
+        (6.4, -1.0, (6.4, None)),
+        (-1.0, -1.0, None),
     ],
 )
 def test_figure_size(
-    fig_width: float | None, fig_height: float | None, expected: tuple[float, float] | None
+    fig_width: float | None,
+    fig_height: float | None,
+    expected: tuple[float | None, float | None] | None,
 ) -> None:
-    """The `figure_size` property returns a tuple of (width, height) if both are positive."""
+    """`figure_size` keeps each positive dimension and is None only when neither is set."""
     message = {"content": {"positron": {"fig-width": fig_width, "fig-height": fig_height}}}
 
     meta = PositronExecuteRequest.from_message(message)

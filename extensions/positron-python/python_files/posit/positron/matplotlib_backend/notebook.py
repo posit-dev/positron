@@ -31,7 +31,7 @@ from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 
-from ..execute_request import current_execute_request
+from ..execute_request import PositronExecuteRequest, current_execute_request
 from . import formats
 from .backend import Backend
 from .registry import registry
@@ -55,12 +55,13 @@ def new_figure_manager(
     execute_request = current_execute_request()
 
     # Sizing precedence: an explicit size from user code (`plt.figure(figsize=...)`,
-    # `plt.subplots(figsize=...)`) wins, else the cell's `#| fig-width`/`#| fig-height`,
-    # else matplotlib's `figure.figsize` rcParam, which `Figure` applies for a None figsize.
+    # `plt.subplots(figsize=...)`) wins, else the cell's `#| fig-width`/`#| fig-height`
+    # (either may be set alone, per dimension), else matplotlib's `figure.figsize`
+    # rcParam, which `Figure` applies for a None figsize.
     # Compare against None rather than truthiness: matplotlib accepts any array-like
     # figsize, and a numpy array raises on `bool()`.
     if figsize is None:
-        figsize = execute_request.figure_size
+        figsize = _requested_figsize(execute_request)
     # `Figure` only accepts the 3-tuple form in matplotlib >= 3.11, but we pass whatever
     # matplotlib handed us straight back to it, so the pair always matches at runtime.
     # The cast keeps pyright quiet against the older pins (CI type-checks on 3.9).
@@ -75,6 +76,23 @@ def new_figure_manager(
         manager.canvas.set_device_pixel_ratio(pixel_ratio)
 
     return manager
+
+
+def _requested_figsize(execute_request: PositronExecuteRequest) -> tuple[float, float] | None:
+    """The figsize requested via the cell's `#| fig-width`/`#| fig-height`, if any.
+
+    Either option may be set alone, matching `quarto render`; the missing dimension
+    falls back to the current `figure.figsize` rcParam.
+    """
+    size = execute_request.figure_size
+    if size is None:
+        return None
+    width, height = size
+    default_width, default_height = matplotlib.rcParams["figure.figsize"]
+    return (
+        width if width is not None else default_width,
+        height if height is not None else default_height,
+    )
 
 
 class FigureManagerPositronNotebook(FigureManagerBase):

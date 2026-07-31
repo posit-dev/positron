@@ -150,9 +150,6 @@ def test_figure_size_does_not_leak_to_later_cell(backend):
 @pytest.mark.parametrize(
     "meta",
     [
-        # Lone dimension is a no-op.
-        {"fig-width": 1},
-        {"fig-height": 1},
         # Non-positive dimension is a no-op.
         {"fig-width": 0},
         {"fig-height": 0},
@@ -160,8 +157,30 @@ def test_figure_size_does_not_leak_to_later_cell(backend):
     ],
 )
 def test_figure_size_noop(backend, meta):
-    """A lone fig-height leaves the figure at the default size."""
+    """Invalid sizing metadata leaves the figure at the default size."""
     assert backend.plot(meta=meta).figure_size == DEFAULT_FIGSIZE
+
+
+@pytest.mark.parametrize(
+    ("meta", "expected"),
+    [
+        ({"fig-width": 8}, [8.0, DEFAULT_FIGSIZE[1]]),
+        ({"fig-height": 4}, [DEFAULT_FIGSIZE[0], 4.0]),
+        # A non-positive dimension counts as unspecified.
+        ({"fig-width": 0, "fig-height": 4}, [DEFAULT_FIGSIZE[0], 4.0]),
+    ],
+)
+def test_lone_figure_dimension_uses_default_for_other(backend, meta, expected):
+    """A lone `fig-width`/`fig-height` applies; the other falls back to the default."""
+    assert backend.plot(meta=meta).figure_size == expected
+
+
+def test_lone_figure_dimension_falls_back_to_rc_params(backend):
+    """The unspecified dimension falls back to the current rcParam, not the stock default."""
+    with matplotlib.rc_context({"figure.figsize": (3.0, 2.0)}):
+        result = backend.plot(meta={"fig-width": 8})
+
+    assert result.figure_size == [8.0, 2.0]
 
 
 def test_pixel_ratio_scales_png_size_and_attaches_metadata(backend):

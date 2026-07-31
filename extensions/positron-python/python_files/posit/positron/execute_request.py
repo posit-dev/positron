@@ -59,12 +59,18 @@ class PositronExecuteRequest(BaseModel):
     )
 
     @property
-    def figure_size(self) -> Optional[tuple[float, float]]:
-        """The figure size in inches, if specified."""
-        w, h = self.fig_width, self.fig_height
-        if w is not None and h is not None and w > 0 and h > 0:
-            return (w, h)
-        return None
+    def figure_size(self) -> Optional[tuple[Optional[float], Optional[float]]]:
+        """The figure size in inches, if specified.
+
+        Either dimension may be set alone; a missing or non-positive dimension is
+        None, for the caller to fill from its own default. None when neither
+        dimension is specified.
+        """
+        w = self.fig_width if self.fig_width is not None and self.fig_width > 0 else None
+        h = self.fig_height if self.fig_height is not None and self.fig_height > 0 else None
+        if w is None and h is None:
+            return None
+        return (w, h)
 
     @classmethod
     def from_message(cls, message: dict) -> "PositronExecuteRequest":
