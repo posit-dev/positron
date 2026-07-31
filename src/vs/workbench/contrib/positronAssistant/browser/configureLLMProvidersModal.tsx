@@ -18,7 +18,6 @@ import { PositronModalReactRenderer } from '../../../../base/browser/positronMod
 import { ProviderList } from './components/providerList.js';
 import { ConnectProviderView } from './components/connectProviderView.js';
 import { ConnectedProviderView } from './components/connectedProviderView.js';
-import { NotYetSupportedView } from './components/notYetSupportedView.js';
 import { ProviderModalFooter } from './components/providerModalFooter.js';
 import { selectProviderView } from './providerConnection.js';
 import { useProviderUpdates } from './useProviderUpdates.js';
@@ -62,7 +61,7 @@ export interface ConfigureLLMProvidersProps {
 
 export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	const services = usePositronReactServicesContext();
-	const [view, setView] = useState<'list' | 'connect' | 'connected' | 'notSupported'>('list');
+	const [view, setView] = useState<'list' | 'connect' | 'connected'>('list');
 	const [selectedProviderId, setSelectedProviderId] = useState<string>();
 
 	// Live copy of the provider sources. The modal outlives every view, so this
@@ -167,14 +166,6 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 					onBack={() => setView('list')}
 					onClose={close}
 				/>
-			}
-			{activeView === 'notSupported' &&
-				<>
-					<ContentArea>
-						<NotYetSupportedView source={selectedSource} />
-					</ContentArea>
-					<ProviderModalFooter onBack={() => setView('list')} onClose={close} />
-				</>
 			}
 		</PositronModalDialog>
 	);
