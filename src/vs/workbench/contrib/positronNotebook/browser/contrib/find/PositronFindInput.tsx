@@ -113,6 +113,13 @@ const FindInputEffects = ({
 		const newValue = value || '';
 		if (findInput.getValue() !== newValue) {
 			findInput.setValue(newValue);
+			// Only external value changes reach here (e.g. seeding from the
+			// editor selection): user input already equals the new value and
+			// is skipped by the guard above. Select the new text so typing
+			// replaces it, matching the editor find widget.
+			if (findInput.inputBox.hasFocus()) {
+				findInput.select();
+			}
 		}
 	}, [findInput, value]);
 	useEffect(() => findInput.setCaseSensitive(matchCase), [findInput, matchCase]);

@@ -20,7 +20,7 @@ import { NotebookTextModel } from '../../../../notebook/common/model/notebookTex
 import { RunOnceScheduler } from '../../../../../../base/common/async.js';
 import { Constants } from '../../../../../../base/common/uint.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
-import { getActiveCell } from '../../selectionMachine.js';
+import { getActiveCell, getEditingCell } from '../../selectionMachine.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
 import { CellEditorPosition } from '../../../common/editor/position.js';
 import { showHistoryKeybindingHint } from '../../../../../../platform/history/browser/historyWidgetKeybindingHint.js';
@@ -31,6 +31,9 @@ import { ReplaceWidgetHistory } from '../../../../../../editor/contrib/find/brow
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IBulkEditService, ResourceTextEdit } from '../../../../../../editor/browser/services/bulkEditService.js';
 import { ReplacePattern, parseReplaceString } from '../../../../../../editor/contrib/find/browser/replacePattern.js';
+import { getSelectionSearchString } from '../../../../../../editor/contrib/find/browser/findController.js';
+import { EditorOption } from '../../../../../../editor/common/config/editorOptions.js';
+import { escapeRegExpCharacters } from '../../../../../../base/common/strings.js';
 
 export class PositronCellFindMatch {
 	constructor(
@@ -278,7 +281,40 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	 */
 	public start(options?: { replace?: boolean }): void {
 		const findInstance = this.getOrCreateFindInstance();
+		this._seedSearchStringFromSelection(findInstance);
 		findInstance.show(options);
+	}
+
+	/**
+	 * Seeds the find input from the editing cell editor's selection, following
+	 * the editor.find.seedSearchStringFromSelection setting like the built-in
+	 * notebook editor: 'always' seeds from the selection or the word at the
+	 * cursor, 'selection' requires a non-empty selection, 'never' disables
+	 * seeding. Multi-line selections never seed.
+	 */
+	private _seedSearchStringFromSelection(findInstance: PositronFindInstance): void {
+		// Only seed while a cell is being edited; a stale selection in a
+		// command-mode cell should not overwrite the search string.
+		const editor = getEditingCell(this._notebook.selectionStateMachine.state.get())?.currentEditor;
+		if (!editor) {
+			return;
+		}
+
+		const seedMode = editor.getOption(EditorOption.find).seedSearchStringFromSelection;
+		if (seedMode === 'never') {
+			return;
+		}
+
+		const selectionSearchString = getSelectionSearchString(editor, 'single', seedMode === 'selection');
+		if (!selectionSearchString) {
+			return;
+		}
+
+		// Escape the seeded text when regex mode is on so it matches literally
+		const searchString = findInstance.isRegex.get()
+			? escapeRegExpCharacters(selectionSearchString)
+			: selectionSearchString;
+		findInstance.searchString.set(searchString, undefined);
 	}
 
 	/**

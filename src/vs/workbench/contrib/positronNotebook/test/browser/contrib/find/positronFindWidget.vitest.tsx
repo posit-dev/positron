@@ -141,6 +141,31 @@ describe('PositronFindWidget', () => {
 			).toBe(true);
 		});
 
+		it('selects the input text when the find text changes externally while focused', () => {
+			renderWidget();
+			const input = screen.getByRole('textbox', { name: 'Find' }) as HTMLInputElement;
+			expect(input, 'The find input auto-focuses on creation').toHaveFocus();
+
+			// Simulate seeding from the editor selection (Cmd+F while the widget is open)
+			act(() => findText.set('seeded', undefined));
+
+			expect(input).toHaveValue('seeded');
+			expect(input.selectionStart, 'Seeded text should be fully selected so typing replaces it').toBe(0);
+			expect(input.selectionEnd).toBe('seeded'.length);
+		});
+
+		it('does not re-select the input text while the user is typing', async () => {
+			const user = userEvent.setup();
+			renderWidget();
+			const input = screen.getByRole('textbox', { name: 'Find' }) as HTMLInputElement;
+
+			await user.type(input, 'ab');
+
+			expect(input).toHaveValue('ab');
+			expect(input.selectionStart, 'The caret should stay collapsed at the end while typing').toBe(2);
+			expect(input.selectionEnd).toBe(2);
+		});
+
 		it('hidden when close button is clicked', () => {
 			const { widgetContainer } = renderWidget();
 
