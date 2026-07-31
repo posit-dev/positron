@@ -432,6 +432,36 @@ describe('PositronDocsCache: cache-present rule', () => {
 	});
 });
 
+describe('PositronDocsCache: logging', () => {
+	// Support reads these logs to work out what a build reached for. Naming the
+	// URL and the decision before the request is what makes a download that
+	// hangs or dies mid-flight diagnosable at all.
+	it('names the target and the resolution before an exact request', async () => {
+		const ctx = setup();
+		ctx.publish(EXACT_ZIP, payload('2026.05.0-179'));
+		await ctx.cache.ensure(request());
+
+		expect(ctx.logger.infos).toContain(`[positron-docs] fetching ${EXACT_ZIP} (exact)`);
+	});
+
+	it('names the target and the resolution when falling back to latest', async () => {
+		const ctx = setup();
+		ctx.http.route(EXACT_ZIP, { status: 404 });
+		ctx.publish(LATEST_ZIP, payload('2026.04.0-100'));
+		await ctx.cache.ensure(request());
+
+		expect(ctx.logger.infos).toContain(`[positron-docs] fetching ${LATEST_ZIP} (fallback)`);
+	});
+
+	it('names the target and the resolution for a dailies build', async () => {
+		const ctx = setup();
+		ctx.publish(LATEST_ZIP, payload('2026.05.0-179'));
+		await ctx.cache.ensure(request({ quality: 'dailies' }));
+
+		expect(ctx.logger.infos).toContain(`[positron-docs] fetching ${LATEST_ZIP} (latest-by-policy)`);
+	});
+});
+
 describe('PositronDocsCache: a cache installed mid-attempt', () => {
 	// Two windows opening at once on a cold cache: one installs, the other's
 	// download fails. The failing window memoizes its result for the session, so

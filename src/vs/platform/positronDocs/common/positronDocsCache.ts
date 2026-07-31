@@ -164,6 +164,7 @@ export class PositronDocsCache {
 		}
 
 		if (exactExists) {
+			logger.info(`${LOG_PREFIX} fetching ${resolved.exact.zipUrl} (exact)`);
 			const outcome = await this._downloadAndInstall(resolved.exact, resolved.exact.version, undefined);
 			if (outcome.kind === 'installed') {
 				await this._recordInstall(outcome, request, resolved.exact.version, 'exact', resolved.exact, state?.version);
@@ -192,6 +193,10 @@ export class PositronDocsCache {
 		cached: ILocalDocs | undefined,
 		resolution: DocsResolution,
 	): Promise<ILocalDocs | undefined> {
+		// Logged before the request, not after: a download that hangs or is cut
+		// off leaves no other record of which URL this build was reaching for.
+		this._options.logger.info(`${LOG_PREFIX} fetching ${resolved.latest.zipUrl} (${resolution})`);
+
 		// Conditional on the stored ETag. Using the `latest` alias rather than
 		// comparing versions keeps this monotonic without a version comparator.
 		const outcome = await this._downloadAndInstall(resolved.latest, resolved.exact.version, state?.etag);
