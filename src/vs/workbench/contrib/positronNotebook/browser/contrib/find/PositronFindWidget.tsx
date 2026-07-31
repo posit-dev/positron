@@ -19,10 +19,13 @@ import { ThemeIcon } from '../../../../../../platform/positronActionBar/browser/
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { localize } from '../../../../../../nls.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
-import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
+import { IContextMenuService, IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
 import type { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
+import { IAction, Separator } from '../../../../../../base/common/actions.js';
+import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../../base/browser/ui/contextview/contextview.js';
+import { PositronNotebookFindFilterKey, PositronNotebookFindFilters } from './findFilters.js';
 
 // Localized strings
 const findLabel = localize('positronNotebook.find.label', "Find in notebook");
@@ -35,6 +38,12 @@ const replaceLabel = localize('positronNotebook.find.replace', "Replace");
 const replaceAllLabel = localize('positronNotebook.find.replaceAll', "Replace All");
 const matchCountLabel = (matchIndex: number, matchCount: number) =>
 	localize('positronNotebook.find.matchCount', "{0} of {1}", matchIndex, matchCount);
+// Filter menu strings match upstream's notebook find filter menu.
+const findFiltersLabel = localize('positronNotebook.find.filters', "Find Filters");
+const markdownSourceLabel = localize('positronNotebook.find.filter.markupSource', "Markdown Source");
+const renderedMarkdownLabel = localize('positronNotebook.find.filter.markupPreview', "Rendered Markdown");
+const codeCellSourceLabel = localize('positronNotebook.find.filter.codeSource', "Code Cell Source");
+const codeCellOutputLabel = localize('positronNotebook.find.filter.codeOutput', "Code Cell Output");
 
 export interface PositronFindWidgetHandle {
 	focusFindInput(): void;
@@ -51,6 +60,13 @@ export interface PositronFindWidgetKeybindingHints {
 	readonly toggleReplace?: string;
 	readonly replace?: string;
 	readonly replaceAll?: string;
+}
+
+export interface PositronFindWidgetFilterProps {
+	/** Find filter state driven by the widget's filter menu. */
+	readonly filters: PositronNotebookFindFilters;
+	/** Context menu service used to show the filter menu. */
+	readonly contextMenuService: IContextMenuService;
 }
 
 export interface PositronFindWidgetReplaceProps {
@@ -77,6 +93,7 @@ export interface PositronFindWidgetProps {
 	readonly hoverManager?: IHoverManager;
 	readonly keybindingHints?: PositronFindWidgetKeybindingHints;
 	readonly isVisible: ISettableObservable<boolean>;
+	readonly filters?: PositronFindWidgetFilterProps;
 	readonly replace?: PositronFindWidgetReplaceProps;
 	readonly onPreviousMatch: () => void;
 	readonly onNextMatch: () => void;
@@ -225,6 +242,12 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 				onValueChange={(value) => props.findText.set(value, undefined)}
 			/>
 			<div className='find-actions'>
+				{props.filters && (
+					<FindFilterButton
+						{...props.filters}
+						hoverManager={props.hoverManager}
+					/>
+				)}
 				<FindResult
 					findText={findText}
 					matchCount={matchCount}
@@ -334,6 +357,60 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 		</div>
 	);
 });
+
+/**
+ * Filter button that opens a menu of checkable find filters (markdown
+ * source/preview, code source/output), mirroring the upstream notebook find
+ * widget's filter dropdown. The button is highlighted while the filters
+ * differ from the notebook.find.filters setting.
+ */
+const FindFilterButton = ({ filters, contextMenuService, hoverManager }: PositronFindWidgetFilterProps & { hoverManager?: IHoverManager }) => {
+	const buttonRef = useRef<HTMLButtonElement>(null);
+	const isModified = useObservedValue(filters.isModified);
+
+	/** A checkable menu item that toggles one filter. */
+	const filterAction = (key: PositronNotebookFindFilterKey, label: string): IAction => ({
+		id: `positronNotebook.find.filter.${key}`,
+		label,
+		tooltip: '',
+		class: undefined,
+		enabled: true,
+		checked: filters.state.get()[key],
+		run: () => filters.setFilter(key, !filters.state.get()[key]),
+	});
+
+	const handlePressed = () => {
+		const rect = buttonRef.current?.getBoundingClientRect();
+		if (!rect) {
+			return;
+		}
+		contextMenuService.showContextMenu({
+			getActions: () => [
+				filterAction('markupSource', markdownSourceLabel),
+				filterAction('markupPreview', renderedMarkdownLabel),
+				new Separator(),
+				filterAction('codeSource', codeCellSourceLabel),
+				filterAction('codeOutput', codeCellOutputLabel),
+			],
+			getAnchor: () => ({ x: rect.left, y: rect.bottom }),
+			anchorAlignment: AnchorAlignment.RIGHT,
+			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
+		});
+	};
+
+	return (
+		<ActionButton
+			ref={buttonRef}
+			ariaLabel={findFiltersLabel}
+			className={`action-button filter-button${isModified ? ' filter-modified' : ''}`}
+			hoverManager={hoverManager}
+			tooltip={findFiltersLabel}
+			onPressed={handlePressed}
+		>
+			<ThemeIcon icon={Codicon.filter} />
+		</ActionButton>
+	);
+};
 
 interface FindResultProps {
 	findText: string;

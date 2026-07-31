@@ -15,10 +15,12 @@ import { IBulkEditService, ResourceEdit, ResourceTextEdit } from '../../../../..
 import { EditOperation } from '../../../../../../../editor/common/core/editOperation.js';
 import { Range } from '../../../../../../../editor/common/core/range.js';
 import { CONTEXT_FIND_WIDGET_VISIBLE, CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../../../editor/contrib/find/browser/findModel.js';
-import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
+import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { CellEditType, CellKind } from '../../../../../notebook/common/notebookCommon.js';
+import { CellEditType, CellKind, NotebookSetting } from '../../../../../notebook/common/notebookCommon.js';
+import { stubInterface } from '../../../../../../../test/vitest/stubInterface.js';
 import { IPositronNotebookCell } from '../../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { PositronNotebookMarkdownCell } from '../../../../browser/PositronNotebookCells/PositronNotebookMarkdownCell.js';
 import { PositronNotebookFindController } from '../../../../browser/contrib/find/controller.js';
 import { PositronFindInstance } from '../../../../browser/contrib/find/PositronFindInstance.js';
 import { instantiateTestNotebookInstance, TestCellInput, TestPositronNotebookInstance } from '../../testPositronNotebookInstance.js';
@@ -1745,6 +1747,170 @@ describe('PositronNotebookFindController', () => {
 			expect(find.matchCount.get()).toBe(1);
 		}));
 
+	});
+
+	describe('Find Filters', () => {
+
+		let nextOutputId = 0;
+
+		/** A code cell with one stdout output. */
+		function codeCellWithOutput(source: string, outputText: string): TestCellInput {
+			return {
+				source,
+				mime: undefined,
+				language: 'python',
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: `filters-output-${nextOutputId++}`,
+					outputs: [{
+						mime: 'application/vnd.code.notebook.stdout',
+						data: VSBuffer.fromString(outputText),
+					}],
+				}],
+			};
+		}
+
+		/** Casts a markdown cell to its concrete class to drive `editorShown`. */
+		function asMarkdownCell(cell: IPositronNotebookCell): PositronNotebookMarkdownCell {
+			expect(cell.isMarkdownCell()).toBe(true);
+			return cell as PositronNotebookMarkdownCell;
+		}
+
+		/** Sets the notebook.find.filters setting and fires the change event. */
+		async function setFindFiltersSetting(value: unknown): Promise<void> {
+			const configService = ctx.get(IConfigurationService) as TestConfigurationService;
+			await configService.setUserConfiguration(NotebookSetting.findFilters, value);
+			configService.onDidChangeConfigurationEmitter.fire(
+				stubInterface<IConfigurationChangeEvent>({
+					affectsConfiguration: (key: string) => key === NotebookSetting.findFilters,
+				})
+			);
+		}
+
+		afterEach(async () => {
+			// Reset the shared configuration service for the other suites.
+			await setFindFiltersSetting(undefined);
+		});
+
+		it('codeSource=false excludes code cell source matches but keeps output matches', () => {
+			const { controller, find } = findFixture([codeCellWithOutput('hello', 'hello')]);
+			controller.filters.setFilter('codeSource', false);
+
+			find.searchString.set('hello', undefined);
+
+			expect(controller.matches.get().map(m => m.kind)).toEqual(['output']);
+		});
+
+		it('codeOutput=false excludes output matches but keeps source matches', () => {
+			const { controller, find } = findFixture([codeCellWithOutput('hello', 'hello')]);
+			controller.filters.setFilter('codeOutput', false);
+
+			find.searchString.set('hello', undefined);
+
+			expect(controller.matches.get().map(m => m.kind)).toEqual(['input']);
+		});
+
+		it('toggling a filter re-runs the search', () => {
+			const { find, controller } = findFixture([codeCellWithOutput('hello', 'hello')]);
+
+			find.searchString.set('hello', undefined);
+			expect(find.matchCount.get()).toBe(2);
+
+			controller.filters.setFilter('codeOutput', false);
+			expect(find.matchCount.get()).toBe(1);
+
+			controller.filters.setFilter('codeOutput', true);
+			expect(find.matchCount.get()).toBe(2);
+		});
+
+		it('rendered markdown cell is searched when only markupPreview is enabled', () => {
+			const { controller, find } = findFixture([['# hello', 'markdown', CellKind.Markup]]);
+			controller.filters.setFilter('markupSource', false);
+
+			find.searchString.set('hello', undefined);
+
+			expect(controller.matches.get().length).toBe(1);
+		});
+
+		it('rendered markdown cell is searched when only markupSource is enabled', () => {
+			// Mirrors upstream: with markupPreview off, source matches stand in
+			// even for rendered cells.
+			const { controller, find } = findFixture([['# hello', 'markdown', CellKind.Markup]]);
+			controller.filters.setFilter('markupPreview', false);
+
+			find.searchString.set('hello', undefined);
+
+			expect(controller.matches.get().length).toBe(1);
+		});
+
+		it('rendered markdown cell is not searched when both markup filters are disabled', () => {
+			const { controller, find } = findFixture([['# hello', 'markdown', CellKind.Markup]]);
+			controller.filters.setFilter('markupSource', false);
+			controller.filters.setFilter('markupPreview', false);
+
+			find.searchString.set('hello', undefined);
+
+			expect(controller.matches.get().length).toBe(0);
+		});
+
+		it('markdown cell in editing mode follows markupSource only', () => {
+			const { notebook, controller, find } = findFixture([['# hello', 'markdown', CellKind.Markup]]);
+			const cell = asMarkdownCell(notebook.cells.get()[0]);
+			cell.editorShown.set(true, undefined);
+			controller.filters.setFilter('markupSource', false);
+
+			find.searchString.set('hello', undefined);
+
+			// markupPreview is still enabled, but it does not apply while editing.
+			expect(controller.matches.get().length).toBe(0);
+		});
+
+		it('toggling the markdown editor re-runs the search', () => {
+			const { notebook, controller, find } = findFixture([['# hello', 'markdown', CellKind.Markup]]);
+			const cell = asMarkdownCell(notebook.cells.get()[0]);
+			controller.filters.setFilter('markupSource', false);
+
+			find.searchString.set('hello', undefined);
+			expect(controller.matches.get().length, 'Rendered cell should match via markupPreview').toBe(1);
+
+			cell.editorShown.set(true, undefined);
+			expect(controller.matches.get().length, 'Editing cell should not match with markupSource off').toBe(0);
+
+			cell.editorShown.set(false, undefined);
+			expect(controller.matches.get().length).toBe(1);
+		});
+
+		it('the notebook.find.filters setting provides the default filter state', async () => {
+			await setFindFiltersSetting({ codeOutput: false });
+			const { controller, find } = findFixture([codeCellWithOutput('hello', 'hello')]);
+
+			find.searchString.set('hello', undefined);
+
+			expect(controller.matches.get().map(m => m.kind)).toEqual(['input']);
+			expect(controller.filters.isModified.get(), 'Setting-provided defaults are not a modification').toBe(false);
+		});
+
+		it('a live setting change updates matches', async () => {
+			const { controller, find } = findFixture([codeCellWithOutput('hello', 'hello')]);
+
+			find.searchString.set('hello', undefined);
+			expect(find.matchCount.get()).toBe(2);
+
+			await setFindFiltersSetting({ codeOutput: false });
+			expect(find.matchCount.get()).toBe(1);
+			expect(controller.matches.get().map(m => m.kind)).toEqual(['input']);
+		});
+
+		it('a widget toggle overrides a later setting change', async () => {
+			const { controller, find } = findFixture([codeCellWithOutput('hello', 'hello')]);
+			controller.filters.setFilter('codeOutput', false);
+
+			find.searchString.set('hello', undefined);
+			expect(find.matchCount.get()).toBe(1);
+
+			await setFindFiltersSetting({ codeOutput: true });
+			expect(find.matchCount.get(), 'Session override should win over the setting').toBe(1);
+		});
 	});
 
 });

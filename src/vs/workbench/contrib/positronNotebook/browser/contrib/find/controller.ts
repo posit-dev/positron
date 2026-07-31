@@ -21,7 +21,7 @@ import { RunOnceScheduler } from '../../../../../../base/common/async.js';
 import { Constants } from '../../../../../../base/common/uint.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { getActiveCell } from '../../selectionMachine.js';
-import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
+import { IContextMenuService, IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
 import { CellEditorPosition } from '../../../common/editor/position.js';
 import { showHistoryKeybindingHint } from '../../../../../../platform/history/browser/historyWidgetKeybindingHint.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
@@ -33,6 +33,7 @@ import { IBulkEditService, ResourceTextEdit } from '../../../../../../editor/bro
 import { ReplacePattern, parseReplaceString } from '../../../../../../editor/contrib/find/browser/replacePattern.js';
 import { findMatchesInOutputText, isMatchAtOrAfterPosition, isMatchAtOrBeforePosition, PositronCellFindMatchKind } from './findInOutputs.js';
 import { getPlainTextOutputContent } from '../../getOutputContents.js';
+import { IPositronNotebookFindFilterState, PositronNotebookFindFilters } from './findFilters.js';
 
 export class PositronCellFindMatch {
 	constructor(
@@ -99,10 +100,18 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 	private readonly _notebookModelDisposables = this._register(new DisposableStore());
 
+	/**
+	 * Find filter state for this notebook session. Defaults come from the
+	 * notebook.find.filters setting; the widget's filter menu overrides them
+	 * for the rest of the session.
+	 */
+	public readonly filters: PositronNotebookFindFilters;
+
 	constructor(
 		private readonly _notebook: IPositronNotebookInstance,
 		@IBulkEditService private readonly _bulkEditService: IBulkEditService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
 		@IContextViewService private readonly _contextViewService: IContextViewService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
@@ -110,6 +119,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		@IStorageService private readonly _storageService: IStorageService,
 	) {
 		super();
+
+		this.filters = new PositronNotebookFindFilters(this._configurationService);
 
 		this._register(this._instantiationService.createInstance(PositronNotebookFindDecorations, this._notebook, this._matches, this._currentMatch));
 
@@ -199,6 +210,10 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				},
 				contextKeyService: this._notebook.scopedContextKeyService,
 				contextViewService: this._contextViewService,
+				filters: {
+					filters: this.filters,
+					contextMenuService: this._contextMenuService,
+				},
 				hoverManager: this._notebook.hoverManager,
 				keybindingHints: {
 					previousMatch: this.keybindingLabelFor(POSITRON_NOTEBOOK_FIND_COMMAND_IDS.previous),
@@ -267,6 +282,17 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				const wholeWord = findInstance.wholeWord.read(reader);
 				const isVisible = findInstance.isVisible.read(reader);
 
+				// Filter changes re-run the search
+				this.filters.state.read(reader);
+
+				// The markup filters depend on whether each markdown cell is
+				// rendered or editing, so re-run the search on state changes.
+				for (const cell of this._notebook.cells.read(reader)) {
+					if (cell.isMarkdownCell()) {
+						cell.editorShown.read(reader);
+					}
+				}
+
 				if (!isVisible) {
 					// Not visible, do not search
 					return;
@@ -330,9 +356,10 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		const wordSeparators = wholeWord
 			? this._configurationService.inspect<string>('editor.wordSeparators').value || null
 			: null;
+		const filters = this.filters.state.get();
 		const cellMatches: PositronCellFindMatch[] = [];
 		for (const [cellIndex, cell] of this._notebook.cells.get().entries()) {
-			if (cell.model.textModel) {
+			if (includeSourceMatches(cell, filters) && cell.model.textModel) {
 				const matches = cell.model.textModel.findMatches(
 					searchString,
 					null,
@@ -352,7 +379,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			// Match against the textual output content of code cells. Output
 			// matches come after the cell's source matches, mirroring the
 			// layout of outputs below the editor.
-			if (cell.isCodeCell()) {
+			if (filters.codeOutput && cell.isCodeCell()) {
 				const outputText = getPlainTextOutputContent(cell.outputs.get());
 				const outputRanges = findMatchesInOutputText(
 					outputText,
@@ -697,4 +724,20 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			{ quotableLabel: localize('positronNotebook.replaceAll', "Notebook Replace All") },
 		);
 	}
+}
+
+/**
+ * Whether a cell's source text participates in the search under the given
+ * filters, mirroring upstream notebook find semantics: code cells follow
+ * codeSource; editing markdown cells follow markupSource; rendered markdown
+ * cells match while either markup filter is enabled, because the source text
+ * stands in for the rendered preview (there is no rendered-DOM search).
+ */
+function includeSourceMatches(cell: IPositronNotebookCell, filters: IPositronNotebookFindFilterState): boolean {
+	if (cell.isMarkdownCell()) {
+		return cell.editorShown.get()
+			? filters.markupSource
+			: (filters.markupSource || filters.markupPreview);
+	}
+	return filters.codeSource;
 }

@@ -1387,8 +1387,10 @@ configurationRegistry.registerConfiguration({
 				codeOutput: true
 			},
 			// --- Start Positron ---
+			// The Positron notebook find widget also reads this setting, so it
+			// is not legacy-only.
 			// tags: ['notebookLayout']
-			tags: ['notebookLayout', 'legacy']
+			tags: ['notebookLayout', 'positronNotebook']
 			// --- End Positron ---
 		},
 		[NotebookSetting.remoteSaving]: {

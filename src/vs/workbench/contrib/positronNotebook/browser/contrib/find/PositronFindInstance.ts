@@ -9,7 +9,7 @@ import * as DOM from '../../../../../../base/browser/dom.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { IObservable, observableValue, transaction } from '../../../../../../base/common/observable.js';
-import { PositronFindWidget, PositronFindWidgetHandle, type PositronFindWidgetKeybindingHints, type PositronFindWidgetReplaceProps } from './PositronFindWidget.js';
+import { PositronFindWidget, PositronFindWidgetHandle, type PositronFindWidgetFilterProps, type PositronFindWidgetKeybindingHints, type PositronFindWidgetReplaceProps } from './PositronFindWidget.js';
 import type { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
 import type { IReplaceInputOptions } from '../../../../../../base/browser/ui/findinput/replaceInput.js';
 import { PositronReactRenderer } from '../../../../../../base/browser/positronReactRenderer.js';
@@ -46,6 +46,12 @@ export interface IPositronFindInstanceOptions {
 	 * Context view service for dropdowns and suggestions.
 	 */
 	contextViewService: IContextViewService;
+
+	/**
+	 * Find filter state and the context menu service used to show the filter
+	 * menu. If undefined, the filter button is not shown.
+	 */
+	filters?: PositronFindWidgetFilterProps;
 
 	/**
 	 * Hover manager used to show tooltips on the widget's action buttons.
@@ -148,6 +154,7 @@ export class PositronFindInstance extends Disposable {
 				ref: this._widgetRef,
 				contextKeyService: this._options.contextKeyService,
 				contextViewService: this._options.contextViewService,
+				filters: this._options.filters,
 				findInputOptions: this._options.findInputOptions,
 				findText: this.searchString,
 				hoverManager: this._options.hoverManager,

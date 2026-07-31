@@ -12,10 +12,14 @@ import { setupRTLRenderer } from '../../../../../../../test/vitest/reactTestingL
 import { ISettableObservable, observableValue } from '../../../../../../../base/common/observable.js';
 import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { stubInterface } from '../../../../../../../test/vitest/stubInterface.js';
-import { IContextViewService } from '../../../../../../../platform/contextview/browser/contextView.js';
+import { IContextMenuDelegate } from '../../../../../../../base/browser/contextmenu.js';
+import { IAction, Separator } from '../../../../../../../base/common/actions.js';
+import { IContextMenuService, IContextViewService } from '../../../../../../../platform/contextview/browser/contextView.js';
 import type { IHoverManager } from '../../../../../../../platform/hover/browser/hoverManager.js';
 import { unthemedInboxStyles } from '../../../../../../../base/browser/ui/inputbox/inputBox.js';
 import { unthemedToggleStyles } from '../../../../../../../base/browser/ui/toggle/toggle.js';
+import { TestConfigurationService } from '../../../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { PositronNotebookFindFilters } from '../../../../browser/contrib/find/findFilters.js';
 import { PositronFindWidget, type PositronFindWidgetKeybindingHints } from '../../../../browser/contrib/find/PositronFindWidget.js';
 
 describe('PositronFindWidget', () => {
@@ -42,10 +46,11 @@ describe('PositronFindWidget', () => {
 	let onReplaceInputFocus: Mock;
 	let onReplaceInputBlur: Mock;
 
-	function renderWidget({ useReplace = false, hoverManager, keybindingHints }: {
+	function renderWidget({ useReplace = false, hoverManager, keybindingHints, filters }: {
 		useReplace?: boolean;
 		hoverManager?: IHoverManager;
 		keybindingHints?: PositronFindWidgetKeybindingHints;
+		filters?: { filters: PositronNotebookFindFilters; contextMenuService: IContextMenuService };
 	} = {}) {
 		const result = rtl.render(
 			<PositronFindWidget
@@ -53,6 +58,7 @@ describe('PositronFindWidget', () => {
 				// ContextViewService is only used by FindInput for validation message
 				// popups, which these tests don't trigger.
 				contextViewService={stubInterface<IContextViewService>()}
+				filters={filters}
 				findInputOptions={{
 					label: 'Find',
 					inputBoxStyles: unthemedInboxStyles,
@@ -285,6 +291,82 @@ describe('PositronFindWidget', () => {
 
 			expect(screen.getByRole('button', { name: /^Replace$/ })).toBeDisabled();
 			expect(screen.getByRole('button', { name: 'Replace All' })).toBeDisabled();
+		});
+	});
+
+	describe('Filters', () => {
+		let filters: PositronNotebookFindFilters;
+		let showContextMenu: Mock;
+		let contextMenuService: IContextMenuService;
+
+		beforeEach(() => {
+			filters = new PositronNotebookFindFilters(new TestConfigurationService());
+			showContextMenu = vi.fn();
+			contextMenuService = stubInterface<IContextMenuService>({ showContextMenu });
+		});
+
+		function renderWithFilters() {
+			return renderWidget({ filters: { filters, contextMenuService } });
+		}
+
+		/** Opens the filter menu and returns its non-separator actions. */
+		function openFilterMenu(): IAction[] {
+			act(() => screen.getByRole('button', { name: 'Find Filters' }).click());
+			expect(showContextMenu).toHaveBeenCalled();
+			const delegate = showContextMenu.mock.lastCall![0] as IContextMenuDelegate;
+			const actions = delegate.getActions() as IAction[];
+			return actions.filter(action => action.id !== Separator.ID);
+		}
+
+		it('no filter button when filters are not provided', () => {
+			renderWidget();
+
+			expect(screen.queryByRole('button', { name: 'Find Filters' })).not.toBeInTheDocument();
+		});
+
+		it('filter button opens a menu with all filters checked by default', () => {
+			renderWithFilters();
+
+			const actions = openFilterMenu();
+
+			expect(actions.map(({ label, checked }) => ({ label, checked }))).toEqual([
+				{ label: 'Markdown Source', checked: true },
+				{ label: 'Rendered Markdown', checked: true },
+				{ label: 'Code Cell Source', checked: true },
+				{ label: 'Code Cell Output', checked: true },
+			]);
+		});
+
+		it('menu items reflect the current filter state', () => {
+			filters.setFilter('codeOutput', false);
+			renderWithFilters();
+
+			const actions = openFilterMenu();
+
+			expect(actions.find(action => action.label === 'Code Cell Output')?.checked).toBe(false);
+		});
+
+		it('toggling a menu item updates the filter state', async () => {
+			renderWithFilters();
+
+			const actions = openFilterMenu();
+			const codeOutput = actions.find(action => action.label === 'Code Cell Output')!;
+			await act(async () => { await codeOutput.run(); });
+
+			expect(filters.state.get().codeOutput).toBe(false);
+		});
+
+		it('marks the button when filters are modified', () => {
+			renderWithFilters();
+			const button = screen.getByRole('button', { name: 'Find Filters' });
+
+			expect(button).not.toHaveClass('filter-modified');
+
+			act(() => filters.setFilter('codeOutput', false));
+			expect(button).toHaveClass('filter-modified');
+
+			act(() => filters.setFilter('codeOutput', true));
+			expect(button).not.toHaveClass('filter-modified');
 		});
 	});
 
