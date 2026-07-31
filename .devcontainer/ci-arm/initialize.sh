@@ -3,6 +3,10 @@
 # Detects the checkout path and the git common dir so docker-compose can bind-mount both
 # at their real host paths — which is what makes a git *worktree* work inside the container
 # (worktree git metadata uses absolute host paths). Harmless for a normal clone.
+#
+# Also checks out any uninitialized submodules. This has to happen host-side: ai-lib is private
+# and the container has no GitHub credentials, so build/npm/postinstall.ts aborts the whole root
+# install if it has to clone ai-lib itself.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"   # .devcontainer/ci-arm
 ROOT="$(cd "$HERE/../.." && pwd)"       # the checkout root (worktree or clone)
@@ -13,6 +17,34 @@ case "$GITCOMMON" in
   /*) : ;;                                                  # already absolute
   *)  GITCOMMON="$(cd "$ROOT" && cd "$(dirname "$GITCOMMON")" && pwd)/$(basename "$GITCOMMON")" ;;
 esac
+
+# Check out any submodule that isn't there yet. On failure, name the two things that actually
+# cause it -- git reports only "clone ... failed", which points at neither:
+#   - leftovers in the submodule path (e.g. packages/*/node_modules from an earlier session's
+#     install) with no .git. Some git versions clone into a non-empty directory and some refuse,
+#     so this is diagnosed after the attempt rather than pre-empting it.
+#   - no read access to a private submodule (ai-lib).
+# Removing tens of MB unattended isn't this script's call to make, so it prints the command.
+if [ -f "$ROOT/.gitmodules" ]; then
+  while read -r _ SUB; do
+    [ -n "$SUB" ] || continue
+    [ -e "$ROOT/$SUB/.git" ] && continue                      # already checked out
+    LEFTOVERS=false
+    [ -n "$(ls -A "$ROOT/$SUB" 2>/dev/null)" ] && LEFTOVERS=true
+    echo "ci-arm initialize: checking out submodule $SUB"
+    if ! git -C "$ROOT" submodule update --init --recursive "$SUB"; then
+      echo "ci-arm initialize: ERROR: could not check out submodule '$SUB'." >&2
+      if [ "$LEFTOVERS" = true ]; then
+        echo "ci-arm initialize: '$SUB' already held files but was not a submodule checkout, which is" >&2
+        echo "ci-arm initialize: the likely cause. Remove it and rerun:" >&2
+        echo "ci-arm initialize:   rm -rf '$ROOT/$SUB'" >&2
+      else
+        echo "ci-arm initialize: check that you have read access to it (ai-lib is private)." >&2
+      fi
+      exit 1
+    fi
+  done < <(git -C "$ROOT" config -f "$ROOT/.gitmodules" --get-regexp '^submodule\..*\.path$')
+fi
 
 [ -f "$ENV" ] || cp "$HERE/.env.example" "$ENV"
 

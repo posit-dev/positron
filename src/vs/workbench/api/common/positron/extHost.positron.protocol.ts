@@ -13,7 +13,7 @@ import { IEditorContext } from '../../../services/frontendMethods/common/editorC
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
 import { IRange } from '../../../../editor/common/core/range.js';
 import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
-import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeMissingPackage, RuntimeMissingPackagesTarget, RuntimeSessionMetadata, type notebooks } from 'positron';
+import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeConsoleError, RuntimeMissingPackage, RuntimeMissingPackagesTarget, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
@@ -36,11 +36,24 @@ if (Object.values(MainContext)[0].nid !== 1) {
 }
 
 /**
+ * Which optional missing-package methods the extension's session object
+ * implements. Method presence does not survive the RPC boundary (the
+ * main-thread adapter would otherwise have to define every method), so the
+ * extension host reports the capabilities explicitly when the session is
+ * created or restored, and the adapter wires only the supported methods.
+ */
+export interface RuntimeSessionCapabilities {
+	readonly listMissingPackages: boolean;
+	readonly getMissingPackageProbe: boolean;
+}
+
+/**
  * The initial state returned when starting or resuming a runtime session.
  */
 export interface RuntimeInitialState {
 	handle: number;
 	dynState: LanguageRuntimeDynState;
+	capabilities: RuntimeSessionCapabilities;
 }
 
 /**
@@ -155,6 +168,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$searchPackageVersions(handle: number, name: string, token: CancellationToken): Promise<string[]>;
 	$getPackageMetadata(handle: number, packageNames: string[], token: CancellationToken): Promise<Record<string, Partial<LanguageRuntimePackage>> | undefined>;
 	$listMissingPackages(handle: number, target: RuntimeMissingPackagesTarget, token: CancellationToken): Promise<RuntimeMissingPackage[]>;
+	$getMissingPackageProbe(handle: number, error: RuntimeConsoleError, token: CancellationToken): Promise<string | undefined>;
 	$getPackageDetail(handle: number, name: string, token: CancellationToken): Promise<Partial<LanguageRuntimePackage> | undefined>;
 	$getRuntimePickerItems(handle: number): Promise<IRuntimePickerItem[]>;
 	$handleRuntimePickerSelection(handle: number, itemId: string): Promise<string | undefined>;
@@ -382,6 +396,7 @@ export interface MainThreadAiFeaturesShape {
 	$getProviders(): Thenable<IPositronChatProvider[]>;
 	$setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 	$getEnabledProviders(): Thenable<string[]>;
+	$isProviderEnabled(id: string): Thenable<boolean>;
 	$getAgentAllowedCommands(): Promise<ISerializedAgentCommand[]>;
 	$validateAndExecuteCommand(
 		commandId: string,
@@ -393,6 +408,7 @@ export interface ExtHostAiFeaturesShape {
 	$responseProviderAction(source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string): Thenable<void>;
 	$onCompleteLanguageModelConfig(id: string): void;
 	$onDidChangeProviderConfig(source: IPositronLanguageModelSource): void;
+	$onDidChangeProviderEnablement(id: string, enabled: boolean): void;
 	getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
 	getCurrentChatMode(): Thenable<string | undefined>;
 	getProviders(): Thenable<IPositronChatProvider[]>;

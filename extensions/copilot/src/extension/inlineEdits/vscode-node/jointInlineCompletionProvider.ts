@@ -53,6 +53,7 @@ import { VSCodeWorkspace } from './parts/vscodeWorkspace';
 import { makeSettable } from './utils/observablesUtils';
 // --- Start Positron ---
 import { Emitter } from '../../../util/vs/base/common/event';
+import * as positron from 'positron';
 // --- End Positron ---
 
 export class JointCompletionsProviderContribution extends Disposable implements IExtensionContribution {
@@ -99,6 +100,7 @@ export class JointCompletionsProviderContribution extends Disposable implements 
 		@IExperimentationService private readonly _expService: IExperimentationService,
 		@IAuthenticationService private readonly _authenticationService: IAuthenticationService,
 		@IEnvService private readonly _envService: IEnvService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
 
@@ -108,18 +110,40 @@ export class JointCompletionsProviderContribution extends Disposable implements 
 		// This is the single entry point for all Copilot inline suggestion
 		// registration (inline completions and Next Edit Suggestions, in both
 		// the joint and fallback paths). Gate it on Positron's AI master switch
-		// (ai.enabled) and the GitHub Copilot provider enable setting, so every
-		// Copilot suggestion is blocked when either is off, matching chat.
+		// (ai.enabled) and the provider catalog's enablement of the 'copilot'
+		// provider, so every Copilot suggestion is blocked when either is off,
+		// matching chat.
 		//
 		// ai.enabled is also checked at extension activation, but that only
 		// covers startup; reading it live here also handles runtime toggles
-		// (ai.enabled is permit-only, default true). The provider setting
-		// defaults on, so this only blocks when a setting is explicitly off (or
-		// enforced off via Workbench). The `positron.assistant` prefixed key is
-		// the one declared for Copilot; see extensions/authentication/package.json.
+		// (ai.enabled is permit-only, default true). The catalog's copilot
+		// enablement is read asynchronously and seeded to false, so a Copilot
+		// provider disabled in providers.json can never register or serve a
+		// suggestion during the in-flight first read. Registration waits for that
+		// answer (and re-runs on later enablement changes via the autorun below);
+		// the cost is a brief startup delay before Copilot suggestions appear.
 		const suggestionsAllowedEmitter = this._register(new Emitter<void>());
+		let copilotProviderEnabled = false;
+		positron.ai.isProviderEnabled('copilot').then(
+			enabled => {
+				copilotProviderEnabled = enabled;
+				suggestionsAllowedEmitter.fire();
+			},
+			err => {
+				// Fail closed: if the initial read fails we cannot confirm the
+				// provider is enabled, so leave Copilot suggestions off. A later
+				// enablement change corrects it via the listener below.
+				this._logService.error(err, 'Failed to read Copilot provider enablement; leaving Copilot suggestions disabled');
+			}
+		);
+		this._register(positron.ai.onDidChangeProviderEnablement(e => {
+			if (e.id === 'copilot') {
+				copilotProviderEnabled = e.enabled;
+				suggestionsAllowedEmitter.fire();
+			}
+		}));
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('ai.enabled') || e.affectsConfiguration('positron.assistant.provider.githubCopilot.enable')) {
+			if (e.affectsConfiguration('ai.enabled')) {
 				suggestionsAllowedEmitter.fire();
 			}
 		}));
@@ -128,8 +152,7 @@ export class JointCompletionsProviderContribution extends Disposable implements 
 			suggestionsAllowedEmitter.event,
 			() => {
 				const aiEnabled = vscode.workspace.getConfiguration().get<boolean>('ai.enabled') !== false;
-				const providerEnabled = vscode.workspace.getConfiguration('positron.assistant.provider.githubCopilot').get<boolean>('enable') ?? true;
-				return aiEnabled && providerEnabled;
+				return aiEnabled && copilotProviderEnabled;
 			}
 		);
 		// --- End Positron ---

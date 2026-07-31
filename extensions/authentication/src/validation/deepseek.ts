@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
+import { DEEPSEEK_DEFAULT_BASE_URL, KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 
 class DeepSeekValidationError extends Error {
 	constructor(message: string) {
@@ -19,7 +19,7 @@ export async function validateDeepSeekApiKey(
 	config: positron.ai.LanguageModelConfig
 ): Promise<void> {
 	const baseUrl = (
-		config.baseUrl?.trim() || 'https://api.deepseek.com'
+		config.baseUrl?.trim() || DEEPSEEK_DEFAULT_BASE_URL
 	).replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
 

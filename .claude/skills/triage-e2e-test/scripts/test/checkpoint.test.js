@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateCheckpoint, applyPatch, coerce, PHASES, PHASE_NEXT_ACTION, applyMutations, defaultNextAction, checkDoneGate, OUTCOMES, SETTABLE_FIELDS } from '../checkpoint.js';
+import { validateCheckpoint, applyPatch, coerce, PHASES, PHASE_NEXT_ACTION, applyMutations, defaultNextAction, checkDoneGate, OUTCOMES, SETTABLE_FIELDS, mergePatternPatch, applyHistorySummary } from '../checkpoint.js';
 
 const valid = () => ({ version: 1, triageId: 'x', testKey: 'A > b|||spec.ts', phase: 'awaiting-pattern-selection' });
 
@@ -115,4 +115,25 @@ test('checkDoneGate: no-op needs a reason, not a block', () => {
 
 test('OUTCOMES covers the found x decided matrix', () => {
 	assert.deepEqual(OUTCOMES, ['fix-test', 'fix-product', 'file-issue', 'no-op']);
+});
+
+test('mergePatternPatch merges into one pattern by id, leaving the others untouched', () => {
+	const patterns = [{ id: 'A', count: 4 }, { id: 'B', count: 3 }];
+	const out = mergePatternPatch(patterns, 'A', { note: 'branch-specific' });
+	assert.deepEqual(out[0], { id: 'A', count: 4, note: 'branch-specific' });
+	assert.deepEqual(out[1], { id: 'B', count: 3 }); // untouched -- the whole point vs. a top-level --patch
+});
+
+test('mergePatternPatch throws with the available ids when the target id is missing', () => {
+	assert.throws(() => mergePatternPatch([{ id: 'A' }], 'Z', {}), /No pattern with id "Z".*have: A/);
+});
+
+test('applyHistorySummary seeds history + patterns from an on-disk summary; no-ops without one', () => {
+	const state = { phase: 'awaiting-pattern-selection', patterns: [] };
+	const summary = { branchSummary: { currentBranch: 'x', currentBranchRuns: 11 }, verdict: 'ok', patterns: [{ id: 'A', count: 4 }] };
+	const out = applyHistorySummary(state, summary);
+	assert.deepEqual(out.history, { branchSummary: summary.branchSummary, verdict: 'ok' });
+	assert.deepEqual(out.patterns, [{ id: 'A', count: 4 }]);
+	assert.equal(applyHistorySummary(state, null), state);
+	assert.equal(applyHistorySummary(state, { patterns: 'not-an-array' }), state);
 });

@@ -251,8 +251,12 @@ const tasks = compilations.map(function (tsconfigFile) {
 		await Promise.all([copyNonTs, tsgo]);
 	}));
 
-	const watchTask = task.define(`watch-extension:${name}`, task.series(cleanTask, () => {
-		// --- Start Positron ---
+	// --- Start Positron ---
+	// The watch stream is extracted from `watchTask` so it can also run without the upstream clean
+	// step. `watch-extensions` compiles a few in-repo packages up front (see `watchExtensionsImpl`
+	// below); cleaning out/ in those packages' watchers would delete the .d.ts files their dependent
+	// extensions are about to resolve.
+	const createWatchStream = () => {
 		const nonts = gulp.src(src, srcOpts).pipe(filter(['**', '!**/*.ts', '!**/*.tsx'], { dot: true }));
 
 		// The Python extension's integration tests create and delete directories in a way that
@@ -272,7 +276,6 @@ const tasks = compilations.map(function (tsconfigFile) {
 
 		const watchInput = watcher(src, { ...srcOpts, ...{ ignored, readDelay: 200 } });
 		const watchNonTs = watchInput.pipe(filter(['**', '!**/*.ts', '!**/*.tsx'], { dot: true })).pipe(gulp.dest(out));
-		// --- End Positron ---
 		const tsgoStream = watchInput.pipe(util.debounce(() => {
 			onExtensionCompilationStart();
 			const stream = createTsgoStream(absolutePath, { taskName: 'extensions' }, () => rewriteTsgoSourceMappingUrlsIfNeeded(false, out, baseUrl));
@@ -295,14 +298,20 @@ const tasks = compilations.map(function (tsconfigFile) {
 		const watchStream = es.merge(nonts.pipe(gulp.dest(out)), watchNonTs, tsgoStream);
 
 		return watchStream;
-	}));
+	};
+
+	const watchTask = task.define(`watch-extension:${name}`, task.series(cleanTask, createWatchStream));
+	const watchTaskNoClean = task.define(`watch-extension-no-clean:${name}`, createWatchStream);
+	// --- End Positron ---
 
 	// Tasks
 	task.task(transpileTask);
 	task.task(compileTask);
 	task.task(watchTask);
 
-	return { transpileTask, compileTask, watchTask };
+	// --- Start Positron ---
+	return { transpileTask, compileTask, watchTask, watchTaskNoClean };
+	// --- End Positron ---
 });
 
 const transpileExtensionsTask = task.define('transpile-extensions', task.parallel(...tasks.map(t => t.transpileTask)));
@@ -331,7 +340,20 @@ export const compileExtensionsTask = task.define('compile-extensions', compileEx
 // --- End Positron ---
 task.task(compileExtensionsTask);
 
-export const watchExtensionsTask = task.define('watch-extensions', task.parallel(...tasks.map(t => t.watchTask)));
+// --- Start Positron ---
+// The same prerequisite ordering as `compile-extensions` above, adapted for watch mode. Watchers are
+// long-lived, so they cannot be sequenced with each other; instead compile the prerequisites to
+// completion first, then start every watcher in parallel, with the prerequisites' watchers skipping
+// the clean step so they do not delete the out/ that was just produced for their dependents.
+// export const watchExtensionsTask = task.define('watch-extensions', task.parallel(...tasks.map(t => t.watchTask)));
+const watchExtensionsImpl = orderedPrerequisites.length > 0
+	? task.series(
+		...orderedPrerequisites.map(index => tasks[index].compileTask),
+		task.parallel(...tasks.map((t, index) => prerequisiteIndexSet.has(index) ? t.watchTaskNoClean : t.watchTask))
+	)
+	: task.parallel(...tasks.map(t => t.watchTask));
+export const watchExtensionsTask = task.define('watch-extensions', watchExtensionsImpl);
+// --- End Positron ---
 task.task(watchExtensionsTask);
 
 //#region Extension media

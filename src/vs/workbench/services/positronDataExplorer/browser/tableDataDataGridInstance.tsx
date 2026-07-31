@@ -9,6 +9,7 @@ import { JSX } from 'react';
 // Other dependencies.
 import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { Severity } from '../../../../platform/notification/common/notification.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { IColumnSortKey } from '../../../browser/positronDataGrid/interfaces/columnSortKey.js';
@@ -21,7 +22,7 @@ import { DataExplorerClientInstance } from '../../languageRuntime/common/languag
 import { CustomContextMenuSeparator } from '../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { MAX_ADVANCED_LAYOUT_ENTRY_COUNT } from '../../../browser/positronDataGrid/classes/layoutManager.js';
 import { PositronDataExplorerCommandId } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerActions.js';
-import { InvalidateCacheFlags, TableDataCache, WidthCalculators } from '../common/tableDataCache.js';
+import { InvalidateCacheFlags, TableDataCache, ColumnWidthCalculators } from '../common/tableDataCache.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { BackendState, ColumnSchema, ExportFormat, RowFilter, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { ClipboardData, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, MouseSelectionType, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
@@ -94,6 +95,19 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Used to trigger initial load when first becoming visible.
 	 */
 	private _initialLoadComplete = false;
+
+	/**
+	 * Whether the initial data load is running. Used to keep other layout updates from duplicating
+	 * the work it is already doing, and to keep it from being started twice.
+	 */
+	private _initialLoadInProgress = false;
+
+	/**
+	 * Counts the column width calculations that have been started. A calculation compares the
+	 * generation it started in against this before applying its widths, so that a slower
+	 * calculation cannot overwrite the widths of a later one that has already finished.
+	 */
+	private _columnWidthsGeneration = 0;
 
 	//#endregion Private Properties
 
@@ -172,6 +186,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// onDidDataUpdate, which set the pending flags and will
 			// rebuild everything when we become visible again.
 			if (!this._visible) {
+				return;
+			}
+
+			// Skip while the initial load is running. It updates the layout entries and rebuilds
+			// the sort keys itself, so doing it here as well duplicates the schema and data round
+			// trips that calculating the column widths makes -- and the initial load reads the
+			// backend state fresh, so it picks up this state anyway.
+			if (this._initialLoadInProgress) {
 				return;
 			}
 
@@ -739,11 +761,19 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	//#region Public Methods
 
 	/**
-	 * Sets the width calculators.
-	 * @param widthCalculators The width calculators.
+	 * Sets the column width calculators.
+	 * @param columnWidthCalculators The column width calculators.
 	 */
-	setWidthCalculators(widthCalculators?: WidthCalculators) {
-		this._tableDataCache.setWidthCalculators(widthCalculators);
+	setColumnWidthCalculators(columnWidthCalculators?: ColumnWidthCalculators) {
+		this._tableDataCache.setColumnWidthCalculators(columnWidthCalculators);
+
+		// Recalculate the column widths with the new calculators. Supplying calculators means the
+		// columns are to be measured with them, whether they are arriving for the first time -- the
+		// panel mounts asynchronously, so the initial load can run before they are here -- or
+		// replacing an earlier set that measured with a font the user has since changed.
+		if (columnWidthCalculators && this._initialLoadComplete) {
+			this.recalculateColumnWidths().catch(onUnexpectedError);
+		}
 	}
 
 	/**
@@ -831,12 +861,28 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Initial load: first time becoming visible, no data loaded yet.
 		if (!this._initialLoadComplete) {
+			// Don't start a second initial load on top of one that's still running.
+			if (this._initialLoadInProgress) {
+				return;
+			}
+
+			this._initialLoadInProgress = true;
 			this._initialLoadComplete = true;
 			this._pendingSchemaUpdate = false;
 			this._pendingDataUpdate = false;
-			await this.updateLayoutEntries();
-			this.rebuildSortKeysFromCache();
-			await this.fetchData(InvalidateCacheFlags.All);
+			try {
+				await this.updateLayoutEntries();
+				this.rebuildSortKeysFromCache();
+				await this.fetchData(InvalidateCacheFlags.All);
+			} catch (error) {
+				// The load didn't finish, so let becoming visible again retry it. Without this the
+				// grid keeps whatever it had -- for a first load, no data at all -- and nothing
+				// would ask for the rest of it again.
+				this._initialLoadComplete = false;
+				throw error;
+			} finally {
+				this._initialLoadInProgress = false;
+			}
 			return;
 		}
 
@@ -892,7 +938,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			this.maximumColumnWidth
 		);
 
-		// Set the layout entries.
+		// Set the layout entries. These widths are the newest, so a column width calculation still
+		// awaiting the backend is now stale and drops its result rather than overwriting them.
+		this._columnWidthsGeneration++;
 		this._columnLayoutManager.setEntries(state.table_shape.num_columns, columnWidths);
 		this._rowLayoutManager.setEntries(state.table_shape.num_rows);
 
@@ -937,6 +985,44 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		await this.updateLayoutEntries();
 		this.rebuildSortKeysFromCache();
 		await this.fetchData(InvalidateCacheFlags.Data);
+	}
+
+	/**
+	 * Recalculates the column widths and applies them to the column layout entries.
+	 *
+	 * Deliberately narrower than updateLayoutEntries: it doesn't re-read the backend state or
+	 * re-run the advanced layout limits check, which would re-raise the sticky notification for a
+	 * wide dataset that the user may have dismissed.
+	 */
+	private async recalculateColumnWidths(): Promise<void> {
+		// Calculate the column widths.
+		const generation = ++this._columnWidthsGeneration;
+		const columnWidths = await this._tableDataCache.calculateColumnWidths(
+			this.minimumColumnWidth,
+			this.maximumColumnWidth
+		);
+
+		// If newer widths have been applied while this calculation was awaiting the backend, these
+		// ones are stale -- two editor font changes in quick succession start two calculations, and
+		// the slower one must not win. If the widths could not be calculated, leave the layout
+		// entries as they are.
+		if (generation !== this._columnWidthsGeneration || !columnWidths) {
+			return;
+		}
+
+		// Take the column count from the backend state the calculation itself worked from:
+		// calculateColumnWidths awaits getBackendState, which leaves its result in
+		// cachedBackendState, so reading it here pairs the count with the widths rather than with a
+		// state that may have moved on since. The initial load populated it, so the guard is for
+		// completeness rather than a real case.
+		const state = this._dataExplorerClientInstance.cachedBackendState;
+		if (!state) {
+			return;
+		}
+
+		// Set the column layout entries and repaint with the new widths.
+		this._columnLayoutManager.setEntries(state.table_shape.num_columns, columnWidths);
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**

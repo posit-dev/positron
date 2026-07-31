@@ -12,8 +12,8 @@ partition; this file explains how to act on its verdict.
 | `none` | no PR body names this spec path | nothing to reconcile; proceed normally |
 | `open-attempt-in-flight` | an unmerged PR already diagnoses this test | **stop.** Point the engineer at the open PR (`openAttempts[].url`) instead of starting a parallel diagnosis |
 | `recurred-after-fix` | occurrences post-date a merged fix's commit | lead with this. Treat the prior hypothesis as **ruled out**, not a guess to re-test -- start from "why didn't that fix hold," not from re-deriving the same mechanism |
-| `fix-holding` | a merged fix exists, no occurrences post-date it, enough runs since | the fix looks like it held; if `failure_patterns` is now empty that's a clean bill, not a fresh triage |
-| `too-recent-to-tell` | merged fix is very recent, few/no runs since | say so explicitly; do not declare success or failure prematurely |
+| `fix-holding` | a merged fix exists, no occurrences post-date it, and enough post-fix runs in the failing lane to mean something | the fix looks like it held; quote `sufficiency.probabilityIfUnfixed`, and check whether the live pattern is a different failure mode than the one it closed |
+| `too-recent-to-tell` | too few post-fix runs to judge -- **including none supplied at all** | say so explicitly; do not declare success or failure prematurely. `sufficiency.runsNeeded` is how many clean runs would settle it |
 
 ## Reading `mergedAttempts[]`
 
@@ -31,29 +31,56 @@ pattern's occurrences all predating a fix, another's all postdating it -- that
 split **is** the diagnosis: the predating pattern is old news, the postdating
 one is what's still live. Lead with the split.
 
+## When `none` is not proof there was no prior fix
+
+The search matches **spec paths** in PR bodies, so a fix that only touched a POM,
+fixture, or helper never registers. If the failing locator is absent from the
+working tree it was replaced -- find by what, then re-run with `--fix-sha` so the
+ancestry partition and verdict still apply:
+
+```bash
+git log --oneline -S'<failing locator or helper>' -- test/e2e/
+```
+
+## Judging whether a fix held
+
+Occurrence SHAs are the numerator only. Pass `--post-fix-runs` (and
+`--baseline-rate` from the pattern's `rates[]`) to get a scored `sufficiency`
+object; without a denominator the verdict is `too-recent-to-tell` by
+construction, never `fix-holding`. Read three fields off it:
+
+- `probabilityIfUnfixed` -- `(1-p)^N`: how often that clean streak happens by
+  luck anyway. Quote it. At p~0.5, N=4 is ~0.06: suggestive, not proof.
+- `runsNeeded` -- clean runs required to clear the bar. A rare flake needs far
+  more than a frequent one, so this is what "check back later" should mean.
+  Very sensitive to `p` -- one real triage needed 4 runs at a 54% burst rate but
+  15 at the 19% lookback rate. Feed the lookback rate from `rates[]`; say which.
+- `scopeWarning` -- set when `--environment` was omitted. Both numbers must
+  describe **one** os/browser lane; a test-health `total_runs` spans them all,
+  and mixing it with a lane-specific rate inflates N and clears the bar on runs
+  that never exercised the failing lane.
+
+## Reporting the check
+
+A fix-held check is a status line, not a triage report. The engineer already
+knows the mechanism, so restating the diagnosis, the failure-mode table, the
+onset commit, or how you counted is noise. Four lines, in this order:
+
+1. **Verdict** -- holding / too early / recurred, in a few words.
+2. **Evidence** -- clean post-fix runs against `runsNeeded`, plus
+   `probabilityIfUnfixed` phrased as "happens by luck X% of the time anyway".
+3. **When it settles** -- the remaining runs, in wall-clock time.
+4. **Action** -- usually "nothing to do"; on `recurred`, the next step.
+
+Add nothing else unless asked.
+
 ## Supersedes
 
 If a merged fix didn't hold (`recurred-after-fix`), the eventual diagnosis block
 gets a **Supersedes** bullet naming it -- see
 [`diagnosis-block.md`](diagnosis-block.md).
 
-## Doing it by hand (fallback)
+## If the script itself is broken
 
-Only if `find-prior-triage.js` is broken:
-
-```bash
-gh search prs --repo posit-dev/positron --match body "E2E Triage Diagnosis" \
-  --json number,title,url,state,body --limit 50
-```
-
-Filter results yourself for a body containing this test's exact spec path.
-For merged matches, get the merge commit and partition occurrences by ancestry:
-
-```bash
-gh pr view <number> --json mergeCommit,mergedAt
-git merge-base --is-ancestor <fix-merge-sha> <occurrence-sha> \
-  && echo "after fix" || echo "before fix / unrelated history"
-```
-
-If a SHA isn't found locally, `git fetch origin` first -- occurrence SHAs come
-from CI runs across branches your clone may not have fetched.
+Only if `find-prior-triage.js` is broken, do the search and ancestry partition by
+hand -- see [`script-fallbacks.md`](script-fallbacks.md).

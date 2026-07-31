@@ -1,0 +1,84 @@
+---
+title: "Auto Scroll"
+jupyter: python3
+---
+
+## Auto scroll
+
+This cell is intentionally taller than the editor viewport so that its inline
+output is rendered below the fold when the cursor sits at the top of the cell.
+
+```{python}
+#| label: autoscroll
+# padding line 01
+# padding line 02
+# padding line 03
+# padding line 04
+# padding line 05
+# padding line 06
+# padding line 07
+# padding line 08
+# padding line 09
+# padding line 10
+# padding line 11
+# padding line 12
+# padding line 13
+# padding line 14
+# padding line 15
+# padding line 16
+# padding line 17
+# padding line 18
+# padding line 19
+# padding line 20
+# padding line 21
+# padding line 22
+# padding line 23
+# padding line 24
+# padding line 25
+# padding line 26
+# padding line 27
+# padding line 28
+# padding line 29
+# padding line 30
+# padding line 31
+# padding line 32
+# padding line 33
+# padding line 34
+# padding line 35
+# padding line 36
+# padding line 37
+# padding line 38
+# padding line 39
+# padding line 40
+# padding line 41
+# padding line 42
+# padding line 43
+# padding line 44
+# padding line 45
+# padding line 46
+# padding line 47
+# padding line 48
+# padding line 49
+# padding line 50
+# padding line 51
+# padding line 52
+# padding line 53
+# padding line 54
+# padding line 55
+# padding line 56
+# padding line 57
+# padding line 58
+# padding line 59
+# padding line 60
+# padding line 61
+# padding line 62
+# padding line 63
+# padding line 64
+# padding line 65
+# padding line 66
+# padding line 67
+# padding line 68
+# padding line 69
+# padding line 70
+print("AUTOSCROLL_MARKER")
+```

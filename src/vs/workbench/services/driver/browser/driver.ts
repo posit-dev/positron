@@ -7,6 +7,9 @@ import { getClientArea, getTopLeftOffset, isHTMLDivElement, isHTMLTextAreaElemen
 import { mainWindow } from '../../../../base/browser/window.js';
 import { coalesce } from '../../../../base/common/arrays.js';
 import { language, locale } from '../../../../base/common/platform.js';
+// --- Start Positron ---
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+// --- End Positron ---
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -25,9 +28,19 @@ export class BrowserWindowDriver implements IWindowDriver {
 		@IFileService private readonly fileService: IFileService,
 		@IEnvironmentService private readonly environmentService: IEnvironmentService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
-		@ILogService private readonly logService: ILogService
+		// --- Start Positron ---
+		// @ILogService private readonly logService: ILogService
+		@ILogService private readonly logService: ILogService,
+		@ICommandService private readonly commandService: ICommandService
+		// --- End Positron ---
 	) {
 	}
+
+	// --- Start Positron ---
+	async executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T> {
+		return await this.commandService.executeCommand<T>(id, ...args) as T;
+	}
+	// --- End Positron ---
 
 	async getLogs(): Promise<ILogFile[]> {
 		return getLogs(this.fileService, this.environmentService);

@@ -16,7 +16,7 @@ function makeSource(overrides?: Partial<Pick<IPositronLanguageModelSource, 'supp
 	const provider = overrides?.provider ?? { id: 'anthropic-api', displayName: 'Anthropic' };
 	return {
 		type: PositronLanguageModelType.Chat,
-		provider: { ...provider, settingName: provider.id },
+		provider: { ...provider },
 		supportedOptions: overrides?.supportedOptions ?? [],
 		defaults: overrides?.defaults ?? { model: '' },
 	};

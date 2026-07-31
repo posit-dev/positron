@@ -3,12 +3,31 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { ProviderCatalogChange, ResolvedProvider } from 'ai-config/node';
+import type { LegacySettingsReader, ProviderCatalogChange, ResolvedProvider } from 'ai-config/node';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { Disposable, toDisposable } from '../../../base/common/lifecycle.js';
 import { URI } from '../../../base/common/uri.js';
+import { IConfigurationService } from '../../configuration/common/configuration.js';
 import { ILogService } from '../../log/common/log.js';
 import { IAiProviderCatalog, IProviderCatalogChangeData, IResolvedProviderData } from '../common/aiProviderCatalog.js';
+
+/**
+ * PROVIDER-SETTINGS-MIGRATION(legacy-positron): a LegacySettingsReader over a
+ * configuration service, handed to the catalog loader's
+ * `legacyPositronSettings` option. `get` reads `inspect(key).userValue` —
+ * the user-set value only, never policy/default values, so enforced settings
+ * cannot leak into the non-enforced legacy layer (the loader reads
+ * POSITRON_ENFORCED_SETTINGS from the environment itself). The watch is
+ * coarse (any config change fires) — the catalog watch debounces and diffs.
+ */
+export function createConfigurationLegacySettingsReader(
+	configurationService: Pick<IConfigurationService, 'inspect' | 'onDidChangeConfiguration'>
+): LegacySettingsReader {
+	return {
+		get: key => configurationService.inspect(key).userValue,
+		watch: onChange => configurationService.onDidChangeConfiguration(() => onChange()),
+	};
+}
 
 /**
  * Owns the ai-config catalog lifecycle node-side: initial load, file/env
@@ -23,7 +42,12 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 
 	constructor(
 		private readonly _logService: ILogService,
-		private readonly _options?: { configPath?: string; envVars?: Record<string, string | undefined> },
+		private readonly _options?: {
+			configPath?: string;
+			envVars?: Record<string, string | undefined>;
+			// PROVIDER-SETTINGS-MIGRATION(legacy-positron)
+			legacyPositronSettings?: LegacySettingsReader;
+		},
 	) {
 		super();
 	}
@@ -33,6 +57,7 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 			baseline: { defaultEnabled: true },
 			configPath: this._options?.configPath,
 			envVars: this._options?.envVars,
+			legacyPositronSettings: this._options?.legacyPositronSettings,
 			logger: {
 				debug: (message: string) => this._logService.debug(`[AI Provider Catalog] ${message}`),
 				warn: (message: string) => this._logService.warn(`[AI Provider Catalog] ${message}`),
@@ -85,6 +110,7 @@ function toProviderData(provider: ResolvedProvider): IResolvedProviderData {
 			aws: connection.aws,
 			googleCloud: connection.googleCloud,
 			snowflake: connection.snowflake,
+			databricks: connection.databricks,
 		},
 	};
 }

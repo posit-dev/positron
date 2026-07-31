@@ -19,6 +19,7 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
 import { ExtHostAiFeaturesShape, ExtHostPositronContext, ISerializedAgentCommand, ISerializedValidateAndExecuteCommandResult, MainPositronContext, MainThreadAiFeaturesShape } from '../../common/positron/extHost.positron.protocol.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
+import { IAiProviderService } from '../../../services/positronAiProvider/common/aiProviderService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ChatModeKind } from '../../../contrib/chat/common/constants.js';
 import { PromptRenderer } from '../../../contrib/positronAssistant/browser/prompts/promptRenderer.js';
@@ -44,6 +45,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IFileService private readonly _fileService: IFileService,
 		@IAgentAllowedCommandsService private readonly _agentAllowedCommandsService: IAgentAllowedCommandsService,
+		@IAiProviderService private readonly _aiProviderService: IAiProviderService,
 	) {
 		super();
 		// Create the proxy for the extension host.
@@ -52,6 +54,26 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		// Forward provider configuration changes to the extension host.
 		this._register(this._positronAssistantConfigurationService.onChangeProviderConfig(source => {
 			this._proxy.$onDidChangeProviderConfig(source);
+		}));
+
+		// Forward per-provider catalog enablement flips to the extension host. The
+		// baseline snapshot is captured after initialization so activation-time
+		// listeners never see a flip against the empty pre-initialization state.
+		let lastEnabled = new Map<string, boolean>();
+		const snapshotEnablement = () => new Map(this._aiProviderService.getProviders().map(p => [p.id, p.enabled]));
+		this._aiProviderService.whenInitialized.then(() => { lastEnabled = snapshotEnablement(); });
+		this._register(this._aiProviderService.onDidChangeProviders(e => {
+			if (!e.enabledChanged) {
+				return;
+			}
+			const current = snapshotEnablement();
+			for (const [id, enabled] of current) {
+				const previous = lastEnabled.get(id);
+				if (previous !== undefined && previous !== enabled) {
+					this._proxy.$onDidChangeProviderEnablement(id, enabled);
+				}
+			}
+			lastEnabled = current;
 		}));
 	}
 
@@ -205,7 +227,8 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	/**
-	 * Check if a file should be enabled for AI completions based on configuration settings.
+	 * Check if a file should be enabled for Copilot inline completions based on
+	 * configuration settings. Scoped to Copilot; Posit AI NES has its own separate gate.
 	 */
 	async $areCompletionsEnabled(file: UriComponents): Promise<boolean> {
 		const uri = URI.revive(file);
@@ -252,7 +275,21 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 * Get the list of enabled provider IDs from configuration.
 	 */
 	async $getEnabledProviders(): Promise<string[]> {
+		// Never expose the empty pre-initialization snapshot to extension
+		// activation code; the RPC is already async so callers see no change.
+		await this._aiProviderService.whenInitialized;
 		return this._positronAssistantConfigurationService.getEnabledProviders();
+	}
+
+	/**
+	 * Check whether a provider (identified by its catalog id) is enabled in the
+	 * resolved provider catalog.
+	 */
+	async $isProviderEnabled(id: string): Promise<boolean> {
+		// Same timing rule as $getEnabledProviders: activation-time callers must
+		// not observe the pre-initialization snapshot.
+		await this._aiProviderService.whenInitialized;
+		return this._aiProviderService.isEnabled(id);
 	}
 
 	/**

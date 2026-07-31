@@ -31,7 +31,7 @@ suite('lm', function () {
 		disposables = [];
 		// --- Start Positron ---
 		positron.ai.registerProvider({
-			provider: { id: 'test-lm-vendor', displayName: 'Test LM Vendor', settingName: 'testLmVendor' },
+			provider: { id: 'test-lm-vendor', displayName: 'Test LM Vendor' },
 			type: positron.PositronLanguageModelType.Chat,
 			supportedOptions: [],
 			defaults: {},

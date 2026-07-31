@@ -13,7 +13,7 @@ import { IModelService } from '../../../../editor/common/services/model.js';
 import { ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IPositronPackagesService } from '../../positronPackages/browser/interfaces/positronPackagesService.js';
-import { IPackageSpec, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionService, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IPackageSpec, IRuntimeConsoleError, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionService, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IMissingPackagesGroup, IMissingPackagesResult, IMissingPackagesService } from '../common/missingPackagesService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
@@ -169,6 +169,24 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 			target: { code },
 		};
 		return this._computeTarget(target);
+	}
+
+	async analyzeError(sessionId: string, error: IRuntimeConsoleError, token?: CancellationToken): Promise<IRuntimeMissingPackage[]> {
+		const session = this._runtimeSessionService.getSession(sessionId);
+		if (!session?.getMissingPackageProbe) {
+			return [];
+		}
+		let probe: string | undefined;
+		try {
+			probe = await session.getMissingPackageProbe(error, token);
+		} catch (err) {
+			this._logService.warn(`[MissingPackages] getMissingPackageProbe failed for session '${sessionId}': ${err}`);
+			return [];
+		}
+		if (!probe) {
+			return [];
+		}
+		return this.analyzeCode(sessionId, probe, token);
 	}
 
 	async install(group: IMissingPackagesGroup, token?: CancellationToken): Promise<void> {

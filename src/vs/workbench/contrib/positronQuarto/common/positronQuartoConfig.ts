@@ -51,6 +51,12 @@ export const QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY = 'quarto.inlineOutput.s
 export const QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY = 'quarto.inlineOutput.splitStatements';
 
 /**
+ * Configuration key for automatically scrolling the editor to reveal inline
+ * output as it is produced.
+ */
+export const QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY = 'quarto.inlineOutput.autoScroll';
+
+/**
  * @deprecated Use {@link QUARTO_INLINE_OUTPUT_ENABLED_KEY}. Kept as a working alias.
  */
 export const POSITRON_QUARTO_INLINE_OUTPUT_KEY = 'positron.quarto.inlineOutput.enabled';
@@ -167,6 +173,15 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.quarto.inlineOutput.splitStatements',
 				'Execute Quarto inline code statement by statement when the language provides input boundaries, so each statement can produce inline output.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
+		[QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				'positron.quarto.inlineOutput.autoScroll',
+				'Automatically scroll the editor to reveal inline output as cells run, so newly produced output stays in view.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
@@ -313,6 +328,16 @@ export function usingQuartoCellToolbar(configurationService: IConfigurationServi
  */
 export function usingQuartoInlineOutputStatementSplitting(configurationService: IConfigurationService): boolean {
 	return getQuartoConfigValue(configurationService, QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY, POSITRON_QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY, true);
+}
+
+/**
+ * Helper function to check if the editor should auto-scroll to reveal inline
+ * output as it is produced. Defaults to true when the setting is unset.
+ * @param configurationService The configuration service instance
+ * @returns true if auto-scrolling to inline output is enabled
+ */
+export function usingQuartoInlineOutputAutoScroll(configurationService: IConfigurationService): boolean {
+	return configurationService.getValue<boolean>(QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY) !== false;
 }
 
 /**

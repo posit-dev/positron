@@ -54,14 +54,19 @@ suite('Venv Utils test', () => {
         assert.deepStrictEqual(actual, []);
     });
 
-    test('Toml found with no build system', async () => {
+    test('Toml found with project but no build system', async () => {
         findFilesStub.resolves([]);
         pathExistsStub.resolves(true);
         readFileStub.resolves('[project]\nname = "spam"\nversion = "2020.0.0"\n');
 
         const actual = await pickPackagesToInstall(workspace1);
         assert.isTrue(showQuickPickWithBackStub.notCalled);
-        assert.deepStrictEqual(actual, []);
+        assert.deepStrictEqual(actual, [
+            {
+                installType: 'toml',
+                source: path.join(workspace1.uri.fsPath, 'pyproject.toml'),
+            },
+        ]);
     });
 
     test('Toml found with no project table', async () => {
