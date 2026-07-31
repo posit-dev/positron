@@ -332,6 +332,81 @@ describe('Positron Notebook Cell Outputs', () => {
 		});
 	});
 
+	describe('renderer-aware mime selection', () => {
+		it('py3Dmol-style bundle renders the text/html fallback in a webview', () => {
+			// py3Dmol emits {application/3dmoljs_load.v0, text/html}. The custom
+			// mime has no renderer, so text/html must win; because the fallback
+			// contains a <script>, it routes to the raw-HTML webview path.
+			const py3DmolCell: TestCellInput = {
+				source: 'view.show()',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [
+						{ mime: 'application/3dmoljs_load.v0', data: VSBuffer.fromString('{}') },
+						{ mime: 'text/html', data: VSBuffer.fromString('<div id="mol"></div><script src="https://3dmol.org/build/3Dmol-min.js"></script>') },
+					],
+				}],
+			};
+			const notebook = createTestPositronNotebookInstance([py3DmolCell], ctx);
+			const cell = notebook.cells.get()[0];
+
+			expect(cell.isCodeCell()).toBe(true);
+			const outputs = cell.outputs.get();
+			expect(outputs.length).toBe(1);
+			expect(outputs[0].parsed.type, 'text/html must beat the rendererless custom mime').toBe('html');
+			expect(outputs[0].preloadMessageResult, 'script-bearing HTML routes to a webview').toBeDefined();
+		});
+
+		it('custom +json bundle with a text/plain fallback renders the text repr', () => {
+			const vegaliteCell: TestCellInput = {
+				source: 'chart',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [
+						{ mime: 'application/vnd.vegalite.v5+json', data: VSBuffer.fromString('{"mark": "point"}') },
+						{ mime: 'text/plain', data: VSBuffer.fromString('<VegaLite chart>') },
+					],
+				}],
+			};
+			const notebook = createTestPositronNotebookInstance([vegaliteCell], ctx);
+			const cell = notebook.cells.get()[0];
+
+			expect(cell.isCodeCell()).toBe(true);
+			const outputs = cell.outputs.get();
+			expect(outputs[0].parsed.type, 'text/plain must beat the rendererless custom mime').toBe('text');
+		});
+
+		it('custom mime with no fallback surfaces an actionable unknown-output message', () => {
+			const unknownCell: TestCellInput = {
+				source: 'chart',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [
+						{ mime: 'application/vnd.vegalite.v5+json', data: VSBuffer.fromString('{"mark": "point"}') },
+					],
+				}],
+			};
+			const notebook = createTestPositronNotebookInstance([unknownCell], ctx);
+			const cell = notebook.cells.get()[0];
+
+			expect(cell.isCodeCell()).toBe(true);
+			const outputs = cell.outputs.get();
+			expect(outputs[0].parsed.type).toBe('unknown');
+			if (outputs[0].parsed.type === 'unknown') {
+				expect(outputs[0].parsed.content).toContain('application/vnd.vegalite.v5+json');
+			}
+		});
+	});
+
 	// Model-level coverage for the Collapse Output, Show Hidden Output (expand),
 	// and Clear Output cell actions (#12411). The action handlers in
 	// `positronNotebook.contribution.ts` delegate to these cell/instance methods,

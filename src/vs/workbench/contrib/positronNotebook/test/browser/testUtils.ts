@@ -14,6 +14,7 @@ import { createEditorPart } from '../../../../test/browser/workbenchTestServices
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { EditorPart } from '../../../../browser/parts/editor/editorPart.js';
 import { INotebookService } from '../../../notebook/common/notebookService.js';
+import { RENDERER_NOT_AVAILABLE } from '../../../notebook/common/notebookCommon.js';
 import { INotebookEditorModelResolverService } from '../../../notebook/common/notebookEditorModelResolverService.js';
 import { INotebookKernelService } from '../../../notebook/common/notebookKernelService.js';
 import { INotebookExecutionService } from '../../../notebook/common/notebookExecutionService.js';
@@ -28,6 +29,10 @@ import { createTestContainer, PositronTestContainerBuilder } from '../../../../.
 
 const mockNotebookService: Partial<INotebookService> = {
 	canResolve: (viewType: string) => Promise.resolve(viewType === 'jupyter-notebook'),
+	// Preserve the input order and report no renderers -- enough for
+	// resolvePreferredOutputItem's native-mime walk in these tests.
+	getMimeTypeInfo: (_viewType, _kernelProvides, mimeTypes) =>
+		mimeTypes.map(mimeType => ({ mimeType, rendererId: RENDERER_NOT_AVAILABLE, isTrusted: true })),
 	onWillAddNotebookDocument: Event.None,
 	onDidAddNotebookDocument: Event.None,
 	onWillRemoveNotebookDocument: Event.None,

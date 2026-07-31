@@ -6,78 +6,84 @@
 import { NotebookCellOutputItem, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { isDataExplorerMimeType } from '../getOutputContents.js';
 import { isComplexHtml } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
+import { IOrderedMimeType } from '../../../notebook/common/notebookCommon.js';
 
 /**
- * Get the priority of a mime type for sorting purposes
- * @param mime The mime type to get the priority of
- * @returns A number representing the priority of the mime type. Lower numbers are higher priority.
+ * Whether Positron notebooks render this mime type natively inline. This is the
+ * set of mime types `parseOutputData` (getOutputContents.ts) knows how to parse
+ * into a renderable output.
  */
-function getMimeTypePriority(mime: string): number | null {
-	// Positron inline data explorer has highest priority
+function isNativelyRenderedMime(mime: string): boolean {
 	if (isDataExplorerMimeType(mime)) {
-		return 0;
-	}
-
-	if (mime.includes('application')) {
-		return 1;
+		return true;
 	}
 
 	switch (mime) {
+		case 'application/json':
+		case 'application/vnd.code.notebook.stdout':
+		case 'application/vnd.code.notebook.stderr':
+		case 'application/vnd.code.notebook.error':
 		case 'text/html':
-			return 2;
 		case 'text/latex':
-			return 2.3;
 		case 'text/markdown':
-			return 2.5;
+		case 'text/plain':
 		case 'image/png':
 		case 'image/svg+xml':
-			return 3;
-		case 'text/plain':
-			return 4;
+			return true;
 		default:
-			// Dont know what this is, so mark it as special so we know something went wrong
-			return null;
+			return false;
 	}
 }
 
+/** The output item selected for rendering from a multi-mime output bundle. */
+export interface PreferredOutputItem {
+	/** The output item to parse and render. */
+	item: NotebookCellOutputItem;
+}
 
 /**
- * Pick the output item with the highest priority mime type from a cell output object
- * @param outputItems Array of outputs items data from a cell output object
- * @returns The output item with the highest priority mime type. If there's a tie, the first one is
- * returned. If there's an unknown mime type we defer to ones we do know about.
+ * Pick the output item to render from a cell output's mime bundle.
+ *
+ * Walks the renderer-registry ordering (`INotebookService.getMimeTypeInfo`,
+ * the same machinery the upstream notebook editor uses) and picks the first
+ * mime type Positron notebooks render natively. This means an unrenderable
+ * custom mime (e.g. `application/3dmoljs_load.v0`) never beats a renderable
+ * fallback like `text/html` -- the old hardcoded priority list preferred any
+ * `application/*` mime and errored on such bundles.
+ *
+ * @param outputItems Array of output items from a cell output object.
+ * @param orderedMimeTypes The output's mime types ordered by the notebook
+ *   renderer registry (renderer-less mime types sort last).
+ * @returns The preferred output item, or `undefined` if there are no items.
+ *   When no mime type is renderable, the first item is returned so the caller
+ *   can surface an actionable message.
  */
-export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[]): NotebookCellOutputItem | undefined {
-
+export function resolvePreferredOutputItem(
+	outputItems: NotebookCellOutputItem[],
+	orderedMimeTypes: readonly IOrderedMimeType[],
+): PreferredOutputItem | undefined {
 	if (outputItems.length === 0) {
 		return undefined;
 	}
 
-	let highestPriority: number | null = null;
-	let preferredOutput = outputItems[0];
+	// The Positron inline data explorer always wins. Its mime type deliberately
+	// has no registered notebook renderer, so the registry ordering would push
+	// it behind renderable mime types like text/html.
+	const dataExplorerItem = outputItems.find(item => isDataExplorerMimeType(item.mime));
+	if (dataExplorerItem) {
+		return { item: dataExplorerItem };
+	}
 
-	for (const item of outputItems) {
-		const priority = getMimeTypePriority(item.mime);
-
-		// If we don't know how to render any of the mime types, we'll return the first one and hope
-		// for the best!
-		if (priority === null) {
-			continue;
-		}
-
-		if (priority < (highestPriority ?? Infinity)) {
-			preferredOutput = item;
-			highestPriority = priority;
+	for (const mimeTypeInfo of orderedMimeTypes) {
+		const item = outputItems.find(item => item.mime === mimeTypeInfo.mimeType);
+		if (item && isNativelyRenderedMime(item.mime)) {
+			return { item };
 		}
 	}
 
-	if (highestPriority === null) {
-		// Unknown mime mixes can occur in normal notebook usage.
-		// We fall through to returning the first item, which is the
-		// best we can do for unrecognized mime types.
-	}
-
-	return preferredOutput;
+	// Unknown mime mixes can occur in normal notebook usage. Return the first
+	// item so parseOutputData surfaces its unknown-mime message.
+	return { item: outputItems[0] };
 }
 
 /**

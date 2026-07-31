@@ -9,15 +9,26 @@ import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { DATA_EXPLORER_MIME_TYPE, parseOutputData } from '../../browser/getOutputContents.js';
 import { ParsedDataExplorerOutput } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
-import { HtmlRenderMode, htmlRenderMode, pickPreferredOutputItem } from '../../browser/PositronNotebookCells/notebookOutputUtils.js';
+import { HtmlRenderMode, htmlRenderMode, resolvePreferredOutputItem } from '../../browser/PositronNotebookCells/notebookOutputUtils.js';
 import { parseVariablePath } from '../../../../services/positronDataExplorer/common/utils.js';
+import { INotebookService } from '../../../notebook/common/notebookService.js';
 
 function makeOutputItem(mime: string, text: string) {
 	return { mime, data: VSBuffer.fromString(text) };
 }
 
 describe('Notebook Output Utils', () => {
-	createTestContainer().build();
+	const ctx = createTestContainer().withNotebookServices().build();
+
+	/**
+	 * Resolve the preferred output item the way parseCellOutputs does: order the
+	 * mime types through the real notebook service, then resolve against it.
+	 */
+	function resolvePreferred(items: ReturnType<typeof makeOutputItem>[]) {
+		const orderedMimeTypes = ctx.get(INotebookService).getMimeTypeInfo(
+			undefined, undefined, items.map(item => item.mime));
+		return resolvePreferredOutputItem(items, orderedMimeTypes);
+	}
 
 	describe('parseOutputData', () => {
 		it('parses image/svg+xml into an image with a data URL', () => {
@@ -144,34 +155,78 @@ describe('Notebook Output Utils', () => {
 		});
 	});
 
-	it('pickPreferredOutputItem: prefers image/svg+xml over text/plain', () => {
-		const items = [
-			makeOutputItem('text/plain', 'fallback text'),
-			makeOutputItem('image/svg+xml', '<svg></svg>'),
-		];
+	describe('resolvePreferredOutputItem', () => {
+		it('prefers image/svg+xml over text/plain', () => {
+			const items = [
+				makeOutputItem('text/plain', 'fallback text'),
+				makeOutputItem('image/svg+xml', '<svg></svg>'),
+			];
 
-		const preferred = pickPreferredOutputItem(items);
-		expect(preferred?.mime).toBe('image/svg+xml');
-	});
+			expect(resolvePreferred(items)?.item.mime).toBe('image/svg+xml');
+		});
 
-	it('pickPreferredOutputItem: prefers text/latex over text/plain', () => {
-		const items = [
-			makeOutputItem('text/plain', 'E = mc^2'),
-			makeOutputItem('text/latex', '$E = mc^2$'),
-		];
+		it('prefers text/latex over text/plain', () => {
+			const items = [
+				makeOutputItem('text/plain', 'E = mc^2'),
+				makeOutputItem('text/latex', '$E = mc^2$'),
+			];
 
-		const preferred = pickPreferredOutputItem(items);
-		expect(preferred?.mime).toBe('text/latex');
-	});
+			expect(resolvePreferred(items)?.item.mime).toBe('text/latex');
+		});
 
-	it('pickPreferredOutputItem: prefers text/latex over text/markdown', () => {
-		const items = [
-			makeOutputItem('text/markdown', '# Math'),
-			makeOutputItem('text/latex', '$E = mc^2$'),
-		];
+		it('prefers text/latex over text/markdown', () => {
+			const items = [
+				makeOutputItem('text/markdown', '# Math'),
+				makeOutputItem('text/latex', '$E = mc^2$'),
+			];
 
-		const preferred = pickPreferredOutputItem(items);
-		expect(preferred?.mime).toBe('text/latex');
+			expect(resolvePreferred(items)?.item.mime).toBe('text/latex');
+		});
+
+		it('falls back to text/html for a custom mime with no renderer (py3Dmol bundle)', () => {
+			// py3Dmol emits {application/3dmoljs_load.v0, text/html}. The old
+			// priority function preferred ANY application/* mime, so the
+			// unrenderable custom mime won and produced a "Can't handle mime
+			// type" error instead of rendering the HTML fallback.
+			const items = [
+				makeOutputItem('application/3dmoljs_load.v0', '{}'),
+				makeOutputItem('text/html', '<div id="mol"></div><script src="https://3dmol.org/build/3Dmol-min.js"></script>'),
+			];
+
+			expect(resolvePreferred(items)?.item.mime).toBe('text/html');
+		});
+
+		it('falls back to text/plain for a custom +json mime with no renderer (vegalite bundle)', () => {
+			const items = [
+				makeOutputItem('application/vnd.vegalite.v5+json', '{"mark": "point"}'),
+				makeOutputItem('text/plain', '<VegaLite chart>'),
+			];
+
+			expect(resolvePreferred(items)?.item.mime).toBe('text/plain');
+		});
+
+		it('data explorer mime always wins, even over text/html', () => {
+			const items = [
+				makeOutputItem('text/html', '<table></table>'),
+				makeOutputItem(DATA_EXPLORER_MIME_TYPE, '{"comm_id": "id"}'),
+				makeOutputItem('text/plain', 'DataFrame'),
+			];
+
+			expect(resolvePreferred(items)?.item.mime).toBe(DATA_EXPLORER_MIME_TYPE);
+		});
+
+		it('returns the first item when no mime is renderable', () => {
+			const items = [
+				makeOutputItem('application/vnd.custom.thing+json', '{}'),
+				makeOutputItem('application/other', 'x'),
+			];
+
+			expect(resolvePreferred(items)?.item.mime).toBe('application/vnd.custom.thing+json');
+		});
+
+		it('returns undefined for empty output items', () => {
+			expect(resolvePreferred([])).toBeUndefined();
+		});
 	});
 
 	describe('parseOutputData: data explorer MIME type', () => {

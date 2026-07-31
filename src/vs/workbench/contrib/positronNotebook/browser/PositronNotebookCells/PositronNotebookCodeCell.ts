@@ -13,9 +13,10 @@ import { PositronNotebookCellGeneral } from './PositronNotebookCell.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { IPositronNotebookCodeCell, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { htmlRenderMode, pickPreferredOutputItem } from './notebookOutputUtils.js';
+import { htmlRenderMode, resolvePreferredOutputItem } from './notebookOutputUtils.js';
 import { getWebviewMessageType } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
+import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { IPositronCellOutputViewModel } from '../IPositronNotebookEditor.js';
 
 export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
@@ -40,6 +41,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 		@INotebookExecutionStateService _executionStateService: INotebookExecutionStateService,
 		@ITextModelService _textModelService: ITextModelService,
 		@IPositronWebviewPreloadService private _webviewPreloadService: IPositronWebviewPreloadService,
+		@INotebookService private _notebookService: INotebookService,
 	) {
 		super(cellModel, instance, _executionStateService, _textModelService);
 
@@ -138,10 +140,23 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 		this.model.outputs.forEach((output) => {
 			const outputItems = output.outputs || [];
-			const preferredOutputItem = pickPreferredOutputItem(outputItems);
-			if (!preferredOutputItem) {
+
+			// Order the output's mime types by the notebook renderer registry --
+			// the same machinery the upstream editor uses -- so the preferred
+			// item is picked with renderer availability in mind. The view type
+			// is deliberately undefined: it only scopes the legacy editor's
+			// per-notebook-type renderer preferences, which Positron notebooks
+			// don't use (same as INotebookService.getPreferredRenderer).
+			const orderedMimeTypes = this._notebookService.getMimeTypeInfo(
+				undefined,
+				undefined,
+				outputItems.map(item => item.mime),
+			);
+			const preferredOutput = resolvePreferredOutputItem(outputItems, orderedMimeTypes);
+			if (!preferredOutput) {
 				return;
 			}
+			const preferredOutputItem = preferredOutput.item;
 
 			const parsedOutput: NotebookCellOutputs = {
 				outputId: output.outputId,

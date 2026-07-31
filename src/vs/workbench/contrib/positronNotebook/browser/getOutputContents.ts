@@ -223,6 +223,6 @@ export function parseOutputData(outputItem: IOutputItemDto, metadata?: Record<st
 
 	return {
 		type: 'unknown',
-		content: localize('cellExecutionUnknownMimeType', 'Can\'t handle mime type "{0}" yet', mime)
+		content: localize('positron.notebook.noRendererForMimeType', "No renderer available for MIME type \"{0}\". Install a notebook renderer extension that supports this type to display this output.", mime)
 	};
 }
