@@ -34,6 +34,14 @@ const API_TYPE_ANTHROPIC = 'anthropic-messages';
 const API_TYPE_CHAT = 'openai-chat';
 const API_TYPE_RESPONSES = 'openai-responses';
 
+/**
+ * API type (protocol) selection is deferred. For 2026.08 the custom provider is
+ * OpenAI Chat Completions only (#15255); choosing other protocols is revisited
+ * in #13817. The selector and its plumbing stay in place, gated off here, so
+ * re-enabling is a one-line flip.
+ */
+const API_TYPE_SELECTOR_ENABLED = false;
+
 /** The label and example request path shown for each API type in the dropdown. */
 interface ApiTypeOption {
 	title: string;
@@ -210,7 +218,7 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 									/>
 								</>
 							}
-							{supportsProtocol &&
+							{supportsProtocol && API_TYPE_SELECTOR_ENABLED &&
 								<>
 									<label className='connect-provider-apikey-label' id='connect-provider-apitype-label'>
 										{localize('positron.connectProvider.apiTypeLabel', "API Type")}
