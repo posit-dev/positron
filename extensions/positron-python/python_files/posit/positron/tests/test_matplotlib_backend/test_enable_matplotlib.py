@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Callable, Iterator, NamedTuple
 import matplotlib
 import matplotlib.pyplot as plt
 import pytest
+from IPython.core import pylabtools
 from IPython.utils.capture import capture_output
 from matplotlib.figure import Figure
 
@@ -459,8 +460,19 @@ def test_inline_backend_config_stays_inert(shell: PositronShell, positron_backen
     assert _state(shell, positron_backend) == _positron_active(positron_backend)
 
 
+@pytest.mark.skipif(
+    not hasattr(pylabtools, "_list_matplotlib_backends_and_gui_loops"),
+    reason="`%matplotlib module://...` needs IPython >= 8.24's registry-based resolution",
+)
 def test_matplotlib_inline_escape_hatch(shell: PositronShell, positron_backend: BackendCase):
-    """The real matplotlib-inline backend stays reachable by its `module://` name."""
+    """
+    The real matplotlib-inline backend stays reachable by its `module://` name.
+
+    Only via `%matplotlib` on IPython >= 8.24: earlier versions resolve the magic's
+    argument through a static table that raises KeyError for `module://` names, matching
+    upstream behavior. `matplotlib.use(INLINE_BACKEND_NAME)` is the escape hatch there,
+    on any IPython, via the backend module's self-activation at import.
+    """
     shell.run_cell(f"%matplotlib {INLINE_BACKEND_NAME}").raise_error()
     inline_state = _state(shell, positron_backend)
 
