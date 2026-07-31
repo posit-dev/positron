@@ -57,6 +57,14 @@ export const QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY = 'quarto.inlineOutput.sp
 export const QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY = 'quarto.inlineOutput.autoScroll';
 
 /**
+ * Configuration key for the experimental Quarto shadow notebook.
+ * When enabled, the code cells of open Quarto and R Markdown documents are
+ * mirrored into a hidden notebook so language servers can provide cross-cell
+ * completions and diagnostics.
+ */
+export const QUARTO_SHADOW_NOTEBOOK_ENABLED_KEY = 'quarto.shadowNotebook.enabled';
+
+/**
  * @deprecated Use {@link QUARTO_INLINE_OUTPUT_ENABLED_KEY}. Kept as a working alias.
  */
 export const POSITRON_QUARTO_INLINE_OUTPUT_KEY = 'positron.quarto.inlineOutput.enabled';
@@ -182,6 +190,16 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.quarto.inlineOutput.autoScroll',
 				'Automatically scroll the editor to reveal inline output as cells run, so newly produced output stays in view.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
+		[QUARTO_SHADOW_NOTEBOOK_ENABLED_KEY]: {
+			type: 'boolean',
+			default: true,
+			tags: ['experimental'],
+			markdownDescription: localize(
+				'positron.quarto.shadowNotebook.enabled',
+				'Mirror the code cells of open Quarto and R Markdown documents into a hidden notebook so language servers can provide cross-cell completions and diagnostics. The notebook is never shown.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},

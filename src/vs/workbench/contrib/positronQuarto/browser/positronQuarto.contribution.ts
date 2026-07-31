@@ -17,6 +17,7 @@ import { IExtensionService } from '../../../services/extensions/common/extension
 import { registerEditorContribution, EditorContributionInstantiation } from '../../../../editor/browser/editorExtensions.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { QuartoDocumentModelService, IQuartoDocumentModelService } from './quartoDocumentModelService.js';
+import { IQuartoShadowNotebookService, QuartoShadowNotebookService, QuartoShadowNotebookContribution } from './quartoShadowNotebookService.js';
 import { QuartoKernelManager, IQuartoKernelManager, QuartoKernelState } from './quartoKernelManager.js';
 import { QuartoExecutionManager, IQuartoExecutionManager } from './quartoExecutionManager.js';
 import { QuartoOutputManagerService, QuartoOutputContribution, IQuartoOutputManager } from './quartoOutputManager.js';
@@ -67,6 +68,7 @@ registerSingleton(IQuartoKernelManager, QuartoKernelManager, InstantiationType.D
 registerSingleton(IQuartoExecutionManager, QuartoExecutionManager, InstantiationType.Delayed);
 registerSingleton(IQuartoOutputCacheService, QuartoOutputCacheService, InstantiationType.Delayed);
 registerSingleton(IQuartoOutputManager, QuartoOutputManagerService, InstantiationType.Delayed);
+registerSingleton(IQuartoShadowNotebookService, QuartoShadowNotebookService, InstantiationType.Delayed);
 
 // Register editor contributions
 registerEditorContribution(QuartoExecutionDecorations.ID, QuartoExecutionDecorations, EditorContributionInstantiation.AfterFirstRender);
@@ -328,6 +330,15 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 registerWorkbenchContribution2(
 	QuartoInlineOutputContribution.ID,
 	QuartoInlineOutputContribution,
+	WorkbenchPhase.AfterRestored
+);
+
+// Register the shadow notebook contribution, which eagerly instantiates the
+// shadow notebook service so open Quarto documents get their hidden mirror
+// notebooks (used by language servers for cross-cell language features).
+registerWorkbenchContribution2(
+	QuartoShadowNotebookContribution.ID,
+	QuartoShadowNotebookContribution,
 	WorkbenchPhase.AfterRestored
 );
 

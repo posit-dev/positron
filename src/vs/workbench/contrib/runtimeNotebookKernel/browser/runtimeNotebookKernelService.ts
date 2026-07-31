@@ -35,6 +35,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { GroupIdentifier, GroupModelChangeKind } from '../../../common/editor.js';
+import { QUARTO_SHADOW_NOTEBOOK_VIEW_TYPE } from '../../positronQuarto/common/quartoShadowNotebook.js';
 
 /**
  * The service responsible for managing {@link RuntimeNotebookKernel}s.
@@ -229,6 +230,13 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 
 		// When a notebook is closed, cleanup pending selections and shutdown the session.
 		this._register(this._notebookService.onWillRemoveNotebookDocument(async notebook => {
+			// Quarto shadow notebooks share the .qmd document's URI. Shutting
+			// down "the notebook's" session here would kill the Quarto inline
+			// output kernel, which is a notebook session keyed by that same URI.
+			if (notebook.viewType === QUARTO_SHADOW_NOTEBOOK_VIEW_TYPE) {
+				return;
+			}
+
 			// Clean up any pending kernel selection
 			this._pendingKernelSelections.delete(notebook.uri);
 			this._pendingPositronAutoStarts.delete(notebook.uri);
@@ -443,6 +451,13 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	}
 
 	private attachNotebook(notebook: NotebookTextModel): void {
+		// Never select or suggest kernels for Quarto shadow notebooks: they
+		// are hidden mirrors of .qmd text documents that exist only for
+		// language servers and are never executed.
+		if (notebook.viewType === QUARTO_SHADOW_NOTEBOOK_VIEW_TYPE) {
+			return;
+		}
+
 		// If a kernel is already selected for the notebook, there's nothing to do
 		if (this.getOrSelectKernel(notebook)) {
 			return;
