@@ -27,7 +27,7 @@ import { IExtHostExtensionService } from '../../common/extHostExtensionService.j
 import { IExtHostInitDataService } from '../../common/extHostInitDataService.js';
 import { IExtHostDocs } from '../../common/positron/extHostDocs.js';
 
-const CACHE_DIR_NAME = 'positron-docs';
+const CACHE_DIR_NAME = 'positron-llm-docs';
 const DEFAULT_BUNDLE_BASE_URL = 'https://cdn.posit.co/positron/releases/docs';
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_REDIRECTS = 3;
@@ -223,7 +223,8 @@ export class NodeExtHostDocs extends Disposable implements IExtHostDocs {
 		super();
 
 		// A sibling of globalStorage, so there is no risk of colliding with an
-		// extension id. Profile-scoped, which is one 655KB copy per profile.
+		// extension id. Kept namespaced because the rest of that directory is
+		// upstream-owned. Profile-scoped, which is one 655KB copy per profile.
 		const root = joinPath(dirname(initData.environment.globalStorageHome), CACHE_DIR_NAME);
 		const request = deriveBundleRequest(initData, process.env);
 		const logger = {

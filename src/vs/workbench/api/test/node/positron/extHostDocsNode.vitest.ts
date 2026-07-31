@@ -75,7 +75,7 @@ describe('NodeExtHostDocs construction', () => {
 	// provider and a startup signal that never resolve it must still return,
 	// having created no cache directory.
 	it('performs no filesystem work and does not wait on startup or configuration', async () => {
-		const root = join(tmpdir(), `positron-docs-ctor-${randomUUID()}`);
+		const root = join(tmpdir(), `positron-llm-docs-ctor-${randomUUID()}`);
 		const getConfigProvider = vi.fn(() => new Promise<never>(() => { }));
 		const service = new NodeExtHostDocs(
 			stubInterface<IExtHostInitDataService>({
@@ -94,7 +94,7 @@ describe('NodeExtHostDocs construction', () => {
 			new NullLogService(),
 		);
 
-		expect(existsSync(join(root, 'positron-docs'))).toBe(false);
+		expect(existsSync(join(root, 'positron-llm-docs'))).toBe(false);
 		// Called, but never awaited to completion - the listener install is a
 		// detached continuation, not part of construction.
 		expect(getConfigProvider).toHaveBeenCalledTimes(1);
@@ -111,7 +111,7 @@ describe('NodeExtHostDocs launch anchor', () => {
 		// launch fetch fires, and running the real one would reach the network.
 		const runBackgroundFetch = vi.spyOn(PositronDocsTriggers.prototype, 'runBackgroundFetch')
 			.mockResolvedValue(undefined);
-		const root = join(tmpdir(), `positron-docs-anchor-${randomUUID()}`);
+		const root = join(tmpdir(), `positron-llm-docs-anchor-${randomUUID()}`);
 		const service = new NodeExtHostDocs(
 			stubInterface<IExtHostInitDataService>({
 				quality: 'dailies',
