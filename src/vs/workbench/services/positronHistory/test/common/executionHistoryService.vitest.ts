@@ -9,8 +9,8 @@ import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent, INotebookLanguageRuntimeSession, IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IExecutionHistoryService, ExecutionEntryType, IExecutionHistoryEntry, projectExecutionEntriesToConsoleContent, DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT } from '../../common/executionHistoryService.js';
-import { getConsoleContent } from '../../common/helpers/sessionConsoleContent.js';
+import { IExecutionHistoryService, ExecutionEntryType, IExecutionHistoryEntry, projectExecutionEntriesToConsoleHistory, DEFAULT_CONSOLE_HISTORY_ENTRY_COUNT, CONSOLE_HISTORY_API_ENABLED_KEY } from '../../common/executionHistoryService.js';
+import { getConsoleHistory } from '../../common/helpers/sessionConsoleHistory.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ExecutionHistoryService } from '../../common/executionHistory.js';
@@ -118,6 +118,9 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 	private readonly _onDidStartUiClient = new Emitter<any>();
 	readonly onDidStartUiClient = this._onDidStartUiClient.event;
 
+	private readonly _onDidChangeDisplayRuntimeState = new Emitter<{ sessionId: string; state: RuntimeState }>();
+	readonly onDidChangeDisplayRuntimeState = this._onDidChangeDisplayRuntimeState.event;
+
 	foregroundSession: ILanguageRuntimeSession | undefined;
 	foregroundSessionDisplayInfo: IRuntimeSessionDisplayInfo | undefined = undefined;
 	private readonly _onDidChangeForegroundSessionDisplayInfo = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
@@ -135,6 +138,10 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 
 	getSession(sessionId: string): ILanguageRuntimeSession | undefined {
 		return this.sessions.get(sessionId);
+	}
+
+	getDisplayRuntimeState(_sessionId: string): RuntimeState | undefined {
+		throw new Error('Method not implemented.');
 	}
 
 	// Helper method to fire session start event with proper structure
@@ -1062,7 +1069,7 @@ describe('ExecutionHistoryService', () => {
 		expect(storeSpy).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`positron\\..*\\.${sessionId}`)), null, expect.any(Number), expect.any(Number));
 	});
 
-	describe('getConsoleContent', () => {
+	describe('getConsoleHistory', () => {
 		/** Fire the messages that record a single completed code execution for a session. */
 		function recordExecution(session: TestLanguageRuntimeSession, executionId: string, code: string, output: string): void {
 			const now = new Date().toISOString();
@@ -1071,7 +1078,7 @@ describe('ExecutionHistoryService', () => {
 			session.onDidReceiveRuntimeMessageStateEmitter.fire({ parent_id: executionId, id: `state-${executionId}`, state: 'idle', when: now });
 		}
 
-		it('projects the recent console content for a known session', () => {
+		it('projects the recent console history for a known session', () => {
 			const session = createSession('console-session-1');
 			runtimeSessionService.onWillStartSessionEmitter.fire({
 				session,
@@ -1081,9 +1088,9 @@ describe('ExecutionHistoryService', () => {
 			});
 			recordExecution(session, 'exec-1', 'print("Hi")', 'Hi');
 
-			const content = getConsoleContent(executionHistoryService, runtimeSessionService, 'console-session-1');
+			const history = getConsoleHistory(executionHistoryService, runtimeSessionService, configurationService, 'console-session-1');
 
-			expect(content.map(({ input, output, error }) => ({ input, output, error }))).toEqual([
+			expect(history.map(({ input, output, error }) => ({ input, output, error }))).toEqual([
 				{ input: 'print("Hi")', output: 'Hi', error: undefined },
 			]);
 		});
@@ -1093,14 +1100,30 @@ describe('ExecutionHistoryService', () => {
 			// rejected before it reaches the service to avoid a permanent leak.
 			const getEntriesSpy = vi.spyOn(executionHistoryService, 'getExecutionEntries');
 
-			expect(() => getConsoleContent(executionHistoryService, runtimeSessionService, 'does-not-exist'))
+			expect(() => getConsoleHistory(executionHistoryService, runtimeSessionService, configurationService, 'does-not-exist'))
 				.toThrow(/No such session: does-not-exist/);
+			expect(getEntriesSpy).not.toHaveBeenCalled();
+		});
+
+		it('throws when the privacy setting is disabled, without reading any session', () => {
+			const session = createSession('console-session-2');
+			runtimeSessionService.onWillStartSessionEmitter.fire({
+				session,
+				startMode: RuntimeStartMode.Starting,
+				hasConsole: true,
+				activate: false
+			});
+			configurationService.setUserConfiguration(CONSOLE_HISTORY_API_ENABLED_KEY, false);
+			const getEntriesSpy = vi.spyOn(executionHistoryService, 'getExecutionEntries');
+
+			expect(() => getConsoleHistory(executionHistoryService, runtimeSessionService, configurationService, 'console-session-2'))
+				.toThrow(new RegExp(`"${CONSOLE_HISTORY_API_ENABLED_KEY}" setting is disabled`));
 			expect(getEntriesSpy).not.toHaveBeenCalled();
 		});
 	});
 });
 
-describe('projectExecutionEntriesToConsoleContent', () => {
+describe('projectExecutionEntriesToConsoleHistory', () => {
 	/** Build an execution history entry, defaulting to a completed code execution. */
 	function entry(overrides: Partial<IExecutionHistoryEntry<unknown>>): IExecutionHistoryEntry<unknown> {
 		return {
@@ -1122,7 +1145,7 @@ describe('projectExecutionEntriesToConsoleContent', () => {
 			entry({ input: 'print(2)', output: '[1] 2\n', when: 3 }),
 		];
 
-		expect(projectExecutionEntriesToConsoleContent(entries)).toEqual([
+		expect(projectExecutionEntriesToConsoleHistory(entries)).toEqual([
 			{ input: 'a <- 1', output: '', when: 1 },
 			{ input: 'stop("boom")', output: '', error: { name: 'error', message: 'boom', traceback: [] }, when: 2 },
 			{ input: 'print(2)', output: '[1] 2\n', when: 3 },
@@ -1136,24 +1159,24 @@ describe('projectExecutionEntriesToConsoleContent', () => {
 			entry({ input: 'real()', output: 42, when: 3 }),
 		];
 
-		expect(projectExecutionEntriesToConsoleContent(entries)).toEqual([
+		expect(projectExecutionEntriesToConsoleHistory(entries)).toEqual([
 			{ input: 'real()', output: '42', when: 3 },
 		]);
 	});
 
-	it('limits to the most recent DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT when no count is given', () => {
+	it('limits to the most recent DEFAULT_CONSOLE_HISTORY_ENTRY_COUNT when no count is given', () => {
 		const entries = Array.from({ length: 8 }, (_, i) => entry({ input: `cmd${i}`, when: i }));
 
-		const result = projectExecutionEntriesToConsoleContent(entries);
+		const result = projectExecutionEntriesToConsoleHistory(entries);
 
 		expect(result.map(e => e.input)).toEqual(['cmd3', 'cmd4', 'cmd5', 'cmd6', 'cmd7']);
-		expect(result).toHaveLength(DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT);
+		expect(result).toHaveLength(DEFAULT_CONSOLE_HISTORY_ENTRY_COUNT);
 	});
 
 	it('limits to the most recent numberOfEntries when given, and falls back to the default for non-positive values', () => {
 		const entries = Array.from({ length: 8 }, (_, i) => entry({ input: `cmd${i}`, when: i }));
 
-		expect(projectExecutionEntriesToConsoleContent(entries, 2).map(e => e.input)).toEqual(['cmd6', 'cmd7']);
-		expect(projectExecutionEntriesToConsoleContent(entries, 0)).toHaveLength(DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT);
+		expect(projectExecutionEntriesToConsoleHistory(entries, 2).map(e => e.input)).toEqual(['cmd6', 'cmd7']);
+		expect(projectExecutionEntriesToConsoleHistory(entries, 0)).toHaveLength(DEFAULT_CONSOLE_HISTORY_ENTRY_COUNT);
 	});
 });

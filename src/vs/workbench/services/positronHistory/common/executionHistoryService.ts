@@ -74,7 +74,7 @@ export interface IExecutionHistoryError {
  * A single console execution projected to the fields relevant to a model or an
  * extension: the code that ran, its output, and any error.
  */
-export interface IConsoleContentEntry {
+export interface IConsoleHistoryEntry {
 	/** The code that was executed. */
 	input: string;
 	/** The textual output produced by the execution. */
@@ -86,10 +86,17 @@ export interface IConsoleContentEntry {
 }
 
 /** Default number of recent console entries returned when no count is requested. */
-export const DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT = 5;
+export const DEFAULT_CONSOLE_HISTORY_ENTRY_COUNT = 5;
 
 /**
- * Projects raw execution history entries down to the console content relevant
+ * Setting that controls whether extensions may read console history through the
+ * `positron.runtime.getConsoleHistory` API. Enabled by default; users can
+ * disable it when they don't want console input/output exposed to extensions.
+ */
+export const CONSOLE_HISTORY_API_ENABLED_KEY = 'console.historyApiEnabled';
+
+/**
+ * Projects raw execution history entries down to the console history relevant
  * to a reader: only completed code executions (skipping the startup banner and
  * entries recorded without input, e.g. output produced outside an execution),
  * each mapped to its input, textual output, error, and timestamp, and limited
@@ -98,9 +105,9 @@ export const DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT = 5;
  *
  * @param entries The raw execution history entries, in stored (oldest-first) order.
  * @param numberOfEntries The number of most recent entries to return. Defaults to
- *  {@link DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT}; non-positive values fall back to it.
+ *  {@link DEFAULT_CONSOLE_HISTORY_ENTRY_COUNT}; non-positive values fall back to it.
  */
-export function projectExecutionEntriesToConsoleContent(entries: IExecutionHistoryEntry<unknown>[], numberOfEntries?: number): IConsoleContentEntry[] {
+export function projectExecutionEntriesToConsoleHistory(entries: IExecutionHistoryEntry<unknown>[], numberOfEntries?: number): IConsoleHistoryEntry[] {
 	const projected = entries
 		.filter(entry => entry.outputType === ExecutionEntryType.Execution && entry.input)
 		.map(entry => ({
@@ -110,7 +117,7 @@ export function projectExecutionEntriesToConsoleContent(entries: IExecutionHisto
 			when: entry.when,
 		}));
 
-	const count = numberOfEntries && numberOfEntries > 0 ? numberOfEntries : DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT;
+	const count = numberOfEntries && numberOfEntries > 0 ? numberOfEntries : DEFAULT_CONSOLE_HISTORY_ENTRY_COUNT;
 	return projected.slice(-count);
 }
 
@@ -224,6 +231,12 @@ const inputHistoryConfigurationNode: IConfigurationNode = {
 			markdownDescription: nls.localize('console.inputHistorySize', "The number of recent commands to store for each language. Set to 0 to disable history storage."),
 			'default': 1000,
 			'minimum': 0
+		},
+		[CONSOLE_HISTORY_API_ENABLED_KEY]: {
+			type: 'boolean',
+			markdownDescription: nls.localize('positron.console.historyApiEnabled', "Allow extensions to read recent console history (commands, output, and errors) through the console history API. Disable this if you don't want console content exposed to extensions."),
+			'default': true,
+			scope: ConfigurationScope.WINDOW
 		}
 	}
 };

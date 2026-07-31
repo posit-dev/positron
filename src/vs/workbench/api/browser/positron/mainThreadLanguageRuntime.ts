@@ -10,7 +10,7 @@ import {
 	ExtHostPositronContext,
 	RuntimeInitialState,
 	IActiveRuntimeSessionMetadataDto,
-	ISerializedConsoleContentEntry
+	ISerializedConsoleHistoryEntry
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, IRuntimeRootSignature, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -23,6 +23,7 @@ import { IPathService } from '../../../services/path/common/pathService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState, RuntimeClientStatus, RuntimeClientType } from '../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
@@ -56,7 +57,7 @@ import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../service
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { getSessionVariables, querySessionTables } from '../../../services/positronVariables/common/helpers/sessionVariableQueries.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
-import { getConsoleContent } from '../../../services/positronHistory/common/helpers/sessionConsoleContent.js';
+import { getConsoleHistory } from '../../../services/positronHistory/common/helpers/sessionConsoleHistory.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { LanguageRuntimeDynState } from 'positron';
@@ -1673,7 +1674,8 @@ export class MainThreadLanguageRuntime
 		@IEditorService private readonly _editorService: IEditorService,
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
-		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService
+		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
 		// Positron services were up and running early in the application lifecycle. For now, this
@@ -2008,9 +2010,9 @@ export class MainThreadLanguageRuntime
 		return querySessionTables(this._positronVariablesService, sessionId, accessKeys, queryTypes);
 	}
 
-	async $getConsoleContent(sessionId: string, numberOfEntries?: number): Promise<ISerializedConsoleContentEntry[]> {
-		return getConsoleContent(
-			this._executionHistoryService, this._runtimeSessionService, sessionId, numberOfEntries);
+	async $getConsoleHistory(sessionId: string, numberOfEntries?: number): Promise<ISerializedConsoleHistoryEntry[]> {
+		return getConsoleHistory(
+			this._executionHistoryService, this._runtimeSessionService, this._configurationService, sessionId, numberOfEntries);
 	}
 
 	/**

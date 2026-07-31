@@ -18,19 +18,19 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		}),
 
 		// Demo/test the positron.runtime console-history API without needing Posit
-		// Assistant: reads the foreground session's recent console content and
+		// Assistant: reads the foreground session's recent console history and
 		// opens it in a JSON editor so the result is front and center.
-		vscode.commands.registerCommand('zed.getConsoleContent', async () => {
+		vscode.commands.registerCommand('zed.getConsoleHistory', async () => {
 			const session = await positron.runtime.getForegroundSession();
 			if (!session) {
-				vscode.window.showWarningMessage('Zed: No foreground console session to read content from. Start a console first.');
+				vscode.window.showWarningMessage('Zed: No foreground console session to read history from. Start a console first.');
 				return;
 			}
 
 			// Let the tester exercise the numberOfEntries argument; blank uses the
 			// API default.
 			const input = await vscode.window.showInputBox({
-				title: 'Get Console Content',
+				title: 'Get Console History',
 				prompt: 'Number of most recent console entries to fetch (leave blank for the default)',
 				validateInput: value => (value === '' || /^\d+$/.test(value) ? undefined : 'Enter a positive whole number, or leave blank for the default.'),
 			});
@@ -40,7 +40,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			const numberOfEntries = input === '' ? undefined : Number(input);
 
 			const sessionId = session.metadata.sessionId;
-			const entries = await positron.runtime.getConsoleContent(sessionId, numberOfEntries);
+			const entries = await positron.runtime.getConsoleHistory(sessionId, numberOfEntries);
 
 			// Open the result in an untitled JSON editor: more visible than an
 			// output channel, and syntax-highlighted for the structured entries.

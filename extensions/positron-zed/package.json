@@ -81,9 +81,9 @@
         }
       },
       {
-        "command": "zed.getConsoleContent",
+        "command": "zed.getConsoleHistory",
         "category": "Zed",
-        "title": "Get Console Content"
+        "title": "Get Console History"
       }
     ],
     "menus": {
@@ -94,7 +94,7 @@
         },
         {
           "category": "Zed",
-          "command": "zed.getConsoleContent"
+          "command": "zed.getConsoleHistory"
         }
       ]
     }
