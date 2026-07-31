@@ -17,9 +17,9 @@ const DEFAULT_TIMEOUT = 10000;
 
 /**
  * Budget for a kernel process to boot and report ready. Much slower than a
- * status transition on a live kernel, especially on Windows CI runners.
+ * status transition on a live kernel, especially on Windows CI runners (slow, very slow).
  */
-const KERNEL_START_TIMEOUT = 30000;
+const KERNEL_START_TIMEOUT = 45000;
 
 /** Budget for a status transition on an already-running kernel. */
 const KERNEL_STATUS_TIMEOUT = 20000;
