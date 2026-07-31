@@ -47,38 +47,32 @@ describe('ProviderList', () => {
 		rtl.render(<ProviderList sources={[
 			source({ id: 'conn', displayName: 'Connected One', signedIn: true, status: 'ok' }),
 			source({ id: 'avail', displayName: 'Available One', signedIn: false }),
-		]} onAddCustomProvider={vi.fn()} onSelectProvider={vi.fn()} />);
+		]} onSelectProvider={vi.fn()} />);
 		expect(screen.getByText('Connected Providers')).toBeInTheDocument();
 		expect(screen.getByText('Model Providers')).toBeInTheDocument();
 	});
 
 	it('does not render empty built-in section headings', () => {
-		rtl.render(<ProviderList sources={[source({ id: 'avail', signedIn: false })]} onAddCustomProvider={vi.fn()} onSelectProvider={vi.fn()} />);
+		rtl.render(<ProviderList sources={[source({ id: 'avail', signedIn: false })]} onSelectProvider={vi.fn()} />);
 		expect(screen.queryByText('Connected Providers')).not.toBeInTheDocument();
 		expect(screen.queryByText('Needs Attention')).not.toBeInTheDocument();
 	});
 
-	it('renders the Custom Provider section with an add button when none is configured', () => {
-		rtl.render(<ProviderList sources={[source({ id: 'avail', signedIn: false })]} onAddCustomProvider={vi.fn()} onSelectProvider={vi.fn()} />);
+	it('renders the custom provider as a normal Model Providers row when unconnected', () => {
+		rtl.render(<ProviderList sources={[source({ id: 'openai-compatible', displayName: 'Custom Provider', signedIn: false })]} onSelectProvider={vi.fn()} />);
 		expect(screen.getByText('Custom Provider')).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: /Add custom provider/ })).toBeInTheDocument();
-	});
-
-	it('replaces the add button with a note once a custom provider is configured', () => {
-		rtl.render(<ProviderList sources={[source({ id: 'openai-compatible', displayName: 'Custom Provider', signedIn: true, status: 'ok' })]} onAddCustomProvider={vi.fn()} onSelectProvider={vi.fn()} />);
 		expect(screen.queryByRole('button', { name: /Add custom provider/ })).not.toBeInTheDocument();
-		expect(screen.getByText(/already configured/i)).toBeInTheDocument();
 	});
 
 	it('shows the built-in description for a known provider', () => {
-		rtl.render(<ProviderList sources={[source({ id: 'anthropic-api', displayName: 'Anthropic', signedIn: false })]} onAddCustomProvider={vi.fn()} onSelectProvider={vi.fn()} />);
+		rtl.render(<ProviderList sources={[source({ id: 'anthropic-api', displayName: 'Anthropic', signedIn: false })]} onSelectProvider={vi.fn()} />);
 		expect(screen.getByText('Access Claude models directly via Anthropic API')).toBeInTheDocument();
 	});
 
 	it('reports the source when Connect is clicked on Posit AI', async () => {
 		const onSelectProvider = vi.fn();
 		const user = userEvent.setup();
-		rtl.render(<ProviderList sources={sourcesWithPositAi} onAddCustomProvider={vi.fn()} onSelectProvider={onSelectProvider} />);
+		rtl.render(<ProviderList sources={sourcesWithPositAi} onSelectProvider={onSelectProvider} />);
 		await user.click(screen.getByRole('button', { name: /connect/i }));
 		expect(onSelectProvider).toHaveBeenCalledWith(
 			expect.objectContaining({ provider: expect.objectContaining({ id: 'posit-ai' }) }),
@@ -88,7 +82,7 @@ describe('ProviderList', () => {
 	it('reports the source when Connect is clicked on Anthropic', async () => {
 		const onSelectProvider = vi.fn();
 		const user = userEvent.setup();
-		rtl.render(<ProviderList sources={availableAnthropic} onAddCustomProvider={vi.fn()} onSelectProvider={onSelectProvider} />);
+		rtl.render(<ProviderList sources={availableAnthropic} onSelectProvider={onSelectProvider} />);
 		await user.click(screen.getByRole('button', { name: /connect/i }));
 		expect(onSelectProvider).toHaveBeenCalledWith(
 			expect.objectContaining({ provider: expect.objectContaining({ id: 'anthropic-api' }) }),
@@ -98,7 +92,7 @@ describe('ProviderList', () => {
 	it('reports the source when Edit is clicked on connected Anthropic', async () => {
 		const onSelectProvider = vi.fn();
 		const user = userEvent.setup();
-		rtl.render(<ProviderList sources={connectedAnthropic} onAddCustomProvider={vi.fn()} onSelectProvider={onSelectProvider} />);
+		rtl.render(<ProviderList sources={connectedAnthropic} onSelectProvider={onSelectProvider} />);
 		await user.click(screen.getByRole('button', { name: /edit/i }));
 		expect(onSelectProvider).toHaveBeenCalledWith(
 			expect.objectContaining({ provider: expect.objectContaining({ id: 'anthropic-api' }) }),
@@ -108,7 +102,7 @@ describe('ProviderList', () => {
 	it('reports the source for a not-yet-supported provider row too (routing is the modal\'s job)', async () => {
 		const onSelectProvider = vi.fn();
 		const user = userEvent.setup();
-		rtl.render(<ProviderList sources={[source({ id: 'amazon-bedrock', displayName: 'AWS', supportedOptions: ['toolCalls'], signedIn: false })]} onAddCustomProvider={vi.fn()} onSelectProvider={onSelectProvider} />);
+		rtl.render(<ProviderList sources={[source({ id: 'amazon-bedrock', displayName: 'AWS', supportedOptions: ['toolCalls'], signedIn: false })]} onSelectProvider={onSelectProvider} />);
 		await user.click(screen.getByRole('button', { name: /connect/i }));
 		expect(onSelectProvider).toHaveBeenCalledWith(
 			expect.objectContaining({ provider: expect.objectContaining({ id: 'amazon-bedrock' }) }),
@@ -118,18 +112,10 @@ describe('ProviderList', () => {
 	it('reports the source when Fix Connection is clicked on a needs-attention provider', async () => {
 		const onSelectProvider = vi.fn();
 		const user = userEvent.setup();
-		rtl.render(<ProviderList sources={[source({ id: 'anthropic-api', displayName: 'Anthropic', signedIn: true, status: 'error', statusMessage: 'Bad base URL' })]} onAddCustomProvider={vi.fn()} onSelectProvider={onSelectProvider} />);
+		rtl.render(<ProviderList sources={[source({ id: 'anthropic-api', displayName: 'Anthropic', signedIn: true, status: 'error', statusMessage: 'Bad base URL' })]} onSelectProvider={onSelectProvider} />);
 		await user.click(screen.getByRole('button', { name: /fix connection/i }));
 		expect(onSelectProvider).toHaveBeenCalledWith(
 			expect.objectContaining({ provider: expect.objectContaining({ id: 'anthropic-api' }) }),
 		);
-	});
-
-	it('invokes onAddCustomProvider when the Add custom provider button is clicked', async () => {
-		const onAddCustomProvider = vi.fn();
-		const user = userEvent.setup();
-		rtl.render(<ProviderList sources={[source({ id: 'avail', signedIn: false })]} onAddCustomProvider={onAddCustomProvider} onSelectProvider={vi.fn()} />);
-		await user.click(screen.getByRole('button', { name: /add custom provider/i }));
-		expect(onAddCustomProvider).toHaveBeenCalled();
 	});
 });

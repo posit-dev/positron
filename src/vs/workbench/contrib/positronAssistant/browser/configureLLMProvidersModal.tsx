@@ -11,7 +11,7 @@ import { useCallback, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
-import { IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
+import { IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../common/interfaces/positronAssistantService.js';
 import { PositronModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { ContentArea } from '../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
@@ -38,30 +38,6 @@ type OnAction = (source: IPositronLanguageModelSource, config: IPositronLanguage
  * to opt in to the in-progress modal. It defaults to `false` (legacy dialog).
  */
 export const NEW_PROVIDER_MODAL_KEY = 'assistant.newProviderModal';
-
-/**
- * Provider id of the custom (OpenAI-compatible) provider. The authentication
- * extension registers a `providerAction` for it unconditionally, so dispatching
- * `save` to this id persists even before the provider is enabled.
- */
-const CUSTOM_PROVIDER_ID = 'openai-compatible';
-
-/**
- * Source used for the "Add custom provider" flow when the provider is not yet
- * enabled (so absent from the registered, enabled-only source list). It carries
- * the real provider id so `save` reaches the authentication extension's provider
- * action. When the provider is already enabled, the real registered source is
- * used instead (picking up its saved base URL etc.).
- */
-const CUSTOM_PROVIDER_FALLBACK_SOURCE: IPositronLanguageModelSource = {
-	type: PositronLanguageModelType.Chat,
-	provider: {
-		id: CUSTOM_PROVIDER_ID,
-		displayName: localize('positron.configureLLMProvidersModal.customProviderName', "Custom Provider"),
-	},
-	supportedOptions: ['apiKey', 'baseUrl', 'toolCalls', 'protocol', 'customModels'],
-	defaults: { protocol: 'openai-chat' },
-};
 
 export const showConfigureLLMProvidersModal = (
 	sources: IPositronLanguageModelSource[],
@@ -121,12 +97,9 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 		},
 	);
 
-	// The selected provider, always read from the fresh sources. The custom
-	// provider falls back to a synthetic source when it is not yet enabled (so
-	// not in the list). Defensive otherwise: an unresolved detail view drops to
-	// the list.
-	const selectedSource = sources.find(s => s.provider.id === selectedProviderId)
-		?? (selectedProviderId === CUSTOM_PROVIDER_ID ? CUSTOM_PROVIDER_FALLBACK_SOURCE : undefined);
+	// The selected provider, always read from the fresh sources. Defensive: if it
+	// ever cannot be resolved while on a detail view, fall back to the list.
+	const selectedSource = sources.find(s => s.provider.id === selectedProviderId);
 	const activeView = (view === 'connect' || view === 'connected') && !selectedSource ? 'list' : view;
 
 	// A cancel handler reported by the connect view while an OAuth sign-in is in
@@ -171,7 +144,6 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 					<ContentArea>
 						<ProviderList
 							sources={sources}
-							onAddCustomProvider={() => { setSelectedProviderId(CUSTOM_PROVIDER_ID); setView('connect'); }}
 							onSelectProvider={source => { setSelectedProviderId(source.provider.id); setView(selectProviderView(source)); }}
 						/>
 					</ContentArea>
