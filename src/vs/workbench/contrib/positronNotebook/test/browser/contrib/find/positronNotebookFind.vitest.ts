@@ -17,15 +17,16 @@ import { Range } from '../../../../../../../editor/common/core/range.js';
 import { CONTEXT_FIND_WIDGET_VISIBLE, CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../../../editor/contrib/find/browser/findModel.js';
 import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { CellKind } from '../../../../../notebook/common/notebookCommon.js';
+import { CellEditType, CellKind } from '../../../../../notebook/common/notebookCommon.js';
 import { IPositronNotebookCell } from '../../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { PositronNotebookFindController } from '../../../../browser/contrib/find/controller.js';
 import { PositronFindInstance } from '../../../../browser/contrib/find/PositronFindInstance.js';
-import { instantiateTestNotebookInstance, TestPositronNotebookInstance } from '../../testPositronNotebookInstance.js';
+import { instantiateTestNotebookInstance, TestCellInput, TestPositronNotebookInstance } from '../../testPositronNotebookInstance.js';
 import { transaction } from '../../../../../../../base/common/observable.js';
 import { IModelService } from '../../../../../../../editor/common/services/model.js';
 import { Disposable, IDisposable } from '../../../../../../../base/common/lifecycle.js';
 import { runWithFakedTimers } from '../../../../../../../base/test/common/timeTravelScheduler.js';
+import { VSBuffer } from '../../../../../../../base/common/buffer.js';
 
 /** Get the find controller for a notebook. */
 function getController(notebook: TestPositronNotebookInstance): PositronNotebookFindController {
@@ -132,11 +133,11 @@ describe('PositronNotebookFindController', () => {
 		ctx.instantiationService.stub(IBulkEditService, bulkEditService);
 	});
 
-	function createNotebook(cells: [string, string, CellKind][]) {
+	function createNotebook(cells: TestCellInput[]) {
 		return instantiateTestNotebookInstance(cells, ctx.instantiationService, ctx.disposables);
 	}
 
-	function findFixture(cells: [string, string, CellKind][]) {
+	function findFixture(cells: TestCellInput[]) {
 		const notebook = createNotebook(cells);
 		const controller = getController(notebook);
 		const find = getOrStartFindInstance(controller);
@@ -1546,6 +1547,202 @@ describe('PositronNotebookFindController', () => {
 			expect(cells[0].model.textModel!.getValue()).toBe('# Cell 0');
 			expect(cells[1].model.textModel!.getValue()).toBe('# Cell 1');
 			expect(cells[2].model.textModel!.getValue()).toBe('# Cell 2');
+		}));
+
+	});
+
+	describe('Find in Outputs', () => {
+
+		let nextOutputId = 0;
+
+		/** A code cell with one stdout output. */
+		function codeCellWithOutput(source: string, outputText: string): TestCellInput {
+			return {
+				source,
+				mime: undefined,
+				language: 'python',
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: `find-output-${nextOutputId++}`,
+					outputs: [{
+						mime: 'application/vnd.code.notebook.stdout',
+						data: VSBuffer.fromString(outputText),
+					}],
+				}],
+			};
+		}
+
+		it('finds matches in text outputs of code cells', () => {
+			const { controller, find } = findFixture([codeCellWithOutput('x = 1', 'hello world')]);
+
+			find.searchString.set('hello', undefined);
+
+			const matches = controller.matches.get();
+			expect(matches.length).toBe(1);
+			expect(matches[0].kind).toBe('output');
+			expect(find.matchCount.get()).toBe(1);
+		});
+
+		it('orders output matches after source matches within a cell', () => {
+			const { controller, find } = findFixture([codeCellWithOutput('hello', 'hello hello')]);
+
+			find.searchString.set('hello', undefined);
+
+			const matches = controller.matches.get();
+			expect(matches.map(m => m.kind)).toEqual(['input', 'output', 'output']);
+		});
+
+		it('does not match non-text outputs', () => {
+			const cell: TestCellInput = {
+				source: 'plot()',
+				mime: undefined,
+				language: 'python',
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: `find-output-${nextOutputId++}`,
+					outputs: [{ mime: 'text/html', data: VSBuffer.fromString('<b>hello</b>') }],
+				}],
+			};
+			const { controller, find } = findFixture([cell]);
+
+			find.searchString.set('hello', undefined);
+
+			expect(controller.matches.get().length).toBe(0);
+		});
+
+		it('navigating to an output match selects and reveals the cell without an editor selection', () => {
+			const { notebook, controller, find } = findFixture([codeCellWithOutput('alpha', 'target output')]);
+			const revealSpy = vi.spyOn(notebook, 'revealInCenterIfOutsideViewport');
+
+			find.searchString.set('target', undefined);
+			controller.findNext();
+
+			const cell = notebook.cells.get()[0];
+			expect(controller.currentMatch.get()?.matchIndex).toBe(0);
+			expect(revealSpy).toHaveBeenCalledWith(cell);
+			// The editor selection stays untouched; there is no source range to select.
+			expect(getCellSelection(cell)).toEqual([1, 1, 1, 1]);
+		});
+
+		it('navigating to an output match expands collapsed outputs', () => {
+			const { notebook, controller, find } = findFixture([codeCellWithOutput('alpha', 'target output')]);
+			const cell = notebook.cells.get()[0];
+			expect(cell.isCodeCell()).toBe(true);
+			if (!cell.isCodeCell()) {
+				return;
+			}
+			cell.collapseOutput();
+			expect(cell.outputIsCollapsed.get()).toBe(true);
+
+			find.searchString.set('target', undefined);
+			controller.findNext();
+
+			expect(cell.outputIsCollapsed.get()).toBe(false);
+		});
+
+		it('output matches produce no editor decorations', () => {
+			const { notebook, controller, find } = findFixture([codeCellWithOutput('hello', 'hello hello')]);
+
+			find.searchString.set('hello', undefined);
+			expect(controller.matches.get().length).toBe(3);
+
+			const cell = notebook.cells.get()[0];
+			expect(getFindMatchDecorations(cell).length, 'Only the source match should be decorated').toBe(1);
+
+			// Navigate to an output match: no current match decoration either.
+			controller.findNext(); // input match
+			controller.findNext(); // output match
+			expect(controller.currentMatch.get()?.cellMatch.kind).toBe('output');
+			expect(getCurrentFindMatchDecoration(cell)).toBe(undefined);
+		});
+
+		it('findNext from cursor past all source matches goes to the output match', () => {
+			const { notebook, controller, find } = findFixture([codeCellWithOutput('aa bb', 'aa')]);
+
+			// Place cursor at column 4 ('aa |bb') -- past the source match
+			const cell = notebook.cells.get()[0];
+			cell.currentEditor!.setPosition({ lineNumber: 1, column: 4 });
+
+			find.searchString.set('aa', undefined);
+			controller.findNext();
+
+			const match = controller.currentMatch.get();
+			expect(match?.matchIndex).toBe(1);
+			expect(match?.cellMatch.kind).toBe('output');
+		});
+
+		it('replace() on an output match advances without editing', () => {
+			const { notebook, controller, find } = findFixture([codeCellWithOutput('alpha', 'target output')]);
+			transaction((tx) => {
+				find.searchString.set('target', tx);
+				find.replaceText.set('replaced', tx);
+			});
+
+			controller.findNext();
+			expect(controller.currentMatch.get()?.cellMatch.kind).toBe('output');
+
+			return controller.replace().then(() => {
+				expect(bulkEditApplySpy, 'No edit should be applied for output matches').not.toHaveBeenCalled();
+				const cell = notebook.cells.get()[0];
+				expect(cell.model.textModel!.getValue()).toBe('alpha');
+			});
+		});
+
+		it('replaceAll() only replaces source matches', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([codeCellWithOutput('hello world', 'hello there')]);
+			transaction((tx) => {
+				find.searchString.set('hello', tx);
+				find.replaceText.set('bye', tx);
+			});
+			expect(find.matchCount.get()).toBe(2);
+
+			await controller.replaceAll();
+
+			const cell = notebook.cells.get()[0];
+			expect(cell.model.textModel!.getValue()).toBe('bye world');
+			expect(bulkEditApplySpy).toHaveBeenCalledOnce();
+			expect(bulkEditApplySpy.mock.calls[0][0].length, 'Only the source match should be edited').toBe(1);
+
+			// The output match remains after research
+			await waitForDebounce();
+			expect(find.matchCount.get()).toBe(1);
+		}));
+
+		it('replaceAll() with only output matches is a no-op', async () => {
+			const { controller, find } = findFixture([codeCellWithOutput('alpha', 'target output')]);
+			transaction((tx) => {
+				find.searchString.set('target', tx);
+				find.replaceText.set('replaced', tx);
+			});
+			expect(find.matchCount.get()).toBe(1);
+
+			await controller.replaceAll();
+
+			expect(bulkEditApplySpy).not.toHaveBeenCalled();
+		});
+
+		it('adding an output triggers a debounced recompute', () => runWithFakedTimers({}, async () => {
+			const { notebook, find } = findFixture([['x = 1', 'python', CellKind.Code]]);
+
+			find.searchString.set('hello', undefined);
+			expect(find.matchCount.get()).toBe(0);
+
+			// Add a matching output via the notebook text model
+			notebook.textModel!.applyEdits([{
+				editType: CellEditType.Output,
+				index: 0,
+				outputs: [{
+					outputId: `find-output-${nextOutputId++}`,
+					outputs: [{
+						mime: 'application/vnd.code.notebook.stdout',
+						data: VSBuffer.fromString('hello from output'),
+					}],
+				}],
+				append: false,
+			}], true, undefined, () => undefined, undefined, false);
+
+			await waitForDebounce();
+			expect(find.matchCount.get()).toBe(1);
 		}));
 
 	});

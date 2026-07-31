@@ -50,7 +50,11 @@ export class PositronNotebookFindDecorations extends Disposable {
 
 		// Group matches by cell handle
 		const newDecorationsByCellHandle = new Map<number, IModelDeltaDecoration[]>();
-		for (const { cell, cellRange } of matches) {
+		for (const { cell, cellRange, kind } of matches) {
+			// Output matches have no editor range, so they get no decorations
+			if (kind === 'output') {
+				continue;
+			}
 			const decorations = getOrSet(newDecorationsByCellHandle, cell.handle, []);
 			decorations.push({
 				range: cellRange.range,
@@ -108,8 +112,9 @@ export class PositronNotebookFindDecorations extends Disposable {
 			this._currentMatchCellHandle = undefined;
 		}
 
-		// Add new current match decoration (separate from regular matches)
-		if (currentMatch) {
+		// Add new current match decoration (separate from regular matches).
+		// Output matches have no editor range, so they get no decoration.
+		if (currentMatch && currentMatch.cellMatch.kind !== 'output') {
 			const { cell, cellRange } = currentMatch.cellMatch;
 			const [newId] = cell.deltaModelDecorations([], [{
 				range: cellRange.range,

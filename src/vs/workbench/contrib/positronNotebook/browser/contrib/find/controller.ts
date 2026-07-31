@@ -31,12 +31,20 @@ import { ReplaceWidgetHistory } from '../../../../../../editor/contrib/find/brow
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IBulkEditService, ResourceTextEdit } from '../../../../../../editor/browser/services/bulkEditService.js';
 import { ReplacePattern, parseReplaceString } from '../../../../../../editor/contrib/find/browser/replacePattern.js';
+import { findMatchesInOutputText, isMatchAtOrAfterPosition, isMatchAtOrBeforePosition, PositronCellFindMatchKind } from './findInOutputs.js';
+import { getPlainTextOutputContent } from '../../getOutputContents.js';
 
 export class PositronCellFindMatch {
 	constructor(
 		public readonly cell: IPositronNotebookCell,
 		public readonly cellRange: CellEditorRange,
 		public readonly matches: string[] | null,
+		/**
+		 * Where the match was found. 'input' matches have an editor range;
+		 * 'output' matches have a range within the cell's plain-text output
+		 * content, used for ordering and identity only.
+		 */
+		public readonly kind: PositronCellFindMatchKind = 'input',
 	) { }
 }
 
@@ -299,7 +307,10 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		this._notebookModelDisposables.add(notebookModel.onDidChangeContent(e => {
 			if (e.rawEvents.some(
 				event => event.kind === NotebookCellsChangeType.ChangeCellContent ||
-					event.kind === NotebookCellsChangeType.ModelChange)) {
+					event.kind === NotebookCellsChangeType.ModelChange ||
+					// Output changes affect find-in-output matches
+					event.kind === NotebookCellsChangeType.Output ||
+					event.kind === NotebookCellsChangeType.OutputItem)) {
 				this._notebookContentChangedScheduler.schedule();
 			}
 		}));
@@ -337,6 +348,25 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					cellMatches.push(cellMatch);
 				}
 			}
+
+			// Match against the textual output content of code cells. Output
+			// matches come after the cell's source matches, mirroring the
+			// layout of outputs below the editor.
+			if (cell.isCodeCell()) {
+				const outputText = getPlainTextOutputContent(cell.outputs.get());
+				const outputRanges = findMatchesInOutputText(
+					outputText,
+					searchString,
+					isRegex,
+					matchCase,
+					wordSeparators,
+					limitResultCount,
+				);
+				for (const range of outputRanges) {
+					const cellRange = new CellEditorRange(cellIndex, range);
+					cellMatches.push(new PositronCellFindMatch(cell, cellRange, null, 'output'));
+				}
+			}
 		}
 		return cellMatches;
 	}
@@ -356,9 +386,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				const position = activeCell.currentEditor.getPosition();
 				if (position) {
 					const cursorPosition = new CellEditorPosition(activeCell.index, position);
-					const foundIndex = cellMatches.findLastIndex(({ cellRange }) =>
-						cellRange.containsPosition(cursorPosition) ||
-						cellRange.getEndPosition().isBefore(cursorPosition)
+					const foundIndex = cellMatches.findLastIndex(match =>
+						isMatchAtOrBeforePosition(match, cursorPosition)
 					);
 					matchIndex = foundIndex !== -1 ? foundIndex : undefined;
 				}
@@ -374,7 +403,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		// Invalidate currentMatch if its range no longer exists in the new matches
 		const currentMatch = this._currentMatch.get();
 		const isCurrentMatchStale = currentMatch !== undefined && !cellMatches.some(
-			({ cellRange }) => cellRange.equalsRange(currentMatch.cellMatch.cellRange)
+			({ cellRange, kind }) => kind === currentMatch.cellMatch.kind &&
+				cellRange.equalsRange(currentMatch.cellMatch.cellRange)
 		);
 
 		// Update state
@@ -441,9 +471,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			const position = activeCell.currentEditor.getPosition();
 			if (position) {
 				const cursorPosition = new CellEditorPosition(activeCell.index, position);
-				const nextMatchIndex = cellMatches.findIndex(({ cellRange }) =>
-					cellRange.containsPosition(cursorPosition) ||
-					cursorPosition.isBefore(cellRange.getStartPosition())
+				const nextMatchIndex = cellMatches.findIndex(match =>
+					isMatchAtOrAfterPosition(match, cursorPosition)
 				);
 				// Wrap to first match when cursor is past all matches
 				return nextMatchIndex !== -1 ? nextMatchIndex : 0;
@@ -485,9 +514,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			const position = activeCell.currentEditor.getPosition();
 			if (position) {
 				const cursorPosition = new CellEditorPosition(activeCell.index, position);
-				const prevMatchIndex = cellMatches.findLastIndex(({ cellRange }) =>
-					cellRange.containsPosition(cursorPosition) ||
-					cellRange.getEndPosition().isBefore(cursorPosition)
+				const prevMatchIndex = cellMatches.findLastIndex(match =>
+					isMatchAtOrBeforePosition(match, cursorPosition)
 				);
 				return prevMatchIndex;
 			}
@@ -517,8 +545,15 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			this._logService.error('Error revealing cell for find match:', error);
 		});
 
-		// Select the match in the editor
-		if (cell.currentEditor) {
+		if (cellMatch.kind === 'output') {
+			// Output matches have no editor range to select. Expand the output
+			// section so the matched content is visible; highlighting inside
+			// rendered output DOM is not supported.
+			if (cell.isCodeCell()) {
+				cell.expandOutput();
+			}
+		} else if (cell.currentEditor) {
+			// Select the match in the editor
 			// Set the selection to the match range
 			cell.currentEditor.setSelection(cellRange.range);
 			// Reveal the range in the editor
@@ -561,6 +596,12 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		const currentMatch = this._currentMatch.get();
 		if (currentMatch === undefined) {
 			// First call: navigate to first match without replacing
+			this.findNext();
+			return;
+		}
+
+		if (currentMatch.cellMatch.kind === 'output') {
+			// Output matches are read-only; skip to the next match
 			this.findNext();
 			return;
 		}
@@ -636,15 +677,18 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			Constants.MAX_SAFE_SMALL_INTEGER,
 		);
 
-		if (allMatches.length === 0) {
-			return;
-		}
-
-		// Build edits for all matches
+		// Build edits for all source matches (output matches are read-only)
 		const edits: ResourceTextEdit[] = [];
 		for (const match of allMatches) {
+			if (match.kind === 'output') {
+				continue;
+			}
 			const replacementText = replacePattern.buildReplaceString(match.matches, preserveCase);
 			edits.push(new ResourceTextEdit(match.cell.uri, { range: match.cellRange.range, text: replacementText }));
+		}
+
+		if (edits.length === 0) {
+			return;
 		}
 
 		// Apply all edits in a single operation
