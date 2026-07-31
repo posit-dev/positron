@@ -58,10 +58,16 @@ describe('ProviderList', () => {
 		expect(screen.queryByText('Needs Attention')).not.toBeInTheDocument();
 	});
 
-	it('always renders the Custom Provider section with an add button', () => {
+	it('renders the Custom Provider section with an add button when none is configured', () => {
 		rtl.render(<ProviderList sources={[source({ id: 'avail', signedIn: false })]} onAddCustomProvider={vi.fn()} onSelectProvider={vi.fn()} />);
 		expect(screen.getByText('Custom Provider')).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /Add custom provider/ })).toBeInTheDocument();
+	});
+
+	it('replaces the add button with a note once a custom provider is configured', () => {
+		rtl.render(<ProviderList sources={[source({ id: 'openai-compatible', displayName: 'Custom Provider', signedIn: true, status: 'ok' })]} onAddCustomProvider={vi.fn()} onSelectProvider={vi.fn()} />);
+		expect(screen.queryByRole('button', { name: /Add custom provider/ })).not.toBeInTheDocument();
+		expect(screen.getByText(/already configured/i)).toBeInTheDocument();
 	});
 
 	it('shows the built-in description for a known provider', () => {

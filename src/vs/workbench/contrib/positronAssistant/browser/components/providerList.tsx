@@ -5,7 +5,7 @@
 
 import { localize } from '../../../../../nls.js';
 import { IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js';
-import { groupProviders, ProviderSectionId } from '../../common/providerGrouping.js';
+import { CUSTOM_PROVIDER_ID, groupProviders, ProviderSectionId } from '../../common/providerGrouping.js';
 import { ProviderListItem } from './providerListItem.js';
 
 interface ProviderListProps {
@@ -51,6 +51,13 @@ function sectionTitle(id: ProviderSectionId): string {
 export const ProviderList = (props: ProviderListProps) => {
 	const sections = groupProviders(props.sources);
 
+	// Only one custom provider is supported for now, so once it is configured
+	// (shown in a section above) the "Add custom provider" affordance is replaced
+	// with a note, to avoid implying more than one can be added.
+	const customConfigured = props.sources.some(
+		s => s.provider.id === CUSTOM_PROVIDER_ID && (s.signedIn === true || s.status === 'error')
+	);
+
 	return (
 		<div className='provider-list'>
 			{sections.map(section => (
@@ -78,10 +85,15 @@ export const ProviderList = (props: ProviderListProps) => {
 				<p className='provider-list-custom-desc'>
 					{localize('positron.configureLLMProvidersModal.customDescription', "Works with any OpenAI-compatible API endpoint that uses the /v1/chat/completions endpoint for chat.")}
 				</p>
-				<button className='provider-list-add-custom' type='button' onClick={props.onAddCustomProvider}>
-					<span aria-hidden='true' className='codicon codicon-add' />
-					{localize('positron.configureLLMProvidersModal.addCustom', "Add custom provider")}
-				</button>
+				{customConfigured
+					? <p className='provider-list-custom-configured'>
+						{localize('positron.configureLLMProvidersModal.customConfigured', "A custom provider is already configured. Only one is supported for now.")}
+					</p>
+					: <button className='provider-list-add-custom' type='button' onClick={props.onAddCustomProvider}>
+						<span aria-hidden='true' className='codicon codicon-add' />
+						{localize('positron.configureLLMProvidersModal.addCustom', "Add custom provider")}
+					</button>
+				}
 			</div>
 		</div>
 	);
