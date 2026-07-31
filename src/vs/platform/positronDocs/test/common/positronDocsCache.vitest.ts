@@ -501,6 +501,54 @@ describe('PositronDocsCache: a cache installed mid-attempt', () => {
 	});
 });
 
+describe('PositronDocsCache: peek', () => {
+	it('serves the installed bundle off disk while a fetch is still in flight', async () => {
+		const ctx = setup();
+		ctx.publish(LATEST_ZIP, payload('2026.04.0-100'), 'etag-april');
+		await ctx.cache.ensure(request({ quality: 'dailies' }));
+
+		// The next session, with a download that never completes. This is the
+		// bounded-wait path: getLocalDocs() stops waiting and peeks, and the
+		// cache-present rule says the bundle already on disk is still served.
+		let release!: () => void;
+		const held = new Promise<void>(resolve => { release = resolve; });
+		const next = new PositronDocsCache({
+			rootPath: ROOT, files: ctx.files, archive: ctx.archive, logger: ctx.logger,
+			now: () => 2_000_000, newId: () => 'peek',
+			http: { get: async () => { await held; throw new Error('ENOTFOUND'); }, head: url => ctx.http.head(url) },
+		});
+		const pending = next.ensure(request({ quality: 'dailies' }));
+
+		const peeked = await next.peek(request({ quality: 'dailies' }));
+
+		expect(peeked?.version).toBe('2026.04.0-100');
+		expect(peeked?.path).toBe(`${ROOT}/2026.04.0-100`);
+
+		release();
+		await pending;
+	});
+
+	it('returns undefined on a cold cache', async () => {
+		const ctx = setup();
+		expect(await ctx.cache.peek(request())).toBeUndefined();
+	});
+
+	it('returns the completed result once an attempt has finished', async () => {
+		const ctx = setup();
+		ctx.publish(EXACT_ZIP, payload('2026.05.0-179'));
+		await ctx.cache.ensure(request());
+
+		// The session's answer is fixed after ensure(), so peek hands back the
+		// memoized result rather than re-validating the directory. Deleting the
+		// directory is what tells the two branches apart.
+		await ctx.files.delete(`${ROOT}/2026.05.0-179`);
+
+		expect((await ctx.cache.peek(request()))?.version).toBe('2026.05.0-179');
+		// A fresh cache has nothing memoized, so it reads the truth on disk.
+		expect(await ctx.makeCache().peek(request())).toBeUndefined();
+	});
+});
+
 describe('PositronDocsCache: single flight', () => {
 	it('joins two concurrent calls into one download', async () => {
 		const ctx = setup();

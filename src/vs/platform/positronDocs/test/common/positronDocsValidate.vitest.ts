@@ -8,8 +8,15 @@ import { guardEntryNames, validateExtractedBundle } from '../../common/positronD
 import { FakeFileStore } from './fakes.js';
 
 describe('guardEntryNames', () => {
-	it('accepts ordinary nested entries', () => {
-		expect(guardEntryNames(['llms.txt', 'bundle.json', 'release-notes/release-2026-05.llms.md'])).toBeUndefined();
+	it.each([
+		['ordinary nested entries', ['llms.txt', 'bundle.json', 'release-notes/release-2026-05.llms.md']],
+		// The depth counter exists so traversal that stays inside the target is
+		// allowed. Without a case that must pass, rejecting every '..' outright
+		// would satisfy the whole rejection table below.
+		['a traversal that nets back inside', ['docs/../llms.txt']],
+		['a leading ./ and a doubled slash', ['./llms.txt', 'docs//welcome.llms.md']],
+	])('accepts %s', (_label, names) => {
+		expect(guardEntryNames(names)).toBeUndefined();
 	});
 
 	// The archive arrives over the network, so we assert these ourselves rather

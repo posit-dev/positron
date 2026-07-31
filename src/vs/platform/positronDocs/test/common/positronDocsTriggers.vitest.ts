@@ -42,6 +42,24 @@ function setup(options: { aiEnabled?: boolean; peeked?: ILocalDocs } = {}) {
 	return { triggers, ensure, peek, invalidate, logger, ensureGate, timeoutGate };
 }
 
+/**
+ * Triggers whose fetch always rejects, over a cold cache. The timeout never
+ * fires, so the rejection is what settles the race in `getLocalDocs`.
+ */
+function rejectingTriggers(logger: ReturnType<typeof recordingLogger>, message: string) {
+	return new PositronDocsTriggers({
+		cache: {
+			ensure: async () => { throw new Error(message); },
+			peek: async () => undefined,
+			invalidate: vi.fn(),
+		},
+		request: REQUEST, logger,
+		isAiEnabled: async () => true,
+		waitMs: 10_000,
+		delay: () => new Promise(() => { }),
+	});
+}
+
 describe('PositronDocsTriggers: ai.enabled gating', () => {
 	it('does not fetch on launch when ai.enabled is false', async () => {
 		const ctx = setup({ aiEnabled: false });
@@ -119,14 +137,22 @@ describe('PositronDocsTriggers: joining and the bounded wait', () => {
 
 	it('swallows a fetch rejection so a background trigger never throws', async () => {
 		const ctx = setup();
-		const ensure = vi.fn(async () => { throw new Error('boom'); });
-		const triggers = new PositronDocsTriggers({
-			cache: { ensure, peek: async () => undefined, invalidate: vi.fn() },
-			request: REQUEST, logger: ctx.logger,
-			isAiEnabled: async () => true, waitMs: 10_000, delay: () => new Promise(() => { }),
-		});
 
-		await expect(triggers.runBackgroundFetch()).resolves.toBeUndefined();
-		expect(ctx.logger.warns.join('\n')).toContain('boom');
+		await expect(rejectingTriggers(ctx.logger, 'boom').runBackgroundFetch()).resolves.toBeUndefined();
+
+		// The full prefix, not just 'boom': getLocalDocs logs its own rejection
+		// with a different one, and the two must stay distinguishable in a log.
+		expect(ctx.logger.warns.join('\n')).toContain('[llm-docs] background docs fetch failed: boom');
+	});
+
+	it('returns undefined when the fetch rejects rather than propagating to the caller', async () => {
+		// getLocalDocs sits on an assistant response path, so a rejected download
+		// has to read as "no local docs" and fall back to the web, not throw.
+		const ctx = setup();
+
+		expect(await rejectingTriggers(ctx.logger, 'boom').getLocalDocs()).toBeUndefined();
+
+		expect(ctx.logger.warns.join('\n')).toContain('[llm-docs] docs fetch failed: boom');
+		expect(ctx.logger.warns.join('\n')).not.toContain('background docs fetch failed');
 	});
 });
