@@ -16,6 +16,15 @@ import { basename, relative } from 'path';
 const DEFAULT_TIMEOUT = 10000;
 
 /**
+ * Budget for a kernel process to boot and report ready. Much slower than a
+ * status transition on a live kernel, especially on Windows CI runners.
+ */
+const KERNEL_START_TIMEOUT = 30000;
+
+/** Budget for a status transition on an already-running kernel. */
+const KERNEL_STATUS_TIMEOUT = 20000;
+
+/**
  * Minimum pointer distance (px) before a drag activates.
  * Must match DRAG_ACTIVATION_DISTANCE_PX in SortableCellList.tsx.
  */
@@ -1885,7 +1894,7 @@ class KernelBase {
 			await this.restartButton.click();
 
 			if (waitForRestart) {
-				await this.expectStatusToBe('idle', 30000);
+				await this.expectStatusToBe('idle', KERNEL_START_TIMEOUT);
 			}
 		});
 	}
@@ -2093,11 +2102,9 @@ export class Kernel extends KernelBase {
 			this.code.logger.log(`Selected kernel: ${desiredKernel}`);
 
 			if (waitForReady) {
-				await this.expectKernelToBe({
+				await this.expectKernelToBeReady({
 					kernelGroup,
-					kernelVersion: desiredKernel,
-					status: 'idle',
-					timeout: 30000
+					kernelVersion: desiredKernel
 				});
 				this.code.logger.log('Kernel is connected and ready/idle');
 			}
@@ -2117,7 +2124,7 @@ export class Kernel extends KernelBase {
 			? process.env.POSITRON_PY_VER_SEL!
 			: process.env.POSITRON_R_VER_SEL!,
 		status = 'idle',
-		timeout = 20000 // longer than should be due to known lag
+		timeout = KERNEL_STATUS_TIMEOUT
 	}: {
 		kernelGroup: 'Python' | 'R';
 		kernelVersion?: string;
@@ -2127,6 +2134,31 @@ export class Kernel extends KernelBase {
 		await test.step(`Expect kernel to be: ${status} - ${kernelVersion}`, async () => {
 			await expect(this.statusBadge).toContainText(kernelVersion, { timeout });
 			await this.expectStatusToBe(status, timeout);
+		});
+	}
+
+	/**
+	 * Verify: Kernel has finished booting and is idle.
+	 *
+	 * Use this instead of `expectKernelToBe({ status: 'idle' })` whenever the
+	 * kernel process still has to start (after `select({ waitForReady: false })`,
+	 * `restart({ waitForRestart: false })`, or an auto-selected kernel on a
+	 * newly created/opened notebook). It carries the same boot budget the
+	 * `select()` and `restart()` paths use, rather than the shorter
+	 * status-transition default.
+	 */
+	async expectKernelToBeReady({
+		kernelGroup,
+		kernelVersion
+	}: {
+		kernelGroup: 'Python' | 'R';
+		kernelVersion?: string;
+	}): Promise<void> {
+		await this.expectKernelToBe({
+			kernelGroup,
+			kernelVersion,
+			status: 'idle',
+			timeout: KERNEL_START_TIMEOUT
 		});
 	}
 
