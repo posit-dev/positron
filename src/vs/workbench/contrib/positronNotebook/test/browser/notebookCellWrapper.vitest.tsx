@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import React from 'react';
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -167,6 +167,78 @@ describe('NotebookCellWrapper onClick', () => {
 		await user.click(screen.getByRole('article'));
 
 		expect(spy).toHaveBeenCalledWith(cells[1], CellSelectionType.Normal);
+	});
+});
+
+describe('NotebookCellWrapper focus management', () => {
+	const ctx = createTestContainer().withNotebookEditorServices().withReactServices().build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	/**
+	 * Render the wrapper for the markdown cell of a 2-cell notebook. The code
+	 * cell holds the initial selection so activating the markdown cell is a
+	 * state change that triggers the wrapper's focus-management effect.
+	 */
+	function renderMarkdownCell() {
+		const notebook = createTestPositronNotebookInstance(
+			[['a = 1', 'python', CellKind.Code], ['# md', 'markdown', CellKind.Markup]],
+			ctx,
+		);
+		const cells = notebook.cells.get();
+		notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+		rtl.render(
+			<NotebookInstanceProvider instance={notebook}>
+				<NotebookCellWrapper cell={cells[1]}>
+					{null}
+				</NotebookCellWrapper>
+			</NotebookInstanceProvider>
+		);
+		return { notebook, cell: cells[1] };
+	}
+
+	// jsdom cannot observe focus-induced scrolling, so these tests assert the
+	// focus contract instead: every container focus must pass preventScroll so
+	// the browser's native "reveal on focus" cannot jump the notebook scroll
+	// position. Deliberate reveals go through cell.reveal() separately.
+
+	it('focuses the cell container without scrolling when the cell becomes active', () => {
+		const { notebook, cell } = renderMarkdownCell();
+		const article = screen.getByRole('article');
+		const focusSpy = vi.spyOn(article, 'focus');
+
+		// First click of a double-click on a rendered markdown cell selects it.
+		act(() => notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Normal));
+
+		expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+	});
+
+	it('refocuses the container without scrolling when a markdown cell exits edit mode', () => {
+		const { notebook, cell } = renderMarkdownCell();
+		act(() => notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Edit));
+		const article = screen.getByRole('article');
+		const focusSpy = vi.spyOn(article, 'focus');
+
+		// Toggling the markdown cell back to view mode exits edit mode.
+		act(() => notebook.selectionStateMachine.exitEditor(cell));
+
+		expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+	});
+
+	it('refocuses the wrapper without scrolling on a multi-select click', async () => {
+		const { cell } = renderMarkdownCell();
+		const article = screen.getByRole('article');
+		const focusSpy = vi.spyOn(article, 'focus');
+		expect(cell.isActive.get()).toBe(false);
+
+		const user = userEvent.setup();
+		await user.keyboard('{Shift>}');
+		await user.click(article);
+		await user.keyboard('{/Shift}');
+
+		// user-event's simulated click focuses the element natively (no options),
+		// so assert that the wrapper's own refocus passed preventScroll rather
+		// than requiring it on every call.
+		expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
 	});
 });
 

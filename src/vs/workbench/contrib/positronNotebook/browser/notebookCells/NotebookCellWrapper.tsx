@@ -95,7 +95,11 @@ export function NotebookCellWrapper({ cell, children }: {
 			!findWidgetFocused &&
 			// 4. Focus is on the output section (which is deliberately focusable for Cmd+C)
 			!isActiveElementInOutputSection(cellElement)) {
-			cellElement.focus();
+			// preventScroll: the browser's native "reveal on focus" would jump the
+			// notebook scroll position, e.g. when a markdown cell taller than the
+			// viewport toggles between edit and view mode. Deliberate reveals go
+			// through cell.reveal() (see selectionMachine._moveSelection).
+			cellElement.focus({ preventScroll: true });
 		}
 	}, [isActiveCell, selectionStatus, cellElement, cell, notebookInstance]);
 
@@ -171,8 +175,10 @@ export function NotebookCellWrapper({ cell, children }: {
 				// Move focus to the cell wrapper so no editor appears active during
 				// multi-selection. Only do this when the state actually changed
 				// (e.g., skip when shift-clicking the same cell you're editing).
+				// preventScroll: the clicked cell is already under the pointer, so
+				// the browser's reveal-on-focus would only jump the scroll position.
 				if (stateBefore !== stateAfter) {
-					cellElement?.focus();
+					cellElement?.focus({ preventScroll: true });
 				}
 				return;
 			}

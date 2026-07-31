@@ -597,6 +597,35 @@ describe('CellEditorMonacoWidget', () => {
 			expect(cell.container).toHaveFocus();
 		});
 
+		it('restores focus to the focus target without scrolling the notebook', async () => {
+			const { notebook, cell } = await renderWidget({ withOutputs: true });
+			const editor = cell.currentEditor!;
+			const target = screen.getByRole('button', { name: /edit cell/i });
+			const focusSpy = vi.spyOn(target, 'focus');
+
+			// jsdom cannot observe focus-induced scrolling, so assert the focus
+			// contract instead: the restore must pass preventScroll so the browser's
+			// native "reveal on focus" cannot jump the notebook scroll position when
+			// a tall cell leaves edit mode.
+			await actAndSettle(() => editor.focus());
+			await actAndSettle(() => notebook.selectionStateMachine.exitEditor(cell));
+
+			expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+		});
+
+		it('restores focus to the cell container without scrolling the notebook', async () => {
+			const { notebook, cell } = await renderWidget({ withOutputs: false });
+			const editor = cell.currentEditor!;
+			const focusSpy = vi.spyOn(cell.container!, 'focus');
+
+			// Same preventScroll contract as above, for the no-outputs branch that
+			// targets the cell container (the markdown-cell exit path).
+			await actAndSettle(() => editor.focus());
+			await actAndSettle(() => notebook.selectionStateMachine.exitEditor(cell));
+
+			expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+		});
+
 		it('does not steal focus when the user moved focus outside the notebook', async () => {
 			const { cell } = await renderWidget({ withOutputs: true });
 			const editor = cell.currentEditor!;

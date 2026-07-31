@@ -380,12 +380,16 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 					// When there are no outputs, the focus trap has tabIndex=-1
 					// (not in tab order), so focusing it would disrupt keyboard
 					// navigation. In that case, focus the cell container instead.
+					// preventScroll: the browser's native "reveal on focus" would
+					// jump the notebook scroll position when a tall cell (e.g. a
+					// long markdown cell) leaves edit mode; the cell is already in
+					// view since the user was just editing it.
 					const currentOutputs = cell.outputs?.get() ?? [];
 					const hasOutputs = currentOutputs.length > 0;
 					if (hasOutputs) {
-						focusTargetRef.current?.focus();
+						focusTargetRef.current?.focus({ preventScroll: true });
 					} else {
-						cell.container?.focus();
+						cell.container?.focus({ preventScroll: true });
 					}
 				};
 
