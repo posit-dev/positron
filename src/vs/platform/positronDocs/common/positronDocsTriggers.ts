@@ -71,6 +71,10 @@ export class PositronDocsTriggers {
 	async getLocalDocs(): Promise<ILocalDocs | undefined> {
 		const { cache, delay, logger, request, waitMs } = this._options;
 		if (!await this._options.isAiEnabled()) {
+			// Logged, not silent: from the caller's side this is indistinguishable
+			// from "no docs on disk", and the reason is the first thing anyone
+			// asking "why is the assistant using web docs?" needs to see.
+			logger.info(`${LOG_PREFIX} ai.enabled is off; not serving local docs`);
 			return undefined;
 		}
 

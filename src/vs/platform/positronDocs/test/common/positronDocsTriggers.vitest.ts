@@ -54,6 +54,9 @@ describe('PositronDocsTriggers: ai.enabled gating', () => {
 		expect(await ctx.triggers.getLocalDocs()).toBeUndefined();
 		expect(ctx.ensure).not.toHaveBeenCalled();
 		expect(ctx.peek).not.toHaveBeenCalled();
+		// Undefined here looks identical to "no docs on disk" from the caller's
+		// side, so the reason has to be in the log.
+		expect(ctx.logger.infos.join('\n')).toContain('ai.enabled is off; not serving local docs');
 	});
 
 	it('fetches on launch when ai.enabled is true', async () => {
