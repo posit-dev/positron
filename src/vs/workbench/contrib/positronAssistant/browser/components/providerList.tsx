@@ -5,15 +5,13 @@
 
 import { localize } from '../../../../../nls.js';
 import { IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js';
-import { CUSTOM_PROVIDER_ID, groupProviders, ProviderSectionId } from '../../common/providerGrouping.js';
+import { groupProviders, ProviderSectionId } from '../../common/providerGrouping.js';
 import { ProviderListItem } from './providerListItem.js';
 
 interface ProviderListProps {
 	sources: IPositronLanguageModelSource[];
 	/** Invoked when a provider row's action fires; the modal routes to connect / connected / not-supported. */
 	onSelectProvider: (source: IPositronLanguageModelSource) => void;
-	/** Invoked when the "Add custom provider" button is clicked. */
-	onAddCustomProvider: () => void;
 }
 
 /**
@@ -31,6 +29,7 @@ const PROVIDER_DESCRIPTIONS: Record<string, string> = {
 	'google-cloud': localize('positron.configureLLMProvidersModal.desc.googleCloud', "Gemini via Google Cloud with enterprise features"),
 	'ms-foundry': localize('positron.configureLLMProvidersModal.desc.msFoundry', "Access Azure OpenAI and AI Studio models"),
 	'openai-api': localize('positron.configureLLMProvidersModal.desc.openai', "GPT-4o, o1, and OpenAI-compatible endpoints"),
+	'openai-compatible': localize('positron.configureLLMProvidersModal.desc.custom', "Connect any OpenAI-compatible API endpoint"),
 	'posit-ai': localize('positron.configureLLMProvidersModal.desc.positAI', "Managed model service for Positron Desktop"),
 	'snowflake-cortex': localize('positron.configureLLMProvidersModal.desc.snowflake', "Access LLMs via Snowflake data platform"),
 };
@@ -51,13 +50,6 @@ function sectionTitle(id: ProviderSectionId): string {
 export const ProviderList = (props: ProviderListProps) => {
 	const sections = groupProviders(props.sources);
 
-	// Only one custom provider is supported for now, so once it is configured
-	// (shown in a section above) the "Add custom provider" affordance is replaced
-	// with a note, to avoid implying more than one can be added.
-	const customConfigured = props.sources.some(
-		s => s.provider.id === CUSTOM_PROVIDER_ID && (s.signedIn === true || s.status === 'error')
-	);
-
 	return (
 		<div className='provider-list'>
 			{sections.map(section => (
@@ -74,27 +66,6 @@ export const ProviderList = (props: ProviderListProps) => {
 					))}
 				</div>
 			))}
-
-			<div className='provider-list-section'>
-				<label className='provider-list-section-heading'>
-					{localize('positron.configureLLMProvidersModal.section.custom', "Custom Provider")}
-					<span className='provider-list-item-badge experimental'>
-						{localize('positron.configureLLMProvidersModal.badge.experimental', "Experimental")}
-					</span>
-				</label>
-				<p className='provider-list-custom-desc'>
-					{localize('positron.configureLLMProvidersModal.customDescription', "Works with any OpenAI-compatible API endpoint that uses the /v1/chat/completions endpoint for chat.")}
-				</p>
-				{customConfigured
-					? <p className='provider-list-custom-configured'>
-						{localize('positron.configureLLMProvidersModal.customConfigured', "A custom provider is already configured. Only one is supported for now.")}
-					</p>
-					: <button className='provider-list-add-custom' type='button' onClick={props.onAddCustomProvider}>
-						<span aria-hidden='true' className='codicon codicon-add' />
-						{localize('positron.configureLLMProvidersModal.addCustom', "Add custom provider")}
-					</button>
-				}
-			</div>
 		</div>
 	);
 };

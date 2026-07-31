@@ -16,19 +16,8 @@ export interface ProviderSection {
 
 const SECTION_ORDER: ProviderSectionId[] = ['connected', 'needs-attention', 'model-providers'];
 
-/**
- * The OpenAI-compatible "Custom Provider" template. Its unconfigured state has a
- * dedicated "Add custom provider" affordance, so it is hidden from the built-in
- * groups until it is connected -- once signed in (or in an error state) it
- * appears in the Connected / Needs Attention section like any other provider.
- */
-export const CUSTOM_PROVIDER_ID = 'openai-compatible';
-
 /** Only chat providers (and the copilot-auth completion provider) are shown, mirroring the legacy modal. */
 function isDisplayable(source: IPositronLanguageModelSource): boolean {
-	if (source.provider.id === CUSTOM_PROVIDER_ID) {
-		return source.signedIn === true || source.status === 'error';
-	}
 	return source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot-auth');
 }
 
@@ -80,8 +69,7 @@ function compareSources(a: IPositronLanguageModelSource, b: IPositronLanguageMod
  * Configure LLM Providers modal: Connected, then Needs Attention, then Model
  * Providers. Within a section, providers are ordered Posit AI first, then by
  * maturity (stable, then preview, then experimental), and alphabetically by
- * display name within the same rank. The custom-provider template is handled
- * by a separate section.
+ * display name within the same rank.
  */
 export function groupProviders(sources: IPositronLanguageModelSource[]): ProviderSection[] {
 	const buckets = new Map<ProviderSectionId, IPositronLanguageModelSource[]>();

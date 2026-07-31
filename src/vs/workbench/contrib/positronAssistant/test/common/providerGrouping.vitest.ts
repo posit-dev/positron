@@ -63,18 +63,13 @@ describe('groupProviders', () => {
 		expect(sections[0].items.map(i => i.provider.id)).toEqual(['copilot-auth']);
 	});
 
-	it('hides the unconnected custom provider (openai-compatible) from the built-in sections', () => {
-		const sections = groupProviders([
-			source({ id: 'openai-compatible', signedIn: false }),
-			source({ id: 'openai-api', signedIn: false }),
-		]);
-		expect(sections).toHaveLength(1);
-		expect(sections[0].items.map(i => i.provider.id)).toEqual(['openai-api']);
-	});
+	it('groups the custom provider (openai-compatible) like any other: model-providers, connected, or needs-attention', () => {
+		const unconnected = groupProviders([source({ id: 'openai-compatible', signedIn: false })]);
+		expect(unconnected[0].id).toBe('model-providers');
+		expect(unconnected[0].items.map(i => i.provider.id)).toEqual(['openai-compatible']);
 
-	it('shows the connected custom provider in the connected section, and an errored one in needs-attention', () => {
 		const connected = groupProviders([source({ id: 'openai-compatible', signedIn: true, status: 'ok' })]);
-		expect(connected).toEqual([{ id: 'connected', items: [expect.objectContaining({ provider: expect.objectContaining({ id: 'openai-compatible' }) })] }]);
+		expect(connected[0].id).toBe('connected');
 
 		const errored = groupProviders([source({ id: 'openai-compatible', signedIn: false, status: 'error' })]);
 		expect(errored[0].id).toBe('needs-attention');
