@@ -36,6 +36,7 @@ import { IContextKeyService } from '../../../../../platform/contextkey/common/co
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
+import { attachCellEditorContainerScrolling } from './cellEditorContainerScrolling.js';
 
 /**
  *
@@ -293,6 +294,11 @@ function createCellEditor(
 		instance.size.read(reader);
 		resizeEditor();
 	}));
+
+	// Cell editors render at full content height, so Monaco has no internal viewport
+	// to scroll. Follow drag-selection and keyboard cursor moves by scrolling the
+	// notebook's cells container instead.
+	disposables.add(attachCellEditorContainerScrolling(editor, instance));
 
 	logService.debug('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
 
