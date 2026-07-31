@@ -42,14 +42,14 @@ suite('getRTerminalEnvironmentMutations', () => {
 
 	test('prepends the R binary directory to PATH (windows separator)', () => {
 		const mutations = getRTerminalEnvironmentMutations(
-			makeMetadataExtra({ binpath: 'C:/R/R-4.4.0/bin/x64/R.exe' }),
+			makeMetadataExtra({ binpath: 'C:\\R\\R-4.4.0\\bin\\x64\\R.exe' }),
 			'win32'
 		);
 		const path = find(mutations, 'PATH');
 
 		assert.ok(path, 'expected a PATH mutation');
 		assert.strictEqual(path!.action, 'prepend');
-		assert.strictEqual(path!.value, 'C:/R/R-4.4.0/bin/x64;');
+		assert.strictEqual(path!.value, 'C:\\R\\R-4.4.0\\bin\\x64;');
 	});
 
 	test('does not set R_HOME (R launcher scripts derive it themselves)', () => {

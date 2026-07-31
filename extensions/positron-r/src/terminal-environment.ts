@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { dirname } from 'path';
+import { posix, win32 } from 'path';
 import { RMetadataExtra } from './r-installation';
 
 /**
@@ -44,6 +44,10 @@ export function getRTerminalEnvironmentMutations(
 	platform: NodeJS.Platform = process.platform
 ): TerminalEnvironmentMutation[] {
 	const mutations: TerminalEnvironmentMutation[] = [];
+	// Parse paths with the flavor matching the target platform, not the host
+	// running this code, so that Windows backslash paths are handled correctly
+	// even when computing mutations on a posix host (e.g. in tests).
+	const path = platform === 'win32' ? win32 : posix;
 	const pathSeparator = platform === 'win32' ? ';' : ':';
 
 	// Prepend the directory containing the selected R binary to PATH so that
@@ -55,7 +59,7 @@ export function getRTerminalEnvironmentMutations(
 		mutations.push({
 			action: 'prepend',
 			variable: 'PATH',
-			value: dirname(metadataExtra.binpath) + pathSeparator,
+			value: path.dirname(metadataExtra.binpath) + pathSeparator,
 		});
 	}
 
@@ -71,7 +75,7 @@ export function getRTerminalEnvironmentMutations(
 		mutations.push({
 			action: 'replace',
 			variable: 'QUARTO_R',
-			value: dirname(metadataExtra.scriptpath),
+			value: path.dirname(metadataExtra.scriptpath),
 		});
 	}
 
