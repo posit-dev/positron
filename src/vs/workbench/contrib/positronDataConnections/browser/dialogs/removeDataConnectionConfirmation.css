@@ -1,0 +1,15 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Separates the consequences of removing a connection into paragraphs. A gap rather than a margin on
+ * the second paragraph, so nothing has to change when the dialog has only the first one (a connection
+ * with no open Data Explorers).
+ */
+.remove-data-connection-confirmation {
+	display: flex;
+	gap: 12px;
+	flex-direction: column;
+}

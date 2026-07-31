@@ -3,6 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './removeDataConnectionConfirmation.css';
+
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
@@ -89,7 +92,7 @@ const RemoveDataConnectionConfirmation = (props: RemoveDataConnectionConfirmatio
 	return (
 		<PositronDynamicModalDialog
 			content={
-				<div>
+				<div className='remove-data-connection-confirmation'>
 					<div>
 						{localize(
 							'positron.removeDataConnectionConfirmation.detail',
