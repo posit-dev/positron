@@ -65,6 +65,14 @@ export const QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY = 'quarto.inlineOutput.autoScr
 export const QUARTO_SHADOW_NOTEBOOK_ENABLED_KEY = 'quarto.shadowNotebook.enabled';
 
 /**
+ * Marker owner prefix for diagnostics re-projected from shadow notebook cells
+ * onto their `.qmd` document. The full owner is `<prefix>/<source owner>` so
+ * different language servers reporting on the same document never clobber
+ * each other's projected markers.
+ */
+export const QUARTO_SHADOW_DIAGNOSTICS_OWNER_PREFIX = 'quartoShadowDiagnostics';
+
+/**
  * @deprecated Use {@link QUARTO_INLINE_OUTPUT_ENABLED_KEY}. Kept as a working alias.
  */
 export const POSITRON_QUARTO_INLINE_OUTPUT_KEY = 'positron.quarto.inlineOutput.enabled';

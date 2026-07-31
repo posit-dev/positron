@@ -372,3 +372,96 @@ suite('Quarto shadow notebook (core-owned, languageclient 9.0.1)', () => {
 		);
 	});
 });
+
+// Verification against ruff's real registration: the server declares ruff's
+// EXACT notebookDocumentSync capability (crates/ruff_server/src/server.rs @
+// 31cb63ae: a cells-only selector with NO notebook type constraint, save:
+// false) and the client uses ruff-vscode's exact documentSelector entries
+// (src/common/utilities.ts @ 5209605e) on the languageclient major it bundles
+// (9.0.1). If this suite passes, a shadow notebook syncs to ruff as shipped.
+suite('Quarto shadow notebook (ruff-shaped registration, languageclient 9.0.1)', () => {
+	const lc9 = require('vscode-languageclient-9/node') as typeof import('vscode-languageclient/node');
+
+	let record: ServerRecord;
+	let tmpDir: string;
+
+	suiteSetup(async function () {
+		this.timeout(60_000);
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qmd-shadow-ruff-'));
+
+		const clientToServer = new PassThrough();
+		const serverToClient = new PassThrough();
+
+		// The server side of startServer, but with ruff's capability verbatim.
+		record = { notebookOpens: [], notebookChanges: [], notebookCloses: [] };
+		const connection = createConnection(clientToServer, serverToClient);
+		connection.onInitialize(() => ({
+			capabilities: {
+				// ruff's notebookDocumentSync as serialized in its initialize
+				// response: no notebookType constraint, python cells only.
+				notebookDocumentSync: {
+					notebookSelector: [{ cells: [{ language: 'python' }] }],
+					save: false,
+				},
+			},
+		}));
+		connection.onNotification('notebookDocument/didOpen', params => {
+			record.notebookOpens.push(params);
+			// ruff pushes per-cell publishDiagnostics unconditionally on
+			// notebook open/change (did_open_notebook.rs, did_change_notebook.rs).
+			for (const cellDoc of params.cellTextDocuments) {
+				void connection.sendDiagnostics({
+					uri: cellDoc.uri,
+					diagnostics: [{
+						range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+						message: pushMessage('ruff-shaped'),
+						severity: 2,
+					}],
+				});
+			}
+		});
+		connection.onNotification('notebookDocument/didChange', params => record.notebookChanges.push(params));
+		connection.onNotification('notebookDocument/didClose', params => record.notebookCloses.push(params.notebookDocument.uri));
+		connection.listen();
+
+		const client = new lc9.LanguageClient('quartoShadowRuffShaped', 'Quarto Shadow Ruff Shaped', async (): Promise<MessageTransports> => ({
+			reader: new StreamMessageReader(serverToClient),
+			writer: new StreamMessageWriter(clientToServer),
+		}), {
+			// ruff-vscode's documentSelector (non-virtual workspace), minus the
+			// markdown/config entries that don't matter for notebook sync.
+			documentSelector: [
+				{ scheme: 'file', language: 'python' },
+				{ scheme: 'untitled', language: 'python' },
+				{ scheme: 'vscode-notebook', language: 'python' },
+				{ scheme: 'vscode-notebook-cell', language: 'python' },
+			],
+		});
+		await client.start();
+	});
+
+	suiteTeardown(async function () {
+		this.timeout(30_000);
+		// See suite 1's teardown for why the client is not stopped.
+		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+	});
+
+	test('ruff-shaped: a quarto-shadow notebook matches the cells-only selector, syncs, and pushes per-cell diagnostics', async () => {
+		const uri = writeQmd(tmpDir, 'ruff.qmd', ['import os']);
+		const { notebook } = await openQmdAndWaitForShadow(uri);
+
+		await waitFor(
+			() => record.notebookOpens.some(open => open.notebookDocument.uri === uri.toString()),
+			'a server with ruff\'s exact notebookDocumentSync shape receives didOpen for the quarto-shadow notebook',
+		);
+		const open = record.notebookOpens.find(o => o.notebookDocument.uri === uri.toString());
+		assert.strictEqual(open.notebookDocument.notebookType, SHADOW_NOTEBOOK_TYPE);
+		assert.deepStrictEqual(open.cellTextDocuments.map((doc: any) => doc.text), ['import os']);
+
+		const cellUri = notebook.cellAt(0).document.uri;
+		await waitFor(
+			() => vscode.languages.getDiagnostics(cellUri).some(d => d.message === pushMessage('ruff-shaped')),
+			'ruff-style per-cell push diagnostics reach the diagnostics collection',
+		);
+	});
+});

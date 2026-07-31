@@ -18,6 +18,7 @@ import { registerEditorContribution, EditorContributionInstantiation } from '../
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { QuartoDocumentModelService, IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoShadowNotebookService, QuartoShadowNotebookService, QuartoShadowNotebookContribution } from './quartoShadowNotebookService.js';
+import { QuartoShadowDiagnosticsContribution } from './quartoShadowDiagnostics.js';
 import { QuartoKernelManager, IQuartoKernelManager, QuartoKernelState } from './quartoKernelManager.js';
 import { QuartoExecutionManager, IQuartoExecutionManager } from './quartoExecutionManager.js';
 import { QuartoOutputManagerService, QuartoOutputContribution, IQuartoOutputManager } from './quartoOutputManager.js';
@@ -343,6 +344,15 @@ registerWorkbenchContribution2(
 registerWorkbenchContribution2(
 	QuartoShadowNotebookContribution.ID,
 	QuartoShadowNotebookContribution,
+	WorkbenchPhase.AfterRestored
+);
+
+// Register the shadow diagnostics contribution, which re-projects language
+// server diagnostics from shadow notebook cells onto their .qmd documents
+// and keeps the raw cell markers out of the Problems pane.
+registerWorkbenchContribution2(
+	QuartoShadowDiagnosticsContribution.ID,
+	QuartoShadowDiagnosticsContribution,
 	WorkbenchPhase.AfterRestored
 );
 

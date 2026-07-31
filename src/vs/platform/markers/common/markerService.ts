@@ -151,9 +151,13 @@ export class MarkerService implements IMarkerService {
 
 	declare readonly _serviceBrand: undefined;
 
-	private readonly _onMarkerChanged = new MicrotaskEmitter<readonly URI[]>({
+	// --- Start Positron ---
+	// `private` -> `protected` so PositronMarkerService can fire change events
+	// when a resource exclusion is installed or removed.
+	protected readonly _onMarkerChanged = new MicrotaskEmitter<readonly URI[]>({
 		merge: MarkerService._merge
 	});
+	// --- End Positron ---
 
 	readonly onMarkerChanged = this._onMarkerChanged.event;
 

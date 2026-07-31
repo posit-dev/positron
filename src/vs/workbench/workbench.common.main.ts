@@ -163,7 +163,11 @@ import { IListService, ListService } from '../platform/list/browser/listService.
 import { MarkerDecorationsService } from '../editor/common/services/markerDecorationsService.js';
 import { IMarkerDecorationsService } from '../editor/common/services/markerDecorations.js';
 import { IMarkerService } from '../platform/markers/common/markers.js';
-import { MarkerService } from '../platform/markers/common/markerService.js';
+// --- Start Positron ---
+// PositronMarkerService adds resource exclusions (used by the Quarto shadow
+// notebook to keep hidden cell diagnostics out of the Problems pane).
+import { PositronMarkerService } from '../platform/markers/common/positronMarkerService.js';
+// --- End Positron ---
 import { ContextKeyService } from '../platform/contextkey/browser/contextKeyService.js';
 import { IContextKeyService } from '../platform/contextkey/common/contextkey.js';
 import { ITextResourceConfigurationService } from '../editor/common/services/textResourceConfiguration.js';
@@ -191,7 +195,10 @@ registerSingleton(IExtensionStorageService, ExtensionStorageService, Instantiati
 registerSingleton(IContextViewService, ContextViewService, InstantiationType.Delayed);
 registerSingleton(IListService, ListService, InstantiationType.Delayed);
 registerSingleton(IMarkerDecorationsService, MarkerDecorationsService, InstantiationType.Delayed);
-registerSingleton(IMarkerService, MarkerService, InstantiationType.Delayed);
+// --- Start Positron ---
+// registerSingleton(IMarkerService, MarkerService, InstantiationType.Delayed);
+registerSingleton(IMarkerService, PositronMarkerService, InstantiationType.Delayed);
+// --- End Positron ---
 registerSingleton(IContextKeyService, ContextKeyService, InstantiationType.Delayed);
 registerSingleton(ITextResourceConfigurationService, TextResourceConfigurationService, InstantiationType.Delayed);
 registerSingleton(IDownloadService, DownloadService, InstantiationType.Delayed);

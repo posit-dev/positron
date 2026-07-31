@@ -77,6 +77,21 @@ function startFeatureServer(input: NodeJS.ReadableStream, output: NodeJS.Writabl
 	}));
 	connection.onNotification('notebookDocument/didOpen', params => {
 		record.notebookOpens.push(params.notebookDocument.uri);
+		// Push a per-cell diagnostic the way ruff and pyrefly do on notebook
+		// open. Positron core re-projects these onto the .qmd document.
+		for (const cellDoc of params.cellTextDocuments) {
+			void connection.sendDiagnostics({
+				uri: cellDoc.uri,
+				diagnostics: [{
+					// Cell coordinates: first code line of the cell.
+					range: { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } },
+					message: 'shadow cell diagnostic',
+					severity: 2, // Warning
+					source: 'shadow-server',
+					code: 'SHDW1',
+				}],
+			});
+		}
 	});
 	connection.onRequest('textDocument/completion', params => {
 		record.completionRequests.push(params);
@@ -219,5 +234,34 @@ suite('Quarto shadow bridge language features (end-to-end)', () => {
 		await vscode.commands.executeCommand<vscode.Hover[]>(
 			'vscode.executeHoverProvider', qmdUri, new vscode.Position(cellCodeLine - 1, 3));
 		assert.strictEqual(record.hoverRequests.length, requestsBefore, 'no hover request was forwarded for the fence line');
+	});
+
+	test('server-pushed cell diagnostics re-project onto the .qmd, mapped and with metadata, while the cell keeps its own', async function () {
+		this.timeout(30_000);
+		// The server pushed a per-cell diagnostic when the shadow notebook
+		// opened (suiteSetup). Core copies it onto the .qmd resource, where
+		// MainThreadDiagnostics mirrors it back to the extension host, so
+		// vscode.languages.getDiagnostics observes the re-projection.
+		await waitFor(
+			() => vscode.languages.getDiagnostics(qmdUri).some(d => d.message === 'shadow cell diagnostic'),
+			'the cell diagnostic re-projects onto the .qmd document');
+
+		const diagnostic = vscode.languages.getDiagnostics(qmdUri).find(d => d.message === 'shadow cell diagnostic')!;
+		assert.strictEqual(diagnostic.range.start.line, cellCodeLine, 'diagnostic maps to the .qmd code line');
+		assert.strictEqual(diagnostic.severity, vscode.DiagnosticSeverity.Warning, 'severity survives the projection');
+		assert.strictEqual(diagnostic.source, 'shadow-server', 'source survives the projection');
+		assert.strictEqual(
+			typeof diagnostic.code === 'object' ? (diagnostic.code as { value: string | number }).value : diagnostic.code,
+			'SHDW1',
+			'code survives the projection');
+
+		// The raw cell diagnostic must remain for extension-side consumers:
+		// code action providers read their DiagnosticCollection through the
+		// cell URI. Positron suppresses the cell markers only at the
+		// workbench presentation layer (marker read exclusions), never here.
+		const cellDiagnostics = vscode.languages.getDiagnostics(vscode.Uri.parse(cellUri));
+		assert.ok(
+			cellDiagnostics.some(d => d.message === 'shadow cell diagnostic' && d.range.start.line === 0),
+			'the cell-space diagnostic remains available to extension-side consumers');
 	});
 });

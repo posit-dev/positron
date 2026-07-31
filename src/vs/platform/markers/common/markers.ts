@@ -33,6 +33,18 @@ export interface IMarkerService {
 
 	installResourceFilter(resource: URI, reason: string): IDisposable;
 
+	// --- Start Positron ---
+	/**
+	 * Hide a resource's markers from regular reads (Problems pane, problem
+	 * counts, marker navigation) while keeping the data in the service.
+	 * Reads with `ignoreResourceFilters` still see the markers. Unlike
+	 * `installResourceFilter`, no placeholder marker is shown.
+	 *
+	 * Optional: present when the workbench registers `PositronMarkerService`.
+	 */
+	installResourceExclusion?(resource: URI): IDisposable;
+	// --- End Positron ---
+
 	readonly onMarkerChanged: Event<readonly URI[]>;
 }
 
