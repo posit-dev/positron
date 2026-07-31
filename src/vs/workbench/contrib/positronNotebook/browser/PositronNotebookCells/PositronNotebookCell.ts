@@ -66,6 +66,45 @@ export interface ICellRevealOptions {
 	 * The direction of keyboard navigation (only applicable when reason is 'keyboardNavigation')
 	 */
 	direction?: CellNavigationDirection;
+	/**
+	 * Optional editor range to reveal within the cell (e.g. a find match).
+	 * When set and the cell's editor is attached, the notebook scrolls so the
+	 * range's lines are visible (centered when outside the viewport) instead
+	 * of just the cell.
+	 */
+	range?: Range;
+}
+
+/**
+ * Computes the scroll position needed to reveal a vertical pixel range inside
+ * a scroll viewport, mirroring Monaco's "reveal in center if outside viewport"
+ * behavior. `rangeTop`/`rangeBottom` are in the scrollable content's
+ * coordinate space (i.e. comparable against `scrollTop`).
+ *
+ * @returns The scrollTop that centers the range, aligned to the range top when
+ * the range is taller than the viewport, or undefined when the range is
+ * already fully visible.
+ */
+export function computeRangeRevealScrollTop(options: {
+	scrollTop: number;
+	viewportHeight: number;
+	rangeTop: number;
+	rangeBottom: number;
+}): number | undefined {
+	const { scrollTop, viewportHeight, rangeTop, rangeBottom } = options;
+
+	// Already fully visible -- don't move the viewport.
+	if (rangeTop >= scrollTop && rangeBottom <= scrollTop + viewportHeight) {
+		return undefined;
+	}
+
+	// A range taller than the viewport can't be centered; show its start.
+	if (rangeBottom - rangeTop > viewportHeight) {
+		return Math.max(0, rangeTop);
+	}
+
+	// Center the range in the viewport.
+	return Math.max(0, (rangeTop + rangeBottom - viewportHeight) / 2);
 }
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
@@ -491,6 +530,18 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 			return false;
 		}
 
+		// Line-level reveal: when a range is provided and the editor is
+		// attached, scroll the notebook so the range's lines are visible
+		// rather than just the cell. Cell editors auto-grow to fit their
+		// content and never scroll internally, so the cells container is the
+		// only viewport that can bring a specific line into view (e.g. a find
+		// match deep inside a cell taller than the viewport).
+		const editor = this.currentEditor;
+		if (resolvedOptions.range && editor && editor.hasModel()) {
+			this._revealEditorRange(editor, resolvedOptions.range);
+			return true;
+		}
+
 		// Two scroll strategies depending on how the reveal was triggered:
 		//
 		// Keyboard navigation uses an instant jump. The user is driving the
@@ -526,6 +577,38 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		}
 
 		return true;
+	}
+
+	/**
+	 * Scrolls the cells container so the given editor range is visible,
+	 * centering it when it is outside the viewport.
+	 */
+	private _revealEditorRange(editor: ICodeEditor, range: Range): void {
+		const container = this._instance.cellsContainer;
+		if (!container) {
+			return;
+		}
+
+		// Top of the editor within the scrollable content of the cells container.
+		const editorTop = editor.getContainerDomNode().getBoundingClientRect().top
+			- container.getBoundingClientRect().top
+			+ container.scrollTop;
+
+		// The editor is sized to its content so its own scroll offset is
+		// normally zero; subtract it anyway to stay correct if the editor ever
+		// scrolls internally.
+		const rangeTop = editorTop + editor.getTopForLineNumber(range.startLineNumber) - editor.getScrollTop();
+		const rangeBottom = editorTop + editor.getBottomForLineNumber(range.endLineNumber) - editor.getScrollTop();
+
+		const scrollTop = computeRangeRevealScrollTop({
+			scrollTop: container.scrollTop,
+			viewportHeight: container.clientHeight,
+			rangeTop,
+			rangeBottom,
+		});
+		if (scrollTop !== undefined) {
+			container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+		}
 	}
 
 	async highlightTemporarily(operationType?: 'add' | 'delete' | 'modify', maxWaitMs?: number): Promise<boolean> {
