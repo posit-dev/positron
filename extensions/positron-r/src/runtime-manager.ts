@@ -38,18 +38,16 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		// createSession/restoreSession); this handles the case where the user
 		// switches the foreground session between R consoles that are already
 		// running different R versions, so a newly launched terminal matches the
-		// console the user is currently working in. When multiple R consoles
-		// exist, the most recently focused one wins; this ambiguity is expected
+		// console the user is currently working in. We ride the session
+		// manager's console-activation event rather than the raw foreground
+		// event so this inherits its console-only filtering and change
+		// deduplication (notebook sessions must not drive the terminal
+		// environment). When multiple R consoles exist, the most recently
+		// focused one wins; this ambiguity is expected
 		// (https://github.com/posit-dev/positron/issues/7403).
 		this._context.subscriptions.push(
-			positron.runtime.onDidChangeForegroundSession(async (sessionId) => {
-				if (!sessionId) {
-					return;
-				}
-				const session = await RSessionManager.instance.getSessionById(sessionId);
-				if (session) {
-					this.updateEnvironment(session.runtimeMetadata);
-				}
+			RSessionManager.instance.onDidActivateConsoleSession((session) => {
+				this.updateEnvironment(session.runtimeMetadata);
 			})
 		);
 	}
