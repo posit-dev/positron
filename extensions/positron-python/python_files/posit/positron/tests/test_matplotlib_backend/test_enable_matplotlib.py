@@ -50,6 +50,11 @@ INLINE_BACKEND_NAME = f"module://{INLINE_MODULE_NAME}"
 # The backend to switch away to. Headless, so these tests don't need a display.
 OTHER_BACKEND_NAME = "agg"
 
+# Whether `%matplotlib <name>` resolves through matplotlib's backend registry, which
+# needs IPython >= 8.24 *and* matplotlib >= 3.9 -- IPython 8.24 kept the static-table
+# fallback for older matplotlib. This private helper encodes both halves.
+REGISTRY_BACKEND_RESOLUTION = getattr(pylabtools, "_matplotlib_manages_backends", lambda: False)()
+
 
 class BackendCase(NamedTuple):
     """One of Positron's matplotlib backends, and how to detect that it's installed."""
@@ -461,17 +466,28 @@ def test_inline_backend_config_stays_inert(shell: PositronShell, positron_backen
 
 
 @pytest.mark.skipif(
-    not hasattr(pylabtools, "_list_matplotlib_backends_and_gui_loops"),
-    reason="`%matplotlib module://...` needs IPython >= 8.24's registry-based resolution",
+    not REGISTRY_BACKEND_RESOLUTION,
+    reason="`%matplotlib module://...` needs registry-based backend resolution",
 )
 def test_matplotlib_inline_escape_hatch(shell: PositronShell, positron_backend: BackendCase):
     """
     The real matplotlib-inline backend stays reachable by its `module://` name.
 
-    Only via `%matplotlib` on IPython >= 8.24: earlier versions resolve the magic's
-    argument through a static table that raises KeyError for `module://` names, matching
-    upstream behavior. `matplotlib.use(INLINE_BACKEND_NAME)` is the escape hatch there,
-    on any IPython, via the backend module's self-activation at import.
+    Only via `%matplotlib` where backends resolve through matplotlib's registry: without
+    it, IPython resolves the magic's argument through a static table that has `inline`
+    but not the `module://` spelling, so the switch raises KeyError before reaching
+    Positron -- upstream behavior for any `module://` name, not something the override
+    introduces. `matplotlib.use(INLINE_BACKEND_NAME)` is the escape hatch there instead,
+    on every version: the backend module self-activates at import, flowing through
+    Positron's `configure_inline_support` seam.
+
+    Skipped rather than shimmed on the table-based versions (IPython < 8.24 or
+    matplotlib < 3.9, both 2+ years old; all of Python 3.9, EOL October 2025, is capped
+    at IPython 8.18): `matplotlib.use` fully covers the escape, the KeyError matches
+    stock IPython, and the affected stacks only shrink. If a user on one of them ever
+    needs the magic spelling, `PositronShell.enable_matplotlib` already switches
+    Positron's own names by hand on exactly these versions, and that recipe extends to
+    `module://` names in a few lines.
     """
     shell.run_cell(f"%matplotlib {INLINE_BACKEND_NAME}").raise_error()
     inline_state = _state(shell, positron_backend)
