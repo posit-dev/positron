@@ -19,7 +19,7 @@
   },
   "contributes": {},
   "dependencies": {
-    "@duckdb/node-api": "^1.5.3-r.3"
+    "@duckdb/node-api": "^1.5.5-r.3"
   },
   "devDependencies": {
     "@types/mocha": "^9.1.0",

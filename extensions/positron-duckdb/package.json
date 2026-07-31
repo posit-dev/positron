@@ -50,7 +50,7 @@
     "typescript": "^4.5.5"
   },
   "dependencies": {
-    "@duckdb/node-api": "1.5.3-r.3",
+    "@duckdb/node-api": "1.5.5-r.3",
     "yauzl": "^3.4.0"
   },
   "repository": {
