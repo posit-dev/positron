@@ -17,14 +17,18 @@ export type ApiKeyValidator = (apiKey: string, config: positron.ai.LanguageModel
 
 export type OnSaveCallback = (config: positron.ai.LanguageModelConfig) => Promise<void>;
 
+export type OnDeleteCallback = () => Promise<void>;
+
 export interface RegisterAuthProviderOptions {
 	validateApiKey?: ApiKeyValidator;
 	onSave?: OnSaveCallback;
+	onDelete?: OnDeleteCallback;
 }
 
 export const authProviders = new Map<string, AuthProvider>();
 const apiKeyValidators = new Map<string, ApiKeyValidator>();
 const onSaveCallbacks = new Map<string, OnSaveCallback>();
+const onDeleteCallbacks = new Map<string, OnDeleteCallback>();
 
 /**
  * Register an auth provider so the config dialog can store/remove
@@ -45,6 +49,11 @@ export function registerAuthProvider(
 		onSaveCallbacks.set(providerId, options.onSave);
 	} else {
 		onSaveCallbacks.delete(providerId);
+	}
+	if (options?.onDelete) {
+		onDeleteCallbacks.set(providerId, options.onDelete);
+	} else {
+		onDeleteCallbacks.delete(providerId);
 	}
 }
 
@@ -293,6 +302,7 @@ async function handleDelete(
 		if (await provider.isConfigured()) {
 			await provider.clearConfiguration();
 		}
+		await runOnDelete(providerId);
 		return;
 	}
 	// Credential-chain sessions (e.g. env var credentials) use the
@@ -323,6 +333,20 @@ async function handleDelete(
 	// out (env-var credentials) doesn't get its config cleared out from under it.
 	if ((await provider.getSessions()).length === 0 && await provider.isConfigured()) {
 		await provider.clearConfiguration();
+	}
+	await runOnDelete(providerId);
+}
+
+/**
+ * Run a provider's registered onDelete hook, if any. Providers use this to
+ * forget persisted configuration outside the auth store -- the custom provider,
+ * for instance, drops its providers.json block so a removed provider doesn't
+ * leave saved connection settings behind.
+ */
+async function runOnDelete(providerId: string): Promise<void> {
+	const onDelete = onDeleteCallbacks.get(providerId);
+	if (onDelete) {
+		await onDelete();
 	}
 }
 

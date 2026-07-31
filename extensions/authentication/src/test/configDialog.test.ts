@@ -431,6 +431,24 @@ suite('configDialog', () => {
 			});
 		});
 
+		test('delete runs the provider onDelete hook', async () => {
+			let onDeleteCalls = 0;
+			// Re-register with an onDelete hook (the custom provider uses this to
+			// drop its providers.json block on removal).
+			registerAuthProvider('anthropic-api', provider, {
+				onDelete: async () => { onDeleteCalls++; },
+			});
+			await provider.storeKey('uuid-1', 'Anthropic', 'sk-ant-key');
+
+			await providerAction(
+				{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'anthropic-api', displayName: 'Anthropic' }, supportedOptions: [], defaults: {} },
+				{},
+				'delete'
+			);
+
+			assert.strictEqual(onDeleteCalls, 1);
+		});
+
 		test('copilot-auth signed in marks autoconfigure signed in', async () => {
 			await updateProviderFromSessions('copilot-auth', [makeSession('gh-uuid')]);
 

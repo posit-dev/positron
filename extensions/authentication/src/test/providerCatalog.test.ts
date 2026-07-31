@@ -13,6 +13,7 @@ import {
 	initProviderCatalog,
 	onDidChangeProviderCatalog,
 	refreshProviderCatalog,
+	removeProviderBlock,
 	saveCustomProviderModels,
 	saveProviderBaseUrl,
 	saveProviderEnabled,
@@ -206,6 +207,19 @@ suite('providerCatalog', () => {
 
 		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 		assert.deepStrictEqual(written.providers['openai-compatible'], { baseUrl: 'https://proxy.example/v1' });
+	});
+
+	test('removeProviderBlock drops the whole block and leaves the others alone', async () => {
+		writeConfig(configPath, {
+			'openai-compatible': { baseUrl: 'https://proxy.example/v1', protocol: 'anthropic-messages' },
+			anthropic: { baseUrl: 'https://gateway.example.com' },
+		});
+		await initProviderCatalog(context, { configPath });
+
+		await removeProviderBlock('openai-compatible', { configPath });
+
+		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+		assert.deepStrictEqual(written.providers, { anthropic: { baseUrl: 'https://gateway.example.com' } });
 	});
 
 	test('saveSnowflakeAccount writes the snowflake account field, only when changed', async () => {
