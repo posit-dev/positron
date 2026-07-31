@@ -97,10 +97,17 @@ into thinking the failing logs are gone. `--keep-raw-logs` on the report is the
 path to the failing kernel/supervisor logs; never escalate to a ci-arm repro just
 to recapture logs the report already has.
 
-Re-run `fetch-pattern-evidence.js` with `--keep-raw-logs`, or the underlying
-processor without `--cleanup`. The raw `logs-<shortId>.zip` is left in the OS
-temp dir, at the path the script prints to stderr on its last line:
-`(temp dir kept at /var/folders/.../T/e2e-process-s3-<hash> -- ...)`.
+Re-run `fetch-pattern-evidence.js` with `--keep-raw-logs`. The logs are extracted
+into this triage's own evidence dir and the exact path comes back as `rawLogDir`
+in the JSON -- read that path directly.
+
+**Never `find` the OS temp dir for a `logs-*.zip`.** The zip is named
+`logs-<shortId>.zip` where `shortId` is the spec-**file** hash, so every test in
+a file produces the same filename. A leftover dir from an earlier triage of a
+*sibling* test in the same spec is indistinguishable by name and will hand you
+the wrong run's logs, with internally consistent timestamps from the wrong day.
+If `rawLogDir` is null, the report had no log bundle attached -- say so rather
+than reaching into temp.
 
 Each extension's real output channel is its own file under
 `server/exthost2/<extension-id>/*.log` (e.g.
@@ -110,10 +117,8 @@ just matched lines -- the multi-step sequence (activate, create, cancel,
 reconnect) needed to see what actually happened often has no error line at all.
 
 ```bash
-# TMP is the exact path the script printed.
-LZ=$(find "$TMP" -name 'logs-*.zip' | head -1)
-mkdir -p <scratch>/logs && unzip -o "$LZ" -d <scratch>/logs
-find <scratch>/logs -iname '*<extension-id-or-keyword>*'
+# RLD is the rawLogDir value from the fetch-pattern-evidence.js JSON.
+find "$RLD" -iname '*<extension-id-or-keyword>*'
 ```
 
 To slice the raw processor JSON instead of reading the whole dump, pipe through

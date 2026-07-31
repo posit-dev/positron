@@ -129,7 +129,11 @@ function main() {
 	let stdout;
 	try {
 		const procArgs = ['--report-url', baseUrl, '--output-dir', evidenceDir, ...filterArgs];
-		if (!args['keep-raw-logs']) { procArgs.push('--cleanup'); }
+		// Extract raw logs into this triage's evidence dir rather than leaving them
+		// in a shared temp dir, where logs-<shortId>.zip collides across every test
+		// in the same spec file and a stale sibling's bundle reads as this run's.
+		if (args['keep-raw-logs']) { procArgs.push('--raw-logs-out', path.join(evidenceDir, 'raw-logs')); }
+		else { procArgs.push('--cleanup'); }
 		stdout = runNode(analyzerScript('e2e-process-s3.js'), procArgs);
 	} catch (err) {
 		fail(`e2e-process-s3.js failed (report may be 403/expired -- try the next occurrence's report_url): ${err.message}`, { triageId, pattern });
@@ -151,7 +155,7 @@ function main() {
 		timelineFile: rel(timelineFile),
 		snapshotFile: rel(summary.snapshotFile),
 		screenshots: (summary.screenshots || []).map(rel),
-		rawLogDir: args['keep-raw-logs'] ? '(kept -- see e2e-process-s3.js stderr for temp dir path)' : null,
+		rawLogDir: rel((result.testDetails || []).find(t => t.rawLogsDir)?.rawLogsDir || null),
 		rawEvidenceFile: rel(rawFile),
 		failure: summary.failure ? summary.failure.slice(0, 200) : null,
 	});
