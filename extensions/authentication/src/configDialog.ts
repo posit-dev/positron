@@ -281,13 +281,14 @@ async function handleDelete(
 	}
 	const sessions = await provider.getSessions();
 	// No live session but the provider is still marked configured -- e.g. an
-	// expired credential sitting in "Needs Attention". There is nothing to
-	// remove, but we still clear the configured flag so signing out resets the
-	// provider out of the error group. removeSession(providerId) clears the
-	// chain-configured flag for credential-chain providers.
+	// expired credential sitting in "Needs Attention". There is no session to
+	// remove, so clear all persisted configuration (stored API-key accounts and
+	// the chain-configured flag) directly. This resets the provider out of the
+	// error group; removeSession(providerId) can't, since API-key accounts are
+	// keyed by UUID and wouldn't match the provider ID.
 	if (sessions.length === 0) {
 		if (await provider.isConfigured()) {
-			await provider.removeSession(providerId);
+			await provider.clearConfiguration();
 		}
 		return;
 	}
