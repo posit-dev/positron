@@ -12,7 +12,6 @@ import { localize } from '../../../../nls.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeErrorBehavior, ILanguageRuntimeMessageUpdateOutput, RuntimeExitReason, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { DATA_EXPLORER_MIME_TYPE } from '../../positronNotebook/browser/getOutputContents.js';
 import { POSITRON_CONSOLE_EXEC_PREFIX } from '../../../services/positronConsole/browser/positronConsoleService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
@@ -405,45 +404,28 @@ export class RuntimeNotebookCellExecution extends Disposable {
 
 /**
  * Convert the data from a language runtime output message into Notebook output items.
+ *
+ * Encoding is decided by the value's type rather than a hardcoded mime list: a
+ * previous allowlist of `+json` mimes silently turned object payloads for any
+ * unlisted mime (e.g. `application/vnd.vegalite.v5+json`) into "[object Object]"
+ * via `String(value)`.
+ *
+ * Exported for testing.
  */
-function toOutputItems(data: ILanguageRuntimeMessageOutputData): IOutputItemDto[] {
+export function toOutputItems(data: ILanguageRuntimeMessageOutputData): IOutputItemDto[] {
 	const outputItems: IOutputItemDto[] = [];
 	for (const [mime, value] of Object.entries(data)) {
-		switch (mime) {
-			case 'image/png':
-			case 'image/jpeg':
-				outputItems.push({ data: decodeBase64(String(value)), mime });
-				break;
-			// This list is a subset of src/vs/workbench/contrib/notebook/browser/view/cellParts/cellOutput.JUPYTER_RENDERER_MIMETYPES
-			case 'application/json':
-			case 'application/geo+json':
-			case 'application/vdom.v1+json':
-			case 'application/vnd.dataresource+json':
-			case 'application/vnd.jupyter.widget-view+json':
-			case 'application/vnd.plotly.v1+json':
-			case 'application/vnd.r.htmlwidget':
-			case 'application/vnd.vega.v2+json':
-			case 'application/vnd.vega.v3+json':
-			case 'application/vnd.vega.v4+json':
-			case 'application/vnd.vega.v5+json':
-			case 'application/vnd.vegalite.v1+json':
-			case 'application/vnd.vegalite.v2+json':
-			case 'application/vnd.vegalite.v3+json':
-			case 'application/vnd.vegalite.v4+json':
-			case 'application/x-nteract-model-debug+json':
-			// Positron inline data explorer: R (ark) sends the payload as a
-			// native object, so it needs JSON.stringify like the types above.
-			// Python sends it as a pre-serialized JSON string, so we must
-			// check the type to avoid double-encoding.
-			case DATA_EXPLORER_MIME_TYPE:
-				if (typeof value === 'string') {
-					outputItems.push({ data: VSBuffer.fromString(value), mime });
-				} else {
-					outputItems.push({ data: VSBuffer.fromString(JSON.stringify(value, undefined, '\t')), mime });
-				}
-				break;
-			default:
-				outputItems.push({ data: VSBuffer.fromString(String(value)), mime });
+		if (mime === 'image/png' || mime === 'image/jpeg') {
+			// Image payloads arrive base64-encoded; store the raw bytes.
+			outputItems.push({ data: decodeBase64(String(value)), mime });
+		} else if (typeof value === 'string') {
+			// Pre-serialized payloads (text, HTML, JSON strings from Python
+			// kernels) pass through unchanged to avoid double-encoding.
+			outputItems.push({ data: VSBuffer.fromString(value), mime });
+		} else {
+			// Structured payloads (objects sent by kernels like ark, numbers,
+			// booleans) are JSON-encoded.
+			outputItems.push({ data: VSBuffer.fromString(JSON.stringify(value, undefined, '\t') ?? String(value)), mime });
 		}
 	}
 	return outputItems;
