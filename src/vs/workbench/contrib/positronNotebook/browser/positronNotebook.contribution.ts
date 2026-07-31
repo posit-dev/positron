@@ -19,6 +19,7 @@ import './contrib/cellTags/actions.js';
 import './AssistantPanel/notebookSuggestionsConfig.js';
 
 import { copyImageToClipboard, isCopyImageMenuArg } from './copyImageUtils.js';
+import { openImageOutputInNewTab, saveImageOutput } from './imageOutputUtils.js';
 import { isCopyJsonMenuArg, serializeJsonOutput } from './copyJsonUtils.js';
 import { getPlainTextOutputContent, isParsedTextOutput } from './getOutputContents.js';
 import { getActiveWindow, isEditableElement, isHTMLElement } from '../../../../base/browser/dom.js';
@@ -72,6 +73,8 @@ import { KernelStatusBadge } from './KernelStatusBadge.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
@@ -2077,6 +2080,33 @@ export class CopyOutputAction extends NotebookAction2 {
 }
 registerAction2(CopyOutputAction);
 
+/**
+ * Resolve the image output a cell output action should operate on: the data
+ * URL forwarded from a context menu on a specific image, falling back to the
+ * active cell's first image output (e.g. when run from the floating action bar).
+ */
+function getTargetedImageOutput(notebook: IPositronNotebookInstance, args: unknown[]): { dataUrl: string; cellIndex: number } | undefined {
+	const state = notebook.selectionStateMachine.state.get();
+	const cell = getActiveCell(state);
+	if (!cell?.isCodeCell()) {
+		return undefined;
+	}
+
+	// Look for a CopyImageMenuArg forwarded from the context menu
+	const menuArg = args.find(isCopyImageMenuArg);
+	if (menuArg) {
+		return { dataUrl: menuArg.imageDataUrl, cellIndex: cell.index };
+	}
+
+	// Fall back to the first image output (e.g. from the floating action bar)
+	const imageOutput = cell.outputs.get().find(o => o.parsed.type === 'image');
+	if (imageOutput?.parsed.type === 'image') {
+		return { dataUrl: imageOutput.parsed.dataUrl, cellIndex: cell.index };
+	}
+
+	return undefined;
+}
+
 // Copy output image to clipboard (menu-driven, e.g. right-click on specific image)
 class CopyOutputImageAction extends NotebookAction2 {
 	constructor() {
@@ -2116,31 +2146,115 @@ class CopyOutputImageAction extends NotebookAction2 {
 		const logService = accessor.get(ILogService);
 		const notificationService = accessor.get(INotificationService);
 
-		// Look for a CopyImageMenuArg forwarded from the context menu
-		const menuArg = args.find(isCopyImageMenuArg);
-		let dataUrl = menuArg?.imageDataUrl;
-
-		// Fall back to the first image output (e.g. from ellipsis menu)
-		if (!dataUrl) {
-			const state = notebook.selectionStateMachine.state.get();
-			const cell = getActiveCell(state);
-			if (!cell?.isCodeCell()) {
-				return;
-			}
-			const imageOutput = cell.outputs.get().find(o => o.parsed.type === 'image');
-			if (imageOutput?.parsed.type === 'image') {
-				dataUrl = imageOutput.parsed.dataUrl;
-			}
-		}
-
-		if (!dataUrl) {
+		const target = getTargetedImageOutput(notebook, args);
+		if (!target) {
 			return;
 		}
 
-		await copyImageToClipboard(dataUrl, clipboardService, logService, notificationService);
+		await copyImageToClipboard(target.dataUrl, clipboardService, logService, notificationService);
 	}
 }
 registerAction2(CopyOutputImageAction);
+
+// Save output image to a file (matches the Quarto inline output "Save plot" capability)
+class SaveOutputImageAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: PositronNotebookActionId.SaveOutputImage,
+			title: localize2('positronNotebook.cell.saveOutputImage', "Save Image As..."),
+			icon: ThemeIcon.fromId('save'),
+			grabFocusOnRun: false,
+			menu: [
+				{
+					id: MenuId.PositronNotebookCellOutputActionBar,
+					group: PositronNotebookCellOutputActionGroup.Export,
+					order: 1,
+					when: ContextKeyExpr.and(
+						// Show the static "Save Image As..." action only when there is exactly
+						// one image output. For multiple images, users can right-click
+						// individual images to save them.
+						ContextKeyExpr.equals(CellContextKeys.imageOutputCount.key, 1),
+						CellContextKeys.outputIsCollapsed.toNegated()
+					)
+				},
+				{
+					id: MenuId.PositronNotebookCellOutputActionContext,
+					group: PositronNotebookCellOutputActionGroup.Export,
+					order: 1,
+					when: ContextKeyExpr.and(
+						CellContextKeys.outputImageTargeted,
+						CellContextKeys.outputIsCollapsed.toNegated()
+					)
+				},
+			],
+		});
+	}
+
+	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
+		const fileDialogService = accessor.get(IFileDialogService);
+		const fileService = accessor.get(IFileService);
+		const logService = accessor.get(ILogService);
+		const notificationService = accessor.get(INotificationService);
+
+		const target = getTargetedImageOutput(notebook, args);
+		if (!target) {
+			return;
+		}
+
+		await saveImageOutput(target.dataUrl, notebook.uri, target.cellIndex, fileDialogService, fileService, logService, notificationService);
+	}
+}
+registerAction2(SaveOutputImageAction);
+
+// Open output image in a new editor tab (matches the Quarto inline output popout capability)
+class OpenOutputInNewTabAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: PositronNotebookActionId.OpenOutputInNewTab,
+			title: localize2('positronNotebook.cell.openOutputInNewTab', "Open Output in New Tab"),
+			icon: ThemeIcon.fromId('link-external'),
+			grabFocusOnRun: false,
+			menu: [
+				{
+					id: MenuId.PositronNotebookCellOutputActionBar,
+					group: PositronNotebookCellOutputActionGroup.Export,
+					order: 2,
+					when: ContextKeyExpr.and(
+						// Show the static action only when there is exactly one image
+						// output. For multiple images, users can right-click individual
+						// images to open them.
+						ContextKeyExpr.equals(CellContextKeys.imageOutputCount.key, 1),
+						CellContextKeys.outputIsCollapsed.toNegated()
+					)
+				},
+				{
+					id: MenuId.PositronNotebookCellOutputActionContext,
+					group: PositronNotebookCellOutputActionGroup.Export,
+					order: 2,
+					when: ContextKeyExpr.and(
+						CellContextKeys.outputImageTargeted,
+						CellContextKeys.outputIsCollapsed.toNegated()
+					)
+				},
+			],
+		});
+	}
+
+	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+		const fileService = accessor.get(IFileService);
+		const logService = accessor.get(ILogService);
+		const notificationService = accessor.get(INotificationService);
+
+		const target = getTargetedImageOutput(notebook, args);
+		if (!target) {
+			return;
+		}
+
+		await openImageOutputInNewTab(target.dataUrl, notebook.uri, target.cellIndex, editorService, fileService, logService, notificationService);
+	}
+}
+registerAction2(OpenOutputInNewTabAction);
 
 // Copy JSON output to clipboard
 registerAction2(class extends NotebookAction2 {
