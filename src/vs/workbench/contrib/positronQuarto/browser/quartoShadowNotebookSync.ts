@@ -120,7 +120,7 @@ export class QuartoShadowNotebookSync extends Disposable {
 			this._logService.warn(`[QuartoShadowNotebookSync] No cell at index ${edit.index} in ${this._notebook.uri.toString()}`);
 			return;
 		}
-		const model = this._ensureCellTextModel(cell);
+		const model = this.getOrCreateCellTextModel(cell);
 		const range = Range.fromPositions(model.getPositionAt(edit.start), model.getPositionAt(edit.end));
 		model.applyEdits([{ range, text: edit.text }]);
 	}
@@ -132,8 +132,17 @@ export class QuartoShadowNotebookSync extends Disposable {
 	 * shares the cell's text buffer, and `NotebookTextModel` binds it to the
 	 * cell via its `onModelAdded` hook, so edits flow through the cell's
 	 * change events and the notebook's version counter.
+	 *
+	 * Also used by the shadow bridge providers to obtain the model that
+	 * in-cell language feature requests are forwarded to. Callers other than
+	 * this sync must never edit the returned model: sync is strictly one-way
+	 * (.qmd -> notebook). Deliberately NOT
+	 * `ITextModelService.createModelReference`: for a not-yet-materialized
+	 * cell, `CellContentProvider` resolves the notebook through the editor
+	 * model resolver, which would wrap the shadow in a working copy (dirty
+	 * state, disposal on reference expiry).
 	 */
-	private _ensureCellTextModel(cell: NotebookCellTextModel): ITextModel {
+	getOrCreateCellTextModel(cell: NotebookCellTextModel): ITextModel {
 		// A model may already exist, e.g. materialized by CellContentProvider
 		// on behalf of another consumer. Use it but don't manage its lifetime.
 		const existing = this._modelService.getModel(cell.uri);

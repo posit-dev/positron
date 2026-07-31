@@ -55,6 +55,10 @@ import './quartoCommands.js';
 // Import editor action bar menu wiring to ensure it's registered
 import './quartoEditorActionBar.js';
 
+// Import the shadow bridge language feature providers (completions, hover,
+// etc. inside .qmd code cells) to ensure they're registered
+import './quartoShadowLanguageFeatures.contribution.js';
+
 // Import CSS styles
 import './media/quartoExecutionDecorations.css';
 import './media/quartoOutputViewZone.css';

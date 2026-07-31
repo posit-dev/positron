@@ -53,6 +53,18 @@ export interface IQuartoShadowNotebookService {
 	 * open, or creation still in flight).
 	 */
 	getShadowNotebook(resource: URI): NotebookTextModel | undefined;
+
+	/**
+	 * Get (materializing lazily if needed) the text model for a cell of the
+	 * shadow notebook mirroring the given Quarto document. This is the model
+	 * that in-cell language feature requests are forwarded to; callers must
+	 * never edit it (sync is strictly one-way, .qmd -> notebook).
+	 * @param resource The Quarto document's URI.
+	 * @param cellHandle The cell's handle within the shadow notebook.
+	 * @returns The cell's text model, or undefined if no shadow notebook
+	 * mirrors the document or it has no cell with that handle.
+	 */
+	getCellTextModel(resource: URI, cellHandle: number): ITextModel | undefined;
 }
 
 /**
@@ -139,6 +151,12 @@ class ShadowNotebookEntry extends Disposable {
 	/** The live shadow notebook, once creation has completed. */
 	get notebook(): NotebookTextModel | undefined {
 		return this._notebook;
+	}
+
+	/** Get (materializing lazily) the text model for the cell with the given handle. */
+	getCellTextModel(cellHandle: number): ITextModel | undefined {
+		const cell = this._notebook?.cells.find(cell => cell.handle === cellHandle);
+		return cell && this._sync ? this._sync.getOrCreateCellTextModel(cell) : undefined;
 	}
 
 	override dispose(): void {
@@ -260,6 +278,10 @@ export class QuartoShadowNotebookService extends Disposable implements IQuartoSh
 
 	getShadowNotebook(resource: URI): NotebookTextModel | undefined {
 		return this._entries.get(resource.toString())?.notebook;
+	}
+
+	getCellTextModel(resource: URI, cellHandle: number): ITextModel | undefined {
+		return this._entries.get(resource.toString())?.getCellTextModel(cellHandle);
 	}
 
 	/**
