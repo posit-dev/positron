@@ -81,6 +81,12 @@
 	color: var(--vscode-descriptionForeground);
 }
 
+.provider-list-custom-configured {
+	font-size: 12px;
+	font-style: italic;
+	color: var(--vscode-descriptionForeground);
+}
+
 .provider-list-item-error {
 	font-size: 12px;
 	color: var(--vscode-errorForeground);

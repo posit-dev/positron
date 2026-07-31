@@ -17,16 +17,17 @@ export interface ProviderSection {
 const SECTION_ORDER: ProviderSectionId[] = ['connected', 'needs-attention', 'model-providers'];
 
 /**
- * The OpenAI-compatible "Custom Provider" template. It has its own dedicated
- * section in the modal (with an "Add custom provider" affordance), so it is
- * excluded from the built-in provider groups.
+ * The OpenAI-compatible "Custom Provider" template. Its unconfigured state has a
+ * dedicated "Add custom provider" affordance, so it is hidden from the built-in
+ * groups until it is connected -- once signed in (or in an error state) it
+ * appears in the Connected / Needs Attention section like any other provider.
  */
 export const CUSTOM_PROVIDER_ID = 'openai-compatible';
 
 /** Only chat providers (and the copilot-auth completion provider) are shown, mirroring the legacy modal. */
 function isDisplayable(source: IPositronLanguageModelSource): boolean {
 	if (source.provider.id === CUSTOM_PROVIDER_ID) {
-		return false;
+		return source.signedIn === true || source.status === 'error';
 	}
 	return source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot-auth');
 }
