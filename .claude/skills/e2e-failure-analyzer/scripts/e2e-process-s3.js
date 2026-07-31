@@ -44,6 +44,7 @@ let screenshotsN = 3;
 let doCleanup = false;
 let titleFilter = null;
 let testIdFilter = null;
+let rawLogsOut = null;
 
 function parseNonNegInt(name, raw) {
 	const n = Number(raw);
@@ -63,6 +64,7 @@ for (let i = 0; i < cliArgs.length; i++) {
 		case '--cleanup': doCleanup = true; break;
 		case '--title': titleFilter = cliArgs[++i]; break;
 		case '--test-id': testIdFilter = cliArgs[++i]; break;
+		case '--raw-logs-out': rawLogsOut = cliArgs[++i]; break;
 		default:
 			console.error(`Unknown argument: ${cliArgs[i]}`);
 			process.exit(1);
@@ -622,12 +624,23 @@ for (const { test, detail, failedResults } of testDetailsList) {
 
 	// Mine the attached log bundle for error lines (download it from S3 first).
 	let logExcerpt = null;
+	let rawLogsDir = null;
 	if (lastLogsAttPath) {
 		const logsUrl = `${reportUrl}${lastLogsAttPath}`;
 		const localLogsZip = join(tmpWorkDir, `logs-${shortId}.zip`);
 		try {
 			await fetchToFile(logsUrl, localLogsZip);
 			logExcerpt = grepLogs(localLogsZip);
+			// Extract the bundle where the caller asked for it. Callers used to have
+			// to hunt the kept temp dir for logs-<shortId>.zip, but shortId is the
+			// spec-FILE hash, so every test in a file produces the same zip name --
+			// a stale dir from an earlier run of a sibling test is indistinguishable
+			// by name and silently yields the wrong run's logs.
+			if (rawLogsOut) {
+				rawLogsDir = join(rawLogsOut, shortId);
+				mkdirSync(rawLogsDir, { recursive: true });
+				execFileSync('unzip', ['-o', localLogsZip, '-d', rawLogsDir], { stdio: ['pipe', 'pipe', 'pipe'] });
+			}
 		} catch (err) {
 			process.stderr.write(`  WARN: failed to process logs ${logsUrl}: ${err.message}\n`);
 		}
@@ -650,6 +663,7 @@ for (const { test, detail, failedResults } of testDetailsList) {
 		attempts,
 		siblingTests,
 		logExcerpt,
+		rawLogsDir,
 		logHashes,
 	});
 }
