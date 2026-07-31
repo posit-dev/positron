@@ -56,6 +56,7 @@ export let dirs = [
 	'extensions/positron-proxy',
 	'extensions/positron-viewer',
 	'extensions/positron-zed',
+	'extensions/quarto-shadow-notebook',
 	// --- End Positron ---
 	'extensions/configuration-editing',
 	'extensions/copilot',

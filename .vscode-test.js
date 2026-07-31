@@ -148,6 +148,11 @@ const extensions = [
 		workspaceFolder: path.join(os.tmpdir(), `positron-pdf-server-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
 	},
+	{
+		label: 'quarto-shadow-notebook',
+		workspaceFolder: path.join(os.tmpdir(), `qmdshadow-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
 	// --- End Positron ---
 	{
 		label: 'microsoft-authentication',

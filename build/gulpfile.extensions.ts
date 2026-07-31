@@ -89,6 +89,9 @@ const compilations = [
 	'extensions/positron-supervisor/tsconfig.json',
 	'extensions/positron-viewer/tsconfig.json',
 	'extensions/positron-zed/tsconfig.json',
+	// Test-only extension (never shipped): extension host tests for the
+	// core-owned Quarto shadow notebook (workbench/contrib/positronQuarto).
+	'extensions/quarto-shadow-notebook/tsconfig.json',
 	// --- End Positron ---
 	'extensions/configuration-editing/tsconfig.json',
 	'extensions/css-language-features/client/tsconfig.json',

@@ -1,0 +1,25 @@
+{
+  "name": "quarto-shadow-notebook",
+  "displayName": "Quarto Shadow Notebook Tests",
+  "description": "Extension host tests for Positron's core-owned Quarto shadow notebook (src/vs/workbench/contrib/positronQuarto). Test-only: contributes nothing and is not shipped.",
+  "publisher": "positron",
+  "version": "0.0.1",
+  "private": true,
+  "engines": {
+    "vscode": "^1.65.0"
+  },
+  "categories": [],
+  "scripts": {
+    "compile": "tsc -p ./tsconfig.json"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^10.0.0",
+    "vscode-languageclient-9": "npm:vscode-languageclient@9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.4",
+    "@types/node": "20.x"
+  }
+}
