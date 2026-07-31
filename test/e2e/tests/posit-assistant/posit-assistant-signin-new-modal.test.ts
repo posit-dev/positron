@@ -33,7 +33,15 @@ test.describe('Posit Assistant Sign-in (new provider modal)', {
 }, () => {
 
 	test.beforeAll('Enable the new provider modal', async function ({ settings }) {
-		await settings.set({ [NEW_PROVIDER_MODAL_KEY]: true }, { reload: true });
+		// Deliberately no reload: the switch is read live every time the Configure
+		// Providers command runs, so the setting takes effect without one. Reloading
+		// also broke this suite in CI -- the restarted extension host re-probes the
+		// cloud credential-chain metadata endpoints (AWS/Azure IMDS,
+		// metadata.google.internal), which are unreachable in the test container and
+		// hang. Those pending lookups starve DNS for api.anthropic.com /
+		// api.openai.com, so the provider key validation aborted on its fixed 5s
+		// budget and the modal never reached the Connected view.
+		await settings.set({ [NEW_PROVIDER_MODAL_KEY]: true });
 	});
 
 	test.afterAll('Disable the new provider modal', async function ({ settings }) {
