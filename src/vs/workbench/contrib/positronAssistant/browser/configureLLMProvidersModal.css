@@ -57,6 +57,11 @@
 	flex-shrink: 0;
 }
 
+/* Size the codicon fallback (e.g. the custom provider wrench) to the box, overriding the legacy dialog's global 2.5rem rule so it does not overflow. */
+.provider-list-item-icon .language-model.icon.codicon.button-icon {
+	font-size: 22px;
+}
+
 .provider-list-item-text {
 	display: flex;
 	flex-direction: column;

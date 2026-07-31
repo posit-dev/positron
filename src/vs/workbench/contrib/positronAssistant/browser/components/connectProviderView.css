@@ -33,6 +33,11 @@
 	height: 22px;
 }
 
+/* Size the codicon fallback (e.g. the custom provider wrench) to the box, overriding the legacy dialog's global 2.5rem rule so it does not overflow. */
+.connect-provider-icon .language-model.icon.codicon.button-icon {
+	font-size: 22px;
+}
+
 .connect-provider-header-text {
 	display: flex;
 	flex-direction: column;
