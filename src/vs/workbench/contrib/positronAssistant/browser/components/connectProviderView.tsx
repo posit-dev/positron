@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { localize } from '../../../../../nls.js';
 import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/embeddedLink/EmbeddedLink.js';
-import { IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js';
+import { IPositronCustomModel, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js';
 import { AuthMethod, AuthStatus } from '../types.js';
 import { deriveAuthMethod, deriveAuthStatus, deriveConnectAction } from '../providerConnection.js';
 import { getProviderGettingStartedText, getProviderTermsOfServiceText, getProviderUsageDisclaimerText } from '../providerLegalText.js';
@@ -40,6 +40,18 @@ interface ApiTypeOption {
 	path: string;
 }
 
+/**
+ * Capability defaults applied to a manually listed custom model, so the user
+ * only supplies the id. Mirrors the bridge's OpenAI-compatible defaults.
+ */
+const CUSTOM_MODEL_DEFAULTS = {
+	maxContextLength: 128_000,
+	supportsTools: true,
+	supportsImages: false,
+	supportsToolResultImages: false,
+	supportsWebSearch: false,
+} satisfies Omit<IPositronCustomModel, 'id' | 'name'>;
+
 export interface ConnectProviderViewProps {
 	source: IPositronLanguageModelSource;
 	onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>;
@@ -53,6 +65,12 @@ export interface ConnectProviderViewProps {
 	 * orphaning it.
 	 */
 	onPendingSignInChange?: (cancel: (() => void) | undefined) => void;
+	/**
+	 * Open providers.json for advanced editing. Closes the modal (so the editor
+	 * is visible), which discards any unsaved form input, so the affordance says
+	 * as much. Only wired for the custom provider create flow.
+	 */
+	onEditRawConfig?: () => void;
 }
 
 export const ConnectProviderView = (props: ConnectProviderViewProps) => {
@@ -63,18 +81,29 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 	const [pending, setPending] = useState<'connect' | 'remove' | undefined>(undefined);
 	const inFlight = pending !== undefined;
 	const [errorMessage, setErrorMessage] = useState<string>();
-	const [name, setName] = useState<string>(() => props.source.defaults.name ?? '');
 	const [apiKey, setApiKey] = useState<string>(() => props.source.defaults.apiKey ?? '');
 	const [baseUrl, setBaseUrl] = useState<string>(() => props.source.defaults.baseUrl ?? '');
 	const [protocol, setProtocol] = useState<string>(() => props.source.defaults.protocol ?? API_TYPE_CHAT);
-	const supportsName = props.source.supportedOptions.includes('name');
+	const [modelIds, setModelIds] = useState<string[]>(() => props.source.defaults.customModels?.map(m => m.id) ?? ['']);
 	const supportsBaseUrl = props.source.supportedOptions.includes('baseUrl');
 	const supportsProtocol = props.source.supportedOptions.includes('protocol');
+	const supportsCustomModels = props.source.supportedOptions.includes('customModels');
+
+	const setModelIdAt = (index: number, value: string) => setModelIds(ids => ids.map((v, i) => i === index ? value : v));
+	const addModelRow = () => setModelIds(ids => [...ids, '']);
+	const removeModelRow = (index: number) => setModelIds(ids => ids.filter((_, i) => i !== index));
+
+	// Build schema-valid custom model entries from the entered ids, defaulting
+	// the capability fields the user didn't specify.
+	const customModels: IPositronCustomModel[] = modelIds
+		.map(id => id.trim())
+		.filter(id => id.length > 0)
+		.map(id => ({ id, name: id, ...CUSTOM_MODEL_DEFAULTS }));
 
 	const apiTypeEntries = [
 		new DropDownListBoxItem<string, ApiTypeOption>({ identifier: API_TYPE_ANTHROPIC, value: { title: localize('positron.connectProvider.apiType.anthropic', "Anthropic Messages"), path: '/v1/messages' } }),
-		new DropDownListBoxItem<string, ApiTypeOption>({ identifier: API_TYPE_CHAT, value: { title: localize('positron.connectProvider.apiType.chat', "OpenAI Chat Completions"), path: '/chat/completions' } }),
-		new DropDownListBoxItem<string, ApiTypeOption>({ identifier: API_TYPE_RESPONSES, value: { title: localize('positron.connectProvider.apiType.responses', "OpenAI Responses"), path: '/responses' } }),
+		new DropDownListBoxItem<string, ApiTypeOption>({ identifier: API_TYPE_CHAT, value: { title: localize('positron.connectProvider.apiType.chat', "OpenAI Chat Completions"), path: '/v1/chat/completions' } }),
+		new DropDownListBoxItem<string, ApiTypeOption>({ identifier: API_TYPE_RESPONSES, value: { title: localize('positron.connectProvider.apiType.responses', "OpenAI Responses"), path: '/v1/responses' } }),
 	];
 
 	const authMethod = deriveAuthMethod(props.source);
@@ -86,10 +115,10 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 		try {
 			const dispatchConfig = {
 				...configRef.current,
-				...(supportsName ? { name: name.trim() } : {}),
 				...(authMethod === AuthMethod.API_KEY ? { apiKey } : {}),
 				...(supportsBaseUrl ? { baseUrl } : {}),
 				...(supportsProtocol ? { protocol } : {}),
+				...(supportsCustomModels ? { customModels } : {}),
 			};
 			await props.onAction(props.source, dispatchConfig, deriveConnectAction(props.source));
 		} catch (e) {
@@ -101,11 +130,9 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 
 	// The footer Connect button: for OAuth it is disabled only while a sign-in is
 	// in flight; otherwise it enables once the form input makes sign-in possible.
-	// A named custom provider also needs a name before it can be saved.
-	const authDisabled = authMethod === AuthMethod.OAUTH
+	const connectDisabled = authMethod === AuthMethod.OAUTH
 		? authStatus === AuthStatus.SIGNING_IN
 		: authStatus !== AuthStatus.SIGN_IN_PENDING;
-	const connectDisabled = authDisabled || (supportsName && name.trim().length === 0);
 
 	// Cancel an in-flight OAuth sign-in (the Posit device flow). Kept in a ref so
 	// the reported handler stays stable while dispatching against the latest state.
@@ -149,24 +176,8 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 			<ContentArea>
 				<div className='connect-provider-view'>
 					<ConnectProviderHeader source={props.source} />
-					{(authMethod === AuthMethod.API_KEY || supportsBaseUrl || supportsName) &&
+					{(authMethod === AuthMethod.API_KEY || supportsBaseUrl) &&
 						<div className='connect-provider-apikey'>
-							{supportsName &&
-								<>
-									<label className='connect-provider-apikey-label' htmlFor='connect-provider-name-input'>
-										{localize('positron.connectProvider.nameLabel', "Name")}
-									</label>
-									<input
-										autoComplete='off'
-										className='connect-provider-apikey-input'
-										id='connect-provider-name-input'
-										spellCheck={false}
-										type='text'
-										value={name}
-										onChange={e => setName(e.target.value)}
-									/>
-								</>
-							}
 							{authMethod === AuthMethod.API_KEY &&
 								<>
 									<label className='connect-provider-apikey-label' htmlFor='connect-provider-apikey-input'>
@@ -213,6 +224,46 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 										onSelectionChanged={item => setProtocol(item.options.identifier)}
 									/>
 								</>
+							}
+						</div>
+					}
+					{supportsCustomModels &&
+						<div className='connect-provider-models'>
+							<label className='connect-provider-apikey-label'>
+								{localize('positron.connectProvider.modelsLabel', "Models")}
+							</label>
+							<p className='connect-provider-models-hint'>
+								{localize('positron.connectProvider.modelsHint', "List the model IDs this provider serves. Add these when the provider has no model listing of its own.")}
+							</p>
+							{modelIds.map((id, index) => (
+								<div key={index} className='connect-provider-model-row'>
+									<input
+										autoComplete='off'
+										className='connect-provider-apikey-input'
+										placeholder={localize('positron.connectProvider.modelIdPlaceholder', "Model ID")}
+										spellCheck={false}
+										type='text'
+										value={id}
+										onChange={e => setModelIdAt(index, e.target.value)}
+									/>
+									<button
+										className='connect-provider-model-remove'
+										title={localize('positron.connectProvider.removeModel', "Remove Model")}
+										type='button'
+										onClick={() => removeModelRow(index)}
+									>
+										<span aria-hidden='true' className='codicon codicon-trash' />
+									</button>
+								</div>
+							))}
+							<button className='connect-provider-add-model' type='button' onClick={addModelRow}>
+								<span aria-hidden='true' className='codicon codicon-add' />
+								{localize('positron.connectProvider.addModel', "Add Model")}
+							</button>
+							{props.onEditRawConfig &&
+								<button className='connect-provider-edit-json' type='button' onClick={props.onEditRawConfig}>
+									{localize('positron.connectProvider.editJson', "Edit providers.json for advanced options (closes this dialog)")}
+								</button>
 							}
 						</div>
 					}
