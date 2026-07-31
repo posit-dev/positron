@@ -1,7 +1,7 @@
 {
   "name": "quarto-shadow-notebook",
   "displayName": "Quarto Shadow Notebook Tests",
-  "description": "Extension host tests for Positron's core-owned Quarto shadow notebook (src/vs/workbench/contrib/positronQuarto). Test-only: contributes nothing and is not shipped.",
+  "description": "Extension host tests for Positron's core-owned Quarto shadow notebook (src/vs/workbench/contrib/positronQuarto). Test-only: not shipped. The language contributions below exist because the harness runs with built-in extensions disabled: 'quarto' gives .qmd documents the language id the bridge providers are registered for, and 'python' lets core resolve the shadow cells' language id (an unregistered id would fall back to plaintext and never match the test server's document selector).",
   "publisher": "positron",
   "version": "0.0.1",
   "private": true,
@@ -9,6 +9,19 @@
     "vscode": "^1.65.0"
   },
   "categories": [],
+  "contributes": {
+    "languages": [
+      {
+        "id": "quarto",
+        "extensions": [
+          ".qmd"
+        ]
+      },
+      {
+        "id": "python"
+      }
+    ]
+  },
   "scripts": {
     "compile": "tsc -p ./tsconfig.json"
   },
