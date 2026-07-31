@@ -364,6 +364,61 @@ describe('Positron - IPyWidgetsInstance', () => {
 		expect(ipywidgetsInstance.hasClient(clientId)).toBe(false);
 	});
 
+	it('from webview: comm_info_request', async () => {
+		// Create an IPyWidget client and an unrelated client.
+		const widgetClient = await session.createClient(RuntimeClientType.IPyWidget, {}, {}, 'widget-client-id');
+		await session.createClient(RuntimeClientType.Plot, {}, {}, 'plot-client-id');
+		await timeout(0);
+
+		// Clear the comm_open messages sent to the webview.
+		messaging.messagesToWebview.splice(0);
+
+		// Simulate the webview sending a comm info request.
+		messaging.receiveMessage({ type: 'comm_info_request', target_name: undefined });
+		await timeout(0);
+
+		// Check that the reply contains only the IPyWidget client.
+		expect(messaging.messagesToWebview).toEqual([{
+			type: 'comm_info_reply',
+			comms: {
+				[widgetClient.getClientId()]: { target_name: RuntimeClientType.IPyWidget },
+			},
+		} as ToWebviewMessage]);
+	});
+
+	it('from webview: request_state rpc replies with the parent ID', async () => {
+		// Create an IPyWidget client with a request_state RPC handler.
+		const client = await session.createClient(RuntimeClientType.IPyWidget, {}, {}, 'test-client-id');
+		await timeout(0);
+		const reply = { data: { method: 'update', state: { value: 42 } } };
+		client.rpcHandler = async () => reply;
+
+		// Simulate the webview requesting comm info; this also (re-)registers the client for
+		// routing and must not duplicate the registration made when the client was created.
+		messaging.receiveMessage({ type: 'comm_info_request', target_name: undefined });
+		await timeout(0);
+		messaging.messagesToWebview.splice(0);
+
+		// Simulate the webview sending a request_state comm message.
+		const msgId = 'test-msg-id';
+		messaging.receiveMessage({
+			type: 'comm_msg',
+			comm_id: client.getClientId(),
+			msg_id: msgId,
+			data: { method: 'request_state' },
+		});
+		await timeout(0);
+
+		// Check that exactly one reply was sent, correlated with the request message ID.
+		expect(messaging.messagesToWebview).toEqual([{
+			type: 'comm_msg',
+			comm_id: client.getClientId(),
+			data: reply.data,
+			buffers: undefined,
+			parent_id: msgId,
+		} as ToWebviewMessage]);
+	});
+
 	it('from webview: get_preferred_renderer', async () => {
 		// Simulate the webview sending a get preferred renderer message.
 		const msgId = 'test-msg-id';

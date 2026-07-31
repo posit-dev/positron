@@ -233,6 +233,9 @@ export class Comm implements base.IClassicComm, Disposable {
 	 * @param message The message.
 	 */
 	private handle_msg(message: WebviewMessage.ICommMessageToWebview): void {
+		// If this is an RPC response, the ID of the RPC request message.
+		const msgId = message.parent_id;
+
 		if (this._on_msg) {
 			this._on_msg({
 				content: {
@@ -252,7 +255,18 @@ export class Comm implements base.IClassicComm, Disposable {
 					username: '',
 					version: '',
 				},
-				parent_header: {},
+				// Populate the parent message ID for RPC responses. The widget manager's
+				// fallback state-fetch path (@jupyter-widgets/base-manager
+				// _loadFromKernelModels) matches request_state replies against the request
+				// via msg.parent_header.msg_id.
+				parent_header: msgId ? {
+					date: '',
+					msg_id: msgId,
+					msg_type: 'comm_msg',
+					session: '',
+					username: '',
+					version: '',
+				} : {},
 				metadata: {},
 			});
 		} else {
@@ -261,7 +275,6 @@ export class Comm implements base.IClassicComm, Disposable {
 		}
 
 		// Simulate an 'idle' status message after an RPC response is received from the runtime.
-		const msgId = message.parent_id;
 		if (msgId) {
 			// It's an RPC response, call the callbacks.
 			const callbacks = this._callbacks.get(msgId);

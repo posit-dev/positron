@@ -111,6 +111,28 @@ describe('Positron - IPyWidgetClientInstance', () => {
 		}]);
 	});
 
+	it('from webview: rpc comm_msg failure sends no reply and no unhandled rejection', async () => {
+		// Setup an RPC handler that fails, simulating e.g. an RPC timeout on a busy kernel.
+		client.rpcHandler = async () => {
+			throw new Error('RPC timed out');
+		};
+
+		// Simulate a message from the webview for a known RPC method.
+		messaging.receiveMessage({
+			type: 'comm_msg',
+			comm_id: client.getClientId(),
+			data: {
+				method: rpcMethod,
+			},
+			msg_id: 'test-msg-id',
+		});
+		await timeout(0);
+
+		// Check that no reply was sent to the webview. The error must be handled internally
+		// (logged) rather than surfacing as an unhandled rejection.
+		expect(messaging.messagesToWebview).toEqual([]);
+	});
+
 	it('from webview: comm_close', async () => {
 		// Track the client's disposed state.
 		let disposed = false;

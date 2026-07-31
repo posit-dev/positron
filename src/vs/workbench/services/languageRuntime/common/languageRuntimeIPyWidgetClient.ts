@@ -120,7 +120,18 @@ export class IPyWidgetClientInstance extends Disposable {
 			this._rpcMethods.includes(data.method)) {
 			// It's a known RPC request, perform the RPC with the client.
 			this._logService.trace('SEND comm_msg:', data);
-			const reply = await this._client.performRpcWithBuffers(data, 5000);
+			let reply: IRuntimeClientOutput<any>;
+			try {
+				reply = await this._client.performRpcWithBuffers(data, 5000);
+			} catch (e) {
+				// Log and swallow RPC errors (e.g. timeouts when the kernel is busy) so they
+				// don't surface as unhandled rejections. The webview has its own timeout and
+				// fallback handling for unanswered requests.
+				this._logService.error(
+					`Error performing '${data.method}' RPC for client ${this._client.getClientId()}: ${e}`
+				);
+				return;
+			}
 
 			// Forward the output to the webview.
 			this._logService.trace('RECV comm_msg:', reply);

@@ -10,7 +10,7 @@ import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets
 import { INotebookEditorService } from '../../notebook/browser/services/notebookEditorService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { FromWebviewMessage, ICommOpenFromWebview, IGetPreferredRendererFromWebview, ToWebviewMessage } from '../../../services/languageRuntime/common/positronIPyWidgetsWebviewMessages.js';
+import { FromWebviewMessage, ICommOpenFromWebview, IGetCommInfoFromWebview, IGetPreferredRendererFromWebview, ToWebviewMessage } from '../../../services/languageRuntime/common/positronIPyWidgetsWebviewMessages.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IIPyWidgetsWebviewMessaging, IPyWidgetClientInstance } from '../../../services/languageRuntime/common/languageRuntimeIPyWidgetClient.js';
 import { INotebookRendererMessagingService } from '../../notebook/common/notebookRendererMessagingService.js';
@@ -422,6 +422,9 @@ export class IPyWidgetsInstance extends Disposable {
 				case 'comm_open':
 					this.handleCommOpenFromWebview(message);
 					break;
+				case 'comm_info_request':
+					await this.handleCommInfoRequestFromWebview(message);
+					break;
 				case 'get_preferred_renderer':
 					this.handleGetPreferredRendererFromWebview(message);
 					break;
@@ -436,11 +439,21 @@ export class IPyWidgetsInstance extends Disposable {
 	}
 
 	private createClient(client: IRuntimeClientInstance<unknown, unknown>) {
+		// Don't register the same client twice. This can happen when a client appears both
+		// in the constructor's listClients() snapshot and in an onDidCreateClientInstance
+		// event, or when the webview requests comm info for an already-registered client.
+		if (this._clients.has(client.getClientId())) {
+			return;
+		}
+
 		// Determine the list of RPC methods by client type.
 		let rpcMethods: string[];
 		switch (client.getClientType()) {
 			case RuntimeClientType.IPyWidget:
-				rpcMethods = ['update'];
+				// 'request_state' is sent by the widget manager's fallback state-fetch path
+				// (@jupyter-widgets/base-manager _loadFromKernelModels); its reply must be
+				// correlated with the request so the manager can match it by parent ID.
+				rpcMethods = ['update', 'request_state'];
 				break;
 			case RuntimeClientType.IPyWidgetControl:
 				rpcMethods = ['request_states'];
@@ -478,6 +491,34 @@ export class IPyWidgetsInstance extends Disposable {
 		const client = await this._session.createClient(
 			RuntimeClientType.IPyWidgetControl, message.data, message.metadata, message.comm_id);
 		this.createClient(client);
+	}
+
+	/**
+	 * Handle a comm_info_request from the webview.
+	 *
+	 * The widget manager in the webview sends this when it needs to reconstruct widget models
+	 * from the kernel - e.g. when an output is rendered after its comms were opened, and the
+	 * faster control comm state-fetch failed or timed out. Reply with the session's live
+	 * IPyWidget clients so the manager can request each widget's state individually.
+	 */
+	private async handleCommInfoRequestFromWebview(message: IGetCommInfoFromWebview) {
+		const comms: { [comm_id: string]: { target_name: string } } = {};
+		try {
+			const clients = await this._session.listClients(RuntimeClientType.IPyWidget);
+			for (const client of clients) {
+				// Ensure the client is registered for message routing before the webview
+				// sends request_state messages to it.
+				this.createClient(client);
+				if (!message.target_name || message.target_name === client.getClientType()) {
+					comms[client.getClientId()] = { target_name: client.getClientType() };
+				}
+			}
+		} catch (e) {
+			this._logService.error(`Error listing IPyWidget clients for comm_info_request: ${e}`);
+		}
+
+		// Always reply, even on error, so the webview doesn't wait forever.
+		this._messaging.postMessage({ type: 'comm_info_reply', comms });
 	}
 
 	private handleGetPreferredRendererFromWebview(message: IGetPreferredRendererFromWebview) {

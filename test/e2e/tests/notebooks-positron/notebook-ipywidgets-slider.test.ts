@@ -19,9 +19,7 @@ test.describe('Positron Notebooks: ipywidgets', {
 		await notebooksPositron.kernel.select('Python');
 	});
 
-	test.skip('IntSlider arrow keys change value', {
-		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13646' }
-	}, async function ({ app }) {
+	test('IntSlider arrow keys change value', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		await notebooksPositron.addCodeToCell(0, `
 import ipywidgets as ipw
@@ -29,7 +27,9 @@ s = ipw.IntSlider(value=50, min=0, max=100)
 display(s)
 `, { run: true });
 
-		await expect(notebooksPositron.widgetSlider).toBeVisible({ timeout: 5000 });
+		// A generous timeout: on slow machines the widget manager's control comm state
+		// fetch can time out internally (4s) before the per-comm fallback kicks in.
+		await expect(notebooksPositron.widgetSlider).toBeVisible({ timeout: 15000 });
 		await notebooksPositron.focusWidgetSlider();
 
 		// Moving from 50 to 49 proves widget interactivity
