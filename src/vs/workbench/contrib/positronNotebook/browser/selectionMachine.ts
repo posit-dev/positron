@@ -221,6 +221,7 @@ export class SelectionStateMachine extends Disposable {
 	//#region Constructor & Dispose
 	constructor(
 		private readonly _cells: IObservable<IPositronNotebookCell[]>,
+		private readonly _hiddenCellHandles: IObservable<ReadonlySet<number>> | undefined,
 		@ILogService private readonly _logService: ILogService,
 		@IEnvironmentService private readonly _environmentService: IEnvironmentService,
 	) {
@@ -694,6 +695,22 @@ export class SelectionStateMachine extends Disposable {
 		//#endregion Update active cell state
 	}
 
+	/**
+	 * Walks from the given index in the given direction, skipping cells hidden
+	 * inside collapsed sections.
+	 * @returns The next visible cell, or undefined when there is none.
+	 */
+	private _nextVisibleCell(cells: IPositronNotebookCell[], fromIndex: number, up: boolean): IPositronNotebookCell | undefined {
+		const hidden = this._hiddenCellHandles?.get();
+		const step = up ? -1 : 1;
+		for (let i = fromIndex + step; i >= 0 && i < cells.length; i += step) {
+			if (!hidden?.has(cells[i].handle)) {
+				return cells[i];
+			}
+		}
+		return undefined;
+	}
+
 	private _moveSelection(up: boolean, addMode: boolean) {
 		const state = this._state.get();
 		const cells = this._cells.get();
@@ -711,7 +728,7 @@ export class SelectionStateMachine extends Disposable {
 		// This allows us to detect whether we're expanding or shrinking the selection
 		const referenceCell = state.active;
 		const indexOfReferenceCell = referenceCell.index;
-		const nextCell = cells[indexOfReferenceCell + (up ? -1 : 1)];
+		const nextCell = this._nextVisibleCell(cells, indexOfReferenceCell, up);
 
 		if (!nextCell) {
 			return;

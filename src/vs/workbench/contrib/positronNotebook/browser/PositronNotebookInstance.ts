@@ -24,6 +24,7 @@ import { BaseCellEditorOptions, DEFAULT_LINE_NUMBERS_MIN_CHARS } from './BaseCel
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, getActiveCell, getEditingCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
+import { NotebookSectionFoldingModel } from './notebookSectionFolding.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { EditorLayoutMetadata, IDeletionSentinel, IPositronNotebookInstance, IPositronNotebookResolvedScrollPosition, NotebookKernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
@@ -343,6 +344,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	cells;
 	selectionStateMachine;
+	sectionFolding;
 	contextManager: PositronNotebookContextKeyManager;
 	visibleRanges: ICellRange[] = [];
 	hoverManager: PositronActionBarHoverManager;
@@ -580,12 +582,23 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			new PositronActionBarHoverManager(false, this.configurationService, this._hoverService)
 		);
 
+		this.sectionFolding = new NotebookSectionFoldingModel(this.cells);
+
 		this.selectionStateMachine = this._register(
-			this._instantiationService.createInstance(SelectionStateMachine, this.cells)
+			this._instantiationService.createInstance(SelectionStateMachine, this.cells, this.sectionFolding.hiddenCellHandles)
 		);
 
 		this._register(runOnChange(this.selectionStateMachine.state, (_state) => {
 			this._onDidChangeSelection.fire();
+		}));
+
+		// Expand collapsed sections when a hidden cell is selected programmatically
+		// (e.g. via the outline or find), so the selection is always visible.
+		this._register(runOnChange(this.selectionStateMachine.state, (state) => {
+			const activeCell = getActiveCell(state);
+			if (activeCell) {
+				this.sectionFolding.revealCell(activeCell);
+			}
 		}));
 
 		this._webviewPreloadService.attachNotebookInstance(this);

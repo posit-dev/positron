@@ -44,6 +44,7 @@ import { useScrollBeyondLastLinePadding } from './useScrollBeyondLastLinePadding
 export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
 	const notebookCells = useObservedValue(notebookInstance.cells);
+	const hiddenCellHandles = useObservedValue(notebookInstance.sectionFolding.hiddenCellHandles);
 
 	const deletionSentinels = useObservedValue(notebookInstance.deletionSentinels);
 	const fontStyles = useFontStyles();
@@ -163,7 +164,7 @@ export function PositronNotebookComponent() {
 					onReorder={handleReorder}
 				>
 					<AddCellButtons index={0} />
-					{renderCellsAndSentinels(notebookCells, deletionSentinels, services)}
+					{renderCellsAndSentinels(notebookCells, deletionSentinels, services, hiddenCellHandles)}
 				</SortableCellList>
 				<GhostCell />
 			</div>
@@ -194,7 +195,8 @@ export function PositronNotebookComponent() {
 function renderCellsAndSentinels(
 	cells: IPositronNotebookCell[],
 	sentinels: readonly IDeletionSentinel[],
-	services: any
+	services: any,
+	hiddenCellHandles: ReadonlySet<number>
 ): React.ReactElement[] {
 	const elements: React.ReactElement[] = [];
 	let currentOriginalIndex = 0;
@@ -219,6 +221,19 @@ function renderCellsAndSentinels(
 			currentOriginalIndex++;
 		}
 
+		// Skip cells hidden inside a collapsed markdown header section.
+		if (hiddenCellHandles.has(cell.handle)) {
+			currentOriginalIndex++;
+			return;
+		}
+
+		// When the cells that follow are hidden, target the add button at the
+		// first visible position so a new cell isn't born hidden.
+		let addCellIndex = cellArrayIndex + 1;
+		while (addCellIndex < cells.length && hiddenCellHandles.has(cells[addCellIndex].handle)) {
+			addCellIndex++;
+		}
+
 		// Render the cell wrapped in SortableCell for drag-and-drop
 		elements.push(
 			<React.Fragment key={cell.handle}>
@@ -231,7 +246,7 @@ function renderCellsAndSentinels(
 						<NotebookCell cell={cell as PositronNotebookCellGeneral} />
 					</SortableCell>
 				</NotebookErrorBoundary>
-				<AddCellButtons index={cellArrayIndex + 1} />
+				<AddCellButtons index={addCellIndex} />
 			</React.Fragment>
 		);
 		currentOriginalIndex++;

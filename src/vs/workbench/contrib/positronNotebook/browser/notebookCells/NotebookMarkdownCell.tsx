@@ -23,6 +23,8 @@ import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CellSelectionType } from '../selectionMachine.js';
+import { SectionFoldButton } from './SectionFoldButton.js';
+import { FoldedSectionHint } from './FoldedSectionHint.js';
 
 // Localized strings.
 const copyLabel = localize('positron.notebook.copy', "Copy");
@@ -103,6 +105,7 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 		<NotebookCellWrapper
 			cell={cell}
 		>
+			<SectionFoldButton cell={cell} />
 			<div className={`positron-notebook-editor-container ${editorShown ? '' : 'editor-hidden'}`}>
 				{editorShown ? <CellEditorMonacoWidget cell={cell} /> : null}
 			</div>
@@ -137,6 +140,7 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 				)
 				: null
 			}
+			<FoldedSectionHint cell={cell} />
 		</NotebookCellWrapper>
 	);
 }

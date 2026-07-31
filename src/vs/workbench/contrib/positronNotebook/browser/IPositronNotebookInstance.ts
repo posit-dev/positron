@@ -9,6 +9,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { CellKind as NotebookCellKind, ICellDto2 } from '../../notebook/common/notebookCommon.js';
 import { SelectionStateMachine } from './selectionMachine.js';
+import { NotebookSectionFoldingModel } from './notebookSectionFolding.js';
 import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IBaseCellEditorOptions } from '../../notebook/browser/notebookBrowser.js';
@@ -205,6 +206,12 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Handles complex selection scenarios like multi-select and keyboard navigation.
 	 */
 	readonly selectionStateMachine: SelectionStateMachine;
+
+	/**
+	 * Fold state for markdown header sections. Collapsing a section hides the
+	 * cells under the header in the view; the cells stay in the model.
+	 */
+	readonly sectionFolding: NotebookSectionFoldingModel;
 
 	/**
 	 * Whether cell tags are hidden across this notebook. Toggled by the "Toggle

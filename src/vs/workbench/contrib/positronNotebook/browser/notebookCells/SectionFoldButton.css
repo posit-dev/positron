@@ -1,0 +1,62 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.section-fold-button-container {
+	/*
+	 * A -24px offset horizontally aligns this area with the CellLeftActionMenu
+	 * in the cell gutter. The offset is 1px less than CellLeftActionMenu because
+	 * there is no 1px border on the parent of this element.
+	 */
+	--_container-offset-left: -24px;
+	--_container-size: 20px;
+	/*
+	 * Align the chevron with the first line of the rendered markdown, which is
+	 * padded 1rem from the top of the cell (see NotebookMarkdownCell.css).
+	 */
+	--_markdown-contents-offset-top: 1rem;
+
+	position: absolute;
+	left: var(--_container-offset-left);
+	width: var(--_container-size);
+	/* Elevate above .cell-drag-zone (z:9) so the fold toggle
+	 * receives pointer events instead of the drag zone. */
+	z-index: 10;
+
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+
+	padding-top: var(--_markdown-contents-offset-top);
+
+	& .section-fold-button {
+		/* Make action buttons compact so they fit in the left cell gutter. */
+		padding: 2px;
+		border-radius: 4px;
+
+		/* Hidden by default, shown on cell hover/selection or when collapsed. */
+		visibility: hidden;
+
+		/* Animated chevron rotation for collapse/expand. */
+		& .fold-chevron {
+			transition: transform 0.15s ease;
+		}
+
+		& .fold-chevron.collapsed {
+			transform: rotate(-90deg);
+		}
+	}
+
+	/* A collapsed section keeps its chevron visible so the hidden cells stay discoverable. */
+	& .section-fold-button.collapsed {
+		visibility: visible;
+	}
+}
+
+/* Show button when the cell is hovered, selected, or edited */
+.positron-notebook-cell:hover .section-fold-button-container .section-fold-button,
+.positron-notebook-cell.selected .section-fold-button-container .section-fold-button,
+.positron-notebook-cell.editing .section-fold-button-container .section-fold-button {
+	visibility: visible;
+}

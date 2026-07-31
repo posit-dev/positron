@@ -1,0 +1,19 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Muted label shown at the bottom of a collapsed markdown header cell,
+ * clickable to expand the section. */
+.folded-section-hint {
+	font-family: system-ui, sans-serif;
+	font-size: 12px;
+	font-style: italic;
+	opacity: 0.75;
+	padding: 0 1rem 0.5rem;
+
+	&:hover {
+		opacity: 1;
+		color: var(--vscode-textLink-foreground);
+	}
+}
