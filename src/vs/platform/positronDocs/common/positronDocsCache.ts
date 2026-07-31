@@ -12,7 +12,10 @@ import {
 import { IDocsArchive, IDocsFileStore, IDocsHttpClient, IDocsLogger, ILocalDocs, joinDocsPath } from './positronDocsIO.js';
 import { guardEntryNames, validateExtractedBundle } from './positronDocsValidate.js';
 
-const LOG_PREFIX = '[positron-docs]';
+// Names the artifact, not the app: every line here is already in a Positron log,
+// and this code handles the slim LLM bundle specifically, which is a separate
+// thing from the docs website these pages are published to.
+const LOG_PREFIX = '[llm-docs]';
 
 export interface IPositronDocsCacheOptions {
 	/** Cache root, e.g. `<userdata>/User/positron-docs`. */

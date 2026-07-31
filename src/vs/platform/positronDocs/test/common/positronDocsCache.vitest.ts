@@ -441,7 +441,7 @@ describe('PositronDocsCache: logging', () => {
 		ctx.publish(EXACT_ZIP, payload('2026.05.0-179'));
 		await ctx.cache.ensure(request());
 
-		expect(ctx.logger.infos).toContain(`[positron-docs] fetching ${EXACT_ZIP} (exact)`);
+		expect(ctx.logger.infos).toContain(`[llm-docs] fetching ${EXACT_ZIP} (exact)`);
 	});
 
 	it('names the target and the resolution when falling back to latest', async () => {
@@ -450,7 +450,7 @@ describe('PositronDocsCache: logging', () => {
 		ctx.publish(LATEST_ZIP, payload('2026.04.0-100'));
 		await ctx.cache.ensure(request());
 
-		expect(ctx.logger.infos).toContain(`[positron-docs] fetching ${LATEST_ZIP} (fallback)`);
+		expect(ctx.logger.infos).toContain(`[llm-docs] fetching ${LATEST_ZIP} (fallback)`);
 	});
 
 	it('names the target and the resolution for a dailies build', async () => {
@@ -458,7 +458,7 @@ describe('PositronDocsCache: logging', () => {
 		ctx.publish(LATEST_ZIP, payload('2026.05.0-179'));
 		await ctx.cache.ensure(request({ quality: 'dailies' }));
 
-		expect(ctx.logger.infos).toContain(`[positron-docs] fetching ${LATEST_ZIP} (latest-by-policy)`);
+		expect(ctx.logger.infos).toContain(`[llm-docs] fetching ${LATEST_ZIP} (latest-by-policy)`);
 	});
 });
 
