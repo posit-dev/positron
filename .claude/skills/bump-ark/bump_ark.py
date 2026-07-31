@@ -510,11 +510,9 @@ def open_or_update_tracked_bump(
     tip = branch_head_sha(branch)
     if tip is None:
         ensure_branch(target_sha, title, branch)
-    else:
-        main_tip = main_tip_sha()
-        if branch_submodule_sha(branch) != target_sha or missing_main_tip(tip, main_tip):
-            eprint(f"Advancing {branch} to {target_sha}")
-            stack_submodule_commit(branch, target_sha, title, tip, main_tip)
+    elif branch_submodule_sha(branch) != target_sha:
+        eprint(f"Advancing {branch} to {target_sha}")
+        stack_submodule_commit(branch, target_sha, title, tip)
 
     if pr:
         gh(
@@ -577,8 +575,10 @@ def ensure_branch(target_sha: str, title: str, branch: str):
     ):
         return
 
-    base_commit = main_tip_sha()
-    new_commit = make_bump_commit(target_sha, title, base_commit, [base_commit])
+    base_commit = gh_json("api", f"repos/{POSITRON_REPO}/git/ref/heads/{BASE_BRANCH}")[
+        "object"
+    ]["sha"]
+    new_commit = make_bump_commit(target_sha, title, base_commit)
     gh(
         "api",
         "-X",
@@ -591,20 +591,20 @@ def ensure_branch(target_sha: str, title: str, branch: str):
 
 
 # Create a commit that sets the submodule gitlink (mode 160000, type commit) to
-# `target_sha`, on top of `parents`. The tree is `tree_source`'s own tree with only
-# the gitlink swapped, so the commit differs from `tree_source` by exactly that one
-# file. Returns the new commit sha.
+# `target_sha`, parented on `parent`. The tree is `parent`'s own tree with only the
+# gitlink swapped, so the commit is a pure one-file change. Returns the new commit
+# sha.
 #
-# `tree_source` must be one of `parents`, normally the newest one (main's tip when
-# merging main in, otherwise the sole parent). A PR's diff is measured from its
-# merge base, so building the tree from that same parent keeps it as the merge base
-# and the diff scoped to the gitlink alone. Building the tree from a commit outside
-# `parents` would leave everything that commit added since the real merge base
-# looking like part of this change.
-def make_bump_commit(target_sha: str, title: str, tree_source: str, parents: list[str]) -> str:
-    base_tree = gh_json("api", f"repos/{POSITRON_REPO}/git/commits/{tree_source}")[
-        "tree"
-    ]["sha"]
+# Why parent's tree and not current main's tree: a PR's diff is measured from its
+# merge base, the commit the branch was cut from, which stacking never moves. If we
+# rebuilt the tree from current main, every file main touched since the fork would
+# land in the bump PR's diff, and a later main edit to one of them would conflict on
+# merge. A pure gitlink delta keeps the PR touching only the submodule, however far
+# main has drifted.
+def make_bump_commit(target_sha: str, title: str, parent: str) -> str:
+    base_tree = gh_json("api", f"repos/{POSITRON_REPO}/git/commits/{parent}")["tree"][
+        "sha"
+    ]
     new_tree = gh_json(
         "api",
         "-X",
@@ -631,7 +631,7 @@ def make_bump_commit(target_sha: str, title: str, tree_source: str, parents: lis
         f"repos/{POSITRON_REPO}/git/commits",
         "--input",
         "-",
-        input_obj={"message": title, "tree": new_tree, "parents": parents},
+        input_obj={"message": title, "tree": new_tree, "parents": [parent]},
     )["sha"]
 
 
@@ -647,40 +647,12 @@ def branch_submodule_sha(branch: str) -> Optional[str]:
     return json.loads(proc.stdout)["sha"]
 
 
-def main_tip_sha() -> str:
-    return gh_json("api", f"repos/{POSITRON_REPO}/git/ref/heads/{BASE_BRANCH}")[
-        "object"
-    ]["sha"]
-
-
-# True when `main_tip` isn't reachable from `tip` yet, i.e. this branch's last bump
-# commit predates `main_tip` and still needs a merge commit to pull it in. Left
-# unmerged, the branch and main have each changed the same gitlink path since their
-# last common ancestor, which GitHub can't auto-resolve and shows as a conflict.
-def stale_against_main(compare_status: str) -> bool:
-    return compare_status != "behind"
-
-
-def missing_main_tip(tip: str, main_tip: str) -> bool:
-    if tip == main_tip:
-        return False
-    status = gh_json("api", f"repos/{POSITRON_REPO}/compare/{tip}...{main_tip}")[
-        "status"
-    ]
-    return stale_against_main(status)
-
-
 # Advance an existing branch to a new commit that sets the submodule to
-# `target_sha`. Always merges in main's current tip as a second parent (unless it's
-# already the branch's tip), so a bump branch whose gitlink change would otherwise
-# conflict with one already merged into main gets folded in before it can ever show
-# as conflicted on GitHub. The ref PATCH omits `force`; since `tip` is always one of
-# the new commit's parents, moving the ref there is still a fast-forward, so a
-# non-fast-forward (someone advanced the branch since `tip` was read) is rejected
-# rather than clobbering their work.
-def stack_submodule_commit(branch: str, target_sha: str, title: str, tip: str, main_tip: str):
-    parents = [tip] if tip == main_tip else [tip, main_tip]
-    new_commit = make_bump_commit(target_sha, title, main_tip, parents)
+# `target_sha`, stacked on the current tip so the ref move is a fast-forward. The
+# ref PATCH omits `force`, so a non-fast-forward (someone advanced the branch since
+# `tip` was read) is rejected rather than clobbering their work.
+def stack_submodule_commit(branch: str, target_sha: str, title: str, tip: str):
+    new_commit = make_bump_commit(target_sha, title, tip)
     gh(
         "api",
         "-X",

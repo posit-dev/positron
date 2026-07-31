@@ -26,7 +26,6 @@ from bump_ark import (  # noqa: E402
     first_parent_commits,
     parse_args,
     pr_resolution,
-    stale_against_main,
     tag_line,
     walk_first_parents,
 )
@@ -247,22 +246,6 @@ class AuthorGateTest(unittest.TestCase):
 
     def test_foreign_pr_refuses(self):
         self.assertTrue(blocked_by_pr_owner(True, True, "someone", "me", False))
-
-
-class StaleAgainstMainTest(unittest.TestCase):
-    def test_behind_means_already_merged(self):
-        self.assertFalse(stale_against_main("behind"))
-
-    def test_ahead_means_still_missing(self):
-        self.assertTrue(stale_against_main("ahead"))
-
-    def test_diverged_means_still_missing(self):
-        self.assertTrue(stale_against_main("diverged"))
-
-    def test_identical_means_still_missing(self):
-        # Unreachable via missing_main_tip's tip == main_tip shortcut, but the pure
-        # function itself has no such guard, so cover it directly.
-        self.assertTrue(stale_against_main("identical"))
 
 
 class BuildBodyTest(unittest.TestCase):
