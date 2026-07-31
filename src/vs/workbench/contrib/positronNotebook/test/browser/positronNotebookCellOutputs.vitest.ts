@@ -240,6 +240,16 @@ describe('Positron Notebook Cell Outputs', () => {
 			return { mime: 'text/html', data: VSBuffer.fromString('<p>Hello world</p>') };
 		}
 
+		function scriptFragmentOutputItem() {
+			// The `%%html` repro from #10508: an inert div plus an inline script
+			// that manipulates the DOM. Rendering this inline used to crash the
+			// React renderer and take the whole notebook down with it.
+			return {
+				mime: 'text/html',
+				data: VSBuffer.fromString('<div id="output"></div>\n<script>document.getElementById(\'output\').innerHTML = "<p>Hello from JavaScript!</p>";</script>'),
+			};
+		}
+
 		function inertFullDocumentOutputItem() {
 			// A full HTML document with styles but no active content (no scripts or
 			// iframes), e.g. Great Tables output. Must render inline, not in a webview.
@@ -264,6 +274,27 @@ describe('Positron Notebook Cell Outputs', () => {
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].preloadMessageResult, 'should have a preloadMessageResult').toBeDefined();
+			expect(outputs[0].preloadMessageResult!.preloadMessageType).toBe('display');
+		});
+
+		it('script-bearing HTML fragment routes to a webview instead of rendering inline (#10508)', () => {
+			const cellWithScriptHtml: TestCellInput = {
+				source: '%%html\n<div id="output"></div>\n<script>...</script>',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [scriptFragmentOutputItem()],
+				}],
+			};
+			const notebook = createTestPositronNotebookInstance([cellWithScriptHtml], ctx);
+			const cell = notebook.cells.get()[0];
+
+			expect(cell.isCodeCell(), 'cell should be a code cell').toBe(true);
+			const outputs = cell.outputs.get();
+			expect(outputs.length).toBe(1);
+			expect(outputs[0].preloadMessageResult, 'script-bearing HTML must route to a sandboxed webview').toBeDefined();
 			expect(outputs[0].preloadMessageResult!.preloadMessageType).toBe('display');
 		});
 

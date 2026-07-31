@@ -66,4 +66,75 @@ test.describe('Positron Notebooks: Cell Output', {
 			await expect(notebooksPositron.cellOutput(0)).toBeEmpty();
 		});
 	});
+
+	test('%%html with inline script renders in a webview and the notebook survives', async function ({ app, python }) {
+		const { notebooks, notebooksPositron } = app.workbench;
+
+		await test.step('Setup: Open a notebook and select the Python kernel', async () => {
+			await notebooks.createNewNotebook();
+			await notebooksPositron.expectToBeVisible();
+			await notebooksPositron.kernel.select('Python');
+		});
+
+		await test.step('Run a %%html cell whose script manipulates the DOM', async () => {
+			const htmlWithScript = [
+				'%%html',
+				'<div id="output"></div>',
+				'<script>',
+				`document.getElementById('output').innerHTML = "<p>Hello from JavaScript!</p>";`,
+				'</script>',
+			].join('\n');
+			await notebooksPositron.addCodeToCell(0, htmlWithScript, { fast: true, run: true, waitForSpinner: true });
+		});
+
+		await test.step('Script executes inside a sandboxed webview', async () => {
+			await expect(notebooksPositron.frameLocator.getByText('Hello from JavaScript!')).toBeVisible({ timeout: 30000 });
+		});
+
+		await test.step('Notebook still works: add and run another cell', async () => {
+			await notebooksPositron.addCodeToCell(1, 'print("still alive")', { run: true, waitForSpinner: true });
+			await notebooksPositron.expectCellCountToBe(2);
+			await notebooksPositron.expectOutputAtIndex(1, ['still alive']);
+		});
+	});
+
+	test('IPython.display.Image wider than the cell scales down to fit', async function ({ app, python }) {
+		const { notebooks, notebooksPositron } = app.workbench;
+
+		await test.step('Setup: Open a notebook and select the Python kernel', async () => {
+			await notebooks.createNewNotebook();
+			await notebooksPositron.expectToBeVisible();
+			await notebooksPositron.kernel.select('Python');
+		});
+
+		await test.step('Display a 3000px-wide PNG built with the stdlib', async () => {
+			const wideImageCode = [
+				'import zlib, struct',
+				'from IPython.display import Image, display',
+				'w, h = 3000, 50',
+				`chunk = lambda t, d: struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d))`,
+				`ihdr = struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)`,
+				String.raw`raw = (b'\x00' + b'\x30\x60\x90' * w) * h`,
+				String.raw`png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', ihdr) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')`,
+				'display(Image(data=png))',
+			].join('\n');
+			await notebooksPositron.addCodeToCell(0, wideImageCode, { fast: true, run: true, waitForSpinner: true });
+		});
+
+		const image = notebooksPositron.cellOutput(0).locator('img');
+
+		await test.step('Image renders and decodes at its natural size', async () => {
+			await expect(image).toBeVisible({ timeout: 30000 });
+			await expect.poll(() => image.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(3000);
+		});
+
+		await test.step('Rendered image is constrained to the output width', async () => {
+			const imageBox = await image.boundingBox();
+			const outputBox = await notebooksPositron.cellOutput(0).boundingBox();
+			expect(imageBox).not.toBeNull();
+			expect(outputBox).not.toBeNull();
+			expect(imageBox!.width, 'image must not overflow its output container').toBeLessThanOrEqual(outputBox!.width);
+			expect(imageBox!.width, 'a 3000px image must be scaled down, not shown at natural size').toBeLessThan(3000);
+		});
+	});
 });
