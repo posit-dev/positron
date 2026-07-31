@@ -178,6 +178,16 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 				if (parsedOutput.preloadMessageResult === undefined) {
 					return;
 				}
+			} else if (preferredOutput.rendererId) {
+				// A registered notebook renderer extension can render this
+				// output; host it in the shared renderer-runtime webview (the
+				// generic fallback for mime types we don't render natively).
+				parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
+					instance: this._instance,
+					outputId: output.outputId,
+					outputs: outputItems,
+					rendererMime: preferredOutputItem.mime,
+				});
 			} else if (preferredOutputItem.mime === 'text/html' && htmlRenderMode(rawOutput) === 'webview') {
 				// Route complex HTML (iframe, script) to a sandboxed webview. Inert full
 				// documents (e.g. Great Tables) fall through and render inline.

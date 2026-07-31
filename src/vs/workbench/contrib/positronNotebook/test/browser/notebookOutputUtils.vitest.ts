@@ -12,6 +12,7 @@ import { ParsedDataExplorerOutput } from '../../browser/PositronNotebookCells/IP
 import { HtmlRenderMode, htmlRenderMode, resolvePreferredOutputItem } from '../../browser/PositronNotebookCells/notebookOutputUtils.js';
 import { parseVariablePath } from '../../../../services/positronDataExplorer/common/utils.js';
 import { INotebookService } from '../../../notebook/common/notebookService.js';
+import { IOrderedMimeType, RENDERER_NOT_AVAILABLE } from '../../../notebook/common/notebookCommon.js';
 
 function makeOutputItem(mime: string, text: string) {
 	return { mime, data: VSBuffer.fromString(text) };
@@ -213,6 +214,49 @@ describe('Notebook Output Utils', () => {
 			];
 
 			expect(resolvePreferred(items)?.item.mime).toBe(DATA_EXPLORER_MIME_TYPE);
+		});
+
+		it('routes a custom mime with a registered renderer to that renderer', () => {
+			const items = [
+				makeOutputItem('application/vnd.vegalite.v5+json', '{"mark": "point"}'),
+				makeOutputItem('text/plain', '<VegaLite chart>'),
+			];
+			// Emulates the registry ordering when a vegalite renderer extension
+			// is installed: the custom mime sorts first and has a renderer.
+			const ordered: IOrderedMimeType[] = [
+				{ mimeType: 'application/vnd.vegalite.v5+json', rendererId: 'vega.renderer', isTrusted: true },
+				{ mimeType: 'text/plain', rendererId: 'vscode.builtin-renderer', isTrusted: true },
+			];
+
+			const result = resolvePreferredOutputItem(items, ordered);
+			expect(result?.item.mime).toBe('application/vnd.vegalite.v5+json');
+			expect(result?.rendererId).toBe('vega.renderer');
+		});
+
+		it('does not set rendererId for natively rendered mimes', () => {
+			const items = [makeOutputItem('text/html', '<p>hi</p>')];
+			const ordered: IOrderedMimeType[] = [
+				{ mimeType: 'text/html', rendererId: 'vscode.builtin-renderer', isTrusted: true },
+			];
+
+			const result = resolvePreferredOutputItem(items, ordered);
+			expect(result?.item.mime).toBe('text/html');
+			expect(result?.rendererId).toBeUndefined();
+		});
+
+		it('skips untrusted renderer entries', () => {
+			const items = [
+				makeOutputItem('application/vnd.vegalite.v5+json', '{}'),
+				makeOutputItem('text/plain', 'fallback'),
+			];
+			const ordered: IOrderedMimeType[] = [
+				{ mimeType: 'application/vnd.vegalite.v5+json', rendererId: 'vega.renderer', isTrusted: false },
+				{ mimeType: 'text/plain', rendererId: RENDERER_NOT_AVAILABLE, isTrusted: true },
+			];
+
+			const result = resolvePreferredOutputItem(items, ordered);
+			expect(result?.item.mime).toBe('text/plain');
+			expect(result?.rendererId).toBeUndefined();
 		});
 
 		it('returns the first item when no mime is renderable', () => {

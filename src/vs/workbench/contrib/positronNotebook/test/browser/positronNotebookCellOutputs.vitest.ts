@@ -7,7 +7,8 @@
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { CellEditType, CellKind } from '../../../notebook/common/notebookCommon.js';
+import { CellEditType, CellKind, RENDERER_NOT_AVAILABLE } from '../../../notebook/common/notebookCommon.js';
+import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { CellContextKeys } from '../../common/cellContextKeys.js';
 import { hasWebviewOutput } from '../../browser/PositronNotebookCells/notebookOutputUtils.js';
 import { createTestPositronNotebookInstance, TestCellInput } from './testPositronNotebookInstance.js';
@@ -380,6 +381,36 @@ describe('Positron Notebook Cell Outputs', () => {
 			expect(cell.isCodeCell()).toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs[0].parsed.type, 'text/plain must beat the rendererless custom mime').toBe('text');
+		});
+
+		it('custom mime with a registered renderer routes to the renderer webview', () => {
+			// The test container has no renderer extensions, so emulate an
+			// installed vegalite renderer at the registry boundary.
+			vi.spyOn(ctx.get(INotebookService), 'getMimeTypeInfo').mockReturnValue([
+				{ mimeType: 'application/vnd.vegalite.v5+json', rendererId: 'vega.renderer', isTrusted: true },
+				{ mimeType: 'text/plain', rendererId: RENDERER_NOT_AVAILABLE, isTrusted: true },
+			]);
+
+			const vegaliteCell: TestCellInput = {
+				source: 'chart',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [
+						{ mime: 'application/vnd.vegalite.v5+json', data: VSBuffer.fromString('{"mark": "point"}') },
+						{ mime: 'text/plain', data: VSBuffer.fromString('<VegaLite chart>') },
+					],
+				}],
+			};
+			const notebook = createTestPositronNotebookInstance([vegaliteCell], ctx);
+			const cell = notebook.cells.get()[0];
+
+			expect(cell.isCodeCell()).toBe(true);
+			const outputs = cell.outputs.get();
+			expect(outputs[0].preloadMessageResult, 'renderer-backed mime must route to a webview').toBeDefined();
+			expect(outputs[0].preloadMessageResult!.preloadMessageType).toBe('display');
 		});
 
 		it('custom mime with no fallback surfaces an actionable unknown-output message', () => {

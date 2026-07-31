@@ -38,14 +38,14 @@ export function stubNotebookEditorServices(
 
 	// Override the real webview preload service with a lightweight mock to
 	// avoid creating real webviews (which create undisposed disposables in
-	// unit tests). Returns a display-type result for rawHtml outputs and
-	// undefined otherwise.
+	// unit tests). Returns a display-type result for rawHtml and rendererMime
+	// outputs and undefined otherwise.
 	// eslint-disable-next-line local/code-no-dangerous-type-assertions
 	svc.stub(IPositronWebviewPreloadService, {
 		initialize: () => { },
 		attachNotebookInstance: () => { },
-		addNotebookOutput: (opts: { outputId: string; rawHtml?: string }) => {
-			if (opts.rawHtml) {
+		addNotebookOutput: (opts: { outputId: string; rawHtml?: string; rendererMime?: string }) => {
+			if (opts.rawHtml || opts.rendererMime) {
 				return {
 					preloadMessageType: 'display' as const,
 					webview: Promise.resolve({

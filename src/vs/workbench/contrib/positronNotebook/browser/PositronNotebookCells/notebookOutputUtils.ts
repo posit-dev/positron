@@ -6,7 +6,7 @@
 import { NotebookCellOutputItem, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { isDataExplorerMimeType } from '../getOutputContents.js';
 import { isComplexHtml } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
-import { IOrderedMimeType } from '../../../notebook/common/notebookCommon.js';
+import { IOrderedMimeType, RENDERER_NOT_AVAILABLE } from '../../../notebook/common/notebookCommon.js';
 
 /**
  * Whether Positron notebooks render this mime type natively inline. This is the
@@ -39,6 +39,13 @@ function isNativelyRenderedMime(mime: string): boolean {
 export interface PreferredOutputItem {
 	/** The output item to parse and render. */
 	item: NotebookCellOutputItem;
+
+	/**
+	 * ID of the registered notebook renderer extension that should render the
+	 * item. Only set when Positron does not render the mime type natively; the
+	 * caller routes such items to the renderer-runtime webview.
+	 */
+	rendererId?: string;
 }
 
 /**
@@ -46,10 +53,11 @@ export interface PreferredOutputItem {
  *
  * Walks the renderer-registry ordering (`INotebookService.getMimeTypeInfo`,
  * the same machinery the upstream notebook editor uses) and picks the first
- * mime type Positron notebooks render natively. This means an unrenderable
- * custom mime (e.g. `application/3dmoljs_load.v0`) never beats a renderable
- * fallback like `text/html` -- the old hardcoded priority list preferred any
- * `application/*` mime and errored on such bundles.
+ * mime type that either renders natively or has a registered notebook renderer
+ * extension. This means an unrenderable custom mime (e.g.
+ * `application/3dmoljs_load.v0`) never beats a renderable fallback like
+ * `text/html` -- the old hardcoded priority list preferred any `application/*`
+ * mime and errored on such bundles.
  *
  * @param outputItems Array of output items from a cell output object.
  * @param orderedMimeTypes The output's mime types ordered by the notebook
@@ -76,8 +84,14 @@ export function resolvePreferredOutputItem(
 
 	for (const mimeTypeInfo of orderedMimeTypes) {
 		const item = outputItems.find(item => item.mime === mimeTypeInfo.mimeType);
-		if (item && isNativelyRenderedMime(item.mime)) {
+		if (!item) {
+			continue;
+		}
+		if (isNativelyRenderedMime(item.mime)) {
 			return { item };
+		}
+		if (mimeTypeInfo.rendererId !== RENDERER_NOT_AVAILABLE && mimeTypeInfo.isTrusted) {
+			return { item, rendererId: mimeTypeInfo.rendererId };
 		}
 	}
 

@@ -323,12 +323,14 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		instance,
 		outputId,
 		outputs,
-		rawHtml
+		rawHtml,
+		rendererMime
 	}: {
 		instance: IPositronNotebookInstance;
 		outputId: NotebookOutput['outputId'];
 		outputs: NotebookOutput['outputs'];
 		rawHtml?: string;
+		rendererMime?: string;
 	}): NotebookPreloadOutputResults | undefined {
 		const notebookMessages = this._messagesByNotebookId.get(instance.getId());
 
@@ -371,6 +373,22 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 				preloadMessageType: 'display',
 				webview: this._getOrCreateOverlayWebview(instance, outputId, rawHtml, () =>
 					this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, rawHtml, rawHtmlBaseUri)),
+			};
+		}
+
+		// Outputs whose preferred mime type has a registered notebook renderer
+		// extension (but no native Positron rendering) are hosted in the shared
+		// renderer-runtime webview, keyed by output content so they rebuild on
+		// change.
+		if (rendererMime) {
+			const rendererOutput = PositronWebviewPreloadService.notebookMessageToRuntimeOutput(
+				{ outputId, outputs },
+				RuntimeOutputKind.WebviewPreload
+			);
+			return {
+				preloadMessageType: 'display',
+				webview: this._getOrCreateOverlayWebview(instance, outputId, this._fingerprintOutputs(outputs), () =>
+					this._createNotebookRendererWebview(instance, rendererOutput)),
 			};
 		}
 
@@ -440,6 +458,30 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		notebookMessages.push(runtimeOutput);
 		return { preloadMessageType: messageType };
 	}
+	/**
+	 * Create a webview that renders an output through a registered notebook
+	 * renderer extension. This is the generic fallback for mime types Positron
+	 * does not render natively (e.g. `application/vnd.vegalite.v5+json`).
+	 * Unlike plot webviews, no stored preload messages are replayed: extension
+	 * renderers are self-contained.
+	 */
+	private async _createNotebookRendererWebview(
+		instance: IPositronNotebookInstance,
+		displayMessage: ILanguageRuntimeMessageWebOutput,
+	): Promise<INotebookOutputWebview> {
+		const webview = await this._notebookOutputWebviewService.createMultiMessageWebview({
+			runtimeId: instance.getId(),
+			preReqMessages: [],
+			displayMessage,
+		});
+
+		if (!webview) {
+			throw new Error(`PositronWebviewPreloadService: Failed to create renderer webview for output ${displayMessage.id} in notebook ${instance.getId()}`);
+		}
+
+		return webview;
+	}
+
 	/**
 	 * Create a webview that renders a PDF inline in a notebook cell using the
 	 * positron-pdf-server extension's full viewer with "Open With..." support.

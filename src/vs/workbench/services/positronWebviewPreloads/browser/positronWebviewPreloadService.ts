@@ -76,6 +76,10 @@ export interface IPositronWebviewPreloadService {
 	 * Add output from a notebook cell and process it for webview preloads.
 	 * When rawHtml is provided, the output bypasses MIME-based type detection
 	 * and is rendered directly in an isolated overlay webview.
+	 * When rendererMime is provided, the output is rendered by the registered
+	 * notebook renderer extension for that mime type in a renderer-runtime
+	 * webview (the generic fallback for mime types Positron does not render
+	 * natively).
 	 */
 	addNotebookOutput(
 		opts:
@@ -84,6 +88,7 @@ export interface IPositronWebviewPreloadService {
 				outputId: string;
 				outputs: { mime: string; data: VSBuffer }[];
 				rawHtml?: string;
+				rendererMime?: string;
 			}
 	): NotebookPreloadOutputResults | undefined;
 }
