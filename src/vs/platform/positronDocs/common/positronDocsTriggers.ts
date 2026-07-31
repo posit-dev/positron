@@ -6,7 +6,8 @@
 import { IDocsBundleRequest } from './positronDocsBundle.js';
 import { IDocsLogger, ILocalDocs } from './positronDocsIO.js';
 
-const LOG_PREFIX = '[positron-docs]';
+// Matches the cache module's prefix so one grep covers the whole feature.
+const LOG_PREFIX = '[llm-docs]';
 
 /** The slice of PositronDocsCache the triggers need. */
 export interface IDocsCacheLike {
