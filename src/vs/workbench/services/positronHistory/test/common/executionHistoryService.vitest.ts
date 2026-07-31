@@ -10,6 +10,7 @@ import { ILogService, NullLogService } from '../../../../../platform/log/common/
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent, INotebookLanguageRuntimeSession, IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IExecutionHistoryService, ExecutionEntryType, IExecutionHistoryEntry, projectExecutionEntriesToConsoleContent, DEFAULT_CONSOLE_CONTENT_ENTRY_COUNT } from '../../common/executionHistoryService.js';
+import { getConsoleContent } from '../../common/helpers/sessionConsoleContent.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ExecutionHistoryService } from '../../common/executionHistory.js';
@@ -1059,6 +1060,43 @@ describe('ExecutionHistoryService', () => {
 		// Verify storage was nulled out (store(key, null, ...)) to delete the histories.
 		// store() signature is (key, value, scope, target) -- match scope/target with expect.any(Number).
 		expect(storeSpy).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`positron\\..*\\.${sessionId}`)), null, expect.any(Number), expect.any(Number));
+	});
+
+	describe('getConsoleContent', () => {
+		/** Fire the messages that record a single completed code execution for a session. */
+		function recordExecution(session: TestLanguageRuntimeSession, executionId: string, code: string, output: string): void {
+			const now = new Date().toISOString();
+			session.onDidReceiveRuntimeMessageInputEmitter.fire({ parent_id: executionId, id: `input-${executionId}`, code, when: now });
+			session.onDidReceiveRuntimeMessageOutputEmitter.fire({ parent_id: executionId, id: `output-${executionId}`, when: now, data: { 'text/plain': output } });
+			session.onDidReceiveRuntimeMessageStateEmitter.fire({ parent_id: executionId, id: `state-${executionId}`, state: 'idle', when: now });
+		}
+
+		it('projects the recent console content for a known session', () => {
+			const session = createSession('console-session-1');
+			runtimeSessionService.onWillStartSessionEmitter.fire({
+				session,
+				startMode: RuntimeStartMode.Starting,
+				hasConsole: true,
+				activate: false
+			});
+			recordExecution(session, 'exec-1', 'print("Hi")', 'Hi');
+
+			const content = getConsoleContent(executionHistoryService, runtimeSessionService, 'console-session-1');
+
+			expect(content.map(({ input, output, error }) => ({ input, output, error }))).toEqual([
+				{ input: 'print("Hi")', output: 'Hi', error: undefined },
+			]);
+		});
+
+		it('throws for an unknown session and does not allocate an execution history', () => {
+			// getExecutionEntries() creates-on-read, so a bogus session ID must be
+			// rejected before it reaches the service to avoid a permanent leak.
+			const getEntriesSpy = vi.spyOn(executionHistoryService, 'getExecutionEntries');
+
+			expect(() => getConsoleContent(executionHistoryService, runtimeSessionService, 'does-not-exist'))
+				.toThrow(/No such session: does-not-exist/);
+			expect(getEntriesSpy).not.toHaveBeenCalled();
+		});
 	});
 });
 

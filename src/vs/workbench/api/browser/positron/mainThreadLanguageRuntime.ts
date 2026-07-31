@@ -55,7 +55,8 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { getSessionVariables, querySessionTables } from '../../../services/positronVariables/common/helpers/sessionVariableQueries.js';
-import { IExecutionHistoryService, projectExecutionEntriesToConsoleContent } from '../../../services/positronHistory/common/executionHistoryService.js';
+import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
+import { getConsoleContent } from '../../../services/positronHistory/common/helpers/sessionConsoleContent.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { LanguageRuntimeDynState } from 'positron';
@@ -1986,8 +1987,8 @@ export class MainThreadLanguageRuntime
 	}
 
 	async $getConsoleContent(sessionId: string, numberOfEntries?: number): Promise<ISerializedConsoleContentEntry[]> {
-		return projectExecutionEntriesToConsoleContent(
-			this._executionHistoryService.getExecutionEntries(sessionId), numberOfEntries);
+		return getConsoleContent(
+			this._executionHistoryService, this._runtimeSessionService, sessionId, numberOfEntries);
 	}
 
 	/**
