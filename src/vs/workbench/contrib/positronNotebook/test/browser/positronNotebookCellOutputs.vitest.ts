@@ -310,6 +310,29 @@ describe('Positron Notebook Cell Outputs', () => {
 			expect(outputs[0].parsed.type).toBe('html');
 		});
 
+		it('isolated: true metadata routes inert HTML to a webview (#12686)', () => {
+			// Voila-style output: inert full document, but the Jupyter output
+			// metadata demands iframe-grade isolation so its styles can't leak.
+			const isolatedCell: TestCellInput = {
+				source: 'display(IsolatedHTML())',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [{ mime: 'text/html', data: VSBuffer.fromString('<html><head><style>body { background: red; }</style></head><body><p>isolated</p></body></html>') }],
+					metadata: { outputType: 'display_data', metadata: { isolated: true } },
+				}],
+			};
+			const notebook = createTestPositronNotebookInstance([isolatedCell], ctx);
+			const cell = notebook.cells.get()[0];
+
+			expect(cell.isCodeCell()).toBe(true);
+			const outputs = cell.outputs.get();
+			expect(outputs[0].preloadMessageResult, 'isolated output must route to a webview').toBeDefined();
+			expect(outputs[0].preloadMessageResult!.preloadMessageType).toBe('display');
+		});
+
 		it('hasWebviewOutput is true for a webview output and false for an inline output', () => {
 			const webviewCell: TestCellInput = {
 				source: 'display_map()',

@@ -336,6 +336,27 @@ describe('Notebook Output Utils', () => {
 				expect(htmlRenderMode(html)).toBe(mode);
 			});
 		}
+
+		describe('isolated output metadata', () => {
+			it('routes an inert fragment to webview when live execution metadata sets isolated', () => {
+				// runtimeNotebookCellExecution nests the Jupyter output metadata
+				// under a `metadata` key (runtimeNotebookCellExecution.ts).
+				const metadata = { outputType: 'display_data', metadata: { isolated: true } };
+				expect(htmlRenderMode('<p>styled dashboard</p>', metadata)).toBe('webview');
+			});
+
+			it('routes to webview when isolated is set at the top level', () => {
+				expect(htmlRenderMode('<p>styled dashboard</p>', { isolated: true })).toBe('webview');
+			});
+
+			it('keeps the inline route when isolated is false', () => {
+				expect(htmlRenderMode('<p>hi</p>', { metadata: { isolated: false } })).toBe('fragment');
+			});
+
+			it('keeps the inline route when metadata is absent', () => {
+				expect(htmlRenderMode('<p>hi</p>', undefined)).toBe('fragment');
+			});
+		});
 	});
 
 	describe('parseVariablePath', () => {

@@ -44,6 +44,8 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { HorizontalSplitter, HorizontalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/horizontalSplitter.js';
 import { serializeJsonOutput } from '../copyJsonUtils.js';
 import { CellSelectionType } from '../selectionMachine.js';
+import { DeferredImage } from './DeferredImage.js';
+import { NotebookLink } from './NotebookLink.js';
 
 /** The minimum height (pixels) that scrollable outputs can be resized to. */
 const MINIMUM_SCROLLABLE_OUTPUT_HEIGHT = 50;
@@ -321,7 +323,8 @@ interface CellOutputProps extends NotebookCellOutputs {
 	onShowFullOutput: () => void;
 }
 
-const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
+/** A single rendered cell output. Exported for testing. */
+export const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 	if (output.preloadMessageResult) {
 		return <PreloadMessageOutput outputScrolling={output.outputScrolling} preloadMessageResult={output.preloadMessageResult} />;
 	}
@@ -345,9 +348,18 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 			return <img alt='output image' height={parsed.height} src={parsed.dataUrl} width={parsed.width} />;
 		case 'html':
 			// Full HTML documents go in a shadow root; renderHtml only handles fragments.
+			// The overrides mirror the markdown pipeline: DeferredImage resolves
+			// relative image paths against the notebook directory and NotebookLink
+			// resolves relative link targets. Known limitation: images inside
+			// shadow-root documents are not rewritten.
 			return htmlRenderMode(parsed.content) === 'shadowRoot'
 				? <ShadowDomContent content={parsed.content} trustedTypesPolicy={htmlOutputTTPolicy} />
-				: renderHtml(parsed.content);
+				: renderHtml(parsed.content, {
+					componentOverrides: {
+						img: DeferredImage,
+						a: NotebookLink,
+					},
+				});
 		case 'markdown':
 			return <Markdown content={parsed.content} />;
 		case 'latex':

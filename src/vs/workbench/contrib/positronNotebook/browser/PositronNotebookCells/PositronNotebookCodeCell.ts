@@ -188,9 +188,10 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 					outputs: outputItems,
 					rendererMime: preferredOutputItem.mime,
 				});
-			} else if (preferredOutputItem.mime === 'text/html' && htmlRenderMode(rawOutput) === 'webview') {
-				// Route complex HTML (iframe, script) to a sandboxed webview. Inert full
-				// documents (e.g. Great Tables) fall through and render inline.
+			} else if (preferredOutputItem.mime === 'text/html' && htmlRenderMode(rawOutput, output.metadata) === 'webview') {
+				// Route complex HTML (iframe, script) and outputs whose metadata
+				// requests isolation to a sandboxed webview. Inert full documents
+				// (e.g. Great Tables) fall through and render inline.
 				parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
 					instance: this._instance,
 					outputId: output.outputId,

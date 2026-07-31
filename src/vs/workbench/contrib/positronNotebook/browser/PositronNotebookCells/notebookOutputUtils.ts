@@ -121,6 +121,24 @@ export function hasWebviewOutput(outputs: NotebookCellOutputs[]): boolean {
 export type HtmlRenderMode = 'webview' | 'shadowRoot' | 'fragment';
 
 /**
+ * Whether the Jupyter output metadata requests isolated rendering. The flag
+ * lives at the top level of the output metadata in .ipynb files; live kernel
+ * execution nests it under a `metadata` key (see runtimeNotebookCellExecution),
+ * so both locations are checked.
+ */
+function isIsolatedOutput(metadata: Record<string, unknown> | undefined): boolean {
+	if (!metadata) {
+		return false;
+	}
+	if (metadata['isolated']) {
+		return true;
+	}
+	const nested = metadata['metadata'];
+	return typeof nested === 'object' && nested !== null &&
+		Boolean((nested as Record<string, unknown>)['isolated']);
+}
+
+/**
  * Decide how to render a piece of `text/html` output. This is the single source of
  * truth for the routing both the model (webview vs inline) and the renderer
  * (shadow root vs fragment) depend on.
@@ -128,8 +146,16 @@ export type HtmlRenderMode = 'webview' | 'shadowRoot' | 'fragment';
  * Uses substring matching rather than a parser intentionally: a false positive only
  * routes to a webview (safe, still renders), while a false negative for active
  * content would be a security gap, so we prefer conservative detection.
+ *
+ * @param metadata The cell output's metadata, when available. Jupyter's
+ *   `isolated: true` contract ("render in an iframe") forces the webview route
+ *   regardless of the HTML content.
  */
-export function htmlRenderMode(html: string): HtmlRenderMode {
+export function htmlRenderMode(html: string, metadata?: Record<string, unknown>): HtmlRenderMode {
+	if (isIsolatedOutput(metadata)) {
+		return 'webview';
+	}
+
 	if (isComplexHtml(html)) {
 		return 'webview';
 	}
