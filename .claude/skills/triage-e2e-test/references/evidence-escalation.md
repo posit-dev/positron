@@ -78,13 +78,26 @@ change the diagnosis.
 
 ## Why the summary can't see everything
 
-The mined log excerpt greps for **error-shaped lines only** (`no such file`,
-`traceback`, `\w+error:`, `failed to \w+`, etc. -- see `LOG_ERROR_RE` in
-`e2e-process-s3.js`). It cannot show sequence or timing: `[info]`-level lines
-never match, so a **race** (two things in the wrong order, neither erroring on
-its own) is invisible in the digest by construction. Any time the question is
-"what happened, in what order" rather than "what error was thrown," go straight
-to the raw logs (Level 4).
+The mined log excerpt is **time-sliced to the failing action's wait** and keeps
+all severities inside it, plus a derived "went quiet before the deadline" report
+(see `mineLogs` in `lib-failure-window.js`). So it *does* show sequence and
+timing within that window, and an `[info]`-level line there is often the decisive
+evidence -- read it before escalating.
+
+It is still a bounded sample, and these remain reasons to go to the raw logs
+(Level 4):
+
+- **Anything outside the window.** The slice starts ~5s before the failing action
+  and ends ~2s after it. A cause that was set in motion during app startup, or in
+  a *preceding test* in the same spec file, falls outside it entirely.
+- **You need a full channel, in order.** The excerpt round-robins across logs
+  under a line/char budget, so per-file coverage is partial. A multi-step sequence
+  (activate, create, cancel, reconnect) is easiest to read end-to-end in the file
+  itself.
+- **The trace had no wall-clock anchor.** Without one, the excerpt falls back to
+  the old error-line grep and says so on its first line -- in that case
+  `[info]`-level lines and silence really are invisible, and the caveats that
+  used to apply always now apply to that run.
 
 ## Reading raw logs (Level 4)
 
@@ -113,8 +126,9 @@ Each extension's real output channel is its own file under
 `server/exthost2/<extension-id>/*.log` (e.g.
 `ms-python.python/Python Language Pack.log`), separate from the top-level
 `e2e-test-runner.log` the digest draws from. Read the **full channel file**, not
-just matched lines -- the multi-step sequence (activate, create, cancel,
-reconnect) needed to see what actually happened often has no error line at all.
+just the excerpt's sample of it -- the multi-step sequence (activate, create,
+cancel, reconnect) needed to see what actually happened often runs longer than
+the excerpt's per-file budget, and may start before its window opens.
 
 ```bash
 # RLD is the rawLogDir value from the fetch-pattern-evidence.js JSON.
