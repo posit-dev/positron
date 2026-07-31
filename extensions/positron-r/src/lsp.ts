@@ -156,7 +156,15 @@ export class ArkLsp implements vscode.Disposable {
 					// to distinguish them from regular console inputs.
 					{ language: 'r', scheme: 'inmemory' },
 				] :
-				R_DOCUMENT_SELECTORS,
+				[
+					...R_DOCUMENT_SELECTORS,
+					// Match Quarto shadow notebook cells (Positron core
+					// mirrors the code cells of open .qmd/.Rmd documents
+					// into a hidden notebook; cell URIs share the
+					// document's path). Ark has no notebookDocumentSync,
+					// so these sync as plain text documents.
+					{ language: 'r', scheme: 'vscode-notebook-cell', pattern: '**/*.{qmd,rmd,Rmd}' },
+				],
 			synchronize: notebookUri ?
 				undefined :
 				{

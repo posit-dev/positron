@@ -146,6 +146,12 @@ export class PythonLsp implements vscode.Disposable {
                   // code blocks when inline output is disabled and
                   // no notebook LSP exists.
                   VDOC_SELECTOR,
+                  // Match Quarto shadow notebook cells (Positron core mirrors
+                  // the code cells of open .qmd/.Rmd documents into a hidden
+                  // notebook; cell URIs share the document's path). The
+                  // server's notebookDocumentSync only covers jupyter-notebook,
+                  // so these sync as plain text documents.
+                  { language: 'python', scheme: 'vscode-notebook-cell', pattern: '**/*.{qmd,rmd,Rmd}' },
               ];
 
         // This is needed in addition to the document selector, otherwise every client seems to
