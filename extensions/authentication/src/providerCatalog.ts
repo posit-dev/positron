@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import type { BuiltinProviderBlock, ProvidersConfig, ResolvedConnection, ResolvedProvider } from 'ai-config';
+import type { BuiltinProviderBlock, LegacySettingsReader, Protocol, ProvidersConfig, ResolvedConnection, ResolvedProvider } from 'ai-config';
 import type { ProviderCatalogChange } from 'ai-config/node';
 import { ANTHROPIC_DEFAULT_BASE_URL, GEMINI_DEFAULT_BASE_URL, OPENAI_DEFAULT_BASE_URL } from './constants';
 import { log } from './log';
@@ -217,6 +217,36 @@ export async function saveProviderBaseUrl(
 	const opts = effectiveOptions(options);
 	await mutate(providers => {
 		providers[catalogId] = { ...providers[catalogId], baseUrl: normalized };
+	}, opts);
+}
+
+/** Element type of a provider block's explicit custom-model list. */
+type CustomModelEntry = NonNullable<NonNullable<BuiltinProviderBlock['models']>['custom']>[number];
+
+/**
+ * Writes a custom provider's `protocol` and explicit model list to providers.json.
+ * A non-empty model list is stored as `models.custom` with discovery off; an
+ * empty list leaves the models block untouched so discovery (the provider's
+ * /models endpoint) still applies. An unrecognized protocol is ignored.
+ */
+export async function saveCustomProviderModels(
+	catalogId: string,
+	protocol: string | undefined,
+	customModels: readonly CustomModelEntry[] | undefined,
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	const { PROTOCOL_VALUES } = await import('ai-config/node');
+	const isProtocol = (value: string): value is Protocol => (PROTOCOL_VALUES as readonly string[]).includes(value);
+	const opts = effectiveOptions(options);
+	await mutate(providers => {
+		const block: BuiltinProviderBlock = { ...providers[catalogId] };
+		if (protocol && isProtocol(protocol)) {
+			block.protocol = protocol;
+		}
+		if (customModels && customModels.length > 0) {
+			block.models = { discovery: 'off', custom: [...customModels] };
+		}
+		providers[catalogId] = block;
 	}, opts);
 }
 

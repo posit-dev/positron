@@ -13,6 +13,7 @@ import {
 	initProviderCatalog,
 	onDidChangeProviderCatalog,
 	refreshProviderCatalog,
+	saveCustomProviderModels,
 	saveProviderBaseUrl,
 	saveProviderEnabled,
 	saveSnowflakeAccount,
@@ -190,6 +191,33 @@ suite('providerCatalog', () => {
 
 		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 		assert.strictEqual(written.providers.anthropic.baseUrl, 'https://my-proxy.example.com');
+	});
+
+	test('saveCustomProviderModels writes protocol and models.custom with discovery off', async () => {
+		writeConfig(configPath, { 'openai-compatible': { baseUrl: 'https://proxy.example/v1' } });
+		await initProviderCatalog(context, { configPath });
+
+		const models = [
+			{ id: 'm1', name: 'm1', maxContextLength: 128000, supportsTools: true, supportsImages: false, supportsToolResultImages: false, supportsWebSearch: false },
+		];
+		await saveCustomProviderModels('openai-compatible', 'anthropic-messages', models, { configPath });
+
+		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+		assert.deepStrictEqual(written.providers['openai-compatible'], {
+			baseUrl: 'https://proxy.example/v1',
+			protocol: 'anthropic-messages',
+			models: { discovery: 'off', custom: models },
+		});
+	});
+
+	test('saveCustomProviderModels ignores an unknown protocol and leaves models untouched when the list is empty', async () => {
+		writeConfig(configPath, { 'openai-compatible': { baseUrl: 'https://proxy.example/v1' } });
+		await initProviderCatalog(context, { configPath });
+
+		await saveCustomProviderModels('openai-compatible', 'not-a-protocol', [], { configPath });
+
+		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+		assert.deepStrictEqual(written.providers['openai-compatible'], { baseUrl: 'https://proxy.example/v1' });
 	});
 
 	test('saveSnowflakeAccount writes the snowflake account field, only when changed', async () => {
