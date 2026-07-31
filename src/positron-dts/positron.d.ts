@@ -3098,6 +3098,52 @@ declare module 'positron' {
 			Thenable<Array<QueryTableSummaryResult>>;
 
 		/**
+		 * A single console execution: a command that ran in a runtime session,
+		 * paired with its output and any error.
+		 */
+		export interface ConsoleHistoryEntry {
+			/** The code that was executed. */
+			input: string;
+			/** The textual output produced by the execution. */
+			output: string;
+			/** The error produced by the execution, if any. */
+			error?: {
+				/** The name of the error. */
+				name: string;
+				/** The error message. */
+				message: string;
+				/** The error stack trace. */
+				traceback: string[];
+			};
+			/** Time the execution occurred, in milliseconds since the Epoch. */
+			when: number;
+		}
+
+		/**
+		 * Get the recent console history for a session: the code fragments that
+		 * have already run, each paired with its output and any error. This is
+		 * read-only; it does not execute anything.
+		 *
+		 * Only completed code executions are returned, oldest first. The startup
+		 * banner and entries recorded without input (e.g. output produced outside
+		 * an execution) are omitted, matching what the console shows as a command
+		 * history.
+		 *
+		 * Console history reading is governed by the `console.historyApiEnabled`
+		 * setting, which users can disable for privacy; when it is disabled this
+		 * call rejects rather than returning content.
+		 *
+		 * @param sessionId The session ID of the session to read console history
+		 *  from.
+		 * @param numberOfEntries The number of most recent entries to return.
+		 *  Defaults to 5. Pass a larger value to look further back in the history.
+		 * @returns A Thenable that resolves with the console entries (an empty
+		 *  array when the session has run nothing yet). Rejects if the session ID
+		 *  is unknown, or if the `console.historyApiEnabled` setting is disabled.
+		 */
+		export function getConsoleHistory(sessionId: string, numberOfEntries?: number): Thenable<ConsoleHistoryEntry[]>;
+
+		/**
 		 * Register a handler for runtime client instances. This handler will be called
 		 * whenever a new client instance is created by a language runtime of the given
 		 * type.

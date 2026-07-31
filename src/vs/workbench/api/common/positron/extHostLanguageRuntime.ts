@@ -1823,6 +1823,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._proxy.$querySessionTables(sessionId, accessKeys, queryTypes);
 	}
 
+	public getConsoleHistory(sessionId: string, numberOfEntries?: number): Promise<extHostProtocol.ISerializedConsoleHistoryEntry[]> {
+		return this._proxy.$getConsoleHistory(sessionId, numberOfEntries);
+	}
+
 	/**
 	 * Interrupts an active session.
 	 *

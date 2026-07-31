@@ -105,6 +105,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$getSessionWorkingDirectory(sessionId?: string): Promise<string | undefined>;
 	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
 	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
+	$getConsoleHistory(sessionId: string, numberOfEntries?: number): Promise<ISerializedConsoleHistoryEntry[]>;
 	$callMethod(sessionId: string, method: string, args: unknown[]): Thenable<unknown>;
 	$emitPerfMark(extensionId: string, name: string): void;
 	$emitLanguageRuntimeMessage(sessionId: string, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
@@ -368,6 +369,13 @@ export type ISerializedValidateAndExecuteCommandResult =
 		precondition?: string;
 		message?: string;
 	};
+
+export interface ISerializedConsoleHistoryEntry {
+	input: string;
+	output: string;
+	error?: { name: string; message: string; traceback: string[] };
+	when: number;
+}
 
 export interface MainThreadAiFeaturesShape {
 	$registerChatAgent(agentData: IChatAgentData): Thenable<void>;
