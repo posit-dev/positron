@@ -220,6 +220,22 @@ export async function saveProviderBaseUrl(
 	}, opts);
 }
 
+/**
+ * Removes the providers.<catalogId> block entirely, then refreshes the cache.
+ * Used when a provider is removed so its saved connection settings (base URL,
+ * protocol, custom models) don't linger and pre-fill a later reconnect. A no-op
+ * if the block is already absent.
+ */
+export async function removeProviderBlock(
+	catalogId: string,
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	const opts = effectiveOptions(options);
+	await mutate(providers => {
+		delete providers[catalogId];
+	}, opts);
+}
+
 /** Element type of a provider block's explicit custom-model list. */
 type CustomModelEntry = NonNullable<NonNullable<BuiltinProviderBlock['models']>['custom']>[number];
 

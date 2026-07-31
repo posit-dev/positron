@@ -55,6 +55,7 @@ import {
 	initProviderCatalog,
 	onDidChangeProviderCatalog,
 	ProviderCatalogOptions,
+	removeProviderBlock,
 	saveCustomProviderModels,
 	saveDatabricksHost,
 	saveProviderBaseUrl,
@@ -713,6 +714,13 @@ function registerCustomProvider(
 				await saveProviderBaseUrl(catalogId, config.baseUrl);
 			}
 			await saveCustomProviderModels(catalogId, config.protocol, config.customModels);
+		},
+		onDelete: async () => {
+			// The custom provider's whole providers.json block is user-created,
+			// so removing the provider drops the block entirely -- otherwise its
+			// base URL, protocol, and custom models linger and pre-fill the next
+			// time someone sets up a custom provider.
+			await removeProviderBlock(PROVIDER_METADATA.customProvider.catalogId!);
 		},
 	});
 	log.info(
