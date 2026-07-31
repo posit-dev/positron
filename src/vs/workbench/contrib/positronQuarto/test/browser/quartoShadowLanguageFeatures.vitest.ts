@@ -339,11 +339,11 @@ describe('Quarto shadow bridge providers', () => {
 			const other = createDocument(contentB, '/b.qmd');
 			ctx.disposables.add(ctx.get(ILanguageFeaturesService).definitionProvider.register(
 				{ language: 'python' }, {
-					provideDefinition: (): Location[] => [{
-						uri: other.notebook.cells[0].uri,
-						range: { startLineNumber: 1, startColumn: 5, endLineNumber: 1, endColumn: 11 },
-					}],
-				}));
+				provideDefinition: (): Location[] => [{
+					uri: other.notebook.cells[0].uri,
+					range: { startLineNumber: 1, startColumn: 5, endLineNumber: 1, endColumn: 11 },
+				}],
+			}));
 
 			const provider = ctx.instantiationService.createInstance(QuartoShadowDefinitionProvider, createBridge());
 			const result = await provider.provideDefinition(
@@ -362,11 +362,11 @@ describe('Quarto shadow bridge providers', () => {
 			const ghostCellUri = CellUri.generate(URI.file('/ghost.qmd'), 99);
 			ctx.disposables.add(ctx.get(ILanguageFeaturesService).definitionProvider.register(
 				{ language: 'python' }, {
-					provideDefinition: (): Location[] => [
-						{ uri: ghostCellUri, range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 2 } },
-						{ uri: URI.file('/keep.py'), range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 2 } },
-					],
-				}));
+				provideDefinition: (): Location[] => [
+					{ uri: ghostCellUri, range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 2 } },
+					{ uri: URI.file('/keep.py'), range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 2 } },
+				],
+			}));
 
 			const provider = ctx.instantiationService.createInstance(QuartoShadowDefinitionProvider, createBridge());
 			const result = await provider.provideDefinition(
@@ -380,13 +380,13 @@ describe('Quarto shadow bridge providers', () => {
 			const { textModel, notebook } = createDocument(content);
 			ctx.disposables.add(ctx.get(ILanguageFeaturesService).definitionProvider.register(
 				{ language: 'python' }, {
-					provideDefinition: () => [{
-						uri: notebook.cells[0].uri,
-						range: { startLineNumber: 1, startColumn: 1, endLineNumber: 2, endColumn: 9 },
-						targetSelectionRange: { startLineNumber: 1, startColumn: 5, endLineNumber: 1, endColumn: 11 },
-						originSelectionRange: { startLineNumber: 3, startColumn: 10, endLineNumber: 3, endColumn: 16 },
-					}],
-				}));
+				provideDefinition: () => [{
+					uri: notebook.cells[0].uri,
+					range: { startLineNumber: 1, startColumn: 1, endLineNumber: 2, endColumn: 9 },
+					targetSelectionRange: { startLineNumber: 1, startColumn: 5, endLineNumber: 1, endColumn: 11 },
+					originSelectionRange: { startLineNumber: 3, startColumn: 10, endLineNumber: 3, endColumn: 16 },
+				}],
+			}));
 
 			const provider = ctx.instantiationService.createInstance(QuartoShadowDefinitionProvider, createBridge());
 			const callLine = lineOf(content, 'result = helper()');
@@ -443,11 +443,11 @@ describe('Quarto shadow bridge providers', () => {
 			const { textModel } = createDocument(content);
 			ctx.disposables.add(ctx.get(ILanguageFeaturesService).documentHighlightProvider.register(
 				{ language: 'python' }, {
-					provideDocumentHighlights: () => [
-						{ range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 2 } },
-						{ range: { startLineNumber: 2, startColumn: 5, endLineNumber: 2, endColumn: 6 } },
-					],
-				}));
+				provideDocumentHighlights: () => [
+					{ range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 2 } },
+					{ range: { startLineNumber: 2, startColumn: 5, endLineNumber: 2, endColumn: 6 } },
+				],
+			}));
 
 			const provider = ctx.instantiationService.createInstance(QuartoShadowDocumentHighlightProvider, createBridge());
 			const result = await provider.provideDocumentHighlights(

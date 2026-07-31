@@ -150,13 +150,16 @@ function mapLocationsToDocument(
 			continue;
 		}
 		const link: LocationLink = { uri: location.uri, range: location.range };
-		if ('originSelectionRange' in item && item.originSelectionRange) {
+		// Locations lack the LocationLink selection ranges; read them as
+		// optional fields of the union's wider member.
+		const { originSelectionRange, targetSelectionRange } = item as LocationLink;
+		if (originSelectionRange) {
 			// The origin is in the request cell's space.
-			link.originSelectionRange = toDocumentRange(request.cell, item.originSelectionRange);
+			link.originSelectionRange = toDocumentRange(request.cell, originSelectionRange);
 		}
-		if ('targetSelectionRange' in item && item.targetSelectionRange) {
+		if (targetSelectionRange) {
 			// The target selection is in the target's space.
-			link.targetSelectionRange = bridge.mapLocationToDocument(item.uri, item.targetSelectionRange)?.range;
+			link.targetSelectionRange = bridge.mapLocationToDocument(item.uri, targetSelectionRange)?.range;
 		}
 		mapped.push(link);
 	}
