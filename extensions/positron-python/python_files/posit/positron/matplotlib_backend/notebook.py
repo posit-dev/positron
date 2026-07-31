@@ -57,7 +57,10 @@ def new_figure_manager(
     # Sizing precedence: an explicit size from user code (`plt.figure(figsize=...)`,
     # `plt.subplots(figsize=...)`) wins, else the cell's `#| fig-width`/`#| fig-height`,
     # else matplotlib's `figure.figsize` rcParam, which `Figure` applies for a None figsize.
-    figsize = figsize or execute_request.figure_size
+    # Compare against None rather than truthiness: matplotlib accepts any array-like
+    # figsize, and a numpy array raises on `bool()`.
+    if figsize is None:
+        figsize = execute_request.figure_size
     # `Figure` only accepts the 3-tuple form in matplotlib >= 3.11, but we pass whatever
     # matplotlib handed us straight back to it, so the pair always matches at runtime.
     # The cast keeps pyright quiet against the older pins (CI type-checks on 3.9).

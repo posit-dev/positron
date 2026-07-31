@@ -126,6 +126,21 @@ def test_explicit_figsize_wins(backend):
     assert result.figure_size == [1.0, 1.0]
 
 
+def test_explicit_array_like_figsize_wins(backend):
+    """An array-like figsize also beats the pending default.
+
+    matplotlib accepts any array-like figsize, e.g. a numpy array, which raises on `bool()`.
+    """
+    run_with_metadata(
+        "import numpy as np\n"
+        "import matplotlib.pyplot as plt\n"
+        "fig, ax = plt.subplots(figsize=np.array([4.0, 3.0]) * 2)",
+        {"fig-width": 8, "fig-height": 4},
+    )
+    figure: Figure = backend.shell.user_ns["fig"]
+    assert figure.get_size_inches().tolist() == [8.0, 6.0]
+
+
 def test_figure_size_does_not_leak_to_later_cell(backend):
     """A sized cell does not leak into a later unsized cell."""
     backend.plot(meta={"fig-width": 8, "fig-height": 4})
