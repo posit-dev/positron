@@ -158,35 +158,18 @@ describe('ConnectProviderView', () => {
 		expect(onAction).toHaveBeenCalledWith(lmstudio, expect.objectContaining({ baseUrl: 'http://localhost:4321/v1' }), 'save');
 	});
 
-	it('renders an API Type dropdown defaulting to OpenAI Chat Completions with its example path', () => {
+	it('does not render the API Type selector while it is deferred (#13817)', () => {
 		rtl.render(<ConnectProviderView source={custom} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
-		expect(screen.getByText('OpenAI Chat Completions')).toBeInTheDocument();
-		expect(screen.getByText('/v1/chat/completions')).toBeInTheDocument();
+		expect(screen.queryByText('OpenAI Chat Completions')).not.toBeInTheDocument();
 	});
 
-	it('dispatches the default API type in the saved config', async () => {
+	it('dispatches OpenAI Chat Completions as the API type', async () => {
 		const onAction = vi.fn().mockResolvedValue(undefined);
 		const user = userEvent.setup();
 		rtl.render(<ConnectProviderView source={custom} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
 		await user.type(screen.getByLabelText(/api key/i), 'sk-test');
 		await user.click(screen.getByRole('button', { name: 'Connect' }));
 		expect(onAction).toHaveBeenCalledWith(custom, expect.objectContaining({ protocol: 'openai-chat' }), 'save');
-	});
-
-	it('dispatches the API type chosen from the dropdown', async () => {
-		const onAction = vi.fn().mockResolvedValue(undefined);
-		const user = userEvent.setup();
-		rtl.render(<ConnectProviderView source={custom} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
-		await user.type(screen.getByLabelText(/api key/i), 'sk-test');
-		await user.click(screen.getByText('OpenAI Chat Completions'));
-		await user.click(screen.getByText('Anthropic Messages'));
-		await user.click(screen.getByRole('button', { name: 'Connect' }));
-		expect(onAction).toHaveBeenCalledWith(custom, expect.objectContaining({ protocol: 'anthropic-messages' }), 'save');
-	});
-
-	it('shows no API Type dropdown for a provider without protocol support', () => {
-		rtl.render(<ConnectProviderView source={anthropic} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
-		expect(screen.queryByText(/openai chat completions/i)).not.toBeInTheDocument();
 	});
 
 	it('builds schema-valid custom models from the entered ids, defaulting capabilities', async () => {
