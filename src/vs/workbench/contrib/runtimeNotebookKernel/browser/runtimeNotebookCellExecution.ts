@@ -11,7 +11,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { localize } from '../../../../nls.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeErrorBehavior, ILanguageRuntimeMessageUpdateOutput, RuntimeExitReason, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeErrorBehavior, ILanguageRuntimeMessageUpdateOutput, RuntimeExitReason, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { DATA_EXPLORER_MIME_TYPE } from '../../positronNotebook/browser/getOutputContents.js';
 import { POSITRON_CONSOLE_EXEC_PREFIX } from '../../../services/positronConsole/browser/positronConsoleService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -57,6 +57,13 @@ export class RuntimeNotebookCellExecution extends Disposable {
 	 */
 	private _deferred = new DeferredPromise<void>();
 
+	/**
+	 * Whether a clear_output(wait=True) is pending. When set, the next output
+	 * message (display_data, execute_result, stream, or error) replaces the
+	 * cell's outputs instead of appending to them.
+	 */
+	private _pendingClearOutput = false;
+
 	constructor(
 		private readonly _session: ILanguageRuntimeSession,
 		private readonly _cellExecution: INotebookCellExecution,
@@ -100,6 +107,10 @@ export class RuntimeNotebookCellExecution extends Disposable {
 
 		this._register(this._session.onDidReceiveRuntimeMessageUpdateOutput(message => {
 			this.handleRuntimeMessageUpdateOutput(message);
+		}));
+
+		this._register(this._session.onDidReceiveRuntimeMessageClearOutput(message => {
+			this.handleRuntimeMessageClearOutput(message);
 		}));
 
 		// If the session ends while this cell is still executing, settle the
@@ -252,11 +263,12 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			this.updateOutputsById(message.output_id, outputItems);
 		}
 
-		// Append the output items to the current cell.
+		// Append the output items to the current cell, or replace the cell's
+		// outputs if a deferred clear_output(wait=True) is pending.
 		this._cellExecution.update([{
 			editType: CellExecutionUpdateType.Output,
 			cellHandle: this._cellExecution.cellHandle,
-			append: true,
+			append: !this.consumePendingClearOutput(),
 			outputs: [{
 				outputId: generateNotebookCellOutputId(),
 				outputs: outputItems,
@@ -277,6 +289,42 @@ export class RuntimeNotebookCellExecution extends Disposable {
 
 		// Update existing outputs with the specified output ID.
 		this.updateOutputsById(message.output_id, outputItems);
+	}
+
+	private handleRuntimeMessageClearOutput(message: ILanguageRuntimeMessageClearOutput): void {
+		// Only handle replies to this execution.
+		if (message.parent_id !== this.id) {
+			return;
+		}
+
+		if (message.wait) {
+			// Jupyter's clear_output(wait=True): defer the clear until the next
+			// output arrives, so that output replaces the current one in place
+			// (e.g. progress bars and training loops render as a single
+			// updating output instead of flickering through an empty state).
+			this._pendingClearOutput = true;
+			return;
+		}
+
+		// Jupyter's clear_output(wait=False): clear the cell's outputs
+		// immediately. This also cancels any pending deferred clear.
+		this._pendingClearOutput = false;
+		this._cellExecution.update([{
+			editType: CellExecutionUpdateType.Output,
+			cellHandle: this._cellExecution.cellHandle,
+			outputs: [],
+		}]);
+	}
+
+	/**
+	 * Consume a pending deferred clear (clear_output(wait=True)).
+	 * @returns Whether the new output should replace the cell's outputs
+	 * instead of appending to them.
+	 */
+	private consumePendingClearOutput(): boolean {
+		const pending = this._pendingClearOutput;
+		this._pendingClearOutput = false;
+		return pending;
 	}
 
 	/** Update all outputs with the specified ID. */
@@ -312,11 +360,15 @@ export class RuntimeNotebookCellExecution extends Disposable {
 		}
 		const newOutputItem: IOutputItemDto = { data: VSBuffer.fromString(message.text), mime };
 
+		// A pending clear_output(wait=True) replaces the cell's outputs, so the
+		// new item must not merge into a stream output that's about to be cleared.
+		const replaceOutputs = this.consumePendingClearOutput();
+
 		// If the last output has items of the same mime type (i.e. from the same stream: stdout/stderr),
 		// append the new item to the last output. Otherwise, create a new output.
-		const lastOutput = this._cell.outputs.at(-1);
+		const lastOutput = replaceOutputs ? undefined : this._cell.outputs.at(-1);
 		const lastOutputItems = lastOutput?.outputs;
-		if (lastOutputItems && lastOutputItems.every(item => item.mime === mime)) {
+		if (lastOutput && lastOutputItems && lastOutputItems.every(item => item.mime === mime)) {
 			this._cellExecution.update([{
 				editType: CellExecutionUpdateType.OutputItems,
 				append: true,
@@ -327,7 +379,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			this._cellExecution.update([{
 				editType: CellExecutionUpdateType.Output,
 				cellHandle: this._cellExecution.cellHandle,
-				append: true,
+				append: !replaceOutputs,
 				outputs: [{
 					outputId: generateNotebookCellOutputId(),
 					outputs: [newOutputItem],
@@ -346,11 +398,12 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			return;
 		}
 
-		// Append an error output item to the cell.
+		// Append an error output item to the cell, or replace the cell's
+		// outputs if a deferred clear_output(wait=True) is pending.
 		this._cellExecution.update([{
 			editType: CellExecutionUpdateType.Output,
 			cellHandle: this._cellExecution.cellHandle,
-			append: true,
+			append: !this.consumePendingClearOutput(),
 			outputs: [{
 				outputId: generateNotebookCellOutputId(),
 				outputs: [{

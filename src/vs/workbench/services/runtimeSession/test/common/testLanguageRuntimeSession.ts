@@ -359,7 +359,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		message: Partial<ILanguageRuntimeMessageClearOutput>,
 	): ILanguageRuntimeMessageClearOutput {
 		return {
-			...this._defaultMessage(message, LanguageRuntimeMessageType.Output),
+			...this._defaultMessage(message, LanguageRuntimeMessageType.ClearOutput),
 			wait: message.wait ?? false,
 		};
 	}
