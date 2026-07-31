@@ -138,6 +138,16 @@ export class ArkLsp implements vscode.Disposable {
 		const { notebookUri } = this._metadata;
 
 		const clientOptions: LanguageClientOptions = {
+			// Settings the server needs early before it answers `initialize`.
+			initializationOptions: {
+				oak: {
+					sourceFetching: {
+						enabled: vscode.workspace
+							.getConfiguration('oak.sourceFetching')
+							.get<boolean>('enabled', true),
+					},
+				},
+			},
 			// If this client belongs to a notebook, set the document selector to only include that notebook,
 			// Quarto virtual documents (vdocs), and notebook console inputs (inmemory scheme).
 			// Otherwise, this is the main client for this language, so set the document selector to include
