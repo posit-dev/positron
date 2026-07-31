@@ -146,11 +146,6 @@
 	outline-offset: -1px;
 }
 
-.connect-provider-unsupported {
-	color: var(--vscode-descriptionForeground);
-	font-size: 12px;
-}
-
 .connect-provider-error {
 	color: var(--vscode-errorForeground);
 	font-size: 12px;
