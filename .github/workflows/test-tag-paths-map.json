@@ -128,6 +128,7 @@
   "src/vs/platform/extensions/common/positronExtensionValidator.ts": ["@:extensions"],
   "src/vs/platform/positronActionBar/": [],
   "src/vs/platform/positronAiProvider/": ["@:assistant"],
+  "src/vs/platform/positronDocs/": [],
   "src/vs/platform/positronHeadlessLanguageModel/": ["@:positron-notebooks"],
   "src/vs/platform/positronIdleTracking/": [],
   "src/vs/platform/positronMemoryUsage/": ["@:variables"],
