@@ -158,6 +158,62 @@
 	color: var(--vscode-descriptionForeground);
 }
 
+.connect-provider-models {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 12px;
+}
+
+.connect-provider-models-hint {
+	margin: 0;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.connect-provider-model-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.connect-provider-model-row .connect-provider-apikey-input {
+	flex: 1;
+}
+
+.connect-provider-model-remove,
+.connect-provider-add-model {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	background: none;
+	border: none;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	padding: 2px 4px;
+}
+
+.connect-provider-model-remove:hover,
+.connect-provider-add-model:hover {
+	color: var(--vscode-textLink-foreground);
+}
+
+.connect-provider-edit-json {
+	align-self: flex-start;
+	background: none;
+	border: none;
+	padding: 2px 0;
+	font-size: 12px;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	text-align: left;
+}
+
+.connect-provider-edit-json:hover {
+	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
+}
+
 .connect-provider-apitype-entry {
 	display: grid;
 	grid-template-columns: [title] max-content [path] 1fr [end];

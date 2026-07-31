@@ -239,7 +239,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 		{
 			type: positron.PositronLanguageModelType.Chat,
 			provider: PROVIDER_METADATA.customProvider,
-			supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
+			supportedOptions: ['apiKey', 'baseUrl', 'toolCalls', 'protocol', 'customModels'],
 			defaults: {
 				model: 'openai-compatible',
 				baseUrl: getSavedBaseUrl(

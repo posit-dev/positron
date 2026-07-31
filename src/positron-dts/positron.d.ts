@@ -3620,7 +3620,27 @@ declare module 'positron' {
 			 * provider decide.
 			 */
 			protocol?: string;
+			/**
+			 * Explicit model list for a custom provider whose endpoint has no
+			 * `/models` listing. Persisted as the provider's custom model
+			 * definitions.
+			 */
+			customModels?: LanguageModelCustomModel[];
 			autoconfigure?: LanguageModelAutoconfigure;
+		}
+
+		/**
+		 * A user-declared model for a custom provider, for providers whose
+		 * endpoint does not list its own models.
+		 */
+		export interface LanguageModelCustomModel {
+			id: string;
+			name: string;
+			maxContextLength: number;
+			supportsTools: boolean;
+			supportsImages: boolean;
+			supportsToolResultImages: boolean;
+			supportsWebSearch: boolean;
 		}
 
 		/**
