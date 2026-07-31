@@ -15,6 +15,7 @@ suite('configDialog', () => {
 	let originalUpdateProvider: typeof positron.ai.updateProvider;
 	let originalFetch: typeof globalThis.fetch;
 	let provider: AuthProvider;
+	let mockContext: vscode.ExtensionContext;
 	let updateCalls: Array<{ id: string; update: Partial<positron.ai.LanguageModelSource> }>;
 
 	setup(() => {
@@ -36,7 +37,7 @@ suite('configDialog', () => {
 
 		const secrets = new Map<string, string>();
 		const globalState = new Map<string, unknown>();
-		const mockContext = {
+		mockContext = {
 			secrets: {
 				get: (key: string) => Promise.resolve(secrets.get(key)),
 				store: (key: string, value: string) => {
@@ -396,6 +397,34 @@ suite('configDialog', () => {
 			);
 			await updateProviderFromSessions('anthropic-api', await provider.getSessions());
 
+			assert.deepStrictEqual(updateCalls.at(-1), {
+				id: 'anthropic-api',
+				update: { signedIn: false, status: null, statusMessage: undefined },
+			});
+		});
+
+		test('delete clears an orphaned account left alongside the live one', async () => {
+			// Reproduces the custom-provider "removing it leaves Needs Attention"
+			// bug: an account whose secret is already gone (orphaned) sits next to
+			// a freshly-entered live one. getSessions() only returns the live one,
+			// so delete's session loop removes just that; the orphan keeps
+			// isConfigured() true and re-derives status 'error'. Removal must
+			// forget the orphan too.
+			await provider.storeKey('orphan-uuid', 'Anthropic', 'sk-old');
+			await provider.storeKey('live-uuid', 'Anthropic', 'sk-new');
+			// Orphan the first account: drop its secret but leave the account entry.
+			await mockContext.secrets.delete('apiKey-anthropic-api-orphan-uuid');
+			assert.strictEqual((await provider.getSessions()).length, 1);
+			assert.strictEqual(await provider.isConfigured(), true);
+
+			await providerAction(
+				{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'anthropic-api', displayName: 'Anthropic' }, supportedOptions: [], defaults: {} },
+				{},
+				'delete'
+			);
+			await updateProviderFromSessions('anthropic-api', await provider.getSessions());
+
+			assert.strictEqual(await provider.isConfigured(), false);
 			assert.deepStrictEqual(updateCalls.at(-1), {
 				id: 'anthropic-api',
 				update: { signedIn: false, status: null, statusMessage: undefined },

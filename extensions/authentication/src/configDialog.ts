@@ -311,5 +311,15 @@ async function handleDelete(
 	for (const session of deletable) {
 		await provider.removeSession(session.id);
 	}
+	// Removing the live sessions can leave an orphaned stored account behind --
+	// an API-key account whose secret is already gone. getSessions() skips it
+	// (no secret to return), but isConfigured() still counts it, so the provider
+	// bounces straight back into "Needs Attention" right after the user removed
+	// it. If nothing live remains but it still reads as configured, forget the
+	// rest. Guarded on an empty session list so a chain session we couldn't sign
+	// out (env-var credentials) doesn't get its config cleared out from under it.
+	if ((await provider.getSessions()).length === 0 && await provider.isConfigured()) {
+		await provider.clearConfiguration();
+	}
 }
 
