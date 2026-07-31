@@ -200,15 +200,23 @@ export class PositronDocsCache {
 			return outcome.docs;
 		}
 		this._logOutcome(outcome, resolved.latest);
+
+		// Re-read state after the attempt rather than reusing the snapshot taken
+		// before it. Another window can install a bundle while this attempt is in
+		// flight, and both the state merge below and the value returned here would
+		// otherwise be built from a snapshot that no longer describes the disk:
+		// the merge would write back `version: ''` over the version that window
+		// just recorded, orphaning its bundle for every later session.
+		const current = await this._readState();
 		if (outcome.kind === 'failed') {
-			await this._recordFailure(state, request, resolved.exact.version, resolution, outcome.reason);
+			await this._recordFailure(current, request, resolved.exact.version, resolution, outcome.reason);
 		}
-		if (outcome.kind === 'not-modified' && state) {
-			await this._touchState(state, resolution, resolved.exact.version);
+		if (outcome.kind === 'not-modified' && current) {
+			await this._touchState(current, resolution, resolved.exact.version);
 		}
 
 		// Cache-present rule: a failed attempt never withdraws a served bundle.
-		return cached;
+		return cached ?? await this._readCached(current, resolved.exact.version);
 	}
 
 	private async _touchState(state: IDocsCacheState, resolution: DocsResolution, requestedVersion: string): Promise<void> {

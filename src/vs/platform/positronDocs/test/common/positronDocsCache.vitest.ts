@@ -432,6 +432,45 @@ describe('PositronDocsCache: cache-present rule', () => {
 	});
 });
 
+describe('PositronDocsCache: a cache installed mid-attempt', () => {
+	// Two windows opening at once on a cold cache: one installs, the other's
+	// download fails. The failing window memoizes its result for the session, so
+	// it has to notice the bundle that landed while it was in flight or it stays
+	// on web docs until the next relaunch.
+	it('serves a bundle another window installed while this attempt was in flight', async () => {
+		const ctx = setup();
+		ctx.publish(LATEST_ZIP, payload('2026.05.0-179'));
+
+		let release!: () => void;
+		const held = new Promise<void>(resolve => { release = resolve; });
+		const secondWindow = new PositronDocsCache({
+			rootPath: ROOT, files: ctx.files, archive: ctx.archive, logger: ctx.logger,
+			now: () => 2_000_000, newId: () => 'second',
+			http: {
+				// Hangs until released, then fails: this window reads an empty cache
+				// on the way in and never installs anything itself.
+				get: async () => { await held; throw new Error('ENOTFOUND'); },
+				head: url => ctx.http.head(url),
+			},
+		});
+
+		const pending = secondWindow.ensure(request({ quality: 'dailies' }));
+		expect((await ctx.cache.ensure(request({ quality: 'dailies' })))?.version).toBe('2026.05.0-179');
+
+		release();
+		expect((await pending)?.version).toBe('2026.05.0-179');
+
+		// The failing window records its failure without erasing the version the
+		// other window installed. Losing that would orphan the bundle on disk for
+		// every later session, not just this one.
+		const state = await ctx.readState();
+		expect({ version: state.version, lastError: state.lastError }).toEqual({
+			version: '2026.05.0-179',
+			lastError: 'ENOTFOUND',
+		});
+	});
+});
+
 describe('PositronDocsCache: single flight', () => {
 	it('joins two concurrent calls into one download', async () => {
 		const ctx = setup();
