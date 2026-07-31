@@ -86,7 +86,14 @@ export class CellMatch implements ICellMatch {
 	}
 
 	public hasCellViewModel() {
-		return !(this._cell instanceof CellSearchModel);
+		// --- Start Positron ---
+		// Matches produced without an open notebook widget (closed notebooks and
+		// Positron notebook editors) have no cell view model, so they must report
+		// false here to be treated as read-only: their ranges are cell-relative,
+		// and replacing at those ranges in the raw notebook file would corrupt it.
+		// return !(this._cell instanceof CellSearchModel);
+		return this._cell !== undefined && !(this._cell instanceof CellSearchModel);
+		// --- End Positron ---
 	}
 
 	get context(): Map<number, string> {

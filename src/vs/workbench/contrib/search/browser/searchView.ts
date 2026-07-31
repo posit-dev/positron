@@ -82,6 +82,9 @@ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { ISearchViewModelWorkbenchService } from './searchTreeModel/searchViewModelWorkbenchService.js';
 import { ISearchTreeMatch, isSearchTreeMatch, RenderableMatch, SearchModelLocation, IChangeEvent, FileMatchOrMatch, ISearchTreeFileMatch, ISearchTreeFolderMatch, ISearchModel, ISearchResult, isSearchTreeFileMatch, isSearchTreeFolderMatch, isSearchTreeFolderMatchNoRoot, isSearchTreeFolderMatchWithResource, isSearchTreeFolderMatchWorkspaceRoot, isSearchResult, isTextSearchHeading, ITextSearchHeading, isSearchHeader } from './searchTreeModel/searchTreeCommon.js';
 import { INotebookFileInstanceMatch, isIMatchInNotebook } from './notebookSearch/notebookSearchModelBase.js';
+// --- Start Positron ---
+import { openSearchMatchInPositronNotebook } from './notebookSearch/positronNotebookSearch.js';
+// --- End Positron ---
 import { searchMatchComparer } from './searchCompare.js';
 import { AIFolderMatchWorkspaceRootImpl } from './AISearch/aiSearchModel.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
@@ -2303,6 +2306,14 @@ export class SearchView extends ViewPane {
 				}
 			}
 		}
+		// --- Start Positron ---
+		// The Positron notebook editor pane is not a NotebookEditor, so reveal
+		// notebook matches in it explicitly (scroll to the cell and select the
+		// matched range in the cell's editor).
+		if (editor && !(editor instanceof NotebookEditor) && isSearchTreeMatch(element)) {
+			await openSearchMatchInPositronNotebook(editor, element, preserveFocus);
+		}
+		// --- End Positron ---
 	}
 
 	openEditorWithMultiCursor(element: FileMatchOrMatch): Promise<void> {

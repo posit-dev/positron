@@ -23,6 +23,10 @@ import { NotebookPriorityInfo } from '../../common/search.js';
 import { INotebookExclusiveDocumentFilter } from '../../../notebook/common/notebookCommon.js';
 import { QueryBuilder } from '../../../../services/search/common/queryBuilder.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
+// --- Start Positron ---
+import { usingPositronNotebooks } from '../../../positronNotebook/common/positronNotebookCommon.js';
+import { getPositronSearchableNotebooks, searchPositronNotebooks } from './positronNotebookSearch.js';
+// --- End Positron ---
 
 interface IOpenNotebookSearchResults {
 	results: ResourceMap<INotebookFileMatchWithModel | null>;
@@ -68,17 +72,35 @@ export class NotebookSearchService implements INotebookSearchService {
 
 		const localNotebookWidgets = this.getLocalNotebookWidgets();
 		const localNotebookFiles = localNotebookWidgets.map(widget => widget.viewModel!.uri);
+		// --- Start Positron ---
+		// Open Positron notebooks are not NotebookEditorWidgets, so the widget-based
+		// open-notebook search above misses them and the raw .ipynb JSON would be
+		// searched from disk instead. Search their resolved notebook models directly
+		// so results are cell-based and reflect unsaved edits.
+		const positronNotebooks = usingPositronNotebooks(this.configurationService)
+			? getPositronSearchableNotebooks(this.notebookService, new ResourceSet(localNotebookFiles, uri => this.uriIdentityService.extUri.getComparisonKey(uri)))
+			: [];
+		const positronNotebookFiles = positronNotebooks.map(notebook => notebook.uri);
+		// --- End Positron ---
 		const getAllResults = (): { completeData: Promise<ISearchComplete>; allScannedFiles: Promise<ResourceSet> } => {
 			const searchStart = Date.now();
 
 			const localResultPromise = this.getLocalNotebookResults(query, token ?? CancellationToken.None, localNotebookWidgets, searchInstanceID);
 			const searchLocalEnd = Date.now();
 
+			// --- Start Positron ---
+			const positronResults = searchPositronNotebooks(query, positronNotebooks, uri => this.uriIdentityService.extUri.getComparisonKey(uri));
+			// --- End Positron ---
+
 			const experimentalNotebooksEnabled = this.configurationService.getValue<ISearchConfigurationProperties>('search').experimental?.closedNotebookRichContentResults ?? false;
 
 			let closedResultsPromise: Promise<IClosedNotebookSearchResults | undefined> = Promise.resolve(undefined);
 			if (experimentalNotebooksEnabled) {
-				closedResultsPromise = this.getClosedNotebookResults(query, new ResourceSet(localNotebookFiles, uri => this.uriIdentityService.extUri.getComparisonKey(uri)), token ?? CancellationToken.None);
+				// --- Start Positron ---
+				// Also skip files covered by the Positron open-notebook search above.
+				// closedResultsPromise = this.getClosedNotebookResults(query, new ResourceSet(localNotebookFiles, uri => this.uriIdentityService.extUri.getComparisonKey(uri)), token ?? CancellationToken.None);
+				closedResultsPromise = this.getClosedNotebookResults(query, new ResourceSet([...localNotebookFiles, ...positronNotebookFiles], uri => this.uriIdentityService.extUri.getComparisonKey(uri)), token ?? CancellationToken.None);
+				// --- End Positron ---
 			}
 
 			const promise = Promise.all([localResultPromise, closedResultsPromise]);
@@ -88,7 +110,10 @@ export class NotebookSearchService implements INotebookSearchService {
 					const closedNotebookResult = resolvedPromise[1];
 
 					const resolved = resolvedPromise.filter((e): e is IOpenNotebookSearchResults | IClosedNotebookSearchResults => !!e);
-					const resultArray = [...openNotebookResult.results.values(), ...closedNotebookResult?.results.values() ?? []];
+					// --- Start Positron ---
+					// const resultArray = [...openNotebookResult.results.values(), ...closedNotebookResult?.results.values() ?? []];
+					const resultArray = [...openNotebookResult.results.values(), ...positronResults.results.values(), ...closedNotebookResult?.results.values() ?? []];
+					// --- End Positron ---
 					const results = arrays.coalesce(resultArray);
 					if (onProgress) {
 						results.forEach(onProgress);
@@ -96,21 +121,30 @@ export class NotebookSearchService implements INotebookSearchService {
 					this.logService.trace(`local notebook search time | ${searchLocalEnd - searchStart}ms`);
 					return {
 						messages: [],
-						limitHit: resolved.reduce((prev, cur) => prev || cur.limitHit, false),
+						// --- Start Positron ---
+						// limitHit: resolved.reduce((prev, cur) => prev || cur.limitHit, false),
+						limitHit: resolved.reduce((prev, cur) => prev || cur.limitHit, positronResults.limitHit),
+						// --- End Positron ---
 						results,
 					};
 				}),
 				allScannedFiles: promise.then(resolvedPromise => {
 					const openNotebookResults = resolvedPromise[0];
 					const closedNotebookResults = resolvedPromise[1];
-					const results = arrays.coalesce([...openNotebookResults.results.keys(), ...closedNotebookResults?.results.keys() ?? []]);
+					// --- Start Positron ---
+					// const results = arrays.coalesce([...openNotebookResults.results.keys(), ...closedNotebookResults?.results.keys() ?? []]);
+					const results = arrays.coalesce([...openNotebookResults.results.keys(), ...positronResults.results.keys(), ...closedNotebookResults?.results.keys() ?? []]);
+					// --- End Positron ---
 					return new ResourceSet(results, uri => this.uriIdentityService.extUri.getComparisonKey(uri));
 				})
 			};
 		};
 		const promiseResults = getAllResults();
 		return {
-			openFilesToScan: new ResourceSet(localNotebookFiles),
+			// --- Start Positron ---
+			// openFilesToScan: new ResourceSet(localNotebookFiles),
+			openFilesToScan: new ResourceSet([...localNotebookFiles, ...positronNotebookFiles]),
+			// --- End Positron ---
 			completeData: promiseResults.completeData,
 			allScannedFiles: promiseResults.allScannedFiles
 		};
