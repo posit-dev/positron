@@ -8,7 +8,7 @@ import { DOCS_MAX_DOWNLOAD_BYTES, IDocsBundleRequest } from '../../common/positr
 import { PositronDocsCache } from '../../common/positronDocsCache.js';
 import { fakeDigest, fakeZip, FakeArchive, FakeFileStore, FakeHttpClient, recordingLogger } from './fakes.js';
 
-const ROOT = '/userdata/User/positron-docs';
+const ROOT = '/userdata/User/positron-llm-docs';
 const BASE = 'https://cdn.posit.co/positron/releases/docs';
 const EXACT_ZIP = `${BASE}/positron-llms-2026.05.0-179.zip`;
 const LATEST_ZIP = `${BASE}/positron-llms-latest.zip`;
@@ -79,7 +79,7 @@ describe('PositronDocsCache: cold cache install', () => {
 			{
 			  "docsBaseUrl": "https://positron.posit.co/",
 			  "isExactMatch": true,
-			  "path": "/userdata/User/positron-docs/2026.05.0-179",
+			  "path": "/userdata/User/positron-llm-docs/2026.05.0-179",
 			  "profile": "positron",
 			  "schema": 1,
 			  "version": "2026.05.0-179",

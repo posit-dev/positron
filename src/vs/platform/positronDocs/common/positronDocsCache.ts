@@ -18,7 +18,7 @@ import { guardEntryNames, validateExtractedBundle } from './positronDocsValidate
 const LOG_PREFIX = '[llm-docs]';
 
 export interface IPositronDocsCacheOptions {
-	/** Cache root, e.g. `<userdata>/User/positron-docs`. */
+	/** Cache root, e.g. `<userdata>/User/positron-llm-docs`. */
 	readonly rootPath: string;
 	readonly http: IDocsHttpClient;
 	readonly files: IDocsFileStore;
