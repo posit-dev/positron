@@ -51,7 +51,7 @@ import {
 	getCachedProvider,
 	initProviderCatalog,
 	onDidChangeProviderCatalog,
-	ProviderCatalogOptions,
+	saveCustomProviderModels,
 	saveProviderBaseUrl,
 	saveSnowflakeAccount,
 } from './providerCatalog';
@@ -621,9 +621,11 @@ function registerCustomProvider(
 	registerAuthProvider(CUSTOM_PROVIDER_AUTH_PROVIDER_ID, provider, {
 		validateApiKey: validateCustomProviderApiKey,
 		onSave: async (config) => {
+			const catalogId = PROVIDER_METADATA.customProvider.catalogId!;
 			if (config.baseUrl) {
-				await saveProviderBaseUrl(PROVIDER_METADATA.customProvider.catalogId!, config.baseUrl);
+				await saveProviderBaseUrl(catalogId, config.baseUrl);
 			}
+			await saveCustomProviderModels(catalogId, config.protocol, config.customModels);
 		},
 	});
 	log.info(
