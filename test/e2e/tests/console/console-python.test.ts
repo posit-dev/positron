@@ -8,7 +8,15 @@ import { test as base, tags } from '../_test.setup';
 const test = base.extend<{}, {}>({
 	beforeApp: [
 		async ({ settingsFile }, use) => {
-			await settingsFile.append({ 'python.useBundledIpykernel': false });
+			await settingsFile.append({
+				'python.useBundledIpykernel': false,
+				// Trace-level supervisor logs to diagnose https://github.com/posit-dev/positron/issues/15060.
+				// At the default `debug` level the supervisor logs "sending to Jupyter socket Shell"
+				// before queueing to an in-process channel; only `trace` logs the actual ZMQ send, which
+				// is what tells us whether a wedged kernel ever received the message. Must be pre-launch:
+				// the level is read once when the supervisor server starts.
+				'kernelSupervisor.logLevel': 'trace',
+			});
 			await use();
 		},
 		{ scope: 'worker' }
