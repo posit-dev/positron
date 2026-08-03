@@ -5,7 +5,7 @@
 /// <reference types="vitest/globals" />
 
 import { DeferredPromise } from '../../../../base/common/async.js';
-import { DOCS_MAX_DOWNLOAD_BYTES, IDocsBundleRequest } from '../../common/positronDocsBundle.js';
+import { DOCS_MAX_CHECKSUM_BYTES, DOCS_MAX_DOWNLOAD_BYTES, IDocsBundleRequest } from '../../common/positronDocsBundle.js';
 import { PositronDocsCache } from '../../common/positronDocsCache.js';
 import { fakeDigest, fakeZip, FakeArchive, FakeFileStore, FakeHttpClient, recordingLogger } from './fakes.js';
 
@@ -218,6 +218,21 @@ describe('PositronDocsCache: download rejections on a cold cache', () => {
 		return ctx;
 	}
 
+	it('installs nothing when no bundle is published at either URL', async () => {
+		// The pre-launch state: neither exact nor latest exists yet. Asserted
+		// rather than left implicit, because "no docs and no directory" is what
+		// keeps the assistant on web docs, and several tests below use an
+		// all-404 CDN as setup without ever checking that outcome.
+		const ctx = await expectRejected(c => {
+			c.http.route(EXACT_ZIP, { status: 404 });
+			c.http.route(LATEST_ZIP, { status: 404 });
+		}, `no bundle published at ${LATEST_ZIP}`);
+
+		// Nothing but the state file: no version directory under any name, so a
+		// later convergence pass still sees a cold cache.
+		expect(ctx.files.listUnder(ROOT).filter(p => p !== STATE_PATH)).toEqual([]);
+	});
+
 	it('rejects when the checksum file 404s', async () => {
 		await expectRejected(c => {
 			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179') });
@@ -274,6 +289,22 @@ describe('PositronDocsCache: download rejections on a cold cache', () => {
 			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179'), byteLength: DOCS_MAX_DOWNLOAD_BYTES + 1 });
 			c.http.route(`${EXACT_ZIP}.sha256sum`, { status: 200, body: `${'c'.repeat(64)}  x` });
 		}, `exceeds ${DOCS_MAX_DOWNLOAD_BYTES} bytes`);
+	});
+
+	it('aborts a checksum download that exceeds the checksum cap', async () => {
+		// A separate, much smaller cap than the zip's: the checksum file is one
+		// line, so anything larger is a redirect to an error page or a hostile
+		// object. The fake only enforces a cap it was given, so this is also what
+		// proves the checksum request carries maxBytes at all - the zip's own
+		// oversize test cannot cover that, it passes with the second call uncapped.
+		await expectRejected(c => {
+			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179') });
+			c.http.route(`${EXACT_ZIP}.sha256sum`, {
+				status: 200,
+				body: `${'c'.repeat(64)}  x`,
+				byteLength: DOCS_MAX_CHECKSUM_BYTES + 1,
+			});
+		}, `exceeds ${DOCS_MAX_CHECKSUM_BYTES} bytes`);
 	});
 
 	it('returns undefined on a network failure', async () => {
