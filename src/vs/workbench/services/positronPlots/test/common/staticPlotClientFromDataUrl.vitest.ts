@@ -53,11 +53,21 @@ describe('StaticPlotClient.fromDataUrl', () => {
 		expect(unnamed?.metadata.suggested_file_name).toBe('plot-1');
 	});
 
-	it('gives each call a distinct id so repeat popouts are independent', () => {
+	it('generates a distinct id per call when none is supplied', () => {
 		const first = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, 'notebook_cell1');
 		const second = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, 'notebook_cell1');
 
 		expect(first?.id).not.toBe(second?.id);
+	});
+
+	it('uses a supplied id, so repeat calls resolve to the same editor tab', () => {
+		// The plots editor is registered singlePerResource and its input matches on
+		// the resource, so a stable id is what makes a second popout reuse the tab.
+		const first = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, 'notebook_cell1', 'image-42');
+		const second = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, 'notebook_cell1', 'image-42');
+
+		expect(first?.id).toBe('image-42');
+		expect(second?.id).toBe('image-42');
 	});
 
 	it('returns undefined for a malformed data URL', () => {

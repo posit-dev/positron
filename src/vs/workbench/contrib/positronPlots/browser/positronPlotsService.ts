@@ -26,7 +26,7 @@ import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebvi
 import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
-import { decodeImageDataUrl, getImageExtensionForMimeType, parseImageDataUrl, toBase64ImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
+import { decodeImageDataUrl, getImageExtensionForMimeType, getImagePlotId, parseImageDataUrl, toBase64ImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
 import { SavePlotOptions, showSavePlotModalDialog } from './modalDialogs/savePlotModalDialog.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { localize } from '../../../../nls.js';
@@ -1646,24 +1646,38 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	public async openImageInEditor(dataUrl: string, name?: string, groupType?: number): Promise<void> {
-		const plotClient = StaticPlotClient.fromDataUrl(this._storageService, dataUrl, name);
-		if (!plotClient) {
-			throw new Error('Cannot open image in editor: malformed image data URL');
-		}
+		// Identify the plot by its content and label rather than by the cell it came
+		// from, so that popping the same output out twice resolves to the tab that is
+		// already open while re-running a cell to get a different image opens a new
+		// one. Keying on the cell alone would alias the two: the editor does not
+		// re-resolve an input it already has open, so the tab would go on rendering
+		// the previous image.
+		const plotId = getImagePlotId(dataUrl, name);
+		const existing = this._editorPlots.get(plotId);
 
-		// The editor input disposes the plot client via removeEditorPlot when the
-		// tab is closed, so there is nothing to clean up here.
-		this._editorPlots.set(plotClient.id, plotClient);
+		if (!existing) {
+			const plotClient = StaticPlotClient.fromDataUrl(this._storageService, dataUrl, name, plotId);
+			if (!plotClient) {
+				throw new Error('Cannot open image in editor: malformed image data URL');
+			}
+
+			// The editor input disposes the plot client via removeEditorPlot when the
+			// tab is closed, so there is nothing to clean up here.
+			this._editorPlots.set(plotId, plotClient);
+		}
 
 		const editorPane = await this._editorService.openEditor({
 			resource: URI.from({
 				scheme: Schemas.positronPlotsEditor,
-				path: plotClient.id,
+				path: plotId,
 			}),
 		}, groupType ?? ACTIVE_GROUP);
 
 		if (!editorPane) {
-			this.removeEditorPlot(plotClient.id);
+			// Only tear down a client this call created; a tab already open keeps its own.
+			if (!existing) {
+				this.removeEditorPlot(plotId);
+			}
 			throw new Error('Failed to open editor');
 		}
 	}

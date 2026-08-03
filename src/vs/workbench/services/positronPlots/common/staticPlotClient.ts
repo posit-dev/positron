@@ -38,18 +38,18 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient,
 	 * The plot is not associated with a runtime session, so it carries an empty
 	 * `session_id` and cannot be re-rendered at a different size.
 	 * @param name The plot's display name, used as the editor tab label.
+	 * @param id The plot's id. Supply a stable one to have repeat calls resolve to
+	 * the same editor tab; defaults to a fresh id, giving each call its own tab.
 	 * @returns The plot client, or undefined if the data URL is malformed.
 	 */
-	static fromDataUrl(storageService: IStorageService, dataUrl: string, name?: string): StaticPlotClient | undefined {
+	static fromDataUrl(storageService: IStorageService, dataUrl: string, name?: string, id?: string): StaticPlotClient | undefined {
 		const parsed = parseImageDataUrl(dataUrl);
 		if (!parsed) {
 			return undefined;
 		}
 
 		const metadata: IPositronPlotMetadata = {
-			// A fresh id each time, so that popping the same output out twice
-			// opens two independent tabs rather than aliasing one plot client.
-			id: generateUuid(),
+			id: id ?? generateUuid(),
 			created: Date.now(),
 			session_id: '',
 			code: '',

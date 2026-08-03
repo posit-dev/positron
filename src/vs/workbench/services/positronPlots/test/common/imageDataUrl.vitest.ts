@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { VSBuffer, encodeBase64 } from '../../../../../base/common/buffer.js';
-import { decodeImageDataUrl, getImageExtensionForMimeType, parseImageDataUrl, toBase64ImageDataUrl } from '../../common/imageDataUrl.js';
+import { decodeImageDataUrl, getImageExtensionForMimeType, getImagePlotId, parseImageDataUrl, toBase64ImageDataUrl } from '../../common/imageDataUrl.js';
 
 const pngDataUrl = `data:image/png;base64,${encodeBase64(VSBuffer.fromString('fake-png-bytes'))}`;
 const svg = '<svg><circle r="10"/></svg>';
@@ -108,6 +108,24 @@ describe('imageDataUrl', () => {
 			const unicodeSvg = '<svg><text>éàü</text></svg>';
 			const result = toBase64ImageDataUrl(`data:image/svg+xml,${encodeURIComponent(unicodeSvg)}`);
 			expect(decodeImageDataUrl(result)?.data.toString()).toBe(unicodeSvg);
+		});
+	});
+
+	describe('getImagePlotId', () => {
+		it('is stable for the same image and label, so a repeat popout reuses the tab', () => {
+			expect(getImagePlotId(pngDataUrl, 'notebook_cell1'))
+				.toBe(getImagePlotId(pngDataUrl, 'notebook_cell1'));
+		});
+
+		it('differs when the image changes, so a re-run opens a new tab', () => {
+			const rerun = `data:image/png;base64,${encodeBase64(VSBuffer.fromString('different-bytes'))}`;
+			expect(getImagePlotId(rerun, 'notebook_cell1'))
+				.not.toBe(getImagePlotId(pngDataUrl, 'notebook_cell1'));
+		});
+
+		it('differs across cells with identical images, so tab labels stay honest', () => {
+			expect(getImagePlotId(pngDataUrl, 'notebook_cell2'))
+				.not.toBe(getImagePlotId(pngDataUrl, 'notebook_cell1'));
 		});
 	});
 

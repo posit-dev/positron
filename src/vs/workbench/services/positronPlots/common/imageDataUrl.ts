@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { VSBuffer, decodeBase64, encodeBase64 } from '../../../../base/common/buffer.js';
+import { stringHash } from '../../../../base/common/hash.js';
 import { getExtensionForMimeType } from '../../../../base/common/mime.js';
 
 /** An image data URL parsed into its MIME type and payload. */
@@ -75,6 +76,18 @@ export function decodeImageDataUrl(dataUrl: string): DecodedImageDataUrl | undef
 	} catch {
 		return undefined;
 	}
+}
+
+/**
+ * Stable editor-tab identity for an image opened from a cell output.
+ *
+ * Derived from the image content and its label, so that opening the same output
+ * twice resolves to the tab already open while a re-run that changes the image
+ * gets a new tab. A hash collision would only focus the wrong tab, so a cheap
+ * 32-bit hash is enough.
+ */
+export function getImagePlotId(dataUrl: string, name?: string): string {
+	return `image-${stringHash(dataUrl, stringHash(name ?? '', 0))}`;
 }
 
 /** File extension (including the dot) for an image MIME type, defaulting to '.png'. */
