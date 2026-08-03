@@ -90,6 +90,12 @@ describe('parseManifest', () => {
 		['malformed JSON', '{ not json'],
 		['missing version', JSON.stringify({ schema: 1, profile: 'positron', fileCount: 90, docsBaseUrl: 'x', generated: 'y' })],
 		['non-numeric fileCount', JSON.stringify({ ...JSON.parse(valid), fileCount: 'ninety' })],
+		// The version becomes a directory name under the cache root, so anything
+		// that could steer a rename out of it has to be rejected at parse time.
+		['a version that escapes the cache root', JSON.stringify({ ...JSON.parse(valid), version: '../../evil' })],
+		['a version that is a parent reference', JSON.stringify({ ...JSON.parse(valid), version: '..' })],
+		['an absolute version', JSON.stringify({ ...JSON.parse(valid), version: '/etc/passwd' })],
+		['a version with a Windows separator', JSON.stringify({ ...JSON.parse(valid), version: '..\\evil' })],
 	])('rejects %s', (_label, raw) => {
 		expect(parseManifest(raw)).toBeUndefined();
 	});
