@@ -452,7 +452,9 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 	}
 
 	/**
-	 * Whether the given node's children are currently loaded.
+	 * Whether the given node's children are currently loaded. A node keeps its loaded children while
+	 * collapsed, so consumers whose children carry per-fetch resources can use this to tell whether
+	 * there is anything to drop (see {@link dropLoadedChildren}).
 	 */
 	hasLoadedChildren(id: string): boolean {
 		return this._children.has(id);
@@ -539,15 +541,6 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 
 	isExpanded(id: string): boolean {
 		return this._expanded.has(id);
-	}
-
-	/**
-	 * Gets whether the node's children are loaded. A node keeps its loaded children while collapsed,
-	 * so consumers whose children carry per-fetch resources can use this to tell whether there is
-	 * anything to drop (see {@link dropLoadedChildren}).
-	 */
-	hasLoadedChildren(id: string): boolean {
-		return this._children.has(id);
 	}
 
 	isLoading(id: string): boolean {
