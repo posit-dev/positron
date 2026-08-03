@@ -70,7 +70,7 @@ export class PositronDocsTriggers {
 	 * or returns the completed result.
 	 */
 	async getLocalDocs(): Promise<ILocalDocs | undefined> {
-		const { cache, delay, logger, request, waitMs } = this._options;
+		const { cache, logger, request, waitMs } = this._options;
 		if (!await this._options.isAiEnabled()) {
 			// Logged, not silent: from the caller's side this is indistinguishable
 			// from "no docs on disk", and the reason is the first thing anyone
@@ -79,15 +79,7 @@ export class PositronDocsTriggers {
 			return undefined;
 		}
 
-		const fetching: Promise<RaceOutcome> = cache.ensure(request)
-			.then(docs => ({ timedOut: false as const, docs }))
-			.catch(error => {
-				logger.warn(`${LOG_PREFIX} docs fetch failed: ${error instanceof Error ? error.message : String(error)}`);
-				return { timedOut: false as const, docs: undefined };
-			});
-		const timingOut: Promise<RaceOutcome> = delay(waitMs).then(() => ({ timedOut: true as const }));
-
-		const winner = await Promise.race([fetching, timingOut]);
+		const winner = await Promise.race([this._fetchDocs(), this._timeOut()]);
 		if (!winner.timedOut) {
 			return winner.docs;
 		}
@@ -97,5 +89,21 @@ export class PositronDocsTriggers {
 		// applies, so hand back whatever is already on disk.
 		logger.info(`${LOG_PREFIX} local docs not ready within ${waitMs}ms; continuing in the background`);
 		return await cache.peek(request);
+	}
+
+	/** Fetch branch of the race. Absorbs its own failure so the race never rejects. */
+	private async _fetchDocs(): Promise<RaceOutcome> {
+		try {
+			return { timedOut: false, docs: await this._options.cache.ensure(this._options.request) };
+		} catch (error) {
+			this._options.logger.warn(`${LOG_PREFIX} docs fetch failed: ${error instanceof Error ? error.message : String(error)}`);
+			return { timedOut: false, docs: undefined };
+		}
+	}
+
+	/** Timeout branch of the race. */
+	private async _timeOut(): Promise<RaceOutcome> {
+		await this._options.delay(this._options.waitMs);
+		return { timedOut: true };
 	}
 }
