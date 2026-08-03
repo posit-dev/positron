@@ -312,11 +312,10 @@ jobs:
             SKIP_CLONE_ARG=""
           fi
 
-          # Use predictive sharding CLI
-          CMD="npx e2e-insights run-shard \
-            --shard-index=${{ matrix.shard }} \
-            --shard-total=${{ inputs.shards }} \
-            --repo=${{ github.repository }} \
+          # Shards are duration-balanced by the reporter's preprocess hook
+          # (see playwright.config.ts); falls back to the native split on error.
+          CMD="npx playwright test \
+            --shard=${{ matrix.shard }}/${{ inputs.shards }} \
             --project ${{ inputs.project }} \
             --workers ${{ inputs.workers }} \
             $GREP_ARG \
