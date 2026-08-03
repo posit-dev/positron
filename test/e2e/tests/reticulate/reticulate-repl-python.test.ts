@@ -17,7 +17,11 @@ test.use({
 test.describe('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB, tags.ARK, tags.SOFT_FAIL],
 }, () => {
-	test('R - Verify Basic Reticulate Functionality using reticulate::repl_python()', async function ({ app, sessions, logger }) {
+	// Skipped: execute requests sent to the reticulate Python session hang in CI, so the
+	// variable never appears and the test spins until it times out. Un-skip when #10953 is fixed.
+	test.skip('R - Verify Basic Reticulate Functionality using reticulate::repl_python()', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/10953' }]
+	}, async function ({ app, sessions, logger }) {
 		const { console } = app.workbench;
 
 		// start new reticulate session and verify functionality
