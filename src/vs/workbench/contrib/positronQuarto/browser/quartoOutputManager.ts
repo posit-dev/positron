@@ -22,7 +22,7 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { basename } from '../../../../base/common/resources.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
-import { openImageOutputInNewTab, saveImageOutput } from '../../positronNotebook/common/imageOutputUtils.js';
+import { getImageOutputName, openImageOutputInNewTab, saveImageOutput } from '../../positronNotebook/common/imageOutputUtils.js';
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
@@ -1419,8 +1419,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 		await openImageOutputInNewTab(
 			dataUrl,
-			this._documentUri,
-			this._getCellIndex(cellId),
+			getImageOutputName(this._documentUri, this._getCellIndex(cellId)),
 			this._plotsService,
 			this._logService,
 			this._notificationService,
@@ -1613,7 +1612,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		return saveImageOutput(
 			dataUrl,
 			this._documentUri,
-			this._getCellIndex(cellId),
+			getImageOutputName(this._documentUri, this._getCellIndex(cellId)),
 			this._fileDialogService,
 			this._fileService,
 			this._logService,

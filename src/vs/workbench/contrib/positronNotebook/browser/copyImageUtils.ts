@@ -15,6 +15,12 @@ import { toBase64ImageDataUrl } from '../../../services/positronPlots/common/ima
  */
 export interface CopyImageMenuArg {
 	imageDataUrl: string;
+
+	/**
+	 * Id of the output the image belongs to, used to tell a cell's image outputs
+	 * apart. Absent if the click didn't land on an image carrying the id.
+	 */
+	outputId?: string;
 }
 
 export function isCopyImageMenuArg(arg: unknown): arg is CopyImageMenuArg {

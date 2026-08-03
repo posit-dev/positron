@@ -29,12 +29,23 @@ describe('imageOutputUtils', () => {
 			expect(getImageOutputName(notebookUri, 0)).toBe('notebook_cell1');
 			expect(getImageOutputName(notebookUri, 2)).toBe('notebook_cell3');
 		});
+
+		it('appends a 1-based image number when the cell holds several images', () => {
+			expect(getImageOutputName(notebookUri, 0, 0)).toBe('notebook_cell1_image1');
+			expect(getImageOutputName(notebookUri, 0, 1)).toBe('notebook_cell1_image2');
+		});
+
+		it('leaves the name unsuffixed when no image index is given', () => {
+			// A cell with one image keeps the shorter name, so the common case is
+			// unaffected by multi-image disambiguation.
+			expect(getImageOutputName(notebookUri, 0)).not.toContain('_image');
+		});
 	});
 
 	describe('getDefaultImageFilename', () => {
-		it('derives the filename from the notebook name, cell number, and MIME type', () => {
-			expect(getDefaultImageFilename(notebookUri, 0, 'image/png')).toBe('notebook_cell1.png');
-			expect(getDefaultImageFilename(notebookUri, 2, 'image/svg+xml')).toBe('notebook_cell3.svg');
+		it('appends the extension for the MIME type', () => {
+			expect(getDefaultImageFilename('notebook_cell1', 'image/png')).toBe('notebook_cell1.png');
+			expect(getDefaultImageFilename('notebook_cell3', 'image/svg+xml')).toBe('notebook_cell3.svg');
 		});
 	});
 
@@ -48,7 +59,7 @@ describe('imageOutputUtils', () => {
 			const fileService = stubInterface<IFileService>({ writeFile });
 			const notificationService = stubInterface<INotificationService>({ info });
 
-			const saved = await saveImageOutput(pngDataUrl, notebookUri, 0, fileDialogService, fileService, logService, notificationService);
+			const saved = await saveImageOutput(pngDataUrl, notebookUri, 'notebook_cell1', fileDialogService, fileService, logService, notificationService);
 
 			expect(saved).toBe(true);
 			expect(showSaveDialog).toHaveBeenCalledWith(expect.objectContaining({
@@ -65,7 +76,7 @@ describe('imageOutputUtils', () => {
 			const fileService = stubInterface<IFileService>({ writeFile });
 			const notificationService = stubInterface<INotificationService>({});
 
-			const saved = await saveImageOutput(pngDataUrl, notebookUri, 0, fileDialogService, fileService, logService, notificationService);
+			const saved = await saveImageOutput(pngDataUrl, notebookUri, 'notebook_cell1', fileDialogService, fileService, logService, notificationService);
 
 			expect(saved).toBe(false);
 			expect(writeFile).not.toHaveBeenCalled();
@@ -79,7 +90,7 @@ describe('imageOutputUtils', () => {
 			const fileService = stubInterface<IFileService>({ writeFile });
 			const notificationService = stubInterface<INotificationService>({ info: vi.fn() });
 
-			const saved = await saveImageOutput(pngDataUrl, notebookUri, 0, fileDialogService, fileService, logService, notificationService, targetUri);
+			const saved = await saveImageOutput(pngDataUrl, notebookUri, 'notebook_cell1', fileDialogService, fileService, logService, notificationService, targetUri);
 
 			expect(saved).toBe(true);
 			expect(showSaveDialog).not.toHaveBeenCalled();
@@ -92,7 +103,7 @@ describe('imageOutputUtils', () => {
 			const fileService = stubInterface<IFileService>({});
 			const notificationService = stubInterface<INotificationService>({ error });
 
-			const saved = await saveImageOutput('not-a-data-url', notebookUri, 0, fileDialogService, fileService, logService, notificationService);
+			const saved = await saveImageOutput('not-a-data-url', notebookUri, 'notebook_cell1', fileDialogService, fileService, logService, notificationService);
 
 			expect(saved).toBe(false);
 			expect(error).toHaveBeenCalled();
@@ -104,7 +115,7 @@ describe('imageOutputUtils', () => {
 			const fileService = stubInterface<IFileService>({ writeFile: vi.fn().mockRejectedValue(new Error('disk full')) });
 			const notificationService = stubInterface<INotificationService>({ error });
 
-			const saved = await saveImageOutput(pngDataUrl, notebookUri, 0, fileDialogService, fileService, logService, notificationService);
+			const saved = await saveImageOutput(pngDataUrl, notebookUri, 'notebook_cell1', fileDialogService, fileService, logService, notificationService);
 
 			expect(saved).toBe(false);
 			expect(error).toHaveBeenCalled();
@@ -117,7 +128,7 @@ describe('imageOutputUtils', () => {
 			const plotsService = stubInterface<IPositronPlotsService>({ openImageInEditor });
 			const notificationService = stubInterface<INotificationService>({});
 
-			await openImageOutputInNewTab(pngDataUrl, notebookUri, 0, plotsService, logService, notificationService);
+			await openImageOutputInNewTab(pngDataUrl, 'notebook_cell1', plotsService, logService, notificationService);
 
 			expect(openImageInEditor).toHaveBeenCalledWith(pngDataUrl, 'notebook_cell1');
 		});
@@ -129,7 +140,7 @@ describe('imageOutputUtils', () => {
 			});
 			const notificationService = stubInterface<INotificationService>({ error });
 
-			await openImageOutputInNewTab('not-a-data-url', notebookUri, 0, plotsService, logService, notificationService);
+			await openImageOutputInNewTab('not-a-data-url', 'notebook_cell1', plotsService, logService, notificationService);
 
 			expect(error).toHaveBeenCalled();
 		});

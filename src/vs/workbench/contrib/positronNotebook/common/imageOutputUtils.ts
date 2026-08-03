@@ -16,19 +16,24 @@ import { IPositronPlotsService } from '../../../services/positronPlots/common/po
 /**
  * Build the display name for a cell's image output, without a file extension,
  * e.g. "notebook_cell1" for the first cell of notebook.ipynb.
+ * @param imageIndex Position of the image among the cell's image outputs. Pass it
+ * only when the cell holds more than one image, to keep the common single-image
+ * name unsuffixed; the second image of a cell then becomes "notebook_cell1_image2".
  */
-export function getImageOutputName(documentUri: URI, cellIndex: number): string {
+export function getImageOutputName(documentUri: URI, cellIndex: number, imageIndex?: number): string {
 	const documentName = basename(documentUri);
 	const nameWithoutExt = documentName.substring(0, documentName.length - extname(documentUri).length);
-	return `${nameWithoutExt}_cell${cellIndex + 1}`;
+	const cellName = `${nameWithoutExt}_cell${cellIndex + 1}`;
+	return imageIndex === undefined ? cellName : `${cellName}_image${imageIndex + 1}`;
 }
 
 /**
  * Build the default filename for exporting a cell's image output,
- * e.g. "notebook_cell1.png" for the first cell of notebook.ipynb.
+ * e.g. "notebook_cell1.png".
+ * @param name An image output name from {@link getImageOutputName}.
  */
-export function getDefaultImageFilename(documentUri: URI, cellIndex: number, mimeType: string): string {
-	return `${getImageOutputName(documentUri, cellIndex)}${getImageExtensionForMimeType(mimeType)}`;
+export function getDefaultImageFilename(name: string, mimeType: string): string {
+	return `${name}${getImageExtensionForMimeType(mimeType)}`;
 }
 
 /**
@@ -39,7 +44,7 @@ export function getDefaultImageFilename(documentUri: URI, cellIndex: number, mim
 export async function saveImageOutput(
 	dataUrl: string,
 	documentUri: URI,
-	cellIndex: number,
+	name: string,
 	fileDialogService: IFileDialogService,
 	fileService: IFileService,
 	logService: ILogService,
@@ -53,9 +58,9 @@ export async function saveImageOutput(
 	}
 
 	try {
-		// Default to the document's directory with a name derived from the document and cell.
+		// Default to the document's directory, under the output's name.
 		const extension = getImageExtensionForMimeType(decoded.mimeType);
-		const filename = getDefaultImageFilename(documentUri, cellIndex, decoded.mimeType);
+		const filename = getDefaultImageFilename(name, decoded.mimeType);
 		const defaultDir = dirname(documentUri);
 		const defaultUri = defaultDir.with({ path: `${defaultDir.path}/${filename}` });
 
@@ -90,14 +95,13 @@ export async function saveImageOutput(
  */
 export async function openImageOutputInNewTab(
 	dataUrl: string,
-	documentUri: URI,
-	cellIndex: number,
+	name: string,
 	plotsService: IPositronPlotsService,
 	logService: ILogService,
 	notificationService: INotificationService,
 ): Promise<void> {
 	try {
-		await plotsService.openImageInEditor(dataUrl, getImageOutputName(documentUri, cellIndex));
+		await plotsService.openImageInEditor(dataUrl, name);
 	} catch (error) {
 		logService.error('Failed to open notebook image output in a new tab:', error);
 		notificationService.error(localize('positron.notebook.openOutputFailed', "Failed to open output"));
