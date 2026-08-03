@@ -32,6 +32,13 @@ export const DOCS_INDEX_FILENAME = 'llms.txt';
  */
 export const DOCS_MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
 
+/**
+ * Cap on the checksum file, which holds one `<64 hex chars>  <name>` line.
+ * Tight rather than generous: unlike the bundle this has a fixed shape, so a
+ * body anywhere near this size is already a wrong or hostile object.
+ */
+export const DOCS_MAX_CHECKSUM_BYTES = 8 * 1024;
+
 export type DocsProfile = 'positron' | 'workbench';
 
 /**

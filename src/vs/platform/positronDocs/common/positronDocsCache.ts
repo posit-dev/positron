@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import {
-	DOCS_BUNDLE_SCHEMA, DOCS_FAILURE_THROTTLE_MS, DOCS_MAX_DOWNLOAD_BYTES,
+	DOCS_BUNDLE_SCHEMA, DOCS_FAILURE_THROTTLE_MS, DOCS_MAX_CHECKSUM_BYTES, DOCS_MAX_DOWNLOAD_BYTES,
 	DOCS_STATE_FILENAME, DocsResolution,
 	IDocsBundleManifest, IDocsBundleRequest, IDocsCacheState, IResolvedBundle, IResolvedBundleRequest,
 	parseDigestFile, resolveBundleRequest,
@@ -340,7 +340,7 @@ export class PositronDocsCache {
 			// A zip that cannot be verified is never extracted, even though
 			// that means a cold cache gets no local docs until the checksum file
 			// appears. Proceeding unverified would make the digest decorative.
-			const checksum = await http.get(target.sha256Url);
+			const checksum = await http.get(target.sha256Url, { maxBytes: DOCS_MAX_CHECKSUM_BYTES });
 			if (checksum.status !== 200 || !checksum.body) {
 				return { kind: 'rejected', reason: `checksum file unavailable (HTTP ${checksum.status})` };
 			}
