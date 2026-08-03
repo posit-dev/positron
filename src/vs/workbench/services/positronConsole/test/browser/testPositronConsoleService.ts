@@ -332,8 +332,18 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		public readonly sessionMetadata: IRuntimeSessionMetadata,
 		public readonly runtimeMetadata: ILanguageRuntimeMetadata,
 		public readonly runtimeItems: RuntimeItem[] = [],
-		public readonly codeEditor: ICodeEditor | undefined = undefined
+		public codeEditor: ICodeEditor | undefined = undefined
 	) { }
+
+	/**
+	 * Attaches a code editor and fires the onDidSetCodeEditor event, mirroring the console input
+	 * component assigning its Monaco editor once it mounts.
+	 * @param codeEditor The code editor to attach.
+	 */
+	setCodeEditor(codeEditor: ICodeEditor): void {
+		this.codeEditor = codeEditor;
+		this._onDidSetCodeEditorEmitter.fire(codeEditor);
+	}
 
 	get onFocusInput(): Event<FocusInputOptions> {
 		return this._onFocusInputEmitter.event;

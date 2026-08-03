@@ -279,7 +279,7 @@ class MainThreadDocumentAndEditorStateComputer {
 @extHostCustomer
 // --- Start Positron ---
 export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, IMainThreadConsoleEditorManager {
-// --- End Positron ---
+	// --- End Positron ---
 
 	private readonly _toDispose = new DisposableStore();
 	private readonly _proxy: ExtHostDocumentsAndEditorsShape;
@@ -451,9 +451,11 @@ export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, 
 	 *
 	 * @param id A stable id for this editor (e.g. `console-<sessionId>`)
 	 * @param codeEditor The Monaco editor backing the console input
+	 * @param onRegistered Invoked once the editor has been sent to the ext host. Registration is
+	 * deferred until the code editor has a text model, so this may run after this method returns.
 	 * @returns A disposable that removes the editor from the ext host when disposed
 	 */
-	registerConsoleEditor(id: string, codeEditor: ICodeEditor): IDisposable {
+	registerConsoleEditor(id: string, codeEditor: ICodeEditor, onRegistered?: () => void): IDisposable {
 		const store = new DisposableStore();
 
 		const doRegister = (model: ITextModel) => {
@@ -479,6 +481,10 @@ export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, 
 				this._mainThreadEditors.handleTextEditorRemoved(id);
 				this._proxy.$acceptDocumentsAndEditorsDelta({ removedEditors: [id] });
 			}));
+
+			// Notify the caller last, so that anything it sends to the ext host (e.g. the active
+			// console editor id) arrives after the delta that makes the editor resolvable there.
+			onRegistered?.();
 		};
 
 		const model = codeEditor.getModel();

@@ -28,6 +28,12 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 	/** Disposables for registered console text editors, keyed by session id. */
 	private readonly _consoleEditorDisposables = new Map<string, MutableDisposable<IDisposable>>();
 
+	/** Session ids whose console text editor is known to the extension host. */
+	private readonly _registeredConsoleEditors = new Set<string>();
+
+	/** The last editor id sent to the extension host, used to suppress duplicate notifications. */
+	private _notifiedConsoleEditorId: string | null = null;
+
 	private readonly _proxy: ExtHostConsoleServiceShape;
 
 	constructor(
@@ -129,7 +135,17 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 			const mutable = new MutableDisposable<IDisposable>();
 			this._consoleEditorDisposables.set(sessionId, mutable);
 			this._disposables.add(mutable);
-			mutable.value = manager.registerConsoleEditor(editorId, instance.codeEditor!);
+			// Registration is deferred until the code editor has a text model, so the editor is
+			// only resolvable in the ext host once `onRegistered` runs. Notifying any earlier
+			// would fire `onDidChangeActiveConsoleEditor` with an unresolvable editor.
+			mutable.value = manager.registerConsoleEditor(editorId, instance.codeEditor!, () => {
+				this._registeredConsoleEditors.add(sessionId);
+
+				// If this instance is the active console, notify now.
+				if (this._positronConsoleService.activePositronConsoleInstance === instance) {
+					this._setActiveConsoleEditor(editorId);
+				}
+			});
 		};
 
 		if (instance.codeEditor) {
@@ -141,11 +157,6 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 			const sub = instance.onDidSetCodeEditor(() => {
 				sub.dispose();
 				doRegister();
-
-				// If this instance is already the active console, notify now.
-				if (this._positronConsoleService.activePositronConsoleInstance === instance) {
-					this._proxy.$setActiveConsoleEditor(editorId);
-				}
 			});
 			this._disposables.add(sub);
 		}
@@ -157,16 +168,29 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 	 */
 	private _notifyActiveConsoleEditor(instance: IPositronConsoleInstance | undefined): void {
 		if (!instance) {
-			this._proxy.$setActiveConsoleEditor(null);
+			this._setActiveConsoleEditor(null);
 			return;
 		}
 		const sessionId = instance.sessionMetadata.sessionId;
-		const editorId = `console-${sessionId}`;
-		// Only notify if the editor has been registered (codeEditor is set).
-		if (instance.codeEditor && this._consoleEditorDisposables.has(sessionId)) {
-			this._proxy.$setActiveConsoleEditor(editorId);
+		// Only notify with an editor id once the ext host knows about the editor; until then the
+		// active console has no resolvable editor. `_registerConsoleEditor` notifies once it does.
+		if (this._registeredConsoleEditors.has(sessionId)) {
+			this._setActiveConsoleEditor(`console-${sessionId}`);
+		} else {
+			this._setActiveConsoleEditor(null);
 		}
-		// If codeEditor isn't set yet, _registerConsoleEditor will notify once it mounts.
+	}
+
+	/**
+	 * Sends the active console editor id to the extension host, skipping notifications that
+	 * wouldn't change the value the extension host already has.
+	 */
+	private _setActiveConsoleEditor(editorId: string | null): void {
+		if (this._notifiedConsoleEditorId === editorId) {
+			return;
+		}
+		this._notifiedConsoleEditorId = editorId;
+		this._proxy.$setActiveConsoleEditor(editorId);
 	}
 
 	// --- from extension host process

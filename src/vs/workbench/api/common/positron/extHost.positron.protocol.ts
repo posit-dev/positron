@@ -180,7 +180,17 @@ export interface ExtHostConsoleServiceShape {
  * console editor registration without exposing the full upstream internals.
  */
 export interface IMainThreadConsoleEditorManager {
-	registerConsoleEditor(id: string, codeEditor: ICodeEditor): IDisposable;
+	/**
+	 * Registers a console input editor with the extension host.
+	 *
+	 * @param id A stable id for this editor (e.g. `console-<sessionId>`)
+	 * @param codeEditor The Monaco editor backing the console input
+	 * @param onRegistered Invoked once the editor is actually known to the extension host.
+	 * Registration is deferred until the code editor has a text model, so this may be called
+	 * after `registerConsoleEditor` returns (or never, if a model is never attached).
+	 * @returns A disposable that removes the editor from the ext host when disposed
+	 */
+	registerConsoleEditor(id: string, codeEditor: ICodeEditor, onRegistered?: () => void): IDisposable;
 }
 
 export interface MainThreadMethodsShape { }
