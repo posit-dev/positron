@@ -187,6 +187,9 @@ export const OPTIONS: OptionDescriptions<Required<NativeParsedArgs>> = {
 	'logExtensionHostCommunication': { type: 'boolean' },
 	'skip-release-notes': { type: 'boolean' },
 	'skip-welcome': { type: 'boolean' },
+	// --- Start Positron ---
+	'canvas': { type: 'boolean', cat: 'o', description: localize('canvas', "Open Canvas as the only window instead of the full Positron interface.") },
+	// --- End Positron ---
 	'disable-telemetry': { type: 'boolean' },
 	'disable-updates': { type: 'boolean' },
 	'share-secrets-with-agents-app': { type: 'boolean' },

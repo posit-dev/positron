@@ -199,17 +199,24 @@ export class EditorActionBarFactory extends Disposable {
 		];
 
 		// Splice the move editor to new window command button into the right action bar elements.
-		rightActionBarElements.splice(
-			rightActionBarElements.length - 1,
-			0,
-			<ActionBarCommandButton
-				ariaLabel={positronMoveIntoNewWindowAriaLabel}
-				commandId='workbench.action.moveEditorToNewWindow'
-				disabled={auxiliaryWindow}
-				icon={ThemeIcon.fromId('positron-open-in-new-window')}
-				tooltip={positronMoveIntoNewWindowTooltip}
-			/>
-		);
+		// Not for Canvas panels: their action bar carries "Open Canvas" instead
+		// (positronCanvas.contribution.ts), and a plain detached editor window is
+		// the degraded shape of what that button opens. The literal matches
+		// CANVAS_WEBVIEW_VIEW_TYPE in contrib/positronCanvas, which this layer
+		// cannot import.
+		if (this.contextKeyService.getContextKeyValue<string>('activeWebviewPanelId') !== 'posit-assistant.canvas') {
+			rightActionBarElements.splice(
+				rightActionBarElements.length - 1,
+				0,
+				<ActionBarCommandButton
+					ariaLabel={positronMoveIntoNewWindowAriaLabel}
+					commandId='workbench.action.moveEditorToNewWindow'
+					disabled={auxiliaryWindow}
+					icon={ThemeIcon.fromId('positron-open-in-new-window')}
+					tooltip={positronMoveIntoNewWindowTooltip}
+				/>
+			);
+		}
 
 		// Return the action bar.
 		return (

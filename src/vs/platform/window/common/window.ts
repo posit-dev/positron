@@ -469,6 +469,16 @@ export interface INativeWindowConfiguration extends IWindowConfiguration, Native
 	adminPoliciesData?: string; // JSON string of enforced settings from POSITRON_ENFORCED_SETTINGS
 	// --- End PWB ---
 
+	// --- Start Positron ---
+	/**
+	 * Whether another window was presenting Canvas mode when this window
+	 * opened. Canvas is one product surface per application instance, so a
+	 * window opened while Canvas is engaged elsewhere must not enter Canvas
+	 * itself, whatever its own flag, setting, or stored intent say.
+	 */
+	canvasModeEngagedElsewhere?: boolean;
+	// --- End Positron ---
+
 	isSessionsWindow?: boolean;
 }
 

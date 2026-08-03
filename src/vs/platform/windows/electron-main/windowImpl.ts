@@ -40,6 +40,9 @@ import { IWindowState, ICodeWindow, ILoadEvent, WindowMode, WindowError, LoadRea
 import { IPolicyService } from '../../policy/common/policy.js';
 import { IUserDataProfile } from '../../userDataProfile/common/userDataProfile.js';
 import { IStateService } from '../../state/node/state.js';
+// --- Start Positron ---
+import { IPositronCanvasModeMainService } from '../../positronCanvasMode/common/positronCanvasMode.js';
+// --- End Positron ---
 import { IUserDataProfilesMainService } from '../../userDataProfile/electron-main/userDataProfile.js';
 import { ILoggerMainService } from '../../log/electron-main/loggerService.js';
 import { IInstantiationService } from '../../instantiation/common/instantiation.js';
@@ -696,7 +699,10 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		@IProtocolMainService protocolMainService: IProtocolMainService,
 		@IWindowsMainService private readonly windowsMainService: IWindowsMainService,
 		@IStateService stateService: IStateService,
-		@IInstantiationService instantiationService: IInstantiationService
+		@IInstantiationService instantiationService: IInstantiationService,
+		// --- Start Positron ---
+		@IPositronCanvasModeMainService private readonly positronCanvasModeMainService: IPositronCanvasModeMainService
+		// --- End Positron ---
 	) {
 		super(configurationService, stateService, environmentMainService, logService);
 
@@ -1348,6 +1354,18 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		delete configuration.filesToDiff;
 		delete configuration.filesToMerge;
 		delete configuration.filesToWait;
+
+		// --- Start Positron ---
+		// CLI Canvas intent applies to the launch only. Active Canvas mode is
+		// restored through workspace storage, so a later explicit exit stays exited.
+		delete configuration.canvas;
+
+		// The engagement stamp describes open time; a reload happens later, so
+		// refresh it. Without this, a window opened while Canvas was engaged
+		// elsewhere would stay locked out of Canvas mode after that engagement
+		// ended, for as long as it only ever reloaded.
+		configuration.canvasModeEngagedElsewhere = this.positronCanvasModeMainService.isEngagedElsewhere(this.id);
+		// --- End Positron ---
 
 		// Some configuration things get inherited if the window is being reloaded and we are
 		// in extension development mode. These options are all development related.

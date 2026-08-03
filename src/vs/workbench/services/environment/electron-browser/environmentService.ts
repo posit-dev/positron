@@ -54,6 +54,15 @@ export interface INativeWorkbenchEnvironmentService extends IBrowserWorkbenchEnv
 
 	// --- Editors to --wait
 	readonly filesToWait?: IPathsToWaitFor;
+
+	// --- Start Positron ---
+	/**
+	 * Whether another window was presenting Canvas mode when this window
+	 * opened. Canvas is one product surface per application instance, so this
+	 * window must not enter Canvas mode at startup when set.
+	 */
+	readonly canvasModeEngagedElsewhere: boolean;
+	// --- End Positron ---
 }
 
 export class NativeWorkbenchEnvironmentService extends AbstractNativeEnvironmentService implements INativeWorkbenchEnvironmentService {
@@ -167,6 +176,10 @@ export class NativeWorkbenchEnvironmentService extends AbstractNativeEnvironment
 	// Positron docs URL is not used in desktop mode; returns undefined to use default.
 	get positronDocsUrl(): string | undefined {
 		return undefined;
+	}
+
+	get canvasModeEngagedElsewhere(): boolean {
+		return this.configuration.canvasModeEngagedElsewhere === true;
 	}
 	// --- End Positron ---
 
