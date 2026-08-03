@@ -4,7 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../base/common/event.js';
+// --- Start Positron ---
+// Added `IDisposable` and `toDisposable` for `registerConsoleEditor` below. Extended in place
+// rather than imported separately to avoid a duplicate import of `lifecycle.js`.
+// import { combinedDisposable, DisposableStore, DisposableMap } from '../../../base/common/lifecycle.js';
 import { combinedDisposable, DisposableStore, DisposableMap, IDisposable, toDisposable } from '../../../base/common/lifecycle.js';
+// --- End Positron ---
 import { ICodeEditor, isCodeEditor, isDiffEditor, IActiveCodeEditor } from '../../../editor/browser/editorBrowser.js';
 import { ICodeEditorService } from '../../../editor/browser/services/codeEditorService.js';
 import { IEditor } from '../../../editor/common/editorCommon.js';
@@ -34,6 +39,8 @@ import { ViewContainerLocation } from '../../common/views.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { IQuickDiffModelService } from '../../contrib/scm/browser/quickDiffModel.js';
 // --- Start Positron ---
+// Used by `registerConsoleEditor`, which exposes the console input editor to the extension host
+// as a `vscode.TextEditor`.
 import { IMainThreadConsoleEditorManager, MainPositronContext } from '../common/positron/extHost.positron.protocol.js';
 // --- End Positron ---
 
@@ -278,6 +285,9 @@ class MainThreadDocumentAndEditorStateComputer {
 
 @extHostCustomer
 // --- Start Positron ---
+// Additionally implement IMainThreadConsoleEditorManager so MainThreadConsoleService can register
+// console input editors with the extension host (see `registerConsoleEditor` below).
+// export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator {
 export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, IMainThreadConsoleEditorManager {
 	// --- End Positron ---
 
