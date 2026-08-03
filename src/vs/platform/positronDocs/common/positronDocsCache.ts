@@ -100,9 +100,15 @@ export class PositronDocsCache {
 	}
 
 	/**
-	 * Permit one more attempt this session. The only caller is the
+	 * Clear the one-attempt-per-session gate. The only caller is the
 	 * `ai.enabled` false-to-true transition, which is the single case the
 	 * design allows to re-attempt without a relaunch.
+	 *
+	 * Clears in-process state only. It does NOT clear the persisted
+	 * hard-failure throttle, so if the previous attempt failed on the network
+	 * this permits an attempt that `_ensureOnce` then declines for up to
+	 * DOCS_FAILURE_THROTTLE_MS - and because that field is on disk, relaunching
+	 * does not shorten the wait either.
 	 *
 	 * Safe to call while a fetch is in flight: that attempt still resolves for
 	 * its own callers, but it no longer closes the gate.
