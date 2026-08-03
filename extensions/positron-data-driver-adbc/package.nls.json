@@ -1,0 +1,4 @@
+{
+	"displayName": "Positron ADBC Data Connection Driver",
+	"description": "Provides a generic ADBC data connection driver for the Data Connections panel."
+}

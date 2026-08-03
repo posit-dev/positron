@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	A generic mark for the ADBC escape-hatch driver: a database cylinder joined to a
+	connector by three arrows, evoking Arrow Database Connectivity without reproducing
+	the Apache Arrow trademark.
+-->
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+	<g fill="none" stroke="#4A6FA5" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+		<!-- Database cylinder. -->
+		<ellipse cx="76" cy="56" rx="46" ry="20" fill="#B7CCE5"/>
+		<path d="M30 56v144c0 11 20.6 20 46 20s46-9 46-20V56"/>
+		<path d="M30 104c0 11 20.6 20 46 20s46-9 46-20"/>
+		<path d="M30 152c0 11 20.6 20 46 20s46-9 46-20"/>
+		<!-- Connector body. -->
+		<rect x="196" y="96" width="44" height="64" rx="8" fill="#B7CCE5"/>
+		<!-- Arrows from the database into the connector. -->
+		<path d="M138 100h40m-14-14 14 14-14 14"/>
+		<path d="M138 128h40m-14-14 14 14-14 14"/>
+		<path d="M138 156h40m-14-14 14 14-14 14"/>
+	</g>
+</svg>

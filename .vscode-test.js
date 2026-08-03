@@ -99,6 +99,11 @@ const extensions = [
 		mocha: { timeout: 60_000 }
 	},
 	{
+		label: 'positron-data-driver-adbc',
+		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-adbc-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
 		label: 'positron-data-driver-duckdb',
 		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-duckdb-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
