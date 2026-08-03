@@ -58,6 +58,20 @@ describe('MainThreadDocumentsAndEditors (Positron console editor)', () => {
 		expect(services.consoleAdds('console-2')).toHaveLength(1);
 	});
 
+	it('sends the added-editor delta before any state for that editor', () => {
+		const editor = services.createCodeEditor(services.createModel('> '));
+
+		const store = services.add(services.documentsAndEditors.registerConsoleEditor('console-4', editor));
+
+		// `handleTextEditorAdded` immediately pushes diff information for the new id. Sending that
+		// before the `addedEditors` delta made the ext host throw `unknown text editor` on every
+		// console session startup.
+		expect(services.unknownEditorCalls).toEqual([]);
+
+		store.dispose();
+		expect(services.unknownEditorCalls).toEqual([]);
+	});
+
 	it('notifies the caller only once the editor is known to the ext host', () => {
 		const editor = services.createCodeEditor(undefined);
 		const onRegistered = vi.fn(() => services.consoleAdds('console-3').length);

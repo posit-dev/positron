@@ -55,6 +55,16 @@ export class ConsoleEditorTestServices {
 	/** Deltas the main thread sent to the (fake) extension host. */
 	readonly deltas: IDocumentsAndEditorsDelta[] = [];
 
+	/**
+	 * Editor ids the main thread sent state for before the ext host knew about them. The real
+	 * `ExtHostEditors` throws `unknown text editor` in this case, so anything recorded here is a
+	 * bug in the ordering of the calls the main thread makes.
+	 */
+	readonly unknownEditorCalls: string[] = [];
+
+	/** Editor ids the (fake) ext host currently knows about, per the deltas it received. */
+	private readonly _knownEditorIds = new Set<string>();
+
 	readonly modelService: ModelService;
 	readonly documentsAndEditors: MainThreadDocumentsAndEditors;
 
@@ -115,8 +125,17 @@ export class ConsoleEditorTestServices {
 
 		this.documentsAndEditors = new MainThreadDocumentsAndEditors(
 			SingleProxyRPCProtocol({
-				$acceptDocumentsAndEditorsDelta: (delta: IDocumentsAndEditorsDelta) => { this.deltas.push(delta); },
-				$acceptEditorDiffInformation: (_id: string, _diffInformation: ITextEditorDiffInformation | undefined) => { }
+				$acceptDocumentsAndEditorsDelta: (delta: IDocumentsAndEditorsDelta) => {
+					this.deltas.push(delta);
+					delta.addedEditors?.forEach(e => this._knownEditorIds.add(e.id));
+					delta.removedEditors?.forEach(id => this._knownEditorIds.delete(id));
+				},
+				$acceptEditorDiffInformation: (id: string, _diffInformation: ITextEditorDiffInformation | undefined) => {
+					this._recordEditorIdLookup(id);
+				},
+				$acceptEditorPropertiesChanged: (id: string) => {
+					this._recordEditorIdLookup(id);
+				}
 			}),
 			this.modelService,
 			textFileService,
@@ -181,6 +200,13 @@ export class ConsoleEditorTestServices {
 
 	consoleRemoves(id: string): IDocumentsAndEditorsDelta[] {
 		return this.deltas.filter(d => d.removedEditors?.includes(id));
+	}
+
+	/** Mimics the ext host resolving an editor id, recording the ones it can't resolve. */
+	private _recordEditorIdLookup(id: string): void {
+		if (!this._knownEditorIds.has(id)) {
+			this.unknownEditorCalls.push(id);
+		}
 	}
 
 	dispose(): void {

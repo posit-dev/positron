@@ -470,12 +470,19 @@ export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, 
 			);
 
 			this._textEditors.set(id, editor);
-			this._mainThreadEditors.handleTextEditorAdded(editor);
+
+			// Order matters, and mirrors `_onDelta`: tell the ext host about the editor first, then
+			// wire up the dependent editor state. `handleTextEditorAdded` starts an autorun that
+			// immediately sends `$acceptEditorDiffInformation` for this id, and the ext host throws
+			// `unknown text editor` for any id it hasn't received an `addedEditors` delta for.
 			this._proxy.$acceptDocumentsAndEditorsDelta({
 				addedEditors: [this._toTextEditorAddData(editor)],
 			});
+			this._mainThreadEditors.handleTextEditorAdded(editor);
 
 			store.add(toDisposable(() => {
+				// Mirror image of registration: drop the listeners before the ext host forgets the
+				// editor, so nothing can send it state for an id it no longer knows.
 				this._textEditors.delete(id);
 				editor.dispose();
 				this._mainThreadEditors.handleTextEditorRemoved(id);
