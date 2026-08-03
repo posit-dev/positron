@@ -33,6 +33,7 @@ jobs:
       jupyter_tag_found: ${{ steps.pr-tags.outputs.jupyter_tag_found }}
       remote_ssh_tag_found: ${{ steps.pr-tags.outputs.remote_ssh_tag_found }}
       connect_tag_found: ${{ steps.pr-tags.outputs.connect_tag_found }}
+      docs_only: ${{ steps.docs-only.outputs.docs_only }}
 
     steps:
       - uses: actions/checkout@v7
@@ -49,6 +50,8 @@ jobs:
       # Guardrail for the tag-derivation scripts; fail fast before relying on them below.
       - name: Unit test the tag-derivation helpers
         run: bash scripts/test/pr-tags-lib-test.sh
+      - name: Unit test the docs-only detection helper
+        run: bash scripts/test/is-docs-only-change-test.sh
       - name: Validate test-tag-paths-map.json tags against test-tags.ts
         run: bash scripts/check-test-tag-map.sh --tags-only
       - name: Parse Tags from PR Body
@@ -60,6 +63,38 @@ jobs:
           GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
       # The advisory comment (no-match / unmapped-dir warnings) is posted from
       # the pr-e2e-comment workflow, folded into the single "E2E Tests" comment.
+      - name: Compute docs-only flag
+        id: docs-only
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Docs-only detection: skip heavy suites when every changed file is a
+          # doc. Fails safe -- any error or non-doc file yields docs_only=false.
+          # Fail safe: if the changed-files fetch errors (incl. mid-pagination),
+          # force full CI rather than trusting a partial file list.
+          if ! CHANGED_FILES=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" --paginate --jq '.[].filename'); then
+            echo "Could not fetch changed files; forcing full CI."
+            DOCS_ONLY=false
+          else
+            DOCS_ONLY=$(printf '%s' "$CHANGED_FILES" | bash scripts/is-docs-only-change.sh)
+          fi
+
+          # One-way override: @:full-ci in the PR body forces full CI. Matches the
+          # existing loose @: tag convention in pr-tags-parse.sh (substring match,
+          # can trigger from backtick-quoted prose -- acceptable, only forces MORE
+          # testing). Fail safe: if the body fetch errors, force full CI too.
+          if ! PR_BODY=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.body'); then
+            echo "Could not fetch PR body; forcing full CI."
+            DOCS_ONLY=false
+          elif printf '%s' "$PR_BODY" | grep -q "@:full-ci"; then
+            echo "Found @:full-ci in PR body; forcing full CI."
+            DOCS_ONLY=false
+          fi
+
+          echo "docs_only=$DOCS_ONLY"
+          echo "docs_only=$DOCS_ONLY" >> "$GITHUB_OUTPUT"
 
   e2e-ubuntu-electron:
     name: e2e
@@ -73,6 +108,7 @@ jobs:
       upload_logs: false
       workers: 2
       allow_soft_fail: false
+      docs_only: ${{ needs.pr-tags.outputs.docs_only == 'true' }}
     secrets: inherit
 
   e2e-windows-electron:
@@ -319,14 +355,18 @@ jobs:
 
   unit-tests:
     name: test
+    needs: pr-tags
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
     with:
       save_cache: false  # PRs restore from main only; test-merge.yml saves
+      docs_only: ${{ needs.pr-tags.outputs.docs_only == 'true' }}
 
   ext-host-tests:
     name: test
+    needs: pr-tags
     uses: ./.github/workflows/test-ext-host.yml
     secrets: inherit
     with:
       pull_request: true
+      docs_only: ${{ needs.pr-tags.outputs.docs_only == 'true' }}

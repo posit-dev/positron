@@ -53,6 +53,11 @@ on:
         description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
         type: boolean
         default: false
+      docs_only:
+        required: false
+        description: "When true, skip all build/test steps and report success (docs-only change)."
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -134,12 +139,18 @@ jobs:
       DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
       DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
     steps:
+      - name: Docs-only change -- skipping e2e tests
+        if: ${{ inputs.docs_only }}
+        run: echo "Docs-only change detected; skipping e2e test suite."
+
       - uses: actions/checkout@v7
+        if: ${{ !inputs.docs_only }}
         with:
           fetch-depth: 0
           submodules: recursive
 
       - name: Load secret
+        if: ${{ !inputs.docs_only }}
         uses: 1password/load-secrets-action@v4
         with:
           # Export loaded secrets as environment variables
@@ -155,17 +166,19 @@ jobs:
           POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
 
       - name: Transform to Playwright tags $PW_TAGS
+        if: ${{ !inputs.docs_only }}
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
 
       - name: 📦 Restore caches
         id: restore-caches
+        if: ${{ !inputs.docs_only }}
         uses: ./.github/actions/restore-build-caches
 
       - name: Install node dependencies
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+        if: ${{ !inputs.docs_only && (steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
             steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
-            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true') }}
         uses: nick-fields/retry@v4
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
@@ -191,29 +204,35 @@ jobs:
           command: bash scripts/install-npm-parallel.sh
 
       - name: Download binaries (Ark, Kallichore)
+        if: ${{ !inputs.docs_only }}
         uses: ./.github/actions/download-binaries
         with:
           cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
                          steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
 
       - name: Install E2E test dependencies
+        if: ${{ !inputs.docs_only }}
         run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
 
       - name: Compile Positron and Download Electron
+        if: ${{ !inputs.docs_only }}
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
 
       - name: Install Playwright browsers
+        if: ${{ !inputs.docs_only }}
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: npx playwright install
 
       # Downloads Builtin Extensions (needed for integration & e2e testing)
       - name: Prelaunch
+        if: ${{ !inputs.docs_only }}
         run: npm run prelaunch
 
       # Must run AFTER Prelaunch since preLaunch.ts runs `npm run electron`
       # which can re-extract the Electron binary and reset permissions
       - name: Set permissions on SUID sandbox helper
+        if: ${{ !inputs.docs_only }}
         run: |
           ELECTRON_ROOT=.build/electron
           sudo chown root $ELECTRON_ROOT/chrome-sandbox
@@ -221,12 +240,13 @@ jobs:
           stat $ELECTRON_ROOT/chrome-sandbox
 
       - name: Move Positron License
-        if: ${{ inputs.install_license }}
+        if: ${{ !inputs.docs_only && inputs.install_license }}
         run: |
           mv /positron-license /__w/positron &&
           printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa
 
       - name: Setup E2E Test Environment
+        if: ${{ !inputs.docs_only }}
         uses: ./.github/actions/setup-test-env
         with:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
@@ -235,18 +255,21 @@ jobs:
       # Preloading ensures the Node.js binary is fully built and ready before
       # any parallel processes start, preventing runtime conflicts
       - name: Preload Node.js Binary
-        if: ${{ inputs.project == 'e2e-chromium' }}
+        if: ${{ !inputs.docs_only && inputs.project == 'e2e-chromium' }}
         run: npm run gulp node
 
       - name: Send Results to GH Summary
+        if: ${{ !inputs.docs_only }}
         uses: ./.github/actions/gen-report-dir
         with:
           identifier: ${{ inputs.project }}
 
       - name: Alter AppArmor Restrictions for Playwright
+        if: ${{ !inputs.docs_only }}
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: 🧪 Run Playwright Tests
+        if: ${{ !inputs.docs_only }}
         shell: bash
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
@@ -296,7 +319,7 @@ jobs:
           fi
 
       - name: Upload Playwright Report to S3
-        if: ${{ success() || failure() }}
+        if: ${{ !inputs.docs_only && (success() || failure()) }}
         continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
@@ -304,7 +327,7 @@ jobs:
           report-dir: ${{ env.REPORT_DIR }}
 
       - name: Upload Test Logs
-        if: ${{ always() && inputs.upload_logs }}
+        if: ${{ !inputs.docs_only && always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.project }}-ubuntu-logs
@@ -312,7 +335,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload Test Results File
-        if: ${{ always() }}
+        if: ${{ !inputs.docs_only && always() }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.project }}-ubuntu-json-results
@@ -320,7 +343,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload inspect-ai JSON Responses
-        if: ${{ always() && inputs.project == 'inspect-ai' }}
+        if: ${{ !inputs.docs_only && always() && inputs.project == 'inspect-ai' }}
         uses: actions/upload-artifact@v7
         with:
           name: inspect-ai-responses

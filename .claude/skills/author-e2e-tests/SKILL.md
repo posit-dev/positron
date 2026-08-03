@@ -1,6 +1,6 @@
 ---
 name: author-e2e-tests
-description: Use when writing, debugging, or maintaining Playwright e2e tests for Positron -- new test files, test cases, flaky-test fixes, test infrastructure, or performance/metric tests.
+description: Use when writing, debugging, or maintaining Playwright e2e tests for Positron -- new test files, test cases, flaky-test fixes, test infrastructure, or performance/metric tests. EDIT
 ---
 
 # Positron Playwright E2E Testing

@@ -11,6 +11,11 @@ on:
       pull_request:
         required: false
         type: boolean
+      docs_only:
+        required: false
+        description: "When true, skip all build/test steps and report success (docs-only change)."
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       pull_request:
@@ -54,24 +59,30 @@ jobs:
       R_LIBS_USER: /usr/local/lib/R/site-library
       RETICULATE_PYTHON: /root/.venv/bin/python
     steps:
+      - name: Docs-only change -- skipping ext-host tests
+        if: ${{ inputs.docs_only }}
+        run: echo "Docs-only change detected; skipping extension-host test suite."
+
       - uses: actions/checkout@v7
+        if: ${{ !inputs.docs_only }}
         with:
           submodules: recursive
 
       - name: Checkout specific commit
-        if: ${{ inputs.commit != '' }}
+        if: ${{ !inputs.docs_only && inputs.commit != '' }}
         run: |
           git checkout ${{ inputs.commit }}
           git submodule update --init --recursive
 
       - name: 📦 Restore caches
         id: restore-caches
+        if: ${{ !inputs.docs_only }}
         uses: ./.github/actions/restore-build-caches
 
       - name: Install node dependencies
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+        if: ${{ !inputs.docs_only && (steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
             steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
-            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true') }}
         uses: nick-fields/retry@v4
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
@@ -104,31 +115,37 @@ jobs:
             bash scripts/install-npm-parallel.sh
 
       - name: Download binaries (Ark, Kallichore)
+        if: ${{ !inputs.docs_only }}
         uses: ./.github/actions/download-binaries
         with:
           cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
                          steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
 
       - name: Compile Positron and Download Electron
+        if: ${{ !inputs.docs_only }}
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
 
       # System deps are baked into the container image, so install browsers only.
       - name: Install Playwright browsers
+        if: ${{ !inputs.docs_only }}
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: npx playwright install
 
       - name: Setup Xvfb
+        if: ${{ !inputs.docs_only }}
         uses: ./.github/actions/setup-xvfb
 
 
       # Downloads Builtin Extensions (needed for integration & e2e testing)
       - name: Prelaunch
+        if: ${{ !inputs.docs_only }}
         run: npm run prelaunch
 
       # Must run AFTER Prelaunch since preLaunch.ts runs `npm run electron`
       # which can re-extract the Electron binary and reset permissions
       - name: Set permissions on SUID sandbox helper
+        if: ${{ !inputs.docs_only }}
         run: |
           ELECTRON_ROOT=.build/electron
           sudo chown root $ELECTRON_ROOT/chrome-sandbox
@@ -136,6 +153,7 @@ jobs:
           stat $ELECTRON_ROOT/chrome-sandbox
 
       - name: Install Positron License
+        if: ${{ !inputs.docs_only }}
         uses: ./.github/actions/install-license
         with:
           github-token: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -145,13 +163,16 @@ jobs:
       # integration test ("Connections pane works for R") reads a DESCRIPTION
       # file from the repo root, so stage that from test-files.
       - name: Stage R DESCRIPTION file
+        if: ${{ !inputs.docs_only }}
         run: cp test/e2e/test-files/DESCRIPTION DESCRIPTION
 
       - name: Compile Integration Tests
+        if: ${{ !inputs.docs_only }}
         run: npm run --prefix test/integration/browser compile
 
       - name: 🧪 Run Extension Host Tests (Electron)
         id: electron-integration-tests
+        if: ${{ !inputs.docs_only }}
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: |
@@ -162,14 +183,14 @@ jobs:
           fi
 
       - name: 🧪 Run Extension Host Tests (Remote)
-        if: ${{ job.status != 'cancelled' && (success() || failure()) }}
+        if: ${{ !inputs.docs_only && job.status != 'cancelled' && (success() || failure()) }}
         id: electron-remote-integration-tests
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: DISPLAY=:10 ./scripts/test-remote-integration.sh
 
       - name: 🧪 Run Extension Host Tests (Chromium)
-        if: ${{ job.status != 'cancelled' && (success() || failure()) }}
+        if: ${{ !inputs.docs_only && job.status != 'cancelled' && (success() || failure()) }}
         id: browser-integration-tests
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
