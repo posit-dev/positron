@@ -10,23 +10,10 @@ import * as fs from 'fs';
 process.env.PW_TEST = '1';
 const jsonOut = process.env.PW_JSON_FILE || 'test-results/results.json';
 const githubSummaryReport = process.env.GH_SUMMARY_REPORT === 'true' ? [['@midleman/github-actions-reporter', {}] as const] : [];
-// The E2E Insights integration: results reporting, plus predictive sharding.
-//   ENABLE_CUSTOM_REPORTER=false     -> disables BOTH (see below)
-//   ENABLE_PREDICTIVE_SHARDING=false -> keeps reporting, uses Playwright's
-//                                       native count-based shard split
-// YAML booleans become strings in GitHub Actions, so both forms are accepted.
-//
-// Sharding is nested under reporting rather than independent: a run that isn't
-// reporting results isn't contributing durations either, so it has no business
-// steering the partition.
-//
-// The sharding half runs in the reporter's `preprocess` hook (Playwright 1.62+),
-// replacing the `e2e-insights run-shard` CLI: workflows call plain
-// `playwright test --shard=N/M` and the hook swaps Playwright's count-based
-// split for a duration-balanced one. It no-ops when `--shard` is absent, so the
-// non-sharded workflows sharing this config are unaffected, and it leaves the
-// native split in place if the API is unreachable. os and browser are
-// auto-detected (browser from the running project).
+// E2E Insights: results reporting + duration-balanced sharding (preprocess
+// hook, needs Playwright >= 1.62; no-ops on unsharded runs).
+//   ENABLE_CUSTOM_REPORTER=false     -> disables both
+//   ENABLE_PREDICTIVE_SHARDING=false -> native shard split, reporting unchanged
 const isDisabled = (value?: string) => ['false', '0', 'no'].includes(value?.toLowerCase() ?? '');
 const reportingEnabled = !isDisabled(process.env.ENABLE_CUSTOM_REPORTER);
 const shardingEnabled = reportingEnabled && !isDisabled(process.env.ENABLE_PREDICTIVE_SHARDING);

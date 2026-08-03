@@ -312,11 +312,8 @@ jobs:
             SKIP_CLONE_ARG=""
           fi
 
-          # Predictive sharding now runs inside the reporter's `preprocess`
-          # hook (registered in playwright.config.ts), so this is a plain
-          # sharded Playwright run -- the hook replaces Playwright's
-          # count-based split with a duration-balanced one, and falls back to
-          # the native split if the Insights API is unreachable.
+          # Shards are duration-balanced by the reporter's preprocess hook
+          # (see playwright.config.ts); falls back to the native split on error.
           CMD="npx playwright test \
             --shard=${{ matrix.shard }}/${{ inputs.shards }} \
             --project ${{ inputs.project }} \
