@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, BrowserContext } from '@playwright/test';
+import { expect, BrowserContext, Locator } from '@playwright/test';
 import { Code } from '../../infra/code.js';
 import { QuickInput } from '../quickInput.js';
 import { generateTOTP } from '../../utils/totp.js';
@@ -252,7 +252,24 @@ export class DashboardPage {
 			await verifyOtpButton.click();
 
 			try {
-				await oauthPage.waitForURL(/oauth_redirect_callback|localhost:8787/, { timeout: 15000 });
+				// After Okta accepts the OTP it redirects back to Databricks, which walks
+				// through up to two OAuth consent screens before completing the redirect to
+				// our callback:
+				//   1. "Authorize as" -- account picker with a Continue control
+				//      (<a data-component-id="oauth.select-group.continue">).
+				//   2. "Permission Requested" -- consent screen with an Authorize control.
+				// Both render as du-bois links (role "link"), not buttons, and either may be
+				// skipped when the account has already granted consent. Click each if shown.
+				await this.clickDatabricksConsentControl(
+					oauthPage.locator('[data-component-id="oauth.select-group.continue"]'),
+					'Authorize as / Continue',
+				);
+				await this.clickDatabricksConsentControl(
+					oauthPage.getByText('Authorize', { exact: true }),
+					'Permission Requested / Authorize',
+				);
+
+				await oauthPage.waitForURL(/oauth_redirect_callback|localhost:8787/, { timeout: 20000 });
 				otpAccepted = true;
 				break;
 			} catch {
@@ -288,6 +305,24 @@ export class DashboardPage {
 		// Verify credentials are enabled
 		await expect(enabledWidget).toBeVisible({ timeout: 30000 });
 		this.code.logger.log('Databricks OAuth setup complete');
+	}
+
+	/**
+	 * Clicks a Databricks OAuth consent control if it appears within a short window.
+	 * These screens ("Authorize as", "Permission Requested") are optional -- Databricks
+	 * skips them once the account has granted consent -- so a control that never shows
+	 * is treated as "already past this step" rather than a failure.
+	 * @param control Locator for the Continue/Authorize control on the consent screen
+	 * @param label Human-readable label for logging which screen was handled
+	 */
+	private async clickDatabricksConsentControl(control: Locator, label: string): Promise<void> {
+		try {
+			await expect(control).toBeVisible({ timeout: 8000 });
+			await control.click();
+			this.code.logger.log(`Clicked Databricks consent control: ${label}`);
+		} catch {
+			this.code.logger.log(`Databricks consent control not shown, skipping: ${label}`);
+		}
 	}
 
 	/**
