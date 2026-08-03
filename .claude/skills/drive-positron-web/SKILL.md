@@ -144,13 +144,18 @@ npx @playwright/cli -s=posweb network      # replaces read_network_requests
 npx @playwright/cli -s=posweb eval '(() => document.title)()'
 ```
 
-One setup cost the Electron skill doesn't have: `attach --cdp=...` reuses a
-browser that's already running, but `open` needs one of its own. It defaults to
-installed Google Chrome, and otherwise wants
-`npx @playwright/cli install-browser chrome-for-testing` - a one-time download.
-The repo's e2e chromium under `~/Library/Caches/ms-playwright` is **not** reused;
-`--browser chromium|firefox|webkit` all ask to install their own build. Only the
-install requirement is verified here, not a full drive.
+One setup cost the Electron skill doesn't have: `attach --cdp=...` reuses the app
+that's already running, but `open` needs a browser of its own. Bare `open` uses
+channel `chrome`, i.e. **real Google Chrome** - install it once
+(`brew install --cask google-chrome`) and every project works flag-free from then
+on.
+
+Don't reach for `--browser chromium` instead. The repo's e2e chromium under
+`~/Library/Caches/ms-playwright` is **not** reused: the CLI bundles its own
+playwright-core pinned to a specific revision (v1219 at the time of writing, vs
+the 1194/1208/1217 in the cache), so `chromium`, `firefox` and `webkit` each ask
+for a fresh `install-browser` download and ask again whenever that pin moves.
+Real Chrome sidesteps the whole revision treadmill.
 
 ## Clean up
 
