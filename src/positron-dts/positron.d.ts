@@ -2348,8 +2348,14 @@ declare module 'positron' {
 
 		/**
 		 * Preview the data in this node (e.g., SELECT * FROM table LIMIT 100).
+		 *
+		 * Return the dataset id the preview was opened under -- the same `datasetId` passed to
+		 * `positron.dataExplorer.open` -- so Positron can relate the open Data Explorer back to the
+		 * connection it came from. Returning nothing is supported, but Positron then has no way to
+		 * know the connection has an open Data Explorer, and may close the connection while it is
+		 * still in use.
 		 */
-		preview?(): Thenable<void>;
+		preview?(): Thenable<string | void>;
 	}
 
 	/**

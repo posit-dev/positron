@@ -14,6 +14,7 @@ import { localize } from '../../../../../nls.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ConfigureDataConnection } from '../dialogs/configureDataConnection.js';
 import { showConnectDataConnectionWith } from '../dialogs/connectDataConnectionWith.js';
+import { showRemoveDataConnectionConfirmation } from '../dialogs/removeDataConnectionConfirmation.js';
 import { DataConnectionEntry } from '../classes/dataConnectionsTreeInstance.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
@@ -41,9 +42,10 @@ interface DataConnectionEntryRowProps {
 
 /**
  * DataConnectionEntryRow component. Renders a root-level entry: the saved profile plus, when
- * connected, a live-status indicator. Twistie click (handled by PositronTree) opens or closes
- * the connection; the actions menu -- reachable from the actions button or by right-clicking the
- * row -- exposes refresh, runtime-language connect options, and edit/remove.
+ * connected, a live-status indicator. Twistie click (handled by PositronTree) opens the connection;
+ * collapsing closes it only when nothing else is using it (see DataConnectionsTreeInstance). The
+ * actions menu -- reachable from the actions button or by right-clicking the row -- exposes
+ * refresh, runtime-language connect options, and edit/remove.
  */
 export const DataConnectionEntryRow = ({ entry, onMenuOpening, onRefresh }: DataConnectionEntryRowProps) => {
 	// Services.
@@ -108,6 +110,21 @@ export const DataConnectionEntryRow = ({ entry, onMenuOpening, onRefresh }: Data
 				}}
 			/>
 		);
+	};
+
+	/**
+	 * Confirms removing this connection profile, then removes it. Removal deletes the profile's saved
+	 * settings and secrets, and closes its connection along with any Data Explorers previewed from it,
+	 * so the count of those goes into the prompt.
+	 */
+	const confirmRemoveProfile = async () => {
+		const confirmed = await showRemoveDataConnectionConfirmation(
+			profile.connectionName,
+			positronDataConnectionsService.countOpenDataExplorers(profile.id)
+		);
+		if (confirmed) {
+			positronDataConnectionsService.removeProfile(profile.id);
+		}
 	};
 
 	/**
@@ -225,7 +242,7 @@ export const DataConnectionEntryRow = ({ entry, onMenuOpening, onRefresh }: Data
 				destructive: true,
 				icon: 'trash',
 				label: localize('positron.dataConnections.remove', "Remove"),
-				onSelected: () => positronDataConnectionsService.removeProfile(profile.id),
+				onSelected: () => confirmRemoveProfile(),
 			}));
 
 		// Announced before the menu shows so the row is already selected and the tree still reads
@@ -268,6 +285,9 @@ export const DataConnectionEntryRow = ({ entry, onMenuOpening, onRefresh }: Data
 		showActionsMenu(rowRef.current, { clientX: e.clientX, clientY: e.clientY });
 	};
 
+	// The connected indicator's label, used as both its tooltip and its accessible name.
+	const connectedLabel = localize('positron.dataConnections.connected', "Connected");
+
 	// Render.
 	return (
 		// The row is a presentational element inside a tree that owns focus and keyboard
@@ -281,6 +301,17 @@ export const DataConnectionEntryRow = ({ entry, onMenuOpening, onRefresh }: Data
 				{' · '}
 				{profile.driverMetadata.name}
 			</div>
+			{entry.instance && (
+				// Shown whenever the profile has a live connection, including while the entry is
+				// collapsed -- collapsing does not necessarily disconnect, so this is how the user
+				// tells a live connection from a saved-but-closed one.
+				<div
+					aria-label={connectedLabel}
+					className='data-connection-entry-connected'
+					role='img'
+					title={connectedLabel}
+				/>
+			)}
 			<button
 				ref={actionsButtonRef}
 				aria-label={localize('positron.dataConnections.actions', "Actions")}

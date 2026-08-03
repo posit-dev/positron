@@ -92,9 +92,10 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 	/**
 	 * Opens the given table or view in the Data Explorer. Registers a table view with the RPC
 	 * handler under a stable per-connection dataset id, then asks Positron to open (or focus) the
-	 * explorer backed by this extension's RPC command.
+	 * explorer backed by this extension's RPC command. Returns the dataset id it was opened under,
+	 * which Positron uses to tell that this connection has a Data Explorer open on it.
 	 */
-	async previewObject(name: string, kind: 'table' | 'view'): Promise<void> {
+	async previewObject(name: string, kind: 'table' | 'view'): Promise<string> {
 		this._ensureConnected();
 		const datasetId = `sqlite:${this._connectionId}:${kind}:${name}`;
 		await this._dataExplorerHandler.openTableView(datasetId, this._client!, name, kind);
@@ -104,13 +105,15 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 			datasetId,
 			displayName: name,
 		});
+		return datasetId;
 	}
 
 	/**
 	 * Opens a single column of the given table or view in the Data Explorer as a one-column grid.
-	 * Uses a dataset id distinct from the table's so both can be open at once.
+	 * Uses a dataset id distinct from the table's so both can be open at once. Returns the dataset id
+	 * it was opened under.
 	 */
-	async previewColumn(tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
+	async previewColumn(tableName: string, kind: 'table' | 'view', columnName: string): Promise<string> {
 		this._ensureConnected();
 		const datasetId = `sqlite:${this._connectionId}:column:${tableName}.${columnName}`;
 		await this._dataExplorerHandler.openColumnView(datasetId, this._client!, tableName, kind, columnName);
@@ -120,6 +123,7 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 			datasetId,
 			displayName: `${tableName}.${columnName}`,
 		});
+		return datasetId;
 	}
 
 	/** Returns whether this connection was opened in read-only mode. */

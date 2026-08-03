@@ -36,10 +36,10 @@ function schemaRef(database: string, schemaName: string): string {
  * against; `database` is the database the object lives in, so previews use a three-part reference.
  */
 export interface ISnowflakePreviewHost {
-	/** Opens the given table or view in the Data Explorer. */
-	previewObject(client: SnowflakeClient, database: string, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void>;
-	/** Opens a single column of the given table or view in the Data Explorer. */
-	previewColumn(client: SnowflakeClient, database: string, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
+	/** Opens the given table or view in the Data Explorer, returning its dataset id. */
+	previewObject(client: SnowflakeClient, database: string, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<string>;
+	/** Opens a single column of the given table or view in the Data Explorer, returning its dataset id. */
+	previewColumn(client: SnowflakeClient, database: string, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string>;
 }
 
 /**

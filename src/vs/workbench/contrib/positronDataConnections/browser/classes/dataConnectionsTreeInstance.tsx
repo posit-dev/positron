@@ -36,7 +36,7 @@ export interface DataConnectionEntry {
 
 /**
  * DataConnectionNode discriminated union. Each tree node wraps exactly one of:
- * - an entry (root rows; expanding connects, collapsing disconnects),
+ * - an entry (root rows; expanding connects, collapsing may disconnect -- see collapse below),
  * - a server-side node DTO returned from a connection's getChildren / nodeGetChildren calls.
  *
  * DTO nodes carry the originating IDataConnectionHandle so deeper children can be fetched
@@ -76,8 +76,8 @@ export const reloadKey = (node: DataConnectionNode): string =>
 const wrapEntry = (entry: DataConnectionEntry): TreeNode<DataConnectionNode> => ({
 	id: entryNodeId(entry.profile),
 	data: { kind: 'entry', entry },
-	// Entries always show a twisty -- clicking it connects (or disconnects). Whether children
-	// exist is only knowable after the connect succeeds.
+	// Entries always show a twisty -- clicking it connects (or collapses, which may disconnect).
+	// Whether children exist is only knowable after the connect succeeds.
 	hasChildren: true,
 });
 
@@ -92,8 +92,9 @@ const wrapDto = (dto: IDataConnectionNodeDTO, handle: IDataConnectionHandle): Tr
  *
  * Roots are one entry per saved profile, joined with its live instance (if connected). Expanding
  * an entry opens the connection via the service and fetches the connection's top-level DTOs;
- * collapsing an entry closes the connection and drops the loaded subtree so the next expand
- * re-fetches against a fresh handle.
+ * collapsing an entry closes the connection -- immediately, or once the last Data Explorer previewed
+ * from it closes -- and drops the loaded subtree so the next expand re-fetches against a fresh
+ * handle.
  */
 export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnectionNode> {
 	constructor(private readonly _service: IPositronDataConnectionsService) {
@@ -111,24 +112,53 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		// connected/disconnected state. setRoots is sync and preserves existing expansion /
 		// loaded children by id, so unaffected entries keep their state.
 		const refreshRoots = () => {
-			this.setRoots(buildEntries(this._service).map(wrapEntry));
+			const entries = buildEntries(this._service);
+			this.setRoots(entries.map(wrapEntry));
+
+			// A loaded DTO subtree is only valid while its connection is open -- its node handles live
+			// in the ext host and die with the connection -- so drop the subtree of any entry that no
+			// longer has a live instance, and the next expand re-fetches against a fresh handle. Doing
+			// it here covers every route a connection can close by, not just the ones the tree starts:
+			// a collapse, a deferred close once the last Data Explorer closed, or the driver dropping
+			// the connection on its own.
+			for (const entry of entries) {
+				const id = entryNodeId(entry.profile);
+				if (entry.instance === undefined && this.hasLoadedChildren(id)) {
+					this.dropLoadedChildren(id);
+				}
+			}
 		};
 		this._register(this._service.onDidChangeProfiles(refreshRoots));
 		this._register(this._service.onDidChangeInstances(refreshRoots));
 	}
 
 	/**
-	 * Tree-semantic collapse. For entry nodes, disconnects the underlying connection and drops
-	 * any loaded DTO subtree so the next expand re-fetches against a fresh handle. Disconnect is
-	 * fire-and-forget -- the UI shouldn't block on the network round trip to close the channel.
+	 * Tree-semantic expand. Expanding a connected entry means the user wants the connection again, so
+	 * it cancels any pending close a previous collapse left behind.
+	 */
+	override async expand(id: string): Promise<void> {
+		const node = this._findEntryNode(id);
+		if (node !== undefined) {
+			this._service.cancelDisconnectWhenUnused(node.entry.profile.id);
+		}
+		await super.expand(id);
+	}
+
+	/**
+	 * Tree-semantic collapse. Collapsing an entry gives up the tree's use of its connection, which
+	 * closes the connection unless Data Explorers previewed from it are still open. In that case the
+	 * connection stays up and closes when the last of them does: collapsing an entry is how a user
+	 * reclaims the panel's vertical space, and previews opened from it should keep working. The entry
+	 * row's connected indicator shows the connection is still live in the meantime, and its loaded
+	 * subtree is kept too, so re-expanding is immediate rather than a fresh round trip.
+	 *
+	 * The subtree is dropped when the connection actually closes, wherever that happens -- see the
+	 * roots refresh in the constructor.
 	 */
 	override collapse(id: string): void {
 		const node = this._findEntryNode(id);
 		if (node !== undefined && node.entry.instance !== undefined) {
-			// Drop loaded children first so the projection updates before the service-driven
-			// rebuild (from onDidChangeInstances) lands.
-			this.dropLoadedChildren(id);
-			void this._service.disconnect(node.entry.profile.id);
+			this._service.disconnectWhenUnused(node.entry.profile.id);
 		}
 		super.collapse(id);
 	}

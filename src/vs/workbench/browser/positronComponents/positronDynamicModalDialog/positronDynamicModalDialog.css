@@ -84,7 +84,7 @@
 	VS Code 1.109.0 changed secondary buttons to have transparent background and no border in dark mode.
 	For modal dialog buttons, we need a visible border for secondary buttons (Cancel, Back, etc.)
 */
-.vs-dark .positron-dynamic-modal-dialog-box .dialog-button:not(.default) {
+.vs-dark .positron-dynamic-modal-dialog-box .dialog-button:not(.default):not(.destructive) {
 	border: 1px solid var(--vscode-button-border);
 }
 
@@ -99,7 +99,18 @@
 
 .positron-dynamic-modal-dialog-box .dialog-button.destructive {
 	color: var(--vscode-positronModalDialog-buttonDestructiveForeground);
+	border: 1px solid var(--vscode-positronModalDialog-buttonDestructiveBackground);
 	background-color: var(--vscode-positronModalDialog-buttonDestructiveBackground);
+}
+
+/*
+ * Needed as well as the rule above, which sets a background at the same specificity as
+ * `.dialog-button:hover` but later in the file: without this, a destructive button would be the only
+ * one that doesn't respond to the pointer.
+ */
+.positron-dynamic-modal-dialog-box .dialog-button.destructive:hover {
+	border-color: var(--vscode-positronModalDialog-buttonDestructiveHoverBackground);
+	background: var(--vscode-positronModalDialog-buttonDestructiveHoverBackground);
 }
 
 .positron-dynamic-modal-dialog-box .dialog-button:focus {

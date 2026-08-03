@@ -281,9 +281,10 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	$nodeGetChildrenViaService(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
 
 	/**
-	 * Previews a node via the main thread service.
+	 * Previews a node via the main thread service. Resolves to the dataset id the preview was
+	 * opened under, or undefined when the driver did not report one.
 	 */
-	$nodePreviewViaService(connectionHandle: number, nodeHandle: number): Promise<void>;
+	$nodePreviewViaService(connectionHandle: number, nodeHandle: number): Promise<string | undefined>;
 
 	/**
 	 * Releases a connection handle via the main thread service.
@@ -305,7 +306,7 @@ export interface ExtHostDataConnectionsShape {
 	$connectionDisconnect(connectionHandle: number): Promise<void>;
 	$connectionIsConnected(connectionHandle: number): Promise<boolean>;
 	$nodeGetChildren(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
-	$nodePreview(connectionHandle: number, nodeHandle: number): Promise<void>;
+	$nodePreview(connectionHandle: number, nodeHandle: number): Promise<string | undefined>;
 	$releaseConnection(connectionHandle: number): void;
 }
 
