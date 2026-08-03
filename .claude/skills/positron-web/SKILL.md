@@ -9,29 +9,36 @@ Serves the workbench over HTTP so the in-app browser tools (`preview_start`,
 `navigate`, `computer`, `read_page`, `read_console_messages`,
 `read_network_requests`) can drive it.
 
-## Read this first: you need a license key
+## Read this first: the license issuer must be a sibling of the checkout
 
-**Positron Web will not serve without a signed license token.** It exits during
-startup with a single log line:
+**Positron Web will not serve without a signed license token**, and there is no
+dev bypass (`src/vs/server/node/remoteLicenseKey.ts` has no `isDev`/`NODE_ENV`
+escape). It exits during startup with only a log line.
 
-> No license key provided. A signed license token is required to use Positron in
-> a hosted environment.
+For local development you don't supply a key by hand: `scripts/code-server.js`
+**mints one** if it finds a locally built license issuer at
 
-There is **no dev bypass** - `src/vs/server/node/remoteLicenseKey.ts` has no
-`isDev` / `NODE_ENV` escape. CI supplies it from the `POSITRON_LICENSE` secret
-(see `.github/workflows/test-e2e-jupyter-ubuntu.yml`). It is Posit-internal, so
-external contributors cannot run this path at all.
-
-Supply it one of these ways, then `start-web.sh` will proceed:
-
-```bash
-export POSITRON_LICENSE_KEY=<key>          # or POSITRON_LICENSE_KEY_FILE=<path>
-# or: start-web.sh --license-key <key> / --license-key-file <path>
+```
+<repo-parent>/positron-license/pdol/target/debug/pdol
 ```
 
-Without one, `start-web.sh` fails immediately with exit 2 rather than waiting out
-the timeout. **This path is unverified end-to-end** - it was blocked here at the
-license gate, so treat everything below the license step as untested.
+That path is relative to the checkout, so it resolves for `~/posit/positron` but
+**not** for a worktree one level deeper (`~/posit/positron.worktrees/<branch>`
+looks in `~/posit/positron.worktrees/positron-license`). Symlink it - the same
+thing `.devcontainer/ci-arm/post-start.sh` does for CI:
+
+```bash
+ln -s ~/posit/positron-license ~/posit/positron.worktrees/positron-license
+```
+
+With that in place the server serves in **~6 seconds**, not minutes. If you have
+no issuer checkout, pass a key explicitly instead (`--license-key`,
+`--license-key-file`, `POSITRON_LICENSE_KEY`, `POSITRON_LICENSE_KEY_FILE`); CI
+uses the `POSITRON_LICENSE` secret. `start-web.sh` checks for issuer-or-key up
+front and exits 2 with this explanation rather than burning the timeout.
+
+`positron-license` is Posit-internal, so external contributors cannot use this
+skill at all.
 
 ## Prefer the Electron skill
 
@@ -55,10 +62,16 @@ Blocks until the server actually responds, then prints one JSON line with `url`,
 `port`, `token`, `pid`, `userDataDir` and `logFile`.
 
 **Poll the URL, not the port.** `npm run e2e-start-server` (and `preview_start`)
-return as soon as the port binds, which on a cold checkout is minutes before the
-server can serve - it first downloads electron, downloads the server node binary
-via `gulp node`, and installs the built-in marketplace extensions. That is why
-this script exists.
+return as soon as the port binds, which can be well before the server responds -
+a cold checkout first downloads electron, downloads the server node binary via
+`gulp node`, and installs the built-in marketplace extensions. That is why this
+script exists. Note that an *unlicensed* server also binds the port and then
+exits, which looks identical to "still starting" if you only poll the port.
+
+Expect two extension activation errors in the notifications -
+`positron.authentication` failing with `Cannot find module 'ai-config'`, and
+`Next Edit Suggestions` failing because it depends on it. That's the known stale
+`node_modules` issue, not web-specific; ignore it.
 
 Two things that are *not* problems, both checked:
 
@@ -78,10 +91,25 @@ sockets beneath it and macOS caps `sun_path` at 104 bytes.
 
 ## Drive it
 
+Verified working end to end: serve -> navigate -> screenshot -> read the
+accessibility tree -> click -> confirm the result.
+
 ```
 preview_start({ url: "http://localhost:8080" })
 navigate to http://localhost:8080/?tkn=dev-token      # token must come from navigate
+computer screenshot
+read_page (filter: interactive)                       # then read_page ref_id=<tree> for children
+computer left_click ref=<treeitem>
+javascript_tool '(() => document.title)()'            # DOM checks
 ```
+
+Two gotchas found in practice:
+
+- `find` reports "no read_page tree cached" even right after a `read_page`.
+  Use `read_page` with `ref_id` to drill into a subtree, or `javascript_tool`
+  for DOM queries, instead of relying on `find`.
+- Explorer tree items expose the useful `aria-label` on the **treeitem**, not on
+  the `link` inside it - click the treeitem ref.
 
 `launch.json` here is a **template**, not read from this directory - copy it to
 `<primary-cwd>/.claude/launch.json` and replace `REPO_PATH`. Notes:

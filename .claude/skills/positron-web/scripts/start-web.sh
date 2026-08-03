@@ -56,17 +56,28 @@ if [[ -z "$USER_DATA_DIR" ]]; then
 fi
 mkdir -p "$USER_DATA_DIR"
 
-# Positron Web refuses to serve without a signed license token, and there is no
-# dev bypass (see src/vs/server/node/remoteLicenseKey.ts). CI supplies it from
-# the POSITRON_LICENSE secret. Without one the server exits during startup with
-# only a log line, so check up front rather than waiting out the timeout.
-if [[ -z "${LICENSE_KEY:-}" && -z "${LICENSE_KEY_FILE:-}" \
-	&& -z "${POSITRON_LICENSE_KEY:-}" && -z "${POSITRON_LICENSE_KEY_FILE:-}" ]]; then
-	echo "[start-web] No license key. Positron Web needs a signed license token:" >&2
-	echo "            --license-key <key> | --license-key-file <path>, or" >&2
-	echo "            POSITRON_LICENSE_KEY / POSITRON_LICENSE_KEY_FILE in the env." >&2
-	echo "            Posit-internal; the CI value lives in the POSITRON_LICENSE secret." >&2
+# Positron Web refuses to serve without a signed license token and there is no dev
+# bypass (src/vs/server/node/remoteLicenseKey.ts). Without one the server exits
+# during startup with only a log line, so check up front rather than waiting out
+# the timeout.
+#
+# scripts/code-server.js mints a key automatically if it finds a locally built
+# license issuer at <repo-parent>/positron-license/pdol/target/debug/pdol. That
+# path is relative to the checkout, so it resolves for ~/posit/positron but NOT
+# for a worktree one level deeper - symlink it next to the worktrees dir, the same
+# thing .devcontainer/ci-arm/post-start.sh does for CI:
+#   ln -s ~/posit/positron-license <worktrees-parent>/positron-license
+ISSUER="$(cd "$REPO/.." && pwd)/positron-license/pdol/target/debug/pdol"
+if [[ ! -x "$ISSUER" && -z "$LICENSE_KEY" && -z "$LICENSE_KEY_FILE" ]]; then
+	echo "[start-web] No license key and no license issuer at:" >&2
+	echo "              $ISSUER" >&2
+	echo "            Either symlink a positron-license checkout there, or pass" >&2
+	echo "            --license-key / --license-key-file (or set POSITRON_LICENSE_KEY)." >&2
+	echo "            Posit-internal; CI uses the POSITRON_LICENSE secret." >&2
 	exit 2
+fi
+if [[ -x "$ISSUER" ]]; then
+	echo "[start-web] license issuer found; code-server.js will mint a key" >&2
 fi
 
 LOG_FILE="$USER_DATA_DIR/server.log"
