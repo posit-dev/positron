@@ -13,8 +13,9 @@ import type * as vscode from 'vscode';
 import type { AddressInfo } from 'net';
 import { tmpdir } from 'os';
 import { Emitter } from '../../../../../base/common/event.js';
-import { Disposable } from '../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { join } from '../../../../../base/common/path.js';
+import { assertDefined } from '../../../../../base/common/types.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { PositronDocsTriggers } from '../../../../../platform/positronDocs/common/positronDocsTriggers.js';
@@ -92,6 +93,12 @@ function cacheRoot(label: string): string {
 }
 
 describe('NodeExtHostDocs construction', () => {
+	// Disposed from afterEach rather than at the end of each test: a failing
+	// assertion would skip an inline dispose() and leak the scheduler and the
+	// config listener into whatever runs next.
+	const store = new DisposableStore();
+	afterEach(() => store.clear());
+
 	// The one risk specific to hosting this on the extension host is a slow or
 	// hung download landing on an activation path. The constructor must only
 	// arm a scheduler and start installing a config listener, so with a config
@@ -100,7 +107,7 @@ describe('NodeExtHostDocs construction', () => {
 	it('performs no filesystem work and does not wait on startup or configuration', async () => {
 		const root = cacheRoot('ctor');
 		const getConfigProvider = vi.fn(() => new Promise<never>(() => { }));
-		const service = new NodeExtHostDocs(
+		store.add(new NodeExtHostDocs(
 			initDataAt(root),
 			stubInterface<IExtHostConfiguration>({ getConfigProvider }),
 			stubInterface<IExtHostExtensionService>({
@@ -108,26 +115,31 @@ describe('NodeExtHostDocs construction', () => {
 				whenStartupFinished: () => new Promise<void>(() => { }),
 			}),
 			new NullLogService(),
-		);
+		));
 
 		expect(existsSync(join(root, 'positron-llm-docs'))).toBe(false);
 		// Called, but never awaited to completion - the listener install is a
 		// detached continuation, not part of construction.
 		expect(getConfigProvider).toHaveBeenCalledTimes(1);
-		service.dispose();
 	});
 });
 
 describe('NodeExtHostDocs launch anchor', () => {
+	const store = new DisposableStore();
 	beforeEach(() => vi.useFakeTimers());
-	afterEach(() => vi.useRealTimers());
+	afterEach(() => {
+		// Before the timers go back to real: the scheduler being disposed is
+		// still armed under fake time.
+		store.clear();
+		vi.useRealTimers();
+	});
 
 	function build(startupFinished: Promise<void>) {
 		// Spying on the trigger rather than the ports: this asserts *when* the
 		// launch fetch fires, and running the real one would reach the network.
 		const runBackgroundFetch = vi.spyOn(PositronDocsTriggers.prototype, 'runBackgroundFetch')
 			.mockResolvedValue(undefined);
-		const service = new NodeExtHostDocs(
+		const service = store.add(new NodeExtHostDocs(
 			initDataAt(cacheRoot('anchor')),
 			stubInterface<IExtHostConfiguration>({
 				getConfigProvider: async () => stubInterface<ExtHostConfigProvider>({
@@ -137,7 +149,7 @@ describe('NodeExtHostDocs launch anchor', () => {
 			}),
 			stubInterface<IExtHostExtensionService>({ whenStartupFinished: () => startupFinished }),
 			new NullLogService(),
-		);
+		));
 		return { service, runBackgroundFetch };
 	}
 
@@ -145,7 +157,6 @@ describe('NodeExtHostDocs launch anchor', () => {
 		const ctx = build(new Promise<void>(() => { }));
 		await vi.advanceTimersByTimeAsync(60_000);
 		expect(ctx.runBackgroundFetch).not.toHaveBeenCalled();
-		ctx.service.dispose();
 	});
 
 	it('fetches 5 seconds after the signal resolves', async () => {
@@ -156,7 +167,6 @@ describe('NodeExtHostDocs launch anchor', () => {
 		expect(ctx.runBackgroundFetch).not.toHaveBeenCalled();
 		await vi.advanceTimersByTimeAsync(2_000);
 		expect(ctx.runBackgroundFetch).toHaveBeenCalledOnce();
-		ctx.service.dispose();
 	});
 
 	it('does not fetch if disposed between the signal and the delay', async () => {
@@ -170,6 +180,9 @@ describe('NodeExtHostDocs launch anchor', () => {
 });
 
 describe('NodeExtHostDocs ai.enabled flip', () => {
+	const store = new DisposableStore();
+	afterEach(() => store.clear());
+
 	// ai.enabled is WINDOW-scoped and toggles without a reload, so the false-to-true
 	// flip is the one in-session re-attempt the design allows. Spying on the trigger
 	// rather than the cache: what matters here is which config transitions reach it.
@@ -180,7 +193,7 @@ describe('NodeExtHostDocs ai.enabled flip', () => {
 		const subscribe = vi.fn((listener: (e: vscode.ConfigurationChangeEvent) => unknown) => changed.event(listener));
 		let enabled = initiallyEnabled;
 
-		const service = new NodeExtHostDocs(
+		const service = store.add(new NodeExtHostDocs(
 			initDataAt(cacheRoot('flip')),
 			stubInterface<IExtHostConfiguration>({
 				getConfigProvider: async () => stubInterface<ExtHostConfigProvider>({
@@ -191,7 +204,7 @@ describe('NodeExtHostDocs ai.enabled flip', () => {
 			// Never resolves: the launch fetch must stay out of this test's way.
 			stubInterface<IExtHostExtensionService>({ whenStartupFinished: () => new Promise<void>(() => { }) }),
 			new NullLogService(),
-		);
+		));
 
 		// The listener install is a detached continuation off an awaited
 		// getConfigProvider(), so it is not in place when the constructor returns.
@@ -215,7 +228,6 @@ describe('NodeExtHostDocs ai.enabled flip', () => {
 		await ctx.set(true);
 
 		expect(ctx.onAiEnabledFlippedTrue).toHaveBeenCalledTimes(1);
-		ctx.service.dispose();
 	});
 
 	it('does not refetch when ai.enabled flips true to false', async () => {
@@ -224,7 +236,6 @@ describe('NodeExtHostDocs ai.enabled flip', () => {
 		await ctx.set(false);
 
 		expect(ctx.onAiEnabledFlippedTrue).not.toHaveBeenCalled();
-		ctx.service.dispose();
 	});
 
 	it('does not refetch when a change leaves ai.enabled true', async () => {
@@ -235,7 +246,6 @@ describe('NodeExtHostDocs ai.enabled flip', () => {
 		await ctx.set(true);
 
 		expect(ctx.onAiEnabledFlippedTrue).not.toHaveBeenCalled();
-		ctx.service.dispose();
 	});
 
 	it('ignores a change to an unrelated setting', async () => {
@@ -245,7 +255,6 @@ describe('NodeExtHostDocs ai.enabled flip', () => {
 		await ctx.set(true, 'editor.fontSize');
 
 		expect(ctx.onAiEnabledFlippedTrue).not.toHaveBeenCalled();
-		ctx.service.dispose();
 	});
 
 	it('fires once per flip, not once per event', async () => {
@@ -257,7 +266,6 @@ describe('NodeExtHostDocs ai.enabled flip', () => {
 		await ctx.set(true);
 
 		expect(ctx.onAiEnabledFlippedTrue).toHaveBeenCalledTimes(2);
-		ctx.service.dispose();
 	});
 
 	it('stops listening once disposed', async () => {
@@ -282,6 +290,9 @@ describe('NodeDocsHttpClient', () => {
 
 	beforeEach(async () => {
 		const { createServer } = await import('http');
+		// Reset per test so a case that forgets to set one fails loudly instead of
+		// silently inheriting the previous test's server behaviour.
+		handler = (_req, res) => { res.writeHead(500).end('no handler set for this test'); };
 		server = createServer((req, res) => handler(req, res));
 		await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
 		base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -346,7 +357,7 @@ describe('NodeDocsHttpClient', () => {
 		const total = 8 * 1024 * 1024;
 		let written = 0;
 		/** Resolves with whether the server finished writing before the socket died. */
-		let endedBeforeClose: Promise<boolean>;
+		let endedBeforeClose: Promise<boolean> | undefined;
 		handler = (_req, res) => {
 			endedBeforeClose = new Promise<boolean>(resolve => res.on('close', () => resolve(res.writableEnded)));
 			res.writeHead(200);
@@ -368,8 +379,22 @@ describe('NodeDocsHttpClient', () => {
 
 		// The abort is the point: without destroy() the client would keep reading
 		// and buffering all 8MB behind a rejection that has already been reported.
-		expect(await endedBeforeClose!).toBe(false);
+		assertDefined(endedBeforeClose, 'the request never reached the server');
+		expect(await endedBeforeClose).toBe(false);
 		expect(written).toBeLessThan(total);
+	});
+
+	it('accepts a response of exactly maxBytes', async () => {
+		// The cap rejects on `>`, so the boundary itself must be served. Without
+		// this, tightening the comparison to `>=` would refuse a bundle that is
+		// exactly at the limit and every other test would stay green.
+		const body = 'x'.repeat(4096);
+		handler = (_req, res) => res.writeHead(200).end(body);
+
+		const response = await new NodeDocsHttpClient().get(`${base}/bundle.zip`, { maxBytes: 4096 });
+
+		expect(response.status).toBe(200);
+		expect(new TextDecoder().decode(response.body)).toBe(body);
 	});
 
 	it('follows a redirect and returns the final body', async () => {
@@ -400,16 +425,36 @@ describe('NodeDocsHttpClient', () => {
 		expect(new TextDecoder().decode(response.body)).toBe('/docs/actual.zip');
 	});
 
-	it('gives up rather than following a redirect loop', async () => {
-		let hops = 0;
+	// This pair pins the redirect cap from both sides. MAX_REDIRECTS is 3, so a
+	// chain of three must arrive and a fourth must not be followed. Either test
+	// alone would pass with an off-by-one in the comparison.
+	it('follows a chain of redirects up to the cap', async () => {
+		let served = 0;
 		handler = (_req, res) => {
-			hops++;
+			if (served < 3) {
+				served++;
+				res.writeHead(302, { location: `/hop${served}` }).end();
+				return;
+			}
+			res.writeHead(200).end('arrived');
+		};
+
+		const response = await new NodeDocsHttpClient().get(`${base}/bundle.zip`);
+
+		expect(new TextDecoder().decode(response.body)).toBe('arrived');
+		expect(served).toBe(3);
+	});
+
+	it('gives up rather than following a redirect loop', async () => {
+		let requests = 0;
+		handler = (_req, res) => {
+			requests++;
 			res.writeHead(302, { location: '/again.zip' }).end();
 		};
 
 		await expect(new NodeDocsHttpClient().get(`${base}/bundle.zip`)).rejects.toThrow(/too many redirects/);
-		// MAX_REDIRECTS hops are followed, and the one that would exceed it is not.
-		expect(hops).toBe(4);
+		// Three redirects are followed; the fourth response is where it stops.
+		expect(requests).toBe(4);
 	});
 
 	it('rejects when the server never responds', async () => {

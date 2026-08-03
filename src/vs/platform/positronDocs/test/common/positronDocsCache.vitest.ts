@@ -202,12 +202,15 @@ describe('PositronDocsCache: download rejections on a cold cache', () => {
 	// Each of these must leave no version directory behind and return
 	// undefined, so the assistant falls back to the web exactly as it does
 	// today. Task 6 asserts the same failures against a warm cache.
-	// `expectedLog` is what makes each case falsifiable: every rejection produces
-	// the same three observable outcomes, so without a distinct reason a test
-	// would still pass if the code refused the bundle for the wrong reason.
+	// `expectedLog` is what makes each case falsifiable: every one of these
+	// produces the same three observable outcomes, so without a distinct reason a
+	// test would still pass if the code refused the bundle for the wrong reason.
 	// Matched across both levels on purpose - which level each outcome kind logs
 	// at is asserted separately below.
-	async function expectRejected(configure: (ctx: ReturnType<typeof setup>) => void, expectedLog: string) {
+	//
+	// Named for the outcome rather than "rejected": an unpublished bundle is a
+	// different outcome kind in the source, and it belongs here too.
+	async function expectNoInstall(configure: (ctx: ReturnType<typeof setup>) => void, expectedLog: string) {
 		const ctx = setup();
 		configure(ctx);
 		const docs = await ctx.cache.ensure(request());
@@ -223,51 +226,52 @@ describe('PositronDocsCache: download rejections on a cold cache', () => {
 		// rather than left implicit, because "no docs and no directory" is what
 		// keeps the assistant on web docs, and several tests below use an
 		// all-404 CDN as setup without ever checking that outcome.
-		const ctx = await expectRejected(c => {
+		const ctx = await expectNoInstall(c => {
 			c.http.route(EXACT_ZIP, { status: 404 });
 			c.http.route(LATEST_ZIP, { status: 404 });
 		}, `no bundle published at ${LATEST_ZIP}`);
 
-		// Nothing but the state file: no version directory under any name, so a
-		// later convergence pass still sees a cold cache.
-		expect(ctx.files.listUnder(ROOT).filter(p => p !== STATE_PATH)).toEqual([]);
+		// Nothing at all, state.json included. That last part is load-bearing: a
+		// state file here would carry lastFailureAt and throttle the next attempt,
+		// which is exactly what the 404 path must not do.
+		expect(ctx.files.listUnder(ROOT)).toEqual([]);
 	});
 
 	it('rejects when the checksum file 404s', async () => {
-		await expectRejected(c => {
+		await expectNoInstall(c => {
 			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179') });
 			c.http.route(`${EXACT_ZIP}.sha256sum`, { status: 404 });
 		}, 'checksum file unavailable (HTTP 404)');
 	});
 
 	it('rejects when the checksum file is unparseable', async () => {
-		await expectRejected(c => {
+		await expectNoInstall(c => {
 			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179') });
 			c.http.route(`${EXACT_ZIP}.sha256sum`, { status: 200, body: '<!DOCTYPE html><html>404</html>' });
 		}, 'checksum file does not hold a sha256 digest');
 	});
 
 	it('rejects when the digest does not match the zip', async () => {
-		await expectRejected(c => {
+		await expectNoInstall(c => {
 			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179') });
 			c.http.route(`${EXACT_ZIP}.sha256sum`, { status: 200, body: `${'b'.repeat(64)}  bundle.zip` });
 		}, 'digest mismatch');
 	});
 
 	it('rejects a corrupt archive', async () => {
-		await expectRejected(c => {
+		await expectNoInstall(c => {
 			c.publish(EXACT_ZIP, 'not-a-zip-at-all');
 		}, 'corrupt archive');
 	});
 
 	it('rejects an archive entry that escapes the target', async () => {
-		await expectRejected(c => {
+		await expectNoInstall(c => {
 			c.publish(EXACT_ZIP, fakeZip({ 'llms.txt': 'x', '../../evil.sh': 'rm -rf /' }));
 		}, 'archive entry escapes the target: ../../evil.sh');
 	});
 
 	it('rejects a bundle whose schema is not 1', async () => {
-		await expectRejected(c => {
+		await expectNoInstall(c => {
 			c.publish(EXACT_ZIP, fakeZip({
 				'bundle.json': JSON.stringify({ schema: 2, profile: 'positron', version: '2026.05.0-179', generated: 'g', docsBaseUrl: 'd', fileCount: 2 }),
 				'llms.txt': '# Positron\n',
@@ -276,7 +280,7 @@ describe('PositronDocsCache: download rejections on a cold cache', () => {
 	});
 
 	it('rejects a bundle whose fileCount does not match', async () => {
-		await expectRejected(c => {
+		await expectNoInstall(c => {
 			c.publish(EXACT_ZIP, fakeZip({
 				'bundle.json': JSON.stringify({ schema: 1, profile: 'positron', version: '2026.05.0-179', generated: 'g', docsBaseUrl: 'd', fileCount: 99 }),
 				'llms.txt': '# Positron\n',
@@ -285,7 +289,7 @@ describe('PositronDocsCache: download rejections on a cold cache', () => {
 	});
 
 	it('aborts a download that exceeds the size cap', async () => {
-		await expectRejected(c => {
+		await expectNoInstall(c => {
 			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179'), byteLength: DOCS_MAX_DOWNLOAD_BYTES + 1 });
 			c.http.route(`${EXACT_ZIP}.sha256sum`, { status: 200, body: `${'c'.repeat(64)}  x` });
 		}, `exceeds ${DOCS_MAX_DOWNLOAD_BYTES} bytes`);
@@ -297,7 +301,7 @@ describe('PositronDocsCache: download rejections on a cold cache', () => {
 		// object. The fake only enforces a cap it was given, so this is also what
 		// proves the checksum request carries maxBytes at all - the zip's own
 		// oversize test cannot cover that, it passes with the second call uncapped.
-		await expectRejected(c => {
+		await expectNoInstall(c => {
 			c.http.route(EXACT_ZIP, { status: 200, body: payload('2026.05.0-179') });
 			c.http.route(`${EXACT_ZIP}.sha256sum`, {
 				status: 200,
@@ -308,19 +312,19 @@ describe('PositronDocsCache: download rejections on a cold cache', () => {
 	});
 
 	it('returns undefined on a network failure', async () => {
-		await expectRejected(c => {
+		await expectNoInstall(c => {
 			c.http.route(EXACT_ZIP, { status: 0, throws: 'getaddrinfo ENOTFOUND cdn.posit.co' });
 		}, 'getaddrinfo ENOTFOUND cdn.posit.co');
 	});
 
 	it('returns undefined on a 5xx', async () => {
-		await expectRejected(c => {
+		await expectNoInstall(c => {
 			c.http.route(EXACT_ZIP, { status: 503 });
 		}, 'unexpected HTTP 503 from HEAD');
 	});
 
 	it('returns undefined on a disk write error', async () => {
-		await expectRejected(c => {
+		await expectNoInstall(c => {
 			c.publish(EXACT_ZIP, payload('2026.05.0-179'));
 			c.files.failWritesUnder = ROOT;
 		}, 'ENOSPC');
@@ -331,13 +335,13 @@ describe('PositronDocsCache: download rejections on a cold cache', () => {
 		// unreachable CDN stays at info. A payload that arrived and was refused
 		// is different: something is wrong with what was published, and that
 		// earns a warn.
-		const failed = await expectRejected(c => {
+		const failed = await expectNoInstall(c => {
 			c.http.route(EXACT_ZIP, { status: 404 });
 			c.http.route(LATEST_ZIP, { status: 0, throws: 'getaddrinfo ENOTFOUND cdn.posit.co' });
 		}, 'fetch failed for');
 		expect(failed.logger.warns).toEqual([]);
 
-		const refused = await expectRejected(c => {
+		const refused = await expectNoInstall(c => {
 			c.publish(EXACT_ZIP, 'not-a-zip-at-all');
 		}, 'corrupt archive');
 		expect(refused.logger.warns.join('\n')).toContain('rejected bundle from');
