@@ -1911,7 +1911,9 @@ export class MainThreadLanguageRuntime
 
 	$callMethod(sessionId: string, method: string, args: unknown[]): Thenable<unknown> {
 		const session = this.findSession(sessionId);
-		return session.callMethod(method, args);
+		// `callMethod` is variadic; spread the arguments rather than handing the
+		// whole array over as a single argument.
+		return session.callMethod(method, ...args);
 	}
 
 	// Called by the extension host to select a previously registered language runtime
