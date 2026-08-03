@@ -54,6 +54,14 @@ export interface INativeWorkbenchEnvironmentService extends IBrowserWorkbenchEnv
 
 	// --- Editors to --wait
 	readonly filesToWait?: IPathsToWaitFor;
+
+	// --- Start Positron ---
+	/**
+	 * Whether another window held standalone mode when this window opened;
+	 * when set, this window must not enter the mode at startup.
+	 */
+	readonly standaloneModeEngagedElsewhere: boolean;
+	// --- End Positron ---
 }
 
 export class NativeWorkbenchEnvironmentService extends AbstractNativeEnvironmentService implements INativeWorkbenchEnvironmentService {
@@ -167,6 +175,10 @@ export class NativeWorkbenchEnvironmentService extends AbstractNativeEnvironment
 	// Positron docs URL is not used in desktop mode; returns undefined to use default.
 	get positronDocsUrl(): string | undefined {
 		return undefined;
+	}
+
+	get standaloneModeEngagedElsewhere(): boolean {
+		return this.configuration.standaloneModeEngagedElsewhere === true;
 	}
 	// --- End Positron ---
 

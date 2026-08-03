@@ -52,6 +52,9 @@ import { IThemeMainService } from '../../theme/electron-main/themeMainService.js
 import { IEditorOptions, ITextEditorOptions } from '../../editor/common/editor.js';
 import { IUserDataProfile } from '../../userDataProfile/common/userDataProfile.js';
 import { IPolicyService } from '../../policy/common/policy.js';
+// --- Start Positron ---
+import { IPositronStandaloneModeMainService } from '../../positronStandaloneMode/common/positronStandaloneMode.js';
+// --- End Positron ---
 import { IUserDataProfilesMainService } from '../../userDataProfile/electron-main/userDataProfile.js';
 import { ILoggerMainService } from '../../log/electron-main/loggerService.js';
 import { IAuxiliaryWindowsMainService } from '../../auxiliaryWindow/electron-main/auxiliaryWindows.js';
@@ -235,7 +238,10 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		@IProtocolMainService private readonly protocolMainService: IProtocolMainService,
 		@IThemeMainService private readonly themeMainService: IThemeMainService,
 		@IAuxiliaryWindowsMainService private readonly auxiliaryWindowsMainService: IAuxiliaryWindowsMainService,
-		@ICSSDevelopmentService private readonly cssDevelopmentService: ICSSDevelopmentService
+		@ICSSDevelopmentService private readonly cssDevelopmentService: ICSSDevelopmentService,
+		// --- Start Positron ---
+		@IPositronStandaloneModeMainService private readonly positronStandaloneModeMainService: IPositronStandaloneModeMainService
+		// --- End Positron ---
 	) {
 		super();
 
@@ -1540,6 +1546,15 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			isPortable: this.environmentMainService.isPortable,
 
 			windowId: -1,	// Will be filled in by the window once loaded later
+
+			// --- Start Positron ---
+			// For a reused window, "elsewhere" is relative to that window, so
+			// the holder is not locked out of its own re-entry. Refreshed on
+			// reload (CodeWindow#reload).
+			standaloneModeEngagedElsewhere: window
+				? this.positronStandaloneModeMainService.isEngagedElsewhere(window.id)
+				: this.positronStandaloneModeMainService.isEngaged,
+			// --- End Positron ---
 
 			mainPid: process.pid,
 
