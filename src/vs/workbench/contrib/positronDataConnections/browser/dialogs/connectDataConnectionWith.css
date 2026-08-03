@@ -15,7 +15,7 @@
 }
 
 .connect-data-connection-with.has-variants {
-	grid-template-columns: 160px auto;
+	grid-template-columns: 170px auto;
 	grid-template-areas:
 		"library-header code-header"
 		"variants       code";
@@ -54,13 +54,16 @@
 
 .connect-data-connection-with .variant-list-item {
 	width: 100%;
-	height: 28px;
 	display: flex;
 	cursor: pointer;
-	padding: 0 8px;
+	min-height: 28px;
+	padding: 8px 8px;
+	flex-shrink: 0;
 	border-radius: 4px;
 	align-items: center;
+	box-sizing: border-box;
 	justify-content: flex-start;
+	overflow-wrap: break-word;
 	color: var(--vscode-foreground);
 	background: transparent;
 }
