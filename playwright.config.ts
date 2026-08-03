@@ -10,37 +10,40 @@ import * as fs from 'fs';
 process.env.PW_TEST = '1';
 const jsonOut = process.env.PW_JSON_FILE || 'test-results/results.json';
 const githubSummaryReport = process.env.GH_SUMMARY_REPORT === 'true' ? [['@midleman/github-actions-reporter', {}] as const] : [];
-// Custom reporter is enabled by default.
-// Disable with: ENABLE_CUSTOM_REPORTER=false (or "false", 0, "0", no, "no")
-// YAML booleans are converted to strings by GitHub Actions, so both work.
-const disableCustomReporter = process.env.ENABLE_CUSTOM_REPORTER?.toLowerCase() ?? '';
-const customReporter = ['false', '0', 'no'].includes(disableCustomReporter)
-	? []
-	: [['@midleman/playwright-reporter',
-		{
-			repoName: 'positron',
-			mode: 'prod'
-		},
-	] as const];
-
-// Predictive sharding via the reporter's `preprocess` hook (Playwright 1.62+).
-// Replaces the `e2e-insights run-shard` CLI: workflows now call plain
-// `playwright test --shard=N/M` and this swaps Playwright's count-based split
-// for a duration-balanced one from the E2E Insights API.
+// The two halves of the E2E Insights integration. Independently switchable on
+// purpose: they're separate concerns -- reporting can be off while sharding
+// still reads the existing duration history, and sharding can fall back to
+// Playwright's native split while results keep flowing.
+//   ENABLE_CUSTOM_REPORTER=false     -> stop sending results to the API
+//   ENABLE_PREDICTIVE_SHARDING=false -> use Playwright's native shard split
+// YAML booleans become strings in GitHub Actions, so both forms are accepted.
 //
-// Only does anything on a sharded run -- the hook returns immediately when
-// `--shard` is absent, so the non-sharded workflows sharing this config are
-// unaffected. On any API failure it leaves Playwright's native split in place.
-// os and browser are auto-detected (browser from the running project).
-// Disable with: ENABLE_PREDICTIVE_SHARDING=false (falls back to native sharding)
-const disablePredictiveSharding = process.env.ENABLE_PREDICTIVE_SHARDING?.toLowerCase() ?? '';
-const shardingReporter = ['false', '0', 'no'].includes(disablePredictiveSharding)
-	? []
-	: [['@midleman/playwright-reporter/sharding',
-		{
-			repo: 'positron'
-		},
-	] as const];
+// The sharding half runs in the reporter's `preprocess` hook (Playwright 1.62+),
+// replacing the `e2e-insights run-shard` CLI: workflows call plain
+// `playwright test --shard=N/M` and the hook swaps Playwright's count-based
+// split for a duration-balanced one. It no-ops when `--shard` is absent, so the
+// non-sharded workflows sharing this config are unaffected, and it leaves the
+// native split in place if the API is unreachable. os and browser are
+// auto-detected (browser from the running project).
+const isDisabled = (value?: string) => ['false', '0', 'no'].includes(value?.toLowerCase() ?? '');
+
+const insightsReporters: ReporterDescription[] = [
+	...(isDisabled(process.env.ENABLE_CUSTOM_REPORTER)
+		? []
+		: [['@midleman/playwright-reporter',
+			{
+				repoName: 'positron',
+				mode: 'prod'
+			},
+		] as ReporterDescription]),
+	...(isDisabled(process.env.ENABLE_PREDICTIVE_SHARDING)
+		? []
+		: [['@midleman/playwright-reporter/sharding',
+			{
+				repo: 'positron'
+			},
+		] as ReporterDescription]),
+];
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -61,8 +64,7 @@ let reporter: ReporterDescription[];
 if (process.env.CI) {
 	reporter = [
 		...githubSummaryReport,
-		...customReporter,
-		...shardingReporter,
+		...insightsReporters,
 		['json', { outputFile: jsonOut }],
 		['list'], ['html'], ['blob'],
 	];
