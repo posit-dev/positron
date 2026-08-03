@@ -10,13 +10,15 @@ import * as fs from 'fs';
 process.env.PW_TEST = '1';
 const jsonOut = process.env.PW_JSON_FILE || 'test-results/results.json';
 const githubSummaryReport = process.env.GH_SUMMARY_REPORT === 'true' ? [['@midleman/github-actions-reporter', {}] as const] : [];
-// The two halves of the E2E Insights integration. Independently switchable on
-// purpose: they're separate concerns -- reporting can be off while sharding
-// still reads the existing duration history, and sharding can fall back to
-// Playwright's native split while results keep flowing.
-//   ENABLE_CUSTOM_REPORTER=false     -> stop sending results to the API
-//   ENABLE_PREDICTIVE_SHARDING=false -> use Playwright's native shard split
+// The E2E Insights integration: results reporting, plus predictive sharding.
+//   ENABLE_CUSTOM_REPORTER=false     -> disables BOTH (see below)
+//   ENABLE_PREDICTIVE_SHARDING=false -> keeps reporting, uses Playwright's
+//                                       native count-based shard split
 // YAML booleans become strings in GitHub Actions, so both forms are accepted.
+//
+// Sharding is nested under reporting rather than independent: a run that isn't
+// reporting results isn't contributing durations either, so it has no business
+// steering the partition.
 //
 // The sharding half runs in the reporter's `preprocess` hook (Playwright 1.62+),
 // replacing the `e2e-insights run-shard` CLI: workflows call plain
@@ -26,23 +28,25 @@ const githubSummaryReport = process.env.GH_SUMMARY_REPORT === 'true' ? [['@midle
 // native split in place if the API is unreachable. os and browser are
 // auto-detected (browser from the running project).
 const isDisabled = (value?: string) => ['false', '0', 'no'].includes(value?.toLowerCase() ?? '');
+const reportingEnabled = !isDisabled(process.env.ENABLE_CUSTOM_REPORTER);
+const shardingEnabled = reportingEnabled && !isDisabled(process.env.ENABLE_PREDICTIVE_SHARDING);
 
 const insightsReporters: ReporterDescription[] = [
-	...(isDisabled(process.env.ENABLE_CUSTOM_REPORTER)
-		? []
-		: [['@midleman/playwright-reporter',
+	...(reportingEnabled
+		? [['@midleman/playwright-reporter',
 			{
 				repoName: 'positron',
 				mode: 'prod'
 			},
-		] as ReporterDescription]),
-	...(isDisabled(process.env.ENABLE_PREDICTIVE_SHARDING)
-		? []
-		: [['@midleman/playwright-reporter/sharding',
+		] as ReporterDescription]
+		: []),
+	...(shardingEnabled
+		? [['@midleman/playwright-reporter/sharding',
 			{
 				repo: 'positron'
 			},
-		] as ReporterDescription]),
+		] as ReporterDescription]
+		: []),
 ];
 
 /**
