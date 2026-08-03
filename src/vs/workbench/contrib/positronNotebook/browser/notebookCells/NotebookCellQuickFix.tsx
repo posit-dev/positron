@@ -17,7 +17,7 @@ import { AssistantErrorQuickFix } from './AssistantErrorQuickFix.js';
 const fixPrompt = localize('positronNotebookAssistantFixPrompt', "Fix this notebook cell error.");
 const explainPrompt = localize('positronNotebookAssistantExplainPrompt', "Explain this notebook cell error.");
 
-const ATTACHMENT_NAME = 'Notebook Cell Error';
+const ATTACHMENT_NAME = localize('positronNotebookAssistantErrorAttachmentName', "Notebook Cell Error");
 
 /**
  * Props for the NotebookCellQuickFix component.
