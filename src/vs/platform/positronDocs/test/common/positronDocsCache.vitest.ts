@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 /// <reference types="vitest/globals" />
 
+import { DeferredPromise } from '../../../../base/common/async.js';
 import { DOCS_MAX_DOWNLOAD_BYTES, IDocsBundleRequest } from '../../common/positronDocsBundle.js';
 import { PositronDocsCache } from '../../common/positronDocsCache.js';
 import { fakeDigest, fakeZip, FakeArchive, FakeFileStore, FakeHttpClient, recordingLogger } from './fakes.js';
@@ -55,15 +56,65 @@ function setup() {
 		newId: () => `id${++ids}`,
 	});
 	const cache = makeCache();
+	/** Route `zipUrl` on `client`, with a matching checksum file. */
+	const publishOn = (client: FakeHttpClient, zipUrl: string, body: string, etag?: string) => {
+		client.route(zipUrl, { status: 200, body, etag });
+		client.route(`${zipUrl}.sha256sum`, { status: 200, body: `${fakeDigest(body)}  bundle.zip\n` });
+	};
 	return {
 		cache, makeCache, files, http, archive, logger,
 		advance: (ms: number) => { clock += ms; },
 		/** The persisted cache state, parsed. */
 		readState: async () => JSON.parse(await files.readFile(STATE_PATH)),
 		/** Serve `zipUrl` with a matching, correctly-formatted checksum file. */
-		publish: (zipUrl: string, body: string, etag?: string) => {
-			http.route(zipUrl, { status: 200, body, etag });
-			http.route(`${zipUrl}.sha256sum`, { status: 200, body: `${fakeDigest(body)}  bundle.zip\n` });
+		publish: (zipUrl: string, body: string, etag?: string) => publishOn(http, zipUrl, body, etag),
+		/**
+		 * A separate extension host over the same cache directory.
+		 *
+		 * Unlike `makeCache()` - which models the *next launch* of this window,
+		 * sharing its HTTP client - this models a *concurrent* window: its own
+		 * HTTP stack, so one window can see the alias fail while the other sees
+		 * it succeed, over the same files.
+		 */
+		openWindow: (idPrefix: string) => {
+			const windowHttp = new FakeHttpClient();
+			const windowLogger = recordingLogger();
+			let windowIds = 0;
+			return {
+				http: windowHttp,
+				logger: windowLogger,
+				cache: new PositronDocsCache({
+					rootPath: ROOT, files, archive,
+					http: windowHttp,
+					logger: windowLogger,
+					now: () => clock,
+					newId: () => `${idPrefix}${++windowIds}`,
+				}),
+				publish: (zipUrl: string, body: string, etag?: string) => publishOn(windowHttp, zipUrl, body, etag),
+			};
+		},
+	};
+}
+
+/** A dailies build, which targets the `latest` alias with no HEAD probe. */
+const DAILIES = request({ quality: 'dailies' });
+
+/**
+ * A pause the test can drop inside a fake HTTP request.
+ *
+ * Pass `hold` as a route's `onRequest`. Then `await reached` blocks until the
+ * request arrives, and `release()` lets it finish. The interleaving is chosen
+ * by the test rather than by timing, so there is nothing here to flake.
+ */
+function pausable() {
+	const arrived = new DeferredPromise<void>();
+	const released = new DeferredPromise<void>();
+	return {
+		reached: arrived.p,
+		release: () => released.complete(undefined),
+		hold: async () => {
+			arrived.complete(undefined);
+			await released.p;
 		},
 	};
 }
@@ -688,6 +739,47 @@ describe('PositronDocsCache: superseded version cleanup', () => {
 		const relaunch = await ctx.makeCache().ensure(request());
 		expect(relaunch?.version).toBe('2026.05.0-179');
 		expect(await ctx.files.exists(`${ROOT}/2026.04.0-100`)).toBe(false);
+	});
+
+	/**
+	 * Two Positron windows share one cache directory.
+	 *
+	 * Window A starts a download that will fail slowly. While it is still
+	 * waiting, window B finishes installing a good bundle. When A finally fails
+	 * it must record that failure without erasing the version B just wrote:
+	 * state.json is the only thing that names a bundle directory, so overwriting
+	 * it strands B's bundle on disk where no later session will ever find it.
+	 */
+	it('does not orphan a bundle another window installed mid-fetch', async () => {
+		const ctx = setup();
+		const windowA = ctx.openWindow('a');
+		const windowB = ctx.openWindow('b');
+
+		// Window A's download stalls where the test can hold it, then 503s.
+		const download = pausable();
+		windowA.http.route(LATEST_ZIP, { status: 503, onRequest: download.hold });
+		windowB.publish(LATEST_ZIP, payload('2026.05.0-179'));
+
+		// Deliberately not awaited: A has to stay in flight while B runs. Await
+		// it here and there is no gap for B to install into.
+		const windowAFinished = windowA.cache.ensure(DAILIES);
+
+		await download.reached;
+		await windowB.cache.ensure(DAILIES);
+		expect((await ctx.readState()).version).toBe('2026.05.0-179');
+
+		download.release();
+		const docsA = await windowAFinished;
+
+		const state = await ctx.readState();
+		// B's version survives A's failure write...
+		expect(state.version).toBe('2026.05.0-179');
+		// ...and A's failure is still recorded, so the throttle works.
+		expect(state.lastFailureAt).toBeDefined();
+		// Cache-present rule across windows: A serves what B installed.
+		expect(docsA?.version).toBe('2026.05.0-179');
+		// A later session finds it too, rather than downloading it again.
+		expect((await ctx.makeCache().peek(DAILIES))?.version).toBe('2026.05.0-179');
 	});
 
 	it('never touches entries it did not supersede, including another window in-flight work', async () => {

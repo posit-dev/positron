@@ -145,6 +145,13 @@ export interface IFakeHttpRoute {
 	readonly throws?: string;
 	/** Response size in bytes for the maxBytes check; defaults to body length. */
 	readonly byteLength?: number;
+	/**
+	 * Awaited before the response is produced, on both GET and HEAD, so a test
+	 * can suspend one caller inside its request and run another window's work in
+	 * the gap. Deterministic by construction: the test decides when the request
+	 * resumes, rather than hoping a timer lands in the right interleaving.
+	 */
+	readonly onRequest?: () => Promise<void>;
 }
 
 export class FakeHttpClient implements IDocsHttpClient {
@@ -160,6 +167,9 @@ export class FakeHttpClient implements IDocsHttpClient {
 	async get(url: string, options?: IDocsHttpGetOptions): Promise<IDocsHttpResponse> {
 		this.getCalls.push(url);
 		const route = this.routes.get(url) ?? { status: 404 };
+		if (route.onRequest) {
+			await route.onRequest();
+		}
 		if (route.throws) {
 			throw new Error(route.throws);
 		}
@@ -179,6 +189,12 @@ export class FakeHttpClient implements IDocsHttpClient {
 	async head(url: string): Promise<IDocsHttpResponse> {
 		this.headCalls.push(url);
 		const route = this.routes.get(url) ?? { status: 404 };
+		// Honoured here as well as in get(): a release build's convergence probe
+		// is a HEAD, so a test pausing that probe would otherwise be ignored
+		// silently rather than failing.
+		if (route.onRequest) {
+			await route.onRequest();
+		}
 		if (route.throws) {
 			throw new Error(route.throws);
 		}
