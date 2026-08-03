@@ -18,6 +18,9 @@ import { IThemeService } from '../../../../platform/theme/common/themeService.js
 import { hasCustomTitlebar } from '../../../../platform/window/common/window.js';
 import { IEditorGroupView, IEditorPartsView } from './editor.js';
 import { EditorPart, IEditorPartUIState } from './editorPart.js';
+// --- Start Positron ---
+import { shouldAllowCompactChange } from './positronAuxiliaryCompactLock.js';
+// --- End Positron ---
 import { IAuxiliaryTitlebarPart } from '../titlebar/titlebarPart.js';
 import { WindowTitle } from '../titlebar/windowTitle.js';
 import { IAuxiliaryWindowOpenOptions, IAuxiliaryWindowService } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
@@ -175,6 +178,13 @@ export class AuxiliaryEditorPart {
 			if (newCompact === compact) {
 				return;
 			}
+
+			// --- Start Positron ---
+			// The policy and its rationale live in `shouldAllowCompactChange`.
+			if (!shouldAllowCompactChange(options?.lockCompact)) {
+				return;
+			}
+			// --- End Positron ---
 
 			compact = newCompact;
 			auxiliaryWindow.updateOptions({ compact });

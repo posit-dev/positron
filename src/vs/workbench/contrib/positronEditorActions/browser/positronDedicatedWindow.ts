@@ -11,9 +11,31 @@ import { IAuxiliaryWindowOpenOptions } from '../../../services/auxiliaryWindow/b
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 
 /**
- * Moves the active editor into a "dedicated window": an auxiliary window with
- * a native OS title bar and compact chrome (no editor tabs, no status bar),
- * sized to match the window the editor moves out of.
+ * What a "dedicated window" is: an auxiliary window with a native OS title bar
+ * and compact chrome (no editor tabs, no status bar, no custom titlebar row),
+ * sized to match the window the editor moves out of and opening exactly over
+ * it.
+ *
+ * This is the single definition of the look, shared with anything else that
+ * needs one, so callers state their intent rather than assembling auxiliary
+ * window options.
+ *
+ * @param sourceWindow the window the editor is leaving; supplies the size.
+ * @param extraTraits traits a specific kind of dedicated window needs on top
+ * of the shared shape. They cannot replace the shape itself: the dedicated
+ * look wins so this stays the single definition of it.
+ */
+export function dedicatedWindowOptions(sourceWindow: Window, extraTraits?: IAuxiliaryWindowOpenOptions): IAuxiliaryWindowOpenOptions {
+	return {
+		...extraTraits,
+		compact: true,
+		nativeTitlebar: true,
+		bounds: { width: sourceWindow.outerWidth, height: sourceWindow.outerHeight }
+	};
+}
+
+/**
+ * Moves the active editor into a dedicated window.
  *
  * The command is intent-level on purpose: what a dedicated window looks like
  * is policy owned here, so callers never learn about auxiliary window options.
@@ -30,16 +52,8 @@ CommandsRegistry.registerCommand('positron.editor.moveIntoDedicatedWindow', asyn
 		return; // nothing to move; do not open an empty window
 	}
 
-	// Size the dedicated window like the source window, which is still the
-	// active window at this point; it intentionally opens exactly over it.
-	const sourceWindow = getActiveWindow();
-	const options: IAuxiliaryWindowOpenOptions = {
-		compact: true,
-		nativeTitlebar: true,
-		bounds: { width: sourceWindow.outerWidth, height: sourceWindow.outerHeight }
-	};
-
-	const auxiliaryEditorPart = await editorGroupsService.createAuxiliaryEditorPart(options);
+	// The source window is still the active window at this point.
+	const auxiliaryEditorPart = await editorGroupsService.createAuxiliaryEditorPart(dedicatedWindowOptions(getActiveWindow()));
 	sourceGroup.moveEditors(prepareMoveCopyEditors(sourceGroup, [editor]), auxiliaryEditorPart.activeGroup);
 	auxiliaryEditorPart.activeGroup.focus();
 });

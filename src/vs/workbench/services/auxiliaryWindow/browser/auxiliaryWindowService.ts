@@ -52,6 +52,19 @@ export interface IAuxiliaryWindowOpenOptions {
 
 	readonly nativeTitlebar?: boolean;
 	readonly disableFullscreen?: boolean;
+
+	// --- Start Positron ---
+	/**
+	 * Makes compact mode a property of the window rather than a toggle: the
+	 * automatic exits from compact mode (a second editor, a second group) and
+	 * the user-facing compact actions are ignored.
+	 *
+	 * Used by windows whose whole point is to show exactly one thing with no
+	 * workbench chrome, where losing compact mode would break the surface
+	 * rather than merely change a preference.
+	 */
+	readonly lockCompact?: boolean;
+	// --- End Positron ---
 }
 
 export interface IAuxiliaryWindowService {
@@ -82,7 +95,13 @@ export interface IAuxiliaryWindow extends IDisposable {
 	readonly window: CodeWindow;
 	readonly container: HTMLElement;
 
-	updateOptions(options: { compact: boolean } | undefined): void;
+	// --- Start Positron ---
+	// updateOptions(options: { compact: boolean } | undefined): void;
+	// Widened from `{ compact: boolean }`: the window has to remember the traits
+	// it was opened with so `createState()` can re-emit them, and callers that
+	// only change compact mode must not drop the rest.
+	updateOptions(options: IAuxiliaryWindowOpenOptions | undefined): void;
+	// --- End Positron ---
 
 	layout(): void;
 
@@ -110,7 +129,19 @@ export class AuxiliaryWindow extends BaseWindow implements IAuxiliaryWindow {
 
 	readonly whenStylesHaveLoaded: Promise<void>;
 
-	private compact = false;
+	// --- Start Positron ---
+	// private compact = false;
+	// Retain the whole option bag rather than just compact mode. Some traits are
+	// decided when the window is opened and cannot be read back off the live
+	// window (the Electron frame style) or must not be lost (the compact lock),
+	// and `createState()` is the only thing standing between them and a restored
+	// window that has silently grown workbench chrome.
+	private openOptions: IAuxiliaryWindowOpenOptions = {};
+
+	private get compact(): boolean {
+		return this.openOptions.compact === true;
+	}
+	// --- End Positron ---
 
 	constructor(
 		readonly window: CodeWindow,
@@ -129,9 +160,17 @@ export class AuxiliaryWindow extends BaseWindow implements IAuxiliaryWindow {
 		this.registerListeners();
 	}
 
-	updateOptions(options: { compact: boolean }): void {
-		this.compact = options.compact;
+	// --- Start Positron ---
+	// updateOptions(options: { compact: boolean }): void {
+	// 	this.compact = options.compact;
+	// Widened to the full option bag, and merged rather than assigned: the
+	// auxiliary editor part calls this with `{ compact }` alone whenever
+	// compact mode changes, which would otherwise erase the traits stamped in
+	// when the window was opened.
+	updateOptions(options: IAuxiliaryWindowOpenOptions | undefined): void {
+		this.openOptions = { ...this.openOptions, ...options };
 	}
+	// --- End Positron ---
 
 	private registerListeners(): void {
 		this._register(addDisposableListener(this.window, EventType.BEFORE_UNLOAD, (e: BeforeUnloadEvent) => this.handleBeforeUnload(e)));
@@ -223,7 +262,16 @@ export class AuxiliaryWindow extends BaseWindow implements IAuxiliaryWindow {
 				height: this.window.outerHeight
 			},
 			zoomLevel: getZoomLevel(this.window),
-			compact: this.compact
+			// --- Start Positron ---
+			// compact: this.compact
+			compact: this.compact,
+			// `EditorParts.restoreState()` feeds this object straight back in as
+			// open options, so anything omitted here is a trait the restored
+			// window loses.
+			nativeTitlebar: this.openOptions.nativeTitlebar,
+			disableFullscreen: this.openOptions.disableFullscreen,
+			lockCompact: this.openOptions.lockCompact
+			// --- End Positron ---
 		};
 	}
 
@@ -277,7 +325,10 @@ export class BrowserAuxiliaryWindowService extends Disposable implements IAuxili
 		const { container, stylesLoaded } = this.createContainer(targetWindow, containerDisposables, options);
 
 		const auxiliaryWindow = this.createAuxiliaryWindow(targetWindow, container, stylesLoaded);
-		auxiliaryWindow.updateOptions({ compact: options?.compact ?? false });
+		// --- Start Positron ---
+		// auxiliaryWindow.updateOptions({ compact: options?.compact ?? false });
+		auxiliaryWindow.updateOptions({ ...options, compact: options?.compact === true });
+		// --- End Positron ---
 
 		const registryDisposables = new DisposableStore();
 		this.windows.set(targetWindow.vscodeWindowId, auxiliaryWindow);
