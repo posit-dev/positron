@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { VSBuffer, encodeBase64 } from '../../../../../base/common/buffer.js';
-import { decodeImageDataUrl, getImageExtensionForMimeType, parseImageDataUrl } from '../../common/imageDataUrl.js';
+import { decodeImageDataUrl, getImageExtensionForMimeType, parseImageDataUrl, toBase64ImageDataUrl } from '../../common/imageDataUrl.js';
 
 const pngDataUrl = `data:image/png;base64,${encodeBase64(VSBuffer.fromString('fake-png-bytes'))}`;
 const svg = '<svg><circle r="10"/></svg>';
@@ -39,6 +39,20 @@ describe('imageDataUrl', () => {
 				.toBe('<text>100% done</text>');
 		});
 
+		it('URL-decodes the ;utf8 form emitted by StaticPlotClient.uri', () => {
+			expect(parseImageDataUrl(`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`)).toMatchInlineSnapshot(`
+				{
+				  "base64": false,
+				  "data": "<svg><circle r="10"/></svg>",
+				  "mimeType": "image/svg+xml",
+				}
+			`);
+		});
+
+		it('ignores parameters other than base64', () => {
+			expect(parseImageDataUrl('data:image/svg+xml;charset=utf-8,<svg/>')?.data).toBe('<svg/>');
+		});
+
 		it('returns undefined for a malformed data URL', () => {
 			expect(parseImageDataUrl('not-a-data-url')).toBeUndefined();
 		});
@@ -59,6 +73,41 @@ describe('imageDataUrl', () => {
 
 		it('returns undefined for a malformed data URL', () => {
 			expect(decodeImageDataUrl('not-a-data-url')).toBeUndefined();
+		});
+	});
+
+	describe('toBase64ImageDataUrl', () => {
+		it('returns an already-base64 data URL unchanged', () => {
+			expect(toBase64ImageDataUrl(pngDataUrl)).toBe(pngDataUrl);
+		});
+
+		it('returns an unparseable data URL unchanged', () => {
+			// No comma, so there is no payload to re-encode; let the clipboard reject it.
+			expect(toBase64ImageDataUrl('data:image/png')).toBe('data:image/png');
+		});
+
+		it('converts a URL-encoded SVG data URL to base64', () => {
+			const result = toBase64ImageDataUrl(svgDataUrl);
+			expect(result.startsWith('data:image/svg+xml;base64,')).toBe(true);
+			expect(result).not.toContain('%3C');
+			expect(decodeImageDataUrl(result)?.data.toString()).toBe(svg);
+		});
+
+		it('converts the ;utf8 SVG form to base64', () => {
+			const result = toBase64ImageDataUrl(`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`);
+			expect(result.startsWith('data:image/svg+xml;base64,')).toBe(true);
+			expect(decodeImageDataUrl(result)?.data.toString()).toBe(svg);
+		});
+
+		it('handles a raw SVG payload with literal percent signs', () => {
+			const result = toBase64ImageDataUrl('data:image/svg+xml,<text>100% done</text>');
+			expect(decodeImageDataUrl(result)?.data.toString()).toBe('<text>100% done</text>');
+		});
+
+		it('handles SVG with non-ASCII characters', () => {
+			const unicodeSvg = '<svg><text>éàü</text></svg>';
+			const result = toBase64ImageDataUrl(`data:image/svg+xml,${encodeURIComponent(unicodeSvg)}`);
+			expect(decodeImageDataUrl(result)?.data.toString()).toBe(unicodeSvg);
 		});
 	});
 

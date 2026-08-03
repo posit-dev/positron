@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { VSBuffer, decodeBase64 } from '../../../../base/common/buffer.js';
+import { VSBuffer, decodeBase64, encodeBase64 } from '../../../../base/common/buffer.js';
 import { getExtensionForMimeType } from '../../../../base/common/mime.js';
 
 /** An image data URL parsed into its MIME type and payload. */
@@ -22,17 +22,23 @@ export interface ParsedImageDataUrl {
 
 /**
  * Parse an image data URL into its MIME type and payload.
- * Handles both base64 data URLs (raster images) and URL-encoded data URLs
- * (SVG, as produced by the notebook and Quarto output renderers).
+ *
+ * Handles the encodings Positron produces for image outputs:
+ * - `data:image/png;base64,...` - raster outputs
+ * - `data:image/svg+xml,...` - SVG outputs from the notebook and Quarto renderers
+ * - `data:image/svg+xml;utf8,...` - SVG from `StaticPlotClient.uri`
+ *
+ * Any other `;`-separated parameters (e.g. `;charset=utf-8`) are tolerated and
+ * ignored; only a `base64` parameter changes how the payload is read.
  * @returns The parsed image, or undefined if the data URL is malformed.
  */
 export function parseImageDataUrl(dataUrl: string): ParsedImageDataUrl | undefined {
-	const match = /^data:(?<mimeType>[^;,]+)(?<base64>;base64)?,(?<payload>.*)$/s.exec(dataUrl);
+	const match = /^data:(?<mimeType>[^;,]+)(?<params>;[^,]*)?,(?<payload>.*)$/s.exec(dataUrl);
 	if (!match?.groups) {
 		return undefined;
 	}
-	const { mimeType, base64, payload } = match.groups;
-	if (base64) {
+	const { mimeType, params, payload } = match.groups;
+	if (params?.split(';').includes('base64')) {
 		return { mimeType, data: payload, base64: true };
 	}
 	let data: string;
@@ -74,4 +80,24 @@ export function decodeImageDataUrl(dataUrl: string): DecodedImageDataUrl | undef
 /** File extension (including the dot) for an image MIME type, defaulting to '.png'. */
 export function getImageExtensionForMimeType(mimeType: string): string {
 	return getExtensionForMimeType(mimeType) ?? '.png';
+}
+
+/**
+ * Re-encode an image data URL as base64, leaving one that already is untouched.
+ *
+ * SVG data URLs are URL-encoded rather than base64 (`data:image/svg+xml,...`
+ * from notebook and Quarto outputs, `data:image/svg+xml;utf8,...` from
+ * `StaticPlotClient.uri`), but `IClipboardService.writeImage` only accepts
+ * base64. A data URL that cannot be parsed is returned unchanged, so callers
+ * fail in the clipboard rather than here.
+ */
+export function toBase64ImageDataUrl(dataUrl: string): string {
+	const parsed = parseImageDataUrl(dataUrl);
+	if (!parsed) {
+		return dataUrl;
+	}
+	if (parsed.base64) {
+		return dataUrl;
+	}
+	return `data:${parsed.mimeType};base64,${encodeBase64(VSBuffer.fromString(parsed.data))}`;
 }

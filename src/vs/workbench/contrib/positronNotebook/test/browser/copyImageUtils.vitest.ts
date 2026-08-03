@@ -6,44 +6,13 @@
 /// <reference types="vitest/globals" />
 
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { isCopyImageMenuArg, toBase64DataUrl } from '../../browser/copyImageUtils.js';
+import { isCopyImageMenuArg } from '../../browser/copyImageUtils.js';
 
+// The base64 normalization these tests used to cover now lives in
+// services/positronPlots/common/imageDataUrl.ts as toBase64ImageDataUrl,
+// shared with the plots service; see imageDataUrl.vitest.ts.
 describe('copyImageUtils', () => {
 	createTestContainer().build();
-
-	describe('toBase64DataUrl', () => {
-		it('returns already-base64 data URLs unchanged', () => {
-			const url = 'data:image/png;base64,iVBORw0KGgo=';
-			expect(toBase64DataUrl(url)).toBe(url);
-		});
-
-		it('returns data URLs with no comma unchanged', () => {
-			const url = 'data:image/png';
-			expect(toBase64DataUrl(url)).toBe(url);
-		});
-
-		it('converts URL-encoded SVG data URL to base64', () => {
-			const svg = '<svg><circle r="10"/></svg>';
-			const input = `data:image/svg+xml,${encodeURIComponent(svg)}`;
-			const result = toBase64DataUrl(input);
-			expect(result.startsWith('data:image/svg+xml;base64,')).toBe(true);
-			expect(result).not.toContain('%3C');
-		});
-
-		it('handles raw SVG payload with literal percent signs', () => {
-			// Literal '%' that is not valid URL-encoding should not throw
-			const input = 'data:image/svg+xml,<text>100% done</text>';
-			const result = toBase64DataUrl(input);
-			expect(result.startsWith('data:image/svg+xml;base64,')).toBe(true);
-		});
-
-		it('handles SVG with Unicode characters', () => {
-			const svg = '<svg><text>\u00e9\u00e0\u00fc</text></svg>';
-			const input = `data:image/svg+xml,${encodeURIComponent(svg)}`;
-			const result = toBase64DataUrl(input);
-			expect(result.startsWith('data:image/svg+xml;base64,')).toBe(true);
-		});
-	});
 
 	describe('isCopyImageMenuArg', () => {
 		it('returns true for valid arg', () => {

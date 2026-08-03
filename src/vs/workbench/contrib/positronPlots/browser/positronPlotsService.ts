@@ -26,7 +26,7 @@ import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebvi
 import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
-import { decodeBase64 } from '../../../../base/common/buffer.js';
+import { decodeImageDataUrl, getImageExtensionForMimeType, parseImageDataUrl, toBase64ImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
 import { SavePlotOptions, showSavePlotModalDialog } from './modalDialogs/savePlotModalDialog.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { localize } from '../../../../nls.js';
@@ -97,12 +97,6 @@ const DefaultOpenTargetStorageKey = 'positronPlots.defaultOpenTarget';
 
 /** Legacy keys used for one-way migration to DefaultOpenTargetStorageKey. */
 const LegacyDefaultEditorActionStorageKey = 'positronPlots.defaultEditorAction';
-
-interface DataUri {
-	mime: string;
-	data: string;
-	type: string;
-}
 
 /**
  * ICachedPlotThumbnailDescriptor interface.
@@ -1422,51 +1416,28 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	private savePlotAs = (options: SavePlotOptions) => {
 		const htmlFileSystemProvider = this._fileService.getProvider(options.path.scheme) as HTMLFileSystemProvider;
-		const dataUri = this.splitPlotDataUri(options.uri);
+		// Decodes base64 and URL-encoded (SVG) data URLs alike.
+		const decoded = decodeImageDataUrl(options.uri);
 
-		if (!dataUri) {
+		if (!decoded) {
 			return;
 		}
 
-		const data = dataUri.data;
-
-		htmlFileSystemProvider.writeFile(options.path, decodeBase64(data).buffer, { create: true, overwrite: true, unlock: true, atomic: false })
+		htmlFileSystemProvider.writeFile(options.path, decoded.data.buffer, { create: true, overwrite: true, unlock: true, atomic: false })
 			.catch((error: Error) => {
 				this._notificationService.error(localize('positronPlotsService.savePlotError.unknown', 'Error saving plot: {0}', error.message));
 			});
 	};
 
-	/**
-	 * Splits an image data URI into its MIME, type, and data.
-	 * @param plotDataUri the data URI
-	 * @returns the `DataUri`.
-	 */
-	private splitPlotDataUri(plotDataUri: string): DataUri | null {
-		// match the data URI scheme
-		// the data portion isn't matched because of javascript regex performance with large stringszs
-		const mimeAndData = plotDataUri.split('base64,');
-		if (mimeAndData.length !== 2) {
-			return null;
-		}
-
-		const mime = mimeAndData[0].split('data:')[1];
-		const imageData = mimeAndData[1];
-
-		return {
-			mime: mime,
-			data: imageData,
-			type: mime.split('/')[1].split(';')[0],
-		};
-	}
-
 	showSavePlotDialog(uri: string, suggestedFileName?: string) {
-		const dataUri = this.splitPlotDataUri(uri);
+		const parsed = parseImageDataUrl(uri);
 
-		if (!dataUri) {
+		if (!parsed) {
 			return;
 		}
 
-		const extension = dataUri.type;
+		// Strip the leading dot; 'image/svg+xml' has to map to 'svg', not 'svg+xml'.
+		const extension = getImageExtensionForMimeType(parsed.mimeType).substring(1);
 
 		this._fileDialogService.defaultFilePath().then(defaultPath => {
 			const defaultUri = joinPath(defaultPath, suggestedFileName ?? 'plot');
@@ -1497,7 +1468,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 		if (plotUri) {
 			try {
-				await this._clipboardService.writeImage(plotUri);
+				// writeImage only accepts base64; SVG plot URIs are URL-encoded.
+				await this._clipboardService.writeImage(toBase64ImageDataUrl(plotUri));
 			} catch (error) {
 				throw new Error(error.message);
 			}

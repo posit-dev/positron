@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { VSBuffer, encodeBase64 } from '../../../../base/common/buffer.js';
 import { localize } from '../../../../nls.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { toBase64ImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
 
 /**
  * Shape of the arg passed to `positronNotebook.cell.copyOutputImage` to target
@@ -31,34 +31,9 @@ export async function copyImageToClipboard(
 	notificationService: INotificationService,
 ): Promise<void> {
 	try {
-		await clipboardService.writeImage(toBase64DataUrl(dataUrl));
+		await clipboardService.writeImage(toBase64ImageDataUrl(dataUrl));
 	} catch (err) {
 		logService.error('Failed to copy image to clipboard:', err);
 		notificationService.error(localize('copyImageFailed', "Failed to copy image to clipboard"));
 	}
-}
-
-/**
- * Ensure a data URL uses base64 encoding. SVG data URLs from notebook outputs
- * use URL-encoding (`data:image/svg+xml,<encoded>`), but
- * `IClipboardService.writeImage` expects base64 (`data:...;base64,...`).
- */
-export function toBase64DataUrl(dataUrl: string): string {
-	if (dataUrl.includes(';base64,')) {
-		return dataUrl;
-	}
-	const commaIndex = dataUrl.indexOf(',');
-	if (commaIndex === -1) {
-		return dataUrl;
-	}
-	const header = dataUrl.substring(0, commaIndex); // e.g. "data:image/svg+xml"
-	const raw = dataUrl.substring(commaIndex + 1);
-	let payload: string;
-	try {
-		payload = decodeURIComponent(raw);
-	} catch {
-		// Raw payload may contain literal '%' that is not URL-encoded
-		payload = raw;
-	}
-	return `${header};base64,${encodeBase64(VSBuffer.fromString(payload))}`;
 }

@@ -54,7 +54,12 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient,
 			session_id: '',
 			code: '',
 			name,
-			suggested_file_name: createSuggestedFileNameForPlot(storageService),
+			// Seed "Save Plot" with the caller's name (e.g. "notebook_cell1") so
+			// that saving from a popped-out tab suggests the same filename as
+			// saving the output directly. Only fall back to the generic plot-N
+			// generator when unnamed: it also bumps a stored plot counter, which
+			// would otherwise advance on every popout.
+			suggested_file_name: name ?? createSuggestedFileNameForPlot(storageService),
 			zoom_level: ZoomLevel.Fit,
 		};
 
