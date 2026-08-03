@@ -13,7 +13,7 @@ import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platf
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
-import { ILanguageRuntimeMetadata, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionMetadata } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IActiveRuntimeSessionMetadataDto, IMainPositronContext, MainThreadLanguageRuntimeShape } from '../../../common/positron/extHost.positron.protocol.js';
 import { ExtHostLanguageRuntime, ExtHostRuntimeSessionProxy } from '../../../common/positron/extHostLanguageRuntime.js';
@@ -523,5 +523,163 @@ describe('ExtHostLanguageRuntime - proxy session', function () {
 			runtime.$notifyProxySessionDisconnected('s-unknown');
 			runtime.$notifyProxySessionReconnected('s-unknown');
 		}).not.toThrow();
+	});
+});
+
+/**
+ * A main-thread shape that both serves an owned session's DTO (so the namespace
+ * getters proxy it) and records the operations the proxy forwards back to the
+ * main thread.
+ */
+class RecordingProxyShape extends mock<MainThreadLanguageRuntimeShape>() {
+	// Emit stubs exercised while attaching an owned session.
+	override $emitLanguageRuntimeState = vi.fn();
+	override $emitLanguageRuntimeMessage = vi.fn();
+	override $emitLanguageRuntimeExit = vi.fn();
+	override $emitLanguageRuntimeResourceUsage = vi.fn();
+
+	// The DTO returned by the getters; its id matches the owned session's id.
+	dto: IActiveRuntimeSessionMetadataDto = fakeSessionDto({
+		metadata: { sessionId: 'test-session', sessionMode: LanguageRuntimeSessionMode.Console },
+	});
+
+	subscribed: string[] = [];
+	unsubscribed: string[] = [];
+	restarts: string[] = [];
+	interrupts: string[] = [];
+	executes: Array<{ sessionId: string; code: string; id: string }> = [];
+	shutdowns: Array<{ sessionId: string; exitReason: RuntimeExitReason }> = [];
+
+	override async $startLanguageRuntime(): Promise<string> {
+		return this.dto.metadata.sessionId;
+	}
+	override async $getSession(sessionId: string): Promise<IActiveRuntimeSessionMetadataDto | undefined> {
+		return sessionId === this.dto.metadata.sessionId ? this.dto : undefined;
+	}
+	override async $getActiveSessions(): Promise<IActiveRuntimeSessionMetadataDto[]> {
+		return [this.dto];
+	}
+	override $subscribeToSession(sessionId: string): void {
+		this.subscribed.push(sessionId);
+	}
+	override $unsubscribeFromSession(sessionId: string): void {
+		this.unsubscribed.push(sessionId);
+	}
+	override async $restartSession(sessionId: string): Promise<boolean> {
+		this.restarts.push(sessionId);
+		return true;
+	}
+	override async $interruptSession(sessionId: string): Promise<void> {
+		this.interrupts.push(sessionId);
+	}
+	override async $executeInSession(sessionId: string, code: string, id: string): Promise<void> {
+		this.executes.push({ sessionId, code, id });
+	}
+	override async $shutdownSession(sessionId: string, exitReason: RuntimeExitReason): Promise<void> {
+		this.shutdowns.push({ sessionId, exitReason });
+	}
+}
+
+describe('ExtHostLanguageRuntime - owned session proxying (#12589)', () => {
+	async function setup() {
+		const shape = new RecordingProxyShape();
+		const rpc = SingleProxyRPCProtocol(shape) as unknown as IMainPositronContext;
+		const runtime = new ExtHostLanguageRuntime(rpc, new NullLogService());
+		// Own a session on this extension host (id: 'test-session').
+		const { session, handle } = await createAttachedSession(runtime);
+		return { shape, runtime, session, handle };
+	}
+
+	it('getSession returns a proxy, not the owned session object', async () => {
+		const { shape, runtime, session } = await setup();
+
+		const result = await runtime.getSession('test-session');
+
+		expect(result).toBeInstanceOf(ExtHostRuntimeSessionProxy);
+		expect(result).not.toBe(session);
+		// The proxy subscribes to main-thread event forwarding.
+		expect(shape.subscribed).toEqual(['test-session']);
+	});
+
+	it('getActiveSessions returns proxies, not owned session objects', async () => {
+		const { runtime, session } = await setup();
+
+		const [result] = await runtime.getActiveSessions();
+
+		expect(result).toBeInstanceOf(ExtHostRuntimeSessionProxy);
+		expect(result).not.toBe(session);
+	});
+
+	it('startLanguageRuntime still returns the real owned session to its creator', async () => {
+		const { runtime, session } = await setup();
+
+		const result = await runtime.startLanguageRuntime(
+			'r-1', 'test', LanguageRuntimeSessionMode.Console, undefined);
+
+		// The creator gets the genuine session object, not a proxy.
+		expect(result).toBe(session);
+		expect(result).not.toBeInstanceOf(ExtHostRuntimeSessionProxy);
+	});
+
+	it('routes execute and shutdown through the main thread', async () => {
+		const { shape, runtime } = await setup();
+		const proxySession = await runtime.getSession('test-session') as ExtHostRuntimeSessionProxy;
+
+		proxySession.execute('1+1', 'exec-1', RuntimeCodeExecutionMode.Interactive, RuntimeErrorBehavior.Continue);
+		await proxySession.shutdown(RuntimeExitReason.Shutdown as unknown as positron.RuntimeExitReason);
+
+		expect(shape.executes).toEqual([{ sessionId: 'test-session', code: '1+1', id: 'exec-1' }]);
+		expect(shape.shutdowns).toEqual([{ sessionId: 'test-session', exitReason: RuntimeExitReason.Shutdown }]);
+	});
+
+	it('routes restart and interrupt through the coordinating main-thread methods', async () => {
+		const { shape, runtime } = await setup();
+		const proxySession = await runtime.getSession('test-session') as ExtHostRuntimeSessionProxy;
+
+		await proxySession.restart();
+		await proxySession.interrupt();
+
+		expect(shape.restarts).toEqual(['test-session']);
+		expect(shape.interrupts).toEqual(['test-session']);
+	});
+
+	it('disposes and forgets the proxy when the owned session is disposed', async () => {
+		const { shape, runtime, handle } = await setup();
+		const first = await runtime.getSession('test-session') as ExtHostRuntimeSessionProxy;
+		expect(shape.subscribed).toEqual(['test-session']);
+
+		await runtime.$disposeLanguageRuntime(handle);
+
+		// The proxy was disposed (unsubscribed) and dropped from the cache...
+		expect(shape.unsubscribed).toEqual(['test-session']);
+		// ...so a later lookup builds a fresh proxy and subscribes again.
+		const second = await runtime.getSession('test-session') as ExtHostRuntimeSessionProxy;
+		expect(second).not.toBe(first);
+		expect(shape.subscribed).toEqual(['test-session', 'test-session']);
+	});
+
+	it('getLocalSession hands back the real owned session for same-host consumers', async () => {
+		const { runtime, session } = await setup();
+
+		const result = runtime.getLocalSession('test-session');
+
+		expect(result).toBe(session);
+		expect(result).not.toBeInstanceOf(ExtHostRuntimeSessionProxy);
+	});
+
+	it('getLocalSession returns undefined for a session owned by another extension host', async () => {
+		const { runtime } = await setup();
+
+		expect(runtime.getLocalSession('other-host-session')).toBeUndefined();
+	});
+
+	it('getLocalSession still resolves a disposed session, so callers must gate on an active-session lookup', async () => {
+		const { runtime, session, handle } = await setup();
+
+		await runtime.$disposeLanguageRuntime(handle);
+
+		// `$disposeLanguageRuntime` keeps the array slot so that session handles
+		// (which are indices) stay valid, so the disposed session stays findable.
+		expect(runtime.getLocalSession('test-session')).toBe(session);
 	});
 });

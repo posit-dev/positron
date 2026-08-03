@@ -323,6 +323,30 @@ export class ExtHostRuntimeSessionProxy
 	shutdown(exitReason: positron.RuntimeExitReason) {
 		return this._proxy.$shutdownSession(this.sessionId, exitReason);
 	}
+
+	// `restart` and `interrupt` live on the full `LanguageRuntimeSession`, not on
+	// `BaseLanguageRuntimeSession`, so they aren't visible through the getter
+	// return type. They exist here as a non-breaking safety net for extensions
+	// that cast a getter result to the full type and call them directly (#12589):
+	// rather than throwing, route them through core's coordinating methods.
+
+	/**
+	 * Restart the runtime, routed through Positron core.
+	 *
+	 * `workingDirectory` is intentionally ignored: the coordinating restart
+	 * reuses the session's current working directory, and no by-session-id core
+	 * API accepts a new one. The boolean `$restartSession` returns (whether the
+	 * restart proceeded past the busy prompt) is discarded to match the
+	 * `Thenable<void>` shape of `LanguageRuntimeSession.restart`.
+	 */
+	async restart(_workingDirectory?: string): Promise<void> {
+		await this._proxy.$restartSession(this.sessionId);
+	}
+
+	/** Interrupt the runtime, routed through Positron core. */
+	interrupt(): Thenable<void> {
+		return this._proxy.$interruptSession(this.sessionId);
+	}
 }
 
 export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRuntimeShape {
@@ -941,6 +965,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// Release the event subscriptions wired in `attachToSession`. The
 		// array slot is kept so subsequent session handles remain valid.
 		this._sessionDisposables[handle].dispose();
+
+		// If we handed out a proxy for this session, dispose it (which
+		// unsubscribes from the main thread) and drop it from the cache so the
+		// proxy map doesn't grow without bound as sessions come and go.
+		const sessionId = this._runtimeSessions[handle].metadata.sessionId;
+		const proxy = this._runtimeProxies.get(sessionId);
+		if (proxy) {
+			proxy.dispose();
+			this._runtimeProxies.delete(sessionId);
+		}
+
 		// Dispose session to cleanup kernel, LSP, etc.
 		await this._runtimeSessions[handle].dispose();
 	}
@@ -1394,6 +1429,30 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this.getRuntimeSessionInterface(session);
 	}
 
+	/**
+	 * Get the full `LanguageRuntimeSession` object for a session owned by this
+	 * extension host, or `undefined` if the session lives elsewhere.
+	 *
+	 * This is the escape hatch for consumers that need parts of the session
+	 * surface the proxy cannot mediate: `debug()` (DAP over the kernel's control
+	 * channel), `onDidReceiveRuntimeMessage`, `onDidEndSession`, and
+	 * `runtimeInfo` have no by-session-id equivalent on the main thread. The
+	 * in-repo caller today is `positron-runtime-debugger`, which declares a
+	 * dependency on the kernel extensions to guarantee co-location.
+	 *
+	 * Unlike `getSession` and friends, this hands back the real session object,
+	 * so callers must not use it for lifecycle or execution operations -- those
+	 * still belong on the `positron.runtime` namespace (#12589).
+	 *
+	 * Note that this does not filter out disposed sessions: `$disposeLanguageRuntime`
+	 * keeps the array slot so that session handles (which are indices) stay
+	 * valid. Resolve a session through the main thread first (as
+	 * `getNotebookSession` does) if liveness matters.
+	 */
+	public getLocalSession(sessionId: string): positron.LanguageRuntimeSession | undefined {
+		return this._runtimeSessions.find(session => session.metadata.sessionId === sessionId);
+	}
+
 	private getRuntimeSessionInterface(session?: extHostProtocol.IActiveRuntimeSessionMetadataDto): positron.BaseLanguageRuntimeSession | undefined {
 		// If there's no session, return undefined
 		if (!session) {
@@ -1402,14 +1461,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 		const sessionId = session.metadata.sessionId;
 
-		// Check to see if we already have this session
-		const existing = this._runtimeSessions.find(s => s.metadata.sessionId === sessionId);
-		if (existing) {
-			return existing;
-		}
+		// Always hand out a proxy, even for a session this extension host owns.
+		// Returning the raw `LanguageRuntimeSession` would let an extension call
+		// lifecycle/execution methods (restart, interrupt, execute, shutdown)
+		// in-process without core ever seeing them, leading to stuck consoles and
+		// stale indicators (#12589). The real session object is only returned to
+		// its creator, via `startLanguageRuntime`.
 
-		// The session doesn't exist on this host. Check to see if we have a
-		// proxy for this session already.
+		// Check to see if we already have a proxy for this session.
 		const proxy = this._runtimeProxies.get(sessionId);
 		if (proxy) {
 			return proxy;
