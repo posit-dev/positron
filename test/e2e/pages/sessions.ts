@@ -753,22 +753,92 @@ export class Sessions {
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
 		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
-			// Read the metadata directly from the runtime session service via the
-			// internal `_positron.session.getMetadata` command (registered in
-			// languageRuntimeActionsForSmokeTests.ts). This avoids selecting the
-			// session tab and scraping the info popup, which is slower and flaky
-			// when notification toasts overlay the tab.
-			const metadata = await this.code.driver.executeCommand<SessionMetaData | undefined>(
-				'_positron.session.getMetadata',
-				sessionId
-			);
-
-			if (!metadata) {
-				throw new Error(`No session metadata found for: ${sessionId ?? 'current session'}`);
-			}
-
-			return metadata;
+			// The fast path reads metadata through the internal
+			// `_positron.session.getMetadata` command, but that command is only
+			// registered when the smoke-test driver is enabled (see
+			// languageRuntimeActionsForSmokeTests.ts). The Electron and local web
+			// launchers pass `--enable-smoke-test-driver`; the external-server runs
+			// (Posit Workbench, Jupyter, Positron Server) connect to a server that
+			// does not, so the command is absent there. Fall back to scraping the
+			// session info popup in that case.
+			return this.isExternalServer()
+				? await this.getMetadataFromDialog(sessionId)
+				: await this.getMetadataFromCommand(sessionId);
 		});
+	}
+
+	/**
+	 * Helper: True when connected to an external server (Posit Workbench on
+	 * :8787, Jupyter on :8888, or Positron Server on :8080). These are launched
+	 * without `--enable-smoke-test-driver`, so the smoke-test-only metadata
+	 * command is unavailable and metadata must be scraped from the info popup
+	 * instead. The local browser (port 9000+) and Electron are not external.
+	 * Mirrors HotKeys.isExternalBrowser().
+	 */
+	private isExternalServer(): boolean {
+		return /(8080|8787|8888)/.test(this.page.url());
+	}
+
+	/**
+	 * Helper: Read session metadata via the internal smoke-test command.
+	 */
+	private async getMetadataFromCommand(sessionId?: string): Promise<SessionMetaData> {
+		const metadata = await this.code.driver.executeCommand<SessionMetaData | undefined>(
+			'_positron.session.getMetadata',
+			sessionId
+		);
+
+		if (!metadata) {
+			throw new Error(`No session metadata found for: ${sessionId ?? 'current session'}`);
+		}
+
+		return metadata;
+	}
+
+	/**
+	 * Helper: Read session metadata by opening the console info popup and
+	 * scraping its fields. Used on external servers where the smoke-test command
+	 * is not registered. Selects the target session's tab first when more than
+	 * one session is open, mirroring what the popup reflects.
+	 */
+	private async getMetadataFromDialog(sessionId?: string): Promise<SessionMetaData> {
+		const isSingleSession = (await this.getSessionCount()) === 1;
+
+		if (!isSingleSession && sessionId) {
+			const targetTab = this.getSessionTab(sessionId);
+			await expect(async () => {
+				// Use force to bypass notification toasts that may overlay the tab. A
+				// toast can also swallow the click outright (it's on top, so the real
+				// tab never receives it) -- verify the tab actually went active instead
+				// of assuming the click landed, and retry if it didn't.
+				await targetTab.click({ force: true });
+				await expect(targetTab).toHaveClass(/tab-button--active/);
+			}, `Select session tab: ${sessionId}`).toPass({ timeout: 10000 });
+		}
+
+		let metadata: SessionMetaData | undefined;
+		await expect(async () => {
+			await this.openMetadataDialog(sessionId);
+			const [name, id, state, path, source] = await Promise.all([
+				this.metadataDialog.getByTestId('session-name').textContent(),
+				this.metadataDialog.getByTestId('session-id').textContent(),
+				this.metadataDialog.getByTestId('session-state').textContent(),
+				this.metadataDialog.getByTestId('session-path').textContent(),
+				this.metadataDialog.getByTestId('session-source').textContent(),
+			]);
+			metadata = {
+				name: (name ?? '').trim(),
+				id: (id ?? '').replace('Session ID: ', ''),
+				state: (state ?? '').replace('State: ', '') as SessionState,
+				path: (path ?? '').replace('Path: ', ''),
+				source: (source ?? '').replace('Source: ', ''),
+			};
+		}, 'Extract session metadata').toPass({ intervals: [500], timeout: 10000 });
+
+		// Close the metadata dialog
+		await this.page.keyboard.press('Escape');
+
+		return metadata!;
 	}
 
 	/**
