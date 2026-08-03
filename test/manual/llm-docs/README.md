@@ -39,47 +39,73 @@ Output pane shows nothing and you are guessing.
 | What | Where |
 |---|---|
 | Decisions | Output > Extension Host, filter `[llm-docs]` |
+| Results, state, requests | Output > Docs QA |
 | Cache | `/tmp/positron-docs-qa/User/positron-llm-docs/` |
 | Recorded state | `.../positron-llm-docs/state.json` (`resolution`, `etag`, `lastError`) |
 | What the client asked for | `curl localhost:8099/_ctl/log` |
+
+The Docs QA channel summarises the last three of those, so the only pane you
+normally need beside it is Extension Host - that is where the `[llm-docs]`
+decisions land, and the extension cannot read them.
 
 `state.json` is worth watching directly - `resolution` and `lastFailureAt` are
 not on the public API, so it is the only place to see fallback vs exact and
 whether the failure throttle armed.
 
-## Commands (Command Palette)
+Note that Positron writes its logs under `~/.local/state/positron/logs/`, not
+inside `--user-data-dir`, if you would rather grep
+`window1/exthost/exthost.log` than use the Output pane.
+
+## Scenarios
+
+**Docs QA: Run Scenario** is the whole loop in one command. Pick a scenario from
+the list and it switches the fixture, deletes the cache directory, clears the
+server log, clears the in-process memo, calls `getLocalDocs()`, and prints the
+expectation next to what actually happened:
+
+```
+scenario  digest-mismatch
+expect    rejected, "digest mismatch" logged
+cleared   /tmp/positron-docs-qa/User/positron-llm-docs
+memo      invalidated via an ai.enabled off/on flip
+result     1289ms  undefined
+disk      state.json
+state     resolution: latest-by-policy, version: -, lastError: digest mismatch ...
+server    15:31:02  GET /positron-llms-latest.zip
+          15:31:02  GET /positron-llms-latest.zip.sha256sum
+```
+
+It reports; it does not assert. Read the `[llm-docs]` decisions in Output >
+Extension Host and compare against `expect` yourself.
+
+The scenario list, and the expectation for each, lives beside the behaviour in
+`server.mjs` - the picker reads it over `/_ctl/scenarios`, so
+`curl localhost:8099/_ctl/scenarios` gets you the same list from a terminal.
+
+### Doing it by hand
+
+Only needed for the release-build cases below, where you are driving
+`product.json` as well. Three steps, and skipping any one of them will show you
+a stale result and let you conclude the scenario passed:
+
+```bash
+curl localhost:8099/_ctl/scenario/digest-mismatch
+rm -rf /tmp/positron-docs-qa/User/positron-llm-docs   # cache and failure throttle
+curl localhost:8099/_ctl/reset                        # request log
+```
+
+Then, in Positron: toggle `ai.enabled` off and back on, and run **Docs QA: Get
+Local Docs**. The toggle is what clears the in-process memo - deleting the cache
+directory does not, because `PositronDocsCache` remembers the first completed
+attempt per window and only `invalidate()` clears that. The toggle is also
+trigger 2, so it is worth exercising anyway.
+
+## Other commands (Command Palette)
 
 - **Docs QA: Get Local Docs** - calls the API, reports the result and elapsed ms
 - **Docs QA: Get Local Docs Twice Concurrently** - single-flight check; expect
   one GET in the server log, two callers served
 - **Docs QA: Open the Cached llms.txt** - proves the returned path is real
-
-## Scenarios
-
-Switch without restarting Positron:
-
-```bash
-curl localhost:8099/_ctl/scenario/digest-mismatch
-```
-
-| Scenario | Expected |
-|---|---|
-| `ok` | Installs, `9999.01.0-1`, `isExactMatch: false` |
-| `bundle-404` | `undefined`, no version directory |
-| `checksum-404` | Zip fetched, install refused, `undefined` |
-| `digest-mismatch` | Rejected, `digest mismatch` logged |
-| `checksum-garbage` | Rejected, `does not hold a sha256 digest` |
-| `corrupt-zip` | Rejected, `corrupt archive` |
-| `file-count-mismatch` | Rejected, `file-count-mismatch` |
-| `evil-version` | Rejected at manifest parse; nothing written outside the root |
-| `slow` | `undefined` at ~10s, download continues, next call served |
-| `oversize` | Aborted, `exceeds 26214400 bytes` |
-| `oversize-checksum` | Aborted, `exceeds 8192 bytes` |
-| `exact-published` | Only meaningful on a faked release build - see below |
-
-After switching scenarios, `invalidate` the in-process memo by toggling
-`ai.enabled` off and back on, or the cache will keep serving what it already
-has. That toggle is itself trigger 2, so it is worth exercising anyway.
 
 ## Scenarios this cannot reach as a dev build
 
@@ -117,16 +143,6 @@ hard failure, and a hard failure suppresses the next attempt for an hour
 
 `lastFailureAt` lives in `state.json`, so neither toggling `ai.enabled` nor
 relaunching Positron shortens the wait - `invalidate()` clears the in-process
-gate only. Start the server before Positron, and if you have already tripped it,
-delete the cache directory.
-
-## Reset between runs
-
-```bash
-rm -rf /tmp/positron-docs-qa/User/positron-llm-docs
-curl localhost:8099/_ctl/reset   # clears the request log
-```
-
-Do this before every scenario. Deleting the directory is what clears both the
-cached bundle and the failure throttle; skip it and you will see a stale success
-and conclude the scenario passed.
+gate only. Deleting the cache directory is what clears it, which **Docs QA: Run
+Scenario** does on every run, so it is only a trap if you are driving the fixture
+by hand. Start the server before Positron either way.

@@ -9,12 +9,18 @@
 	},
 	"main": "./extension.js",
 	"activationEvents": [
+		"onCommand:docsQa.runScenario",
 		"onCommand:docsQa.getLocalDocs",
 		"onCommand:docsQa.getLocalDocsTwice",
 		"onCommand:docsQa.readIndex"
 	],
 	"contributes": {
 		"commands": [
+			{
+				"command": "docsQa.runScenario",
+				"title": "Docs QA: Run Scenario",
+				"category": "Docs QA"
+			},
 			{
 				"command": "docsQa.getLocalDocs",
 				"title": "Docs QA: Get Local Docs",

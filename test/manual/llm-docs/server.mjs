@@ -125,31 +125,34 @@ const sha256 = buf => createHash('sha256').update(buf).digest('hex');
 
 // Each scenario decides how the latest zip, its checksum, and the exact
 // version are served. `exact` responses are what a release build HEADs first.
+//
+// `expect` is served over /_ctl/scenarios and shown by the extension's "Run
+// Scenario" command, so it stays next to the behaviour it describes.
 const scenarios = {
 	/** Happy path: latest publishes, exact does not. */
-	'ok': {},
-	/** Nothing published at all. Expect: undefined, no cache directory. */
-	'bundle-404': { zip: 404 },
-	/** Zip published, checksum missing. Expect: install refused. */
-	'checksum-404': { checksum: 404 },
-	/** Checksum names a digest the zip does not have. Expect: rejected. */
-	'digest-mismatch': { digest: 'mismatch' },
+	'ok': { expect: `installs ${LATEST_VERSION}, isExactMatch: false` },
+	/** Nothing published at all. */
+	'bundle-404': { zip: 404, expect: 'undefined, no version directory' },
+	/** Zip published, checksum missing. */
+	'checksum-404': { checksum: 404, expect: 'zip fetched, install refused, undefined' },
+	/** Checksum names a digest the zip does not have. */
+	'digest-mismatch': { digest: 'mismatch', expect: 'rejected, "digest mismatch" logged' },
 	/** Checksum body is not a digest at all. */
-	'checksum-garbage': { digest: 'garbage' },
-	/** Truncated zip. Expect: "corrupt archive". */
-	'corrupt-zip': { corrupt: true },
+	'checksum-garbage': { digest: 'garbage', expect: 'rejected, "does not hold a sha256 digest"' },
+	/** Truncated zip. */
+	'corrupt-zip': { corrupt: true, expect: 'rejected, "corrupt archive"' },
 	/** Manifest declares more files than the zip holds. */
-	'file-count-mismatch': { fileCount: 99 },
-	/** Manifest version escapes the cache root. Expect: rejected, no write. */
-	'evil-version': { version: '../../evil' },
-	/** Slower than the 10s bounded wait. Expect: undefined, then served. */
-	'slow': { delayMs: 20_000 },
-	/** Exact version is published too. Set POSITRON_QA_EXACT to your build. */
-	'exact-published': { exactPublished: true },
-	/** Bigger than the 25MB cap. Expect: aborted. */
-	'oversize': { oversize: true },
-	/** Checksum body over the 8KB cap. Expect: aborted. */
-	'oversize-checksum': { oversizeChecksum: true },
+	'file-count-mismatch': { fileCount: 99, expect: 'rejected, "file-count-mismatch"' },
+	/** Manifest version escapes the cache root. */
+	'evil-version': { version: '../../evil', expect: 'rejected at manifest parse; nothing written outside the root' },
+	/** Slower than the 10s bounded wait. */
+	'slow': { delayMs: 20_000, expect: 'undefined at ~10s, download continues, next call served' },
+	/** Exact version is published too. Release-quality builds only. */
+	'exact-published': { exactPublished: true, expect: 'only meaningful on a faked release build - see the README' },
+	/** Bigger than the 25MB cap. */
+	'oversize': { oversize: true, expect: 'aborted, "exceeds 26214400 bytes"' },
+	/** Checksum body over the 8KB cap. */
+	'oversize-checksum': { oversizeChecksum: true, expect: 'aborted, "exceeds 8192 bytes"' },
 };
 
 let current = 'ok';
@@ -171,6 +174,12 @@ const server = createServer(async (req, res) => {
 		// holding the old one gets a 304 and never sees the new body.
 		etagCounter++;
 		res.writeHead(200).end(`scenario = ${current}\n`);
+		return;
+	}
+	if (path === '/_ctl/scenarios') {
+		// JSON so the extension can build its picker without duplicating the list.
+		const body = Object.entries(scenarios).map(([name, s]) => ({ name, expect: s.expect, current: name === current }));
+		res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(body));
 		return;
 	}
 	if (path === '/_ctl/log') {
