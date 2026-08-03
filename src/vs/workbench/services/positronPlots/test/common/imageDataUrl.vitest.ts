@@ -1,0 +1,75 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/// <reference types="vitest/globals" />
+
+import { VSBuffer, encodeBase64 } from '../../../../../base/common/buffer.js';
+import { decodeImageDataUrl, getImageExtensionForMimeType, parseImageDataUrl } from '../../common/imageDataUrl.js';
+
+const pngDataUrl = `data:image/png;base64,${encodeBase64(VSBuffer.fromString('fake-png-bytes'))}`;
+const svg = '<svg><circle r="10"/></svg>';
+const svgDataUrl = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+
+describe('imageDataUrl', () => {
+	describe('parseImageDataUrl', () => {
+		it('keeps a base64 payload encoded', () => {
+			expect(parseImageDataUrl(pngDataUrl)).toMatchInlineSnapshot(`
+				{
+				  "base64": true,
+				  "data": "ZmFrZS1wbmctYnl0ZXM=",
+				  "mimeType": "image/png",
+				}
+			`);
+		});
+
+		it('URL-decodes an SVG payload', () => {
+			expect(parseImageDataUrl(svgDataUrl)).toMatchInlineSnapshot(`
+				{
+				  "base64": false,
+				  "data": "<svg><circle r="10"/></svg>",
+				  "mimeType": "image/svg+xml",
+				}
+			`);
+		});
+
+		it('keeps a raw payload with literal percent signs', () => {
+			expect(parseImageDataUrl('data:image/svg+xml,<text>100% done</text>')?.data)
+				.toBe('<text>100% done</text>');
+		});
+
+		it('returns undefined for a malformed data URL', () => {
+			expect(parseImageDataUrl('not-a-data-url')).toBeUndefined();
+		});
+	});
+
+	describe('decodeImageDataUrl', () => {
+		it('decodes a base64 PNG data URL to bytes', () => {
+			const decoded = decodeImageDataUrl(pngDataUrl);
+			expect(decoded?.mimeType).toBe('image/png');
+			expect(decoded?.data.toString()).toBe('fake-png-bytes');
+		});
+
+		it('decodes a URL-encoded SVG data URL to bytes', () => {
+			const decoded = decodeImageDataUrl(svgDataUrl);
+			expect(decoded?.mimeType).toBe('image/svg+xml');
+			expect(decoded?.data.toString()).toBe(svg);
+		});
+
+		it('returns undefined for a malformed data URL', () => {
+			expect(decodeImageDataUrl('not-a-data-url')).toBeUndefined();
+		});
+	});
+
+	describe('getImageExtensionForMimeType', () => {
+		it('maps known image MIME types', () => {
+			expect(getImageExtensionForMimeType('image/png')).toBe('.png');
+			expect(getImageExtensionForMimeType('image/svg+xml')).toBe('.svg');
+		});
+
+		it('defaults to .png for an unknown MIME type', () => {
+			expect(getImageExtensionForMimeType('image/unknown-format')).toBe('.png');
+		});
+	});
+});

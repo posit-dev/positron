@@ -5,9 +5,11 @@
 
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { IPositronPlotMetadata } from '../../languageRuntime/common/languageRuntimePlotClient.js';
 import { ILanguageRuntimeMessageOutput } from '../../languageRuntime/common/languageRuntimeService.js';
+import { parseImageDataUrl } from './imageDataUrl.js';
 import { createSuggestedFileNameForPlot, IPositronPlotClient, IZoomablePlotClient, ZoomLevel } from './positronPlots.js';
 
 /**
@@ -27,6 +29,36 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient,
 	static fromMetadata(storageService: IStorageService, metadata: IPositronPlotMetadata, mimeType: string, data: string): StaticPlotClient {
 		// Create a new StaticPlotClient instance from the provided metadata, MIME type, and data.
 		return new StaticPlotClient(storageService, metadata.session_id, metadata, mimeType, data);
+	}
+
+	/**
+	 * Create a static plot client from an already-rendered image data URL, such
+	 * as a notebook cell output or a Quarto inline output.
+	 *
+	 * The plot is not associated with a runtime session, so it carries an empty
+	 * `session_id` and cannot be re-rendered at a different size.
+	 * @param name The plot's display name, used as the editor tab label.
+	 * @returns The plot client, or undefined if the data URL is malformed.
+	 */
+	static fromDataUrl(storageService: IStorageService, dataUrl: string, name?: string): StaticPlotClient | undefined {
+		const parsed = parseImageDataUrl(dataUrl);
+		if (!parsed) {
+			return undefined;
+		}
+
+		const metadata: IPositronPlotMetadata = {
+			// A fresh id each time, so that popping the same output out twice
+			// opens two independent tabs rather than aliasing one plot client.
+			id: generateUuid(),
+			created: Date.now(),
+			session_id: '',
+			code: '',
+			name,
+			suggested_file_name: createSuggestedFileNameForPlot(storageService),
+			zoom_level: ZoomLevel.Fit,
+		};
+
+		return new StaticPlotClient(storageService, metadata.session_id, metadata, parsed.mimeType, parsed.data);
 	}
 
 	static fromMessage(storageService: IStorageService, sessionId: string, message: ILanguageRuntimeMessageOutput, code?: string): StaticPlotClient {

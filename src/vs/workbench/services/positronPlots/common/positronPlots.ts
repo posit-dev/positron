@@ -351,6 +351,24 @@ export interface IPositronPlotsService {
 	openEditor(plotId: string, groupType?: number, metadata?: IPositronPlotMetadata): Promise<void>;
 
 	/**
+	 * Opens an already-rendered image in a plot editor tab.
+	 *
+	 * Lets callers that hold image data rather than a live plot comm - notebook
+	 * cell outputs, Quarto inline outputs - show the image in an editor tab
+	 * without writing it to a file. The plot client is disposed when the tab is
+	 * closed.
+	 *
+	 * Unlike {@link openEditor}, this leaves the remembered "Open in..." target
+	 * alone, since the caller chooses where the image opens.
+	 *
+	 * @param dataUrl The image data URL, either base64 or URL-encoded.
+	 * @param name The editor tab label.
+	 * @param groupType Where to open the tab. Defaults to the active group.
+	 * @throws If the data URL is malformed, or the editor fails to open.
+	 */
+	openImageInEditor(dataUrl: string, name?: string, groupType?: number): Promise<void>;
+
+	/**
 	 * Gets the preferred editor group for opening the plot in an editor tab.
 	 */
 	getPreferredEditorGroup(): number;

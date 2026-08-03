@@ -481,6 +481,16 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	}
 
 	/**
+	 * Records the images that callers asked to open in an editor tab, so that
+	 * tests can assert on them without a real editor service.
+	 */
+	readonly openedImages: { dataUrl: string; name?: string; groupType?: number }[] = [];
+
+	async openImageInEditor(dataUrl: string, name?: string, groupType?: number): Promise<void> {
+		this.openedImages.push({ dataUrl, name, groupType });
+	}
+
+	/**
 	 * Gets the preferred editor group for opening the plot in an editor tab.
 	 */
 	getPreferredEditorGroup(): number {

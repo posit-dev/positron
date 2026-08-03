@@ -11,10 +11,10 @@ import { IFileDialogService } from '../../../../../platform/dialogs/common/dialo
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
-import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { decodeImageDataUrl, getDefaultImageFilename, openImageOutputInNewTab, saveImageOutput } from '../../browser/imageOutputUtils.js';
+import { getDefaultImageFilename, getImageOutputName, openImageOutputInNewTab, saveImageOutput } from '../../common/imageOutputUtils.js';
 
 const notebookUri = URI.file('/home/user/project/notebook.ipynb');
 const pngDataUrl = `data:image/png;base64,${encodeBase64(VSBuffer.fromString('fake-png-bytes'))}`;
@@ -24,27 +24,10 @@ describe('imageOutputUtils', () => {
 
 	const logService = new NullLogService();
 
-	describe('decodeImageDataUrl', () => {
-		it('decodes a base64 PNG data URL', () => {
-			const decoded = decodeImageDataUrl(pngDataUrl);
-			expect(decoded?.mimeType).toBe('image/png');
-			expect(decoded?.data.toString()).toBe('fake-png-bytes');
-		});
-
-		it('decodes a URL-encoded SVG data URL', () => {
-			const svg = '<svg><circle r="10"/></svg>';
-			const decoded = decodeImageDataUrl(`data:image/svg+xml,${encodeURIComponent(svg)}`);
-			expect(decoded?.mimeType).toBe('image/svg+xml');
-			expect(decoded?.data.toString()).toBe(svg);
-		});
-
-		it('keeps raw SVG payload with literal percent signs', () => {
-			const decoded = decodeImageDataUrl('data:image/svg+xml,<text>100% done</text>');
-			expect(decoded?.data.toString()).toBe('<text>100% done</text>');
-		});
-
-		it('returns undefined for a malformed data URL', () => {
-			expect(decodeImageDataUrl('not-a-data-url')).toBeUndefined();
+	describe('getImageOutputName', () => {
+		it('derives a 1-based cell name from the document name', () => {
+			expect(getImageOutputName(notebookUri, 0)).toBe('notebook_cell1');
+			expect(getImageOutputName(notebookUri, 2)).toBe('notebook_cell3');
 		});
 	});
 
@@ -129,41 +112,24 @@ describe('imageOutputUtils', () => {
 	});
 
 	describe('openImageOutputInNewTab', () => {
-		it('writes a hidden temp file next to the notebook and opens it', async () => {
-			const writeFile = vi.fn().mockResolvedValue(undefined);
-			const openEditor = vi.fn().mockResolvedValue(undefined);
-			const fileService = stubInterface<IFileService>({ writeFile });
-			const editorService = stubInterface<IEditorService>({ openEditor });
+		it('opens the image data in a plot editor tab named after the cell', async () => {
+			const openImageInEditor = vi.fn().mockResolvedValue(undefined);
+			const plotsService = stubInterface<IPositronPlotsService>({ openImageInEditor });
 			const notificationService = stubInterface<INotificationService>({});
 
-			await openImageOutputInNewTab(pngDataUrl, notebookUri, 0, editorService, fileService, logService, notificationService);
+			await openImageOutputInNewTab(pngDataUrl, notebookUri, 0, plotsService, logService, notificationService);
 
-			const tempUri = writeFile.mock.calls[0][0] as URI;
-			expect(tempUri.path).toBe('/home/user/project/.positron-temp-notebook_cell1.png');
-			expect(writeFile.mock.calls[0][1].toString()).toBe('fake-png-bytes');
-			expect(openEditor).toHaveBeenCalledWith(expect.objectContaining({ resource: tempUri }));
+			expect(openImageInEditor).toHaveBeenCalledWith(pngDataUrl, 'notebook_cell1');
 		});
 
-		it('notifies an error for a malformed data URL', async () => {
+		it('notifies an error when the image cannot be opened', async () => {
 			const error = vi.fn();
-			const openEditor = vi.fn();
-			const fileService = stubInterface<IFileService>({});
-			const editorService = stubInterface<IEditorService>({ openEditor });
+			const plotsService = stubInterface<IPositronPlotsService>({
+				openImageInEditor: vi.fn().mockRejectedValue(new Error('malformed image data URL')),
+			});
 			const notificationService = stubInterface<INotificationService>({ error });
 
-			await openImageOutputInNewTab('not-a-data-url', notebookUri, 0, editorService, fileService, logService, notificationService);
-
-			expect(error).toHaveBeenCalled();
-			expect(openEditor).not.toHaveBeenCalled();
-		});
-
-		it('notifies an error when opening fails', async () => {
-			const error = vi.fn();
-			const fileService = stubInterface<IFileService>({ writeFile: vi.fn().mockRejectedValue(new Error('read-only')) });
-			const editorService = stubInterface<IEditorService>({});
-			const notificationService = stubInterface<INotificationService>({ error });
-
-			await openImageOutputInNewTab(pngDataUrl, notebookUri, 0, editorService, fileService, logService, notificationService);
+			await openImageOutputInNewTab('not-a-data-url', notebookUri, 0, plotsService, logService, notificationService);
 
 			expect(error).toHaveBeenCalled();
 		});

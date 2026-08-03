@@ -1673,6 +1673,29 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this.setDefaultOpenTarget(this.editorGroupToOpenTarget(selectedEditorGroup));
 	}
 
+	public async openImageInEditor(dataUrl: string, name?: string, groupType?: number): Promise<void> {
+		const plotClient = StaticPlotClient.fromDataUrl(this._storageService, dataUrl, name);
+		if (!plotClient) {
+			throw new Error('Cannot open image in editor: malformed image data URL');
+		}
+
+		// The editor input disposes the plot client via removeEditorPlot when the
+		// tab is closed, so there is nothing to clean up here.
+		this._editorPlots.set(plotClient.id, plotClient);
+
+		const editorPane = await this._editorService.openEditor({
+			resource: URI.from({
+				scheme: Schemas.positronPlotsEditor,
+				path: plotClient.id,
+			}),
+		}, groupType ?? ACTIVE_GROUP);
+
+		if (!editorPane) {
+			this.removeEditorPlot(plotClient.id);
+			throw new Error('Failed to open editor');
+		}
+	}
+
 	public getPreferredEditorGroup(): number {
 		return this.openTargetToEditorGroup(this.getDefaultOpenTarget()) ?? ACTIVE_GROUP;
 	}

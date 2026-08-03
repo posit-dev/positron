@@ -19,7 +19,7 @@ import './contrib/cellTags/actions.js';
 import './AssistantPanel/notebookSuggestionsConfig.js';
 
 import { copyImageToClipboard, isCopyImageMenuArg } from './copyImageUtils.js';
-import { openImageOutputInNewTab, saveImageOutput } from './imageOutputUtils.js';
+import { openImageOutputInNewTab, saveImageOutput } from '../common/imageOutputUtils.js';
 import { isCopyJsonMenuArg, serializeJsonOutput } from './copyJsonUtils.js';
 import { getPlainTextOutputContent, isParsedTextOutput } from './getOutputContents.js';
 import { getActiveWindow, isEditableElement, isHTMLElement } from '../../../../base/browser/dom.js';
@@ -74,7 +74,7 @@ import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keyb
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
@@ -2156,7 +2156,7 @@ class CopyOutputImageAction extends NotebookAction2 {
 }
 registerAction2(CopyOutputImageAction);
 
-// Save output image to a file (matches the Quarto inline output "Save plot" capability)
+// Save output image to a file (shares saveImageOutput with Quarto inline output)
 class SaveOutputImageAction extends NotebookAction2 {
 	constructor() {
 		super({
@@ -2206,7 +2206,7 @@ class SaveOutputImageAction extends NotebookAction2 {
 }
 registerAction2(SaveOutputImageAction);
 
-// Open output image in a new editor tab (matches the Quarto inline output popout capability)
+// Open output image in a new editor tab (shares openImageOutputInNewTab with Quarto inline output)
 class OpenOutputInNewTabAction extends NotebookAction2 {
 	constructor() {
 		super({
@@ -2241,8 +2241,7 @@ class OpenOutputInNewTabAction extends NotebookAction2 {
 	}
 
 	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
-		const editorService = accessor.get(IEditorService);
-		const fileService = accessor.get(IFileService);
+		const plotsService = accessor.get(IPositronPlotsService);
 		const logService = accessor.get(ILogService);
 		const notificationService = accessor.get(INotificationService);
 
@@ -2251,7 +2250,7 @@ class OpenOutputInNewTabAction extends NotebookAction2 {
 			return;
 		}
 
-		await openImageOutputInNewTab(target.dataUrl, notebook.uri, target.cellIndex, editorService, fileService, logService, notificationService);
+		await openImageOutputInNewTab(target.dataUrl, notebook.uri, target.cellIndex, plotsService, logService, notificationService);
 	}
 }
 registerAction2(OpenOutputInNewTabAction);
