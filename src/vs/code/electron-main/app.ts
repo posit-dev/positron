@@ -153,6 +153,9 @@ import { EphemeralStateService } from '../../platform/ephemeralState/common/ephe
 import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from '../../platform/ephemeralState/common/ephemeralStateIpc.js';
 import { PositronMemoryUsageMainService } from '../../platform/positronMemoryUsage/electron-main/positronMemoryUsageMainService.js';
 import { POSITRON_MEMORY_INFO_CHANNEL_NAME, PositronMemoryInfoChannel } from '../../platform/positronMemoryUsage/common/positronMemoryUsageIpc.js';
+import { IPositronStandaloneModeMainService, POSITRON_STANDALONE_MODE_CHANNEL_NAME } from '../../platform/positronStandaloneMode/common/positronStandaloneMode.js';
+import { PositronStandaloneModeChannel } from '../../platform/positronStandaloneMode/common/positronStandaloneModeIpc.js';
+import { PositronStandaloneModeMainService } from '../../platform/positronStandaloneMode/electron-main/positronStandaloneModeMainService.js';
 import { recolorDevIcon } from '../../platform/windows/electron-main/devIconColorizer.js';
 // --- End Positron ---
 
@@ -222,6 +225,9 @@ export class CodeApplication extends Disposable {
 	private windowsMainService: IWindowsMainService | undefined;
 	private auxiliaryWindowsMainService: IAuxiliaryWindowsMainService | undefined;
 	private nativeHostMainService: INativeHostMainService | undefined;
+	// --- Start Positron ---
+	private positronStandaloneModeMainService: IPositronStandaloneModeMainService | undefined;
+	// --- End Positron ---
 
 	constructor(
 		private readonly mainProcessNodeIpcServer: NodeIPCServer,
@@ -621,16 +627,40 @@ export class CodeApplication extends Disposable {
 
 			// Handle paths delayed in case more are coming!
 			runningTimeout = setTimeout(async () => {
-				await this.windowsMainService?.open({
-					context: OpenContext.DOCK /* can also be opening from finder while app is running */,
-					cli: this.environmentMainService.args,
-					urisToOpen: macOpenFileURIs,
-					gotoLineMode: false,
-					preferNewWindow: true /* dropping on the dock or opening from finder prefers to open in a new window */
-				});
-
+				// --- Start Positron ---
+				// A Finder or Dock open must not land behind an engaged
+				// standalone mode window, so it is routed by the standalone
+				// mode policy like a second-instance open (LaunchMainService).
+				const urisToOpen = macOpenFileURIs;
 				macOpenFileURIs = [];
 				runningTimeout = undefined;
+
+				const openFinderFiles = () => {
+					void this.windowsMainService?.open({
+						// --- End Positron ---
+						context: OpenContext.DOCK /* can also be opening from finder while app is running */,
+						cli: this.environmentMainService.args,
+						// --- Start Positron ---
+						// urisToOpen: macOpenFileURIs,
+						urisToOpen,
+						// --- End Positron ---
+						gotoLineMode: false,
+						preferNewWindow: true /* dropping on the dock or opening from finder prefers to open in a new window */
+					});
+					// --- Start Positron ---
+				};
+				if (this.positronStandaloneModeMainService) {
+					await this.positronStandaloneModeMainService.handleExternalOpen(
+						openFinderFiles,
+						(engagedWindowId, exitCommandId) => this.windowsMainService?.getWindowById(engagedWindowId)?.sendWhenReady('vscode:runAction', CancellationToken.None, {
+							id: exitCommandId,
+							from: 'menu',
+						})
+					);
+				} else {
+					openFinderFiles();
+				}
+				// --- End Positron ---
 			}, 100);
 		});
 
@@ -1236,6 +1266,12 @@ export class CodeApplication extends Disposable {
 		// Menubar
 		services.set(IMenubarMainService, new SyncDescriptor(MenubarMainService));
 
+		// --- Start Positron ---
+		// Standalone mode: which window, if any, presents a single view as the
+		// whole product
+		services.set(IPositronStandaloneModeMainService, new SyncDescriptor(PositronStandaloneModeMainService));
+		// --- End Positron ---
+
 		// Extension Host Starter
 		services.set(IExtensionHostStarter, new SyncDescriptor(ExtensionHostStarter));
 
@@ -1487,6 +1523,11 @@ export class CodeApplication extends Disposable {
 		const memoryUsageMainService = new PositronMemoryUsageMainService();
 		const memoryInfoChannel = new PositronMemoryInfoChannel(memoryUsageMainService);
 		mainProcessElectronServer.registerChannel(POSITRON_MEMORY_INFO_CHANNEL_NAME, memoryInfoChannel);
+
+		// Standalone Mode
+		this.positronStandaloneModeMainService = accessor.get(IPositronStandaloneModeMainService);
+		const standaloneModeChannel = new PositronStandaloneModeChannel(this.positronStandaloneModeMainService);
+		mainProcessElectronServer.registerChannel(POSITRON_STANDALONE_MODE_CHANNEL_NAME, standaloneModeChannel);
 		// --- End Positron ---
 
 		// Utility Process Worker
