@@ -252,6 +252,18 @@ export class DashboardPage {
 			await verifyOtpButton.click();
 
 			try {
+				// After Okta accepts the OTP, Databricks may present an "Authorize as"
+				// consent screen (account dropdown + Continue button) before completing
+				// the OAuth redirect. Click Continue to proceed when it appears.
+				const authorizeContinueButton = oauthPage.getByRole('button', { name: 'Continue' });
+				try {
+					await expect(authorizeContinueButton).toBeVisible({ timeout: 5000 });
+					await authorizeContinueButton.click();
+					this.code.logger.log('Clicked Databricks "Authorize as" consent Continue button');
+				} catch {
+					// Consent screen not shown (already authorized or flow skipped it)
+				}
+
 				await oauthPage.waitForURL(/oauth_redirect_callback|localhost:8787/, { timeout: 15000 });
 				otpAccepted = true;
 				break;
