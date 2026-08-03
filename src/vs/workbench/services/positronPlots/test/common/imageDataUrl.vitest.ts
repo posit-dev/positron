@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { VSBuffer, encodeBase64 } from '../../../../../base/common/buffer.js';
-import { decodeImageDataUrl, getImageExtensionForMimeType, getImagePlotId, parseImageDataUrl, toBase64ImageDataUrl } from '../../common/imageDataUrl.js';
+import { decodeImageDataUrl, getImageContentId, getImageExtensionForMimeType, parseImageDataUrl, toBase64ImageDataUrl } from '../../common/imageDataUrl.js';
 
 const pngDataUrl = `data:image/png;base64,${encodeBase64(VSBuffer.fromString('fake-png-bytes'))}`;
 const svg = '<svg><circle r="10"/></svg>';
@@ -55,6 +55,14 @@ describe('imageDataUrl', () => {
 
 		it('returns undefined for a malformed data URL', () => {
 			expect(parseImageDataUrl('not-a-data-url')).toBeUndefined();
+		});
+
+		it('returns undefined for a data URL with no payload separator', () => {
+			expect(parseImageDataUrl('data:image/png')).toBeUndefined();
+		});
+
+		it('returns undefined when the MIME type is missing', () => {
+			expect(parseImageDataUrl('data:,<svg/>')).toBeUndefined();
 		});
 	});
 
@@ -111,21 +119,46 @@ describe('imageDataUrl', () => {
 		});
 	});
 
-	describe('getImagePlotId', () => {
-		it('is stable for the same image and label, so a repeat popout reuses the tab', () => {
-			expect(getImagePlotId(pngDataUrl, 'notebook_cell1'))
-				.toBe(getImagePlotId(pngDataUrl, 'notebook_cell1'));
+	describe('getImageContentId', () => {
+		/** A large payload, past the point where only the ends are sampled. */
+		const largeDataUrl = (body: string) => `data:image/png;base64,${body}`;
+		const largeHead = 'h'.repeat(2000);
+		const largeTail = 't'.repeat(2000);
+
+		it('is stable for the same image and key, so a repeat popout reuses the tab', () => {
+			expect(getImageContentId(pngDataUrl, 'notebook_cell1'))
+				.toBe(getImageContentId(pngDataUrl, 'notebook_cell1'));
 		});
 
 		it('differs when the image changes, so a re-run opens a new tab', () => {
 			const rerun = `data:image/png;base64,${encodeBase64(VSBuffer.fromString('different-bytes'))}`;
-			expect(getImagePlotId(rerun, 'notebook_cell1'))
-				.not.toBe(getImagePlotId(pngDataUrl, 'notebook_cell1'));
+			expect(getImageContentId(rerun, 'notebook_cell1'))
+				.not.toBe(getImageContentId(pngDataUrl, 'notebook_cell1'));
 		});
 
-		it('differs across cells with identical images, so tab labels stay honest', () => {
-			expect(getImagePlotId(pngDataUrl, 'notebook_cell2'))
-				.not.toBe(getImagePlotId(pngDataUrl, 'notebook_cell1'));
+		it('differs by key for identical images, so two documents get a tab each', () => {
+			// Two notebooks that share a basename produce the same label for the same
+			// cell, and the same plot is byte-identical: only the key separates them.
+			expect(getImageContentId(pngDataUrl, 'file:///a/nb.ipynb\nnb_cell1'))
+				.not.toBe(getImageContentId(pngDataUrl, 'file:///b/nb.ipynb\nnb_cell1'));
+		});
+
+		it('differs for a large image when its trailing bytes change', () => {
+			expect(getImageContentId(largeDataUrl(largeHead + largeTail), 'k'))
+				.not.toBe(getImageContentId(largeDataUrl(largeHead + 'x'.repeat(2000)), 'k'));
+		});
+
+		it('differs for a large image when only its length changes', () => {
+			expect(getImageContentId(largeDataUrl(largeHead + largeTail), 'k'))
+				.not.toBe(getImageContentId(largeDataUrl(largeHead + 'm' + largeTail), 'k'));
+		});
+
+		it('samples only the ends of a large payload', () => {
+			// Deliberate: hashing megabytes per popout is not worth it when a collision
+			// only means reusing a tab that holds an equivalent image. Two payloads of
+			// the same length that agree on both ends are treated as the same image.
+			expect(getImageContentId(largeDataUrl(`${largeHead}AAA${largeTail}`), 'k'))
+				.toBe(getImageContentId(largeDataUrl(`${largeHead}BBB${largeTail}`), 'k'));
 		});
 	});
 

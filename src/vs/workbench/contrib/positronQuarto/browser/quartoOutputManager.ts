@@ -1419,10 +1419,12 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 		await openImageOutputInNewTab(
 			dataUrl,
+			this._documentUri,
 			getImageOutputName(this._documentUri, this._getCellIndex(cellId)),
 			this._plotsService,
 			this._logService,
 			this._notificationService,
+			this._getCellCode(cellId),
 		);
 	}
 
@@ -1433,6 +1435,17 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	private _getCellIndex(cellId: string): number {
 		const index = parseInt(cellId.split('-')[0], 10);
 		return Number.isNaN(index) ? 0 : index;
+	}
+
+	/** The code of a cell, if the cell is still in the document. */
+	private _getCellCode(cellId: string): string | undefined {
+		const model = this._editor.getModel();
+		if (!model) {
+			return undefined;
+		}
+		const quartoModel = this._documentModelService.getModel(model);
+		const cell = quartoModel.getCellById(cellId);
+		return cell && quartoModel.getCellCode(cell);
 	}
 
 	/**

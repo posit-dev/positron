@@ -5,7 +5,7 @@
 
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../../../base/common/lifecycle.js';
-import { IPositronPlotsService, IPositronPlotClient, HistoryPolicy, DarkFilter, PlotOpenTarget, PlotRenderSettings, PlotsDisplayLocation } from '../../common/positronPlots.js';
+import { IPositronPlotsService, IPositronPlotClient, HistoryPolicy, DarkFilter, IOpenImageInEditorOptions, PlotOpenTarget, PlotRenderSettings, PlotsDisplayLocation } from '../../common/positronPlots.js';
 import { IPositronPlotSizingPolicy } from '../../common/sizingPolicy.js';
 import { IPositronPlotMetadata } from '../../../languageRuntime/common/languageRuntimePlotClient.js';
 import { ACTIVE_GROUP, AUX_WINDOW_GROUP, SIDE_GROUP } from '../../../editor/common/editorService.js';
@@ -484,10 +484,10 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	 * Records the images that callers asked to open in an editor tab, so that
 	 * tests can assert on them without a real editor service.
 	 */
-	readonly openedImages: { dataUrl: string; name?: string; groupType?: number }[] = [];
+	readonly openedImages: { dataUrl: string; options?: IOpenImageInEditorOptions }[] = [];
 
-	async openImageInEditor(dataUrl: string, name?: string, groupType?: number): Promise<void> {
-		this.openedImages.push({ dataUrl, name, groupType });
+	async openImageInEditor(dataUrl: string, options?: IOpenImageInEditorOptions): Promise<void> {
+		this.openedImages.push({ dataUrl, options });
 	}
 
 	/**

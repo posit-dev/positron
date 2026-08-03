@@ -4,8 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { VSBuffer, decodeBase64, encodeBase64 } from '../../../../base/common/buffer.js';
-import { stringHash } from '../../../../base/common/hash.js';
+import { numberHash, stringHash } from '../../../../base/common/hash.js';
 import { getExtensionForMimeType } from '../../../../base/common/mime.js';
+
+const DATA_URL_PREFIX = 'data:';
 
 /** An image data URL parsed into its MIME type and payload. */
 export interface ParsedImageDataUrl {
@@ -34,12 +36,24 @@ export interface ParsedImageDataUrl {
  * @returns The parsed image, or undefined if the data URL is malformed.
  */
 export function parseImageDataUrl(dataUrl: string): ParsedImageDataUrl | undefined {
-	const match = /^data:(?<mimeType>[^;,]+)(?<params>;[^,]*)?,(?<payload>.*)$/s.exec(dataUrl);
-	if (!match?.groups) {
+	if (!dataUrl.startsWith(DATA_URL_PREFIX)) {
 		return undefined;
 	}
-	const { mimeType, params, payload } = match.groups;
-	if (params?.split(';').includes('base64')) {
+
+	// Split on the first comma rather than matching the payload with a regex:
+	// image data URLs run to megabytes, and a capture group over the payload
+	// makes the parse cost scale with the image.
+	const commaIndex = dataUrl.indexOf(',');
+	if (commaIndex === -1) {
+		return undefined;
+	}
+	const [mimeType, ...params] = dataUrl.slice(DATA_URL_PREFIX.length, commaIndex).split(';');
+	if (!mimeType) {
+		return undefined;
+	}
+
+	const payload = dataUrl.slice(commaIndex + 1);
+	if (params.includes('base64')) {
 		return { mimeType, data: payload, base64: true };
 	}
 	let data: string;
@@ -79,15 +93,39 @@ export function decodeImageDataUrl(dataUrl: string): DecodedImageDataUrl | undef
 }
 
 /**
- * Stable editor-tab identity for an image opened from a cell output.
- *
- * Derived from the image content and its label, so that opening the same output
- * twice resolves to the tab already open while a re-run that changes the image
- * gets a new tab. A hash collision would only focus the wrong tab, so a cheap
- * 32-bit hash is enough.
+ * Number of characters sampled from each end of a data URL by
+ * {@link getImageContentId}.
  */
-export function getImagePlotId(dataUrl: string, name?: string): string {
-	return `image-${stringHash(dataUrl, stringHash(name ?? '', 0))}`;
+const IMAGE_CONTENT_SAMPLE_LENGTH = 1024;
+
+/**
+ * Stable id for an image data URL, derived from its content.
+ *
+ * Lets a caller that reopens the same image resolve to what it opened last
+ * time, while content that has changed gets a new id. `key` distinguishes
+ * images that may share content but not identity, e.g. the same plot in two
+ * documents; pass everything that should give the image its own id.
+ *
+ * Two images collide only if they have the same length and agree on both
+ * sampled ends. The id is a cache key rather than a checksum - a collision
+ * means resolving to something equivalent, not corrupt - so a cheap 32-bit
+ * hash over bounded input is enough.
+ */
+export function getImageContentId(dataUrl: string, key?: string): string {
+	let hash = stringHash(key ?? '', 0);
+
+	if (dataUrl.length <= IMAGE_CONTENT_SAMPLE_LENGTH * 2) {
+		return `image-${stringHash(dataUrl, hash)}`;
+	}
+
+	// Sample both ends and mix in the length instead of walking the whole
+	// payload: stringHash loops per character, and these run to megabytes.
+	// Both ends matter - the leading bytes of two plots of the same size are
+	// largely the same header, while the trailing bytes carry a checksum for
+	// PNG and the closing markup for SVG.
+	hash = numberHash(dataUrl.length, hash);
+	hash = stringHash(dataUrl.slice(0, IMAGE_CONTENT_SAMPLE_LENGTH), hash);
+	return `image-${stringHash(dataUrl.slice(-IMAGE_CONTENT_SAMPLE_LENGTH), hash)}`;
 }
 
 /** File extension (including the dot) for an image MIME type, defaulting to '.png'. */

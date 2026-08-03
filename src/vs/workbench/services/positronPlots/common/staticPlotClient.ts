@@ -12,6 +12,21 @@ import { ILanguageRuntimeMessageOutput } from '../../languageRuntime/common/lang
 import { parseImageDataUrl } from './imageDataUrl.js';
 import { createSuggestedFileNameForPlot, IPositronPlotClient, IZoomablePlotClient, ZoomLevel } from './positronPlots.js';
 
+/** Options for {@link StaticPlotClient.fromDataUrl}. */
+export interface IStaticPlotFromDataUrlOptions {
+	/** The plot's display name, used as the editor tab label. */
+	name?: string;
+
+	/**
+	 * The plot's id. Supply a stable one to have repeat calls resolve to the same
+	 * editor tab; defaults to a fresh id, giving each call its own tab.
+	 */
+	id?: string;
+
+	/** The code that produced the image, if known. Enables the plot code actions. */
+	code?: string;
+}
+
 /**
  * Creates a static plot client from a language runtime message.
  */
@@ -37,22 +52,20 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient,
 	 *
 	 * The plot is not associated with a runtime session, so it carries an empty
 	 * `session_id` and cannot be re-rendered at a different size.
-	 * @param name The plot's display name, used as the editor tab label.
-	 * @param id The plot's id. Supply a stable one to have repeat calls resolve to
-	 * the same editor tab; defaults to a fresh id, giving each call its own tab.
 	 * @returns The plot client, or undefined if the data URL is malformed.
 	 */
-	static fromDataUrl(storageService: IStorageService, dataUrl: string, name?: string, id?: string): StaticPlotClient | undefined {
+	static fromDataUrl(storageService: IStorageService, dataUrl: string, options?: IStaticPlotFromDataUrlOptions): StaticPlotClient | undefined {
 		const parsed = parseImageDataUrl(dataUrl);
 		if (!parsed) {
 			return undefined;
 		}
 
+		const { name, id, code } = options ?? {};
 		const metadata: IPositronPlotMetadata = {
 			id: id ?? generateUuid(),
 			created: Date.now(),
 			session_id: '',
-			code: '',
+			code: code ?? '',
 			name,
 			// Seed "Save Plot" with the caller's name (e.g. "notebook_cell1") so
 			// that saving from a popped-out tab suggests the same filename as

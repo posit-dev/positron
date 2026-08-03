@@ -92,16 +92,23 @@ export async function saveImageOutput(
  * Opens a plot editor tab backed by the image data itself, so nothing is
  * written to disk and the image is released when the tab is closed. Shared by
  * the notebook editor and Quarto inline output.
+ * @param code The code that produced the output, if known. Enables the plot
+ * code actions on the popped-out tab.
  */
 export async function openImageOutputInNewTab(
 	dataUrl: string,
+	documentUri: URI,
 	name: string,
 	plotsService: IPositronPlotsService,
 	logService: ILogService,
 	notificationService: INotificationService,
+	code?: string,
 ): Promise<void> {
 	try {
-		await plotsService.openImageInEditor(dataUrl, name);
+		// Scope tab identity to the document: two documents that share a basename
+		// produce the same name for the same cell, and a plot of the same data is
+		// byte-identical, so content and name alone would alias their tabs.
+		await plotsService.openImageInEditor(dataUrl, { name, code, scope: documentUri.toString() });
 	} catch (error) {
 		logService.error('Failed to open notebook image output in a new tab:', error);
 		notificationService.error(localize('positron.notebook.openOutputFailed', "Failed to open output"));

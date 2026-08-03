@@ -2085,7 +2085,7 @@ registerAction2(CopyOutputAction);
  * URL forwarded from a context menu on a specific image, falling back to the
  * active cell's first image output (e.g. when run from the floating action bar).
  */
-function getTargetedImageOutput(notebook: IPositronNotebookInstance, args: unknown[]): { dataUrl: string; name: string } | undefined {
+function getTargetedImageOutput(notebook: IPositronNotebookInstance, args: unknown[]): { dataUrl: string; name: string; code: string } | undefined {
 	const state = notebook.selectionStateMachine.state.get();
 	const cell = getActiveCell(state);
 	if (!cell?.isCodeCell()) {
@@ -2099,17 +2099,19 @@ function getTargetedImageOutput(notebook: IPositronNotebookInstance, args: unkno
 	const nameFor = (imageIndex: number) => getImageOutputName(
 		notebook.uri, cell.index, imageOutputs.length > 1 ? imageIndex : undefined);
 
+	const code = cell.getContent();
+
 	// Look for a CopyImageMenuArg forwarded from the context menu
 	const menuArg = args.find(isCopyImageMenuArg);
 	if (menuArg) {
 		const imageIndex = imageOutputs.findIndex(o => o.outputId === menuArg.outputId);
-		return { dataUrl: menuArg.imageDataUrl, name: nameFor(imageIndex === -1 ? 0 : imageIndex) };
+		return { dataUrl: menuArg.imageDataUrl, name: nameFor(imageIndex === -1 ? 0 : imageIndex), code };
 	}
 
 	// Fall back to the first image output (e.g. from the floating action bar)
 	const imageOutput = imageOutputs[0];
 	if (imageOutput?.parsed.type === 'image') {
-		return { dataUrl: imageOutput.parsed.dataUrl, name: nameFor(0) };
+		return { dataUrl: imageOutput.parsed.dataUrl, name: nameFor(0), code };
 	}
 
 	return undefined;
@@ -2258,7 +2260,7 @@ class OpenOutputInNewTabAction extends NotebookAction2 {
 			return;
 		}
 
-		await openImageOutputInNewTab(target.dataUrl, target.name, plotsService, logService, notificationService);
+		await openImageOutputInNewTab(target.dataUrl, notebook.uri, target.name, plotsService, logService, notificationService, target.code);
 	}
 }
 registerAction2(OpenOutputInNewTabAction);

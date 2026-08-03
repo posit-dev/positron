@@ -33,7 +33,7 @@ describe('image output round-trip', () => {
 
 	/** The bytes the plot editor's "Save Plot" would write for a popped-out output. */
 	function bytesViaPopout(dataUrl: string): string | undefined {
-		const plot = StaticPlotClient.fromDataUrl(storageService, dataUrl, 'notebook_cell1');
+		const plot = StaticPlotClient.fromDataUrl(storageService, dataUrl, { name: 'notebook_cell1' });
 		// The plot editor saves from plotClient.uri, not the original data URL.
 		return plot && decodeImageDataUrl(plot.uri)?.data.toString();
 	}
@@ -53,7 +53,7 @@ describe('image output round-trip', () => {
 		});
 
 		it('copies the same bytes directly and via popout', () => {
-			const plot = StaticPlotClient.fromDataUrl(storageService, dataUrl, 'notebook_cell1');
+			const plot = StaticPlotClient.fromDataUrl(storageService, dataUrl, { name: 'notebook_cell1' });
 			expect(decodeImageDataUrl(toBase64ImageDataUrl(dataUrl))?.data.toString()).toBe(png);
 			expect(decodeImageDataUrl(toBase64ImageDataUrl(plot!.uri))?.data.toString()).toBe(png);
 		});
@@ -70,20 +70,20 @@ describe('image output round-trip', () => {
 		});
 
 		it('copies the same markup directly and via popout', () => {
-			const plot = StaticPlotClient.fromDataUrl(storageService, dataUrl, 'notebook_cell1');
+			const plot = StaticPlotClient.fromDataUrl(storageService, dataUrl, { name: 'notebook_cell1' });
 			expect(decodeImageDataUrl(toBase64ImageDataUrl(dataUrl))?.data.toString()).toBe(svg);
 			expect(decodeImageDataUrl(toBase64ImageDataUrl(plot!.uri))?.data.toString()).toBe(svg);
 		});
 
 		it('produces a base64 data URL for the clipboard, which only accepts base64', () => {
-			const plot = StaticPlotClient.fromDataUrl(storageService, dataUrl, 'notebook_cell1');
+			const plot = StaticPlotClient.fromDataUrl(storageService, dataUrl, { name: 'notebook_cell1' });
 			// StaticPlotClient.uri emits 'data:image/svg+xml;utf8,...' for SVG.
 			expect(plot!.uri).not.toContain(';base64,');
 			expect(toBase64ImageDataUrl(plot!.uri)).toContain(';base64,');
 		});
 
 		it('keeps the SVG MIME type through the popout, so the save dialog offers .svg', () => {
-			const plot = StaticPlotClient.fromDataUrl(storageService, dataUrl, 'notebook_cell1');
+			const plot = StaticPlotClient.fromDataUrl(storageService, dataUrl, { name: 'notebook_cell1' });
 			expect(decodeImageDataUrl(plot!.uri)?.mimeType).toBe('image/svg+xml');
 		});
 	});

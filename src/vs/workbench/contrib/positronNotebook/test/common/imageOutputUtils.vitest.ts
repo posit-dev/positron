@@ -128,9 +128,28 @@ describe('imageOutputUtils', () => {
 			const plotsService = stubInterface<IPositronPlotsService>({ openImageInEditor });
 			const notificationService = stubInterface<INotificationService>({});
 
-			await openImageOutputInNewTab(pngDataUrl, 'notebook_cell1', plotsService, logService, notificationService);
+			await openImageOutputInNewTab(pngDataUrl, notebookUri, 'notebook_cell1', plotsService, logService, notificationService, 'plt.plot([1, 2, 3])');
 
-			expect(openImageInEditor).toHaveBeenCalledWith(pngDataUrl, 'notebook_cell1');
+			expect(openImageInEditor).toHaveBeenCalledWith(pngDataUrl, {
+				name: 'notebook_cell1',
+				code: 'plt.plot([1, 2, 3])',
+				scope: notebookUri.toString(),
+			});
+		});
+
+		it('scopes the tab to the document, so same-named documents do not share one', async () => {
+			// Two notebooks named notebook.ipynb in different directories produce the
+			// same label for the same cell, and the same plot is byte-identical.
+			const openImageInEditor = vi.fn().mockResolvedValue(undefined);
+			const plotsService = stubInterface<IPositronPlotsService>({ openImageInEditor });
+			const notificationService = stubInterface<INotificationService>({});
+
+			const other = URI.file('/home/user/other/notebook.ipynb');
+			await openImageOutputInNewTab(pngDataUrl, notebookUri, 'notebook_cell1', plotsService, logService, notificationService);
+			await openImageOutputInNewTab(pngDataUrl, other, 'notebook_cell1', plotsService, logService, notificationService);
+
+			const scopes = openImageInEditor.mock.calls.map(([, options]) => options.scope);
+			expect(new Set(scopes).size).toBe(2);
 		});
 
 		it('notifies an error when the image cannot be opened', async () => {
@@ -140,7 +159,7 @@ describe('imageOutputUtils', () => {
 			});
 			const notificationService = stubInterface<INotificationService>({ error });
 
-			await openImageOutputInNewTab('not-a-data-url', 'notebook_cell1', plotsService, logService, notificationService);
+			await openImageOutputInNewTab('not-a-data-url', notebookUri, 'notebook_cell1', plotsService, logService, notificationService);
 
 			expect(error).toHaveBeenCalled();
 		});

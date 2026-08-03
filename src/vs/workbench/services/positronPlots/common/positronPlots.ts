@@ -140,6 +140,27 @@ export const createSuggestedFileNameForPlot = (storageService: IStorageService) 
 	return `plot-${plotNumber}`;
 };
 
+/** Options for {@link IPositronPlotsService.openImageInEditor}. */
+export interface IOpenImageInEditorOptions {
+	/** The editor tab label. */
+	name?: string;
+
+	/**
+	 * What the image belongs to, e.g. the URI of the document whose output it is.
+	 *
+	 * Scopes the tab identity that {@link name} and the image content otherwise
+	 * establish, so that two documents that produce the same image under the same
+	 * label still get a tab each.
+	 */
+	scope?: string;
+
+	/** The code that produced the image, if known. Enables the plot code actions. */
+	code?: string;
+
+	/** Where to open the tab. Defaults to the active group. */
+	groupType?: number;
+}
+
 /**
  * IPositronPlotsService interface.
  */
@@ -362,11 +383,9 @@ export interface IPositronPlotsService {
 	 * alone, since the caller chooses where the image opens.
 	 *
 	 * @param dataUrl The image data URL, either base64 or URL-encoded.
-	 * @param name The editor tab label.
-	 * @param groupType Where to open the tab. Defaults to the active group.
 	 * @throws If the data URL is malformed, or the editor fails to open.
 	 */
-	openImageInEditor(dataUrl: string, name?: string, groupType?: number): Promise<void>;
+	openImageInEditor(dataUrl: string, options?: IOpenImageInEditorOptions): Promise<void>;
 
 	/**
 	 * Gets the preferred editor group for opening the plot in an editor tab.

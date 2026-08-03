@@ -25,7 +25,7 @@ describe('StaticPlotClient.fromDataUrl', () => {
 	});
 
 	it('suggests the caller-supplied name when saving', () => {
-		const plot = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, 'notebook_cell1');
+		const plot = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, { name: 'notebook_cell1' });
 
 		expect(plot?.metadata.suggested_file_name).toBe('notebook_cell1');
 	});
@@ -34,7 +34,7 @@ describe('StaticPlotClient.fromDataUrl', () => {
 		// A popped-out output and a directly saved output should seed the save
 		// dialog identically; the extension is added from the image MIME type.
 		const name = getImageOutputName(URI.file('/home/user/project/12841.ipynb'), 0);
-		const plot = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, name);
+		const plot = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, { name });
 
 		expect(plot?.metadata.suggested_file_name).toBe('12841_cell1');
 	});
@@ -46,7 +46,7 @@ describe('StaticPlotClient.fromDataUrl', () => {
 	});
 
 	it('does not advance the shared plot counter for a named plot', () => {
-		StaticPlotClient.fromDataUrl(storageService, pngDataUrl, 'notebook_cell1');
+		StaticPlotClient.fromDataUrl(storageService, pngDataUrl, { name: 'notebook_cell1' });
 		const unnamed = StaticPlotClient.fromDataUrl(storageService, pngDataUrl);
 
 		// The named popout must not consume plot-1 from the plots pane's numbering.
@@ -54,8 +54,8 @@ describe('StaticPlotClient.fromDataUrl', () => {
 	});
 
 	it('generates a distinct id per call when none is supplied', () => {
-		const first = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, 'notebook_cell1');
-		const second = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, 'notebook_cell1');
+		const first = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, { name: 'notebook_cell1' });
+		const second = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, { name: 'notebook_cell1' });
 
 		expect(first?.id).not.toBe(second?.id);
 	});
@@ -63,11 +63,25 @@ describe('StaticPlotClient.fromDataUrl', () => {
 	it('uses a supplied id, so repeat calls resolve to the same editor tab', () => {
 		// The plots editor is registered singlePerResource and its input matches on
 		// the resource, so a stable id is what makes a second popout reuse the tab.
-		const first = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, 'notebook_cell1', 'image-42');
-		const second = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, 'notebook_cell1', 'image-42');
+		const first = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, { name: 'notebook_cell1', id: 'image-42' });
+		const second = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, { name: 'notebook_cell1', id: 'image-42' });
 
 		expect(first?.id).toBe('image-42');
 		expect(second?.id).toBe('image-42');
+	});
+
+	it('carries the code that produced the image, which enables the plot code actions', () => {
+		const code = 'plt.plot([1, 2, 3])';
+		const plot = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, { name: 'notebook_cell1', code });
+
+		expect(plot?.code).toBe(code);
+		expect(plot?.metadata.code).toBe(code);
+	});
+
+	it('carries an empty code string when the caller has none, leaving the code actions off', () => {
+		const plot = StaticPlotClient.fromDataUrl(storageService, pngDataUrl, { name: 'notebook_cell1' });
+
+		expect(plot?.metadata.code).toBe('');
 	});
 
 	it('returns undefined for a malformed data URL', () => {

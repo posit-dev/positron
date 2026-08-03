@@ -10,7 +10,7 @@ import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutpu
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotOpenTarget, PlotRenderFormat, PlotRenderSettings, PlotsDisplayLocation, POSITRON_PLOTS_LOCATION_CONTEXT, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
+import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IOpenImageInEditorOptions, IPositronPlotClient, IPositronPlotsService, PlotOpenTarget, PlotRenderFormat, PlotRenderSettings, PlotsDisplayLocation, POSITRON_PLOTS_LOCATION_CONTEXT, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
@@ -26,7 +26,7 @@ import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebvi
 import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
-import { decodeImageDataUrl, getImageExtensionForMimeType, getImagePlotId, parseImageDataUrl, toBase64ImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
+import { decodeImageDataUrl, getImageContentId, getImageExtensionForMimeType, parseImageDataUrl, toBase64ImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
 import { SavePlotOptions, showSavePlotModalDialog } from './modalDialogs/savePlotModalDialog.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { localize } from '../../../../nls.js';
@@ -1645,18 +1645,20 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this.setDefaultOpenTarget(this.editorGroupToOpenTarget(selectedEditorGroup));
 	}
 
-	public async openImageInEditor(dataUrl: string, name?: string, groupType?: number): Promise<void> {
-		// Identify the plot by its content and label rather than by the cell it came
-		// from, so that popping the same output out twice resolves to the tab that is
-		// already open while re-running a cell to get a different image opens a new
+	public async openImageInEditor(dataUrl: string, options?: IOpenImageInEditorOptions): Promise<void> {
+		const { name, scope, code, groupType } = options ?? {};
+
+		// Identify the plot by its content, label and scope rather than by the cell it
+		// came from, so that popping the same output out twice resolves to the tab that
+		// is already open while re-running a cell to get a different image opens a new
 		// one. Keying on the cell alone would alias the two: the editor does not
-		// re-resolve an input it already has open, so the tab would go on rendering
-		// the previous image.
-		const plotId = getImagePlotId(dataUrl, name);
+		// re-resolve an input it already has open, so the tab would go on rendering the
+		// previous image.
+		const plotId = getImageContentId(dataUrl, `${scope ?? ''}\n${name ?? ''}`);
 		const existing = this._editorPlots.get(plotId);
 
 		if (!existing) {
-			const plotClient = StaticPlotClient.fromDataUrl(this._storageService, dataUrl, name, plotId);
+			const plotClient = StaticPlotClient.fromDataUrl(this._storageService, dataUrl, { name, code, id: plotId });
 			if (!plotClient) {
 				throw new Error('Cannot open image in editor: malformed image data URL');
 			}
