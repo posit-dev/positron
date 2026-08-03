@@ -6,7 +6,11 @@
 
 import { randomUUID } from 'crypto';
 import { existsSync } from 'fs';
+// Type-only, with createServer dynamically imported below: the layer rule bans
+// http at module scope, and the source module honours it the same way.
+import type { IncomingMessage, Server, ServerResponse } from 'http';
 import type * as vscode from 'vscode';
+import type { AddressInfo } from 'net';
 import { tmpdir } from 'os';
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
@@ -19,7 +23,7 @@ import { AI_ENABLED_KEY } from '../../../../contrib/positronAssistant/common/pos
 import { ExtHostConfigProvider, IExtHostConfiguration } from '../../../common/extHostConfiguration.js';
 import { IExtHostExtensionService } from '../../../common/extHostExtensionService.js';
 import { IExtHostInitDataService } from '../../../common/extHostInitDataService.js';
-import { deriveBundleRequest, NodeExtHostDocs } from '../../../node/positron/extHostDocsNode.js';
+import { deriveBundleRequest, NodeDocsHttpClient, NodeExtHostDocs } from '../../../node/positron/extHostDocsNode.js';
 
 // `quality` is spelled out in the default rather than filled in with `??`, so a
 // caller can pass `quality: undefined` to model a dev build.
@@ -263,5 +267,165 @@ describe('NodeExtHostDocs ai.enabled flip', () => {
 		await ctx.set(true);
 
 		expect(ctx.onAiEnabledFlippedTrue).not.toHaveBeenCalled();
+	});
+});
+
+describe('NodeDocsHttpClient', () => {
+	// Driven against a real http server rather than a mocked `http` module. The
+	// byte cap, the redirect cap, and the timeout are enforced by this class and
+	// by nothing else - PositronDocsCache's fakes reimplement the cap as a size
+	// comparison - so a test that stubs `request` would assert the fake again.
+	let server: Server;
+	let base: string;
+	/** Set per test to decide how the server answers. */
+	let handler: (req: IncomingMessage, res: ServerResponse) => void;
+
+	beforeEach(async () => {
+		const { createServer } = await import('http');
+		server = createServer((req, res) => handler(req, res));
+		await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+		base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+	});
+
+	afterEach(async () => {
+		// The connection-failure test closes the server itself, so this is
+		// conditional rather than unconditional.
+		if (server.listening) {
+			await new Promise<void>(resolve => server.close(() => resolve()));
+		}
+	});
+
+	it('returns the body and the etag on a 200', async () => {
+		handler = (_req, res) => res.writeHead(200, { etag: '"v1"' }).end('hello');
+
+		const response = await new NodeDocsHttpClient().get(`${base}/bundle.zip`);
+
+		expect(response.status).toBe(200);
+		expect(response.etag).toBe('"v1"');
+		expect(new TextDecoder().decode(response.body)).toBe('hello');
+	});
+
+	it('sends If-None-Match and reports a 304 with no body', async () => {
+		let seen: string | undefined;
+		handler = (req, res) => {
+			seen = req.headers['if-none-match'];
+			res.writeHead(304, { etag: '"v1"' }).end();
+		};
+
+		const response = await new NodeDocsHttpClient().get(`${base}/bundle.zip`, { etag: '"v1"' });
+
+		expect(seen).toBe('"v1"');
+		expect(response.status).toBe(304);
+		expect(response.body).toBeUndefined();
+	});
+
+	it.each([404, 503])('reports HTTP %i without a body', async (status) => {
+		handler = (_req, res) => res.writeHead(status).end('an error page');
+
+		const response = await new NodeDocsHttpClient().get(`${base}/bundle.zip`);
+
+		expect(response.status).toBe(status);
+		expect(response.body).toBeUndefined();
+	});
+
+	it('reports a status and etag for HEAD without reading a body', async () => {
+		handler = (_req, res) => res.writeHead(200, { etag: '"v2"', 'content-length': '5' }).end();
+
+		const response = await new NodeDocsHttpClient().head(`${base}/bundle.zip`);
+
+		expect(response.status).toBe(200);
+		expect(response.etag).toBe('"v2"');
+		expect(response.body).toBeUndefined();
+	});
+
+	it('rejects and tears the request down once the response exceeds maxBytes', async () => {
+		// 8MB in 64KB chunks, far past what a socket buffer holds, so the server
+		// is still mid-stream when the cap trips. A payload small enough to buffer
+		// in one go would let the server finish writing either way, and the test
+		// would pass without the abort.
+		const total = 8 * 1024 * 1024;
+		let written = 0;
+		/** Resolves with whether the server finished writing before the socket died. */
+		let endedBeforeClose: Promise<boolean>;
+		handler = (_req, res) => {
+			endedBeforeClose = new Promise<boolean>(resolve => res.on('close', () => resolve(res.writableEnded)));
+			res.writeHead(200);
+			const pump = () => {
+				while (written < total) {
+					written += 64 * 1024;
+					if (!res.write('x'.repeat(64 * 1024))) {
+						res.once('drain', pump);
+						return;
+					}
+				}
+				res.end();
+			};
+			pump();
+		};
+
+		await expect(new NodeDocsHttpClient().get(`${base}/bundle.zip`, { maxBytes: 4096 }))
+			.rejects.toThrow(/exceeds 4096 bytes/);
+
+		// The abort is the point: without destroy() the client would keep reading
+		// and buffering all 8MB behind a rejection that has already been reported.
+		expect(await endedBeforeClose!).toBe(false);
+		expect(written).toBeLessThan(total);
+	});
+
+	it('follows a redirect and returns the final body', async () => {
+		handler = (req, res) => {
+			if (req.url === '/bundle.zip') {
+				res.writeHead(302, { location: '/moved.zip' }).end();
+				return;
+			}
+			res.writeHead(200).end('after the redirect');
+		};
+
+		const response = await new NodeDocsHttpClient().get(`${base}/bundle.zip`);
+
+		expect(new TextDecoder().decode(response.body)).toBe('after the redirect');
+	});
+
+	it('resolves a relative Location against the URL it came from', async () => {
+		handler = (req, res) => {
+			if (req.url === '/docs/bundle.zip') {
+				res.writeHead(301, { location: 'actual.zip' }).end();
+				return;
+			}
+			res.writeHead(200).end(req.url);
+		};
+
+		const response = await new NodeDocsHttpClient().get(`${base}/docs/bundle.zip`);
+
+		expect(new TextDecoder().decode(response.body)).toBe('/docs/actual.zip');
+	});
+
+	it('gives up rather than following a redirect loop', async () => {
+		let hops = 0;
+		handler = (_req, res) => {
+			hops++;
+			res.writeHead(302, { location: '/again.zip' }).end();
+		};
+
+		await expect(new NodeDocsHttpClient().get(`${base}/bundle.zip`)).rejects.toThrow(/too many redirects/);
+		// MAX_REDIRECTS hops are followed, and the one that would exceed it is not.
+		expect(hops).toBe(4);
+	});
+
+	it('rejects when the server never responds', async () => {
+		// Accepted and then left hanging, which is the failure a read timeout
+		// exists for: a connect timeout would not catch it.
+		handler = () => { };
+
+		await expect(new NodeDocsHttpClient(50).get(`${base}/bundle.zip`)).rejects.toThrow(/timed out/);
+	});
+
+	it('rejects when the connection fails', async () => {
+		// Bound, then closed, so the port is known to be free rather than guessed.
+		const port = (server.address() as AddressInfo).port;
+		await new Promise<void>(resolve => server.close(() => resolve()));
+
+		await expect(new NodeDocsHttpClient().get(`http://127.0.0.1:${port}/bundle.zip`))
+			.rejects.toThrow(/ECONNREFUSED/);
 	});
 });

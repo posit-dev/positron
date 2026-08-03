@@ -40,8 +40,14 @@ const GET_LOCAL_DOCS_WAIT_MS = 10_000;
 /**
  * HTTP over node's https/http. The extension host already proxy-patches these
  * modules, so enterprise proxies work with no extra code here.
+ *
+ * Exported for its own tests: the byte cap, the redirect cap, and the timeout
+ * are enforced here and nowhere else, so the cache's fakes cannot cover them.
  */
-class NodeDocsHttpClient implements IDocsHttpClient {
+export class NodeDocsHttpClient implements IDocsHttpClient {
+
+	/** Injected so a test can assert the timeout without waiting 30 seconds. */
+	constructor(private readonly _timeoutMs: number = REQUEST_TIMEOUT_MS) { }
 
 	async get(url: string, options: IDocsHttpGetOptions = {}): Promise<IDocsHttpResponse> {
 		return await this._request(url, 'GET', options, 0);
@@ -60,7 +66,7 @@ class NodeDocsHttpClient implements IDocsHttpClient {
 			if (options.etag) {
 				headers['If-None-Match'] = options.etag;
 			}
-			const request = sendRequest(url, { method, headers, timeout: REQUEST_TIMEOUT_MS }, response => {
+			const request = sendRequest(url, { method, headers, timeout: this._timeoutMs }, response => {
 				const status = response.statusCode ?? 0;
 				const location = response.headers.location;
 
