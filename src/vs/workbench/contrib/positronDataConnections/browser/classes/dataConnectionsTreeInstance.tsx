@@ -9,8 +9,9 @@ import { ReactNode } from 'react';
 // Other dependencies.
 import { DataConnectionEntryRow } from '../components/dataConnectionEntryRow.js';
 import { DataConnectionNodeRow } from '../components/dataConnectionNodeRow.js';
-import { TreeNode, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
+import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
 import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
+import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
@@ -54,10 +55,28 @@ const entryNodeId = (profile: IDataConnectionProfile): string => `entry:${profil
 const dtoNodeId = (handle: IDataConnectionHandle, dto: IDataConnectionNodeDTO): string =>
 	`dto:${handle.handle}:${dto.nodeHandle}`;
 
+/**
+ * The identity a node keeps across a refresh, used by the tree to re-expand a subtree after
+ * reload. Node handles are minted from a counter on every fetch, so a node's id always changes
+ * even when the node itself hasn't -- its kind and name are what actually stay the same. The pair
+ * is JSON-encoded so a name that happens to contain the separator can't collide with a different
+ * kind/name pair.
+ *
+ * DTO keys deliberately don't include the originating connection handle: the tree matches a node
+ * to its counterpart among its own siblings, which always come from the same connection, so a
+ * kind/name pair only ever has to be unique within one level.
+ *
+ * Exported for tests.
+ */
+export const reloadKey = (node: DataConnectionNode): string =>
+	node.kind === 'entry'
+		? entryNodeId(node.entry.profile)
+		: JSON.stringify([node.dto.kind, node.dto.name]);
+
 const wrapEntry = (entry: DataConnectionEntry): TreeNode<DataConnectionNode> => ({
 	id: entryNodeId(entry.profile),
 	data: { kind: 'entry', entry },
-	// Entries always show a twistie -- clicking it connects (or disconnects). Whether children
+	// Entries always show a twisty -- clicking it connects (or disconnects). Whether children
 	// exist is only knowable after the connect succeeds.
 	hasChildren: true,
 });
@@ -84,7 +103,8 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			getRoots: async () => buildEntries(_service).map(wrapEntry),
 			// Bound to `this` so the closure can reach _service for the connect-on-expand path.
 			getChildren: node => this._fetchChildrenForNode(node),
-			renderNode: renderRow,
+			getReloadKey: node => reloadKey(node.data),
+			renderNode: (visible, context) => this._renderRow(visible, context),
 		});
 
 		// When profiles or instances change, rebuild roots so each entry sees its current
@@ -116,7 +136,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	/**
 	 * Fetches children for a node. For an entry node without a live instance, opens the
 	 * connection first, then fetches the top-level DTOs against the new handle. Running this
-	 * inside the base class's _fetchChildren means the loading state (twistie spinner) covers
+	 * inside the base class's _fetchChildren means the loading state (twisty spinner) covers
 	 * the connect + getChildren as one continuous operation, and a connect failure surfaces
 	 * through the tree's existing error state.
 	 */
@@ -135,6 +155,46 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 				const dtos = await data.handle.nodeGetChildren(data.dto.nodeHandle);
 				return dtos.map(dto => wrapDto(dto, data.handle));
 			}
+		}
+	}
+
+	/**
+	 * Renders one row. Each row gets callbacks bound to its own node id and position, so a row can
+	 * act on itself without knowing anything about the tree.
+	 *
+	 * Reload (rather than invalidate) is required at every level: re-fetching a connection's
+	 * top-level nodes invalidates every node handle the extension host has issued for that
+	 * connection, and re-fetching an interior node's children issues new handles for them. In
+	 * both cases the descendants loaded under the old handles are stale, so they're dropped and
+	 * re-fetched rather than left in place. Reload restores the expansion the user had open (see
+	 * reloadKey for how a node is matched to its post-refresh counterpart).
+	 */
+	private _renderRow(visible: VisibleNode<DataConnectionNode>, context: TreeNodeContext): ReactNode {
+		const { id, data } = visible.node;
+
+		// Fire-and-forget: reload drives the twisty's loading state and records any failure
+		// against the node, so there's nothing for the row to await.
+		// Offered whatever the node's expansion state: on an expanded node the subtree visibly
+		// swaps, and on a collapsed one the stale children are dropped so the next expand fetches
+		// from the source. Nothing is on screen beneath a collapsed node, so the absence of a
+		// visible change there isn't the silent no-op it would be on an expanded one.
+		const onRefresh = () => { void this.reload(id); };
+
+		// Rows announce their context menu here rather than selecting themselves directly, so the
+		// tree owns what opening a menu means: select the row the menu belongs to (as a left click
+		// would), and keep the tree looking focused while the menu holds DOM focus. The returned
+		// handle is disposed when the menu closes.
+		const onMenuOpening = () => {
+			void this.mouseSelectRow(context.index, MouseSelectionType.Single);
+			return this.holdFocusAppearance();
+		};
+
+		switch (data.kind) {
+			case 'entry':
+				// Entries are roots, so no ancestor can be refreshing them out from under the row.
+				return <DataConnectionEntryRow entry={data.entry} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
+			case 'dto':
+				return <DataConnectionNodeRow dto={data.dto} handle={data.handle} stale={visible.stale} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
 		}
 	}
 
@@ -157,14 +217,4 @@ function buildEntries(service: IPositronDataConnectionsService): DataConnectionE
 		profile,
 		instance: service.getInstanceForProfile(profile.id),
 	}));
-}
-
-function renderRow(visible: VisibleNode<DataConnectionNode>): ReactNode {
-	const data = visible.node.data;
-	switch (data.kind) {
-		case 'entry':
-			return <DataConnectionEntryRow entry={data.entry} />;
-		case 'dto':
-			return <DataConnectionNodeRow dto={data.dto} handle={data.handle} />;
-	}
 }
