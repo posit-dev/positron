@@ -17,7 +17,7 @@ import { QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
 const fixPrompt = localize('positronQuartoAssistantFixPrompt', "Fix this Quarto inline output error.");
 const explainPrompt = localize('positronQuartoAssistantExplainPrompt', "Explain this Quarto inline output error.");
 
-const ATTACHMENT_NAME = 'quarto-output-error.txt';
+const ATTACHMENT_NAME = 'Quarto Output Error';
 
 interface QuartoOutputQuickFixProps {
 	/** The error output content from the Quarto cell execution. */
