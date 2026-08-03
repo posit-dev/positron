@@ -1,13 +1,12 @@
 ---
-name: positron-web
-description: "Run Positron as a web server (code-server) and drive it in the in-app browser - screenshots, DOM, console, network. Requires a Posit-internal license key. Use when you specifically need the web build (web-only bugs, browser-only behavior, or the browser tooling); for ordinary UI verification prefer the positron-launch skill, which drives the real Electron app and needs no license."
+name: drive-positron-web
+description: "Run Positron as a web server (code-server) and drive it in a browser - screenshots, DOM, console, network. Requires a Posit-internal license key. Use when you specifically need the web build (web-only bugs, browser-only behavior, or the browser tooling); for ordinary UI verification prefer the drive-positron skill, which drives the real Electron app and needs no license."
 ---
 
 # Positron Web for browser automation
 
-Serves the workbench over HTTP so the in-app browser tools (`preview_start`,
-`navigate`, `computer`, `read_page`, `read_console_messages`,
-`read_network_requests`) can drive it.
+Serves the workbench over HTTP so a browser automation tool can drive it -
+screenshots, accessibility tree, console, network.
 
 ## Read this first: the license issuer must be a sibling of the checkout
 
@@ -42,7 +41,7 @@ skill at all.
 
 ## Prefer the Electron skill
 
-For most UI verification, `.claude/skills/positron-launch` is the better tool: it
+For most UI verification, `.claude/skills/drive-positron` is the better tool: it
 drives the real desktop app over CDP, needs no license, and starts in seconds.
 Reach for web only when the web build is the point. Web also tells you less:
 
@@ -55,7 +54,7 @@ Reach for web only when the web build is the point. Web also tells you less:
 ## Start it
 
 ```bash
-.claude/skills/positron-web/scripts/start-web.sh --workspace /tmp/myworkspace
+.claude/skills/drive-positron-web/scripts/start-web.sh --workspace /tmp/myworkspace
 ```
 
 Blocks until the server actually responds, then prints one JSON line with `url`,
@@ -91,6 +90,13 @@ sockets beneath it and macOS caps `sun_path` at 104 bytes.
 
 ## Drive it
 
+Which tooling you have depends on where you're running. The browser pane is
+**desktop-only** - in the terminal CLI, `preview_start`, `navigate`, `computer`
+and `read_page` don't exist. Check which tools you actually have and pick the
+matching path.
+
+### Claude Code desktop app (browser pane)
+
 Verified working end to end: serve -> navigate -> screenshot -> read the
 accessibility tree -> click -> confirm the result.
 
@@ -122,6 +128,29 @@ Two gotchas found in practice:
 - The `positron-web-attach` entry has a `url` and no command: it attaches to a
   server you already started with `start-web.sh`, which is the combination worth
   using (script for readiness, launch.json for the browser pane).
+
+### Terminal CLI (no browser pane)
+
+Use `@playwright/cli` - the same tool the `drive-positron` skill uses, pointed at
+a URL rather than a CDP endpoint. Same `-s=<name>` session rule applies.
+
+```bash
+npx @playwright/cli -s=posweb open "http://localhost:8080/?tkn=dev-token"
+npx @playwright/cli -s=posweb snapshot
+npx @playwright/cli -s=posweb click e153
+npx @playwright/cli -s=posweb screenshot --filename="$PWD/shots/01.png"
+npx @playwright/cli -s=posweb console      # replaces read_console_messages
+npx @playwright/cli -s=posweb network      # replaces read_network_requests
+npx @playwright/cli -s=posweb eval '(() => document.title)()'
+```
+
+One setup cost the Electron skill doesn't have: `attach --cdp=...` reuses a
+browser that's already running, but `open` needs one of its own. It defaults to
+installed Google Chrome, and otherwise wants
+`npx @playwright/cli install-browser chrome-for-testing` - a one-time download.
+The repo's e2e chromium under `~/Library/Caches/ms-playwright` is **not** reused;
+`--browser chromium|firefox|webkit` all ask to install their own build. Only the
+install requirement is verified here, not a full drive.
 
 ## Clean up
 

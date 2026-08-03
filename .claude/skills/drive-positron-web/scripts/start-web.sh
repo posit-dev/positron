@@ -50,7 +50,7 @@ fi
 
 # Keep this SHORT. The server opens unix sockets underneath the user-data-dir and
 # macOS caps sun_path at 104 bytes; a long $TMPDIR path is what breaks the
-# Electron launcher the same way (see the positron-launch skill).
+# Electron launcher the same way (see the drive-positron skill).
 if [[ -z "$USER_DATA_DIR" ]]; then
 	USER_DATA_DIR="/tmp/positron-web/$(date +%Y%m%d-%H%M%S)-$$"
 fi

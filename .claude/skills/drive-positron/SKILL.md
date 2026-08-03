@@ -1,6 +1,6 @@
 ---
-name: positron-launch
-description: "Launch Positron from sources into a throwaway profile and drive it interactively with @playwright/cli over CDP - click, type, screenshot, inspect the DOM, set breakpoints. Use to verify a UI change in the real app without writing an e2e test, to reproduce a UI bug, or to check behavior an assertion can't judge. Not for launching Positron to hand to a human - use the launch-positron command for that."
+name: drive-positron
+description: "Launch Positron from sources into a throwaway profile and drive it interactively with @playwright/cli over CDP - click, type, screenshot, inspect the DOM, set breakpoints. Use to verify a UI change in the real app without writing an e2e test, to reproduce a UI bug, or to check behavior an assertion can't judge. To hand a human a Positron they can work in, use the launch-positron command instead - this profile is a throwaway and has no watch daemon."
 ---
 
 # Launch Positron for UI automation
@@ -12,6 +12,12 @@ unlike an e2e test, where a wrong assertion costs a full re-run.
 **This is not a substitute for e2e tests.** Use it to check a change works and to
 explore behavior. If the behavior should stay working, it still needs a test -
 see `.claude/skills/author-e2e-tests`.
+
+**Not for handing to a human.** `launch.sh --full` does open a usable window, but
+the profile is a throwaway (state doesn't persist, teardown deletes it), file
+dialogs are forced to the quick-input picker, and there's no watch daemon so
+edits made after launch aren't recompiled. Use the `launch-positron` command for
+that.
 
 ## Relationship to the upstream skill
 
@@ -29,7 +35,7 @@ we learned the hard way.
 ## Launch
 
 ```bash
-.claude/skills/positron-launch/scripts/launch.sh -- \
+.claude/skills/drive-positron/scripts/launch.sh -- \
 	--use-mock-keychain --disable-workspace-trust --skip-welcome \
 	--folder-uri file:///private/tmp/myworkspace
 ```
