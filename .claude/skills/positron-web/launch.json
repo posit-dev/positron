@@ -1,0 +1,26 @@
+{
+	"//": "TEMPLATE. preview_start reads .claude/launch.json from the PRIMARY WORKING",
+	"//2": "DIRECTORY, so this is not read from here - copy it to <primary-cwd>/.claude/launch.json",
+	"//3": "and replace REPO_PATH with an absolute checkout path. The format has no cwd field,",
+	"//4": "hence the bash -c. See SKILL.md.",
+	"//5": "Prefer scripts/start-web.sh when you need to know WHEN the server is ready:",
+	"//6": "preview_start returns as soon as the port binds, which is minutes too early on a",
+	"//7": "cold checkout. Use this entry to attach to a server that is already serving.",
+	"version": "0.0.1",
+	"configurations": [
+		{
+			"name": "positron-web",
+			"runtimeExecutable": "bash",
+			"runtimeArgs": [
+				"-c",
+				"cd REPO_PATH && npm run e2e-start-server"
+			],
+			"port": 8080
+		},
+		{
+			"name": "positron-web-attach",
+			"url": "http://localhost:8080",
+			"port": 8080
+		}
+	]
+}
