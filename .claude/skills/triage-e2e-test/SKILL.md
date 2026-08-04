@@ -38,15 +38,21 @@ only when a stage needs them.
 - Root-cause claims cite observed evidence and the alternatives ruled out.
 - Checkpoint at every phase transition.
 
-## Prerequisites
+## Requirements
 
+- **Claude Code**, run from a **Positron** checkout: the scripts resolve the repo
+  root from their own location and keep triage state in the shared git dir.
+- On PATH: `node`, `git`, `gh` (authenticated), `unzip`.
 - `E2E_INSIGHTS_API_KEY` set, or present in the repo-root `.env.e2e` (the query
-  script falls back to it automatically). Node.js and `unzip` on PATH.
+  script falls back to it automatically).
+- Neighbor skills: `e2e-failure-analyzer` (its `e2e-query-history.js` and
+  `e2e-process-s3.js` are invoked directly); at the fix stage
+  `positron-pr-helper`, `author-vitest-tests`, `author-e2e-tests`.
 
 ## Scripts
 
 Run from the repo root. Flags and output contracts:
-[`scripts/README.md`](scripts/README.md). If a script itself breaks, see
+[`references/scripts.md`](references/scripts.md). If a script itself breaks, see
 [`references/script-fallbacks.md`](references/script-fallbacks.md).
 
 | Script | Use it to |
