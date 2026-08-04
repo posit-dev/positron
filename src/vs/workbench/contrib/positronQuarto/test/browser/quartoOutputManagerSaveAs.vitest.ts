@@ -36,7 +36,8 @@ import { IResourceUsageHistoryService } from '../../../../services/positronConso
  * saved URI to restore from once the window reloaded.
  *
  * These tests drive the real contribution across an `onDidChangeModel` from an
- * untitled model to a saved one, and assert which URI the cache was written to.
+ * untitled model to a saved one, and assert what the cache was written under --
+ * the URI, and the cell id and hash a reload would have to look the outputs up by.
  */
 describe('QuartoOutputContribution -- cache rebind on Save As', () => {
 	const cellId = '0-abchash-unlabeled';
@@ -51,27 +52,32 @@ describe('QuartoOutputContribution -- cache rebind on Save As', () => {
 	let untitledCache = new Map<string, ICellOutput[]>();
 	let currentModel: ITextModel | undefined;
 
-	/** URIs the contribution wrote cached output to, in call order. */
-	let savedToUris: string[] = [];
+	/** Cache writes the contribution made, in call order. */
+	let cacheWrites: { uri: string; cellId: string; contentHash: string }[] = [];
 	/** URIs whose cache the contribution cleared, in call order. */
 	let clearedUris: string[] = [];
 
 	const quartoModel = stubInterface<IQuartoDocumentModel>({
 		get cells() { return liveCells; },
 		onDidParse: Event.None,
-		findCellByContentHash: (hash: string) => liveCells.find(c => c.contentHash === hash),
 		getCellById: (id: string) => liveCells.find(c => c.id === id),
 	});
 
 	const ctx = createTestContainer()
-		.withWorkbenchServices()
 		.withContributionServices()
 		.stub(IQuartoDocumentModelService, { getModel: () => quartoModel })
 		.stub(IQuartoOutputCacheService, {
+			// No cache exists under the saved URI until the rebind writes one.
+			// These two are read inside the restore pass's try/catch, so leaving
+			// them unstubbed would abort that pass silently rather than loudly.
 			loadCache: async () => undefined,
 			findCacheByContentHash: async () => undefined,
 			getCachedOutputs: (uri: URI) => uri.toString() === untitledUri.toString() ? untitledCache : new Map(),
-			saveOutput: (uri: URI) => { savedToUris.push(uri.toString()); },
+			// A reload restores by cell id and hash, so record those alongside the
+			// URI -- a write under the pre-save id is as lost as no write at all.
+			saveOutput: (uri: URI, cellId: string, contentHash: string) => {
+				cacheWrites.push({ uri: uri.toString(), cellId, contentHash });
+			},
 			clearCache: (uri: URI) => { clearedUris.push(uri.toString()); },
 		})
 		.stub(IQuartoExecutionManager, {
@@ -95,16 +101,16 @@ describe('QuartoOutputContribution -- cache rebind on Save As', () => {
 	beforeEach(() => {
 		liveCells = [];
 		untitledCache = new Map([[cellId, [output]]]);
-		savedToUris = [];
+		cacheWrites = [];
 		clearedUris = [];
 		currentModel = undefined;
 	});
 
 	/** A parsed cell for the one-line code range the text models below carry. */
-	function cell(): QuartoCodeCell {
+	function cell(overrides: { id?: string; contentHash?: string } = {}): QuartoCodeCell {
 		return stubInterface<QuartoCodeCell>({
-			id: cellId,
-			contentHash,
+			id: overrides.id ?? cellId,
+			contentHash: overrides.contentHash ?? contentHash,
 			label: undefined,
 			codeStartLine: 1,
 			codeEndLine: 1,
@@ -119,9 +125,10 @@ describe('QuartoOutputContribution -- cache rebind on Save As', () => {
 
 	/**
 	 * Instantiate the contribution over an untitled document, then fire the
-	 * model change that a Save As produces, landing on `savedUri`.
+	 * model change that a Save As produces, landing on `savedUri`. The saved
+	 * document parses as `savedCells`, which defaults to the cached cell.
 	 */
-	function saveAsTo(savedUri: URI): void {
+	function saveAsTo(savedUri: URI, savedCells: QuartoCodeCell[] = [cell()]): QuartoOutputContribution {
 		modelFor(untitledUri);
 		const editor = stubInterface<ICodeEditor>({
 			hasModel: (() => true) as ICodeEditor['hasModel'],
@@ -131,42 +138,95 @@ describe('QuartoOutputContribution -- cache rebind on Save As', () => {
 			onDidScrollChange: Event.None,
 		});
 		QUARTO_INLINE_OUTPUT_ENABLED.bindTo(ctx.get(IContextKeyService)).set(true);
-		ctx.disposables.add(ctx.instantiationService.createInstance(QuartoOutputContribution, editor));
+		const contribution = ctx.disposables.add(ctx.instantiationService.createInstance(QuartoOutputContribution, editor));
 
 		// The save swaps the editor's model for the saved document, which the
 		// document model reports as parsed by the time the change is handled.
 		modelFor(savedUri);
-		liveCells = [cell()];
+		liveCells = savedCells;
 		modelChangeEmitter.fire({ oldModelUrl: untitledUri, newModelUrl: savedUri });
+		return contribution;
 	}
 
 	it('rebinds the cache to a vscode-remote document saved from untitled', () => {
 		const savedUri = URI.from({ scheme: 'vscode-remote', authority: 'localhost:9000', path: '/w/saved.qmd' });
 
-		saveAsTo(savedUri);
+		const contribution = saveAsTo(savedUri);
 
 		// With the bug the rebind was skipped for any non-file scheme, so the
 		// cache stayed under the untitled URI and the reload had nothing to load.
-		expect({ savedToUris, clearedUris }).toEqual({
-			savedToUris: [savedUri.toString()],
+		// The in-memory outputs are what keep the output on screen across the save.
+		expect({
+			cacheWrites,
+			clearedUris,
+			outputs: contribution.getOutputsForCell(cellId),
+		}).toEqual({
+			cacheWrites: [{ uri: savedUri.toString(), cellId, contentHash }],
 			clearedUris: [untitledUri.toString()],
+			outputs: [output],
 		});
 	});
 
 	it('rebinds the cache to a file document saved from untitled', () => {
 		const savedUri = URI.file('/w/saved.qmd');
 
-		saveAsTo(savedUri);
+		const contribution = saveAsTo(savedUri);
 
-		expect({ savedToUris, clearedUris }).toEqual({
-			savedToUris: [savedUri.toString()],
+		expect({
+			cacheWrites,
+			clearedUris,
+			outputs: contribution.getOutputsForCell(cellId),
+		}).toEqual({
+			cacheWrites: [{ uri: savedUri.toString(), cellId, contentHash }],
 			clearedUris: [untitledUri.toString()],
+			outputs: [output],
+		});
+	});
+
+	it('rebinds to a cell whose index shifted, matching on the content hash prefix', () => {
+		// The cached id encodes the cell's index (`0-abchash-unlabeled`), so an
+		// edit above the cell changes its id. The rebind falls back to matching
+		// the hash prefix, and the outputs must follow the cell's new id.
+		const savedUri = URI.file('/w/saved.qmd');
+		const shifted = cell({ id: '1-abchash-unlabeled', contentHash: `${contentHash}9f` });
+
+		const contribution = saveAsTo(savedUri, [shifted]);
+
+		expect({
+			cacheWrites,
+			outputsUnderNewId: contribution.getOutputsForCell(shifted.id),
+			outputsUnderCachedId: contribution.getOutputsForCell(cellId),
+		}).toEqual({
+			// Written under the cell's new id, not the cached one it matched by.
+			cacheWrites: [{ uri: savedUri.toString(), cellId: shifted.id, contentHash: shifted.contentHash }],
+			outputsUnderNewId: [output],
+			outputsUnderCachedId: [],
+		});
+	});
+
+	it('writes nothing for a cached cell that matches no cell in the saved document', () => {
+		const savedUri = URI.file('/w/saved.qmd');
+		const unrelated = cell({ id: '0-zzzhash-unlabeled', contentHash: 'zzzhash' });
+
+		const contribution = saveAsTo(savedUri, [unrelated]);
+
+		// Nothing transfers, and the untitled cache is cleared regardless, so a
+		// cell edited during the save loses its output. Asserting the clear pins
+		// today's behavior rather than endorsing it.
+		expect({
+			cacheWrites,
+			clearedUris,
+			outputs: contribution.getOutputsForCell(unrelated.id),
+		}).toEqual({
+			cacheWrites: [],
+			clearedUris: [untitledUri.toString()],
+			outputs: [],
 		});
 	});
 
 	it('does not rebind when an untitled document is swapped for another untitled one', () => {
 		saveAsTo(URI.from({ scheme: 'untitled', path: '/Untitled-2.qmd' }));
 
-		expect({ savedToUris, clearedUris }).toEqual({ savedToUris: [], clearedUris: [] });
+		expect({ cacheWrites, clearedUris }).toEqual({ cacheWrites: [], clearedUris: [] });
 	});
 });
