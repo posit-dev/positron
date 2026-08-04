@@ -25,19 +25,12 @@ import { IResourceUsageHistoryService } from '../../../../services/positronConso
 
 /**
  * Regression coverage for inline output disappearing after a window reload when
- * an untitled Quarto document was saved with Save As (71% on sles/chromium).
+ * an untitled Quarto document was saved with Save As.
  *
- * On the untitled->saved transition the contribution rebinds the output cache
- * from the untitled URI to the saved document's URI. That rebind used to require
- * a `file` scheme, so in a remote or web window -- where a saved document is
- * `vscode-remote` -- it never ran and the cache stayed keyed to the untitled URI.
- * Output still rendered right after the save, because the content-hash fallback
- * matched the still-live untitled cache in memory, but nothing existed under the
- * saved URI to restore from once the window reloaded.
- *
- * These tests drive the real contribution across an `onDidChangeModel` from an
- * untitled model to a saved one, and assert what the cache was written under --
- * the URI, and the cell id and hash a reload would have to look the outputs up by.
+ * On the untitled->saved transition the contribution rebinds the output cache to
+ * the saved document's URI. The rebind used to require a `file` scheme, so a
+ * remote or web save (`vscode-remote`) left the cache keyed to the untitled URI
+ * with nothing for the reload to restore from.
  */
 describe('QuartoOutputContribution -- cache rebind on Save As', () => {
 	const cellId = '0-abchash-unlabeled';
@@ -148,28 +141,14 @@ describe('QuartoOutputContribution -- cache rebind on Save As', () => {
 		return contribution;
 	}
 
-	it('rebinds the cache to a vscode-remote document saved from untitled', () => {
-		const savedUri = URI.from({ scheme: 'vscode-remote', authority: 'localhost:9000', path: '/w/saved.qmd' });
-
-		const contribution = saveAsTo(savedUri);
-
-		// With the bug the rebind was skipped for any non-file scheme, so the
-		// cache stayed under the untitled URI and the reload had nothing to load.
-		// The in-memory outputs are what keep the output on screen across the save.
-		expect({
-			cacheWrites,
-			clearedUris,
-			outputs: contribution.getOutputsForCell(cellId),
-		}).toEqual({
-			cacheWrites: [{ uri: savedUri.toString(), cellId, contentHash }],
-			clearedUris: [untitledUri.toString()],
-			outputs: [output],
-		});
-	});
-
-	it('rebinds the cache to a file document saved from untitled', () => {
-		const savedUri = URI.file('/w/saved.qmd');
-
+	// The rebind is scheme-independent: with the bug it was skipped for any
+	// non-file scheme, so the cache stayed under the untitled URI and the reload
+	// had nothing to load. The in-memory outputs keep the output on screen
+	// across the save either way.
+	it.each([
+		['vscode-remote', URI.from({ scheme: 'vscode-remote', authority: 'localhost:9000', path: '/w/saved.qmd' })],
+		['file', URI.file('/w/saved.qmd')],
+	])('rebinds the cache to a %s document saved from untitled', (_scheme, savedUri) => {
 		const contribution = saveAsTo(savedUri);
 
 		expect({
