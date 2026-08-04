@@ -164,7 +164,8 @@ export class DatabricksAuthProvider extends AuthProvider {
 			log.info('[Databricks] OAuth access token refreshed.');
 			return tokens.accessToken;
 		} catch (err) {
-			log.error(`[Databricks] Failed to refresh OAuth access token: ${err instanceof Error ? err.message : String(err)}`);
+			const errorMsg = err instanceof Error ? err.message : String(err);
+			log.error(`[Databricks] Failed to refresh OAuth access token: ${errorMsg}`);
 			const removed = await this.buildStoredOAuthSession();
 			await this.clearOAuthSecrets();
 			if (removed) {
@@ -172,6 +173,13 @@ export class DatabricksAuthProvider extends AuthProvider {
 					added: [], removed: [removed], changed: [],
 				});
 			}
+			// The refresh runs from getSessions, so this can fire while the
+			// user is mid-chat with no provider modal open. Clearing the
+			// secrets signs them out, so say so rather than failing silently.
+			vscode.window.showErrorMessage(vscode.l10n.t(
+				'Databricks sign-in has expired. Sign in again to keep using Databricks models: {0}',
+				errorMsg
+			));
 			return undefined;
 		}
 	}

@@ -133,6 +133,33 @@ suite('DatabricksAuthProvider', () => {
 			assert.strictEqual(events[0].removed?.[0].id, 'databricks');
 		});
 
+		test('alerts the user when the refresh fails', async () => {
+			storeOAuthSecrets(secrets, { expiresAt: Date.now() - 1000 });
+
+			globalThis.fetch = async () => new Response(JSON.stringify({
+				error: 'invalid_grant',
+				error_description: 'Refresh token revoked',
+			}), { status: 401 });
+
+			// The refresh runs from getSessions, so the user may have no modal
+			// open: assert they are told they have been signed out.
+			const shown: string[] = [];
+			const original = vscode.window.showErrorMessage;
+			vscode.window.showErrorMessage = ((message: string) => {
+				shown.push(message);
+				return Promise.resolve(undefined);
+			}) as typeof vscode.window.showErrorMessage;
+			try {
+				await provider.getSessions();
+			} finally {
+				vscode.window.showErrorMessage = original;
+			}
+
+			assert.strictEqual(shown.length, 1);
+			assert.match(shown[0], /Databricks sign-in has expired/);
+			assert.match(shown[0], /Refresh token revoked/);
+		});
+
 		test('concurrent calls share a single refresh', async () => {
 			storeOAuthSecrets(secrets, { expiresAt: Date.now() - 1000 });
 
