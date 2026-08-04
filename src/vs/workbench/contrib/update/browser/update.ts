@@ -16,7 +16,12 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 // Add IUpdate, DisablementReason for Positron's update workflow.
 import { IUpdateService, State as UpdateState, StateType, IUpdate } from '../../../../platform/update/common/update.js';
 // --- End Positron ---
-import { INotificationService, INotificationSource, NotificationPriority, Severity } from '../../../../platform/notification/common/notification.js';
+import { INotificationService, NotificationPriority, Severity } from '../../../../platform/notification/common/notification.js';
+// --- Start Positron ---
+// Add INotificationSource so update notifications can carry a filterable source.
+// eslint-disable-next-line no-duplicate-imports
+import { INotificationSource } from '../../../../platform/notification/common/notification.js';
+// --- End Positron ---
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IBrowserWorkbenchEnvironmentService } from '../../../services/environment/browser/environmentService.js';
 import { ReleaseNotesManager } from './releaseNotesEditor.js';
