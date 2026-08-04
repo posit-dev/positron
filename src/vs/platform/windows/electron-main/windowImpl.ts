@@ -1356,6 +1356,10 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		delete configuration.filesToWait;
 
 		// --- Start Positron ---
+		// CLI Canvas intent applies to the launch only; active Canvas mode is
+		// restored through workspace storage, so a later explicit exit sticks.
+		delete configuration.canvas;
+
 		// The engagement stamp describes open time; a reload happens later, so
 		// refresh it. Otherwise a window opened while the mode was engaged
 		// elsewhere would stay locked out after that engagement ended, for as

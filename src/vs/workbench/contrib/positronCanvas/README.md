@@ -27,12 +27,13 @@ Registered by Positron, called by the assistant:
 - `positron.canvas.isActive` - plain command; whether Canvas is the only
   visible surface. Gates the Canvas UI's "Open Positron" control.
 
-Registered by Positron for its own UI:
+Registered by Positron for its own UI and launch integration:
 
-- `positron.canvas.open` - Canvas editor-action command. Same service call as
-  `positron.canvas.enter`, but it owns the failure notification. Deliberately
-  absent from the palette: a Canvas-capable assistant owns discovery through
-  its `posit-assistant.openCanvas` command, so older assistants expose nothing.
+- `positron.canvas.open` - Canvas editor-action command, also targeted by a
+  forwarded `--canvas` launch. Same service call as `positron.canvas.enter`,
+  but it owns the failure notification. Deliberately absent from the palette:
+  a Canvas-capable assistant owns discovery through its
+  `posit-assistant.openCanvas` command, so older assistants expose nothing.
 
 Registered by the assistant, called by Positron:
 
@@ -41,3 +42,36 @@ Registered by the assistant, called by Positron:
   or failed. Positron invokes it before trusting even a restored panel.
 - View type `posit-assistant.canvas` - the whole of Canvas-panel identity;
   `PositronCanvasService` recognizes a Canvas by `providerId` alone.
+
+## Loading surfaces
+
+Two deliberate layers, not duplication:
+
+- Positron's startup curtain (`canvasStartupPresenter.ts`) covers the IDE
+  while Canvas starts. It speaks as Positron ("Canvas could not start") and
+  owns Retry / Open Positron / Quit, because it can reach the IDE and the
+  application lifecycle.
+- The assistant's webview bootstrap (static HTML, then
+  `CanvasBootstrapSurface`) covers the conversation loading inside the Canvas
+  window. It speaks as Canvas and owns Retry only.
+
+Keep the split: the curtain never talks about conversations, the webview
+never offers a way out of Canvas mode besides the top bar's Open Positron.
+
+## Workspace trust at boot
+
+The workspace trust startup prompt renders in the main window, which Canvas
+mode minimizes, and an undecided workspace holds back trust-gated extensions -
+including the authentication providers behind the Canvas model picker. Boot
+therefore waits for the trust decision behind the curtain before entering
+Canvas (`browser/positronCanvasTrustGate.ts`): the curtain's z-index sits
+below workbench dialogs, so the prompt (a workbench dialog, not a native one)
+shows over it and Canvas proceeds on either answer. The prompt itself belongs
+to the workbench's own startup trust handler; the gate waits for that handler
+to initiate it and joins the resulting request rather than raising a dialog
+of its own, with a bounded grace period so drift in the mirrored conditions
+delays boot instead of hanging it. When no prompt is coming (trust disabled,
+already trusted, or suppressed by setting or an earlier answer), the gate
+stays out of the way and an untrusted Canvas is the assistant's
+restricted-mode surface to explain. Trust stays stock workbench UI; it is
+deliberately not plumbed through the command seam.

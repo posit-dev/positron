@@ -53,6 +53,7 @@ import { IEditorOptions, ITextEditorOptions } from '../../editor/common/editor.j
 import { IUserDataProfile } from '../../userDataProfile/common/userDataProfile.js';
 import { IPolicyService } from '../../policy/common/policy.js';
 // --- Start Positron ---
+import { CanvasLaunchWindowAssigner } from '../../launch/common/positronCanvasLaunch.js';
 import { IPositronStandaloneModeMainService } from '../../positronStandaloneMode/common/positronStandaloneMode.js';
 // --- End Positron ---
 import { IUserDataProfilesMainService } from '../../userDataProfile/electron-main/userDataProfile.js';
@@ -213,6 +214,9 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 	readonly onDidTriggerSystemContextMenu = this._onDidTriggerSystemContextMenu.event;
 
 	private readonly windows = new Map<number, ICodeWindow>();
+	// --- Start Positron ---
+	private readonly canvasLaunchWindowAssigner = new CanvasLaunchWindowAssigner();
+	// --- End Positron ---
 
 	private readonly windowsStateHandler: WindowsStateHandler;
 
@@ -1547,6 +1551,10 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			windowId: -1,	// Will be filled in by the window once loaded later
 
 			// --- Start Positron ---
+			// Restoring several windows reuses one CLI argument object. Only one
+			// may consume `--canvas`; standalone mode rejects all later entries.
+			canvas: this.canvasLaunchWindowAssigner.assign(options.cli ?? this.environmentMainService.args),
+
 			// For a reused window, "elsewhere" is relative to that window, so
 			// the holder is not locked out of its own re-entry. Refreshed on
 			// reload (CodeWindow#reload).

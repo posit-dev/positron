@@ -806,6 +806,14 @@ export class CodeApplication extends Disposable {
 		// Open Windows
 		await appInstantiationService.invokeFunction(accessor => this.openFirstWindow(accessor, initialProtocolUrls));
 
+		// --- Start Positron ---
+		// `--canvas` applies to the launch, not the process: every later window
+		// is built from these same args, so a flag left set would outrank an
+		// explicit Canvas exit for the rest of the run. The startup windows
+		// have consumed it, so drop it here.
+		delete this.environmentMainService.args.canvas;
+		// --- End Positron ---
+
 		// Signal phase: after window open
 		this.lifecycleMainService.phase = LifecycleMainPhase.AfterWindowOpen;
 
