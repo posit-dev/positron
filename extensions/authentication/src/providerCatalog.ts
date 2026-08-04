@@ -250,6 +250,26 @@ export async function saveSnowflakeAccount(
 }
 
 /**
+ * Writes providers.databricks.databricks.host only when it changed. The
+ * workspace host lives in its own connection section, not `baseUrl`: per-model
+ * endpoint resolution falls back to `baseUrl`, so a host there would route chat
+ * at the bare workspace and bypass the serving-endpoints path.
+ */
+export async function saveDatabricksHost(
+	host: string,
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	if (getCachedProvider('databricks')?.connection.databricks?.host === host) {
+		return;
+	}
+	const opts = effectiveOptions(options);
+	await mutate(providers => {
+		const block = providers['databricks'] ?? {};
+		providers['databricks'] = { ...block, databricks: { ...block.databricks, host } };
+	}, opts);
+}
+
+/**
  * Writes providers.<id>.enabled, then refreshes the cache. With `onlyIfUnset`,
  * leaves an already-set `enabled` value untouched.
  */
