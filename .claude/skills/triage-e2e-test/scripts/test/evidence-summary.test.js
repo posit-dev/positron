@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeReportUrl, buildEvidenceSummary } from '../fetch-pattern-evidence.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { normalizeReportUrl, buildEvidenceSummary, clearManagedArtifacts } from '../fetch-pattern-evidence.js';
 
 test('normalizeReportUrl strips index.html + fragment and extracts testId', () => {
 	const url = 'https://cf.net/playwright-report-1-2-ubuntu/index.html#?testId=abc123-def';
@@ -51,4 +54,20 @@ test('buildEvidenceSummary is graceful when no matching detail exists', () => {
 	const s = buildEvidenceSummary({ testDetails: [] }, { testId: 'missing' });
 	assert.match(s.markdown, /No matching test detail/);
 	assert.equal(s.failure, null);
+});
+
+test('clearManagedArtifacts drops a previous occurrence\'s artifacts, including raw-logs', () => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'triage-evidence-'));
+	fs.mkdirSync(path.join(dir, 'raw-logs', 'julyrun'), { recursive: true });
+	fs.writeFileSync(path.join(dir, 'summary.md'), 'stale');
+	fs.writeFileSync(path.join(dir, 'notes-by-hand.md'), 'keep me');
+
+	const cleared = clearManagedArtifacts(dir);
+
+	assert.deepEqual(cleared.sort(), ['raw-logs', 'summary.md']);
+	assert.equal(fs.existsSync(path.join(dir, 'raw-logs')), false);
+	// Anything the script does not own is left alone.
+	assert.equal(fs.readFileSync(path.join(dir, 'notes-by-hand.md'), 'utf8'), 'keep me');
+	assert.deepEqual(clearManagedArtifacts(dir), [], 'second call is a no-op');
+	fs.rmSync(dir, { recursive: true, force: true });
 });
