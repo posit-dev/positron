@@ -84,8 +84,10 @@ test.describe('Quarto - Inline Output: Static Content', {
 		const runButton = inlineQuarto.cellToolbar.last().locator('.quarto-toolbar-run');
 		await runButton.click();
 
-		// Wait for output
-		await inlineQuarto.revealOutput(29, { target: inlineQuarto.inlineOutput.last() });
+		// Wait for output. Line 29 is the bash cell's closing fence; a line past
+		// EOF would clamp to the last line and reveal it at maximum scroll.
+		await inlineQuarto.gotoLine(29);
+		await expect(inlineQuarto.inlineOutput.last()).toBeVisible();
 
 		// Verify output content
 		await expect(inlineQuarto.inlineOutput.last().locator('.quarto-output-content')).toBeVisible({ timeout: 10000 });
