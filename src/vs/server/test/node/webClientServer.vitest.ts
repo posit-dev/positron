@@ -5,6 +5,15 @@
 
 /// <reference types="vitest/globals" />
 
+// webClientServer.ts computes APP_ROOT at module load via FileAccess.asFileUri(''), which
+// requires globalThis._VSCODE_FILE_ROOT. That's normally set by a bootstrap entry point (see
+// agentHostServerMain.ts), which this plain Vitest run doesn't go through -- set it ourselves,
+// hoisted above the import so it's in place before webClientServer.ts's top-level code runs.
+// Avoids importing the `url` module here since vi.hoisted runs before this file's own imports.
+vi.hoisted(() => {
+	globalThis._VSCODE_FILE_ROOT = new URL('../../../../..', import.meta.url).pathname;
+});
+
 // eslint-disable-next-line local/code-no-http-import
 import * as http from 'http';
 import * as net from 'net';
