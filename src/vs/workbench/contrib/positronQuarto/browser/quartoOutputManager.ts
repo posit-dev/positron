@@ -381,10 +381,13 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._documentUri = newModel?.uri;
 
 			// Handle untitled->saved transition: transfer cache from old URI to new URI
-			// This happens when a user saves an untitled Quarto document to a file
+			// This happens when a user saves an untitled Quarto document to a file.
+			// Any non-untitled scheme counts as saved: in a remote or web window the
+			// saved document is `vscode-remote`, and requiring `file` here left the
+			// cache keyed to the untitled URI, so outputs were lost on reload.
 			if (previousUri && this._documentUri &&
 				previousUri.scheme === 'untitled' &&
-				this._documentUri.scheme === 'file' &&
+				this._documentUri.scheme !== 'untitled' &&
 				this._isQuartoDocument()) {
 				this._transferCacheFromUntitled(previousUri, this._documentUri);
 			}
