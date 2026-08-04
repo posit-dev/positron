@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as positron from 'positron';
 import {
 	ANTHROPIC_AUTH_PROVIDER_ID,
@@ -120,10 +119,6 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 	const geapFromEnv = !!process.env.GOOGLE_VERTEX_PROJECT
 		&& !!process.env.GOOGLE_VERTEX_LOCATION;
 
-	// Databricks OAuth needs a loopback server on the fixed port 8020,
-	// which only works on desktop. Remote/web sessions use a PAT instead.
-	const databricksOauthAvailable = vscode.env.remoteName === undefined
-		&& vscode.env.uiKind !== vscode.UIKind.Web;
 	// The workspace host lives in its own connection section, not baseUrl:
 	// the bridge derives the serving-endpoints URL from it.
 	const databricksHost = getCachedProvider(
@@ -289,9 +284,8 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			// saved to (and read from) connection.databricks.host, never the
 			// provider baseUrl: per-model endpoint resolution falls back to
 			// baseUrl, which would route chat at the bare host and 404.
-			supportedOptions: databricksOauthAvailable
-				? ['oauth', 'apiKey', 'baseUrl']
-				: ['apiKey', 'baseUrl'],
+			// Personal access token only for now; OAuth lands next release.
+			supportedOptions: ['apiKey', 'baseUrl'],
 			defaults: {
 				model: 'databricks',
 				baseUrl: databricksHost,
