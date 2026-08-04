@@ -1,6 +1,6 @@
 ---
 name: drive-positron
-description: "Launch Positron from source in an isolated, disposable profile and control the Electron workbench with @playwright/cli over CDP. Use to reproduce UI bugs, verify UI changes, inspect the DOM, take screenshots, interact with the workbench, or attach a debugger without first writing an end-to-end test. Do not use to provide a persistent app instance for a person; use the launch-positron command for that."
+description: "Launch Positron dev server in an isolated, disposable profile and control the Electron workbench. Use to reproduce UI bugs, verify UI changes, inspect the DOM, take screenshots, interact with the workbench, or attach a debugger without first writing an end-to-end test. Do not use to provide a persistent app instance for a person; use the launch-positron command for that."
 ---
 
 # Drive Positron through CDP

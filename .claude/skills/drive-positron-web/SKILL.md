@@ -1,6 +1,6 @@
 ---
 name: drive-positron-web
-description: "Start Positron Web from source and control it with browser automation or @playwright/cli. Use for web-only bugs, browser-specific behavior, accessibility-tree inspection, console or network diagnostics, and changes that specifically require the web workbench. Requires access to the Posit-internal license issuer or an explicit signed license key. Prefer drive-positron for ordinary desktop UI verification."
+description: "Start Positron Web from source and control it with browser automation. Use for web-only bugs, browser-specific behavior, accessibility-tree inspection, console or network diagnostics, and changes that specifically require the web workbench. Prefer drive-positron for ordinary desktop UI verification."
 ---
 
 # Drive Positron Web
