@@ -555,35 +555,40 @@ describe('PositronDocsCache: a cache installed mid-attempt', () => {
 	// on web docs until the next relaunch.
 	it('serves a bundle another window installed while this attempt was in flight', async () => {
 		const ctx = setup();
-		ctx.publish(LATEST_ZIP, payload('2026.05.0-179'));
+		const windowA = ctx.openWindow('a');
+		const windowB = ctx.openWindow('b');
 
-		let release!: () => void;
-		const held = new Promise<void>(resolve => { release = resolve; });
-		const secondWindow = new PositronDocsCache({
-			rootPath: ROOT, files: ctx.files, archive: ctx.archive, logger: ctx.logger,
-			now: () => 2_000_000, newId: () => 'second',
-			http: {
-				// Hangs until released, then fails: this window reads an empty cache
-				// on the way in and never installs anything itself.
-				get: async () => { await held; throw new Error('ENOTFOUND'); },
-				head: url => ctx.http.head(url),
-			},
-		});
+		// A's download stalls where the test can hold it, then fails outright. It
+		// reads an empty cache on the way in and never installs anything itself.
+		const download = pausable();
+		windowA.http.route(LATEST_ZIP, { status: 200, throws: 'ENOTFOUND', onRequest: download.hold });
+		windowB.publish(LATEST_ZIP, payload('2026.05.0-179'));
 
-		const pending = secondWindow.ensure(request({ quality: 'dailies' }));
-		expect((await ctx.cache.ensure(request({ quality: 'dailies' })))?.version).toBe('2026.05.0-179');
+		// Deliberately not awaited: A has to stay in flight while B runs. Await
+		// it here and there is no gap for B to install into.
+		const windowAFinished = windowA.cache.ensure(DAILIES);
 
-		release();
-		expect((await pending)?.version).toBe('2026.05.0-179');
+		await download.reached;
+		await windowB.cache.ensure(DAILIES);
+		expect((await ctx.readState()).version).toBe('2026.05.0-179');
 
-		// The failing window records its failure without erasing the version the
-		// other window installed. Losing that would orphan the bundle on disk for
-		// every later session, not just this one.
+		download.release();
+		// Cache-present rule across windows: A serves what B installed rather
+		// than memoizing undefined and staying on web docs until the next launch.
+		expect((await windowAFinished)?.version).toBe('2026.05.0-179');
+
+		// A records its failure without erasing the version B wrote. state.json is
+		// the only thing that names a bundle directory, so overwriting it would
+		// strand B's bundle on disk for every later session, not just this one.
 		const state = await ctx.readState();
 		expect({ version: state.version, lastError: state.lastError }).toEqual({
 			version: '2026.05.0-179',
 			lastError: 'ENOTFOUND',
 		});
+		// Still recorded as a failure, so the throttle works.
+		expect(state.lastFailureAt).toBeDefined();
+		// A later session finds the bundle too, rather than downloading it again.
+		expect((await ctx.makeCache().peek(DAILIES))?.version).toBe('2026.05.0-179');
 	});
 });
 
@@ -774,47 +779,6 @@ describe('PositronDocsCache: superseded version cleanup', () => {
 		const relaunch = await ctx.makeCache().ensure(request());
 		expect(relaunch?.version).toBe('2026.05.0-179');
 		expect(await ctx.files.exists(`${ROOT}/2026.04.0-100`)).toBe(false);
-	});
-
-	/**
-	 * Two Positron windows share one cache directory.
-	 *
-	 * Window A starts a download that will fail slowly. While it is still
-	 * waiting, window B finishes installing a good bundle. When A finally fails
-	 * it must record that failure without erasing the version B just wrote:
-	 * state.json is the only thing that names a bundle directory, so overwriting
-	 * it strands B's bundle on disk where no later session will ever find it.
-	 */
-	it('does not orphan a bundle another window installed mid-fetch', async () => {
-		const ctx = setup();
-		const windowA = ctx.openWindow('a');
-		const windowB = ctx.openWindow('b');
-
-		// Window A's download stalls where the test can hold it, then 503s.
-		const download = pausable();
-		windowA.http.route(LATEST_ZIP, { status: 503, onRequest: download.hold });
-		windowB.publish(LATEST_ZIP, payload('2026.05.0-179'));
-
-		// Deliberately not awaited: A has to stay in flight while B runs. Await
-		// it here and there is no gap for B to install into.
-		const windowAFinished = windowA.cache.ensure(DAILIES);
-
-		await download.reached;
-		await windowB.cache.ensure(DAILIES);
-		expect((await ctx.readState()).version).toBe('2026.05.0-179');
-
-		download.release();
-		const docsA = await windowAFinished;
-
-		const state = await ctx.readState();
-		// B's version survives A's failure write...
-		expect(state.version).toBe('2026.05.0-179');
-		// ...and A's failure is still recorded, so the throttle works.
-		expect(state.lastFailureAt).toBeDefined();
-		// Cache-present rule across windows: A serves what B installed.
-		expect(docsA?.version).toBe('2026.05.0-179');
-		// A later session finds it too, rather than downloading it again.
-		expect((await ctx.makeCache().peek(DAILIES))?.version).toBe('2026.05.0-179');
 	});
 
 	it('never touches entries it did not supersede, including another window in-flight work', async () => {
