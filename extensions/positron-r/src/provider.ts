@@ -616,8 +616,8 @@ export function classifyRRuntimeSource(
 		(packagerMetadata !== undefined && isPixiMetadata(packagerMetadata)) || hasReason(ReasonDiscovered.PIXI);
 	const isCondaInstallation =
 		(packagerMetadata !== undefined && isCondaMetadata(packagerMetadata)) || hasReason(ReasonDiscovered.CONDA);
-	// Homebrew installations are identified by a 'homebrew' path component.
-	const isHomebrewInstallation = binpath.includes('/homebrew/');
+	// Homebrew installations are identified by a 'homebrew' path component, excluding Caskroom installs.
+	const isHomebrewInstallation = binpath.includes('/homebrew/') && !binpath.includes('/homebrew/Caskroom/');
 
 	if (isModuleInstallation) {
 		return RRuntimeSource.module;

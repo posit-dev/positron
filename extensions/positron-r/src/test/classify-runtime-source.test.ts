@@ -63,6 +63,18 @@ suite('classifyRRuntimeSource', () => {
 		);
 	});
 
+	test('classifies a miniforge environment in the Homebrew Caskroom as system without metadata', () => {
+		assert.strictEqual(
+			classifyRRuntimeSource(
+				'/opt/homebrew/Caskroom/miniforge/base/envs/myenv/bin/R',
+				undefined,
+				[ReasonDiscovered.userSetting],
+				false,
+			),
+			RRuntimeSource.system,
+		);
+	});
+
 	test('classifies homebrew, user, and system installations without metadata', () => {
 		assert.strictEqual(
 			classifyRRuntimeSource('/opt/homebrew/bin/R', undefined, [ReasonDiscovered.HQ], false),
