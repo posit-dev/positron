@@ -55,6 +55,10 @@ test.describe('New Folder Flow: R Project', { tag: [tags.MODAL, tags.NEW_FOLDER_
 	});
 
 	test('R - Cancel Renv install', { tag: [tags.WIN] }, async function ({ app, packages }) {
+		// Uninstalling renv, reloading into the new folder, starting an R session and then waiting
+		// out the renv modal adds up to more than the default 2 minute budget on Windows CI.
+		test.slow();
+
 		const folderName = addRandomNumSuffix('r-cancelRenvInstall');
 
 		await packages.manage('renv', 'uninstall');
@@ -65,8 +69,11 @@ test.describe('New Folder Flow: R Project', { tag: [tags.MODAL, tags.NEW_FOLDER_
 			rEnvCheckbox: true,
 		});
 
-		await handleRenvInstallModal(app, 'cancel');
+		// Wait for the new folder to finish loading before waiting on the modal. `createNewFolder`
+		// returns as soon as the wizard closes, and the reload can take 25-40s on Windows CI --
+		// waiting on the modal first spends its timeout on the reload instead of on the modal.
 		await verifyFolderCreation(app, folderName);
+		await handleRenvInstallModal(app, 'cancel');
 		await verifyConsoleReady(app, folderTemplate);
 	});
 });
