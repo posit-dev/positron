@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileType, ColumnSchema, FilterComparisonOp, FormatOptions, RowFilter, RowFilterCondition, RowFilterType, TextSearchType } from 'positron-data-explorer-protocol';
+import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileType, ColumnSchema, ExportFormat, FilterComparisonOp, FormatOptions, RowFilter, RowFilterCondition, RowFilterType, TableSelectionKind, TextSearchType } from 'positron-data-explorer-protocol';
 import { IDatabricksQueryClient, makeWhereExpr, DatabricksSchemaEntry, DatabricksTableView } from '../databricksTableView.js';
 
 // Minimal format options; only the numeric-summary path reads them.
@@ -303,6 +303,25 @@ suite('Databricks Column Profiles', () => {
 	});
 });
 
+suite('Databricks Row Index Queries', () => {
+
+	test('the row-number window falls back to the first sortable column, skipping complex ones', async () => {
+		// Spark rejects ORDER BY over a MAP outright, so a table whose first column is complex must not
+		// seed the window with it.
+		const schema = [entry('tags', ColumnDisplayType.Object, 'map<string,string>'), entry('id', ColumnDisplayType.Integer)];
+		const { client, queries } = recordingClient((sql) => isCountQuery(sql) ? [{ n: 5 }] : []);
+		const view = new DatabricksTableView(client, '`main`.`sales`.`t`', 't', 'table', schema);
+
+		await view.exportDataSelection({
+			format: ExportFormat.Csv,
+			selection: { kind: TableSelectionKind.RowIndices, selection: { indices: [0, 2] } },
+		});
+
+		const exportQuery = queries.find(sql => /ROW_NUMBER/.test(sql))!;
+		assert.match(exportQuery, /ROW_NUMBER\(\) OVER \(ORDER BY `id`\)/);
+	});
+});
+
 suite('Databricks Row Filter SQL', () => {
 
 	function columnSchema(column_name: string, type_display: ColumnDisplayType): ColumnSchema {
@@ -331,18 +350,18 @@ suite('Databricks Row Filter SQL', () => {
 
 	test('temporal comparisons quote and cast the literal so it is not read as arithmetic', () => {
 		// A bare 2026-07-22 would be parsed as 2026 - 7 - 22; the cast forces a date comparison.
-		assert.strictEqual(makeWhereExpr(compareFilter('d', ColumnDisplayType.Date, '2026-07-22')), "`d` = CAST('2026-07-22' AS DATE)");
-		assert.strictEqual(makeWhereExpr(compareFilter('ts', ColumnDisplayType.Datetime, '2026-07-22 13:45:00')), "`ts` = CAST('2026-07-22 13:45:00' AS TIMESTAMP)");
+		assert.strictEqual(makeWhereExpr(compareFilter('d', ColumnDisplayType.Date, '2026-07-22')), `\`d\` = CAST('2026-07-22' AS DATE)`);
+		assert.strictEqual(makeWhereExpr(compareFilter('ts', ColumnDisplayType.Datetime, '2026-07-22 13:45:00')), `\`ts\` = CAST('2026-07-22 13:45:00' AS TIMESTAMP)`);
 	});
 
 	test('string comparisons are quoted; numbers pass through unquoted', () => {
-		assert.strictEqual(makeWhereExpr(compareFilter('name', ColumnDisplayType.String, "O'Brien")), "`name` = 'O''Brien'");
+		assert.strictEqual(makeWhereExpr(compareFilter('name', ColumnDisplayType.String, `O'Brien`)), `\`name\` = 'O''Brien'`);
 		assert.strictEqual(makeWhereExpr(compareFilter('n', ColumnDisplayType.Integer, '42')), '`n` = 42');
 	});
 
 	test('a backslash in a literal is escaped, since Databricks reads escape sequences', () => {
 		// Without doubling, a trailing backslash would escape the closing quote.
-		assert.strictEqual(makeWhereExpr(compareFilter('p', ColumnDisplayType.String, 'C:\\temp')), "`p` = 'C:\\\\temp'");
+		assert.strictEqual(makeWhereExpr(compareFilter('p', ColumnDisplayType.String, 'C:\\temp')), `\`p\` = 'C:\\\\temp'`);
 	});
 
 	test('a column name containing a backtick is escaped by doubling it', () => {
@@ -351,11 +370,11 @@ suite('Databricks Row Filter SQL', () => {
 
 	test('regex search uses RLIKE, with case-insensitivity as an inline flag', () => {
 		// RLIKE is already a partial match, so the term needs no `.*` wrapping.
-		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.RegexMatch, '^ab.*', true)), "`name` RLIKE '^ab.*'");
-		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.RegexMatch, '^ab.*', false)), "`name` RLIKE '(?i)^ab.*'");
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.RegexMatch, '^ab.*', true)), `\`name\` RLIKE '^ab.*'`);
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.RegexMatch, '^ab.*', false)), `\`name\` RLIKE '(?i)^ab.*'`);
 	});
 
 	test('a case-insensitive contains search lowers both sides', () => {
-		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.Contains, 'AB', false)), "lower(`name`) LIKE '%' || lower('AB') || '%'");
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.Contains, 'AB', false)), `lower(\`name\`) LIKE '%' || lower('AB') || '%'`);
 	});
 });

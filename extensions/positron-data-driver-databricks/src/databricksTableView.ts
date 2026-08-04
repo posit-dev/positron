@@ -631,8 +631,17 @@ export class DatabricksTableView {
 	 * column (Databricks has no ctid to use as a stable identifier).
 	 */
 	private _rowIndexQuery(selectors: string, rowIndices: number[]): string {
-		const fallbackOrder = this.schema.length > 0
-			? `ORDER BY ${quoteIdentifier(this.schema[0].column_name)}`
+		// Spark cannot sort by a complex value at all (ORDER BY over a MAP is rejected outright), so the
+		// fallback picks the first column that is actually sortable rather than blindly taking column 0.
+		// With nothing sortable, order by a constant: the window still needs an ORDER BY, and an
+		// arbitrary-but-accepted order beats a statement the server refuses.
+		const sortable = this.schema.find(entry =>
+			entry.type_display !== ColumnDisplayType.Array &&
+			entry.type_display !== ColumnDisplayType.Struct &&
+			entry.type_display !== ColumnDisplayType.Object &&
+			entry.type_display !== ColumnDisplayType.Unknown);
+		const fallbackOrder = sortable
+			? `ORDER BY ${quoteIdentifier(sortable.column_name)}`
 			: 'ORDER BY 1';
 		const ordering = this._sortClause ? this._sortClause.replace(/^\n/, '') : fallbackOrder;
 		const numbered = `SELECT *, ROW_NUMBER() OVER (${ordering}) - 1 AS ${quoteAlias('__row_index')} ` +

@@ -326,6 +326,22 @@ suite('Databricks Driver Tests', () => {
 		assert.deepStrictEqual(volumes, []);
 	});
 
+	test('a volumes lookup that fails for any other reason surfaces the error', async () => {
+		// A permission denial means the volumes may well exist; reporting an empty group would be a wrong
+		// answer dressed up as an empty one.
+		const mock = createMockClient((sql) => {
+			if (/information_schema\.volumes/.test(sql)) {
+				throw new Error('[INSUFFICIENT_PERMISSIONS] User does not have SELECT on volumes');
+			}
+			return { rows: [] };
+		});
+		const schemaNode = createSchemaNode(mock, noopHost, 'main', 'sales');
+		const volumesGroup = (await schemaNode.getChildren!())
+			.find(g => g.kind === positron.DataConnectionNodeKind.GroupVolumes)!;
+
+		await assert.rejects(() => volumesGroup.getChildren!() as Promise<unknown>, /INSUFFICIENT_PERMISSIONS/);
+	});
+
 	test('a volume expands to its files and directories, directories first', async () => {
 		const mock = createMockClient((sql) => {
 			if (/information_schema\.volumes/.test(sql)) {

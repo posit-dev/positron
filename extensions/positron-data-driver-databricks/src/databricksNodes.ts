@@ -43,6 +43,17 @@ export interface IDatabricksPreviewHost {
 	previewColumn(client: DatabricksClient, catalog: string, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string>;
 }
 
+/**
+ * Whether an error says the relation being queried does not exist, as opposed to existing but being
+ * unreadable. Used to tell "this catalog has no information_schema" apart from a genuine failure.
+ * Matched on the error condition names Databricks puts in the message, since the SDK surfaces server
+ * errors as plain messages without a structured code.
+ */
+function isMissingRelationError(err: unknown): boolean {
+	const message = err instanceof Error ? err.message : String(err ?? '');
+	return /TABLE_OR_VIEW_NOT_FOUND|SCHEMA_NOT_FOUND|UNRESOLVED_[A-Z_]*RELATION|cannot be found|does not exist/i.test(message);
+}
+
 /** Sorts names in locale order, matching how they are displayed. */
 function byName(a: string, b: string): number {
 	return a.localeCompare(b);
@@ -191,10 +202,15 @@ function createVolumesGroupNode(client: DatabricksClient, catalog: string, schem
 			let rows: Array<Record<string, unknown>>;
 			try {
 				rows = (await client.query(sql)).rows;
-			} catch {
+			} catch (err) {
+				if (!isMissingRelationError(err)) {
+					// Anything else -- a permission denial, an expired token -- is a real failure. Surfacing
+					// it in the tree is better than reporting "no volumes", which would be a wrong answer
+					// dressed up as an empty one.
+					throw err;
+				}
 				// The catalog has no information_schema, so it is not a Unity Catalog catalog and cannot
-				// contain volumes. An empty group is the honest answer; an error would suggest the volumes
-				// are there but unreachable.
+				// contain volumes. An empty group is the honest answer here.
 				return [];
 			}
 			return rows
