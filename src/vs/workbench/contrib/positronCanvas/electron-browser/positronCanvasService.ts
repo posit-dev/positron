@@ -18,15 +18,17 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { INativeHostService } from '../../../../platform/native/common/native.js';
 import { POSITRON_STANDALONE_MODE_CHANNEL_NAME } from '../../../../platform/positronStandaloneMode/common/positronStandaloneMode.js';
 import { PositronStandaloneModeChannelClient } from '../../../../platform/positronStandaloneMode/common/positronStandaloneModeIpc.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
 import { EditorsOrder } from '../../../common/editor.js';
 import { IAuxiliaryEditorPart, IEditorGroup, IEditorGroupsService, IEditorPart, GroupsOrder } from '../../../services/editor/common/editorGroupsService.js';
 import { IHostService } from '../../../services/host/browser/host.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
+import { ILifecycleService } from '../../../services/lifecycle/common/lifecycle.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { dedicatedWindowOptions } from '../../positronEditorActions/browser/positronDedicatedWindow.js';
 import { WebviewInput } from '../../webviewPanel/browser/webviewEditorInput.js';
-import { CANVAS_EXIT_COMMAND_ID, CANVAS_WEBVIEW_VIEW_TYPE, CanvasEntryOutcome, PositronCanvasModeActiveContext } from '../common/positronCanvasMode.js';
+import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_WEBVIEW_VIEW_TYPE, CanvasEntryOutcome, PositronCanvasModeActiveContext } from '../common/positronCanvasMode.js';
 
 /**
  * Posit Assistant's command to open a Canvas panel as an ordinary editor --
@@ -53,8 +55,8 @@ export interface IPositronCanvasService {
 	 * window, IDE window out of the way. Absorbs every starting position and
 	 * concurrent callers; never leaves the user with no visible window.
 	 * Resolves an outcome rather than throwing for known non-entry cases,
-	 * because how a non-entry is shown depends on who asked (palette
-	 * notification or the assistant across the command seam).
+	 * because how a non-entry is shown depends on who asked (startup curtain,
+	 * palette notification, or the assistant across the command seam).
 	 */
 	enter(): Promise<CanvasEntryOutcome>;
 
@@ -121,6 +123,8 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		@INativeHostService private readonly nativeHostService: INativeHostService,
 		@IHostService private readonly hostService: IHostService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
+		@IStorageService private readonly storageService: IStorageService,
+		@ILifecycleService private readonly lifecycleService: ILifecycleService,
 		@ILogService private readonly logService: ILogService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IMainProcessService mainProcessService: IMainProcessService
@@ -181,7 +185,8 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	}
 
 	private async doEnter(): Promise<CanvasEntryOutcome> {
-		// Read live: `ai.enabled` toggles without a reload.
+		// Read live: `ai.enabled` toggles without a reload, and it must hold
+		// even for a workspace configured to boot into Canvas.
 		if (this.configurationService.getValue<boolean>(AI_ENABLED_KEY) === false) {
 			this.logService.info('[canvas] Not entering Canvas mode: ai.enabled is false');
 			return {
@@ -299,6 +304,10 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 
 		// Read before `stopPresenting()`, which is what makes it false.
 		const wasActive = this.canvasWindow.value !== undefined;
+
+		// Unconditional: exit means "I want the IDE" in every sense,
+		// including what this workspace launches into next time.
+		this.setCanvasModeIntent(false);
 
 		// Stop presenting first: it drops the listener that treats the Canvas
 		// window going away as something to recover from. The claim goes back
@@ -454,12 +463,20 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 			this.stopPresenting();
 			this.releaseEngagement();
 
+			// The aux part is disposed during an ordinary quit too, and
+			// clearing there would erase the very intent that "quit in
+			// Canvas, relaunch into Canvas" is made of.
+			if (!this.lifecycleService.willShutdown) {
+				this.setCanvasModeIntent(false);
+			}
+
 			void this.revealIdeWindow();
 		}));
 
 		this.canvasWindow.value = disposables;
 		this.canvasGroup = group;
 		this.modeActiveContext.set(true);
+		this.setCanvasModeIntent(true);
 
 		group.focus();
 	}
@@ -475,10 +492,24 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		this.modeActiveContext.set(false);
 	}
 
+	/**
+	 * Records, or forgets, that this workspace should come back into Canvas
+	 * mode. Tracks what is on screen, not configuration: set while presenting,
+	 * cleared by every way of leaving except application shutdown.
+	 * MACHINE-targeted because it describes this installation's window state.
+	 */
+	private setCanvasModeIntent(active: boolean): void {
+		if (active) {
+			this.storageService.store(CANVAS_MODE_STORAGE_KEY, true, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		} else {
+			this.storageService.remove(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE);
+		}
+	}
+
 	private async hideIdeWindow(): Promise<void> {
-		// Unguarded, unlike `revealIdeWindow()`: re-entry can focus
-		// (un-minimize) the IDE window on its way in, so skipping "already
-		// hidden" work would leave it behind Canvas.
+		// Unguarded, unlike `revealIdeWindow()`: a forwarded `--canvas`
+		// re-entry can focus (un-minimize) the IDE window on its way in, so
+		// skipping "already hidden" work would leave it behind Canvas.
 		this.ideWindowHidden = true;
 
 		// Minimize rather than hide: a minimized window is still listed by

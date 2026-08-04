@@ -112,6 +112,9 @@ export interface NativeParsedArgs {
 	'open-url'?: boolean;
 	'skip-release-notes'?: boolean;
 	'skip-welcome'?: boolean;
+	// --- Start Positron ---
+	'canvas'?: boolean;
+	// --- End Positron ---
 	'disable-telemetry'?: boolean;
 	'export-default-configuration'?: string;
 	'export-policy-data'?: string;

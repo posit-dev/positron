@@ -15,6 +15,7 @@ import { IChannel } from '../../../../../base/parts/ipc/common/ipc.js';
 import { IMainProcessService } from '../../../../../platform/ipc/common/mainProcessService.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { INativeHostService } from '../../../../../platform/native/common/native.js';
+import { IStorageService, StorageScope } from '../../../../../platform/storage/common/storage.js';
 import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -22,9 +23,10 @@ import { EditorsOrder } from '../../../../common/editor.js';
 import { IAuxiliaryEditorPart, IEditorGroup, IEditorGroupsService, IEditorPart } from '../../../../services/editor/common/editorGroupsService.js';
 import { IHostService } from '../../../../services/host/browser/host.js';
 import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
+import { ILifecycleService } from '../../../../services/lifecycle/common/lifecycle.js';
 import { IOverlayWebview } from '../../../webview/browser/webview.js';
 import { WebviewInput } from '../../../webviewPanel/browser/webviewEditorInput.js';
-import { CANVAS_WEBVIEW_VIEW_TYPE } from '../../common/positronCanvasMode.js';
+import { CANVAS_MODE_STORAGE_KEY, CANVAS_WEBVIEW_VIEW_TYPE } from '../../common/positronCanvasMode.js';
 import { PositronCanvasService } from '../../electron-browser/positronCanvasService.js';
 
 /** The command the assistant contributes to produce a Canvas panel. */
@@ -79,6 +81,7 @@ describe('PositronCanvasService', () => {
 	function build(options: {
 		auxiliaryGroups?: IEditorGroup[];
 		mainGroup?: IEditorGroup;
+		willShutdown?: boolean;
 		onWillDispose?: Event<void>;
 		executeCommand?: () => Promise<undefined>;
 		createAuxiliaryEditorPart?: IEditorGroupsService['createAuxiliaryEditorPart'];
@@ -95,6 +98,7 @@ describe('PositronCanvasService', () => {
 		parts.set(mainGroup, mainPart);
 
 		const executeCommand = vi.fn(options.executeCommand ?? (() => Promise.resolve(undefined)));
+		const storageService = stubInterface<IStorageService>({ store: vi.fn(), remove: vi.fn() });
 		const mergeGroup = vi.fn().mockReturnValue(true);
 		const setPartHidden = vi.fn();
 		const minimizeWindow = vi.fn(options.minimizeWindow ?? (() => Promise.resolve()));
@@ -113,6 +117,8 @@ describe('PositronCanvasService', () => {
 		const focus = vi.fn().mockResolvedValue(undefined);
 		ctx.instantiationService.stub(IHostService, stubInterface<IHostService>({ focus }));
 		ctx.instantiationService.stub(IWorkbenchLayoutService, stubInterface<IWorkbenchLayoutService>({ setPartHidden }));
+		ctx.instantiationService.stub(IStorageService, storageService);
+		ctx.instantiationService.stub(ILifecycleService, stubInterface<ILifecycleService>({ willShutdown: options.willShutdown === true }));
 		ctx.instantiationService.stub(ILogService, new NullLogService());
 		ctx.instantiationService.stub(IContextKeyService, new MockContextKeyService());
 		// The engagement channel: `acquire` grants unless the test says
@@ -126,7 +132,7 @@ describe('PositronCanvasService', () => {
 
 		const service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronCanvasService));
 
-		return { service, mainGroup, auxiliaryPart, executeCommand, mergeGroup, setPartHidden, minimizeWindow, channelCall, focus };
+		return { service, mainGroup, auxiliaryPart, executeCommand, storageService, mergeGroup, setPartHidden, minimizeWindow, channelCall, focus };
 	}
 
 	it('coalesces concurrent entries so the assistant is asked for one Canvas', async () => {
@@ -237,7 +243,7 @@ describe('PositronCanvasService', () => {
 	it('lets an exit stand that lands while the Canvas window is being created', async () => {
 		const created = new DeferredPromise<IAuxiliaryEditorPart>();
 		const mainGroup = createGroup([createCanvasEditor()]);
-		const { service, auxiliaryPart, minimizeWindow } = build({
+		const { service, auxiliaryPart, storageService, minimizeWindow } = build({
 			mainGroup,
 			createAuxiliaryEditorPart: () => created.p,
 		});
@@ -249,8 +255,9 @@ describe('PositronCanvasService', () => {
 		await created.complete(auxiliaryPart);
 
 		// The entry must not resume into a window the user has since left: no
-		// re-minimized IDE and no reported entry.
+		// re-stored intent, no re-minimized IDE, and no reported entry.
 		expect(await entering).toMatchObject({ entered: false });
+		expect(storageService.store).not.toHaveBeenCalled();
 		expect(minimizeWindow).not.toHaveBeenCalled();
 		expect(service.isActive).toBe(false);
 	});
@@ -296,9 +303,19 @@ describe('PositronCanvasService', () => {
 		expect(service.isActive).toBe(false);
 	});
 
+	it('records the durable intent while it is presenting Canvas', async () => {
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service, storageService } = build({ auxiliaryGroups: [auxiliaryGroup] });
+
+		await service.enter();
+
+		expect(storageService.store).toHaveBeenCalledWith(CANVAS_MODE_STORAGE_KEY, true, StorageScope.WORKSPACE, expect.anything());
+		expect(service.isActive).toBe(true);
+	});
+
 	it('merges the Canvas group back into the IDE rather than closing it', async () => {
 		const auxiliaryGroup = createGroup([createCanvasEditor()]);
-		const { service, mainGroup, mergeGroup } = build({ auxiliaryGroups: [auxiliaryGroup] });
+		const { service, mainGroup, mergeGroup, storageService } = build({ auxiliaryGroups: [auxiliaryGroup] });
 		await service.enter();
 
 		expect(await service.exit()).toBe(true);
@@ -307,11 +324,12 @@ describe('PositronCanvasService', () => {
 		// destroys a webview panel instead of moving it.
 		expect(mergeGroup).toHaveBeenCalledWith(auxiliaryGroup, mainGroup);
 		expect(auxiliaryGroup.lock).toHaveBeenCalledWith(false);
+		expect(storageService.remove).toHaveBeenCalledWith(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE);
 		expect(service.isActive).toBe(false);
 	});
 
 	it('reports an exit that had no Canvas to leave', async () => {
-		const { service, mergeGroup, setPartHidden } = build();
+		const { service, mergeGroup, storageService, setPartHidden } = build();
 
 		expect(await service.exit()).toBe(false);
 
@@ -319,6 +337,41 @@ describe('PositronCanvasService', () => {
 		// Nothing was undone, so nothing is redone: unhiding here would override
 		// an editor area the user hid deliberately.
 		expect(setPartHidden).not.toHaveBeenCalled();
+		// Still cleared: exit means "I want the IDE" in every sense, including
+		// what this workspace launches into next time.
+		expect(storageService.remove).toHaveBeenCalledWith(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE);
+	});
+
+	it('forgets the durable intent when the Canvas window goes away mid-session', async () => {
+		const willDispose = new Emitter<void>();
+		ctx.disposables.add(willDispose);
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service, storageService } = build({ auxiliaryGroups: [auxiliaryGroup], onWillDispose: willDispose.event });
+		await service.enter();
+		expect(service.isActive).toBe(true);
+
+		willDispose.fire();
+
+		expect(storageService.remove).toHaveBeenCalledWith(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE);
+	});
+
+	it('keeps the durable intent when the window goes away because the app is quitting', async () => {
+		const willDispose = new Emitter<void>();
+		ctx.disposables.add(willDispose);
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service, storageService } = build({
+			auxiliaryGroups: [auxiliaryGroup],
+			onWillDispose: willDispose.event,
+			willShutdown: true,
+		});
+		await service.enter();
+
+		willDispose.fire();
+
+		// Quitting in Canvas mode is exactly what "relaunch into Canvas" is made
+		// of; clearing here would erase it.
+		expect(storageService.remove).not.toHaveBeenCalled();
+		expect(service.isActive).toBe(false);
 	});
 
 	it('reports engaged-elsewhere and asks the assistant for nothing when another window holds the claim', async () => {
