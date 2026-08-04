@@ -16,7 +16,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 // Add IUpdate, DisablementReason for Positron's update workflow.
 import { IUpdateService, State as UpdateState, StateType, IUpdate } from '../../../../platform/update/common/update.js';
 // --- End Positron ---
-import { INotificationService, NotificationPriority, Severity } from '../../../../platform/notification/common/notification.js';
+import { INotificationService, INotificationSource, NotificationPriority, Severity } from '../../../../platform/notification/common/notification.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IBrowserWorkbenchEnvironmentService } from '../../../services/environment/browser/environmentService.js';
 import { ReleaseNotesManager } from './releaseNotesEditor.js';
@@ -45,6 +45,20 @@ import { IPositronVersion, parse } from '../../../../platform/update/common/posi
 
 export const CONTEXT_UPDATE_STATE = new RawContextKey<string>('updateState', StateType.Uninitialized);
 export const MAJOR_MINOR_UPDATE_AVAILABLE = new RawContextKey<boolean>('majorMinorUpdateAvailable', false);
+
+// --- Start Positron ---
+/**
+ * Tags update notifications with a filterable source, so users can mute them from the
+ * notification's own gear menu or via "Do Not Disturb Mode By Source...".
+ *
+ * Only notifications with `DEFAULT` or `OPTIONAL` priority are silenced by that filter,
+ * so results of an explicit "Check for Updates" (which use `URGENT`) still show through.
+ */
+export const UPDATE_NOTIFICATION_SOURCE: INotificationSource = {
+	id: 'update',
+	label: nls.localize('positron.updateNotificationSource', "Update")
+};
+// --- End Positron ---
 
 let releaseNotesManager: ReleaseNotesManager | undefined = undefined;
 
@@ -403,6 +417,7 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			severity: Severity.Info,
 			message: nls.localize('noUpdatesAvailable', "There are currently no updates available."),
 			priority: NotificationPriority.OPTIONAL,
+			source: UPDATE_NOTIFICATION_SOURCE,
 		});
 	}
 
@@ -413,6 +428,7 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			message: nls.localize('updateDownloading', "Downloading update... You'll be notified when it's ready to install."),
 			priority: NotificationPriority.URGENT,
 			sticky: false, // Auto-dismiss since we'll show another notification when ready
+			source: UPDATE_NOTIFICATION_SOURCE,
 		});
 	}
 	// --- End Positron ---
@@ -443,7 +459,10 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 					this.instantiationService.invokeFunction(accessor => showReleaseNotes(accessor, productVersion));
 				}
 			}],
-			{ priority: NotificationPriority.OPTIONAL }
+			// --- Start Positron ---
+			// { priority: NotificationPriority.OPTIONAL }
+			{ priority: NotificationPriority.OPTIONAL, source: UPDATE_NOTIFICATION_SOURCE }
+			// --- End Positron ---
 		);
 	}
 
@@ -488,7 +507,8 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			// { priority: NotificationPriority.OPTIONAL }
 			{
 				priority: this.explicitCheck ? NotificationPriority.URGENT : NotificationPriority.OPTIONAL,
-				sticky: this.explicitCheck
+				sticky: this.explicitCheck,
+				source: UPDATE_NOTIFICATION_SOURCE
 			}
 			// --- End Positron ---
 		);
@@ -541,7 +561,8 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 				sticky: true,
 				// --- Start Positron ---
 				// priority: NotificationPriority.OPTIONAL
-				priority: this.explicitCheck ? NotificationPriority.URGENT : NotificationPriority.OPTIONAL
+				priority: this.explicitCheck ? NotificationPriority.URGENT : NotificationPriority.OPTIONAL,
+				source: UPDATE_NOTIFICATION_SOURCE
 				// --- End Positron ---
 
 			}
