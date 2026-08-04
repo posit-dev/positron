@@ -5,7 +5,8 @@
 
 // Schema-tree node builders for a Databricks connection. A connection can see every catalog its
 // credentials are granted on, so the tree is rooted at a "Catalogs" group: Catalogs > catalog >
-// Schemas > schema > Tables/Views > relation > Columns.
+// Schemas > schema > Tables/Views/Volumes, where a relation expands to its Columns and a volume to the
+// files and directories it holds.
 //
 // Browsing deliberately avoids SELECTs against information_schema, because information_schema exists
 // only under Unity Catalog -- the legacy `hive_metastore` catalog has none, and it is still browsable.
@@ -25,6 +26,7 @@ import {
 	metadataString,
 	parseDescribeRows,
 	quoteIdentifier,
+	quoteLiteral,
 	tableRef,
 } from './databricksSql.js';
 
@@ -105,6 +107,7 @@ export function createSchemaNode(client: DatabricksClient, host: IDatabricksPrev
 			return [
 				createTablesGroupNode(client, host, catalog, schemaName),
 				createViewsGroupNode(client, host, catalog, schemaName),
+				createVolumesGroupNode(client, catalog, schemaName),
 			];
 		},
 	};
@@ -163,6 +166,119 @@ function createViewsGroupNode(client: DatabricksClient, host: IDatabricksPreview
 			return names.map(name => createRelationNode(client, host, catalog, schemaName, name, 'view'));
 		},
 	};
+}
+
+/**
+ * Creates the "Volumes" group inside a schema, listing the schema's Unity Catalog volumes.
+ *
+ * Volumes come from `<catalog>.information_schema.volumes` rather than `SHOW VOLUMES IN
+ * catalog.schema`, which hits the same cross-catalog restriction as `SHOW TABLES` (see
+ * `relationNames`). A three-part information_schema reference is a table reference, which is allowed
+ * across catalogs. That the view exists only under Unity Catalog is not a limitation here: volumes are
+ * themselves a Unity Catalog concept, so a catalog without an information_schema (`hive_metastore`) has
+ * no volumes to list, and the failed lookup is reported as an empty group rather than an error.
+ *
+ * No preview host is threaded through: a volume holds files rather than rows, so nothing under it opens
+ * in the Data Explorer.
+ */
+function createVolumesGroupNode(client: DatabricksClient, catalog: string, schemaName: string): positron.DataConnectionNode {
+	return {
+		name: 'Volumes',
+		kind: positron.DataConnectionNodeKind.GroupVolumes,
+		async getChildren() {
+			const sql = `SELECT volume_name FROM ${quoteIdentifier(catalog)}.information_schema.volumes ` +
+				`WHERE volume_schema = '${quoteLiteral(schemaName)}'`;
+			let rows: Array<Record<string, unknown>>;
+			try {
+				rows = (await client.query(sql)).rows;
+			} catch {
+				// The catalog has no information_schema, so it is not a Unity Catalog catalog and cannot
+				// contain volumes. An empty group is the honest answer; an error would suggest the volumes
+				// are there but unreachable.
+				return [];
+			}
+			return rows
+				.map(row => metadataString(row, ['volume_name']))
+				.sort(byName)
+				.map(name => createVolumeNode(client, catalog, schemaName, name));
+		},
+	};
+}
+
+/** Creates a volume node, which expands to the files and directories at the volume's root. */
+function createVolumeNode(client: DatabricksClient, catalog: string, schemaName: string, volumeName: string): positron.DataConnectionNode {
+	// Every volume is mounted at this well-known path, which is how SQL addresses its contents.
+	const root = `/Volumes/${catalog}/${schemaName}/${volumeName}`;
+	return {
+		name: volumeName,
+		kind: positron.DataConnectionNodeKind.Volume,
+		async getChildren() {
+			return listPath(client, root);
+		},
+	};
+}
+
+/** One entry in a volume directory listing. */
+interface VolumeEntry {
+	name: string;
+	isDirectory: boolean;
+	size?: number;
+}
+
+/**
+ * Lists a path inside a volume via the `LIST` command, which reads a volume's contents over the same
+ * SQL connection (no separate Files API call, and so no second set of credentials to manage).
+ *
+ * Child paths are rebuilt from the parent path and each entry's own name rather than taken from the
+ * result's `path` column, whose form varies (it may come back scheme-qualified), so the paths this
+ * walks stay in the one `/Volumes/...` form `LIST` is known to accept.
+ */
+async function listPath(client: DatabricksClient, path: string): Promise<positron.DataConnectionNode[]> {
+	const result = await client.query(`LIST '${quoteLiteral(path)}'`);
+	const entries: VolumeEntry[] = [];
+	for (const row of result.rows) {
+		const raw = metadataString(row, ['name']);
+		// A directory is reported with a trailing slash; keep the flag and drop the slash for display.
+		const isDirectory = raw.endsWith('/');
+		// Defend against a server that reports the whole path here rather than just the entry name.
+		const name = raw.replace(/\/+$/, '').split('/').pop() ?? '';
+		if (name.length === 0) {
+			continue;
+		}
+		const rawSize = row.size;
+		const size = rawSize === null || rawSize === undefined ? undefined : Number(rawSize);
+		entries.push({ name, isDirectory, size });
+	}
+	// Directories first, then files, each in name order -- the ordering a file browser uses.
+	entries.sort((a, b) => a.isDirectory === b.isDirectory ? byName(a.name, b.name) : (a.isDirectory ? -1 : 1));
+	return entries.map(entry => entry.isDirectory
+		? {
+			name: entry.name,
+			kind: positron.DataConnectionNodeKind.Directory,
+			getChildren: () => listPath(client, `${path}/${entry.name}`),
+		}
+		: {
+			name: entry.name,
+			kind: positron.DataConnectionNodeKind.File,
+			// The tree renders dataType as a trailing label, which is where a file's size belongs.
+			dataType: entry.size === undefined ? undefined : formatFileSize(entry.size),
+		});
+}
+
+/** Formats a byte count for display next to a file name. */
+export function formatFileSize(bytes: number): string {
+	if (!isFinite(bytes) || bytes < 0) {
+		return '';
+	}
+	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+	let value = bytes;
+	let unit = 0;
+	while (value >= 1024 && unit < units.length - 1) {
+		value /= 1024;
+		unit++;
+	}
+	// Whole bytes need no decimal; every larger unit reads better with one.
+	return unit === 0 ? `${value} B` : `${value.toFixed(1)} ${units[unit]}`;
 }
 
 /** Creates a table or view node that expands to a single "Columns" group. */

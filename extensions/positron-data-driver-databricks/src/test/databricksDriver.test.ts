@@ -14,7 +14,7 @@ import {
 	IDatabricksSdkClient,
 	IDatabricksSession,
 } from '../databricksClient.js';
-import { createCatalogNode, createSchemaNode } from '../databricksNodes.js';
+import { createCatalogNode, createSchemaNode, formatFileSize } from '../databricksNodes.js';
 import { databricksDisplayType, parseDescribeRows } from '../databricksSql.js';
 import { generateConnectionCode, parseDatabricksHost, parseDatabricksHttpPath, validateRequired } from '../databricksDriver.js';
 
@@ -200,14 +200,15 @@ suite('Databricks Driver Tests', () => {
 		assert.deepStrictEqual(schemas.map(s => s.name), ['bronze', 'silver']);
 	});
 
-	test('schema getChildren returns Tables and Views groups', async () => {
+	test('schema getChildren returns Tables, Views, and Volumes groups', async () => {
 		const schemaNode = createSchemaNode(createMockClient(), noopHost, 'main', 'sales');
 		const groups = await schemaNode.getChildren!();
 
-		assert.deepStrictEqual(groups.map(g => g.name), ['Tables', 'Views']);
+		assert.deepStrictEqual(groups.map(g => g.name), ['Tables', 'Views', 'Volumes']);
 		assert.deepStrictEqual(groups.map(g => g.kind), [
 			positron.DataConnectionNodeKind.GroupTables,
 			positron.DataConnectionNodeKind.GroupViews,
+			positron.DataConnectionNodeKind.GroupVolumes,
 		]);
 	});
 
@@ -290,6 +291,122 @@ suite('Databricks Driver Tests', () => {
 
 		const groups = await orders.getChildren!();
 		assert.deepStrictEqual(groups.map(g => g.name), ['Columns']);
+	});
+
+	// --- Volumes ---
+
+	test('Volumes group lists the schema volumes from information_schema', async () => {
+		const mock = createMockClient((sql) => {
+			if (/information_schema\.volumes/.test(sql)) {
+				// The lookup is a three-part table reference, which is allowed across catalogs.
+				assert.match(sql, /FROM `main`\.information_schema\.volumes WHERE volume_schema = 'sales'/);
+				return { rows: [{ volume_name: 'raw_files' }, { volume_name: 'images' }] };
+			}
+			return { rows: [] };
+		});
+		const schemaNode = createSchemaNode(mock, noopHost, 'main', 'sales');
+
+		const volumes = await groupChildren(schemaNode, positron.DataConnectionNodeKind.GroupVolumes);
+		assert.deepStrictEqual(volumes.map(v => v.name), ['images', 'raw_files']);
+		assert.deepStrictEqual(volumes.map(v => v.kind), Array(2).fill(positron.DataConnectionNodeKind.Volume));
+	});
+
+	test('a catalog with no information_schema reports no volumes rather than an error', async () => {
+		// hive_metastore has no information_schema, and no volumes either -- volumes are a Unity Catalog
+		// concept -- so an empty group is the correct answer.
+		const mock = createMockClient((sql) => {
+			if (/information_schema\.volumes/.test(sql)) {
+				throw new Error('[TABLE_OR_VIEW_NOT_FOUND] The table or view `hive_metastore`.`information_schema`.`volumes` cannot be found');
+			}
+			return { rows: [] };
+		});
+		const schemaNode = createSchemaNode(mock, noopHost, 'hive_metastore', 'default');
+
+		const volumes = await groupChildren(schemaNode, positron.DataConnectionNodeKind.GroupVolumes);
+		assert.deepStrictEqual(volumes, []);
+	});
+
+	test('a volume expands to its files and directories, directories first', async () => {
+		const mock = createMockClient((sql) => {
+			if (/information_schema\.volumes/.test(sql)) {
+				return { rows: [{ volume_name: 'raw_files' }] };
+			}
+			if (/^LIST '\/Volumes\/main\/sales\/raw_files'$/.test(sql)) {
+				return {
+					rows: [
+						{ path: 'dbfs:/Volumes/main/sales/raw_files/orders.parquet', name: 'orders.parquet', size: 2048 },
+						{ path: 'dbfs:/Volumes/main/sales/raw_files/archive/', name: 'archive/', size: 0 },
+						{ path: 'dbfs:/Volumes/main/sales/raw_files/logo.png', name: 'logo.png', size: 512 },
+					],
+				};
+			}
+			return { rows: [] };
+		});
+		const schemaNode = createSchemaNode(mock, noopHost, 'main', 'sales');
+		const [volume] = await groupChildren(schemaNode, positron.DataConnectionNodeKind.GroupVolumes);
+
+		const contents = await volume.getChildren!();
+		assert.deepStrictEqual(
+			contents.map(node => ({ name: node.name, kind: node.kind, dataType: node.dataType })),
+			[
+				{ name: 'archive', kind: positron.DataConnectionNodeKind.Directory, dataType: undefined },
+				{ name: 'logo.png', kind: positron.DataConnectionNodeKind.File, dataType: '512 B' },
+				{ name: 'orders.parquet', kind: positron.DataConnectionNodeKind.File, dataType: '2.0 KB' },
+			]);
+	});
+
+	test('a directory inside a volume expands against its own path', async () => {
+		const listed: string[] = [];
+		const mock = createMockClient((sql) => {
+			if (/information_schema\.volumes/.test(sql)) {
+				return { rows: [{ volume_name: 'raw_files' }] };
+			}
+			if (/^LIST /.test(sql)) {
+				listed.push(sql);
+				// The volume root holds one directory; the directory itself holds one file.
+				return sql.includes('/archive')
+					? { rows: [{ name: 'old.csv', size: 10 }] }
+					: { rows: [{ name: 'archive/', size: 0 }] };
+			}
+			return { rows: [] };
+		});
+		const schemaNode = createSchemaNode(mock, noopHost, 'main', 'sales');
+		const [volume] = await groupChildren(schemaNode, positron.DataConnectionNodeKind.GroupVolumes);
+		const [directory] = await volume.getChildren!();
+
+		const contents = await directory.getChildren!();
+		assert.deepStrictEqual(contents.map(node => node.name), ['old.csv']);
+		// The child path is rebuilt from the parent path and the entry name, not from the reported
+		// `path` column, whose scheme-qualified form LIST may not accept back.
+		assert.deepStrictEqual(listed, [
+			`LIST '/Volumes/main/sales/raw_files'`,
+			`LIST '/Volumes/main/sales/raw_files/archive'`,
+		]);
+	});
+
+	test('nothing under a volume offers a Data Explorer preview', async () => {
+		// A volume holds files rather than rows, so no node beneath it is previewable.
+		const mock = createMockClient((sql) => {
+			if (/information_schema\.volumes/.test(sql)) {
+				return { rows: [{ volume_name: 'raw_files' }] };
+			}
+			if (/^LIST /.test(sql)) {
+				return { rows: [{ name: 'orders.parquet', size: 1 }, { name: 'archive/', size: 0 }] };
+			}
+			return { rows: [] };
+		});
+		const schemaNode = createSchemaNode(mock, noopHost, 'main', 'sales');
+		const [volume] = await groupChildren(schemaNode, positron.DataConnectionNodeKind.GroupVolumes);
+		const contents = await volume.getChildren!();
+
+		assert.strictEqual(volume.preview, undefined);
+		assert.deepStrictEqual(contents.map(node => node.preview), [undefined, undefined]);
+	});
+
+	test('file sizes are formatted for display', () => {
+		assert.deepStrictEqual(
+			[0, 512, 1024, 1536, 5 * 1024 * 1024, 3 * 1024 * 1024 * 1024].map(formatFileSize),
+			['0 B', '512 B', '1.0 KB', '1.5 KB', '5.0 MB', '3.0 GB']);
 	});
 
 	test('getChildren after disconnect throws', async () => {
