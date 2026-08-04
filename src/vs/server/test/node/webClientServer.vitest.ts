@@ -50,8 +50,11 @@ function createWebClientServer(ownershipCheck: ISocketOwnershipCheck, logService
 	return webClientServer;
 }
 
-const ourUid = process.getuid?.() ?? 0;
-const foreignUid = ourUid + 1; // guaranteed mismatch regardless of the uid the test happens to run as
+// Fixed rather than read from the real process: CI containers commonly run as root (uid 0), and
+// production code intentionally skips the "ownership check disabled" log when uid === 0 (see
+// _verifyProxyPortOwnership), which would make these expectations flake depending on who runs them.
+const ourUid = 1000;
+const foreignUid = ourUid + 1;
 
 function listen(server: http.Server | net.Server, port: number, host: string): Promise<void> {
 	return new Promise((resolve, reject) => {
@@ -61,6 +64,10 @@ function listen(server: http.Server | net.Server, port: number, host: string): P
 }
 
 describe('WebClientServer /proxy/ port ownership gate', () => {
+
+	beforeEach(() => {
+		vi.spyOn(process, 'getuid').mockReturnValue(ourUid);
+	});
 
 	describe('handle()', () => {
 
