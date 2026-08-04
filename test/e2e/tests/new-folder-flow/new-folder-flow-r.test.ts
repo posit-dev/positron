@@ -38,6 +38,9 @@ test.describe('New Folder Flow: R Project', { tag: [tags.MODAL, tags.NEW_FOLDER_
 	});
 
 	test('R - Renv already installed', { tag: [tags.WIN] }, async function ({ app, packages }) {
+		// Installing renv, reloading into the new folder and then running renv::init() in it adds
+		// up to more than the default 2 minute budget on slower runners.
+		test.slow();
 
 		await packages.manage('renv', 'install');
 
