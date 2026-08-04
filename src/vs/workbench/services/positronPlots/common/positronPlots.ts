@@ -140,6 +140,27 @@ export const createSuggestedFileNameForPlot = (storageService: IStorageService) 
 	return `plot-${plotNumber}`;
 };
 
+/** Options for {@link IPositronPlotsService.openImageInEditor}. */
+export interface IOpenImageInEditorOptions {
+	/** The editor tab label. */
+	name?: string;
+
+	/**
+	 * What the image belongs to, e.g. the URI of the document whose output it is.
+	 *
+	 * Scopes the tab identity that {@link name} and the image content otherwise
+	 * establish, so that two documents that produce the same image under the same
+	 * label still get a tab each.
+	 */
+	scope?: string;
+
+	/** The code that produced the image, if known. Enables the plot code actions. */
+	code?: string;
+
+	/** Where to open the tab. Defaults to the active group. */
+	groupType?: number;
+}
+
 /**
  * IPositronPlotsService interface.
  */
@@ -349,6 +370,22 @@ export interface IPositronPlotsService {
 	 *   editor group.
 	 */
 	openEditor(plotId: string, groupType?: number, metadata?: IPositronPlotMetadata): Promise<void>;
+
+	/**
+	 * Opens an already-rendered image in a plot editor tab.
+	 *
+	 * Lets callers that hold image data rather than a live plot comm - notebook
+	 * cell outputs, Quarto inline outputs - show the image in an editor tab
+	 * without writing it to a file. The plot client is disposed when the tab is
+	 * closed.
+	 *
+	 * Unlike {@link openEditor}, this leaves the remembered "Open in..." target
+	 * alone, since the caller chooses where the image opens.
+	 *
+	 * @param dataUrl The image data URL, either base64 or URL-encoded.
+	 * @throws If the data URL is malformed, or the editor fails to open.
+	 */
+	openImageInEditor(dataUrl: string, options?: IOpenImageInEditorOptions): Promise<void>;
 
 	/**
 	 * Gets the preferred editor group for opening the plot in an editor tab.

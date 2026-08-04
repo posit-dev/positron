@@ -78,7 +78,9 @@ test.describe('Quarto - Inline Output: Popout', {
 		await inlineQuarto.gotoLine(19);
 		await inlineQuarto.popoutOutput();
 		await editors.verifyTab('simple_plot.qmd', { isVisible: true, isSelected: false });
-		await editors.verifyTab('.positron-temp-simple_plot_cell0.png', { isVisible: true, isSelected: true });
+		// A plot editor tab backed by the image data, not a temp file on disk. The
+		// label is the 1-based cell name shared with the notebook editor.
+		await editors.verifyTab('simple_plot_cell1', { isVisible: true, isSelected: true });
 	});
 
 	test('Python - Verify popout command opens text output in new editor', async function ({ python, app, openFile }) {
@@ -159,7 +161,9 @@ test.describe('Quarto - Inline Output: Popout', {
 		await inlineQuarto.gotoLine(19);
 		await inlineQuarto.runPopoutCommand();
 		await editors.verifyTab('simple_plot.qmd', { isVisible: true, isSelected: false });
-		await editors.verifyTab('.positron-temp-simple_plot_cell0.png', { isVisible: true, isSelected: true });
+		// A plot editor tab backed by the image data, not a temp file on disk. The
+		// label is the 1-based cell name shared with the notebook editor.
+		await editors.verifyTab('simple_plot_cell1', { isVisible: true, isSelected: true });
 	});
 
 	test('Python - Verify HTML popout displays DataFrame in viewer without errors', async function ({ python, app, openFile }) {
