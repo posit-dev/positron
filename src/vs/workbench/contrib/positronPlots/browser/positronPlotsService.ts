@@ -1664,19 +1664,23 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._editorPlots.set(plotId, plotClient);
 		}
 
-		const editorPane = await this._editorService.openEditor({
-			resource: URI.from({
-				scheme: Schemas.positronPlotsEditor,
-				path: plotId,
-			}),
-		}, groupType ?? ACTIVE_GROUP);
+		try {
+			const editorPane = await this._editorService.openEditor({
+				resource: URI.from({
+					scheme: Schemas.positronPlotsEditor,
+					path: plotId,
+				}),
+			}, groupType ?? ACTIVE_GROUP);
 
-		if (!editorPane) {
-			// Existing tabs own their clients; dispose only a client created by this call.
+			if (!editorPane) {
+				throw new Error('Failed to open editor');
+			}
+		} catch (err) {
+			// Only tear down a client this call created; a tab already open keeps its own.
 			if (!existing) {
 				this.removeEditorPlot(plotId);
 			}
-			throw new Error('Failed to open editor');
+			throw err;
 		}
 	}
 

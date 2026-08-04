@@ -70,6 +70,10 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient,
 			zoom_level: ZoomLevel.Fit,
 		};
 
+		// `parsed.data` is base64 for raster images and raw markup for SVG, the
+		// two shapes `uri` re-encodes. Nothing produces a base64-encoded SVG
+		// data URL today; if one ever arrives, its payload stays base64
+		// (`parsed.base64` is true) and would need decoding here first.
 		return new StaticPlotClient(storageService, metadata.session_id, metadata, parsed.mimeType, parsed.data);
 	}
 
