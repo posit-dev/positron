@@ -1046,6 +1046,16 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		}
 		this._positronConsoleInstancesBySessionId.delete(sessionId);
 
+		// If nothing above claimed the active console, clear it. Neither branch always does: the
+		// foreground session handler ignores `undefined`, which is what the console branch sets when
+		// there is no other session to fall back to, and the notebook branch has nothing to switch
+		// to when the deleted instance is not in the map. Without this, the deleted instance stays
+		// the active console -- and the extension host keeps handing out its session (and its
+		// `positron.window.activeConsoleEditor`) to extensions.
+		if (this._activePositronConsoleInstance === consoleInstance) {
+			this.setActivePositronConsoleInstance(undefined);
+		}
+
 		consoleInstance.dispose();
 
 		this._onDidDeletePositronConsoleInstanceEmitter.fire(consoleInstance);

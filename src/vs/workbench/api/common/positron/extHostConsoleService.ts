@@ -89,6 +89,10 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 				this._onDidChangeActiveConsole.fire(this.activeConsole);
 			}
 			this._fireActiveConsoleEditorIfChanged();
+		}).catch((err) => {
+			// Survivable: extensions just do not see a console that was already active before this
+			// extension host started until the next `$onDidChangeActiveConsole`.
+			this._logService.error('ExtHostConsoleService: failed to seed the active console', err);
 		});
 	}
 

@@ -216,6 +216,23 @@ describe('ExtHostConsoleService', function () {
 		expect(fired).toHaveLength(1); // no spurious second event
 	});
 
+	it('logs instead of rejecting when the startup seed fails', async function () {
+		const shape = new class extends mock<MainThreadConsoleServiceShape>() {
+			override $getActiveConsoleSessionId(): Promise<string | undefined> {
+				return Promise.reject(new Error('extension host was torn down'));
+			}
+		};
+		const logService = new NullLogService();
+		const error = vi.spyOn(logService, 'error');
+
+		// An unhandled rejection here would surface as an extension host error with no context.
+		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), logService, nullDocsAndEditors);
+		await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+		expect(error).toHaveBeenCalledOnce();
+		expect(svc.activeConsole).toBeUndefined();
+	});
+
 	it('constructor seeds _activeConsoleSessionId from $getActiveConsoleSessionId', async function () {
 		const shape = createMockShape('session-preexisting');
 		const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), nullDocsAndEditors);

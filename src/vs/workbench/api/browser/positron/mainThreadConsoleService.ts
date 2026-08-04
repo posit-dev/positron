@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Lazy } from '../../../../base/common/lazy.js';
 import { DisposableMap, DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ITextModel } from '../../../../editor/common/model.js';
@@ -39,8 +40,14 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 	/**
 	 * Lets us register the console input editor with the extension host without it entering the
 	 * core documents-and-editors state.
+	 *
+	 * Resolved lazily, on first registration: the actor is set by `MainThreadDocumentsAndEditors`,
+	 * a plain `@extHostCustomer`, and those are constructed after the named customers this class is
+	 * one of (`ExtensionHostManager._createExtensionHostCustomers`). Resolving it in the constructor
+	 * would throw (`RPCProtocol.getRaw` requires the actor to be set), and the thrown error is
+	 * swallowed by the customer loop -- taking this service's whole RPC channel down with it.
 	 */
-	private readonly _hiddenEditorManager: IMainThreadHiddenEditorManager;
+	private readonly _hiddenEditorManager: Lazy<IMainThreadHiddenEditorManager>;
 
 	constructor(
 		extHostContext: IExtHostContext,
@@ -49,9 +56,10 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		// Create the proxy for the extension host.
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostConsoleService);
 
-		this._hiddenEditorManager = extHostContext.getRaw<IMainThreadHiddenEditorManager, IMainThreadHiddenEditorManager>(
-			MainPositronContext.MainThreadHiddenEditorManager
-		);
+		this._hiddenEditorManager = new Lazy(() =>
+			extHostContext.getRaw<IMainThreadHiddenEditorManager, IMainThreadHiddenEditorManager>(
+				MainPositronContext.MainThreadHiddenEditorManager
+			));
 
 		// Register to be notified of changes to the console width; when they are
 		// received, forward them to the extension host so extensions can be
@@ -84,17 +92,7 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 			})
 		);
 
-		// Replay the consoles that already exist. This service is recreated whenever the extension
-		// host restarts, and consoles started before that never re-fire
-		// `onDidStartPositronConsoleInstance`, so without this the extension host would never learn
-		// about a console that is already running.
-		for (const instance of this._positronConsoleService.positronConsoleInstances) {
-			this._addConsole(instance);
-		}
-		const activeInstance = this._positronConsoleService.activePositronConsoleInstance;
-		if (activeInstance) {
-			this._proxy.$onDidChangeActiveConsole(activeInstance.sessionId);
-		}
+		this._replayExistingConsoles();
 
 		// TODO:
 		// As of right now, we never delete console instances from the maps in
@@ -120,6 +118,41 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 
 	dispose(): void {
 		this._disposables.dispose();
+	}
+
+	/**
+	 * Announces the consoles that already exist to the extension host. This service is recreated
+	 * whenever the extension host restarts, and consoles started before that never re-fire
+	 * `onDidStartPositronConsoleInstance`, so without this the extension host would never learn
+	 * about a console that is already running.
+	 *
+	 * Deferred to a microtask, i.e. until after every extension host customer has been constructed.
+	 * The console input's *document* only reaches the extension host in the first
+	 * `$acceptDocumentsAndEditorsDelta`, which `MainThreadDocumentsAndEditors` sends from its own
+	 * constructor -- and being a plain `@extHostCustomer` it is constructed after named customers
+	 * like this one. Replaying during construction would put `$addConsoleEditor` ahead of that delta
+	 * on the wire, and the extension host drops an editor whose document it does not have yet.
+	 */
+	private _replayExistingConsoles(): void {
+		queueMicrotask(() => {
+			if (this._disposables.isDisposed) {
+				return;
+			}
+
+			for (const instance of this._positronConsoleService.positronConsoleInstances) {
+				if (this._mainThreadConsolesBySessionId.has(instance.sessionMetadata.sessionId)) {
+					// Started while the replay was pending, so
+					// `onDidStartPositronConsoleInstance` already announced it.
+					continue;
+				}
+				this._addConsole(instance);
+			}
+
+			const activeInstance = this._positronConsoleService.activePositronConsoleInstance;
+			if (activeInstance) {
+				this._proxy.$onDidChangeActiveConsole(activeInstance.sessionId);
+			}
+		});
 	}
 
 	private _addConsole(instance: IPositronConsoleInstance): void {
@@ -154,22 +187,32 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 	 */
 	private _trackConsoleEditor(instance: IPositronConsoleInstance): void {
 		const sessionId = instance.sessionMetadata.sessionId;
+
+		// Retire any tracking left over from a previous session with this id *before* building its
+		// replacement, for the same reason as `replaceRegistration` below.
+		this._consoleEditorTracking.deleteAndDispose(sessionId);
+
 		const tracking = new DisposableStore();
 
-		// Holds the registration for the console's current code editor; assigning replaces (and
-		// disposes) the registration for the previous one.
+		// Holds the registration for the console's current code editor.
 		const registration = tracking.add(new MutableDisposable<IDisposable>());
 
-		tracking.add(instance.onDidSetCodeEditor((codeEditor) => {
+		// Retires the previous registration before creating its replacement. Every registration for
+		// this console uses the editor id `console-<sessionId>`, and both the main thread's editor
+		// map and the extension host's console editor map are keyed by it, so disposing the old
+		// registration *after* the new one exists would retire the new editor instead of the old.
+		const replaceRegistration = (codeEditor: ICodeEditor) => {
+			registration.clear();
 			registration.value = this._registerConsoleEditor(sessionId, codeEditor);
-		}));
+		};
+
+		tracking.add(instance.onDidSetCodeEditor(replaceRegistration));
 
 		if (instance.codeEditor) {
 			// The editor is already mounted, so `onDidSetCodeEditor` has already fired for it.
-			registration.value = this._registerConsoleEditor(sessionId, instance.codeEditor);
+			replaceRegistration(instance.codeEditor);
 		}
 
-		// Replaces (and disposes) any tracking left over from a previous session with this id.
 		this._consoleEditorTracking.set(sessionId, tracking);
 	}
 
@@ -182,7 +225,7 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		const editorId = `console-${sessionId}`;
 
 		const doRegister = (model: ITextModel) => {
-			const registration = store.add(this._hiddenEditorManager.registerHiddenTextEditor(editorId, codeEditor, model));
+			const registration = store.add(this._hiddenEditorManager.value.registerHiddenTextEditor(editorId, codeEditor, model));
 
 			// The editor travels over the Positron-only console channel, never through
 			// `$acceptDocumentsAndEditorsDelta`, so it stays out of `visibleTextEditors` and the

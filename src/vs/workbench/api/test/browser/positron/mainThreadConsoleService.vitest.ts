@@ -9,10 +9,11 @@ import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from '../../../.
 import { IRuntimeSessionMetadata } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestPositronConsoleInstance, TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
+import { ProxyIdentifier } from '../../../../services/extensions/common/proxyIdentifier.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { MainThreadConsoleService } from '../../../browser/positron/mainThreadConsoleService.js';
-import { ExtHostConsoleServiceShape } from '../../../common/positron/extHost.positron.protocol.js';
+import { ExtHostConsoleServiceShape, MainPositronContext } from '../../../common/positron/extHost.positron.protocol.js';
 import { SingleProxyRPCProtocol } from '../../common/testRPCProtocol.js';
 import { ConsoleEditorTestServices } from './consoleEditorTestServices.js';
 
@@ -38,7 +39,14 @@ describe('MainThreadConsoleService (console editors)', () => {
 	let mainThreadConsoleService: MainThreadConsoleService;
 	let calls: ConsoleEditorCall[];
 
-	function createMainThreadConsoleService(): MainThreadConsoleService {
+	/**
+	 * An `IExtHostContext` that resolves raw actors the way `RPCProtocol` does: `getRaw` throws
+	 * until the actor has been `set`. That ordering is the point -- `MainThreadConsoleService` is an
+	 * `@extHostNamedCustomer` and the hidden editor manager is set by `MainThreadDocumentsAndEditors`,
+	 * a plain `@extHostCustomer` constructed afterwards, so the actor is missing for the whole of
+	 * `MainThreadConsoleService`'s constructor.
+	 */
+	function createExtHostContext(): IExtHostContext {
 		const proxy = stubInterface<ExtHostConsoleServiceShape>({
 			$addConsole: vi.fn(),
 			$onDidChangeActiveConsole: (sessionId: string | undefined) => {
@@ -57,20 +65,53 @@ describe('MainThreadConsoleService (console editors)', () => {
 			},
 			$acceptConsoleEditorPropertiesChanged: vi.fn()
 		});
-		const extHostContext: IExtHostContext = {
+		const locals = new Map<string, unknown>();
+		return {
 			...SingleProxyRPCProtocol(proxy),
-			// `getRaw` is generic over the proxy identifier, so the cast is what tells the
-			// compiler which actor this test hands back -- the hidden editor manager.
-			getRaw: <T, R extends T>(): R => services.documentsAndEditors as unknown as R,
+			set: <T, R extends T>(identifier: ProxyIdentifier<T>, instance: R): R => {
+				locals.set(identifier.sid, instance);
+				return instance;
+			},
+			getRaw: <T, R extends T>(identifier: ProxyIdentifier<T>): R => {
+				const local = locals.get(identifier.sid);
+				if (!local) {
+					// Same failure as `RPCProtocol.getRaw`. Thrown from a customer's constructor it
+					// leaves that customer's RPC channel unregistered entirely.
+					throw new Error(`Missing actor ${identifier.sid}.`);
+				}
+				return local as R;
+			}
 		};
-		return new MainThreadConsoleService(extHostContext, consoleService);
 	}
 
-	beforeEach(() => {
+	/** Registers the hidden editor manager, as the plain customer that owns it does. */
+	function registerHiddenEditorManager(extHostContext: IExtHostContext): void {
+		extHostContext.set(MainPositronContext.MainThreadHiddenEditorManager, services.documentsAndEditors);
+	}
+
+	/** Constructs the service the way `ExtensionHostManager` does: named customer, then the rest. */
+	function createMainThreadConsoleService(): MainThreadConsoleService {
+		const extHostContext = createExtHostContext();
+		const service = new MainThreadConsoleService(extHostContext, consoleService);
+		registerHiddenEditorManager(extHostContext);
+		return service;
+	}
+
+	/**
+	 * Lets the deferred constructor replay run, as it does once every customer is constructed.
+	 */
+	function flushDeferredReplay(): Promise<void> {
+		return new Promise<void>((resolve) => setTimeout(resolve, 0));
+	}
+
+	beforeEach(async () => {
 		services = new ConsoleEditorTestServices();
 		calls = [];
 		consoleService = new TestPositronConsoleService();
 		mainThreadConsoleService = createMainThreadConsoleService();
+		// Start each test from a settled service: no consoles exist yet, so the replay is a no-op,
+		// but it must not still be pending while a test records calls.
+		await flushDeferredReplay();
 	});
 
 	afterEach(() => {
@@ -105,6 +146,15 @@ describe('MainThreadConsoleService (console editors)', () => {
 		instance.setCodeEditor(editor);
 		editor.setModel(services.createModel('> '));
 		return editor;
+	}
+
+	// A console whose input editor is already mounted by the time the service sees it -- what an
+	// already-running console looks like after an extension host restart.
+	function addPreMountedConsole(sessionId: string): TestPositronConsoleInstance {
+		const instance = createInstance(sessionId);
+		instance.codeEditor = services.createCodeEditor(services.createModel('> '));
+		consoleService.addTestConsoleInstance(instance);
+		return instance;
 	}
 
 	/** Only the console editor traffic, dropping the active-console bookkeeping. */
@@ -166,7 +216,7 @@ describe('MainThreadConsoleService (console editors)', () => {
 		expect(services.documentsAndEditors.getEditor('console-session-1')).toBeUndefined();
 	});
 
-	it('replays consoles that already exist when the service is created', () => {
+	it('replays consoles that already exist, but only once every customer is constructed', async () => {
 		// Simulates an extension host restart: the consoles are already running and will never
 		// re-fire `onDidStartPositronConsoleInstance`.
 		addMountedConsole('session-a');
@@ -174,8 +224,18 @@ describe('MainThreadConsoleService (console editors)', () => {
 		consoleService.setActivePositronConsoleSession('session-a');
 		calls = [];
 
-		const replayed = createMainThreadConsoleService();
+		const extHostContext = createExtHostContext();
+		const replayed = new MainThreadConsoleService(extHostContext, consoleService);
 		try {
+			// Nothing yet. The console input's document only reaches the extension host in the
+			// initial documents-and-editors delta, which the customer registering the hidden editor
+			// manager sends from its own constructor -- i.e. after this one has run. Announcing an
+			// editor here would arrive ahead of its document and the extension host would drop it.
+			expect(calls).toEqual([]);
+
+			registerHiddenEditorManager(extHostContext);
+			await flushDeferredReplay();
+
 			expect(calls).toEqual([
 				{ kind: 'add', sessionId: 'session-a', editorId: 'console-session-a', resolvable: true },
 				{ kind: 'add', sessionId: 'session-b', editorId: 'console-session-b', resolvable: true },
@@ -184,6 +244,61 @@ describe('MainThreadConsoleService (console editors)', () => {
 		} finally {
 			replayed.dispose();
 		}
+	});
+
+	it('registers editors even though the hidden editor manager does not exist yet while it constructs', async () => {
+		// Drop the service created in `beforeEach` so only the one under test reports traffic.
+		mainThreadConsoleService.dispose();
+
+		const extHostContext = createExtHostContext();
+		// Named customers are constructed first, so resolving the manager here throws -- and the
+		// customer loop swallows constructor errors, so an eager `getRaw` would silently leave this
+		// service's whole RPC channel (`$getConsoleWidth`, `$tryPasteText`, ...) unregistered.
+		expect(() => extHostContext.getRaw(MainPositronContext.MainThreadHiddenEditorManager)).toThrow();
+		mainThreadConsoleService = new MainThreadConsoleService(extHostContext, consoleService);
+		registerHiddenEditorManager(extHostContext);
+		await flushDeferredReplay();
+		calls = [];
+
+		addMountedConsole('session-1');
+
+		expect(editorCalls()).toEqual([
+			{ kind: 'add', sessionId: 'session-1', editorId: 'console-session-1', resolvable: true }
+		]);
+	});
+
+	it('replaces the registration when the console input swaps in a new editor', () => {
+		const instance = addMountedConsole('session-1');
+		calls = [];
+
+		// A fresh editor is assigned while the previous one is still alive (the Console view
+		// re-created it without disposing the old widget first).
+		const replacement = services.createCodeEditor(services.createModel('> '));
+		instance.setCodeEditor(replacement);
+
+		// The old registration must be retired first: it shares the editor id with its replacement,
+		// so cleaning it up afterwards would retire the new editor instead.
+		expect(editorCalls()).toEqual([
+			{ kind: 'remove', sessionId: 'session-1' },
+			{ kind: 'add', sessionId: 'session-1', editorId: 'console-session-1', resolvable: true }
+		]);
+		expect(services.documentsAndEditors.getEditor('console-session-1')?.getCodeEditor()).toBe(replacement);
+	});
+
+	it('retires the previous tracking when the same session id is registered again', () => {
+		addMountedConsole('session-1');
+		calls = [];
+
+		// The console instance for this session is replaced in place, and its editor is already
+		// mounted, so the new registration exists before the old tracking is torn down.
+		const replacement = addPreMountedConsole('session-1');
+
+		expect(editorCalls()).toEqual([
+			{ kind: 'remove', sessionId: 'session-1' },
+			{ kind: 'add', sessionId: 'session-1', editorId: 'console-session-1', resolvable: true }
+		]);
+		expect(services.documentsAndEditors.getEditor('console-session-1')?.getCodeEditor())
+			.toBe(replacement.codeEditor);
 	});
 
 	it('announces each console as it becomes active', () => {
