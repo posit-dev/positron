@@ -37,7 +37,7 @@ test.describe('Quarto - Inline Output: Popout', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('simple_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 20 });
 
 		// Save the plot — hover directly on the (CSS-hidden) save button with
 		// force:true so the mouse lands at the button's position, triggering the
@@ -71,7 +71,7 @@ test.describe('Quarto - Inline Output: Popout', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('simple_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 20 });
 		await inlineQuarto.expectOutputVisible();
 
 		// Verify new tab opens with image when popout button is clicked
@@ -95,7 +95,7 @@ test.describe('Quarto - Inline Output: Popout', {
 
 		// Run the cell and wait for output
 		await editors.clickTab(tab1);
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 13, outputLine: 20 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 13, outputLine: 15 });
 
 		// Verify new tab opens with text output when popout command is run
 		await inlineQuarto.gotoLine(13);
@@ -114,7 +114,7 @@ test.describe('Quarto - Inline Output: Popout', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('r_errors.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 8, outputLine: 15 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 8, outputLine: 10 });
 
 		// Verify error is visible and popout button is hidden
 		await inlineQuarto.expectErrorCount(1);
@@ -134,7 +134,7 @@ test.describe('Quarto - Inline Output: Popout', {
 
 			// Run the cell and wait for output
 			await editors.clickTab('interactive_plot.qmd');
-			await inlineQuarto.runCellAndWaitForOutput({ cellLine: 8, outputLine: 15 });
+			await inlineQuarto.runCellAndWaitForOutput({ cellLine: 8, outputLine: 10 });
 			await inlineQuarto.expectOutputVisible();
 
 			// Run the popout command and verify viewer panel opens with interactive HTML
@@ -154,7 +154,7 @@ test.describe('Quarto - Inline Output: Popout', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('simple_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 20 });
 		await inlineQuarto.expectOutputVisible();
 
 		// Run the popout command and verify new tab opens with image
@@ -176,7 +176,7 @@ test.describe('Quarto - Inline Output: Popout', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('py_data_frame.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 8, outputLine: 15 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 8, outputLine: 11 });
 		await inlineQuarto.expectOutputVisible();
 
 		// Run the popout command and verify viewer panel opens with DataFrame HTML

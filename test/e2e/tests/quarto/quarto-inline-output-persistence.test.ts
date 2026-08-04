@@ -33,7 +33,7 @@ test.describe('Quarto - Inline Output: Persistence', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('simple_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 20 });
 		await inlineQuarto.expectOutputVisible();
 
 		// Close and reopen the file
@@ -42,7 +42,7 @@ test.describe('Quarto - Inline Output: Persistence', {
 		await editors.waitForActiveTab('simple_plot.qmd');
 
 		// Verify output persisted
-		await inlineQuarto.gotoLine(25);
+		await inlineQuarto.revealOutput(20);
 		await inlineQuarto.expectOutputVisible();
 	});
 
@@ -104,7 +104,7 @@ print("Hello from untitled!")
 
 		// Run the cell and wait for output
 		await editors.clickTab('simple_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 20 });
 
 		// Get initial kernel text
 		await inlineQuarto.expectKernelIdle();
