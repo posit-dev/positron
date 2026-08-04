@@ -218,19 +218,33 @@ export class InlineQuarto {
 		}).toPass({ timeout: 30000, intervals: [1000] });
 	}
 
-	async runCellAndWaitForOutput({ cellLine, outputLine, timeout = 120000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
+	/**
+	 * Navigate to `outputLine` and confirm the inline output rendered, re-driving
+	 * the navigation until it does. Monaco sets a view zone to `display: none`
+	 * whenever it falls outside the rendered range, so an output that resizes
+	 * itself after the reveal (a plotly webview settling to its final height
+	 * shrinks the document, which makes Monaco clamp scrollTop back to the
+	 * bottom) can end up stranded off-screen with nothing left to scroll it into
+	 * view. Repeating the reveal recovers; a single long wait never can.
+	 */
+	private async _revealOutput(outputLine: number, timeout: number): Promise<void> {
+		await expect(async () => {
+			await this.gotoLine(outputLine);
+			await expect(this.inlineOutput).toBeVisible({ timeout: 5000 });
+		}).toPass({ timeout, intervals: [1000] });
+	}
+
+	async runCellAndWaitForOutput({ cellLine, outputLine, timeout = 60000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
 		await test.step(`Run cell at line ${cellLine} and wait for output at line ${outputLine}`, async () => {
 			await this._runCellUntilStarted(cellLine, () => this.runCurrentCell());
-			await this.gotoLine(outputLine);
-			await expect(this.inlineOutput).toBeVisible({ timeout });
+			await this._revealOutput(outputLine, timeout);
 		});
 	}
 
-	async runCodeAndWaitForOutput({ cellLine, outputLine, timeout = 120000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
+	async runCodeAndWaitForOutput({ cellLine, outputLine, timeout = 60000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
 		await test.step(`Run code at line ${cellLine} and wait for output at line ${outputLine}`, async () => {
 			await this._runCellUntilStarted(cellLine, () => this.runCurrentCode());
-			await this.gotoLine(outputLine);
-			await expect(this.inlineOutput).toBeVisible({ timeout });
+			await this._revealOutput(outputLine, timeout);
 		});
 	}
 
