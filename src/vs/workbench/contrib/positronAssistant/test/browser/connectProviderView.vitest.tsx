@@ -36,6 +36,14 @@ const lmstudio: IPositronLanguageModelSource = {
 	defaults: { baseUrl: 'http://localhost:1234/v1' },
 };
 
+const custom: IPositronLanguageModelSource = {
+	type: PositronLanguageModelType.Chat,
+	provider: { id: 'openai-compatible', displayName: 'Custom Provider', settingName: 'openai-compatible' },
+	supportedOptions: ['apiKey', 'baseUrl', 'toolCalls', 'protocol', 'customModels'],
+	signedIn: false,
+	defaults: { protocol: 'openai-chat' },
+};
+
 describe('ConnectProviderView', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -148,6 +156,67 @@ describe('ConnectProviderView', () => {
 		await user.type(baseUrlInput, 'http://localhost:4321/v1');
 		await user.click(screen.getByRole('button', { name: 'Connect' }));
 		expect(onAction).toHaveBeenCalledWith(lmstudio, expect.objectContaining({ baseUrl: 'http://localhost:4321/v1' }), 'save');
+	});
+
+	it('does not render the API Type selector while it is deferred (#13817)', () => {
+		rtl.render(<ConnectProviderView source={custom} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		expect(screen.queryByText('OpenAI Chat Completions')).not.toBeInTheDocument();
+	});
+
+	it('dispatches OpenAI Chat Completions as the API type', async () => {
+		const onAction = vi.fn().mockResolvedValue(undefined);
+		const user = userEvent.setup();
+		rtl.render(<ConnectProviderView source={custom} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		await user.type(screen.getByLabelText(/api key/i), 'sk-test');
+		await user.click(screen.getByRole('button', { name: 'Connect' }));
+		expect(onAction).toHaveBeenCalledWith(custom, expect.objectContaining({ protocol: 'openai-chat' }), 'save');
+	});
+
+	it('builds schema-valid custom models from the entered ids, defaulting capabilities', async () => {
+		const onAction = vi.fn().mockResolvedValue(undefined);
+		const user = userEvent.setup();
+		rtl.render(<ConnectProviderView source={custom} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		await user.type(screen.getByLabelText(/api key/i), 'sk-test');
+		await user.type(screen.getByPlaceholderText('Model ID'), 'my-model-1');
+		await user.click(screen.getByRole('button', { name: 'Add Model' }));
+		const rows = screen.getAllByPlaceholderText('Model ID');
+		await user.type(rows[1], 'my-model-2');
+		await user.click(screen.getByRole('button', { name: 'Connect' }));
+		expect(onAction).toHaveBeenCalledWith(
+			custom,
+			expect.objectContaining({
+				customModels: [
+					{ id: 'my-model-1', name: 'my-model-1', maxContextLength: 128000, supportsTools: true, supportsImages: false, supportsToolResultImages: false, supportsWebSearch: false },
+					{ id: 'my-model-2', name: 'my-model-2', maxContextLength: 128000, supportsTools: true, supportsImages: false, supportsToolResultImages: false, supportsWebSearch: false },
+				],
+			}),
+			'save',
+		);
+	});
+
+	it('invokes onEditRawConfig from the edit-providers.json link', async () => {
+		const onEditRawConfig = vi.fn();
+		const user = userEvent.setup();
+		rtl.render(<ConnectProviderView source={custom} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} onEditRawConfig={onEditRawConfig} />);
+		await user.click(screen.getByRole('button', { name: /edit providers\.json/i }));
+		expect(onEditRawConfig).toHaveBeenCalledOnce();
+	});
+
+	it('drops a removed model row from the dispatched config', async () => {
+		const onAction = vi.fn().mockResolvedValue(undefined);
+		const user = userEvent.setup();
+		rtl.render(<ConnectProviderView source={custom} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		await user.type(screen.getByLabelText(/api key/i), 'sk-test');
+		await user.type(screen.getByPlaceholderText('Model ID'), 'keep-me');
+		await user.click(screen.getByRole('button', { name: 'Add Model' }));
+		await user.type(screen.getAllByPlaceholderText('Model ID')[1], 'drop-me');
+		await user.click(screen.getAllByRole('button', { name: 'Remove Model' })[1]);
+		await user.click(screen.getByRole('button', { name: 'Connect' }));
+		expect(onAction).toHaveBeenCalledWith(
+			custom,
+			expect.objectContaining({ customModels: [expect.objectContaining({ id: 'keep-me' })] }),
+			'save',
+		);
 	});
 
 	it('shows a spinner and "Connecting..." on the primary button while the sign-in is in flight', async () => {
