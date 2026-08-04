@@ -2296,12 +2296,16 @@ declare module 'positron' {
 	 */
 	export enum DataConnectionNodeKind {
 		Database = 'database',
+		// A catalog: the level above a schema in a three-part namespace, e.g. a Unity Catalog
+		// catalog (positron-data-driver-databricks).
+		Catalog = 'catalog',
 		Schema = 'schema',
 		Table = 'table',
 		View = 'view',
 		Field = 'field',
 		// Category containers that group sibling nodes (e.g. "Tables", "Views").
 		GroupDatabases = 'group-databases',
+		GroupCatalogs = 'group-catalogs',
 		GroupSchemas = 'group-schemas',
 		GroupTables = 'group-tables',
 		GroupViews = 'group-views',

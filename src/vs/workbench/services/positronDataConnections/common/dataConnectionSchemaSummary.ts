@@ -18,6 +18,7 @@ const DEFAULT_MAX_TOTAL_NODES = 500;
 // string literals rather than imported from the ext-host-only DataConnectionNodeKind enum.
 const CONTAINER_ONLY_KINDS = new Set([
 	'group-databases',
+	'group-catalogs',
 	'group-schemas',
 	'group-tables',
 	'group-views',
