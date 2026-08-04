@@ -29,7 +29,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('py_data_frame.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 7, outputLine: 9 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 7, outputLine: 11 });
 		await inlineQuarto.expectOutputVisible();
 
 		// Verify exactly one output item (no duplicates)
@@ -59,7 +59,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('py_data_frame.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 7, outputLine: 9 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 7, outputLine: 11 });
 		await inlineQuarto.expectOutputVisible();
 
 		// Verify inline data explorer appears
@@ -87,7 +87,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('r_data_frame.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 7, outputLine: 11 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 7, outputLine: 12 });
 		await inlineQuarto.expectOutputVisible();
 
 		// Verify inline data explorer appears
@@ -117,7 +117,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('r_data_frame.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 7, outputLine: 11 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 7, outputLine: 12 });
 		await inlineQuarto.expectOutputVisible();
 
 		// Verify inline data explorer appears with live data
@@ -137,7 +137,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 
 		// Verify output persisted - should show text fallback with actual
 		// data frame content, not the "Hello, world!" stub from text/html
-		await inlineQuarto.gotoLine(11);
+		await inlineQuarto.gotoLine(12);
 		await inlineQuarto.expectOutputVisible({ timeout: 1000 });
 		await inlineQuarto.expectOutputContainsText(/Alice|Name/i, { timeout: 15000 });
 		await inlineQuarto.expectOutputNotContainsText('Hello, world!');

@@ -31,7 +31,7 @@ test.describe('Quarto - Inline Output: Tab Switch Persistence', {
 		await inlineQuarto.expectKernelStatusVisible();
 
 		// Step 3: Run the cell and verify the inline data explorer appears
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 7, outputLine: 20 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 7, outputLine: 12 });
 		await inlineQuarto.expectOutputVisible();
 		await inlineDataExplorer.expectToBeVisible();
 		await inlineDataExplorer.expectGridToBeReady();
@@ -47,7 +47,7 @@ test.describe('Quarto - Inline Output: Tab Switch Persistence', {
 
 		// Step 6: Scroll to where the output should be and verify the data
 		// explorer is still showing (not fallen back to text)
-		await inlineQuarto.gotoLine(20);
+		await inlineQuarto.revealOutput(12);
 		await inlineQuarto.expectOutputVisible();
 		await inlineDataExplorer.expectToBeVisible();
 		await inlineDataExplorer.expectGridToBeReady();

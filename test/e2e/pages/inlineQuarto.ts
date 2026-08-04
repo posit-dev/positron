@@ -226,25 +226,35 @@ export class InlineQuarto {
 	 * shrinks the document, which makes Monaco clamp scrollTop back to the
 	 * bottom) can end up stranded off-screen with nothing left to scroll it into
 	 * view. Repeating the reveal recovers; a single long wait never can.
+	 *
+	 * Pass `outputLine` a line at or above the output -- usually the cell's
+	 * closing fence. A line past the end of the document clamps to the last line
+	 * and reveals it at maximum scroll, which is where the strand happens.
+	 *
+	 * `target` overrides what is waited for (e.g. `inlineOutput.last()` for a
+	 * document with several cells); it defaults to any inline output.
 	 */
-	private async _revealOutput(outputLine: number, timeout: number): Promise<void> {
-		await expect(async () => {
-			await this.gotoLine(outputLine);
-			await expect(this.inlineOutput).toBeVisible({ timeout: 5000 });
-		}).toPass({ timeout, intervals: [1000] });
+	async revealOutput(outputLine: number, { target, timeout = 30000 }: { target?: Locator; timeout?: number } = {}): Promise<void> {
+		await test.step(`Reveal inline output at line ${outputLine}`, async () => {
+			const output = target ?? this.inlineOutput;
+			await expect(async () => {
+				await this.gotoLine(outputLine);
+				await expect(output).toBeVisible({ timeout: 5000 });
+			}).toPass({ timeout, intervals: [1000] });
+		});
 	}
 
 	async runCellAndWaitForOutput({ cellLine, outputLine, timeout = 60000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
 		await test.step(`Run cell at line ${cellLine} and wait for output at line ${outputLine}`, async () => {
 			await this._runCellUntilStarted(cellLine, () => this.runCurrentCell());
-			await this._revealOutput(outputLine, timeout);
+			await this.revealOutput(outputLine, { timeout });
 		});
 	}
 
 	async runCodeAndWaitForOutput({ cellLine, outputLine, timeout = 60000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
 		await test.step(`Run code at line ${cellLine} and wait for output at line ${outputLine}`, async () => {
 			await this._runCellUntilStarted(cellLine, () => this.runCurrentCode());
-			await this._revealOutput(outputLine, timeout);
+			await this.revealOutput(outputLine, { timeout });
 		});
 	}
 

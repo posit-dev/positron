@@ -85,8 +85,7 @@ test.describe('Quarto - Inline Output: Static Content', {
 		await runButton.click();
 
 		// Wait for output
-		await inlineQuarto.gotoLine(35);
-		await expect(inlineQuarto.inlineOutput.last()).toBeVisible();
+		await inlineQuarto.revealOutput(29, { target: inlineQuarto.inlineOutput.last() });
 
 		// Verify output content
 		await expect(inlineQuarto.inlineOutput.last().locator('.quarto-output-content')).toBeVisible({ timeout: 10000 });
