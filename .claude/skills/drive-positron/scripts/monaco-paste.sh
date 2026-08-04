@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
-# monaco-paste.sh — insert text into the Code OSS chat input (Monaco) via
-# the currently-attached @playwright/cli connection. Synthesizes a
-# ClipboardEvent('paste') with a DataTransfer payload — no system
-# clipboard involved, so safe to use against multiple parallel Code OSS
-# instances (each subagent's @playwright/cli attaches to its own CDP).
+# Inserts text into Positron's Monaco chat input through the attached
+# @playwright/cli CDP session. It dispatches a ClipboardEvent with a DataTransfer
+# payload, avoiding the system clipboard and supporting parallel instances.
 #
-# Why this exists: VS Code Monaco's `native-edit-context` element doesn't
-# react to `@playwright/cli`'s `fill` or `type`. The pbcopy+press alternative
-# works for one instance but `pbcopy` writes the system-wide NSPasteboard,
-# so two parallel callers can stomp each other's clipboards.
+# Monaco's native-edit-context does not respond reliably to Playwright's fill or
+# type operations. Using pbcopy would work for one instance but introduces a
+# process-wide clipboard race.
 #
 # Usage:
 #   echo "the prompt text" | scripts/monaco-paste.sh
@@ -60,14 +57,13 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-# Resolve session: --session arg wins, then $PW_SESSION, then empty (cli default).
+# Session precedence: --session, then $PW_SESSION, then the CLI default.
 SESSION="${PW_SESSION_OVERRIDE:-${PW_SESSION:-}}"
 PW_ARGS=()
 [[ -n "$SESSION" ]] && PW_ARGS=("-s=$SESSION")
 
-# Text: prefer the positional arg; otherwise read all of stdin.
-# Stdin is preferred for arbitrary text because it avoids any shell
-# quoting issues with backticks, $, ", newlines, etc.
+# Prefer a positional argument; otherwise read stdin, which avoids shell-quoting
+# problems for arbitrary multiline text.
 if [[ -n "${TEXT_ARG:-}" ]]; then
 	TEXT="$TEXT_ARG"
 else
@@ -88,27 +84,20 @@ for tool in npx node jq; do
 	fi
 done
 
-# Pick the platform-appropriate "select all" modifier. macOS uses Cmd
-# (Meta), everything else uses Ctrl. Done in the host shell so it
-# applies to the `press` calls below — Monaco itself respects both
-# bindings, but @playwright/cli only sends what we ask it to.
+# Select-all uses Command on macOS and Control elsewhere.
 case "${OSTYPE:-$(uname -s)}" in
 	darwin*|Darwin*) SELECT_ALL_MOD="Meta" ;;
 	*)               SELECT_ALL_MOD="Control" ;;
 esac
 
-# Step 1 (optional): clear the focused Monaco editor by select-all + delete.
-# Done via the CLI's `press` so the keys flow through Monaco's real key
-# handler. Stays inside the CDP connection — no system clipboard.
+# Clear the editor through Monaco's keyboard handling without using a clipboard.
 if [[ "$APPEND" != "1" ]]; then
 	npx @playwright/cli ${PW_ARGS[@]+"${PW_ARGS[@]}"} press "${SELECT_ALL_MOD}+a" >/dev/null 2>&1 || true
 	npx @playwright/cli ${PW_ARGS[@]+"${PW_ARGS[@]}"} press Backspace >/dev/null 2>&1 || true
 fi
 
-# Step 2: build the eval payload via node so JSON escaping is automatic.
-# The async IIFE waits two requestAnimationFrames after dispatch — Monaco
-# updates its view-line DOM asynchronously, so a same-tick read-back
-# returns stale state. Two rAFs = full paint cycle.
+# Build the evaluation payload in Node for automatic JSON escaping. Wait for two
+# animation frames because Monaco updates its rendered lines asynchronously.
 JS=$(node -e '
 	const text = process.argv[1];
 	const verify = process.argv[2] === "1";
@@ -124,11 +113,9 @@ JS=$(node -e '
 		await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 		const editor = root.closest(".monaco-editor");
 		const viewLines = Array.from(editor.querySelectorAll(".view-line")).map(l => l.textContent);
-		// Monaco renders regular ASCII spaces as U+00A0 (NBSP) in view-lines for
-		// visual fidelity. Also, joining view-lines drops the logical newlines
-		// between them. Normalize both sides before comparing.
-		// (Note: \\u00A0 and \\r\\n are double-escaped because this string lives
-		// inside a node template literal that would otherwise resolve them.)
+		// Monaco renders ASCII spaces as non-breaking spaces, and joining rendered lines
+		// removes logical newlines. Normalize both representations before comparing.
+		// The escapes are doubled because this code is embedded in a template literal.
 		const norm = s => s.replace(/\\u00A0/g, " ").replace(/\\r?\\n/g, "");
 		const joined = norm(viewLines.join(""));
 		const actualLength = joined.length;
@@ -147,8 +134,7 @@ JS=$(node -e '
 	})()`);
 ' "$TEXT" "$VERIFY")
 
-# Step 3: run the eval. The CLI prints "### Result" then a JSON-encoded
-# string on the next line, followed by "### Ran Playwright code" noise.
+# Extract the JSON-encoded result from the CLI's diagnostic output.
 RAW=$(npx @playwright/cli ${PW_ARGS[@]+"${PW_ARGS[@]}"} eval "$JS" 2>&1) || {
 	echo "{\"ok\":false,\"error\":\"@playwright/cli eval failed\"}"
 	echo "$RAW" >&2

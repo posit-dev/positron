@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-# Start Positron Web (code-server) for browser automation and block until it is
-# actually serving, then print a single JSON line with the URL and paths.
+# Starts Positron Web for browser automation, waits for an HTTP response, and
+# prints one JSON line containing the connection details.
 #
-# Why this exists: `npm run e2e-start-server` binds the port long before it can
-# serve. On a cold checkout it first downloads electron, downloads the server
-# node binary (gulp node), and installs the built-in marketplace extensions -
-# several minutes during which curl gets a connection but no response. Polling
-# the port is therefore not a readiness check; this polls the URL.
+# `npm run e2e-start-server` returns when the port binds, before cold-start
+# downloads and extension installation finish. Polling the URL provides the
+# readiness guarantee that callers need.
 #
 # Usage:
 #   start-web.sh [--port N] [--token T] [--repo PATH] [--workspace PATH]
@@ -48,24 +46,19 @@ if [[ -z "$REPO" ]]; then
 	fi
 fi
 
-# Keep this SHORT. The server opens unix sockets underneath the user-data-dir and
-# macOS caps sun_path at 104 bytes; a long $TMPDIR path is what breaks the
-# Electron launcher the same way (see the drive-positron skill).
+# Keep this path short: the server creates Unix sockets beneath the user-data
+# directory, and macOS limits socket paths to 104 bytes.
 if [[ -z "$USER_DATA_DIR" ]]; then
 	USER_DATA_DIR="/tmp/positron-web/$(date +%Y%m%d-%H%M%S)-$$"
 fi
 mkdir -p "$USER_DATA_DIR"
 
-# Positron Web refuses to serve without a signed license token and there is no dev
-# bypass (src/vs/server/node/remoteLicenseKey.ts). Without one the server exits
-# during startup with only a log line, so check up front rather than waiting out
-# the timeout.
+# Positron Web requires a signed license. Check for an explicit key or the local
+# issuer before starting so a missing license fails immediately.
 #
-# scripts/code-server.js mints a key automatically if it finds a locally built
-# license issuer at <repo-parent>/positron-license/pdol/target/debug/pdol. That
-# path is relative to the checkout, so it resolves for ~/posit/positron but NOT
-# for a worktree one level deeper - symlink it next to the worktrees dir, the same
-# thing .devcontainer/ci-arm/post-start.sh does for CI:
+# scripts/code-server.js automatically mints a key when it finds the issuer at:
+#   <repo-parent>/positron-license/pdol/target/debug/pdol
+# For a nested worktree, symlink positron-license beside the worktrees directory.
 #   ln -s ~/posit/positron-license <worktrees-parent>/positron-license
 ISSUER="$(cd "$REPO/.." && pwd)/positron-license/pdol/target/debug/pdol"
 if [[ ! -x "$ISSUER" && -z "$LICENSE_KEY" && -z "$LICENSE_KEY_FILE" ]]; then
@@ -104,22 +97,20 @@ ARGS=(
 	--disable-workspace-trust
 	--accept-server-license-terms
 )
-# e2e-start-server.sh passes --skip-welcome, --skip-release-notes, --no-cached-data,
-# --disable-updates and --use-inmemory-secretstorage; the server logs
-# "Ignoring option ...: not supported for server" for each, so they are omitted here.
+# Omit e2e-start-server.sh flags that code-server reports as unsupported.
 if [[ -n "$LICENSE_KEY" ]]; then
 	ARGS+=(--license-key "$LICENSE_KEY")
 elif [[ -n "$LICENSE_KEY_FILE" ]]; then
 	ARGS+=(--license-key-file "$LICENSE_KEY_FILE")
 fi
 if [[ -n "$WORKSPACE" ]]; then
-	# Resolve symlinks: on macOS /tmp is a symlink to /private/tmp, and the
-	# folder is silently ignored if the path doesn't resolve.
+	# Resolve symlinks because Positron silently ignores a workspace path that does
+	# not match its canonical path, such as /tmp instead of /private/tmp on macOS.
 	ARGS+=(--default-folder "$(cd "$WORKSPACE" && pwd -P)")
 fi
 
-# ELECTRON_RUN_AS_NODE is commonly inherited from an integrated terminal and
-# breaks the launcher scripts.
+# Integrated terminals may inherit ELECTRON_RUN_AS_NODE, which breaks the
+# launcher.
 unset ELECTRON_RUN_AS_NODE
 
 nohup "$REPO/scripts/code-server.sh" "${ARGS[@]}" </dev/null >>"$LOG_FILE" 2>&1 &
@@ -134,7 +125,7 @@ for (( i = 0; i < TIMEOUT; i += 3 )); do
 		tail -n 40 "$LOG_FILE" >&2
 		exit 1
 	fi
-	# Poll the URL, not the port: the port binds minutes before it responds.
+	# Poll the URL because the port may bind before the server can respond.
 	if curl -sf -o /dev/null --max-time 2 "$URL" 2>/dev/null; then
 		READY=1
 		echo "[start-web] serving after ${i}s" >&2

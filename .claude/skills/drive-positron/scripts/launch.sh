@@ -1,33 +1,17 @@
 #!/usr/bin/env bash
-# Launch Positron from sources for UI automation.
+# Launches Positron from source in an isolated profile for UI automation.
 #
-# Forked from .agents/skills/launch/scripts/launch.sh (upstream VS Code, arrived
-# via "Merge upstream 1.124.0", 2affe251800). Maintained independently -- we do
-# not inherit upstream fixes, so diff against that path when it changes.
+# This is a maintained fork of .agents/skills/launch/scripts/launch.sh. Compare
+# it with the upstream script when that file changes; fixes are not inherited
+# automatically.
 #
-# Positron deltas vs upstream:
-#   1. RUN_DIR is under a SHORT base dir. macOS $TMPDIR is a long
-#      /var/folders/... path, which pushed the main process's IPC socket past
-#      the 103-char sun_path limit; the main process then died in
-#      claimInstance() with "listen EINVAL" AFTER CDP had come up, so upstream
-#      reported a successful launch for an app that was already gone.
-#      See ipc.net.ts's "IPC handle ... is longer than 103 chars" warning.
-#   2. Default source profile is ~/.positron-dev (Positron's dataFolderName is
-#      ".positron"), not ~/.vscode-oss-dev.
-#   3. Post-CDP liveness recheck, so a crash just after CDP opens is reported
-#      instead of being handed to the caller as success.
+# Positron-specific behavior:
+#   1. Uses a short run directory to keep macOS IPC socket paths below 104 bytes.
+#   2. Seeds the profile from $POSITRON_DEV_USER_DATA_DIR or ~/.positron-dev.
+#   3. Provides an isolated shared-data directory and unique debug ports.
+#   4. Rechecks process liveness after CDP starts, catching late startup crashes.
 #
-# Launch with:
-#   - a fresh, slimmed copy of the authenticated user-data-dir (so Copilot/GitHub auth works)
-#   - an isolated --shared-data-dir (otherwise two instances share ~/.vscode-oss-shared and crash each other)
-#   - unique debug ports for renderer (CDP), extension host, main process, and agent host
-#
-# Auth on macOS comes from the OS keychain (per-app, shared automatically) plus
-# the encrypted blob in User/globalStorage/state.vscdb (per-UDD). The slim copy
-# keeps the auth-relevant state and drops caches / workspaceStorage / logs.
-#
-# Prints a single JSON line to stdout with the chosen ports + paths so the
-# caller can pick them up programmatically. Logs go to stderr.
+# Prints connection details as JSON on stdout and diagnostics on stderr.
 #
 # Usage:
 #   launch.sh [--agents] [--source-user-data-dir <path>] [--repo <vscode-repo-root>]
@@ -41,8 +25,8 @@
 #                       slim copy is missing something you need.
 #
 # Defaults:
-#   --source-user-data-dir  $CODE_OSS_DEV_AUTHED_USER_DATA_DIR  (else ~/.vscode-oss-dev)
-#   --repo                  $PWD if it looks like a vscode checkout; otherwise pass it explicitly
+#   --source-user-data-dir  $POSITRON_DEV_USER_DATA_DIR (else ~/.positron-dev)
+#   --repo                  $PWD if it looks like a Positron checkout
 
 set -euo pipefail
 umask 077
@@ -95,18 +79,14 @@ MAIN_PORT=$(pick_port)
 AGENTHOST_PORT=$(pick_port)
 
 STAMP=$(date +%Y%m%d-%H%M%S)-$$
-# Deliberately NOT $TMPDIR: see "Positron deltas" note 1 at the top of this file.
-# The socket path is $RUN_DIR/user-data/<version>-main.sock and must stay under
-# 104 bytes, so the base has to be short. Override with POSITRON_LAUNCH_TMP if
-# /tmp is unavailable, but keep it short.
+# Keep the run directory short enough for the main-process Unix socket.
 RUN_DIR="${POSITRON_LAUNCH_TMP:-/tmp}/positron-dev-launch/$STAMP"
 DEST_UDD="$RUN_DIR/user-data"
 SHARED_DATA_DIR="$RUN_DIR/shared-data"
 mkdir -p "$DEST_UDD" "$SHARED_DATA_DIR"
 
-# Excludes (deny-list, so future VS Code additions copy through by default).
-# Anchored excludes (starting with /) match only at the top level so we don't
-# accidentally strip files inside subdirs that share a name.
+# Use a deny-list so newly introduced profile data is copied by default.
+# Leading-slash patterns match only at the profile root.
 EXCLUDES=(
 	'/extensions'                                       # handled separately below
 	'/workspaceStorage' 'User/workspaceStorage'         # per-workspace state, incl. chat sessions
@@ -131,10 +111,7 @@ else
 	rsync "${RSYNC_ARGS[@]}" "$SOURCE_UDD/" "$DEST_UDD/"
 fi
 
-# Extensions:
-#   --full              -> already copied above
-#   --clone-extensions  -> copy into the new profile (~10s)
-#   default             -> fresh empty dir
+# Prepare extensions according to the selected profile-copy mode.
 EXT_DIR="$DEST_UDD/extensions"
 mkdir -p "$EXT_DIR"
 if [[ "$FULL" != "1" && "$CLONE_EXTENSIONS" == "1" ]]; then
@@ -142,19 +119,12 @@ if [[ "$FULL" != "1" && "$CLONE_EXTENSIONS" == "1" ]]; then
 	rsync -a "$SOURCE_UDD/extensions/" "$EXT_DIR/"
 fi
 
-# Force the simple (quick-input) file dialog so automation can drive
-# "Open Folder" / workspace pickers. The native OS file dialog cannot be
-# controlled by @playwright/cli over CDP (and is completely unreachable
-# over SSH on headless macOS). The setting overlay is per-launch and
-# always applied because every launched instance under this skill is
-# a throwaway used for automation.
+# Force the quick-input file dialog because CDP cannot control native dialogs.
+# This modifies only the disposable profile.
 SETTINGS_FILE="$DEST_UDD/User/settings.json"
 mkdir -p "$(dirname "$SETTINGS_FILE")"
-# Data-preserving text-based merge: insert/update `files.simpleDialog.enable`
-# without reparsing the whole file. Avoids dropping user comments and
-# string values containing `//` (e.g. URLs). Fails loudly if the file
-# exists but has no recognizable JSON object shape — never silently
-# overwrites with `{}`.
+# Update files.simpleDialog.enable without parsing and rewriting the entire JSONC
+# document, preserving comments and strings that contain `//`.
 if ! node - "$SETTINGS_FILE" <<'NODE'
 const fs = require('fs');
 const f = process.argv[2];
@@ -167,14 +137,13 @@ catch (e) {
 	else { console.error('[launch.sh] cannot read ' + f + ': ' + e.message); process.exit(1); }
 }
 
-// Empty file → write a fresh object.
+// Write a new object when the file is empty.
 if (text.trim() === '') {
 	fs.writeFileSync(f, '{\n  "' + KEY + '": true\n}\n');
 	process.exit(0);
 }
 
-// Key already present (with any value) → update its value to `true`
-// via a targeted regex on the value slot only.
+// Update only the existing key's value.
 const keyValueRe = new RegExp('("' + KEY.replace(/\./g, '\\.') + '"\\s*:\\s*)(true|false|null|"[^"\\n]*"|-?\\d+(?:\\.\\d+)?)', 'g');
 if (keyValueRe.test(text)) {
 	const updated = text.replace(keyValueRe, '$1true');
@@ -182,18 +151,15 @@ if (keyValueRe.test(text)) {
 	process.exit(0);
 }
 
-// Otherwise: find the LAST `}` and insert the new key before it.
-// We deliberately don't parse JSONC — this preserves comments and
-// any other content the source profile had.
+// Otherwise, insert the key before the final closing brace. Avoid parsing JSONC
+// so comments and formatting remain intact.
 const lastBrace = text.lastIndexOf('}');
 if (lastBrace === -1) {
 	console.error('[launch.sh] settings.json has no closing brace — refusing to clobber it: ' + f);
 	process.exit(1);
 }
 
-// Decide whether to add a leading comma. If the only thing between the
-// first `{` and the last `}` is whitespace and comments, the object is
-// empty for our purposes and no comma is needed.
+// Add a comma only when the object already contains non-comment content.
 const firstBrace = text.indexOf('{');
 if (firstBrace === -1 || firstBrace >= lastBrace) {
 	console.error('[launch.sh] settings.json has no opening brace — refusing to clobber it: ' + f);
@@ -215,8 +181,7 @@ then
 fi
 echo "[launch.sh] ensured files.simpleDialog.enable=true in $SETTINGS_FILE" >&2
 
-# Strip ELECTRON_RUN_AS_NODE, commonly inherited from VS Code's integrated
-# terminal / agent runtimes; it breaks ./scripts/code.sh.
+# Integrated terminals may inherit ELECTRON_RUN_AS_NODE, which breaks code.sh.
 unset ELECTRON_RUN_AS_NODE
 
 CODE_SH="$REPO/scripts/code.sh"
@@ -245,8 +210,8 @@ LOG_FILE="$RUN_DIR/code.log"
 echo "[launch.sh] launching: $CODE_SH ${ARGS[*]}" >&2
 echo "[launch.sh] logs: $LOG_FILE" >&2
 
-# Run pre-launch (electron download, compile-if-missing, built-in extensions) in the
-# foreground so any errors surface synchronously. Then skip code.sh's own pre-launch.
+# Run pre-launch synchronously so download or compilation errors are visible
+# before code.sh starts.
 echo "[launch.sh] running pre-launch (ensures electron + compiled output + built-ins)..." >&2
 if ! ( cd "$REPO" && node build/lib/preLaunch.ts ) >>"$LOG_FILE" 2>&1; then
 	echo "[launch.sh] pre-launch FAILED. Log tail:" >&2
@@ -254,19 +219,14 @@ if ! ( cd "$REPO" && node build/lib/preLaunch.ts ) >>"$LOG_FILE" 2>&1; then
 	exit 1
 fi
 
-# Launch code.sh in the background. Detaching with `nohup ... & disown` is
-# sufficient: by the time we return below, CDP is up and Electron is fully
-# forked into its own process tree, so it's robust to its launching shell
-# going away. (Earlier failures came from returning while Electron was still
-# mid-bootstrap, not from process-group concerns.)
+# Detach code.sh after pre-launch. Once CDP responds, Electron has established
+# its independent process tree.
 nohup env VSCODE_SKIP_PRELAUNCH=1 "$CODE_SH" "${ARGS[@]}" \
 	</dev/null >>"$LOG_FILE" 2>&1 &
 PID=$!
 disown $PID 2>/dev/null || true
 
-# Block until the renderer's CDP endpoint is responding so the caller can attach
-# immediately. If code.sh dies or we time out, dump the log so the failure is
-# visible.
+# Wait until CDP responds, reporting an early exit or timeout with the log tail.
 echo "[launch.sh] waiting for CDP on port $CDP_PORT (timeout 90s)..." >&2
 READY=0
 for i in $(seq 1 90); do
@@ -288,9 +248,8 @@ if [[ "$READY" != "1" ]]; then
 	exit 1
 fi
 
-# Positron delta 3: the loop above only guards the window BEFORE CDP opens. The
-# socket-path failure killed the app a beat AFTER "DevTools listening", so give
-# the main process a moment to fall over and recheck before declaring success.
+# CDP can become available immediately before a main-process socket failure.
+# Recheck liveness after a short delay before reporting success.
 sleep 2
 if ! kill -0 "$PID" 2>/dev/null; then
 	echo "[launch.sh] app exited immediately after CDP came up. Log tail:" >&2

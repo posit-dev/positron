@@ -1,165 +1,173 @@
 ---
 name: drive-positron-web
-description: "Run Positron as a web server (code-server) and drive it in a browser - screenshots, DOM, console, network. Requires a Posit-internal license key. Use when you specifically need the web build (web-only bugs, browser-only behavior, or the browser tooling); for ordinary UI verification prefer the drive-positron skill, which drives the real Electron app and needs no license."
+description: "Start Positron Web from source and control it with browser automation or @playwright/cli. Use for web-only bugs, browser-specific behavior, accessibility-tree inspection, console or network diagnostics, and changes that specifically require the web workbench. Requires access to the Posit-internal license issuer or an explicit signed license key. Prefer drive-positron for ordinary desktop UI verification."
 ---
 
-# Positron Web for browser automation
+# Drive Positron Web
 
-Serves the workbench over HTTP so a browser automation tool can drive it -
-screenshots, accessibility tree, console, network.
+Use this skill only when the web build is relevant to the behavior under test. For ordinary UI verification, use `.claude/skills/drive-positron`: it exercises the Electron application, starts without a web license, and covers native desktop layers.
 
-## Read this first: the license issuer must be a sibling of the checkout
+Positron Web cannot validate:
 
-**Positron Web will not serve without a signed license token**, and there is no
-dev bypass (`src/vs/server/node/remoteLicenseKey.ts` has no `isDev`/`NODE_ENV`
-escape). It exits during startup with only a log line.
+- native file dialogs;
+- unrestricted clipboard behavior;
+- code in the `electron-sandbox` layer.
 
-For local development you don't supply a key by hand: `scripts/code-server.js`
-**mints one** if it finds a locally built license issuer at
+The web file-dialog service falls back to quick input, which can expose a suggested filename but cannot exercise the native dialog.
 
-```
+## Satisfy the license requirement
+
+Positron Web requires a signed license token. There is no development bypass.
+
+For local development, `scripts/code-server.js` automatically mints a license when it finds a built issuer at:
+
+```text
 <repo-parent>/positron-license/pdol/target/debug/pdol
 ```
 
-That path is relative to the checkout, so it resolves for `~/posit/positron` but
-**not** for a worktree one level deeper (`~/posit/positron.worktrees/<branch>`
-looks in `~/posit/positron.worktrees/positron-license`). Symlink it - the same
-thing `.devcontainer/ci-arm/post-start.sh` does for CI:
+Place `positron-license` beside the Positron checkout. For example:
+
+```text
+~/posit/positron
+~/posit/positron-license
+```
+
+A nested worktree changes the expected parent. If the worktree is under
+`~/posit/positron.worktrees/`, expose the issuer there:
 
 ```bash
-ln -s ~/posit/positron-license ~/posit/positron.worktrees/positron-license
+ln -s ~/posit/positron-license \
+	~/posit/positron.worktrees/positron-license
 ```
 
-With that in place the server serves in **~6 seconds**, not minutes. If you have
-no issuer checkout, pass a key explicitly instead (`--license-key`,
-`--license-key-file`, `POSITRON_LICENSE_KEY`, `POSITRON_LICENSE_KEY_FILE`); CI
-uses the `POSITRON_LICENSE` secret. `start-web.sh` checks for issuer-or-key up
-front and exits 2 with this explanation rather than burning the timeout.
+Alternatively, supply a license through one of:
 
-`positron-license` is Posit-internal, so external contributors cannot use this
-skill at all.
+- `--license-key`
+- `--license-key-file`
+- `POSITRON_LICENSE_KEY`
+- `POSITRON_LICENSE_KEY_FILE`
 
-## Prefer the Electron skill
+The launcher checks for an issuer or explicit key before starting. This skill is unavailable to external contributors who do not have the internal issuer or a signed key.
 
-For most UI verification, `.claude/skills/drive-positron` is the better tool: it
-drives the real desktop app over CDP, needs no license, and starts in seconds.
-Reach for web only when the web build is the point. Web also tells you less:
+## Start the server
 
-- **No native dialogs.** `IFileDialogService.showSaveDialog` falls back to the
-  quick-input picker, so you can read a proposed filename but not exercise the
-  real dialog.
-- **Restricted clipboard**, so "Copy Image"-style flows are weak.
-- Nothing in the `electron-sandbox` layer is exercised.
-
-## Start it
+Run:
 
 ```bash
-.claude/skills/drive-positron-web/scripts/start-web.sh --workspace /tmp/myworkspace
+.claude/skills/drive-positron-web/scripts/start-web.sh \
+	--workspace /tmp/myworkspace
 ```
 
-Blocks until the server actually responds, then prints one JSON line with `url`,
-`port`, `token`, `pid`, `userDataDir` and `logFile`.
+Wait for one JSON object containing:
 
-**Poll the URL, not the port.** `npm run e2e-start-server` (and `preview_start`)
-return as soon as the port binds, which can be well before the server responds -
-a cold checkout first downloads electron, downloads the server node binary via
-`gulp node`, and installs the built-in marketplace extensions. That is why this
-script exists. Note that an *unlicensed* server also binds the port and then
-exits, which looks identical to "still starting" if you only poll the port.
+- `url`
+- `port`
+- `token`
+- `pid`
+- `userDataDir`
+- `logFile`
 
-Expect two extension activation errors in the notifications -
-`positron.authentication` failing with `Cannot find module 'ai-config'`, and
-`Next Edit Suggestions` failing because it depends on it. That's the known stale
-`node_modules` issue, not web-specific; ignore it.
+Use the reported values rather than assuming the defaults.
 
-Two things that are *not* problems, both checked:
+The script waits for an HTTP response. Do not replace this with a port check: code-server binds its port before cold-start downloads and built-in extension installation finish, and an unlicensed server may also bind before exiting.
 
-- **No `compile-web` step is needed.** The transpile daemon already produces
-  `out/vs/code/browser/workbench/workbench.js`.
-- Several flags in `scripts/e2e-start-server.sh` (`--skip-welcome`,
-  `--skip-release-notes`, `--no-cached-data`, `--disable-updates`,
-  `--use-inmemory-secretstorage`) are logged as
-  `Ignoring option ...: not supported for server`. They're omitted here.
+The script also:
 
-Use `--default-folder` for the workspace (plain `--folder` is deprecated), and
-pass a symlink-resolved path - the script does this, since `/tmp` is a symlink to
-`/private/tmp` on macOS and an unresolved path is silently ignored.
+- passes the workspace with `--default-folder`;
+- resolves symlinks in the workspace path;
+- keeps the user-data directory short enough for macOS Unix sockets;
+- omits command-line flags that code-server reports as unsupported.
 
-The user-data-dir defaults under `/tmp` deliberately: the server opens unix
-sockets beneath it and macOS caps `sun_path` at 104 bytes.
+Do not add a separate `compile-web` step when the normal transpile process has already produced `out/vs/code/browser/workbench/workbench.js`.
 
-## Drive it
+The following activation errors can result from stale dependencies and are not inherently web-specific:
 
-Which tooling you have depends on where you're running. The browser pane is
-**desktop-only** - in the terminal CLI, `preview_start`, `navigate`, `computer`
-and `read_page` don't exist. Check which tools you actually have and pick the
-matching path.
+- `positron.authentication`: `Cannot find module 'ai-config'`
+- `Next Edit Suggestions`, which depends on that extension
 
-### Claude Code desktop app (browser pane)
+Confirm that these match the known dependency condition before ignoring them.
 
-Verified working end to end: serve -> navigate -> screenshot -> read the
-accessibility tree -> click -> confirm the result.
+## Select the control method
 
+Use the browser pane when the current desktop environment exposes its browser-automation tools. Use `@playwright/cli` from a terminal when those tools are unavailable.
+
+### Browser pane
+
+Start the server first so readiness is reliable. Then attach with the `positron-web-attach` entry from the included `launch.json` template.
+
+Copy the template to the primary working directory:
+
+```text
+<primary-cwd>/.claude/launch.json
 ```
+
+Replace `REPO_PATH` with the absolute checkout path.
+
+The browser launcher resolves `.claude/launch.json` from the primary working directory, not from a nested worktree. Its format has no `cwd` field, so the template uses `bash -c` to change directories.
+
+A localhost launch URL must contain only the origin. Supply the token with a subsequent navigation:
+
+```text
 preview_start({ url: "http://localhost:8080" })
-navigate to http://localhost:8080/?tkn=dev-token      # token must come from navigate
+navigate to http://localhost:8080/?tkn=dev-token
 computer screenshot
-read_page (filter: interactive)                       # then read_page ref_id=<tree> for children
+read_page (filter: interactive)
 computer left_click ref=<treeitem>
-javascript_tool '(() => document.title)()'            # DOM checks
+javascript_tool '(() => document.title)()'
 ```
 
-Two gotchas found in practice:
+Use the token reported by `start-web.sh`.
 
-- `find` reports "no read_page tree cached" even right after a `read_page`.
-  Use `read_page` with `ref_id` to drill into a subtree, or `javascript_tool`
-  for DOM queries, instead of relying on `find`.
-- Explorer tree items expose the useful `aria-label` on the **treeitem**, not on
-  the `link` inside it - click the treeitem ref.
+When inspecting the page:
 
-`launch.json` here is a **template**, not read from this directory - copy it to
-`<primary-cwd>/.claude/launch.json` and replace `REPO_PATH`. Notes:
+- Use `read_page` with `ref_id` to inspect a subtree if `find` reports that no cached tree exists.
+- Click the Explorer's `treeitem` reference rather than its nested link; the useful accessible label belongs to the tree item.
+- Use JavaScript evaluation for DOM assertions that the accessibility tree cannot express.
 
-- `preview_start` resolves `.claude/launch.json` from the **primary working
-  directory**, not a worktree. Put an absolute repo path in `runtimeArgs`.
-- The format has no `cwd` field, hence `bash -c "cd REPO_PATH && ..."`.
-- A localhost `url` must be bare origin - no path or query - so the `?tkn=` has
-  to come from a follow-up `navigate`.
-- The `positron-web-attach` entry has a `url` and no command: it attaches to a
-  server you already started with `start-web.sh`, which is the combination worth
-  using (script for readiness, launch.json for the browser pane).
+### Terminal CLI
 
-### Terminal CLI (no browser pane)
-
-Use `@playwright/cli` - the same tool the `drive-positron` skill uses, pointed at
-a URL rather than a CDP endpoint. Same `-s=<name>` session rule applies.
+Open the reported URL with a literal session name and reuse it for every command:
 
 ```bash
-npx @playwright/cli -s=posweb open "http://localhost:8080/?tkn=dev-token"
+npx @playwright/cli -s=posweb open "$URL"
 npx @playwright/cli -s=posweb snapshot
 npx @playwright/cli -s=posweb click e153
-npx @playwright/cli -s=posweb screenshot --filename="$PWD/shots/01.png"
-npx @playwright/cli -s=posweb console      # replaces read_console_messages
-npx @playwright/cli -s=posweb network      # replaces read_network_requests
-npx @playwright/cli -s=posweb eval '(() => document.title)()'
+npx @playwright/cli -s=posweb \
+	screenshot --filename="$PWD/shots/01.png"
+npx @playwright/cli -s=posweb console
+npx @playwright/cli -s=posweb network
+npx @playwright/cli -s=posweb \
+	eval '(() => document.title)()'
 ```
 
-One setup cost the Electron skill doesn't have: `attach --cdp=...` reuses the app
-that's already running, but `open` needs a browser of its own. Bare `open` uses
-channel `chrome`, i.e. **real Google Chrome** - install it once
-(`brew install --cask google-chrome`) and every project works flag-free from then
-on.
+Unlike CDP attachment to Electron, `open` requires a browser executable. The default `chrome` channel uses an installed Google Chrome:
 
-Don't reach for `--browser chromium` instead. The repo's e2e chromium under
-`~/Library/Caches/ms-playwright` is **not** reused: the CLI bundles its own
-playwright-core pinned to a specific revision (v1219 at the time of writing, vs
-the 1194/1208/1217 in the cache), so `chromium`, `firefox` and `webkit` each ask
-for a fresh `install-browser` download and ask again whenever that pin moves.
-Real Chrome sidesteps the whole revision treadmill.
+```bash
+brew install --cask google-chrome
+```
+
+Prefer the installed Chrome channel unless the scenario specifically requires a Playwright-managed browser. Managed Chromium, Firefox, and WebKit builds are tied to the CLI's Playwright revision and may require additional downloads after CLI upgrades.
 
 ## Clean up
 
+Stop the server using the PID reported by `start-web.sh`:
+
 ```bash
-kill "$PID"                 # from the JSON
-rm -rf "$USER_DATA_DIR"
+kill "$PID"
 ```
+
+Before removing the user-data directory, verify that it is the exact generated path reported as `userDataDir`:
+
+```bash
+case "${USER_DATA_DIR:-}" in
+	/tmp/positron-web/*|/private/tmp/positron-web/*)
+		rm -rf -- "${USER_DATA_DIR:?}"
+		;;
+	*)
+		echo "Refusing to remove unexpected user-data directory: ${USER_DATA_DIR:-<empty>}" >&2
+		exit 1
+		;;
+esac
+```
+
+Inspect `logFile` if the server fails to become ready or exits before cleanup.
