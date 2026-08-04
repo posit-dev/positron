@@ -16,21 +16,41 @@ runs:
       env:
         PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
       run: |
+        # Read these ranges out of the root package.json while it's still here,
+        # so this action can't drift from it. Hardcoded copies did drift: this
+        # step pinned @playwright/test ^1.53.1 long after the root moved to
+        # ^1.62.1, and the sharding reporter's preprocess hook needs >= 1.62.
+        ROOT_DEPS=$(node -e '
+          const pkg = require("./package.json");
+          const ranges = { ...pkg.dependencies, ...pkg.devDependencies };
+          const names = [
+            "@playwright/test",
+            "@midleman/playwright-reporter",
+            "@midleman/github-actions-reporter",
+            "@vscode/v8-heap-parser",
+          ];
+          const missing = names.filter((n) => !ranges[n]);
+          if (missing.length) {
+            console.error("not declared in the root package.json: " + missing.join(", "));
+            process.exit(1);
+          }
+          console.log(names.map((n) => n + "@" + ranges[n]).join(" "));
+        ')
+
         # Must remove root package.json and provide simple stub to use root dir for test run but not build
         rm package.json
         echo '{"scripts":{"compile":"npx tsc"}}' > package.json
 
-        # Install TypeScript locally
+        # Not inherited from the root on purpose: the root pins a TypeScript dev
+        # build for the product build, and this step only compiles test/e2e.
         npm install typescript
 
-        # Install required dependencies - must keep in sync with root package.json
-        npm install @playwright/test@^1.53.1
+        npm install $ROOT_DEPS
         npx playwright install
         npx playwright install-deps
+
+        # Declared nowhere else, so there is no version to inherit.
         npm install @currents/playwright@^1.14.1
-        npm install @midleman/playwright-reporter@latest
-        npm install @midleman/github-actions-reporter@^1.9.5
-        npm install @vscode/v8-heap-parser@^0.1.0
         npm install fs-extra
         npm install axe-core
 
