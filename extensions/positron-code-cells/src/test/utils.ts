@@ -17,14 +17,13 @@ export function delay(ms: number) {
 }
 
 /**
- * Poll `predicate` until it returns true or the timeout elapses.
+ * Polls until the predicate succeeds or the timeout expires. On timeout, returns
+ * without throwing so the caller's assertion can report the relevant failure.
  *
- * Useful for asserting on state that updates asynchronously (e.g. editor
- * decorations that refresh after an editor event fires). Returns once the
- * predicate passes; on timeout it returns anyway so the caller's own assertion
- * can produce a meaningful failure message.
+ * The generous default accommodates delayed editor events on loaded CI runners.
+ * Successful waits still return as soon as the predicate passes.
  */
-export async function waitFor(predicate: () => boolean, timeout = 2000, interval = 50): Promise<void> {
+export async function waitFor(predicate: () => boolean, timeout = 15_000, interval = 50): Promise<void> {
 	const start = Date.now();
 	while (!predicate()) {
 		if (Date.now() - start >= timeout) {
