@@ -2081,9 +2081,9 @@ export class CopyOutputAction extends NotebookAction2 {
 registerAction2(CopyOutputAction);
 
 /**
- * Resolve the image output a cell output action should operate on: the data
- * URL forwarded from a context menu on a specific image, falling back to the
- * active cell's first image output (e.g. when run from the floating action bar).
+ * Resolves the image targeted by an output action. A context-menu invocation
+ * supplies a specific image; action-bar invocations use the active cell's first
+ * image output.
  */
 function getTargetedImageOutput(notebook: IPositronNotebookInstance, args: unknown[]): { dataUrl: string; name: string; code: string } | undefined {
 	const state = notebook.selectionStateMachine.state.get();
@@ -2094,21 +2094,20 @@ function getTargetedImageOutput(notebook: IPositronNotebookInstance, args: unkno
 
 	const imageOutputs = cell.outputs.get().filter(o => o.parsed.type === 'image');
 
-	// Only disambiguate by image when the cell holds more than one, so a cell with a
-	// single plot keeps the plain "<notebook>_cell<n>" name.
+	// Add an image suffix only when the cell contains multiple image outputs.
 	const nameFor = (imageIndex: number) => getImageOutputName(
 		notebook.uri, cell.index, imageOutputs.length > 1 ? imageIndex : undefined);
 
 	const code = cell.getContent();
 
-	// Look for a CopyImageMenuArg forwarded from the context menu
+	// Prefer the image selected through the context menu.
 	const menuArg = args.find(isCopyImageMenuArg);
 	if (menuArg) {
 		const imageIndex = imageOutputs.findIndex(o => o.outputId === menuArg.outputId);
 		return { dataUrl: menuArg.imageDataUrl, name: nameFor(imageIndex === -1 ? 0 : imageIndex), code };
 	}
 
-	// Fall back to the first image output (e.g. from the floating action bar)
+	// Otherwise use the active cell's first image output.
 	const imageOutput = imageOutputs[0];
 	if (imageOutput?.parsed.type === 'image') {
 		return { dataUrl: imageOutput.parsed.dataUrl, name: nameFor(0), code };
@@ -2166,7 +2165,7 @@ class CopyOutputImageAction extends NotebookAction2 {
 }
 registerAction2(CopyOutputImageAction);
 
-// Save output image to a file (shares saveImageOutput with Quarto inline output)
+// Save an image output to a file.
 class SaveOutputImageAction extends NotebookAction2 {
 	constructor() {
 		super({
@@ -2180,9 +2179,8 @@ class SaveOutputImageAction extends NotebookAction2 {
 					group: PositronNotebookCellOutputActionGroup.Export,
 					order: 1,
 					when: ContextKeyExpr.and(
-						// Show the static "Save Image As..." action only when there is exactly
-						// one image output. For multiple images, users can right-click
-						// individual images to save them.
+						// Show the action-bar item only for a single image. Individual images in a
+						// multi-image cell remain available through their context menus.
 						ContextKeyExpr.equals(CellContextKeys.imageOutputCount.key, 1),
 						CellContextKeys.outputIsCollapsed.toNegated()
 					)
@@ -2216,7 +2214,7 @@ class SaveOutputImageAction extends NotebookAction2 {
 }
 registerAction2(SaveOutputImageAction);
 
-// Open output image in a new editor tab (shares openImageOutputInNewTab with Quarto inline output)
+// Open an image output in a plot editor tab.
 class OpenOutputInNewTabAction extends NotebookAction2 {
 	constructor() {
 		super({
@@ -2230,9 +2228,8 @@ class OpenOutputInNewTabAction extends NotebookAction2 {
 					group: PositronNotebookCellOutputActionGroup.Export,
 					order: 2,
 					when: ContextKeyExpr.and(
-						// Show the static action only when there is exactly one image
-						// output. For multiple images, users can right-click individual
-						// images to open them.
+						// Show the action-bar item only for a single image. Individual images in a
+						// multi-image cell remain available through their context menus.
 						ContextKeyExpr.equals(CellContextKeys.imageOutputCount.key, 1),
 						CellContextKeys.outputIsCollapsed.toNegated()
 					)

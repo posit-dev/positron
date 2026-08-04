@@ -1416,7 +1416,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	private savePlotAs = (options: SavePlotOptions) => {
 		const htmlFileSystemProvider = this._fileService.getProvider(options.path.scheme) as HTMLFileSystemProvider;
-		// Decodes base64 and URL-encoded (SVG) data URLs alike.
+		// Decode both base64 and URL-encoded image data.
 		const decoded = decodeImageDataUrl(options.uri);
 
 		if (!decoded) {
@@ -1436,7 +1436,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			return;
 		}
 
-		// Strip the leading dot; 'image/svg+xml' has to map to 'svg', not 'svg+xml'.
+		// Derive the extension from the MIME type; image/svg+xml maps to .svg.
 		const extension = getImageExtensionForMimeType(parsed.mimeType).substring(1);
 
 		this._fileDialogService.defaultFilePath().then(defaultPath => {
@@ -1468,7 +1468,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 		if (plotUri) {
 			try {
-				// writeImage only accepts base64; SVG plot URIs are URL-encoded.
+				// writeImage requires base64, while SVG plot URIs are URL-encoded.
 				await this._clipboardService.writeImage(toBase64ImageDataUrl(plotUri));
 			} catch (error) {
 				throw new Error(error.message);
@@ -1648,12 +1648,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	public async openImageInEditor(dataUrl: string, options?: IOpenImageInEditorOptions): Promise<void> {
 		const { name, scope, code, groupType } = options ?? {};
 
-		// Identify the plot by its content, label and scope rather than by the cell it
-		// came from, so that popping the same output out twice resolves to the tab that
-		// is already open while re-running a cell to get a different image opens a new
-		// one. Keying on the cell alone would alias the two: the editor does not
-		// re-resolve an input it already has open, so the tab would go on rendering the
-		// previous image.
+		// Use content, label, and source scope as the tab identity. Reopening an
+		// unchanged output reuses its tab; changed output receives a new one.
 		const plotId = getImageContentId(dataUrl, `${scope ?? ''}\n${name ?? ''}`);
 		const existing = this._editorPlots.get(plotId);
 
@@ -1676,7 +1672,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}, groupType ?? ACTIVE_GROUP);
 
 		if (!editorPane) {
-			// Only tear down a client this call created; a tab already open keeps its own.
+			// Existing tabs own their clients; dispose only a client created by this call.
 			if (!existing) {
 				this.removeEditorPlot(plotId);
 			}

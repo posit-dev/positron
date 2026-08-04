@@ -18,8 +18,8 @@ export interface IStaticPlotFromDataUrlOptions {
 	name?: string;
 
 	/**
-	 * The plot's id. Supply a stable one to have repeat calls resolve to the same
-	 * editor tab; defaults to a fresh id, giving each call its own tab.
+	 * Stable plot ID used for editor-tab reuse. When omitted, each call receives a
+	 * new ID and therefore a new tab.
 	 */
 	id?: string;
 
@@ -47,12 +47,9 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient,
 	}
 
 	/**
-	 * Create a static plot client from an already-rendered image data URL, such
-	 * as a notebook cell output or a Quarto inline output.
-	 *
-	 * The plot is not associated with a runtime session, so it carries an empty
-	 * `session_id` and cannot be re-rendered at a different size.
-	 * @returns The plot client, or undefined if the data URL is malformed.
+	 * Creates a non-resizable static plot client from an image data URL. The client
+	 * has no runtime session.
+	 * @returns The client, or `undefined` for a malformed data URL.
 	 */
 	static fromDataUrl(storageService: IStorageService, dataUrl: string, options?: IStaticPlotFromDataUrlOptions): StaticPlotClient | undefined {
 		const parsed = parseImageDataUrl(dataUrl);
@@ -67,11 +64,8 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient,
 			session_id: '',
 			code: code ?? '',
 			name,
-			// Seed "Save Plot" with the caller's name (e.g. "notebook_cell1") so
-			// that saving from a popped-out tab suggests the same filename as
-			// saving the output directly. Only fall back to the generic plot-N
-			// generator when unnamed: it also bumps a stored plot counter, which
-			// would otherwise advance on every popout.
+			// Reuse the output name for Save Plot. Generate a numbered name only when the
+			// caller supplied none, avoiding unnecessary increments of the plot counter.
 			suggested_file_name: name ?? createSuggestedFileNameForPlot(storageService),
 			zoom_level: ZoomLevel.Fit,
 		};

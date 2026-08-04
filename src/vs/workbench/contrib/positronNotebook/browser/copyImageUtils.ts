@@ -17,8 +17,8 @@ export interface CopyImageMenuArg {
 	imageDataUrl: string;
 
 	/**
-	 * Id of the output the image belongs to, used to tell a cell's image outputs
-	 * apart. Absent if the click didn't land on an image carrying the id.
+	 * ID of the containing output, used to distinguish multiple image outputs in
+	 * one cell. Undefined when the clicked image has no output ID.
 	 */
 	outputId?: string;
 }

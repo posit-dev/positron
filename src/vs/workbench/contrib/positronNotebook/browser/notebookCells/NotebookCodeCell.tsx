@@ -158,8 +158,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 		const imageDataUrl = src?.startsWith('data:') ? src : undefined;
 
 		const targetElement = isHTMLElement(event.target) ? event.target : undefined;
-		// Which image output was clicked, so actions can name it apart from its
-		// siblings when the cell holds more than one image.
+		// Identify the clicked output so image actions can distinguish siblings.
 		const imageOutputId = targetElement?.dataset.positronImageOutputId;
 		const jsonOutputElement = targetElement?.closest<HTMLElement>('[data-positron-json-output-id]');
 		const jsonOutputId = jsonOutputElement?.dataset.positronJsonOutputId;
@@ -345,8 +344,7 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 				{localize('cellExecutionKeyboardInterrupt', 'Cell execution stopped due to keyboard interrupt.')}
 			</div>;
 		case 'image':
-			// The output id lets a context menu on this image tell which of a cell's
-			// image outputs was clicked.
+			// Expose the output ID to image-specific context-menu actions.
 			return <img alt='output image' data-positron-image-output-id={output.outputId} height={parsed.height} src={parsed.dataUrl} width={parsed.width} />;
 		case 'html':
 			// Full HTML documents go in a shadow root; renderHtml only handles fragments.

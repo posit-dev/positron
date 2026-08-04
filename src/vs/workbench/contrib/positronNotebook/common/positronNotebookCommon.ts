@@ -45,7 +45,7 @@ export enum PositronNotebookCellActionBarLeftGroup {
 // Group IDs for output actions menu
 export enum PositronNotebookCellOutputActionGroup {
 	Copy = '0_copy',
-	// Sorts after Copy: menu groups are ordered lexicographically ('0_copy' < '0_export')
+	// Export follows Copy because action groups are sorted lexicographically.
 	Export = '0_export',
 	Visibility = '1_visibility',
 	Destructive = '2_destructive',

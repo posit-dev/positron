@@ -8,9 +8,7 @@
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { isCopyImageMenuArg } from '../../browser/copyImageUtils.js';
 
-// The base64 normalization these tests used to cover now lives in
-// services/positronPlots/common/imageDataUrl.ts as toBase64ImageDataUrl,
-// shared with the plots service; see imageDataUrl.vitest.ts.
+// Base64 normalization is tested with the shared image-data-URL helpers.
 describe('copyImageUtils', () => {
 	createTestContainer().build();
 

@@ -1408,9 +1408,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	/**
-	 * Open a plot image in a new editor tab.
-	 * Backed by the image data itself, so nothing is written to the project
-	 * directory. See https://github.com/posit-dev/positron/issues/15275.
+	 * Opens a plot image in a data-backed editor tab without creating a project
+	 * file.
 	 */
 	private async _openPlotInEditor(dataUrl: string, cellId: string): Promise<void> {
 		if (!this._documentUri) {
@@ -1429,15 +1428,14 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	/**
-	 * Zero-based index of a cell, parsed from its id.
-	 * Cell ids have the form `index-hashPrefix-label`, or `index-hashPrefix`.
+	 * Returns the zero-based cell index encoded at the start of the cell ID.
 	 */
 	private _getCellIndex(cellId: string): number {
 		const index = parseInt(cellId.split('-')[0], 10);
 		return Number.isNaN(index) ? 0 : index;
 	}
 
-	/** The code of a cell, if the cell is still in the document. */
+	/** Returns the cell's current code, when the cell still exists. */
 	private _getCellCode(cellId: string): string | undefined {
 		const model = this._editor.getModel();
 		if (!model) {

@@ -14,11 +14,8 @@ import { decodeImageDataUrl, getImageExtensionForMimeType } from '../../../servi
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 
 /**
- * Build the display name for a cell's image output, without a file extension,
- * e.g. "notebook_cell1" for the first cell of notebook.ipynb.
- * @param imageIndex Position of the image among the cell's image outputs. Pass it
- * only when the cell holds more than one image, to keep the common single-image
- * name unsuffixed; the second image of a cell then becomes "notebook_cell1_image2".
+ * Returns the extensionless display name for a cell image, such as
+ * `notebook_cell1`. Supply imageIndex only for multi-image cells.
  */
 export function getImageOutputName(documentUri: URI, cellIndex: number, imageIndex?: number): string {
 	const documentName = basename(documentUri);
@@ -28,18 +25,16 @@ export function getImageOutputName(documentUri: URI, cellIndex: number, imageInd
 }
 
 /**
- * Build the default filename for exporting a cell's image output,
- * e.g. "notebook_cell1.png".
- * @param name An image output name from {@link getImageOutputName}.
+ * Returns the default export filename for a named image output.
  */
 export function getDefaultImageFilename(name: string, mimeType: string): string {
 	return `${name}${getImageExtensionForMimeType(mimeType)}`;
 }
 
 /**
- * Save a cell's image output to a file chosen via a save dialog.
- * @param targetUri Optional target path that bypasses the dialog (for testing).
- * @returns Whether the image was saved (false if cancelled or failed).
+ * Saves an image output to a user-selected file.
+ * @param targetUri Optional destination that bypasses the dialog in tests.
+ * @returns `true` when the image was written; otherwise `false`.
  */
 export async function saveImageOutput(
 	dataUrl: string,
@@ -58,7 +53,7 @@ export async function saveImageOutput(
 	}
 
 	try {
-		// Default to the document's directory, under the output's name.
+		// Default to the source document's directory.
 		const extension = getImageExtensionForMimeType(decoded.mimeType);
 		const filename = getDefaultImageFilename(name, decoded.mimeType);
 		const defaultDir = dirname(documentUri);
@@ -73,7 +68,7 @@ export async function saveImageOutput(
 		});
 
 		if (!saveUri) {
-			return false; // User cancelled
+			return false;
 		}
 
 		await fileService.writeFile(saveUri, decoded.data);
@@ -87,13 +82,9 @@ export async function saveImageOutput(
 }
 
 /**
- * Open a cell's image output in a new editor tab.
- *
- * Opens a plot editor tab backed by the image data itself, so nothing is
- * written to disk and the image is released when the tab is closed. Shared by
- * the notebook editor and Quarto inline output.
- * @param code The code that produced the output, if known. Enables the plot
- * code actions on the popped-out tab.
+ * Opens an image output in a plot editor without writing it to disk. The plot
+ * client is released when the editor closes.
+ * @param code Code that produced the image, when available.
  */
 export async function openImageOutputInNewTab(
 	dataUrl: string,
@@ -105,9 +96,8 @@ export async function openImageOutputInNewTab(
 	code?: string,
 ): Promise<void> {
 	try {
-		// Scope tab identity to the document: two documents that share a basename
-		// produce the same name for the same cell, and a plot of the same data is
-		// byte-identical, so content and name alone would alias their tabs.
+		// Include the source document in the identity so identical outputs from
+		// same-named documents do not share a tab.
 		await plotsService.openImageInEditor(dataUrl, { name, code, scope: documentUri.toString() });
 	} catch (error) {
 		logService.error('Failed to open notebook image output in a new tab:', error);
