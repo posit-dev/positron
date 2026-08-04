@@ -1733,12 +1733,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/**
 	 * Gets the preferred runtime for a language
 	 *
-	 * Every preference source is validated against the registered runtimes
-	 * before it is returned; callers start sessions from the result, and
-	 * starting a session from an unregistered runtime id throws. Sessions and
-	 * the most-recently-started map can both outlive the runtime they name
-	 * (e.g. a restored session after a window reload rediscovers runtimes), so
-	 * an unregistered id falls through to the next source instead.
+	 * A preference source can outlive the runtime it names (e.g. a session
+	 * restored across a window reload), so an unregistered id falls through
+	 * to the next source rather than being returned.
 	 *
 	 * @param languageId The language identifier
 	 * @returns The preferred runtime metadata, or undefined if no preferred
