@@ -39,6 +39,15 @@ suite('PROVIDER_METADATA package.json consistency', () => {
 
 		assert.deepStrictEqual(resolved, manifestIds);
 	});
+
+	test('Databricks is catalog-backed and marked experimental', () => {
+		assert.deepStrictEqual(PROVIDER_METADATA.databricks, {
+			id: 'databricks',
+			displayName: 'Databricks',
+			status: 'experimental',
+			catalogId: 'databricks',
+		});
+	});
 });
 
 /** Minimal ExtensionContext stub: only `subscriptions` is read by initProviderCatalog. */

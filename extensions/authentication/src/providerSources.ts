@@ -108,6 +108,7 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 	databricks: {
 		id: DATABRICKS_AUTH_PROVIDER_ID,
 		displayName: 'Databricks',
+		status: 'experimental',
 		catalogId: 'databricks',
 	},
 };
