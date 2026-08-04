@@ -28,11 +28,7 @@ const insightsReporters: ReporterDescription[] = [
 		] as ReporterDescription]
 		: []),
 	...(shardingEnabled
-		? [['@midleman/playwright-reporter/sharding',
-			{
-				repo: 'positron'
-			},
-		] as ReporterDescription]
+		? [['@midleman/playwright-reporter/sharding'] as ReporterDescription]
 		: []),
 ];
 
