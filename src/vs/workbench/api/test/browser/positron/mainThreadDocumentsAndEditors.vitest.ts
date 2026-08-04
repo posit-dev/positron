@@ -5,12 +5,15 @@
 
 /// <reference types="vitest/globals" />
 
+import { Selection } from '../../../../../editor/common/core/selection.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
+import { IEditorPropertiesChangeData } from '../../../common/extHost.protocol.js';
 import { ConsoleEditorTestServices } from './consoleEditorTestServices.js';
 
-// Tests for the Positron-only `MainThreadDocumentsAndEditors.registerConsoleEditor` method, which
-// backs `positron.window.activeConsoleEditor`. See `ConsoleEditorTestServices` for the wiring.
-describe('MainThreadDocumentsAndEditors (Positron console editor)', () => {
+// Tests for the Positron-only `MainThreadDocumentsAndEditors.registerHiddenTextEditor` method,
+// which backs `positron.window.activeConsoleEditor`. See `ConsoleEditorTestServices` for the
+// wiring.
+describe('MainThreadDocumentsAndEditors (Positron hidden editor)', () => {
 
 	ensureNoLeakedDisposables();
 
@@ -26,65 +29,41 @@ describe('MainThreadDocumentsAndEditors (Positron console editor)', () => {
 		services.dispose();
 	});
 
-	it('registers immediately when the code editor already has a model', () => {
+	it('makes the editor resolvable by id without touching the core editor channel', () => {
 		const model = services.createModel('> ');
 		const editor = services.createCodeEditor(model);
 
-		const store = services.documentsAndEditors.registerConsoleEditor('console-1', editor);
+		const registration = services.documentsAndEditors.registerHiddenTextEditor('console-1', editor, model);
 
-		expect(services.consoleAdds('console-1')).toHaveLength(1);
+		// Resolvable by id, so `edit()` / `insertSnippet()` / selection writes from the extension
+		// host reach this editor...
+		expect(services.documentsAndEditors.getEditor('console-1')).toBeDefined();
+		expect(registration.addData).toMatchObject({ id: 'console-1', documentUri: model.uri });
 
-		// Disposing the registration removes the editor from the ext host.
-		store.dispose();
-		expect(services.consoleRemoves('console-1')).toHaveLength(1);
+		// ...but invisible to core VS Code editor APIs: no `addedEditors` delta, and no editor
+		// state sent on the core channel (posit-dev/positron#780).
+		expect(services.coreDeltaMentions('console-1')).toEqual([]);
+		expect(services.coreEditorStateCalls('console-1')).toEqual([]);
+
+		registration.dispose();
+		expect(services.documentsAndEditors.getEditor('console-1')).toBeUndefined();
+		expect(services.coreDeltaMentions('console-1')).toEqual([]);
 	});
 
-	it('defers registration until a model is attached (the fix)', () => {
-		// Console input assigns its code editor before the text model attaches.
-		const editor = services.createCodeEditor(undefined);
+	it('reports property changes to its own listener rather than the core channel', () => {
+		const model = services.createModel('hello');
+		const editor = services.createCodeEditor(model);
 
-		services.add(services.documentsAndEditors.registerConsoleEditor('console-2', editor));
+		const registration = services.add(services.documentsAndEditors.registerHiddenTextEditor('console-2', editor, model));
 
-		// Nothing registered yet -- a regression that bailed on the missing model would leave
-		// `activeConsoleEditor` permanently unresolved here.
-		expect(services.consoleAdds('console-2')).toHaveLength(0);
+		const changes: IEditorPropertiesChangeData[] = [];
+		services.add(registration.onPropertiesChanged(data => changes.push(data)));
 
-		// Attaching the model fires `onDidChangeModel` with a new url, which triggers registration.
-		editor.setModel(services.createModel('> '));
-		expect(services.consoleAdds('console-2')).toHaveLength(1);
+		editor.setSelection(new Selection(1, 1, 1, 4));
 
-		// A later model swap must not register the console editor a second time.
-		editor.setModel(services.createModel('>> '));
-		expect(services.consoleAdds('console-2')).toHaveLength(1);
-	});
-
-	it('sends the added-editor delta before any state for that editor', () => {
-		const editor = services.createCodeEditor(services.createModel('> '));
-
-		const store = services.add(services.documentsAndEditors.registerConsoleEditor('console-4', editor));
-
-		// `handleTextEditorAdded` immediately pushes diff information for the new id. Sending that
-		// before the `addedEditors` delta made the ext host throw `unknown text editor` on every
-		// console session startup.
-		expect(services.unknownEditorCalls).toEqual([]);
-
-		store.dispose();
-		expect(services.unknownEditorCalls).toEqual([]);
-	});
-
-	it('notifies the caller only once the editor is known to the ext host', () => {
-		const editor = services.createCodeEditor(undefined);
-		const onRegistered = vi.fn(() => services.consoleAdds('console-3').length);
-
-		services.add(services.documentsAndEditors.registerConsoleEditor('console-3', editor, onRegistered));
-
-		expect(onRegistered).not.toHaveBeenCalled();
-
-		editor.setModel(services.createModel('> '));
-
-		// Called exactly once, and only after the `addedEditors` delta went out -- callers rely on
-		// that ordering to avoid announcing an editor the ext host can't resolve yet.
-		expect(onRegistered).toHaveBeenCalledTimes(1);
-		expect(onRegistered).toHaveReturnedWith(1);
+		expect(changes.at(-1)?.selections?.selections).toMatchObject([
+			{ selectionStartLineNumber: 1, selectionStartColumn: 1, positionLineNumber: 1, positionColumn: 4 }
+		]);
+		expect(services.coreEditorStateCalls('console-2')).toEqual([]);
 	});
 });

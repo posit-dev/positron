@@ -42,7 +42,7 @@ import { SingleProxyRPCProtocol } from '../../common/testRPCProtocol.js';
 
 /**
  * A real `MainThreadDocumentsAndEditors` plus the services it needs, wired for tests that
- * exercise the Positron-only console editor registration path.
+ * exercise the Positron-only hidden editor registration path.
  *
  * The wiring mirrors the upstream Mocha suite in `../mainThreadDocumentsAndEditors.test.ts`
  * (real `ModelService` + real test code editors) so that `ICodeEditor.onDidChangeModel` fires
@@ -52,18 +52,15 @@ import { SingleProxyRPCProtocol } from '../../common/testRPCProtocol.js';
  */
 export class ConsoleEditorTestServices {
 
-	/** Deltas the main thread sent to the (fake) extension host. */
+	/** Deltas the main thread sent to the (fake) extension host on the core channel. */
 	readonly deltas: IDocumentsAndEditorsDelta[] = [];
 
 	/**
-	 * Editor ids the main thread sent state for before the ext host knew about them. The real
-	 * `ExtHostEditors` throws `unknown text editor` in this case, so anything recorded here is a
-	 * bug in the ordering of the calls the main thread makes.
+	 * Editor ids the main thread sent core editor state for (`$acceptEditorPropertiesChanged`,
+	 * `$acceptEditorDiffInformation`). Read through `coreEditorStateCalls`, which filters out the
+	 * ambient state computer's own composite ids.
 	 */
-	readonly unknownEditorCalls: string[] = [];
-
-	/** Editor ids the (fake) ext host currently knows about, per the deltas it received. */
-	private readonly _knownEditorIds = new Set<string>();
+	private readonly _coreEditorStateCalls: string[] = [];
 
 	readonly modelService: ModelService;
 	readonly documentsAndEditors: MainThreadDocumentsAndEditors;
@@ -127,14 +124,12 @@ export class ConsoleEditorTestServices {
 			SingleProxyRPCProtocol({
 				$acceptDocumentsAndEditorsDelta: (delta: IDocumentsAndEditorsDelta) => {
 					this.deltas.push(delta);
-					delta.addedEditors?.forEach(e => this._knownEditorIds.add(e.id));
-					delta.removedEditors?.forEach(id => this._knownEditorIds.delete(id));
 				},
 				$acceptEditorDiffInformation: (id: string, _diffInformation: ITextEditorDiffInformation | undefined) => {
-					this._recordEditorIdLookup(id);
+					this._coreEditorStateCalls.push(id);
 				},
 				$acceptEditorPropertiesChanged: (id: string) => {
-					this._recordEditorIdLookup(id);
+					this._coreEditorStateCalls.push(id);
 				}
 			}),
 			this.modelService,
@@ -189,24 +184,22 @@ export class ConsoleEditorTestServices {
 	}
 
 	/**
-	 * Deltas emitted by `registerConsoleEditor` contain a single `addedEditors` entry whose id is
-	 * the console id we passed; deltas from the ambient state computer use composite
-	 * `${editorId},${modelId}` ids, so filtering by our exact id isolates the registration under
-	 * test.
+	 * Every mention of `id` on the core documents-and-editors channel. The ambient state computer
+	 * uses composite `${editorId},${modelId}` ids of its own, so matching our exact id isolates the
+	 * hidden registration under test: it must never show up, since that channel is what feeds
+	 * `vscode.window.visibleTextEditors`.
 	 */
-	consoleAdds(id: string): IDocumentsAndEditorsDelta[] {
-		return this.deltas.filter(d => d.addedEditors?.some(e => e.id === id));
+	coreDeltaMentions(id: string): IDocumentsAndEditorsDelta[] {
+		return this.deltas.filter(d => d.addedEditors?.some(e => e.id === id) || d.removedEditors?.includes(id));
 	}
 
-	consoleRemoves(id: string): IDocumentsAndEditorsDelta[] {
-		return this.deltas.filter(d => d.removedEditors?.includes(id));
-	}
-
-	/** Mimics the ext host resolving an editor id, recording the ones it can't resolve. */
-	private _recordEditorIdLookup(id: string): void {
-		if (!this._knownEditorIds.has(id)) {
-			this.unknownEditorCalls.push(id);
-		}
+	/**
+	 * Core editor state (`$acceptEditorPropertiesChanged` / `$acceptEditorDiffInformation`) the
+	 * main thread sent for `id`. A hidden editor must never appear here: those calls are how a
+	 * console editor would leak into `vscode.window.onDidChangeTextEditor*`.
+	 */
+	coreEditorStateCalls(id: string): string[] {
+		return this._coreEditorStateCalls.filter(callId => callId === id);
 	}
 
 	dispose(): void {

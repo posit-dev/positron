@@ -1358,7 +1358,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private readonly _onDidRequestRevealExecutionEmitter = this._register(new Emitter<string>);
 
 	/**
-	 * Fires once when the ConsoleInput React component assigns the code editor.
+	 * Fires each time the ConsoleInput React component assigns the code editor, including on
+	 * remount.
 	 */
 	private readonly _onDidSetCodeEditorEmitter = this._register(new Emitter<ICodeEditor>());
 

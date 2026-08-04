@@ -5,12 +5,18 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { coalesce } from '../../../../base/common/arrays.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { Lazy } from '../../../../base/common/lazy.js';
+import { URI } from '../../../../base/common/uri.js';
+import { IEditorPropertiesChangeData, ITextEditorAddData, MainContext, MainThreadTextEditorsShape } from '../extHost.protocol.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { ExtHostConsole } from './extHostConsole.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { dispose } from '../../../../base/common/lifecycle.js';
 import { ExtHostDocumentsAndEditors } from '../extHostDocumentsAndEditors.js';
+import { ExtHostTextEditor } from '../extHostTextEditor.js';
+import * as typeConverters from '../extHostTypeConverters.js';
 
 export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServiceShape {
 
@@ -25,6 +31,16 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	 */
 	private readonly _extHostConsolesBySessionId = new Map<string, ExtHostConsole>();
 
+	/**
+	 * Console input editors, keyed by session id.
+	 *
+	 * Deliberately held here rather than in `ExtHostDocumentsAndEditors`: these editors must not
+	 * surface through the standard VS Code editor APIs (`vscode.window.visibleTextEditors`,
+	 * `onDidChangeTextEditorSelection`, ...), only through
+	 * `positron.window.activeConsoleEditor` (posit-dev/positron#780).
+	 */
+	private readonly _consoleEditorsBySessionId = new Map<string, ExtHostTextEditor>();
+
 	private readonly _onDidChangeConsoleWidth = new Emitter<number>();
 
 	private readonly _onDidChangeActiveConsole = new Emitter<positron.Console | undefined>();
@@ -33,11 +49,20 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 
 	private _activeConsoleSessionId: string | undefined;
 
+	/**
+	 * The editor last reported through `onDidChangeActiveConsoleEditor`. The active console and its
+	 * editor arrive on separate calls (and in either order), so this suppresses events that would
+	 * not change what extensions see.
+	 */
+	private _notifiedActiveConsoleEditor: vscode.TextEditor | undefined;
+
 	// Guards the startup seed: once a live $onDidChangeActiveConsole arrives we
 	// must not let the async startup promise overwrite it.
 	private _receivedLiveActiveConsoleEvent = false;
 
 	private readonly _proxy: extHostProtocol.MainThreadConsoleServiceShape;
+
+	private readonly _editorsProxy: MainThreadTextEditorsShape;
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
@@ -45,6 +70,9 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 		private readonly _extHostDocumentsAndEditors: ExtHostDocumentsAndEditors,
 	) {
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadConsoleService);
+		// Console editors are addressed by id on the standard text editor channel, so `edit()`,
+		// `insertSnippet()` and selection writes work exactly as they do for any other editor.
+		this._editorsProxy = mainContext.getProxy(MainContext.MainThreadTextEditors);
 
 		// Fetch the current active console session on startup so we don't miss
 		// consoles that were already active before this ext host started.
@@ -60,6 +88,7 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 			if (sessionId !== undefined && this._extHostConsolesBySessionId.has(sessionId)) {
 				this._onDidChangeActiveConsole.fire(this.activeConsole);
 			}
+			this._fireActiveConsoleEditorIfChanged();
 		});
 	}
 
@@ -69,6 +98,10 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 
 	onDidChangeActiveConsoleEditor = this._onDidChangeActiveConsoleEditor.event;
 
+	/**
+	 * The active console. Internal for now: this backs `activeConsoleEditor` and is not exposed on
+	 * `positron.window`.
+	 */
 	get activeConsole(): positron.Console | undefined {
 		if (this._activeConsoleSessionId === undefined) {
 			return undefined;
@@ -77,8 +110,8 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	}
 
 	get activeConsoleEditor(): vscode.TextEditor | undefined {
-		return this._activeConsoleSessionId
-			? this._extHostDocumentsAndEditors.getEditor(`console-${this._activeConsoleSessionId}`)?.value
+		return this._activeConsoleSessionId !== undefined
+			? this._consoleEditorsBySessionId.get(this._activeConsoleSessionId)?.value
 			: undefined;
 	}
 
@@ -152,12 +185,78 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 		this._receivedLiveActiveConsoleEvent = true;
 		this._activeConsoleSessionId = sessionId;
 		this._onDidChangeActiveConsole.fire(this.activeConsole);
+		this._fireActiveConsoleEditorIfChanged();
 	}
 
-	// Called when the active console editor changes (separate from vscode.window.activeTextEditor).
-	// The editorId is derived from the active session, so we fire using the getter which derives
-	// the TextEditor from _activeConsoleSessionId (already updated by $onDidChangeActiveConsole).
-	$setActiveConsoleEditor(_editorId: string | null): void {
-		this._onDidChangeActiveConsoleEditor.fire(this.activeConsoleEditor);
+	// Called when a console's input editor becomes available. The console input mounts (and
+	// remounts) independently of the console itself, so this can arrive before or after the
+	// console becomes active.
+	$addConsoleEditor(sessionId: string, data: ITextEditorAddData): void {
+		const uri = URI.revive(data.documentUri);
+		const documentData = this._extHostDocumentsAndEditors.getDocument(uri);
+		if (!documentData) {
+			// The console input model is synchronized before its editor is registered, so this
+			// should not happen; bail out rather than hand back an editor with no document.
+			this._logService.error(`ExtHostConsoleService: no document for console editor '${uri.toString()}'`);
+			return;
+		}
+
+		this._consoleEditorsBySessionId.get(sessionId)?.dispose();
+		this._consoleEditorsBySessionId.set(sessionId, new ExtHostTextEditor(
+			data.id,
+			this._editorsProxy,
+			this._logService,
+			new Lazy(() => documentData.document),
+			data.selections.map(typeConverters.Selection.to),
+			data.options,
+			data.visibleRanges.map(range => typeConverters.Range.to(range)),
+			typeof data.editorPosition === 'number' ? typeConverters.ViewColumn.to(data.editorPosition) : undefined
+		));
+
+		this._fireActiveConsoleEditorIfChanged();
+	}
+
+	// Called when a console's input editor goes away, either because the console was deleted or
+	// because the Console view unmounted.
+	$removeConsoleEditor(sessionId: string): void {
+		const editor = this._consoleEditorsBySessionId.get(sessionId);
+		if (!editor) {
+			return;
+		}
+		this._consoleEditorsBySessionId.delete(sessionId);
+		editor.dispose();
+		this._fireActiveConsoleEditorIfChanged();
+	}
+
+	// Called when a console editor's selections, options or visible ranges change. Only the editor
+	// state is updated: these deliberately do not raise the core
+	// `vscode.window.onDidChangeTextEditor*` events.
+	$acceptConsoleEditorPropertiesChanged(sessionId: string, data: IEditorPropertiesChangeData): void {
+		const editor = this._consoleEditorsBySessionId.get(sessionId);
+		if (!editor) {
+			return;
+		}
+		if (data.options) {
+			editor._acceptOptions(data.options);
+		}
+		if (data.selections) {
+			editor._acceptSelections(data.selections.selections.map(typeConverters.Selection.to));
+		}
+		if (data.visibleRanges) {
+			editor._acceptVisibleRanges(coalesce(data.visibleRanges.map(typeConverters.Range.to)));
+		}
+	}
+
+	/**
+	 * Fires `onDidChangeActiveConsoleEditor`, unless the active console editor is the same one
+	 * extensions were last told about.
+	 */
+	private _fireActiveConsoleEditorIfChanged(): void {
+		const editor = this.activeConsoleEditor;
+		if (editor === this._notifiedActiveConsoleEditor) {
+			return;
+		}
+		this._notifiedActiveConsoleEditor = editor;
+		this._onDidChangeActiveConsoleEditor.fire(editor);
 	}
 }

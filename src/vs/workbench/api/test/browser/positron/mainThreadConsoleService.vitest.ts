@@ -16,50 +16,61 @@ import { ExtHostConsoleServiceShape } from '../../../common/positron/extHost.pos
 import { SingleProxyRPCProtocol } from '../../common/testRPCProtocol.js';
 import { ConsoleEditorTestServices } from './consoleEditorTestServices.js';
 
-// A record of every `$setActiveConsoleEditor` call the main thread made, paired with whether the
-// extension host could have resolved that editor at the time of the call. `resolvable: false`
-// means `positron.window.activeConsoleEditor` would have been `undefined` when the
-// `onDidChangeActiveConsoleEditor` event fired -- the bug this suite guards against.
-interface IActiveEditorNotification {
-	editorId: string | null;
-	resolvable: boolean;
-}
+// The Positron-only console editor traffic the main thread sent to the (fake) extension host, in
+// order. `resolvable` records whether the editor id in an `add` could be resolved on the main
+// thread at the time of the call -- `false` would mean the extension host was handed an editor id
+// it cannot use.
+type ConsoleEditorCall =
+	| { kind: 'add'; sessionId: string; editorId: string; resolvable: boolean }
+	| { kind: 'remove'; sessionId: string }
+	| { kind: 'activeConsole'; sessionId: string | undefined };
 
-// Tests for the notification side of `positron.window.activeConsoleEditor`: the main thread must
-// only tell the extension host about a console editor once that editor has actually been
-// registered, which is deferred until the console input attaches its text model.
-describe('MainThreadConsoleService (active console editor)', () => {
+// Tests for `positron.window.activeConsoleEditor` as seen from the main thread: the console input
+// editor must reach the extension host on the Positron-only console channel (never the core
+// documents-and-editors delta), only once it actually has a text model, and must be retired when
+// the Console view remounts or the console goes away.
+describe('MainThreadConsoleService (console editors)', () => {
 
 	ensureNoLeakedDisposables();
 
 	let services: ConsoleEditorTestServices;
 	let consoleService: TestPositronConsoleService;
 	let mainThreadConsoleService: MainThreadConsoleService;
-	let notifications: IActiveEditorNotification[];
+	let calls: ConsoleEditorCall[];
 
-	beforeEach(() => {
-		services = new ConsoleEditorTestServices();
-		notifications = [];
-
+	function createMainThreadConsoleService(): MainThreadConsoleService {
 		const proxy = stubInterface<ExtHostConsoleServiceShape>({
 			$addConsole: vi.fn(),
-			$onDidChangeActiveConsole: vi.fn(),
-			$setActiveConsoleEditor: (editorId: string | null) => {
-				notifications.push({
-					editorId,
-					resolvable: editorId !== null && services.documentsAndEditors.getEditor(editorId) !== undefined
+			$onDidChangeActiveConsole: (sessionId: string | undefined) => {
+				calls.push({ kind: 'activeConsole', sessionId });
+			},
+			$addConsoleEditor: (sessionId, data) => {
+				calls.push({
+					kind: 'add',
+					sessionId,
+					editorId: data.id,
+					resolvable: services.documentsAndEditors.getEditor(data.id) !== undefined
 				});
-			}
+			},
+			$removeConsoleEditor: (sessionId: string) => {
+				calls.push({ kind: 'remove', sessionId });
+			},
+			$acceptConsoleEditorPropertiesChanged: vi.fn()
 		});
 		const extHostContext: IExtHostContext = {
 			...SingleProxyRPCProtocol(proxy),
 			// `getRaw` is generic over the proxy identifier, so the cast is what tells the
-			// compiler which actor this test hands back -- the console editor manager.
+			// compiler which actor this test hands back -- the hidden editor manager.
 			getRaw: <T, R extends T>(): R => services.documentsAndEditors as unknown as R,
 		};
+		return new MainThreadConsoleService(extHostContext, consoleService);
+	}
 
+	beforeEach(() => {
+		services = new ConsoleEditorTestServices();
+		calls = [];
 		consoleService = new TestPositronConsoleService();
-		mainThreadConsoleService = new MainThreadConsoleService(extHostContext, consoleService);
+		mainThreadConsoleService = createMainThreadConsoleService();
 	});
 
 	afterEach(() => {
@@ -85,72 +96,109 @@ describe('MainThreadConsoleService (active console editor)', () => {
 	function addMountedConsole(sessionId: string): TestPositronConsoleInstance {
 		const instance = createInstance(sessionId);
 		consoleService.addTestConsoleInstance(instance);
-		const editor = services.createCodeEditor(undefined);
-		instance.setCodeEditor(editor);
-		editor.setModel(services.createModel('> '));
+		mountEditor(instance);
 		return instance;
 	}
 
-	it('waits for the editor to exist before announcing it to the ext host', () => {
-		const instance = createInstance('session-1');
-		consoleService.addTestConsoleInstance(instance);
-		consoleService.setActivePositronConsoleSession('session-1');
-
-		// The console is active but has no input editor yet, so there is nothing to announce.
-		expect(notifications).toEqual([]);
-
-		// The console input assigns its code editor before attaching a text model. Registration
-		// with the ext host is deferred until the model arrives, so announcing the editor here
-		// would fire `onDidChangeActiveConsoleEditor` with an unresolvable editor -- and, since
-		// there is no second notification, extensions would never see the usable one.
+	function mountEditor(instance: TestPositronConsoleInstance) {
 		const editor = services.createCodeEditor(undefined);
 		instance.setCodeEditor(editor);
-		expect(notifications).toEqual([]);
-		expect(services.consoleAdds('console-session-1')).toHaveLength(0);
+		editor.setModel(services.createModel('> '));
+		return editor;
+	}
+
+	/** Only the console editor traffic, dropping the active-console bookkeeping. */
+	function editorCalls(): ConsoleEditorCall[] {
+		return calls.filter(call => call.kind !== 'activeConsole');
+	}
+
+	it('waits for the text model before announcing the editor to the ext host', () => {
+		const instance = createInstance('session-1');
+		consoleService.addTestConsoleInstance(instance);
+
+		// The console exists but has no input editor yet, so there is nothing to announce.
+		expect(editorCalls()).toEqual([]);
+
+		// The console input assigns its code editor before attaching a text model. Announcing the
+		// editor here would hand the ext host an editor id it cannot resolve.
+		const editor = services.createCodeEditor(undefined);
+		instance.setCodeEditor(editor);
+		expect(editorCalls()).toEqual([]);
 
 		// Attaching the model completes registration; only now is the editor announced.
 		editor.setModel(services.createModel('> '));
-		expect(notifications).toEqual([{ editorId: 'console-session-1', resolvable: true }]);
+		expect(editorCalls()).toEqual([
+			{ kind: 'add', sessionId: 'session-1', editorId: 'console-session-1', resolvable: true }
+		]);
 	});
 
-	it('announces the editor of each console as it becomes active', () => {
-		// Each console announces itself once mounted, since adding it also makes it active.
+	it('keeps the console editor off the core documents-and-editors channel', () => {
+		addMountedConsole('session-1');
+
+		// The editor travels only over the Positron console channel, so it never appears in
+		// `vscode.window.visibleTextEditors` or the core editor events (posit-dev/positron#780).
+		expect(services.coreDeltaMentions('console-session-1')).toEqual([]);
+		expect(services.coreEditorStateCalls('console-session-1')).toEqual([]);
+	});
+
+	it('re-registers the editor when the Console view remounts', () => {
+		const instance = addMountedConsole('session-1');
+		calls = [];
+
+		// Remount: the old editor widget is disposed and a fresh one is assigned. Without the
+		// re-registration the ext host would keep resolving the disposed editor and model.
+		instance.codeEditor!.dispose();
+		mountEditor(instance);
+
+		expect(editorCalls()).toEqual([
+			{ kind: 'remove', sessionId: 'session-1' },
+			{ kind: 'add', sessionId: 'session-1', editorId: 'console-session-1', resolvable: true }
+		]);
+	});
+
+	it('retires the editor when the console is deleted', () => {
+		addMountedConsole('session-1');
+		calls = [];
+
+		consoleService.deletePositronConsoleSession('session-1');
+
+		expect(editorCalls()).toEqual([{ kind: 'remove', sessionId: 'session-1' }]);
+		expect(services.documentsAndEditors.getEditor('console-session-1')).toBeUndefined();
+	});
+
+	it('replays consoles that already exist when the service is created', () => {
+		// Simulates an extension host restart: the consoles are already running and will never
+		// re-fire `onDidStartPositronConsoleInstance`.
 		addMountedConsole('session-a');
 		addMountedConsole('session-b');
+		consoleService.setActivePositronConsoleSession('session-a');
+		calls = [];
+
+		const replayed = createMainThreadConsoleService();
+		try {
+			expect(calls).toEqual([
+				{ kind: 'add', sessionId: 'session-a', editorId: 'console-session-a', resolvable: true },
+				{ kind: 'add', sessionId: 'session-b', editorId: 'console-session-b', resolvable: true },
+				{ kind: 'activeConsole', sessionId: 'session-a' },
+			]);
+		} finally {
+			replayed.dispose();
+		}
+	});
+
+	it('announces each console as it becomes active', () => {
+		addMountedConsole('session-a');
+		addMountedConsole('session-b');
+		calls = [];
 
 		consoleService.setActivePositronConsoleSession('session-a');
 		consoleService.setActivePositronConsoleSession('session-b');
-		// Re-activating the console that is already announced is not a change.
-		consoleService.setActivePositronConsoleSession('session-b');
 
-		expect(notifications).toEqual([
-			{ editorId: 'console-session-a', resolvable: true },
-			{ editorId: 'console-session-b', resolvable: true },
-			{ editorId: 'console-session-a', resolvable: true },
-			{ editorId: 'console-session-b', resolvable: true },
+		// The extension host derives the active console editor from the active session, so the
+		// main thread only has to report which console is active.
+		expect(calls).toEqual([
+			{ kind: 'activeConsole', sessionId: 'session-a' },
+			{ kind: 'activeConsole', sessionId: 'session-b' },
 		]);
-	});
-
-	it('clears the announced editor when the newly active console has none yet', () => {
-		addMountedConsole('session-a');
-
-		// A console whose input has not mounted becomes active: the ext host must stop reporting
-		// the previous console's editor rather than hold on to a stale one.
-		const pending = createInstance('session-pending');
-		consoleService.addTestConsoleInstance(pending);
-		consoleService.setActivePositronConsoleSession('session-pending');
-
-		expect(notifications).toEqual([
-			{ editorId: 'console-session-a', resolvable: true },
-			{ editorId: null, resolvable: false },
-		]);
-
-		// Once its editor mounts, the pending console announces it.
-		const editor = services.createCodeEditor(undefined);
-		pending.setCodeEditor(editor);
-		editor.setModel(services.createModel('> '));
-
-		expect(notifications).toHaveLength(3);
-		expect(notifications[2]).toEqual({ editorId: 'console-session-pending', resolvable: true });
 	});
 });

@@ -488,8 +488,9 @@ export interface IPositronConsoleInstance {
 	codeEditor: ICodeEditor | undefined;
 
 	/**
-	 * An event that fires when the code editor is assigned for the first time
-	 * (i.e. when the ConsoleInput React component mounts and sets the editor).
+	 * An event that fires each time a code editor is assigned (i.e. every time the ConsoleInput
+	 * React component mounts and sets the editor). Fires again on remount with the new editor,
+	 * since the previous one has been disposed by then.
 	 */
 	readonly onDidSetCodeEditor: Event<ICodeEditor>;
 

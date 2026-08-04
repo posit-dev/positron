@@ -5,14 +5,19 @@
 
 /// <reference types="vitest/globals" />
 
+import { URI } from '../../../../../base/common/uri.js';
 import { mock } from '../../../../../base/test/common/mock.js';
+import { RenderLineNumbersType, TextEditorCursorStyle } from '../../../../../editor/common/config/editorOptions.js';
+import { Selection } from '../../../../../editor/common/core/selection.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
+import { ITextEditorAddData } from '../../../common/extHost.protocol.js';
 import { MainThreadConsoleServiceShape } from '../../../common/positron/extHost.positron.protocol.js';
 import { ExtHostConsoleService } from '../../../common/positron/extHostConsoleService.js';
 import { SingleProxyRPCProtocol } from '../testRPCProtocol.js';
+import { ExtHostDocumentData } from '../../../common/extHostDocumentData.js';
 import { ExtHostDocumentsAndEditors } from '../../../common/extHostDocumentsAndEditors.js';
-import { ExtHostTextEditor } from '../../../common/extHostTextEditor.js';
 
 function createMockShape(activeSessionId: string | undefined = undefined) {
 	return new class extends mock<MainThreadConsoleServiceShape>() {
@@ -53,11 +58,47 @@ function createControllableMockShape() {
 	return { shape, resolveActiveSessionId: (id: string | undefined) => resolve(id) };
 }
 
-/** Minimal DocsAndEditors stub; `idToEditor` maps editor id → the ExtHostTextEditor stub. */
-function createDocsAndEditors(idToEditor: Record<string, ExtHostTextEditor> = {}) {
+/** The console input document URI for `sessionId`, as the main thread would report it. */
+function documentUri(sessionId: string): URI {
+	return URI.from({ scheme: 'inmemory', path: `/repl-python-${sessionId}` });
+}
+
+/**
+ * A `$addConsoleEditor` payload for `sessionId`, mirroring what the main thread derives from the
+ * console input's `MainThreadTextEditor`.
+ */
+function createEditorAddData(sessionId: string): ITextEditorAddData {
+	return {
+		id: `console-${sessionId}`,
+		documentUri: documentUri(sessionId),
+		options: {
+			tabSize: 4,
+			indentSize: 4,
+			originalIndentSize: 4,
+			insertSpaces: true,
+			cursorStyle: TextEditorCursorStyle.Line,
+			lineNumbers: RenderLineNumbersType.Off
+		},
+		selections: [{ selectionStartLineNumber: 1, selectionStartColumn: 1, positionLineNumber: 1, positionColumn: 1 }],
+		visibleRanges: [],
+		editorPosition: undefined
+	};
+}
+
+/**
+ * Minimal DocsAndEditors stub. `ExtHostConsoleService` builds its own `ExtHostTextEditor` for each
+ * console editor, so all it needs from here is the document behind the editor's URI.
+ */
+function createDocsAndEditors(sessionIds: string[] = []) {
+	const documents = new Map(sessionIds.map(sessionId => [
+		documentUri(sessionId).toString(),
+		stubInterface<ExtHostDocumentData>({
+			document: stubInterface<import('vscode').TextDocument>({ uri: documentUri(sessionId) })
+		})
+	]));
 	return new class extends mock<ExtHostDocumentsAndEditors>() {
-		override getEditor(id: string): ExtHostTextEditor | undefined {
-			return idToEditor[id];
+		override getDocument(uri: URI): ExtHostDocumentData | undefined {
+			return documents.get(uri.toString());
 		}
 	};
 }
@@ -192,7 +233,7 @@ describe('ExtHostConsoleService', function () {
 		expect(fired[0]).toBe(svc.activeConsole);
 	});
 
-	describe('$setActiveConsoleEditor / activeConsoleEditor', function () {
+	describe('console editors / activeConsoleEditor', function () {
 
 		it('returns undefined initially', function () {
 			const shape = createMockShape();
@@ -200,84 +241,152 @@ describe('ExtHostConsoleService', function () {
 			expect(svc.activeConsoleEditor).toBeUndefined();
 		});
 
-		it('sets activeConsoleEditor from registered editor (derived via _activeConsoleSessionId)', function () {
-			const fakeValue = Object.freeze({}) as import('vscode').TextEditor;
-			const fakeExtEditor = { value: fakeValue } as unknown as ExtHostTextEditor;
-			// getEditor key matches `console-${sessionId}` format used by the getter
-			const docsAndEditors = createDocsAndEditors({ 'console-session-1': fakeExtEditor });
-
+		it('resolves the active console editor once the editor is registered', function () {
 			const shape = createMockShape();
-			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), docsAndEditors);
+			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), createDocsAndEditors(['session-1']));
 
 			const fired: (import('vscode').TextEditor | undefined)[] = [];
 			disposables.add(svc.onDidChangeActiveConsoleEditor((e) => fired.push(e)));
 
-			// $onDidChangeActiveConsole sets _activeConsoleSessionId; $setActiveConsoleEditor fires the event
 			svc.$onDidChangeActiveConsole('session-1');
-			svc.$setActiveConsoleEditor('console-session-1');
+			// No editor yet: the console input mounts separately, so nothing to report.
+			expect(svc.activeConsoleEditor).toBeUndefined();
+			expect(fired).toEqual([]);
 
-			expect(svc.activeConsoleEditor).toBe(fakeValue);
-			expect(fired).toEqual([fakeValue]);
+			svc.$addConsoleEditor('session-1', createEditorAddData('session-1'));
+
+			expect(svc.activeConsoleEditor?.document.uri).toEqual(documentUri('session-1'));
+			expect(fired).toEqual([svc.activeConsoleEditor]);
 		});
 
-		it('clears activeConsoleEditor when session becomes null', function () {
-			const fakeValue = Object.freeze({}) as import('vscode').TextEditor;
-			const fakeExtEditor = { value: fakeValue } as unknown as ExtHostTextEditor;
-			const docsAndEditors = createDocsAndEditors({ 'console-session-1': fakeExtEditor });
-
+		it('resolves when the editor is registered before the console becomes active', function () {
 			const shape = createMockShape();
-			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), docsAndEditors);
-
-			svc.$onDidChangeActiveConsole('session-1');
-			svc.$setActiveConsoleEditor('console-session-1');
-			expect(svc.activeConsoleEditor).toBe(fakeValue);
+			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), createDocsAndEditors(['session-1']));
 
 			const fired: (import('vscode').TextEditor | undefined)[] = [];
 			disposables.add(svc.onDidChangeActiveConsoleEditor((e) => fired.push(e)));
 
-			// Active console clears; $onDidChangeActiveConsole(undefined) precedes $setActiveConsoleEditor(null)
+			svc.$addConsoleEditor('session-1', createEditorAddData('session-1'));
+			expect(svc.activeConsoleEditor).toBeUndefined();
+			expect(fired).toEqual([]);
+
+			svc.$onDidChangeActiveConsole('session-1');
+			expect(svc.activeConsoleEditor).toBeDefined();
+			expect(fired).toEqual([svc.activeConsoleEditor]);
+		});
+
+		it('clears the active console editor when the console is no longer active', function () {
+			const shape = createMockShape();
+			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), createDocsAndEditors(['session-1']));
+
+			svc.$addConsoleEditor('session-1', createEditorAddData('session-1'));
+			svc.$onDidChangeActiveConsole('session-1');
+			expect(svc.activeConsoleEditor).toBeDefined();
+
+			const fired: (import('vscode').TextEditor | undefined)[] = [];
+			disposables.add(svc.onDidChangeActiveConsoleEditor((e) => fired.push(e)));
+
 			svc.$onDidChangeActiveConsole(undefined);
-			svc.$setActiveConsoleEditor(null);
 			expect(svc.activeConsoleEditor).toBeUndefined();
 			expect(fired).toEqual([undefined]);
 		});
 
-		it('yields undefined when no active session even with an editorId signal', function () {
+		it('clears the active console editor when the editor is removed', function () {
+			const shape = createMockShape();
+			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), createDocsAndEditors(['session-1']));
+
+			svc.$addConsoleEditor('session-1', createEditorAddData('session-1'));
+			svc.$onDidChangeActiveConsole('session-1');
+
+			const fired: (import('vscode').TextEditor | undefined)[] = [];
+			disposables.add(svc.onDidChangeActiveConsoleEditor((e) => fired.push(e)));
+
+			// The Console view unmounted, or the console was deleted.
+			svc.$removeConsoleEditor('session-1');
+			expect(svc.activeConsoleEditor).toBeUndefined();
+			expect(fired).toEqual([undefined]);
+		});
+
+		it('re-registering replaces the editor, so a remount is not left pointing at the old one', function () {
+			const shape = createMockShape();
+			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), createDocsAndEditors(['session-1']));
+
+			svc.$addConsoleEditor('session-1', createEditorAddData('session-1'));
+			svc.$onDidChangeActiveConsole('session-1');
+			const firstEditor = svc.activeConsoleEditor;
+
+			const fired: (import('vscode').TextEditor | undefined)[] = [];
+			disposables.add(svc.onDidChangeActiveConsoleEditor((e) => fired.push(e)));
+
+			// The Console view remounted: the main thread retires the old registration and sends a
+			// new one for the freshly created editor.
+			svc.$removeConsoleEditor('session-1');
+			svc.$addConsoleEditor('session-1', createEditorAddData('session-1'));
+
+			expect(svc.activeConsoleEditor).not.toBe(firstEditor);
+			expect(fired).toEqual([undefined, svc.activeConsoleEditor]);
+		});
+
+		it('fires once per change as the active console moves between consoles', function () {
+			const shape = createMockShape();
+			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), createDocsAndEditors(['session-a', 'session-b']));
+
+			svc.$addConsoleEditor('session-a', createEditorAddData('session-a'));
+			svc.$addConsoleEditor('session-b', createEditorAddData('session-b'));
+
+			const fired: (import('vscode').TextEditor | undefined)[] = [];
+			disposables.add(svc.onDidChangeActiveConsoleEditor((e) => fired.push(e)));
+
+			svc.$onDidChangeActiveConsole('session-a');
+			const editorA = svc.activeConsoleEditor;
+			svc.$onDidChangeActiveConsole('session-b');
+			const editorB = svc.activeConsoleEditor;
+			// Re-activating the console that is already reported is not a change.
+			svc.$onDidChangeActiveConsole('session-b');
+			svc.$onDidChangeActiveConsole(undefined);
+
+			expect(fired).toEqual([editorA, editorB, undefined]);
+			expect(svc.activeConsoleEditor).toBeUndefined();
+		});
+
+		it('applies selection changes to the console editor without touching core editor events', function () {
+			const shape = createMockShape();
+			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), createDocsAndEditors(['session-1']));
+
+			svc.$addConsoleEditor('session-1', createEditorAddData('session-1'));
+			svc.$onDidChangeActiveConsole('session-1');
+
+			svc.$acceptConsoleEditorPropertiesChanged('session-1', {
+				options: null,
+				visibleRanges: null,
+				selections: { source: 'api', selections: [new Selection(1, 1, 1, 4)] }
+			});
+
+			const selection = svc.activeConsoleEditor!.selection;
+			expect({
+				start: [selection.start.line, selection.start.character],
+				end: [selection.end.line, selection.end.character]
+			}).toEqual({ start: [0, 0], end: [0, 3] });
+		});
+
+		it('ignores editor traffic for an unknown session', function () {
 			const shape = createMockShape();
 			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), nullDocsAndEditors);
 
 			const fired: (import('vscode').TextEditor | undefined)[] = [];
 			disposables.add(svc.onDidChangeActiveConsoleEditor((e) => fired.push(e)));
 
-			// Without $onDidChangeActiveConsole, _activeConsoleSessionId is undefined
-			svc.$setActiveConsoleEditor('console-session-1');
-			expect(svc.activeConsoleEditor).toBeUndefined();
-			expect(fired).toEqual([undefined]);
-		});
-
-		it('fires onDidChangeActiveConsoleEditor on each session change', function () {
-			const fakeA = Object.freeze({}) as import('vscode').TextEditor;
-			const fakeB = Object.freeze({}) as import('vscode').TextEditor;
-			const docsAndEditors = createDocsAndEditors({
-				'console-session-a': { value: fakeA } as unknown as ExtHostTextEditor,
-				'console-session-b': { value: fakeB } as unknown as ExtHostTextEditor,
+			// No document for this session, so no editor can be built.
+			svc.$addConsoleEditor('session-1', createEditorAddData('session-1'));
+			svc.$removeConsoleEditor('session-1');
+			svc.$acceptConsoleEditorPropertiesChanged('session-1', {
+				options: createEditorAddData('session-1').options,
+				selections: null,
+				visibleRanges: null
 			});
 
-			const shape = createMockShape();
-			const svc = new ExtHostConsoleService(SingleProxyRPCProtocol(shape), new NullLogService(), docsAndEditors);
-
-			const fired: (import('vscode').TextEditor | undefined)[] = [];
-			disposables.add(svc.onDidChangeActiveConsoleEditor((e) => fired.push(e)));
-
-			svc.$onDidChangeActiveConsole('session-a');
-			svc.$setActiveConsoleEditor('console-session-a');
-			svc.$onDidChangeActiveConsole('session-b');
-			svc.$setActiveConsoleEditor('console-session-b');
-			svc.$onDidChangeActiveConsole(undefined);
-			svc.$setActiveConsoleEditor(null);
-
-			expect(fired).toEqual([fakeA, fakeB, undefined]);
 			expect(svc.activeConsoleEditor).toBeUndefined();
+			expect(fired).toEqual([]);
 		});
 	});
 });

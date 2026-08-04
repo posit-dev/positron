@@ -7,7 +7,7 @@ import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { IHostedLanguageContribution, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, IRuntimeRootSignature, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
-import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatProgressDto, ExtHostQuickOpenShape } from '../extHost.protocol.js';
+import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatProgressDto, ExtHostQuickOpenShape, ITextEditorAddData, IEditorPropertiesChangeData } from '../extHost.protocol.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
@@ -27,6 +27,8 @@ import { IPositronChatProvider } from '../../../contrib/chat/common/languageMode
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { EvalResult } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
+import { ITextModel } from '../../../../editor/common/model.js';
+import { Event } from '../../../../base/common/event.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -172,25 +174,43 @@ export interface ExtHostConsoleServiceShape {
 	$addConsole(sessionId: string): void;
 	$removeConsole(sessionId: string): void;
 	$onDidChangeActiveConsole(sessionId: string | undefined): void;
-	$setActiveConsoleEditor(editorId: string | null): void;
+
+	// Console input editors travel over this Positron-only channel rather than the core
+	// `$acceptDocumentsAndEditorsDelta` one, so they never surface through the standard VS Code
+	// editor APIs (`visibleTextEditors`, `onDidChangeTextEditorSelection`, ...).
+	$addConsoleEditor(sessionId: string, data: ITextEditorAddData): void;
+	$removeConsoleEditor(sessionId: string): void;
+	$acceptConsoleEditorPropertiesChanged(sessionId: string, data: IEditorPropertiesChangeData): void;
 }
 
 /**
- * Implemented by MainThreadDocumentsAndEditors to allow Positron-specific
- * console editor registration without exposing the full upstream internals.
+ * A text editor that lives in the main thread's editor map -- so operations the extension host
+ * addresses by id (`edit()`, `insertSnippet()`, selection writes) can resolve it -- but which is
+ * deliberately absent from the core documents-and-editors state.
  */
-export interface IMainThreadConsoleEditorManager {
+export interface IHiddenTextEditorRegistration extends IDisposable {
+	/** The data the extension host needs to build its own editor object for this editor. */
+	readonly addData: ITextEditorAddData;
+
+	/** Fires when the editor's selections, options or visible ranges change. */
+	readonly onPropertiesChanged: Event<IEditorPropertiesChangeData>;
+}
+
+/**
+ * Implemented by MainThreadDocumentsAndEditors so Positron can register editors that are hidden
+ * from the core editor pipeline, without exposing the full upstream internals.
+ */
+export interface IMainThreadHiddenEditorManager {
 	/**
-	 * Registers a console input editor with the extension host.
+	 * Registers a hidden text editor.
 	 *
 	 * @param id A stable id for this editor (e.g. `console-<sessionId>`)
-	 * @param codeEditor The Monaco editor backing the console input
-	 * @param onRegistered Invoked once the editor is actually known to the extension host.
-	 * Registration is deferred until the code editor has a text model, so this may be called
-	 * after `registerConsoleEditor` returns (or never, if a model is never attached).
-	 * @returns A disposable that removes the editor from the ext host when disposed
+	 * @param codeEditor The Monaco editor to expose
+	 * @param model The text model attached to `codeEditor`
+	 * @returns A registration the caller must forward to the extension host over its own channel,
+	 * and dispose when the editor goes away
 	 */
-	registerConsoleEditor(id: string, codeEditor: ICodeEditor, onRegistered?: () => void): IDisposable;
+	registerHiddenTextEditor(id: string, codeEditor: ICodeEditor, model: ITextModel): IHiddenTextEditorRegistration;
 }
 
 export interface MainThreadMethodsShape { }
@@ -518,7 +538,7 @@ export interface MainThreadPositronEphemeralStorageShape extends IDisposable {
 }
 
 export const MainPositronContext = {
-	MainThreadConsoleEditorManager: createProxyIdentifier<IMainThreadConsoleEditorManager>('MainThreadConsoleEditorManager'),
+	MainThreadHiddenEditorManager: createProxyIdentifier<IMainThreadHiddenEditorManager>('MainThreadHiddenEditorManager'),
 	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
 	MainThreadPreviewPanel: createProxyIdentifier<MainThreadPreviewPanelShape>('MainThreadPreviewPanel'),
 	MainThreadModalDialogs: createProxyIdentifier<MainThreadModalDialogsShape>('MainThreadModalDialogs'),

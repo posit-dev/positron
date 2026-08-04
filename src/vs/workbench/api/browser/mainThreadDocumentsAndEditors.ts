@@ -4,12 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../base/common/event.js';
-// --- Start Positron ---
-// Added `IDisposable` and `toDisposable` for `registerConsoleEditor` below. Extended in place
-// rather than imported separately to avoid a duplicate import of `lifecycle.js`.
-// import { combinedDisposable, DisposableStore, DisposableMap } from '../../../base/common/lifecycle.js';
-import { combinedDisposable, DisposableStore, DisposableMap, IDisposable, toDisposable } from '../../../base/common/lifecycle.js';
-// --- End Positron ---
+import { combinedDisposable, DisposableStore, DisposableMap } from '../../../base/common/lifecycle.js';
 import { ICodeEditor, isCodeEditor, isDiffEditor, IActiveCodeEditor } from '../../../editor/browser/editorBrowser.js';
 import { ICodeEditorService } from '../../../editor/browser/services/codeEditorService.js';
 import { IEditor } from '../../../editor/common/editorCommon.js';
@@ -39,9 +34,9 @@ import { ViewContainerLocation } from '../../common/views.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { IQuickDiffModelService } from '../../contrib/scm/browser/quickDiffModel.js';
 // --- Start Positron ---
-// Used by `registerConsoleEditor`, which exposes the console input editor to the extension host
-// as a `vscode.TextEditor`.
-import { IMainThreadConsoleEditorManager, MainPositronContext } from '../common/positron/extHost.positron.protocol.js';
+// Used by `registerHiddenTextEditor`, which lets Positron expose an editor to the extension host
+// without adding it to the core documents-and-editors state.
+import { IHiddenTextEditorRegistration, IMainThreadHiddenEditorManager, MainPositronContext } from '../common/positron/extHost.positron.protocol.js';
 // --- End Positron ---
 
 
@@ -285,10 +280,11 @@ class MainThreadDocumentAndEditorStateComputer {
 
 @extHostCustomer
 // --- Start Positron ---
-// Additionally implement IMainThreadConsoleEditorManager so MainThreadConsoleService can register
-// console input editors with the extension host (see `registerConsoleEditor` below).
+// Additionally implement IMainThreadHiddenEditorManager so MainThreadConsoleService can register
+// the console input editor without it leaking into core editor APIs (see
+// `registerHiddenTextEditor` below).
 // export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator {
-export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, IMainThreadConsoleEditorManager {
+export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, IMainThreadHiddenEditorManager {
 	// --- End Positron ---
 
 	private readonly _toDispose = new DisposableStore();
@@ -328,7 +324,7 @@ export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, 
 
 		// --- Start Positron ---
 		// Register this instance so MainThreadConsoleService can reach it via getRaw.
-		extHostContext.set(MainPositronContext.MainThreadConsoleEditorManager, this);
+		extHostContext.set(MainPositronContext.MainThreadHiddenEditorManager, this);
 		// --- End Positron ---
 	}
 
@@ -456,73 +452,39 @@ export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, 
 
 	// --- Start Positron ---
 	/**
-	 * Registers a console input editor so it is accessible as a `vscode.TextEditor` via
-	 * `positron.window.activeConsoleEditor`. The editor is NOT set as `vscode.window.activeTextEditor`.
+	 * Registers an editor that is deliberately hidden from the core editor pipeline: it is never
+	 * sent through `$acceptDocumentsAndEditorsDelta`, so it does not appear in
+	 * `vscode.window.visibleTextEditors`, never becomes `vscode.window.activeTextEditor`, and
+	 * never raises `vscode.window.onDidChangeTextEditorSelection` and friends.
 	 *
-	 * @param id A stable id for this editor (e.g. `console-<sessionId>`)
-	 * @param codeEditor The Monaco editor backing the console input
-	 * @param onRegistered Invoked once the editor has been sent to the ext host. Registration is
-	 * deferred until the code editor has a text model, so this may run after this method returns.
-	 * @returns A disposable that removes the editor from the ext host when disposed
+	 * The editor is only added to the main-thread editor map, so that operations the extension host
+	 * addresses by id (`edit()`, `insertSnippet()`, selection writes) can resolve it. It is up to
+	 * the caller to forward `addData` and `onPropertiesChanged` to the extension host over a
+	 * Positron-specific channel; see `MainThreadConsoleService` for the console input editor that
+	 * backs `positron.window.activeConsoleEditor`.
 	 */
-	registerConsoleEditor(id: string, codeEditor: ICodeEditor, onRegistered?: () => void): IDisposable {
-		const store = new DisposableStore();
+	registerHiddenTextEditor(id: string, codeEditor: ICodeEditor, model: ITextModel): IHiddenTextEditorRegistration {
+		const editor = new MainThreadTextEditor(
+			id,
+			model,
+			codeEditor,
+			{ onGainedFocus() { }, onLostFocus() { } },
+			this._mainThreadDocuments,
+			this._modelService,
+			this._clipboardService,
+		);
+		this._textEditors.set(id, editor);
 
-		const doRegister = (model: ITextModel) => {
-			const editor = new MainThreadTextEditor(
-				id,
-				model,
-				codeEditor,
-				{ onGainedFocus() { }, onLostFocus() { } },
-				this._mainThreadDocuments,
-				this._modelService,
-				this._clipboardService,
-			);
-
-			this._textEditors.set(id, editor);
-
-			// Order matters, and mirrors `_onDelta`: tell the ext host about the editor first, then
-			// wire up the dependent editor state. `handleTextEditorAdded` starts an autorun that
-			// immediately sends `$acceptEditorDiffInformation` for this id, and the ext host throws
-			// `unknown text editor` for any id it hasn't received an `addedEditors` delta for.
-			this._proxy.$acceptDocumentsAndEditorsDelta({
-				addedEditors: [this._toTextEditorAddData(editor)],
-			});
-			this._mainThreadEditors.handleTextEditorAdded(editor);
-
-			store.add(toDisposable(() => {
-				// Mirror image of registration: drop the listeners before the ext host forgets the
-				// editor, so nothing can send it state for an id it no longer knows.
+		return {
+			addData: this._toTextEditorAddData(editor),
+			onPropertiesChanged: editor.onPropertiesChanged,
+			dispose: () => {
 				this._textEditors.delete(id);
+				// Disposing the editor also disposes its `onPropertiesChanged` emitter, so no
+				// further state can be forwarded for an id the caller is about to retire.
 				editor.dispose();
-				this._mainThreadEditors.handleTextEditorRemoved(id);
-				this._proxy.$acceptDocumentsAndEditorsDelta({ removedEditors: [id] });
-			}));
-
-			// Notify the caller last, so that anything it sends to the ext host (e.g. the active
-			// console editor id) arrives after the delta that makes the editor resolvable there.
-			onRegistered?.();
+			}
 		};
-
-		const model = codeEditor.getModel();
-		if (model) {
-			doRegister(model);
-		} else {
-			// The console input assigns its code editor before attaching the text model, so the
-			// model may not be present yet. Wait for it rather than silently skipping registration,
-			// otherwise `positron.window.activeConsoleEditor` would never resolve this editor.
-			const sub = store.add(codeEditor.onDidChangeModel(e => {
-				if (e.newModelUrl) {
-					const newModel = codeEditor.getModel();
-					if (newModel) {
-						sub.dispose();
-						doRegister(newModel);
-					}
-				}
-			}));
-		}
-
-		return store;
 	}
 	// --- End Positron ---
 }
