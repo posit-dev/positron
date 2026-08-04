@@ -197,6 +197,7 @@ import './contrib/emergencyAlert/electron-browser/emergencyAlert.contribution.js
 
 // --- Start Positron ---
 import './contrib/positronPreview/electron-browser/positronPreview.contribution.js';
+import './contrib/positronCanvas/electron-browser/positronCanvas.contribution.js';
 // --- End Positron ---
 
 // MCP

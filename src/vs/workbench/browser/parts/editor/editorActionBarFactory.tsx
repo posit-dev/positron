@@ -13,6 +13,7 @@ import { Emitter } from '../../../../base/common/event.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { EditorResourceAccessor, SideBySideEditor } from '../../../common/editor.js';
+import { CANVAS_WEBVIEW_VIEW_TYPE } from '../../../common/positronCanvasIdentity.js';
 import { IAction, Separator, SubmenuAction } from '../../../../base/common/actions.js';
 import { actionTooltip } from '../../../../platform/positronActionBar/common/helpers.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
@@ -199,17 +200,22 @@ export class EditorActionBarFactory extends Disposable {
 		];
 
 		// Splice the move editor to new window command button into the right action bar elements.
-		rightActionBarElements.splice(
-			rightActionBarElements.length - 1,
-			0,
-			<ActionBarCommandButton
-				ariaLabel={positronMoveIntoNewWindowAriaLabel}
-				commandId='workbench.action.moveEditorToNewWindow'
-				disabled={auxiliaryWindow}
-				icon={ThemeIcon.fromId('positron-open-in-new-window')}
-				tooltip={positronMoveIntoNewWindowTooltip}
-			/>
-		);
+		// Not for Canvas panels: their action bar carries "Open Canvas" instead
+		// (positronCanvas.contribution.ts), and a plain detached editor window
+		// is the degraded shape of what that button opens.
+		if (this.contextKeyService.getContextKeyValue<string>('activeWebviewPanelId') !== CANVAS_WEBVIEW_VIEW_TYPE) {
+			rightActionBarElements.splice(
+				rightActionBarElements.length - 1,
+				0,
+				<ActionBarCommandButton
+					ariaLabel={positronMoveIntoNewWindowAriaLabel}
+					commandId='workbench.action.moveEditorToNewWindow'
+					disabled={auxiliaryWindow}
+					icon={ThemeIcon.fromId('positron-open-in-new-window')}
+					tooltip={positronMoveIntoNewWindowTooltip}
+				/>
+			);
+		}
 
 		// Return the action bar.
 		return (
