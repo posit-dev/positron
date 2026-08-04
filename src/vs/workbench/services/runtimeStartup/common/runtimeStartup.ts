@@ -1748,7 +1748,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				: undefined;
 
 		// Preference order:
-		//   1. The active console session for the language
+		//   1. The runtime backing the active console session for the language
 		//   2. The runtime affiliated with the workspace
 		//   3. The most recently started runtime for the language
 		//   4. Any registered runtime for the language
