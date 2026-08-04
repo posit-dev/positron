@@ -52,6 +52,16 @@ export interface IAuxiliaryWindowOpenOptions {
 
 	readonly nativeTitlebar?: boolean;
 	readonly disableFullscreen?: boolean;
+
+	// --- Start Positron ---
+	/**
+	 * Makes compact mode a property of the window rather than a toggle: the
+	 * automatic exits from compact mode and the user-facing compact actions
+	 * are ignored. For windows that show exactly one thing with no workbench
+	 * chrome, where losing compact mode would break the surface.
+	 */
+	readonly lockCompact?: boolean;
+	// --- End Positron ---
 }
 
 export interface IAuxiliaryWindowService {
@@ -110,12 +120,21 @@ export class AuxiliaryWindow extends BaseWindow implements IAuxiliaryWindow {
 
 	readonly whenStylesHaveLoaded: Promise<void>;
 
-	private compact = false;
+	// --- Start Positron ---
+	// private compact = false;
+	private compact: boolean;
+	// Some opening traits cannot be read back from the live window. Keep them
+	// separate from `updateOptions()`, which only changes live compact state.
+	private readonly openOptions: IAuxiliaryWindowOpenOptions;
+	// --- End Positron ---
 
 	constructor(
 		readonly window: CodeWindow,
 		readonly container: HTMLElement,
 		stylesHaveLoaded: Barrier,
+		// --- Start Positron ---
+		openOptions: IAuxiliaryWindowOpenOptions | undefined,
+		// --- End Positron ---
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IHostService hostService: IHostService,
 		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService,
@@ -124,14 +143,26 @@ export class AuxiliaryWindow extends BaseWindow implements IAuxiliaryWindow {
 	) {
 		super(window, undefined, hostService, environmentService, contextMenuService, layoutService);
 
+		// --- Start Positron ---
+		this.openOptions = { ...openOptions };
+		this.compact = openOptions?.compact === true;
+		// --- End Positron ---
+
 		this.whenStylesHaveLoaded = stylesHaveLoaded.wait().then(() => undefined);
 
 		this.registerListeners();
 	}
 
-	updateOptions(options: { compact: boolean }): void {
-		this.compact = options.compact;
+	// --- Start Positron ---
+	// updateOptions(options: { compact: boolean }): void {
+	// 	this.compact = options.compact;
+	// }
+	updateOptions(options: { compact: boolean } | undefined): void {
+		if (options) {
+			this.compact = options.compact;
+		}
 	}
+	// --- End Positron ---
 
 	private registerListeners(): void {
 		this._register(addDisposableListener(this.window, EventType.BEFORE_UNLOAD, (e: BeforeUnloadEvent) => this.handleBeforeUnload(e)));
@@ -223,7 +254,16 @@ export class AuxiliaryWindow extends BaseWindow implements IAuxiliaryWindow {
 				height: this.window.outerHeight
 			},
 			zoomLevel: getZoomLevel(this.window),
-			compact: this.compact
+			// --- Start Positron ---
+			// compact: this.compact
+			compact: this.compact,
+			// `EditorParts.restoreState()` feeds this object straight back in as
+			// open options, so anything omitted here is a trait the restored
+			// window loses.
+			nativeTitlebar: this.openOptions.nativeTitlebar,
+			disableFullscreen: this.openOptions.disableFullscreen,
+			lockCompact: this.openOptions.lockCompact
+			// --- End Positron ---
 		};
 	}
 
@@ -276,8 +316,12 @@ export class BrowserAuxiliaryWindowService extends Disposable implements IAuxili
 		const containerDisposables = new DisposableStore();
 		const { container, stylesLoaded } = this.createContainer(targetWindow, containerDisposables, options);
 
-		const auxiliaryWindow = this.createAuxiliaryWindow(targetWindow, container, stylesLoaded);
-		auxiliaryWindow.updateOptions({ compact: options?.compact ?? false });
+		// --- Start Positron ---
+		// const auxiliaryWindow = this.createAuxiliaryWindow(targetWindow, container, stylesLoaded);
+		const auxiliaryWindow = this.createAuxiliaryWindow(targetWindow, container, stylesLoaded, options);
+		// auxiliaryWindow.updateOptions({ compact: options?.compact ?? false });
+		// Opening traits are constructor state. Live updates remain compact-only.
+		// --- End Positron ---
 
 		const registryDisposables = new DisposableStore();
 		this.windows.set(targetWindow.vscodeWindowId, auxiliaryWindow);
@@ -311,9 +355,13 @@ export class BrowserAuxiliaryWindowService extends Disposable implements IAuxili
 		return auxiliaryWindow;
 	}
 
-	protected createAuxiliaryWindow(targetWindow: CodeWindow, container: HTMLElement, stylesLoaded: Barrier): AuxiliaryWindow {
-		return new AuxiliaryWindow(targetWindow, container, stylesLoaded, this.configurationService, this.hostService, this.environmentService, this.contextMenuService, this.layoutService);
+	// --- Start Positron ---
+	// protected createAuxiliaryWindow(targetWindow: CodeWindow, container: HTMLElement, stylesLoaded: Barrier): AuxiliaryWindow {
+	// 	return new AuxiliaryWindow(targetWindow, container, stylesLoaded, this.configurationService, this.hostService, this.environmentService, this.contextMenuService, this.layoutService);
+	protected createAuxiliaryWindow(targetWindow: CodeWindow, container: HTMLElement, stylesLoaded: Barrier, options?: IAuxiliaryWindowOpenOptions): AuxiliaryWindow {
+		return new AuxiliaryWindow(targetWindow, container, stylesLoaded, options, this.configurationService, this.hostService, this.environmentService, this.contextMenuService, this.layoutService);
 	}
+	// --- End Positron ---
 
 	private async openWindow(options?: IAuxiliaryWindowOpenOptions): Promise<Window | undefined> {
 		const activeWindow = getActiveWindow();
