@@ -138,27 +138,38 @@ export function getAiLibServerModules(packageNames: string[] = AI_LIB_SERVER_PAC
  * `ai-lib/packages/` into `node_modules/`, which is the layout the desktop app
  * ships.
  *
- * A dependency hoisted to the ai-lib checkout root -- which happens once someone
+ * A dependency hoisted above the package checkouts -- which happens once someone
  * runs `npm install` inside `ai-lib` to work on it, since Positron's own install
  * only populates the packages -- has no counterpart in the server layout, where
  * the packages sit directly under `node_modules/`. It travels nested under its
  * owner instead of at the top level, so the owner keeps the version it declared:
  * top level would collide with the server's own copy (ai-lib hoists zod 4 while
  * the server ships zod 3) and lose to it, since a caller drops destinations the
- * remote dependencies already provide.
+ * remote dependencies already provide. Everything below the hoist point keeps its
+ * nesting, so a dependency npm nested for a version conflict stays distinct from
+ * the copy it was nested against.
  */
 export function toServerModulePath(repoRelativeDir: string, owner: string): string {
 	if (repoRelativeDir.startsWith('node_modules/')) {
 		return repoRelativeDir;
 	}
-	if (repoRelativeDir.startsWith('ai-lib/packages/')) {
-		return `node_modules/${repoRelativeDir.slice('ai-lib/packages/'.length)}`;
+
+	const packagesPrefix = 'ai-lib/packages/';
+	if (repoRelativeDir.startsWith(packagesPrefix)) {
+		const belowPackages = repoRelativeDir.slice(packagesPrefix.length);
+		// `<pkg>` or `<pkg>/node_modules/<dep>`, the shape the server keeps verbatim.
+		// A `node_modules/` first segment is instead a hoist to the packages dir.
+		if (!belowPackages.startsWith('node_modules/')) {
+			return `node_modules/${belowPackages}`;
+		}
 	}
-	const marker = '/node_modules/';
-	const nameStart = repoRelativeDir.lastIndexOf(marker);
-	if (repoRelativeDir.startsWith('ai-lib/') && nameStart !== -1) {
-		return `node_modules/${owner}/node_modules/${repoRelativeDir.slice(nameStart + marker.length)}`;
+
+	const marker = 'node_modules/';
+	const hoistPoint = repoRelativeDir.indexOf(marker);
+	if (repoRelativeDir.startsWith('ai-lib/') && hoistPoint !== -1) {
+		return `node_modules/${owner}/node_modules/${repoRelativeDir.slice(hoistPoint + marker.length)}`;
 	}
+
 	throw new Error(`Unexpected ai-lib dependency location: ${repoRelativeDir}`);
 }
 

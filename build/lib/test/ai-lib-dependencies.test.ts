@@ -36,18 +36,32 @@ suite('ai-lib-dependencies', () => {
 		// An `npm install` inside ai-lib hoists to a location the server layout has
 		// no counterpart for, so it travels nested under the package that needs it
 		// rather than at the top level, where the server's own copy would win.
-		test('nests a dependency hoisted to the ai-lib root under its owner', () => {
+		// Nesting below the hoist point is preserved: flattening `a/node_modules/b`
+		// to `b` would collide with a sibling `b` of another version.
+		test('nests a dependency hoisted above the packages under its owner', () => {
 			assert.deepStrictEqual([
 				toServerModulePath('ai-lib/node_modules/zod', 'ai-config'),
 				toServerModulePath('ai-lib/node_modules/zod', 'ai-provider-bridge'),
 				toServerModulePath('ai-lib/node_modules/@github/copilot-sdk', 'ai-provider-bridge'),
 				toServerModulePath('ai-lib/node_modules/a/node_modules/b', 'ai-config'),
+				toServerModulePath('ai-lib/packages/node_modules/zod', 'ai-config'),
 			], [
 				'node_modules/ai-config/node_modules/zod',
 				'node_modules/ai-provider-bridge/node_modules/zod',
 				'node_modules/ai-provider-bridge/node_modules/@github/copilot-sdk',
-				'node_modules/ai-config/node_modules/b',
+				'node_modules/ai-config/node_modules/a/node_modules/b',
+				'node_modules/ai-config/node_modules/zod',
 			]);
+		});
+
+		// The nested copy and the copy it was nested against stay distinct, so the
+		// destination-keyed closure cannot drop one of them.
+		test('keeps two versions of the same dependency apart', () => {
+			const destinations = [
+				'ai-lib/node_modules/b',
+				'ai-lib/node_modules/a/node_modules/b',
+			].map(dir => toServerModulePath(dir, 'ai-config'));
+			assert.deepStrictEqual(new Set(destinations).size, destinations.length);
 		});
 
 		test('rejects a location that is neither', () => {
