@@ -70,9 +70,17 @@ function toRepoRelative(moduleDir: string): string {
 	return relative.split(path.sep).join('/');
 }
 
+/** A module to copy: where it is installed, and where the server loads it from. */
+export interface AiLibServerModule {
+	/** Repository-relative directory of the installed module. */
+	source: string;
+	/** Path under the server root, always inside `node_modules/`. */
+	destination: string;
+}
+
 /**
  * The production dependency closure of {@link AI_LIB_SERVER_PACKAGES}, as
- * repository-relative directories.
+ * source/destination pairs.
  *
  * Each dependency is resolved from the directory that declares it, so a version
  * npm had to nest (ai-config's zod 4 against the server's zod 3, the bridge's
@@ -80,14 +88,18 @@ function toRepoRelative(moduleDir: string): string {
  * path and keeps winning over the hoisted copy once shipped. Dev and peer
  * dependencies are not walked: the packages ship prebuilt `dist/` output, and
  * their only peer (`vscode`) comes from the host at runtime.
+ *
+ * Pairs are keyed by destination, not source: a dependency hoisted to the
+ * ai-lib checkout root belongs to each ai-lib package that requires it, and
+ * lands once per package (see {@link toServerModulePath}).
  */
-export function getAiLibProductionDependencies(packageNames: string[] = AI_LIB_SERVER_PACKAGES): string[] {
-	const resolved = new Set<string>();
-	const queue: { name: string; fromDir: string; optional: boolean }[] =
-		packageNames.map(name => ({ name, fromDir: REPO_ROOT, optional: false }));
+export function getAiLibServerModules(packageNames: string[] = AI_LIB_SERVER_PACKAGES): AiLibServerModule[] {
+	const modules = new Map<string, string>();
+	const queue: { name: string; fromDir: string; optional: boolean; owner: string }[] =
+		packageNames.map(name => ({ name, fromDir: REPO_ROOT, optional: false, owner: name }));
 
 	while (queue.length > 0) {
-		const { name, fromDir, optional } = queue.shift()!;
+		const { name, fromDir, optional, owner } = queue.shift()!;
 		const moduleDir = findModuleDir(name, fromDir);
 		if (!moduleDir) {
 			if (optional) {
@@ -95,35 +107,57 @@ export function getAiLibProductionDependencies(packageNames: string[] = AI_LIB_S
 			}
 			throw new Error(`Cannot resolve ai-lib dependency '${name}' from ${fromDir}. Run 'npm install' first.`);
 		}
-		if (resolved.has(moduleDir)) {
+
+		const source = toRepoRelative(moduleDir);
+		const destination = toServerModulePath(source, owner);
+		if (modules.has(destination)) {
 			continue;
 		}
-		resolved.add(moduleDir);
+		modules.set(destination, source);
 
 		const manifest = readManifest(moduleDir);
 		for (const dependency of Object.keys(manifest.dependencies ?? {})) {
-			queue.push({ name: dependency, fromDir: moduleDir, optional: false });
+			queue.push({ name: dependency, fromDir: moduleDir, optional: false, owner });
 		}
 		for (const dependency of Object.keys(manifest.optionalDependencies ?? {})) {
-			queue.push({ name: dependency, fromDir: moduleDir, optional: true });
+			queue.push({ name: dependency, fromDir: moduleDir, optional: true, owner });
 		}
 	}
 
-	return [...resolved].map(toRepoRelative).sort();
+	return [...modules]
+		.map(([destination, source]) => ({ source, destination }))
+		.sort((a, b) => a.destination.localeCompare(b.destination));
 }
 
 /**
- * Where a resolved dependency belongs in the server's `node_modules`. Packages
- * already installed under `node_modules/` keep their path; the ai-lib checkouts
- * (and anything nested inside them) move from `ai-lib/packages/` into
- * `node_modules/`, which is the layout the desktop app ships.
+ * Where a resolved dependency belongs in the server's `node_modules`, given the
+ * ai-lib package (`owner`) whose closure reached it.
+ *
+ * Packages installed under the repository's own `node_modules/` keep their path;
+ * the ai-lib checkouts (and anything nested inside them) move from
+ * `ai-lib/packages/` into `node_modules/`, which is the layout the desktop app
+ * ships.
+ *
+ * A dependency hoisted to the ai-lib checkout root -- which happens once someone
+ * runs `npm install` inside `ai-lib` to work on it, since Positron's own install
+ * only populates the packages -- has no counterpart in the server layout, where
+ * the packages sit directly under `node_modules/`. It travels nested under its
+ * owner instead of at the top level, so the owner keeps the version it declared:
+ * top level would collide with the server's own copy (ai-lib hoists zod 4 while
+ * the server ships zod 3) and lose to it, since a caller drops destinations the
+ * remote dependencies already provide.
  */
-export function toServerModulePath(repoRelativeDir: string): string {
+export function toServerModulePath(repoRelativeDir: string, owner: string): string {
 	if (repoRelativeDir.startsWith('node_modules/')) {
 		return repoRelativeDir;
 	}
 	if (repoRelativeDir.startsWith('ai-lib/packages/')) {
 		return `node_modules/${repoRelativeDir.slice('ai-lib/packages/'.length)}`;
+	}
+	const marker = '/node_modules/';
+	const nameStart = repoRelativeDir.lastIndexOf(marker);
+	if (repoRelativeDir.startsWith('ai-lib/') && nameStart !== -1) {
+		return `node_modules/${owner}/node_modules/${repoRelativeDir.slice(nameStart + marker.length)}`;
 	}
 	throw new Error(`Unexpected ai-lib dependency location: ${repoRelativeDir}`);
 }
@@ -143,19 +177,16 @@ export function toServerModulePath(repoRelativeDir: string): string {
  */
 export function getAiLibServerDependencies(alreadyShippedModulePaths: Iterable<string> = []): NodeJS.ReadWriteStream {
 	const alreadyShipped = new Set(alreadyShippedModulePaths);
-	const streams = getAiLibProductionDependencies()
-		.filter(dir => !alreadyShipped.has(toServerModulePath(dir)))
-		.map(dir => {
-			const destination = toServerModulePath(dir);
-			return gulp.src([
-				`${dir}/**`,
-				`!${dir}/node_modules/**`,
-				`!${dir}/**/{test,tests}/**`,
-			], { cwd: REPO_ROOT, base: dir, dot: true })
-				.pipe(rename(file => {
-					file.dirname = path.join(destination, file.dirname ?? '');
-				}));
-		});
+	const streams = getAiLibServerModules()
+		.filter(({ destination }) => !alreadyShipped.has(destination))
+		.map(({ source, destination }) => gulp.src([
+			`${source}/**`,
+			`!${source}/node_modules/**`,
+			`!${source}/**/{test,tests}/**`,
+		], { cwd: REPO_ROOT, base: source, dot: true })
+			.pipe(rename(file => {
+				file.dirname = path.join(destination, file.dirname ?? '');
+			})));
 
 	return es.merge(streams);
 }

@@ -7,7 +7,7 @@ import assert from 'assert';
 import { suite, test } from 'node:test';
 import fs from 'fs';
 import path from 'path';
-import { AI_LIB_SERVER_PACKAGES, getAiLibProductionDependencies, toServerModulePath } from '../ai-lib-dependencies.ts';
+import { AI_LIB_SERVER_PACKAGES, getAiLibServerModules, toServerModulePath } from '../ai-lib-dependencies.ts';
 
 const REPO_ROOT = path.dirname(path.dirname(path.dirname(import.meta.dirname)));
 
@@ -25,7 +25,7 @@ suite('ai-lib-dependencies', () => {
 				'node_modules/@aws-sdk/client-bedrock',
 				'ai-lib/packages/ai-config',
 				'ai-lib/packages/ai-config/node_modules/zod',
-			].map(toServerModulePath), [
+			].map(dir => toServerModulePath(dir, 'ai-config')), [
 				'node_modules/ai',
 				'node_modules/@aws-sdk/client-bedrock',
 				'node_modules/ai-config',
@@ -33,46 +33,67 @@ suite('ai-lib-dependencies', () => {
 			]);
 		});
 
+		// An `npm install` inside ai-lib hoists to a location the server layout has
+		// no counterpart for, so it travels nested under the package that needs it
+		// rather than at the top level, where the server's own copy would win.
+		test('nests a dependency hoisted to the ai-lib root under its owner', () => {
+			assert.deepStrictEqual([
+				toServerModulePath('ai-lib/node_modules/zod', 'ai-config'),
+				toServerModulePath('ai-lib/node_modules/zod', 'ai-provider-bridge'),
+				toServerModulePath('ai-lib/node_modules/@github/copilot-sdk', 'ai-provider-bridge'),
+				toServerModulePath('ai-lib/node_modules/a/node_modules/b', 'ai-config'),
+			], [
+				'node_modules/ai-config/node_modules/zod',
+				'node_modules/ai-provider-bridge/node_modules/zod',
+				'node_modules/ai-provider-bridge/node_modules/@github/copilot-sdk',
+				'node_modules/ai-config/node_modules/b',
+			]);
+		});
+
 		test('rejects a location that is neither', () => {
-			assert.throws(() => toServerModulePath('remote/node_modules/ws'), /Unexpected ai-lib dependency location/);
+			assert.throws(
+				() => toServerModulePath('remote/node_modules/ws', 'ai-config'),
+				/Unexpected ai-lib dependency location/);
 		});
 	});
 
-	suite('getAiLibProductionDependencies', () => {
+	suite('getAiLibServerModules', () => {
 
 		test('includes the packages the server imports', { skip: !installed }, () => {
-			const dirs = getAiLibProductionDependencies();
+			const modules = getAiLibServerModules();
 			assert.deepStrictEqual(
-				AI_LIB_SERVER_PACKAGES.filter(name => dirs.includes(`ai-lib/packages/${name}`)),
+				AI_LIB_SERVER_PACKAGES.filter(name =>
+					modules.some(m => m.source === `ai-lib/packages/${name}` && m.destination === `node_modules/${name}`)),
 				AI_LIB_SERVER_PACKAGES);
 		});
 
 		test('includes the deps that resolve outside the packages', { skip: !installed }, () => {
-			const dirs = getAiLibProductionDependencies(['ai-config']);
+			const modules = getAiLibServerModules(['ai-config']);
 			// zod is nested (ai-config wants 4.x against the app's 3.x) while
 			// proper-lockfile hoists; both have to travel with the package.
 			assert.deepStrictEqual([
-				dirs.includes('ai-lib/packages/ai-config/node_modules/zod'),
-				dirs.some(dir => dir.endsWith('/proper-lockfile')),
+				modules.some(m => m.destination === 'node_modules/ai-config/node_modules/zod'),
+				modules.some(m => m.destination.endsWith('/proper-lockfile')),
 			], [true, true]);
 		});
 
 		test('does not walk dev dependencies', { skip: !installed }, () => {
-			const dirs = getAiLibProductionDependencies();
 			assert.deepStrictEqual(
-				dirs.filter(dir => /\/(typescript|vitest|vite|esbuild|husky|tsx)$/.test(dir)),
+				getAiLibServerModules().filter(m => /\/(typescript|vitest|vite|esbuild|husky|tsx)$/.test(m.source)),
 				[]);
 		});
 
-		test('every entry has a server destination', { skip: !installed }, () => {
-			assert.deepStrictEqual(
-				getAiLibProductionDependencies().filter(dir => !toServerModulePath(dir).startsWith('node_modules/')),
-				[]);
+		test('every destination is under node_modules and unique', { skip: !installed }, () => {
+			const destinations = getAiLibServerModules().map(m => m.destination);
+			assert.deepStrictEqual({
+				outside: destinations.filter(d => !d.startsWith('node_modules/')),
+				duplicates: destinations.length - new Set(destinations).size,
+			}, { outside: [], duplicates: 0 });
 		});
 
 		test('reports an unresolvable package instead of skipping it', () => {
 			assert.throws(
-				() => getAiLibProductionDependencies(['ai-lib-package-that-does-not-exist']),
+				() => getAiLibServerModules(['ai-lib-package-that-does-not-exist']),
 				/Cannot resolve ai-lib dependency/);
 		});
 	});
