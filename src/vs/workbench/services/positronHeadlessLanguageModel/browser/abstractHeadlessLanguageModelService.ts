@@ -302,7 +302,9 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 	}
 
 	async getModelListingDiagnostics(): Promise<IModelListingDiagnostics> {
-		const state = await this.resolveState();
+		// Not resolveState(): its empty fallback would report a listing failure as
+		// "no provider was queried".
+		const state = await this._state.get();
 		return {
 			queriedProviders: state.queriedProviders,
 			models: state.allModels.map(model => ({

@@ -102,18 +102,20 @@ export async function migrateSettingsAndPrimeCatalog(
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
 
-	await migrateSettingsAndPrimeCatalog(context);
-
 	// Bridge the buffered trace/debug logs to the core "Collect AI Diagnostics"
 	// command. That command runs in the workbench (renderer), which can't read an
 	// extension's activate() exports, so it invokes this command across the
 	// extension-host boundary and receives the return value. The `getLogs` export
 	// below stays for any extension-to-extension consumer. Not declared in
-	// package.json, so it stays out of the command palette.
+	// package.json, so it stays out of the command palette. Registered before the
+	// migration and catalog init below so the logs stay reachable if either throws
+	// or hangs.
 	context.subscriptions.push(
 		vscode.commands.registerCommand('authentication.getDiagnosticLogs',
 			() => log.formatEntriesForDiagnostics()),
 	);
+
+	await migrateSettingsAndPrimeCatalog(context);
 
 	// Reports provider state for the core "AI: Create Diagnostic Report" command:
 	// which providers the user is signed in to, and which are turned off in

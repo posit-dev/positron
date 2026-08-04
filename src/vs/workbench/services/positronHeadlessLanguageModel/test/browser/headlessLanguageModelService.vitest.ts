@@ -649,6 +649,17 @@ describe('HeadlessLanguageModelService', () => {
 			expect(result).toEqual({ available: false, reason: 'temporarily-unavailable' });
 		});
 
+		it('rejects the diagnostics listing on a catalog failure rather than reporting nothing was queried', async () => {
+			providerStatus = 'error';
+			catalogSnapshot = new Map();
+			signedInAuthProviders.add('anthropic-api');
+			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
+
+			// A picker degrades to an empty list; the report sees the failure.
+			expect(await service.getAvailableModels()).toEqual([]);
+			await expect(service.getModelListingDiagnostics()).rejects.toThrow('AI provider catalog unavailable');
+		});
+
 		it('treats an empty catalog with status ready as genuine provider absence', async () => {
 			providerStatus = 'ready';
 			catalogSnapshot = new Map();

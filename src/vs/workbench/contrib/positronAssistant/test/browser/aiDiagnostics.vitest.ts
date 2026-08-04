@@ -28,8 +28,8 @@ function inputs(overrides: Partial<IAIDiagnosticsInputs> = {}): IAIDiagnosticsIn
 		os: 'Mac',
 		remote: undefined,
 		extensions: [
-			{ label: 'Authentication', id: 'positron.authentication', version: '1.0.0', status: 'active' },
-			{ label: 'Posit AI NES', id: 'positron.next-edit-suggestions', version: undefined },
+			{ label: 'Authentication', id: 'positron.authentication', presence: 'running', version: '1.0.0', status: 'active' },
+			{ label: 'Posit AI NES', id: 'positron.next-edit-suggestions', presence: 'missing', version: undefined },
 		],
 		authenticatedProviders: ['GitHub Copilot', 'Posit AI'],
 		disabledProviders: ['DeepSeek', 'Snowflake Cortex'],
@@ -61,6 +61,7 @@ function inputs(overrides: Partial<IAIDiagnosticsInputs> = {}): IAIDiagnosticsIn
 			{ key: 'ai.enabled', value: false },
 			{ key: 'nextEditSuggestions.enabled', value: { python: true } },
 		],
+		enforcedSettings: [],
 		logs: [
 			{ label: 'Authentication', content: '[2026-07-23T00:00:00.000Z] TRACE signed in' },
 			{ label: 'Posit AI NES', content: 'Extension not installed' },
@@ -174,6 +175,40 @@ describe('generateAIDiagnosticsReport', () => {
 		`);
 	});
 
+	it('distinguishes an installed-but-disabled extension from one that is absent', () => {
+		const report = generateAIDiagnosticsReport(inputs({
+			extensions: [
+				{ label: 'Posit Assistant', id: 'posit.assistant', presence: 'disabled', version: '2.0.0' },
+				{ label: 'Posit AI NES', id: 'positron.next-edit-suggestions', presence: 'missing', version: undefined },
+			],
+		}));
+		expect(report).toContain('- Posit Assistant: Version 2.0.0 (installed but disabled)');
+		expect(report).toContain('- Posit AI NES: Not installed');
+	});
+
+	it('renders manifest and runtime error text beneath the extension, not just a count', () => {
+		const report = generateAIDiagnosticsReport(inputs({
+			extensions: [{
+				label: 'Authentication',
+				id: 'positron.authentication',
+				presence: 'running',
+				version: '1.0.0',
+				status: 'active, 1 runtime error',
+				messages: ['Cannot read properties of undefined (reading \'baseUrl\')'],
+			}],
+		}));
+		expect(report).toContain('- Authentication: Version 1.0.0 (active, 1 runtime error)\n  - Cannot read properties of undefined (reading \'baseUrl\')');
+	});
+
+	it('adds an enforced-settings section only when an admin enforced something', () => {
+		expect(generateAIDiagnosticsReport(inputs())).not.toContain('## Admin Enforced Settings');
+		const report = generateAIDiagnosticsReport(inputs({
+			enforcedSettings: [{ key: 'ai.enabled', value: 'false' }],
+		}));
+		expect(report).toContain('## Admin Enforced Settings');
+		expect(report).toContain('- `ai.enabled`: false');
+	});
+
 	it('notes when no non-default settings are configured', () => {
 		const report = generateAIDiagnosticsReport(inputs({ settings: [] }));
 		expect(report).toContain('// No non-default settings configured');
@@ -245,6 +280,26 @@ describe('generateAIDiagnosticsReport', () => {
 		expect(report).toContain('**positai** (2)');
 	});
 
+	it('names a listing failure instead of describing it as a timeout', () => {
+		const report = generateAIDiagnosticsReport(inputs({
+			modelListing: { queriedProviders: [], models: [] },
+			builtinModels: [],
+			modelsIncomplete: true,
+			modelsIncompleteReason: 'AI provider catalog unavailable',
+		}));
+		expect(report).toContain('Could not be retrieved: AI provider catalog unavailable');
+		expect(report).not.toContain('in time');
+	});
+
+	it('names a listing failure on a partial list too', () => {
+		const report = generateAIDiagnosticsReport(inputs({
+			modelsIncomplete: true,
+			modelsIncompleteReason: 'AI provider catalog unavailable',
+		}));
+		expect(report).toContain('This list may be incomplete: AI provider catalog unavailable');
+		expect(report).toContain('**positai** (2)');
+	});
+
 	it('renders a placeholder in the JSON fence and omits the path when providers.json is unavailable', () => {
 		const report = generateAIDiagnosticsReport(inputs({ providersConfig: '// Provider catalog unavailable', providersConfigPath: undefined }));
 		expect(report).toContain('Provider configuration from `providers.json`:\n\n```json\n// Provider catalog unavailable\n```');
@@ -275,19 +330,21 @@ describe('describeFeatureToggle', () => {
 });
 
 describe('featureState', () => {
-	it('reports "not installed" when the owning extension is absent, else the toggle', () => {
+	it('reports the extension\'s presence when it is not running, else the toggle', () => {
 		expect({
-			absent: featureState(false, undefined),
-			absentIgnoresValue: featureState(false, true),
-			installedOn: featureState(true, true),
-			installedOff: featureState(true, false),
-			installedDefault: featureState(true, undefined),
+			absent: featureState('missing', undefined),
+			absentIgnoresValue: featureState('missing', true),
+			disabled: featureState('disabled', true),
+			runningOn: featureState('running', true),
+			runningOff: featureState('running', false),
+			runningDefault: featureState('running', undefined),
 		}).toEqual({
 			absent: 'Not installed',
 			absentIgnoresValue: 'Not installed',
-			installedOn: 'Enabled',
-			installedOff: 'Disabled',
-			installedDefault: 'Enabled',
+			disabled: 'Installed but disabled',
+			runningOn: 'Enabled',
+			runningOff: 'Disabled',
+			runningDefault: 'Enabled',
 		});
 	});
 });

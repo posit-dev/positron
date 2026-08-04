@@ -48,6 +48,9 @@ export interface IHeadlessLanguageModelService {
 	 * models show up" has a visible answer. Feature code must use
 	 * `getAvailableModels`: requests select a model and the service picks the
 	 * provider, so branching on the provider id would route around that.
+	 *
+	 * Rejects when the listing failed (catalog unavailable, engine or bridge
+	 * startup error), where {@link getAvailableModels} degrades to an empty list.
 	 */
 	getModelListingDiagnostics(): Promise<IModelListingDiagnostics>;
 
