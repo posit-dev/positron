@@ -74,6 +74,11 @@ export interface IDocsCacheState {
 	readonly sha256: string;
 	readonly etag?: string;
 	readonly sourceUrl: string;
+	/**
+	 * The three timestamps below are epoch milliseconds, as returned by
+	 * `IDocsCacheOptions.now()`. Only `lastFailureAt` is compared (against
+	 * DOCS_FAILURE_THROTTLE_MS); the other two are diagnostic.
+	 */
 	readonly fetchedAt: number;
 	readonly lastAttemptAt: number;
 	readonly lastFailureAt?: number;
