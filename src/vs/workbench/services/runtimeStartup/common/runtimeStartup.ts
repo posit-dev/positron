@@ -1733,6 +1733,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/**
 	 * Gets the preferred runtime for a language
 	 *
+	 * Every preference source is validated against the registered runtimes
+	 * before it is returned; callers start sessions from the result, and
+	 * starting a session from an unregistered runtime id throws. Sessions and
+	 * the most-recently-started map can both outlive the runtime they name
+	 * (e.g. a restored session after a window reload rediscovers runtimes), so
+	 * an unregistered id falls through to the next source instead.
+	 *
 	 * @param languageId The language identifier
 	 * @returns The preferred runtime metadata, or undefined if no preferred
 	 *  runtime is available.
@@ -1742,7 +1749,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		const activeSession =
 			this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
 		if (activeSession) {
-			return activeSession.runtimeMetadata;
+			const activeSessionRuntime =
+				this._languageRuntimeService.getRegisteredRuntime(activeSession.runtimeMetadata.runtimeId);
+			if (activeSessionRuntime) {
+				return activeSessionRuntime;
+			}
 		}
 
 		// If there's a runtime affiliated with the workspace for the language,
@@ -1759,7 +1770,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// If there is a most recently started runtime for the language, return it.
 		const mostRecentlyStartedRuntime = this._mostRecentlyStartedRuntimesByLanguageId.get(languageId);
 		if (mostRecentlyStartedRuntime) {
-			return mostRecentlyStartedRuntime;
+			const mostRecentlyStartedRuntimeInfo =
+				this._languageRuntimeService.getRegisteredRuntime(mostRecentlyStartedRuntime.runtimeId);
+			if (mostRecentlyStartedRuntimeInfo) {
+				return mostRecentlyStartedRuntimeInfo;
+			}
 		}
 
 		// If there are registered runtimes for the language, return the first.
