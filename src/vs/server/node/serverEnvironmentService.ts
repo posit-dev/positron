@@ -32,9 +32,10 @@ export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
 	'print-startup-performance': { type: 'boolean' },
 	'print-ip-address': { type: 'boolean' },
 	'accept-server-license-terms': { type: 'boolean', cat: 'o', description: nls.localize('acceptLicenseTerms', "If set, the user accepts the server license terms and the server will be started without a user prompt.") },
-	// --- Start PWB: disable file downloads ---
+	// --- Start PWB: disable file downloads, enable localhost proxy port verification ---
 	'disable-file-downloads': { type: 'boolean', cat: 'o', description: nls.localize('disableFileDownloads', "Disables file downloads.") },
 	'disable-file-uploads': { type: 'boolean', cat: 'o', description: nls.localize('disableFileUploads', "Disables file uploads.") },
+	'www-proxy-localhost-verify-port-owner': { type: 'string', cat: 'o', args: 'true | false', description: nls.localize('wwwProxyLocalhostVerifyPortOwner', "Verifies that a localhost /proxy/<port>/ request targets a port owned by this session's user before forwarding it. Enabled unless set to exactly \"0\" or \"false\".") },
 	// --- End PWB ---
 	'server-data-dir': { type: 'string', cat: 'o', description: nls.localize('serverDataDir', "Specifies the directory that server data is kept in.") },
 	'telemetry-level': { type: 'string', cat: 'o', args: 'level', description: nls.localize('telemetry-level', "Sets the initial telemetry level. Valid levels are: 'off', 'crash', 'error' and 'all'. If not specified, the server will send telemetry until a client connects, it will then use the clients telemetry setting. Setting this to 'off' is equivalent to --disable-telemetry") },
@@ -127,9 +128,15 @@ export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
 
 export interface ServerParsedArgs {
 
-	// --- Start PWB: disable file downloads ---
+	// --- Start PWB: disable file downloads, enable /proxy/ port ownership verification ---
 	'disable-file-downloads'?: boolean;
 	'disable-file-uploads'?: boolean;
+	/**
+	 * Whether to verify that a localhost `/proxy/<port>/` request targets a port owned by this
+	 * session's user before forwarding it. Verification is enabled for any value other than
+	 * exactly `"0"` or `"false"`, including when unspecified.
+	 */
+	'www-proxy-localhost-verify-port-owner'?: string;
 	// --- End PWB ---
 	// --- Start Positron ---
 	'bootstrap-extensions-dir'?: string;
