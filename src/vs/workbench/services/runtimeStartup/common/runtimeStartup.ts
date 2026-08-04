@@ -1750,9 +1750,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				? this._languageRuntimeService.getRegisteredRuntime(metadata.runtimeId)
 				: undefined;
 
-		// In preference order: the active console session, the runtime affiliated
-		// with the workspace, the most recently started runtime, then any
-		// registered runtime for the language.
+		// Preference order:
+		//   1. The active console session for the language
+		//   2. The runtime affiliated with the workspace
+		//   3. The most recently started runtime for the language
+		//   4. Any registered runtime for the language
 		const consoleSession = this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
 		return registered(consoleSession?.runtimeMetadata)
 			?? registered(this.getAffiliatedRuntimeMetadata(languageId))
