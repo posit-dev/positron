@@ -265,7 +265,7 @@ export class PositronDocsCache {
 		previousVersion: string | undefined,
 	): Promise<void> {
 		const now = this._options.now();
-		await this._writeState({
+		const persisted = await this._writeState({
 			schema: DOCS_BUNDLE_SCHEMA,
 			version: outcome.manifest.version,
 			requestedVersion,
@@ -283,7 +283,13 @@ export class PositronDocsCache {
 		// dailies cache bounded without scanning the directory, so there is no
 		// sweep that could collide with another window's in-flight work.
 		// Best-effort: a cleanup failure must not discard a successful install.
-		if (previousVersion && previousVersion !== outcome.manifest.version) {
+		//
+		// Gated on the state write. If that failed, state.json still names the
+		// previous version, so deleting its directory would break the invariant
+		// that the recorded path always exists. Keeping it leaves a valid cache
+		// for the next launch; the new directory is reclaimed by `_swapIn` on
+		// the next install of the same version.
+		if (persisted && previousVersion && previousVersion !== outcome.manifest.version) {
 			await this._safeDelete(joinDocsPath(this._options.rootPath, previousVersion));
 		}
 	}
@@ -402,16 +408,21 @@ export class PositronDocsCache {
 	 * write are the same ones that break a download - so the throw would
 	 * propagate out of `ensure()` and withdraw a perfectly good cached bundle,
 	 * violating the cache-present rule.
+	 *
+	 * Returns whether the write landed. Callers that would act on the new state
+	 * - the post-install cleanup delete - decline when it did not.
 	 */
-	private async _writeState(state: IDocsCacheState): Promise<void> {
+	private async _writeState(state: IDocsCacheState): Promise<boolean> {
 		const { files, logger, newId, rootPath } = this._options;
 		const tmp = joinDocsPath(rootPath, `.state-${newId()}.json`);
 		try {
 			await files.writeFile(tmp, JSON.stringify(state, undefined, '\t'));
 			await files.rename(tmp, joinDocsPath(rootPath, DOCS_STATE_FILENAME));
+			return true;
 		} catch (error) {
 			logger.warn(`${LOG_PREFIX} could not persist cache state: ${errorMessage(error)}`);
 			await this._safeDelete(tmp);
+			return false;
 		}
 	}
 

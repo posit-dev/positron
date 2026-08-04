@@ -28,6 +28,8 @@ export class FakeFileStore implements IDocsFileStore {
 	readonly dirs = new Set<string>();
 	/** Set to a path prefix to make every write under it fail, simulating a full disk. */
 	failWritesUnder: string | undefined;
+	/** Narrower form of the above, for failing one write while the rest succeed. */
+	failWriteWhen: ((path: string) => boolean) | undefined;
 	/** Digest overrides, keyed by path. Defaults to a hash of the contents. */
 	readonly digests = new Map<string, string>();
 
@@ -60,7 +62,7 @@ export class FakeFileStore implements IDocsFileStore {
 	}
 
 	async writeFile(path: string, data: string | Uint8Array): Promise<void> {
-		if (this.failWritesUnder && path.startsWith(this.failWritesUnder)) {
+		if ((this.failWritesUnder && path.startsWith(this.failWritesUnder)) || this.failWriteWhen?.(path)) {
 			throw new Error(`ENOSPC: no space left on device, write '${path}'`);
 		}
 		// Decode rather than record a length: the cache writes downloaded zip

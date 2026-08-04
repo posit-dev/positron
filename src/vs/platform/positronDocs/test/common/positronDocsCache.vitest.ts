@@ -619,6 +619,29 @@ describe('PositronDocsCache: superseded version cleanup', () => {
 		expect(await ctx.files.exists(`${ROOT}/2026.04.0-100`)).toBe(false);
 	});
 
+	it('keeps the superseded directory when the state write failed', async () => {
+		// state.json still names the previous version, so deleting its directory
+		// would leave the recorded path pointing at nothing.
+		const ctx = setup();
+		ctx.http.route(EXACT_ZIP, { status: 404 });
+		ctx.publish(LATEST_ZIP, payload('2026.04.0-100'), 'etag-april');
+		await ctx.cache.ensure(request());
+
+		ctx.publish(LATEST_ZIP, payload('2026.05.0-179'), 'etag-may');
+		ctx.files.failWriteWhen = path => path.includes('/.state-');
+
+		const installed = await ctx.makeCache().ensure(request());
+		expect(installed?.version).toBe('2026.05.0-179');
+		expect(await ctx.files.exists(`${ROOT}/2026.04.0-100/llms.txt`)).toBe(true);
+
+		// A relaunch re-converges and reclaims both directories, rather than
+		// starting from a state file that names a cache no longer on disk.
+		ctx.files.failWriteWhen = undefined;
+		const relaunch = await ctx.makeCache().ensure(request());
+		expect(relaunch?.version).toBe('2026.05.0-179');
+		expect(await ctx.files.exists(`${ROOT}/2026.04.0-100`)).toBe(false);
+	});
+
 	it('never touches entries it did not supersede, including another window in-flight work', async () => {
 		const ctx = setup();
 		ctx.publish(EXACT_ZIP, payload('2026.05.0-179'));
