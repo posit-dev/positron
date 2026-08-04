@@ -1745,48 +1745,19 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 *  runtime is available.
 	 */
 	public getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata | undefined {
-		// If there's an active session for the language, return it.
-		const activeSession =
-			this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
-		if (activeSession) {
-			const activeSessionRuntime =
-				this._languageRuntimeService.getRegisteredRuntime(activeSession.runtimeMetadata.runtimeId);
-			if (activeSessionRuntime) {
-				return activeSessionRuntime;
-			}
-		}
+		const registered = (metadata: ILanguageRuntimeMetadata | undefined) =>
+			metadata
+				? this._languageRuntimeService.getRegisteredRuntime(metadata.runtimeId)
+				: undefined;
 
-		// If there's a runtime affiliated with the workspace for the language,
-		// return it.
-		const affiliatedRuntimeMetadata = this.getAffiliatedRuntimeMetadata(languageId);
-		if (affiliatedRuntimeMetadata) {
-			const affiliatedRuntimeInfo =
-				this._languageRuntimeService.getRegisteredRuntime(affiliatedRuntimeMetadata.runtimeId);
-			if (affiliatedRuntimeInfo) {
-				return affiliatedRuntimeInfo;
-			}
-		}
-
-		// If there is a most recently started runtime for the language, return it.
-		const mostRecentlyStartedRuntime = this._mostRecentlyStartedRuntimesByLanguageId.get(languageId);
-		if (mostRecentlyStartedRuntime) {
-			const mostRecentlyStartedRuntimeInfo =
-				this._languageRuntimeService.getRegisteredRuntime(mostRecentlyStartedRuntime.runtimeId);
-			if (mostRecentlyStartedRuntimeInfo) {
-				return mostRecentlyStartedRuntimeInfo;
-			}
-		}
-
-		// If there are registered runtimes for the language, return the first.
-		const languageRuntimeInfos =
-			this._languageRuntimeService.registeredRuntimes
-				.filter(info => info.languageId === languageId);
-		if (languageRuntimeInfos.length) {
-			return languageRuntimeInfos[0];
-		}
-
-		// Nothing is registered, so we don't have a preferred runtime for this language.
-		return undefined;
+		// In preference order: the active console session, the runtime affiliated
+		// with the workspace, the most recently started runtime, then any
+		// registered runtime for the language.
+		const consoleSession = this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
+		return registered(consoleSession?.runtimeMetadata)
+			?? registered(this.getAffiliatedRuntimeMetadata(languageId))
+			?? registered(this._mostRecentlyStartedRuntimesByLanguageId.get(languageId))
+			?? this._languageRuntimeService.registeredRuntimes.find(info => info.languageId === languageId);
 	}
 
 	/**
