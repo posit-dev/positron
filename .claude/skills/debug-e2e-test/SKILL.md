@@ -123,12 +123,14 @@ Act on its `verdict`, then read `summaryFile` and go to **Determine root cause**
 table, the run-it offer for `no-results`, what local evidence cannot answer, and
 when to start checkpointing after all. The rest of this section is the CI entry.
 
-**On `--resume`:** run `node scripts/checkpoint.js --triage-id <id> --read`,
+**On `--resume`:** run
+`node .claude/skills/debug-e2e-test/scripts/checkpoint.js --triage-id <id> --read`,
 validate it, and continue from `phase` / `nextAction`. Do **not** repeat
 completed history or evidence work unless the engineer asks to refresh, the
 saved data is invalid, or the branch/test identity changed.
 
-**On `--status`:** `node scripts/checkpoint.js --status`.
+**On `--status`:**
+`node .claude/skills/debug-e2e-test/scripts/checkpoint.js --status`.
 
 **Otherwise (new triage):**
 

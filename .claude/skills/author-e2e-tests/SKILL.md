@@ -1,6 +1,6 @@
 ---
 name: author-e2e-tests
-description: Use when writing, debugging, or maintaining Playwright e2e tests for Positron -- new test files, test cases, test infrastructure, or performance/metric tests. For a named test already failing or flaking in CI, use debug-e2e-test instead.
+description: Use when writing or maintaining Playwright e2e tests for Positron -- new test files, test cases, test infrastructure, or performance/metric tests. For a named test that is already failing or flaking, in CI or on your machine, use debug-e2e-test instead.
 ---
 
 # Positron Playwright E2E Testing

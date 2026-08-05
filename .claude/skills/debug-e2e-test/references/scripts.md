@@ -5,9 +5,6 @@ the SKILL's workflow steps don't already spell out, or when you need to know wha
 a script's output actually contains. If a script is *broken* and you need to do
 its work by hand, that is [`script-fallbacks.md`](script-fallbacks.md) instead.
 
-End-to-end runs of these commands in order:
-[`workflow-examples.md`](workflow-examples.md).
-
 ## Shared conventions
 
 - **Run from the repo root**, as `node .claude/skills/debug-e2e-test/scripts/<name>.js`.
