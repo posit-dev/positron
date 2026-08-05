@@ -97,6 +97,14 @@ Positron has three test categories:
 	- positron-python has its own test setup -- see `extensions/positron-python/CLAUDE.md`
 - **E2E** (Playwright, full app): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
 
+## Directory Structure
+
+- `src/` - Core VS Code source with Positron modifications
+- `extensions/` - Built-in extensions including Positron-specific ones
+- `test/e2e/` - End-to-end Playwright tests
+- `positron/` - Positron-specific code and assets
+- `build/` - Build configuration and scripts
+
 ## Code Style
 
 - Use tabs for indentation in TypeScript/JavaScript, not spaces

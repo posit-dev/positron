@@ -1,6 +1,7 @@
 ---
 paths:
   - src/**/*.vitest.{ts,tsx}
+  - vitest.config.ts
   - src/vs/test/vitest/**
 ---
 
