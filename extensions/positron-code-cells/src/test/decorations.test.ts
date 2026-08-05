@@ -14,15 +14,23 @@ suite('Decorations', () => {
 	const setDecorations: SetDecorations = (_editor, decorationType, ranges) => {
 		decorations.set(decorationType, ranges);
 	};
-	setup(() => {
+	setup(async () => {
 		// Activate decorations with a custom setDecorations that stores the decorated ranges.
 		activateDecorations(disposables, setDecorations);
 
-		// Default to background style.
-		switchCellStyle('background');
+		// Default to background style. Awaited so that the resulting configuration
+		// change event can't land in the middle of a test.
+		await switchCellStyle('background');
 	});
 	teardown(async () => {
 		disposeAll(disposables);
+		disposables.length = 0;
+
+		// Start each test with no recorded ranges, so that a decoration update that
+		// never happens fails against `undefined` rather than silently matching the
+		// ranges left behind by the previous test.
+		decorations.clear();
+
 		await closeAllEditors();
 	});
 
@@ -88,9 +96,10 @@ suite('Decorations', () => {
 		const editor = await showTextDocument('# %%');
 		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, [new vscode.Range(0, 0, 0, 4)]);
 
-		await editor.edit((editBuilder) => {
+		const result = await editor.edit((editBuilder) => {
 			editBuilder.delete(new vscode.Range(0, 0, 1, 0));
 		});
+		assert.ok(result, 'The edit was not applied');
 
 		// Decorations do not update immediately
 		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, [new vscode.Range(0, 0, 0, 4)]);
@@ -135,5 +144,5 @@ async function showTextDocument(content?: string): Promise<vscode.TextEditor> {
 
 async function switchCellStyle(cellStyle: string) {
 	const configuration = vscode.workspace.getConfiguration();
-	await configuration.update("codeCells.cellStyle", cellStyle, vscode.ConfigurationTarget.Global);
+	await configuration.update('codeCells.cellStyle', cellStyle, vscode.ConfigurationTarget.Global);
 }

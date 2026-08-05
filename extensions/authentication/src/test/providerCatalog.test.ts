@@ -81,8 +81,14 @@ suite('providerCatalog', () => {
 		assert.strictEqual(getCachedProvider('does-not-exist'), undefined);
 	});
 
+	// The only test here that depends on fs.watch delivery. Delivery is normally
+	// ~700ms (300ms debounce plus the settle) but has been observed taking
+	// several seconds under extension-host load, so the wait is deliberately
+	// generous: a slow delivery should read as a slow pass, not a red build. A
+	// timeout at this length means the event was never delivered at all, which
+	// is a real defect rather than contention.
 	test('a file edit fires onDidChangeProviderCatalog with the changed provider id', async function () {
-		this.timeout(10000);
+		this.timeout(30000);
 		writeConfig(configPath, { anthropic: { baseUrl: 'https://original.example.com' } });
 		await initProviderCatalog(context, { configPath });
 		await settle();
@@ -90,7 +96,7 @@ suite('providerCatalog', () => {
 		let baseUrlInsideListener: string | undefined;
 		const changePromise = nextCatalogChange(() => {
 			baseUrlInsideListener = getCachedProvider('anthropic')?.connection.baseUrl;
-		});
+		}, 20000);
 
 		writeConfig(configPath, { anthropic: { baseUrl: 'https://changed.example.com' } });
 
@@ -106,18 +112,24 @@ suite('providerCatalog', () => {
 		);
 	});
 
-	test('disabling a provider surfaces it in disabledIds', async function () {
-		this.timeout(10000);
+	test('disabling a provider surfaces it in disabledIds', async () => {
 		writeConfig(configPath, { anthropic: { enabled: true } });
 		await initProviderCatalog(context, { configPath });
-		await settle();
 		assert.strictEqual(getCachedProvider('anthropic')?.enabled, true);
 
-		const changePromise = nextCatalogChange();
-		writeConfig(configPath, { anthropic: { enabled: false } });
+		// Drive the reload directly instead of through the file watcher. The
+		// disabledIds diff lives in applyCatalog, which the watch handler and
+		// refreshProviderCatalog both funnel through, so this covers the same
+		// logic with no dependence on fs.watch delivery latency. The watcher's
+		// own delivery is covered by the file-edit test above.
+		let payload: Parameters<Parameters<typeof onDidChangeProviderCatalog>[0]>[0] | undefined;
+		const sub = onDidChangeProviderCatalog(p => { payload = p; });
 
-		const change = await changePromise;
-		assert.ok(change.disabledIds.includes('anthropic'), 'disabledIds should include anthropic');
+		writeConfig(configPath, { anthropic: { enabled: false } });
+		await refreshProviderCatalog();
+		sub.dispose();
+
+		assert.ok(payload?.disabledIds.includes('anthropic'), 'disabledIds should include anthropic');
 		assert.strictEqual(getCachedProvider('anthropic')?.enabled, false);
 	});
 
@@ -195,6 +207,36 @@ suite('providerCatalog', () => {
 		written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 		assert.strictEqual(written.providers['snowflake-cortex'].snowflake.account, 'acme-account');
 		assert.strictEqual(fs.statSync(configPath).mtimeMs, mtimeBefore, 'unchanged account should not rewrite the file');
+	});
+
+	test('legacyPositronSettings fills gaps below the user file, and the user file wins', async () => {
+		// User file configures anthropic only.
+		writeConfig(configPath, { anthropic: { baseUrl: 'https://user-file.example.com' } });
+
+		// Legacy settings set the same anthropic field (must lose to the user
+		// file) plus an openai field the user file never mentions (must surface).
+		const legacy: Record<string, unknown> = {
+			'authentication.anthropic.baseUrl': 'https://legacy-anthropic.example.com',
+			'authentication.openai-api.baseUrl': 'https://legacy-openai.example.com',
+		};
+		await initProviderCatalog(context, {
+			configPath,
+			legacyPositronSettings: {
+				get: key => legacy[key],
+				watch: () => ({ dispose: () => { } }),
+			},
+		});
+
+		assert.strictEqual(
+			getCachedProvider('anthropic')?.connection.baseUrl,
+			'https://user-file.example.com',
+			'user file must win over the legacy layer'
+		);
+		assert.strictEqual(
+			getCachedProvider('openai')?.connection.baseUrl,
+			'https://legacy-openai.example.com',
+			'legacy layer must fill a provider the user file omits'
+		);
 	});
 
 	test('saveProviderEnabled with onlyIfUnset does not clobber an existing enabled value', async () => {

@@ -10,18 +10,27 @@ import * as fs from 'fs';
 process.env.PW_TEST = '1';
 const jsonOut = process.env.PW_JSON_FILE || 'test-results/results.json';
 const githubSummaryReport = process.env.GH_SUMMARY_REPORT === 'true' ? [['@midleman/github-actions-reporter', {}] as const] : [];
-// Custom reporter is enabled by default.
-// Disable with: ENABLE_CUSTOM_REPORTER=false (or "false", 0, "0", no, "no")
-// YAML booleans are converted to strings by GitHub Actions, so both work.
-const disableCustomReporter = process.env.ENABLE_CUSTOM_REPORTER?.toLowerCase() ?? '';
-const customReporter = ['false', '0', 'no'].includes(disableCustomReporter)
-	? []
-	: [['@midleman/playwright-reporter',
-		{
-			repoName: 'positron',
-			mode: 'prod'
-		},
-	] as const];
+// E2E Insights: results reporting + duration-balanced sharding (preprocess
+// hook, needs Playwright >= 1.62; no-ops on unsharded runs).
+//   ENABLE_CUSTOM_REPORTER=false     -> disables both
+//   ENABLE_PREDICTIVE_SHARDING=false -> native shard split, reporting unchanged
+const isDisabled = (value?: string) => ['false', '0', 'no'].includes(value?.toLowerCase() ?? '');
+const reportingEnabled = !isDisabled(process.env.ENABLE_CUSTOM_REPORTER);
+const shardingEnabled = reportingEnabled && !isDisabled(process.env.ENABLE_PREDICTIVE_SHARDING);
+
+const insightsReporters: ReporterDescription[] = [
+	...(reportingEnabled
+		? [['@midleman/playwright-reporter',
+			{
+				repoName: 'positron',
+				mode: 'prod'
+			},
+		] as ReporterDescription]
+		: []),
+	...(shardingEnabled
+		? [['@midleman/playwright-reporter/sharding'] as ReporterDescription]
+		: []),
+];
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -42,7 +51,7 @@ let reporter: ReporterDescription[];
 if (process.env.CI) {
 	reporter = [
 		...githubSummaryReport,
-		...customReporter,
+		...insightsReporters,
 		['json', { outputFile: jsonOut }],
 		['list'], ['html'], ['blob'],
 	];

@@ -7,7 +7,7 @@ import { Event } from '../../../../../base/common/event.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IDataConnectionInstance } from './dataConnectionInstance.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { IDataConnectionProfile } from './dataConnectionDriver.js';
+import { IDataConnectionHandle, IDataConnectionProfile } from './dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from './dataConnectionsDriverManager.js';
 
 // DI token used to inject IPositronDataConnectionsService throughout the workbench.
@@ -96,7 +96,10 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	setPreferredCodeVariant(profileId: string, languageId: string, variantId: string): void;
 
 	/**
-	 * Removes a data connection profile.
+	 * Removes a data connection profile, deleting its persisted settings and stored secrets. Also
+	 * closes anything still using it: the Data Explorers previewed from its connection, and then the
+	 * connection itself, since a removed profile leaves no UI to manage a connection from. Callers
+	 * should confirm with the user first -- none of this is recoverable.
 	 * @param id The data connection profile id to remove.
 	 */
 	removeProfile(id: string): void;
@@ -118,6 +121,42 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * @param profileId The data connection profile id to disconnect.
 	 */
 	disconnect(profileId: string): Promise<void>;
+
+	/**
+	 * Previews a node in the Data Explorer, recording the dataset id the driver opened it under
+	 * against the connection's profile so {@link countOpenDataExplorers} can report it later. Callers
+	 * should preview through this method rather than calling handle.nodePreview() directly, so no
+	 * Data Explorer goes unrecorded.
+	 * @param handle The connection handle the node belongs to.
+	 * @param nodeHandle The handle of the node to preview.
+	 * @returns The dataset id the preview was opened under, or undefined if the driver reported none.
+	 */
+	previewNode(handle: IDataConnectionHandle, nodeHandle: number): Promise<string | undefined>;
+
+	/**
+	 * Gets how many Data Explorers are open on data previewed from the given profile's connection.
+	 * Counts only previews the driver reported a dataset id for, and only those whose editor is still
+	 * open -- the user closing a Data Explorer tab brings the count back down.
+	 * @param profileId The data connection profile id.
+	 */
+	countOpenDataExplorers(profileId: string): number;
+
+	/**
+	 * Closes the profile's connection as soon as nothing is using it: right away when it has no open
+	 * Data Explorers, otherwise once the last one is closed. Lets a caller give up its own use of a
+	 * connection without cutting off the Data Explorers still reading from it. No-op if the profile
+	 * has no live connection. Cancel a pending close with {@link cancelDisconnectWhenUnused}.
+	 * @param profileId The data connection profile id.
+	 */
+	disconnectWhenUnused(profileId: string): void;
+
+	/**
+	 * Cancels a pending {@link disconnectWhenUnused} for the profile, keeping its connection open.
+	 * Call this when the connection is wanted again (e.g. the user re-expanded it). No-op if no close
+	 * is pending.
+	 * @param profileId The data connection profile id.
+	 */
+	cancelDisconnectWhenUnused(profileId: string): void;
 
 	/**
 	 * Gets all data connection instances.

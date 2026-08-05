@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: positron-matplotlib
+Version: 0.1.0
+Summary: Registers Positron's matplotlib backends under the names "positron-console" and "positron-notebook".
+
+This directory is checked into Positron, not produced by a package installer.
+
+matplotlib discovers named backends through the "matplotlib.backend" entry point
+group, which it reads with importlib.metadata -- whose unit of discovery is a
+*.dist-info directory on sys.path. This directory sits next to the kernel's
+`positron` package, which is on sys.path before matplotlib loads, so the entry
+points in entry_points.txt make `%matplotlib positron-console`,
+`%matplotlib positron-notebook`, `matplotlib.use("positron-console")` and
+`%matplotlib -l` work without installing anything.
+
+Do not publish this as a standalone distribution: Positron's matplotlib backends
+only function inside a Positron session.

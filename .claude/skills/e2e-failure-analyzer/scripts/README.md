@@ -67,6 +67,12 @@ such ambiguity. Use it even for a single key.
   `"recurring"` / `"known_flaky"` (established pattern), `"rare_flake"`
   (infrequent).
 - `history.pass_rate` -- low = known flaky; 100% before this run = regression.
+- `window_start` -- the first date the lookback window covers (added by this
+  script from `lookback_days`, not by the API). Compare it against
+  `insight.timing_value` ("First seen ..."): a first failure at the window's
+  edge means the onset is unknown -- earlier occurrences are out of range, not
+  absent -- while clean runs between `window_start` and the first failure are
+  what make a "started here" claim meaningful.
 - `environment_breakdown` -- check this **before** concluding a test is
   "flaky": 0% pass on one OS/browser combo with 100% on others is a
   deterministic regression on that platform, not flakiness, even when the

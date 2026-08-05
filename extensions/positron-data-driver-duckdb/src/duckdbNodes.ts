@@ -11,10 +11,10 @@ import { IDuckDBQueryClient } from 'positron-data-explorer-duckdb';
  * DuckDBConnection, which owns the worker client and the dataset registration.
  */
 export interface IDuckDBPreviewHost {
-	/** Opens the given table or view in the Data Explorer. */
-	previewObject(schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void>;
-	/** Opens a single column of the given table or view in the Data Explorer. */
-	previewColumn(schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
+	/** Opens the given table or view in the Data Explorer, returning its dataset id. */
+	previewObject(schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<string>;
+	/** Opens a single column of the given table or view in the Data Explorer, returning its dataset id. */
+	previewColumn(schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string>;
 }
 
 /**

@@ -33,19 +33,26 @@ only when a stage needs them.
   step (below). Keep large output on disk, not in the conversation.
 - **Never** increase a timeout or add an arbitrary wait as the fix.
 - **Never** claim a flaky test is fixed on one green run.
-- A previous merged fix must be checked against subsequent failures.
+- A previous merged fix must be checked against subsequent failures, and that
+  check reported as four lines, not a triage report (`references/prior-triage.md`).
 - Root-cause claims cite observed evidence and the alternatives ruled out.
 - Checkpoint at every phase transition.
 
-## Prerequisites
+## Requirements
 
+- **Claude Code**, run from a **Positron** checkout: the scripts resolve the repo
+  root from their own location and keep triage state in the shared git dir.
+- On PATH: `node`, `git`, `gh` (authenticated), `unzip`.
 - `E2E_INSIGHTS_API_KEY` set, or present in the repo-root `.env.e2e` (the query
-  script falls back to it automatically). Node.js and `unzip` on PATH.
+  script falls back to it automatically).
+- Neighbor skills: `e2e-failure-analyzer` (its `e2e-query-history.js` and
+  `e2e-process-s3.js` are invoked directly); at the fix stage
+  `positron-pr-helper`, `author-vitest-tests`, `author-e2e-tests`.
 
 ## Scripts
 
 Run from the repo root. Flags and output contracts:
-[`scripts/README.md`](scripts/README.md). If a script itself breaks, see
+[`references/scripts.md`](references/scripts.md). If a script itself breaks, see
 [`references/script-fallbacks.md`](references/script-fallbacks.md).
 
 | Script | Use it to |
@@ -95,6 +102,9 @@ saved data is invalid, or the branch/test identity changed.
      --occurrence-shas '["<sha1>","<sha2>"]'
    ```
    A non-`none` verdict changes the plan -- read [`references/prior-triage.md`](references/prior-triage.md).
+   `none` is not conclusive -- it matches spec paths, so a POM/helper-only fix
+   never registers. If the failing locator is gone from the working tree, read
+   that file anyway.
    `open-attempt-in-flight` means stop and point at the open PR.
 6. **Present the failure modes as a table** (never a run-on sentence). The Rate
    column comes from each pattern's `rates` array, never `count / totalRuns`;

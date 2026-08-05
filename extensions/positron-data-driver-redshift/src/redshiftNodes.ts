@@ -32,10 +32,10 @@ const SYSTEM_SCHEMAS_SQL = SYSTEM_SCHEMAS.map(s => `'${s}'`).join(', ');
  * database in single-database mode), so cross-database previews use a three-part reference.
  */
 export interface IRedshiftPreviewHost {
-	/** Opens the given table or view in the Data Explorer. */
-	previewObject(client: RedshiftClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void>;
-	/** Opens a single column of the given table or view in the Data Explorer. */
-	previewColumn(client: RedshiftClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
+	/** Opens the given table or view in the Data Explorer, returning its dataset id. */
+	previewObject(client: RedshiftClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<string>;
+	/** Opens a single column of the given table or view in the Data Explorer, returning its dataset id. */
+	previewColumn(client: RedshiftClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string>;
 }
 
 // --- Single-database family (connected database, information_schema) ---

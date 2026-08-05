@@ -21,8 +21,8 @@ const TEST_CONFIG: SnowflakeConnectionConfig = {
 // handler would register a vscode command that collides with the activated extension's. One object
 // satisfies both the connection's host interface and the node-builder's preview-host interface.
 const noopHost = {
-	previewObject: async () => { },
-	previewColumn: async () => { },
+	previewObject: async () => 'noop-dataset',
+	previewColumn: async () => 'noop-dataset',
 	openTableView: async () => { },
 	openColumnView: async () => { },
 	closeTableView: () => { },
@@ -353,7 +353,7 @@ suite('Snowflake Driver Tests', () => {
 		// building the node through createSchemaNode must carry the database, schema, name, and kind
 		// through to previewObject.
 		const calls: unknown[][] = [];
-		const recordingHost = { ...noopHost, previewObject: async (...args: unknown[]) => { calls.push(args); } };
+		const recordingHost = { ...noopHost, previewObject: async (...args: unknown[]) => { calls.push(args); return 'noop-dataset'; } };
 
 		const schemaNode = createSchemaNode(mock, recordingHost, 'ANALYTICS', 'PUBLIC');
 		const tables = await tablesOf(schemaNode);

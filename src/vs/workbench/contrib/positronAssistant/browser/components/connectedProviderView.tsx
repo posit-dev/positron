@@ -12,6 +12,7 @@ import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/
 import { IPositronLanguageModelConfig, IPositronLanguageModelSource, LanguageModelAutoconfigureType } from '../../common/interfaces/positronAssistantService.js';
 import { AuthMethod } from '../types.js';
 import { deriveAuthMethod, deriveDisconnectAction } from '../providerConnection.js';
+import { getBaseUrlLabel } from '../providerFieldLabels.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { ConnectProviderHeader, ProviderErrorBanner, ProviderNotice } from './connectProviderView.js';
 import { ProviderModalFooter } from './providerModalFooter.js';
@@ -97,7 +98,7 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 						{current.supportedOptions.includes('baseUrl') && current.defaults.baseUrl &&
 							<>
 								<span className='connect-provider-detail-label'>
-									{localize('positron.connectedProvider.baseUrl', "Base URL")}
+									{getBaseUrlLabel(current.provider.id)}
 								</span>
 								<span className='connect-provider-detail-value'>{current.defaults.baseUrl}</span>
 							</>

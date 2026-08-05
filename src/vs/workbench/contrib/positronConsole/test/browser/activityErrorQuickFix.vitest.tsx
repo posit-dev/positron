@@ -55,7 +55,7 @@ describe('ConsoleQuickFix', () => {
 		expect(payload.target).toBe('auto');
 		expect(payload.behavior).toBe('submit');
 		expect(payload.files).toHaveLength(1);
-		expect(payload.files[0].name).toBe('console-error.txt');
+		expect(payload.files[0].name).toBe('Console Error');
 		expect(payload.files[0].uri).toMatch(/^data:text\/plain;base64,/);
 		expect(decodeDataUri(payload.files[0].uri)).toBe(expectedAttachmentText);
 	});

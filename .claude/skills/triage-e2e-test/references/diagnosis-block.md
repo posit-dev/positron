@@ -21,8 +21,12 @@ root-cause prediction at authoring time, so its accuracy can be scored later.
 
 ## Required fields
 
-Saved on the checkpoint under `diagnosis`, validated by `record-diagnosis.js`
-before it renders. These are the rendered fields, not every key on `diagnosis`:
+Saved on the checkpoint under `diagnosis`. These are the rendered fields, not
+every key on `diagnosis`. **Only `confidence` and `summary` are hard-validated**
+by `record-diagnosis.js` (a bad value fails before anything is written); the rest
+render as `n/a` when missing rather than failing, so "required" below is the
+standard the block is held to, not a guarantee the script enforces. `--dry-run`
+is how you catch a thin block:
 
 | Field | Required | Shape |
 |---|---|---|

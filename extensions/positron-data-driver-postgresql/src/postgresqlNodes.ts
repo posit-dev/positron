@@ -14,10 +14,10 @@ import { PostgreSQLClient } from './postgresqlClient.js';
  * so previewed datasets stay unique across databases.
  */
 export interface IPostgresPreviewHost {
-	/** Opens the given table or view in the Data Explorer. */
-	previewObject(client: PostgreSQLClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void>;
-	/** Opens a single column of the given table or view in the Data Explorer. */
-	previewColumn(client: PostgreSQLClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
+	/** Opens the given table or view in the Data Explorer, returning its dataset id. */
+	previewObject(client: PostgreSQLClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<string>;
+	/** Opens a single column of the given table or view in the Data Explorer, returning its dataset id. */
+	previewColumn(client: PostgreSQLClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<string>;
 }
 
 /**

@@ -5,6 +5,7 @@
 	"version": "",
 	"positronVersion": "2026.08.0",
 	"positronBuildNumber": 0,
+	"positronLlmsDocsUrl": "https://cdn.posit.co/positron/releases/docs",
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
 	"sharedDataFolderName": ".positron-shared",
@@ -98,10 +99,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.8.2",
+			"version": "2026.8.6",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "3100037ea45430b0ae11b02b469ed8b9454dcf9281fcf9a909fd5317a8973351",
+			"sha256": "2f4828bfa0a16ac070d21e1d8cccc56d1b9351e449661a1d32afaf7419c3b0d5",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -120,7 +121,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.66.0",
+			"version": "2026.68.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -214,7 +215,7 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "1.1.1",
+			"version": "1.2.0",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
@@ -754,6 +755,10 @@
 			"posit.assistant"
 		],
 		"google-cloud": [
+			"positron.authentication",
+			"posit.assistant"
+		],
+		"databricks": [
 			"positron.authentication",
 			"posit.assistant"
 		]

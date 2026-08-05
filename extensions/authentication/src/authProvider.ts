@@ -84,6 +84,13 @@ export class AuthProvider
 		return !!this.credentialChain?.preventSignOut;
 	}
 
+	/**
+	 * Cancel an in-flight interactive sign-in, if the provider supports
+	 * one (e.g. OAuth providers). The config dialog calls this when the
+	 * user cancels.
+	 */
+	cancelSignIn?(): void;
+
 	/** Expose session-change events. */
 	fireSessionsChanged(
 		event: vscode.AuthenticationProviderAuthenticationSessionsChangeEvent

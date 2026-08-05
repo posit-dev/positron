@@ -1,9 +1,9 @@
 #
-# Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 """
-The matplotlib backend for Positron.
+Positron's matplotlib backend for console sessions.
 
 NOTE: DO NOT DIRECTLY IMPORT THIS MODULE!
 
@@ -16,6 +16,7 @@ the backend is set by matplotlib.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import inspect
 import io
@@ -27,19 +28,17 @@ import matplotlib.pyplot as plt
 from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-from .execute_request import PositronExecuteRequest
+from ..execute_request import PositronExecuteRequest
+from .backend import Backend
+from .registry import registry
 
 if TYPE_CHECKING:
+    from IPython.core.interactiveshell import InteractiveShell
     from matplotlib.figure import Figure
 
-    from .plot_comm import PlotSize
+    from ..plot_comm import PlotSize
 
 logger = logging.getLogger(__name__)
-
-
-# Enable interactive mode (i.e. redraw after every plotting command).
-# This is expected to run when the backend is selected. See the note at the top of the file.
-matplotlib.interactive(True)  # noqa: FBT003
 
 
 # High-level libraries that build on matplotlib. A figure produced by one of these is
@@ -80,7 +79,7 @@ def _detect_plotting_library() -> str:
     return "matplotlib"
 
 
-def detach_library_figures() -> None:
+def _detach_library_figures() -> None:
     """
     Detach high-level library figures (e.g. seaborn) from matplotlib's global registry.
 
@@ -95,17 +94,20 @@ def detach_library_figures() -> None:
     Plain matplotlib figures are intentionally left in the registry to preserve Positron's
     cross-cell figure persistence (updating or re-showing a plot across cells).
     """
-    from matplotlib._pylab_helpers import Gcf
+    try:
+        from matplotlib._pylab_helpers import Gcf
 
-    for manager in list(Gcf.get_all_fig_managers()):
-        if (
-            isinstance(manager, FigureManagerPositron)
-            and manager.plotting_library in _DETACH_AFTER_CELL_KINDS
-        ):
-            # Removes the manager from the registry and invokes our no-op `destroy`.
-            # Pass the manager rather than its number: numbers freed here can be reused
-            # by matplotlib, so destroying by number could hit a different figure.
-            Gcf.destroy(manager)
+        for manager in list(Gcf.get_all_fig_managers()):
+            if (
+                isinstance(manager, FigureManagerPositron)
+                and manager.plotting_library in _DETACH_AFTER_CELL_KINDS
+            ):
+                # Removes the manager from the registry and invokes our no-op `destroy`.
+                # Pass the manager rather than its number: numbers freed here can be reused
+                # by matplotlib, so destroying by number could hit a different figure.
+                Gcf.destroy(manager)
+    except Exception:
+        logger.exception("Error detaching high-level library figures")
 
 
 class FigureManagerPositron(FigureManagerBase):
@@ -125,11 +127,11 @@ class FigureManagerPositron(FigureManagerBase):
         The canvas for this figure.
     """
 
-    canvas: FigureCanvasPositron
+    canvas: FigureCanvasPositron  # type: ignore
 
     def __init__(self, canvas: FigureCanvasPositron, num: int | str):
-        from .plot_comm import PlotOrigin, PlotRange
-        from .positron_ipkernel import PositronIPyKernel
+        from ..plot_comm import PlotOrigin, PlotRange
+        from ..positron_ipkernel import PositronIPyKernel
 
         super().__init__(canvas, num)
 
@@ -234,7 +236,7 @@ class FigureCanvasPositron(FigureCanvasAgg):
         The manager for this canvas.
     """
 
-    manager: FigureManagerPositron
+    manager: FigureManagerPositron  # type: ignore
 
     manager_class = FigureManagerPositron  # type: ignore
 
@@ -266,28 +268,21 @@ class FigureCanvasPositron(FigureCanvasAgg):
         finally:
             # Do nothing if the canvas has not been rendered yet, to avoid an unnecessary update
             # since opening the comm will trigger a render from the frontend.
-            if not self._first_render_completed:
-                return  # noqa: B012
-
-            # Do nothing if the canvas is currently being rendered, to avoid an infinite draw-render loop.
-            if is_rendering:
-                return  # noqa: B012
-
+            if not self._first_render_completed or is_rendering:
+                pass
             # If the plot was closed after being opened, request an update to re-open the plot.
-            if self.manager.closed:
+            elif self.manager.closed:
                 self.manager.update()
-                return  # noqa: B012
-
-            # Check if the canvas contents have changed, and request an update if they have.
-            current_hash = self._hash_buffer_rgba()
-            logger.debug(f"Canvas: previous hash: {self._previous_hash[:6]}")
-            logger.debug(f"Canvas: current hash: {current_hash[:6]}")
-            if current_hash == self._previous_hash:
-                logger.debug("Canvas: hash is the same, no need to update")
-                return  # noqa: B012
-
-            logger.debug("Canvas: hash changed, requesting an update")
-            self.manager.update()
+            else:
+                # Check if the canvas contents have changed, and request an update if they have.
+                current_hash = self._hash_buffer_rgba()
+                logger.debug(f"Canvas: previous hash: {self._previous_hash[:6]}")
+                logger.debug(f"Canvas: current hash: {current_hash[:6]}")
+                if current_hash == self._previous_hash:
+                    logger.debug("Canvas: hash is the same, no need to update")
+                else:
+                    logger.debug("Canvas: hash changed, requesting an update")
+                    self.manager.update()
 
     def render(self, size: PlotSize | None, pixel_ratio: float, format_: str) -> bytes:
         # Set the device pixel ratio to the requested value.
@@ -342,7 +337,9 @@ class FigureCanvasPositron(FigureCanvasAgg):
         return hashlib.sha1(self.buffer_rgba()).hexdigest()
 
 
-_library_gca_redirect_installed = False
+# The original and installed `plt.gca`, so `uninstall` can undo our changes.
+_original_gca = None
+_installed_gca = None
 
 
 def _install_library_gca_redirect() -> None:
@@ -362,14 +359,14 @@ def _install_library_gca_redirect() -> None:
     and only fires across libraries, so plain matplotlib figures remain reusable
     (preserving cross-cell persistence). See https://github.com/posit-dev/positron/issues/8898.
     """
-    global _library_gca_redirect_installed
-    if _library_gca_redirect_installed:
+    global _original_gca, _installed_gca
+    if _installed_gca is not None:
         return
 
     import matplotlib.pyplot as plt
     from matplotlib._pylab_helpers import Gcf
 
-    original_gca = plt.gca
+    _original_gca = plt.gca
 
     def gca(*args, **kwargs):
         manager = Gcf.get_active()
@@ -381,15 +378,59 @@ def _install_library_gca_redirect() -> None:
             # Drawing library differs from the active figure's library: start fresh so
             # the existing figure isn't overwritten.
             return plt.figure().gca()
-        return original_gca(*args, **kwargs)
+        assert _original_gca is not None
+        return _original_gca(*args, **kwargs)
 
-    plt.gca = gca
-    _library_gca_redirect_installed = True
+    plt.gca = _installed_gca = gca
 
 
-_install_library_gca_redirect()
+def _uninstall_library_gca_redirect() -> None:
+    """Restore the original `plt.gca`, undoing `_install_library_gca_redirect`."""
+    global _original_gca, _installed_gca
+    if _installed_gca is None:
+        return
+
+    import matplotlib.pyplot as plt
+
+    # Only restore if our redirect is still the installed `gca`; something else may have
+    # patched over it, in which case we leave that patch alone.
+    if plt.gca is _installed_gca:
+        plt.gca = _original_gca
+
+    _original_gca = None
+    _installed_gca = None
 
 
 # Fulfill the matplotlib backend API.
 FigureCanvas = FigureCanvasPositron
 FigureManager = FigureManagerPositron
+
+
+def install(shell: InteractiveShell) -> None:
+    """Install the console backend's shell hooks. See `BackendModule`."""
+    # Detach high-level plotting library figures (e.g. seaborn) so that re-running
+    # plotting code starts a fresh figure instead of drawing onto the previous one.
+    # See https://github.com/posit-dev/positron/issues/8898.
+    shell.events.register("post_execute", _detach_library_figures)
+
+    _install_library_gca_redirect()
+
+
+def uninstall(shell: InteractiveShell) -> None:
+    """Remove the console backend's shell hooks. See `BackendModule`."""
+    # Suppress ValueError in case user code unregistered the hook itself; a backend
+    # switch shouldn't crash over it.
+    with contextlib.suppress(ValueError):
+        shell.events.unregister("post_execute", _detach_library_figures)
+
+    _uninstall_library_gca_redirect()
+
+
+# If we are the selected backend, activate through the registry, which also tears
+# down the other backend if it was active. This runs when matplotlib imports the
+# module to switch to it. See the note at the top of the file. `Backend.from_name`
+# matches both spellings, which matters here: matplotlib can still report our short
+# name via `get_backend()` at this point, before it settles into the `module://`
+# spelling.
+if Backend.from_name(matplotlib.get_backend()) is Backend.CONSOLE:
+    registry.activate(Backend.CONSOLE)

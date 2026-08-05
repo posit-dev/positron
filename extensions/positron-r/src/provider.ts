@@ -581,6 +581,49 @@ function isRRuntimeCacheable(rInst: RInstallation): boolean {
 }
 
 /**
+ * Matches a Homebrew Cellar path component followed by a formula directory, as in
+ * `/opt/homebrew/Cellar/r/4.6.1/bin/R`. Matching the Cellar rather than the prefix
+ * keeps this working across Homebrew prefixes, which differ by platform.
+ */
+const HOMEBREW_CELLAR_RE = /\/Cellar\/[^/]+\//;
+
+/**
+ * Decide whether an R binary path belongs to a Homebrew-managed installation.
+ *
+ * Discovery resolves symlinks before classification (see `discoverAdHocBinaries`
+ * and `discoverHQBinaries`), so this normally sees the real install path rather
+ * than a `bin/R` symlink.
+ *
+ * @param binpath The R binary path.
+ * @returns Whether the path is a Homebrew-managed R installation.
+ */
+function isHomebrewPath(binpath: string): boolean {
+	// A cask is just an installer Homebrew downloads and runs; whatever lands
+	// under Caskroom is managed by that installer, not by Homebrew. Miniforge is
+	// the case that motivated this check: `brew install --cask miniforge` puts a
+	// conda distribution at /opt/homebrew/Caskroom/miniforge/base, so R in one of
+	// its environments is a conda R that merely happens to sit under the Homebrew
+	// prefix. See https://github.com/posit-dev/positron/issues/15300.
+	if (binpath.includes('/Caskroom/')) {
+		return false;
+	}
+
+	// Formula installs live in a Cellar under the Homebrew prefix. The prefix
+	// varies (/opt/homebrew on Apple Silicon, /usr/local on Intel macOS,
+	// /home/linuxbrew/.linuxbrew on Linux), so key off the Cellar instead.
+	if (HOMEBREW_CELLAR_RE.test(binpath)) {
+		return true;
+	}
+
+	// Fall back to the Apple Silicon prefix, which is unambiguous even for an
+	// unresolved symlink such as /opt/homebrew/bin/R (reachable when the path
+	// comes straight from a setting rather than from discovery). We deliberately
+	// don't match the Intel prefix here: /usr/local/bin/R is also where CRAN's
+	// installer symlinks R, so it can't identify Homebrew on its own.
+	return binpath.includes('/opt/homebrew/');
+}
+
+/**
  * Classify the source/packager that governs an R installation, used for the
  * runtime's display source (System, Module, Conda, ...) and name amendment.
  *
@@ -616,8 +659,7 @@ export function classifyRRuntimeSource(
 		(packagerMetadata !== undefined && isPixiMetadata(packagerMetadata)) || hasReason(ReasonDiscovered.PIXI);
 	const isCondaInstallation =
 		(packagerMetadata !== undefined && isCondaMetadata(packagerMetadata)) || hasReason(ReasonDiscovered.CONDA);
-	// Homebrew installations are identified by a 'homebrew' path component.
-	const isHomebrewInstallation = binpath.includes('/homebrew/');
+	const isHomebrewInstallation = isHomebrewPath(binpath);
 
 	if (isModuleInstallation) {
 		return RRuntimeSource.module;

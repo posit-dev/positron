@@ -23,6 +23,28 @@ suite('Parsers', () => {
 		});
 	});
 
+	// Regression test for https://github.com/posit-dev/positron/issues/14990. The
+	// additional cell delimiter used to be read from the configuration inside the
+	// per-line predicates, so parsing a long document read it once per line. Each
+	// read rebuilds and clones the consolidated configuration model in the extension
+	// host, and parseCells() runs on every document change, so typing in a long file
+	// queued up seconds of work per keystroke.
+	test('Reads the additional cell delimiter once per parse, not once per line', async () => {
+		const content = ['# %%', ...Array.from({ length: 1000 }, (_, i) => `x${i} <- ${i}`)].join('\n');
+		const document = await vscode.workspace.openTextDocument({ language: 'r', content });
+
+		let reads = 0;
+		const cells = parseCells(document, () => {
+			reads += 1;
+			return '# COMMAND ----------';
+		});
+
+		// The cell assertion guards against a vacuous pass: no reads at all would
+		// also satisfy the count below if parsing bailed out early.
+		assert.strictEqual(cells.length, 1, 'Expected the document to parse into a single cell');
+		assert.strictEqual(reads, 1, 'Expected exactly one configuration read per parse');
+	});
+
 	suite('Python Parser', () => {
 		const language = 'python';
 		const codeCellBody = '123\n456';

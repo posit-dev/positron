@@ -37,7 +37,7 @@ test.describe('Quarto - Inline Output: Popout', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('simple_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 20 });
 
 		// Save the plot — hover directly on the (CSS-hidden) save button with
 		// force:true so the mouse lands at the button's position, triggering the
@@ -71,14 +71,16 @@ test.describe('Quarto - Inline Output: Popout', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('simple_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 20 });
 		await inlineQuarto.expectOutputVisible();
 
 		// Verify new tab opens with image when popout button is clicked
 		await inlineQuarto.gotoLine(19);
 		await inlineQuarto.popoutOutput();
 		await editors.verifyTab('simple_plot.qmd', { isVisible: true, isSelected: false });
-		await editors.verifyTab('.positron-temp-simple_plot_cell0.png', { isVisible: true, isSelected: true });
+		// A plot editor tab backed by the image data, not a temp file on disk. The
+		// label is the 1-based cell name shared with the notebook editor.
+		await editors.verifyTab('simple_plot_cell1', { isVisible: true, isSelected: true });
 	});
 
 	test('Python - Verify popout command opens text output in new editor', async function ({ python, app, openFile }) {
@@ -93,7 +95,7 @@ test.describe('Quarto - Inline Output: Popout', {
 
 		// Run the cell and wait for output
 		await editors.clickTab(tab1);
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 13, outputLine: 20 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 13, outputLine: 15 });
 
 		// Verify new tab opens with text output when popout command is run
 		await inlineQuarto.gotoLine(13);
@@ -112,7 +114,7 @@ test.describe('Quarto - Inline Output: Popout', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('r_errors.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 8, outputLine: 15 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 8, outputLine: 10 });
 
 		// Verify error is visible and popout button is hidden
 		await inlineQuarto.expectErrorCount(1);
@@ -132,7 +134,7 @@ test.describe('Quarto - Inline Output: Popout', {
 
 			// Run the cell and wait for output
 			await editors.clickTab('interactive_plot.qmd');
-			await inlineQuarto.runCellAndWaitForOutput({ cellLine: 8, outputLine: 15 });
+			await inlineQuarto.runCellAndWaitForOutput({ cellLine: 8, outputLine: 10 });
 			await inlineQuarto.expectOutputVisible();
 
 			// Run the popout command and verify viewer panel opens with interactive HTML
@@ -152,14 +154,16 @@ test.describe('Quarto - Inline Output: Popout', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('simple_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 20 });
 		await inlineQuarto.expectOutputVisible();
 
 		// Run the popout command and verify new tab opens with image
 		await inlineQuarto.gotoLine(19);
 		await inlineQuarto.runPopoutCommand();
 		await editors.verifyTab('simple_plot.qmd', { isVisible: true, isSelected: false });
-		await editors.verifyTab('.positron-temp-simple_plot_cell0.png', { isVisible: true, isSelected: true });
+		// A plot editor tab backed by the image data, not a temp file on disk. The
+		// label is the 1-based cell name shared with the notebook editor.
+		await editors.verifyTab('simple_plot_cell1', { isVisible: true, isSelected: true });
 	});
 
 	test('Python - Verify HTML popout displays DataFrame in viewer without errors', async function ({ python, app, openFile }) {
@@ -172,7 +176,7 @@ test.describe('Quarto - Inline Output: Popout', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('py_data_frame.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 8, outputLine: 15 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 8, outputLine: 11 });
 		await inlineQuarto.expectOutputVisible();
 
 		// Run the popout command and verify viewer panel opens with DataFrame HTML

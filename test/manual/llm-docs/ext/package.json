@@ -1,0 +1,41 @@
+{
+	"name": "docs-qa",
+	"displayName": "Docs QA",
+	"description": "Throwaway extension for exercising positron.docs.getLocalDocs().",
+	"version": "0.0.1",
+	"publisher": "posit",
+	"engines": {
+		"vscode": "^1.65.0"
+	},
+	"main": "./extension.js",
+	"activationEvents": [
+		"onCommand:docsQa.runScenario",
+		"onCommand:docsQa.getLocalDocs",
+		"onCommand:docsQa.getLocalDocsTwice",
+		"onCommand:docsQa.readIndex"
+	],
+	"contributes": {
+		"commands": [
+			{
+				"command": "docsQa.runScenario",
+				"title": "Docs QA: Run Scenario",
+				"category": "Docs QA"
+			},
+			{
+				"command": "docsQa.getLocalDocs",
+				"title": "Docs QA: Get Local Docs",
+				"category": "Docs QA"
+			},
+			{
+				"command": "docsQa.getLocalDocsTwice",
+				"title": "Docs QA: Get Local Docs Twice Concurrently",
+				"category": "Docs QA"
+			},
+			{
+				"command": "docsQa.readIndex",
+				"title": "Docs QA: Open the Cached llms.txt",
+				"category": "Docs QA"
+			}
+		]
+	}
+}

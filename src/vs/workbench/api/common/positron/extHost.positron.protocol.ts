@@ -105,6 +105,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$getSessionWorkingDirectory(sessionId?: string): Promise<string | undefined>;
 	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
 	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
+	$getConsoleHistory(sessionId: string, numberOfEntries?: number): Promise<ISerializedConsoleHistoryEntry[]>;
 	$callMethod(sessionId: string, method: string, args: unknown[]): Thenable<unknown>;
 	$emitPerfMark(extensionId: string, name: string): void;
 	$emitLanguageRuntimeMessage(sessionId: string, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
@@ -280,9 +281,10 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	$nodeGetChildrenViaService(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
 
 	/**
-	 * Previews a node via the main thread service.
+	 * Previews a node via the main thread service. Resolves to the dataset id the preview was
+	 * opened under, or undefined when the driver did not report one.
 	 */
-	$nodePreviewViaService(connectionHandle: number, nodeHandle: number): Promise<void>;
+	$nodePreviewViaService(connectionHandle: number, nodeHandle: number): Promise<string | undefined>;
 
 	/**
 	 * Releases a connection handle via the main thread service.
@@ -304,7 +306,7 @@ export interface ExtHostDataConnectionsShape {
 	$connectionDisconnect(connectionHandle: number): Promise<void>;
 	$connectionIsConnected(connectionHandle: number): Promise<boolean>;
 	$nodeGetChildren(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
-	$nodePreview(connectionHandle: number, nodeHandle: number): Promise<void>;
+	$nodePreview(connectionHandle: number, nodeHandle: number): Promise<string | undefined>;
 	$releaseConnection(connectionHandle: number): void;
 }
 
@@ -368,6 +370,13 @@ export type ISerializedValidateAndExecuteCommandResult =
 		precondition?: string;
 		message?: string;
 	};
+
+export interface ISerializedConsoleHistoryEntry {
+	input: string;
+	output: string;
+	error?: { name: string; message: string; traceback: string[] };
+	when: number;
+}
 
 export interface MainThreadAiFeaturesShape {
 	$registerChatAgent(agentData: IChatAgentData): Thenable<void>;

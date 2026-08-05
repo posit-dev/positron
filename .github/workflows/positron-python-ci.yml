@@ -245,7 +245,12 @@ jobs:
       - name: Install testing requirements
         run: |
           uv run scripts/vendor.py
-          uv pip install nox
+          # argcomplete is a nox dependency. 3.7.1 annotates a class attribute
+          # with PEP 604 `str | bytes`, which is evaluated at runtime and needs
+          # Python 3.10+, but the release still declares requires_python>=3.8.
+          # uv installs it into this 3.9 venv and importing nox then raises
+          # TypeError. Drop the exclusion once upstream corrects the metadata.
+          uv pip install nox 'argcomplete!=3.7.1'
 
       - name: Run tests
         run: npm run positron:testMinimumPythonReqs

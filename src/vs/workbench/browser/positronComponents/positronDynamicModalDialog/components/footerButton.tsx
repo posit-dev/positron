@@ -19,6 +19,12 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 interface FooterButtonProps {
 	autoFocus?: boolean;
 	default?: boolean;
+	/**
+	 * Whether this button performs a destructive action, which fills it with the destructive red.
+	 * An alternative to `default`, not a modifier on it: both set the button's fill, so a button is
+	 * one or the other.
+	 */
+	destructive?: boolean;
 	disabled?: boolean;
 	type?: 'button' | 'submit';
 	onPressed: () => void;
@@ -36,7 +42,8 @@ export const FooterButton = (props: PropsWithChildren<FooterButtonProps>) => {
 			className={positronClassNames(
 				'dialog-button',
 				'footer-button',
-				{ 'default': props.default }
+				{ 'default': props.default },
+				{ 'destructive': props.destructive }
 			)}
 			disabled={props.disabled}
 			type={props.type}

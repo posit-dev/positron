@@ -20,6 +20,7 @@
 		"onAuthenticationRequest:google",
 		"onAuthenticationRequest:google-cloud",
 		"onAuthenticationRequest:deepseek-api",
+		"onAuthenticationRequest:databricks",
 		"onCommand:authentication.configureProviders",
 		"onCommand:authentication.migrateSettingsToProvidersJson"
 	],
@@ -74,6 +75,10 @@
 			{
 				"id": "deepseek-api",
 				"label": "DeepSeek"
+			},
+			{
+				"id": "databricks",
+				"label": "Databricks"
 			}
 		],
 		"commands": [

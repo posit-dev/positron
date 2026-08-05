@@ -24,8 +24,8 @@ const TEST_CONFIG: PostgreSQLConnectionConfig = {
 // handler would register a vscode command that collides with the activated extension's. One object
 // satisfies both the connection's host interface and the node-builder's preview-host interface.
 const noopHost = {
-	previewObject: async () => { },
-	previewColumn: async () => { },
+	previewObject: async () => 'noop-dataset',
+	previewColumn: async () => 'noop-dataset',
 	openTableView: async () => { },
 	openColumnView: async () => { },
 	closeTableView: () => { },
