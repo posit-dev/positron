@@ -200,8 +200,20 @@ wb_fetch_scripts() {
 
 # Channel (Release/Daily) -> version list. Sets POSITRON_TAG (downloaded from
 # positron-builds by tag, which holds both release and daily tarballs).
+# WB_POSITRON (--positron=) skips the menus: release|daily takes the newest build
+# on that channel, anything else is used as an explicit tag.
 wb_pick_positron() {
 	local tags=() opts=() lines tag date
+	case "${WB_POSITRON:-}" in
+		'') : ;;
+		release|daily)
+			lines="$([ "$WB_POSITRON" = release ] && wb_list_positron_releases 1 || wb_list_positron_dailies 1)"
+			POSITRON_TAG="$(printf '%s' "$lines" | head -1 | cut -f1)"
+			[ -n "$POSITRON_TAG" ] || { echo "No Positron ${WB_POSITRON} build found." >&2; return 1; }
+			export POSITRON_TAG; return 0 ;;
+		*)
+			POSITRON_TAG="$WB_POSITRON"; export POSITRON_TAG; return 0 ;;
+	esac
 	wb_menu "Positron build" "Release build" "Daily build" || return 1
 	if [ "$WB_MENU_INDEX" -eq 1 ]; then
 		lines="$(wb_list_positron_releases 5)"
@@ -233,7 +245,14 @@ wb_menu() {
 	else
 		echo "${prompt}:" >&2
 		for o in "${opts[@]}"; do printf '  %d) %s\n' "$i" "$o" >&2; i=$((i+1)); done
-		read -r -p "Choice [1]: " choice </dev/tty 2>/dev/tty || true
+		# No usable /dev/tty (agent, cron, piped run): a silent default here picks a
+		# build nobody chose, so say what to pass instead.
+		if ! read -r -p "Choice [1]: " choice </dev/tty 2>/dev/tty; then
+			echo "" >&2
+			echo "No TTY available to answer '${prompt}'. Run non-interactively instead:" >&2
+			echo "  npm run pwb -- --workbench=<release|daily|URL> --positron=<release|daily|TAG>" >&2
+			return 1
+		fi
 		WB_MENU_INDEX="${choice:-1}"
 	fi
 	[[ "$WB_MENU_INDEX" =~ ^[0-9]+$ ]] && [ "$WB_MENU_INDEX" -ge 1 ] && [ "$WB_MENU_INDEX" -le "$n" ] || { echo "Invalid choice" >&2; return 1; }
@@ -258,8 +277,22 @@ wb_validate_wb_url() {
 # stable and current daily -- same as Positron's workbench-nightly CI), so each
 # channel resolves to a single current build; Custom URL pins a specific .deb.
 wb_pick_workbench() {
-	echo "Resolving Workbench versions..." >&2
 	local stable_url daily_url
+	# WB_WORKBENCH (--workbench=) skips the menu: release|daily resolves that
+	# channel's current build, anything else is treated as a .deb URL to pin.
+	case "${WB_WORKBENCH:-}" in
+		'') : ;;
+		release|daily)
+			# WB_ARCH is set by cmd_up (wb_detect_arch) before install runs.
+			WB_URL="$([ "$WB_WORKBENCH" = release ] && wb_resolve_stable_url "${WB_ARCH}" || wb_resolve_daily_url "${WB_ARCH}")" || return 1
+			[ -n "$WB_URL" ] || { echo "Workbench ${WB_WORKBENCH} URL could not be resolved (check network)." >&2; return 1; }
+			wb_validate_wb_url "$WB_URL" || return 1
+			export WB_URL; return 0 ;;
+		*)
+			WB_URL="$WB_WORKBENCH"; wb_validate_wb_url "$WB_URL" || return 1
+			export WB_URL; return 0 ;;
+	esac
+	echo "Resolving Workbench versions..." >&2
 	stable_url="$(wb_resolve_stable_url "${WB_ARCH}" 2>/dev/null || true)"
 	daily_url="$(wb_resolve_daily_url "${WB_ARCH}" 2>/dev/null || true)"
 	# No second menu (WB has one current build per channel), so show the resolved
@@ -289,7 +322,13 @@ wb_pick_workbench() {
 cmd_install() {
 	# GITHUB_TOKEN is guaranteed set by wb_ensure_auth (called in cmd_up before us).
 	local creds=""
-	for a in "$@"; do case "$a" in --credentials=*) creds="$a" ;; esac; done
+	for a in "$@"; do
+		case "$a" in
+			--credentials=*) creds="$a" ;;
+			--workbench=*)   WB_WORKBENCH="${a#--workbench=}" ;;
+			--positron=*)    WB_POSITRON="${a#--positron=}" ;;
+		esac
+	done
 	wb_pick_workbench
 	wb_pick_positron
 	echo "Installing Workbench from: ${WB_URL}"
@@ -536,6 +575,14 @@ VERSION PICKERS
   Workbench: Release / Daily (current build each), or Custom .deb URL to pin a
              specific n-1/n-2 build.
 
+NON-INTERACTIVE (no TTY: agents, CI, piped runs)
+  Skip both pickers by naming the builds up front:
+    npm run pwb -- --workbench=daily --positron=release
+    npm run pwb -- --workbench=https://.../rstudio-workbench-....deb --positron=2026.09.0-11
+  release|daily takes that channel's current build; anything else is used verbatim
+  (a .deb URL for --workbench, a build tag for --positron). WB_WORKBENCH / WB_POSITRON
+  in .env do the same. Add --reinstall to switch an already-installed stack.
+
 ACCESS
   Workbench  http://localhost:8787   (user1 / WB_PASSWORD from docker/environments/wb-local/.env)
   Connect    http://localhost:3939
@@ -552,7 +599,7 @@ main() {
 	case "$sub" in
 		up)          cmd_up "$@" ;;
 		# Flag-style invocations (no explicit "up") route to cmd_up with the flag.
-		--reinstall|--ttl|--ttl=*|--no-ttl|--credentials=*) cmd_up "$sub" "$@" ;;
+		--reinstall|--ttl|--ttl=*|--no-ttl|--credentials=*|--workbench=*|--positron=*) cmd_up "$sub" "$@" ;;
 		status)      cmd_status "$@" ;;
 		logs)        cmd_logs "$@" ;;
 		shell)       cmd_shell "$@" ;;
