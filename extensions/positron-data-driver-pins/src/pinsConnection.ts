@@ -160,8 +160,12 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 	 * its data file, downloads that file (reusing the cached copy when present), loads it into the
 	 * DuckDB worker as a table, and opens the explorer over it. Convert-to-Code in the resulting
 	 * explorer emits `pin_read` code rather than SQL against the throwaway table.
+	 *
+	 * Returns the dataset id the explorer was opened under, which Positron uses to tell that this
+	 * connection has a Data Explorer open on it, or undefined when a disconnect raced the preview and
+	 * nothing was opened.
 	 */
-	async previewPin(pin: PinInfo, bundleId: string, isActiveVersion: boolean): Promise<void> {
+	async previewPin(pin: PinInfo, bundleId: string, isActiveVersion: boolean): Promise<string | undefined> {
 		this._ensureConnected();
 
 		// Resolve the version's data file and confirm it is a previewable, single-file tabular type.
@@ -226,6 +230,7 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 
 		this._logger.info(`Opening ${displayName} in the Data Explorer`);
 		await positron.dataExplorer.open({ providerId: PINS_DATA_EXPLORER_PROVIDER_ID, datasetId, displayName });
+		return datasetId;
 	}
 
 	/** Marks the connection disconnected, releases previewed views, and closes the DuckDB worker. */

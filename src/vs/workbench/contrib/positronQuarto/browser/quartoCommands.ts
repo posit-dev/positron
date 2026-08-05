@@ -673,7 +673,7 @@ registerAction2(class SaveCellPlotAction extends Action2 {
 		const targetUri = targetPath ? URI.file(targetPath) : undefined;
 
 		// Save the plot
-		return contribution.savePlot(plotInfo.dataUrl, plotInfo.mimeType, plotInfo.cellId, targetUri);
+		return contribution.savePlot(plotInfo.dataUrl, plotInfo.cellId, targetUri);
 	}
 });
 

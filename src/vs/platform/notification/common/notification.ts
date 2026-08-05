@@ -329,6 +329,18 @@ export interface IPromptOptions extends INotificationProperties {
 	 * any of the provided choices.
 	 */
 	onCancel?: () => void;
+
+	// --- Start Positron ---
+	/**
+	 * The source of the notification appears as additional information.
+	 *
+	 * Providing a source in the `INotificationSource` form also registers the
+	 * notification with the do-not-disturb-by-source system, so users can mute
+	 * notifications from this source. Note that only notifications with
+	 * `DEFAULT` or `OPTIONAL` priority are affected by that filter.
+	 */
+	readonly source?: string | INotificationSource;
+	// --- End Positron ---
 }
 
 export interface IStatusMessageOptions {

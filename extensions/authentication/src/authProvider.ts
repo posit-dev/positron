@@ -79,10 +79,22 @@ export class AuthProvider
 		this.logger = new AuthProviderLogger(this.displayName);
 	}
 
+	/** Human-readable provider name, e.g. for diagnostics. */
+	get label(): string {
+		return this.displayName;
+	}
+
 	/** Whether this provider blocks sign-out for chain sessions. */
 	get chainPreventsSignOut(): boolean {
 		return !!this.credentialChain?.preventSignOut;
 	}
+
+	/**
+	 * Cancel an in-flight interactive sign-in, if the provider supports
+	 * one (e.g. OAuth providers). The config dialog calls this when the
+	 * user cancels.
+	 */
+	cancelSignIn?(): void;
 
 	/** Expose session-change events. */
 	fireSessionsChanged(

@@ -46,6 +46,7 @@ import { ExtHostPositronEphemeralStorage } from './extHostPositronEphemeralStora
 import { IExtHostStorage } from '../extHostStorage.js';
 import { ExtHostLifecycle } from './extHostLifecycle.js';
 import { ExtHostFileTransfer } from './extHostFileTransfer.js';
+import { IExtHostDocs } from './extHostDocs.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -65,6 +66,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostCommands = accessor.get(IExtHostCommands);
 	const extHostLogService = accessor.get(ILogService);
 	const extHostConfiguration = accessor.get(IExtHostConfiguration);
+	const extHostDocs = accessor.get(IExtHostDocs);
 
 	// Retrieve the raw `ExtHostWebViews` object from the rpcProtocol; this
 	// object is needed to create webviews, and was previously created in
@@ -643,6 +645,16 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			}
 		};
 
+		const docs: typeof positron.docs = {
+			/**
+			 * Get the locally cached Positron documentation, or undefined when
+			 * the caller should fall back to the web.
+			 */
+			async getLocalDocs(): Promise<positron.docs.LocalDocs | undefined> {
+				return await extHostDocs.getLocalDocs();
+			},
+		};
+
 		const workspace: typeof positron.workspace = {
 			registerConfigurationMigrations(migrations: ReadonlyArray<positron.ConfigurationMigrationSpec>): vscode.Disposable {
 				extHostConfiguration.registerConfigurationMigrations(extension, migrations);
@@ -662,6 +674,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			methods,
 			environment,
 			paths,
+			docs,
 			connections,
 			dataConnections,
 			dataExplorer,

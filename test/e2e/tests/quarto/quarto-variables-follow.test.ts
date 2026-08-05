@@ -37,7 +37,7 @@ test.describe('Quarto - Variables Follow Mode', {
 
 		// Step 3: Run the current cell to start the Quarto kernel and create variables
 		await editors.clickTab('report.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 17, outputLine: 30 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 17, outputLine: 28 });
 
 		// After running code in the QMD, variables pane should show the QMD's variables
 		await variables.waitForVariableRow('theta');

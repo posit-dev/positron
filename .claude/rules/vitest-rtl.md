@@ -1,3 +1,10 @@
+---
+paths:
+  - src/**/*.vitest.{ts,tsx}
+  - vitest.config.ts
+  - src/vs/test/vitest/**
+---
+
 # Positron Vitest + React Testing Library
 
 For React component tests (`*.vitest.tsx` using `setupRTLRenderer()`). Read alongside [`vitest-tests.md`](vitest-tests.md) for the builder, file layout, and run commands.

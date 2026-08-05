@@ -44,8 +44,10 @@ export interface IPinsBrowseHost {
 	 * @param bundleId The bundle (version) id whose data to preview.
 	 * @param isActiveVersion Whether `bundleId` is the pin's active version; the active version reads
 	 * as the latest, so its generated code omits the explicit `version` argument.
+	 * @returns The dataset id the explorer was opened under, or undefined when a disconnect raced the
+	 * preview and nothing was opened.
 	 */
-	previewPin(pin: PinInfo, bundleId: string, isActiveVersion: boolean): Promise<void>;
+	previewPin(pin: PinInfo, bundleId: string, isActiveVersion: boolean): Promise<string | undefined>;
 }
 
 /**

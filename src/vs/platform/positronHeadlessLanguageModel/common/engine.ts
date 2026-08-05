@@ -82,7 +82,12 @@ export interface IModelDescriptor {
 	readonly id: string;
 	readonly name: string;
 	readonly vendor: string;
-	/** The provider that serves this model. A routing secret, never exposed to consumers. */
+	/**
+	 * The provider that serves this model. A routing secret: kept off the
+	 * feature-facing model listing so nothing can select a backend by provider.
+	 * Only the AI diagnostic report sees it, via
+	 * `getModelListingDiagnostics`.
+	 */
 	readonly providerId: string;
 }
 

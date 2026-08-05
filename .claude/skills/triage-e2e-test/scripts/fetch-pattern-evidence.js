@@ -10,10 +10,15 @@
 //
 // Usage:
 //   node fetch-pattern-evidence.js --report-url <url> --triage-id <id> --pattern <A> \
-//     (--title '<full title>' | --test-id <id>) [--keep-raw-logs]
+//     (--title '<full title>' | --test-id <id>) [--keep-raw-logs] [--occurrence <label>]
+//
+// --occurrence nests the artifacts under evidence/<pattern>/<label>, so several
+// occurrences of the same pattern can be compared side by side instead of
+// overwriting each other.
 //
 // Output (stdout): compact JSON manifest { evidenceDir, summaryFile,
-//   timelineFile, snapshotFile, screenshots[], rawLogDir, failure }.
+//   timelineFile, snapshotFile, screenshots[], rawLogDir, rawLogsRetained,
+//   failure }.
 
 import path from 'path';
 import fs from 'fs';
@@ -32,6 +37,27 @@ export function normalizeReportUrl(reportUrl) {
 	const base = url.replace(/index\.html.*$/, '');
 	const m = url.match(/testId=([^&\s]+)/);
 	return { baseUrl: base.endsWith('/') ? base : base + '/', testId: m ? m[1] : null };
+}
+
+/**
+ * Artifacts this script owns inside an evidence dir, cleared before each fetch.
+ *
+ * The dir is keyed by pattern, not by occurrence. The processor overwrites
+ * summary.md and evidence-raw.json but leaves a previous --keep-raw-logs bundle
+ * in place, so without this a prior occurrence's logs read as this one's. Every
+ * name here is regenerated from the report, so clearing is always safe.
+ */
+const MANAGED_ARTIFACTS = [
+	'raw-logs', 'screenshots', 'error-context',
+	'summary.md', 'timeline.txt', 'evidence-raw.json',
+];
+
+export function clearManagedArtifacts(evidenceDir) {
+	const present = MANAGED_ARTIFACTS.filter(n => fs.existsSync(path.join(evidenceDir, n)));
+	for (const name of present) {
+		fs.rmSync(path.join(evidenceDir, name), { recursive: true, force: true });
+	}
+	return present;
 }
 
 /** Pick the single test detail matching the filter, or the sole one present. */
@@ -124,7 +150,12 @@ function main() {
 	if (testId) { filterArgs.push('--test-id', testId); }
 	else if (title) { filterArgs.push('--title', title); }
 
-	const evidenceDir = ensureDir(path.join(triageDir(triageId), 'evidence', pattern));
+	const occurrence = args.occurrence || null;
+	const evidenceDir = ensureDir(path.join(
+		triageDir(triageId), 'evidence', pattern, ...(occurrence ? [occurrence] : []),
+	));
+	clearManagedArtifacts(evidenceDir);
+	const rawLogsDir = path.join(evidenceDir, 'raw-logs');
 
 	let stdout;
 	try {
@@ -132,7 +163,7 @@ function main() {
 		// Extract raw logs into this triage's evidence dir rather than leaving them
 		// in a shared temp dir, where logs-<shortId>.zip collides across every test
 		// in the same spec file and a stale sibling's bundle reads as this run's.
-		if (args['keep-raw-logs']) { procArgs.push('--raw-logs-out', path.join(evidenceDir, 'raw-logs')); }
+		if (args['keep-raw-logs']) { procArgs.push('--raw-logs-out', rawLogsDir); }
 		else { procArgs.push('--cleanup'); }
 		stdout = runNode(analyzerScript('e2e-process-s3.js'), procArgs);
 	} catch (err) {
@@ -148,6 +179,13 @@ function main() {
 	const summaryFile = writeText(path.join(evidenceDir, 'summary.md'), summary.markdown);
 	const timelineFile = summary.timeline ? writeText(path.join(evidenceDir, 'timeline.txt'), summary.timeline) : null;
 
+	// Report the raw-log dir this fetch actually produced. The processor only
+	// reports rawLogsDir per test detail when --raw-logs-out was passed, so fall
+	// back to the dir on disk: a null here next to a populated raw-logs/ is how a
+	// stale bundle gets read as the current occurrence's.
+	const reportedRawLogs = (result.testDetails || []).find(t => t.rawLogsDir)?.rawLogsDir || null;
+	const rawLogDir = reportedRawLogs || (fs.existsSync(rawLogsDir) ? rawLogsDir : null);
+
 	const rel = p => (p ? path.relative(process.cwd(), p) : null);
 	emit({
 		evidenceDir: rel(evidenceDir),
@@ -155,7 +193,10 @@ function main() {
 		timelineFile: rel(timelineFile),
 		snapshotFile: rel(summary.snapshotFile),
 		screenshots: (summary.screenshots || []).map(rel),
-		rawLogDir: rel((result.testDetails || []).find(t => t.rawLogsDir)?.rawLogsDir || null),
+		rawLogDir: rel(rawLogDir),
+		// Without --keep-raw-logs the processor cleans up its temp extract, so
+		// escalating to raw logs means refetching with the flag.
+		rawLogsRetained: Boolean(rawLogDir),
 		rawEvidenceFile: rel(rawFile),
 		failure: summary.failure ? summary.failure.slice(0, 200) : null,
 	});

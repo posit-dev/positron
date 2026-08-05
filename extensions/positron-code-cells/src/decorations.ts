@@ -66,10 +66,15 @@ export function activateDecorations(
 	setDecorations: SetDecorations = defaultSetDecorations,
 ): void {
 	let timeout: NodeJS.Timeout | undefined = undefined;
-	let activeEditor = vscode.window.activeTextEditor;
 
 	// Update the active editor's cell decorations.
+	//
+	// The active editor is read on each update rather than cached, since the
+	// extension host briefly reports no active text editor while editors are
+	// switching. A cached editor is cleared by that transient event and never
+	// restored until the next one arrives, leaving the decorations stale.
 	function updateDecorations() {
+		const activeEditor = vscode.window.activeTextEditor;
 		const docManager = activeEditor && getOrCreateDocumentManager(activeEditor.document);
 		if (!activeEditor || !docManager) {
 			return;
@@ -118,12 +123,17 @@ export function activateDecorations(
 
 	}
 
-	// Trigger an update of the active editor's cell decorations, with optional throttling.
-	function triggerUpdateDecorations(throttle = false) {
+	// Cancel a pending throttled update, if any.
+	function cancelUpdateDecorations() {
 		if (timeout) {
 			clearTimeout(timeout);
 			timeout = undefined;
 		}
+	}
+
+	// Trigger an update of the active editor's cell decorations, with optional throttling.
+	function triggerUpdateDecorations(throttle = false) {
+		cancelUpdateDecorations();
 		if (throttle) {
 			timeout = setTimeout(updateDecorations, 250);
 		} else {
@@ -132,14 +142,19 @@ export function activateDecorations(
 	}
 
 	// Trigger a decorations update for the current active editor.
-	if (activeEditor) {
+	if (vscode.window.activeTextEditor) {
 		triggerUpdateDecorations();
 	}
 
 	disposables.push(
-		// Trigger a decorations update when the active editor changes.
+		// Drop a pending throttled update so it can't run after disposal.
+		new vscode.Disposable(cancelUpdateDecorations),
+
+		// Trigger a decorations update when the active editor changes. A pending
+		// throttled update is deliberately left alone when there is no active
+		// editor, so that a transient "no active editor" event doesn't discard an
+		// update that a content change already scheduled.
 		vscode.window.onDidChangeActiveTextEditor(editor => {
-			activeEditor = editor;
 			if (editor) {
 				triggerUpdateDecorations();
 			}
@@ -147,14 +162,14 @@ export function activateDecorations(
 
 		// Trigger a decorations update when the active editor's content changes.
 		vscode.workspace.onDidChangeTextDocument(event => {
-			if (activeEditor && event.document === activeEditor.document) {
+			if (event.document === vscode.window.activeTextEditor?.document) {
 				triggerUpdateDecorations(true);
 			}
 		}),
 
 		// Trigger a decorations update when the active editor's selection changes.
 		vscode.window.onDidChangeTextEditorSelection(event => {
-			if (activeEditor && event.textEditor === activeEditor) {
+			if (event.textEditor === vscode.window.activeTextEditor) {
 				triggerUpdateDecorations();
 			}
 		}),

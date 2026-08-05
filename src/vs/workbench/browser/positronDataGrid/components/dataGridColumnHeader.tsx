@@ -141,8 +141,10 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Determine whether the column is selected.
 	const selected = (columnSelectionState & ColumnSelectionState.Selected) !== 0;
 
-	// Render the column title
-	const renderedColumn = renderLeadingTrailingWhitespace(props.column?.name);
+	// Render the column title. An undefined column means the schema hasn't been read yet, so
+	// render nothing. The <empty> placeholder is reserved for columns whose name really is empty,
+	// which can only be determined once the schema has arrived.
+	const renderedColumn = props.column && renderLeadingTrailingWhitespace(props.column.name);
 
 	// Render.
 	return (

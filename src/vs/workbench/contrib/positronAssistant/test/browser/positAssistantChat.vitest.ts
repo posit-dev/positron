@@ -36,8 +36,8 @@ describe('openPositAssistantChat', () => {
 		});
 	});
 
-	it('notifies the user when the assistant command fails', async () => {
-		const executeCommand = vi.fn().mockRejectedValue(new Error('Posit Assistant is disabled.'));
+	it('notifies the user when the assistant command fails, including the reason', async () => {
+		const executeCommand = vi.fn().mockRejectedValue(new Error('No language model provider is configured.'));
 		const error = vi.fn();
 		const commandService = stubInterface<ICommandService>({ executeCommand });
 		const notificationService = stubInterface<INotificationService>({ error });
@@ -48,9 +48,29 @@ describe('openPositAssistantChat', () => {
 			behavior: 'submit',
 		});
 
-		// The helper's job on this path is to surface the localized unavailable message,
-		// not just to call error() with anything -- pin the message so a regression to an
-		// empty or raw-error string fails.
-		expect(error).toHaveBeenCalledWith(expect.stringMatching(/Posit Assistant could not be opened/));
+		// The reason has to reach the notification. Guessing at causes in a static string
+		// sent users chasing the wrong thing (extension not installed, sidebar hidden) when
+		// the real problem was an unconfigured model provider.
+		expect(error).toHaveBeenCalledWith(
+			'Posit Assistant could not be opened: No language model provider is configured.'
+		);
+	});
+
+	it('falls back to a readable message when the rejection carries no reason', async () => {
+		const executeCommand = vi.fn().mockRejectedValue(undefined);
+		const error = vi.fn();
+		const commandService = stubInterface<ICommandService>({ executeCommand });
+		const notificationService = stubInterface<INotificationService>({ error });
+
+		await openPositAssistantChat(commandService, notificationService, new NullLogService(), {
+			prompt: 'Explain this notebook',
+			target: 'new',
+			behavior: 'submit',
+		});
+
+		// Never show the user "could not be opened: undefined".
+		expect(error).toHaveBeenCalledWith(
+			'Posit Assistant could not be opened: An unknown error occurred. Please consult the log for more details.'
+		);
 	});
 });

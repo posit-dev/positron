@@ -60,15 +60,13 @@ export interface SavePlotRequest {
 	readonly cellId: string;
 	/** The image data URL */
 	readonly dataUrl: string;
-	/** The MIME type of the image */
-	readonly mimeType: string;
 }
 
 /**
  * Type of popout action to perform.
  */
 export type PopoutType =
-	| { type: 'plot'; dataUrl: string; mimeType: string }
+	| { type: 'plot'; dataUrl: string }
 	| { type: 'text'; text: string }
 	| { type: 'html'; html: string; webviewMetadata?: ICellOutput['webviewMetadata'] }
 	| { type: 'webview'; rawData: Record<string, unknown>; outputId: string };
@@ -1844,7 +1842,6 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._onSaveRequested.fire({
 				cellId: this.cellId,
 				dataUrl: plotInfo.dataUrl,
-				mimeType: plotInfo.mimeType,
 			});
 		}
 	}
@@ -1879,7 +1876,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 					const dataUrl = item.data.startsWith('data:')
 						? item.data
 						: `data:${item.mime};base64,${item.data}`;
-					return { type: 'plot', dataUrl, mimeType: item.mime };
+					return { type: 'plot', dataUrl };
 				}
 			}
 		}
@@ -2080,7 +2077,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * Get the single plot info if exactly one plot exists.
 	 * Returns undefined if there are zero or more than one images.
 	 */
-	getSinglePlotInfo(): { dataUrl: string; mimeType: string } | undefined {
+	getSinglePlotInfo(): { dataUrl: string } | undefined {
 		return this._getSinglePlotInfo();
 	}
 
@@ -2088,9 +2085,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * Get info about the single plot if exactly one exists.
 	 * Used internally for the save button logic.
 	 */
-	private _getSinglePlotInfo(): { dataUrl: string; mimeType: string } | undefined {
+	private _getSinglePlotInfo(): { dataUrl: string } | undefined {
 		let imageCount = 0;
-		let imageInfo: { dataUrl: string; mimeType: string } | undefined;
+		let imageInfo: { dataUrl: string } | undefined;
 
 		for (const output of this._outputs) {
 			for (const item of output.items) {
@@ -2104,7 +2101,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 					const dataUrl = item.data.startsWith('data:')
 						? item.data
 						: `data:${item.mime};base64,${item.data}`;
-					imageInfo = { dataUrl, mimeType: item.mime };
+					imageInfo = { dataUrl };
 				}
 			}
 		}

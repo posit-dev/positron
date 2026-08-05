@@ -79,8 +79,9 @@ One more line for good measure.
 		await inlineQuarto.gotoLine(25);
 		await inlineQuarto.runCurrentCode();
 
-		// Verify no errors and output is correct
-		await inlineQuarto.gotoLine(30);
+		// Verify no errors and output is correct. Line 25 is the second cell's
+		// closing fence after the three inserted lines shifted it down.
+		await inlineQuarto.revealOutput(25, { target: inlineQuarto.getInlineOutputAt(1) });
 		await inlineQuarto.expectOutputVisible({ index: 1 });
 		await inlineQuarto.expectErrorCount(0);
 

@@ -37,6 +37,7 @@
   "extensions/authentication/": ["@:assistant"],
   "extensions/copilot/": ["@:assistant"],
   "extensions/copilot/src/extension/prompts/node/base/positronAssistant.tsx": ["@:assistant"],
+  "extensions/next-edit-suggestions/": ["@:assistant"],
   "extensions/positron-connections/": ["@:connections"],
   "extensions/positron-notebooks/": ["@:positron-notebooks"],
   "extensions/positron-reticulate/": ["@:reticulate"],
@@ -128,6 +129,7 @@
   "src/vs/platform/extensions/common/positronExtensionValidator.ts": ["@:extensions"],
   "src/vs/platform/positronActionBar/": [],
   "src/vs/platform/positronAiProvider/": ["@:assistant"],
+  "src/vs/platform/positronDocs/": [],
   "src/vs/platform/positronHeadlessLanguageModel/": ["@:positron-notebooks"],
   "src/vs/platform/positronIdleTracking/": [],
   "src/vs/platform/positronMemoryUsage/": ["@:variables"],
@@ -158,6 +160,7 @@
   "src/vs/workbench/contrib/welcomeGettingStarted/browser/media/positronGettingStarted.css": ["@:welcome"],
   "src/vs/workbench/contrib/welcomeGettingStarted/browser/positronWelcome": ["@:welcome"],
   "src/vs/workbench/contrib/welcomeGettingStarted/common/gettingStartedPositronNotebookContent.ts": ["@:welcome"],
+  "src/vs/workbench/services/notification/": [],
   "src/vs/workbench/services/themes/": [],
   "src/vs/workbench/services/themes/browser/positronColorThemeFilter.ts": []
 }

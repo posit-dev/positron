@@ -52,6 +52,19 @@ describe('ConnectedProviderView', () => {
 		expect(screen.getByText('https://proxy.example/v1')).toBeInTheDocument();
 	});
 
+	it('labels the Databricks base URL row as the workspace URL', () => {
+		const databricks: IPositronLanguageModelSource = {
+			type: PositronLanguageModelType.Chat,
+			provider: { id: 'databricks', displayName: 'Databricks' },
+			supportedOptions: ['apiKey', 'baseUrl'],
+			signedIn: true,
+			defaults: { baseUrl: 'https://adb-123.7.azuredatabricks.net' },
+		};
+		rtl.render(<ConnectedProviderView source={databricks} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		expect(screen.getByText('Workspace URL')).toBeInTheDocument();
+		expect(screen.queryByText('Base URL')).not.toBeInTheDocument();
+	});
+
 	it('omits the base URL row when the provider does not support it', () => {
 		rtl.render(<ConnectedProviderView source={positAi} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
 		expect(screen.queryByText(/base url/i)).not.toBeInTheDocument();

@@ -10,7 +10,7 @@ import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutpu
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotOpenTarget, PlotRenderFormat, PlotRenderSettings, PlotsDisplayLocation, POSITRON_PLOTS_LOCATION_CONTEXT, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
+import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IOpenImageInEditorOptions, IPositronPlotClient, IPositronPlotsService, PlotOpenTarget, PlotRenderFormat, PlotRenderSettings, PlotsDisplayLocation, POSITRON_PLOTS_LOCATION_CONTEXT, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
@@ -26,7 +26,7 @@ import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebvi
 import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
-import { decodeBase64 } from '../../../../base/common/buffer.js';
+import { decodeImageDataUrl, getImageContentId, getImageExtensionForMimeType, parseImageDataUrl, toBase64ImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
 import { SavePlotOptions, showSavePlotModalDialog } from './modalDialogs/savePlotModalDialog.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { localize } from '../../../../nls.js';
@@ -97,12 +97,6 @@ const DefaultOpenTargetStorageKey = 'positronPlots.defaultOpenTarget';
 
 /** Legacy keys used for one-way migration to DefaultOpenTargetStorageKey. */
 const LegacyDefaultEditorActionStorageKey = 'positronPlots.defaultEditorAction';
-
-interface DataUri {
-	mime: string;
-	data: string;
-	type: string;
-}
 
 /**
  * ICachedPlotThumbnailDescriptor interface.
@@ -1422,51 +1416,28 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	private savePlotAs = (options: SavePlotOptions) => {
 		const htmlFileSystemProvider = this._fileService.getProvider(options.path.scheme) as HTMLFileSystemProvider;
-		const dataUri = this.splitPlotDataUri(options.uri);
+		// Decode both base64 and URL-encoded image data.
+		const decoded = decodeImageDataUrl(options.uri);
 
-		if (!dataUri) {
+		if (!decoded) {
 			return;
 		}
 
-		const data = dataUri.data;
-
-		htmlFileSystemProvider.writeFile(options.path, decodeBase64(data).buffer, { create: true, overwrite: true, unlock: true, atomic: false })
+		htmlFileSystemProvider.writeFile(options.path, decoded.data.buffer, { create: true, overwrite: true, unlock: true, atomic: false })
 			.catch((error: Error) => {
 				this._notificationService.error(localize('positronPlotsService.savePlotError.unknown', 'Error saving plot: {0}', error.message));
 			});
 	};
 
-	/**
-	 * Splits an image data URI into its MIME, type, and data.
-	 * @param plotDataUri the data URI
-	 * @returns the `DataUri`.
-	 */
-	private splitPlotDataUri(plotDataUri: string): DataUri | null {
-		// match the data URI scheme
-		// the data portion isn't matched because of javascript regex performance with large stringszs
-		const mimeAndData = plotDataUri.split('base64,');
-		if (mimeAndData.length !== 2) {
-			return null;
-		}
-
-		const mime = mimeAndData[0].split('data:')[1];
-		const imageData = mimeAndData[1];
-
-		return {
-			mime: mime,
-			data: imageData,
-			type: mime.split('/')[1].split(';')[0],
-		};
-	}
-
 	showSavePlotDialog(uri: string, suggestedFileName?: string) {
-		const dataUri = this.splitPlotDataUri(uri);
+		const parsed = parseImageDataUrl(uri);
 
-		if (!dataUri) {
+		if (!parsed) {
 			return;
 		}
 
-		const extension = dataUri.type;
+		// Derive the extension from the MIME type; image/svg+xml maps to .svg.
+		const extension = getImageExtensionForMimeType(parsed.mimeType).substring(1);
 
 		this._fileDialogService.defaultFilePath().then(defaultPath => {
 			const defaultUri = joinPath(defaultPath, suggestedFileName ?? 'plot');
@@ -1497,7 +1468,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 		if (plotUri) {
 			try {
-				await this._clipboardService.writeImage(plotUri);
+				// writeImage requires base64, while SVG plot URIs are URL-encoded.
+				await this._clipboardService.writeImage(toBase64ImageDataUrl(plotUri));
 			} catch (error) {
 				throw new Error(error.message);
 			}
@@ -1671,6 +1643,45 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 
 		this.setDefaultOpenTarget(this.editorGroupToOpenTarget(selectedEditorGroup));
+	}
+
+	public async openImageInEditor(dataUrl: string, options?: IOpenImageInEditorOptions): Promise<void> {
+		const { name, scope, code, groupType } = options ?? {};
+
+		// Use content, label, and source scope as the tab identity. Reopening an
+		// unchanged output reuses its tab; changed output receives a new one.
+		const plotId = getImageContentId(dataUrl, `${scope ?? ''}\n${name ?? ''}`);
+		const existing = this._editorPlots.get(plotId);
+
+		if (!existing) {
+			const plotClient = StaticPlotClient.fromDataUrl(this._storageService, dataUrl, { name, code, id: plotId });
+			if (!plotClient) {
+				throw new Error('Cannot open image in editor: malformed image data URL');
+			}
+
+			// The editor input disposes the plot client via removeEditorPlot when the
+			// tab is closed, so there is nothing to clean up here.
+			this._editorPlots.set(plotId, plotClient);
+		}
+
+		try {
+			const editorPane = await this._editorService.openEditor({
+				resource: URI.from({
+					scheme: Schemas.positronPlotsEditor,
+					path: plotId,
+				}),
+			}, groupType ?? ACTIVE_GROUP);
+
+			if (!editorPane) {
+				throw new Error('Failed to open editor');
+			}
+		} catch (err) {
+			// Only tear down a client this call created; a tab already open keeps its own.
+			if (!existing) {
+				this.removeEditorPlot(plotId);
+			}
+			throw err;
+		}
 	}
 
 	public getPreferredEditorGroup(): number {

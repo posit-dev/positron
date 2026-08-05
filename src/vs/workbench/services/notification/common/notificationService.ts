@@ -309,7 +309,12 @@ export class NotificationService extends Disposable implements INotificationServ
 
 		// Show notification with actions
 		const actions: INotificationActions = { primary: primaryActions, secondary: secondaryActions };
-		const handle = this.notify({ severity, message, actions, sticky: options?.sticky, priority: options?.priority });
+		// --- Start Positron ---
+		// Forward `source` so that prompts can participate in do-not-disturb-by-source
+		// filtering, which previously only worked for `notify()` callers.
+		// const handle = this.notify({ severity, message, actions, sticky: options?.sticky, priority: options?.priority });
+		const handle = this.notify({ severity, message, actions, sticky: options?.sticky, priority: options?.priority, source: options?.source });
+		// --- End Positron ---
 
 		Event.once(handle.onDidClose)(() => {
 
