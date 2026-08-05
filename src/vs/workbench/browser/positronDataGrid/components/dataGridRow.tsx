@@ -61,7 +61,7 @@ export const DataGridRow = (props: DataGridRowProps) => {
 		);
 	}
 
-	// Create the unpinned data grid column header elements. An unpinned cell that scrolls under the
+	// Render the unpinned data grid row cells. An unpinned cell that scrolls under the
 	// band of pinned columns is clipped so that it does not paint there.
 	for (const unpinnedColumnDescriptor of props.columnDescriptors.unpinnedColumnDescriptors) {
 		const left = unpinnedColumnDescriptor.left - context.instance.horizontalScrollOffset;
