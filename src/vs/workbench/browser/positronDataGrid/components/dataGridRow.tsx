@@ -19,6 +19,7 @@ import { positronClassNames } from '../../../../base/common/positronUtilities.js
  * DataGridRowProps interface.
  */
 interface DataGridRowProps {
+	clipTop: number;
 	columnDescriptors: ColumnDescriptors;
 	height: number;
 	pinned: boolean;
@@ -36,12 +37,15 @@ export const DataGridRow = (props: DataGridRowProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
-	// Render the pinned data grid row cells.
+	// Render the pinned data grid row cells. Pinned cells are never clipped horizontally because
+	// they are painted above the unpinned cells that scroll under them.
 	const dataGridRowCells: JSX.Element[] = [];
 	for (const pinnedColumnDescriptor of props.columnDescriptors.pinnedColumnDescriptors) {
 		dataGridRowCells.push(
 			<DataGridRowCell
 				key={`pinned-row-cell-${props.rowIndex}-${pinnedColumnDescriptor.columnIndex}`}
+				clipLeft={0}
+				clipTop={props.clipTop}
 				columnIndex={pinnedColumnDescriptor.columnIndex}
 				height={props.height}
 				left={pinnedColumnDescriptor.left}
@@ -52,14 +56,18 @@ export const DataGridRow = (props: DataGridRowProps) => {
 		);
 	}
 
-	// Create the unpinned data grid column header elements.
+	// Create the unpinned data grid column header elements. An unpinned cell that scrolls under the
+	// band of pinned columns is clipped so that it does not paint there.
 	for (const unpinnedColumnDescriptor of props.columnDescriptors.unpinnedColumnDescriptors) {
+		const left = unpinnedColumnDescriptor.left - context.instance.horizontalScrollOffset;
 		dataGridRowCells.push(
 			<DataGridRowCell
 				key={`row-cell-${props.rowIndex}-${unpinnedColumnDescriptor.columnIndex}`}
+				clipLeft={Math.max(0, props.columnDescriptors.pinnedColumnDescriptorsWidth - left)}
+				clipTop={props.clipTop}
 				columnIndex={unpinnedColumnDescriptor.columnIndex}
 				height={props.height}
-				left={unpinnedColumnDescriptor.left - context.instance.horizontalScrollOffset}
+				left={left}
 				pinned={false}
 				rowIndex={props.rowIndex}
 				width={unpinnedColumnDescriptor.width}
