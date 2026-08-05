@@ -11,8 +11,9 @@ import { INotificationService } from '../../../../../platform/notification/commo
 import { IProgress, IProgressService, IProgressStep, Progress } from '../../../../../platform/progress/common/progress.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from '../../browser/interfaces/positronPackagesService.js';
+import { IPositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
 
 // The real quick-pick flow needs a live QuickInputService plus a 300ms debounce,
 // and this change does not touch it. Mocking it keeps these tests on what did
@@ -37,8 +38,20 @@ describe('packages install and update commands', () => {
 	let installPackages: ReturnType<typeof vi.fn<IPositronPackagesService['installPackages']>>;
 	let updatePackages: ReturnType<typeof vi.fn<IPositronPackagesService['updatePackages']>>;
 	let searchPackageVersions: ReturnType<typeof vi.fn<IPositronPackagesService['searchPackageVersions']>>;
+	let resolveLatestVersion: ReturnType<typeof vi.fn<IPositronPackagesService['resolveLatestVersion']>>;
 	let error: ReturnType<typeof vi.fn<INotificationService['error']>>;
 	let prompt: ReturnType<typeof vi.fn<INotificationService['prompt']>>;
+
+	/**
+	 * What the session reports as installed. An unversioned install reads the
+	 * version back from here, which is what the real refresh inside
+	 * `installPackages` leaves behind.
+	 */
+	let installedPackages: ILanguageRuntimePackage[];
+
+	function installedPackage(name: string, version: string): ILanguageRuntimePackage {
+		return { id: name, name, displayName: name, version };
+	}
 
 	/**
 	 * Wires the services `run()` reads. The session is passed explicitly so that
@@ -50,8 +63,14 @@ describe('packages install and update commands', () => {
 			installPackages,
 			updatePackages,
 			searchPackageVersions,
+			resolveLatestVersion,
 			searchPackages: vi.fn().mockResolvedValue([]),
 			refreshPackages: vi.fn().mockResolvedValue([]),
+			// A getter so a test can change what is installed after the stub is
+			// built, which is how the post-install read-back is exercised.
+			get activePackagesInstance(): IPositronPackagesInstance {
+				return stubInterface<IPositronPackagesInstance>({ packages: installedPackages });
+			},
 		}));
 		ctx.instantiationService.stub(INotificationService, stubInterface<INotificationService>({ error, prompt }));
 		ctx.instantiationService.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
@@ -86,6 +105,8 @@ describe('packages install and update commands', () => {
 		installPackages = vi.fn<IPositronPackagesService['installPackages']>().mockResolvedValue(undefined);
 		updatePackages = vi.fn<IPositronPackagesService['updatePackages']>().mockResolvedValue(undefined);
 		searchPackageVersions = vi.fn<IPositronPackagesService['searchPackageVersions']>().mockResolvedValue(['1.8', '1.9', '2.0.0rc1']);
+		resolveLatestVersion = vi.fn<IPositronPackagesService['resolveLatestVersion']>().mockResolvedValue('1.9');
+		installedPackages = [installedPackage('dplyr', '1.9')];
 		error = vi.fn<INotificationService['error']>();
 		prompt = vi.fn<INotificationService['prompt']>();
 		installPackageMock.mockReset().mockResolvedValue(undefined);
@@ -113,18 +134,46 @@ describe('packages install and update commands', () => {
 			expect(installPackageMock).not.toHaveBeenCalled();
 		});
 
-		it('resolves \'latest\' to the newest stable version', async () => {
+		it('installs \'latest\' by asking for no version at all', async () => {
+			// A bare package name is how every package manager is told to install
+			// the newest version it can see, so nothing is resolved up front.
 			const result = await runInstall('dplyr', 'latest');
 
+			expect(installPackages).toHaveBeenCalledWith([{ name: 'dplyr', version: undefined }], expect.anything());
+			expect(searchPackageVersions).not.toHaveBeenCalled();
+			expect(resolveLatestVersion).not.toHaveBeenCalled();
 			expect(result).toEqual({ installed: true, name: 'dplyr', version: '1.9' });
-			expect(installPackages).toHaveBeenCalledWith([{ name: 'dplyr', version: '1.9' }], expect.anything());
+		});
+
+		it('reports the version that was actually installed, not the one it guessed', async () => {
+			installedPackages = [installedPackage('dplyr', '2.1.0')];
+
+			const result = await runInstall('dplyr', 'latest');
+
+			expect(result).toEqual({ installed: true, name: 'dplyr', version: '2.1.0' });
+		});
+
+		it('reports no version when the session does not list the package after installing it', async () => {
+			installedPackages = [];
+
+			const result = await runInstall('dplyr', 'latest');
+
+			expect(result).toEqual({ installed: true, name: 'dplyr', version: undefined });
+		});
+
+		it('matches the installed package case-insensitively when reading the version back', async () => {
+			installedPackages = [installedPackage('PyYAML', '6.0.2')];
+
+			const result = await runInstall('pyyaml', 'latest');
+
+			expect(result).toEqual({ installed: true, name: 'pyyaml', version: '6.0.2' });
 		});
 
 		it('accepts \'latest\' in any case, and trims both arguments', async () => {
 			const result = await runInstall('  dplyr  ', '  Latest  ');
 
+			expect(installPackages).toHaveBeenCalledWith([{ name: 'dplyr', version: undefined }], expect.anything());
 			expect(result).toEqual({ installed: true, name: 'dplyr', version: '1.9' });
-			expect(installPackages).toHaveBeenCalledWith([{ name: 'dplyr', version: '1.9' }], expect.anything());
 		});
 
 		it('reports a failed install instead of reporting success', async () => {
@@ -145,41 +194,18 @@ describe('packages install and update commands', () => {
 			expect(result).toEqual({ installed: false, name: 'dplyr', version: '1.1.4', message: 'No active session found.' });
 		});
 
-		it('reports when no versions are available for \'latest\'', async () => {
-			searchPackageVersions.mockResolvedValue([]);
+		it('reports a failed \'latest\' install as a failure', async () => {
+			installPackages.mockRejectedValue(new Error('no matching distribution found'));
 
 			const result = await runInstall('nope', 'latest');
 
 			expect(result).toEqual({
 				installed: false,
 				name: 'nope',
-				message: `No available versions of 'nope' were found. Check the package name and the repositories configured for this session.`,
+				version: undefined,
+				message: 'no matching distribution found',
 			});
-			expect(installPackages).not.toHaveBeenCalled();
-			expect(error).toHaveBeenCalled();
-		});
-
-		it('reports a failed version lookup for \'latest\'', async () => {
-			searchPackageVersions.mockRejectedValue(new Error('network down'));
-
-			const result = await runInstall('dplyr', 'latest');
-
-			expect(result).toEqual({ installed: false, name: 'dplyr', message: 'network down' });
-			expect(installPackages).not.toHaveBeenCalled();
-			expect(error).toHaveBeenCalledWith('network down');
-		});
-
-		it('reports a canceled version lookup without an error notification', async () => {
-			searchPackageVersions.mockRejectedValue(new CancellationError());
-
-			const result = await runInstall('dplyr', 'latest');
-
-			expect(result).toEqual({
-				installed: false,
-				name: 'dplyr',
-				message: `Finding the latest version of 'dplyr' was canceled.`,
-			});
-			expect(error).not.toHaveBeenCalled();
+			expect(error).toHaveBeenCalledWith('no matching distribution found');
 		});
 
 		it('reports a canceled install without an error notification', async () => {
@@ -288,20 +314,35 @@ describe('packages install and update commands', () => {
 			expect(updatePackageMock).not.toHaveBeenCalled();
 		});
 
-		it('resolves \'latest\' to a concrete version, never undefined', async () => {
+		it('resolves \'latest\' to the version the session reports, never undefined', async () => {
 			// pip and uv-outside-a-project reject a missing version on update, so
 			// the version reaching the service must always be concrete.
+			resolveLatestVersion.mockResolvedValue('2.0.0');
+
 			const result = await runUpdate('dplyr', 'latest');
 
-			expect(result).toEqual({ updated: true, name: 'dplyr', version: '1.9' });
-			expect(updatePackages).toHaveBeenCalledWith([{ name: 'dplyr', version: '1.9' }], expect.anything());
+			expect(resolveLatestVersion).toHaveBeenCalledWith('dplyr', expect.anything());
+			expect(updatePackages).toHaveBeenCalledWith([{ name: 'dplyr', version: '2.0.0' }], expect.anything());
+			expect(result).toEqual({ updated: true, name: 'dplyr', version: '2.0.0' });
+		});
+
+		it('does not compare versions itself when resolving \'latest\'', async () => {
+			resolveLatestVersion.mockResolvedValue('2.0.0rc1');
+
+			const result = await runUpdate('dplyr', 'latest');
+
+			// Whatever the session names is passed through, prerelease or not:
+			// deciding which version wins is the runtime's job.
+			expect(updatePackages).toHaveBeenCalledWith([{ name: 'dplyr', version: '2.0.0rc1' }], expect.anything());
+			expect(searchPackageVersions).not.toHaveBeenCalled();
+			expect(result).toEqual({ updated: true, name: 'dplyr', version: '2.0.0rc1' });
 		});
 
 		it('accepts \'latest\' in any case, and trims both arguments', async () => {
 			const result = await runUpdate('  dplyr  ', '  LATEST  ');
 
+			expect(resolveLatestVersion).toHaveBeenCalledWith('dplyr', expect.anything());
 			expect(result).toEqual({ updated: true, name: 'dplyr', version: '1.9' });
-			expect(updatePackages).toHaveBeenCalledWith([{ name: 'dplyr', version: '1.9' }], expect.anything());
 		});
 
 		it('reports a failed update instead of reporting success', async () => {
@@ -319,26 +360,45 @@ describe('packages install and update commands', () => {
 			expect(prompt).not.toHaveBeenCalled();
 		});
 
-		it('reports when no versions are available for \'latest\'', async () => {
-			searchPackageVersions.mockResolvedValue([]);
+		it('updates nothing, and raises no error, when there is no newer version', async () => {
+			// The usual reason is that the installed version is already the newest.
+			// An error toast would be wrong, so the outcome is reported only in the
+			// result the caller gets back.
+			resolveLatestVersion.mockResolvedValue(undefined);
 
-			const result = await runUpdate('nope', 'latest');
+			const result = await runUpdate('dplyr', 'latest');
 
 			expect(result).toEqual({
 				updated: false,
-				name: 'nope',
-				message: `No available versions of 'nope' were found. Check the package name and the repositories configured for this session.`,
+				name: 'dplyr',
+				message: `No newer version of 'dplyr' is available to this session.`,
 			});
 			expect(updatePackages).not.toHaveBeenCalled();
+			expect(error).not.toHaveBeenCalled();
 		});
 
-		it('reports a failed version lookup for \'latest\'', async () => {
-			searchPackageVersions.mockRejectedValue(new Error('network down'));
+		it('reports a failed \'latest\' lookup as a failure', async () => {
+			resolveLatestVersion.mockRejectedValue(new Error('network down'));
 
 			const result = await runUpdate('dplyr', 'latest');
 
 			expect(result).toEqual({ updated: false, name: 'dplyr', message: 'network down' });
 			expect(updatePackages).not.toHaveBeenCalled();
+			expect(error).toHaveBeenCalledWith('network down');
+		});
+
+		it('reports a canceled \'latest\' lookup without an error notification', async () => {
+			resolveLatestVersion.mockRejectedValue(new CancellationError());
+
+			const result = await runUpdate('dplyr', 'latest');
+
+			expect(result).toEqual({
+				updated: false,
+				name: 'dplyr',
+				message: `Finding the latest version of 'dplyr' was canceled.`,
+			});
+			expect(updatePackages).not.toHaveBeenCalled();
+			expect(error).not.toHaveBeenCalled();
 		});
 
 		it('reports a canceled update without an error notification', async () => {

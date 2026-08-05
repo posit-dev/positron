@@ -38,6 +38,16 @@ export interface IPositronPackagesInstance {
 	 */
 	getPackageDetail(name: string, token?: CancellationToken): Promise<Partial<ILanguageRuntimePackage> | undefined>;
 
+	/**
+	 * The newest version of an installed package available to this session.
+	 *
+	 * Resolves undefined when the session offers nothing newer than what is
+	 * installed, when the package isn't installed, or when the package manager
+	 * doesn't report metadata. Callers can't tell those apart, which matches
+	 * what the packages list shows: no update affordance in any of the three.
+	 */
+	resolveLatestVersion(name: string, token?: CancellationToken): Promise<string | undefined>;
+
 	readonly onDidRefreshPackagesInstance: Event<ILanguageRuntimePackage[]>;
 
 	/**
@@ -488,6 +498,34 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			return undefined;
 		}
 		return packageManager.getPackageDetail(name, token);
+	}
+
+	async resolveLatestVersion(name: string, token?: CancellationToken): Promise<string | undefined> {
+		const packageManager = this.getPackageManagerOrThrow();
+		const effectiveToken = token ?? CancellationToken.None;
+		if (!packageManager.getPackageMetadata) {
+			return undefined;
+		}
+
+		// A metadata entry is only recorded for a package whose installed version
+		// is known, so the installed list has to be populated first. It usually
+		// already is, but a caller that never opened the pane (an agent) can get
+		// here first.
+		if (this._packages.length === 0) {
+			this._packages = await packageManager.getPackages(effectiveToken);
+		}
+
+		// Force the fetch rather than trusting the freshness window: "the latest
+		// version" has to be answered against the repositories as they are now,
+		// not as they were when the cache was last written. Awaited, unlike the
+		// background fetch a refresh kicks off, because the answer is the point.
+		await this._fetchAndMergeMetadata(packageManager, effectiveToken, true);
+		if (effectiveToken.isCancellationRequested) {
+			return undefined;
+		}
+
+		const target = name.toLowerCase();
+		return this.packages.find((pkg) => pkg.name.toLowerCase() === target)?.latestVersion;
 	}
 
 	/**

@@ -33,7 +33,6 @@ import { IPositronPackagesService } from './interfaces/positronPackagesService.j
 import { PACKAGE_METADATA_CACHE_ENABLED_SETTING, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING } from './packageMetadataCache.js';
 import { PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
 import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
-import { newestAvailableVersion } from './packageVersions.js';
 import { PositronPackagesService } from './positronPackagesService.js';
 import { PositronPackagesView } from './positronPackagesView.js';
 
@@ -181,71 +180,69 @@ function cleanErrorMessage(error: unknown): string {
 }
 
 /**
- * The version an agent passes to ask for the newest available version. Human
- * callers never pass it: the quick-pick and the package detail editor either
- * supply a concrete version or no version at all.
+ * The version an agent passes to ask for the newest version available to the
+ * session. Human callers never pass it: the quick-picks and the package detail
+ * editor either supply a concrete version or none at all.
+ *
+ * A missing version can't carry this meaning, because the UI already uses it:
+ * the packages list's Update button passes a name and no version to get the
+ * version quick-pick.
  */
 const LATEST_VERSION = 'latest';
 
 /**
- * Outcome of resolving a target version, before the install or update runs.
+ * Whether the caller asked for the newest version rather than a specific one.
  */
-type VersionResolution =
+function isLatestRequest(version: string): boolean {
+	return version.toLowerCase() === LATEST_VERSION;
+}
+
+/**
+ * Outcome of turning `'latest'` into the version an update should target.
+ */
+type LatestVersionResolution =
 	| { readonly ok: true; readonly version: string }
 	| { readonly ok: false; readonly message: string };
 
 /**
- * Resolves the version for a direct (non-quick-pick) install or update. A
- * concrete version passes through untouched; `'latest'` is resolved against the
- * repositories configured for the session, so the backend always receives an
- * explicit target.
+ * Asks the session which version of an installed package is the newest one
+ * available to it.
  *
- * Resolving is required, not merely tidier. pip and uv-outside-a-project reject
- * a missing version on update outright, and on install they write a bare package
- * name into a requirements file with no `--upgrade`, so an already-installed
- * package resolves as satisfied and never moves to the newest version.
+ * The session already computes this for the packages list's outdated indicator,
+ * using its own version semantics, so nothing is compared here. The update still
+ * receives an explicit version, because pip and uv reject an unversioned one.
  *
- * Failures are notified here so both commands report them identically.
+ * Failures come back as a message rather than an exception, so a programmatic
+ * caller gets the same result shape it gets for a failed update.
  */
-async function resolveTargetVersion(
+async function resolveLatestForUpdate(
 	service: IPositronPackagesService,
 	notifications: INotificationService,
 	name: string,
-	version: string,
 	token: CancellationToken
-): Promise<VersionResolution> {
-	if (version.toLowerCase() !== LATEST_VERSION) {
-		return { ok: true, version };
-	}
-
-	const canceled: VersionResolution = {
-		ok: false,
-		message: nls.localize('positronPackages.versionLookupCanceled', "Finding the latest version of '{0}' was canceled.", name)
-	};
-
-	let versions: string[];
+): Promise<LatestVersionResolution> {
+	let latest: string | undefined;
 	try {
-		versions = await service.searchPackageVersions(name, token);
+		latest = await service.resolveLatestVersion(name, token);
 	} catch (e) {
 		if (isCancellationError(e) || token.isCancellationRequested) {
-			return canceled;
+			return {
+				ok: false,
+				message: nls.localize('positronPackages.versionLookupCanceled', "Finding the latest version of '{0}' was canceled.", name)
+			};
 		}
 		const message = cleanErrorMessage(e);
 		notifications.error(message);
 		return { ok: false, message };
 	}
 
-	// A canceled lookup resolves to an empty list rather than throwing, so check
-	// the token before reporting the package as missing from the repositories.
-	if (token.isCancellationRequested) {
-		return canceled;
-	}
-
-	const latest = newestAvailableVersion(versions);
 	if (!latest) {
-		const message = nls.localize('positronPackages.noVersionsAvailable', "No available versions of '{0}' were found. Check the package name and the repositories configured for this session.", name);
-		notifications.error(message);
-		return { ok: false, message };
+		// Not an error, and deliberately not notified as one: the usual reason is
+		// that the installed version is already the newest available.
+		return {
+			ok: false,
+			message: nls.localize('positronPackages.noNewerVersion', "No newer version of '{0}' is available to this session.", name)
+		};
 	}
 	return { ok: true, version: latest };
 }
@@ -396,9 +393,9 @@ export class InstallPackageAction extends Action2 {
 				agentCompatible: true,
 				args: [
 					{ name: 'name', description: 'Name of the package to install, as the package repository knows it (for example: dplyr, pandas).', schema: { type: 'string' } },
-					{ name: 'version', description: 'Version to install: either an exact version (for example: 1.1.4) or \'latest\' for the newest version available to the session. Base R installs ignore this and always install the current release from the repository.', schema: { type: 'string' } },
+					{ name: 'version', description: 'Version to install: either an exact version (for example: 1.1.4) or \'latest\' for the newest version available to the session. If the package is already installed, installing it again does nothing, whatever this is set to -- use the update command to move an installed package to a different version. Base R installs ignore this and always install the current release from the repository.', schema: { type: 'string' } },
 				],
-				returns: 'An object with installed, name, version, and message. installed is true when the package was installed, with name and version confirming what was requested (version is the concrete version resolved when \'latest\' was passed); when installed is false, message explains why (no versions available for the package, a failed version lookup, a failed install, or a canceled install).',
+				returns: 'An object with installed, name, version, and message. installed is true when the package was installed; version is then the version that was actually installed, read back from the session, which is how you learn which version \'latest\' turned out to be. When installed is false, message explains why (a failed install, or a canceled install).',
 			},
 		});
 	}
@@ -442,7 +439,13 @@ export class InstallPackageAction extends Action2 {
 							nls.localize('positronPackages.operationInstalled', 'installed'),
 							[pkg]
 						);
-						outcome = { installed: true, name: pkg, version };
+						// With no version requested, the package manager chose one.
+						// Read back what it actually installed rather than
+						// predicting it: installPackages refreshes the list before
+						// it resolves, so the version is already there.
+						const installedVersion = version ?? service.activePackagesInstance?.packages
+							.find((installed) => installed.name.toLowerCase() === pkg.toLowerCase())?.version;
+						outcome = { installed: true, name: pkg, version: installedVersion };
 					} catch (e) {
 						if (isCancellationError(e) || cts.token.isCancellationRequested) {
 							// The user canceled the progress notification; an error
@@ -471,12 +474,13 @@ export class InstallPackageAction extends Action2 {
 			const argPackage = typeof args.at(0) === 'string' ? (args.at(0) as string).trim() || undefined : undefined;
 			const argVersion = typeof args.at(1) === 'string' ? (args.at(1) as string).trim() || undefined : undefined;
 			if (argPackage && argVersion) {
-				const resolved = await resolveTargetVersion(service, notifications, argPackage, argVersion, cts.token);
-				if (!resolved.ok) {
-					return { installed: false, name: argPackage, message: resolved.message };
-				}
-				await performInstall(argPackage, resolved.version);
-				return outcome ?? { installed: false, name: argPackage, version: resolved.version };
+				// 'latest' becomes no version at all. Given a bare package name
+				// every package manager installs the newest version the session
+				// can see, so there is nothing here to resolve -- and nothing to
+				// get wrong about which version that is.
+				const targetVersion = isLatestRequest(argVersion) ? undefined : argVersion;
+				await performInstall(argPackage, targetVersion);
+				return outcome ?? { installed: false, name: argPackage, version: targetVersion };
 			}
 
 			await installPackage(accessor, performSearch, performSearchVersions, performInstall, cts);
@@ -594,7 +598,7 @@ export class UpdatePackageAction extends Action2 {
 					{ name: 'name', description: 'Name of the installed package to update (for example: dplyr, pandas).', schema: { type: 'string' } },
 					{ name: 'version', description: 'Version to update to: either an exact version (for example: 1.1.4) or \'latest\' for the newest version available to the session. Base R updates ignore this and always install the current release from the repository.', schema: { type: 'string' } },
 				],
-				returns: 'An object with updated, name, version, and message. updated is true when the package was updated, with name and version confirming what was requested (version is the concrete version resolved when \'latest\' was passed); when updated is false, message explains why (no versions available for the package, a failed version lookup, a failed update, or a canceled update).',
+				returns: 'An object with updated, name, version, and message. updated is true when the package was updated, with name and version confirming what was requested (version is the concrete version the session reported as newest when \'latest\' was passed); when updated is false, message explains why (the installed version is already the newest available, a failed update, or a canceled update).',
 			},
 		});
 	}
@@ -671,12 +675,16 @@ export class UpdatePackageAction extends Action2 {
 			const argPackage = typeof args.at(0) === 'string' ? (args.at(0) as string).trim() || undefined : undefined;
 			const argVersion = typeof args.at(1) === 'string' ? (args.at(1) as string).trim() || undefined : undefined;
 			if (argPackage && argVersion) {
-				const resolved = await resolveTargetVersion(service, notifications, argPackage, argVersion, cts.token);
-				if (!resolved.ok) {
-					return { updated: false, name: argPackage, message: resolved.message };
+				let targetVersion = argVersion;
+				if (isLatestRequest(argVersion)) {
+					const latest = await resolveLatestForUpdate(service, notifications, argPackage, cts.token);
+					if (!latest.ok) {
+						return { updated: false, name: argPackage, message: latest.message };
+					}
+					targetVersion = latest.version;
 				}
-				await performUpdate(argPackage, resolved.version);
-				return outcome ?? { updated: false, name: argPackage, version: resolved.version };
+				await performUpdate(argPackage, targetVersion);
+				return outcome ?? { updated: false, name: argPackage, version: targetVersion };
 			}
 			await updatePackage(accessor, performSearch, performSearchVersions, performUpdate, argPackage, cts);
 			return outcome ?? {
