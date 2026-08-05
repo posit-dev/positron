@@ -8,6 +8,9 @@
 //   - Identifiers and aliases are backtick-quoted (see databricksSql.ts).
 //   - Regex row filters use RLIKE, which is a partial match like Postgres' `~`, so the term needs no
 //     `.*` wrapping; case-insensitivity is the inline `(?i)` flag rather than a separate operator.
+//   - The text filters escape the LIKE wildcards in the user's search term and name an explicit escape
+//     character, so searching for `10%` or `a_b` matches those strings rather than treating them as
+//     patterns. The sibling drivers do not do this yet (see `escapeLikeWildcards`).
 //   - No stable per-row identifier (no ctid). ROW_NUMBER() windows fall back to ordering by the first
 //     column when no sort is set, because Spark requires an ORDER BY inside the window.
 //   - Complex values (ARRAY, MAP, STRUCT, VARIANT) are rendered as their JSON text, and binary as
@@ -108,6 +111,32 @@ export interface DatabricksSchemaEntry {
 	type_display: ColumnDisplayType;
 }
 
+/**
+ * The escape character for the LIKE patterns the text filters build.
+ *
+ * Deliberately not backslash. Databricks' LIKE takes backslash as its escape character by default, and
+ * backslash is also an escape character inside a string literal, so a backslash-escaped pattern has to
+ * survive two rounds of unescaping to mean what it says. Naming a character that neither layer treats
+ * specially keeps the pattern legible and makes a literal backslash in the user's search text match a
+ * backslash in the data.
+ */
+const LIKE_ESCAPE_CHAR = '!';
+
+/** Appended to every generated LIKE, so the pattern's escapes are interpreted as intended. */
+const LIKE_ESCAPE_CLAUSE = ` ESCAPE '${LIKE_ESCAPE_CHAR}'`;
+
+/**
+ * Escapes the LIKE wildcards in a search term, so the user's text is matched literally: `%` (any run of
+ * characters), `_` (any single character), and the escape character itself. Without this, searching for
+ * `10%` matches any value starting with `10`, and `a_b` matches `axb`.
+ *
+ * One pass over the string handles all three, so an escape character this function introduces is never
+ * escaped again.
+ */
+function escapeLikeWildcards(value: string): string {
+	return value.replace(/[!%_]/g, character => `${LIKE_ESCAPE_CHAR}${character}`);
+}
+
 const COMPARISON_OPS = new Map<FilterComparisonOp, string>([
 	[FilterComparisonOp.Eq, '='],
 	[FilterComparisonOp.NotEq, '<>'],
@@ -174,18 +203,22 @@ export function makeWhereExpr(rowFilter: RowFilter): string {
 		case RowFilterType.Search: {
 			const params = rowFilter.params as FilterTextSearch;
 			const searchArg = params.case_sensitive ? quotedName : `lower(${quotedName})`;
+			// The wildcards in the user's text are escaped so it matches literally; the ESCAPE clause on
+			// each pattern below is what makes those escapes mean anything. Lower-casing happens in SQL
+			// rather than here so it follows the server's collation, and it leaves the escape character
+			// alone since that character has no case.
 			const term = params.case_sensitive
-				? `'${quoteLiteral(params.term)}'`
-				: `lower('${quoteLiteral(params.term)}')`;
+				? `'${quoteLiteral(escapeLikeWildcards(params.term))}'`
+				: `lower('${quoteLiteral(escapeLikeWildcards(params.term))}')`;
 			switch (params.search_type) {
 				case TextSearchType.Contains:
-					return `${searchArg} LIKE '%' || ${term} || '%'`;
+					return `${searchArg} LIKE '%' || ${term} || '%'${LIKE_ESCAPE_CLAUSE}`;
 				case TextSearchType.NotContains:
-					return `${searchArg} NOT LIKE '%' || ${term} || '%'`;
+					return `${searchArg} NOT LIKE '%' || ${term} || '%'${LIKE_ESCAPE_CLAUSE}`;
 				case TextSearchType.StartsWith:
-					return `${searchArg} LIKE ${term} || '%'`;
+					return `${searchArg} LIKE ${term} || '%'${LIKE_ESCAPE_CLAUSE}`;
 				case TextSearchType.EndsWith:
-					return `${searchArg} LIKE '%' || ${term}`;
+					return `${searchArg} LIKE '%' || ${term}${LIKE_ESCAPE_CLAUSE}`;
 				case TextSearchType.RegexMatch:
 					// RLIKE is a partial match, so the term needs no anchoring; `(?i)` makes the pattern
 					// itself case-insensitive, which RLIKE has no operator form for.

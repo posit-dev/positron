@@ -375,6 +375,38 @@ suite('Databricks Row Filter SQL', () => {
 	});
 
 	test('a case-insensitive contains search lowers both sides', () => {
-		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.Contains, 'AB', false)), `lower(\`name\`) LIKE '%' || lower('AB') || '%'`);
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.Contains, 'AB', false)), `lower(\`name\`) LIKE '%' || lower('AB') || '%' ESCAPE '!'`);
+	});
+
+	test('LIKE wildcards in the search term are escaped so they match literally', () => {
+		// Unescaped, '10%' would match anything starting with 10, and 'a_b' would match 'axb'.
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.Contains, '10%', true)), `\`name\` LIKE '%' || '10!%' || '%' ESCAPE '!'`);
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.StartsWith, 'a_b', true)), `\`name\` LIKE 'a!_b' || '%' ESCAPE '!'`);
+		// The escape character itself is escaped, in one pass, so it is never double-escaped.
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.EndsWith, 'wow!', true)), `\`name\` LIKE '%' || 'wow!!' ESCAPE '!'`);
+	});
+
+	test('every LIKE variant carries the ESCAPE clause that gives those escapes meaning', () => {
+		const variants = [TextSearchType.Contains, TextSearchType.NotContains, TextSearchType.StartsWith, TextSearchType.EndsWith]
+			.map(type => makeWhereExpr(searchFilter(type, '50%_off', false)));
+
+		assert.deepStrictEqual(variants, [
+			`lower(\`name\`) LIKE '%' || lower('50!%!_off') || '%' ESCAPE '!'`,
+			`lower(\`name\`) NOT LIKE '%' || lower('50!%!_off') || '%' ESCAPE '!'`,
+			`lower(\`name\`) LIKE lower('50!%!_off') || '%' ESCAPE '!'`,
+			`lower(\`name\`) LIKE '%' || lower('50!%!_off') ESCAPE '!'`,
+		]);
+	});
+
+	test('a backslash in the search term stays literal rather than escaping the next character', () => {
+		// Databricks' LIKE takes backslash as its default escape character; naming '!' explicitly means a
+		// searched-for backslash matches a backslash in the data. The doubling here is the string
+		// literal's own escaping, not the pattern's.
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.Contains, 'C:\\x', true)), `\`name\` LIKE '%' || 'C:\\\\x' || '%' ESCAPE '!'`);
+	});
+
+	test('regex search is left alone, since RLIKE has no LIKE wildcards', () => {
+		// '%' and '_' carry no special meaning in a regex, so escaping them would corrupt the pattern.
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.RegexMatch, '^10%_$', true)), `\`name\` RLIKE '^10%_$'`);
 	});
 });

@@ -95,6 +95,34 @@ suite('PostgreSQL Data Explorer Tests', () => {
 				`"name" ~* '^a.*'`,
 			]);
 		});
+
+		test('escapes LIKE wildcards in the search term and names an escape character', () => {
+			// Unescaped, '50%_off' would match any value containing '50', any character, then 'off', so a
+			// search for a literal string would pull in unrelated rows. The ESCAPE clause is what makes the
+			// escapes below mean anything; the escape character itself is escaped in the same pass.
+			const searches = [TextSearchType.Contains, TextSearchType.NotContains, TextSearchType.StartsWith, TextSearchType.EndsWith]
+				.map(search_type => makeWhereExpr(rowFilter('name', ColumnDisplayType.String, {
+					filter_type: RowFilterType.Search,
+					params: { search_type, term: '50%_off!', case_sensitive: true },
+				})));
+
+			assert.deepStrictEqual(searches, [
+				`"name" LIKE '%' || '50!%!_off!!' || '%' ESCAPE '!'`,
+				`"name" NOT LIKE '%' || '50!%!_off!!' || '%' ESCAPE '!'`,
+				`"name" LIKE '50!%!_off!!' || '%' ESCAPE '!'`,
+				`"name" LIKE '%' || '50!%!_off!!' ESCAPE '!'`,
+			]);
+		});
+
+		test('leaves a regex search alone, since it has no LIKE wildcards', () => {
+			// '%' and '_' carry no special meaning in a regex, so escaping them would corrupt the pattern.
+			assert.strictEqual(
+				makeWhereExpr(rowFilter('name', ColumnDisplayType.String, {
+					filter_type: RowFilterType.Search,
+					params: { search_type: TextSearchType.RegexMatch, term: '^10%_$', case_sensitive: true },
+				})),
+				`"name" ~ '^10%_$'`);
+		});
 	});
 
 	suite('getDataValues', () => {
