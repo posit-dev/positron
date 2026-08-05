@@ -21,6 +21,31 @@ import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
 /**
+ * Read the pinned version out of `uv pip compile` output.
+ *
+ * uv prints one `name==version` line per resolved requirement, with comment lines
+ * starting `#`. The name it prints is normalised (lowercased, runs of `_`, `.` and
+ * `-` collapsed to `-`), so the requested name is normalised the same way before
+ * matching rather than compared literally.
+ */
+export function parseUvCompiledVersion(stdout: string, name: string): string | undefined {
+    const normalize = (value: string) => value.trim().toLowerCase().replace(/[-_.]+/g, '-');
+    const wanted = normalize(name);
+    for (const line of stdout.split('\n')) {
+        const trimmed = line.trim();
+        if (trimmed === '' || trimmed.startsWith('#')) {
+            continue;
+        }
+        // Stop at the first of the extras, markers or trailing comment uv can append.
+        const match = /^([^=<>!~;[\s]+)==([^\s;#]+)/.exec(trimmed);
+        if (match && normalize(match[1]) === wanted) {
+            return match[2];
+        }
+    }
+    return undefined;
+}
+
+/**
  * uv Package Manager
  *
  * Provides package management functionality for Python sessions using uv.
@@ -231,6 +256,55 @@ export class UvPackageManager implements IPackageManager {
             (specs) => this._callMethod<Record<string, boolean>>('checkRequiresPython', token, specs),
             token,
         );
+    }
+
+    /**
+     * Resolve the version uv would install for a package, by asking uv.
+     *
+     * `uv pip compile` resolves a requirement and prints the pin it settled on.
+     * Because uv answers, the result honours the configured index, the
+     * interpreter's own compatibility rules and uv's policy on prereleases, all of
+     * which uv evaluates with `pep440_rs`. None of it is re-derived here.
+     *
+     * `--no-deps` keeps the answer to the one package asked about, so an unrelated
+     * conflict elsewhere in the environment cannot make the lookup fail. The name
+     * goes in on stdin, which is why the requirement reads `-`: a file argument
+     * would make uv annotate the output with the file's path.
+     *
+     * uv exits non-zero when it cannot resolve the name, so an unknown package
+     * resolves to undefined.
+     *
+     * @param name Package name
+     * @param token Optional cancellation token
+     */
+    async resolveInstallVersion(name: string, token?: vscode.CancellationToken): Promise<string | undefined> {
+        if (token?.isCancellationRequested) {
+            throw new vscode.CancellationError();
+        }
+
+        await this._ensureUv();
+
+        const processServiceFactory = this._serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
+        const processService = await processServiceFactory.create();
+        const proxyEnv = this._getProxyEnv();
+        try {
+            const result = await processService.exec(
+                'uv',
+                ['pip', 'compile', '-', '--no-deps', '--no-header', '--color', 'never', '--python', this._pythonPath],
+                {
+                    extraVariables: proxyEnv,
+                    stdinStr: name,
+                    token,
+                },
+            );
+            return parseUvCompiledVersion(result.stdout, name);
+        } catch (e) {
+            if (e instanceof vscode.CancellationError) {
+                throw e;
+            }
+            // A non-zero exit means uv found nothing to install.
+            return undefined;
+        }
     }
 
     // =========================================================================

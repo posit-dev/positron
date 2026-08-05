@@ -345,6 +345,22 @@ export class RPackageManager {
 		return result ?? [];
 	}
 
+	/**
+	 * Resolve the version this session would install for a package.
+	 *
+	 * `pkg_search_versions` reads the version out of `available.packages()`, which
+	 * is the one version the configured repositories offer, snapshot pins
+	 * included. That is what `pak::pkg_install(name)` would install, so it is
+	 * returned as-is. No versions are compared here.
+	 *
+	 * @param name Package name
+	 * @param token Optional cancellation token
+	 */
+	async resolveInstallVersion(name: string, token?: vscode.CancellationToken): Promise<string | undefined> {
+		const versions = await this.searchPackageVersions(name, token);
+		return versions.at(0);
+	}
+
 	// =========================================================================
 	// Private helper methods
 	// =========================================================================

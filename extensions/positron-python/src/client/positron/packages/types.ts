@@ -80,6 +80,17 @@ export interface IPackageManager {
     searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]>;
 
     /**
+     * Resolve the version this environment would install for a package right now.
+     * Implementations ask the packaging tool itself rather than comparing version
+     * strings, so the answer honours the configured index, the interpreter's own
+     * compatibility rules and the tool's policy on prereleases.
+     * @param name Package name
+     * @param token Optional cancellation token
+     * @returns The version to install, or undefined if the package has none
+     */
+    resolveInstallVersion?(name: string, token?: vscode.CancellationToken): Promise<string | undefined>;
+
+    /**
      * Fetch additional metadata for packages from external sources (e.g., P3M).
      * This is called separately from getPackages() to allow the UI to display
      * the basic package list quickly while metadata loads in the background.

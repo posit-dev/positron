@@ -1387,6 +1387,30 @@ declare module 'positron' {
 		searchPackageVersions(name: string, token?: vscode.CancellationToken): Thenable<string[]>;
 
 		/**
+		 * Resolve the version this session would install for a package right now.
+		 *
+		 * Implementations ask the tool that does the installing rather than
+		 * comparing version strings themselves, so the answer honours whatever the
+		 * session is configured with: its repositories, the interpreter's own
+		 * version rules, and the tool's policy on prereleases.
+		 *
+		 * The answer applies to installing the package on its own. An update can
+		 * still land on an older version when the tool has to satisfy other
+		 * installed packages at the same time.
+		 *
+		 * Omit this method if the runtime cannot answer; callers then ask for an
+		 * explicit version instead.
+		 *
+		 * @param name Package name
+		 * @param token Optional cancellation token
+		 * @returns The version to install, or undefined if the package has none
+		 */
+		resolveInstallVersion?(
+			name: string,
+			token?: vscode.CancellationToken,
+		): Thenable<string | undefined>;
+
+		/**
 		 * Fetch additional metadata for packages from external sources (e.g., P3M).
 		 * This is called separately from getPackages() to allow the UI to display
 		 * the basic package list quickly while metadata loads in the background.

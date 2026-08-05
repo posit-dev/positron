@@ -482,6 +482,25 @@ export interface ILanguageRuntimePackageManager {
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 
 	/**
+	 * Resolve the version this session would install for a package right now.
+	 *
+	 * The runtime asks the tool that does the installing rather than comparing
+	 * version strings, so the answer reflects the session's own repositories and
+	 * the tool's own version rules. Nothing in the frontend re-implements version
+	 * comparison, which is the same reasoning behind `ILanguageRuntimePackage.outdated`.
+	 *
+	 * Resolves to undefined when the package has no version available. Rejects when
+	 * the runtime cannot answer at all, because undefined is already taken.
+	 *
+	 * @param name Package name
+	 * @param token Optional cancellation token
+	 */
+	resolveInstallVersion?(
+		name: string,
+		token?: CancellationToken,
+	): Promise<string | undefined>;
+
+	/**
 	 * Fetch additional metadata for packages from external sources (e.g., P3M).
 	 * This is called separately from getPackages() to allow the UI to display
 	 * the basic package list quickly while metadata loads in the background.

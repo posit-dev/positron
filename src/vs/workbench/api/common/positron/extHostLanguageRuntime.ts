@@ -891,6 +891,18 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return packageManager.searchPackageVersions(name, token);
 	}
 
+	async $resolveInstallVersion(handle: number, name: string, token: CancellationToken): Promise<string | undefined> {
+		const packageManager = this.getPackageManagerOrThrow(handle, 'resolve install version');
+		// Throw rather than return undefined when the method is missing. The main
+		// thread reaches this package manager through an adapter that defines every
+		// method, so a caller on that side cannot tell an unsupported runtime from a
+		// package with no available version -- undefined already means the latter.
+		if (!packageManager.resolveInstallVersion) {
+			throw new Error('Cannot resolve the version to install: this session cannot look up the newest version of a package. Ask for an exact version instead.');
+		}
+		return packageManager.resolveInstallVersion(name, token);
+	}
+
 	async $getPackageMetadata(
 		handle: number,
 		packageNames: string[],

@@ -19,6 +19,26 @@ import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
 /**
+ * Read the version out of `pip index versions <name>` output.
+ *
+ * pip leads with the package it found and the version it would install, as
+ * `requests (2.32.5)`, then lists the rest. An `INSTALLED:`/`LATEST:` pair follows
+ * only when the package is already installed, and its `LATEST` repeats the first
+ * line, so the first line is the one thing always there to read.
+ *
+ * pip's warnings go to stderr, so only the first non-empty stdout line matters.
+ */
+export function parsePipIndexVersion(stdout: string): string | undefined {
+    for (const line of stdout.split('\n')) {
+        const match = /^\s*\S+\s+\(([^)]+)\)/.exec(line);
+        if (match) {
+            return match[1].trim() || undefined;
+        }
+    }
+    return undefined;
+}
+
+/**
  * Pip Package Manager
  *
  * Provides package management functionality for Python sessions using pip.
@@ -216,6 +236,44 @@ export class PipPackageManager implements IPackageManager {
             (specs) => this._callMethod<Record<string, boolean>>('checkRequiresPython', token, specs),
             token,
         );
+    }
+
+    /**
+     * Resolve the version pip would install for a package, by asking pip.
+     *
+     * `pip index versions` reports the newest version pip would pick for this
+     * interpreter. Because pip answers, the result honours the configured index
+     * (`index-url`, `extra-index-url`, `pip.conf`, Posit Package Manager), the
+     * package's `Requires-Python`, the availability of a compatible wheel, and
+     * pip's default of skipping prereleases. None of that is re-derived here.
+     *
+     * pip exits non-zero when no distribution matches, which is the same answer as
+     * an unknown package name, so both resolve to undefined.
+     *
+     * @param name Package name
+     * @param token Optional cancellation token
+     */
+    async resolveInstallVersion(name: string, token?: vscode.CancellationToken): Promise<string | undefined> {
+        if (token?.isCancellationRequested) {
+            throw new vscode.CancellationError();
+        }
+
+        await this._ensurePip();
+
+        const pythonService = await this._getPythonService();
+        const proxyFlags = this._getProxyFlags();
+        try {
+            const result = await pythonService.execModule('pip', ['index', 'versions', name, '--no-color', ...proxyFlags], {
+                token,
+            });
+            return parsePipIndexVersion(result.stdout);
+        } catch (e) {
+            if (e instanceof vscode.CancellationError) {
+                throw e;
+            }
+            // A non-zero exit means pip found nothing to install.
+            return undefined;
+        }
     }
 
     // =========================================================================

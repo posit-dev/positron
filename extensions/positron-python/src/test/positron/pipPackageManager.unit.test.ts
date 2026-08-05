@@ -17,7 +17,7 @@ import { ITerminalServiceFactory } from '../../client/common/terminal/types';
 import { IFileSystem } from '../../client/common/platform/types';
 import { IWorkspaceService } from '../../client/common/application/types';
 import { IServiceContainer } from '../../client/ioc/types';
-import { PipPackageManager } from '../../client/positron/packages/pipPackageManager';
+import { parsePipIndexVersion, PipPackageManager } from '../../client/positron/packages/pipPackageManager';
 import { PackageSession } from '../../client/positron/packages/types';
 
 interface MessageEmitter {
@@ -298,5 +298,116 @@ suite('PipPackageManager update Tests', () => {
                 expect(fileSystem.createTemporaryFile.called).to.equal(true);
             });
         });
+    });
+});
+
+suite('parsePipIndexVersion', () => {
+    test('reads the version pip leads with', () => {
+        const stdout = [
+            'requests (2.32.5)',
+            'Available versions: 2.32.5, 2.32.4, 2.31.0',
+        ].join('\n');
+
+        expect(parsePipIndexVersion(stdout)).to.equal('2.32.5');
+    });
+
+    // pip adds these two lines only when the package is already installed. LATEST
+    // repeats the first line, so the first line stays the one thing to read.
+    test('ignores the INSTALLED and LATEST lines pip adds for an installed package', () => {
+        const stdout = [
+            'pip (26.0.1)',
+            'Available versions: 26.0.1, 26.0, 25.3',
+            '  INSTALLED: 21.2.4',
+            '  LATEST:    26.0.1',
+        ].join('\n');
+
+        expect(parsePipIndexVersion(stdout)).to.equal('26.0.1');
+    });
+
+    test('returns undefined for output with no version in it', () => {
+        expect(parsePipIndexVersion('')).to.equal(undefined);
+        expect(parsePipIndexVersion('ERROR: No matching distribution found for asdasdadfasdf\n')).to.equal(undefined);
+    });
+});
+
+suite('PipPackageManager resolveInstallVersion', () => {
+    let manager: PipPackageManager;
+    let pythonService: { isModuleInstalled: sinon.SinonStub; execModule: sinon.SinonStub };
+    let originalGetConfiguration: typeof vscode.workspace.getConfiguration;
+
+    setup(() => {
+        pythonService = {
+            isModuleInstalled: sinon.stub().resolves(true),
+            execModule: sinon.stub(),
+        };
+
+        originalGetConfiguration = vscode.workspace.getConfiguration;
+        vscode.workspace.getConfiguration = (_section?: string) =>
+            ({ get: (_key: string, defaultValue?: unknown) => defaultValue } as any);
+
+        const serviceContainer = { get: sinon.stub() } as any;
+        (serviceContainer.get as sinon.SinonStub)
+            .withArgs(IPythonExecutionFactory)
+            .returns({ create: sinon.stub().resolves(pythonService) });
+
+        manager = new PipPackageManager(
+            '/path/to/python',
+            { fire: sinon.stub() },
+            serviceContainer,
+            { metadata: { sessionId: 'test' }, callMethod: sinon.stub().resolves([]) },
+        );
+    });
+
+    teardown(() => {
+        sinon.restore();
+        vscode.workspace.getConfiguration = originalGetConfiguration;
+    });
+
+    test('asks pip which version it would install', async () => {
+        pythonService.execModule
+            .withArgs('pip', sinon.match.array.startsWith(['index', 'versions', 'requests']))
+            .resolves({ stdout: 'requests (2.32.5)\nAvailable versions: 2.32.5, 2.31.0\n', stderr: '' });
+
+        const version = await manager.resolveInstallVersion('requests');
+
+        expect(version).to.equal('2.32.5');
+    });
+
+    test('resolves undefined when pip finds nothing to install', async () => {
+        pythonService.execModule
+            .withArgs('pip', sinon.match.array.startsWith(['index', 'versions']))
+            .rejects(new Error('ERROR: No matching distribution found for asdasdadfasdf'));
+
+        expect(await manager.resolveInstallVersion('asdasdadfasdf')).to.equal(undefined);
+    });
+
+    test('propagates cancellation rather than reporting no version', async () => {
+        pythonService.execModule
+            .withArgs('pip', sinon.match.array.startsWith(['index', 'versions']))
+            .rejects(new vscode.CancellationError());
+
+        let thrown: unknown;
+        try {
+            await manager.resolveInstallVersion('requests');
+        } catch (e) {
+            thrown = e;
+        }
+
+        expect(thrown).to.be.instanceOf(vscode.CancellationError);
+    });
+
+    test('rejects before running pip when the token is already canceled', async () => {
+        const source = new vscode.CancellationTokenSource();
+        source.cancel();
+
+        let thrown: unknown;
+        try {
+            await manager.resolveInstallVersion('requests', source.token);
+        } catch (e) {
+            thrown = e;
+        }
+
+        expect(thrown).to.be.instanceOf(vscode.CancellationError);
+        expect(pythonService.execModule.called).to.equal(false);
     });
 });

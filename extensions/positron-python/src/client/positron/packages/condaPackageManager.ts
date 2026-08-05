@@ -54,6 +54,80 @@ function parseCondaSearchResult(jsonString: string): CondaSearchResult {
 }
 
 /**
+ * Compare two package names the way conda does, ignoring case and treating `-`,
+ * `_` and `.` as the same separator.
+ */
+function sameCondaPackage(a: string, b: string): boolean {
+    const normalize = (value: string) => value.trim().toLowerCase().replace(/[-_.]+/g, '-');
+    return normalize(a) === normalize(b);
+}
+
+/**
+ * Read the version conda said it would link for a package, out of
+ * `conda install --dry-run --json` output.
+ *
+ * The plan lives under `actions.LINK`. It is absent when conda has nothing to do,
+ * which is a real outcome rather than an error, so this returns undefined and
+ * leaves the caller to say what it means. Anything unexpected in the JSON is
+ * treated the same way: this is a version lookup, not a place to fail loudly.
+ */
+export function parseCondaLinkedVersion(jsonString: string, name: string): string | undefined {
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(jsonString);
+    } catch {
+        return undefined;
+    }
+    if (typeof parsed !== 'object' || parsed === null) {
+        return undefined;
+    }
+    const actions = (parsed as { actions?: unknown }).actions;
+    if (typeof actions !== 'object' || actions === null) {
+        return undefined;
+    }
+    const link = (actions as { LINK?: unknown }).LINK;
+    if (!Array.isArray(link)) {
+        return undefined;
+    }
+    for (const entry of link) {
+        if (typeof entry !== 'object' || entry === null) {
+            continue;
+        }
+        const { name: entryName, version } = entry as { name?: unknown; version?: unknown };
+        if (typeof entryName === 'string' && typeof version === 'string' && sameCondaPackage(entryName, name)) {
+            return version;
+        }
+    }
+    return undefined;
+}
+
+/**
+ * Read a package's installed version out of `conda list --json` output, which is
+ * an array of environment entries.
+ */
+export function parseCondaListedVersion(jsonString: string, name: string): string | undefined {
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(jsonString);
+    } catch {
+        return undefined;
+    }
+    if (!Array.isArray(parsed)) {
+        return undefined;
+    }
+    for (const entry of parsed) {
+        if (typeof entry !== 'object' || entry === null) {
+            continue;
+        }
+        const { name: entryName, version } = entry as { name?: unknown; version?: unknown };
+        if (typeof entryName === 'string' && typeof version === 'string' && sameCondaPackage(entryName, name)) {
+            return version;
+        }
+    }
+    return undefined;
+}
+
+/**
  * Conda Package Manager
  *
  * Provides package management functionality for Python sessions using conda.
@@ -205,9 +279,70 @@ export class CondaPackageManager implements IPackageManager {
         }
     }
 
+    /**
+     * Resolve the version conda would install for a package, by asking conda's
+     * solver what it would do.
+     *
+     * `conda install --dry-run` reports the package it would link, which accounts
+     * for the configured channels, their priority, and everything already in the
+     * environment. The versions from `conda search` are not used for this: they are
+     * ordered by upload time, so a rebuild of an older version published later
+     * would come out on top.
+     *
+     * When the environment already has the newest version, conda has nothing to
+     * link and says so. The answer is then the installed version, because that is
+     * what conda would leave in place.
+     *
+     * @param name Package name
+     * @param token Optional cancellation token
+     */
+    async resolveInstallVersion(name: string, token?: vscode.CancellationToken): Promise<string | undefined> {
+        if (token?.isCancellationRequested) {
+            throw new vscode.CancellationError();
+        }
+
+        await this._ensureConda();
+
+        try {
+            const result = await this._executeCondaWithOutput(['install', '--dry-run', '--json', name], token);
+            const linked = parseCondaLinkedVersion(result, name);
+            if (linked) {
+                return linked;
+            }
+        } catch (e) {
+            if (e instanceof vscode.CancellationError) {
+                throw e;
+            }
+            // A non-zero exit means conda could not solve for the package at all,
+            // which includes an unknown name.
+            return undefined;
+        }
+
+        return this._getInstalledVersion(name, token);
+    }
+
     // =========================================================================
     // Private helper methods
     // =========================================================================
+
+    /**
+     * The version of a package currently installed in the environment, via
+     * `conda list`, or undefined when it isn't installed.
+     */
+    private async _getInstalledVersion(
+        name: string,
+        token?: vscode.CancellationToken,
+    ): Promise<string | undefined> {
+        try {
+            const result = await this._executeCondaWithOutput(['list', name, '--json'], token);
+            return parseCondaListedVersion(result, name);
+        } catch (e) {
+            if (e instanceof vscode.CancellationError) {
+                throw e;
+            }
+            return undefined;
+        }
+    }
 
     /**
      * Ensure conda is available, throwing an error if not.

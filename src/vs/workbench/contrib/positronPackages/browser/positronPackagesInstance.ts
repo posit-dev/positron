@@ -33,6 +33,13 @@ export interface IPositronPackagesInstance {
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 
 	/**
+	 * Ask the session which version it would install for a package right now.
+	 * Resolves undefined when the package has no version available, and rejects
+	 * when the session cannot answer the question at all.
+	 */
+	resolveInstallVersion(name: string, token?: CancellationToken): Promise<string | undefined>;
+
+	/**
 	 * Fetch detail metadata for a single package from the session's package
 	 * manager. Resolves undefined when the manager doesn't support it.
 	 */
@@ -480,6 +487,15 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			return [];
 		}
 		return results;
+	}
+
+	async resolveInstallVersion(name: string, token?: CancellationToken): Promise<string | undefined> {
+		const packageManager = this.getPackageManagerOrThrow();
+		// No presence check and no swallowing of cancellation here, unlike the search
+		// methods above. Both would be reported as "this package has no version
+		// available", which is a different problem with a different fix. The runtime
+		// side rejects when it cannot resolve at all, and the caller checks the token.
+		return packageManager.resolveInstallVersion?.(name, token);
 	}
 
 	async getPackageDetail(name: string, token?: CancellationToken): Promise<Partial<ILanguageRuntimePackage> | undefined> {

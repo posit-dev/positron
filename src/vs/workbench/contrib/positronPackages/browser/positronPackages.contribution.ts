@@ -33,7 +33,6 @@ import { IPositronPackagesService } from './interfaces/positronPackagesService.j
 import { PACKAGE_METADATA_CACHE_ENABLED_SETTING, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING } from './packageMetadataCache.js';
 import { PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
 import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
-import { newestAvailableVersion } from './packageVersions.js';
 import { PositronPackagesService } from './positronPackagesService.js';
 import { PositronPackagesView } from './positronPackagesView.js';
 
@@ -196,14 +195,19 @@ type VersionResolution =
 
 /**
  * Resolves the version for a direct (non-quick-pick) install or update. A
- * concrete version passes through untouched; `'latest'` is resolved against the
- * repositories configured for the session, so the backend always receives an
- * explicit target.
+ * concrete version passes through untouched; `'latest'` is turned into a real
+ * version number by the session, so the backend always receives an explicit
+ * target.
  *
  * Resolving is required, not merely tidier. pip and uv-outside-a-project reject
  * a missing version on update outright, and on install they write a bare package
  * name into a requirements file with no `--upgrade`, so an already-installed
  * package resolves as satisfied and never moves to the newest version.
+ *
+ * Which version wins is decided by the session's own package manager, which asks
+ * the tool that does the installing. Nothing is compared here: the repositories
+ * the session is configured with and the tool's own rules about version numbers
+ * and prereleases all belong to that tool, not to the frontend.
  *
  * Failures are notified here so both commands report them identically.
  */
@@ -223,25 +227,26 @@ async function resolveTargetVersion(
 		message: nls.localize('positronPackages.versionLookupCanceled', "Finding the latest version of '{0}' was canceled.", name)
 	};
 
-	let versions: string[];
+	let latest: string | undefined;
 	try {
-		versions = await service.searchPackageVersions(name, token);
+		latest = await service.resolveInstallVersion(name, token);
 	} catch (e) {
 		if (isCancellationError(e) || token.isCancellationRequested) {
 			return canceled;
 		}
+		// Also the path for a session that cannot resolve a version at all, which
+		// rejects with a message telling the caller to ask for an exact version.
 		const message = cleanErrorMessage(e);
 		notifications.error(message);
 		return { ok: false, message };
 	}
 
-	// A canceled lookup resolves to an empty list rather than throwing, so check
-	// the token before reporting the package as missing from the repositories.
+	// Check the token before reporting the package as missing: a canceled lookup
+	// can resolve to undefined rather than throwing.
 	if (token.isCancellationRequested) {
 		return canceled;
 	}
 
-	const latest = newestAvailableVersion(versions);
 	if (!latest) {
 		const message = nls.localize('positronPackages.noVersionsAvailable', "No available versions of '{0}' were found. Check the package name and the repositories configured for this session.", name);
 		notifications.error(message);

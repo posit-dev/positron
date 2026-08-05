@@ -209,3 +209,69 @@ suite('RPackageManager renv detection', () => {
 		);
 	});
 });
+
+suite('RPackageManager resolveInstallVersion', () => {
+	let sandbox: Sinon.SinonSandbox;
+	let session: FakeRSession;
+	let manager: RPackageManager;
+	/** Arguments of each callMethod call, in order. */
+	let calls: unknown[][];
+
+	setup(() => {
+		sandbox = Sinon.createSandbox();
+		session = new FakeRSession();
+		calls = [];
+		manager = new RPackageManager(session as unknown as RSession);
+	});
+
+	teardown(() => {
+		sandbox.restore();
+	});
+
+	/** Makes the session answer `pkg_search_versions` with the given value. */
+	function answerWith(value: string[] | null): void {
+		(session as unknown as { callMethod: unknown }).callMethod = async (method: string, ...args: unknown[]) => {
+			calls.push([method, ...args]);
+			return value;
+		};
+	}
+
+	// available.packages() reports one version per package, and it is the version
+	// pak would install, so it is returned as-is with nothing compared.
+	test('returns the single version the configured repositories offer', async () => {
+		answerWith(['1.1.4']);
+
+		assert.strictEqual(await manager.resolveInstallVersion('dplyr'), '1.1.4');
+		assert.deepStrictEqual(calls[0], ['pkg_search_versions', 'dplyr']);
+	});
+
+	test('returns undefined for a package the repositories do not have', async () => {
+		answerWith([]);
+
+		assert.strictEqual(await manager.resolveInstallVersion('nope'), undefined);
+	});
+
+	test('treats a null answer as no version', async () => {
+		answerWith(null);
+
+		assert.strictEqual(await manager.resolveInstallVersion('nope'), undefined);
+	});
+
+	// The name goes into R code elsewhere in this class, so every path that takes a
+	// name has to validate it, not just the ones that existed first.
+	test('rejects an invalid package name before calling the session', async () => {
+		answerWith(['1.1.4']);
+
+		await assert.rejects(() => manager.resolveInstallVersion('dplyr; system("rm -rf /")'), /Invalid R package name/);
+		assert.strictEqual(calls.length, 0);
+	});
+
+	test('rejects when the token is already canceled', async () => {
+		answerWith(['1.1.4']);
+		const source = new vscode.CancellationTokenSource();
+		source.cancel();
+
+		await assert.rejects(() => manager.resolveInstallVersion('dplyr', source.token));
+		assert.strictEqual(calls.length, 0);
+	});
+});

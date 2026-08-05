@@ -17,7 +17,7 @@ import { IFileSystem } from '../../client/common/platform/types';
 import { IProcessServiceFactory } from '../../client/common/process/types';
 import { ITerminalServiceFactory } from '../../client/common/terminal/types';
 import { IServiceContainer } from '../../client/ioc/types';
-import { UvPackageManager } from '../../client/positron/packages/uvPackageManager';
+import { parseUvCompiledVersion, UvPackageManager } from '../../client/positron/packages/uvPackageManager';
 import { PackageSession } from '../../client/positron/packages/types';
 
 /**
@@ -545,5 +545,113 @@ version = "0.1.0"`);
             expect(uvBin).to.equal('uv');
             expect(args).to.include.members(['add', '--active', '--python', '/path/to/python', 'cowsay==6.1']);
         });
+    });
+});
+
+suite('parseUvCompiledVersion', () => {
+    test('reads the pin uv settled on', () => {
+        expect(parseUvCompiledVersion('requests==2.32.5\n', 'requests')).to.equal('2.32.5');
+    });
+
+    test('skips the comment lines uv writes', () => {
+        const stdout = ['# via -r requirements.in', 'requests==2.32.5', '    # via nothing'].join('\n');
+
+        expect(parseUvCompiledVersion(stdout, 'requests')).to.equal('2.32.5');
+    });
+
+    // uv prints the normalised name, so a requested name spelled with underscores,
+    // dots or capitals still has to match.
+    test('matches the requested name however it is spelled', () => {
+        expect(parseUvCompiledVersion('ruamel-yaml==0.18.6\n', 'ruamel.yaml')).to.equal('0.18.6');
+        expect(parseUvCompiledVersion('zope-interface==7.2\n', 'zope_interface')).to.equal('7.2');
+        expect(parseUvCompiledVersion('flask==3.1.0\n', 'Flask')).to.equal('3.1.0');
+    });
+
+    test('ignores a pin for some other package', () => {
+        expect(parseUvCompiledVersion('urllib3==2.6.3\n', 'requests')).to.equal(undefined);
+    });
+
+    test('returns undefined for empty output', () => {
+        expect(parseUvCompiledVersion('', 'requests')).to.equal(undefined);
+    });
+});
+
+suite('UvPackageManager resolveInstallVersion', () => {
+    let manager: UvPackageManager;
+    let processService: { exec: sinon.SinonStub };
+    let originalGetConfiguration: typeof vscode.workspace.getConfiguration;
+
+    setup(() => {
+        processService = { exec: sinon.stub() };
+
+        // Assign rather than stub: vscode.workspace is a ts-mockito instance here,
+        // and _getProxyEnv reads the http.proxy setting off it.
+        originalGetConfiguration = vscode.workspace.getConfiguration;
+        vscode.workspace.getConfiguration = (_section?: string) =>
+            ({ get: (_key: string, defaultValue?: unknown) => defaultValue } as any);
+
+        const serviceContainer = { get: sinon.stub() } as any;
+        (serviceContainer.get as sinon.SinonStub)
+            .withArgs(IProcessServiceFactory)
+            .returns({ create: sinon.stub().resolves(processService) });
+
+        manager = new UvPackageManager(
+            '/path/to/python',
+            { fire: sinon.stub() },
+            serviceContainer,
+            { metadata: { sessionId: 'test' }, callMethod: sinon.stub().resolves([]) } as unknown as PackageSession,
+        );
+        sinon.stub(manager, 'isUvAvailable').resolves(true);
+    });
+
+    teardown(() => {
+        sinon.restore();
+        vscode.workspace.getConfiguration = originalGetConfiguration;
+    });
+
+    test('asks uv which version it would install, feeding the name in on stdin', async () => {
+        processService.exec.resolves({ stdout: 'requests==2.32.5\n', stderr: '' });
+
+        const version = await manager.resolveInstallVersion('requests');
+
+        expect(version).to.equal('2.32.5');
+        const [uvBin, args, options] = processService.exec.firstCall.args;
+        expect(uvBin).to.equal('uv');
+        expect(args).to.include.members(['pip', 'compile', '-', '--no-deps', '--python', '/path/to/python']);
+        expect(options.stdinStr).to.equal('requests');
+    });
+
+    test('resolves undefined when uv cannot resolve the name', async () => {
+        processService.exec.rejects(new Error('No solution found when resolving dependencies'));
+
+        expect(await manager.resolveInstallVersion('asdasdadfasdf')).to.equal(undefined);
+    });
+
+    test('propagates cancellation rather than reporting no version', async () => {
+        processService.exec.rejects(new vscode.CancellationError());
+
+        let thrown: unknown;
+        try {
+            await manager.resolveInstallVersion('requests');
+        } catch (e) {
+            thrown = e;
+        }
+
+        expect(thrown).to.be.instanceOf(vscode.CancellationError);
+    });
+
+    test('rejects before running uv when the token is already canceled', async () => {
+        const source = new vscode.CancellationTokenSource();
+        source.cancel();
+
+        let thrown: unknown;
+        try {
+            await manager.resolveInstallVersion('requests', source.token);
+        } catch (e) {
+            thrown = e;
+        }
+
+        expect(thrown).to.be.instanceOf(vscode.CancellationError);
+        expect(processService.exec.called).to.equal(false);
     });
 });

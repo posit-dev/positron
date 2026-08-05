@@ -113,5 +113,14 @@ export interface IPositronPackagesService {
 	 */
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 
+	/**
+	 * Ask the active session which version it would install for a package right
+	 * now. Resolves undefined when the package has no version available, and
+	 * rejects when the session cannot answer the question at all.
+	 * @param name Package name
+	 * @param token Optional cancellation token
+	 */
+	resolveInstallVersion(name: string, token?: CancellationToken): Promise<string | undefined>;
+
 	getInstances(): IPositronPackagesInstance[];
 }

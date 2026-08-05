@@ -13,7 +13,12 @@ import * as vscode from 'vscode';
 import { ITerminalService, ITerminalServiceFactory } from '../../client/common/terminal/types';
 import { IComponentAdapter, ICondaService } from '../../client/interpreter/contracts';
 import { IServiceContainer } from '../../client/ioc/types';
-import { CondaPackageManager } from '../../client/positron/packages/condaPackageManager';
+import { IProcessService, IProcessServiceFactory } from '../../client/common/process/types';
+import {
+    CondaPackageManager,
+    parseCondaLinkedVersion,
+    parseCondaListedVersion,
+} from '../../client/positron/packages/condaPackageManager';
 import { MessageEmitter, PackageSession } from '../../client/positron/packages/types';
 import { mock } from './utils';
 
@@ -249,5 +254,140 @@ suite('Conda Package Manager', () => {
                 /Could not determine conda environment path/,
             );
         });
+    });
+});
+
+suite('parseCondaLinkedVersion', () => {
+    test('reads the version conda said it would link', () => {
+        const json = JSON.stringify({
+            actions: { LINK: [{ name: 'python', version: '3.12.8' }, { name: 'numpy', version: '2.2.1' }] },
+            success: true,
+        });
+
+        assert.strictEqual(parseCondaLinkedVersion(json, 'numpy'), '2.2.1');
+    });
+
+    test('matches the requested name however it is spelled', () => {
+        const json = JSON.stringify({ actions: { LINK: [{ name: 'ruamel-yaml', version: '0.18.6' }] } });
+
+        assert.strictEqual(parseCondaLinkedVersion(json, 'ruamel.yaml'), '0.18.6');
+    });
+
+    // Conda says this when the environment already has the package at the newest
+    // version. It is not an error, so the caller decides what to do next.
+    test('returns undefined when conda reports nothing to do', () => {
+        const json = JSON.stringify({ message: 'All requested packages already installed.', success: true });
+
+        assert.strictEqual(parseCondaLinkedVersion(json, 'numpy'), undefined);
+    });
+
+    test('returns undefined rather than throwing on unusable output', () => {
+        assert.strictEqual(parseCondaLinkedVersion('not json at all', 'numpy'), undefined);
+        assert.strictEqual(parseCondaLinkedVersion('{"actions": {"LINK": "nope"}}', 'numpy'), undefined);
+        assert.strictEqual(parseCondaLinkedVersion('{}', 'numpy'), undefined);
+    });
+});
+
+suite('parseCondaListedVersion', () => {
+    test('reads a package version out of the environment listing', () => {
+        const json = JSON.stringify([
+            { name: 'numpy', version: '2.2.1' },
+            { name: 'pandas', version: '2.2.3' },
+        ]);
+
+        assert.strictEqual(parseCondaListedVersion(json, 'pandas'), '2.2.3');
+    });
+
+    test('returns undefined when the package is not installed', () => {
+        assert.strictEqual(parseCondaListedVersion('[]', 'numpy'), undefined);
+        assert.strictEqual(parseCondaListedVersion('not json at all', 'numpy'), undefined);
+    });
+});
+
+suite('Conda Package Manager resolveInstallVersion', () => {
+    let condaPackageManager: CondaPackageManager;
+    let execStub: sinon.SinonStub;
+
+    const pythonPath = '/path/to/conda/envs/myenv/bin/python';
+
+    setup(() => {
+        execStub = sinon.stub();
+
+        const serviceContainer = mock<IServiceContainer>({
+            get: <T>(serviceIdentifier: interfaces.ServiceIdentifier<T>) => {
+                switch (serviceIdentifier) {
+                    case ICondaService:
+                        return mock<ICondaService>({
+                            isCondaAvailable: () => Promise.resolve(true),
+                            getCondaFile: () => Promise.resolve('/path/to/conda'),
+                        }) as T;
+                    case IComponentAdapter:
+                        return mock<IComponentAdapter>({
+                            getCondaEnvironment: () =>
+                                Promise.resolve({ name: 'myenv', path: '/path/to/conda/envs/myenv' }),
+                        }) as T;
+                    case IProcessServiceFactory:
+                        return mock<IProcessServiceFactory>({
+                            create: () => Promise.resolve(mock<IProcessService>({ exec: execStub })),
+                        }) as T;
+                    default:
+                        return undefined as T;
+                }
+            },
+        });
+
+        condaPackageManager = new CondaPackageManager(
+            pythonPath,
+            mock<MessageEmitter>({ fire: () => {} }),
+            serviceContainer,
+            mock<PackageSession>({ callMethod: () => Promise.resolve([]) }),
+        );
+    });
+
+    teardown(() => {
+        sinon.restore();
+    });
+
+    // The reason this asks the solver rather than reading `conda search`: search
+    // results are ordered by upload time, so a rebuild of an older version
+    // published later would come out on top of the newer one.
+    test('asks the solver what it would link, not conda search', async () => {
+        execStub.resolves({
+            stdout: JSON.stringify({ actions: { LINK: [{ name: 'numpy', version: '2.2.1' }] } }),
+            stderr: '',
+        });
+
+        const version = await condaPackageManager.resolveInstallVersion('numpy');
+
+        assert.strictEqual(version, '2.2.1');
+        const [, args] = execStub.firstCall.args;
+        assert.deepStrictEqual(args, ['install', '--dry-run', '--json', 'numpy']);
+    });
+
+    test('falls back to the installed version when conda has nothing to link', async () => {
+        execStub
+            .onFirstCall()
+            .resolves({ stdout: JSON.stringify({ message: 'All requested packages already installed.' }), stderr: '' })
+            .onSecondCall()
+            .resolves({ stdout: JSON.stringify([{ name: 'numpy', version: '2.2.1' }]), stderr: '' });
+
+        const version = await condaPackageManager.resolveInstallVersion('numpy');
+
+        assert.strictEqual(version, '2.2.1');
+        assert.deepStrictEqual(execStub.secondCall.args[1], ['list', 'numpy', '--json']);
+    });
+
+    test('resolves undefined when conda cannot solve for the package', async () => {
+        execStub.rejects(new Error('PackagesNotFoundError'));
+
+        assert.strictEqual(await condaPackageManager.resolveInstallVersion('asdasdadfasdf'), undefined);
+    });
+
+    test('rejects before running conda when the token is already canceled', async () => {
+        const source = new vscode.CancellationTokenSource();
+        source.cancel();
+
+        await assert.rejects(() => condaPackageManager.resolveInstallVersion('numpy', source.token));
+        assert.strictEqual(execStub.called, false);
     });
 });

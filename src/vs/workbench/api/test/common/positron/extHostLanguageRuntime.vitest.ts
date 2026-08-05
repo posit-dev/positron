@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import type * as positron from 'positron';
+import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { mock } from '../../../../../base/test/common/mock.js';
@@ -427,6 +428,57 @@ describe('ExtHostLanguageRuntime', () => {
 
 			expect(init.capabilities).toEqual({ listMissingPackages: true, getMissingPackageProbe: true });
 			await runtime.$disposeLanguageRuntime(init.handle);
+		});
+	});
+
+	describe('$resolveInstallVersion', () => {
+		/**
+		 * A session whose package manager may or may not implement the optional
+		 * `resolveInstallVersion`, so both branches can be driven from a test.
+		 */
+		function sessionWithPackageManager(
+			packageManager: Partial<positron.LanguageRuntimePackageManager>
+		): TestSession {
+			return new class extends TestSession {
+				override getPackageManager(): positron.LanguageRuntimePackageManager {
+					return packageManager as positron.LanguageRuntimePackageManager;
+				}
+			};
+		}
+
+		async function attach(session: TestSession): Promise<number> {
+			runtime.registerLanguageRuntimeManager(extension, 'r', new TestManager(session));
+			const init = await runtime.$createLanguageRuntimeSession(runtimeMetadata, sessionMetadata, 'test');
+			return init.handle;
+		}
+
+		it('forwards to a package manager that implements it', async () => {
+			const resolveInstallVersion = vi.fn().mockResolvedValue('2.32.5');
+			const handle = await attach(sessionWithPackageManager({ resolveInstallVersion }));
+
+			const version = await runtime.$resolveInstallVersion(handle, 'requests', CancellationToken.None);
+
+			expect(version).toBe('2.32.5');
+			expect(resolveInstallVersion).toHaveBeenCalledWith('requests', CancellationToken.None);
+		});
+
+		it('passes undefined through as "this package has no version"', async () => {
+			const handle = await attach(sessionWithPackageManager({
+				resolveInstallVersion: vi.fn().mockResolvedValue(undefined),
+			}));
+
+			await expect(runtime.$resolveInstallVersion(handle, 'nope', CancellationToken.None))
+				.resolves.toBeUndefined();
+		});
+
+		// Throwing is what keeps "this runtime cannot answer" apart from "this
+		// package has no version". The main thread reaches the package manager
+		// through an adapter that defines every method, so it cannot check.
+		it('throws when the package manager does not implement it', async () => {
+			const handle = await attach(sessionWithPackageManager({}));
+
+			await expect(runtime.$resolveInstallVersion(handle, 'requests', CancellationToken.None))
+				.rejects.toThrow(/cannot look up the newest version/);
 		});
 	});
 });
