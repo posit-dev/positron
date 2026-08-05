@@ -215,13 +215,10 @@ export function shouldExpandOnFreshOutput(isCollapsed: boolean, userCollapsedDur
 }
 
 /**
- * Build a data URL for an image output item.
+ * Creates a data URL for an image output.
  *
- * Kernels send raster images (PNG, JPEG, ...) as base64 strings but SVG as raw
- * markup, so SVG payloads are URL-encoded rather than labelled `;base64,` --
- * a base64 label over raw markup breaks Save Image, whose decoder rejects the
- * first '<' (posit-dev/positron#15277). Data that is already a data URL is
- * returned unchanged.
+ * Raster image payloads are base64-encoded, while SVG payloads contain raw
+ * markup and must be URL-encoded. Existing data URLs are returned unchanged.
  */
 export function getImageDataUrl(mime: string, data: string): string {
 	if (data.startsWith('data:')) {

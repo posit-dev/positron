@@ -100,10 +100,8 @@ describe('chooseHtmlRenderMode', () => {
 	});
 });
 
-// Kernels send raster images as base64 but SVG as raw markup, so labelling an
-// SVG payload `;base64,` produces a data URL that the shared decoder rejects:
-// Save Image fails with "Unexpected base64 character" on the first '<'
-// (posit-dev/positron#15277).
+// Kernels provide raster image payloads as base64 and SVG payloads as raw
+// markup. Both formats must produce data URLs supported by the shared decoder.
 describe('getImageDataUrl', () => {
 	const svg = '<svg xmlns="http://www.w3.org/2000/svg"><circle r="10"/></svg>';
 
