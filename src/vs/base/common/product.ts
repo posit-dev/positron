@@ -78,6 +78,13 @@ export interface IProductConfiguration {
 	/** The Positron build number; unique within the Positron version */
 	readonly positronBuildNumber: number;
 
+	/**
+	 * Base URL for the slim LLM docs bundles the AI assistant reads from disk.
+	 * Overridden at runtime by the POSITRON_LLMS_DOCS_URL environment variable.
+	 * Distinct from the docs *website* URL, which is a separate knob.
+	 */
+	readonly positronLlmsDocsUrl?: string;
+
 	/** The linux package type (DEB or RPM) */
 	readonly packageType?: string;
 	// --- End Positron ---

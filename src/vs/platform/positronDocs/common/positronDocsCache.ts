@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import {
-	DOCS_BUNDLE_SCHEMA, DOCS_FAILURE_THROTTLE_MS, DOCS_MAX_DOWNLOAD_BYTES,
+	DOCS_BUNDLE_SCHEMA, DOCS_FAILURE_THROTTLE_MS, DOCS_MAX_CHECKSUM_BYTES, DOCS_MAX_DOWNLOAD_BYTES,
 	DOCS_STATE_FILENAME, DocsResolution,
 	IDocsBundleManifest, IDocsBundleRequest, IDocsCacheState, IResolvedBundle, IResolvedBundleRequest,
 	parseDigestFile, resolveBundleRequest,
@@ -117,6 +117,21 @@ export class PositronDocsCache {
 		this._attempted = false;
 		this._result = undefined;
 		this._generation++;
+	}
+
+	/**
+	 * The cached bundle, if any, without touching the network.
+	 *
+	 * Used when a caller has stopped waiting for an in-flight fetch: the
+	 * cache-present rule says a valid cache is served regardless, and awaiting
+	 * `ensure()` would defeat the point of the timeout.
+	 */
+	async peek(request: IDocsBundleRequest): Promise<ILocalDocs | undefined> {
+		if (this._attempted) {
+			return this._result;
+		}
+		const exactVersion = resolveBundleRequest(request).exact.version;
+		return await this._readCached(await this._readState(), exactVersion);
 	}
 
 	private async _ensureOnce(request: IDocsBundleRequest): Promise<ILocalDocs | undefined> {
@@ -325,7 +340,7 @@ export class PositronDocsCache {
 			// A zip that cannot be verified is never extracted, even though
 			// that means a cold cache gets no local docs until the checksum file
 			// appears. Proceeding unverified would make the digest decorative.
-			const checksum = await http.get(target.sha256Url);
+			const checksum = await http.get(target.sha256Url, { maxBytes: DOCS_MAX_CHECKSUM_BYTES });
 			if (checksum.status !== 200 || !checksum.body) {
 				return { kind: 'rejected', reason: `checksum file unavailable (HTTP ${checksum.status})` };
 			}

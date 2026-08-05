@@ -32,6 +32,13 @@ export const DOCS_INDEX_FILENAME = 'llms.txt';
  */
 export const DOCS_MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
 
+/**
+ * Cap on the checksum file, which holds one `<64 hex chars>  <name>` line.
+ * Tight rather than generous: unlike the bundle this has a fixed shape, so a
+ * body anywhere near this size is already a wrong or hostile object.
+ */
+export const DOCS_MAX_CHECKSUM_BYTES = 8 * 1024;
+
 export type DocsProfile = 'positron' | 'workbench';
 
 /**
@@ -144,6 +151,21 @@ function isNonEmptyString(value: unknown): value is string {
 	return typeof value === 'string' && value.length > 0;
 }
 
+/** Versions we are willing to use as a directory name. Excludes `.` and `..`. */
+const SAFE_VERSION = /^[A-Za-z0-9._-]+$/;
+
+/**
+ * The manifest version becomes a path segment under the cache root, so it is
+ * validated here rather than at the point of use.
+ *
+ * Same reasoning as guardEntryNames: the checksum proves the bundle arrived
+ * intact, not that the CDN that served it is honest, so a value like `../..`
+ * would otherwise let a rename escape the cache root.
+ */
+function isSafePathSegment(value: string): boolean {
+	return SAFE_VERSION.test(value) && value !== '.' && value !== '..';
+}
+
 /**
  * Parse bundle.json, rejecting anything this build cannot read.
  *
@@ -171,6 +193,9 @@ export function parseManifest(raw: string): IDocsBundleManifest | undefined {
 		return undefined;
 	}
 	if (typeof candidate.fileCount !== 'number' || !Number.isInteger(candidate.fileCount) || candidate.fileCount <= 0) {
+		return undefined;
+	}
+	if (!isSafePathSegment(candidate.version)) {
 		return undefined;
 	}
 	return {

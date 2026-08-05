@@ -5,6 +5,7 @@
 	"version": "",
 	"positronVersion": "2026.08.0",
 	"positronBuildNumber": 0,
+	"positronLlmsDocsUrl": "https://cdn.posit.co/positron/releases/docs",
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
 	"sharedDataFolderName": ".positron-shared",
