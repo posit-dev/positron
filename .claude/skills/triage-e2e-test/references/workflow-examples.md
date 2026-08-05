@@ -26,7 +26,9 @@ fetch-pattern-evidence.js --> read summary.md    (phase=evidence-gathered)
    |            +-- escalate only behind the evidence block
 reason to a mechanism --> ASK which fix approach (phase=hypothesis-ready)
    |
-phase=awaiting-clear -> /clear -> --resume       (phase=implementation)
+checkpoint the diagnosis                         (phase=implementation)
+   |            ^
+   |            +-- optional: OFFER awaiting-clear -> /clear -> --resume
    |
 reproduce + verify, open the PR / issue
    |
@@ -200,12 +202,16 @@ node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
     } }' \
   --set phase=hypothesis-ready
 
-# Diagnosis is durable on disk -- drop the investigation context before implementing.
+# The diagnosis is durable on disk, so a clear is safe here -- this one was an
+# evidence-heavy dig, so offer it. Skip straight to phase=implementation if the
+# engineer would rather keep the thread.
 node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
   --triage-id restarts-cleanly-77bd10e2 --set phase=awaiting-clear
 ```
 
-> `/clear`, then `/triage-e2e-test --resume restarts-cleanly-77bd10e2`.
+> "That was a long evidence dig -- want me to `/clear` and resume from the
+> checkpoint before implementing, or keep the context?" On yes: `/clear`, then
+> `/triage-e2e-test --resume restarts-cleanly-77bd10e2`.
 
 ```bash
 node .claude/skills/triage-e2e-test/scripts/checkpoint.js \

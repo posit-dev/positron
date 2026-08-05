@@ -221,10 +221,18 @@ must contain.
 
 ## Reproduce and fix
 
-**Checkpoint the diagnosis, then `phase=awaiting-clear` -> `/clear` ->
-`--resume <id>` -> `phase=implementation` before implementing.** History,
-evidence, and working-tree edits are all durable on disk, so implementation
-starts from a clean context carrying only the compact diagnosis.
+**Checkpoint the diagnosis before implementing, then set
+`phase=implementation`.** That is the required step: history, evidence, and
+working-tree edits are all durable on disk, so the invariant to hold is that
+implementation *could* start from the checkpoint alone -- a `fixApproach`
+specific enough to act on without re-reading the evidence.
+
+**Clearing is optional.** Offer `phase=awaiting-clear` -> `/clear` ->
+`--resume <id>` when the context is genuinely heavy (a long evidence dig, or
+the engineer redirected you off an approach), and let them decline. Mid-triage
+it costs them the thread -- earlier reasoning they may want to question, and
+steering they gave in passing -- so don't clear an interactive session by
+default, and never clear without saying why.
 
 Read [`references/reproduction.md`](references/reproduction.md) now -- it owns
 when to re-clear again, project choice, race verification, and the RED bar
