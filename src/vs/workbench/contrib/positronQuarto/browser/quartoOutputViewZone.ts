@@ -14,6 +14,7 @@ import { localize } from '../../../../nls.js';
 import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, CellExecutionState, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { formatCellDuration, getRelativeTime } from '../../positronNotebook/browser/notebookCells/cellExecutionUtils.js';
+import { isSvgMimeType } from '../../positronNotebook/browser/notebookMimeUtils.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Event as VSEvent, Emitter } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -211,6 +212,25 @@ export function chooseHtmlRenderMode(html: string, hasWebviewService: boolean): 
  */
 export function shouldExpandOnFreshOutput(isCollapsed: boolean, userCollapsedDuringExecution: boolean): boolean {
 	return isCollapsed && !userCollapsedDuringExecution;
+}
+
+/**
+ * Build a data URL for an image output item.
+ *
+ * Kernels send raster images (PNG, JPEG, ...) as base64 strings but SVG as raw
+ * markup, so SVG payloads are URL-encoded rather than labelled `;base64,` --
+ * a base64 label over raw markup breaks Save Image, whose decoder rejects the
+ * first '<' (posit-dev/positron#15277). Data that is already a data URL is
+ * returned unchanged.
+ */
+export function getImageDataUrl(mime: string, data: string): string {
+	if (data.startsWith('data:')) {
+		return data;
+	}
+	if (isSvgMimeType(mime)) {
+		return `data:${mime},${encodeURIComponent(data)}`;
+	}
+	return `data:${mime};base64,${data}`;
 }
 
 /**
@@ -1873,10 +1893,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		for (const output of this._outputs) {
 			for (const item of output.items) {
 				if (item.mime.startsWith('image/')) {
-					const dataUrl = item.data.startsWith('data:')
-						? item.data
-						: `data:${item.mime};base64,${item.data}`;
-					return { type: 'plot', dataUrl };
+					return { type: 'plot', dataUrl: getImageDataUrl(item.mime, item.data) };
 				}
 			}
 		}
@@ -1971,10 +1988,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			for (const item of output.items) {
 				if (item.mime.startsWith('image/')) {
 					// Return the first image found
-					const dataUrl = item.data.startsWith('data:')
-						? item.data
-						: `data:${item.mime};base64,${item.data}`;
-					return { type: 'image', dataUrl };
+					return { type: 'image', dataUrl: getImageDataUrl(item.mime, item.data) };
 				}
 			}
 		}
@@ -2098,10 +2112,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 						return undefined;
 					}
 					// Build the data URL
-					const dataUrl = item.data.startsWith('data:')
-						? item.data
-						: `data:${item.mime};base64,${item.data}`;
-					imageInfo = { dataUrl };
+					imageInfo = { dataUrl: getImageDataUrl(item.mime, item.data) };
 				}
 			}
 		}
@@ -2676,13 +2687,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			}
 		});
 
-		// Check if data is already a data URL
-		if (data.startsWith('data:')) {
-			img.src = data;
-		} else {
-			// Assume base64 encoded
-			img.src = `data:${mime};base64,${data}`;
-		}
+		img.src = getImageDataUrl(mime, data);
 
 		container.appendChild(img);
 		return container;
