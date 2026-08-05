@@ -151,6 +151,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 				'data-grid-row-cell',
 				{ pinned: props.pinned },
 			)}
+			data-testid={`data-grid-row-cell-${props.columnIndex}-${props.rowIndex}`}
 			style={{
 				clipPath,
 				height: props.height,

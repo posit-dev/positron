@@ -37,6 +37,11 @@ export const DataGridRow = (props: DataGridRowProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
+	// The width of the band of pinned columns. When no column is pinned, the band is empty and
+	// nothing is clipped; a cell scrolled off the left edge of the viewport is already clipped by
+	// the rows container.
+	const pinnedColumnsWidth = props.columnDescriptors.pinnedColumnDescriptorsWidth;
+
 	// Render the pinned data grid row cells. Pinned cells are never clipped horizontally because
 	// they are painted above the unpinned cells that scroll under them.
 	const dataGridRowCells: JSX.Element[] = [];
@@ -63,7 +68,7 @@ export const DataGridRow = (props: DataGridRowProps) => {
 		dataGridRowCells.push(
 			<DataGridRowCell
 				key={`row-cell-${props.rowIndex}-${unpinnedColumnDescriptor.columnIndex}`}
-				clipLeft={Math.max(0, props.columnDescriptors.pinnedColumnDescriptorsWidth - left)}
+				clipLeft={pinnedColumnsWidth > 0 ? Math.max(0, pinnedColumnsWidth - left) : 0}
 				clipTop={props.clipTop}
 				columnIndex={unpinnedColumnDescriptor.columnIndex}
 				height={props.height}
@@ -82,6 +87,7 @@ export const DataGridRow = (props: DataGridRowProps) => {
 				'data-grid-row',
 				{ pinned: props.pinned },
 			)}
+			data-testid={`data-grid-row-${props.rowIndex}`}
 			style={{
 				top: props.top,
 				height: props.height,

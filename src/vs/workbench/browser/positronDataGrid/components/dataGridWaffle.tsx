@@ -699,13 +699,16 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 	}
 
 	// Create the unpinned data grid row elements. An unpinned row that scrolls under the band of
-	// pinned rows is clipped so that it does not paint there.
+	// pinned rows is clipped so that it does not paint there. When no row is pinned, the band is
+	// empty and nothing is clipped; a row scrolled off the top edge of the viewport is already
+	// clipped by the rows container.
+	const pinnedRowsHeight = rowDescriptors.pinnedRowDescriptorsHeight;
 	for (const unpinnedRowDescriptor of rowDescriptors.unpinnedRowDescriptors) {
 		const top = unpinnedRowDescriptor.top - context.instance.verticalScrollOffset;
 		dataGridRows.push(
 			<DataGridRow
 				key={`unpinned-row-${unpinnedRowDescriptor.rowIndex}`}
-				clipTop={Math.max(0, rowDescriptors.pinnedRowDescriptorsHeight - top)}
+				clipTop={pinnedRowsHeight > 0 ? Math.max(0, pinnedRowsHeight - top) : 0}
 				columnDescriptors={columnDescriptors}
 				height={unpinnedRowDescriptor.height}
 				pinned={false}
