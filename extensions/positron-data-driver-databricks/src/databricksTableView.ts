@@ -3,17 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Cloned from positron-data-driver-redshift's redshiftTableView.ts. The Data Explorer protocol
-// handling is identical; the SQL is adapted to Snowflake's dialect. Known divergences:
-//   - Aliases are double-quoted. Snowflake uppercases unquoted identifiers, so an unquoted alias like
-//     `agg_total` would come back keyed as `AGG_TOTAL`; quoting preserves the exact case the code
-//     reads back.
-//   - Regex row filters use REGEXP_LIKE(subject, pattern, params). Snowflake's regex requires the
-//     pattern to match the whole subject, so the term is wrapped in `.*...*` to keep Postgres-style
-//     "contains" semantics; case-insensitivity is the 'i' parameter rather than a separate operator.
+// Cloned from positron-data-driver-snowflake's snowflakeTableView.ts. The Data Explorer protocol
+// handling is identical; the SQL is adapted to Databricks SQL. Known divergences:
+//   - Identifiers and aliases are backtick-quoted (see databricksSql.ts).
+//   - Regex row filters use RLIKE, which is a partial match like Postgres' `~`, so the term needs no
+//     `.*` wrapping; case-insensitivity is the inline `(?i)` flag rather than a separate operator.
+//   - The text filters escape the LIKE wildcards in the user's search term and name an explicit escape
+//     character, so searching for `10%` or `a_b` matches those strings rather than treating them as
+//     patterns. The sibling drivers do not do this yet (see `escapeLikeWildcards`).
 //   - No stable per-row identifier (no ctid). ROW_NUMBER() windows fall back to ordering by the first
-//     column when no sort is set, because Snowflake requires an ORDER BY inside the window.
-//   - Semi-structured values (VARIANT, OBJECT, ARRAY) are rendered as their JSON text.
+//     column when no sort is set, because Spark requires an ORDER BY inside the window.
+//   - Complex values (ARRAY, MAP, STRUCT, VARIANT) are rendered as their JSON text, and binary as
+//     hex, both for display and for grouping -- Spark cannot GROUP BY a MAP at all, so the grouping
+//     expressions go through the same normalization (see `_groupableExpr`).
 
 import {
 	ArraySelection,
@@ -68,9 +70,10 @@ import {
 	TableSelectionKind,
 	TextSearchType,
 } from 'positron-data-explorer-protocol';
+import { quoteAlias, quoteIdentifier, quoteLiteral } from './databricksSql.js';
 
-/** The query surface the table view needs. Implemented by the connection over its sdk client. */
-export interface ISnowflakeQueryClient {
+/** The query surface the table view needs. Implemented by the connection over its SDK client. */
+export interface IDatabricksQueryClient {
 	/** Run a SQL query and return its rows as plain objects keyed by column name. */
 	runQuery(sql: string): Promise<Array<Record<string, unknown>>>;
 }
@@ -87,7 +90,7 @@ export interface IProfileLogger {
 /**
  * Cancellation signal for a column-profile pass. The RPC handler flips this when a newer request for
  * the same dataset arrives, and the pass abandons itself at the next statement boundary so a burst of
- * requests can't stack statements on the single connection. Structurally satisfied by a
+ * requests can't stack statements on the single session. Structurally satisfied by a
  * `vscode.CancellationToken`.
  */
 export interface IProfileCancellation {
@@ -100,74 +103,22 @@ const SENTINEL_NAN = 2;
 const SENTINEL_INF = 10;
 const SENTINEL_NEGINF = 11;
 
-/** A column in a Snowflake table or view, with its declared type and resolved display type. */
-export interface SnowflakeSchemaEntry {
+/** A column in a Databricks table or view, with its declared type and resolved display type. */
+export interface DatabricksSchemaEntry {
 	column_name: string;
-	/** The Snowflake type from INFORMATION_SCHEMA (e.g. 'NUMBER', 'TEXT', 'TIMESTAMP_NTZ'). */
+	/** The Databricks type from DESCRIBE TABLE (e.g. 'bigint', 'decimal(10,2)', 'array<string>'). */
 	column_type: string;
 	type_display: ColumnDisplayType;
 }
 
 /**
- * Maps a Snowflake column type name (from INFORMATION_SCHEMA.COLUMNS.DATA_TYPE) to a Data Explorer
- * display type. Snowflake stores every fixed-point number as 'NUMBER', so the numeric scale
- * distinguishes an integer (scale 0) from a decimal.
- */
-export function snowflakeDisplayType(dataType: string, numericScale?: number | null): ColumnDisplayType {
-	const type = dataType.toLowerCase();
-
-	if (type.includes('bool')) {
-		return ColumnDisplayType.Boolean;
-	}
-	if (type.includes('timestamp') || type.includes('datetime')) {
-		return ColumnDisplayType.Datetime;
-	}
-	if (type === 'date') {
-		return ColumnDisplayType.Date;
-	}
-	if (type.includes('time')) {
-		return ColumnDisplayType.Time;
-	}
-	if (type.includes('float') || type.includes('double') || type.includes('real')) {
-		return ColumnDisplayType.Floating;
-	}
-	if (type.includes('number') || type.includes('numeric') || type.includes('decimal') || type === 'fixed') {
-		return numericScale !== undefined && numericScale !== null && numericScale > 0
-			? ColumnDisplayType.Decimal
-			: ColumnDisplayType.Integer;
-	}
-	if (type.includes('int')) {
-		return ColumnDisplayType.Integer;
-	}
-	if (type.includes('char') || type.includes('text') || type.includes('string')) {
-		return ColumnDisplayType.String;
-	}
-	// variant, object, array, binary, geography, geometry, etc. render as strings for now.
-	return ColumnDisplayType.String;
-}
-
-/** Quotes and escapes an identifier for Snowflake by doubling embedded double-quotes. */
-function quoteIdentifier(name: string): string {
-	return '"' + name.replace(/"/g, '""') + '"';
-}
-
-/**
- * Escapes a value for use inside a single-quoted Snowflake string literal. Snowflake processes
- * backslash escape sequences inside single-quoted literals, so both backslashes and single quotes are
- * escaped.
- */
-function quoteLiteral(value: string): string {
-	return value.replace(/\\/g, '\\\\').replace(/'/g, '\'\'');
-}
-
-/**
  * The escape character for the LIKE patterns the text filters build.
  *
- * Deliberately not backslash. Snowflake's LIKE takes backslash as its escape character by default, and
- * backslash is also an escape character inside a single-quoted literal, so a backslash-escaped pattern
- * has to survive two rounds of unescaping to mean what it says. Naming a character that neither layer
- * treats specially keeps the pattern legible and makes a literal backslash in the user's search text
- * match a backslash in the data.
+ * Deliberately not backslash. Databricks' LIKE takes backslash as its escape character by default, and
+ * backslash is also an escape character inside a string literal, so a backslash-escaped pattern has to
+ * survive two rounds of unescaping to mean what it says. Naming a character that neither layer treats
+ * specially keeps the pattern legible and makes a literal backslash in the user's search text match a
+ * backslash in the data.
  */
 const LIKE_ESCAPE_CHAR = '!';
 
@@ -197,7 +148,7 @@ const COMPARISON_OPS = new Map<FilterComparisonOp, string>([
 
 /**
  * Formats a filter literal for its column type. String and temporal values are single-quoted and
- * escaped; temporal values are additionally cast to their Snowflake type so the quoted string is
+ * escaped; temporal values are additionally cast to their Databricks type so the quoted string is
  * compared as a date/time rather than parsed as bare arithmetic (e.g. `2026-07-22` would otherwise be
  * read as `2026 - 7 - 22`). Numbers and booleans are safe unquoted, so they pass through.
  */
@@ -206,11 +157,11 @@ function formatLiteral(value: string, schema: ColumnSchema): string {
 		case ColumnDisplayType.String:
 			return `'${quoteLiteral(value)}'`;
 		case ColumnDisplayType.Date:
-			return `'${quoteLiteral(value)}'::DATE`;
+			return `CAST('${quoteLiteral(value)}' AS DATE)`;
 		case ColumnDisplayType.Datetime:
-			return `'${quoteLiteral(value)}'::TIMESTAMP`;
+			return `CAST('${quoteLiteral(value)}' AS TIMESTAMP)`;
 		case ColumnDisplayType.Time:
-			return `'${quoteLiteral(value)}'::TIME`;
+			return `CAST('${quoteLiteral(value)}' AS TIME)`;
 		default:
 			return value;
 	}
@@ -218,7 +169,7 @@ function formatLiteral(value: string, schema: ColumnSchema): string {
 
 /**
  * Builds a SQL WHERE expression for a single row filter: set membership uses `IN (...)`, booleans
- * compare to `true`/`false`, and regex uses REGEXP_LIKE.
+ * compare to `true`/`false`, and regex uses RLIKE.
  */
 export function makeWhereExpr(rowFilter: RowFilter): string {
 	const schema = rowFilter.column_schema;
@@ -269,9 +220,9 @@ export function makeWhereExpr(rowFilter: RowFilter): string {
 				case TextSearchType.EndsWith:
 					return `${searchArg} LIKE '%' || ${term}${LIKE_ESCAPE_CLAUSE}`;
 				case TextSearchType.RegexMatch:
-					// Snowflake's REGEXP_LIKE matches the whole subject, so wrap the term in `.*...*` to
-					// mimic Postgres-style partial matching; case-insensitivity is the 'i' parameter.
-					return `REGEXP_LIKE(${quotedName}, '.*' || '${quoteLiteral(params.term)}' || '.*', '${params.case_sensitive ? 'c' : 'i'}')`;
+					// RLIKE is a partial match, so the term needs no anchoring; `(?i)` makes the pattern
+					// itself case-insensitive, which RLIKE has no operator form for.
+					return `${quotedName} RLIKE '${params.case_sensitive ? '' : '(?i)'}${quoteLiteral(params.term)}'`;
 			}
 			return 'TRUE';
 		}
@@ -287,8 +238,7 @@ export function makeWhereExpr(rowFilter: RowFilter): string {
 
 /**
  * Column-indexed aliases for the batched scalar-aggregate query, so the SELECT that emits them and
- * the code that reads them back stay in lockstep. Every alias is emitted double-quoted (see
- * `_quoteAlias`) so Snowflake preserves the exact case these keys use.
+ * the code that reads them back stay in lockstep.
  */
 const aggAlias = {
 	total: 'agg_total',
@@ -305,11 +255,6 @@ const aggAlias = {
 	median: (i: number) => `agg_med_${i}`,
 };
 
-/** Wraps an alias in double quotes so Snowflake keeps its exact (lowercase) case in the result set. */
-function quoteAlias(alias: string): string {
-	return `"${alias}"`;
-}
-
 /** A column's histogram binning, planned client-side from the scalar row; its bins come from a batch query. */
 interface HistogramPlan {
 	columnIndex: number;
@@ -324,11 +269,11 @@ interface HistogramPlan {
 }
 
 /**
- * Serves Data Explorer requests for a single Snowflake table or view. Translates each protocol
- * method into SQL run through the connection's sdk client. Values are fetched raw and formatted in
+ * Serves Data Explorer requests for a single Databricks table or view. Translates each protocol
+ * method into SQL run through the connection's session. Values are fetched raw and formatted in
  * TypeScript, while filtering, sorting, counts, and aggregations are pushed into SQL.
  */
-export class SnowflakeTableView {
+export class DatabricksTableView {
 	private sortKeys: Array<ColumnSortKey> = [];
 	private rowFilters: Array<RowFilter> = [];
 
@@ -346,32 +291,32 @@ export class SnowflakeTableView {
 
 	/**
 	 * @param client The query client for the owning connection.
-	 * @param tableRef The schema-qualified, already-quoted table reference (e.g. `"db"."public"."t"`).
+	 * @param tableRef The fully-qualified, already-quoted table reference (e.g. `` `cat`.`sch`.`t` ``).
 	 * @param displayName The unqualified table/view name for display.
 	 * @param objectKind Whether this is a table or a view. Retained for parity with the sibling
-	 *   drivers and future per-kind handling; Snowflake has no ctid, so it does not affect sorting.
+	 *   drivers and future per-kind handling; Databricks has no ctid, so it does not affect sorting.
 	 * @param schema The resolved column schema.
 	 * @param _logger Optional diagnostic log sink for the column-profile query timeline.
 	 */
 	constructor(
-		private readonly client: ISnowflakeQueryClient,
+		private readonly client: IDatabricksQueryClient,
 		private readonly tableRef: string,
 		private readonly displayName: string,
 		private readonly objectKind: 'table' | 'view',
-		private readonly schema: Array<SnowflakeSchemaEntry>,
+		private readonly schema: Array<DatabricksSchemaEntry>,
 		private readonly _logger?: IProfileLogger,
 	) {
 		this._unfilteredRows = this._countRows('');
 		this._filteredRows = this._unfilteredRows;
 	}
 
-	/** The (schema-qualified, quoted) table reference for use in FROM clauses. */
+	/** The (fully-qualified, quoted) table reference for use in FROM clauses. */
 	private get _quotedTable(): string {
 		return this.tableRef;
 	}
 
 	private async _countRows(whereClause: string): Promise<number> {
-		const rows = await this.client.runQuery(`SELECT count(*) AS "n" FROM ${this._quotedTable}${whereClause}`);
+		const rows = await this.client.runQuery(`SELECT count(*) AS ${quoteAlias('n')} FROM ${this._quotedTable}${whereClause}`);
 		return Number(rows[0]?.n ?? 0);
 	}
 
@@ -497,9 +442,10 @@ export class SnowflakeTableView {
 	}
 
 	/**
-	 * Formats a raw Snowflake value into the Data Explorer cell encoding: a sentinel number for
-	 * null/NaN/+-Inf, otherwise a formatted string. snowflake-sdk returns temporal types as Date
-	 * objects or strings, booleans as JS booleans, and semi-structured VARIANT/OBJECT/ARRAY values as
+	 * Formats a raw Databricks value into the Data Explorer cell encoding: a sentinel number for
+	 * null/NaN/+-Inf, otherwise a formatted string. The SDK returns temporal types as Date objects or
+	 * strings, booleans as JS booleans, DECIMALs as exact strings and BIGINTs as bigint (see
+	 * `preserveBigNumericPrecision` in databricksClient.ts), and complex ARRAY/MAP/STRUCT values as
 	 * parsed JS objects (rendered here as their JSON text).
 	 */
 	private _formatValue(value: unknown, displayType: ColumnDisplayType, opts: FormatOptions): ColumnValue {
@@ -520,7 +466,12 @@ export class SnowflakeTableView {
 				return formatFloat(num, opts);
 			}
 			case ColumnDisplayType.Integer: {
-				const num = typeof value === 'bigint' ? value : Number(value);
+				// Both wide integer shapes reach the formatter without passing through a JS number, which
+				// would round anything beyond 2^53: a BIGINT arrives as a bigint, and a DECIMAL(n,0) as an
+				// exact digit string (see `preserveBigNumericPrecision` in databricksClient.ts). Anything
+				// else -- a plain number, or a string that isn't a clean integer literal -- is coerced as
+				// before.
+				const num = typeof value === 'bigint' || isIntegerLiteral(value) ? value : Number(value);
 				return formatInteger(num, opts);
 			}
 			case ColumnDisplayType.Boolean:
@@ -553,7 +504,7 @@ export class SnowflakeTableView {
 	}
 
 	/**
-	 * Builds an ORDER BY clause for the given sort keys. Snowflake has no ctid (or any per-row
+	 * Builds an ORDER BY clause for the given sort keys. Databricks has no ctid (or any per-row
 	 * identifier), so no tiebreaker is appended and pagination over a non-unique key may not be stable
 	 * across pages.
 	 */
@@ -651,7 +602,7 @@ export class SnowflakeTableView {
 		const kind = params.selection.kind;
 		const order = this._orderClause();
 
-		const runExport = async (query: string, columns: Array<SnowflakeSchemaEntry>): Promise<ExportedData> => {
+		const runExport = async (query: string, columns: Array<DatabricksSchemaEntry>): Promise<ExportedData> => {
 			const rows = await this.client.runQuery(query);
 			const matrix = [
 				columns.map(c => c.column_name),
@@ -660,7 +611,7 @@ export class SnowflakeTableView {
 			return { data: formatExport(matrix, params.format), format: params.format };
 		};
 
-		const selectorsFor = (columns: Array<SnowflakeSchemaEntry>) =>
+		const selectorsFor = (columns: Array<DatabricksSchemaEntry>) =>
 			columns.map((c, i) => `${quoteIdentifier(c.column_name)} AS ${quoteAlias(`c${i}`)}`).join(', ');
 
 		switch (kind) {
@@ -713,13 +664,22 @@ export class SnowflakeTableView {
 
 	/**
 	 * Builds a query that selects specific (post-sort, post-filter) row positions in the requested
-	 * order. Uses a ROW_NUMBER() window so it works for both tables and views. Snowflake requires an
+	 * order. Uses a ROW_NUMBER() window so it works for both tables and views. Spark requires an
 	 * ORDER BY inside the window, so when no sort is set the window falls back to ordering by the first
-	 * column (Snowflake has no ctid to use as a stable identifier).
+	 * column (Databricks has no ctid to use as a stable identifier).
 	 */
 	private _rowIndexQuery(selectors: string, rowIndices: number[]): string {
-		const fallbackOrder = this.schema.length > 0
-			? `ORDER BY ${quoteIdentifier(this.schema[0].column_name)}`
+		// Spark cannot sort by a complex value at all (ORDER BY over a MAP is rejected outright), so the
+		// fallback picks the first column that is actually sortable rather than blindly taking column 0.
+		// With nothing sortable, order by a constant: the window still needs an ORDER BY, and an
+		// arbitrary-but-accepted order beats a statement the server refuses.
+		const sortable = this.schema.find(entry =>
+			entry.type_display !== ColumnDisplayType.Array &&
+			entry.type_display !== ColumnDisplayType.Struct &&
+			entry.type_display !== ColumnDisplayType.Object &&
+			entry.type_display !== ColumnDisplayType.Unknown);
+		const fallbackOrder = sortable
+			? `ORDER BY ${quoteIdentifier(sortable.column_name)}`
 			: 'ORDER BY 1';
 		const ordering = this._sortClause ? this._sortClause.replace(/^\n/, '') : fallbackOrder;
 		const numbered = `SELECT *, ROW_NUMBER() OVER (${ordering}) - 1 AS ${quoteAlias('__row_index')} ` +
@@ -747,7 +707,7 @@ export class SnowflakeTableView {
 		this._logger?.info(`[profiles #${passId}] ${this.displayName}: ${params.profiles.length} column(s) in one request; ${this._summarizeRequestedTypes(params.profiles)}`);
 
 		// Bail at each statement boundary when a newer pass has superseded this one, so a burst of
-		// requests doesn't queue every pass's statements on the single connection.
+		// requests doesn't queue every pass's statements on the single session.
 		const superseded = () => {
 			if (token?.isCancellationRequested) {
 				this._logger?.info(`[profiles #${passId}] ${this.displayName}: superseded after ${Date.now() - startedAt}ms, ${this._profileQueryCount} query/queries`);
@@ -759,9 +719,9 @@ export class SnowflakeTableView {
 		const filteredRows = await this._filteredRows;
 
 		// An empty table has no data to scan, so every profile is trivially empty/zero. Answer the
-		// whole batch from the (empty) scalar row without issuing a single query. This matters most for
-		// Snowflake INFORMATION_SCHEMA views, where even an aggregate over zero rows is a slow metadata
-		// query -- the count(*) that already established the table is empty is enough.
+		// whole batch from the (empty) scalar row without issuing a single query -- on a warehouse even
+		// an aggregate over zero rows costs a full statement round-trip, and the count(*) that already
+		// established the table is empty is enough.
 		if (filteredRows === 0) {
 			const emptyScalar: Record<string, unknown> = {};
 			const emptyPlans = this._planHistograms(params.profiles, emptyScalar, 0);
@@ -817,6 +777,30 @@ export class SnowflakeTableView {
 			this._logger?.info(`[profiles #${this._profilePassId}]   ${label}: FAILED after ${Date.now() - startedAt}ms: ${message}`);
 			this._logger?.info(`[profiles #${this._profilePassId}]   failing SQL: ${sql}`);
 			throw err;
+		}
+	}
+
+	/**
+	 * A text expression for a column's values wherever they are grouped or compared for distinctness.
+	 *
+	 * Spark cannot GROUP BY (or count DISTINCT) a MAP at all, and a binary column groups by reference
+	 * rather than content, so both are normalized to text first: complex and semi-structured values via
+	 * `to_json`, binary via `hex`. Primitive columns group directly. The same expression backs both the
+	 * distinct counts in the scalar query and the frequency-table branches, so the two agree on what
+	 * counts as one value.
+	 */
+	private _groupableExpr(entry: DatabricksSchemaEntry, quotedName: string): string {
+		switch (entry.type_display) {
+			case ColumnDisplayType.Array:
+			case ColumnDisplayType.Struct:
+				return `to_json(${quotedName})`;
+			case ColumnDisplayType.Object: {
+				// Object covers MAP, VARIANT, and BINARY; binary has no JSON rendering, so it goes to hex.
+				const base = entry.column_type.trim().toLowerCase();
+				return base.startsWith('binary') ? `hex(${quotedName})` : `to_json(${quotedName})`;
+			}
+			default:
+				return quotedName;
 		}
 	}
 
@@ -890,7 +874,7 @@ export class SnowflakeTableView {
 	}
 
 	/** Adds a column's summary-stat aggregate expressions to the scalar query, by display type. */
-	private _addSummaryNeeds(add: (alias: string, expr: string) => void, entry: SnowflakeSchemaEntry, quotedName: string, i: number): void {
+	private _addSummaryNeeds(add: (alias: string, expr: string) => void, entry: DatabricksSchemaEntry, quotedName: string, i: number): void {
 		switch (entry.type_display) {
 			case ColumnDisplayType.Integer:
 			case ColumnDisplayType.Floating:
@@ -901,14 +885,14 @@ export class SnowflakeTableView {
 				add(aggAlias.sum(i), `sum(${quotedName} * 1.0)`);
 				add(aggAlias.sumSq(i), `sum(${quotedName} * 1.0 * ${quotedName})`);
 				// Exact median folded in as an ordered-set aggregate -- no separate ORDER BY round-trip.
-				add(aggAlias.median(i), `PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ${quotedName})`);
+				add(aggAlias.median(i), `percentile_cont(0.5) WITHIN GROUP (ORDER BY ${quotedName})`);
 				break;
 			case ColumnDisplayType.String:
 				add(aggAlias.numUnique(i), `count(DISTINCT ${quotedName})`);
 				add(aggAlias.numEmpty(i), `count(CASE WHEN ${quotedName} = '' THEN 1 END)`);
 				break;
 			case ColumnDisplayType.Boolean:
-				// Snowflake has real booleans, so test the column directly rather than comparing to 0/1.
+				// Databricks has real booleans, so test the column directly rather than comparing to 0/1.
 				add(aggAlias.numTrue(i), `count(CASE WHEN ${quotedName} THEN 1 END)`);
 				add(aggAlias.numFalse(i), `count(CASE WHEN NOT ${quotedName} THEN 1 END)`);
 				break;
@@ -919,7 +903,8 @@ export class SnowflakeTableView {
 				add(aggAlias.numUnique(i), `count(DISTINCT ${quotedName})`);
 				break;
 			default:
-				add(aggAlias.numUnique(i), `count(DISTINCT ${quotedName})`);
+				// Complex and binary columns count distinct over their text rendering; see _groupableExpr.
+				add(aggAlias.numUnique(i), `count(DISTINCT ${this._groupableExpr(entry, quotedName)})`);
 				break;
 		}
 	}
@@ -983,7 +968,7 @@ export class SnowflakeTableView {
 	 * exact median, folded into that row as an ordered-set aggregate, so no query happens here.
 	 */
 	private _summaryStatsFromRow(
-		entry: SnowflakeSchemaEntry,
+		entry: DatabricksSchemaEntry,
 		i: number,
 		scalar: Record<string, unknown>,
 		formatOptions: FormatOptions,
@@ -1044,7 +1029,7 @@ export class SnowflakeTableView {
 		return { type_display: display, other_stats: { num_unique: Number(scalar[aggAlias.numUnique(i)] ?? 0) } };
 	}
 
-	private _emptySummaryStats(entry: SnowflakeSchemaEntry): ColumnSummaryStats {
+	private _emptySummaryStats(entry: DatabricksSchemaEntry): ColumnSummaryStats {
 		switch (entry.type_display) {
 			case ColumnDisplayType.Integer:
 			case ColumnDisplayType.Floating:
@@ -1100,7 +1085,7 @@ export class SnowflakeTableView {
 	}
 
 	/** Computes a histogram's bin count and width without quantiles, from the count and range. */
-	private _histogramBinning(entry: SnowflakeSchemaEntry, min: number, max: number, nonNull: number, params: ColumnHistogramParams): { numBins: number; binWidth: number } {
+	private _histogramBinning(entry: DatabricksSchemaEntry, min: number, max: number, nonNull: number, params: ColumnHistogramParams): { numBins: number; binWidth: number } {
 		const peakToPeak = max - min;
 		// Freedman-Diaconis needs the IQR (an ordered-set pass); approximate it with Sturges here to
 		// keep the whole batch to three statements.
@@ -1133,7 +1118,7 @@ export class SnowflakeTableView {
 			return bins;
 		}
 		const branches = active.map(plan => {
-			const bucket = `CAST(FLOOR((${plan.quotedName} * 1.0 - ${plan.min}) / ${plan.binWidth}) AS INTEGER)`;
+			const bucket = `CAST(FLOOR((${plan.quotedName} * 1.0 - ${plan.min}) / ${plan.binWidth}) AS INT)`;
 			return `SELECT ${plan.columnIndex} AS ${quoteAlias('h_col')}, ${bucket} AS ${quoteAlias('h_bin')}, count(*) AS ${quoteAlias('h_count')} ` +
 				`FROM ${this._quotedTable}${this._wherePlus(`${plan.quotedName} IS NOT NULL`)} GROUP BY ${bucket}`;
 		});
@@ -1180,24 +1165,19 @@ export class SnowflakeTableView {
 	}
 
 	/**
-	 * A text expression for a column's values in the frequency UNION ALL. Every branch must yield
-	 * varchar so the branches union, but Snowflake won't implicitly cast several types: booleans render
-	 * via CASE, semi-structured VARIANT/OBJECT/ARRAY via TO_VARCHAR, and spatial types via ST_ASWKT.
-	 * Everything else casts directly. Any type still not covered is caught by _batchFrequencyTables,
-	 * which drops the chunk's frequency tables rather than failing the whole pass.
+	 * A text expression for a column's values in the frequency UNION ALL. Every branch must yield a
+	 * string so the branches union: booleans render via CASE (Spark will not implicitly cast a boolean
+	 * to string in a union), and complex/binary values go through the same normalization used for
+	 * grouping. Anything still not covered is caught by _batchFrequencyTables, which drops the chunk's
+	 * frequency tables rather than failing the whole pass.
 	 */
-	private _frequencyValueExpr(entry: SnowflakeSchemaEntry, quotedName: string): string {
+	private _frequencyValueExpr(entry: DatabricksSchemaEntry, quotedName: string): string {
 		if (entry.type_display === ColumnDisplayType.Boolean) {
 			return `CASE WHEN ${quotedName} THEN 'true' ELSE 'false' END`;
 		}
-		const rawType = entry.column_type.toLowerCase();
-		if (rawType.includes('variant') || rawType.includes('object') || rawType.includes('array')) {
-			return `TO_VARCHAR(${quotedName})`;
-		}
-		if (rawType.includes('geography') || rawType.includes('geometry')) {
-			return `ST_ASWKT(${quotedName})`;
-		}
-		return `CAST(${quotedName} AS VARCHAR)`;
+		const groupable = this._groupableExpr(entry, quotedName);
+		// A normalized complex value is already a string; a primitive still needs the cast.
+		return groupable === quotedName ? `CAST(${quotedName} AS STRING)` : groupable;
 	}
 
 	private async _batchFrequencyTables(requests: Array<ColumnProfileRequest>): Promise<Map<number, Array<{ value: string; freq: number }>>> {
@@ -1210,12 +1190,15 @@ export class SnowflakeTableView {
 				}
 				const entry = this.schema[i];
 				const quotedName = quoteIdentifier(entry.column_name);
+				// Group by the normalized expression rather than the raw column: Spark cannot group a MAP,
+				// and grouping binary by reference would split identical blobs into separate buckets.
+				const groupExpr = this._groupableExpr(entry, quotedName);
 				const limit = (spec.params as ColumnFrequencyTableParams).limit;
 				branches.push(
 					`SELECT ${i} AS ${quoteAlias('f_col')}, ${quoteAlias('f_value')}, ${quoteAlias('f_freq')}, ${quoteAlias('f_rn')} FROM (` +
 					`SELECT ${this._frequencyValueExpr(entry, quotedName)} AS ${quoteAlias('f_value')}, count(*) AS ${quoteAlias('f_freq')}, ` +
-					`ROW_NUMBER() OVER (ORDER BY count(*) DESC, ${quotedName} ASC) AS ${quoteAlias('f_rn')} ` +
-					`FROM ${this._quotedTable}${this._wherePlus(`${quotedName} IS NOT NULL`)} GROUP BY ${quotedName}` +
+					`ROW_NUMBER() OVER (ORDER BY count(*) DESC, ${groupExpr} ASC) AS ${quoteAlias('f_rn')} ` +
+					`FROM ${this._quotedTable}${this._wherePlus(`${quotedName} IS NOT NULL`)} GROUP BY ${groupExpr}` +
 					`) sub WHERE ${quoteAlias('f_rn')} <= ${limit}`);
 			}
 		}
@@ -1297,8 +1280,23 @@ function formatFloat(value: number, opts: FormatOptions): string {
 	return opts.thousands_sep ? applyThousandsSep(formatted, opts.thousands_sep) : formatted;
 }
 
-/** Formats an integer value (number or bigint), optionally with a thousands separator. */
-function formatInteger(value: number | bigint, opts: FormatOptions): string {
+/**
+ * Whether a value is an exact integer literal: a string of digits with an optional sign. A
+ * DECIMAL(n,0) arrives in this form, and it is only safe to format such a string as-is when it holds
+ * nothing but digits -- anything else (an exponent, a decimal point, stray text) still goes through
+ * `Number` so it is normalized rather than printed raw.
+ */
+function isIntegerLiteral(value: unknown): value is string {
+	return typeof value === 'string' && /^[+-]?\d+$/.test(value);
+}
+
+/**
+ * Formats an integer value, optionally with a thousands separator. Accepts an exact digit string
+ * alongside number and bigint so a wide DECIMAL(n,0) keeps every digit: the body only stringifies its
+ * argument, and `applyThousandsSep` groups the digits textually, so no step here narrows the value to
+ * a JS number.
+ */
+function formatInteger(value: number | bigint | string, opts: FormatOptions): string {
 	const formatted = value.toString();
 	return opts.thousands_sep ? applyThousandsSep(formatted, opts.thousands_sep) : formatted;
 }
@@ -1309,8 +1307,8 @@ function truncate(value: string, opts: FormatOptions): string {
 }
 
 /**
- * Stringifies a raw Snowflake value, rendering semi-structured VARIANT/OBJECT/ARRAY values (which
- * snowflake-sdk returns as parsed JS objects) as their JSON text rather than `[object Object]`.
+ * Stringifies a raw Databricks value, rendering complex ARRAY/MAP/STRUCT values (which the SDK
+ * returns as parsed JS objects) as their JSON text rather than `[object Object]`.
  */
 function stringifyValue(value: unknown): string {
 	if (typeof value === 'object' && value !== null && !(value instanceof Date) && !(value instanceof Uint8Array)) {
@@ -1323,7 +1321,7 @@ function stringifyValue(value: unknown): string {
 	return String(value);
 }
 
-/** Stringifies a raw Snowflake value for export, rendering null as 'NULL' and dates as ISO. */
+/** Stringifies a raw Databricks value for export, rendering null as 'NULL' and dates as ISO. */
 function stringifyExportCell(value: unknown): string {
 	if (value === null || value === undefined) {
 		return 'NULL';

@@ -67,6 +67,7 @@ const compilations = [
 	'extensions/positron-dev-containers/tsconfig.json',
 	'extensions/positron-duckdb/tsconfig.json',
 	'extensions/positron-environment/tsconfig.json',
+	'extensions/positron-data-driver-databricks/tsconfig.json',
 	'extensions/positron-data-driver-duckdb/tsconfig.json',
 	'extensions/positron-data-driver-pins/tsconfig.json',
 	'extensions/positron-data-driver-postgresql/tsconfig.json',
