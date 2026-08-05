@@ -35,6 +35,7 @@ the stack up. Open http://localhost:8787 and log in as `user1` and password as s
 | `npm run pwb` | Bring the stack up. First run: pick versions and install. Already installed: (re)start and show status. Safe to re-run anytime. |
 | `npm run pwb -- --reinstall` | Re-run the pickers and reinstall, to switch Positron/Workbench versions. |
 | `npm run pwb -- --credentials=<type>` | Install with a managed data-source connection: `databricks`, `snowflake`, or `azure`. See [Managed credentials](#managed-credentials). |
+| `npm run pwb -- --workbench=<release\|daily\|URL> --positron=<release\|daily\|TAG>` | Skip the version pickers. Required when there is no TTY (agents, CI, piped runs). See [Non-interactive runs](#non-interactive-runs). |
 | `npm run pwb -- --ttl N` | Set the auto-stop to N minutes; `--no-ttl` disables it. |
 | `npm run pwb -- status` | Containers, installed versions, and URLs. |
 | `npm run pwb -- logs [svc]` | Tail logs: `rserver` (default), `connect`, or a container name. |
@@ -58,6 +59,29 @@ it was scheduled for, so a manual restart is never cut short. Change it with
 - **Workbench**: Release or Daily (each resolves to the current build, matching
   the workbench-nightly CI), or a custom `.deb` URL to pin a specific build.
   The URL is checked for format, arch, and reachability before install.
+
+## Non-interactive runs
+
+The pickers read from `/dev/tty`, so they can't be answered by an agent, a cron
+job, or a piped run. Name the builds up front instead and both pickers are
+skipped:
+
+```bash
+npm run pwb -- --workbench=daily --positron=release
+npm run pwb -- --reinstall --workbench=daily --positron=daily
+# pin exact builds
+npm run pwb -- --workbench=https://dl.dailies.rstudio.com/.../rstudio-workbench-...deb --positron=2026.08.0-304
+```
+
+`release` or `daily` resolves that channel's current build; anything else is used
+verbatim (a `.deb` URL for `--workbench`, a build tag for `--positron`).
+`WB_WORKBENCH` / `WB_POSITRON` in `.env` do the same. Without a TTY and without
+these flags the run now stops and tells you what to pass, rather than silently
+installing whichever build happened to be listed first.
+
+Note that the e2e suites which exercise newer Positron features (for example
+Data Connections) need `--positron=daily`; a release build can be too old and the
+test fails on a missing UI element rather than anything real.
 
 ## Managed credentials
 
