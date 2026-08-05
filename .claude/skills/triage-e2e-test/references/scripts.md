@@ -69,8 +69,13 @@ occurrence per pattern.
 | `--triage-id <id>` | derived from the test key | |
 
 **Output:** `{ triageId, testKey, testName, specPath, testDetailViewUrl,
-branchSummary, patterns[], verdict, stop, note, lookbackDays, queriedAt,
+branchSummary, patterns[], onset, verdict, stop, note, lookbackDays, queriedAt,
 rawResultFile, summaryFile }`.
+
+- `onset` is the API's own coarse recency read: `{ type, label, value,
+  firstFailureSha }` (e.g. `Started` / `yesterday`). It is independent of
+  per-occurrence dates, so it still answers "is this current?" when every
+  `lastSeen.date` is `null`.
 
 Each `patterns[]` entry: `{ id, failure, count, rates[], environments[], seenOn,
 lastSeen, representativeOccurrence }`.

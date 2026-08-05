@@ -157,6 +157,11 @@ saved data is invalid, or the branch/test identity changed.
    `daysAgo` is stale next to the others is an already-fixed candidate: say so in
    your recommendation** instead of steering the engineer there on count alone.
 
+   When `lastSeen.date` is `null` for every pattern, render Last seen as `unknown`
+   and give the recency read from `onset` instead ("Started yesterday"). Report a
+   dateless column as a gap in that one read, never as a reason the already-fixed
+   question can't be asked.
+
 7. **Ask which pattern to prioritize whenever the table has more than one row.**
    Give your own read ("A is dominant at 99% -- start there, or focus on B?")
    but let the engineer decide; they may already know which failure they care

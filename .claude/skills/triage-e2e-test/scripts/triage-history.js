@@ -59,6 +59,21 @@ function envKey(os, browser) {
 const occurrenceDateCache = new Map();
 
 /**
+ * `repos/{owner}/{repo}/actions/runs/{id}` for a run_url, or null when the URL is
+ * not a workflow-run URL.
+ *
+ * The owner/repo must come from the URL, never from gh's working-directory
+ * default: the e2e lanes run in posit-dev/positron-builds, so letting gh resolve
+ * them against a positron checkout 404s on every occurrence and silently reports
+ * `lastSeen.date: null` for the whole failure table -- which also disables the
+ * "is this pattern already fixed?" read that recency exists to support.
+ */
+export function runApiPath(runUrl) {
+	const m = String(runUrl || '').match(/github\.com\/([^/]+)\/([^/]+)\/actions\/runs\/(\d+)/);
+	return m ? `repos/${m[1]}/${m[2]}/actions/runs/${m[3]}` : null;
+}
+
+/**
  * Calendar date of one failure occurrence. The test-health API returns no
  * timestamp on occurrences, so derive one: the local git commit date of the sha
  * (offline and instant, and within minutes of the CI run), falling back to the
@@ -76,10 +91,9 @@ export function occurrenceDate(o) {
 		if (r.ok) { iso = r.stdout.trim().split('\n').pop() || null; }
 	}
 	if (!iso && o.run_url) {
-		const runId = String(o.run_url).match(/\/runs\/(\d+)/)?.[1];
-		if (runId) {
-			// {owner}/{repo} are resolved by gh from the working directory.
-			const r = tryRun('gh', ['api', `repos/{owner}/{repo}/actions/runs/${runId}`, '--jq', '.created_at']);
+		const apiPath = runApiPath(o.run_url);
+		if (apiPath) {
+			const r = tryRun('gh', ['api', apiPath, '--jq', '.created_at']);
 			if (r.ok) { iso = r.stdout.trim() || null; }
 		}
 	}
@@ -325,6 +339,11 @@ function main() {
 	const testName = (mainTest || currentTest)?.testName || testKey.split('|||')[0];
 	const specPath = (mainTest || currentTest)?.specPath || testKey.split('|||')[1];
 
+	// The API's own coarse recency/onset label ("Started" / "yesterday"). Independent
+	// of per-occurrence dates, so it still answers "is this pattern current?" when
+	// date resolution comes up empty.
+	const insight = mainTest?.insight || currentTest?.insight || null;
+
 	const merged = mergeHistory(currentTest, mainTest, currentBranch, occ, occurrenceDate);
 	const verdict = classifyVerdict({
 		currentBranch,
@@ -351,6 +370,12 @@ function main() {
 			environments: p.environments, seenOn: p.seenOn, lastSeen: p.lastSeen,
 			representativeOccurrence: p.representativeOccurrence,
 		})),
+		onset: insight ? {
+			type: insight.type ?? null,
+			label: insight.timing_label ?? null,
+			value: insight.timing_value ?? null,
+			firstFailureSha: insight.first_failure_sha ?? null,
+		} : null,
 		verdict: verdict.verdict,
 		stop: verdict.stop,
 		note: verdict.note,
