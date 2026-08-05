@@ -93,6 +93,37 @@ export function decodeImageDataUrl(dataUrl: string): DecodedImageDataUrl | undef
 }
 
 /**
+ * Checks if a MIME type is SVG (image/svg+xml), ignoring MIME parameters
+ * (e.g. '; charset=utf-8'). SVG is text-based XML rather than binary image
+ * data, so it is classified separately from other images.
+ * @param mimeType The MIME type to check.
+ * @returns True if the MIME type is image/svg+xml.
+ */
+export function isSvgMimeType(mimeType: string): boolean {
+	const semicolonIndex = mimeType.indexOf(';');
+	const baseMimeType = semicolonIndex >= 0 ? mimeType.substring(0, semicolonIndex) : mimeType;
+	return baseMimeType.trim().toLowerCase() === 'image/svg+xml';
+}
+
+/**
+ * Creates a data URL for an image output.
+ *
+ * Raster image payloads are base64-encoded, while SVG payloads contain raw
+ * markup and must be URL-encoded -- a base64 label over raw markup breaks
+ * {@link decodeImageDataUrl} (posit-dev/positron#15277). Existing data URLs
+ * are returned unchanged.
+ */
+export function getImageDataUrl(mime: string, data: string): string {
+	if (data.startsWith(DATA_URL_PREFIX)) {
+		return data;
+	}
+	if (isSvgMimeType(mime)) {
+		return `data:${mime},${encodeURIComponent(data)}`;
+	}
+	return `data:${mime};base64,${data}`;
+}
+
+/**
  * Number of characters sampled from each end of a data URL by
  * {@link getImageContentId}.
  */

@@ -14,7 +14,7 @@ import { localize } from '../../../../nls.js';
 import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, CellExecutionState, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { formatCellDuration, getRelativeTime } from '../../positronNotebook/browser/notebookCells/cellExecutionUtils.js';
-import { isSvgMimeType } from '../../positronNotebook/browser/notebookMimeUtils.js';
+import { getImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Event as VSEvent, Emitter } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -212,22 +212,6 @@ export function chooseHtmlRenderMode(html: string, hasWebviewService: boolean): 
  */
 export function shouldExpandOnFreshOutput(isCollapsed: boolean, userCollapsedDuringExecution: boolean): boolean {
 	return isCollapsed && !userCollapsedDuringExecution;
-}
-
-/**
- * Creates a data URL for an image output.
- *
- * Raster image payloads are base64-encoded, while SVG payloads contain raw
- * markup and must be URL-encoded. Existing data URLs are returned unchanged.
- */
-export function getImageDataUrl(mime: string, data: string): string {
-	if (data.startsWith('data:')) {
-		return data;
-	}
-	if (isSvgMimeType(mime)) {
-		return `data:${mime},${encodeURIComponent(data)}`;
-	}
-	return `data:${mime};base64,${data}`;
 }
 
 /**

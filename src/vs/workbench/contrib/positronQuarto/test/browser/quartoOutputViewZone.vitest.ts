@@ -11,8 +11,7 @@ import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { EditorOption } from '../../../../../editor/common/config/editorOptions.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ICellOutput } from '../../common/quartoExecutionTypes.js';
-import { chooseHtmlRenderMode, getImageDataUrl, isInertHtml, isWebviewOverlayShown, QuartoOutputViewZone } from '../../browser/quartoOutputViewZone.js';
-import { decodeImageDataUrl } from '../../../../services/positronPlots/common/imageDataUrl.js';
+import { chooseHtmlRenderMode, isInertHtml, isWebviewOverlayShown, QuartoOutputViewZone } from '../../browser/quartoOutputViewZone.js';
 
 // The inline-output webview is a fixed-position overlay anchored to a
 // placeholder inside the editor view zone. It must be shown only while its view
@@ -97,31 +96,6 @@ describe('chooseHtmlRenderMode', () => {
 
 	it('falls back to the warning only when no webview service exists', () => {
 		expect(chooseHtmlRenderMode(activeHtml, false)).toBe('warning');
-	});
-});
-
-// Kernels provide raster image payloads as base64 and SVG payloads as raw
-// markup. Both formats must produce data URLs supported by the shared decoder.
-describe('getImageDataUrl', () => {
-	const svg = '<svg xmlns="http://www.w3.org/2000/svg"><circle r="10"/></svg>';
-
-	it('URL-encodes SVG payloads rather than labelling them base64', () => {
-		const dataUrl = getImageDataUrl('image/svg+xml', svg);
-		expect(dataUrl.startsWith('data:image/svg+xml,')).toBe(true);
-	});
-
-	it('produces an SVG data URL the shared decoder round-trips', () => {
-		const decoded = decodeImageDataUrl(getImageDataUrl('image/svg+xml', svg));
-		expect({ mimeType: decoded?.mimeType, data: decoded?.data.toString() })
-			.toEqual({ mimeType: 'image/svg+xml', data: svg });
-	});
-
-	it('labels raster payloads as base64', () => {
-		expect(getImageDataUrl('image/png', 'aGVsbG8=')).toBe('data:image/png;base64,aGVsbG8=');
-	});
-
-	it('returns a payload that is already a data URL unchanged', () => {
-		expect(getImageDataUrl('image/png', 'data:image/png;base64,aGVsbG8=')).toBe('data:image/png;base64,aGVsbG8=');
 	});
 });
 
