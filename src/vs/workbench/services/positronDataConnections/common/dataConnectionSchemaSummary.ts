@@ -24,6 +24,23 @@ const CONTAINER_ONLY_KINDS = new Set([
 	'group-views',
 	'group-columns',
 	'group-indexes',
+	'group-volumes',
+]);
+
+// Node kinds whose children are files rather than schema, and so are summarized as leaves: the walk
+// records the node itself and stops, without expanding it or counting what it holds. A Unity Catalog
+// volume or a Snowflake stage can hold thousands of files, the listing changes far more often than a
+// table definition does, and listing it costs a round-trip to the warehouse -- so what a consumer
+// wants from a *schema* summary is that the volume exists, not an arbitrary 50 of its filenames.
+//
+// This is deliberately a separate rule from the depth cap. Leaving a kind out of
+// CONTAINER_ONLY_KINDS also keeps its contents out of the default 4 levels, but only by accident of
+// arithmetic, and it does not avoid the work: at the depth limit the walk still fetches a node's
+// children in order to count them (see summarizeSiblings), so the listing is paid for and then
+// discarded. Stating the intent here instead skips the fetch outright.
+const SUMMARY_LEAF_KINDS = new Set([
+	'volume',
+	'stage',
 ]);
 
 /**
@@ -92,7 +109,8 @@ interface IWalkState {
  * and {@link IDataConnectionHandle.nodeGetChildren}, producing a bounded, plain JSON-serializable
  * summary suitable for handing to Assistant. Container-only node kinds (see
  * CONTAINER_ONLY_KINDS) are flattened into their parent since they add no schema information of
- * their own. Output is bounded by maxDepth, maxNodesPerLevel, and maxTotalNodes; whenever a cap
+ * their own, and file-holding kinds (see SUMMARY_LEAF_KINDS) are recorded without being expanded.
+ * Output is bounded by maxDepth, maxNodesPerLevel, and maxTotalNodes; whenever a cap
  * leaves children out, the parent node is annotated with truncatedChildCount rather than the
  * data being dropped silently.
  * @param handle The live data connection handle to summarize.
@@ -156,7 +174,9 @@ export async function summarizeDataConnectionSchema(
 			}
 			nodes.push(node);
 
-			if (dto.hasGetChildren) {
+			// A file-holding node (see SUMMARY_LEAF_KINDS) is recorded and left unexpanded, so no
+			// listing is fetched and no truncatedChildCount is reported for it.
+			if (dto.hasGetChildren && !SUMMARY_LEAF_KINDS.has(dto.kind)) {
 				if (depth < maxDepth) {
 					const result = await summarizeSiblings(await fetchChildren(dto), depth + 1);
 					if (result.nodes.length > 0) {
