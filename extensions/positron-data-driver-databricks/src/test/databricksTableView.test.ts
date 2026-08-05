@@ -303,6 +303,54 @@ suite('Databricks Column Profiles', () => {
 	});
 });
 
+suite('Databricks Cell Formatting', () => {
+
+	/** Fetches row 0 of a single column, with the value the client returns for it. */
+	async function firstCell(entryToRead: DatabricksSchemaEntry, value: unknown, formatOptions = FORMAT_OPTIONS) {
+		const { client } = recordingClient((sql) => isCountQuery(sql) ? [{ n: 1 }] : [{ c0: value }]);
+		const view = new DatabricksTableView(client, '`main`.`sales`.`t`', 't', 'table', [entryToRead]);
+		const { columns } = await view.getDataValues({
+			columns: [{ column_index: 0, spec: { first_index: 0, last_index: 0 } }],
+			format_options: formatOptions,
+		});
+		return columns[0][0];
+	}
+
+	test('a wide DECIMAL(n,0) keeps every digit rather than being rounded through a JS number', async () => {
+		// preserveBigNumericPrecision makes the driver return DECIMAL as an exact string; routing that
+		// back through Number() would round it to 1.2345678901234568e+29.
+		const exact = '123456789012345678901234567890';
+		const entryToRead = entry('total', ColumnDisplayType.Integer, 'decimal(38,0)');
+
+		assert.strictEqual(await firstCell(entryToRead, exact), exact);
+	});
+
+	test('a wide BIGINT keeps every digit', async () => {
+		// The same flag returns BIGINT as a bigint, which is past the safe integer range.
+		const entryToRead = entry('id', ColumnDisplayType.Integer, 'bigint');
+
+		assert.strictEqual(await firstCell(entryToRead, 9007199254740993n), '9007199254740993');
+	});
+
+	test('an exact integer string is still grouped when a thousands separator is configured', async () => {
+		const entryToRead = entry('total', ColumnDisplayType.Integer, 'decimal(38,0)');
+
+		assert.strictEqual(
+			await firstCell(entryToRead, '123456789012345678901234567890', { ...FORMAT_OPTIONS, thousands_sep: ',' }),
+			'123,456,789,012,345,678,901,234,567,890');
+	});
+
+	test('an integer value that is not a clean digit string is still normalized', async () => {
+		// Only a plain digit string is passed through untouched; anything else goes through Number() so
+		// it is normalized rather than printed raw.
+		const entryToRead = entry('n', ColumnDisplayType.Integer, 'int');
+
+		assert.strictEqual(await firstCell(entryToRead, ' 42 '), '42');
+		assert.strictEqual(await firstCell(entryToRead, 1e21), '1e+21');
+		assert.strictEqual(await firstCell(entryToRead, 42), '42');
+	});
+});
+
 suite('Databricks Row Index Queries', () => {
 
 	test('the row-number window falls back to the first sortable column, skipping complex ones', async () => {

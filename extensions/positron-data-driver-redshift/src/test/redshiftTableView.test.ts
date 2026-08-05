@@ -257,3 +257,43 @@ suite('Redshift Row Filter SQL', () => {
 		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.RegexMatch, '^10%_$', false)), `"name" ~* '^10%_$'`);
 	});
 });
+
+suite('Redshift Cell Formatting', () => {
+
+	test('a wide int8 keeps every digit rather than being rounded through a JS number', async () => {
+		// `pg` returns int8 as an exact string precisely because a JS number cannot hold it; coercing
+		// that string back with Number() would round 9007199254740993 to ...992.
+		const schema: RedshiftSchemaEntry[] = [
+			{ column_name: 'id', column_type: 'int8', type_display: ColumnDisplayType.Integer },
+		];
+		const { client } = recordingClient(sql => /count\(\*\)/.test(sql)
+			? [{ n: 2 }]
+			: [{ c0: '9007199254740993' }, { c0: '-9223372036854775808' }]);
+		const view = new RedshiftTableView(client, '"public"."t"', 't', 'table', schema);
+
+		const data = await view.getDataValues({
+			columns: [{ column_index: 0, spec: { first_index: 0, last_index: 1 } }],
+			format_options: FORMAT_OPTIONS,
+		});
+
+		assert.deepStrictEqual(data.columns[0], ['9007199254740993', '-9223372036854775808']);
+	});
+
+	test('an integer value that is not a clean digit string is still normalized', async () => {
+		// Only a plain digit string is passed through untouched; anything else goes through Number().
+		const schema: RedshiftSchemaEntry[] = [
+			{ column_name: 'n', column_type: 'int4', type_display: ColumnDisplayType.Integer },
+		];
+		const { client } = recordingClient(sql => /count\(\*\)/.test(sql)
+			? [{ n: 2 }]
+			: [{ c0: ' 42 ' }, { c0: 7 }]);
+		const view = new RedshiftTableView(client, '"public"."t"', 't', 'table', schema);
+
+		const data = await view.getDataValues({
+			columns: [{ column_index: 0, spec: { first_index: 0, last_index: 1 } }],
+			format_options: FORMAT_OPTIONS,
+		});
+
+		assert.deepStrictEqual(data.columns[0], ['42', '7']);
+	});
+});

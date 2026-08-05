@@ -466,7 +466,12 @@ export class DatabricksTableView {
 				return formatFloat(num, opts);
 			}
 			case ColumnDisplayType.Integer: {
-				const num = typeof value === 'bigint' ? value : Number(value);
+				// Both wide integer shapes reach the formatter without passing through a JS number, which
+				// would round anything beyond 2^53: a BIGINT arrives as a bigint, and a DECIMAL(n,0) as an
+				// exact digit string (see `preserveBigNumericPrecision` in databricksClient.ts). Anything
+				// else -- a plain number, or a string that isn't a clean integer literal -- is coerced as
+				// before.
+				const num = typeof value === 'bigint' || isIntegerLiteral(value) ? value : Number(value);
 				return formatInteger(num, opts);
 			}
 			case ColumnDisplayType.Boolean:
@@ -1275,8 +1280,23 @@ function formatFloat(value: number, opts: FormatOptions): string {
 	return opts.thousands_sep ? applyThousandsSep(formatted, opts.thousands_sep) : formatted;
 }
 
-/** Formats an integer value (number or bigint), optionally with a thousands separator. */
-function formatInteger(value: number | bigint, opts: FormatOptions): string {
+/**
+ * Whether a value is an exact integer literal: a string of digits with an optional sign. A
+ * DECIMAL(n,0) arrives in this form, and it is only safe to format such a string as-is when it holds
+ * nothing but digits -- anything else (an exponent, a decimal point, stray text) still goes through
+ * `Number` so it is normalized rather than printed raw.
+ */
+function isIntegerLiteral(value: unknown): value is string {
+	return typeof value === 'string' && /^[+-]?\d+$/.test(value);
+}
+
+/**
+ * Formats an integer value, optionally with a thousands separator. Accepts an exact digit string
+ * alongside number and bigint so a wide DECIMAL(n,0) keeps every digit: the body only stringifies its
+ * argument, and `applyThousandsSep` groups the digits textually, so no step here narrows the value to
+ * a JS number.
+ */
+function formatInteger(value: number | bigint | string, opts: FormatOptions): string {
 	const formatted = value.toString();
 	return opts.thousands_sep ? applyThousandsSep(formatted, opts.thousands_sep) : formatted;
 }

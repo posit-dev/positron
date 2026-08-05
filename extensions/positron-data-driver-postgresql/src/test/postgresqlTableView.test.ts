@@ -165,6 +165,44 @@ suite('PostgreSQL Data Explorer Tests', () => {
 				}
 			);
 		});
+
+		test('a wide int8 keeps every digit rather than being rounded through a JS number', async () => {
+			// `pg` returns int8 as an exact string precisely because a JS number cannot hold it; coercing
+			// that string back with Number() would round 9007199254740993 to ...992, and a 19-digit value
+			// to exponential notation.
+			const bigints: PostgresSchemaEntry[] = [
+				{ column_name: 'id', column_type: 'bigint', type_display: ColumnDisplayType.Integer },
+			];
+			const client = new FakeQueryClient(sql => sql.includes('count(*)')
+				? [{ n: 3 }]
+				: [{ c0: '9007199254740993' }, { c0: '9223372036854775807' }, { c0: '-9223372036854775808' }]);
+			const view = new PostgresTableView(client, '"public"."people"', 'people', 'table', bigints);
+
+			const data = await view.getDataValues({
+				columns: [{ column_index: 0, spec: { first_index: 0, last_index: 2 } }],
+				format_options: FORMAT,
+			});
+
+			assert.deepStrictEqual(data.columns[0], ['9007199254740993', '9223372036854775807', '-9223372036854775808']);
+		});
+
+		test('an integer value that is not a clean digit string is still normalized', async () => {
+			// Only a plain digit string is passed through untouched; anything else goes through Number().
+			const ints: PostgresSchemaEntry[] = [
+				{ column_name: 'n', column_type: 'integer', type_display: ColumnDisplayType.Integer },
+			];
+			const client = new FakeQueryClient(sql => sql.includes('count(*)')
+				? [{ n: 2 }]
+				: [{ c0: ' 42 ' }, { c0: 7 }]);
+			const view = new PostgresTableView(client, '"public"."people"', 'people', 'table', ints);
+
+			const data = await view.getDataValues({
+				columns: [{ column_index: 0, spec: { first_index: 0, last_index: 1 } }],
+				format_options: FORMAT,
+			});
+
+			assert.deepStrictEqual(data.columns[0], ['42', '7']);
+		});
 	});
 
 	suite('single-column projection', () => {

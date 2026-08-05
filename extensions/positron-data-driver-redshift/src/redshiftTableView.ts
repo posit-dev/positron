@@ -493,7 +493,11 @@ export class RedshiftTableView {
 				return formatFloat(num, opts);
 			}
 			case ColumnDisplayType.Integer: {
-				const num = typeof value === 'bigint' ? value : Number(value);
+				// `pg` hands back int8/bigint as an exact string precisely because a JS number cannot hold
+				// it, so that string is formatted as-is rather than being coerced and rounded past 2^53.
+				// Anything else -- a plain number, or a string that isn't a clean integer literal -- is
+				// coerced as before.
+				const num = typeof value === 'bigint' || isIntegerLiteral(value) ? value : Number(value);
 				return formatInteger(num, opts);
 			}
 			case ColumnDisplayType.Boolean:
@@ -1260,8 +1264,23 @@ function formatFloat(value: number, opts: FormatOptions): string {
 	return opts.thousands_sep ? applyThousandsSep(formatted, opts.thousands_sep) : formatted;
 }
 
-/** Formats an integer value (number or bigint), optionally with a thousands separator. */
-function formatInteger(value: number | bigint, opts: FormatOptions): string {
+/**
+ * Whether a value is an exact integer literal: a string of digits with an optional sign. `pg` returns
+ * int8/bigint in this form, and it is only safe to format such a string as-is when it holds nothing
+ * but digits -- anything else (an exponent, a decimal point, stray text) still goes through `Number`
+ * so it is normalized rather than printed raw.
+ */
+function isIntegerLiteral(value: unknown): value is string {
+	return typeof value === 'string' && /^[+-]?\d+$/.test(value);
+}
+
+/**
+ * Formats an integer value, optionally with a thousands separator. Accepts an exact digit string
+ * alongside number and bigint so a wide int8 keeps every digit: the body only stringifies its
+ * argument, and `applyThousandsSep` groups the digits textually, so no step here narrows the value to
+ * a JS number.
+ */
+function formatInteger(value: number | bigint | string, opts: FormatOptions): string {
 	const formatted = value.toString();
 	return opts.thousands_sep ? applyThousandsSep(formatted, opts.thousands_sep) : formatted;
 }
