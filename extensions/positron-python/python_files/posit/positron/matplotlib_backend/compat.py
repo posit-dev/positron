@@ -38,10 +38,13 @@ def register_with_legacy_ipython() -> None:
     # `get_backend_registry`, so a module-level import would be circular.
     from .backend import Backend
 
-    # The registry-based lister arrived in the same release that stopped reading the
-    # static table, so its presence tells the two resolution schemes apart. Touching
-    # `pt.backends` on newer IPython would also trip its deprecation warning.
-    if hasattr(pt, "_list_matplotlib_backends_and_gui_loops"):
+    # `backends` is a real module global exactly on the versions that read it: 8.24
+    # renamed it to `_deprecated_backends` behind a `__getattr__` shim when it moved to
+    # the registry, and 9.16 removed the shim. Looking it up in the module's own
+    # namespace therefore tells the two resolution schemes apart *and* confirms there's
+    # a table to write to.
+    legacy_table = vars(pt).get("backends")
+    if legacy_table is None:
         return
     for backend in Backend:
-        pt.backends.setdefault(backend.short_name, backend.full_name)
+        legacy_table.setdefault(backend.short_name, backend.full_name)
