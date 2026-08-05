@@ -28,5 +28,5 @@ test('workRoot lives under the shared git common dir, not the per-worktree .clau
 		repoRoot(),
 		execFileSync('git', ['rev-parse', '--git-common-dir'], { cwd: repoRoot(), encoding: 'utf8' }).trim()
 	);
-	assert.equal(root, path.join(commonDir, 'triage-e2e-test'));
+	assert.equal(root, path.join(commonDir, 'debug-e2e-test'));
 });

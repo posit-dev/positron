@@ -45,25 +45,25 @@ A stale selector, no prior triage, no re-clear needed.
 ```bash
 # 0. Resolve whatever the engineer said into the exact key. Here they only had
 #    the leaf title, and it is unique, so it resolves without a question.
-node .claude/skills/triage-e2e-test/scripts/resolve-test-key.js 'can save a plot'
+node .claude/skills/debug-e2e-test/scripts/resolve-test-key.js 'can save a plot'
 # -> { "mode": "title-search", "resolved": { "testKey": "Plots > Python Plots > can
 #      save a plot|||test/e2e/tests/plots/plots.test.ts", "line": 61 },
 #      "candidates": [], "inWorkingTree": true, "note": null }
 
 # 1. History. triageId comes back in the output; reuse it verbatim.
-node .claude/skills/triage-e2e-test/scripts/triage-history.js \
+node .claude/skills/debug-e2e-test/scripts/triage-history.js \
   --test-key 'Plots > Python Plots > can save a plot|||test/e2e/tests/plots/plots.test.ts' \
   --lookback-days 14
 # -> { "triageId": "can-save-a-plot-3f2a91c4", "verdict": "ok",
 #      "patterns": [ { "id": "A", "count": 6, "rates": [ ... ] } ], ... }
 
 # 2. Checkpoint. --init auto-seeds history + patterns from history-summary.json.
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js \
   --triage-id can-save-a-plot-3f2a91c4 --init \
   --test-key 'Plots > Python Plots > can save a plot|||test/e2e/tests/plots/plots.test.ts'
 
 # 3. Prior triage, before presenting the table.
-node .claude/skills/triage-e2e-test/scripts/find-prior-triage.js \
+node .claude/skills/debug-e2e-test/scripts/find-prior-triage.js \
   --spec-path 'test/e2e/tests/plots/plots.test.ts' \
   --triage-id can-save-a-plot-3f2a91c4 \
   --occurrence-shas '["a1b2c3d","e4f5g6h"]'
@@ -73,12 +73,12 @@ node .claude/skills/triage-e2e-test/scripts/find-prior-triage.js \
 > One pattern only -- no selection question. Present the table, note that, move on.
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js \
   --triage-id can-save-a-plot-3f2a91c4 \
   --set selectedPattern=A --set phase=pattern-selected
 
 # 4. Evidence for the one representative occurrence.
-node .claude/skills/triage-e2e-test/scripts/fetch-pattern-evidence.js \
+node .claude/skills/debug-e2e-test/scripts/fetch-pattern-evidence.js \
   --report-url 'https://d1abc.cloudfront.net/run-4821/index.html#?testId=9f3c' \
   --triage-id can-save-a-plot-3f2a91c4 --pattern A
 # -> { "summaryFile": ".../evidence/A/summary.md", "snapshotFile": ".../error-context.md", ... }
@@ -106,7 +106,7 @@ The snapshot shows `Save plot` as the accessible name -- identifier present unde
 a different shape, so this is locator drift per the rubric.
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js \
   --triage-id can-save-a-plot-3f2a91c4 --patch '{
     "diagnosis": {
       "confidence": "high",
@@ -133,11 +133,11 @@ Fix the page object, confirm the same run passes, open the PR (`positron-pr-help
 then -- **the PR existing is not the end** -- record and close:
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/record-diagnosis.js \
+node .claude/skills/debug-e2e-test/scripts/record-diagnosis.js \
   --triage-id can-save-a-plot-3f2a91c4 --pr 15240 --dry-run   # preview
-node .claude/skills/triage-e2e-test/scripts/record-diagnosis.js \
+node .claude/skills/debug-e2e-test/scripts/record-diagnosis.js \
   --triage-id can-save-a-plot-3f2a91c4 --pr 15240 --outcome fix-test
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js \
   --triage-id can-save-a-plot-3f2a91c4 --set phase=done
 ```
 
@@ -146,14 +146,14 @@ node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
 Two patterns, a prior fix that didn't hold, a re-clear, and two artifacts.
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/triage-history.js \
+node .claude/skills/debug-e2e-test/scripts/triage-history.js \
   --test-key 'Console > R Console > restarts cleanly|||test/e2e/tests/console/console-restart.test.ts'
 # -> verdict "ok", patterns A (count 9, lastSeen 11d ago) and B (count 4, lastSeen today)
 
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js \
   --triage-id restarts-cleanly-77bd10e2 --init --test-key '<same key>'
 
-node .claude/skills/triage-e2e-test/scripts/find-prior-triage.js \
+node .claude/skills/debug-e2e-test/scripts/find-prior-triage.js \
   --spec-path 'test/e2e/tests/console/console-restart.test.ts' \
   --triage-id restarts-cleanly-77bd10e2 \
   --occurrence-shas '["11aa22b","33cc44d","55ee66f"]'
@@ -167,11 +167,11 @@ say so in the recommendation instead of steering toward A on its higher count.
 > Two rows, so the choice is the engineer's. They pick B.
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js \
   --triage-id restarts-cleanly-77bd10e2 \
   --set selectedPattern=B --set phase=pattern-selected
 
-node .claude/skills/triage-e2e-test/scripts/fetch-pattern-evidence.js \
+node .claude/skills/debug-e2e-test/scripts/fetch-pattern-evidence.js \
   --report-url '<B.representativeOccurrence.report_url>' \
   --triage-id restarts-cleanly-77bd10e2 --pattern B
 ```
@@ -181,7 +181,7 @@ invisible in an error digest by construction. The question is ordering, so it
 goes straight to Level 4:
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/fetch-pattern-evidence.js \
+node .claude/skills/debug-e2e-test/scripts/fetch-pattern-evidence.js \
   --report-url '<same url>' --triage-id restarts-cleanly-77bd10e2 \
   --pattern B --keep-raw-logs
 ```
@@ -192,7 +192,7 @@ reconnect only in the failing attempt -- an ordering, i.e. a named mechanism
 rather than a restated timeout.
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js \
   --triage-id restarts-cleanly-77bd10e2 --patch '{
     "diagnosis": {
       "confidence": "medium",
@@ -208,18 +208,18 @@ node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
 # The diagnosis is durable on disk, so a clear is safe here -- this one was an
 # evidence-heavy dig, so offer it. Skip straight to phase=implementation if the
 # engineer would rather keep the thread.
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js \
   --triage-id restarts-cleanly-77bd10e2 --set phase=awaiting-clear
 ```
 
 > "That was a long evidence dig -- want me to `/clear` and resume from the
 > checkpoint before implementing, or keep the context?" On yes: `/clear`, then
-> `/triage-e2e-test --resume restarts-cleanly-77bd10e2`.
+> `/debug-e2e-test --resume restarts-cleanly-77bd10e2`.
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js \
   --triage-id restarts-cleanly-77bd10e2 --read
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js \
   --triage-id restarts-cleanly-77bd10e2 --set phase=implementation
 ```
 
@@ -231,11 +231,11 @@ File the product issue, open the mitigation PR, then record the block on **both*
 The issue is the primary artifact (it matches `outcome`), so it goes first:
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/record-diagnosis.js \
+node .claude/skills/debug-e2e-test/scripts/record-diagnosis.js \
   --triage-id restarts-cleanly-77bd10e2 --issue 15251 --outcome file-issue
-node .claude/skills/triage-e2e-test/scripts/record-diagnosis.js \
+node .claude/skills/debug-e2e-test/scripts/record-diagnosis.js \
   --triage-id restarts-cleanly-77bd10e2 --pr 15252 --secondary
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js \
   --triage-id restarts-cleanly-77bd10e2 --set phase=done
 ```
 
@@ -247,7 +247,7 @@ surfaces this wasn't recreated" -- never "confirmed fixed."
 Same discipline, four fewer steps. The engineer just watched a test fail.
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/collect-local-evidence.js
+node .claude/skills/debug-e2e-test/scripts/collect-local-evidence.js
 # -> { "verdict": "ok", "selected": { "dir": "tests-plots-plots-test-ts-...", "failed": true },
 #      "summaryFile": ".../local/tests-plots-.../summary.md",
 #      "snapshotFile": "test-results/tests-plots-.../error-context.md",
@@ -263,18 +263,18 @@ that no rate or environment spread is known. If the engineer needs it, the two
 entries compose:
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/resolve-test-key.js 'can save a plot'
-node .claude/skills/triage-e2e-test/scripts/triage-history.js --test-key '<key>'
+node .claude/skills/debug-e2e-test/scripts/resolve-test-key.js 'can save a plot'
+node .claude/skills/debug-e2e-test/scripts/triage-history.js --test-key '<key>'
 ```
 
 Ending in a PR means the block is owed, which is where the checkpoint starts:
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js --triage-id <id> \
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js --triage-id <id> \
   --init --test-key '<key>' --phase evidence-gathered
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js --triage-id <id> --patch '{"diagnosis": {...}}'
-node .claude/skills/triage-e2e-test/scripts/record-diagnosis.js --triage-id <id> --pr 15400 --outcome fix-test
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js --triage-id <id> --set phase=done
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js --triage-id <id> --patch '{"diagnosis": {...}}'
+node .claude/skills/debug-e2e-test/scripts/record-diagnosis.js --triage-id <id> --pr 15400 --outcome fix-test
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js --triage-id <id> --set phase=done
 ```
 
 A local dig that ends with a verified fix and no PR/issue ends there -- no
@@ -287,8 +287,8 @@ open issue ends without `record-diagnosis.js`, and the done-gate demands a reaso
 instead of a ref:
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js \
   --triage-id <id> --set outcome=no-op \
   --set outcomeReason="duplicate of #14983; pattern matches its RPC race exactly"
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js --triage-id <id> --set phase=done
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js --triage-id <id> --set phase=done
 ```

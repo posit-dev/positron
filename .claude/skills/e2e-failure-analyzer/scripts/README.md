@@ -2,7 +2,7 @@
 
 Shared reference for querying the `test-health` endpoint of the e2e-test-insights
 API (`https://connect.posit.it/e2e-test-insights-api`). Used today by
-`e2e-failure-analyzer` (run-centric) and `triage-e2e-test` (test-centric); any
+`e2e-failure-analyzer` (run-centric) and `debug-e2e-test` (test-centric); any
 skill may call it directly for a lightweight "does this test have known CI
 history" check. The API itself has no gate.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // checkpoint.js -- durable triage state for start / resume / status.
 //
-// State lives at <git-common-dir>/triage-e2e-test/<triage-id>/state.json,
+// State lives at <git-common-dir>/debug-e2e-test/<triage-id>/state.json,
 // shared across worktrees so --resume works from any checkout.
 // A resume reads the checkpoint and continues from `phase`/`nextAction` without
 // replaying completed history work.

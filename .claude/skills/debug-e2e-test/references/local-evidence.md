@@ -32,7 +32,7 @@ Two consequences worth holding onto:
 ## Collect
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/collect-local-evidence.js
+node .claude/skills/debug-e2e-test/scripts/collect-local-evidence.js
 ```
 
 No arguments is the intended call: it picks the best-ranked run (failures first,
@@ -89,7 +89,7 @@ file an issue, or the engineer wants a `/clear`. Then resolve the key and init
 where you actually are:
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/checkpoint.js --triage-id <id> \
+node .claude/skills/debug-e2e-test/scripts/checkpoint.js --triage-id <id> \
   --init --test-key '<key>' --phase evidence-gathered
 ```
 

@@ -1,9 +1,9 @@
 ---
-name: triage-e2e-test
+name: debug-e2e-test
 description: Use when investigating a specific named Positron e2e (Playwright) test that is failing or flaking -- in CI ("why is <test> failing on main", "this test is flaky in CI", "is this a test bug or a product bug") or on the engineer's machine ("this e2e test just failed locally", "debug this e2e failure"). From CI it surfaces the test's distinct failure modes from history and pulls evidence for one; locally it reads the run's own trace, snapshot, and logs. Either way it reasons to a falsifiable root cause with the engineer and lands on a test fix, a product-bug issue, or an accepted-flake note. Do NOT use for: a test you are writing or currently editing (author-e2e-tests); a whole CI run's failures, or a run ID/URL (e2e-failure-analyzer); Vitest or extension-host failures.
 ---
 
-# Triage CI E2E Test
+# Debug E2E Test
 
 Start from a test name (not a CI run), find its recent distinct failure modes,
 investigate one, falsify a root-cause mechanism, and land on fix-the-test vs.
@@ -104,18 +104,18 @@ Run from the repo root. Flags and output contracts:
 
 ## Start or resume
 
-`/triage-e2e-test "<test>"` -- start the **CI entry**. `<test>` can be
+`/debug-e2e-test "<test>"` -- start the **CI entry**. `<test>` can be
 anything that names one test: a leaf title, a spec path, `spec.test.ts:41`, a
 full `testName|||specPath` key, or a dashboard URL.
-`/triage-e2e-test --local` -- start the **local entry** (see below).
-`/triage-e2e-test --resume <triage-id>` -- resume.
-`/triage-e2e-test --status` -- list saved triages.
+`/debug-e2e-test --local` -- start the **local entry** (see below).
+`/debug-e2e-test --resume <triage-id>` -- resume.
+`/debug-e2e-test --status` -- list saved triages.
 
 **On `--local`** (or when the engineer describes a failure they just produced):
 skip straight to evidence -- no key resolution, no history, no checkpoint.
 
 ```bash
-node .claude/skills/triage-e2e-test/scripts/collect-local-evidence.js
+node .claude/skills/debug-e2e-test/scripts/collect-local-evidence.js
 ```
 
 Act on its `verdict`, then read `summaryFile` and go to **Determine root cause**.
@@ -136,7 +136,7 @@ saved data is invalid, or the branch/test identity changed.
    engineer gave you (leaf title, spec path, `spec.test.ts:41` from a stack trace,
    full key, or a pasted dashboard URL) straight through:
    ```bash
-   node .claude/skills/triage-e2e-test/scripts/resolve-test-key.js '<whatever they gave>'
+   node .claude/skills/debug-e2e-test/scripts/resolve-test-key.js '<whatever they gave>'
    ```
    It reads the real hierarchy from Playwright (~2s), so the `describe` nesting is
    never guessed. Use `resolved.testKey` when `resolved` is non-null; when it's
@@ -145,7 +145,7 @@ saved data is invalid, or the branch/test identity changed.
    read [`references/history-query.md`](references/history-query.md#building-the-test-key).
 2. Run the history helper:
    ```bash
-   node .claude/skills/triage-e2e-test/scripts/triage-history.js \
+   node .claude/skills/debug-e2e-test/scripts/triage-history.js \
      --test-key '<testName>|||<specPath>' --lookback-days 14
    ```
 3. Act on its `verdict`. `stop: true` (`zero-runs-both`, `clean`) or an `error`
@@ -156,12 +156,12 @@ saved data is invalid, or the branch/test identity changed.
    one silos the checkpoint from the work dir already holding the history and
    evidence, which is what `--resume` reads:
    ```bash
-   node .claude/skills/triage-e2e-test/scripts/checkpoint.js --triage-id <id> \
+   node .claude/skills/debug-e2e-test/scripts/checkpoint.js --triage-id <id> \
      --init --test-key '<key>'
    ```
 5. Check for prior triage before presenting the table:
    ```bash
-   node .claude/skills/triage-e2e-test/scripts/find-prior-triage.js \
+   node .claude/skills/debug-e2e-test/scripts/find-prior-triage.js \
      --spec-path '<specPath>' --triage-id <id> \
      --occurrence-shas '["<sha1>","<sha2>"]'
    ```
@@ -203,7 +203,7 @@ start at step 2. Steps 2 and 3 are shared.
 
 1. Fetch evidence for the pattern's representative occurrence:
    ```bash
-   node .claude/skills/triage-e2e-test/scripts/fetch-pattern-evidence.js \
+   node .claude/skills/debug-e2e-test/scripts/fetch-pattern-evidence.js \
      --report-url '<representativeOccurrence.report_url>' \
      --triage-id <id> --pattern A
    ```

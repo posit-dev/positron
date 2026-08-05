@@ -99,9 +99,9 @@ Positron has three test categories:
 
 ### Triaging an e2e test that is failing or flaking
 
-For a **named e2e test that is failing or flaking**, use the
-`triage-e2e-test` skill instead of a general debugging process. It has two
-entries and covers both cases:
+For a **named e2e test that is failing or flaking**, use the `debug-e2e-test`
+skill rather than a general debugging skill. It is the e2e-specific version of
+one, with two entries:
 
 - **failing in CI** -- it starts from the test's real CI failure history rather
   than a guess at the mechanism

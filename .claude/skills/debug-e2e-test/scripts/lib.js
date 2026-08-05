@@ -1,4 +1,4 @@
-// Shared helpers for the triage-e2e-test skill scripts.
+// Shared helpers for the debug-e2e-test skill scripts.
 //
 // These helpers keep every triage script deterministic and side-effect-honest:
 // raw payloads land on disk under a per-triage work directory, and only compact
@@ -13,7 +13,7 @@ import { execFileSync } from 'child_process';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
-/** Repo root, resolved from this script's own location (scripts live at .claude/skills/triage-e2e-test/scripts). */
+/** Repo root, resolved from this script's own location (scripts live at .claude/skills/debug-e2e-test/scripts). */
 export function repoRoot() {
 	return path.resolve(HERE, '..', '..', '..', '..');
 }
@@ -56,7 +56,7 @@ export const MISSING_API_KEY_HELP = [
 /**
  * Root of all triage work directories.
  *
- * Anchored on the shared git *common* dir (e.g. <repo>/.git/triage-e2e-test) so
+ * Anchored on the shared git *common* dir (e.g. <repo>/.git/debug-e2e-test) so
  * a triage started in one worktree is visible from every other worktree and
  * `--resume <id>` works no matter which checkout runs it. The previous location
  * (.claude/work/**) is gitignored and per-worktree, so a resume from a different
@@ -69,9 +69,9 @@ export function workRoot() {
 	if (res.ok && res.stdout.trim()) {
 		// --git-common-dir is relative to repoRoot for the main worktree (".git")
 		// and absolute for linked worktrees; path.resolve handles both.
-		_workRootCache = path.join(path.resolve(repoRoot(), res.stdout.trim()), 'triage-e2e-test');
+		_workRootCache = path.join(path.resolve(repoRoot(), res.stdout.trim()), 'debug-e2e-test');
 	} else {
-		_workRootCache = path.join(repoRoot(), '.claude', 'work', 'triage-e2e-test');
+		_workRootCache = path.join(repoRoot(), '.claude', 'work', 'debug-e2e-test');
 	}
 	return _workRootCache;
 }

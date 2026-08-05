@@ -10,17 +10,17 @@ End-to-end runs of these commands in order:
 
 ## Shared conventions
 
-- **Run from the repo root**, as `node .claude/skills/triage-e2e-test/scripts/<name>.js`.
+- **Run from the repo root**, as `node .claude/skills/debug-e2e-test/scripts/<name>.js`.
 - **stdout is compact JSON only.** Large payloads (full API responses, processor
   output, trace timelines) are written to disk and referenced by path, so they
   never enter the conversation.
 - **Errors are structured**: `{ "error": "..." }` on stdout plus a non-zero exit.
   Treat that as stop-and-surface, never as "no data" or a cue to fall back to a
   broader search.
-- **Work directory**: `<git-common-dir>/triage-e2e-test/<triage-id>/`. It is
+- **Work directory**: `<git-common-dir>/debug-e2e-test/<triage-id>/`. It is
   anchored on the git *common* dir, so a triage started in one worktree resumes
   from any other. Outside a git repo it falls back to
-  `.claude/work/triage-e2e-test/`.
+  `.claude/work/debug-e2e-test/`.
 - **`--triage-id`** is the same value everywhere. `triage-history.js` derives it
   (`<leaf-test-slug>-<hash8>`) and returns it as `triageId`; pass that verbatim to
   every later script. Inventing one splits the checkpoint from the work dir
