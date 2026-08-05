@@ -6,15 +6,30 @@ key you need to rebuild). The normal path never needs it.
 
 ## Building the test key
 
+`resolve-test-key.js` (SKILL step 1) does this for you and is the normal path.
+What is below is why it exists, and the fallback when it can't run.
+
 Keys are `testName|||specPath`. `testName` is the **full hierarchical
 Playwright title** -- every enclosing `test.describe()` block joined to the
 `test()` title with `" > "`, not just the leaf title. Using only the leaf title
-silently returns a zero-runs result (looks clean, is actually a key mismatch).
+silently returns a zero-runs result (looks clean, is actually a key mismatch),
+which is exactly why the hierarchy is read from Playwright rather than assembled
+by hand.
 
-If you only have a partial name, grep `test/e2e/tests/` for the exact title and
-spec path, then walk outward to collect every enclosing `test.describe()` title.
-See [`../../e2e-failure-analyzer/scripts/README.md`](../../e2e-failure-analyzer/scripts/README.md#building-a-test-key)
-for the full worked example.
+**Fallback if `resolve-test-key.js` fails.** It shells out to
+`npx playwright test --list`, so it fails as a unit when any spec fails to
+import -- run that command directly to see the real error, and fix the import
+rather than guessing a key around it. Only if listing cannot be made to work:
+grep `test/e2e/tests/` for the exact title and spec path, then walk outward to
+collect every enclosing `test.describe()` title. See
+[`../../e2e-failure-analyzer/scripts/README.md`](../../e2e-failure-analyzer/scripts/README.md#building-a-test-key)
+for the worked example. Treat a hand-built key as suspect: if it returns
+`zero-runs-both`, assume the key before assuming the record is clean.
+
+**Ambiguity is not yours to resolve.** When the resolver returns `candidates`
+with no `resolved`, two or more tests genuinely match (a leaf title reused across
+specs, or a whole spec named). Present them and ask. Picking one silently is how
+a triage ends up investigating the wrong test's history.
 
 ## What each `verdict` from `triage-history.js` means
 
@@ -47,12 +62,24 @@ is a separate axis: a high-count pattern with a stale `daysAgo` was likely an
 acute burst that a merged fix already closed, which count and rate alone cannot
 show. Check it against `find-prior-triage.js` before recommending it.
 
-## API unreachable
+## Missing API key vs. API unreachable
 
-`triage-history.js` exits non-zero with `{ "error": ... }` when a branch query
-returns `{}` (API down or `E2E_INSIGHTS_API_KEY` unset). Say so and stop -- do
-**not** fall back to the other branch's result as if it were complete, and do
-not treat an empty response as "no failures."
+`triage-history.js` exits non-zero with `{ "error": ..., "cause": ... }`. The two
+causes get different responses, so read `cause` before reporting:
+
+- **`missing-api-key`** -- no key in `E2E_INSIGHTS_API_KEY` or the repo-root
+  `.env.e2e` (a placeholder value counts as missing). Caught in a pre-flight,
+  before any query. Relay the setup steps in the `error` string verbatim -- they
+  name the 1Password path -- and stop. This is a first-run setup gap, not a
+  finding about the test, and there is **no degraded mode**: without history
+  there is nothing to triage, so do not substitute a local run or guess at
+  failure modes.
+- **`api-unreachable`** -- a key was found but a branch query returned `{}`.
+  API-side or network. Suggest a retry; do **not** send the engineer to
+  1Password.
+
+Either way: do **not** fall back to the other branch's result as if it were
+complete, and do not treat an empty response as "no failures."
 
 ## If the script itself is broken
 

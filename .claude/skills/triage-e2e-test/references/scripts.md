@@ -1,6 +1,6 @@
 # Scripts -- flags and output contracts
 
-Reference for the five helpers in `scripts/`. Read it when you need a flag that
+Reference for the six helpers in `scripts/`. Read it when you need a flag that
 the SKILL's workflow steps don't already spell out, or when you need to know what
 a script's output actually contains. If a script is *broken* and you need to do
 its work by hand, that is [`script-fallbacks.md`](script-fallbacks.md) instead.
@@ -25,6 +25,33 @@ End-to-end runs of these commands in order:
   (`<leaf-test-slug>-<hash8>`) and returns it as `triageId`; pass that verbatim to
   every later script. Inventing one splits the checkpoint from the work dir
   holding the history and evidence, which is what `--resume` reads.
+
+## `resolve-test-key.js`
+
+Turns a loose test reference into an exact `testName|||specPath` key by reading
+the hierarchy from `npx playwright test --list` (~2s, all projects, deduped --
+the key has no project dimension). Takes the input as a leading positional or
+`--input`; no other flags.
+
+| Input shape | `mode` | Behavior |
+|---|---|---|
+| `Suite > test\|\|\|test/e2e/...ts` | `exact-key` | validated against the tree, passed through either way |
+| dashboard test-detail URL | `dashboard-url` | decodes the `test` query param |
+| `test/e2e/tests/x.test.ts` or `x.test.ts` | `spec-path` | every test in the file; resolves only if the file has exactly one |
+| `x.test.ts:41` | `spec-line` | the test at that line, else the nearest declared above it |
+| any other text | `title-search` | exact full title, then exact leaf, then substring (case-insensitive) |
+
+Output: `{ input, mode, resolved, candidates, totalListed, inWorkingTree, note }`.
+
+- **`resolved`** non-null -> use `resolved.testKey`. Fields: `testKey`, `testName`,
+  `specPath`, `line`, `leaf`.
+- **`candidates`** non-empty with `resolved: null` -> ambiguous, capped at 15.
+  Present them and ask; never pick one silently.
+- **`inWorkingTree: false`** -> the key isn't in the tree (renamed or deleted
+  test). Still resolved, because CI history outlives the source; relay the `note`.
+- Non-zero exit: no match, an empty input, a URL with no `test` param, or a
+  listing failure. A listing failure with an exact key given is *not* fatal -- the
+  key is emitted with a `note` instead, since it needs no working tree.
 
 ## `triage-history.js`
 

@@ -24,6 +24,36 @@ export function analyzerScript(name) {
 }
 
 /**
+ * Whether an e2e-test-insights API key is resolvable, matching the lookup order
+ * in e2e-query-history.js (env var, then the repo-root .env.e2e).
+ *
+ * Checked before any query so a missing key fails as itself, with setup steps,
+ * instead of surfacing later as an indistinguishable "API unreachable" empty {}.
+ */
+export function insightsApiKeyPresent() {
+	if (process.env.E2E_INSIGHTS_API_KEY) { return true; }
+	try {
+		const body = fs.readFileSync(path.join(repoRoot(), '.env.e2e'), 'utf8');
+		return /^\s*E2E_INSIGHTS_API_KEY\s*=\s*\S+/m.test(body)
+			&& !/^\s*E2E_INSIGHTS_API_KEY\s*=\s*your_e2e_insights_api_key_here\s*$/m.test(body);
+	} catch {
+		return false;
+	}
+}
+
+/** Setup steps for a missing API key. Kept here so every script reports it identically. */
+export const MISSING_API_KEY_HELP = [
+	'No e2e-test-insights API key found. This skill reads CI test history, so it cannot run without one.',
+	'Set it up once:',
+	'  1. Copy the key from 1Password: op://Positron/E2E_dashboard_api_key/credential',
+	'     (CLI: op read "op://Positron/E2E_dashboard_api_key/credential")',
+	'  2. Add it to .env.e2e in the repo root (copy .env.e2e.example if you have no .env.e2e yet):',
+	'       E2E_INSIGHTS_API_KEY=<the key>',
+	'     or export E2E_INSIGHTS_API_KEY=<the key> in your shell.',
+	'No 1Password access? Ask the Positron QA team for the dashboard key.',
+].join('\n');
+
+/**
  * Root of all triage work directories.
  *
  * Anchored on the shared git *common* dir (e.g. <repo>/.git/triage-e2e-test) so

@@ -4,16 +4,20 @@ Shared reference for querying the `test-health` endpoint of the e2e-test-insight
 API (`https://connect.posit.it/e2e-test-insights-api`). Used today by
 `e2e-failure-analyzer` (run-centric) and `triage-e2e-test` (test-centric); any
 skill may call it directly for a lightweight "does this test have known CI
-history" check. The API itself has no gate -- only the guided triage workflow
-in `triage-e2e-test` is manual-only, not the underlying script.
+history" check. The API itself has no gate.
 
 ## Auth
 
 Requires `E2E_INSIGHTS_API_KEY`. Falls back to the `.env.e2e` file at the repo
 root (same local secrets file the e2e Playwright suite uses; see
-`test/e2e/.env.e2e.example`) if the env var isn't set. If neither is present
-the script warns on stderr and returns `{}` with exit code 0 -- treat an empty
-response as "API unreachable," not "no failures."
+`.env.e2e.example`, also at the repo root) if the env var isn't set. If neither
+is present the script warns on stderr and returns `{}` with exit code 0 -- treat
+an empty response as "API unreachable," not "no failures."
+
+The key lives in 1Password at `op://Positron/E2E_dashboard_api_key/credential`
+(the same secret CI reads). To set it up locally, copy it into `.env.e2e` as
+`E2E_INSIGHTS_API_KEY=<key>`, or export it in your shell. Without 1Password
+access, ask the Positron QA team.
 
 ## `repo_id`
 

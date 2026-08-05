@@ -26,6 +26,7 @@ import path from 'path';
 import {
 	analyzerScript, triageDir, deriveTriageId, ensureDir,
 	writeJson, emit, fail, runNode, tryRun, isMain, parseArgs,
+	insightsApiKeyPresent, MISSING_API_KEY_HELP,
 } from './lib.js';
 
 /** Normalize a failure-pattern string into a stable cross-branch match key. */
@@ -283,6 +284,13 @@ function main() {
 	if (!testKey || !testKey.includes('|||')) {
 		fail('Missing or malformed --test-key (expected "testName|||specPath").');
 	}
+	// Pre-flight: without a key every query returns {}, which is indistinguishable
+	// from a real outage. Fail as a setup problem, with the steps, before querying --
+	// and before creating a work dir, so a first-run setup gap leaves no debris.
+	if (!insightsApiKeyPresent()) {
+		fail(MISSING_API_KEY_HELP, { cause: 'missing-api-key' });
+	}
+
 	const repo = args.repo || 'positron';
 	const lookbackDays = Number(args['lookback-days'] || 14);
 	const occ = Number(args['occurrences-per-pattern'] || 1);
@@ -306,7 +314,7 @@ function main() {
 
 	// An empty {} means the API was unreachable for that call -- surface and stop.
 	if ((queriedCurrent && Object.keys(currentData).length === 0) || Object.keys(mainData).length === 0) {
-		fail('test-health API unreachable (empty response). Check E2E_INSIGHTS_API_KEY; do not treat this as "no failures".', { triageId });
+		fail('test-health API unreachable (empty response). A key was found, so this is an API-side or network failure, not setup -- retry, then check the dashboard. Do not treat this as "no failures".', { triageId, cause: 'api-unreachable' });
 	}
 
 	const rawFile = writeJson(path.join(dir, 'history-raw.json'), { currentBranch, currentData, mainData });

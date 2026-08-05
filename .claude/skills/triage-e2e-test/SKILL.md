@@ -1,10 +1,9 @@
 ---
 name: triage-e2e-test
-description: Triage a specific Positron e2e test that is already failing or flaking in CI. Given a test name, surface its recent distinct failure modes from history, pull evidence for one mode, and reason to a root cause collaboratively with the engineer, landing on a concrete test fix or a product-bug repro. For authoring a brand-new test, use author-e2e-tests.
-disable-model-invocation: true
+description: Use when investigating a specific named Positron e2e (Playwright) test that is already failing or flaking in CI -- "why is <test> failing on main", "this test is flaky in CI", "is this a test bug or a product bug". Surfaces the test's distinct failure modes from CI history, pulls evidence for one, reasons to a falsifiable root cause with the engineer, and lands on a test fix, a product-bug issue, or an accepted-flake note. Do NOT use for: a test you are writing or currently editing (author-e2e-tests); a whole CI run's failures, or a run ID/URL (e2e-failure-analyzer); a failure reproducing only locally with no CI history; Vitest or extension-host failures.
 ---
 
-# Triage E2E Test
+# Triage CI E2E Test
 
 Start from a test name (not a CI run), find its recent distinct failure modes,
 investigate one, falsify a root-cause mechanism, and land on fix-the-test vs.
@@ -16,6 +15,17 @@ only when a stage needs them.
 
 - You picked up a specific e2e test already failing or flaking in CI, and want
   its history and evidence without hunting for the runs by hand.
+
+**Entry requires CI history.** The first step queries the `test-health` API for
+this test's recorded CI failures; a test that fails only on the engineer's
+machine has none, and `triage-history.js` reports `zero-runs-both` (which means a
+bad test key, never a clean record). Local runs enter later, as the repro and
+verification half -- so this is not a read-only CI report.
+
+**Not this skill:** a test still being written or edited (`author-e2e-tests`); a
+whole run's failures or a run ID/URL (`e2e-failure-analyzer`); a Vitest or
+extension-host failure. If the ask is a local-only failure, say so and hand off
+rather than querying history.
 
 ## Non-negotiable rules
 
@@ -44,7 +54,13 @@ only when a stage needs them.
   root from their own location and keep triage state in the shared git dir.
 - On PATH: `node`, `git`, `gh` (authenticated), `unzip`.
 - `E2E_INSIGHTS_API_KEY` set, or present in the repo-root `.env.e2e` (the query
-  script falls back to it automatically).
+  script falls back to it automatically). Get it from 1Password at
+  `op://Positron/E2E_dashboard_api_key/credential`; without 1Password access, ask
+  the Positron QA team. `triage-history.js` pre-flights this and exits with
+  `cause: "missing-api-key"` plus the setup steps -- **relay those steps and stop;
+  this is not a triage finding and there is no degraded mode.** A `cause:
+  "api-unreachable"` is the different case: a key was found, so retry rather than
+  sending the engineer to 1Password.
 - Neighbor skills: `e2e-failure-analyzer` (its `e2e-query-history.js` and
   `e2e-process-s3.js` are invoked directly); at the fix stage
   `positron-pr-helper`, `author-vitest-tests`, `author-e2e-tests`.
@@ -57,6 +73,7 @@ Run from the repo root. Flags and output contracts:
 
 | Script | Use it to |
 |---|---|
+| `resolve-test-key.js` | turn a title / spec path / spec:line / dashboard URL into the exact test key |
 | `triage-history.js` | get the failure patterns (dual-branch, merged, one occurrence each) |
 | `find-prior-triage.js` | check whether this spec was triaged before |
 | `fetch-pattern-evidence.js` | pull evidence for one occurrence of the selected pattern |
@@ -65,8 +82,10 @@ Run from the repo root. Flags and output contracts:
 
 ## Start or resume
 
-`/triage-e2e-test "<test>"` -- start. `/triage-e2e-test --resume <triage-id>` --
-resume. `/triage-e2e-test --status` -- list saved triages.
+`/triage-e2e-test "<test>"` -- start. `<test>` can be anything that names one
+test: a leaf title, a spec path, `spec.test.ts:41`, a full `testName|||specPath`
+key, or a dashboard URL. `/triage-e2e-test --resume <triage-id>` -- resume.
+`/triage-e2e-test --status` -- list saved triages.
 
 **On `--resume`:** run `node scripts/checkpoint.js --triage-id <id> --read`,
 validate it, and continue from `phase` / `nextAction`. Do **not** repeat
@@ -77,8 +96,17 @@ saved data is invalid, or the branch/test identity changed.
 
 **Otherwise (new triage):**
 
-1. Resolve the exact test identity into a `testName|||specPath` key. If you only
-   have a partial name, read [`references/history-query.md`](references/history-query.md#building-the-test-key).
+1. Resolve the test identity. **Never hand-assemble the key** -- pass whatever the
+   engineer gave you (leaf title, spec path, `spec.test.ts:41` from a stack trace,
+   full key, or a pasted dashboard URL) straight through:
+   ```bash
+   node .claude/skills/triage-e2e-test/scripts/resolve-test-key.js '<whatever they gave>'
+   ```
+   It reads the real hierarchy from Playwright (~2s), so the `describe` nesting is
+   never guessed. Use `resolved.testKey` when `resolved` is non-null; when it's
+   null, **present `candidates` and ask which** -- do not pick one yourself. On
+   `inWorkingTree: false` or a non-null `note`, relay it. If it exits non-zero,
+   read [`references/history-query.md`](references/history-query.md#building-the-test-key).
 2. Run the history helper:
    ```bash
    node .claude/skills/triage-e2e-test/scripts/triage-history.js \
