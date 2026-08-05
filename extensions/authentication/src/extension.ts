@@ -51,7 +51,6 @@ import { registerProvidersJsonMigration } from './migration/providersJsonUi';
 import { AuthProviderLogger } from './authProviderLogger';
 import { applyPwbPositAIDefault } from './pwbDefaults';
 import {
-	createConfigurationLegacySettingsReader,
 	getCachedProvider,
 	initProviderCatalog,
 	onDidChangeProviderCatalog,
@@ -75,11 +74,10 @@ const SETTINGS_MIGRATIONS: readonly SettingsMigration[] = [
 /**
  * Runs the settings migrations, then primes the cached provider catalog.
  *
- * The order matters: the legacy-settings reader hands the catalog the same
- * `authentication.aws.credentials` / `authentication.snowflake.credentials`
- * keys these migrations write, so a catalog primed first misses migrated
- * AWS/Snowflake connections on the first run and resolves credentials against
- * the wrong profile until the debounced catalog watch catches up.
+ * The `authentication.aws.credentials` / `authentication.snowflake.credentials`
+ * keys these migrations write reach the catalog only through the providers.json
+ * migration (which runs later in activation) and the catalog's file watch —
+ * the catalog reads no legacy settings directly.
  *
  * `catalogOptions` and `migrations` are test seams; production passes neither.
  */
@@ -96,12 +94,7 @@ export async function migrateSettingsAndPrimeCatalog(
 
 	// Prime the cached provider catalog before registering providers so
 	// registration callbacks resolve connection config from it synchronously.
-	// The legacy-settings reader keeps this cache in sync with the core catalog
-	// during the providers.json migration window.
-	await initProviderCatalog(context, {
-		legacyPositronSettings: createConfigurationLegacySettingsReader(),
-		...catalogOptions,
-	});
+	await initProviderCatalog(context, catalogOptions);
 }
 
 export async function activate(context: vscode.ExtensionContext) {
