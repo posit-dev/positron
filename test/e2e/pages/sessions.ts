@@ -1367,39 +1367,33 @@ export class SessionQuickPick {
 			// Page through the list to load all entries (handles virtualized lists)
 			let stable = false;
 			while (!stable) {
-				const entries = this.code.driver.currentPage.locator('.quick-input-list-entry');
-				const entryCount = await entries.count();
+				// Read every rendered entry in a single DOM pass rather than with per-element
+				// locators. quickInputList.ts always renders both `.quick-input-list-row`
+				// elements and the separator, but the *inner* `.label-name
+				// .monaco-highlighted-label` only exists when that row has content. Not every
+				// entry is a runtime -- extensions contribute action items with a label and no
+				// detail (e.g. "$(add) Create Python Environment"), whose second row is empty.
+				// A chained locator read on those waits for an element that never appears,
+				// which surfaced as an opaque "waiting on the predicate" timeout in the caller.
+				// Reading in-page yields '' for a missing node instead of blocking, and keeps
+				// this cheap enough to poll.
+				const entryData = await this.code.driver.currentPage
+					.locator('.quick-input-list-entry')
+					.evaluateAll(entries => entries.map(entry => {
+						const rows = entry.querySelectorAll('.quick-input-list-row');
+						const labelText = (root: Element | undefined) =>
+							root?.querySelector('.label-name .monaco-highlighted-label')?.textContent ?? '';
+
+						return {
+							name: labelText(rows[0]),
+							path: labelText(rows[1]),
+							category: entry.querySelector('.quick-input-list-separator')?.textContent ?? ''
+						};
+					}));
 
 				let newEntriesFound = false;
-				for (let i = 0; i < entryCount; i++) {
-					const entry = entries.nth(i);
-
-					// Not every entry in this quick pick is a runtime: extensions contribute
-					// action items (e.g. "$(add) Create Python Environment") that have a label
-					// but no detail, so they render a single row. Reading a second row from
-					// those blocks until the enclosing timeout instead of returning null, which
-					// surfaces as an opaque "waiting on the predicate" failure in the caller.
-					// Skip anything that isn't a two-row label/path entry.
-					const rows = entry.locator('.quick-input-list-row');
-					if (await rows.count() < 2) {
-						continue;
-					}
-
-					// Get the runtime name from the first row
-					const nameElement = rows.nth(0).locator('.label-name .monaco-highlighted-label');
-					const name = await nameElement.textContent();
-
-					// Get the path from the second row
-					const pathElement = rows.nth(1).locator('.label-name .monaco-highlighted-label');
-					const path = await pathElement.textContent();
-
-					// Get the category from the separator, which is only present on the entry
-					// that starts a group
-					const separatorElement = entry.locator('.quick-input-list-separator');
-					const category = (await separatorElement.count()) > 0
-						? await separatorElement.textContent()
-						: '';
-
+				for (const { name, path, category } of entryData) {
+					// Entries without a path are not runtimes (contributed action items)
 					if (name && path) {
 						const key = `${name}||${path}`;
 						if (!seen.has(key)) {
@@ -1407,7 +1401,7 @@ export class SessionQuickPick {
 							runtimes.push({
 								name: name.trim(),
 								path: path.trim(),
-								category: category?.trim() || ''
+								category: category.trim()
 							});
 							newEntriesFound = true;
 						}
