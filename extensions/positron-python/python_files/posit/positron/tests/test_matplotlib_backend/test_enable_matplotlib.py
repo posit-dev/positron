@@ -359,15 +359,24 @@ def test_explicit_short_name_without_registry_resolution(
     assert _state(shell, positron_backend) == _positron_active(positron_backend)
 
 
-def test_register_with_legacy_ipython_adds_short_names(monkeypatch: pytest.MonkeyPatch):
-    """On IPython < 8.24, the short names are added to the static backend table for `-l`."""
+def _simulate_legacy_backend_table(monkeypatch: pytest.MonkeyPatch, table: dict[str, str]) -> None:
+    """
+    Make the installed `pylabtools` look like IPython < 8.24's, whose `-l` reads `backends`.
+
+    Assigns into the module's `__dict__` rather than with `monkeypatch.setattr`, so the
+    simulation works on the versions that no longer define `backends` as a real global:
+    8.24 renamed it to `_deprecated_backends` behind a `__getattr__` shim, and 9.16
+    removed the shim, leaving nothing for `setattr` to replace.
+    """
     from IPython.core import pylabtools as pt
 
-    # Simulate IPython < 8.24: no registry-based lister, `-l` reads `pt.backends`.
-    if hasattr(pt, "_list_matplotlib_backends_and_gui_loops"):
-        monkeypatch.delattr(pt, "_list_matplotlib_backends_and_gui_loops")
+    monkeypatch.setitem(pt.__dict__, "backends", table)
+
+
+def test_register_with_legacy_ipython_adds_short_names(monkeypatch: pytest.MonkeyPatch):
+    """On IPython < 8.24, the short names are added to the static backend table for `-l`."""
     legacy_table = {"inline": INLINE_BACKEND_NAME}
-    monkeypatch.setattr(pt, "backends", legacy_table)
+    _simulate_legacy_backend_table(monkeypatch, legacy_table)
 
     compat.register_with_legacy_ipython()
 
@@ -396,10 +405,7 @@ def test_legacy_ipython_lists_short_names_without_a_switch(
     """
     from IPython.core import pylabtools as pt
 
-    # Simulate IPython < 8.24: no registry-based lister, `-l` reads `pt.backends`.
-    if hasattr(pt, "_list_matplotlib_backends_and_gui_loops"):
-        monkeypatch.delattr(pt, "_list_matplotlib_backends_and_gui_loops")
-    monkeypatch.setattr(pt, "backends", {"inline": INLINE_BACKEND_NAME})
+    _simulate_legacy_backend_table(monkeypatch, {"inline": INLINE_BACKEND_NAME})
 
     # The shell was constructed before the simulation was in place, so re-run the hook
     # that registers the names. Notably not `enable_matplotlib`: nothing here switches
