@@ -97,20 +97,24 @@ Positron has three test categories:
 	- positron-python has its own test setup -- see `extensions/positron-python/CLAUDE.md`
 - **E2E** (Playwright, full app): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
 
-### Triaging a test that is failing or flaking in CI
+### Triaging an e2e test that is failing or flaking
 
-For a **named e2e test already failing or flaking in CI**, use the
-`triage-e2e-test` skill instead of a general debugging process. It is the
-domain-specific version of one: it starts from the test's real CI failure
-history rather than a guess at the mechanism, and already requires a falsifiable
-root cause with the evidence ruled in and out. Do not run a general debugging
-workflow on top of it, and do not reach for one first and consult the skill later
--- by then the expensive part (deciding what to investigate) has been done
-without the history.
+For a **named e2e test that is failing or flaking**, use the
+`triage-e2e-test` skill instead of a general debugging process. It has two
+entries and covers both cases:
 
-General debugging skills still own everything else, including an e2e failure that
-reproduces **only** locally, a Vitest or extension-host failure, and any bug that
-is not a test failure.
+- **failing in CI** -- it starts from the test's real CI failure history rather
+  than a guess at the mechanism
+- **failed on your machine** -- it starts from that run's own `test-results/`
+  trace, snapshot, and logs (no API key or network needed)
+
+Either way it already requires a falsifiable root cause with the evidence ruled
+in and out. Do not run a general debugging workflow on top of it, and do not
+reach for one first and consult the skill later -- by then the expensive part
+(deciding what to investigate) has been done without the evidence.
+
+General debugging skills still own everything else: a Vitest or extension-host
+failure, and any bug that is not a test failure.
 
 ## Directory Structure
 

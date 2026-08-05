@@ -1,6 +1,6 @@
 ---
 name: triage-e2e-test
-description: Use when investigating a specific named Positron e2e (Playwright) test that is already failing or flaking in CI -- "why is <test> failing on main", "this test is flaky in CI", "is this a test bug or a product bug". Surfaces the test's distinct failure modes from CI history, pulls evidence for one, reasons to a falsifiable root cause with the engineer, and lands on a test fix, a product-bug issue, or an accepted-flake note. Do NOT use for: a test you are writing or currently editing (author-e2e-tests); a whole CI run's failures, or a run ID/URL (e2e-failure-analyzer); a failure reproducing only locally with no CI history; Vitest or extension-host failures.
+description: Use when investigating a specific named Positron e2e (Playwright) test that is failing or flaking -- in CI ("why is <test> failing on main", "this test is flaky in CI", "is this a test bug or a product bug") or on the engineer's machine ("this e2e test just failed locally", "debug this e2e failure"). From CI it surfaces the test's distinct failure modes from history and pulls evidence for one; locally it reads the run's own trace, snapshot, and logs. Either way it reasons to a falsifiable root cause with the engineer and lands on a test fix, a product-bug issue, or an accepted-flake note. Do NOT use for: a test you are writing or currently editing (author-e2e-tests); a whole CI run's failures, or a run ID/URL (e2e-failure-analyzer); Vitest or extension-host failures.
 ---
 
 # Triage CI E2E Test
@@ -13,35 +13,45 @@ only when a stage needs them.
 
 ## When to use
 
-- You picked up a specific e2e test already failing or flaking in CI, and want
-  its history and evidence without hunting for the runs by hand.
+You picked up one specific e2e test that is failing or flaking, and want its
+evidence without hunting for it by hand. **Two entries, one triage.** They differ
+only in where the evidence comes from; everything from "read the summary" onward
+is identical.
 
-**Entry requires CI history.** The first step queries the `test-health` API for
-this test's recorded CI failures; a test that fails only on the engineer's
-machine has none, and `triage-history.js` reports `zero-runs-both` (which means a
-bad test key, never a clean record). Local runs enter later, as the repro and
-verification half -- so this is not a read-only CI report.
+| | **CI entry** | **Local entry** |
+|---|---|---|
+| Use when | the test fails/flakes in CI | it just failed on this machine |
+| Evidence | `test-health` history -> one occurrence's report | this run's `test-results/` artifacts |
+| Needs | `E2E_INSIGHTS_API_KEY`, `gh` | nothing |
+| Extra steps | pattern table, which-pattern question, prior-triage check | none |
+
+Pick local when the engineer just produced the failure or says "locally"; pick CI
+when they name a test CI is failing; ask if it's genuinely unclear. **They
+compose** -- a local dig that needs a rate runs the history query afterwards, and
+a CI diagnosis reproduces locally in the verification half.
 
 **This is the debugging process for this case.** Don't layer a general debugging
 workflow on top of it -- the rules below (one pattern at a time, a falsifiable
-mechanism, evidence ruled in *and* out) are that discipline, applied to CI
-history. If you arrived here mid-way through another one, drop it and restart
-from the history query; a hypothesis formed before the failure modes were read is
-the thing this skill exists to prevent.
+mechanism, evidence ruled in *and* out) are that discipline. If you arrived here
+mid-way through another one, drop it and restart from the evidence; a hypothesis
+formed before the evidence was read is the thing this skill exists to prevent.
 
 **Not this skill:** a test still being written or edited (`author-e2e-tests`); a
 whole run's failures or a run ID/URL (`e2e-failure-analyzer`); a Vitest or
-extension-host failure. If the ask is a local-only failure, say so and hand off
-rather than querying history.
+extension-host failure.
 
 ## Non-negotiable rules
 
-- **Zero runs is never a clean result** -- only nonzero runs with no failure
-  patterns is.
+These hold on both entries unless a line names one.
+
+- **Zero runs is never a clean result** (CI) -- only nonzero runs with no failure
+  patterns is. **No local artifacts is not a dead end** (local) -- it means the
+  test hasn't run yet, so it ends in an offer to run it.
 - Resolve the test identity with `resolve-test-key.js`, never by hand; when it
   returns candidates instead of a resolution, **ask which test** before querying.
-- Investigate **one** selected pattern at a time; ask which when there's more
-  than one. Never fetch evidence for a pattern the engineer didn't select --
+  The local entry needs this only to build a run command.
+- Investigate **one** selected pattern at a time (CI); ask which when there's
+  more than one. Never fetch evidence for a pattern the engineer didn't select --
   ask first, even to check a side theory about how patterns relate.
 - Fetch **one** representative occurrence first; a second only for a listed
   reason in `references/evidence-escalation.md` -- name which.
@@ -54,14 +64,15 @@ rather than querying history.
 - A previous merged fix must be checked against subsequent failures, and that
   check reported as four lines, not a triage report (`references/prior-triage.md`).
 - Root-cause claims cite observed evidence and the alternatives ruled out.
-- Checkpoint at every phase transition.
+- Checkpoint at every phase transition (CI). The local entry checkpoints only
+  once it escalates to a PR, an issue, or a `/clear`.
 
 ## Requirements
 
 - **Claude Code**, run from a **Positron** checkout: the scripts resolve the repo
   root from their own location and keep triage state in the shared git dir.
-- On PATH: `node`, `git`, `gh` (authenticated), `unzip`.
-- `E2E_INSIGHTS_API_KEY` set, or present in the repo-root `.env.e2e` (the query
+- On PATH: `node`, `git`, `unzip`; `gh` (authenticated) for the CI entry.
+- **CI entry only:** `E2E_INSIGHTS_API_KEY` set, or present in the repo-root `.env.e2e` (the query
   script falls back to it automatically). Get it from 1Password at
   `op://Positron/E2E_dashboard_api_key/credential`; without 1Password access, ask
   the Positron QA team. `triage-history.js` pre-flights this and exits with
@@ -84,16 +95,31 @@ Run from the repo root. Flags and output contracts:
 | `resolve-test-key.js` | turn a title / spec path / spec:line / dashboard URL into the exact test key |
 | `triage-history.js` | get the failure patterns (dual-branch, merged, one occurrence each) |
 | `find-prior-triage.js` | check whether this spec was triaged before |
-| `fetch-pattern-evidence.js` | pull evidence for one occurrence of the selected pattern |
+| `fetch-pattern-evidence.js` | pull evidence for one occurrence of the selected pattern (CI) |
+| `collect-local-evidence.js` | build the same summary from this machine's `test-results/` (local) |
 | `checkpoint.js` | start / resume / status; `--set phase=X` auto-derives `nextAction` |
 | `record-diagnosis.js` | append the diagnosis block; it is what unblocks `phase=done` |
 
 ## Start or resume
 
-`/triage-e2e-test "<test>"` -- start. `<test>` can be anything that names one
-test: a leaf title, a spec path, `spec.test.ts:41`, a full `testName|||specPath`
-key, or a dashboard URL. `/triage-e2e-test --resume <triage-id>` -- resume.
+`/triage-e2e-test "<test>"` -- start the **CI entry**. `<test>` can be
+anything that names one test: a leaf title, a spec path, `spec.test.ts:41`, a
+full `testName|||specPath` key, or a dashboard URL.
+`/triage-e2e-test --local` -- start the **local entry** (see below).
+`/triage-e2e-test --resume <triage-id>` -- resume.
 `/triage-e2e-test --status` -- list saved triages.
+
+**On `--local`** (or when the engineer describes a failure they just produced):
+skip straight to evidence -- no key resolution, no history, no checkpoint.
+
+```bash
+node .claude/skills/triage-e2e-test/scripts/collect-local-evidence.js
+```
+
+Act on its `verdict`, then read `summaryFile` and go to **Determine root cause**.
+[`references/local-evidence.md`](references/local-evidence.md) owns the verdict
+table, the run-it offer for `no-results`, what local evidence cannot answer, and
+when to start checkpointing after all. The rest of this section is the CI entry.
 
 **On `--resume`:** run `node scripts/checkpoint.js --triage-id <id> --read`,
 validate it, and continue from `phase` / `nextAction`. Do **not** repeat
@@ -170,6 +196,9 @@ saved data is invalid, or the branch/test identity changed.
 
 ## Investigate the selected pattern
 
+**Local entry:** `collect-local-evidence.js` already wrote your `summary.md` --
+start at step 2. Steps 2 and 3 are shared.
+
 1. Fetch evidence for the pattern's representative occurrence:
    ```bash
    node .claude/skills/triage-e2e-test/scripts/fetch-pattern-evidence.js \
@@ -243,6 +272,12 @@ test (that skill drives toward green; it does not enforce RED-first).
 
 Every triage ends by declaring an `outcome` and recording its diagnosis -- this
 is not optional, and `checkpoint.js` refuses `phase=done` until it's satisfied.
+**On the local entry there is no checkpoint to gate you**, so the rule is yours
+to keep: a local dig that produces a PR or an issue still gets the block, which
+means initializing the checkpoint at that point
+([`references/local-evidence.md`](references/local-evidence.md)). A local dig
+that ends with a fix and no artifact ends when the fix is verified -- say so and
+stop; don't manufacture a checkpoint to close.
 The outcome spans two axes (what you found x what you did):
 
 | Outcome | Meaning | Where the block goes | To reach `done` |

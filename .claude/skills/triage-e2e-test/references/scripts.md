@@ -1,6 +1,6 @@
 # Scripts -- flags and output contracts
 
-Reference for the six helpers in `scripts/`. Read it when you need a flag that
+Reference for the seven helpers in `scripts/`. Read it when you need a flag that
 the SKILL's workflow steps don't already spell out, or when you need to know what
 a script's output actually contains. If a script is *broken* and you need to do
 its work by hand, that is [`script-fallbacks.md`](script-fallbacks.md) instead.
@@ -140,13 +140,43 @@ presence of a `raw-logs/` directory.
 **Read `summaryFile` first**, and open anything else only under the gate in
 [`evidence-escalation.md`](evidence-escalation.md).
 
+## `collect-local-evidence.js`
+
+The local entry's counterpart to `fetch-pattern-evidence.js`: walks this
+machine's Playwright output instead of a CI report, and writes the same
+`summary.md` shape. Procedure and verdict handling:
+[`local-evidence.md`](local-evidence.md).
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--results-dir <dir>` | `test-results` | Playwright's output dir, repo-relative |
+| `--logs-dir <dir>` | `test-logs` | app/kernel logs; a *different* root from the results dir |
+| `--test <substring>` | none | filters on the result directory name |
+| `--dir <exact>` | none | pins one result directory (use after an `ambiguous` verdict) |
+| `--list` | off | show the candidates and exit without collecting |
+| `--triage-id <id>` | none | write into that triage's `evidence/local/` instead of a standalone dir; only needed once a checkpoint exists |
+
+**Output:** `{ verdict, resultsDir, candidates[], selected, evidenceDir,
+summaryFile, timelineFile, snapshotFile, screenshots[], logDir, failure,
+nextStep }`.
+
+- **`verdict`** is `ok` | `no-results` | `no-failure` | `ambiguous`; `nextStep`
+  carries the matching instruction. `no-results` and `no-failure` are different
+  states -- local runs retain traces for passing tests, so artifacts existing
+  proves nothing about whether anything failed.
+- **Failure is detected from `error-context.md`**, which Playwright writes only
+  for a failed test. Never from the trace's presence.
+- A `no-failure` run that *has* a trace is still collected, flagged as passing --
+  that trace is the only way to diff a green ordering against a red one locally
+  (`retries: 0` off CI means there is no attempt pair).
+
 ## `checkpoint.js`
 
 Durable triage state at `<work-dir>/state.json`.
 
 | Invocation | Does |
 |---|---|
-| `--triage-id <id> --init --test-key <key> [--branch b] [--lookback-days n] [--force]` | create state; auto-seeds `history`/`patterns` from `history-summary.json` if present. Refuses to clobber an existing checkpoint without `--force` |
+| `--triage-id <id> --init --test-key <key> [--branch b] [--lookback-days n] [--phase p] [--force]` | create state; auto-seeds `history`/`patterns` from `history-summary.json` if present. Refuses to clobber an existing checkpoint without `--force` |
 | `--triage-id <id> --read` | print state (plus `_validation` when invalid) |
 | `--triage-id <id> --validate` | print `{ ok, errors[], phase, nextAction }` only |
 | `--triage-id <id> --set key=value` | set one scalar; repeatable |
@@ -164,6 +194,10 @@ Durable triage state at `<work-dir>/state.json`.
   resending the rest, use `--patch-pattern`.
 - **Setting `phase` derives `nextAction`** unless `nextAction` is set in the same
   call.
+- **`--init --phase <p>`** starts somewhere other than `awaiting-pattern-selection`.
+  The local entry uses `--phase evidence-gathered` when it escalates: it never
+  selected a pattern, and replaying phases it skipped would print misleading next
+  actions. `done` is rejected -- that transition goes through the outcome gate.
 - **Phases**, in order: `awaiting-pattern-selection`, `pattern-selected`,
   `evidence-gathered`, `hypothesis-ready`, `awaiting-clear`, `implementation`,
   `done`.

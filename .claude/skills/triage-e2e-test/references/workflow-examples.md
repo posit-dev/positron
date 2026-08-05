@@ -1,6 +1,6 @@
 # Workflow examples -- reference
 
-Two end-to-end runs, written for **maintainers of this skill** rather than for a
+End-to-end runs, written for **maintainers of this skill** rather than for a
 live triage. They exist so a change to a script's flags or the phase sequence can
 be checked against a concrete trace. Nothing here is a new rule; the SKILL and the
 other references remain authoritative if this file ever disagrees with them.
@@ -9,6 +9,9 @@ Values (`<id>`, PR numbers, failure text) are illustrative. Engineer-facing turn
 are elided to `>` lines -- the checkpoints they gate are the point.
 
 ## Shape of the whole thing
+
+The CI entry, which is the long one. The local entry replaces everything above
+`read summary.md` with a single `collect-local-evidence.js` call (Example 3).
 
 ```text
 resolve-test-key.js -- candidates, no resolved --> ASK which test
@@ -22,7 +25,7 @@ find-prior-triage.js -- verdict: open-attempt-in-flight --> STOP
 present failure table --> ASK which pattern      (phase=pattern-selected)
    |
 fetch-pattern-evidence.js --> read summary.md    (phase=evidence-gathered)
-   |            ^
+   |            ^ local entry joins here: collect-local-evidence.js, no phases
    |            +-- escalate only behind the evidence block
 reason to a mechanism --> ASK which fix approach (phase=hypothesis-ready)
    |
@@ -239,7 +242,45 @@ node .claude/skills/triage-e2e-test/scripts/checkpoint.js \
 Report the local result literally -- "8/8 passed locally; the CI contention that
 surfaces this wasn't recreated" -- never "confirmed fixed."
 
-## Example 3 (sketch) -- the no-op close-out
+## Example 3 -- the local entry, start to finish
+
+Same discipline, four fewer steps. The engineer just watched a test fail.
+
+```bash
+node .claude/skills/triage-e2e-test/scripts/collect-local-evidence.js
+# -> { "verdict": "ok", "selected": { "dir": "tests-plots-plots-test-ts-...", "failed": true },
+#      "summaryFile": ".../local/tests-plots-.../summary.md",
+#      "snapshotFile": "test-results/tests-plots-.../error-context.md",
+#      "logDir": "test-logs/e2e-electron/plots.test.ts", "failure": "locator.click timeout: ..." }
+```
+
+No key resolution, no history, no pattern table, no checkpoint. Read
+`summary.md`, escalate only behind an evidence block, reason to a mechanism, and
+agree the fix approach -- all shared with the CI entry.
+
+The one thing to state out loud: the summary's own last unresolved question is
+that no rate or environment spread is known. If the engineer needs it, the two
+entries compose:
+
+```bash
+node .claude/skills/triage-e2e-test/scripts/resolve-test-key.js 'can save a plot'
+node .claude/skills/triage-e2e-test/scripts/triage-history.js --test-key '<key>'
+```
+
+Ending in a PR means the block is owed, which is where the checkpoint starts:
+
+```bash
+node .claude/skills/triage-e2e-test/scripts/checkpoint.js --triage-id <id> \
+  --init --test-key '<key>' --phase evidence-gathered
+node .claude/skills/triage-e2e-test/scripts/checkpoint.js --triage-id <id> --patch '{"diagnosis": {...}}'
+node .claude/skills/triage-e2e-test/scripts/record-diagnosis.js --triage-id <id> --pr 15400 --outcome fix-test
+node .claude/skills/triage-e2e-test/scripts/checkpoint.js --triage-id <id> --set phase=done
+```
+
+A local dig that ends with a verified fix and no PR/issue ends there -- no
+checkpoint, nothing to close.
+
+## Example 4 (sketch) -- the no-op close-out
 
 Not every triage produces an artifact. A pattern that turns out to duplicate an
 open issue ends without `record-diagnosis.js`, and the done-gate demands a reason

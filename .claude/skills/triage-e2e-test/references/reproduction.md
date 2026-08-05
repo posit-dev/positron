@@ -52,7 +52,9 @@ shared fixture, UI timing).
 
 The selected pattern's `environment_breakdown` names the OS/browser combos it
 actually failed on. Pick the cheapest project that covers one of them, and move
-down only for a reason you can state:
+down only for a reason you can state (on the local entry there is no breakdown --
+reproduce on the project the failure came from, and note that one machine's
+result says nothing about the others):
 
 1. `e2e-electron` -- desktop app, no extra setup. Try this first unless the
    pattern occurred only in a browser environment.

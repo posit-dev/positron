@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateCheckpoint, applyPatch, coerce, PHASES, PHASE_NEXT_ACTION, applyMutations, defaultNextAction, checkDoneGate, OUTCOMES, SETTABLE_FIELDS, mergePatternPatch, applyHistorySummary } from '../checkpoint.js';
+import { validateCheckpoint, applyPatch, coerce, PHASES, PHASE_NEXT_ACTION, applyMutations, defaultNextAction, checkDoneGate, OUTCOMES, SETTABLE_FIELDS, mergePatternPatch, applyHistorySummary, initialPhase } from '../checkpoint.js';
+
+test('initialPhase defaults to the CI entry, accepts the local entry, rejects done', () => {
+	assert.equal(initialPhase(undefined), 'awaiting-pattern-selection');
+	assert.equal(initialPhase('evidence-gathered'), 'evidence-gathered');
+	assert.throws(() => initialPhase('done'), /outcome gate/);
+	assert.throws(() => initialPhase('nonsense'), /not a known phase/);
+});
 
 const valid = () => ({ version: 1, triageId: 'x', testKey: 'A > b|||spec.ts', phase: 'awaiting-pattern-selection' });
 
