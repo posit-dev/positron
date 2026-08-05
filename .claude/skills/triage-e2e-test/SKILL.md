@@ -22,6 +22,13 @@ machine has none, and `triage-history.js` reports `zero-runs-both` (which means 
 bad test key, never a clean record). Local runs enter later, as the repro and
 verification half -- so this is not a read-only CI report.
 
+**This is the debugging process for this case.** Don't layer a general debugging
+workflow on top of it -- the rules below (one pattern at a time, a falsifiable
+mechanism, evidence ruled in *and* out) are that discipline, applied to CI
+history. If you arrived here mid-way through another one, drop it and restart
+from the history query; a hypothesis formed before the failure modes were read is
+the thing this skill exists to prevent.
+
 **Not this skill:** a test still being written or edited (`author-e2e-tests`); a
 whole run's failures or a run ID/URL (`e2e-failure-analyzer`); a Vitest or
 extension-host failure. If the ask is a local-only failure, say so and hand off
@@ -31,7 +38,8 @@ rather than querying history.
 
 - **Zero runs is never a clean result** -- only nonzero runs with no failure
   patterns is.
-- Resolve the exact **full hierarchical** test title and spec path.
+- Resolve the test identity with `resolve-test-key.js`, never by hand; when it
+  returns candidates instead of a resolution, **ask which test** before querying.
 - Investigate **one** selected pattern at a time; ask which when there's more
   than one. Never fetch evidence for a pattern the engineer didn't select --
   ask first, even to check a side theory about how patterns relate.

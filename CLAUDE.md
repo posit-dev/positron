@@ -97,6 +97,21 @@ Positron has three test categories:
 	- positron-python has its own test setup -- see `extensions/positron-python/CLAUDE.md`
 - **E2E** (Playwright, full app): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
 
+### Triaging a test that is failing or flaking in CI
+
+For a **named e2e test already failing or flaking in CI**, use the
+`triage-e2e-test` skill instead of a general debugging process. It is the
+domain-specific version of one: it starts from the test's real CI failure
+history rather than a guess at the mechanism, and already requires a falsifiable
+root cause with the evidence ruled in and out. Do not run a general debugging
+workflow on top of it, and do not reach for one first and consult the skill later
+-- by then the expensive part (deciding what to investigate) has been done
+without the history.
+
+General debugging skills still own everything else, including an e2e failure that
+reproduces **only** locally, a Vitest or extension-host failure, and any bug that
+is not a test failure.
+
 ## Directory Structure
 
 - `src/` - Core VS Code source with Positron modifications
