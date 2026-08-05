@@ -107,7 +107,62 @@ export async function migrateSettingsAndPrimeCatalog(
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
 
+	// Bridge the buffered trace/debug logs to the core "Collect AI Diagnostics"
+	// command. That command runs in the workbench (renderer), which can't read an
+	// extension's activate() exports, so it invokes this command across the
+	// extension-host boundary and receives the return value. The `getLogs` export
+	// below stays for any extension-to-extension consumer. Not declared in
+	// package.json, so it stays out of the command palette. Registered before the
+	// migration and catalog init below so the logs stay reachable if either throws
+	// or hangs.
+	context.subscriptions.push(
+		vscode.commands.registerCommand('authentication.getDiagnosticLogs',
+			() => log.formatEntriesForDiagnostics()),
+	);
+
 	await migrateSettingsAndPrimeCatalog(context);
+
+	// Reports provider state for the core "AI: Create Diagnostic Report" command:
+	// which providers the user is signed in to, and which are turned off in
+	// settings. Returns display names only (no account details). Bridged as a
+	// command for the same reason as the logs above.
+	context.subscriptions.push(
+		vscode.commands.registerCommand('authentication.getProviderDiagnostics', async () => {
+			const authenticated: string[] = [];
+
+			// "Authenticated" means an active session (getSessions().length > 0),
+			// matching how the Accounts UI decides signed-in - not isConfigured(),
+			// which also counts providers set up once but now signed out or expired.
+			await Promise.all([...authProviders.values()].map(async (provider) => {
+				try {
+					if ((await provider.getSessions()).length > 0) {
+						authenticated.push(provider.label);
+					}
+				} catch (e) {
+					log.warn(`getProviderDiagnostics: could not check ${provider.label}: ${e instanceof Error ? e.message : String(e)}`);
+				}
+			}));
+
+			// Copilot rides GitHub's built-in auth, not a registered AuthProvider.
+			try {
+				if (await vscode.authentication.getSession('github', [], { silent: true })) {
+					authenticated.push('GitHub Copilot');
+				}
+			} catch (e) {
+				log.warn(`getProviderDiagnostics: could not check GitHub: ${e instanceof Error ? e.message : String(e)}`);
+			}
+
+			// "Disabled" means the provider's catalog entry isn't enabled.
+			// Enablement now lives in the provider catalog (providers.json), not
+			// the deprecated `*.enable` settings. Match core's rule: enabled only
+			// when `enabled === true`, so a missing or false entry counts as off.
+			const disabled = Object.values(PROVIDER_METADATA)
+				.filter(meta => !meta.catalogId || getCachedProvider(meta.catalogId)?.enabled !== true)
+				.map(meta => meta.displayName);
+
+			return { authenticated: authenticated.sort(), disabled: disabled.sort() };
+		}),
+	);
 
 	await registerAnthropicProvider(context);
 	registerPositAIProvider(context);

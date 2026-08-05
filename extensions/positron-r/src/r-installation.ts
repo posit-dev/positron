@@ -11,7 +11,7 @@ import { LOGGER } from './extension';
 import { MINIMUM_R_VERSION } from './constants';
 import { arePathsSame } from './path-utils';
 import { getDefaultInterpreterPath, isExcludedInstallation } from './interpreter-settings.js';
-import { normalizeWindowsArch, sniffWindowsBinaryArchitecture } from './kernel.js';
+import { normalizeWindowsArch, sniffMachOBinaryArchitecture, sniffWindowsBinaryArchitecture } from './kernel.js';
 
 /**
  * Extra metadata included in the LanguageRuntimeMetadata for R installations.
@@ -375,6 +375,17 @@ export class RInstallation {
 				if (normalizedArch && detectedArch !== normalizedArch) {
 					LOGGER.warn(`Discrepancy between derived Windows architecture ${derivedArch} and sniffed architecture ${detectedArch} for R ${this.version} at ${this.binpath}`);
 				}
+			}
+		} else if (process.platform === 'darwin') {
+			// The DESCRIPTION 'Built' field records the build farm's platform, which
+			// for cross-compiled builds (notably conda-forge osx-arm64 R) does not
+			// match the installed binary. Prefer sniffing the actual Mach-O executable,
+			// analogous to the PE-header sniffing above for Windows. See #15297.
+			const execPath = path.join(this.homepath, 'bin', 'exec', 'R');
+			const detectedArch = sniffMachOBinaryArchitecture(execPath);
+			if (detectedArch && detectedArch !== derivedArch) {
+				LOGGER.info(`Corrected R architecture from '${derivedArch || 'unknown'}' (DESCRIPTION Built field) to '${detectedArch}' (Mach-O header) for R ${this.version} at ${execPath}`);
+				derivedArch = detectedArch;
 			}
 		}
 

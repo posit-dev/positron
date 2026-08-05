@@ -3520,6 +3520,53 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Access to Positron product documentation cached on disk.
+	 */
+	namespace docs {
+		/**
+		 * A bundle of Positron documentation available on the extension host's
+		 * local filesystem.
+		 */
+		export interface LocalDocs {
+			/** Absolute path of the extracted bundle root, on the extension host's filesystem. */
+			readonly path: string;
+
+			/** Bundle format version. Currently 1. */
+			readonly schema: number;
+
+			/** Docs version this bundle was generated from, e.g. '2026.05.0-179'. */
+			readonly version: string;
+
+			/** 'positron' or 'workbench'. */
+			readonly profile: string;
+
+			/** Base URL for building a citable web link to a page in this bundle. */
+			readonly docsBaseUrl: string;
+
+			/** True when the bundle matches the running build exactly. */
+			readonly isExactMatch: boolean;
+		}
+
+		/**
+		 * Get the locally cached Positron documentation, downloading it if it is
+		 * not present yet.
+		 *
+		 * Safe to call per docs need: a successful result is cached in process,
+		 * and concurrent calls join a single in-flight download rather than
+		 * starting several. Waits at most 10 seconds for an in-flight download;
+		 * on timeout the download continues in the background and is available
+		 * to the next call.
+		 *
+		 * Resolves to `undefined` when there are no local docs, which means the
+		 * caller should fall back to fetching documentation from the web. That
+		 * is the only meaning of `undefined`.
+		 *
+		 * @returns A Thenable resolving to the local docs, or undefined.
+		 */
+		export function getLocalDocs(): Thenable<LocalDocs | undefined>;
+	}
+
+	/**
 	 * Experimental AI features.
 	 */
 	namespace ai {

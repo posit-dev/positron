@@ -5,7 +5,6 @@
 
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code.js';
-import { Console } from '../infra';
 import { Toasts } from './dialog-toasts.js';
 
 export class Modals {
@@ -16,7 +15,7 @@ export class Modals {
 	public get cancelButton(): Locator { return this.modalBox.getByRole('button', { name: 'Cancel' }); }
 	public getButton(label: string | RegExp): Locator { return this.modalBox.getByRole('button', { name: label }); }
 
-	constructor(private readonly code: Code, private toasts: Toasts, private console: Console) { }
+	constructor(private readonly code: Code, private toasts: Toasts) { }
 
 	// --- Actions ---
 
@@ -60,24 +59,22 @@ export class Modals {
 	/**
 	 * Interacts with the Renv install modal dialog box. This dialog box appears when a user opts to
 	 * use Renv in the New Folder Flow and creates a new folder, but Renv is not installed.
+	 *
+	 * The modal only appears once the new folder has finished loading and the R session has started,
+	 * so wait for the folder to be open before calling this -- otherwise the timeout below is spent
+	 * on the window reload rather than on the modal itself.
+	 *
 	 * @param action The action to take on the modal dialog box. Either 'install' or 'cancel'.
 	 */
 	async installRenvModal(action: 'install' | 'cancel') {
-		try {
-			await expect(this.code.driver.currentPage.locator('.simple-title-bar').filter({ hasText: 'Missing R package' })).toBeVisible({ timeout: 40000 });
+		await expect(this.code.driver.currentPage.locator('.simple-title-bar').filter({ hasText: 'Missing R package' })).toBeVisible({ timeout: 40000 });
 
-			if (action === 'install') {
-				this.code.logger.log('Install Renv modal detected: clicking `Install now`');
-				await this.getButton('Install now').click();
-			} else if (action === 'cancel') {
-				this.code.logger.log('Install Renv modal detected: clicking `Cancel`');
-				await this.getButton('Cancel').click();
-			}
-		} catch (error) {
-			this.code.logger.log('No Renv modal detected; interacting with console directly');
-
-			await this.console.typeToConsole('y');
-			await this.console.sendEnterKey();
+		if (action === 'install') {
+			this.code.logger.log('Install Renv modal detected: clicking `Install now`');
+			await this.getButton('Install now').click();
+		} else if (action === 'cancel') {
+			this.code.logger.log('Install Renv modal detected: clicking `Cancel`');
+			await this.getButton('Cancel').click();
 		}
 	}
 

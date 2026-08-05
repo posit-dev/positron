@@ -23,6 +23,12 @@ leafmap
 matplotlib
 streamlit-aggrid
 streamlit
+# starlette 1.4.0 made `thread_minimum_size` a required keyword-only argument on
+# GZipResponder. Streamlit's _MediaAwareGZipResponder subclass does not pass it, so
+# every gzip-encoded response 500s and the Streamlit app tests fail on the platforms
+# that resolve Python deps fresh from PyPI (macOS, Windows). Remove this pin once
+# Streamlit releases the fix: https://github.com/streamlit/streamlit/pull/16344
+starlette<1.4.0
 click
 bokeh==3.8.2
 altair
