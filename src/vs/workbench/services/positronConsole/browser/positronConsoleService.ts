@@ -1082,6 +1082,16 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		}
 		this._positronConsoleInstancesBySessionId.delete(sessionId);
 
+		// If nothing above claimed the active console, clear it. Neither branch always does: the
+		// foreground session handler ignores `undefined`, which is what the console branch sets when
+		// there is no other session to fall back to, and the notebook branch has nothing to switch
+		// to when the deleted instance is not in the map. Without this, the deleted instance stays
+		// the active console -- and the extension host keeps handing out its session (and its
+		// `positron.window.activeConsoleEditor`) to extensions.
+		if (this._activePositronConsoleInstance === consoleInstance) {
+			this.setActivePositronConsoleInstance(undefined);
+		}
+
 		consoleInstance.dispose();
 
 		this._onDidDeletePositronConsoleInstanceEmitter.fire(consoleInstance);
@@ -1450,6 +1460,12 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	private _pendingBusyStart: number | undefined;
 
 	/**
+	 * Fires each time the ConsoleInput React component assigns the code editor, including on
+	 * remount.
+	 */
+	private readonly _onDidSetCodeEditorEmitter = this._register(new Emitter<ICodeEditor>());
+
+	/**
 	 * Provides access to the code editor, if it's available. Note that we generally prefer to
 	 * interact with this editor indirectly, since its state is managed by React.
 	 */
@@ -1561,6 +1577,9 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 */
 	set codeEditor(value: ICodeEditor | undefined) {
 		this._codeEditor = value;
+		if (value) {
+			this._onDidSetCodeEditorEmitter.fire(value);
+		}
 	}
 
 	get sessionMetadata(): IRuntimeSessionMetadata {
@@ -1749,6 +1768,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 * onDidPasteText event.
 	 */
 	readonly onDidPasteText = this._onDidPasteTextEmitter.event;
+
+	/**
+	 * onDidSetCodeEditor event.
+	 */
+	readonly onDidSetCodeEditor = this._onDidSetCodeEditorEmitter.event;
 
 	/**
 	 * onDidSelectAll event.

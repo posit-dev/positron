@@ -314,6 +314,7 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 	private readonly _onDidChangeWidthInCharsEmitter = new Emitter<number>();
 	private readonly _onDidRequestRevealExecutionEmitter = new Emitter<string>();
 	private readonly _onDidChangeCodeSubmissionInProgressEmitter = new Emitter<boolean>();
+	private readonly _onDidSetCodeEditorEmitter = new Emitter<ICodeEditor>();
 
 	private _findWidget: IConsoleFindWidget | undefined;
 	private _codeSubmissionInProgress = false;
@@ -333,8 +334,18 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		public readonly sessionMetadata: IRuntimeSessionMetadata,
 		public readonly runtimeMetadata: ILanguageRuntimeMetadata,
 		public readonly runtimeItems: RuntimeItem[] = [],
-		public readonly codeEditor: ICodeEditor | undefined = undefined
+		public codeEditor: ICodeEditor | undefined = undefined
 	) { }
+
+	/**
+	 * Attaches a code editor and fires the onDidSetCodeEditor event, mirroring the console input
+	 * component assigning its Monaco editor once it mounts.
+	 * @param codeEditor The code editor to attach.
+	 */
+	setCodeEditor(codeEditor: ICodeEditor): void {
+		this.codeEditor = codeEditor;
+		this._onDidSetCodeEditorEmitter.fire(codeEditor);
+	}
 
 	get onFocusInput(): Event<FocusInputOptions> {
 		return this._onFocusInputEmitter.event;
@@ -406,6 +417,10 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 
 	get onDidRequestRevealExecution(): Event<string> {
 		return this._onDidRequestRevealExecutionEmitter.event;
+	}
+
+	get onDidSetCodeEditor(): Event<ICodeEditor> {
+		return this._onDidSetCodeEditorEmitter.event;
 	}
 
 	get onDidChangeWidthInChars(): Event<number> {
