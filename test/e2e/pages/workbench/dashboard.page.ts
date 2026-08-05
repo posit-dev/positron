@@ -16,9 +16,15 @@ export class DashboardPage {
 	get newSessionButton() { return this.code.driver.currentPage.getByRole('button', { name: 'New Session', exact: true }).first(); }
 	get positronProButton() { return this.code.driver.currentPage.getByRole('tab', { name: 'Positron Pro' }); }
 	get sessionNameInput() { return this.code.driver.currentPage.getByRole('textbox', { name: 'Session Name' }); }
-	project = (projectName: string) => this.code.driver.currentPage.getByRole('link', { name: projectName });
-	projectNewSessionButton = (projectName: string) => this.project(projectName).locator('..').locator('..').locator('..').getByRole('button', { name: 'Create new session' });
-	projectCheckbox = (projectName: string) => this.code.driver.currentPage.getByRole('checkbox', { name: `select ${projectName}` });
+	// Anchor on the table row: the project name renders as a link while a session runs but as a
+	// button once it is gone, so neither a link role nor a fixed `.locator('..')` climb out of it
+	// survives both states. A leaked session can leave two rows for one project, hence `.first()`.
+	projectRow = (projectName: string) => this.code.driver.currentPage.getByRole('table', { name: 'Projects table' }).getByRole('row', { name: projectName });
+	projectNewSessionButton = (projectName: string) => this.projectRow(projectName).getByRole('button', { name: 'Create new session' }).first();
+	// The row checkbox is named for the *session* ("select Positron Pro Session"), not the project,
+	// so a `select <project>` name matches nothing and quitSession silently quits nothing. Take
+	// whatever checkbox the project's row holds instead.
+	projectCheckbox = (projectName: string) => this.projectRow(projectName).getByRole('checkbox');
 
 	constructor(private code: Code, private quickInput: QuickInput) { }
 
@@ -37,7 +43,7 @@ export class DashboardPage {
 	 * @returns true if a new session was created, false if project already existed
 	 */
 	async ensureProjectExists(folderToOpen = 'test-files', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<boolean> {
-		const existingProject = this.project(folderToOpen);
+		const existingProject = this.projectRow(folderToOpen).first();
 
 		try {
 			await expect(existingProject).toBeVisible({ timeout: 3000 });
@@ -134,17 +140,13 @@ export class DashboardPage {
 		const newProjectCreated = await this.ensureProjectExists(projectName, context, managedCredentials);
 
 		if (!newProjectCreated) {
-			// Project already existed, so we need to launch it
+			// Project already existed, so we need to launch it. Sweep up any session left behind
+			// by a failed teardown first, so they can't accumulate to the point where new sessions
+			// no longer launch; quitSession no-ops when nothing is running.
+			await this.quitSession(projectName);
+
 			const startNewSessionButton = this.projectNewSessionButton(projectName);
-
-			try {
-				await expect(startNewSessionButton).toBeVisible({ timeout: 3000 });
-			} catch {
-				// Clean up existing sessions if new session button is not available
-				await this.quitSession(projectName);
-				await expect(startNewSessionButton).toBeVisible();
-			}
-
+			await expect(startNewSessionButton).toBeVisible();
 			await startNewSessionButton.click();
 			await this.launchButton.click();
 		}
