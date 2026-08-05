@@ -93,7 +93,7 @@ suite('configDialog', () => {
 		};
 
 		await providerAction(
-			{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic' }, supportedOptions: [], defaults: {} },
+			{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'anthropic-api', displayName: 'Anthropic' }, supportedOptions: [], defaults: {} },
 			{ model: 'claude-sonnet-4-0', apiKey: 'sk-ant-valid' },
 			'save'
 		);
@@ -120,7 +120,7 @@ suite('configDialog', () => {
 
 		await assert.rejects(
 			providerAction(
-				{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic' }, supportedOptions: [], defaults: {} },
+				{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'anthropic-api', displayName: 'Anthropic' }, supportedOptions: [], defaults: {} },
 				{ model: 'claude-sonnet-4-0', apiKey: 'sk-ant-invalid' },
 				'save'
 			),
@@ -155,7 +155,7 @@ suite('configDialog', () => {
 
 		await assert.rejects(
 			providerAction(
-				{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic' }, supportedOptions: [], defaults: {} },
+				{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'anthropic-api', displayName: 'Anthropic' }, supportedOptions: [], defaults: {} },
 				{ model: 'claude-sonnet-4-0' },
 				'delete'
 			),
@@ -190,7 +190,7 @@ suite('configDialog', () => {
 		registerAuthProvider('test-chain', chainProvider);
 
 		await providerAction(
-			{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'test-chain', displayName: 'Test Chain', settingName: 'testChain' }, supportedOptions: [], defaults: {} },
+			{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'test-chain', displayName: 'Test Chain' }, supportedOptions: [], defaults: {} },
 			{ model: 'test-model' },
 			'save'
 		);
@@ -234,7 +234,7 @@ suite('configDialog', () => {
 		});
 
 		await providerAction(
-			{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'openai-compatible', displayName: 'Custom Provider', settingName: 'customProvider' }, supportedOptions: [], defaults: {} },
+			{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'openai-compatible', displayName: 'Custom Provider' }, supportedOptions: [], defaults: {} },
 			{ model: 'local-model', baseUrl: 'http://localhost:1234/v1', apiKey: '' },
 			'save'
 		);
@@ -293,7 +293,7 @@ suite('configDialog', () => {
 		});
 
 		await providerAction(
-			{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'openai-api', displayName: 'OpenAI', settingName: 'openAI' }, supportedOptions: [], defaults: {} },
+			{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'openai-api', displayName: 'OpenAI' }, supportedOptions: [], defaults: {} },
 			{ model: 'gpt-4o', baseUrl: 'https://my-proxy.example.com/v1' },
 			'save'
 		);
@@ -318,7 +318,7 @@ suite('configDialog', () => {
 		};
 		try {
 			await providerAction(
-				{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'copilot-auth', displayName: 'GitHub Copilot', settingName: 'githubCopilot' }, supportedOptions: [], defaults: {} },
+				{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'copilot-auth', displayName: 'GitHub Copilot' }, supportedOptions: [], defaults: {} },
 				{},
 				'oauth-signin'
 			);
@@ -390,7 +390,7 @@ suite('configDialog', () => {
 			await updateProviderFromSessions('anthropic-api', await provider.getSessions());
 
 			await providerAction(
-				{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic' }, supportedOptions: [], defaults: {} },
+				{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'anthropic-api', displayName: 'Anthropic' }, supportedOptions: [], defaults: {} },
 				{},
 				'delete'
 			);

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -18,14 +18,10 @@ import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import * as createEnvironmentApis from '../../client/pythonEnvironments/creation/createEnvironment';
 import { IDisposableRegistry, IPathUtils } from '../../client/common/types';
 import { registerCreateEnvironmentFeatures } from '../../client/pythonEnvironments/creation/createEnvApi';
-import {
-    CreateEnvironmentOptions,
-    CreateEnvironmentProvider,
-} from '../../client/pythonEnvironments/creation/proposed.createEnvApis';
-import { CreateEnvironmentOptionsInternal } from '../../client/pythonEnvironments/creation/types';
+import { CreateEnvironmentProvider } from '../../client/pythonEnvironments/creation/proposed.createEnvApis';
 import { IPythonRuntimeManager } from '../../client/positron/manager';
 import { IInterpreterQuickPick, IPythonPathUpdaterServiceManager } from '../../client/interpreter/configuration/types';
-import { createEnvironmentAndRegister } from '../../client/positron/createEnvApi';
+import { createEnvironmentAndRegister, CreateEnvironmentAndRegisterOptions } from '../../client/positron/createEnvApi';
 import { createTypeMoq } from '../mocks/helper';
 
 chaiUse(chaiAsPromised.default);
@@ -34,6 +30,8 @@ suite('Positron Create Environment APIs', () => {
     let registerCommandStub: sinon.SinonStub;
     let handleCreateEnvironmentCommandStub: sinon.SinonStub;
     let getConfigurationStub: sinon.SinonStub;
+    let getWorkspaceFolderStub: sinon.SinonStub;
+    let getWorkspaceFoldersStub: sinon.SinonStub;
 
     const disposables: IDisposableRegistry = [];
     const mockProvider = createTypeMoq<CreateEnvironmentProvider>();
@@ -51,12 +49,13 @@ suite('Positron Create Environment APIs', () => {
         name: 'workspace1',
         index: 0,
     };
+    const workspace1UriString = workspace1.uri.toString();
 
-    // Environment options
-    const envOptions: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal = {
+    // Environment options (workspaceFolder is now a URI string)
+    const envOptions: CreateEnvironmentAndRegisterOptions = {
         providerId: 'envProvider-id',
         interpreterPath: '/path/to/venv/python',
-        workspaceFolder: workspace1,
+        workspaceFolder: workspace1UriString,
     };
     const envOptionsWithInfo = {
         withInterpreterPath: { ...envOptions },
@@ -90,6 +89,14 @@ suite('Positron Create Environment APIs', () => {
             }
             return undefined;
         });
+
+        getWorkspaceFolderStub = sinon.stub(workspaceApis, 'getWorkspaceFolder');
+        getWorkspaceFolderStub.callsFake((uri: Uri) =>
+            uri.toString() === workspace1UriString ? workspace1 : undefined,
+        );
+
+        getWorkspaceFoldersStub = sinon.stub(workspaceApis, 'getWorkspaceFolders');
+        getWorkspaceFoldersStub.returns([workspace1]);
 
         registerCommandStub.callsFake((_command: string, _callback: (...args: any[]) => any) => ({
             dispose: () => {
@@ -148,5 +155,75 @@ suite('Positron Create Environment APIs', () => {
             assert.isTrue(handleCreateEnvironmentCommandStub.notCalled);
             pythonRuntimeManager.verifyAll();
         });
+    });
+
+    test('Rehydrates workspaceFolder URI string to a WorkspaceFolder before dispatching', async () => {
+        const resultPath = '/path/to/created/env';
+        pythonRuntimeManager
+            .setup((p) => p.registerLanguageRuntimeFromPath(resultPath))
+            .returns(() => Promise.resolve(createTypeMoq<positron.LanguageRuntimeMetadata>().object));
+        handleCreateEnvironmentCommandStub.returns(Promise.resolve({ path: resultPath }));
+
+        await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, { ...envOptions });
+
+        const dispatched = handleCreateEnvironmentCommandStub.firstCall.args[1];
+        assert.strictEqual(dispatched.workspaceFolder, workspace1);
+    });
+
+    test('Leaves workspaceFolder undefined when not provided', async () => {
+        const resultPath = '/path/to/created/env';
+        pythonRuntimeManager
+            .setup((p) => p.registerLanguageRuntimeFromPath(resultPath))
+            .returns(() => Promise.resolve(createTypeMoq<positron.LanguageRuntimeMetadata>().object));
+        handleCreateEnvironmentCommandStub.returns(Promise.resolve({ path: resultPath }));
+
+        await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+            ...envOptions,
+            workspaceFolder: undefined,
+        });
+
+        const dispatched = handleCreateEnvironmentCommandStub.firstCall.args[1];
+        assert.isUndefined(dispatched.workspaceFolder);
+    });
+
+    test('Matches by path when the URI scheme differs (remote ext host sees file://, caller sent vscode-remote://)', async () => {
+        const resultPath = '/path/to/created/env';
+        pythonRuntimeManager
+            .setup((p) => p.registerLanguageRuntimeFromPath(resultPath))
+            .returns(() => Promise.resolve(createTypeMoq<positron.LanguageRuntimeMetadata>().object));
+        handleCreateEnvironmentCommandStub.returns(Promise.resolve({ path: resultPath }));
+
+        // The real remote case: the folder lives on a remote (POSIX) host. The caller sends
+        // the workbench/main-thread URI (vscode-remote://), but this extension host sees the
+        // same folder as file://, with an identical path. Exact-URI lookup misses on the
+        // scheme; the path-based fallback against getWorkspaceFolders() should resolve it.
+        const remoteFolderPath = '/home/user/new-uv_736628';
+        const extHostFolder = { uri: Uri.file(remoteFolderPath), name: 'new-uv_736628', index: 0 };
+        const callerUri = Uri.from({ scheme: 'vscode-remote', authority: 'localhost:9000', path: remoteFolderPath });
+        getWorkspaceFolderStub.callsFake(() => undefined);
+        getWorkspaceFoldersStub.returns([extHostFolder]);
+
+        await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+            ...envOptions,
+            workspaceFolder: callerUri.toString(),
+        });
+
+        const dispatched = handleCreateEnvironmentCommandStub.firstCall.args[1];
+        assert.strictEqual(dispatched.workspaceFolder, extHostFolder);
+    });
+
+    test('Throws when no workspace folder matches by exact URI or by path', async () => {
+        getWorkspaceFolderStub.callsFake(() => undefined);
+        getWorkspaceFoldersStub.returns([workspace1]);
+        const unknownUri = Uri.file('/no/such/workspace').toString();
+
+        await assert.isRejected(
+            createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+                ...envOptions,
+                workspaceFolder: unknownUri,
+            }),
+            /Workspace folder not found/,
+        );
+        assert.isTrue(handleCreateEnvironmentCommandStub.notCalled);
     });
 });

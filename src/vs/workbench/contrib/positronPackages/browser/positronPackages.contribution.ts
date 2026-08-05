@@ -72,7 +72,11 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 			canToggleVisibility: false,
 			canMoveView: true,
 			containerIcon: positronSessionViewIcon,
-			when: POSITRON_PACKAGES_ENABLED
+			when: POSITRON_PACKAGES_ENABLED,
+			focusCommand: {
+				id: `${POSITRON_PACKAGES_VIEW_ID}.focus`,
+				agentCompatible: true,
+			},
 		}
 	],
 	viewContainer
@@ -249,7 +253,11 @@ class RefreshPackagesAction extends Action2 {
 				when: PACKAGES_VIEW_VISIBLE,
 				group: 'navigation',
 				order: 1
-			}
+			},
+			metadata: {
+				description: nls.localize('positronPackages.refreshPackages.description', "Refresh the list of installed packages in the active runtime session."),
+				agentCompatible: true,
+			},
 		});
 	}
 	override async run(accessor: ServicesAccessor): Promise<ILanguageRuntimePackage[]> {
@@ -526,7 +534,11 @@ class UpdateAllPackagesAction extends Action2 {
 				when: PACKAGES_VIEW_VISIBLE,
 				group: 'packages',
 				order: 2
-			}
+			},
+			metadata: {
+				description: nls.localize('positronPackages.updateAllPackages.description', "Update every installed package in the active runtime session to its latest available version."),
+				agentCompatible: true,
+			},
 		});
 	}
 	override async run(accessor: ServicesAccessor): Promise<void> {

@@ -5,7 +5,13 @@
 
 /// <reference types="vitest/globals" />
 
-import { chooseHtmlRenderMode, isInertHtml, isWebviewOverlayShown } from '../../browser/quartoOutputViewZone.js';
+import { Event } from '../../../../../base/common/event.js';
+import { BareFontInfo } from '../../../../../editor/common/config/fontInfo.js';
+import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { EditorOption } from '../../../../../editor/common/config/editorOptions.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { ICellOutput } from '../../common/quartoExecutionTypes.js';
+import { chooseHtmlRenderMode, isInertHtml, isWebviewOverlayShown, QuartoOutputViewZone } from '../../browser/quartoOutputViewZone.js';
 
 // The inline-output webview is a fixed-position overlay anchored to a
 // placeholder inside the editor view zone. It must be shown only while its view
@@ -90,5 +96,82 @@ describe('chooseHtmlRenderMode', () => {
 
 	it('falls back to the warning only when no webview service exists', () => {
 		expect(chooseHtmlRenderMode(activeHtml, false)).toBe('warning');
+	});
+});
+
+// A cell's output can arrive hundreds of ms after the user collapsed it, while
+// the zone is still in its recomputing window. Expanding on fresh output is the
+// default so new results are visible, but doing it after an explicit collapse
+// discards the user's action and inverts the next toggle: the following toggle
+// reads the collapsed flag as false and collapses again instead of expanding.
+// That is the quarto-inline-output-collapse flake (posit-dev/positron#15205).
+//
+// These drive the real view zone rather than the collapse predicate on its own:
+// the bug was never in the predicate but in the ordering of setRecomputing /
+// setCollapsed / addOutput around it, so the sequence is what has to be pinned.
+describe('QuartoOutputViewZone collapse across a re-execution', () => {
+	function createViewZone(): QuartoOutputViewZone {
+		const containerDomNode = document.createElement('div');
+		const editor = stubInterface<ICodeEditor>({
+			getContainerDomNode: () => containerDomNode,
+			onDidChangeConfiguration: Event.None,
+			onDidLayoutChange: Event.None,
+			onDidScrollChange: Event.None,
+			onDidContentSizeChange: Event.None,
+			onDidChangeHiddenAreas: Event.None,
+			onMouseMove: Event.None,
+			onMouseLeave: Event.None,
+			// The zone reads only fontInfo, and only hands it to `applyFontInfo`,
+			// which takes a BareFontInfo. Throwing on any other option keeps the
+			// stub honest if the zone starts reading more of the editor config.
+			getOption: ((id: EditorOption) => {
+				if (id !== EditorOption.fontInfo) {
+					throw new Error(`unexpected getOption(${id})`);
+				}
+				return BareFontInfo._create('monospace', 'normal', 12, '', '', 18, 0, 1, false);
+			}) as ICodeEditor['getOption'],
+		});
+		return new QuartoOutputViewZone(editor, 'cell-1', 1);
+	}
+
+	function textOutput(id: string, text: string): ICellOutput {
+		return { outputId: id, items: [{ mime: 'text/plain', data: text }] };
+	}
+
+	it('keeps the output collapsed when the user collapses mid-execution', () => {
+		const zone = createViewZone();
+		zone.addOutput(textOutput('out-1', 'first run'));
+
+		// Re-run: the zone enters recomputing while the old output is still shown.
+		zone.setRecomputing(true);
+		// The user collapses during that window.
+		zone.toggleCollapsed();
+		expect(zone.isCollapsed).toBe(true);
+
+		// The new output lands hundreds of ms later. It must not undo the collapse.
+		zone.addOutput(textOutput('out-2', 'second run'));
+		expect(zone.isCollapsed).toBe(true);
+
+		// And the next toggle expands, rather than collapsing a second time.
+		zone.toggleCollapsed();
+		expect(zone.isCollapsed).toBe(false);
+
+		zone.dispose();
+	});
+
+	it('expands on fresh output when the collapse predates the re-execution', () => {
+		const zone = createViewZone();
+		zone.addOutput(textOutput('out-1', 'first run'));
+
+		// Collapsed while idle, before anything re-runs.
+		zone.toggleCollapsed();
+		expect(zone.isCollapsed).toBe(true);
+
+		// This is the case the auto-expand exists for: new results become visible.
+		zone.setRecomputing(true);
+		zone.addOutput(textOutput('out-2', 'second run'));
+		expect(zone.isCollapsed).toBe(false);
+
+		zone.dispose();
 	});
 });

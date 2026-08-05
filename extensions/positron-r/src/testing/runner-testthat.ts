@@ -5,23 +5,60 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { spawn } from 'child_process';
+import { spawn, spawnSync, ChildProcess } from 'child_process';
 import split2 from 'split2';
 import { LOGGER } from '../extension';
 import { checkInstalled, getLocale } from '../session';
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { ItemType, TestingTools, encodeNodeId, escapeLabelForRDesc } from './util-testing';
 import { TestResult } from './reporter';
-import { parseTestsFromFile } from './parser';
 import { RSessionManager } from '../session-manager';
 
 const testReporterPath = path
 	.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'vscodereporter')
 	.replace(/\\/g, '/');
 
+// Test-run R processes currently in flight. The OS won't reap them if the extension
+// host goes away mid-run, so we track them and hard-kill any survivors when the test
+// explorer is disposed (see killActiveTestRuns).
+const activeRunProcesses = new Set<ChildProcess>();
+
+// Signal the R test-run process by PID. POSIX SIGINT lets R unwind gracefully;
+// SIGKILL forces it. Windows has no per-process signal, so taskkill force-terminates;
+// /T also kills the child R process (the R.exe front-end spawns the actual R).
+function signalRunProcess(childProcess: ChildProcess, signal: NodeJS.Signals): void {
+	const pid = childProcess.pid;
+	if (pid === undefined) {
+		return;
+	}
+	try {
+		if (process.platform === 'win32') {
+			const result = spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { encoding: 'utf8' });
+			LOGGER.info(`taskkill /T /F pid=${pid}: status=${result.status}, stdout=${result.stdout?.trim()}, stderr=${result.stderr?.trim()}`);
+		} else {
+			process.kill(pid, signal);
+		}
+	} catch (err) {
+		LOGGER.warn(`Failed to send ${signal} to the R test run: ${err}`);
+	}
+}
+
+/**
+ * Hard-kill any in-flight test-run processes. Called when the test explorer is torn
+ * down so a run interrupted by a window close or reload can't leak the R process.
+ * There's no time for graceful cleanup on this path, so we SIGKILL.
+ */
+export function killActiveTestRuns(): void {
+	for (const childProcess of activeRunProcesses) {
+		signalRunProcess(childProcess, 'SIGKILL');
+	}
+	activeRunProcesses.clear();
+}
+
 export async function runThatTest(
 	testingTools: TestingTools,
 	run: vscode.TestRun,
+	token: vscode.CancellationToken,
 	test?: vscode.TestItem
 ): Promise<string> {
 	// in all scenarios, we execute devtools::SOMETHING() in a child process
@@ -69,16 +106,9 @@ export async function runThatTest(
 			return Promise.resolve('Individual it() call: can\'t be run individually.');
 		case ItemType.File:
 			LOGGER.info('Test type is file');
-			if (test!.children.size === 0) {
-				LOGGER.info('Children are not yet available. Parsing children.');
-				await parseTestsFromFile(testingTools, test!);
-			}
 			break;
 		case ItemType.Directory:
 			LOGGER.info('Test type is directory');
-			testingTools.controller.items.forEach(async (test) => {
-				await parseTestsFromFile(testingTools, test);
-			});
 			break;
 	}
 
@@ -100,26 +130,67 @@ export async function runThatTest(
 		`devtools::${devtoolsMethod}('${testPath}',` +
 		`${descInsert}reporter = VSCodeReporter)`;
 	const binpath = RSessionManager.instance.getLastBinpath();
-	const command = `"${binpath}" --no-echo -e "${devtoolsCall}"`;
-	LOGGER.info(`devtools call is:\n${command}`);
+	const args = ['--no-echo', '-e', devtoolsCall];
+	LOGGER.info(`R binary is: ${binpath}`);
+	LOGGER.info(`devtools call is:\n${devtoolsCall}`);
 
 	const wd = testingTools.packageRoot.fsPath;
 	LOGGER.info(`Running devtools call in working directory ${wd}`);
 	const locale = await getLocale();
 	LOGGER.info(`Locale info from active R session: ${JSON.stringify(locale, null, 2)}`);
 	let hostFile = '';
-	// TODO @jennybc: if this code stays, figure this out
-	// eslint-disable-next-line no-async-promise-executor
-	return new Promise<string>(async (resolve, reject) => {
-		const childProcess = spawn(command, {
+	return new Promise<string>((resolve, reject) => {
+		const childProcess = spawn(binpath, args, {
 			cwd: wd,
-			shell: true,
 			env: {
 				...process.env,
 				LANG: locale['LANG']
 			}
 		});
+		activeRunProcesses.add(childProcess);
+
+		let cancelled = false;
+		let forceQuitTimer: NodeJS.Timeout | undefined;
+		const cancellation = token.onCancellationRequested(() => {
+			cancelled = true;
+			LOGGER.info('Test run cancelled; interrupting R so cleanup can run');
+			// Append now, not on exit: core can finalize a cancelled run before R
+			// exits, so a note appended on exit may be dropped.
+			run.appendOutput('\r\nThe test run was stopped at the user\'s request.\r\n');
+			// SIGINT lets R unwind and run on.exit / withr / teardown cleanup before
+			// exiting; SIGTERM and SIGKILL would skip all of that. So we hope
+			// that SIGINT works.
+			signalRunProcess(childProcess, 'SIGINT');
+			// If R hasn't stopped after a grace period (e.g. a non-interruptible
+			// C loop), we offer to force quit. We use 7s because it's less than the
+			// 10s after which the core test explorer makes the run look cancelled in
+			// the UI even though it hasn't really stopped -- so we prompt before that.
+			forceQuitTimer = setTimeout(() => {
+				if (childProcess.exitCode !== null || childProcess.signalCode !== null) {
+					return;
+				}
+				vscode.window.showWarningMessage(
+					vscode.l10n.t('R is not responding to the interrupt signal. You can force quit, but this may skip test cleanup and teardown.'),
+					vscode.l10n.t('Force Quit')
+				).then((choice) => {
+					if (choice !== undefined &&
+						childProcess.exitCode === null && childProcess.signalCode === null) {
+						LOGGER.info('User chose to force quit the R test run');
+						signalRunProcess(childProcess, 'SIGKILL');
+					}
+				});
+			}, 7_000);
+		});
+		const cleanup = () => {
+			cancellation.dispose();
+			if (forceQuitTimer !== undefined) {
+				clearTimeout(forceQuitTimer);
+			}
+			activeRunProcesses.delete(childProcess);
+		};
+
 		let stdout = '';
+		let sawEndReporter = false;
 		const testStartDates = new WeakMap<vscode.TestItem, number>();
 		childProcess.stdout!
 			.pipe(split2((line: string) => {
@@ -220,16 +291,40 @@ export async function runThatTest(
 							}
 						}
 						break;
+					case 'end_reporter':
+						sawEndReporter = true;
+						break;
 				}
 			});
-		childProcess.once('exit', () => {
-			stdout += childProcess.stderr.read();
-			if (stdout.includes('Execution halted')) {
-				reject(Error(stdout));
+		childProcess.once('exit', (code, signal) => {
+			cleanup();
+			const stderr = String(childProcess.stderr.read() ?? '');
+			stdout += stderr;
+			if (sawEndReporter) {
+				resolve(stdout);
+				return;
 			}
-			resolve(stdout);
+			if (cancelled) {
+				// The user stopped the run; the note was appended at cancellation time.
+				resolve(stdout);
+				return;
+			}
+			// If we haven't seen end_reporter, that means R died before testthat
+			// finished its work cleanly (e.g. a failed load_all(), an error in a
+			// setup or helper file, or an R crash). Surface what we know in TEST
+			// RESULTS.
+			const how = signal ? `signal ${signal}` : `exit code ${code}`;
+			run.appendOutput(
+				`\r\nThe R test run ended before completing (${how}).\r\n`
+			);
+			const detail = stderr.trim();
+			if (detail) {
+				run.appendOutput(detail.replace(/\r?\n/g, '\r\n') + '\r\n');
+			}
+			reject(new Error(detail || `R exited with ${how} before completing.`));
 		});
 		childProcess.once('error', (err) => {
+			cleanup();
 			reject(err);
 		});
 	});

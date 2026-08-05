@@ -8,7 +8,11 @@ import * as path from 'path';
 import * as sinon from 'sinon';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { listMissingPythonPackages, parsePythonImports } from '../../client/positron/missingPackages';
+import {
+    listMissingPythonPackages,
+    parsePythonImports,
+    pythonMissingPackageProbe,
+} from '../../client/positron/missingPackages';
 import { IPackageManager, PackageSession } from '../../client/positron/packages/types';
 
 suite('parsePythonImports', () => {
@@ -35,6 +39,16 @@ suite('parsePythonImports', () => {
         const code = ['import pandas; import numpy', 'x = 1; import requests; from flask import Flask'].join('\n');
 
         expect(parsePythonImports(code).sort()).to.deep.equal(['flask', 'numpy', 'pandas', 'requests'].sort());
+    });
+});
+
+suite('pythonMissingPackageProbe', () => {
+    test('returns an import snippet for a ModuleNotFoundError', () => {
+        expect(pythonMissingPackageProbe(`No module named 'requests'`)).to.equal('import requests');
+    });
+
+    test('returns undefined for an unrelated error', () => {
+        expect(pythonMissingPackageProbe('SyntaxError: invalid syntax')).to.equal(undefined);
     });
 });
 

@@ -229,16 +229,11 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 		// node_modules out of the packaged extension.
 		return listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.None });
 	}).then(fileNames => {
-		const files = fileNames
-			.map(fileName => path.join(extensionPath, fileName))
-			.map(filePath => new File({
-				path: filePath,
-				stat: fs.statSync(filePath),
-				base: extensionPath,
-				contents: fs.createReadStream(filePath)
-			}));
-
-		es.readArray(files).pipe(result);
+		// Stream the files sequentially rather than eagerly opening a read
+		// stream for every file up front, matching fromLocalEsbuild and
+		// fromLocalNormal. Avoids exhausting the open-file limit (EMFILE/EBADF)
+		// when packaging extensions with many files. See posit-dev/positron#14998.
+		createSequentialFileStream(extensionPath, fileNames).pipe(result);
 	}).catch(err => {
 		console.error(extensionPath);
 		result.emit('error', err);
@@ -299,6 +294,7 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 			'positron-data-driver-pins',
 			'positron-data-driver-postgresql',
 			'positron-data-driver-redshift',
+			'positron-data-driver-snowflake',
 			'positron-data-driver-sqlite'
 		];
 
@@ -333,16 +329,16 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 			fileNames = Array.from(new Set([...fileNames, ...packagedDependencyFileNames]));
 		}
 
-		const files = fileNames
-			.map(fileName => path.join(extensionPath, fileName))
-			.map(filePath => new File({
-				path: filePath,
-				stat: fs.statSync(filePath),
-				base: extensionPath,
-				contents: fs.createReadStream(filePath)
-			}));
-
-		es.readArray(files).pipe(result);
+		// --- Start Positron ---
+		// Stream the files sequentially rather than eagerly opening a read
+		// stream for every file up front. Extensions with npm dependencies
+		// (e.g. positron-data-driver-snowflake, which bundles @azure/msal-node)
+		// enumerate thousands of node_modules files here; opening a descriptor
+		// for all of them at once exhausts the open-file limit and fails the
+		// Windows build with EMFILE. createSequentialFileStream opens one file
+		// at a time, matching fromLocalNormal. See posit-dev/positron#14998.
+		createSequentialFileStream(extensionPath, fileNames).pipe(result);
+		// --- End Positron ---
 	}).catch(err => {
 		console.error(extensionPath);
 		console.error(packagedDependencies);

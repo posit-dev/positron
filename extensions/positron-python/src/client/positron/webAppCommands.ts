@@ -131,7 +131,7 @@ function registerExecCommand(
                     return undefined;
                 }
 
-                const args = [runtime.runtimePath];
+                const args: string[] = [];
                 if ('module' in config) {
                     args.push('-m', config.module);
                 } else {
@@ -141,8 +141,11 @@ function registerExecCommand(
                     args.push(...config.args);
                 }
 
+                // Pass the interpreter and args separately so positron-run-app
+                // escapes them for the target shell (e.g. paths with spaces).
                 const terminalOptions: RunAppTerminalOptions = {
-                    commandLine: args.join(' '),
+                    command: runtime.runtimePath,
+                    args,
                 };
                 // Add environment variables if any.
                 if (config.env && Object.keys(config.env).length > 0) {

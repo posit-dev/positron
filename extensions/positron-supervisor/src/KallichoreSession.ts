@@ -365,8 +365,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		//
 		// This is done after the contributed variables so that the kernel spec
 		// variables take precedence.
-		if (this._kernelSpec?.env) {
-			for (const [key, value] of Object.entries(this._kernelSpec.env)) {
+		//
+		// For a restored session (reconnected after e.g. an extension host
+		// restart) we no longer hold the original kernel spec, so fall back to
+		// the environment the session was launched with, as recorded by the
+		// supervisor. Without this, a restart rebuilds the environment without
+		// spec-provided entries such as the bundled ipykernel path on
+		// PYTHONPATH, and the restarted kernel fails to import its dependencies
+		// (e.g. `ModuleNotFoundError: No module named 'psutil'`).
+		const specEnv = this._kernelSpec?.env ?? this._activeSession?.initial_env;
+		if (specEnv) {
+			for (const [key, value] of Object.entries(specEnv)) {
 				if (typeof value === 'string') {
 					const action: VarAction = {
 						action: VarActionType.Replace,
@@ -2172,7 +2181,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	private onExited(exitCode: number) {
-		if (this._restarting) {
+		// `_restarting` is cleared as soon as the replacement kernel reports that
+		// it's starting, which can happen before this exit arrives. The exit
+		// reason isn't affected by that ordering, so check it too; otherwise we
+		// tear down the websocket the replacement kernel is already using.
+		const restarting = this._restarting ||
+			this._exitReason === positron.RuntimeExitReason.Restart;
+
+		if (restarting) {
 			// If we're restarting, wait for the kernel to start up again
 			this.log(`Kernel exited with code ${exitCode}; waiting for restart to finish.`, vscode.LogLevel.Info);
 		} else {

@@ -13,7 +13,7 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onStartupFinished",
+		"onAiEnabled",
 		"onAuthenticationRequest:posit-ai",
 		"onCommand:authentication.configureProviders"
 	],

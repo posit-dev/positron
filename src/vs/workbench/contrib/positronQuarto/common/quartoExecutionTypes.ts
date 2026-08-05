@@ -111,6 +111,8 @@ export interface ICellOutput {
 	readonly items: ICellOutputItem[];
 	/** Optional metadata for webview rendering */
 	readonly webviewMetadata?: ICellOutputWebviewMetadata;
+	/** Optional per-mime output metadata e.g. `{ 'image/png': { width, height } }` */
+	readonly outputMetadata?: Record<string, unknown>;
 }
 
 /**
@@ -163,6 +165,16 @@ export interface FragmentProgressChangeEvent {
 }
 
 /**
+ * Event emitted at the start of an execution gesture (Run Cell, Run All, etc.),
+ * before any cells begin running. Consumers use this to re-arm behaviors that a
+ * fresh gesture should reset, such as auto-scrolling to reveal inline output.
+ */
+export interface WillExecuteEvent {
+	/** Document URI whose cells are about to execute */
+	readonly documentUri: URI;
+}
+
+/**
  * Configuration for execution behavior.
  */
 export interface IQuartoExecutionConfig {
@@ -204,6 +216,12 @@ export interface IQuartoExecutionManager {
 	 * Used to update the gutter as individual statements execute within a cell.
 	 */
 	readonly onDidChangeFragmentProgress: Event<FragmentProgressChangeEvent>;
+
+	/**
+	 * Event fired at the start of an execution gesture (Run Cell, Run All,
+	 * etc.), before any cells begin running.
+	 */
+	readonly onWillExecute: Event<WillExecuteEvent>;
 
 	/**
 	 * Execute a single cell.

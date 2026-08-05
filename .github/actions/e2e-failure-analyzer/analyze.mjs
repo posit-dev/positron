@@ -187,10 +187,13 @@ function renderProjectFailures(projects, historyMap) {
 				}
 			}
 			if (t.logExcerpt) {
-				// Error lines mined from the attached kernel/runtime/runner logs.
-				// Carries detail the trace lacks (e.g. a kernel's resolved file path),
-				// which distinguishes a missing fixture from one deleted mid-run.
-				out.push(`  Log excerpt (error lines from attached logs):`);
+				// Attached logs, time-sliced to the failing action's wait: ALL
+				// severities inside the window plus a derived "went quiet before the
+				// deadline" report. Carries detail the trace lacks (a kernel's resolved
+				// file path, a provider's successful model fetch) and, crucially,
+				// negative evidence -- a log falling silent exactly when the UI should
+				// have appeared, which no error grep can surface.
+				out.push(`  Log excerpt (attached logs, sliced to the failure window):`);
 				out.push(indent(capTimeline(String(t.logExcerpt)), '    '));
 			}
 		}

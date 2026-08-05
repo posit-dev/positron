@@ -3477,6 +3477,15 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				this.addRuntimeItemTrace(`onDidEndSession (code ${exit.exit_code}, reason '${exit.reason}')`);
 			}
 
+			// A restart exit can arrive after the replacement kernel has already
+			// reported that it's starting. It describes the previous kernel, not
+			// the session we're attached to now, so acting on it would clear the
+			// starting item and detach a session that is coming back online.
+			if (exit.reason === RuntimeExitReason.Restart &&
+				this._state === PositronConsoleState.Starting) {
+				return;
+			}
+
 			// Clear any starting item still present.
 			this.clearStartingItem();
 

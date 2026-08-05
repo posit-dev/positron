@@ -21,12 +21,13 @@
 		"onAuthenticationRequest:google-cloud",
 		"onAuthenticationRequest:deepseek-api",
 		"onCommand:authentication.configureProviders",
-		"onCommand:authentication.migrateApiKey"
+		"onCommand:authentication.migrateSettingsToProvidersJson"
 	],
 	"main": "./out/extension.js",
 	"dependencies": {
 		"@aws-sdk/credential-providers": "^3.734.0",
 		"@aws-sdk/types": "^3.734.0",
+		"ai-config": "file:../../ai-lib/packages/ai-config",
 		"google-auth-library": "^9.15.1"
 	},
 	"devDependencies": {
@@ -80,12 +81,18 @@
 				"command": "authentication.configureProviders",
 				"title": "%commands.configureProviders.title%",
 				"category": "%commands.category%"
+			},
+			{
+				"command": "authentication.migrateSettingsToProvidersJson",
+				"title": "%commands.migrateSettingsToProvidersJson.title%",
+				"category": "%commands.category%"
 			}
 		],
 		"configuration": {
 			"title": "Authentication",
 			"properties": {
 				"authentication.aws.credentials": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "object",
 					"default": {},
 					"markdownDescription": "%configuration.aws.credentials.description%",
@@ -102,11 +109,13 @@
 					"additionalProperties": false
 				},
 				"authentication.aws.inferenceProfileRegion": {
+					"markdownDeprecationMessage": "%configuration.deprecation.inferenceProfileRegion%",
 					"type": "string",
 					"default": null,
 					"markdownDescription": "%configuration.aws.inferenceProfileRegion.description%"
 				},
 				"authentication.snowflake.credentials": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "object",
 					"default": {},
 					"markdownDescription": "%configuration.snowflake.credentials.description%",
@@ -123,6 +132,7 @@
 					"additionalProperties": false
 				},
 				"authentication.snowflake.customHeaders": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "object",
 					"default": {},
 					"additionalProperties": {
@@ -134,11 +144,13 @@
 					]
 				},
 				"authentication.anthropic.baseUrl": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "string",
 					"default": "",
 					"description": "%configuration.anthropic.baseUrl.description%"
 				},
 				"authentication.anthropic.customHeaders": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "object",
 					"default": {},
 					"additionalProperties": {
@@ -150,11 +162,13 @@
 					]
 				},
 				"authentication.foundry.baseUrl": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "string",
 					"default": "",
 					"description": "%configuration.foundry.baseUrl.description%"
 				},
 				"authentication.foundry.customHeaders": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "object",
 					"default": {},
 					"additionalProperties": {
@@ -166,11 +180,13 @@
 					]
 				},
 				"authentication.openai-api.baseUrl": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "string",
 					"default": "",
 					"description": "%configuration.openai-api.baseUrl.description%"
 				},
 				"authentication.openai-api.customHeaders": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "object",
 					"default": {},
 					"additionalProperties": {
@@ -182,6 +198,7 @@
 					]
 				},
 				"authentication.google.baseUrl": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "string",
 					"default": "",
 					"description": "%configuration.google.baseUrl.description%",
@@ -191,6 +208,7 @@
 					]
 				},
 				"authentication.google.customHeaders": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "object",
 					"default": {},
 					"additionalProperties": {
@@ -203,6 +221,7 @@
 					]
 				},
 				"authentication.googleVertex.baseUrl": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "string",
 					"default": "",
 					"description": "%configuration.googleVertex.baseUrl.description%",
@@ -211,6 +230,7 @@
 					]
 				},
 				"authentication.googleVertex.credentials": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "object",
 					"default": {},
 					"markdownDescription": "%configuration.googleVertex.credentials.description%",
@@ -230,6 +250,7 @@
 					]
 				},
 				"authentication.googleVertex.customHeaders": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "object",
 					"default": {},
 					"additionalProperties": {
@@ -241,6 +262,7 @@
 					]
 				},
 				"authentication.openai-compatible.baseUrl": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "string",
 					"default": "",
 					"description": "%configuration.openai-compatible.baseUrl.description%",
@@ -249,6 +271,7 @@
 					]
 				},
 				"authentication.openai-compatible.customHeaders": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "object",
 					"default": {},
 					"additionalProperties": {
@@ -260,6 +283,7 @@
 					]
 				},
 				"authentication.deepseek-api.baseUrl": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "string",
 					"default": "",
 					"description": "%configuration.deepseek-api.baseUrl.description%",
@@ -268,6 +292,7 @@
 					]
 				},
 				"authentication.deepseek-api.customHeaders": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "object",
 					"default": {},
 					"additionalProperties": {
@@ -279,6 +304,7 @@
 					]
 				},
 				"assistant.provider.googleVertex.enabled": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "%configuration.provider.googleVertex.enabled.description%",
@@ -287,6 +313,7 @@
 					]
 				},
 				"assistant.provider.deepseek.enabled": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "%configuration.provider.deepseek.enabled.description%",
@@ -295,12 +322,14 @@
 					]
 				},
 				"positron.assistant.provider.anthropic.enable": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "%configuration.provider.anthropic.enable.description%",
 					"order": 1
 				},
 				"positron.assistant.provider.githubCopilot.enable": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "%configuration.provider.githubCopilot.enable.description%",
@@ -310,30 +339,35 @@
 					"order": 2
 				},
 				"positron.assistant.provider.amazonBedrock.enable": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "%configuration.provider.amazonBedrock.enable.description%",
 					"order": 3
 				},
 				"positron.assistant.provider.snowflakeCortex.enable": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "%configuration.provider.snowflakeCortex.enable.description%",
 					"order": 4
 				},
 				"positron.assistant.provider.msFoundry.enable": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "%configuration.provider.msFoundry.enable.description%",
 					"order": 5
 				},
 				"positron.assistant.provider.openAI.enable": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "%configuration.provider.openAI.enable.description%",
 					"order": 6
 				},
 				"positron.assistant.provider.customProvider.enable": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "%configuration.provider.customProvider.enable.description%",
@@ -343,12 +377,14 @@
 					"order": 7
 				},
 				"positron.assistant.provider.positAI.enable": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "%configuration.provider.positAI.enable.description%",
 					"order": 8
 				},
 				"positron.assistant.provider.google.enable": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "%configuration.provider.google.enable.description%",
@@ -358,6 +394,7 @@
 					"order": 9
 				},
 				"positron.assistant.models.overrides.anthropic": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.anthropic.description%",
@@ -400,6 +437,7 @@
 					]
 				},
 				"positron.assistant.models.overrides.amazonBedrock": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.amazonBedrock.description%",
@@ -436,6 +474,7 @@
 					}
 				},
 				"positron.assistant.models.overrides.snowflakeCortex": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.snowflakeCortex.description%",
@@ -478,6 +517,7 @@
 					]
 				},
 				"positron.assistant.models.overrides.msFoundry": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.msFoundry.description%",
@@ -510,6 +550,7 @@
 					}
 				},
 				"positron.assistant.models.overrides.openAI": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.openAI.description%",
@@ -550,6 +591,7 @@
 					]
 				},
 				"positron.assistant.models.overrides.customProvider": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.customProvider.description%",
@@ -595,6 +637,7 @@
 					]
 				},
 				"positron.assistant.models.overrides.positAI": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.positAI.description%",
@@ -627,6 +670,7 @@
 					}
 				},
 				"positron.assistant.models.overrides.google": {
+					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.google.description%",
@@ -703,24 +747,6 @@
 					"items": {
 						"type": "string"
 					}
-				},
-				"positron.assistant.models.include": {
-					"type": "array",
-					"default": [],
-					"markdownDescription": "%configuration.models.include.description%",
-					"items": {
-						"type": "string"
-					},
-					"examples": [
-						[
-							"claude",
-							"gpt"
-						],
-						[
-							"Claude Sonnet 4.5",
-							"GPT-4o"
-						]
-					]
 				}
 			}
 		}

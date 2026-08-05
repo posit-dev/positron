@@ -34,7 +34,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { SELECT_KERNEL_ID_POSITRON } from '../common/positronNotebookCommon.js';
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeService, RuntimeExitReason, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { autorun, autorunDelta, IObservable, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
@@ -2251,7 +2251,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const disposables = this._runtimeSessionDisposables.value = new DisposableStore();
 
 		// Clean up when the session ends
-		this._register(session.onDidEndSession(() => {
+		this._register(session.onDidEndSession((exit) => {
+			// A restart exit can arrive after the replacement kernel has already
+			// reported that it's starting, in which case we've re-attached to the
+			// same session above. The exit describes the previous kernel, not the
+			// session we hold now, so detaching would leave the notebook without a
+			// session for a kernel that is coming back online.
+			if (exit.reason === RuntimeExitReason.Restart &&
+				session.getRuntimeState() !== RuntimeState.Exited) {
+				return;
+			}
+
 			disposables.dispose();
 			this.kernelStatus.set(NotebookKernelStatus.Exited, undefined);
 			this.runtimeSession.set(undefined, undefined);

@@ -185,20 +185,32 @@ function main() {
 				console.error(`derive-test-change-tags: ${file} has no declared tags for "${spec.title}" -- add tags or tag the PR body manually.`);
 				continue;
 			}
-			// Already covered? Check against the spec's ORIGINAL tags: if a
-			// platform tag it carries is already selected (e.g. author added
-			// @:win), the test genuinely runs in that lane -- nothing to add.
-			const covered = [...spec.tags].some(t => selected.has(t));
-			if (covered) { continue; }
 			// Restrict the cover candidates to feature tags. A spec left with no
 			// eligible tag (only platform/special tags, e.g. a @:win-only test)
 			// can't be auto-covered -- warn like the untagged case rather than
 			// silently miss it or select a lane-triggering tag.
 			const eligible = featureAllow ? [...spec.tags].filter(t => featureAllow.has(t)) : [...spec.tags];
 			if (eligible.length === 0) {
-				console.error(`derive-test-change-tags: ${file} "${spec.title}" is tagged only with platform/non-feature tags (${[...spec.tags].join(', ')}) -- add a feature tag or tag the PR body manually.`);
+				// No feature tag exists to derive at all -- fall back to the
+				// spec's full (platform-included) tag set for the coverage
+				// check, so a @:win-only test whose author already typed
+				// @:win is recognized as covered and skipped silently rather
+				// than warned about.
+				const covered = [...spec.tags].some(t => selected.has(t));
+				if (!covered) {
+					console.error(`derive-test-change-tags: ${file} "${spec.title}" is tagged only with platform/non-feature tags (${[...spec.tags].join(', ')}) -- add a feature tag or tag the PR body manually.`);
+				}
 				continue;
 			}
+			// Already covered? Check against the spec's FEATURE tags only. A
+			// platform tag (e.g. @:web) already being selected does guarantee
+			// the spec runs in CI, but it says nothing about the spec's real
+			// feature scope, so it must not suppress deriving that scope: the
+			// PR comment's "why these tags" explanation and the weekly
+			// tag-map audit both depend on this signal naming the actual
+			// feature, not "covered by an unrelated platform lane."
+			const covered = eligible.some(t => selected.has(t));
+			if (covered) { continue; }
 			touchedUncovered.push({ ...spec, tags: new Set(eligible) });
 		}
 	}

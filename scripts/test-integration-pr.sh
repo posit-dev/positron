@@ -91,6 +91,24 @@ npm run test-extension -- -l positron-duckdb
 kill_app
 
 echo
+echo "### Positron DuckDB data connection tests"
+echo
+npm run test-extension -- -l positron-data-driver-duckdb
+kill_app
+
+echo
+echo "### Positron SQLite data connection tests"
+echo
+npm run test-extension -- -l positron-data-driver-sqlite
+kill_app
+
+echo
+echo "### Positron Connect Pins data connection tests"
+echo
+npm run test-extension -- -l positron-data-driver-pins
+kill_app
+
+echo
 echo "### Positron Zed tests"
 echo
 npm run test-extension -- -l positron-zed

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import enum
 import importlib.util
-import json
 import logging
 import os
 import re
@@ -29,7 +28,6 @@ from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
 from IPython.core import magic_arguments, oinspect, page
 from IPython.core.error import UsageError
-from IPython.core.formatters import DisplayFormatter, IPythonDisplayFormatter, catch_format_error
 from IPython.core.interactiveshell import ExecutionInfo, ExecutionResult, InteractiveShell
 from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class
 from IPython.utils import PyColorize
@@ -38,15 +36,18 @@ from .access_keys import encode_access_key
 from .connections import ConnectionsService
 from .data_explorer import DataExplorerService, DataExplorerWarning
 from .debugger import PositronDebugger
+from .execute_request import PositronExecuteRequest
+from .formatters.display_formatter import PositronDisplayFormatter
 from .help import HelpService, _distribution_to_modules, help  # noqa: A004
 from .lsp import LSPService
+from .matplotlib_backend.backend import Backend
+from .matplotlib_backend.compat import register_with_legacy_ipython
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
 from .patch.haystack import patch_haystack_is_in_jupyter
 from .patch.holoviews import set_holoviews_extension
 from .patch.plotly import patch_plotly_browser_renderer
 from .plots import PlotsService
 from .session_mode import SessionMode
-from .third_party import is_pandas, is_polars
 from .ui import UiService
 from .utils import BackgroundJobQueue, JsonRecord, get_qualname, with_logging
 from .variables import VariablesService
@@ -126,7 +127,7 @@ def _is_module_on_disk(name: str) -> bool:
 
 @magics_class
 class PositronMagics(Magics):
-    shell: PositronShell
+    shell: PositronShell  # type: ignore
 
     # This will override the default `clear` defined in `ipykernel.zmqshell.KernelMagics`.
     @line_magic
@@ -252,139 +253,6 @@ _traceback_file_link_re = re.compile(r"^(File \x1b\[\d+;\d+m)(.+):(\d+)")
 original_showwarning = warnings.showwarning
 
 
-class PositronDisplayFormatter(DisplayFormatter):
-    parent: PositronShell
-
-    @property
-    def _kernel(self):
-        """Access kernel through parent shell."""
-        return self.parent.kernel if self.parent else None
-
-    @traitlets.default("ipython_display_formatter")
-    def _default_formatter(self):
-        return PositronIPythonDisplayFormatter(parent=self)
-
-    def _resolve_variable_name(self, obj) -> str | None:
-        """Find the top-level variable name for an object by scanning user_ns.
-
-        Returns the first non-hidden variable name whose value is the same
-        object (by identity), or None if no match is found.
-        """
-        shell = self.parent
-        if shell is None:
-            return None
-
-        user_ns = shell.user_ns or {}
-        hidden = shell.user_ns_hidden or {}
-
-        for name, value in user_ns.items():
-            if value is not obj:
-                continue
-            # Skip hidden variables (IPython internals like _, __, _oh, etc.)
-            # For _, only treat it as hidden if the value is the same object
-            # as in user_ns_hidden (i.e. the user hasn't reassigned it).
-            if name == "_":
-                if name in hidden and value is hidden[name]:
-                    continue
-            elif name in hidden:
-                continue
-            return name
-
-        return None
-
-    def format(self, obj, include=None, exclude=None):
-        """Format an object for display, with special handling for dataframes in notebooks."""
-        # Get the standard format result first
-        format_dict, metadata = super().format(obj, include=include, exclude=exclude)
-
-        # Only add inline data explorer for notebook mode
-        if self._kernel is None or self._kernel.session_mode != SessionMode.NOTEBOOK:
-            return format_dict, metadata
-
-        # Check if this is a supported table type (DataFrame or Series)
-        if not (is_pandas(obj) or is_polars(obj)):
-            return format_dict, metadata
-
-        # Register the table with data explorer service and get comm_id
-        try:
-            rows, cols = _get_table_shape(obj)
-            source = _get_table_source(obj)
-
-            # Try to resolve the top-level variable name
-            var_name = self._resolve_variable_name(obj)
-            if var_name is not None:
-                title = var_name
-                variable_path = [encode_access_key(var_name)]
-            else:
-                title = source
-                variable_path = None
-
-            comm_id = self._kernel.data_explorer_service.register_table(
-                obj,
-                title,
-                variable_path=variable_path,
-                inline_only=True,
-            )
-
-            payload: dict[str, Any] = {
-                "version": 1,
-                "comm_id": comm_id,
-                "shape": {"rows": rows, "columns": cols},
-                "title": title,
-                "source": source,
-            }
-            if variable_path is not None:
-                payload["variable_path"] = variable_path
-
-            format_dict[POSITRON_DATA_EXPLORER_MIME] = json.dumps(payload)
-
-        except Exception:
-            # If registration fails, just use the standard format
-            logger.debug("Failed to register table for inline data explorer", exc_info=True)
-
-        return format_dict, metadata
-
-
-class PositronIPythonDisplayFormatter(IPythonDisplayFormatter):
-    print_method = traitlets.ObjectName("_ipython_display_")
-    _return_type = (type(None), bool)
-
-    @catch_format_error
-    def __call__(self, obj):
-        """Compute the format for an object."""
-        try:
-            if obj.__module__ == "plotnine.ggplot":
-                obj.draw(show=True)
-                return True
-        except AttributeError:
-            pass
-        return super().__call__(obj)
-
-
-# MIME type for inline data explorer in notebooks
-POSITRON_DATA_EXPLORER_MIME = "application/vnd.positron.dataExplorer+json"
-
-
-def _get_table_source(obj) -> str:
-    """Get the source library name for a table object."""
-    if is_pandas(obj):
-        return "pandas"
-    if is_polars(obj):
-        return "polars"
-    return "unknown"
-
-
-def _get_table_shape(obj) -> tuple[int, int]:
-    """Get the shape (rows, columns) of a table object."""
-    if hasattr(obj, "shape"):
-        shape = obj.shape
-        # Handle Series which has 1D shape
-        if len(shape) == 1:
-            return (shape[0], 1)
-        return (shape[0], shape[1])
-    return (0, 0)
-
-
 class PositronShell(ZMQInteractiveShell):
     kernel: PositronIPyKernel
     object_info_string_level: int
@@ -453,6 +321,13 @@ class PositronShell(ZMQInteractiveShell):
         # Register Positron's custom magics.
         self.register_magics(PositronMagics)
 
+        # On IPython versions that don't read matplotlib's backend registry, add
+        # Positron's backends to the static table that `%matplotlib -l` lists. This
+        # belongs here, next to the magic that reads the table: `-l` is handled inside
+        # `%matplotlib` and never reaches `enable_matplotlib`, so registering lazily on
+        # the switch path would leave the names out of `-l` until after a switch.
+        register_with_legacy_ipython()
+
     def init_user_ns(self):
         super().init_user_ns()
 
@@ -473,6 +348,62 @@ class PositronShell(ZMQInteractiveShell):
     def init_display_formatter(self):
         self.display_formatter = PositronDisplayFormatter(parent=self)
         self.configurables.append(self.display_formatter)  # type: ignore IPython type annotation is wrong
+
+    def enable_matplotlib(self, gui=None):
+        """
+        Enable interactive matplotlib and inline figure support.
+
+        Overrides IPython so that bare `%matplotlib`, `%matplotlib inline`, and
+        Positron's own backend names activate the Positron backend that suits the
+        session mode (or the explicitly named backend). Every other backend is
+        delegated to IPython, whose switch path runs through the hook installed by
+        `install_backend_switch_hook`, so switching away tears Positron's hooks down.
+
+        Overriding here rather than the `%matplotlib` magic also covers
+        `--matplotlib`/`--pylab` and their config-file equivalents:
+        `InteractiveShellApp.init_gui_pylab` calls `shell.enable_matplotlib` directly at
+        startup, never going through the magic.
+        """
+        from IPython.core import pylabtools as pt
+
+        from .matplotlib_backend.registry import (
+            configure_matplotlib_support,
+            install_backend_switch_hook,
+        )
+
+        # Install the seam before any switch below can need it. Idempotent; lazy
+        # because it imports matplotlib (see its docstring).
+        install_backend_switch_hook()
+
+        # Only the sentinel check case-folds: `Backend.from_name` normalizes short names
+        # itself, and keeps `module://` paths case-sensitive since they're module paths.
+        requested = gui.lower() if isinstance(gui, str) else gui
+        target = Backend.from_name(gui) if isinstance(gui, str) else None
+        if requested in (None, "auto", "inline"):
+            # Positron's backend is both the session's default and its inline backend.
+            # This is a reroute through the full switch path rather than a no-op when
+            # already active, so that `%matplotlib inline` after `%matplotlib qt`
+            # switches back. See https://github.com/posit-dev/positron/issues/15116.
+            target = Backend.for_session_mode(self.session_mode)
+
+        if target is None:
+            # A non-Positron backend (qt, agg, matplotlib-inline by module name, ...).
+            return super().enable_matplotlib(gui)
+
+        # A Positron backend: switch directly instead of via super().
+        # `pt.find_gui_and_backend` only resolves entry-point names like ours on
+        # IPython >= 8.24 with matplotlib >= 3.9, and Positron backends never have a
+        # gui event loop, so IPython's gui-selection logic doesn't apply. The recipe
+        # below matches `InteractiveShell.enable_matplotlib`'s: activate, configure
+        # inline support, enable the gui event loop, fix `%run`.
+        backend = target.preferred_name
+        pt.activate_matplotlib(backend)
+        configure_matplotlib_support(self, backend)
+        self.enable_gui(None)
+        self.magics_manager.registry["ExecutionMagics"].default_runner = pt.mpl_runner(
+            self.safe_execfile
+        )
+        return None, backend
 
     def _inspect(self, meth, oname, namespaces=None, **kw):
         # For `?name`, if the name isn't a live object but is an installed
@@ -531,19 +462,6 @@ class PositronShell(ZMQInteractiveShell):
         except Exception:
             logger.exception("Error polling variables")
 
-        # Detach high-level plotting library figures (e.g. seaborn) so that re-running
-        # plotting code starts a fresh figure instead of drawing onto the previous one.
-        # See https://github.com/posit-dev/positron/issues/8898. Only act if matplotlib
-        # has already imported our backend: importing it here would run its module-level
-        # setup code, so we reuse the already-loaded module instead.
-        if "positron.matplotlib_backend" in sys.modules:
-            try:
-                from .matplotlib_backend import detach_library_figures
-
-                detach_library_figures()
-            except Exception:
-                logger.exception("Error detaching plotting library figures")
-
     def _add_editor_dir_to_sys_path(self) -> str | None:
         """
         Add the directory of the executed file to sys.path.
@@ -556,13 +474,11 @@ class PositronShell(ZMQInteractiveShell):
         """
         try:
             parent: dict[str, Any] = self.kernel.get_parent("shell")
-            content = parent.get("content", {})
-            metadata = content.get("positron", {})
-            code_location = metadata.get("code_location")
-            if not code_location:
+            code_location = PositronExecuteRequest.from_message(parent).code_location
+            if code_location is None:
                 return None
 
-            editor_uri = urlparse(code_location.get("uri", ""))
+            editor_uri = urlparse(code_location.uri)
             if editor_uri.scheme != "file":
                 return None
 
@@ -918,12 +834,15 @@ class PositronIPKernelApp(IPKernelApp):
         return result
 
     def init_gui_pylab(self):
-        # Enable the Positron matplotlib backend if we're not in a notebook.
-        # If we're in a notebook, use IPython's default backend via the super() call below.
+        # Enable the Positron matplotlib backend that matches the session mode.
         # Matplotlib uses the MPLBACKEND environment variable to determine the backend to use.
-        # It imports the backend module when it's first needed.
-        if self.session_mode != SessionMode.NOTEBOOK and not os.environ.get("MPLBACKEND"):
-            os.environ["MPLBACKEND"] = "module://positron.matplotlib_backend"
+        # It imports the backend module when it's first needed, which is when the backend
+        # activates itself.
+        # Use the `module://` spelling rather than a short name: it works on every
+        # matplotlib version, whereas the short names need the backend registry
+        # (matplotlib >= 3.9).
+        if not os.environ.get("MPLBACKEND"):
+            os.environ["MPLBACKEND"] = Backend.for_session_mode(self.session_mode).full_name
 
         return super().init_gui_pylab()
 

@@ -9,11 +9,12 @@ import {
 	MainPositronContext,
 	ExtHostPositronContext,
 	RuntimeInitialState,
-	IActiveRuntimeSessionMetadataDto
+	IActiveRuntimeSessionMetadataDto,
+	ISerializedConsoleHistoryEntry
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, IRuntimeRootSignature, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeExecutionStatistics, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeConsoleError, IRuntimeExecutionStatistics, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -22,6 +23,7 @@ import { IPathService } from '../../../services/path/common/pathService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState, RuntimeClientStatus, RuntimeClientType } from '../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
@@ -54,6 +56,8 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { getSessionVariables, querySessionTables } from '../../../services/positronVariables/common/helpers/sessionVariableQueries.js';
+import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
+import { getConsoleHistory } from '../../../services/positronHistory/common/helpers/sessionConsoleHistory.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { LanguageRuntimeDynState } from 'positron';
@@ -201,7 +205,7 @@ const MAX_EXECUTION_CODE_LOCATIONS = 32;
 
 // Adapter class; presents an ILanguageRuntime interface that connects to the
 // extension host proxy to supply language features.
-class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILanguageRuntimeSession {
+export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILanguageRuntimeSession {
 
 	private readonly _stateEmitter = new Emitter<RuntimeState>();
 	private readonly _startupEmitter = new Emitter<ILanguageRuntimeInfo>();
@@ -297,6 +301,23 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 		// Save handle
 		this.handle = initialState.handle;
+
+		// Wire the optional missing-package methods only when the extension's
+		// session implements them; see the field declarations.
+		if (initialState.capabilities.listMissingPackages) {
+			this.listMissingPackages = (target, token) =>
+				this._proxy.$listMissingPackages(this.handle, target, token ?? CancellationToken.None);
+		}
+		if (initialState.capabilities.getMissingPackageProbe) {
+			// Project to the declared IRuntimeConsoleError shape so extensions
+			// never receive extra frontend fields (e.g. sessionId, languageId).
+			this.getMissingPackageProbe = (error, token) =>
+				this._proxy.$getMissingPackageProbe(
+					this.handle,
+					{ name: error.name, message: error.message, traceback: error.traceback },
+					token ?? CancellationToken.None);
+		}
+
 		this.dynState = {
 			busy: false,
 			// If the session is a notebook session, set the current notebook URI
@@ -835,9 +856,14 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		return this._packageManager;
 	}
 
-	listMissingPackages(target: IRuntimeMissingPackagesTarget, token?: CancellationToken): Promise<IRuntimeMissingPackage[]> {
-		return this._proxy.$listMissingPackages(this.handle, target, token ?? CancellationToken.None);
-	}
+	/**
+	 * Optional missing-package methods, assigned in the constructor only when
+	 * the extension's session implements them. Presence-as-capability: the
+	 * workbench gates features on `!!session.listMissingPackages`, and a
+	 * prototype method would read as "supported" for every session.
+	 */
+	readonly listMissingPackages?: (target: IRuntimeMissingPackagesTarget, token?: CancellationToken) => Promise<IRuntimeMissingPackage[]>;
+	readonly getMissingPackageProbe?: (error: IRuntimeConsoleError, token?: CancellationToken) => Promise<string | undefined>;
 
 	async showOutput(channel?: LanguageRuntimeSessionChannel): Promise<void> {
 		return this._proxy.$showOutputLanguageRuntime(this.handle, channel);
@@ -1694,7 +1720,9 @@ export class MainThreadLanguageRuntime
 		@INotebookService private readonly _notebookService: INotebookService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IOpenerService private readonly _openerService: IOpenerService,
-		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService
+		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
+		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
 		// Positron services were up and running early in the application lifecycle. For now, this
@@ -2027,6 +2055,11 @@ export class MainThreadLanguageRuntime
 
 	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>> {
 		return querySessionTables(this._positronVariablesService, sessionId, accessKeys, queryTypes);
+	}
+
+	async $getConsoleHistory(sessionId: string, numberOfEntries?: number): Promise<ISerializedConsoleHistoryEntry[]> {
+		return getConsoleHistory(
+			this._executionHistoryService, this._runtimeSessionService, this._configurationService, sessionId, numberOfEntries);
 	}
 
 	/**

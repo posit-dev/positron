@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import { GoogleAuth } from 'google-auth-library';
 import { AuthProviderLogger } from '../authProviderLogger';
 import { log } from '../log';
@@ -94,27 +93,6 @@ async function tryApplicationDefaultCredentials(
 }
 
 /**
- * Reads GCP project and location from settings, falling back to env vars.
- * The setting `authentication.googleVertex.credentials` matches the AWS
- * pattern (`authentication.aws.credentials`).
- */
-function readProjectAndLocation(): { project?: string; location?: string } {
-	const creds = vscode.workspace
-		.getConfiguration('authentication.googleVertex')
-		.get<{ GOOGLE_VERTEX_PROJECT?: string; GOOGLE_VERTEX_LOCATION?: string }>(
-			'credentials', {}
-		);
-	return {
-		project: creds?.GOOGLE_VERTEX_PROJECT
-			|| process.env.GOOGLE_VERTEX_PROJECT
-			|| undefined,
-		location: creds?.GOOGLE_VERTEX_LOCATION
-			|| process.env.GOOGLE_VERTEX_LOCATION
-			|| undefined,
-	};
-}
-
-/**
  * Resolve a Gemini Enterprise Agent Platform credential. Mints a fresh OAuth bearer (inline
  * service-account env vars first, then Application Default Credentials)
  * and bundles it with project + location into a JSON-encoded session
@@ -125,9 +103,12 @@ function readProjectAndLocation(): { project?: string; location?: string } {
  * how the AWS Bedrock provider returns `{accessKeyId, secretAccessKey,
  * sessionToken}` as JSON.
  *
- * Throws if no credentials resolve, or if project/location are unset.
+ * Project and location come from the provider catalog's `connection.googleCloud`
+ * slice, passed in by the caller. Throws if no credentials resolve, or if
+ * project/location are unset.
  */
 export async function resolveGeapCredential(
+	googleCloud: { project?: string; location?: string } | undefined,
 	logger: AuthProviderLogger = new AuthProviderLogger('Gemini Enterprise Agent Platform', log),
 ): Promise<string> {
 	let token = await tryInlineCredentials();
@@ -143,14 +124,13 @@ export async function resolveGeapCredential(
 		);
 	}
 
-	const { project, location } = readProjectAndLocation();
+	const project = googleCloud?.project;
+	const location = googleCloud?.location;
 	if (!project || !location) {
 		throw new Error(
 			'Gemini Enterprise Agent Platform requires a project and location. Set ' +
-			'`authentication.googleVertex.credentials.GOOGLE_VERTEX_PROJECT` ' +
-			'and `authentication.googleVertex.credentials.GOOGLE_VERTEX_LOCATION` ' +
-			'in settings, or set the `GOOGLE_VERTEX_PROJECT` and ' +
-			'`GOOGLE_VERTEX_LOCATION` environment variables.'
+			'the `GOOGLE_VERTEX_PROJECT` and `GOOGLE_VERTEX_LOCATION` environment ' +
+			'variables, or configure the provider connection.'
 		);
 	}
 

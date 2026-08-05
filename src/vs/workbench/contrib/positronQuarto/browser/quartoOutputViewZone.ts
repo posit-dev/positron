@@ -201,6 +201,21 @@ export function chooseHtmlRenderMode(html: string, hasWebviewService: boolean): 
 }
 
 /**
+ * Whether a fresh output arriving mid-re-execution should expand a collapsed
+ * output. Expanding is the default so the user sees new results, but it must not
+ * override a collapse the user made *during* this execution: output can arrive
+ * hundreds of ms after they collapsed, and silently re-expanding both discards
+ * an explicit action and leaves the next toggle inverted (posit-dev/positron
+ * flake in quarto-inline-output-collapse).
+ *
+ * A collapse made *before* the re-execution started does not suppress the
+ * expand, which is the case the behavior exists for.
+ */
+export function shouldExpandOnFreshOutput(isCollapsed: boolean, userCollapsedDuringExecution: boolean): boolean {
+	return isCollapsed && !userCollapsedDuringExecution;
+}
+
+/**
  * View zone for displaying Quarto cell output inline in the editor.
  * Supports text, images, error output, and complex webview-based outputs.
  */
@@ -329,6 +344,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 	// Collapse state: when true, outputs are hidden and a textual summary is shown
 	private _isCollapsed = false;
+	// Set when the user collapses while the cell is re-executing, so a late
+	// output doesn't expand it back out from under them.
+	private _userCollapsedDuringExecution = false;
 	// Collapse chevron button (portaled into the editor's container node)
 	private readonly _collapseButton: HTMLButtonElement;
 	private _collapseChevronIcon!: HTMLSpanElement;
@@ -353,6 +371,12 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// to persist the state to workspace storage.
 	private readonly _onDidChangeCollapsed = this._register(new Emitter<boolean>());
 	readonly onDidChangeCollapsed: VSEvent<boolean> = this._onDidChangeCollapsed.event;
+
+	// Fires whenever the view zone's laid-out height changes (output added,
+	// truncated, or an async output such as an image finishing loading). Used by
+	// the output manager to keep growing output in view while auto-scrolling.
+	private readonly _onDidChangeHeight = this._register(new Emitter<void>());
+	readonly onDidChangeHeight: VSEvent<void> = this._onDidChangeHeight.event;
 
 	// Quick-fix support for error outputs (suppressed by default; the live
 	// execution path calls enableQuickFix() to opt in).
@@ -455,13 +479,13 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._summaryElement.addEventListener('click', (e) => {
 			e.preventDefault();
 			e.stopPropagation();
-			this.setCollapsed(false);
+			this.setCollapsed(false, true);
 		});
 		this._summaryElement.addEventListener('keydown', (e) => {
 			if (e.key === 'Enter' || e.key === ' ') {
 				e.preventDefault();
 				e.stopPropagation();
-				this.setCollapsed(false);
+				this.setCollapsed(false, true);
 			}
 		});
 		this._styledContainer.appendChild(this._summaryElement);
@@ -666,6 +690,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			return;
 		}
 		this._isRecomputing = isRecomputing;
+		if (isRecomputing) {
+			// A new execution starts a new window for the user's collapse intent.
+			this._userCollapsedDuringExecution = false;
+		}
 		this._updateRecomputingState();
 	}
 
@@ -1056,8 +1084,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._disposeAllWebviews();
 			this._disposeAllReactRenderers();
 			this.setRecomputing(false);
-			// Fresh outputs on re-execution: expand so the user sees them.
-			if (this._isCollapsed) {
+			// Fresh outputs on re-execution: expand so the user sees them, unless
+			// the user collapsed during this execution.
+			if (shouldExpandOnFreshOutput(this._isCollapsed, this._userCollapsedDuringExecution)) {
 				this.setCollapsed(false);
 			}
 		}
@@ -1127,6 +1156,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Reset collapse state so the next output starts expanded
 		const wasCollapsed = this._isCollapsed;
 		this._isCollapsed = false;
+		this._userCollapsedDuringExecution = false;
 		this._styledContainer.classList.remove('quarto-output-collapsed');
 		this._collapseChevronIcon.classList.remove('collapsed');
 		const collapseLabel = localize('quartoCollapseOutput', 'Collapse Output');
@@ -1591,14 +1621,22 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * Toggle the collapsed state of the output.
 	 */
 	toggleCollapsed(): void {
-		this.setCollapsed(!this._isCollapsed);
+		this.setCollapsed(!this._isCollapsed, true);
 	}
 
 	/**
 	 * Set the collapsed state. When collapsed, the output content is hidden
 	 * and a textual summary is shown in its place.
+	 *
+	 * @param userInitiated Whether this came from a user action (chevron, toggle
+	 * command, summary click) rather than a restore or an automatic expand. A
+	 * user collapse during a re-execution suppresses the auto-expand that a late
+	 * output would otherwise trigger.
 	 */
-	setCollapsed(collapsed: boolean): void {
+	setCollapsed(collapsed: boolean, userInitiated = false): void {
+		if (userInitiated) {
+			this._userCollapsedDuringExecution = collapsed && this._isRecomputing;
+		}
 		if (this._isCollapsed === collapsed) {
 			return;
 		}
@@ -2294,7 +2332,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		}
 
 		if (mime.startsWith('image/')) {
-			return this._renderImage(mime, data, output.outputId);
+			return this._renderImage(mime, data, output.outputId, output.outputMetadata);
 		}
 
 		if (mime === 'text/html') {
@@ -2602,13 +2640,32 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		return container;
 	}
 
-	private _renderImage(mime: string, data: string, outputId: string): HTMLElement {
+	private _renderImage(
+		mime: string,
+		data: string,
+		outputId: string,
+		outputMetadata?: Record<string, unknown>
+	): HTMLElement {
 		const container = document.createElement('div');
 		container.className = 'quarto-output-image-container';
 
 		const img = document.createElement('img');
 		img.className = 'quarto-output-image';
 		img.setAttribute('alt', localize('outputImage', 'Output image'));
+
+		// Set width and height from output metadata if available.
+		// On high DPI displays, kernels render images at >1 pixel ratio
+		// and specify the actual display size in the metadata.
+		const meta = outputMetadata?.[mime];
+		if (meta && typeof meta === 'object') {
+			const { width, height } = meta as Record<string, unknown>;
+			if (typeof width === 'number') {
+				img.width = width;
+			}
+			if (typeof height === 'number') {
+				img.height = height;
+			}
+		}
 
 		// Cache the natural dimensions once the image loads so the collapse
 		// summary can show "Plot (WxH)".
@@ -3005,6 +3062,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._editor.changeViewZones(accessor => {
 				accessor.layoutZone(this._zoneId!);
 			});
+
+			// Notify listeners so a growing output can be kept in view.
+			this._onDidChangeHeight.fire();
 		} else if (!this._zoneId) {
 			this.heightInPx = newHeight;
 		}

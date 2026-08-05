@@ -28,6 +28,13 @@ import { join, resolve } from 'path';
 import { execFileSync } from 'child_process';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
+import {
+	extractTraceClock,
+	findFailureWindow,
+	mineLogs,
+	phaseLabel,
+	relevanceHintsForSpec,
+} from './lib-failure-window.js';
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -469,7 +476,10 @@ function buildConsoleDigest(evts) {
 	if (!consoles.length) { return null; }
 	const errTimes = evts.filter(e => e.type === 'after' && e.error).map(e => e.endTime ?? e.startTime).filter(t => t != null);
 	const focusStart = errTimes.length ? Math.min(...errTimes) - LOOKBACK_MS : -Infinity;
-	const focusEnd = errTimes.length ? Math.max(...errTimes) + 1000 : Infinity;
+	// Trail the last error by 2s so the test's own teardown stays visible. It is
+	// routinely misread as a cause, so showing it LABELLED beats hiding it.
+	const focusEnd = errTimes.length ? Math.max(...errTimes) + 2000 : Infinity;
+	const win = findFailureWindow(evts);
 	const picked = consoles.filter(e =>
 		(e.time == null || (e.time >= focusStart && e.time <= focusEnd)) &&
 		(e.messageType === 'error' || e.messageType === 'warning' || ALLOW.test(e.text)) &&
@@ -485,17 +495,22 @@ function buildConsoleDigest(evts) {
 		// context. Track priority so the cap can never drop a command-fired or
 		// phase line in favor of a warning.
 		const high = ALLOW.test(e.text) || e.messageType === 'error';
-		entries.push({ time: e.time, level: e.messageType || 'log', text, count: 1, high });
+		entries.push({ time: e.time, level: e.messageType || 'log', text, count: 1, high, phase: phaseLabel(e.time, win) });
 	}
 
-	// Over the cap, keep high-signal lines first (stable sort preserves time
-	// order within each tier), then restore chronological order for display.
+	// Rank before capping so a post-deadline teardown line can never displace a
+	// line from inside the wait: only the wait can contain a cause.
+	const rank = (e) => (e.phase === 'after deadline' ? 0 : 2) + (e.high ? 1 : 0);
 	const shown = entries.length <= MAX_LINES
 		? entries
-		: [...entries].sort((a, b) => Number(b.high) - Number(a.high)).slice(0, MAX_LINES).sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
+		: [...entries].sort((a, b) => rank(b) - rank(a)).slice(0, MAX_LINES).sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
 	const out = [`\n=== Console digest near failure (${shown.length}${entries.length > shown.length ? ` of ${entries.length}` : ''} high-signal lines) ===`];
+	if (win?.deadlineT != null) {
+		out.push(`Failing action: ${win.method || 'unknown'}; waited t=${win.actionStartT != null ? Math.round(win.actionStartT) : '?'}..${Math.round(win.deadlineT)}.`);
+		out.push("Lines are tagged by position relative to that wait. [after deadline] means the line was emitted AFTER the assertion had already failed, so it CANNOT be the cause -- these are usually the test's own finally/teardown (a sign-out, a settings reset), whose side effects are routinely misread as root causes.");
+	}
 	for (const e of shown) {
-		out.push(`t=${Math.round(e.time ?? 0)} [${e.level}] ${e.text}${e.count > 1 ? ` (x${e.count})` : ''}`);
+		out.push(`t=${Math.round(e.time ?? 0)}${e.phase ? ` [${e.phase}]` : ''} [${e.level}] ${e.text}${e.count > 1 ? ` (x${e.count})` : ''}`);
 	}
 	return out.join('\n');
 }
@@ -575,6 +590,11 @@ function parseTrace(tracePath) {
 		screenshotShas: trailingScreenshots.map(s => ({ sha1: s.sha1, timestamp: s.timestamp })),
 		// Kept for backward compat with callers that read just the final frame.
 		lastScreenshotSha1: lastScreenshot?.sha1 || null,
+		// Dual-clock anchor + the failing action's wait interval. Not rendered into
+		// the timeline; the log miner needs them to relate the trace's monotonic
+		// `t=` to the wall-clock timestamps in the attached *.log files.
+		clock: extractTraceClock(events),
+		failureWindow: findFailureWindow(events),
 	};
 }
 
@@ -596,81 +616,26 @@ function unzipFile(zipPath, entryPath, destDir) {
 	}
 }
 
-// High-signal error markers used to mine the attached log bundle. Deliberately
-// narrow (not a generic "error" match) so kernel/runtime failures like
-// "IOError: Failed to open local file ... No such file or directory" surface
-// without drowning in benign trace noise. A screenshot or Playwright error
-// CANNOT tell "fixture never provisioned" from "fixture deleted mid-run"; the
-// kernel/runner log lines (e.g. the resolved getwd() path) often can.
-const LOG_ERROR_RE = /(no such file|file not found|cannot find|traceback|ioerror|[a-z]+error:|exception:|fatal|panic|unhandled|connection refused|permission denied|access denied|expired|failed to \w+)/i;
-
-// Benign lines that match LOG_ERROR_RE but carry no diagnostic value (e.g. the
-// file watcher logs an ENOENT for every optional config path it probes). Drop
-// them so real failures aren't crowded out of the bounded excerpt.
-const LOG_NOISE_RE = /(ignoring a path for watching|\.vscode[/\\](settings|mcp|tasks|launch)\.json|[/\\](policy|mcp)\.json)/i;
-
-/** Strip ANSI SGR escape sequences (ESC[..m) so log lines read cleanly in the prompt. */
-function stripAnsi(s) {
-	return s.replace(new RegExp("\u001b\[[0-9;]*m", "g"), "");
-}
-
 /**
- * Extract the attached logs zip and return the lines matching LOG_ERROR_RE,
- * each tagged with its source log filename. Bounded so a single test can't
- * dominate the prompt. Returns null when nothing matches (the trace already
- * carries the Playwright-level error in that case).
+ * Mine the attached log bundle for the failure window. Delegates to
+ * lib-failure-window.js, which time-slices the logs against the failing
+ * action's wait -- keeping ALL severities inside it, plus a derived "went quiet
+ * before the deadline" report -- and falls back to the old error-line grep when
+ * the trace carries no wall-clock anchor.
+ *
+ * The previous implementation here was an error-keyword grep, which structurally
+ * could not surface either of the two things that most often settle a diagnosis:
+ * an info-level success line (e.g. "Fetched 11 models from API", which refutes
+ * an "external dependency broke" theory) and a log going silent exactly when the
+ * UI should have appeared.
  */
-function grepLogs(logsZipPath) {
-	const PER_FILE = 20;
-	const MAX_LINES = 60;
-	const MAX_CHARS = 5000;
-	const dir = join(tmpWorkDir, `logsx-${randomBytes(4).toString('hex')}`);
-	try {
-		mkdirSync(dir, { recursive: true });
-		execFileSync('unzip', ['-o', logsZipPath, '-d', dir], { stdio: ['pipe', 'pipe', 'pipe'] });
-	} catch {
-		return null;
-	}
-
-	// Recursively collect *.log files.
-	const logFiles = [];
-	const stack = [dir];
-	while (stack.length) {
-		const d = stack.pop();
-		let entries;
-		try { entries = readdirSync(d, { withFileTypes: true }); } catch { continue; }
-		for (const ent of entries) {
-			const p = join(d, ent.name);
-			if (ent.isDirectory()) { stack.push(p); }
-			else if (ent.name.endsWith('.log')) { logFiles.push(p); }
-		}
-	}
-
-	const collected = [];
-	const seen = new Set(); // dedupe identical message bodies (e.g. repeated git ENOENT warnings)
-	for (const f of logFiles) {
-		const rel = f.slice(dir.length + 1).replace(/\\/g, '/');
-		let content;
-		try { content = readFileSync(f, 'utf8'); } catch { continue; }
-		let perFile = 0;
-		for (const raw of content.split('\n')) {
-			const line = stripAnsi(raw).trim();
-			if (!LOG_ERROR_RE.test(line) || LOG_NOISE_RE.test(line)) { continue; }
-			// Dedupe on the message minus any leading timestamp so retries/repeats collapse.
-			const dedupeKey = line.replace(/^[\d\-T:.Z\s]+/, '').slice(0, 200);
-			if (seen.has(dedupeKey)) { continue; }
-			seen.add(dedupeKey);
-			collected.push(`[${rel}] ${line.slice(0, 300)}`);
-			if (++perFile >= PER_FILE) { break; }
-			if (collected.length >= MAX_LINES) { break; }
-		}
-		if (collected.length >= MAX_LINES) { break; }
-	}
-
-	if (collected.length === 0) { return null; }
-	let joined = collected.join('\n');
-	if (joined.length > MAX_CHARS) { joined = joined.slice(0, MAX_CHARS) + '\n[... log excerpt truncated ...]'; }
-	return joined;
+function mineLogBundle(logsZipPath, trace, specPath) {
+	return mineLogs(logsZipPath, {
+		tmpDir: tmpWorkDir,
+		clock: trace?.clock || null,
+		window: trace?.failureWindow || null,
+		hints: relevanceHintsForSpec(specPath),
+	});
 }
 
 // ---------------------------------------------------------------------------
@@ -707,20 +672,6 @@ for (const testId of failedTestIds) {
 
 	const shortId = testId.slice(0, 12);
 	const attempts = [];
-
-	// Mine the attached log bundle (kernel/runtime/runner logs) for error lines.
-	// One bundle per test is enough; the last attempt's logs are the most relevant.
-	let logExcerpt = null;
-	const logsAtt = logsAtts[logsAtts.length - 1];
-	if (logsAtt?.path) {
-		process.stderr.write(`  Mining logs for ${shortId}...\n`);
-		const logsZipPath = unzipFile(
-			join(resolvedBlobDir, logsAtt.blob),
-			logsAtt.path,
-			join(tmpWorkDir, `logs-${shortId}`)
-		);
-		if (logsZipPath) { logExcerpt = grepLogs(logsZipPath); }
-	}
 
 	// Sibling tests in the same file (passed siblings are the key signal).
 	const siblingTests = (siblingsByFile.get(normalizeSpecPath(testInfo?.file)) || [])
@@ -810,6 +761,25 @@ for (const testId of failedTestIds) {
 			screenshotPaths,          // chronological list; last entry is the failure-state
 			errorContextPath,
 		});
+	}
+
+	// Mine the attached log bundle for the failure window. One bundle per test is
+	// enough; the last attempt's logs are the most relevant. Runs AFTER the trace
+	// loop because the window and wall-clock anchor come out of the trace -- the
+	// logs cannot be time-sliced without them.
+	let logExcerpt = null;
+	const logsAtt = logsAtts[logsAtts.length - 1];
+	if (logsAtt?.path) {
+		process.stderr.write(`  Mining logs for ${shortId}...\n`);
+		const logsZipPath = unzipFile(
+			join(resolvedBlobDir, logsAtt.blob),
+			logsAtt.path,
+			join(tmpWorkDir, `logs-${shortId}`)
+		);
+		if (logsZipPath) {
+			const lastTrace = attempts[attempts.length - 1]?.trace || null;
+			logExcerpt = mineLogBundle(logsZipPath, lastTrace, testInfo?.file);
+		}
 	}
 
 	testDetails.push({

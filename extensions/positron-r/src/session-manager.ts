@@ -27,9 +27,22 @@ export class RSessionManager implements vscode.Disposable {
 	/// The last binpath that was used
 	private _lastBinpath = '';
 
+	/// Fires when a console session is activated as the foreground R console.
+	private readonly _onDidActivateConsoleSession = new vscode.EventEmitter<RSession>();
+
+	/**
+	 * An event that fires when a console session is activated as the foreground
+	 * R console. Consumers can use this to sync state to the active console
+	 * (e.g. the contributed terminal environment). Only console sessions are
+	 * reported; notebook and background sessions never fire this event, and it
+	 * only fires when the foreground console actually changes.
+	 */
+	readonly onDidActivateConsoleSession = this._onDidActivateConsoleSession.event;
+
 	/// Constructor; private since we only want one of these
 	private constructor() {
 		this._disposables.push(
+			this._onDidActivateConsoleSession,
 			positron.runtime.onDidChangeForegroundSession(async sessionId => {
 				await this.didChangeForegroundSession(sessionId);
 			})
@@ -163,6 +176,12 @@ export class RSessionManager implements vscode.Disposable {
 			})
 		);
 		await this.activateSession(session, reason);
+
+		// Notify consumers that the foreground R console changed so they can
+		// sync state to it (e.g. the contributed terminal environment). This
+		// rides the console-activation path so it inherits the console-only
+		// and change-deduplication guards above.
+		this._onDidActivateConsoleSession.fire(session);
 	}
 
 	/**

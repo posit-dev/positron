@@ -48,7 +48,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create access token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         id: app_token
         with:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
@@ -110,7 +110,7 @@ jobs:
           elif [ "$OS" = "SLES15_6" ]; then
             OS_TAG="sles156"
           elif [ "$OS" = "debian" ]; then
-            OS_TAG="debian12"
+            OS_TAG="debian13"
           else
             OS_TAG="$OS"
           fi
@@ -125,7 +125,7 @@ jobs:
           elif [ "$OS" = "SLES15_6" ]; then
             SOURCE_IMAGE="positron-sles156-${ARCHITECTURE}:latest"
           elif [ "$OS" = "debian" ]; then
-            SOURCE_IMAGE="positron-debian12-${ARCHITECTURE}:latest"
+            SOURCE_IMAGE="positron-debian13-${ARCHITECTURE}:latest"
           fi
 
           echo "Using source image: ${SOURCE_IMAGE}"
@@ -170,7 +170,7 @@ jobs:
           elif [ "$OS" = "SLES15_6" ]; then
             OS_TAG="sles156"
           elif [ "$OS" = "debian" ]; then
-            OS_TAG="debian12"
+            OS_TAG="debian13"
           else
             OS_TAG="$OS"
           fi

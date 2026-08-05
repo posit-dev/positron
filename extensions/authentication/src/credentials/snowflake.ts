@@ -6,15 +6,9 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import * as vscode from 'vscode';
 import { AuthProviderLogger } from '../authProviderLogger';
 
 const logger = new AuthProviderLogger('Snowflake Auth');
-
-export interface SnowflakeProviderVariables {
-	SNOWFLAKE_ACCOUNT?: string;
-	SNOWFLAKE_HOME?: string;
-}
 
 /**
  * Configuration for detected Snowflake credentials
@@ -23,18 +17,6 @@ export interface SnowflakeCredentialConfig {
 	token: string;
 	baseUrl: string;
 	account: string;
-}
-
-/**
- * Result of checking for credential updates
- */
-export interface CredentialUpdateResult {
-	/** Whether credentials were updated */
-	updated: boolean;
-	/** New credentials if updated, undefined otherwise */
-	credentials?: SnowflakeCredentialConfig;
-	/** New last modified timestamp to track */
-	lastModified: number;
 }
 
 /**
@@ -120,10 +102,13 @@ function extractCredentialsFromToml(connectionsTomlPath: string): { account: str
 
 /**
  * Detects Snowflake credentials from Posit Workbench managed connections.toml
+ * @param snowflake Catalog `connection.snowflake` slice supplying `home`
  * @returns Configuration object with detected credentials or undefined if none found
  */
-export async function detectSnowflakeCredentials(): Promise<SnowflakeCredentialConfig | undefined> {
-	const connectionsTomlPath = getSnowflakeConnectionsTomlPath();
+export async function detectSnowflakeCredentials(
+	snowflake?: { home?: string }
+): Promise<SnowflakeCredentialConfig | undefined> {
+	const connectionsTomlPath = getSnowflakeConnectionsTomlPath(snowflake);
 	if (!connectionsTomlPath) {
 		logger.debug('No Posit Workbench managed credentials detected');
 		return undefined;
@@ -146,14 +131,14 @@ export async function detectSnowflakeCredentials(): Promise<SnowflakeCredentialC
 
 /**
  * Gets the path to the connections.toml file for monitoring
+ * @param snowflake Catalog `connection.snowflake` slice supplying `home`
  * @returns Path to connections.toml or undefined if not available
  */
-export function getSnowflakeConnectionsTomlPath(): string | undefined {
+export function getSnowflakeConnectionsTomlPath(
+	snowflake?: { home?: string }
+): string | undefined {
 	try {
-		const configSettings = vscode.workspace
-			.getConfiguration('authentication.snowflake')
-			.get<SnowflakeProviderVariables>('credentials', {});
-		const snowflakeHome = configSettings.SNOWFLAKE_HOME || process.env.SNOWFLAKE_HOME;
+		const snowflakeHome = snowflake?.home;
 
 		if (snowflakeHome) {
 			const expandedHome = expandTildePath(snowflakeHome);
@@ -169,72 +154,13 @@ export function getSnowflakeConnectionsTomlPath(): string | undefined {
 }
 
 /**
- * Check if connections.toml has been modified since the last check and return updated credentials if available
- * @param lastCheck Timestamp of the last check (undefined for first check)
- * @param currentToken Current token to compare against
- * @returns Result indicating whether credentials were updated
- */
-export async function checkForUpdatedSnowflakeCredentials(
-	lastCheck: number | undefined,
-	currentToken: string
-): Promise<CredentialUpdateResult> {
-	const connectionsTomlPath = getSnowflakeConnectionsTomlPath();
-	if (!connectionsTomlPath) {
-		// No path to check - return unchanged
-		return {
-			updated: false,
-			lastModified: lastCheck || Date.now()
-		};
-	}
-
-	try {
-		const stats = await fs.promises.stat(connectionsTomlPath);
-		const lastModified = stats.mtime.getTime();
-
-		// If this is our first check or the file has been modified, read new credentials
-		if (!lastCheck || lastModified > lastCheck) {
-			logger.debug('connections.toml modified, checking for updated credentials');
-
-			const credentials = await detectSnowflakeCredentials();
-			if (credentials?.token && credentials.token !== currentToken) {
-				logger.info(`Found updated credentials for account: ${credentials.account}`);
-				return {
-					updated: true,
-					credentials,
-					lastModified
-				};
-			}
-
-			// File was modified but credentials didn't change
-			return {
-				updated: false,
-				lastModified
-			};
-		}
-
-		// File hasn't been modified
-		return {
-			updated: false,
-			lastModified: lastCheck
-		};
-	} catch (error) {
-		// File might not exist or be readable, which is fine
-		logger.debug(`Could not check connections.toml modification time: ${error}`);
-		return {
-			updated: false,
-			lastModified: lastCheck || Date.now()
-		};
-	}
-}
-
-/**
- * Reads the configured Snowflake account identifier from settings, falling
- * back to the SNOWFLAKE_ACCOUNT environment variable.
+ * Reads the Snowflake account identifier from the provider catalog's
+ * `connection.snowflake` slice.
+ * @param snowflake Catalog `connection.snowflake` slice supplying `account`
  * @returns The account identifier, or an empty string if not set.
  */
-export function getConfiguredSnowflakeAccount(): string {
-	const configSettings = vscode.workspace
-		.getConfiguration('authentication.snowflake')
-		.get<SnowflakeProviderVariables>('credentials', {});
-	return configSettings.SNOWFLAKE_ACCOUNT || process.env.SNOWFLAKE_ACCOUNT || '';
+export function getConfiguredSnowflakeAccount(
+	snowflake?: { account?: string }
+): string {
+	return snowflake?.account || '';
 }

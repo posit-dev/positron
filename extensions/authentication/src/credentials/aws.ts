@@ -13,21 +13,22 @@ const DEFAULT_AWS_REGION = 'us-east-1';
 const logger = new AuthProviderLogger('AWS');
 
 /**
- * Resolve the init object for `fromNodeProviderChain` from the
- * `authentication.aws.credentials` setting and the process environment, and
- * log the resolved region and profile.
+ * Resolve the init object for `fromNodeProviderChain` from the provider
+ * catalog's `connection.aws` slice, and log the resolved region and profile.
  *
- * The region is passed to the STS `clientConfig` only for web-identity auth
- * (`AWS_WEB_IDENTITY_TOKEN_FILE` set), so the STS exchange targets the
- * configured region. SSO profiles read the region from `sso_region` in
- * `~/.aws/config`, which `clientConfig` must not override.
+ * The region and profile come only from the catalog; the `AWS_PROFILE` /
+ * `AWS_REGION` env vars reach this function through the catalog's env source,
+ * not directly. The region is passed to the STS `clientConfig` only for
+ * web-identity auth (`AWS_WEB_IDENTITY_TOKEN_FILE` set), so the STS exchange
+ * targets the configured region. SSO profiles read the region from `sso_region`
+ * in `~/.aws/config`, which `clientConfig` must not override.
  */
 export function resolveAwsChainInit(
-	awsConfig: { AWS_PROFILE?: string; AWS_REGION?: string } | undefined,
+	aws: { profile?: string; region?: string } | undefined,
 	env: NodeJS.ProcessEnv,
 ): ChainInit {
-	const profile = awsConfig?.AWS_PROFILE ?? env.AWS_PROFILE;
-	const region = awsConfig?.AWS_REGION ?? env.AWS_REGION ?? DEFAULT_AWS_REGION;
+	const profile = aws?.profile;
+	const region = aws?.region ?? DEFAULT_AWS_REGION;
 
 	const chainInit: ChainInit = {
 		...(profile ? { profile } : {}),
