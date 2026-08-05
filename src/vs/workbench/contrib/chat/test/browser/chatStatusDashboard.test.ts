@@ -22,6 +22,9 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { ChatStatusDashboard, IChatStatusDashboardOptions } from '../../../chat/browser/chatStatus/chatStatusDashboard.js';
 import { IChatStatusItemService } from '../../../chat/browser/chatStatus/chatStatusItemService.js';
+// --- Start Positron ---
+import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
+// --- End Positron ---
 
 interface IQuotaConfig {
 	percentRemaining: number;
@@ -245,6 +248,21 @@ suite('ChatStatusDashboard', () => {
 		instantiationService.stub(IMarkdownRendererService, {
 			_serviceBrand: undefined,
 		});
+		// --- Start Positron ---
+		// The dashboard gates Copilot-backed inline suggestions on the AI provider
+		// service; stub it as always-enabled so the suggestions section renders.
+		instantiationService.stub(IAiProviderService, {
+			_serviceBrand: undefined,
+			whenInitialized: Promise.resolve(),
+			status: 'ready',
+			lastError: undefined,
+			getProvider: () => undefined,
+			isEnabled: () => true,
+			getProviders: () => [],
+			onDidChangeProviders: Event.None,
+			getConfigFileUri: () => Promise.reject(new Error('not implemented')),
+		});
+		// --- End Positron ---
 		if (options.activeTextEditorLanguageId) {
 			const activeTextEditorLanguageId = options.activeTextEditorLanguageId;
 			instantiationService.stub(IEditorService, new class extends mock<IEditorService>() {
