@@ -15,6 +15,9 @@ import { IStatusbarEntry, IStatusbarEntryAccessor, IStatusbarService } from '../
 import { workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { ChatQuotaResumeState, ChatStatusBarEntry, computeQuotaResumeState } from '../../browser/chatStatus/chatStatusEntry.js';
 import { IChatStatusItemService } from '../../browser/chatStatus/chatStatusItemService.js';
+// --- Start Positron ---
+import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
+// --- End Positron ---
 
 type Quotas = IChatEntitlementService['quotas'];
 
@@ -140,6 +143,15 @@ suite('ChatStatusBarEntry', () => {
 			deleteEntry: () => { },
 		});
 		instantiationService.stub(IMarkdownRendererService, { _serviceBrand: undefined });
+		// --- Start Positron ---
+		// ChatStatusBarEntry reads the AI provider catalog to decide whether Copilot
+		// is enabled; stub it as enabled so the upstream chat states are exercised.
+		instantiationService.stub(IAiProviderService, {
+			_serviceBrand: undefined,
+			onDidChangeProviders: Event.None,
+			isEnabled: () => true,
+		});
+		// --- End Positron ---
 
 		const storageService = instantiationService.get(IStorageService);
 		if (opts.persisted) {
