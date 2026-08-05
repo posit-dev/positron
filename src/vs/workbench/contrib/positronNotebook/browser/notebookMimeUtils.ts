@@ -5,10 +5,6 @@
 
 import { isSvgMimeType } from '../../../services/positronPlots/common/imageDataUrl.js';
 
-// Re-export so existing consumers keep importing the SVG check from this
-// module; the definition lives with the image data URL encode/decode helpers.
-export { isSvgMimeType };
-
 /**
  * Image MIME types that should be base64 encoded when serializing notebook outputs.
  * Excludes SVG (image/svg+xml) which is text-based XML.
