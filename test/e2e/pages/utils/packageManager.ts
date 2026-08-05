@@ -39,6 +39,28 @@ export class PackageManager {
 
 			await this.app.workbench.console.executeCode(packageInfo.type, command);
 			await expect(this.app.code.driver.currentPage.getByText(expectedOutput)).toBeVisible();
+
+			if (packageInfo.type === 'R') {
+				// The output matched above is printed when `install.packages()` starts, not when it
+				// finishes, and the console keeps showing the `>` prompt while it runs, so
+				// `executeCode`'s readiness check returns almost immediately. Wait for the call to
+				// actually return -- otherwise a caller that creates a new folder next reloads the
+				// window and kills the session mid-install.
+				await this.app.workbench.console.waitForConsoleExecution({ timeout: 120000 });
+
+				if (action === 'install') {
+					// Confirm the package really landed, so a failed install fails here instead of
+					// surfacing later as an unexpected "Missing R package" modal blocking the
+					// workbench. Only checked for `install`: after `remove.packages()`,
+					// `requireNamespace` still reports TRUE if the namespace is already loaded in
+					// the session (which it is in an renv-activated folder).
+					await this.app.workbench.console.executeCode(
+						'R',
+						`cat("${packageName}-available:", requireNamespace("${packageName}", quietly = TRUE), "\\n")`
+					);
+					await this.app.workbench.console.waitForConsoleContents(`${packageName}-available: TRUE`);
+				}
+			}
 		});
 	}
 
