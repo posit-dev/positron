@@ -25,10 +25,11 @@
 #   1  paste verify failed, eval failed, or the page had no native-edit-context
 #   2  argument/usage error (empty input, missing tools)
 #
-# Required tools on PATH: npx (with @playwright/cli reachable), node, jq.
+# Required tools on PATH: node, jq. Uses the repo-local playwright-cli binary,
+# falling back to npx (slower) when it is missing.
 #
 # Assumes:
-#   - You have already run `npx @playwright/cli [-s=NAME] attach --cdp=http://127.0.0.1:$CDP`
+#   - You have already run `playwright-cli [-s=NAME] attach --cdp=http://127.0.0.1:$CDP`
 #     in the same session this script reads (--session arg, $PW_SESSION env, or "default").
 #   - The Agents window is open and a new-chat / chat view with a Monaco
 #     editor is on screen. The script auto-focuses the first
@@ -76,13 +77,25 @@ if [[ -z "$TEXT" ]]; then
 fi
 
 # Sanity: required tools on PATH.
-for tool in npx node jq; do
+for tool in node jq; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
 		printf '{"ok":false,"error":"%s not on PATH"}\n' "$tool"
 		echo "monaco-paste.sh: required tool '$tool' not on PATH" >&2
 		exit 2
 	fi
 done
+
+# Prefer the repo-local binary; npx adds ~2s of package resolution per call.
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+if [[ -n "$REPO_ROOT" && -x "$REPO_ROOT/node_modules/.bin/playwright-cli" ]]; then
+	PWCLI=("$REPO_ROOT/node_modules/.bin/playwright-cli")
+elif command -v npx >/dev/null 2>&1; then
+	PWCLI=(npx @playwright/cli)
+else
+	echo '{"ok":false,"error":"playwright-cli not found (run npm install)"}'
+	echo "monaco-paste.sh: no repo-local playwright-cli and no npx on PATH" >&2
+	exit 2
+fi
 
 # Select-all uses Command on macOS and Control elsewhere.
 case "${OSTYPE:-$(uname -s)}" in
@@ -92,8 +105,8 @@ esac
 
 # Clear the editor through Monaco's keyboard handling without using a clipboard.
 if [[ "$APPEND" != "1" ]]; then
-	npx @playwright/cli ${PW_ARGS[@]+"${PW_ARGS[@]}"} press "${SELECT_ALL_MOD}+a" >/dev/null 2>&1 || true
-	npx @playwright/cli ${PW_ARGS[@]+"${PW_ARGS[@]}"} press Backspace >/dev/null 2>&1 || true
+	"${PWCLI[@]}" ${PW_ARGS[@]+"${PW_ARGS[@]}"} press "${SELECT_ALL_MOD}+a" >/dev/null 2>&1 || true
+	"${PWCLI[@]}" ${PW_ARGS[@]+"${PW_ARGS[@]}"} press Backspace >/dev/null 2>&1 || true
 fi
 
 # Build the evaluation payload in Node for automatic JSON escaping. Wait for two
@@ -135,8 +148,8 @@ JS=$(node -e '
 ' "$TEXT" "$VERIFY")
 
 # Extract the JSON-encoded result from the CLI's diagnostic output.
-RAW=$(npx @playwright/cli ${PW_ARGS[@]+"${PW_ARGS[@]}"} eval "$JS" 2>&1) || {
-	echo "{\"ok\":false,\"error\":\"@playwright/cli eval failed\"}"
+RAW=$("${PWCLI[@]}" ${PW_ARGS[@]+"${PW_ARGS[@]}"} eval "$JS" 2>&1) || {
+	echo "{\"ok\":false,\"error\":\"playwright-cli eval failed\"}"
 	echo "$RAW" >&2
 	exit 1
 }

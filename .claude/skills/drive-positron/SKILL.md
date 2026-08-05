@@ -78,13 +78,17 @@ Then launch with:
 
 ## Attach Playwright
 
+Use the repo-local CLI binary. Do not call `npx @playwright/cli`; npx re-resolves the package on every command and adds about two seconds each time. Shell state does not persist between tool invocations, so repeat the `PWCLI` line at the top of each one. If the binary is missing, run `npm install`.
+
+```bash
+PWCLI="$(git rev-parse --show-toplevel)/node_modules/.bin/playwright-cli"
+```
+
 Use a literal session name and reuse it for every command:
 
 ```bash
-npx @playwright/cli -s=positron \
-	attach --cdp=http://127.0.0.1:"$CDP_PORT"
-
-npx @playwright/cli -s=positron snapshot
+"$PWCLI" -s=positron attach --cdp=http://127.0.0.1:"$CDP_PORT"
+"$PWCLI" -s=positron snapshot
 ```
 
 Do not derive the session name from `$$`. Separate shell invocations receive different process IDs and would silently create different sessions.
@@ -92,28 +96,56 @@ Do not derive the session name from `$$`. Separate shell invocations receive dif
 Common operations:
 
 ```bash
-npx @playwright/cli -s=positron click e153
-npx @playwright/cli -s=positron click e980 right
-npx @playwright/cli -s=positron type "some text"
-npx @playwright/cli -s=positron press Enter
-npx @playwright/cli -s=positron resize 1600 1100
-npx @playwright/cli -s=positron eval '(() => document.title)()'
-npx @playwright/cli -s=positron \
-	screenshot --filename="$PWD/shots/01.png"
+"$PWCLI" -s=positron click e153
+"$PWCLI" -s=positron click e980 right
+"$PWCLI" -s=positron type "some text"
+"$PWCLI" -s=positron press Enter
+"$PWCLI" -s=positron resize 1400 1000
+"$PWCLI" -s=positron eval '(() => document.title)()'
+"$PWCLI" -s=positron screenshot --filename="$PWD/shots/01.png"
 ```
 
-Use element references from the latest snapshot. Do not substitute screen coordinates, and use the positional `right` argument for a right-click.
+Targets accept element references from the latest snapshot or a unique CSS selector (see the page-object section below for where to find maintained selectors). Do not substitute screen coordinates, and use the positional `right` argument for a right-click.
+
+### Batch commands into one shell invocation
+
+Every separate shell invocation costs a full agent round trip; the commands themselves are fast. Chain an interaction sequence with `&&` so it runs as one invocation and stops at the first failure:
+
+```bash
+PWCLI="$(git rev-parse --show-toplevel)/node_modules/.bin/playwright-cli"
+"$PWCLI" -s=positron click '.console-input' && \
+"$PWCLI" -s=positron type '1 + 1' && \
+"$PWCLI" -s=positron press Enter
+```
+
+Split a sequence only when a later command depends on output from an earlier one (for example, a fresh snapshot ref).
 
 Filter a large snapshot when looking for a known control:
 
 ```bash
-R=$(npx @playwright/cli -s=positron snapshot 2>&1 \
+R=$("$PWCLI" -s=positron snapshot 2>&1 \
 	| grep -oE 'button "Run Cell" \[ref=e[0-9]+' \
 	| grep -oE 'e[0-9]+$' \
 	| head -1)
 ```
 
-Take a screenshot early when the UI does not match expectations. A screenshot often reveals blocking dialogs, an unopened workspace, missing kernels, or focus in the wrong editor faster than DOM inspection.
+### Verify state in the cheapest form
+
+Work down this ladder; each step costs more turns and tokens than the one before:
+
+1. **`eval` returning text or JSON** -- answers "did the state change" inline, in the same turn:
+
+   ```bash
+   "$PWCLI" -s=positron eval '(() => Array.from(document.querySelectorAll(".console-instance[style*=\"z-index: auto\"] div span")).slice(-10).map(e => e.textContent))()'
+   ```
+
+2. **Scoped snapshot** of one pane: `"$PWCLI" -s=positron snapshot e42`
+3. **Element screenshot** of one pane: `"$PWCLI" -s=positron screenshot e42 --filename=...`
+4. **Full-window screenshot** -- for unknown UI state and genuinely visual questions (plots, layout, theming, dialogs).
+
+A screenshot needs a second turn to read the file and costs roughly 2,000 image tokens; an eval result returns inline. Keep the window at or below 1568 px wide -- larger screenshots are downscaled before the model sees them.
+
+Take a full screenshot early when the UI does not match expectations. A screenshot often reveals blocking dialogs, an unopened workspace, missing kernels, or focus in the wrong editor faster than DOM inspection.
 
 ### Enter text in Monaco
 
@@ -125,6 +157,40 @@ Do not use `type` or `fill` for notebook cell editors or chat inputs backed by M
 ```
 
 Use individual `press` operations when testing actual keyboard handling.
+
+## Learn interactions from the e2e page objects
+
+The maintained knowledge of how to drive each Positron feature lives in the Page Object Model classes under `test/e2e/pages/` (one class per feature area: `console.ts`, `notebooksPositron.ts`, `quickInput.ts`, `plots.ts`, ...). Before driving a feature, read its page object:
+
+- The selectors are kept current by CI; copying them beats guessing from a snapshot.
+- Method bodies encode the full interaction sequence, including what to wait for before and after.
+- `test/e2e/tests/<area>/` shows the methods in realistic use.
+
+Page-object selectors work directly as CLI targets, no snapshot round trip needed:
+
+```bash
+"$PWCLI" -s=positron click '.console-input'
+```
+
+Common recipes:
+
+```bash
+# Run any command from the palette
+"$PWCLI" -s=positron press ControlOrMeta+Shift+P && \
+"$PWCLI" -s=positron type 'View: Toggle Panel' && \
+"$PWCLI" -s=positron press Enter
+
+# Execute code in the console (short snippets; see the Monaco section for long text)
+"$PWCLI" -s=positron click '.console-input' && \
+"$PWCLI" -s=positron type '1 + 1' && \
+"$PWCLI" -s=positron press Enter
+
+# Read the last console output lines without a screenshot
+"$PWCLI" -s=positron eval '(() => Array.from(document.querySelectorAll(".console-instance[style*=\"z-index: auto\"] div span")).slice(-10).map(e => e.textContent))()'
+
+# Check whether the quick input is open
+"$PWCLI" -s=positron eval '(() => { const w = document.querySelector(".quick-input-widget"); return !!w && w.style.display !== "none"; })()'
+```
 
 ## Account for Positron behavior
 
@@ -139,7 +205,7 @@ Use individual `press` operations when testing actual keyboard handling.
 
 - Allow interpreter discovery and marketplace extension installation to finish before concluding that a kernel is unavailable.
 - Set `positron.notebook.enabled` to `true` in the workspace or seed profile when testing the Positron notebook editor.
-- Expect selectors to change. Prefer the maintained page objects under `test/e2e/pages/` when locating Positron controls; otherwise take a fresh snapshot.
+- Expect selectors to change. When one fails, re-read its page object under `test/e2e/pages/` or take a fresh snapshot.
 
 ## Use upstream debugging guidance
 
@@ -164,7 +230,7 @@ Read `.agents/skills/launch/SKILL.md` when you need:
 Always stop the disposable instance; Positron can retain several gigabytes of memory.
 
 ```bash
-npx @playwright/cli -s=positron close
+"$PWCLI" -s=positron close
 kill "$PID"
 ```
 
