@@ -15,6 +15,9 @@
 // errors. Everything downstream of the summary (the rubric, the escalation
 // ladder, the RED bar) is shared with the CI entry unchanged.
 //
+// Runs on Windows: unlike the CI-entry scripts it needs no `unzip` binary, and
+// no `gh`, no API key, no network.
+//
 // Usage:
 //   node collect-local-evidence.js [--results-dir test-results] [--logs-dir test-logs]
 //     [--test '<substring>'] [--dir <exact result dir name>] [--triage-id <id>] [--list]
@@ -35,7 +38,7 @@ import path from 'path';
 import os from 'os';
 import {
 	repoRoot, analyzerScript, triageDir, workRoot, ensureDir, writeText,
-	emit, fail, runNode, tryRun, isMain, parseArgs,
+	emit, fail, runNode, isMain, parseArgs,
 } from './lib.js';
 
 const TRACE_NAME = '_trace.zip';
@@ -205,7 +208,10 @@ export function matchLogDir(resultDirName, logDirs, minPrefix = 12) {
 	const haystack = sanitize(resultDirName);
 	const scored = logDirs
 		.map(dir => {
-			const [project, ...rest] = String(dir).split(path.sep);
+			// Split on either separator: these paths come from path.join (backslashes
+			// on Windows), but the same function is fed forward-slash paths by tests
+			// and by anything that passes a repo-relative path through.
+			const [project, ...rest] = String(dir).split(/[\\/]/);
 			if (!rest.length || !haystack.includes(sanitize(project))) { return null; }
 			return { dir, score: commonPrefixLength(sanitize(rest.join('-')), haystack) };
 		})
@@ -247,18 +253,41 @@ function listLogDirs(logsDir, depth = 6) {
 	return out;
 }
 
-/** Unzip just the trace event stream out of a _trace.zip. */
-function extractTrace(zipPath, destDir) {
+/**
+ * Extract just the trace event stream out of a _trace.zip.
+ *
+ * Uses yauzl (a direct Positron dependency) rather than shelling out to `unzip`
+ * the way the CI-entry scripts do: Windows has no `unzip` on PATH, and this
+ * entry is the one an engineer runs on whatever machine the test just failed on.
+ */
+async function extractTrace(zipPath, destDir) {
 	ensureDir(destDir);
-	const res = tryRun('unzip', ['-o', '-q', zipPath, 'trace.trace', '-d', destDir]);
-	const tracePath = path.join(destDir, 'trace.trace');
-	if (!fs.existsSync(tracePath)) {
-		fail(`Could not extract trace.trace from ${path.relative(repoRoot(), zipPath)}.`, { unzip: res.stderr.trim().slice(0, 300) });
-	}
-	return tracePath;
+	const destPath = path.join(destDir, 'trace.trace');
+	const { open } = await import('yauzl');
+	await new Promise((resolve, reject) => {
+		open(zipPath, { lazyEntries: true }, (err, zip) => {
+			if (err) { return reject(err); }
+			let found = false;
+			zip.on('entry', entry => {
+				if (entry.fileName !== 'trace.trace') { return zip.readEntry(); }
+				found = true;
+				zip.openReadStream(entry, (streamErr, stream) => {
+					if (streamErr) { return reject(streamErr); }
+					const out = fs.createWriteStream(destPath);
+					stream.pipe(out);
+					out.on('finish', () => { zip.close(); resolve(); });
+					out.on('error', reject);
+				});
+			});
+			zip.on('end', () => { if (!found) { reject(new Error('no trace.trace entry in the archive')); } });
+			zip.on('error', reject);
+			zip.readEntry();
+		});
+	});
+	return destPath;
 }
 
-function main() {
+async function main() {
 	const args = parseArgs(process.argv.slice(2), ['list']);
 	const resultsDir = path.resolve(repoRoot(), args['results-dir'] || 'test-results');
 	const logsDir = path.resolve(repoRoot(), args['logs-dir'] || 'test-logs');
@@ -299,8 +328,10 @@ function main() {
 	const traceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'triage-local-trace-'));
 	let report;
 	try {
-		const tracePath = extractTrace(path.join(selectedPath, TRACE_NAME), traceDir);
+		const tracePath = await extractTrace(path.join(selectedPath, TRACE_NAME), traceDir);
 		report = parseTraceReport(runNode(analyzerScript('e2e-parse-trace.js'), [tracePath, '--last', '120']));
+	} catch (err) {
+		fail(`Could not read the trace in ${path.relative(repoRoot(), selectedPath)}: ${err.message}`, { selected: selected.dir });
 	} finally {
 		fs.rmSync(traceDir, { recursive: true, force: true });
 	}
@@ -341,4 +372,4 @@ function main() {
 	});
 }
 
-if (isMain(import.meta.url)) { main(); }
+if (isMain(import.meta.url)) { main().catch(err => fail(err.message)); }

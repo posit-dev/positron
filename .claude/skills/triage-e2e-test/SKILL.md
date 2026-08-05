@@ -71,7 +71,9 @@ These hold on both entries unless a line names one.
 
 - **Claude Code**, run from a **Positron** checkout: the scripts resolve the repo
   root from their own location and keep triage state in the shared git dir.
-- On PATH: `node`, `git`, `unzip`; `gh` (authenticated) for the CI entry.
+- On PATH: `node` and `git`. The CI entry additionally needs `gh`
+  (authenticated) and `unzip` -- neither is required by the local entry, which
+  is why it also works on Windows, where there is no `unzip`.
 - **CI entry only:** `E2E_INSIGHTS_API_KEY` set, or present in the repo-root `.env.e2e` (the query
   script falls back to it automatically). Get it from 1Password at
   `op://Positron/E2E_dashboard_api_key/credential`; without 1Password access, ask
