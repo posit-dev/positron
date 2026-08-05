@@ -1374,17 +1374,31 @@ export class SessionQuickPick {
 				for (let i = 0; i < entryCount; i++) {
 					const entry = entries.nth(i);
 
+					// Not every entry in this quick pick is a runtime: extensions contribute
+					// action items (e.g. "$(add) Create Python Environment") that have a label
+					// but no detail, so they render a single row. Reading a second row from
+					// those blocks until the enclosing timeout instead of returning null, which
+					// surfaces as an opaque "waiting on the predicate" failure in the caller.
+					// Skip anything that isn't a two-row label/path entry.
+					const rows = entry.locator('.quick-input-list-row');
+					if (await rows.count() < 2) {
+						continue;
+					}
+
 					// Get the runtime name from the first row
-					const nameElement = entry.locator('.quick-input-list-row').nth(0).locator('.label-name .monaco-highlighted-label');
+					const nameElement = rows.nth(0).locator('.label-name .monaco-highlighted-label');
 					const name = await nameElement.textContent();
 
 					// Get the path from the second row
-					const pathElement = entry.locator('.quick-input-list-row').nth(1).locator('.label-name .monaco-highlighted-label');
+					const pathElement = rows.nth(1).locator('.label-name .monaco-highlighted-label');
 					const path = await pathElement.textContent();
 
-					// Get the category from the separator
+					// Get the category from the separator, which is only present on the entry
+					// that starts a group
 					const separatorElement = entry.locator('.quick-input-list-separator');
-					const category = await separatorElement.textContent();
+					const category = (await separatorElement.count()) > 0
+						? await separatorElement.textContent()
+						: '';
 
 					if (name && path) {
 						const key = `${name}||${path}`;
