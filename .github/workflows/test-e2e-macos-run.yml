@@ -278,8 +278,30 @@ jobs:
           python -m pip install ipykernel
           pyenv global 3.10.10
 
+      # Unlike `choco install`, `brew install` does exit non-zero when it fails,
+      # so there is no silent-success hazard here. The retry is for transient
+      # network and tap failures (bottle download 5xx, `brew update` fetch
+      # errors), and the `dot -V` check makes a broken install fail at this step
+      # rather than half an hour later as an unexplained screenshot diff in the
+      # graphviz plot tests.
       - name: Setup Graphviz
-        run: brew install graphviz
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          retry_wait_seconds: 15
+          shell: bash
+          command: |
+            set -euo pipefail
+            brew install graphviz
+            # Homebrew links `dot` into its prefix bin, which is already on the
+            # runner's PATH, so no PATH fix-up is needed (contrast the Windows
+            # job, where the installer edits the machine PATH instead).
+            if ! command -v dot >/dev/null 2>&1; then
+              echo "brew reported success but dot is not on PATH (see the brew output above)" >&2
+              exit 1
+            fi
+            dot -V
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
