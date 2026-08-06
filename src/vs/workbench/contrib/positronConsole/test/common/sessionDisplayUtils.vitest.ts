@@ -68,8 +68,9 @@ describe('getFittedSessionName', () => {
 		`);
 	});
 
-	it('trims a trailing separator so the ellipsis never follows punctuation', () => {
+	it('trims a trailing separator so the ellipsis never follows punctuation or a symbol', () => {
 		expect(getFittedSessionName('Some-word-thing', 110, measureWidth)).toBe('Some-word\u2026');
+		expect(getFittedSessionName('R 4.6.0 | x86', 100, measureWidth)).toBe('R 4.6.0\u2026');
 	});
 
 	it('returns an empty string when even the first character and the ellipsis will not fit', () => {

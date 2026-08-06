@@ -53,9 +53,12 @@ export function getSessionDisplayName(
 const ELLIPSIS = '\u2026';
 
 /**
- * Whitespace or punctuation of any kind.
+ * Whitespace, punctuation, or a symbol of any kind. Symbols count because the
+ * trim only ever runs where the name is cut, so the character it removes is
+ * always followed by the ellipsis: a trailing "|" or "+" reads as a connector
+ * left dangling rather than as part of the name.
  */
-const SEPARATOR = /[\s\p{P}]/u;
+const SEPARATOR = /[\s\p{P}\p{S}]/u;
 
 /**
  * Checks whether a character is one an ellipsized session name shouldn't be left
