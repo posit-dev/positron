@@ -49,6 +49,7 @@ import { createConsoleInputEditorOptions, createConsoleInputLineNumbersOptions, 
 import { createConsoleInputModel } from './consoleInputModel.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { getForegroundDebugState, isForegroundDebugSession } from '../../../debug/common/debug.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 // Position enumeration.
 const enum Position {
@@ -1121,10 +1122,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	}
 
 	// Render.
-	const consoleInputClassName =
-		'console-input' +
-		(props.hidden ? ' hidden' : '') +
-		(showSubmittingVisuals ? ' submitting' : '');
+	const consoleInputClassName = positronClassNames(
+		'console-input',
+		{ 'hidden': props.hidden },
+		{ 'submitting': showSubmittingVisuals }
+	);
 	return (
 		<div className={consoleInputClassName} tabIndex={0} onFocus={focusHandler}>
 			<ConsoleInputSubmitting visible={showSubmittingVisuals} />
