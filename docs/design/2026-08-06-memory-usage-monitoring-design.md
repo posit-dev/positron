@@ -139,8 +139,15 @@ Positron's memory column, however, is unusable (see Findings). So:
 1. Walk descendants of the Electron main PID, reading PSS and RSS per PID from
    `smaps_rollup`.
 2. Run `--status`, pointed at the instance's user data directory so it reaches the
-   running app, and parse the output into `{pid, name, depth}`.
+   running app, and parse the output into a `pid -> name` map.
 3. Join on PID.
+
+Tree structure comes from procfs `PPid`, not from `--status`. Its indentation is not a
+reliable depth signal:
+`src/vs/platform/diagnostics/node/diagnosticsService.ts:555` indents a process only when
+it is absent from the name map, so named processes such as `shared-process` and
+`extension-host [1]` always print at column zero whatever their real depth. We take names
+from `--status` and structure from procfs, and each source does only what it is good at.
 
 ### Labeling and graceful degradation
 
@@ -286,7 +293,7 @@ The fragile parts are small, isolated, and testable without launching anything.
 | Module | Responsibility | Depends on | Tested by |
 | --- | --- | --- | --- |
 | `process-tree.ts` | Walk descendants of a PID, read PSS/RSS. No labeling. | procfs | fixtures |
-| `positron-status.ts` | Run `--status`, parse to `{pid, name, depth}` | the CLI | captured-output fixtures |
+| `positron-status.ts` | Run `--status`, parse to a `pid -> name` map | the CLI | captured-output fixtures |
 | `label.ts` | Pure `(name, argv) -> process_role` | nothing | vitest |
 | `snapshot.ts` | Settle-poll, sample, join, emit snapshot JSON | the three above | the e2e spec |
 | `render.ts` | Pure `(snapshot, baseline?) -> {markdown, html}` | nothing | vitest |
