@@ -15,7 +15,7 @@ test.describe('Source Content Management', {
 }, () => {
 
 	test.afterAll(async function ({ cleanup }) {
-		await cleanup.discardAllChanges();
+		await cleanup.restoreFiles([join('workspaces', 'chinook-db-py', 'chinook-sqlite.py')]);
 	});
 
 	test('Verify SCM Tracks File Modifications, Staging, and Commit Actions', async function ({ app, openFile }) {

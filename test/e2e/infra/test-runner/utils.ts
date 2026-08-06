@@ -13,10 +13,9 @@ import * as path from 'path';
  * workspace path, then initializing it as a git repo with a single baseline
  * commit.
  *
- * The git baseline is required by test teardown: `TestTeardown.discardAllChanges`
- * runs `git rev-list --max-parents=0 HEAD` + `git reset --hard` + `git clean -fd`
- * to restore the workspace between tests, and some tests (e.g. scm) expect the
- * opened folder to be a git working tree.
+ * The git baseline is required by test teardown: `TestTeardown.restoreFiles`
+ * restores individual files from this commit to undo a spec's edits, and some
+ * tests (e.g. scm) expect the opened folder to be a git working tree.
  */
 export function provisionTestFiles(workspacePath = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH is not set in provisionTestFiles'): void {
 	// Prevent Git warnings about missing templates.

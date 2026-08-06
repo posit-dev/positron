@@ -15,8 +15,9 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 
 	test.afterEach(async function ({ app, hotKeys, cleanup }) {
 		await hotKeys.closeAllEditors();
-		await cleanup.discardAllChanges();
-		// Saved by 'R - Can fold code'; untracked, so the reset above misses it.
+		// Edited by 'R - Can insert a Roxygen skeleton'.
+		await cleanup.restoreFiles([join('workspaces', 'read-xlsx-r', 'supermarket-sales.r')]);
+		// Created by 'R - Can fold code'.
 		await cleanup.removeTestFiles(['folding.R']);
 	});
 

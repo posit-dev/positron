@@ -15,7 +15,7 @@ test.describe('Quarto - Inline Output: Popout', {
 	tag: [tags.WEB, tags.WIN, tags.QUARTO]
 }, () => {
 
-	// Untracked files these tests save; discardAllChanges() leaves them behind.
+	// Saved under a timestamped name, so teardown cannot know it up front.
 	const createdFiles: string[] = [];
 
 	test.afterEach(async function ({ hotKeys }) {
@@ -23,7 +23,10 @@ test.describe('Quarto - Inline Output: Popout', {
 	});
 
 	test.afterAll(async function ({ cleanup }) {
-		await cleanup.discardAllChanges();
+		await cleanup.restoreFiles([
+			join('workspaces', 'quarto_inline_output', 'simple_plot.qmd'),
+			join('workspaces', 'quarto_inline_output', 'text_output.qmd'),
+		]);
 		await cleanup.removeTestFiles(createdFiles);
 	});
 

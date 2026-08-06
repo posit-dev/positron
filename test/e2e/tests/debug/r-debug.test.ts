@@ -242,8 +242,8 @@ test.describe('R Breakpoints', {
 		// Close all editors (handles "Don't Save" dialog)
 		await hotKeys.closeAllEditors();
 
-		// Discard any file changes so next test starts clean
-		await cleanup.discardAllChanges();
+		// Discard the edits these tests make to dirty the file, so the next test starts clean
+		await cleanup.restoreFiles(['workspaces/r-debugging/breakpoint_test.r']);
 
 		// Clear console
 		await app.workbench.console.clearButton.click();

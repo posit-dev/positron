@@ -32,23 +32,79 @@ export class TestTeardown {
 	}
 
 	/**
-	 * Reverts tracked files to their baseline. All workers share one workspace,
-	 * so this runs while other specs are mid-test: `git reset --hard` is safe
-	 * there, but `git clean -fd` would delete their runtime fixtures. Opt into
-	 * `removeUntracked` only when the filenames are unknowable (an LLM chose
-	 * them); otherwise use `removeTestFiles` / `removeTestFolder`.
+	 * Restores the given tracked files to the provisioned baseline commit.
+	 *
+	 * All workers share one workspace, so teardown runs while other specs are
+	 * mid-test. Pass only the files this spec edited: a repo-wide reset would
+	 * revert files another spec is actively using.
 	 */
-	async discardAllChanges(options: { removeUntracked?: boolean } = {}): Promise<void> {
+	async restoreFiles(files: string[]): Promise<void> {
+		if (files.length === 0) {
+			return;
+		}
 		try {
-			// Get the root commit hash
-			const rootCommitHash = execSync('git rev-list --max-parents=0 HEAD', { cwd: this._workspacePathOrFolder }).toString().trim();
-			// Reset to the root commit
-			execSync(`git reset --hard ${rootCommitHash}`, { cwd: this._workspacePathOrFolder });
-			if (options.removeUntracked) {
-				execSync('git clean -fd', { cwd: this._workspacePathOrFolder });
+			const baseline = this._baselineCommit();
+			// Callers build paths with path.join, but git pathspecs want forward slashes.
+			const pathspec = files.map(file => `"${file.replace(/\\/g, '/')}"`).join(' ');
+			// --staged as well as --worktree, so a spec that staged a change (scm) leaves nothing behind.
+			this._git(`restore --source=${baseline} --staged --worktree -- ${pathspec}`);
+			// A spec that commits (scm) leaves the branch ahead of the baseline; rewind it
+			// without touching any file, so the restore above is what git status reports.
+			this._git(`reset --soft ${baseline}`);
+		} catch (error) {
+			// Don't let cleanup errors fail the test run
+			console.warn('Failed to restore test files:', error);
+		}
+	}
+
+	/**
+	 * Records which files are already dirty, for pairing with
+	 * `revertChangesSince`. Use when a spec cannot name the files it produces
+	 * (an LLM chose them); otherwise prefer `restoreFiles` / `removeTestFiles`.
+	 */
+	snapshotDirtyFiles(): Set<string> {
+		return new Set(this._dirtyFiles().keys());
+	}
+
+	/**
+	 * Reverts only what became dirty after the snapshot: new untracked files are
+	 * deleted, modified tracked files restored. Files another worker was already
+	 * changing are in the snapshot, so they are left alone.
+	 */
+	async revertChangesSince(snapshot: Set<string>): Promise<void> {
+		const toRemove: string[] = [];
+		const toRestore: string[] = [];
+
+		try {
+			for (const [file, status] of this._dirtyFiles()) {
+				if (snapshot.has(file)) {
+					continue;
+				}
+				(status === '??' ? toRemove : toRestore).push(file);
 			}
 		} catch (error) {
-			console.error('Failed to discard changes:', error);
+			console.warn('Failed to list workspace changes:', error);
+			return;
 		}
+
+		await this.removeTestFiles(toRemove);
+		await this.restoreFiles(toRestore);
+	}
+
+	/** Workspace-relative path -> two-letter git status code. */
+	private _dirtyFiles(): Map<string, string> {
+		// -z avoids git's path quoting; --no-renames keeps every record a plain "XY path".
+		const status = this._git('status --porcelain -z --untracked-files=all --no-renames');
+		return new Map(
+			status.split('\0').filter(Boolean).map(record => [record.slice(3), record.slice(0, 2)])
+		);
+	}
+
+	private _baselineCommit(): string {
+		return this._git('rev-list --max-parents=0 HEAD').trim();
+	}
+
+	private _git(args: string): string {
+		return execSync(`git ${args}`, { cwd: this._workspacePathOrFolder }).toString();
 	}
 }

@@ -45,8 +45,15 @@ export async function runEvalTest(
 ): Promise<void> {
 	const { app, sessions, hotKeys, cleanup, settings, logger } = fixtures;
 
-	// Run the test and get response with timing
-	const result: RunResult = await testCase.run({ app, sessions, hotKeys, cleanup, settings });
+	// The assistant picks its own filenames, so the only way to scope teardown to this
+	// case's output is to diff the workspace against its state before the run.
+	const dirtyBefore = cleanup.snapshotDirtyFiles();
+	let result: RunResult;
+	try {
+		result = await testCase.run({ app, sessions, hotKeys, settings });
+	} finally {
+		await cleanup.revertChangesSince(dirtyBefore);
+	}
 	const { response, timing } = result;
 
 	// Use llmResponseMs which excludes button interaction time

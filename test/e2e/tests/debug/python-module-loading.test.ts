@@ -17,7 +17,8 @@ test.describe('Python Debugging', {
 
 	test.afterAll(async function ({ cleanup }) {
 
-		await cleanup.discardAllChanges();
+		// Edited by 'Edit helper' to prove the module reloads.
+		await cleanup.restoreFiles([join('workspaces', 'python_module_caching', 'helper', 'helper_functions.py')]);
 		// Byproduct of importing the helper module; untracked and not gitignored.
 		await cleanup.removeTestFolder(join('workspaces', 'python_module_caching', 'helper', '__pycache__'));
 

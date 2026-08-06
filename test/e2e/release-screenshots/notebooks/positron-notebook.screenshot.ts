@@ -22,8 +22,7 @@ test.afterEach(async ({ page, hotKeys, cleanup }) => {
 	await page.keyboard.press('Escape');
 	await clearAnnotations(page);
 	await hotKeys.closeAllEditors();
-	await cleanup.discardAllChanges();
-	// Saved via Save-As; untracked, so the reset above misses it.
+	// These tests only create new notebooks, so the sole leftover is the Save-As target.
 	await cleanup.removeTestFiles(['explore-energy-data.ipynb']);
 });
 

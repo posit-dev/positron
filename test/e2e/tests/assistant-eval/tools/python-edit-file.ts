@@ -21,7 +21,7 @@ export const pythonEditFile: EvalTestCase = {
 	prompt,
 	mode,
 
-	run: async ({ app, sessions, hotKeys, cleanup }): Promise<RunResult> => {
+	run: async ({ app, sessions, hotKeys }): Promise<RunResult> => {
 		const { assistant, console, quickaccess } = app.workbench;
 
 		// Start Python session
@@ -46,7 +46,6 @@ export const pythonEditFile: EvalTestCase = {
 		await hotKeys.closeAllEditors();
 		await console.focus();
 		await sessions.restart(pySession.id);
-		await cleanup.discardAllChanges({ removeUntracked: true });
 
 		return { response, timing };
 	},
