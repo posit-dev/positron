@@ -112,6 +112,19 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 		return this._cells;
 	}
 
+	get isParsed(): boolean {
+		// The constructor parses the initial content synchronously, so cells are
+		// unknown only while a debounced re-parse of changed content is pending.
+		return this._parseTimeout === undefined;
+	}
+
+	async whenParsed(): Promise<void> {
+		if (this._parseTimeout === undefined) {
+			return;
+		}
+		await Event.toPromise(this.onDidParse);
+	}
+
 	getCellById(id: string): QuartoCodeCell | undefined {
 		return this._cellsById.get(id);
 	}

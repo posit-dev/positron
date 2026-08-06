@@ -934,6 +934,16 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 			const quartoModel = this._documentModelService.getModel(model);
 
+			// Both lookups below match cached outputs to live cells by content
+			// hash, so they need the model's cells to be current.
+			if (!quartoModel.isParsed) {
+				this._logService.debug('[QuartoOutputContribution] Waiting for the document to be parsed before restoring cached outputs');
+				await quartoModel.whenParsed();
+				if (this._cachedOutputsLoaded || this._store.isDisposed) {
+					return;
+				}
+			}
+
 			// If no cache found, try to find cache by content hash
 			// This handles two cases:
 			// 1. A file document that was just saved from an untitled document
@@ -947,26 +957,6 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				if (cachedDoc) {
 					this._logService.debug('[QuartoOutputContribution] Found cache by content hash match');
 				}
-			}
-
-			// If no cache found and no cells available yet, subscribe to model parse events.
-			// This handles the case where an untitled document is being restored via hot exit
-			// and the content hasn't been loaded yet when _loadCachedOutputs is first called.
-			if ((!cachedDoc || cachedDoc.cells.length === 0) &&
-				quartoModel.cells.length === 0 &&
-				this._documentUri.scheme === 'untitled') {
-
-				this._logService.debug('[QuartoOutputContribution] No cells found for untitled document, waiting for content to be restored');
-
-				// Subscribe to parse events - when content is restored and parsed, cells will appear
-				this._outputHandlingDisposables.add(quartoModel.onDidParse(() => {
-					// Only try once more after cells appear
-					if (quartoModel.cells.length > 0 && !this._cachedOutputsLoaded) {
-						this._logService.debug('[QuartoOutputContribution] Cells found after parse, retrying cache load');
-						this._loadCachedOutputs();
-					}
-				}));
-				return;
 			}
 
 			// Mark as loaded to prevent re-entry
