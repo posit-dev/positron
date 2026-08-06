@@ -408,7 +408,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test.afterAll(async function ({ cleanup }) {
-			await cleanup.removeTestFiles(['r-cars.svg', 'r-cars.jpeg', 'plot.png']);
+			await cleanup.removeTestFiles(['R-cars.svg', 'R-cars.jpeg', 'plot.png']);
 		});
 
 		test('R - Verify basic plot functionality', {

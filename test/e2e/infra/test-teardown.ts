@@ -24,6 +24,27 @@ export class TestTeardown {
 		}
 	}
 
+	/**
+	 * Deletes the untracked files whose workspace-relative path starts with `pathPrefix`,
+	 * for byproducts a spec cannot name: rendering report.qmd leaves latex intermediates
+	 * and a numbered report.quarto_ipynb. Keep the prefix tight (include the output stem,
+	 * not just its folder) -- all workers share the workspace, so a bare folder prefix
+	 * would also delete files another spec put there.
+	 */
+	async removeGeneratedFiles(pathPrefix: string): Promise<void> {
+		// Callers build the prefix with path.join, but git status reports forward slashes.
+		const prefix = pathPrefix.replace(/\\/g, '/');
+		try {
+			const generated = [...this._dirtyFiles()]
+				.filter(([file, status]) => status === '??' && file.startsWith(prefix))
+				.map(([file]) => file);
+			await this.removeTestFiles(generated);
+		} catch (error) {
+			// Don't let cleanup errors fail the test run
+			console.warn(`Failed to list generated files for "${pathPrefix}":`, error);
+		}
+	}
+
 	async removeTestFolder(folder: string): Promise<void> {
 		const folderPath = this._workspacePathOrFolder + '/' + folder;
 		if (fs.existsSync(folderPath)) {
