@@ -42,10 +42,12 @@ const RESOURCE_GRAPH_HEIGHT = 24;
 interface ConsoleTabProps {
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 	readonly width: number; // The width of the console tab list.
+	readonly hideSessionName: boolean; // Set when any tab has no room for its name.
+	readonly onSessionNameHiddenChange: (sessionId: string, hidden: boolean) => void;
 	readonly onChangeSession: (instance: IPositronConsoleInstance) => void;
 }
 
-export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: ConsoleTabProps) => {
+export const ConsoleTab = ({ positronConsoleInstance, width, hideSessionName, onSessionNameHiddenChange, onChangeSession }: ConsoleTabProps) => {
 
 	// Context
 	const services = usePositronReactServicesContext();
@@ -135,10 +137,10 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 		};
 	}, [services.configurationService, services.runtimeSessionService, positronConsoleInstance]);
 
-	// Fit the session name to the space the tab has for it, dropping trailing
-	// words as the tab narrows. This runs in a layout effect so that the
-	// measurement happens after the tab has been laid out at its new width, but
-	// before the browser paints.
+	// Fit the session name to the space the tab has for it, ellipsizing it as the
+	// tab narrows. This runs in a layout effect so that the measurement happens
+	// after the tab has been laid out at its new width, but before the browser
+	// paints.
 	useLayoutEffect(() => {
 		const sessionNameElement = sessionNameRef.current;
 		if (!sessionNameElement) {
@@ -159,14 +161,25 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 			// its width is the space left over by the icons and the delete
 			// button, regardless of the name currently rendered in it.
 			const availableWidth = sessionNameElement.getBoundingClientRect().width;
-			setFittedSessionName(getFittedSessionName(sessionName, availableWidth, text => {
+			const fittedName = getFittedSessionName(sessionName, availableWidth, text => {
 				measureElement.textContent = text;
 				return measureElement.getBoundingClientRect().width;
-			}));
+			});
+			setFittedSessionName(fittedName);
+
+			// Report a name with no room left, so that the tab list can hide the
+			// names on the other tabs too rather than showing a ragged mix of
+			// named and unnamed tabs.
+			onSessionNameHiddenChange(positronConsoleInstance.sessionId, fittedName.length === 0);
 		} finally {
 			measureElement.remove();
 		}
-	}, [width, sessionName, isRenamingSession]);
+	}, [width, sessionName, isRenamingSession, onSessionNameHiddenChange, positronConsoleInstance.sessionId]);
+
+	// Stop counting this tab's name once the tab goes away.
+	useEffect(() => {
+		return () => onSessionNameHiddenChange(positronConsoleInstance.sessionId, false);
+	}, [onSessionNameHiddenChange, positronConsoleInstance.sessionId]);
 
 	// When entering rename mode, focus the input and select its text.
 	useEffect(() => {
@@ -491,7 +504,7 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 					/>
 				) : (
 					<>
-						<p ref={sessionNameRef} className='session-name'>{fittedSessionName}</p>
+						<p ref={sessionNameRef} className='session-name'>{hideSessionName ? '' : fittedSessionName}</p>
 						{/* Show the delete button only if the width of the tab is greater than the minimum width */
 							width > MINIMUM_ACTION_CONSOLE_TAB_WIDTH &&
 							<button

@@ -33,6 +33,9 @@
 	gap: 4px;
 	height: 22px;
 	width: 100%;
+
+	/* Positions the rename input against the right edge of the tab */
+	position: relative;
 }
 
 .tab-button:hover {
@@ -65,15 +68,24 @@
 	border: 1px solid var(--vscode-input-border);
 	color: var(--vscode-input-foreground);
 
-	/* Grow input to fill available space */
-	flex: 1;
+	/*
+	 * The input is taken out of the flex flow and pinned to the right edge of
+	 * the tab so that it stays put as it resizes. It's sized to the space left
+	 * over by the icons, but once that's narrower than the minimum it grows
+	 * leftward over them instead of shrinking to a sliver: `right` is what's
+	 * anchored, so `min-width` can only push the left edge further left.
+	 */
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	right: 0;
 
 	/*
-	 * An input has an intrinsic minimum width based on its `size` attribute,
-	 * which keeps it from shrinking below roughly 20 characters and pushes it
-	 * off the end of a narrow tab. `min-width` lets it shrink to fit instead.
+	 * 40px is the room the icons take up: two 16px icons, the gap between them,
+	 * and the gap that follows them.
 	 */
-	min-width: 0;
+	width: calc(100% - 40px);
+	min-width: 40px;
 
 	/* Keep the border and padding inside the space the tab allots the input */
 	box-sizing: border-box;
@@ -178,10 +190,10 @@
 /*
  * Hide CPU usage when it's even narrower (at its minimum width).
  *
- * The 64px value corresponds to the MINIMUM_CONSOLE_TAB_LIST_WIDTH, and should be
+ * The 60px value corresponds to the MINIMUM_CONSOLE_TAB_LIST_WIDTH, and should be
  * kept in sync with that constant.
  */
-@container (max-width: 64px) {
+@container (max-width: 60px) {
 	.tab-button .resource-usage-stats .resource-usage-cpu {
 		display: none;
 	}
