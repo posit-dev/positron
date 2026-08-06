@@ -65,6 +65,28 @@ export interface RmdTemplate {
 }
 
 /**
+ * Registry of live R runtime sessions owned by this extension.
+ *
+ * We track our own sessions rather than deriving them from
+ * `positron.runtime.getActiveSessions()`: that API now returns core-managed
+ * proxies (see issue #12589), which are not `RSession` instances, so an
+ * `instanceof` filter over the getter results would come back empty. Callers
+ * need the real session objects (e.g. for `activateServices`/`deactivateServices`,
+ * which only exist on `RSession`).
+ */
+const activeRSessions = new Set<RSession>();
+
+/** Adds a session to the active R session registry. */
+export function registerActiveRSession(session: RSession): void {
+	activeRSessions.add(session);
+}
+
+/** Removes a session from the active R session registry. */
+export function unregisterActiveRSession(session: RSession): void {
+	activeRSessions.delete(session);
+}
+
+/**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
  * Protocol client.
  */
@@ -181,6 +203,11 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 		// Register this session with the session manager
 		RSessionManager.instance.setSession(this);
+
+		// Track the session so `getActiveRSessions()` can return it without
+		// relying on the (now proxied) public runtime getters (#12589). The
+		// session removes itself from the registry when it is disposed.
+		registerActiveRSession(this);
 
 		this.onDidChangeRuntimeState(async (state) => {
 			await this.onStateChange(state);
@@ -506,6 +533,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	async dispose() {
+		// Stop tracking this session in the active-sessions registry.
+		unregisterActiveRSession(this);
+
 		// Clean up the console width listener
 		this._consoleWidthDisposable?.dispose();
 		this._consoleWidthDisposable = undefined;
@@ -1235,8 +1265,7 @@ export async function getEnvVars(envVars: string[], session?: RSession): Promise
 	throw new Error(`Cannot get env var information; no R session available`);
 }
 
-/** Get the active R language runtime sessions. */
+/** Get the active R language runtime sessions owned by this extension. */
 export async function getActiveRSessions(): Promise<RSession[]> {
-	const sessions = await positron.runtime.getActiveSessions();
-	return sessions.filter((session) => session instanceof RSession) as RSession[];
+	return Array.from(activeRSessions);
 }

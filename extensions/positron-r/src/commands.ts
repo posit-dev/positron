@@ -241,7 +241,16 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			if (isInstalled) {
 				const session = await positron.runtime.getForegroundSession();
 				if (session) {
-					session.execute(`renv::init()`, generateDirectInjectionId(), positron.RuntimeCodeExecutionMode.Interactive, positron.RuntimeErrorBehavior.Continue);
+					// Execute via the runtime namespace so core stays in the loop (#12589).
+					await positron.runtime.executeCode(
+						'r',
+						`renv::init()`,
+						true,
+						undefined,
+						positron.RuntimeCodeExecutionMode.Interactive,
+						positron.RuntimeErrorBehavior.Continue,
+						undefined,
+						session.metadata.sessionId);
 				} else {
 					console.debug('[r.renvInit] no session available');
 				}

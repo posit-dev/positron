@@ -1203,7 +1203,12 @@ suite('positron API - session state', () => {
 		underlying.simulateDisconnect();
 		underlying.simulateReconnect();
 
-		assert.ok(disconnected, 'onDidDisconnect should fire');
-		assert.ok(reconnected, 'onDidReconnect should fire');
+		// The handle is a core-managed proxy, so these events aren't the
+		// underlying session's emitters: they make a round trip out to the main
+		// thread and back, and therefore arrive asynchronously.
+		await poll(async () => disconnected, fired => fired,
+			'onDidDisconnect should fire on the session handle');
+		await poll(async () => reconnected, fired => fired,
+			'onDidReconnect should fire on the session handle');
 	});
 });

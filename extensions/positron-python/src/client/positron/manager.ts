@@ -18,7 +18,7 @@ import { pythonRuntimeDiscoverer } from './discoverer';
 import { IInterpreterService, PythonEnvironmentsChangedEvent } from '../interpreter/contracts';
 import { traceError, traceInfo } from '../logging';
 import { IConfigurationService, IDisposable, IDisposableRegistry } from '../common/types';
-import { getActivePythonSessions, PythonRuntimeSession } from './session';
+import { getActivePythonSessions, PythonRuntimeSession, registerActivePythonSession } from './session';
 import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
 import { getPythonDiscoveryRootSignature } from './discoveryRootSignature';
 import { EXTENSION_ROOT_DIR } from '../common/constants';
@@ -550,6 +550,10 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             kernelSpec,
             sessionName,
         );
+        // Track the session so `getActivePythonSessions()` can return it without
+        // relying on the (now proxied) public runtime getters (#12589). The
+        // session removes itself from the registry when it is disposed.
+        registerActivePythonSession(session);
         this._onDidCreateSession.fire(session);
         return session;
     }
