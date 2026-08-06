@@ -424,6 +424,21 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		// ignore
 	}
 
+	// Scoped teardown (cleanup.restoreFiles / removeTestFiles) only covers the files it
+	// names, so a test that starts editing a different fixture leaks silently. Surface
+	// that instead of letting it confuse a later spec. Warn rather than fail: workers
+	// share this workspace, so another spec's in-flight files can show up here too.
+	try {
+		if (process.env.WORKSPACE_PATH) {
+			const leftover = [...new TestTeardown(process.env.WORKSPACE_PATH).dirtyFiles()];
+			if (leftover.length > 0) {
+				logger.log(`>>> Workspace left dirty (this spec, or another worker mid-test): ${leftover.join(', ')} <<<`);
+			}
+		}
+	} catch (error) {
+		// A diagnostic must never fail the run
+	}
+
 	// Clean up Docker container logs at worker teardown (once per test file)
 	const isWorkbenchProject = testInfo.project.name === 'e2e-workbench';
 	if (isWorkbenchProject) {

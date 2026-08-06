@@ -58,11 +58,11 @@ export class TestTeardown {
 	}
 
 	/**
-	 * Records which files are already dirty, for pairing with
-	 * `revertChangesSince`. Use when a spec cannot name the files it produces
-	 * (an LLM chose them); otherwise prefer `restoreFiles` / `removeTestFiles`.
+	 * Workspace-relative paths that differ from the baseline commit. Pair it with
+	 * `revertChangesSince` when a spec cannot name the files it produces (an LLM
+	 * chose them); otherwise prefer `restoreFiles` / `removeTestFiles`.
 	 */
-	snapshotDirtyFiles(): Set<string> {
+	dirtyFiles(): Set<string> {
 		return new Set(this._dirtyFiles().keys());
 	}
 

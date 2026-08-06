@@ -47,7 +47,7 @@ export async function runEvalTest(
 
 	// The assistant picks its own filenames, so the only way to scope teardown to this
 	// case's output is to diff the workspace against its state before the run.
-	const dirtyBefore = cleanup.snapshotDirtyFiles();
+	const dirtyBefore = cleanup.dirtyFiles();
 	let result: RunResult;
 	try {
 		result = await testCase.run({ app, sessions, hotKeys, settings });
