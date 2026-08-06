@@ -30,8 +30,16 @@ test.describe('Workbench Extension', {
 		// Verify we're on the Workbench landing page
 		await expect(workbenchPage.getByRole('link', { name: 'Workbench projects' })).toBeVisible();
 
-		// Click on Positron Pro Session to return to the session
-		await workbenchPage.getByRole('link', { name: 'test-files' }).click();
+		// Click the session link to return to the session. The Project cell is plain text, so the
+		// only link in the row is the session name -- and that name varies ("Positron Pro Session"
+		// when launched from the row, the project name when created via the New Session dialog).
+		// Anchor on the project's row and take whatever link it holds instead of naming it.
+		await workbenchPage
+			.getByRole('table', { name: 'Projects table' })
+			.getByRole('row', { name: 'test-files' })
+			.getByRole('link')
+			.first()
+			.click();
 
 		// Wait for navigation back to the session
 		await workbenchPage.waitForLoadState('domcontentloaded');
