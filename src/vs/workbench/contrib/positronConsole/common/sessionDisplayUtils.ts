@@ -48,6 +48,42 @@ export function getSessionDisplayName(
 }
 
 /**
+ * Fits a session name into the given width by dropping trailing words until
+ * what remains fits, so that names collapse gracefully as a tab narrows:
+ * "Python 3.12.11 (Pyenv)" becomes "Python 3.12.11", then "Python", and
+ * finally an empty string when even the first word doesn't fit (leaving just
+ * the session icons).
+ *
+ * @param sessionName The full session name.
+ * @param availableWidth The width available to render the name, in pixels.
+ * @param measureWidth Measures the rendered width of a candidate name, in pixels.
+ * @returns The longest leading run of words that fits, or an empty string.
+ */
+export function getFittedSessionName(
+	sessionName: string,
+	availableWidth: number,
+	measureWidth: (text: string) => number,
+): string {
+	// The full name is always preferred, and is returned verbatim so that names
+	// which fit are never reformatted.
+	if (measureWidth(sessionName) <= availableWidth) {
+		return sessionName;
+	}
+
+	// Drop trailing words until what's left fits.
+	const words = sessionName.split(/\s+/).filter(word => word.length > 0);
+	for (let wordCount = words.length - 1; wordCount > 0; wordCount--) {
+		const candidate = words.slice(0, wordCount).join(' ');
+		if (measureWidth(candidate) <= availableWidth) {
+			return candidate;
+		}
+	}
+
+	// Not even the first word fits.
+	return '';
+}
+
+/**
  * The subset of session info needed to determine the session icon.
  */
 interface SessionIconInfo {

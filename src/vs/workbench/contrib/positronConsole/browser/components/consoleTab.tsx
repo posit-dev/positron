@@ -7,7 +7,7 @@
 import './consoleTab.css';
 
 // React.
-import React, { KeyboardEvent, MouseEvent, useEffect, useRef, useState } from 'react';
+import React, { KeyboardEvent, MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -22,7 +22,7 @@ import { isMacintosh } from '../../../../../base/common/platform.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { RuntimeIcon } from './runtimeIcon.js';
-import { getSessionDisplayName } from '../../common/sessionDisplayUtils.js';
+import { getFittedSessionName, getSessionDisplayName } from '../../common/sessionDisplayUtils.js';
 import { ResourceUsageGraph } from './resourceUsageGraph.js';
 import { ResourceUsageStats } from './resourceUsageStats.js';
 import { useResourceUsageHistory } from './useResourceUsageHistory.js';
@@ -63,6 +63,7 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 	const [sessionName, setSessionName] = useState(sessionDisplayName);
 	const resourceUsageHistory = useResourceUsageHistory(positronConsoleInstance);
 	const [consoleState, setConsoleState] = useState(positronConsoleInstance.state);
+	const [fittedSessionName, setFittedSessionName] = useState(sessionDisplayName);
 	const [showResourceMonitor, setShowResourceMonitor] = useState(
 		services.configurationService.getValue<boolean>('console.showResourceMonitor') ?? true
 	);
@@ -70,6 +71,7 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 	// Refs
 	const tabRef = useRef<HTMLDivElement>(null);
 	const inputRef = React.useRef<HTMLInputElement>(null);
+	const sessionNameRef = useRef<HTMLParagraphElement>(null);
 
 	// Variables
 	const isActiveTab = positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId;
@@ -132,6 +134,39 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 			disposableStore.dispose();
 		};
 	}, [services.configurationService, services.runtimeSessionService, positronConsoleInstance]);
+
+	// Fit the session name to the space the tab has for it, dropping trailing
+	// words as the tab narrows. This runs in a layout effect so that the
+	// measurement happens after the tab has been laid out at its new width, but
+	// before the browser paints.
+	useLayoutEffect(() => {
+		const sessionNameElement = sessionNameRef.current;
+		if (!sessionNameElement) {
+			return;
+		}
+
+		// Candidate names are measured in a hidden element inside the session
+		// name element so that they're measured in the font that will render
+		// them. It's positioned absolutely so that it takes no part in layout.
+		const measureElement = sessionNameElement.ownerDocument.createElement('span');
+		measureElement.style.position = 'absolute';
+		measureElement.style.visibility = 'hidden';
+		measureElement.style.whiteSpace = 'pre';
+		sessionNameElement.appendChild(measureElement);
+
+		try {
+			// The session name element is a flex item with a basis of zero, so
+			// its width is the space left over by the icons and the delete
+			// button, regardless of the name currently rendered in it.
+			const availableWidth = sessionNameElement.getBoundingClientRect().width;
+			setFittedSessionName(getFittedSessionName(sessionName, availableWidth, text => {
+				measureElement.textContent = text;
+				return measureElement.getBoundingClientRect().width;
+			}));
+		} finally {
+			measureElement.remove();
+		}
+	}, [width, sessionName, isRenamingSession]);
 
 	// When entering rename mode, focus the input and select its text.
 	useEffect(() => {
@@ -456,7 +491,7 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 					/>
 				) : (
 					<>
-						<p className='session-name'>{sessionName}</p>
+						<p ref={sessionNameRef} className='session-name'>{fittedSessionName}</p>
 						{/* Show the delete button only if the width of the tab is greater than the minimum width */
 							width > MINIMUM_ACTION_CONSOLE_TAB_WIDTH &&
 							<button

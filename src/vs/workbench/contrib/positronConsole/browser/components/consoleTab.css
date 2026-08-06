@@ -66,6 +66,16 @@
 
 	/* Grow input to fill available space */
 	flex: 1;
+
+	/*
+	 * An input has an intrinsic minimum width based on its `size` attribute,
+	 * which keeps it from shrinking below roughly 20 characters and pushes it
+	 * off the end of a narrow tab. `min-width` lets it shrink to fit instead.
+	 */
+	min-width: 0;
+
+	/* Keep the border and padding inside the space the tab allots the input */
+	box-sizing: border-box;
 }
 
 .tab-button .session-name-input:focus {
