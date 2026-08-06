@@ -341,7 +341,7 @@ configurationRegistry.registerConfiguration({
 			tags: ['preview'],
 		},
 		// Whether to check submitted code for completeness before running it
-		'console.promptWhenIncomplete': {
+		promptWhenIncompleteSettingId: {
 			type: 'boolean',
 			default: true,
 			description: localize('positron.console.promptWhenIncomplete', "When enabled, code submitted in the Console is checked for completeness first; if it is incomplete, the Console prompts for more input instead of running it. When disabled, submitted code runs immediately without a completeness check."),
