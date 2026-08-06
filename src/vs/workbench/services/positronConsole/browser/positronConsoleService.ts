@@ -2474,6 +2474,14 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		this._submittingAttribution = attribution;
 		this.setCodeSubmissionInProgress(true);
 
+		// The code was cleared from the input line on submit (so type-ahead lands
+		// in a clean editor). Promote it into the transcript immediately as a
+		// read-only barber-pole item so the submitted code is visible at all
+		// times -- there is no blank gap between pressing Enter and the submitting
+		// visuals appearing. Pass `clearInput: false` because the input now holds
+		// (or is about to hold) the user's type-ahead, not the submitting code.
+		this.promoteSubmittingInputToTranscript(false /* clearInput */);
+
 		// Whether the submission-in-progress flag should remain set after this
 		// method resolves. Flow 2 keeps it set until the kernel goes busy for
 		// the accepted execution (see markInputBusyState).
@@ -2561,12 +2569,14 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				this.setCodeSubmissionInProgress(false);
 			}
 
-			// If the submitting code was promoted into the transcript (because
-			// code was queued behind it), reconcile that placeholder now: on an
-			// executed result the code was already echoed, so drop the
-			// placeholder and float the pending input below it; otherwise restore
-			// the code to the input line.
-			this.finalizeSubmittingInput(dispatched);
+			// If the submitting code was promoted into the transcript, reconcile
+			// that placeholder now: on an executed result the code was already
+			// echoed, so drop the placeholder and float the pending input below
+			// it. On an incomplete/cancelled result the console input component
+			// restores the code to the input line itself (merging in any
+			// type-ahead entered during the check), so pass `restoreInput: false`
+			// to leave the input line to it and avoid clobbering that type-ahead.
+			this.finalizeSubmittingInput(dispatched, false /* restoreInput */);
 			this._submittingInputCode = undefined;
 			this._submittingAttribution = undefined;
 
@@ -2578,6 +2588,21 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			if (!dispatched) {
 				this.drainPendingInputIfIdle();
 			}
+		}
+	}
+
+	/**
+	 * Aborts an in-flight completeness check so the console input can merge in a
+	 * follow-up line and re-check the combined code immediately, instead of
+	 * waiting for the current check to finish. Unlike `cancelCodeSubmission`,
+	 * this never interrupts an execution: it only cancels while the submission is
+	 * still being checked (no execution has been accepted yet). If the check has
+	 * already been accepted for execution, this is a no-op and the follow-up runs
+	 * as the next submission.
+	 */
+	cancelCompletenessCheck(): void {
+		if (this._currentSubmission && !this._pendingBusyExecutionId) {
+			this._currentSubmission.cancel();
 		}
 	}
 
@@ -3949,12 +3974,19 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 *
 	 * The input line renders below the transcript, so code queued while a
 	 * submission is in flight would appear above the submitting code even though
-	 * it runs after it. Moving the submitting code into the transcript (and
-	 * clearing the input line) keeps run order reading top-to-bottom: submitting
-	 * code first, queued code below. No-op when there is nothing to promote or it
-	 * has already been promoted.
+	 * it runs after it. Moving the submitting code into the transcript keeps run
+	 * order reading top-to-bottom: submitting code first, queued code below. It
+	 * also gives a long-running submission a visible, read-only home while the
+	 * input boundary provider is queried. No-op when there is nothing to promote
+	 * or it has already been promoted.
+	 *
+	 * @param clearInput Whether to clear the input line. Pass `true` when the
+	 *   submitting code is still shown in the input (e.g. an editor/extension run
+	 *   displayed during its check), so it moves cleanly into the transcript.
+	 *   Pass `false` when the input was already cleared on submit and now holds
+	 *   the user's type-ahead, which must be preserved.
 	 */
-	private promoteSubmittingInputToTranscript(): void {
+	private promoteSubmittingInputToTranscript(clearInput: boolean = true): void {
 		if (this._runtimeItemSubmittingInput || this._submittingInputCode === undefined) {
 			return;
 		}
@@ -3971,8 +4003,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		);
 		this.addRuntimeItem(this._runtimeItemSubmittingInput);
 
-		// Clear the input line; the code now lives in the transcript placeholder.
-		this.setPendingCode();
+		// Clear the input line (the code now lives in the transcript placeholder)
+		// unless the caller is preserving type-ahead already sitting in it.
+		if (clearInput) {
+			this.setPendingCode();
+		}
 	}
 
 	/**
@@ -3985,8 +4020,12 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 *   preview is floated below the echo (run order top-to-bottom). When it did
 	 *   not (incomplete/cancelled), the code is restored to the input line so the
 	 *   user can keep editing it.
+	 * @param restoreInput Whether to restore the submitting code to the input
+	 *   line on an incomplete/cancelled result. Pass `false` when the caller
+	 *   restores the input itself (the console input component does so, merging
+	 *   in any type-ahead), so this does not clobber that type-ahead.
 	 */
-	private finalizeSubmittingInput(executed: boolean): void {
+	private finalizeSubmittingInput(executed: boolean, restoreInput: boolean = true): void {
 		const placeholder = this._runtimeItemSubmittingInput;
 		if (!placeholder) {
 			return;
@@ -4009,7 +4048,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 					this._runtimeItems.push(this._runtimeItemPendingInput);
 				}
 			}
-		} else if (this._submittingInputCode !== undefined) {
+		} else if (restoreInput && this._submittingInputCode !== undefined) {
 			// Nothing ran: restore the code to the input line for continuation.
 			this.setPendingCode(this._submittingInputCode);
 		}

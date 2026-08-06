@@ -268,8 +268,9 @@ describe('PositronConsoleInstance.submitCode', () => {
 		]);
 		expect(executedCode).toEqual([]);
 
-		// While promoted, the input line is hidden (its code lives in the
-		// transcript) so no empty prompt invites more input.
+		// The submitting code is promoted into the transcript (its code lives in
+		// the transcript placeholder, not the input line). The input line stays
+		// visible so the user can keep typing ahead.
 		expect(instance.submittingInputPromoted).toBe(true);
 
 		// Resolve the console submission as incomplete: nothing executes and the

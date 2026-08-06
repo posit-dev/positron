@@ -632,6 +632,10 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		// No-op for test implementation
 	}
 
+	cancelCompletenessCheck(): void {
+		// No-op for test implementation
+	}
+
 	/**
 	 * Gets the clipboard representation of the console instance.
 	 */

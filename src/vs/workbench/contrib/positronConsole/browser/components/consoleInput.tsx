@@ -7,11 +7,10 @@
 import './consoleInput.css';
 
 // React.
-import { FocusEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { FocusEvent, useEffect, useLayoutEffect, useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
-import { ConsoleInputSubmitting } from './consoleInputSubmitting.js';
 import { KeyCode } from '../../../../../base/common/keyCodes.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { HistoryNavigator2 } from '../../../../../base/common/history.js';
@@ -94,10 +93,16 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		useStateRef<string | undefined>(undefined);
 	const shouldExecuteOnStartRef = useRef(false);
 
-	// Whether the debounced submission visuals (dim + green barber pole) should
-	// be shown. Set 400ms after a submission starts, so quick checks don't
-	// flicker; cleared as soon as the submission finishes.
-	const [showSubmittingVisuals, setShowSubmittingVisuals] = useState(false);
+	// Whether a submission started from this console input is currently in
+	// flight (its completeness check has not yet resolved). Only one submission
+	// runs at a time; see executeCodeEditorWidgetCodeIfPossible.
+	const submissionInFlightRef = useRef(false);
+
+	// Whether the user pressed Enter (requesting a submit) while a submission was
+	// in flight. The follow-up is replayed once the in-flight submission settles,
+	// keeping evaluation in the order typed rather than letting a later line jump
+	// ahead of an incomplete earlier one.
+	const resubmitQueuedRef = useRef(false);
 
 	/**
 	 * Gets the appropriate history navigator based on whether a debug session
@@ -174,71 +179,154 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	};
 
 	/**
-	 * Executes the code editor widget's code, if possible.
-	 * @returns A Promise<boolean> that indicates whether the code was executed.
+	 * Submits the code currently in the editor to the runtime, reconciling the
+	 * result back into the editor and honoring any follow-up submit the user
+	 * requested (via Enter) while a submission was still in flight.
+	 *
+	 * Only one submission from the console input is ever in flight at a time.
+	 * Whether a line typed after a submission is a new statement or a
+	 * continuation of it depends on that submission's completeness result, which
+	 * is not known until the (possibly slow) check resolves. So a follow-up Enter
+	 * does not start a competing submission -- it sets `resubmitQueuedRef` and is
+	 * replayed here once the in-flight submission settles, keeping evaluation in
+	 * the order the user typed:
+	 *   - Executed: the editor holds the user's type-ahead; submit it next.
+	 *   - Incomplete: the editor holds "<submitted>\n<type-ahead>" (merged by
+	 *     restoreWithTypeAhead); re-check the combined code as a continuation.
+	 *
+	 * @returns A Promise<boolean>; `false` if the caller should insert a
+	 *   continuation line (the final result was incomplete, or there is no
+	 *   session), `true` otherwise.
 	 */
 	const executeCodeEditorWidgetCodeIfPossible = async () => {
-		// Get the code from the code editor widget.
-		const code = codeEditorWidgetRef.current.getValue();
-
-		// Get the session to check against.
-		const session = props.positronConsoleInstance.attachedRuntimeSession;
-		if (!session) {
-			return false;
-		}
-
-		const attribution: IConsoleCodeAttribution = {
-			source: CodeAttributionSource.Interactive
-		};
-
-		// Clear the input immediately so that any keystrokes typed while this
-		// submission is in flight (type-ahead -- e.g. a debugger command entered
-		// right after) land in a clean editor rather than being appended to the
-		// code being submitted or dropped. The submitted code is echoed into the
-		// transcript when it executes; if the submission turns out incomplete or
-		// cancelled it is restored below so the user can finish editing it.
-		setCurrentCodeFragment(undefined);
-		codeEditorWidgetRef.current.setValue('');
-
-		const result = await props.positronConsoleInstance.submitCode(code, attribution);
-
-		// Incomplete: restore the code and let the Enter handler insert a
-		// continuation line.
-		if (result === CodeSubmissionResult.Incomplete) {
-			codeEditorWidgetRef.current.setValue(code);
-			updateCodeEditorWidgetPosition(Position.Last, Position.Last);
-			return false;
-		}
-
-		// Cancelled: restore the code, leaving it editable, and don't insert a
-		// newline.
-		if (result === CodeSubmissionResult.Cancelled) {
-			codeEditorWidgetRef.current.setValue(code);
-			updateCodeEditorWidgetPosition(Position.Last, Position.Last);
+		// If a submission is already in flight, do not start a competing one:
+		// remember that the user wants to submit and let the in-flight driver
+		// replay it once the current submission resolves. Abort the in-flight
+		// completeness check so the follow-up is merged and the combined code is
+		// re-checked immediately, rather than waiting for the current check to
+		// finish. (A no-op if the check has already been accepted for execution;
+		// then the loop simply submits this follow-up next.) Return true so the
+		// Enter handler leaves the buffered code untouched (no continuation line).
+		if (submissionInFlightRef.current) {
+			resubmitQueuedRef.current = true;
+			props.positronConsoleInstance.cancelCompletenessCheck();
 			return true;
 		}
 
-		// Executed: the input was already cleared above (any type-ahead entered
-		// since is preserved). Prepare for the next prompt.
+		submissionInFlightRef.current = true;
+		try {
+			// Loop so that a follow-up Enter pressed while a submission was in
+			// flight is honored in order (see the doc comment): after each
+			// submission resolves, if the user requested another submit during the
+			// check, run again on the (merged / type-ahead) editor contents.
+			for (; ;) {
+				// Get the session to check against.
+				const session = props.positronConsoleInstance.attachedRuntimeSession;
+				if (!session) {
+					return false;
+				}
 
-		// Immediately change the prompt to be spaces to eliminate prompt flickering.
-		const promptWidth = Math.max(
-			session.dynState.inputPrompt.length,
-			session.dynState.continuationPrompt.length
-		);
-		codeEditorWidgetRef.current.updateOptions({
-			lineNumbers: (_: number) => ' '.repeat(promptWidth),
-			lineNumbersMinChars: promptWidth
-		});
+				// Get the code from the code editor widget.
+				const code = codeEditorWidgetRef.current.getValue();
 
-		// Render the code editor widget.
-		codeEditorWidgetRef.current.render(true);
+				const attribution: IConsoleCodeAttribution = {
+					source: CodeAttributionSource.Interactive
+				};
 
-		// Call the code executed callback.
-		props.onCodeExecuted();
+				// Clear the input immediately so that any keystrokes typed while
+				// this submission is in flight (type-ahead) land in a clean editor
+				// rather than being appended to the code being submitted. The
+				// submitted code stays visible throughout: the service promotes it
+				// into the transcript as a read-only barber-pole item the moment it
+				// is submitted (see promoteSubmittingInputToTranscript), so there is
+				// no blank gap. It is echoed into the transcript when it executes;
+				// if the submission turns out incomplete or cancelled it is restored
+				// below so the user can finish editing it. Reset the resubmit flag so
+				// an Enter pressed during THIS submission queues a fresh follow-up.
+				setCurrentCodeFragment(undefined);
+				codeEditorWidgetRef.current.setValue('');
+				resubmitQueuedRef.current = false;
 
-		// Code was executed.
-		return true;
+				const result = await props.positronConsoleInstance.submitCode(code, attribution);
+
+				// Restores the submitted code to the input, merging in any
+				// type-ahead the user entered while the check was in flight. The
+				// input was cleared on submit, so its current contents are exactly
+				// that type-ahead; appending it below the submitted code preserves
+				// it as the continuation rather than clobbering it.
+				const restoreWithTypeAhead = () => {
+					const typeAhead = codeEditorWidgetRef.current.getValue();
+					codeEditorWidgetRef.current.setValue(typeAhead ? `${code}\n${typeAhead}` : code);
+					updateCodeEditorWidgetPosition(Position.Last, Position.Last);
+				};
+
+				// Incomplete: restore the code (merged with any type-ahead) so it
+				// can be continued.
+				if (result === CodeSubmissionResult.Incomplete) {
+					restoreWithTypeAhead();
+
+					// If the user pressed Enter for a follow-up line during the
+					// check, it is now merged in above; replay the submit so the
+					// combined code is re-checked in order rather than left sitting
+					// in the input.
+					if (resubmitQueuedRef.current &&
+						codeEditorWidgetRef.current.getValue().length > 0) {
+						continue;
+					}
+
+					// Otherwise let the Enter handler insert a continuation line.
+					return false;
+				}
+
+				// Cancelled: restore the code, merging in any type-ahead.
+				if (result === CodeSubmissionResult.Cancelled) {
+					restoreWithTypeAhead();
+
+					// A cancel triggered by a follow-up Enter (see the guard above)
+					// aborts the check so the merged code can be re-checked now;
+					// replay the submit. A genuine cancel (e.g. Ctrl-C) leaves the
+					// code editable and stops.
+					if (resubmitQueuedRef.current &&
+						codeEditorWidgetRef.current.getValue().length > 0) {
+						continue;
+					}
+					return true;
+				}
+
+				// Executed: the input was already cleared above (any type-ahead
+				// entered since is preserved). Prepare for the next prompt.
+
+				// Immediately change the prompt to be spaces to eliminate prompt flickering.
+				const promptWidth = Math.max(
+					session.dynState.inputPrompt.length,
+					session.dynState.continuationPrompt.length
+				);
+				codeEditorWidgetRef.current.updateOptions({
+					lineNumbers: (_: number) => ' '.repeat(promptWidth),
+					lineNumbersMinChars: promptWidth
+				});
+
+				// Render the code editor widget.
+				codeEditorWidgetRef.current.render(true);
+
+				// Call the code executed callback.
+				props.onCodeExecuted();
+
+				// If the user pressed Enter for a follow-up line during the check,
+				// the editor now holds that type-ahead; submit it next so it runs
+				// in order.
+				if (resubmitQueuedRef.current &&
+					codeEditorWidgetRef.current.getValue().length > 0) {
+					continue;
+				}
+
+				// Code was executed.
+				return true;
+			}
+		} finally {
+			submissionInFlightRef.current = false;
+			resubmitQueuedRef.current = false;
+		}
 	};
 
 	/**
@@ -958,14 +1046,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		disposableStore.add(props.positronConsoleInstance.onDidSetPendingCode(pendingCode => {
 			codeEditorWidget.setValue(pendingCode || '');
 			updateCodeEditorWidgetPosition(Position.Last, Position.Last);
-
-			// If the input was cleared while a submission is in flight, the
-			// submitting code was promoted into the transcript; hide the
-			// input-line submitting visuals so the barber pole doesn't linger
-			// over an empty input (the transcript item carries it instead).
-			if (!pendingCode) {
-				setShowSubmittingVisuals(false);
-			}
 		}));
 
 		// Add the onDidExecuteCode event handler.
@@ -1047,42 +1127,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}
 	}, [codeEditorWidgetRef, props.width, setCodeEditorWidth]);
 
-	// Debounce the submission visuals: show the dim + barber pole 400ms after a
-	// submission starts (and only if it is still in progress), and hide them as
-	// soon as the submission finishes.
-	useEffect(() => {
-		const instance = props.positronConsoleInstance;
-		let timer: ReturnType<typeof setTimeout> | undefined;
-		const disposable = instance.onDidChangeCodeSubmissionInProgress(inProgress => {
-			if (inProgress) {
-				timer = setTimeout(() => {
-					timer = undefined;
-					// Only show the input-line submitting visuals if there is
-					// code in the input. When code is promoted into the
-					// transcript (because more code was queued behind it), the
-					// input is empty and the barber pole rides the transcript
-					// item instead.
-					if (instance.codeSubmissionInProgress &&
-						codeEditorWidgetRef.current.getValue().length > 0) {
-						setShowSubmittingVisuals(true);
-					}
-				}, 400);
-			} else {
-				if (timer) {
-					clearTimeout(timer);
-					timer = undefined;
-				}
-				setShowSubmittingVisuals(false);
-			}
-		});
-		return () => {
-			if (timer) {
-				clearTimeout(timer);
-			}
-			disposable.dispose();
-		};
-	}, [props.positronConsoleInstance, codeEditorWidgetRef]);
-
 	/**
 	 * onFocus event handler.
 	 * @param e A FocusEvent<HTMLDivElement, Element> that contains the event data.
@@ -1124,12 +1168,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	// Render.
 	const consoleInputClassName = positronClassNames(
 		'console-input',
-		{ 'hidden': props.hidden },
-		{ 'submitting': showSubmittingVisuals }
+		{ 'hidden': props.hidden }
 	);
 	return (
 		<div className={consoleInputClassName} tabIndex={0} onFocus={focusHandler}>
-			<ConsoleInputSubmitting visible={showSubmittingVisuals} />
 			<div ref={codeEditorWidgetContainerRef} />
 			{historyBrowserActive &&
 				<HistoryBrowserPopup

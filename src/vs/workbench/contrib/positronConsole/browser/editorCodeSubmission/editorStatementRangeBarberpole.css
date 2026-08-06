@@ -5,9 +5,10 @@
 
 /*
  * A green barber pole shown in the editor gutter while a statement range provider
- * is being consulted to determine which code to submit. This mirrors the console
- * input's barber pole (see consoleInputSubmitting.css) so feedback for code run
- * from the editor is visually identical to code submitted in the console.
+ * is being consulted to determine which code to submit. This mirrors the
+ * console's submitting barber pole (see `.pending-input-submitting-bar` in
+ * runtimePendingInput.css) so feedback for code run from the editor is visually
+ * identical to code submitted in the console.
  *
  * The bar is drawn in a decoration's lines-decorations lane. Monaco sets the
  * lane element's width with an inline style, so `!important` is required to

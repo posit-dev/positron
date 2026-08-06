@@ -594,6 +594,13 @@ export interface IPositronConsoleInstance {
 	cancelCodeSubmission(): void;
 
 	/**
+	 * Aborts an in-flight completeness check so a follow-up line can be merged
+	 * and the combined code re-checked immediately. Never interrupts an
+	 * execution: a no-op once the submission has been accepted for execution.
+	 */
+	cancelCompletenessCheck(): void;
+
+	/**
 	 * Gets the clipboard representation of the console instance.
 	 * @param commentPrefix The comment prefix to use.
 	 * @returns The clipboard representation of the console instance.

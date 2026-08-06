@@ -19,11 +19,13 @@
 }
 
 /*
- * The green barber pole for a submitting pending-input item. Mirrors the input
- * line's `.console-input-submitting-bar` (see consoleInputSubmitting.css) but
- * spans the full height of the transcript item. The console instance reserves a
- * 10px left gutter (see consoleInstance.css); `left: -10px` reaches into it so
- * the bar sits to the left of the prompt.
+ * The green barber pole for a submitting pending-input item, spanning the full
+ * height of the transcript item. This is the canonical "code is being prepared
+ * for execution" indicator: a console submission is promoted into the transcript
+ * (see promoteSubmittingInputToTranscript) the moment it is submitted, so the
+ * barber pole always rides the transcript item rather than the input line. The
+ * console instance reserves a 10px left gutter (see consoleInstance.css);
+ * `left: -10px` reaches into it so the bar sits to the left of the prompt.
  */
 .pending-input-submitting-bar {
 	position: absolute;

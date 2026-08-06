@@ -169,8 +169,7 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 				}
 				<ConsoleInput
 					hidden={this.props.positronConsoleInstance.promptActive ||
-						!this.props.runtimeAttached ||
-						this.props.positronConsoleInstance.submittingInputPromoted}
+						!this.props.runtimeAttached}
 					positronConsoleInstance={this.props.positronConsoleInstance}
 					width={this.props.consoleInputWidth}
 					onCodeExecuted={() =>
