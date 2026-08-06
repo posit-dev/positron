@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
 	describeCandidate, rankCandidates, selectCandidate, parseTraceReport,
-	buildLocalSummary, matchLogDir,
+	buildLocalSummary, matchLogDir, matchesTestFilter,
 } from '../collect-local-evidence.js';
 
 const failed = (dir, mtimeMs = 1) => describeCandidate(dir, ['_trace.zip', 'error-context.md', '2-boom.png'], mtimeMs);
@@ -29,6 +29,18 @@ test('selectCandidate distinguishes nothing-ran from nothing-failed', () => {
 	assert.equal(selectCandidate([failed('f', 1)]).verdict, 'ok');
 	// A filter matching nothing is the same dead end as an empty dir.
 	assert.equal(selectCandidate([failed('f', 1)], { test: 'other' }).verdict, 'no-results');
+});
+
+test('matchesTestFilter matches through Playwright slugging and truncation', () => {
+	// Playwright's real directory shape: hyphenated title with the middle elided.
+	const dir = 'tests-variables-variables--d5e2d-ons-of-the-same-interpreter-e2e-electron';
+	// Spaces in the filter are hyphens in the directory.
+	assert.equal(matchesTestFilter(dir, 'same interpreter'), true);
+	// The full title never appears verbatim; a surviving tail suffix still resolves.
+	assert.equal(matchesTestFilter(dir, 'Validate variables are isolated between two sessions of the same interpreter'), true);
+	assert.equal(matchesTestFilter(dir, 'a completely different test'), false);
+	// A short filter typed deliberately matches on its own, below the suffix floor.
+	assert.equal(matchesTestFilter('plots-one', 'plots'), true);
 });
 
 test('selectCandidate asks rather than guessing when a filter is ambiguous', () => {

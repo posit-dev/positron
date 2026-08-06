@@ -37,8 +37,25 @@ a triage ends up investigating the wrong test's history.
 |---|---|---|
 | `ok` | live history on the queried branch(es), patterns present | proceed to pattern selection |
 | `ok-current-branch-new` | current branch has 0 runs, main has real history | proceed on main's data; note the branch has no history of its own yet |
-| `zero-runs-both` | **every** queried branch reports `total_runs: 0` | **stop.** This is a key mismatch, not a clean record -- rebuild the full hierarchical key (above) and re-run |
+| `zero-runs-both` | **every** queried branch reports `total_runs: 0` | **stop**, but settle *which* zero it is first (below): a key mismatch, or a test CI has genuinely never run |
 | `clean` | nonzero runs, no failure patterns | **stop.** Nothing to triage -- report a clean bill of health for the lookback window |
+
+### Which zero is it?
+
+`zero-runs-both` has two causes, and they need opposite actions. Settle it with
+one command -- whether the *committed* spec on `origin/main` already contains this
+title:
+
+```bash
+git show origin/main:'<specPath>' 2>/dev/null | grep -F '<leaf title>'
+```
+
+- **No output** (or the path doesn't exist on main) -- the test is new, renamed, or
+  still uncommitted, so CI has never run it and the key is fine. **Rebuilding the
+  key is wasted work.** Say it has no CI history yet and switch to the local entry.
+  If it was renamed, the old title holds the history the new one can't see.
+- **A match** -- the title is on main, so CI should have history for it. Now the
+  key is the suspect: rebuild the full hierarchical key (above) and re-run.
 
 ## How `lastSeen` is derived
 

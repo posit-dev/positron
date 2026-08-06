@@ -93,8 +93,7 @@ export function selectCandidate(candidates, { test: filter = null, dir = null } 
 	let matches = candidates;
 	if (dir) { matches = candidates.filter(c => c.dir === dir); }
 	else if (filter) {
-		const needle = filter.toLowerCase();
-		matches = candidates.filter(c => c.dir.toLowerCase().includes(needle));
+		matches = candidates.filter(c => matchesTestFilter(c.dir, filter));
 	}
 	if (!matches.length) { return { verdict: 'no-results', selected: null, matches: [] }; }
 	const ranked = rankCandidates(matches);
@@ -185,6 +184,26 @@ export function buildLocalSummary({ selected, timeline, errors, snapshotFile, lo
 }
 
 const sanitize = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+/**
+ * Match a `--test` filter against a Playwright result directory name. Playwright
+ * slugifies the title into the directory and elides the middle of a long one,
+ * keeping the tail -- so a raw substring test misses on both counts: spaces are
+ * hyphens, and a full title never appears verbatim. Slugify the needle, then fall
+ * back to progressively shorter suffixes of it, so a full title and a distinctive
+ * fragment both resolve. The length floor applies only to the shortened suffixes;
+ * a short filter the engineer typed deliberately still matches on its own.
+ */
+export function matchesTestFilter(dir, filter, minSuffixLength = 8) {
+	const haystack = sanitize(dir);
+	const tokens = sanitize(filter).split('-').filter(Boolean);
+	for (let i = 0; i < tokens.length; i++) {
+		const needle = tokens.slice(i).join('-');
+		if (i > 0 && needle.length < minSuffixLength) { break; }
+		if (haystack.includes(needle)) { return true; }
+	}
+	return false;
+}
 
 function commonPrefixLength(a, b) {
 	let i = 0;

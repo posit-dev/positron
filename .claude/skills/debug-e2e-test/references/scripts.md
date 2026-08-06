@@ -161,6 +161,8 @@ nextStep }`.
   carries the matching instruction. `no-results` and `no-failure` are different
   states -- local runs retain traces for passing tests, so artifacts existing
   proves nothing about whether anything failed.
+- **`--test` takes a fragment or the full title**; both resolve against Playwright's
+  hyphenated, middle-truncated directory names.
 - **Failure is detected from `error-context.md`**, which Playwright writes only
   for a failed test. Never from the trace's presence.
 - A `no-failure` run that *has* a trace is still collected, flagged as passing --

@@ -26,9 +26,11 @@ is identical.
 | Extra steps | pattern table, which-pattern question, prior-triage check | none |
 
 Pick local when the engineer just produced the failure or says "locally"; pick CI
-when they name a test CI is failing; ask if it's genuinely unclear. **They
-compose** -- a local dig that needs a rate runs the history query afterwards, and
-a CI diagnosis reproduces locally in the verification half.
+when they name a test CI is failing. **When they said neither, don't ask -- look:**
+run `collect-local-evidence.js --test '<what they named>'` (drop `--test` if they
+named nothing), and take the local entry if it returns `ok` (that call *is* the
+local entry's first step), the CI entry otherwise. **They compose** -- a local dig that needs a rate runs the history
+query afterwards, and a CI diagnosis reproduces locally in the verification half.
 
 **This is the debugging process for this case.** Don't layer a general debugging
 workflow on top of it -- the rules below (one pattern at a time, a falsifiable
@@ -108,6 +110,10 @@ Run from the repo root. Flags and output contracts:
 anything that names one test: a leaf title, a spec path, `spec.test.ts:41`, a
 full `testName|||specPath` key, or a dashboard URL.
 `/debug-e2e-test --local` -- start the **local entry** (see below).
+`/debug-e2e-test` with **no argument** -- don't ask which test: run the local
+collector unfiltered. It ranks failures first and newest first, so it selects the
+most recent local failure on its own, and names it back to you for confirmation.
+Only when that finds nothing (`no-results`) is there a test name to ask for.
 `/debug-e2e-test --resume <triage-id>` -- resume.
 `/debug-e2e-test --status` -- list saved triages.
 
