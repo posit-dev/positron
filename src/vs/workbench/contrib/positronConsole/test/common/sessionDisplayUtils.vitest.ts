@@ -20,9 +20,9 @@ describe('getFittedSessionName', () => {
 		expect(getFittedSessionName('Python  3.12.11', 1000, measureWidth)).toBe('Python  3.12.11');
 	});
 
-	it('drops a trailing word at a time as the available width shrinks', () => {
+	it('ellipsizes the name further as the available width shrinks', () => {
 		const sessionName = 'Python 3.12.11 (Pyenv)';
-		const fittedNames = [300, 220, 200, 140, 100, 60, 50].map(availableWidth => ({
+		const fittedNames = [300, 220, 200, 110, 100, 80, 40, 30].map(availableWidth => ({
 			availableWidth,
 			fittedName: getFittedSessionName(sessionName, availableWidth, measureWidth),
 		}));
@@ -38,29 +38,37 @@ describe('getFittedSessionName', () => {
 			  },
 			  {
 			    "availableWidth": 200,
-			    "fittedName": "Python 3.12.11",
+			    "fittedName": "Python 3.12.11 (Pye…",
 			  },
 			  {
-			    "availableWidth": 140,
-			    "fittedName": "Python 3.12.11",
+			    "availableWidth": 110,
+			    "fittedName": "Python 3.1…",
 			  },
 			  {
 			    "availableWidth": 100,
-			    "fittedName": "Python",
+			    "fittedName": "Python 3…",
 			  },
 			  {
-			    "availableWidth": 60,
-			    "fittedName": "Python",
+			    "availableWidth": 80,
+			    "fittedName": "Python…",
 			  },
 			  {
-			    "availableWidth": 50,
+			    "availableWidth": 40,
+			    "fittedName": "Pyt…",
+			  },
+			  {
+			    "availableWidth": 30,
 			    "fittedName": "",
 			  },
 			]
 		`);
 	});
 
-	it('returns an empty string for a single-word name that does not fit', () => {
-		expect(getFittedSessionName('Python', 50, measureWidth)).toBe('');
+	it('trims a trailing separator so the ellipsis never follows punctuation', () => {
+		expect(getFittedSessionName('Some-word-thing', 110, measureWidth)).toBe('Some-word\u2026');
+	});
+
+	it('returns an empty string when fewer than three characters would be left', () => {
+		expect(getFittedSessionName('Python', 30, measureWidth)).toBe('');
 	});
 });

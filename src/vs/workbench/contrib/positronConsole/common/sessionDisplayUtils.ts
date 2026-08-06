@@ -48,16 +48,44 @@ export function getSessionDisplayName(
 }
 
 /**
- * Fits a session name into the given width by dropping trailing words until
- * what remains fits, so that names collapse gracefully as a tab narrows:
- * "Python 3.12.11 (Pyenv)" becomes "Python 3.12.11", then "Python", and
- * finally an empty string when even the first word doesn't fit (leaving just
- * the session icons).
+ * The character appended to an ellipsized session name.
+ */
+const ELLIPSIS = '\u2026';
+
+/**
+ * Whitespace or punctuation of any kind.
+ */
+const SEPARATOR = /[\s\p{P}]/u;
+
+/**
+ * Checks whether a character is one an ellipsized session name shouldn't be left
+ * ending on, so that a name reads "Python..." and "Some-word..." rather than
+ * "Python ..." and "Some-word-...".
+ */
+function isSeparator(character: string): boolean {
+	return SEPARATOR.test(character);
+}
+
+/**
+ * The fewest characters of a session name worth showing. Below this an
+ * ellipsized name says too little to be worth the space it takes.
+ */
+const MINIMUM_FITTED_LENGTH = 3;
+
+/**
+ * Fits a session name into the given width by ellipsizing it, so that names
+ * collapse gracefully as a tab narrows: "Python 3.12.11 (Pyenv)" becomes
+ * "Python 3.12.1...", then "Python 3...", then "Python...", and so on.
+ *
+ * The ellipsis never follows a space or punctuation: a name cut to "Python " or
+ * "Some-word-" has that separator trimmed first. Once fewer than
+ * MINIMUM_FITTED_LENGTH characters of the name would be left, an empty string is
+ * returned and the tab is left showing just the session icons.
  *
  * @param sessionName The full session name.
  * @param availableWidth The width available to render the name, in pixels.
  * @param measureWidth Measures the rendered width of a candidate name, in pixels.
- * @returns The longest leading run of words that fits, or an empty string.
+ * @returns The name, an ellipsized form of it, or an empty string.
  */
 export function getFittedSessionName(
 	sessionName: string,
@@ -65,21 +93,33 @@ export function getFittedSessionName(
 	measureWidth: (text: string) => number,
 ): string {
 	// The full name is always preferred, and is returned verbatim so that names
-	// which fit are never reformatted.
+	// which fit are never ellipsized or trimmed.
 	if (measureWidth(sessionName) <= availableWidth) {
 		return sessionName;
 	}
 
-	// Drop trailing words until what's left fits.
-	const words = sessionName.split(/\s+/).filter(word => word.length > 0);
-	for (let wordCount = words.length - 1; wordCount > 0; wordCount--) {
-		const candidate = words.slice(0, wordCount).join(' ');
+	let length = sessionName.length - 1;
+	while (length >= MINIMUM_FITTED_LENGTH) {
+		// Never leave the ellipsis sitting after a separator.
+		let end = length;
+		while (end > 0 && isSeparator(sessionName.charAt(end - 1))) {
+			end--;
+		}
+
+		if (end < MINIMUM_FITTED_LENGTH) {
+			break;
+		}
+
+		const candidate = sessionName.slice(0, end) + ELLIPSIS;
 		if (measureWidth(candidate) <= availableWidth) {
 			return candidate;
 		}
+
+		// Trimming may have shortened the name past the next length to try.
+		length = end - 1;
 	}
 
-	// Not even the first word fits.
+	// Too little of the name would be left to be worth showing.
 	return '';
 }
 
