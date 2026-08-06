@@ -269,6 +269,8 @@ positron_dir_of() {
 	# Locations that are categorically infrastructure, never a feature suite, so
 	# they need no map entry (and future dirs here are auto-excluded): the VS Code
 	# base layer, the extension-API glue, and the extension API type declarations.
+	# This only suppresses the "add a map entry" nag. A hand-added key under one of
+	# these roots still derives tags -- derive_map_tags matches map keys directly.
 	case "$dir" in
 		*/out/*|*/node_modules/*) return 0 ;;
 		src/vs/base/*|src/vs/workbench/api/*|src/positron-dts/*) return 0 ;;

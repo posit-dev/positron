@@ -120,6 +120,7 @@
   "extensions/positron-supervisor/": ["@:sessions", "@:console", "@:interpreter"],
   "extensions/positron-zed/": [],
 
+  "src/vs/base/browser/ui/positronComponents/": ["@:top-action-bar", "@:editor-action-bar"],
   "src/vs/editor/contrib/positronEditorActions/": ["@:editor-action-bar"],
   "src/vs/editor/contrib/positronHelp/": ["@:help"],
   "src/vs/editor/contrib/positronStatementRange/": [],
@@ -128,7 +129,7 @@
   "src/vs/platform/extensionManagement/node/positronBootstrapExtensionsInitializer.ts": ["@:extensions"],
   "src/vs/platform/extensions/": [],
   "src/vs/platform/extensions/common/positronExtensionValidator.ts": ["@:extensions"],
-  "src/vs/platform/positronActionBar/": [],
+  "src/vs/platform/positronActionBar/": ["@:top-action-bar", "@:editor-action-bar"],
   "src/vs/platform/positronAiProvider/": ["@:assistant"],
   "src/vs/platform/positronDocs/": [],
   "src/vs/platform/positronHeadlessLanguageModel/": ["@:positron-notebooks"],
