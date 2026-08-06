@@ -57,6 +57,7 @@
 	overflow: hidden;
 	min-width: 0;
 	text-overflow: ellipsis;
+	font-variant-numeric: tabular-nums;
 }
 
 .tab-button .session-name-input {
