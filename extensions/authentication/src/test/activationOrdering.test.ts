@@ -16,12 +16,16 @@ function fakeContext(): vscode.ExtensionContext {
 	return { subscriptions: [] } as unknown as vscode.ExtensionContext;
 }
 
+/** Stands in for the providers.json auto-migration; the real one reads live settings. */
+function noopAutoMigrate(): Promise<void> {
+	return Promise.resolve();
+}
+
 /**
- * Covers the activation seam around the AWS/Snowflake settings migrations and
- * the catalog prime: migrations must not abort each other or the prime, and
- * the primed catalog must not read legacy settings — the keys the migrations
- * write reach it only through the providers.json migration (later in
- * activation) and the catalog's file watch.
+ * Covers the activation seam around the settings migrations and the catalog
+ * prime: migrations must not abort each other or the prime, and the primed
+ * catalog must not read legacy settings — the keys the settings migrations
+ * write reach it only by way of the providers.json migration.
  */
 suite('activation ordering', () => {
 	let dir: string;
@@ -58,6 +62,7 @@ suite('activation ordering', () => {
 				{ name: 'throws', run: async () => { throw new Error('boom'); } },
 				{ name: 'after', run: async () => { order.push('after'); } },
 			],
+			noopAutoMigrate,
 		);
 
 		assert.deepStrictEqual(order, ['after'], 'a rejected migration must not skip the ones after it');
@@ -79,7 +84,7 @@ suite('activation ordering', () => {
 		// envVars: {} keeps ambient AWS_PROFILE/AWS_REGION out of the
 		// connection-env layer, so only the (absent) legacy layer could
 		// contribute a profile; the region falls back to the built-in default.
-		await migrateSettingsAndPrimeCatalog(context, { configPath, envVars: {} });
+		await migrateSettingsAndPrimeCatalog(context, { configPath, envVars: {} }, [], noopAutoMigrate);
 
 		const aws = getCachedProvider('bedrock')?.connection.aws;
 		assert.deepStrictEqual(
