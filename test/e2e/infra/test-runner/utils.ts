@@ -42,7 +42,9 @@ export function provisionTestFiles(workspacePath = process.env.WORKSPACE_PATH ||
 	// Inline identity + disabled signing so CI hosts without global git config succeed.
 	try {
 		const git = (args: string) => cp.execSync(`git ${args}`, { cwd: workspacePath, stdio: 'pipe' });
-		git('init -q');
+		// Pin the branch name: it otherwise comes from init.defaultBranch, which is unset
+		// on CI runners, so release screenshots of the workspace show "master".
+		git('init -q -b main');
 		git('add -A');
 		git('-c user.email=e2e@posit.co -c user.name=e2e -c commit.gpgsign=false commit -q -m "test-files baseline"');
 	} catch (error) {
