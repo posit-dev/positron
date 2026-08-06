@@ -30,6 +30,11 @@ test.use({
 
 const SIGNIN_PROVIDERS: ModelProvider[] = ['anthropic-api', 'openai-api', 'posit-ai'];
 
+// Pins the reply to a single known word so the response assertion can check for
+// it. A bare "Say hello" leaves the model free to answer with a greeting that
+// never contains the word.
+const HELLO_PROMPT = 'Reply with only the word hello.';
+
 const CONTAINER_NAME = 'test';
 
 // The session user's provider catalog. The default Workbench shard runs the
@@ -123,11 +128,17 @@ test.describe('Posit Assistant Sign-in - Workbench', {
 				// default may belong to the wrong one. `newConversation: false` keeps the
 				// selection instead of resetting to a fresh chat.
 				await app.workbench.positAssistant.selectProviderModel(provider);
-				await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: false });
+				await app.workbench.positAssistant.sendMessage(HELLO_PROMPT, true, { newConversation: false });
 				await app.workbench.positAssistant.expectResponseVisible();
 
+				// Assert the model answered the prompt, not merely that some text
+				// rendered: a length check also passes on an error or a refusal shown in
+				// the response body. The prompt pins the wording so this is a fair
+				// expectation of any provider's model; the match stays case-insensitive
+				// because capitalization and trailing punctuation are still the model's
+				// to choose.
 				const responseText = await app.workbench.positAssistant.getLastResponseText();
-				expect(responseText.length).toBeGreaterThan(0);
+				expect(responseText).toMatch(/hello/i);
 			} finally {
 				await app.workbench.modelProviderAuth.logoutModelProvider(provider);
 			}
