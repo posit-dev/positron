@@ -37,6 +37,7 @@
   "extensions/authentication/": ["@:assistant"],
   "extensions/copilot/": ["@:assistant"],
   "extensions/copilot/src/extension/prompts/node/base/positronAssistant.tsx": ["@:assistant"],
+  "extensions/next-edit-suggestions/": ["@:assistant"],
   "extensions/positron-connections/": ["@:connections"],
   "extensions/positron-notebooks/": ["@:positron-notebooks"],
   "extensions/positron-reticulate/": ["@:reticulate"],
@@ -79,6 +80,7 @@
 
   "extensions/positron-catalog-explorer/": ["@:catalog-explorer"],
   "extensions/positron-code-cells/": [],
+  "extensions/positron-data-driver-databricks/": ["@:connections"],
   "extensions/positron-data-driver-duckdb/": ["@:connections"],
   "extensions/positron-data-driver-pins/": ["@:connect"],
   "extensions/positron-data-driver-postgresql/": ["@:connections"],

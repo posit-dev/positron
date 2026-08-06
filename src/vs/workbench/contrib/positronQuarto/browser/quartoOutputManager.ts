@@ -22,6 +22,7 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { basename } from '../../../../base/common/resources.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { getImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
 import { getImageOutputName, openImageOutputInNewTab, saveImageOutput } from '../../positronNotebook/common/imageOutputUtils.js';
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
@@ -380,11 +381,12 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			const newModel = this._editor.getModel();
 			this._documentUri = newModel?.uri;
 
-			// Handle untitled->saved transition: transfer cache from old URI to new URI
-			// This happens when a user saves an untitled Quarto document to a file
+			// Handle untitled->saved transition: transfer cache from old URI to new URI.
+			// Any non-untitled scheme counts as saved; a remote or web window saves
+			// to `vscode-remote`, not `file`.
 			if (previousUri && this._documentUri &&
 				previousUri.scheme === 'untitled' &&
-				this._documentUri.scheme === 'file' &&
+				this._documentUri.scheme !== 'untitled' &&
 				this._isQuartoDocument()) {
 				this._transferCacheFromUntitled(previousUri, this._documentUri);
 			}
@@ -746,10 +748,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		for (const output of outputs) {
 			for (const item of output.items) {
 				if (item.mime.startsWith('image/')) {
-					const dataUrl = item.data.startsWith('data:')
-						? item.data
-						: `data:${item.mime};base64,${item.data}`;
-					return { type: 'image', dataUrl };
+					return { type: 'image', dataUrl: getImageDataUrl(item.mime, item.data) };
 				}
 			}
 		}

@@ -32,6 +32,7 @@ import {
 import { BeforeShutdownEvent, ILifecycleService, WillShutdownEvent } from '../../../lifecycle/common/lifecycle.js';
 import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../positronNewFolder/common/positronNewFolder.js';
 import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { RuntimeStartupService } from '../../common/runtimeStartup.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import {
@@ -1107,6 +1108,65 @@ describe('RuntimeStartupService - affiliation healing', () => {
 
 		// getAffiliatedRuntimes() returns the live registered metadata (absolute path).
 		expect(svc.getAffiliatedRuntimes()[0].runtimePath).toBe(freshRuntimePath);
+	});
+});
+
+describe('RuntimeStartupService - getPreferredRuntime', () => {
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IEphemeralStateService, {
+			getItem: () => Promise.resolve(undefined),
+			setItem: () => Promise.resolve(),
+		})
+		.stub(ILifecycleService, {
+			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
+			onWillShutdown: new Emitter<WillShutdownEvent>().event,
+		})
+		.stub(IPositronNewFolderService, {
+			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
+			startupPhase: NewFolderStartupPhase.Complete,
+		})
+		.stub(IProgressService, {})
+		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+		.stub(INotificationService, new TestNotificationService())
+		.stub(IRuntimeDiscoveryCache, {})
+		.build();
+
+	it('skips a preferred runtime that is no longer registered', async () => {
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		const languageRuntimeService = ctx.get(ILanguageRuntimeService);
+
+		// Start a console session, which makes its runtime both the active
+		// console session for the language and the most recently started
+		// runtime for it.
+		const staleRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: staleRuntime });
+
+		// Register a second runtime for the same language, then unregister the
+		// one the session was started from - the shape left behind when a
+		// window reload rediscovers runtimes and the old ids go away while a
+		// restored session still references them.
+		const liveRuntime = metadata({ languageId: staleRuntime.languageId, runtimeId: 'rt-live' });
+		ctx.disposables.add(languageRuntimeService.registerRuntime(liveRuntime));
+		languageRuntimeService.unregisterRuntime(staleRuntime.runtimeId);
+
+		// Handing back the unregistered runtime makes every caller that starts
+		// a session from it fail with "No language runtime with id X was found".
+		expect(svc.getPreferredRuntime(staleRuntime.languageId)?.runtimeId).toBe(liveRuntime.runtimeId);
+	});
+
+	it('prefers the active console session runtime while it is still registered', async () => {
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+
+		const sessionRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: sessionRuntime });
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(
+			metadata({ languageId: sessionRuntime.languageId, runtimeId: 'rt-other' })));
+
+		expect(svc.getPreferredRuntime(sessionRuntime.languageId)?.runtimeId).toBe(sessionRuntime.runtimeId);
 	});
 });
 

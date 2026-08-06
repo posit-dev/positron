@@ -39,6 +39,7 @@ import { readAgentSdkResults } from './agent-sdk/common.ts';
 import { positronBuildNumber, releaseChannel } from './utils.ts';
 // eslint-disable-next-line no-duplicate-imports
 import { copyExtensionBinariesTask } from './gulpfile.extensions.ts';
+import { getAiLibServerDependencies } from './lib/ai-lib-dependencies.ts';
 import { getQuartoBinaries } from './lib/quarto.ts';
 // --- End Positron ---
 // --- Start PWB: build-time gzip compression ---
@@ -596,7 +597,17 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		// --- Start Positron ---
 		const productionDependencies = getProductionDependencies(isWebType(type) ? REMOTE_REH_WEB_FOLDER : REMOTE_FOLDER);
 		const dependenciesSrc = productionDependencies.map(d => path.relative(REPO_ROOT, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!${d}/.bin/**`]).flat();
-		const cleanedDeps = gulp.src(dependenciesSrc, { base: packageJsonBase, dot: true })
+		// The ai-lib packages the server loads at runtime are `file:` dependencies
+		// of the root package.json, so the walk above (rooted at remote/) misses
+		// them. Ship them alongside, skipping whatever the remote dependencies
+		// already provide at the same path. See ai-lib-dependencies.ts.
+		const shippedModulePaths = productionDependencies
+			.map(d => path.relative(path.join(REPO_ROOT, packageJsonBase), d).split(path.sep).join('/'))
+			.filter(d => d.startsWith('node_modules/'));
+		const cleanedDeps = es.merge(
+			gulp.src(dependenciesSrc, { base: packageJsonBase, dot: true }),
+			getAiLibServerDependencies(shippedModulePaths)
+		)
 			// --- End Positron ---
 			// filter out unnecessary files, no source maps in server build
 			.pipe(filter(['**', '!**/package-lock.json', '!**/*.{js,css}.map']))

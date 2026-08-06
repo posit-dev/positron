@@ -282,6 +282,7 @@ export interface ColumnDescriptor {
  */
 export interface ColumnDescriptors {
 	pinnedColumnDescriptors: ColumnDescriptor[];
+	pinnedColumnDescriptorsWidth: number;
 	unpinnedColumnDescriptors: ColumnDescriptor[];
 }
 
@@ -299,6 +300,7 @@ export interface RowDescriptor {
  */
 export interface RowDescriptors {
 	pinnedRowDescriptors: RowDescriptor[];
+	pinnedRowDescriptorsHeight: number;
 	unpinnedRowDescriptors: RowDescriptor[];
 }
 
@@ -1541,6 +1543,7 @@ export abstract class DataGridInstance extends Disposable {
 		// Return the column descriptors.
 		return {
 			pinnedColumnDescriptors,
+			pinnedColumnDescriptorsWidth,
 			unpinnedColumnDescriptors,
 		};
 	}
@@ -1581,6 +1584,7 @@ export abstract class DataGridInstance extends Disposable {
 		// Return the row descriptors.
 		return {
 			pinnedRowDescriptors,
+			pinnedRowDescriptorsHeight,
 			unpinnedRowDescriptors,
 		};
 	}

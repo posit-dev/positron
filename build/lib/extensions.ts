@@ -314,6 +314,7 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 			'positron-duckdb',
 			'positron-catalog-explorer',
 			'positron-pdf-server',
+			'positron-data-driver-databricks',
 			'positron-data-driver-duckdb',
 			'positron-data-driver-pins',
 			'positron-data-driver-postgresql',

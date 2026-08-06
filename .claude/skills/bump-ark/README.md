@@ -10,7 +10,7 @@ The script creates a Positron-side PR that bumps the submodule ref, and fills th
 
 - A "Closes #XXX" line for every issue mentioned in the release notes, and every "Addresses #XXX" mention in the Ark PRs.
 
-- A commit section listing every commit since the last bump. The commits are gathered with a `--first-parent` walk, so that only squash merges, merge commits, and commits directly pushed to main are included.
+- A commit section listing every commit since the last bump. The commits are gathered with a `--first-parent` walk, so that only squash merges, merge commits, and commits directly pushed to main are included. Commits belonging to an unmerged PR collapse to one line per PR, in the squash-merge form they will take once that PR lands.
 
 
 #### Usage
@@ -31,6 +31,8 @@ The script (and skill) takes the following arguments:
 You call the script with the PR number to open a Positron PR and run CI tests. If needed, you then iterate on your branch and reinvoke the script to update the Positron PR and refresh CI tests.
 
 Make sure to include the relevant release notes in your Ark PR so the script can generate up-to-date release notes in the Positron PR.
+
+While your PR is open, its commits render as one collapsed line in the commit section, because that's what Ark's log will show once the PR squash-merges. Stacked PRs are handled too: the script matches each PR's base branch against the head branch of another open PR, walking down to the PR based on Ark main, then collapses each PR in the stack to its own line and pulls in its release notes and `Closes` references. So a PR stacked four deep gives you four lines instead of a run of individual commits, and the release notes cover the whole stack rather than the top PR alone. Detection is based on base branches only, so it works whether or not you use `gh stack`.
 
 When ready, merge your branch to main and invoke the script one last time. The Positron side PR will now point to the merge commit on main. This works no matter the merge type (squash or branch merge).
 

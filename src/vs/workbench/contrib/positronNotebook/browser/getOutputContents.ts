@@ -12,6 +12,7 @@ import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellT
 import { ICellOutput, IOutputItemDto } from '../../notebook/common/notebookCommon.js';
 import { ParsedDataExplorerOutput, ParsedOutput, ParsedTextOutput } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
+import { getImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
 
 /**
  * MIME type for Positron inline data explorer
@@ -208,7 +209,7 @@ export function parseOutputData(outputItem: IOutputItemDto, metadata?: Record<st
 		const height = typeof imgObj?.['height'] === 'number' ? imgObj['height'] : undefined;
 		return {
 			type: 'image',
-			dataUrl: `data:image/png;base64,${encodeBase64(VSBuffer.wrap(data.buffer))}`,
+			dataUrl: getImageDataUrl(mime, encodeBase64(VSBuffer.wrap(data.buffer))),
 			width,
 			height,
 		};
@@ -217,7 +218,7 @@ export function parseOutputData(outputItem: IOutputItemDto, metadata?: Record<st
 	if (mime === 'image/svg+xml') {
 		return {
 			type: 'image',
-			dataUrl: `data:image/svg+xml,${encodeURIComponent(message)}`
+			dataUrl: getImageDataUrl(mime, message)
 		};
 	}
 

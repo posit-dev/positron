@@ -123,7 +123,7 @@ jobs:
         run: git checkout ${{ inputs.commit }}
 
       - name: Load secret
-        uses: 1password/load-secrets-action@v4
+        uses: 1password/load-secrets-action@v5
         with:
           # Export loaded secrets as environment variables
           export-env: true
@@ -434,8 +434,42 @@ jobs:
           rig add ${{ steps.r-versions.outputs.r_alt_version }}
           rig ls
 
+      # `choco install` can exit 0 while installing nothing: when the community
+      # feed returns a 5xx, choco prints "Unable to find package 'Graphviz'" and
+      # "Chocolatey installed 0/0 packages" but still succeeds, so the step goes
+      # green and the graphviz plot tests fail half an hour later as a confusing
+      # screenshot diff. Retry the transient feed failures, then prove `dot` runs
+      # before moving on.
       - name: Setup Graphviz
-        run: choco install graphviz -y --no-progress
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          retry_wait_seconds: 15
+          shell: pwsh
+          command: |
+            $ErrorActionPreference = 'Stop'
+            choco install graphviz -y --no-progress
+            # The graphviz installer puts its bin dir on the machine PATH, which
+            # the already-running runner process does not pick up. Re-read it so
+            # `dot` resolves here, then publish it for the later test steps.
+            $env:PATH = "$([Environment]::GetEnvironmentVariable('Path', 'Machine'));$env:PATH"
+            $dot = Get-Command dot -ErrorAction SilentlyContinue
+            if (-not $dot) {
+              throw 'choco reported success but dot is not installed (see the choco output above)'
+            }
+            $bin = Split-Path $dot.Source -Parent
+            if ((Get-Content $env:GITHUB_PATH -ErrorAction SilentlyContinue) -notcontains $bin) {
+              Add-Content -Path $env:GITHUB_PATH -Value $bin
+            }
+            # Log the version, checking the exit code rather than the output: dot
+            # writes its version banner to stderr, which 'Stop' would otherwise
+            # treat as a failure.
+            $ErrorActionPreference = 'Continue'
+            dot -V
+            if ($LASTEXITCODE -ne 0) {
+              throw "dot -V failed with exit code $LASTEXITCODE"
+            }
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2

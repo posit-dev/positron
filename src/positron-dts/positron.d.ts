@@ -2296,21 +2296,33 @@ declare module 'positron' {
 	 */
 	export enum DataConnectionNodeKind {
 		Database = 'database',
+		// A catalog: the level above a schema in a three-part namespace, e.g. a Unity Catalog
+		// catalog (positron-data-driver-databricks).
+		Catalog = 'catalog',
 		Schema = 'schema',
 		Table = 'table',
 		View = 'view',
 		Field = 'field',
 		// Category containers that group sibling nodes (e.g. "Tables", "Views").
 		GroupDatabases = 'group-databases',
+		GroupCatalogs = 'group-catalogs',
 		GroupSchemas = 'group-schemas',
 		GroupTables = 'group-tables',
 		GroupViews = 'group-views',
 		GroupColumns = 'group-columns',
 		GroupIndexes = 'group-indexes',
 		GroupStages = 'group-stages',
+		GroupVolumes = 'group-volumes',
 		Index = 'index',
 		// A Snowflake stage: a named location for staging files (positron-data-driver-snowflake).
 		Stage = 'stage',
+		// A Unity Catalog volume: a governed location for non-tabular files
+		// (positron-data-driver-databricks).
+		Volume = 'volume',
+		// A directory inside a volume, and a file inside one. Both hold files rather than rows, so they
+		// are browsable but not previewable in the Data Explorer.
+		Directory = 'directory',
+		File = 'file',
 		// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
 		Owner = 'owner',
 		// A pin on a Posit Connect server (positron-data-driver-pins).
@@ -2712,6 +2724,25 @@ declare module 'positron' {
 		 *   that `languageId` exists.
 		 */
 		export function getConsoleForLanguage(languageId: string): Thenable<Console | undefined>;
+
+		/**
+		 * The currently active console editor, or `undefined` if no console is active or its
+		 * input has not mounted yet. Provides the full `vscode.TextEditor` API for the console
+		 * input, including `document`, `selection`, `edit()`, and `insertSnippet()`.
+		 *
+		 * Note: the console editor is deliberately not surfaced through the standard `vscode`
+		 * editor APIs. It is never `vscode.window.activeTextEditor`, never appears in
+		 * `vscode.window.visibleTextEditors`, and never raises the
+		 * `vscode.window.onDidChangeTextEditor*` events. This property and
+		 * `onDidChangeActiveConsoleEditor` are the only way to reach it.
+		 */
+		export const activeConsoleEditor: vscode.TextEditor | undefined;
+
+		/**
+		 * An event that fires when the active console editor changes, including when the active
+		 * console's input editor mounts or unmounts.
+		 */
+		export const onDidChangeActiveConsoleEditor: vscode.Event<vscode.TextEditor | undefined>;
 
 		/**
 		 * Fires when the width of the console input changes. The new width is passed as
