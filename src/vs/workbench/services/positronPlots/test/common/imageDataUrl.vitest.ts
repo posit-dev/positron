@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { VSBuffer, encodeBase64 } from '../../../../../base/common/buffer.js';
-import { decodeImageDataUrl, getImageContentId, getImageExtensionForMimeType, parseImageDataUrl, toBase64ImageDataUrl } from '../../common/imageDataUrl.js';
+import { decodeImageDataUrl, getImageContentId, getImageDataUrl, getImageExtensionForMimeType, parseImageDataUrl, toBase64ImageDataUrl } from '../../common/imageDataUrl.js';
 
 const pngDataUrl = `data:image/png;base64,${encodeBase64(VSBuffer.fromString('fake-png-bytes'))}`;
 const svg = '<svg><circle r="10"/></svg>';
@@ -81,6 +81,28 @@ describe('imageDataUrl', () => {
 
 		it('returns undefined for a malformed data URL', () => {
 			expect(decodeImageDataUrl('not-a-data-url')).toBeUndefined();
+		});
+	});
+
+	// Kernels provide raster image payloads as base64 and SVG payloads as raw
+	// markup. Both formats must produce data URLs supported by the decoder.
+	describe('getImageDataUrl', () => {
+		it('URL-encodes an SVG payload rather than labelling it base64', () => {
+			expect(getImageDataUrl('image/svg+xml', svg)).toBe(svgDataUrl);
+		});
+
+		it('produces an SVG data URL the decoder round-trips', () => {
+			const decoded = decodeImageDataUrl(getImageDataUrl('image/svg+xml', svg));
+			expect({ mimeType: decoded?.mimeType, data: decoded?.data.toString() })
+				.toEqual({ mimeType: 'image/svg+xml', data: svg });
+		});
+
+		it('labels a raster payload as base64', () => {
+			expect(getImageDataUrl('image/png', 'aGVsbG8=')).toBe('data:image/png;base64,aGVsbG8=');
+		});
+
+		it('returns a payload that is already a data URL unchanged', () => {
+			expect(getImageDataUrl('image/png', pngDataUrl)).toBe(pngDataUrl);
 		});
 	});
 
