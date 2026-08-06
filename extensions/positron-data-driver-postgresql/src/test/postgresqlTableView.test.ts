@@ -95,6 +95,34 @@ suite('PostgreSQL Data Explorer Tests', () => {
 				`"name" ~* '^a.*'`,
 			]);
 		});
+
+		test('escapes LIKE wildcards in the search term and names an escape character', () => {
+			// Unescaped, '50%_off' would match any value containing '50', any character, then 'off', so a
+			// search for a literal string would pull in unrelated rows. The ESCAPE clause is what makes the
+			// escapes below mean anything; the escape character itself is escaped in the same pass.
+			const searches = [TextSearchType.Contains, TextSearchType.NotContains, TextSearchType.StartsWith, TextSearchType.EndsWith]
+				.map(search_type => makeWhereExpr(rowFilter('name', ColumnDisplayType.String, {
+					filter_type: RowFilterType.Search,
+					params: { search_type, term: '50%_off!', case_sensitive: true },
+				})));
+
+			assert.deepStrictEqual(searches, [
+				`"name" LIKE '%' || '50!%!_off!!' || '%' ESCAPE '!'`,
+				`"name" NOT LIKE '%' || '50!%!_off!!' || '%' ESCAPE '!'`,
+				`"name" LIKE '50!%!_off!!' || '%' ESCAPE '!'`,
+				`"name" LIKE '%' || '50!%!_off!!' ESCAPE '!'`,
+			]);
+		});
+
+		test('leaves a regex search alone, since it has no LIKE wildcards', () => {
+			// '%' and '_' carry no special meaning in a regex, so escaping them would corrupt the pattern.
+			assert.strictEqual(
+				makeWhereExpr(rowFilter('name', ColumnDisplayType.String, {
+					filter_type: RowFilterType.Search,
+					params: { search_type: TextSearchType.RegexMatch, term: '^10%_$', case_sensitive: true },
+				})),
+				`"name" ~ '^10%_$'`);
+		});
 	});
 
 	suite('getDataValues', () => {
@@ -136,6 +164,44 @@ suite('PostgreSQL Data Explorer Tests', () => {
 					],
 				}
 			);
+		});
+
+		test('a wide int8 keeps every digit rather than being rounded through a JS number', async () => {
+			// `pg` returns int8 as an exact string precisely because a JS number cannot hold it; coercing
+			// that string back with Number() would round 9007199254740993 to ...992, and a 19-digit value
+			// to exponential notation.
+			const bigints: PostgresSchemaEntry[] = [
+				{ column_name: 'id', column_type: 'bigint', type_display: ColumnDisplayType.Integer },
+			];
+			const client = new FakeQueryClient(sql => sql.includes('count(*)')
+				? [{ n: 3 }]
+				: [{ c0: '9007199254740993' }, { c0: '9223372036854775807' }, { c0: '-9223372036854775808' }]);
+			const view = new PostgresTableView(client, '"public"."people"', 'people', 'table', bigints);
+
+			const data = await view.getDataValues({
+				columns: [{ column_index: 0, spec: { first_index: 0, last_index: 2 } }],
+				format_options: FORMAT,
+			});
+
+			assert.deepStrictEqual(data.columns[0], ['9007199254740993', '9223372036854775807', '-9223372036854775808']);
+		});
+
+		test('an integer value that is not a clean digit string is still normalized', async () => {
+			// Only a plain digit string is passed through untouched; anything else goes through Number().
+			const ints: PostgresSchemaEntry[] = [
+				{ column_name: 'n', column_type: 'integer', type_display: ColumnDisplayType.Integer },
+			];
+			const client = new FakeQueryClient(sql => sql.includes('count(*)')
+				? [{ n: 2 }]
+				: [{ c0: ' 42 ' }, { c0: 7 }]);
+			const view = new PostgresTableView(client, '"public"."people"', 'people', 'table', ints);
+
+			const data = await view.getDataValues({
+				columns: [{ column_index: 0, spec: { first_index: 0, last_index: 1 } }],
+				format_options: FORMAT,
+			});
+
+			assert.deepStrictEqual(data.columns[0], ['42', '7']);
 		});
 	});
 

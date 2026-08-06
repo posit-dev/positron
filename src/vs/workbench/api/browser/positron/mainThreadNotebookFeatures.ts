@@ -18,7 +18,8 @@ import { cellToCellDtoForRestore } from '../../../contrib/positronNotebook/brows
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { encodeBase64 } from '../../../../base/common/buffer.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { isImageMimeType, isSvgMimeType, isTextBasedMimeType } from '../../../contrib/positronNotebook/browser/notebookMimeUtils.js';
+import { isImageMimeType, isTextBasedMimeType } from '../../../contrib/positronNotebook/browser/notebookMimeUtils.js';
+import { isSvgMimeType } from '../../../services/positronPlots/common/imageDataUrl.js';
 import { rasterizeSvgToPng } from '../../../contrib/positronNotebook/browser/svgToPng.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../../contrib/positronNotebook/common/positronNotebookConfig.js';

@@ -31,8 +31,10 @@ const kindIcon = (dto: IDataConnectionNodeDTO): string => {
 		case 'database':
 			return 'positron-db-database';
 
-		// No dedicated plural glyph exists, so the "Databases" group reuses the database icon.
+		// No dedicated plural glyph exists, so the "Databases" and "Catalogs" groups reuse the
+		// database icon.
 		case 'group-databases':
+		case 'group-catalogs':
 			return 'positron-db-database';
 
 		case 'group-schemas':
@@ -50,11 +52,20 @@ const kindIcon = (dto: IDataConnectionNodeDTO): string => {
 		case 'group-columns':
 			return 'positron-db-columns';
 
-		// No dedicated stage glyph yet; reuse the built-in 'archive' icon for both the group and its
-		// leaves, since a stage is a file-staging location.
+		// No dedicated stage or volume glyph yet; reuse the built-in 'archive' icon for these groups and
+		// their leaves, since both a stage and a volume are governed file-storage locations.
 		case 'group-stages':
 		case 'stage':
+		case 'group-volumes':
+		case 'volume':
 			return 'archive';
+
+		// A volume's contents are ordinary files and folders.
+		case 'directory':
+			return 'folder';
+
+		case 'file':
+			return 'file';
 
 		case 'schema':
 			return 'positron-db-schema';
