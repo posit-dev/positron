@@ -46,6 +46,7 @@ Issue: posit-dev/positron#15001
 | `test/e2e/fixtures/settingsMemory.json` | Pre-launch settings that make idle actually idle |
 | `test/e2e/fixtures/test-setup/shared-utils.ts` | Modified: merge the memory settings when `MEMORY_SCENARIO=idle` |
 | `vitest.config.ts` | Modified: include `test/e2e/**/*.vitest.ts` |
+| `vitest.tsconfig.json` | Modified: same include, or the type check silently skips them |
 | `.github/scripts/release-screenshots/download-build.sh` | Modified: handle Linux tarballs, not just macOS zips |
 | `.github/workflows/test-memory-metrics.yml` | Nightly and dispatch workflow |
 
@@ -81,13 +82,15 @@ pgrep -f "user-data-dir=$UDD" | head -1
 
 - [ ] **Step 2: Find the CLI entry point**
 
-The Linux build ships a launcher script under `bin/`. Its name follows `product.json` `applicationName` (`positron`), but older or differently packaged builds may use `code`. Check both:
+Already answered by Task 10, which was executed first: on Linux the CLI is `bin/positron`. (The macOS bundle ships it as `bin/code` instead, which is why `resolveCliPath` in Task 4 keeps both candidates even though only the Linux name matters here.)
+
+Confirm it is present in the build you are about to launch:
 
 ```bash
 ls "$BUILD_DIR/bin/"
 ```
 
-Record which name exists. Task 4 resolves this at runtime by trying both.
+Expected: `positron`.
 
 - [ ] **Step 3: Run `--status` against the running instance and capture it**
 
@@ -134,12 +137,12 @@ The single piece anyone will maintain. Pure function, no I/O.
 - Create: `test/e2e/utils/memory/types.ts`
 - Create: `test/e2e/utils/memory/label.ts`
 - Create: `test/e2e/utils/memory/label.vitest.ts`
-- Modify: `vitest.config.ts`
+- Modify: `vitest.config.ts`, `vitest.tsconfig.json`
 
 **Interfaces:**
 - Consumes: nothing
 - Produces:
-  - `type ProcessRole` (union of the 15 role strings below)
+  - `type ProcessRole` (union of the 14 role strings below)
   - `resolveRole(input: { positronName?: string; cmd: string; isRoot: boolean }): { role: ProcessRole; labeled: boolean }`
   - `type RawProcess`, `type LabeledProcess`, `type MemorySnapshot` in `types.ts`
 
@@ -392,7 +395,7 @@ export function resolveRole(input: { positronName?: string; cmd: string; isRoot:
 - [ ] **Step 6: Run the tests to verify they pass**
 
 Run: `npx vitest run test/e2e/utils/memory/label.vitest.ts`
-Expected: PASS, 10 tests.
+Expected: PASS, 17 tests (the 9-row `test.each` counts as 9).
 
 Note there is deliberately no `utility_other` role. Every path that would have
 produced it produces `unlabeled` instead, and a bucket nothing can emit is just a
@@ -400,8 +403,22 @@ second name for the same thing with worse grouping behaviour.
 
 - [ ] **Step 7: Check types and commit**
 
+`vitest.tsconfig.json` only includes `src/`, so without also extending its
+`include` the type check skips these files entirely and reports success without
+having looked at them. Add `"test/e2e/**/*.vitest.ts"` to its `include` array
+alongside the `vitest.config.ts` change from Step 1.
+
+Prove the check is actually reading the new files rather than trusting a clean
+result, by appending a deliberate error and confirming it is caught:
+
 ```bash
-npm run test:positron:check-ts 2>&1 | grep 'memory/' || echo "no type errors"
+printf '\nconst deliberateTypeError: number = "not a number";\n' >> test/e2e/utils/memory/label.vitest.ts
+npm run test:positron:check-ts 2>&1 | grep 'test/e2e'   # must report TS2322
+git checkout -- test/e2e/utils/memory/label.vitest.ts
+```
+
+```bash
+npm run test:positron:check-ts 2>&1 | grep 'test/e2e' || echo "no type errors"
 npm run precommit -- vitest.config.ts test/e2e/utils/memory/types.ts test/e2e/utils/memory/label.ts test/e2e/utils/memory/label.vitest.ts
 git add vitest.config.ts test/e2e/utils/memory/
 git commit -m "test: add process role labeler for memory metrics"
@@ -1858,7 +1875,9 @@ gh release download "$VERSION" --repo posit-dev/positron-builds --pattern "Posit
 tar tzf "/tmp/pbuild/Positron-linux-${VERSION}-x64.tar.gz" | head -20
 ```
 
-Expected: a single top-level directory containing a `positron` executable, a `bin/` directory, and `resources/app/`. Record the exact top-level directory name; the script below finds it rather than hard-coding it, but you need to confirm the executable is where the finder looks.
+Confirmed on 2026-08-06 against `2026.08.0-331`: the tarball extracts **flat** (`./positron`, `./bin/positron`, `./resources/app/`), not into a single top-level directory. That is why the script below extracts into a directory of its own rather than unpacking alongside the archive, and why it checks for the executable directly instead of searching for it. A `find`-based lookup would match both `./positron` and `./bin/positron` and pick arbitrarily.
+
+Also confirmed: `resources/app/product.json` has `applicationName` = `positron`, so `getBuildElectronPath` resolves the executable as `join(root, 'positron')`, matching what this script prints.
 
 - [ ] **Step 2: Generalize the script**
 
