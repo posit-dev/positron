@@ -2,7 +2,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { deriveTriageId, workRoot, repoRoot } from '../lib.js';
+import { deriveTriageId, workRoot, repoRoot, isUsableInsightsApiKey } from '../lib.js';
+
+test('isUsableInsightsApiKey rejects blanks and the example placeholder', () => {
+	assert.equal(isUsableInsightsApiKey('sk-real-key'), true);
+	assert.equal(isUsableInsightsApiKey('"sk-real-key"'), true);
+	assert.equal(isUsableInsightsApiKey(undefined), false);
+	assert.equal(isUsableInsightsApiKey('   '), false);
+	// The value an engineer gets by copying .env.e2e.example, in either source.
+	assert.equal(isUsableInsightsApiKey('your_e2e_insights_api_key_here'), false);
+	assert.equal(isUsableInsightsApiKey(' "your_e2e_insights_api_key_here" '), false);
+});
 
 test('deriveTriageId is stable, slugged, and hash-suffixed', () => {
 	const id = deriveTriageId('Data Explorer > opens a file|||data-explorer.test.ts');

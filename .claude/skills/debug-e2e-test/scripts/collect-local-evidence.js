@@ -84,9 +84,11 @@ export function rankCandidates(candidates) {
  *
  * A filter that matches several runs is NOT resolved by taking the newest: the
  * whole point of the local entry is that the engineer is standing in front of
- * the failure, so asking is cheap and guessing wrong wastes the dig. An
- * unfiltered call does default to the best-ranked run -- that is the low-friction
- * common case (one test just failed).
+ * the failure, so asking is cheap and guessing wrong wastes the dig. Exactly one
+ * failure among the matches does resolve it -- that is the run they mean. Two
+ * failures do not: newest-wins there is the guess this verdict exists to avoid.
+ * An unfiltered call defaults to the best-ranked run -- the low-friction common
+ * case (one test just failed).
  */
 export function selectCandidate(candidates, { test: filter = null, dir = null } = {}) {
 	if (!candidates.length) { return { verdict: 'no-results', selected: null, matches: [] }; }
@@ -97,7 +99,7 @@ export function selectCandidate(candidates, { test: filter = null, dir = null } 
 	}
 	if (!matches.length) { return { verdict: 'no-results', selected: null, matches: [] }; }
 	const ranked = rankCandidates(matches);
-	if ((dir || filter) && matches.length > 1 && !ranked[0].failed) {
+	if ((dir || filter) && matches.length > 1 && ranked.filter(c => c.failed).length !== 1) {
 		return { verdict: 'ambiguous', selected: null, matches: ranked };
 	}
 	const selected = ranked[0];
@@ -286,20 +288,31 @@ async function extractTrace(zipPath, destDir) {
 	await new Promise((resolve, reject) => {
 		open(zipPath, { lazyEntries: true }, (err, zip) => {
 			if (err) { return reject(err); }
+			// A truncated or corrupt zip can error on the entry stream as well as on
+			// the archive, and either can fire after the other has settled -- so every
+			// path goes through one settler that closes the archive exactly once.
+			let settled = false;
+			const settle = (error) => {
+				if (settled) { return; }
+				settled = true;
+				try { zip.close(); } catch { /* already closed */ }
+				if (error) { reject(error); } else { resolve(); }
+			};
 			let found = false;
 			zip.on('entry', entry => {
 				if (entry.fileName !== 'trace.trace') { return zip.readEntry(); }
 				found = true;
 				zip.openReadStream(entry, (streamErr, stream) => {
-					if (streamErr) { return reject(streamErr); }
+					if (streamErr) { return settle(streamErr); }
 					const out = fs.createWriteStream(destPath);
+					stream.on('error', settle);
+					out.on('error', settle);
+					out.on('finish', () => settle());
 					stream.pipe(out);
-					out.on('finish', () => { zip.close(); resolve(); });
-					out.on('error', reject);
 				});
 			});
-			zip.on('end', () => { if (!found) { reject(new Error('no trace.trace entry in the archive')); } });
-			zip.on('error', reject);
+			zip.on('end', () => { if (!found) { settle(new Error('no trace.trace entry in the archive')); } });
+			zip.on('error', settle);
 			zip.readEntry();
 		});
 	});
@@ -346,13 +359,19 @@ async function main() {
 	const selectedPath = path.join(resultsDir, selected.dir);
 	const traceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'triage-local-trace-'));
 	let report;
+	let traceError = null;
 	try {
 		const tracePath = await extractTrace(path.join(selectedPath, TRACE_NAME), traceDir);
 		report = parseTraceReport(runNode(analyzerScript('e2e-parse-trace.js'), [tracePath, '--last', '120']));
 	} catch (err) {
-		fail(`Could not read the trace in ${path.relative(repoRoot(), selectedPath)}: ${err.message}`, { selected: selected.dir });
+		traceError = err;
 	} finally {
 		fs.rmSync(traceDir, { recursive: true, force: true });
+	}
+	// fail() exits the process, so it has to come after the finally block; calling
+	// it from the catch would leak the temp dir on every failed extraction.
+	if (traceError) {
+		fail(`Could not read the trace in ${path.relative(repoRoot(), selectedPath)}: ${traceError.message}`, { selected: selected.dir });
 	}
 
 	const snapshotFile = fs.existsSync(path.join(selectedPath, ERROR_CONTEXT_NAME))

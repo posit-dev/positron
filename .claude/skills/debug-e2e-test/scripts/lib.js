@@ -31,14 +31,25 @@ export function analyzerScript(name) {
  * instead of surfacing later as an indistinguishable "API unreachable" empty {}.
  */
 export function insightsApiKeyPresent() {
-	if (process.env.E2E_INSIGHTS_API_KEY) { return true; }
+	if (isUsableInsightsApiKey(process.env.E2E_INSIGHTS_API_KEY)) { return true; }
 	try {
 		const body = fs.readFileSync(path.join(repoRoot(), '.env.e2e'), 'utf8');
-		return /^\s*E2E_INSIGHTS_API_KEY\s*=\s*\S+/m.test(body)
-			&& !/^\s*E2E_INSIGHTS_API_KEY\s*=\s*your_e2e_insights_api_key_here\s*$/m.test(body);
+		const line = /^\s*E2E_INSIGHTS_API_KEY\s*=\s*(.*)$/m.exec(body);
+		return !!line && isUsableInsightsApiKey(line[1]);
 	} catch {
 		return false;
 	}
+}
+
+/**
+ * Whether a raw key value is usable. Both sources go through this, because the
+ * placeholder from .env.e2e.example gets exported into the environment as often
+ * as it gets left in the file -- and a placeholder that passes preflight defeats
+ * the whole point of it, surfacing later as an indistinguishable "API unreachable".
+ */
+export function isUsableInsightsApiKey(value) {
+	const key = String(value ?? '').trim().replace(/^(['"])(.*)\1$/s, '$2').trim();
+	return key.length > 0 && key !== 'your_e2e_insights_api_key_here';
 }
 
 /** Setup steps for a missing API key. Kept here so every script reports it identically. */

@@ -48,9 +48,12 @@ test('selectCandidate asks rather than guessing when a filter is ambiguous', () 
 	assert.equal(selectCandidate(cands, { test: 'plots' }).verdict, 'ambiguous');
 	// ...but an unfiltered call defaults to the best-ranked run: the low-friction case.
 	assert.equal(selectCandidate(cands).verdict, 'no-failure');
-	// A failure among the matches resolves it without a question.
+	// Exactly one failure among the matches resolves it without a question.
 	const withFail = [passed('plots-one', 2), failed('plots-two', 1)];
 	assert.equal(selectCandidate(withFail, { test: 'plots' }).selected.dir, 'plots-two');
+	// Two failures do not: newest-wins there is the guess this verdict avoids.
+	const twoFails = [failed('plots-one', 2), failed('plots-two', 1), passed('plots-three', 3)];
+	assert.equal(selectCandidate(twoFails, { test: 'plots' }).verdict, 'ambiguous');
 });
 
 test('parseTraceReport splits the analyzer sections and mines error lines', () => {
