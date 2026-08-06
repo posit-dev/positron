@@ -379,11 +379,13 @@ export class GettingStartedPage extends EditorPane {
 				StorageScope.PROFILE, StorageTarget.MACHINE);
 		}));
 
+		// --- Start Positron ---
 		// Re-layout when the welcome content has fully loaded
 		// Ensures the scroll height is correct since the initial layout is done before the content is loaded
 		this.lifecycleService.when(LifecyclePhase.Eventually).then(() => {
 			this.layout(new Dimension(this.layoutService.mainContainerDimension.width, this.layoutService.mainContainerDimension.height));
 		});
+		// --- End Positron ---
 	}
 
 	// remove when 'workbench.welcomePage.preferReducedMotion' deprecated
@@ -976,8 +978,12 @@ export class GettingStartedPage extends EditorPane {
 			onShowOnStartupChanged();
 		}));
 		// --- Start Positron ---
-		// Diverged from upstream by changing the contents of the welcome page
-
+		// Positron replaces the upstream header with a theme-aware logo.
+		//
+		// const header = $('.header', {},
+		// 	$('h1.product-name.caption', {}, this.productService.nameLong),
+		// 	$('p.subtitle.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "Editing evolved"))
+		// );
 		// Create a function to get the header logo based on theme type
 		const getHeaderLogoClass = () => {
 			return isDark(this.themeService.getColorTheme().type)
@@ -992,15 +998,19 @@ export class GettingStartedPage extends EditorPane {
 				logoElement.className = getHeaderLogoClass();
 			})
 		);
-
 		// Display the theme-aware logo in the header
 		const header = $('.header', {}, logoElement);
+		// --- End Positron ---
 
 		const leftColumn = $('.categories-column.categories-column-left', {},);
 		const rightColumn = $('.categories-column.categories-column-right', {},);
 
+		// --- Start Positron ---
+		// Positron shows a Help list where upstream shows its start list.
+		//
+		// const startList = this.buildStartList();
 		const helpList = this.buildHelpList();
-		//const startList = this.buildStartList();
+		// --- End Positron ---
 		const recentList = this.buildRecentlyOpenedList();
 		const gettingStartedList = this.buildGettingStartedWalkthroughsList();
 
@@ -1054,6 +1064,37 @@ export class GettingStartedPage extends EditorPane {
 			));
 		// --- End Positron ---
 
+		// --- Start Positron ---
+		// Upstream lays out one or two columns depending on whether there are
+		// walkthroughs to show, putting its start list and the recent list in
+		// the left column and moving the recent list to the right one when
+		// there are no walkthroughs. Positron always uses both columns: React
+		// start buttons, the recent list and "Connect to..." on the left,
+		// walkthroughs and help on the right.
+		//
+		// const layoutLists = () => {
+		// 	if (gettingStartedList.itemCount) {
+		// 		this.container.classList.remove('noWalkthroughs');
+		// 		reset(rightColumn, gettingStartedList.getDomElement());
+		// 	}
+		// 	else {
+		// 		this.container.classList.add('noWalkthroughs');
+		// 		reset(rightColumn);
+		// 	}
+		// 	setTimeout(() => this.categoriesPageScrollbar?.scanDomNode(), 50);
+		// 	layoutRecentList();
+		// };
+		//
+		// const layoutRecentList = () => {
+		// 	if (this.container.classList.contains('noWalkthroughs')) {
+		// 		recentList.setLimit(10);
+		// 		reset(leftColumn, startList.getDomElement());
+		// 		reset(rightColumn, recentList.getDomElement());
+		// 	} else {
+		// 		recentList.setLimit(5);
+		// 		reset(leftColumn, startList.getDomElement(), recentList.getDomElement());
+		// 	}
+		// };
 		const layoutRecentList = () => {
 			const leftContent = $('div.positron-welcome-left-column');
 			this.positronReactRenderer = createWelcomePageLeft(leftContent);
@@ -1066,8 +1107,15 @@ export class GettingStartedPage extends EditorPane {
 			}
 			reset(rightColumn, gettingStartedList.getDomElement(), helpList.getDomElement());
 		};
-		layoutRecentList();
+		// --- End Positron ---
 
+		// --- Start Positron ---
+		// Positron lays the page out once; upstream re-runs layoutLists when
+		// the walkthroughs change.
+		//
+		// gettingStartedList.onDidChange(layoutLists);
+		// layoutLists();
+		layoutRecentList();
 		// --- End Positron ---
 
 		reset(this.categoriesSlide, $('.gettingStartedCategoriesContainer', {}, header, leftColumn, rightColumn, footer,));
@@ -1096,14 +1144,22 @@ export class GettingStartedPage extends EditorPane {
 			}
 		}
 
+		// --- Start Positron ---
+		// Positron always shows the index page instead of automatically opening
+		// the first walkthrough category on a fresh install. This disables
+		// upstream's first-session branch below, whose code is kept live so it
+		// still compiles.
+		const autoOpenFirstWalkthrough = false;
+		// --- End Positron ---
 		if (this.editorInput?.showTelemetryNotice && this.productService.openToWelcomeMainPage) {
 			const telemetryNotice = $('p.telemetry-notice');
 			this.buildTelemetryFooter(telemetryNotice);
 			footer.appendChild(telemetryNotice);
 			// --- Start Positron ---
-			// Always show index page instead of automatically opening the first walkthrough category.
-			// Adds `!logoElement` to skip this branch in Positron (logoElement is always present here).
-		} else if (!this.productService.openToWelcomeMainPage && this.showFeaturedWalkthrough && this.storageService.isNew(StorageScope.APPLICATION) && !logoElement && !this.configurationService.getValue<boolean>('workbench.welcomePage.experimentalOnboarding')) {
+			// Adds `autoOpenFirstWalkthrough` (always false) to skip this branch.
+			//
+			// } else if (!this.productService.openToWelcomeMainPage && this.showFeaturedWalkthrough && this.storageService.isNew(StorageScope.APPLICATION) && !this.configurationService.getValue<boolean>('workbench.welcomePage.experimentalOnboarding')) {
+		} else if (autoOpenFirstWalkthrough && !this.productService.openToWelcomeMainPage && this.showFeaturedWalkthrough && this.storageService.isNew(StorageScope.APPLICATION) && !this.configurationService.getValue<boolean>('workbench.welcomePage.experimentalOnboarding')) {
 			// --- End Positron ---
 			const firstSessionDateString = this.storageService.get(firstSessionDateStorageKey, StorageScope.APPLICATION) || new Date().toUTCString();
 			const daysSinceFirstSession = ((+new Date()) - (+new Date(firstSessionDateString))) / 1000 / 60 / 60 / 24;
@@ -1690,9 +1746,9 @@ export class GettingStartedPage extends EditorPane {
 
 	override clearInput() {
 		this.stepDisposables.clear();
-		/*-- Start Positron ---*/
+		// --- Start Positron ---
 		this.positronReactRenderer?.dispose();
-		/*-- End Positron ---*/
+		// --- End Positron ---
 		super.clearInput();
 	}
 
