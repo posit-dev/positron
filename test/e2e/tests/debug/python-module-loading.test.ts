@@ -18,6 +18,8 @@ test.describe('Python Debugging', {
 	test.afterAll(async function ({ cleanup }) {
 
 		await cleanup.discardAllChanges();
+		// Byproduct of importing the helper module; untracked and not gitignored.
+		await cleanup.removeTestFolder(join('workspaces', 'python_module_caching', 'helper', '__pycache__'));
 
 	});
 

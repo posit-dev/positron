@@ -14,12 +14,16 @@ test.describe('Quarto - Inline Output: Persistence', {
 	tag: [tags.WEB, tags.WIN, tags.QUARTO]
 }, () => {
 
+	// Untracked files these tests save; discardAllChanges() leaves them behind.
+	const createdFiles: string[] = [];
+
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
 
 	test.afterAll(async function ({ cleanup }) {
 		await cleanup.discardAllChanges();
+		await cleanup.removeTestFiles(createdFiles);
 	});
 
 	test('Python - Verify inline output persists after closing and reopening file', async function ({ app, python, openFile, hotKeys }) {
@@ -51,6 +55,7 @@ test.describe('Quarto - Inline Output: Persistence', {
 
 		// Set up a unique filename for the untitled document
 		const savedFileName = `untitled-test-${Math.random().toString(36).substring(7)}.qmd`;
+		createdFiles.push(savedFileName);
 
 		// Open a new untitled Quarto document
 		await runCommand('quarto.newDocument');

@@ -46,7 +46,7 @@ export const pythonTableSummary: EvalTestCase = {
 		await hotKeys.closeAllEditors();
 		await console.focus();
 		await sessions.restart(pySession.id);
-		await cleanup.discardAllChanges();
+		await cleanup.discardAllChanges({ removeUntracked: true });
 
 		return { response, timing };
 	},

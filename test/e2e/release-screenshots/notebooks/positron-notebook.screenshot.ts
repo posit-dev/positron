@@ -23,6 +23,8 @@ test.afterEach(async ({ page, hotKeys, cleanup }) => {
 	await clearAnnotations(page);
 	await hotKeys.closeAllEditors();
 	await cleanup.discardAllChanges();
+	// Saved via Save-As; untracked, so the reset above misses it.
+	await cleanup.removeTestFiles(['explore-energy-data.ipynb']);
 });
 
 test.describe('Release Screenshots - Positron Notebook', () => {

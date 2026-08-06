@@ -16,6 +16,8 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 	test.afterEach(async function ({ app, hotKeys, cleanup }) {
 		await hotKeys.closeAllEditors();
 		await cleanup.discardAllChanges();
+		// Saved by 'R - Can fold code'; untracked, so the reset above misses it.
+		await cleanup.removeTestFiles(['folding.R']);
 	});
 
 

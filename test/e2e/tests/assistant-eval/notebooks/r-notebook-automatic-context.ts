@@ -51,7 +51,7 @@ export const rNotebookAutomaticContext: EvalTestCase = {
 
 		// Cleanup
 		await hotKeys.closeAllEditors();
-		await cleanup.discardAllChanges();
+		await cleanup.discardAllChanges({ removeUntracked: true });
 
 		return { response, timing };
 	},

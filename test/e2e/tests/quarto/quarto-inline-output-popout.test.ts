@@ -15,12 +15,16 @@ test.describe('Quarto - Inline Output: Popout', {
 	tag: [tags.WEB, tags.WIN, tags.QUARTO]
 }, () => {
 
+	// Untracked files these tests save; discardAllChanges() leaves them behind.
+	const createdFiles: string[] = [];
+
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
 
 	test.afterAll(async function ({ cleanup }) {
 		await cleanup.discardAllChanges();
+		await cleanup.removeTestFiles(createdFiles);
 	});
 
 	test('Python - Verify save button saves plot to file', async function ({ python, app, openFile, page }) {
@@ -28,6 +32,7 @@ test.describe('Quarto - Inline Output: Popout', {
 
 		// Set up a unique file name for the saved plot to avoid conflicts
 		const savedPlotName = `test-plot-${Date.now()}.png`;
+		createdFiles.push(savedPlotName);
 		const savedPlotPath = join(app.workspacePathOrFolder, savedPlotName);
 
 		// Open a Quarto file and wait for the kernel to be ready
