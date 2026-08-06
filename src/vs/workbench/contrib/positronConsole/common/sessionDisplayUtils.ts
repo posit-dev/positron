@@ -67,10 +67,11 @@ function isSeparator(character: string): boolean {
 }
 
 /**
- * The fewest characters of a session name worth showing. Below this an
- * ellipsized name says too little to be worth the space it takes.
+ * The fewest characters of a session name worth showing. An ellipsized name is
+ * cut back to its first character; past that only the ellipsis itself would be
+ * left, which says nothing at all.
  */
-const MINIMUM_FITTED_LENGTH = 3;
+const MINIMUM_FITTED_LENGTH = 1;
 
 /**
  * Fits a session name into the given width by ellipsizing it, so that names
@@ -78,9 +79,9 @@ const MINIMUM_FITTED_LENGTH = 3;
  * "Python 3.12.1...", then "Python 3...", then "Python...", and so on.
  *
  * The ellipsis never follows a space or punctuation: a name cut to "Python " or
- * "Some-word-" has that separator trimmed first. Once fewer than
- * MINIMUM_FITTED_LENGTH characters of the name would be left, an empty string is
- * returned and the tab is left showing just the session icons.
+ * "Some-word-" has that separator trimmed first. The last thing shown is the
+ * first character and the ellipsis, "P..."; once even that would be clipped, an
+ * empty string is returned and the tab is left showing just the session icons.
  *
  * @param sessionName The full session name.
  * @param availableWidth The width available to render the name, in pixels.

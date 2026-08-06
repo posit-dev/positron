@@ -22,7 +22,7 @@ describe('getFittedSessionName', () => {
 
 	it('ellipsizes the name further as the available width shrinks', () => {
 		const sessionName = 'Python 3.12.11 (Pyenv)';
-		const fittedNames = [300, 220, 200, 110, 100, 80, 40, 30].map(availableWidth => ({
+		const fittedNames = [300, 220, 200, 110, 100, 80, 40, 20, 15].map(availableWidth => ({
 			availableWidth,
 			fittedName: getFittedSessionName(sessionName, availableWidth, measureWidth),
 		}));
@@ -57,7 +57,11 @@ describe('getFittedSessionName', () => {
 			    "fittedName": "Pyt…",
 			  },
 			  {
-			    "availableWidth": 30,
+			    "availableWidth": 20,
+			    "fittedName": "P…",
+			  },
+			  {
+			    "availableWidth": 15,
 			    "fittedName": "",
 			  },
 			]
@@ -68,7 +72,7 @@ describe('getFittedSessionName', () => {
 		expect(getFittedSessionName('Some-word-thing', 110, measureWidth)).toBe('Some-word\u2026');
 	});
 
-	it('returns an empty string when fewer than three characters would be left', () => {
-		expect(getFittedSessionName('Python', 30, measureWidth)).toBe('');
+	it('returns an empty string when even the first character and the ellipsis will not fit', () => {
+		expect(getFittedSessionName('Python', 15, measureWidth)).toBe('');
 	});
 });
