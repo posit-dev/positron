@@ -424,9 +424,8 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		// ignore
 	}
 
-	// Scoped teardown (cleanup.restoreFiles / removeTestFiles) only covers the files it
-	// names, so a test that starts editing a different fixture leaks silently. Surface
-	// that instead of letting it confuse a later spec. Warn rather than fail: workers
+	// Scoped teardown only covers the files it names, so a test that starts editing a
+	// different fixture leaks silently into later specs. Warn rather than fail: workers
 	// share this workspace, so another spec's in-flight files can show up here too.
 	try {
 		if (process.env.WORKSPACE_PATH) {

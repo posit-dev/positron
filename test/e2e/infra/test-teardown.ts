@@ -43,7 +43,7 @@ export class TestTeardown {
 			return;
 		}
 		try {
-			const baseline = this._baselineCommit();
+			const baseline = this._git('rev-list --max-parents=0 HEAD').trim();
 			// Callers build paths with path.join, but git pathspecs want forward slashes.
 			const pathspec = files.map(file => `"${file.replace(/\\/g, '/')}"`).join(' ');
 			// --staged as well as --worktree, so a spec that staged a change (scm) leaves nothing behind.
@@ -98,10 +98,6 @@ export class TestTeardown {
 		return new Map(
 			status.split('\0').filter(Boolean).map(record => [record.slice(3), record.slice(0, 2)])
 		);
-	}
-
-	private _baselineCommit(): string {
-		return this._git('rev-list --max-parents=0 HEAD').trim();
 	}
 
 	private _git(args: string): string {
