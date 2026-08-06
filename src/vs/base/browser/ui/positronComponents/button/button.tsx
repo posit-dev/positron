@@ -76,14 +76,14 @@ export const Button = (props: PropsWithChildren<ButtonProps>) => {
 	// State hooks.
 	const [mouseInside, setMouseInside] = useState(false);
 
-	// Hover useEffect.
+	// Hover useEffect. Runs on every render so that a hover cancelled mid-flight (a sibling's
+	// mouseleave, a global hide) recovers without a second mouseenter, which a stationary pointer
+	// never sends. showHover ignores a repeat of the hover it already has pending.
 	React.useEffect(() => {
-		// If the mouse is inside, show the hover. This has the effect of showing the hover when
-		// mouseInside is set to true and updating the hover when the tooltip changes.
 		if (mouseInside) {
 			props.hoverManager?.showHover(buttonRef.current, props.tooltip);
 		}
-	}, [mouseInside, props.hoverManager, props.tooltip]);
+	});
 
 	/**
 	 * Sends the onPressed event.
