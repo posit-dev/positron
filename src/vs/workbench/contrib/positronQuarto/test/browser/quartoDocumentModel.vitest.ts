@@ -625,5 +625,31 @@ x = 1
 		});
 	});
 
+	// Callers that read `cells` to decide something about the document need to
+	// tell "this document has no cells" apart from "the cells aren't known yet".
+	describe('isParsed', () => {
+		it('is false while a debounced re-parse is pending, and true once it lands', async () => {
+			const textModel = createTextModel('Just some markdown.\n', null, undefined, URI.file('/test.qmd'));
+			ctx.disposables.add(textModel);
+			const model = new QuartoDocumentModel(textModel, logService);
+			ctx.disposables.add(model);
+
+			expect(model.isParsed).toBe(true);
+
+			textModel.setValue('```{python}\nx = 1\n```\n');
+			expect(model.isParsed).toBe(false);
+
+			await model.whenParsed();
+
+			expect(model.isParsed).toBe(true);
+			expect(model.cells.length).toBe(1);
+		});
+
+		it('whenParsed resolves without waiting when no re-parse is pending', async () => {
+			const model = createModel('Just some markdown.\n');
+
+			await expect(model.whenParsed()).resolves.toBeUndefined();
+		});
+	});
 
 });
