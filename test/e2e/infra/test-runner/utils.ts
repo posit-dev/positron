@@ -5,7 +5,18 @@
 
 import * as cp from 'child_process';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
+
+/**
+ * The workspace `provisionTestFiles` populates and every local project opens.
+ * Callers that check or clean it must agree on this path, so derive it here
+ * rather than recomputing the join.
+ */
+export function defaultWorkspacePath(): string {
+	const testDataPath = process.env.POSITRON_TEST_DATA_PATH || path.join(os.tmpdir(), 'vscsmoke');
+	return path.join(testDataPath, 'test-files');
+}
 
 /**
  * Provisions the e2e test workspace by copying the local `test/e2e/test-files`
