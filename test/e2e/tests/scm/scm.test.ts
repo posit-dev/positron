@@ -14,15 +14,20 @@ test.describe('Source Content Management', {
 	tag: [tags.SCM, tags.WEB, tags.WIN]
 }, () => {
 
+	// This spec owns workspaces/scm: it saves, stages and commits the file. Shared
+	// fixtures are read-only, since a writer's teardown would revert the copy a
+	// concurrent spec is working on.
+	const file = 'chinook-sqlite.py';
+	const filePath = join('workspaces', 'scm', file);
+
 	test.afterAll(async function ({ cleanup }) {
-		await cleanup.restoreFiles([join('workspaces', 'chinook-db-py', 'chinook-sqlite.py')]);
+		await cleanup.restoreFiles([filePath]);
 	});
 
 	test('Verify SCM Tracks File Modifications, Staging, and Commit Actions', async function ({ app, openFile }) {
 
-		const file = 'chinook-sqlite.py';
 		await test.step('Open file and add a new line to it', async () => {
-			await openFile(join('workspaces', 'chinook-db-py', file));
+			await openFile(filePath);
 
 			await app.workbench.editor.clickOnTerm(file, 'rows', 9, true);
 

@@ -27,10 +27,11 @@ export const pythonEditFile: EvalTestCase = {
 		// Start Python session
 		const [pySession] = await sessions.start(['python']);
 
-		// Setup: Open file
+		// Setup: open this eval's own copy -- the assistant edits the file, and shared
+		// fixtures are read-only so a writer's teardown cannot revert a concurrent spec's work.
 		await expect(async () => {
 			await quickaccess.openFile(
-				join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py')
+				join(app.workspacePathOrFolder, 'workspaces', 'assistant-eval', 'chinook-sqlite.py')
 			);
 		}).toPass({ timeout: 5000 });
 
