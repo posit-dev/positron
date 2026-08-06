@@ -43,7 +43,7 @@ Also out of scope for the first implementation:
 - A CI check that fails a build on regression
 - Any scenario other than idle
 - Per-extension byte attribution via extension host heap snapshots
-- Fixing the `--status` memory bug described under Findings
+- Fixing the `--status` memory bug described under Findings (filed separately as #15382)
 
 ## What we measure
 
@@ -342,7 +342,7 @@ bytes, then `src/vs/platform/diagnostics/node/diagnosticsService.ts:559` multipl
 total memory and divides by 100 again, as though the value were still a percentage. On a
 36GB machine this prints figures like `42749012088` MB. It is also fed by `pmem`, which
 has 0.1% granularity, or roughly 36MB steps, which is why several processes report
-byte-identical values. Nobody has been able to trust this column. Worth its own issue.
+byte-identical values. Nobody has been able to trust this column. Filed as #15382.
 
 **The `process_role` map is the one thing anyone has to maintain**, and it is a pure
 function with a unit test. This is intentional and should stay that way. Any pressure to
