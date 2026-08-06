@@ -43,7 +43,10 @@ Issue: posit-dev/positron#15001
 | `test/e2e/utils/memory/publish.ts` | Batched POST and baseline GET against `/memory` |
 | `test/e2e/utils/memory/fixtures/*.txt` | Captured real output used by the parser tests |
 | `test/e2e/tests/performance/memory-idle.test.ts` | The spec that drives it |
+| `test/e2e/fixtures/settingsMemory.json` | Pre-launch settings that make idle actually idle |
+| `test/e2e/fixtures/test-setup/shared-utils.ts` | Modified: merge the memory settings when `MEMORY_SCENARIO=idle` |
 | `vitest.config.ts` | Modified: include `test/e2e/**/*.vitest.ts` |
+| `.github/scripts/release-screenshots/download-build.sh` | Modified: handle Linux tarballs, not just macOS zips |
 | `.github/workflows/test-memory-metrics.yml` | Nightly and dispatch workflow |
 
 ---
@@ -171,7 +174,6 @@ export type ProcessRole =
 	| 'kernel'
 	| 'language_server'
 	| 'extension_child'
-	| 'utility_other'
 	| 'unlabeled';
 
 /** One process as read from procfs, before naming or labeling. */
@@ -289,6 +291,15 @@ describe('resolveRole', () => {
 		expect(role).toBe('unlabeled');
 		expect(labeled).toBe(false);
 	});
+
+	test('a process Positron names but we have not mapped stays unlabeled, and records that it was named', () => {
+		// The most useful failure mode. Positron introducing a new named
+		// utility should surface as "we know what it is called and have not
+		// mapped it yet", which is a far better prompt than a generic bucket.
+		const { role, labeled } = resolveRole({ positronName: 'some-new-host [1]', cmd: 'positron --type=utility', isRoot: false });
+		expect(role).toBe('unlabeled');
+		expect(labeled).toBe(true);
+	});
 });
 ```
 
@@ -381,7 +392,11 @@ export function resolveRole(input: { positronName?: string; cmd: string; isRoot:
 - [ ] **Step 6: Run the tests to verify they pass**
 
 Run: `npx vitest run test/e2e/utils/memory/label.vitest.ts`
-Expected: PASS, 9 tests.
+Expected: PASS, 10 tests.
+
+Note there is deliberately no `utility_other` role. Every path that would have
+produced it produces `unlabeled` instead, and a bucket nothing can emit is just a
+second name for the same thing with worse grouping behaviour.
 
 - [ ] **Step 7: Check types and commit**
 
@@ -412,8 +427,27 @@ git commit -m "test: add process role labeler for memory metrics"
 Create `test/e2e/utils/memory/process-tree.vitest.ts`:
 
 ```ts
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { describe, expect, test } from 'vitest';
 import { parsePpid, parseSmapsRollup } from './process-tree.js';
+
+const fixture = (name: string): string => readFileSync(join(__dirname, 'fixtures', name), 'utf8');
+
+describe('real captured procfs output', () => {
+	// Task 1 captured these from a running Positron. Inline samples prove the
+	// parser handles the shape we think procfs has; these prove it handles the
+	// shape it actually has.
+	test('parses a real smaps_rollup', () => {
+		const { pssBytes, rssBytes } = parseSmapsRollup(fixture('smaps_rollup.txt'));
+		expect(pssBytes).toBeGreaterThan(0);
+		expect(rssBytes).toBeGreaterThanOrEqual(pssBytes);
+	});
+
+	test('parses a real /proc/<pid>/status', () => {
+		expect(parsePpid(fixture('proc-status.txt'))).toBeGreaterThan(0);
+	});
+});
 
 describe('parseSmapsRollup', () => {
 	test('reads Pss and Rss and converts kB to bytes', () => {
@@ -552,7 +586,11 @@ export async function readProcessTree(rootPid: number): Promise<RawProcess[]> {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run test/e2e/utils/memory/process-tree.vitest.ts`
-Expected: PASS, 5 tests.
+Expected: PASS, 7 tests.
+
+`RSS >= PSS` is the assertion worth keeping. It holds for every process by
+definition, and it is exactly the invariant that would break if the two fields
+were ever transposed.
 
 - [ ] **Step 5: Sanity-check against a real process**
 
@@ -1374,6 +1412,12 @@ export type RunMeta = {
  * surface as a fake memory drop.
  */
 export type MemoryPayload = {
+	/**
+	 * Wire format version. Bump when a field changes meaning or disappears, so
+	 * ingestion can reject or migrate rather than silently mis-parse. The
+	 * dashboard plan is written against version 1.
+	 */
+	payload_version: 1;
 	timestamp: string;
 	run_id: string;
 	branch: string;
@@ -1414,9 +1458,22 @@ function apiUrl(branch: string): string {
 	return branch === 'main' ? PROD_API_URL : LOCAL_API_URL;
 }
 
+/**
+ * Drop the window title from a process name before publishing.
+ *
+ * `window [1] (my-project)` carries the workspace name, and in a manually
+ * dispatched run that can be anything on the contributor's disk. The title adds
+ * nothing to a grouped chart, so the published name keeps only the stable part.
+ * The local HTML report still renders the full name.
+ */
+export function redactProcessName(name: string): string {
+	return name.replace(/^(window \[\d+\]).*$/, '$1');
+}
+
 export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): MemoryPayload {
 	const version = getPositronVersion();
 	return {
+		payload_version: 1,
 		timestamp: new Date().toISOString(),
 		run_id: meta.runId,
 		branch: meta.branch,
@@ -1433,7 +1490,7 @@ export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): Memory
 			tree_total_pss_bytes: snapshot.treeTotalPssBytes,
 			processes: snapshot.processes.map(p => ({
 				pid: p.pid, ppid: p.ppid, depth: p.depth,
-				process_name: p.processName, process_role: p.processRole,
+				process_name: redactProcessName(p.processName), process_role: p.processRole,
 				labeled: p.labeled, cmd_basename: p.cmdBasename,
 				pss_bytes: p.pssBytes, rss_bytes: p.rssBytes,
 				pss_min: p.pssMin, pss_max: p.pssMax
@@ -1469,6 +1526,34 @@ export async function publishSnapshots(snapshots: MemorySnapshot[], meta: RunMet
 }
 
 /**
+ * Response shape for `GET /memory/baseline`. This is a contract with the
+ * dashboard plan, not an inference from whatever it happens to return.
+ *
+ *   GET /memory/baseline?scenario=idle&branch=main
+ *   Authorization: Key <CONNECT_API_KEY>
+ *
+ * 200 with `{ "found": false }` when no baseline exists yet. That is a normal
+ * first-run state, not an error, and must not be a 404: a 404 is
+ * indistinguishable from a typo in the path.
+ *
+ * 200 with `{ "found": true, "snapshot": {...} }` otherwise, where `snapshot`
+ * carries the median launch of the most recent main-branch nightly, using the
+ * same field names as one entry of `MemoryPayload.launches` plus the run-level
+ * `tree_total_pss_bytes`.
+ */
+export type BaselineResponse =
+	| { found: false }
+	| {
+		found: true;
+		snapshot: {
+			tree_total_pss_bytes: number;
+			settle_ms: number;
+			processes: { process_name: string; process_role: string; pss_bytes: number }[];
+			extensions: { extension_id: string }[];
+		};
+	};
+
+/**
  * Most recent main-branch nightly, used for the delta in the run report.
  * Undefined when there is no baseline yet or the endpoint is unavailable, in
  * which case the report shows absolute numbers only.
@@ -1478,15 +1563,36 @@ export async function fetchBaseline(): Promise<MemorySnapshot | undefined> {
 		return undefined;
 	}
 	try {
-		const response = await request(`${PROD_API_URL}?scenario=idle&branch=main&limit=1`, {
+		const response = await request(`${PROD_API_URL}/baseline?scenario=idle&branch=main`, {
 			method: 'GET',
 			headers: { Authorization: `Key ${CONNECT_API_KEY}` }
 		});
 		if (response.statusCode >= 400) {
 			return undefined;
 		}
-		const body = await response.body.json() as { snapshot?: MemorySnapshot };
-		return body.snapshot;
+		const body = await response.body.json() as BaselineResponse;
+		if (!body.found) {
+			return undefined;
+		}
+		return {
+			scenario: 'idle',
+			launchIndex: 0,
+			settleMs: body.snapshot.settle_ms,
+			treeTotalPssBytes: body.snapshot.tree_total_pss_bytes,
+			// Only the fields the report's delta actually reads are mapped. The
+			// rest are filled with neutral values rather than faked.
+			processes: body.snapshot.processes.map(p => ({
+				pid: 0, ppid: 0, depth: 0,
+				processName: p.process_name,
+				processRole: p.process_role as MemorySnapshot['processes'][number]['processRole'],
+				labeled: true, cmdBasename: '',
+				pssBytes: p.pss_bytes, rssBytes: 0, pssMin: p.pss_bytes, pssMax: p.pss_bytes
+			})),
+			extensions: body.snapshot.extensions.map(e => ({
+				extensionId: e.extension_id, isBuiltin: false,
+				activationTimeMs: null, activationEvent: null
+			}))
+		};
 	} catch (error) {
 		console.error(`[memory] could not fetch baseline: ${error}`);
 		return undefined;
@@ -1564,7 +1670,7 @@ Then merge it conditionally in `copyUserSettings` in `test/e2e/fixtures/test-set
 	}
 ```
 
-`MEMORY_SCENARIO=idle` is set on every measure step in Task 10.
+`MEMORY_SCENARIO=idle` is set on every measure step in Task 11.
 
 - [ ] **Step 3: Verify the override actually lands**
 
@@ -1580,7 +1686,7 @@ Expected: the setting appears in the launched instance's `settings.json`. If it 
 Create `test/e2e/tests/performance/memory-idle.test.ts`:
 
 ```ts
-import { writeFileSync, appendFileSync, mkdirSync } from 'fs';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { expect, tags, test } from '../_test.setup';
 import { readActivatedExtensions } from '../../utils/memory/extensions.js';
@@ -1592,6 +1698,17 @@ import { MemorySnapshot } from '../../utils/memory/types.js';
 test.use({
 	suiteId: __filename
 });
+
+/**
+ * Snapshots must outlive a single Playwright invocation: three separate
+ * `npx playwright test` runs write here and a fourth reads them back.
+ *
+ * Deliberately NOT under `test-results/`. Playwright's outputDir defaults to
+ * `test-results` and is wiped at the start of every run, so launch 1 would
+ * delete launch 0's snapshot and the aggregation run would delete all three.
+ * RUNNER_TEMP persists for the whole job.
+ */
+const SNAPSHOT_DIR = join(process.env.RUNNER_TEMP ?? '/tmp', 'memory-snapshots');
 
 test.describe('Memory: idle', { tag: [tags.PERFORMANCE] }, () => {
 
@@ -1617,9 +1734,25 @@ test.describe('Memory: idle', { tag: [tags.PERFORMANCE] }, () => {
 		expect(snapshot.processes.length, 'no processes found in the tree').toBeGreaterThan(3);
 		expect(snapshot.treeTotalPssBytes, 'total PSS was zero; smaps_rollup is probably unreadable').toBeGreaterThan(0);
 
-		const outputDir = join(process.cwd(), 'test-results', 'memory');
-		mkdirSync(outputDir, { recursive: true });
-		writeFileSync(join(outputDir, `memory-snapshot-${snapshot.launchIndex}.json`), JSON.stringify(snapshot, null, 2));
+		// Quality gate. Every component here fails soft, which is right for a
+		// report but wrong for a baseline: if `--status` silently returns
+		// nothing, we would publish a plausible-looking total built entirely
+		// from guesses. Refuse to record data we cannot attribute.
+		const namedShare = snapshot.processes.filter(p => p.labeled).length / snapshot.processes.length;
+		expect(namedShare, 'Positron named too few processes; --status probably failed, and an unattributable total is worse than no data').toBeGreaterThan(0.5);
+
+		const unlabeledBytes = snapshot.processes
+			.filter(p => p.processRole === 'unlabeled')
+			.reduce((sum, p) => sum + p.pssBytes, 0);
+		expect(unlabeledBytes / snapshot.treeTotalPssBytes, 'more than a third of memory is unattributed; add rules to label.ts').toBeLessThan(0.34);
+
+		// Extensions activate in every normal run, so an empty inventory means
+		// the Running Extensions selectors have drifted rather than that
+		// nothing activated.
+		expect(snapshot.extensions.length, 'no activated extensions found; the Running Extensions selectors in extensions.ts have probably drifted').toBeGreaterThan(0);
+
+		mkdirSync(SNAPSHOT_DIR, { recursive: true });
+		writeFileSync(join(SNAPSHOT_DIR, `memory-snapshot-${snapshot.launchIndex}.json`), JSON.stringify(snapshot, null, 2));
 
 		console.log(`[memory] launch ${snapshot.launchIndex}: ${(snapshot.treeTotalPssBytes / 1048576).toFixed(1)} MB PSS across ${snapshot.processes.length} processes, settled in ${snapshot.settleMs} ms`);
 	});
@@ -1637,23 +1770,22 @@ test.describe('Memory: report', { tag: [tags.PERFORMANCE] }, () => {
 	test('Render and publish the idle memory report', async function () {
 		test.skip(process.env.MEMORY_AGGREGATE !== 'true', 'only runs in the aggregation step');
 
-		const outputDir = join(process.cwd(), 'test-results', 'memory');
 		const snapshots: MemorySnapshot[] = [];
 		for (let i = 0; i < 3; i++) {
-			try {
-				snapshots.push(JSON.parse(require('fs').readFileSync(join(outputDir, `memory-snapshot-${i}.json`), 'utf8')));
-			} catch {
-				// A launch that did not produce a snapshot is reported by its
-				// own test failing; do not fail twice for it here.
-			}
+			snapshots.push(JSON.parse(readFileSync(join(SNAPSHOT_DIR, `memory-snapshot-${i}.json`), 'utf8')));
 		}
-		expect(snapshots.length, 'no snapshots to report on').toBeGreaterThan(0);
+
+		// Require all three. Reporting a "median" over one surviving launch
+		// would look identical to a healthy run while telling us nothing about
+		// variance, which is the whole reason we launch three times.
+		expect(snapshots.length, `expected 3 snapshots in ${SNAPSHOT_DIR}`).toBe(3);
 
 		const baseline = await fetchBaseline();
 		const markdown = renderMarkdown(snapshots, baseline);
 		const html = renderHtml(snapshots, baseline);
 
-		writeFileSync(join(outputDir, 'memory-report.html'), html);
+		mkdirSync(SNAPSHOT_DIR, { recursive: true });
+		writeFileSync(join(SNAPSHOT_DIR, 'memory-report.html'), html);
 		if (process.env.GITHUB_STEP_SUMMARY) {
 			appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${markdown}\n`);
 		}
@@ -1677,7 +1809,7 @@ export BUILD=/path/to/positron-build
 MEMORY_SCENARIO=idle npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
 ```
 
-Expected: passes, and logs a plausible total (roughly 400 MB to 1.5 GB) across more than three processes. Check `test-results/memory/memory-snapshot-0.json` and confirm the roles look sensible and that few processes are `unlabeled`.
+Expected: passes, and logs a plausible total (roughly 400 MB to 1.5 GB) across more than three processes. Check `${RUNNER_TEMP:-/tmp}/memory-snapshots/memory-snapshot-0.json` and confirm the roles look sensible and that few processes are `unlabeled`.
 
 If many processes are `unlabeled`, that is the signal to add rules to `label.ts` (and tests for them in `label.vitest.ts`) before moving on.
 
@@ -1687,7 +1819,7 @@ If many processes are `unlabeled`, that is the signal to add rules to `label.ts`
 MEMORY_AGGREGATE=true npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Render and publish'
 ```
 
-Expected: prints the markdown report, writes `test-results/memory/memory-report.html`, and logs that publishing was skipped for want of an API key. Open the HTML and confirm the tree reads correctly.
+Expected: prints the markdown report, writes `${RUNNER_TEMP:-/tmp}/memory-snapshots/memory-report.html`, and logs that publishing was skipped for want of an API key. Open the HTML and confirm the tree reads correctly.
 
 - [ ] **Step 7: Commit**
 
@@ -1699,13 +1831,122 @@ git commit -m "test: add idle memory footprint e2e spec"
 
 ---
 
-### Task 10: Nightly workflow
+### Task 10: Linux build acquisition
+
+`download-build.sh` only handles macOS. Line 51 builds the asset name as
+`Positron-darwin-${VERSION}-${ARCH}.zip` and line 82 searches the extraction for
+`Positron.app`. On Ubuntu it fails before any test runs.
+
+The release does publish what we need: `Positron-linux-<version>-x64.tar.gz` is
+in every `posit-dev/positron-builds` release. Nothing consumes it yet, because
+the Ubuntu e2e lane builds from source rather than downloading.
+
+**Files:**
+- Modify: `.github/scripts/release-screenshots/download-build.sh`
+
+**Interfaces:**
+- Consumes: nothing
+- Produces: `BUILD=/path/to/build-root` on stdout for Linux as well as macOS. On Linux the build root is the directory containing the `positron` executable, which is what `getBuildElectronPath` (`test/e2e/infra/electron.ts:180`) expects.
+
+- [ ] **Step 1: Confirm the tarball layout**
+
+Do not assume it. Download one and look:
+
+```bash
+VERSION=$(gh api "repos/posit-dev/positron-builds/releases?per_page=100" --jq '[.[] | select(.prerelease == true)] | .[0].tag_name')
+gh release download "$VERSION" --repo posit-dev/positron-builds --pattern "Positron-linux-${VERSION}-x64.tar.gz" --dir /tmp/pbuild
+tar tzf "/tmp/pbuild/Positron-linux-${VERSION}-x64.tar.gz" | head -20
+```
+
+Expected: a single top-level directory containing a `positron` executable, a `bin/` directory, and `resources/app/`. Record the exact top-level directory name; the script below finds it rather than hard-coding it, but you need to confirm the executable is where the finder looks.
+
+- [ ] **Step 2: Generalize the script**
+
+Replace the platform-specific portion of `.github/scripts/release-screenshots/download-build.sh`. Keep the macOS path byte-identical so the existing release-screenshots workflow is unaffected.
+
+Update the header comment (lines 2-5) to say it prints a build path for macOS or Linux, then replace the `ASSET=` assignment on line 51 and the extraction block on lines 81-88 with:
+
+```bash
+resolve_os() {
+	case "$(uname -s)" in
+		Darwin) echo "darwin" ;;
+		Linux)  echo "linux"  ;;
+		*) echo "Unsupported OS: $(uname -s)" >&2; exit 1 ;;
+	esac
+}
+
+OS=$(resolve_os)
+if [[ "$OS" == "darwin" ]]; then
+	ASSET="Positron-darwin-${VERSION}-${ARCH}.zip"
+else
+	ASSET="Positron-linux-${VERSION}-${ARCH}.tar.gz"
+fi
+```
+
+and, after the download loop:
+
+```bash
+if [[ "$OS" == "darwin" ]]; then
+	unzip -q "$WORKDIR/$ASSET" -d "$WORKDIR"
+	BUILD_PATH=$(find "$WORKDIR" -maxdepth 2 -name 'Positron.app' -type d | head -n1)
+else
+	tar -xzf "$WORKDIR/$ASSET" -C "$WORKDIR"
+	# The build root is whichever extracted directory holds the executable.
+	# Found rather than hard-coded, because the top-level directory name has
+	# changed across packaging revisions.
+	BUILD_PATH=$(dirname "$(find "$WORKDIR" -maxdepth 3 -name 'positron' -type f -perm -u+x | head -n1)")
+fi
+
+if [[ -z "$BUILD_PATH" || ! -e "$BUILD_PATH" ]]; then
+	echo "Build root not found after extracting $ASSET" >&2
+	exit 1
+fi
+
+echo "BUILD=$BUILD_PATH"
+```
+
+- [ ] **Step 3: Verify both platforms still resolve**
+
+On Linux (or in the container):
+
+```bash
+.github/scripts/release-screenshots/download-build.sh latest-prerelease
+```
+
+Expected: prints `BUILD=/path/to/extracted/root`, and that directory contains both `positron` and `bin/`. Confirm the CLI Task 4 needs is present:
+
+```bash
+BUILD_PATH=$(.github/scripts/release-screenshots/download-build.sh latest-prerelease | grep -oP '(?<=^BUILD=).*')
+ls "$BUILD_PATH/positron" "$BUILD_PATH/bin/"
+```
+
+This also settles the open question from Task 1 Step 2 about whether the CLI is named `positron` or `code`.
+
+On macOS, confirm the existing behaviour is unchanged:
+
+```bash
+.github/scripts/release-screenshots/download-build.sh latest-prerelease
+```
+
+Expected: still prints a path ending in `Positron.app`.
+
+- [ ] **Step 4: Commit**
+
+```bash
+npm run precommit -- .github/scripts/release-screenshots/download-build.sh
+git add .github/scripts/release-screenshots/download-build.sh
+git commit -m "ci: support linux builds in download-build.sh"
+```
+
+---
+
+### Task 11: Nightly workflow
 
 **Files:**
 - Create: `.github/workflows/test-memory-metrics.yml`
 
 **Interfaces:**
-- Consumes: the spec from Task 9
+- Consumes: the spec from Task 9, the Linux build path from Task 10
 - Produces: nightly runs, a step summary, and an uploaded HTML artifact
 
 - [ ] **Step 1: Read the workflow being modelled**
@@ -1744,12 +1985,22 @@ jobs:
     timeout-minutes: 45
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
-      options: --init
+      # The image is private, so the pull needs credentials. Copied from
+      # test-e2e-ubuntu-run.yml; without these the job fails before any step.
+      # --user 0:0 also matters here beyond convention: reading
+      # /proc/<pid>/smaps_rollup for another process requires matching uid or
+      # CAP_SYS_PTRACE.
+      options: --user 0:0 --init
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Download build
         id: build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ inputs.version || 'latest-prerelease' }}")
           echo "$OUTPUT" >> "$GITHUB_OUTPUT"
@@ -1761,24 +2012,28 @@ jobs:
       # separate Playwright invocation so every launch is genuinely cold.
       - name: Measure (launch 0)
         env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_SCENARIO: idle
           MEMORY_LAUNCH_INDEX: 0
         run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
 
       - name: Measure (launch 1)
         env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_SCENARIO: idle
           MEMORY_LAUNCH_INDEX: 1
         run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
 
       - name: Measure (launch 2)
         env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_SCENARIO: idle
           MEMORY_LAUNCH_INDEX: 2
         run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
 
       - name: Render and publish report
         env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_AGGREGATE: 'true'
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
         run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Render and publish'
@@ -1788,10 +2043,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: memory-report
-          path: test-results/memory/
+          # Matches SNAPSHOT_DIR in the spec. Deliberately not test-results/,
+          # which Playwright wipes at the start of every invocation.
+          path: ${{ runner.temp }}/memory-snapshots/
 ```
-
-The `BUILD` environment variable must point at the downloaded build. Check what `download-build.sh` writes to `$GITHUB_OUTPUT` in Step 1 and set `BUILD` accordingly on each measure step, matching how `release-screenshots.yml` consumes it.
 
 - [ ] **Step 3: Validate the workflow syntax**
 
@@ -1834,9 +2089,9 @@ Compare the three launch totals in the step summary. Note the spread in the PR d
 | --- | --- |
 | Idle scenario, `interpreters.startupBehavior: manual` | Task 9, Steps 2-3 |
 | Settle detection with 90s cap, `settle_ms` | Task 5 |
-| Three launches with `launch_index` | Tasks 5, 9, 10 |
+| Three launches with `launch_index` | Tasks 5, 9, 11 |
 | PSS not RSS, `smaps_rollup` | Task 3 |
-| Ubuntu container only | Task 10 |
+| Ubuntu container only | Task 11 |
 | Names from `--status`, numbers from OS, join on PID | Tasks 3, 4, 5 |
 | Fixed `process_role` vocabulary, no titles in role | Task 2 |
 | `unlabeled` degradation | Tasks 2, 5, 7 |
@@ -1845,12 +2100,32 @@ Compare the three launch totals in the step summary. Note the spread in the PR d
 | Batched POST, branch-gated publish | Task 8 |
 | Step summary and HTML artifact | Tasks 7, 9, 10 |
 | Delta against previous nightly | Tasks 7, 8 |
-| Nightly cron plus dispatch, released build | Task 10 |
+| Nightly cron plus dispatch, released build | Tasks 10, 11 |
 | Vitest glob extension | Task 2 |
-| Container image recorded | Tasks 8, 10 |
+| Container image recorded | Tasks 8, 11 |
 
 **Gap found and closed:** the spec pins `interpreters.startupBehavior` to `manual`, and no task originally set it. Task 9 Steps 2 and 3 now add `test/e2e/fixtures/settingsMemory.json` and merge it in `copyUserSettings`, gated on `MEMORY_SCENARIO=idle`, following the existing `ALLOW_PYREFLY` pattern. It has to be pre-launch, so a mid-session settings change would not have worked.
 
 **Type consistency:** checked. `resolveRole`, `readProcessTree`, `parseSmapsRollup`, `parsePpid`, `parseStatusOutput`, `readProcessNames`, `joinProcesses`, `captureSnapshot`, `renderMarkdown`, `renderHtml`, `formatBytes`, `publishSnapshots`, and `fetchBaseline` are each defined once and referenced with matching signatures. Field names are camelCase throughout the TypeScript types and snake_case only inside `MemoryPayload`, which is the wire format.
 
-**Deferred to the dashboard plan (posit-dev/e2e-test-insights):** `POST /memory` and `GET /memory`, the two parquet datasets, and the Memory sub-tab with its four charts. The `MemoryPayload` type in Task 8 is the contract.
+**Deferred to the dashboard plan (posit-dev/e2e-test-insights):** `POST /memory`, `GET /memory/baseline`, the two parquet datasets, and the Memory sub-tab with its four charts. The `MemoryPayload` and `BaselineResponse` types in Task 8 are the contract, and `payload_version` is 1.
+
+## Design review response (job 4730)
+
+Findings from `/roborev-design-review`, and what changed. The three highest-severity ones were verified against the repo before acting.
+
+| Finding | Resolution |
+| --- | --- |
+| `download-build.sh` is macOS-only (verified: line 51 hard-codes `Positron-darwin-...zip`) | New Task 10 generalizes it. `Positron-linux-<v>-<arch>.tar.gz` exists in every release and nothing consumed it before. |
+| Container needs GHCR credentials (verified against `test-e2e-ubuntu-run.yml:105`) | Added, along with `--user 0:0`, which is also needed to read another process's `smaps_rollup`. |
+| Snapshots do not survive between invocations (verified: `outputDir` unset, so Playwright wipes `test-results/` each run) | Moved to `$RUNNER_TEMP/memory-snapshots`, and aggregation now requires exactly 3. |
+| `BUILD` missing from the sample YAML | Wired on every measure step and on the report step. |
+| GET baseline shape unspecified | `BaselineResponse` added, with `{found: false}` on 200 rather than a 404. |
+| Task 1 fixtures never consumed | Task 3 now parses them, asserting `RSS >= PSS`. |
+| `utility_other` unreachable | Removed. Added a test for the more useful case: Positron named it, we have not mapped it. |
+| Extension selectors could break silently | Task 9 now asserts a non-empty inventory. |
+| No quality gate on degraded data | Task 9 fails if under half the processes are named or over a third of memory is unattributed. Fail-soft is right for a report and wrong for a baseline. |
+| No payload versioning | `payload_version: 1`. |
+| Window titles published | `redactProcessName` strips the title before publishing; the local HTML keeps it. |
+
+The review found no problem with the measurement approach itself. PSS over RSS, the names-from-Positron/numbers-from-the-OS split, the `unlabeled` degradation model, and the three-launch variance design all came through unchanged.
