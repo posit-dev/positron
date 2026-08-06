@@ -16,6 +16,11 @@ import { fetchMetadataWithOutdated } from './packageMetadata';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { buildRequirementsFile } from './requirementsFile';
 import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
+import {
+    addInstalledToRequirements,
+    isAutoUpdateRequirementsEnabled,
+    removeUninstalledFromRequirements,
+} from './requirementsSync';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
 /**
@@ -84,6 +89,15 @@ export class PipPackageManager implements IPackageManager {
             const flags = await this._getInstallFlags();
             const args = ['install', ...specs, '-r', requirementsPath, ...flags];
             await this._executePipInTerminal(args, token);
+            if (isAutoUpdateRequirementsEnabled()) {
+                const installed = (await this.getPackages(token)).map((pkg) => pkg.name);
+                await addInstalledToRequirements(
+                    this._serviceContainer.get<IFileSystem>(IFileSystem),
+                    requirementsPath,
+                    packages.map((pkg) => pkg.name),
+                    installed,
+                );
+            }
             return;
         }
 
@@ -116,6 +130,17 @@ export class PipPackageManager implements IPackageManager {
         const args = ['uninstall', '-y', ...packages];
 
         await this._executePipInTerminal(args, token);
+
+        const requirementsPath = await this._getWorkspaceRequirementsPath();
+        if (requirementsPath && isAutoUpdateRequirementsEnabled()) {
+            const installed = (await this.getPackages(token)).map((pkg) => pkg.name);
+            await removeUninstalledFromRequirements(
+                this._serviceContainer.get<IFileSystem>(IFileSystem),
+                requirementsPath,
+                packages,
+                installed,
+            );
+        }
     }
 
     async updatePackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void> {
@@ -282,7 +307,7 @@ export class PipPackageManager implements IPackageManager {
     private async _getWorkspaceRequirementsPath(): Promise<string | undefined> {
         // Opt-out: when the setting is disabled, ignore requirements.txt so all
         // operations fall back to the pip freeze re-resolve path.
-        if (!vscode.workspace.getConfiguration('python').get<boolean>(USE_REQUIREMENTS_FILE_SETTING, true)) {
+        if (!vscode.workspace.getConfiguration('packages.python').get<boolean>(USE_REQUIREMENTS_FILE_SETTING, true)) {
             return undefined;
         }
         const workspaceService = this._serviceContainer.get<IWorkspaceService>(IWorkspaceService);
