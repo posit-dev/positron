@@ -371,9 +371,6 @@
     "yaserver": "^0.4.0"
   },
   "overrides": {
-    "@parcel/watcher-linux-arm-musl": "0.0.0",
-    "@parcel/watcher-linux-arm64-musl": "0.0.0",
-    "@parcel/watcher-linux-x64-musl": "0.0.0",
     "node-gyp-build": "4.8.1",
     "sharp": "file:build/npm/stubs/sharp",
     "kerberos@2.1.1": {
