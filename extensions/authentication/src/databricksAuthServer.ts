@@ -15,6 +15,11 @@ const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 /** Cap on how long start() walks the port range before giving up. */
 const DATABRICKS_OAUTH_LISTEN_TIMEOUT_MS = 45_000;
 
+/** Bind errors that mean the host has no usable IPv6 loopback. */
+const IPV6_UNAVAILABLE_CODES = new Set([
+	'EADDRNOTAVAIL', 'EAFNOSUPPORT', 'EPROTONOSUPPORT', 'EINVAL',
+]);
+
 const SUCCESS_HTML = `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><title>Databricks Sign In</title></head>
@@ -130,8 +135,19 @@ export class DatabricksLoopbackServer {
 		// browser's callback. IPv4 alone is still functional.
 		try {
 			this._server6 = await this.listenOn(boundPort, '::1');
-		} catch {
+		} catch (err) {
 			this._server6 = undefined;
+			const code = (err as NodeJS.ErrnoException).code;
+			if (!IPV6_UNAVAILABLE_CODES.has(code ?? '')) {
+				// Another process owns ::1 on this port. `localhost` may
+				// resolve to it first and receive the authorization code.
+				await this.stop();
+				throw new Error(
+					`Port ${boundPort} is in use on the IPv6 loopback for ` +
+					`Databricks sign-in (${code}). Close the process using it ` +
+					`and try again.`
+				);
+			}
 		}
 	}
 
