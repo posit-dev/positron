@@ -92,13 +92,22 @@ export class DatabricksAuthProvider extends AuthProvider {
 	): Promise<vscode.AuthenticationSession> {
 		// The config dialog persists the workspace host before calling this, so
 		// a chain that failed at startup for a missing host can resolve now.
-		const chainSession = await this.resolveChainCredentials();
-		if (chainSession) {
-			return chainSession;
+		const chainSessionBeforeHost = await this.resolveChainCredentials();
+		if (chainSessionBeforeHost) {
+			return chainSessionBeforeHost;
 		}
 
 		const host = normalizeHost(await this.resolveHost());
 		await this.persistHostSetting(host);
+
+		// If the chain failed only because no host was configured (e.g.
+		// DATABRICKS_TOKEN set at startup with no DATABRICKS_HOST), it can
+		// resolve now that resolveHost()/persistHostSetting() just supplied
+		// one -- retry before prompting for OAuth/PAT.
+		const chainSessionAfterHost = await this.resolveChainCredentials();
+		if (chainSessionAfterHost) {
+			return chainSessionAfterHost;
+		}
 
 		if (vscode.env.remoteName !== undefined ||
 			vscode.env.uiKind === vscode.UIKind.Web) {
