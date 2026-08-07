@@ -102,53 +102,64 @@ export class DatabricksLoopbackServer {
 	}
 
 	/**
-	 * Start listening, walking portMin..portMax until a port binds.
+	 * Attempt to bind both 127.0.0.1 and, best-effort, ::1 on one port.
+	 * Returns undefined when the port is unusable (IPv4 busy, or IPv6
+	 * genuinely occupied by another process rather than merely absent) so
+	 * the caller can move on to the next candidate port.
+	 */
+	private async tryBindPort(
+		port: number
+	): Promise<{ server: http.Server; server6: http.Server | undefined } | undefined> {
+		let server: http.Server;
+		try {
+			server = await this.listenOn(port, '127.0.0.1');
+		} catch {
+			return undefined;
+		}
+		// Best-effort ::1 listener: `localhost` can resolve to IPv6 first
+		// (common on macOS), and an IPv4-only listener would refuse the
+		// browser's callback. IPv4 alone is still functional.
+		try {
+			const server6 = await this.listenOn(port, '::1');
+			return { server, server6 };
+		} catch (err) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (IPV6_UNAVAILABLE_CODES.has(code ?? '')) {
+				return { server, server6: undefined };
+			}
+			// Another process owns ::1 on this port specifically (not just
+			// "no IPv6 on this host"). `localhost` may resolve to it first
+			// and receive the authorization code, so this port is unusable.
+			await new Promise<void>(resolve => server.close(() => resolve()));
+			return undefined;
+		}
+	}
+
+	/**
+	 * Start listening, walking portMin..portMax until a port binds on both
+	 * families or, failing IPv6 availability, on IPv4 alone.
 	 */
 	async start(): Promise<void> {
 		if (this._server) {
 			throw new Error('Server is already started');
 		}
 		const deadline = Date.now() + DATABRICKS_OAUTH_LISTEN_TIMEOUT_MS;
-		let lastError: Error | undefined;
-		let boundPort: number | undefined;
 		for (let port = this.portMin; port <= this.portMax; port++) {
 			if (Date.now() > deadline) {
 				break;
 			}
-			try {
-				this._server = await this.listenOn(port, '127.0.0.1');
-				boundPort = port;
-				break;
-			} catch (err) {
-				lastError = err instanceof Error ? err : new Error(String(err));
+			const bound = await this.tryBindPort(port);
+			if (bound) {
+				this._server = bound.server;
+				this._server6 = bound.server6;
+				this._port = port;
+				return;
 			}
 		}
-		if (!this._server || boundPort === undefined) {
-			throw new Error(
-				`No free port for Databricks sign-in between ${this.portMin} ` +
-				`and ${this.portMax}: ${lastError?.message ?? 'timed out'}`
-			);
-		}
-		this._port = boundPort;
-		// Best-effort ::1 listener: `localhost` can resolve to IPv6 first
-		// (common on macOS), and an IPv4-only listener would refuse the
-		// browser's callback. IPv4 alone is still functional.
-		try {
-			this._server6 = await this.listenOn(boundPort, '::1');
-		} catch (err) {
-			this._server6 = undefined;
-			const code = (err as NodeJS.ErrnoException).code;
-			if (!IPV6_UNAVAILABLE_CODES.has(code ?? '')) {
-				// Another process owns ::1 on this port. `localhost` may
-				// resolve to it first and receive the authorization code.
-				await this.stop();
-				throw new Error(
-					`Port ${boundPort} is in use on the IPv6 loopback for ` +
-					`Databricks sign-in (${code}). Close the process using it ` +
-					`and try again.`
-				);
-			}
-		}
+		throw new Error(
+			`No free port for Databricks sign-in between ${this.portMin} ` +
+			`and ${this.portMax}.`
+		);
 	}
 
 	private handleRequest(

@@ -118,6 +118,35 @@ suite('DatabricksLoopbackServer', () => {
 		}
 	});
 
+	test('falls back to the next port when only ::1 is busy on the first', async function () {
+		const portA = await getFreePort();
+		// Occupy ::1 on portA specifically, leaving 127.0.0.1:portA free, so
+		// start() must treat portA as unusable and move on rather than
+		// failing the whole scan.
+		const blocker = net.createServer();
+		try {
+			await new Promise<void>((resolve, reject) => {
+				blocker.once('error', reject);
+				blocker.listen(portA, '::1', () => resolve());
+			});
+		} catch {
+			this.skip(); // Host has no usable ::1.
+			return;
+		}
+		try {
+			server = new DatabricksLoopbackServer('expected-state', portA, portA + 5);
+			await server.start();
+			assert.notStrictEqual(server.port, portA);
+			assert.ok(server.port > portA && server.port <= portA + 5);
+			const codePromise = server.waitForCode(5000);
+			const response = await get(server.port, '/?code=abc&state=expected-state');
+			assert.strictEqual(response.status, 200);
+			assert.strictEqual(await codePromise, 'abc');
+		} finally {
+			await new Promise<void>(resolve => blocker.close(() => resolve()));
+		}
+	});
+
 	test('rejects when every port in the range is busy', async () => {
 		const portA = await getFreePort();
 		const blocker = net.createServer();
