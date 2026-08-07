@@ -8,10 +8,12 @@ import type { CancellationToken } from 'vscode';
 import {
 	DATABRICKS_OAUTH_PORT_MIN,
 	DATABRICKS_OAUTH_PORT_MAX,
-	DATABRICKS_OAUTH_LISTEN_TIMEOUT_MS,
 } from './constants';
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** Cap on how long start() walks the port range before giving up. */
+const DATABRICKS_OAUTH_LISTEN_TIMEOUT_MS = 45_000;
 
 const SUCCESS_HTML = `<!DOCTYPE html>
 <html>
