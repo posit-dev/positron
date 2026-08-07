@@ -86,16 +86,20 @@ function fallbackEndpoints(host: string): OAuthEndpoints {
  * outside the workspace origin are rejected: the authorization endpoint is
  * a URL the user's browser is sent to with an auth code in flight.
  */
-export async function discoverOAuthEndpoints(host: string): Promise<OAuthEndpoints> {
+export async function discoverOAuthEndpoints(
+	host: string,
+	signal?: AbortSignal
+): Promise<OAuthEndpoints> {
 	const normalized = normalizeHost(host);
 	const cached = endpointCache.get(normalized);
 	if (cached) {
 		return cached;
 	}
+	const timeout = AbortSignal.timeout(DISCOVERY_TIMEOUT_MS);
 	try {
 		const response = await fetch(
 			`${normalized}/oidc/.well-known/oauth-authorization-server`,
-			{ signal: AbortSignal.timeout(DISCOVERY_TIMEOUT_MS) }
+			{ signal: signal ? AbortSignal.any([signal, timeout]) : timeout }
 		);
 		if (!response.ok) {
 			return fallbackEndpoints(normalized);

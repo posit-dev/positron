@@ -32,6 +32,12 @@ const REFRESH_BUFFER_MS = 5 * 60 * 1000;
 /** How long to wait for the browser redirect before giving up. */
 const SIGN_IN_TIMEOUT_MS = 5 * 60 * 1000;
 
+function throwIfCancelled(token: vscode.CancellationToken): void {
+	if (token.isCancellationRequested) {
+		throw new Error('Databricks sign-in was cancelled.');
+	}
+}
+
 /**
  * Databricks authentication provider.
  *
@@ -201,10 +207,16 @@ export class DatabricksAuthProvider extends AuthProvider {
 		const server = new DatabricksLoopbackServer(state);
 		const cancellation = new vscode.CancellationTokenSource();
 		this._signInCancellation = cancellation;
+		const abort = new AbortController();
+		const abortOnCancel = cancellation.token.onCancellationRequested(
+			() => abort.abort()
+		);
 
 		try {
 			await server.start();
-			const endpoints = await discoverOAuthEndpoints(host);
+			throwIfCancelled(cancellation.token);
+			const endpoints = await discoverOAuthEndpoints(host, abort.signal);
+			throwIfCancelled(cancellation.token);
 			const authorizeUrl = buildAuthorizeUrl(
 				endpoints.authorizationEndpoint, state, challenge, server.redirectUri
 			);
@@ -226,6 +238,7 @@ export class DatabricksAuthProvider extends AuthProvider {
 			log.info('[Databricks] OAuth sign-in successful.');
 			return session;
 		} finally {
+			abortOnCancel.dispose();
 			await server.stop();
 			cancellation.dispose();
 			if (this._signInCancellation === cancellation) {
