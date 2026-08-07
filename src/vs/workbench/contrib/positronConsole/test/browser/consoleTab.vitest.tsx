@@ -5,12 +5,12 @@
 
 /// <reference types="vitest/globals" />
 
-import { act, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { IAction } from '../../../../../base/common/actions.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { IContextMenuDelegate } from '../../../../../base/browser/contextmenu.js';
-import { IDelayedHoverOptions } from '../../../../../base/browser/ui/hover/hover.js';
+import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IResourceUsageHistoryService } from '../../../../services/positronConsole/browser/resourceUsageHistoryService.js';
@@ -26,6 +26,13 @@ describe('ConsoleTab', () => {
 	// One container for the whole file: the workbench preset registers global
 	// extension point handlers, which can only be set once per module instance.
 	const showContextMenu = vi.fn<(delegate: IContextMenuDelegate) => void>();
+
+	// The tab takes its hover manager as a prop (the tab list owns the one the
+	// whole strip shares), so the tests hand it a fake rather than reaching
+	// into IHoverService.
+	const showHover = vi.fn<IHoverManager['showHover']>();
+	const hideHover = vi.fn<IHoverManager['hideHover']>();
+	const hoverManager: IHoverManager = { showHover, hideHover };
 
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -65,6 +72,7 @@ describe('ConsoleTab', () => {
 				<PositronConsoleContextProvider>
 					<ConsoleTab
 						hideSessionName={false}
+						hoverManager={hoverManager}
 						positronConsoleInstance={instance}
 						width={200}
 						onChangeSession={() => { }}
@@ -240,24 +248,13 @@ describe('ConsoleTab', () => {
 	});
 
 	describe('session name tooltip', () => {
-		/**
-		 * Renders a tab and returns the tooltip text the hover would show. The
-		 * component registers the hover once with a factory that resolves the
-		 * content at hover time, so the content is read by invoking the factory
-		 * rather than by hovering.
-		 */
-		function renderTabAndResolveTooltip(sessionId: string, sessionName: string, hideSessionName: boolean): string {
+		function renderTab(sessionId: string, sessionName: string, hideSessionName: boolean) {
 			const instance = addActiveConsoleInstance(sessionId, sessionName);
-
-			// Spy rather than stub the hover service: the action bar hover
-			// manager calls hideHover() as it is disposed during RTL cleanup,
-			// so the real implementation has to stay in place.
-			const setupDelayedHover = vi.spyOn(ctx.reactServices.hoverService, 'setupDelayedHover');
-
 			rtl.render(
 				<PositronConsoleContextProvider>
 					<ConsoleTab
 						hideSessionName={hideSessionName}
+						hoverManager={hoverManager}
 						positronConsoleInstance={instance}
 						width={200}
 						onChangeSession={() => { }}
@@ -265,28 +262,56 @@ describe('ConsoleTab', () => {
 					/>
 				</PositronConsoleContextProvider>
 			);
-
-			const [target, hoverOptions] = setupDelayedHover.mock.calls.at(-1)!;
-			expect(target).toBe(screen.getByRole('tab'));
-
-			// The component always passes a factory, never a static options object.
-			const content = (hoverOptions as () => IDelayedHoverOptions)().content;
-			return typeof content === 'string' ? content : '';
+			return { user: userEvent.setup(), tab: screen.getByRole('tab') };
 		}
 
 		// jsdom reports every element as zero-width, so getFittedSessionName
-		// always finds the full name fits: the rendered name is never cut short
-		// on its own here. hideSessionName is a plain prop, so it drives the
-		// truncated case. Empty content is how IHoverService is told not to
-		// show a hover at all -- see HoverService._createHover.
-		it('offers the full session name when the tab has no room to show it', () => {
-			expect(renderTabAndResolveTooltip('tooltip-session-1', 'My Python Session', true))
-				.toBe('My Python Session');
+		// always finds that the full name fits: the rendered name is never cut
+		// short on its own here. hideSessionName is a plain prop, so it drives
+		// the truncated case. Undefined content is how IHoverManager is told not
+		// to show a hover at all.
+		it('offers the full session name when the tab has no room to show it', async () => {
+			const { user, tab } = renderTab('tooltip-session-1', 'My Python Session', true);
+
+			await user.hover(tab);
+
+			expect(showHover).toHaveBeenCalledWith(tab, 'My Python Session');
 		});
 
-		it('offers no tooltip when the tab shows the whole session name', () => {
-			expect(renderTabAndResolveTooltip('tooltip-session-2', 'My Python Session', false))
-				.toBe('');
+		it('offers no tooltip when the tab shows the whole session name', async () => {
+			const { user, tab } = renderTab('tooltip-session-2', 'My Python Session', false);
+
+			await user.hover(tab);
+
+			expect(showHover).toHaveBeenCalledWith(tab, undefined);
+		});
+
+		// The hover must be driven by mouseenter, which doesn't bubble, and not
+		// by mouseover, which does: the tab wraps two icons, a resource graph
+		// and a delete button, so a bubbling trigger re-fires every time the
+		// pointer crosses between them and restarts the hover delay each time.
+		// fireEvent rather than user-event because the point is which single
+		// raw event reaches the tab.
+		it('ignores a mouseover bubbling up from inside the tab', () => {
+			const { tab } = renderTab('tooltip-session-3', 'My Python Session', true);
+
+			// A move from the tab onto its own delete button. relatedTarget is
+			// what makes it that rather than an arrival from outside the
+			// document, and it's what React reads to decide that the tab was
+			// never re-entered.
+			// eslint-disable-next-line testing-library/prefer-user-event -- userEvent.hover fires a whole pointer sequence; this test is about the single raw event a bubbling trigger would catch.
+			fireEvent.mouseOver(screen.getByTestId('trash-session'), { relatedTarget: tab });
+
+			expect(showHover).not.toHaveBeenCalled();
+		});
+
+		it('hides the hover when the pointer leaves the tab', async () => {
+			const { user, tab } = renderTab('tooltip-session-4', 'My Python Session', true);
+
+			await user.hover(tab);
+			await user.unhover(tab);
+
+			expect(hideHover).toHaveBeenCalled();
 		});
 	});
 });
