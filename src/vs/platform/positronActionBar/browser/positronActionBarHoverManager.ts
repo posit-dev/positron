@@ -166,6 +166,14 @@ export class PositronActionBarHoverManager extends Disposable implements IHoverM
 					skipFadeInAnimation
 				}
 			}, false);
+
+			// The hover service rejects a request with undefined rather than an error when it is
+			// already showing a locked hover, or when the options match the hover it has up. Drop
+			// the pending record in that case, otherwise the check above treats the hover as still
+			// on its way and swallows every retry for this target and content.
+			if (!this._lastHoverWidget) {
+				this._pendingHover = undefined;
+			}
 		};
 
 		// If a hover was recently shown, show the hover immediately and skip the fade in animation.

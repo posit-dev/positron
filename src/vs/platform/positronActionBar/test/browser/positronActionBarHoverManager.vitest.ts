@@ -19,11 +19,18 @@ describe('PositronActionBarHoverManager', () => {
 	 * Builds a manager over stubbed services, and reports how many hovers actually reached the
 	 * hover service.
 	 */
-	function createManager() {
+	function createManager({ rejectFirst = false }: { rejectFirst?: boolean } = {}) {
 		const shown: string[] = [];
 		const hoverService = stubInterface<IHoverService>({
 			showInstantHover: (options: { content: unknown }) => {
 				shown.push(String(options.content));
+
+				// The real service returns undefined instead of a widget when it already has a
+				// locked hover up, or when the options match the hover it is showing.
+				if (rejectFirst && shown.length === 1) {
+					return undefined;
+				}
+
 				return stubInterface<IHoverWidget>({ dispose: () => { } });
 			},
 			hideHover: () => { },
@@ -69,6 +76,22 @@ describe('PositronActionBarHoverManager', () => {
 		vi.advanceTimersByTime(HOVER_DELAY);
 
 		expect(shown).toStrictEqual(['Next Match']);
+		manager.dispose();
+	});
+
+	it('retries after the hover service rejects a request', () => {
+		const { manager, shown } = createManager({ rejectFirst: true });
+		const target = document.createElement('button');
+
+		// A rejection is silent, so the manager has to notice that nothing is showing. Otherwise
+		// the repeat request below is treated as a duplicate and this target never gets a tooltip
+		// again, which is the wedged state the e2e flake reported.
+		manager.showHover(target, 'Previous Match');
+		vi.advanceTimersByTime(HOVER_DELAY);
+		manager.showHover(target, 'Previous Match');
+		vi.advanceTimersByTime(HOVER_DELAY);
+
+		expect(shown).toStrictEqual(['Previous Match', 'Previous Match']);
 		manager.dispose();
 	});
 

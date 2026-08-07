@@ -398,6 +398,46 @@ export class HotKeys {
 			for (const key of keySequences) {
 				await this.code.driver.currentPage.keyboard.press(key);
 			}
+
+			if (keySequences.length > 1) {
+				await this.resolvePendingChord(keySequences);
+			}
 		});
+	}
+
+	/**
+	 * Clears a chord the workbench is still waiting on, then re-presses the sequence.
+	 *
+	 * A dropped later keypress (seen on Windows) leaves chord mode pending, which wedges the hover
+	 * service until it resolves and outlives the test that caused it. A pending chord also means
+	 * the shortcut never ran, so re-pressing it is the caller's action rather than a duplicate.
+	 */
+	private async resolvePendingChord(keySequences: string[]): Promise<void> {
+		const page = this.code.driver.currentPage;
+		const pendingChord = page.locator('.statusbar').getByText(/Waiting for second key of chord/);
+
+		// Checked without waiting: on the good path there is nothing to find, and a missed
+		// detection just leaves today's behavior in place.
+		const leaveChordMode = async () => {
+			if (!await pendingChord.isVisible()) {
+				return false;
+			}
+
+			// Any key that does not continue the chord leaves chord mode.
+			await page.keyboard.press('Escape');
+			await expect(pendingChord).not.toBeVisible();
+			return true;
+		};
+
+		if (!await leaveChordMode()) {
+			return;
+		}
+
+		for (const key of keySequences) {
+			await page.keyboard.press(key);
+		}
+
+		// If the re-press dropped a key too, leave chord mode rather than leak it to the next test.
+		await leaveChordMode();
 	}
 }
