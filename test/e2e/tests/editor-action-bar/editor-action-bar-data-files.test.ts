@@ -132,7 +132,7 @@ async function openDataExplorerViaVariablePane(app: Application, variable: strin
 		// close to the source file's own tab: a page-wide `getByLabel('Close')` can
 		// match an unrelated control and leave the file editor open, whose (disabled)
 		// Save button would then trip the "Save not visible" assertion in the test.
-		const sourceTab = page.getByRole('tab', { name: sourceFileTab });
+		const sourceTab = app.workbench.editors.editorTab(sourceFileTab);
 		await sourceTab.hover();
 		await sourceTab.getByLabel('Close').click();
 		await expect(page.getByText(tabName, { exact: true })).toBeVisible();

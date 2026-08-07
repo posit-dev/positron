@@ -7,13 +7,16 @@
 import './consoleTabList.css';
 
 // React.
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { ConsoleTab } from './consoleTab.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { PositronConsoleTabFocused } from '../../../../common/contextkeys.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
+import { PositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 
 // ConsoleTabListProps interface.
 interface ConsoleTabListProps {
@@ -27,6 +30,41 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 	const positronConsoleTabFocusedContextKey = PositronConsoleTabFocused.bindTo(services.contextKeyService);
 
 	const tabListRef = useRef<HTMLDivElement>(null);
+
+	// One hover manager for the whole strip, mirroring how the action bar sets
+	// its own up in usePositronActionBarState. Sharing it across the tabs is
+	// what makes moving from one tab to the next show the next name instantly
+	// instead of waiting out the hover delay again.
+	const [hoverManager, setHoverManager] = useState<IHoverManager>();
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		setHoverManager(disposableStore.add(new PositronActionBarHoverManager(
+			true,
+			services.configurationService,
+			services.hoverService
+		)));
+		return () => disposableStore.dispose();
+	}, [services.configurationService, services.hoverService]);
+
+	// The sessions whose tab has no room left for its name. Names are hidden on
+	// every tab as soon as one of them runs out of room, so that the list
+	// collapses to icons all at once instead of tab by tab.
+	const [sessionsWithHiddenName, setSessionsWithHiddenName] = useState<ReadonlySet<string>>(() => new Set());
+	const handleSessionNameHiddenChange = useCallback((sessionId: string, hidden: boolean) => {
+		setSessionsWithHiddenName(current => {
+			if (current.has(sessionId) === hidden) {
+				return current;
+			}
+			const updated = new Set(current);
+			if (hidden) {
+				updated.add(sessionId);
+			} else {
+				updated.delete(sessionId);
+			}
+			return updated;
+		});
+	}, []);
+	const hideSessionNames = sessionsWithHiddenName.size > 0;
 
 	// Sort console sessions by created time, oldest to newest
 	const consoleInstances = Array.from(positronConsoleContext.positronConsoleInstances.values()).sort((a, b) => {
@@ -162,9 +200,12 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 			{consoleInstances.map((positronConsoleInstance) =>
 				<ConsoleTab
 					key={positronConsoleInstance.sessionId}
+					hideSessionName={hideSessionNames}
+					hoverManager={hoverManager}
 					positronConsoleInstance={positronConsoleInstance}
 					width={props.width}
 					onChangeSession={() => handleChangeForegroundSession(positronConsoleInstance.sessionId)}
+					onSessionNameHiddenChange={handleSessionNameHiddenChange}
 				/>
 			)}
 		</div>

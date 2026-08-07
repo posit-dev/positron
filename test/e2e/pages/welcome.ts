@@ -55,7 +55,7 @@ export class Welcome {
 
 	async expectTabTitleToBe(title: string) {
 		await test.step(`Verify tab title: ${title}`, async () => {
-			await expect(this.code.driver.currentPage.getByRole('tab', { name: title })).toBeVisible();
+			await expect(this.code.driver.currentPage.locator('[id="workbench.parts.editor"]').getByRole('tab', { name: title })).toBeVisible();
 		});
 	}
 

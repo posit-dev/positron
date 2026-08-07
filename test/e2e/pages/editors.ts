@@ -19,6 +19,21 @@ export class Editors {
 	constructor(private code: Code) { }
 
 	/**
+	 * Get an editor tab by name.
+	 *
+	 * Scoped to the editor part: the workbench has several tab lists, and a
+	 * console session tab carries the session's name as its accessible name --
+	 * which for a notebook session is the notebook's filename. An unscoped
+	 * `getByRole('tab', { name })` therefore matches both the notebook's editor
+	 * tab and its console session tab, and fails Playwright's strict mode.
+	 *
+	 * @param tabName - the name of the tab
+	 */
+	editorTab(tabName: string | RegExp): Locator {
+		return this.editorPart.getByRole('tab', { name: tabName });
+	}
+
+	/**
 	 * Get a specific editor group by index.
 	 * Useful for side-by-side notebook testing where you need to scope actions to a specific editor.
 	 * @param index - 0-based index (0 = leftmost/first group)
@@ -40,7 +55,7 @@ export class Editors {
 
 	async clickTab(tabName: string | RegExp): Promise<void> {
 		await test.step(`Click tab: ${tabName}`, async () => {
-			const tabLocator = this.code.driver.currentPage.getByRole('tab', { name: tabName });
+			const tabLocator = this.editorTab(tabName);
 			await expect(tabLocator).toBeVisible();
 			await tabLocator.click();
 		});
@@ -57,7 +72,7 @@ export class Editors {
 		{ isVisible = true, isSelected = true }: { isVisible?: boolean; isSelected?: boolean }
 	): Promise<void> {
 		await test.step(`Verify tab: ${tabName} is ${isVisible ? '' : 'not'} visible, is ${isSelected ? '' : 'not'} selected`, async () => {
-			const tabLocator = this.code.driver.currentPage.getByRole('tab', { name: tabName });
+			const tabLocator = this.editorTab(tabName);
 
 			await (isVisible
 				? expect(tabLocator).toBeVisible()

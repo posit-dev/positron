@@ -48,6 +48,86 @@ export function getSessionDisplayName(
 }
 
 /**
+ * The character appended to an ellipsized session name.
+ */
+const ELLIPSIS = '\u2026';
+
+/**
+ * Whitespace, punctuation, or a symbol of any kind. Symbols count because the
+ * trim only ever runs where the name is cut, so the character it removes is
+ * always followed by the ellipsis: a trailing "|" or "+" reads as a connector
+ * left dangling rather than as part of the name.
+ */
+const SEPARATOR = /[\s\p{P}\p{S}]/u;
+
+/**
+ * Checks whether a character is one an ellipsized session name shouldn't be left
+ * ending on, so that a name reads "Python..." and "Some-word..." rather than
+ * "Python ..." and "Some-word-...".
+ */
+function isSeparator(character: string): boolean {
+	return SEPARATOR.test(character);
+}
+
+/**
+ * The fewest characters of a session name worth showing. An ellipsized name is
+ * cut back to its first character; past that only the ellipsis itself would be
+ * left, which says nothing at all.
+ */
+const MINIMUM_FITTED_LENGTH = 1;
+
+/**
+ * Fits a session name into the given width by ellipsizing it, so that names
+ * collapse gracefully as a tab narrows: "Python 3.12.11 (Pyenv)" becomes
+ * "Python 3.12.1...", then "Python 3...", then "Python...", and so on.
+ *
+ * The ellipsis never follows a space or punctuation: a name cut to "Python " or
+ * "Some-word-" has that separator trimmed first. The last thing shown is the
+ * first character and the ellipsis, "P..."; once even that would be clipped, an
+ * empty string is returned and the tab is left showing just the session icons.
+ *
+ * @param sessionName The full session name.
+ * @param availableWidth The width available to render the name, in pixels.
+ * @param measureWidth Measures the rendered width of a candidate name, in pixels.
+ * @returns The name, an ellipsized form of it, or an empty string.
+ */
+export function getFittedSessionName(
+	sessionName: string,
+	availableWidth: number,
+	measureWidth: (text: string) => number,
+): string {
+	// The full name is always preferred, and is returned verbatim so that names
+	// which fit are never ellipsized or trimmed.
+	if (measureWidth(sessionName) <= availableWidth) {
+		return sessionName;
+	}
+
+	let length = sessionName.length - 1;
+	while (length >= MINIMUM_FITTED_LENGTH) {
+		// Never leave the ellipsis sitting after a separator.
+		let end = length;
+		while (end > 0 && isSeparator(sessionName.charAt(end - 1))) {
+			end--;
+		}
+
+		if (end < MINIMUM_FITTED_LENGTH) {
+			break;
+		}
+
+		const candidate = sessionName.slice(0, end) + ELLIPSIS;
+		if (measureWidth(candidate) <= availableWidth) {
+			return candidate;
+		}
+
+		// Trimming may have shortened the name past the next length to try.
+		length = end - 1;
+	}
+
+	// Too little of the name would be left to be worth showing.
+	return '';
+}
+
+/**
  * The subset of session info needed to determine the session icon.
  */
 interface SessionIconInfo {
