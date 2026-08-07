@@ -31,13 +31,13 @@ them are needed here, and they should not be copied over.**
 
 | Rocky 8 does | Rocky 9 does | Why |
 | --- | --- | --- |
-| Unpacks the Quarto `.deb` with `ar x` + `tar -xf data.tar.gz -C /` | `dnf install`s the published Quarto RPM | The `ar` extraction skips the package's postinst, which is what links the binary onto PATH -- it leaves quarto at `/opt/quarto/bin/quarto`, unreachable. EL9 is RPM-based, so it installs the RPM like the openSUSE/SLES images do. `quarto --version` runs in the same layer to assert it. |
+| ~~Unpacks the Quarto `.deb` with `ar x`~~ (fixed -- now also installs the RPM) | `dnf install`s the published Quarto RPM | The `ar` extraction skips the package's postinst, which is what links the binary onto PATH -- it left quarto at `/opt/quarto/bin/quarto`, unreachable. EL8/EL9 are RPM-based, so both now install the RPM like the openSUSE/SLES images do. `quarto --version` runs in the same layer to assert it. |
 | Builds GEOS 3.12, GDAL 3.9 and libgit2 1.8 from source | Uses the distro packages | EL9 + EPEL9 ship GEOS 3.13, GDAL 3.10, PROJ 9.6, libgit2 1.7 -- all *newer* than what Rocky 8 compiles by hand. EL8's GDAL 3.0.4 predates `GDAL_DCAP_MULTIDIM_RASTER`, which `terra` needs; EL9's does not. |
 | Pins `gcc-toolset-13` and patches `Makeconf` for every R version | Uses system GCC 11 | EL8's GCC 8 has no C++20 (needed by Arrow). GCC 11 does. |
 | Installs system TeX Live on arm64 instead of TinyTeX | TinyTeX on both arches | TinyTeX binaries need glibc >= 2.29; EL8 has 2.28, EL9 has 2.34. |
 | Pins `sf@1.0-20` and constrains bokeh/panel/holoviews/hvplot | Installs `DESCRIPTION` / `requirements.txt` as-is | Those pins worked around EL8 source-build failures and wheel availability. |
 | `--set-enabled powertools` | `--set-enabled crb` | EL9 renamed PowerTools to CodeReady Builder. |
-| PPM channel `__linux__/rockylinux8` | PPM channel `__linux__/rhel9` | **`rockylinux8` is not a real PPM channel** and 404s; `rhel9` is the correct binary channel for Rocky Linux 9 (see `https://packagemanager.posit.co/__api__/status` -> `.distros[].binaryURL`). Using the right channel means R packages arrive as binaries instead of compiling. |
+| ~~PPM channel `__linux__/rockylinux8`~~ (fixed -- now `centos8`) | PPM channel `__linux__/rhel9` | **`rockylinux8` was not a real PPM channel** and 404d, so R saw zero packages and fell back to source builds. The valid names come from `https://packagemanager.posit.co/__api__/status` -> `.distros[].binaryURL`: `rhel8` maps to `centos8`, and Rocky 9 is `rhel9`. Using a real channel means R packages arrive as binaries instead of compiling. |
 
 Package-name changes from EL8 to EL9 are handled in `deps/rocky9_packages_*.txt`:
 `procps`->`procps-ng`, `postgresql-devel`/`postgresql-libs`->`libpq-devel`/`libpq`,

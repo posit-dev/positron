@@ -294,13 +294,19 @@ Also done: `rocky_9` added to `ci-images-build-os.yml` (choice, validation,
 `update-ci-images` skill (6 -> 7 builds, PR checklist, and both
 `bump-node-version.sh` / `bump-ppm-snapshot.sh` file lists).
 
-Two latent `rocky_8` bugs surfaced along the way. Both are left alone on purpose
--- it is a live CI image -- but each is worth its own issue:
+Two latent `rocky_8` bugs surfaced along the way. **Both are now fixed in the
+same PR as this image** (they are the same two defects `rocky_9` had to avoid):
 
-1. Its PPM channel (`__linux__/rockylinux8`) does not exist and 404s, so its R
-   packages are very likely all building from source. This is plausibly the root
-   cause of the source-built GEOS/GDAL/libgit2 and `gcc-toolset-13` it carries.
-2. Its Quarto `ar x` unpack leaves the binary off PATH, exactly as it did here.
+1. Its PPM channel `__linux__/rockylinux8` does not exist and 404s -- R reported
+   zero available packages and fell back to source builds. Corrected to
+   `centos8`, which is what PPM's own API maps `rhel8` to. This is plausibly the
+   root cause of the source-built GEOS/GDAL/libgit2 and `gcc-toolset-13` it
+   carries, but removing those is a **separate, riskier change** and was left
+   alone here.
+2. Its Quarto `ar x` unpack left the binary off PATH (confirmed against the
+   published `positron-rocky8:24.18.0` image config -- `/opt/quarto/bin` is not
+   in `PATH` and no symlink is created). Now installs the RPM, verified to work
+   on EL8.
 
 Original delta list, for reference:
 
@@ -309,7 +315,7 @@ Original delta list, for reference:
 | `FROM rockylinux:8` | `FROM rockylinux:9` |
 | `dnf config-manager --set-enabled powertools` | `--set-enabled crb` (PowerTools was renamed CodeReady Builder) |
 | `deps/rocky8_packages_{amd64,arm64}.txt` | `deps/rocky9_packages_{amd64,arm64}.txt`. **Add `acl` and `environment-modules`** -- both are missing from the Rocky 8 lists and both are needed by `install-workbench.sh`. Baking them in beats installing at runtime. |
-| RSPM `__linux__/rockylinux8`, UA `(rockylinux-8)` | `__linux__/rockylinux9`, `(rockylinux-9)` |
+| RSPM `__linux__/rockylinux8` (which does not exist -- since fixed to `centos8`) | `__linux__/rhel9`, UA `(rockylinux-9)` |
 | Hidden R from `centos-8/R-4.4.1-centos-8${R_ARCH_SUFFIX}.tar.gz` | `rhel-9/R-4.4.1-rhel-9${R_ARCH_SUFFIX}.tar.gz` -- verified present for both `""` and `-arm64` |
 | TinyTeX skipped on arm64 (needs glibc 2.29, Rocky 8 has 2.28), system TeX Live used instead | Rocky 9 has glibc 2.34, so **drop the arm64 special case** and use TinyTeX on both arches |
 | `docker-compose.{amd64,arm64}.yml` building `positron-rocky8-${ARCH}:latest` | same, `positron-rocky9-${ARCH}:latest` |
