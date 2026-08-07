@@ -528,7 +528,15 @@ function normalizeSnapshotText(value: string, normalization: IAhpSnapshotNormali
 	normalized = normalized
 		.replaceAll(normalization.homeDirectory, '${homedir}')
 		.replaceAll(URI.file(normalization.homeDirectory).toString(), '${homedir}')
-		.replaceAll(normalization.userName, '${user}');
+		// --- Start Positron ---
+		// Positron's test container runs as OS user `root`, which collides with the
+		// agent host protocol's reserved `root/` channel (e.g. `root/sessionAdded`).
+		// A plain replaceAll would rewrite the protocol prefix to `${user}/` and break
+		// snapshot matching, so only normalize the username where it is not acting as a
+		// channel prefix (i.e. not immediately followed by `/`). Owner columns in shell
+		// output (` root  staff`) are still normalized.
+		.replace(new RegExp(`${escapeRegExpCharacters(normalization.userName)}(?!/)`, 'g'), '${user}');
+	// --- End Positron ---
 	if (!normalized.includes('${temp}')) {
 		normalized = normalized.replace(/ahp-coverage-([a-z-]+)-[A-Za-z0-9]{6}/g, 'ahp-coverage-$1-${temp}');
 	}
