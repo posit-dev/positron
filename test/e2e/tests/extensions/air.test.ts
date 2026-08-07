@@ -16,12 +16,16 @@ test.describe('Extensions', {
 }, () => {
 
 	test.afterEach(async function ({ app, hotKeys, cleanup }) {
-		// Close first: the buffer holds the formatted text, and files.autoSave would write it
-		// back over the restore in the web lanes. Wait for the tab to go before restoring --
-		// the close flushes that pending write, and it lands after the restore otherwise.
+		// Undo the formatting before closing. files.autoSave writes whatever the buffer holds
+		// in the web lanes, and a save still in flight when the editor closes lands after the
+		// restore below -- undoing first means a late write writes the baseline text anyway.
+		await app.workbench.editors.selectTab('bad-formatting.r');
+		await hotKeys.undo();
+		await app.workbench.editor.waitForEditorContents('bad-formatting.r', (contents: string) => {
+			return !contents.includes(formattedFile);
+		});
+
 		await hotKeys.closeAllEditors();
-		await app.workbench.editors.verifyTab('bad-formatting.r', { isVisible: false, isSelected: false });
-		// Formatted in place. Never saved, but autoSave lands the edit on disk in the web lanes.
 		await cleanup.restoreFiles([join('workspaces', 'r-formatting', 'bad-formatting.r')]);
 	});
 
