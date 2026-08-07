@@ -61,9 +61,11 @@ describe('ConsoleTab', () => {
 			rtl.render(
 				<PositronConsoleContextProvider>
 					<ConsoleTab
+						hideSessionName={false}
 						positronConsoleInstance={instance}
 						width={200}
 						onChangeSession={() => { }}
+						onSessionNameHiddenChange={() => { }}
 					/>
 				</PositronConsoleContextProvider>
 			);
