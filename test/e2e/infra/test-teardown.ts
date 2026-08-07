@@ -84,7 +84,16 @@ export class TestTeardown {
 	 * chose them); otherwise prefer `restoreFiles` / `removeTestFiles`.
 	 */
 	dirtyFiles(): Set<string> {
-		return new Set(this._dirtyFiles().keys());
+		return new Set(this.dirtyFilesByStatus().keys());
+	}
+
+	/**
+	 * The same paths keyed to their two-letter git status code, for callers that
+	 * need to tell a modified tracked file (a fixture the next spec will read)
+	 * from an untracked byproduct (`??`).
+	 */
+	dirtyFilesByStatus(): Map<string, string> {
+		return this._dirtyFiles();
 	}
 
 	/**
