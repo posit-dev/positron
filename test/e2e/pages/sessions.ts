@@ -465,7 +465,10 @@ export class Sessions {
 	 * @returns locator for the session tab
 	 */
 	private getSessionTab(sessionIdOrName: string): Locator {
-		const sessionIdPattern = /^(python|r)-[a-zA-Z0-9]+$/i;
+		// Notebook sessions are `<language>-notebook-<hex>`, so the optional
+		// `-notebook` segment is what keeps their ids out of the name branch
+		// below. Mirrors the pattern openMetadataDialog() uses for `info-` ids.
+		const sessionIdPattern = /^(python|r)(-notebook)?-[a-zA-Z0-9]+$/i;
 
 		// Match by name on the tab's aria-label, not its rendered text: the tab
 		// ellipsizes the session name to fit the space it has, so "Python
@@ -704,7 +707,9 @@ export class Sessions {
 				for (const session of allSessions) {
 					// extract session ID from data-testid attribute
 					const testId = await session.getAttribute('data-testid');
-					const match = testId?.match(/console-tab-((python|r)-[a-zA-Z0-9]+)/);
+					// The `-notebook` segment matters: without it a notebook
+					// session's id is captured truncated, as just `python-notebook`.
+					const match = testId?.match(/console-tab-((python|r)(-notebook)?-[a-zA-Z0-9]+)/);
 					const id = match ? match[1] : null;
 
 					// extract session name from aria-label attribute
