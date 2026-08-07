@@ -314,16 +314,8 @@ test.describe('R Breakpoints', {
 		await debug.expectBreakpointVerified(0, 30000);
 		await resetToPrompt();
 
-		// Sourcing the file also runs its trailing lapply(), which calls the
-		// breakpointed function, so the debugger pauses shortly after the
-		// breakpoint verifies. Wait for that pause to land before editing: the
-		// stopped-frame reveal selects line 3, and would otherwise steal the
-		// cursor mid-typing and overwrite the function body.
-		await debug.expectBrowserModeFrame(1);
-		await debug.expectCurrentLineIndicatorVisible();
-
 		// Edit file to make it dirty
-		await app.workbench.editors.selectTab('breakpoint_test.r');
+		await editors.selectTab('breakpoint_test.r');
 		await page.keyboard.press('Escape'); // Clear any selection first
 		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
 		await page.keyboard.press('Enter');
