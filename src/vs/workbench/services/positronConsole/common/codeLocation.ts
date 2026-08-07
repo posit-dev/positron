@@ -52,6 +52,60 @@ export function utf8ByteOffsetFromUtf16(lineText: string, utf16Offset: number): 
 }
 
 /**
+ * Derives the code location of a fragment carved out of a larger piece of code,
+ * given the location of the whole and the fragment's line range within it.
+ *
+ * When submitted code is split into per-statement fragments by an input
+ * boundary provider, each fragment must carry its own source attribution so the
+ * runtime can map it back to the correct source lines (e.g. so a language
+ * runtime can verify a breakpoint against the statement that actually contains
+ * it). Splitting alone would leave every fragment pointing at the whole
+ * selection's location. This offsets that location by the fragment's starting
+ * line so each fragment is attributed to the lines it actually came from.
+ *
+ * Boundaries are line ranges, so a fragment always begins at the start of a
+ * source line except for the very first line of the whole code, which inherits
+ * the whole code's starting column (a selection can begin mid-line).
+ *
+ * @param whole The code location of the entire submitted code.
+ * @param fragmentCode The fragment's text (its lines joined with `\n`).
+ * @param startLine The fragment's 0-based start line within the submitted code.
+ * @param endLine The fragment's 0-based end line (exclusive) within the code.
+ * @returns A code location describing the fragment's position in the source.
+ */
+export function fragmentCodeLocation(
+	whole: ICodeLocation,
+	fragmentCode: string,
+	startLine: number,
+	endLine: number
+): ICodeLocation {
+	const wholeStart = whole.range.start;
+
+	// The fragment's last line, as a 0-based line offset within the submitted
+	// code. `endLine` is exclusive, so the last line is `endLine - 1`; clamp to
+	// `startLine` defensively in case of an empty range.
+	const lastLine = Math.max(endLine - 1, startLine);
+
+	// Only the very first line of the whole code is offset by the whole code's
+	// starting column; every subsequent source line begins at column 0.
+	const startCharacter = startLine === 0 ? wholeStart.character : 0;
+	const endBaseCharacter = lastLine === 0 ? wholeStart.character : 0;
+
+	// The fragment's last line's byte length gives the end column.
+	const fragmentLines = fragmentCode.split('\n');
+	const lastLineText = fragmentLines[fragmentLines.length - 1];
+	const endCharacter = endBaseCharacter + utf8ByteOffsetFromUtf16(lastLineText, lastLineText.length);
+
+	return {
+		uri: whole.uri,
+		range: {
+			start: { line: wholeStart.line + startLine, character: startCharacter },
+			end: { line: wholeStart.line + lastLine, character: endCharacter },
+		},
+	};
+}
+
+/**
  * Creates a code location with UTF-8 byte offsets from a text model and a VS Code range.
  *
  * This should be called at the source where the model is available, as the conversion

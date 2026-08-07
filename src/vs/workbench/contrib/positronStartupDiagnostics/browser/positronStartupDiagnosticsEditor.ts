@@ -14,6 +14,7 @@ import { IModelService } from '../../../../editor/common/services/model.js';
 import { IStartupMetrics, ITimerService } from '../../../services/timer/browser/timerService.js';
 import { IDisposable, dispose } from '../../../../base/common/lifecycle.js';
 import { raceTimeout } from '../../../../base/common/async.js';
+import { getDurationString } from '../../../../base/common/date.js';
 import { IExtensionService, IResponsiveStateChangeEvent } from '../../../services/extensions/common/extensions.js';
 import { ExtensionHostKind } from '../../../services/extensions/common/extensionHostKind.js';
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
@@ -403,18 +404,27 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 			return;
 		}
 
-		const table: Array<Array<string>> = [];
 		for (const session of sessions) {
-			table.push([
-				session.runtimeMetadata.runtimeName,
-				session.dynState.sessionName || '-',
-				session.metadata.sessionMode,
-				session.getRuntimeState().toString(),
-				session.metadata.startReason || '-',
-				session.metadata.createdTimestamp ? new Date(session.metadata.createdTimestamp).toLocaleTimeString() : '-'
-			]);
+			const created = session.metadata.createdTimestamp;
+
+			md.heading(3, session.dynState.sessionName || session.runtimeMetadata.runtimeName);
+			md.li(`**Runtime**: ${session.runtimeMetadata.runtimeName}`);
+			md.li(`**Mode**: ${session.metadata.sessionMode}`);
+			md.li(`**State**: ${session.getRuntimeState().toString()}`);
+			md.li(`**Start Reason**: ${session.metadata.startReason || '-'}`);
+			md.li(`**Created**: ${created ? new Date(created).toLocaleTimeString() : '-'}`);
+			md.li(`**Uptime**: ${created ? getDurationString(Date.now() - created, true) : '-'}`);
+
+			// Execution statistics, including the average latency between
+			// submitting an execution and receiving its input echo back from the
+			// runtime on iopub. Not all session implementations track these.
+			const stats = session.getExecutionStatistics?.();
+			md.li(`**Executions**: ${stats ? stats.executionCount : '-'}`);
+			md.li(`**Average latency**: ${stats && stats.averageInputLatencyMs !== undefined
+				? `${Math.round(stats.averageInputLatencyMs)}ms`
+				: '-'}`);
+			md.blank();
 		}
-		md.table(['Runtime', 'Name', 'Mode', 'State', 'Start Reason', 'Created'], table);
 	}
 
 	private async _addSessionLaunchInfo(md: MarkdownBuilder): Promise<void> {

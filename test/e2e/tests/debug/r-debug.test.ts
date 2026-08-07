@@ -287,26 +287,35 @@ test.describe('R Breakpoints', {
 	});
 
 	test('R - Verify breakpoints in dirty (unsaved) documents', async ({ app, page, openFile, hotKeys }) => {
-		const { debug, console } = app.workbench;
+		const { debug, console, editors } = app.workbench;
+		const runKey = process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter';
+
+		// Running the whole file executes the top-level lapply() call, which
+		// invokes multiply_values(). Once the breakpoint is verified this can
+		// stop at it, leaving the console in browser mode; whether a given run
+		// stops is timing-dependent (the breakpoint activates on the idle
+		// between the split statements, racing the lapply call). Normalize back
+		// to the top-level prompt after each run so the state is deterministic:
+		// send 'Q' (quits browser mode; a harmless no-op error at the top-level
+		// prompt) and clear the transcript so accumulated `Browse[1]>` prompts
+		// don't confuse the single-frame check at the end.
+		const resetToPrompt = async () => {
+			await console.typeToConsole('Q', true);
+			await console.waitForReady('>');
+			await console.clearButton.click();
+		};
 
 		await openFile('workspaces/r-debugging/breakpoint_test.r');
 		await debug.setUnverifiedBreakpointOnLine(3);
 
-		// Verify the breakpoint
+		// Run the file to verify the breakpoint.
 		await hotKeys.selectAll();
-		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+		await page.keyboard.press(runKey);
 		await debug.expectBreakpointVerified(0, 30000);
-
-		// Sourcing the file also runs its trailing lapply(), which calls the
-		// breakpointed function, so the debugger pauses shortly after the
-		// breakpoint verifies. Wait for that pause to land before editing: the
-		// stopped-frame reveal selects line 3, and would otherwise steal the
-		// cursor mid-typing and overwrite the function body.
-		await debug.expectBrowserModeFrame(1);
-		await debug.expectCurrentLineIndicatorVisible();
+		await resetToPrompt();
 
 		// Edit file to make it dirty
-		await app.workbench.editors.selectTab('breakpoint_test.r');
+		await editors.selectTab('breakpoint_test.r');
 		await page.keyboard.press('Escape'); // Clear any selection first
 		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
 		await page.keyboard.press('Enter');
@@ -320,12 +329,13 @@ test.describe('R Breakpoints', {
 
 		// Re-execute WITHOUT saving - breakpoint should re-verify
 		await hotKeys.selectAll();
-		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+		await page.keyboard.press(runKey);
 		await debug.expectBreakpointVerified(0, 30000);
 
 		await hotKeys.restoreBottomPanel();
+		await resetToPrompt();
 
-		// Verify breakpoint still works
+		// Verify breakpoint still works: calling it directly always stops.
 		await console.pasteCodeToConsole('multiply_values(5, 3)', true);
 		await debug.expectBrowserModeFrame(1);
 
@@ -333,6 +343,7 @@ test.describe('R Breakpoints', {
 		await page.keyboard.type('Q');
 		await page.keyboard.press('Enter');
 		await console.waitForReady('>');
+		await editors.selectTab('breakpoint_test.r');
 		await hotKeys.undo();
 		await hotKeys.undo();
 	});
