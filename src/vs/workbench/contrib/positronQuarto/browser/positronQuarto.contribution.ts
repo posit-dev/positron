@@ -26,6 +26,7 @@ import { QuartoExecutionDecorations } from './quartoExecutionDecorations.js';
 import { QuartoCellToolbarController } from './quartoCellToolbarController.js';
 import { QuartoImagePreviewContribution } from './quartoImagePreview.js';
 import { QuartoEquationPreviewContribution } from './quartoEquationPreview.js';
+import { IQuartoVirtualNotebookService, QuartoVirtualNotebookContribution, QuartoVirtualNotebookService } from './quartoVirtualNotebookService.js';
 import {
 	IS_QUARTO_DOCUMENT,
 	POSITRON_QUARTO_INLINE_OUTPUT_KEY,
@@ -67,6 +68,7 @@ registerSingleton(IQuartoKernelManager, QuartoKernelManager, InstantiationType.D
 registerSingleton(IQuartoExecutionManager, QuartoExecutionManager, InstantiationType.Delayed);
 registerSingleton(IQuartoOutputCacheService, QuartoOutputCacheService, InstantiationType.Delayed);
 registerSingleton(IQuartoOutputManager, QuartoOutputManagerService, InstantiationType.Delayed);
+registerSingleton(IQuartoVirtualNotebookService, QuartoVirtualNotebookService, InstantiationType.Eager);
 
 // Register editor contributions
 registerEditorContribution(QuartoExecutionDecorations.ID, QuartoExecutionDecorations, EditorContributionInstantiation.AfterFirstRender);
@@ -328,6 +330,13 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 registerWorkbenchContribution2(
 	QuartoInlineOutputContribution.ID,
 	QuartoInlineOutputContribution,
+	WorkbenchPhase.AfterRestored
+);
+
+// Starts the hidden notebook watcher
+registerWorkbenchContribution2(
+	QuartoVirtualNotebookContribution.ID,
+	QuartoVirtualNotebookContribution,
 	WorkbenchPhase.AfterRestored
 );
 

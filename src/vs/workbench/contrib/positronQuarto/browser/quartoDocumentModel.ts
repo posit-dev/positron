@@ -127,6 +127,15 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 		await this._parsedBarrier.wait();
 	}
 
+	synchronize(): void {
+		if (!this._parseTimeout) {
+			return;
+		}
+		clearTimeout(this._parseTimeout);
+		this._parseTimeout = undefined;
+		this._parseDocument();
+	}
+
 	/**
 	 * Closes the parse gate so `whenParsed` callers wait for the pending re-parse.
 	 * A `Barrier` can't be re-closed, hence the replacement -- but only when open,
