@@ -237,11 +237,19 @@ nightly / full-suite run once it has proven reliable, as a follow-up.
 Steps 3 and 6 need no Docker at all. Steps 1, 2 and 4 are the ones with real
 unknowns.
 
-### Step 0 -- `docker/images/rocky_9/` (DONE locally; GHCR publish pending)
+### Step 0 -- `docker/images/rocky_9/` (DONE)
 
-The arm64 image builds green and is verified (see "Verified" below). Publishing
-to GHCR still needs a `ci-images-build-os.yml` dispatch, and the amd64 leg has
-only been validated at the package-resolution level, not built end to end.
+Built and published: **`ghcr.io/posit-dev/positron-rocky9:24.18.0`**, a
+multi-arch manifest list covering `linux/amd64` and `linux/arm64`
+([run 31198129140](https://github.com/posit-dev/positron/actions/runs/31198129140),
+all three jobs green on the first attempt). Tag follows the existing convention
+that image tags track the Node version, which is 24.18.0 here.
+
+Both arches verified from the published image, including the two places where
+rocky_8's arch-specific branches were deleted: Quarto 1.10.18 is on PATH (the
+RPM install fix) and TinyTeX's xelatex/tlmgr are present on amd64 (no system
+TeX Live fallback needed). GEOS 3.13.1 / GDAL 3.10.3 with sf/terra/gert/arrow
+loading on both.
 
 
 Port `docker/images/rocky_8/` to Rocky 9, **dropping every EL8-only workaround
