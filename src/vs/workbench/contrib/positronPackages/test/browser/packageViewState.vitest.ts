@@ -16,14 +16,14 @@ function pkg(overrides: Partial<ILanguageRuntimePackage> = {}): ILanguageRuntime
 }
 
 describe('derivePackageViewState', () => {
-	it('installed + current + active: uninstall, help, website; actions enabled', () => {
+	it('installed + current + active: uninstall, website, help; actions enabled', () => {
 		expect(derivePackageViewState(pkg(), { installed: true, sessionAlive: true, isActive: true }))
 			.toMatchInlineSnapshot(`
 				{
 				  "actions": [
 				    "uninstall",
-				    "help",
 				    "website",
+				    "help",
 				  ],
 				  "actionsEnabled": true,
 				  "installState": "current",
@@ -32,19 +32,19 @@ describe('derivePackageViewState', () => {
 			`);
 	});
 
-	it('installed + outdated + active: update, uninstall, help, website', () => {
+	it('installed + outdated + active: update, uninstall, website, help', () => {
 		const state = derivePackageViewState(
 			pkg({ outdated: true, latestVersion: '1.1.4' }),
 			{ installed: true, sessionAlive: true, isActive: true });
 		expect(state.installState).toBe('outdated');
-		expect(state.actions).toEqual(['update', 'uninstall', 'help', 'website']);
+		expect(state.actions).toEqual(['update', 'uninstall', 'website', 'help']);
 		expect(state.actionsEnabled).toBe(true);
 	});
 
-	it('not installed + active: install, help, website', () => {
+	it('not installed + active: install, website, help', () => {
 		const state = derivePackageViewState(pkg(), { installed: false, sessionAlive: true, isActive: true });
 		expect(state.installState).toBe('not-installed');
-		expect(state.actions).toEqual(['install', 'help', 'website']);
+		expect(state.actions).toEqual(['install', 'website', 'help']);
 	});
 
 	it('omits website when the package has no url', () => {
@@ -56,7 +56,7 @@ describe('derivePackageViewState', () => {
 		const state = derivePackageViewState(pkg(), { installed: true, sessionAlive: true, isActive: false });
 		expect(state.actionsEnabled).toBe(false);
 		expect(state.showNotActiveHint).toBe(true);
-		expect(state.actions).toEqual(['uninstall', 'help', 'website']);
+		expect(state.actions).toEqual(['uninstall', 'website', 'help']);
 	});
 
 	it('session ended: session-ended state, only website (if url), disabled, no hint', () => {

@@ -9,7 +9,7 @@
 import React from 'react';
 
 // Testing libraries.
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Other dependencies.
@@ -67,12 +67,13 @@ function stubGridLayoutWithSize(width: number, height: number): () => void {
 	};
 }
 
-describe('ListPackages highlight', () => {
+describe('ListPackages', () => {
 	// Emitters live at describe scope so the .stub() below captures their .event during build();
 	// tests fire them to drive the view (see the "Common mistakes" note in vitest-tests.md).
 	const onDidRefreshPackagesInstance = new Emitter<ILanguageRuntimePackage[]>();
 	const onDidChangePackages = new Emitter<string[]>();
-	const installed = [pkg('numpy', '1.26.0'), pkg('pandas', '2.0.0')];
+	// numpy carries a url so it renders both action buttons; pandas has none.
+	const installed = [{ ...pkg('numpy', '1.26.0'), url: 'https://numpy.org' }, pkg('pandas', '2.0.0')];
 
 	const fakeInstance = stubInterface<IPositronPackagesInstance>({
 		packages: installed,
@@ -200,5 +201,18 @@ describe('ListPackages highlight', () => {
 		// the nonce is already consumed.
 		act(() => onDidRefreshPackagesInstance.fire([pkg('numpy', '1.26.0'), pkg('pandas', '2.0.0')]));
 		expect(itemRow('numpy')).not.toHaveClass('recently-changed');
+	});
+
+	// The icon group is right-aligned, so help has to come last: it is the only button every
+	// package renders, and keeping it last pins it to the row's right edge whether or not the
+	// package has a website. The detail page follows this same order (see packageViewState).
+	it('renders the website action before the help action, keeping help on the right edge', async () => {
+		renderList();
+		expect(await screen.findByText('numpy')).toBeInTheDocument();
+		const item = itemRow('numpy') as HTMLElement;
+
+		const labels = within(item).getAllByRole('button').map(button => button.getAttribute('aria-label'));
+
+		expect(labels).toEqual(['Open website for numpy', 'Show help for numpy']);
 	});
 });
