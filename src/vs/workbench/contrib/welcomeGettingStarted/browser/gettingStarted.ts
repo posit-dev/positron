@@ -1992,6 +1992,9 @@ export class GettingStartedPage extends EditorPane {
 			this.container.querySelector('.gettingStartedSlideCategories')!.querySelectorAll('button').forEach(button => button.disabled = false);
 			// eslint-disable-next-line no-restricted-syntax
 			this.container.querySelector('.gettingStartedSlideCategories')!.querySelectorAll('input').forEach(button => button.disabled = false);
+			// --- Start Positron ---
+			this.setSlideInert(false, true);
+			// --- End Positron ---
 		} else {
 			slideManager.classList.add('showDetails');
 			slideManager.classList.remove('showCategories');
@@ -2008,8 +2011,38 @@ export class GettingStartedPage extends EditorPane {
 			this.container.querySelector('.gettingStartedSlideCategories')!.querySelectorAll('button').forEach(button => button.disabled = true);
 			// eslint-disable-next-line no-restricted-syntax
 			this.container.querySelector('.gettingStartedSlideCategories')!.querySelectorAll('input').forEach(button => button.disabled = true);
+			// --- Start Positron ---
+			this.setSlideInert(true, false);
+			// --- End Positron ---
 		}
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Takes the off-screen slide out of the tab order.
+	 *
+	 * The two slides sit side by side and the hidden one is moved off-screen
+	 * rather than hidden with `display: none` which means elements stay focusable.
+	 * The disable pass above only checks buttons and inputs, which leaves the
+	 * "Recent" list delete anchors, the show on startup checkbox and the
+	 * walkthrough's step rows and links enabled. Tabbing into one of those either
+	 * moves focus somewhere invisible or scrolls the off-screen slide into view,
+	 * which drags the visible slide partially out of view.
+	 *
+	 * `inert` is inherited by descendants, so it also covers anything added to a
+	 * slide after this runs.
+	 * @param categories Whether the categories slide should be inert.
+	 * @param details Whether the details slide should be inert.
+	 */
+	private setSlideInert(categories: boolean, details: boolean) {
+		// eslint-disable-next-line no-restricted-syntax
+		const categoriesSlide = this.container.querySelector<HTMLElement>('.gettingStartedSlideCategories');
+		// eslint-disable-next-line no-restricted-syntax
+		const detailsSlide = this.container.querySelector<HTMLElement>('.gettingStartedSlideDetails');
+		if (categoriesSlide) { categoriesSlide.inert = categories; }
+		if (detailsSlide) { detailsSlide.inert = details; }
+	}
+	// --- End Positron ---
 
 	override focus() {
 		super.focus();
