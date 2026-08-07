@@ -10,6 +10,7 @@ import { AuthProvider } from './authProvider';
 import { DatabricksLoopbackServer } from './databricksAuthServer';
 import {
 	buildAuthorizeUrl,
+	discoverOAuthEndpoints,
 	exchangeCodeForTokens,
 	generatePkcePair,
 	generateState,
@@ -159,7 +160,8 @@ export class DatabricksAuthProvider extends AuthProvider {
 				throw new Error('No stored refresh token or workspace host');
 			}
 			log.info('[Databricks] Refreshing OAuth access token.');
-			const tokens = await refreshTokens(host, refreshToken);
+			const endpoints = await discoverOAuthEndpoints(host);
+			const tokens = await refreshTokens(endpoints.tokenEndpoint, refreshToken);
 			await this.storeOAuthSecrets(host, tokens);
 			log.info('[Databricks] OAuth access token refreshed.');
 			return tokens.accessToken;
@@ -195,14 +197,19 @@ export class DatabricksAuthProvider extends AuthProvider {
 
 		try {
 			await server.start();
-			const authorizeUrl = buildAuthorizeUrl(host, state, challenge);
-			log.info(`[Databricks] Starting OAuth sign-in for ${host}.`);
+			const endpoints = await discoverOAuthEndpoints(host);
+			const authorizeUrl = buildAuthorizeUrl(
+				endpoints.authorizationEndpoint, state, challenge, server.redirectUri
+			);
+			log.info(`[Databricks] Starting OAuth sign-in for ${host} (redirect ${server.redirectUri}).`);
 			await vscode.env.openExternal(vscode.Uri.parse(authorizeUrl));
 
 			const code = await server.waitForCode(
 				SIGN_IN_TIMEOUT_MS, cancellation.token
 			);
-			const tokens = await exchangeCodeForTokens(host, code, verifier);
+			const tokens = await exchangeCodeForTokens(
+				endpoints.tokenEndpoint, code, verifier, server.redirectUri
+			);
 			await this.storeOAuthSecrets(host, tokens);
 
 			const session = this.makeOAuthSession(tokens.accessToken, host);

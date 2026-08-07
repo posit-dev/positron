@@ -6,7 +6,6 @@
 import { createHash, randomBytes } from 'crypto';
 import {
 	DATABRICKS_OAUTH_CLIENT_ID,
-	DATABRICKS_OAUTH_REDIRECT_URI,
 	DATABRICKS_OAUTH_SCOPES,
 } from './constants';
 
@@ -58,18 +57,85 @@ export function normalizeHost(raw: string): string {
 	return host.replace(/\/+$/, '');
 }
 
+/** How long to wait for the well-known discovery document. */
+const DISCOVERY_TIMEOUT_MS = 2000;
+
+export interface OAuthEndpoints {
+	authorizationEndpoint: string;
+	tokenEndpoint: string;
+}
+
+const endpointCache = new Map<string, OAuthEndpoints>();
+
+/** Test hook: clear the per-host discovery memo. */
+export function resetOAuthEndpointCache(): void {
+	endpointCache.clear();
+}
+
+function fallbackEndpoints(host: string): OAuthEndpoints {
+	return {
+		authorizationEndpoint: `${host}/oidc/v1/authorize`,
+		tokenEndpoint: `${host}/oidc/v1/token`,
+	};
+}
+
+/**
+ * Discover the OAuth endpoints from the workspace's well-known metadata,
+ * falling back to the hardcoded /oidc/v1 paths on any failure (including
+ * 404 - a fatal 404 would regress workspaces that work today). Endpoints
+ * outside the workspace origin are rejected: the authorization endpoint is
+ * a URL the user's browser is sent to with an auth code in flight.
+ */
+export async function discoverOAuthEndpoints(host: string): Promise<OAuthEndpoints> {
+	const normalized = normalizeHost(host);
+	const cached = endpointCache.get(normalized);
+	if (cached) {
+		return cached;
+	}
+	try {
+		const response = await fetch(
+			`${normalized}/oidc/.well-known/oauth-authorization-server`,
+			{ signal: AbortSignal.timeout(DISCOVERY_TIMEOUT_MS) }
+		);
+		if (!response.ok) {
+			return fallbackEndpoints(normalized);
+		}
+		const data = await response.json() as {
+			authorization_endpoint?: string;
+			token_endpoint?: string;
+		};
+		if (!data.authorization_endpoint || !data.token_endpoint) {
+			return fallbackEndpoints(normalized);
+		}
+		const origin = new URL(normalized).origin;
+		if (new URL(data.authorization_endpoint).origin !== origin ||
+			new URL(data.token_endpoint).origin !== origin) {
+			return fallbackEndpoints(normalized);
+		}
+		const endpoints: OAuthEndpoints = {
+			authorizationEndpoint: data.authorization_endpoint,
+			tokenEndpoint: data.token_endpoint,
+		};
+		endpointCache.set(normalized, endpoints);
+		return endpoints;
+	} catch {
+		return fallbackEndpoints(normalized);
+	}
+}
+
 /**
  * Build the authorization URL for the Databricks OIDC authorize endpoint.
  */
 export function buildAuthorizeUrl(
-	host: string,
+	authorizationEndpoint: string,
 	state: string,
-	challenge: string
+	challenge: string,
+	redirectUri: string
 ): string {
-	const url = new URL(`${normalizeHost(host)}/oidc/v1/authorize`);
+	const url = new URL(authorizationEndpoint);
 	url.searchParams.set('client_id', DATABRICKS_OAUTH_CLIENT_ID);
 	url.searchParams.set('response_type', 'code');
-	url.searchParams.set('redirect_uri', DATABRICKS_OAUTH_REDIRECT_URI);
+	url.searchParams.set('redirect_uri', redirectUri);
 	url.searchParams.set('scope', DATABRICKS_OAUTH_SCOPES);
 	url.searchParams.set('state', state);
 	url.searchParams.set('code_challenge', challenge);
@@ -78,11 +144,11 @@ export function buildAuthorizeUrl(
 }
 
 async function postTokenEndpoint(
-	host: string,
+	tokenEndpoint: string,
 	params: Record<string, string>,
 	operation: string
 ): Promise<TokenEndpointResponse> {
-	const response = await fetch(`${normalizeHost(host)}/oidc/v1/token`, {
+	const response = await fetch(tokenEndpoint, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 		body: new URLSearchParams(params).toString(),
@@ -108,14 +174,15 @@ async function postTokenEndpoint(
  * Exchange an authorization code for tokens.
  */
 export async function exchangeCodeForTokens(
-	host: string,
+	tokenEndpoint: string,
 	code: string,
-	verifier: string
+	verifier: string,
+	redirectUri: string
 ): Promise<TokenSet> {
-	const data = await postTokenEndpoint(host, {
+	const data = await postTokenEndpoint(tokenEndpoint, {
 		grant_type: 'authorization_code',
 		code,
-		redirect_uri: DATABRICKS_OAUTH_REDIRECT_URI,
+		redirect_uri: redirectUri,
 		client_id: DATABRICKS_OAUTH_CLIENT_ID,
 		code_verifier: verifier,
 	}, 'token exchange');
@@ -138,10 +205,10 @@ export async function exchangeCodeForTokens(
  * response includes a rotated one.
  */
 export async function refreshTokens(
-	host: string,
+	tokenEndpoint: string,
 	refreshToken: string
 ): Promise<TokenSet> {
-	const data = await postTokenEndpoint(host, {
+	const data = await postTokenEndpoint(tokenEndpoint, {
 		grant_type: 'refresh_token',
 		refresh_token: refreshToken,
 		client_id: DATABRICKS_OAUTH_CLIENT_ID,

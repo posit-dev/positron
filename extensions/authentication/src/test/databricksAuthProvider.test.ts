@@ -6,8 +6,25 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { DatabricksAuthProvider } from '../databricksAuthProvider';
+import { resetOAuthEndpointCache } from '../databricksOAuth';
 
 const HOST = 'https://example.cloud.databricks.com';
+
+/**
+ * Stub `globalThis.fetch` to answer the well-known discovery URL with 404
+ * (exercising the /oidc/v1 fallback) and the token endpoint with `respond`.
+ */
+function stubTokenFetch(
+	respond: () => Response | Promise<Response>
+): void {
+	globalThis.fetch = (async (input: string | URL | Request) => {
+		const url = String(input);
+		if (url.includes('/.well-known/')) {
+			return new Response('', { status: 404 });
+		}
+		return respond();
+	}) as typeof fetch;
+}
 
 function storeOAuthSecrets(secrets: Map<string, string>, overrides?: {
 	accessToken?: string;
@@ -54,6 +71,7 @@ suite('DatabricksAuthProvider', () => {
 
 	setup(() => {
 		originalFetch = globalThis.fetch;
+		resetOAuthEndpointCache();
 		const mock = makeMockContext();
 		secrets = mock.secrets;
 		provider = new DatabricksAuthProvider(mock.context);
@@ -92,11 +110,11 @@ suite('DatabricksAuthProvider', () => {
 				expiresAt: Date.now() + 60 * 1000, // within the 5 min buffer
 			});
 
-			globalThis.fetch = async () => new Response(JSON.stringify({
+			stubTokenFetch(() => new Response(JSON.stringify({
 				access_token: 'new-token',
 				refresh_token: 'new-refresh',
 				expires_in: 3600,
-			}), { status: 200 });
+			}), { status: 200 }));
 
 			const sessions = await provider.getSessions();
 			assert.strictEqual(sessions.length, 1);
@@ -109,10 +127,10 @@ suite('DatabricksAuthProvider', () => {
 		test('clears secrets and fires removed when refresh fails', async () => {
 			storeOAuthSecrets(secrets, { expiresAt: Date.now() - 1000 });
 
-			globalThis.fetch = async () => new Response(JSON.stringify({
+			stubTokenFetch(() => new Response(JSON.stringify({
 				error: 'invalid_grant',
 				error_description: 'Refresh token revoked',
-			}), { status: 401 });
+			}), { status: 401 }));
 
 			const events: vscode.AuthenticationProviderAuthenticationSessionsChangeEvent[] = [];
 			const subscription = provider.onDidChangeSessions(e => events.push(e));
@@ -136,10 +154,10 @@ suite('DatabricksAuthProvider', () => {
 		test('alerts the user when the refresh fails', async () => {
 			storeOAuthSecrets(secrets, { expiresAt: Date.now() - 1000 });
 
-			globalThis.fetch = async () => new Response(JSON.stringify({
+			stubTokenFetch(() => new Response(JSON.stringify({
 				error: 'invalid_grant',
 				error_description: 'Refresh token revoked',
-			}), { status: 401 });
+			}), { status: 401 }));
 
 			// The refresh runs from getSessions, so the user may have no modal
 			// open: assert they are told they have been signed out.
@@ -163,9 +181,9 @@ suite('DatabricksAuthProvider', () => {
 		test('concurrent calls share a single refresh', async () => {
 			storeOAuthSecrets(secrets, { expiresAt: Date.now() - 1000 });
 
-			let fetchCount = 0;
-			globalThis.fetch = async () => {
-				fetchCount++;
+			let tokenFetchCount = 0;
+			stubTokenFetch(async () => {
+				tokenFetchCount++;
 				// Yield so both getSessions calls overlap the refresh.
 				await new Promise(resolve => setTimeout(resolve, 20));
 				return new Response(JSON.stringify({
@@ -173,14 +191,14 @@ suite('DatabricksAuthProvider', () => {
 					refresh_token: 'new-refresh',
 					expires_in: 3600,
 				}), { status: 200 });
-			};
+			});
 
 			const [a, b] = await Promise.all([
 				provider.getSessions(),
 				provider.getSessions(),
 			]);
 
-			assert.strictEqual(fetchCount, 1);
+			assert.strictEqual(tokenFetchCount, 1);
 			assert.strictEqual(a[0].accessToken, 'new-token');
 			assert.strictEqual(b[0].accessToken, 'new-token');
 		});

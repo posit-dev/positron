@@ -7,11 +7,13 @@ import * as assert from 'assert';
 import { createHash } from 'crypto';
 import {
 	buildAuthorizeUrl,
+	discoverOAuthEndpoints,
 	exchangeCodeForTokens,
 	generatePkcePair,
 	generateState,
 	normalizeHost,
 	refreshTokens,
+	resetOAuthEndpointCache,
 } from '../databricksOAuth';
 
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
@@ -114,23 +116,19 @@ suite('databricksOAuth', () => {
 	suite('buildAuthorizeUrl', () => {
 		test('builds the authorize URL with exact params', () => {
 			const url = new URL(buildAuthorizeUrl(
-				'https://example.cloud.databricks.com', 'the-state', 'the-challenge'
+				'https://example.cloud.databricks.com/oidc/v1/authorize',
+				'the-state', 'the-challenge', 'http://localhost:8021'
 			));
 			assert.strictEqual(url.origin, 'https://example.cloud.databricks.com');
 			assert.strictEqual(url.pathname, '/oidc/v1/authorize');
 			assert.strictEqual(url.searchParams.get('client_id'), 'databricks-cli');
 			assert.strictEqual(url.searchParams.get('response_type'), 'code');
-			assert.strictEqual(url.searchParams.get('redirect_uri'), 'http://localhost:8020');
+			assert.strictEqual(url.searchParams.get('redirect_uri'), 'http://localhost:8021');
 			assert.strictEqual(url.searchParams.get('scope'), 'all-apis offline_access');
 			assert.strictEqual(url.searchParams.get('state'), 'the-state');
 			assert.strictEqual(url.searchParams.get('code_challenge'), 'the-challenge');
 			assert.strictEqual(url.searchParams.get('code_challenge_method'), 'S256');
 			assert.strictEqual([...url.searchParams.keys()].length, 7);
-		});
-
-		test('normalizes the host', () => {
-			const url = buildAuthorizeUrl('example.cloud.databricks.com/', 's', 'c');
-			assert.ok(url.startsWith('https://example.cloud.databricks.com/oidc/v1/authorize?'));
 		});
 	});
 
@@ -145,7 +143,8 @@ suite('databricksOAuth', () => {
 			}));
 
 			const tokens = await exchangeCodeForTokens(
-				'https://example.cloud.databricks.com', 'the-code', 'the-verifier'
+				'https://example.cloud.databricks.com/oidc/v1/token',
+				'the-code', 'the-verifier', 'http://localhost:8021'
 			);
 
 			assert.strictEqual(calls.length, 1);
@@ -158,7 +157,7 @@ suite('databricksOAuth', () => {
 			const body = new URLSearchParams(calls[0].init?.body as string);
 			assert.strictEqual(body.get('grant_type'), 'authorization_code');
 			assert.strictEqual(body.get('code'), 'the-code');
-			assert.strictEqual(body.get('redirect_uri'), 'http://localhost:8020');
+			assert.strictEqual(body.get('redirect_uri'), 'http://localhost:8021');
 			assert.strictEqual(body.get('client_id'), 'databricks-cli');
 			assert.strictEqual(body.get('code_verifier'), 'the-verifier');
 
@@ -175,7 +174,9 @@ suite('databricksOAuth', () => {
 			}, 400));
 
 			await assert.rejects(
-				() => exchangeCodeForTokens('https://example.com', 'code', 'verifier'),
+				() => exchangeCodeForTokens(
+					'https://example.com/oidc/v1/token', 'code', 'verifier', 'http://localhost:8021'
+				),
 				(err: Error) =>
 					err.message.includes('token exchange') &&
 					err.message.includes('400') &&
@@ -189,7 +190,9 @@ suite('databricksOAuth', () => {
 			}));
 
 			await assert.rejects(
-				() => exchangeCodeForTokens('https://example.com', 'code', 'verifier'),
+				() => exchangeCodeForTokens(
+					'https://example.com/oidc/v1/token', 'code', 'verifier', 'http://localhost:8021'
+				),
 				(err: Error) => err.message.includes('502')
 			);
 		});
@@ -204,7 +207,7 @@ suite('databricksOAuth', () => {
 			}));
 
 			const tokens = await refreshTokens(
-				'https://example.cloud.databricks.com', 'refresh-1'
+				'https://example.cloud.databricks.com/oidc/v1/token', 'refresh-1'
 			);
 
 			assert.strictEqual(calls[0].url, 'https://example.cloud.databricks.com/oidc/v1/token');
@@ -225,7 +228,7 @@ suite('databricksOAuth', () => {
 				expires_in: 1800,
 			}));
 
-			const tokens = await refreshTokens('https://example.com', 'refresh-1');
+			const tokens = await refreshTokens('https://example.com/oidc/v1/token', 'refresh-1');
 			assert.strictEqual(tokens.refreshToken, 'refresh-1');
 		});
 
@@ -236,11 +239,106 @@ suite('databricksOAuth', () => {
 			}, 401));
 
 			await assert.rejects(
-				() => refreshTokens('https://example.com', 'refresh-1'),
+				() => refreshTokens('https://example.com/oidc/v1/token', 'refresh-1'),
 				(err: Error) =>
 					err.message.includes('token refresh') &&
 					err.message.includes('Refresh token revoked')
 			);
+		});
+	});
+
+	suite('discoverOAuthEndpoints', () => {
+		const HOST = 'https://my-workspace.cloud.databricks.com';
+		let originalDiscoveryFetch: typeof globalThis.fetch;
+
+		setup(() => {
+			originalDiscoveryFetch = globalThis.fetch;
+			resetOAuthEndpointCache();
+		});
+		teardown(() => {
+			globalThis.fetch = originalDiscoveryFetch;
+		});
+
+		test('uses endpoints from the well-known document', async () => {
+			let requestedUrl = '';
+			globalThis.fetch = (async (url: string | URL | Request) => {
+				requestedUrl = String(url);
+				return new Response(JSON.stringify({
+					authorization_endpoint: `${HOST}/custom/authorize`,
+					token_endpoint: `${HOST}/custom/token`,
+				}), { status: 200 });
+			}) as typeof fetch;
+
+			const endpoints = await discoverOAuthEndpoints(HOST);
+			assert.strictEqual(
+				requestedUrl,
+				`${HOST}/oidc/.well-known/oauth-authorization-server`
+			);
+			assert.deepStrictEqual(endpoints, {
+				authorizationEndpoint: `${HOST}/custom/authorize`,
+				tokenEndpoint: `${HOST}/custom/token`,
+			});
+		});
+
+		test('falls back to /oidc/v1 paths on HTTP failure', async () => {
+			globalThis.fetch = (async () => new Response('', { status: 404 })) as typeof fetch;
+			assert.deepStrictEqual(await discoverOAuthEndpoints(HOST), {
+				authorizationEndpoint: `${HOST}/oidc/v1/authorize`,
+				tokenEndpoint: `${HOST}/oidc/v1/token`,
+			});
+		});
+
+		test('falls back on network error', async () => {
+			globalThis.fetch = (async () => { throw new Error('ECONNREFUSED'); }) as typeof fetch;
+			assert.deepStrictEqual(await discoverOAuthEndpoints(HOST), {
+				authorizationEndpoint: `${HOST}/oidc/v1/authorize`,
+				tokenEndpoint: `${HOST}/oidc/v1/token`,
+			});
+		});
+
+		test('falls back on a malformed document', async () => {
+			globalThis.fetch = (async () =>
+				new Response(JSON.stringify({ issuer: HOST }), { status: 200 })) as typeof fetch;
+			assert.deepStrictEqual(await discoverOAuthEndpoints(HOST), {
+				authorizationEndpoint: `${HOST}/oidc/v1/authorize`,
+				tokenEndpoint: `${HOST}/oidc/v1/token`,
+			});
+		});
+
+		test('rejects cross-origin endpoints from discovery', async () => {
+			globalThis.fetch = (async () => new Response(JSON.stringify({
+				authorization_endpoint: 'https://evil.example.com/authorize',
+				token_endpoint: `${HOST}/custom/token`,
+			}), { status: 200 })) as typeof fetch;
+			assert.deepStrictEqual(await discoverOAuthEndpoints(HOST), {
+				authorizationEndpoint: `${HOST}/oidc/v1/authorize`,
+				tokenEndpoint: `${HOST}/oidc/v1/token`,
+			});
+		});
+
+		test('memoizes successful discovery per host', async () => {
+			let calls = 0;
+			globalThis.fetch = (async () => {
+				calls++;
+				return new Response(JSON.stringify({
+					authorization_endpoint: `${HOST}/custom/authorize`,
+					token_endpoint: `${HOST}/custom/token`,
+				}), { status: 200 });
+			}) as typeof fetch;
+			await discoverOAuthEndpoints(HOST);
+			await discoverOAuthEndpoints(HOST);
+			assert.strictEqual(calls, 1);
+		});
+
+		test('does not memoize failures', async () => {
+			let calls = 0;
+			globalThis.fetch = (async () => {
+				calls++;
+				return new Response('', { status: 500 });
+			}) as typeof fetch;
+			await discoverOAuthEndpoints(HOST);
+			await discoverOAuthEndpoints(HOST);
+			assert.strictEqual(calls, 2);
 		});
 	});
 });
