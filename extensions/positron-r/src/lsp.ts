@@ -35,6 +35,41 @@ const QUARTO_INPUT_BOUNDARY_SELECTOR = { language: 'r', scheme: 'inmemory', patt
 // Regex to match notebook console REPL URIs: /notebook-repl-<lang>-<uuid>
 const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
 
+// Positron core creates a hidden notebook of this type for each open Quarto
+// document, so that language servers see the embedded code cells as ordinary
+// notebook cells. See
+// src/vs/workbench/contrib/positronQuarto/common/quartoVirtualNotebookTypes.ts.
+const QUARTO_CELLS_NOTEBOOK_TYPE = 'quarto-cells';
+
+// Matches the path of a Quarto or R Markdown document.
+const QUARTO_PATH_PATTERN = /\.(qmd|rmd)$/i;
+
+// Selector for the cells of Quarto virtual notebooks.
+//
+// Ark declares no `notebookDocumentSync` capability, so the language client
+// syncs these cells as ordinary text documents and the document selector is the
+// only gate. A cell URI keeps the path of the Quarto document the notebook was
+// built from, so restricting the pattern to Quarto extensions keeps the cells of
+// real notebooks (.ipynb) out.
+const QUARTO_CELL_SELECTOR = {
+	language: 'r',
+	scheme: 'vscode-notebook-cell',
+	pattern: '**/*.{qmd,QMD,rmd,Rmd,RMD}',
+};
+
+/**
+ * Whether a document is a cell of a Quarto virtual notebook.
+ */
+function isQuartoVirtualCell(document: vscode.TextDocument): boolean {
+	if (document.uri.scheme !== 'vscode-notebook-cell') {
+		return false;
+	}
+	return vscode.workspace.notebookDocuments.some(
+		notebook => notebook.notebookType === QUARTO_CELLS_NOTEBOOK_TYPE &&
+			notebook.uri.path === document.uri.path
+	);
+}
+
 /**
  * Global output channel for R LSP sessions
  *
@@ -137,6 +172,17 @@ export class ArkLsp implements vscode.Disposable {
 
 		const { notebookUri } = this._metadata;
 
+		// Matches the cells of this client's own notebook.
+		//
+		// Skipped for Quarto sessions, whose notebook URI is the path of the
+		// .qmd document. The only R documents with that path are the cells of
+		// the document's virtual notebook, and the console client serves those,
+		// so matching them here would only duplicate it. For a real notebook
+		// (.ipynb) this is what matches the notebook's own cells.
+		const ownNotebookCellSelectors = notebookUri && !QUARTO_PATH_PATTERN.test(notebookUri.path)
+			? [{ language: 'r', pattern: notebookUri.fsPath }]
+			: [];
+
 		const clientOptions: LanguageClientOptions = {
 			// If this client belongs to a notebook, set the document selector to only include that notebook,
 			// Quarto virtual documents (vdocs), and notebook console inputs (inmemory scheme).
@@ -144,7 +190,7 @@ export class ArkLsp implements vscode.Disposable {
 			// untitled R files, in-memory R files (e.g. the console), and R / Quarto / R Markdown files on disk.
 			documentSelector: notebookUri ?
 				[
-					{ language: 'r', pattern: notebookUri.fsPath },
+					...ownNotebookCellSelectors,
 					// Match Quarto virtual documents (vdocs). Vdocs are
 					// temporary .r files created for LSP features in
 					// embedded code blocks (e.g. completions, hover).
@@ -156,7 +202,16 @@ export class ArkLsp implements vscode.Disposable {
 					// to distinguish them from regular console inputs.
 					{ language: 'r', scheme: 'inmemory' },
 				] :
-				R_DOCUMENT_SELECTORS,
+				[
+					...R_DOCUMENT_SELECTORS,
+					// Match Quarto virtual notebook cells. The console client
+					// serves these for every open Quarto document. A Quarto
+					// session starts only for the active pinned editor and only
+					// when inline output is enabled, so routing these cells to a
+					// session instead would leave every other open Quarto
+					// document without language features.
+					QUARTO_CELL_SELECTOR,
+				],
 			synchronize: notebookUri ?
 				undefined :
 				{
@@ -210,6 +265,10 @@ export class ArkLsp implements vscode.Disposable {
 							return undefined;
 						}
 					} else {
+						// Notebook LSP: skip Quarto virtual notebook cells, which the console LSP serves
+						if (isQuartoVirtualCell(document)) {
+							return undefined;
+						}
 						// Notebook LSP: skip regular (non-notebook) console inputs
 						if (document.uri.scheme === 'inmemory' &&
 							!NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {

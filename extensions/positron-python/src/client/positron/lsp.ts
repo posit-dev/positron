@@ -27,6 +27,33 @@ const VDOC_SELECTOR = { language: 'python', pattern: '**/.vdoc.*.{py,PY}' };
 // Regex to match notebook console REPL URIs: /notebook-repl-<lang>-<uuid>
 const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
 
+// Positron core creates a hidden notebook of this type for each open Quarto
+// document, so that language servers see the embedded code cells as ordinary
+// notebook cells. See
+// src/vs/workbench/contrib/positronQuarto/common/quartoVirtualNotebookTypes.ts.
+const QUARTO_CELLS_NOTEBOOK_TYPE = 'quarto-cells';
+
+// Selector for the cells of Quarto virtual notebooks. A cell URI keeps the path
+// of the Quarto document the notebook was built from, so restricting the pattern
+// to Quarto extensions keeps the cells of real notebooks (.ipynb) out.
+const QUARTO_CELL_SELECTOR = {
+    language: 'python',
+    scheme: 'vscode-notebook-cell',
+    pattern: '**/*.{qmd,QMD,rmd,Rmd,RMD}',
+};
+
+/**
+ * Whether a document is a cell of a Quarto virtual notebook.
+ */
+function isQuartoVirtualCell(document: vscode.TextDocument): boolean {
+    if (document.uri.scheme !== 'vscode-notebook-cell') {
+        return false;
+    }
+    return vscode.workspace.notebookDocuments.some(
+        (notebook) => notebook.notebookType === QUARTO_CELLS_NOTEBOOK_TYPE && notebook.uri.path === document.uri.path,
+    );
+}
+
 /**
  * Global output channel for Python LSP sessions
  *
@@ -146,6 +173,9 @@ export class PythonLsp implements vscode.Disposable {
                   // code blocks when inline output is disabled and
                   // no notebook LSP exists.
                   VDOC_SELECTOR,
+                  // Match Quarto virtual notebook cells. The console
+                  // client serves these for every open Quarto document.
+                  QUARTO_CELL_SELECTOR,
               ];
 
         // This is needed in addition to the document selector, otherwise every client seems to
@@ -156,8 +186,16 @@ export class PythonLsp implements vscode.Disposable {
                   filterCells: (notebookDocument, cells) =>
                       notebookUri.toString() === notebookDocument.uri.toString() ? cells : [],
               }
-            : // For console clients, exclude all notebook cells.
-              { filterCells: () => [] };
+            : // Console clients exclude notebook cells, which belong to their own
+              // notebook's client, except for the cells of Quarto virtual notebooks.
+              // Those have no client of their own. A Quarto session starts only for
+              // the active pinned editor and only when inline output is enabled, so
+              // routing these cells to a session instead would leave every other open
+              // Quarto document without language features.
+              {
+                  filterCells: (notebookDocument, cells) =>
+                      notebookDocument.notebookType === QUARTO_CELLS_NOTEBOOK_TYPE ? cells : [],
+              };
 
         // Override default error handler with one that doesn't automatically restart the client,
         // and that logs to the appropriate place.
@@ -191,6 +229,10 @@ export class PythonLsp implements vscode.Disposable {
                     return true;
                 }
             } else {
+                // Notebook LSP: skip Quarto virtual notebook cells, which the console LSP serves.
+                if (isQuartoVirtualCell(document)) {
+                    return true;
+                }
                 // Notebook LSP: skip regular (non-notebook) console inputs
                 if (document.uri.scheme === 'inmemory' && !NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
                     return true;
