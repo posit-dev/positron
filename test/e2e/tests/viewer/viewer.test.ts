@@ -51,6 +51,24 @@ test.describe('Viewer', { tag: [tags.VIEWER, tags.CONSOLE] }, () => {
 		await viewer.expectContentVisible(frame => frame.getByText('Datsun 710'));
 	});
 
+	test('R - Verify Viewer navigates HTML output history', {
+		tag: [tags.WEB, tags.ARK, tags.CROSS_BROWSER]
+	}, async function ({ app, r }) {
+		const { console, viewer } = app.workbench;
+
+		await console.executeCode('R', rReactableHistoryFirstScript);
+		await viewer.expectContentVisible(frame => frame.getByText('first-result'));
+
+		await console.executeCode('R', rReactableHistorySecondScript);
+		await viewer.expectContentVisible(frame => frame.getByText('second-result'));
+
+		await viewer.showPreviousViewerItem();
+		await viewer.expectContentVisible(frame => frame.getByText('first-result'));
+
+		await viewer.showNextViewerItem();
+		await viewer.expectContentVisible(frame => frame.getByText('second-result'));
+	});
+
 	test('R - Verify Viewer displays reprex code output', {
 		tag: [tags.WEB, tags.ARK, tags.CROSS_BROWSER]
 	}, async function ({ app, r }) {
@@ -77,5 +95,9 @@ modelsummary(m1)`;
 
 const rReactableScript = `library(reactable)
 mtcars |> reactable::reactable()`;
+
+const rReactableHistoryFirstScript = `reactable::reactable(data.frame(result = "first-result"))`;
+
+const rReactableHistorySecondScript = `reactable::reactable(data.frame(result = "second-result"))`;
 
 const rReprexScript = `reprex::reprex(rbinom(3, size = 10, prob = 0.5), comment = "#;-)")`;

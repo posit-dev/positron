@@ -24,6 +24,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PreviewOpenTarget } from '../positronPreviewSevice.js';
+import { PreviewHistoryActions } from './previewHistoryActions.js';
 
 const reload = localize('positron.preview.html.reload', "Reload the content");
 const clear = localize('positron.preview.html.clear', "Clear the content");
@@ -120,6 +121,7 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 			<div className='action-bars preview-action-bar'>
 				<PositronActionBar borderBottom={true} borderTop={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion location='left'>
+						<PreviewHistoryActions />
 						<span className='codicon codicon-file'></span>
 					</ActionBarRegion>
 					<ActionBarRegion location='center'>
