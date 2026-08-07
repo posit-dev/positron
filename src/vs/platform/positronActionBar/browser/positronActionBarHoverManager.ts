@@ -47,6 +47,12 @@ export class PositronActionBarHoverManager extends Disposable implements IHoverM
 	private _lastHoverWidget?: IHoverWidget;
 
 	/**
+	 * The target and content of the hover that is currently showing or scheduled to show. Lets
+	 * showHover ignore a repeat request for the same hover instead of restarting its delay.
+	 */
+	private _pendingHover?: { target: HTMLElement; content: string };
+
+	/**
 	 * Gets a value which indicates whether the hover is instantly hovering.
 	 * @returns A value which indicates whether the hover is instantly hovering.
 	 */
@@ -114,13 +120,28 @@ export class PositronActionBarHoverManager extends Disposable implements IHoverM
 	 * @param content The content.
 	 */
 	public showHover(target: HTMLElement, content?: string | (() => string | undefined)): void {
+		// Resolve the content before touching any state, so a repeat request can be recognized
+		// below and left to finish its delay rather than restarting it.
+		if (typeof content !== 'string') {
+			content = content?.();
+		}
+
+		// If there is no content, hide the hover and return.
+		if (!content) {
+			this.hideHover();
+			return;
+		}
+
+		// If this exact hover is already showing or scheduled, leave it alone.
+		if (this._pendingHover?.target === target && this._pendingHover.content === content) {
+			return;
+		}
+
 		// Hide the hover.
 		this.hideHover();
 
-		// If there is no content, return.
-		if (!content) {
-			return;
-		}
+		// Record what is now showing or scheduled.
+		this._pendingHover = { target, content };
 
 		/**
 		 * Shows the hover.
@@ -145,15 +166,15 @@ export class PositronActionBarHoverManager extends Disposable implements IHoverM
 					skipFadeInAnimation
 				}
 			}, false);
-		};
 
-		// Get the content.
-		if (typeof content !== 'string') {
-			content = content();
-			if (!content) {
-				return;
+			// The hover service rejects a request with undefined rather than an error when it is
+			// already showing a locked hover, or when the options match the hover it has up. Drop
+			// the pending record in that case, otherwise the check above treats the hover as still
+			// on its way and swallows every retry for this target and content.
+			if (!this._lastHoverWidget) {
+				this._pendingHover = undefined;
 			}
-		}
+		};
 
 		// If a hover was recently shown, show the hover immediately and skip the fade in animation.
 		// If not, schedule the hover for display with fade in animation.
@@ -180,6 +201,9 @@ export class PositronActionBarHoverManager extends Disposable implements IHoverM
 	 * Hides the hover.
 	 */
 	public hideHover(): void {
+		// Nothing is showing or scheduled any more.
+		this._pendingHover = undefined;
+
 		// Clear pending timeout.
 		if (this._timeout) {
 			clearTimeout(this._timeout);
