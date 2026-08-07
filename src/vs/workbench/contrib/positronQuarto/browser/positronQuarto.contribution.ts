@@ -27,6 +27,7 @@ import { QuartoCellToolbarController } from './quartoCellToolbarController.js';
 import { QuartoImagePreviewContribution } from './quartoImagePreview.js';
 import { QuartoEquationPreviewContribution } from './quartoEquationPreview.js';
 import { IQuartoVirtualNotebookService, QuartoVirtualNotebookContribution, QuartoVirtualNotebookService } from './quartoVirtualNotebookService.js';
+import { QuartoEmbeddedLanguageFeatures } from './quartoEmbeddedLanguageFeatures.js';
 import {
 	IS_QUARTO_DOCUMENT,
 	POSITRON_QUARTO_INLINE_OUTPUT_KEY,
@@ -337,6 +338,13 @@ registerWorkbenchContribution2(
 registerWorkbenchContribution2(
 	QuartoVirtualNotebookContribution.ID,
 	QuartoVirtualNotebookContribution,
+	WorkbenchPhase.AfterRestored
+);
+
+// Routes language features for embedded code to the hidden notebook's cells
+registerWorkbenchContribution2(
+	QuartoEmbeddedLanguageFeatures.ID,
+	QuartoEmbeddedLanguageFeatures,
 	WorkbenchPhase.AfterRestored
 );
 

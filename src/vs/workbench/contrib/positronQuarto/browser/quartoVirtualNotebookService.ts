@@ -55,6 +55,12 @@ export interface IQuartoVirtualNotebookService {
 	/** Cells of the virtual notebook for a source document, in document order. */
 	getCells(sourceUri: URI): readonly IQuartoVirtualCell[];
 
+	/**
+	 * Cells of every virtual notebook. For callers that need to know what the
+	 * open Quarto documents contain overall rather than what one of them holds.
+	 */
+	getAllCells(): readonly IQuartoVirtualCell[];
+
 	/** The cell whose code contains the given 1-based source line, if any. */
 	getCellAtLine(sourceUri: URI, lineNumber: number): IQuartoVirtualCell | undefined;
 
@@ -426,6 +432,14 @@ export class QuartoVirtualNotebookService extends Disposable implements IQuartoV
 
 	getCells(sourceUri: URI): readonly IQuartoVirtualCell[] {
 		return this._notebooks.get(sourceUri.toString())?.cells ?? [];
+	}
+
+	getAllCells(): readonly IQuartoVirtualCell[] {
+		const cells: IQuartoVirtualCell[] = [];
+		for (const notebook of this._notebooks.values()) {
+			cells.push(...notebook.cells);
+		}
+		return cells;
 	}
 
 	getCellAtLine(sourceUri: URI, lineNumber: number): IQuartoVirtualCell | undefined {
