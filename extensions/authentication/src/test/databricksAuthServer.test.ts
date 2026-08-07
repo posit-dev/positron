@@ -40,7 +40,7 @@ suite('DatabricksLoopbackServer', () => {
 
 	test('resolves the code on a valid redirect', async () => {
 		const port = await getFreePort();
-		server = new DatabricksLoopbackServer('expected-state', port);
+		server = new DatabricksLoopbackServer('expected-state', port, port);
 		await server.start();
 
 		const codePromise = server.waitForCode(5000);
@@ -53,7 +53,7 @@ suite('DatabricksLoopbackServer', () => {
 
 	test('accepts the redirect on any path', async () => {
 		const port = await getFreePort();
-		server = new DatabricksLoopbackServer('expected-state', port);
+		server = new DatabricksLoopbackServer('expected-state', port, port);
 		await server.start();
 
 		const codePromise = server.waitForCode(5000);
@@ -65,7 +65,7 @@ suite('DatabricksLoopbackServer', () => {
 
 	test('responds 400 and rejects on a state mismatch', async () => {
 		const port = await getFreePort();
-		server = new DatabricksLoopbackServer('expected-state', port);
+		server = new DatabricksLoopbackServer('expected-state', port, port);
 		await server.start();
 
 		const codePromise = server.waitForCode(5000);
@@ -80,7 +80,7 @@ suite('DatabricksLoopbackServer', () => {
 
 	test('rejects with the error description on an error redirect', async () => {
 		const port = await getFreePort();
-		server = new DatabricksLoopbackServer('expected-state', port);
+		server = new DatabricksLoopbackServer('expected-state', port, port);
 		await server.start();
 
 		const codePromise = server.waitForCode(5000);
@@ -96,31 +96,80 @@ suite('DatabricksLoopbackServer', () => {
 		);
 	});
 
-	test('start maps EADDRINUSE to a friendly error', async () => {
-		const port = await getFreePort();
-		// Pre-bind the port so start() fails.
+	test('falls back to the next port when the first is busy', async () => {
+		const portA = await getFreePort();
+		// Occupy portA so the server must fall back to portA+1... within range.
 		const blocker = net.createServer();
 		await new Promise<void>((resolve, reject) => {
 			blocker.once('error', reject);
-			blocker.listen(port, '127.0.0.1', () => resolve());
+			blocker.listen(portA, '127.0.0.1', () => resolve());
 		});
-
 		try {
-			server = new DatabricksLoopbackServer('expected-state', port);
+			server = new DatabricksLoopbackServer('expected-state', portA, portA + 5);
+			await server.start();
+			assert.notStrictEqual(server.port, portA);
+			assert.ok(server.port > portA && server.port <= portA + 5);
+			const codePromise = server.waitForCode(5000);
+			const response = await get(server.port, '/?code=abc&state=expected-state');
+			assert.strictEqual(response.status, 200);
+			assert.strictEqual(await codePromise, 'abc');
+		} finally {
+			await new Promise<void>(resolve => blocker.close(() => resolve()));
+		}
+	});
+
+	test('rejects when every port in the range is busy', async () => {
+		const portA = await getFreePort();
+		const blocker = net.createServer();
+		await new Promise<void>((resolve, reject) => {
+			blocker.once('error', reject);
+			blocker.listen(portA, '127.0.0.1', () => resolve());
+		});
+		try {
+			server = new DatabricksLoopbackServer('expected-state', portA, portA);
 			await assert.rejects(
 				() => server!.start(),
-				(err: Error) =>
-					err.message.includes(`Port ${port} is already in use`) &&
-					err.message.includes('personal access token')
+				(err: Error) => err.message.includes('No free port')
 			);
 		} finally {
 			await new Promise<void>(resolve => blocker.close(() => resolve()));
 		}
 	});
 
+	test('redirectUri names localhost with the bound port and no trailing slash', async () => {
+		const port = await getFreePort();
+		server = new DatabricksLoopbackServer('expected-state', port, port);
+		await server.start();
+		assert.strictEqual(server.redirectUri, `http://localhost:${port}`);
+	});
+
+	test('port and redirectUri throw before start', () => {
+		const s = new DatabricksLoopbackServer('expected-state');
+		assert.throws(() => s.port);
+		assert.throws(() => s.redirectUri);
+	});
+
+	test('accepts the redirect over IPv6 when ::1 bound', async function () {
+		const port = await getFreePort();
+		server = new DatabricksLoopbackServer('expected-state', port, port);
+		await server.start();
+		if (!server.ipv6Bound) {
+			this.skip(); // Host has no usable ::1.
+		}
+		const codePromise = server.waitForCode(5000);
+		const response = await new Promise<{ status: number }>((resolve, reject) => {
+			http.get(`http://[::1]:${port}/?code=v6&state=expected-state`, res => {
+				res.resume();
+				resolve({ status: res.statusCode ?? 0 });
+			}).on('error', reject);
+		});
+		assert.strictEqual(response.status, 200);
+		assert.strictEqual(await codePromise, 'v6');
+	});
+
 	test('waitForCode times out', async () => {
 		const port = await getFreePort();
-		server = new DatabricksLoopbackServer('expected-state', port);
+		server = new DatabricksLoopbackServer('expected-state', port, port);
 		await server.start();
 
 		await assert.rejects(
@@ -131,7 +180,7 @@ suite('DatabricksLoopbackServer', () => {
 
 	test('stop is idempotent', async () => {
 		const port = await getFreePort();
-		server = new DatabricksLoopbackServer('expected-state', port);
+		server = new DatabricksLoopbackServer('expected-state', port, port);
 		await server.start();
 		await server.stop();
 		await server.stop();

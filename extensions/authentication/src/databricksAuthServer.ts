@@ -5,7 +5,11 @@
 
 import * as http from 'http';
 import type { CancellationToken } from 'vscode';
-import { DATABRICKS_OAUTH_REDIRECT_PORT } from './constants';
+import {
+	DATABRICKS_OAUTH_PORT_MIN,
+	DATABRICKS_OAUTH_PORT_MAX,
+	DATABRICKS_OAUTH_LISTEN_TIMEOUT_MS,
+} from './constants';
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -31,13 +35,17 @@ function errorHtml(message: string): string {
 /**
  * Minimal loopback HTTP server for the Databricks OAuth U2M flow.
  *
- * Databricks' built-in `databricks-cli` public client only allows the fixed
- * redirect URI http://localhost:8020, so unlike the GitHub loopback server
- * this one must bind a specific port and serves a tiny inline response
- * instead of static media. The port is injectable for tests.
+ * The `databricks-cli` public client accepts redirect URIs on ports
+ * 8020-8040 (the range the Databricks CLI itself falls back through), so
+ * start() walks the range until a port binds, capped at
+ * DATABRICKS_OAUTH_LISTEN_TIMEOUT_MS. Binds 127.0.0.1 and, best-effort,
+ * ::1 on the same port: the redirect URI names `localhost`, which can
+ * resolve to either family. The port range is injectable for tests.
  */
 export class DatabricksLoopbackServer {
 	private _server: http.Server | undefined;
+	private _server6: http.Server | undefined;
+	private _port: number | undefined;
 	private readonly _codePromise: Promise<string>;
 	private _resolveCode!: (code: string) => void;
 	private _rejectCode!: (reason: Error) => void;
@@ -45,7 +53,8 @@ export class DatabricksLoopbackServer {
 
 	constructor(
 		private readonly expectedState: string,
-		private readonly port: number = DATABRICKS_OAUTH_REDIRECT_PORT,
+		private readonly portMin: number = DATABRICKS_OAUTH_PORT_MIN,
+		private readonly portMax: number = DATABRICKS_OAUTH_PORT_MAX,
 	) {
 		this._codePromise = new Promise<string>((resolve, reject) => {
 			this._resolveCode = resolve;
@@ -56,33 +65,72 @@ export class DatabricksLoopbackServer {
 		this._codePromise.catch(() => { });
 	}
 
-	/**
-	 * Start listening on 127.0.0.1:<port>.
-	 */
-	start(): Promise<void> {
-		return new Promise<void>((resolve, reject) => {
-			if (this._server) {
-				reject(new Error('Server is already started'));
-				return;
-			}
+	get port(): number {
+		if (this._port === undefined) {
+			throw new Error('Server is not started');
+		}
+		return this._port;
+	}
+
+	get redirectUri(): string {
+		// No trailing slash: the registered redirect URI is
+		// `http://localhost:<port>` and the token exchange must send the
+		// exact same value.
+		return `http://localhost:${this.port}`;
+	}
+
+	get ipv6Bound(): boolean {
+		return this._server6 !== undefined;
+	}
+
+	/** Bind one address, resolving with the server or rejecting on error. */
+	private listenOn(port: number, host: string): Promise<http.Server> {
+		return new Promise<http.Server>((resolve, reject) => {
 			const server = http.createServer(
 				(req, res) => this.handleRequest(req, res)
 			);
-			this._server = server;
-			server.on('error', (err: NodeJS.ErrnoException) => {
-				if (err.code === 'EADDRINUSE') {
-					reject(new Error(
-						`Port ${this.port} is already in use. Databricks ` +
-						`sign-in requires port ${this.port} - close the ` +
-						'application using it, or use a personal access ' +
-						'token instead.'
-					));
-				} else {
-					reject(new Error(`Failed to start sign-in server: ${err.message}`));
-				}
-			});
-			server.listen(this.port, '127.0.0.1', () => resolve());
+			server.on('error', (err: NodeJS.ErrnoException) => reject(err));
+			server.listen(port, host, () => resolve(server));
 		});
+	}
+
+	/**
+	 * Start listening, walking portMin..portMax until a port binds.
+	 */
+	async start(): Promise<void> {
+		if (this._server) {
+			throw new Error('Server is already started');
+		}
+		const deadline = Date.now() + DATABRICKS_OAUTH_LISTEN_TIMEOUT_MS;
+		let lastError: Error | undefined;
+		let boundPort: number | undefined;
+		for (let port = this.portMin; port <= this.portMax; port++) {
+			if (Date.now() > deadline) {
+				break;
+			}
+			try {
+				this._server = await this.listenOn(port, '127.0.0.1');
+				boundPort = port;
+				break;
+			} catch (err) {
+				lastError = err instanceof Error ? err : new Error(String(err));
+			}
+		}
+		if (!this._server || boundPort === undefined) {
+			throw new Error(
+				`No free port for Databricks sign-in between ${this.portMin} ` +
+				`and ${this.portMax}: ${lastError?.message ?? 'timed out'}`
+			);
+		}
+		this._port = boundPort;
+		// Best-effort ::1 listener: `localhost` can resolve to IPv6 first
+		// (common on macOS), and an IPv4-only listener would refuse the
+		// browser's callback. IPv4 alone is still functional.
+		try {
+			this._server6 = await this.listenOn(boundPort, '::1');
+		} catch {
+			this._server6 = undefined;
+		}
 	}
 
 	private handleRequest(
@@ -90,7 +138,7 @@ export class DatabricksLoopbackServer {
 		res: http.ServerResponse
 	): void {
 		// Accept GET on any path; Databricks redirects to the URI root.
-		const reqUrl = new URL(req.url ?? '/', `http://127.0.0.1:${this.port}`);
+		const reqUrl = new URL(req.url ?? '/', `http://localhost:${this.port}`);
 		const code = reqUrl.searchParams.get('code');
 		const state = reqUrl.searchParams.get('state');
 		const error = reqUrl.searchParams.get('error');
@@ -181,9 +229,18 @@ export class DatabricksLoopbackServer {
 				return;
 			}
 			this._stopped = true;
-			this._server.close(() => resolve());
-			// Close keep-alive connections so close() completes promptly.
-			this._server.closeAllConnections?.();
+			const servers = [this._server, this._server6]
+				.filter((s): s is http.Server => s !== undefined);
+			let remaining = servers.length;
+			for (const server of servers) {
+				server.close(() => {
+					if (--remaining === 0) {
+						resolve();
+					}
+				});
+				// Close keep-alive connections so close() completes promptly.
+				server.closeAllConnections?.();
+			}
 		});
 	}
 }

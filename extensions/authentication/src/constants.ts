@@ -43,6 +43,8 @@ export const DEEPSEEK_AUTH_PROVIDER_ID = 'deepseek-api';
 export const DATABRICKS_AUTH_PROVIDER_ID = 'databricks';
 
 export const DATABRICKS_OAUTH_CLIENT_ID = 'databricks-cli';
-export const DATABRICKS_OAUTH_REDIRECT_PORT = 8020;
+export const DATABRICKS_OAUTH_PORT_MIN = 8020;
+export const DATABRICKS_OAUTH_PORT_MAX = 8040;
+export const DATABRICKS_OAUTH_LISTEN_TIMEOUT_MS = 45_000;
 export const DATABRICKS_OAUTH_REDIRECT_URI = 'http://localhost:8020';
 export const DATABRICKS_OAUTH_SCOPES = 'all-apis offline_access';
