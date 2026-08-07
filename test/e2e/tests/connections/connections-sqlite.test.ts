@@ -26,20 +26,12 @@ test.describe('SQLite DB Connection', {
 		});
 
 		await test.step('Open connections pane', async () => {
-			try {
-				await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-				// there is a flake of the db connection not displaying in the connections pane after
-				// clicking the db icon. To work around, both a wait and a retry are added.
-				await app.code.driver.currentPage.waitForTimeout(2000);
-				await app.workbench.variables.clickDatabaseIconForVariableRow('conn');
-				await app.workbench.connections.connectIcon.click();
-			} catch (error) {
-				// For some reasonm, on the retry, the pane opens directly to this connection
-				// and the connectIcon.click() is not needed.
-				await app.workbench.sideBar.openSession();
-				await app.code.driver.currentPage.waitForTimeout(2000);
-				await app.workbench.variables.clickDatabaseIconForVariableRow('conn');
-			}
+			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+			// `df` is the script's last statement, so its arrival means execution finished.
+			// The database icon sends a `view` RPC over the shell channel, which queues behind
+			// the still-running script and never returns if we click too early.
+			await app.workbench.variables.waitForVariableRow('df');
+			await app.workbench.variables.clickDatabaseIconForVariableRow('conn');
 		});
 
 		await test.step('Verify connection nodes', async () => {
