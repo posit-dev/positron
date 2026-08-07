@@ -26,7 +26,7 @@ import path from 'path';
 import {
 	analyzerScript, triageDir, deriveTriageId, ensureDir,
 	writeJson, emit, fail, runNode, tryRun, isMain, parseArgs,
-	insightsApiKeyPresent, MISSING_API_KEY_HELP,
+	insightsApiKeyPresent, resolveInsightsApiKey, MISSING_API_KEY_HELP,
 } from './lib.js';
 
 /** Normalize a failure-pattern string into a stable cross-branch match key. */
@@ -286,7 +286,7 @@ function queryBranch(scriptPath, { repo, testKey, branch, lookbackDays, occ }) {
 		'--branch', branch,
 		'--lookback-days', String(lookbackDays),
 		'--occurrences-per-pattern', String(occ),
-	]);
+	], { E2E_INSIGHTS_API_KEY: resolveInsightsApiKey() ?? '' });
 	let data;
 	try { data = JSON.parse(out); } catch { data = {}; }
 	return data;

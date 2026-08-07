@@ -285,6 +285,11 @@ export function mineLogs(logsZipPath, opts = {}) {
 	const perFile = [];   // { rel, relevant, lines[] } -- merged round-robin below
 	const silence = [];
 	let sawAnyTimestamp = false;
+	// The runner log's own "Test start" marker. It is the only wall-clock anchor
+	// for where the test itself begins: the trace's t= origin sits earlier (app
+	// launch and fixture setup), so anything derived from the window deadline
+	// instead lands minutes off.
+	let testStartMs = null;
 
 	for (const f of logFiles) {
 		const rel = f.slice(dir.length + 1).replace(/\\/g, '/');
@@ -311,6 +316,7 @@ export function mineLogs(logsZipPath, opts = {}) {
 				carried = ts;
 				sawAnyTimestamp = true;
 				if (deadlineMs == null || ts <= deadlineMs) { lastTsInWait = ts; }
+				if (isRunnerLog && testStartMs == null && / Test start: /.test(line)) { testStartMs = ts; }
 			}
 			const at = ts ?? carried;
 			if (at == null || at < windowStart || at > windowEnd) { continue; }
@@ -389,6 +395,9 @@ export function mineLogs(logsZipPath, opts = {}) {
 
 	const out = [];
 	out.push(`Failure window: ${ISO(windowStart)} .. ${ISO(windowEnd)} (deadline ${deadlineMs != null ? ISO(deadlineMs) : 'unknown'})`);
+	if (testStartMs != null) {
+		out.push(`Test start: ${ISO(testStartMs)} (from e2e-test-runner.log) -- anchor trace t= values on this and the timeline's "Trace t=0" line, never on the deadline above, which is a mined heuristic rather than a clock.`);
+	}
 	out.push('All severities are included inside the window -- an info-level success line often refutes an "external dependency broke" theory, so do not assume the absence of errors means the absence of evidence.');
 
 	if (silence.length) {

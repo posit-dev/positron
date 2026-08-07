@@ -24,6 +24,7 @@
 // Exit code: 0 when something resolved or candidates were found, 1 on no match
 // or a listing failure.
 
+import fs from 'fs';
 import path from 'path';
 import { repoRoot, emit, fail, tryRun, isMain, parseArgs } from './lib.js';
 
@@ -169,6 +170,12 @@ function listEntries() {
 	// tryRun already runs at the repo root, where the Playwright config lives.
 	const res = tryRun('npx', ['playwright', 'test', '--list', '--reporter=json']);
 	if (!res.ok || !res.stdout.trim()) {
+		// Name the dependency-free cause when it applies. A fresh worktree has no
+		// node_modules, and npx then resolves some other Playwright (or none), which
+		// looks nothing like the spec-import failure the generic message describes.
+		if (!fs.existsSync(path.join(repoRoot(), 'node_modules'))) {
+			return { error: 'Could not list Playwright tests: no node_modules in this checkout, so there is no local Playwright to list with. Install dependencies (or run from a checkout that has them); test-key resolution is the only step that needs them.' };
+		}
 		return { error: 'Could not list Playwright tests. Run `npx playwright test --list` to see the underlying error (a spec that fails to import breaks listing for the whole suite).' };
 	}
 	try {

@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { deriveTriageId, workRoot, repoRoot, isUsableInsightsApiKey } from '../lib.js';
+import { deriveTriageId, workRoot, repoRoot, isUsableInsightsApiKey, resolveInsightsApiKey, mainWorktreeRoot } from '../lib.js';
 
 test('isUsableInsightsApiKey rejects blanks and the example placeholder', () => {
 	assert.equal(isUsableInsightsApiKey('sk-real-key'), true);
@@ -12,6 +13,30 @@ test('isUsableInsightsApiKey rejects blanks and the example placeholder', () => 
 	// The value an engineer gets by copying .env.e2e.example, in either source.
 	assert.equal(isUsableInsightsApiKey('your_e2e_insights_api_key_here'), false);
 	assert.equal(isUsableInsightsApiKey(' "your_e2e_insights_api_key_here" '), false);
+});
+
+test('resolveInsightsApiKey prefers the environment and unquotes it', () => {
+	const prev = process.env.E2E_INSIGHTS_API_KEY;
+	try {
+		process.env.E2E_INSIGHTS_API_KEY = '"sk-from-env"';
+		assert.equal(resolveInsightsApiKey(), 'sk-from-env');
+		// A placeholder in the environment must not shadow the file lookup behind
+		// it -- otherwise an exported example value silently wins over a real key.
+		process.env.E2E_INSIGHTS_API_KEY = 'your_e2e_insights_api_key_here';
+		assert.notEqual(resolveInsightsApiKey(), 'your_e2e_insights_api_key_here');
+	} finally {
+		if (prev === undefined) { delete process.env.E2E_INSIGHTS_API_KEY; }
+		else { process.env.E2E_INSIGHTS_API_KEY = prev; }
+	}
+});
+
+test('mainWorktreeRoot resolves the checkout owning the shared git dir', () => {
+	const root = mainWorktreeRoot();
+	assert.ok(path.isAbsolute(root));
+	// Only the main checkout holds a real .git *directory*; a linked worktree has
+	// a .git file pointing at it. This holds whichever one the tests run from,
+	// which is the property the .env.e2e fallback depends on.
+	assert.ok(fs.statSync(path.join(root, '.git')).isDirectory());
 });
 
 test('deriveTriageId is stable, slugged, and hash-suffixed', () => {

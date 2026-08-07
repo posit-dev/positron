@@ -31,14 +31,47 @@ export function analyzerScript(name) {
  * instead of surfacing later as an indistinguishable "API unreachable" empty {}.
  */
 export function insightsApiKeyPresent() {
-	if (isUsableInsightsApiKey(process.env.E2E_INSIGHTS_API_KEY)) { return true; }
-	try {
-		const body = fs.readFileSync(path.join(repoRoot(), '.env.e2e'), 'utf8');
-		const line = /^\s*E2E_INSIGHTS_API_KEY\s*=\s*(.*)$/m.exec(body);
-		return !!line && isUsableInsightsApiKey(line[1]);
-	} catch {
-		return false;
+	return resolveInsightsApiKey() != null;
+}
+
+/**
+ * Root of the *main* checkout: the parent of the shared git common dir. Equals
+ * repoRoot() unless we're in a linked worktree.
+ */
+export function mainWorktreeRoot() {
+	const res = tryRun('git', ['rev-parse', '--git-common-dir']);
+	if (res.ok && res.stdout.trim()) {
+		return path.dirname(path.resolve(repoRoot(), res.stdout.trim()));
 	}
+	return repoRoot();
+}
+
+/**
+ * The usable API key, or null. Checks the environment, then this checkout's
+ * .env.e2e, then the main checkout's.
+ *
+ * The last source is why this exists: .env.e2e is gitignored, so a fresh
+ * worktree never has one even though the engineer's main checkout does. Without
+ * it, working from a worktree -- the normal way this repo gets used -- looks
+ * identical to having no key at all, and sends someone to 1Password for a
+ * credential already sitting one directory over.
+ */
+export function resolveInsightsApiKey() {
+	const fromEnv = process.env.E2E_INSIGHTS_API_KEY;
+	if (isUsableInsightsApiKey(fromEnv)) { return String(fromEnv).trim().replace(/^(['"])(.*)\1$/s, '$2').trim(); }
+	const seen = new Set();
+	for (const root of [repoRoot(), mainWorktreeRoot()]) {
+		if (seen.has(root)) { continue; }
+		seen.add(root);
+		try {
+			const body = fs.readFileSync(path.join(root, '.env.e2e'), 'utf8');
+			const line = /^\s*E2E_INSIGHTS_API_KEY\s*=\s*(.*)$/m.exec(body);
+			if (line && isUsableInsightsApiKey(line[1])) {
+				return line[1].trim().replace(/^(['"])(.*)\1$/s, '$2').trim();
+			}
+		} catch { /* try the next root */ }
+	}
+	return null;
 }
 
 /**
@@ -147,13 +180,21 @@ export function fail(message, extra = {}) {
 	process.exit(1);
 }
 
-/** Run a node script, capturing stdout. stderr streams through (progress messages). */
-export function runNode(scriptPath, args) {
+/**
+ * Run a node script, capturing stdout. stderr streams through (progress messages).
+ *
+ * `extraEnv` matters for the analyzer scripts: they read .env.e2e relative to
+ * process.cwd(), which is this (possibly linked) worktree, so a key resolved
+ * from elsewhere has to be handed over explicitly or preflight passes and the
+ * query itself still comes back empty.
+ */
+export function runNode(scriptPath, args, extraEnv = null) {
 	return execFileSync('node', [scriptPath, ...args], {
 		cwd: repoRoot(),
 		encoding: 'utf8',
 		maxBuffer: 256 * 1024 * 1024,
 		stdio: ['ignore', 'pipe', 'inherit'],
+		...(extraEnv ? { env: { ...process.env, ...extraEnv } } : {}),
 	});
 }
 
