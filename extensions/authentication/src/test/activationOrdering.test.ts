@@ -16,11 +16,16 @@ function fakeContext(): vscode.ExtensionContext {
 	return { subscriptions: [] } as unknown as vscode.ExtensionContext;
 }
 
+/** Stands in for the providers.json auto-migration; the real one reads live settings. */
+function noopAutoMigrate(): Promise<void> {
+	return Promise.resolve();
+}
+
 /**
- * Covers the ordering the AWS/Snowflake settings migrations and the catalog
- * prime have to keep: the catalog's legacy-settings layer reads the very keys
- * the migrations write, so priming first leaves the cache without the migrated
- * connection on a first run.
+ * Covers the activation seam around the settings migrations and the catalog
+ * prime: migrations must not abort each other or the prime, and the primed
+ * catalog must not read legacy settings — the keys the settings migrations
+ * write reach it only by way of the providers.json migration.
  */
 suite('activation ordering', () => {
 	let dir: string;
@@ -47,34 +52,6 @@ suite('activation ordering', () => {
 			.update('credentials', undefined, vscode.ConfigurationTarget.Global);
 	});
 
-	test('every migration finishes before the catalog reads settings', async () => {
-		const order: string[] = [];
-
-		await migrateSettingsAndPrimeCatalog(
-			context,
-			{
-				configPath,
-				// The catalog reads each legacy key through this reader during
-				// the prime, so the first `get` marks when priming began.
-				legacyPositronSettings: {
-					get: () => {
-						if (!order.includes('prime')) {
-							order.push('prime');
-						}
-						return undefined;
-					},
-					watch: () => ({ dispose: () => { } }),
-				},
-			},
-			[
-				{ name: 'first', run: async () => { order.push('first'); } },
-				{ name: 'second', run: async () => { order.push('second'); } },
-			],
-		);
-
-		assert.deepStrictEqual(order, ['first', 'second', 'prime']);
-	});
-
 	test('a failing migration is logged and still lets the catalog prime', async () => {
 		const order: string[] = [];
 
@@ -85,43 +62,35 @@ suite('activation ordering', () => {
 				{ name: 'throws', run: async () => { throw new Error('boom'); } },
 				{ name: 'after', run: async () => { order.push('after'); } },
 			],
+			noopAutoMigrate,
 		);
 
 		assert.deepStrictEqual(order, ['after'], 'a rejected migration must not skip the ones after it');
 		assert.ok(getCachedProvider('anthropic'), 'the catalog should still be primed');
 	});
 
-	test('the primed catalog picks up the AWS credentials the migration writes', async () => {
-		// What migrateAwsSettings leaves behind, written directly: the old
-		// positron.assistant.* keys it reads are no longer registered settings,
-		// so a test can't create the pre-migration state through the config API.
+	// PROVIDER-SETTINGS-MIGRATION(legacy-positron): this Positron migrates
+	// legacy settings into providers.json, so the catalog deliberately reads no
+	// legacy `authentication.*` settings — a reader layer would make a cleared
+	// providers.json value fall back to its stale legacy source. This pins the
+	// drop: re-adding a reader to the catalog wiring must fail here.
+	test('the primed catalog does not read legacy authentication.* settings', async () => {
 		await vscode.workspace.getConfiguration('authentication.aws').update(
 			'credentials',
-			{ AWS_PROFILE: 'migrated-profile', AWS_REGION: 'eu-west-1' },
+			{ AWS_PROFILE: 'legacy-profile', AWS_REGION: 'eu-west-1' },
 			vscode.ConfigurationTarget.Global
 		);
 
-		await migrateSettingsAndPrimeCatalog(context, { configPath });
+		// envVars: {} keeps ambient AWS_PROFILE/AWS_REGION out of the
+		// connection-env layer, so only the (absent) legacy layer could
+		// contribute a profile; the region falls back to the built-in default.
+		await migrateSettingsAndPrimeCatalog(context, { configPath, envVars: {} }, [], noopAutoMigrate);
 
 		const aws = getCachedProvider('bedrock')?.connection.aws;
 		assert.deepStrictEqual(
 			{ profile: aws?.profile, region: aws?.region },
-			{ profile: 'migrated-profile', region: 'eu-west-1' }
-		);
-	});
-
-	test('the primed catalog picks up the Snowflake credentials the migration writes', async () => {
-		await vscode.workspace.getConfiguration('authentication.snowflake').update(
-			'credentials',
-			{ SNOWFLAKE_ACCOUNT: 'migrated-account' },
-			vscode.ConfigurationTarget.Global
-		);
-
-		await migrateSettingsAndPrimeCatalog(context, { configPath });
-
-		assert.strictEqual(
-			getCachedProvider('snowflake-cortex')?.connection.snowflake?.account,
-			'migrated-account'
+			{ profile: undefined, region: 'us-east-1' },
+			'legacy settings must reach the catalog only via the providers.json migration'
 		);
 	});
 });
