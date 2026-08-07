@@ -6,3 +6,8 @@
 venv-creation-test/
 proj/
 .venv/
+
+# Bytecode the interpreter writes next to any module the app tests import. No one
+# spec owns it: several specs run the same python_apps, and the name carries the
+# CPython version, so it differs per lane.
+__pycache__/
