@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { join } from 'path';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -13,6 +14,14 @@ test.use({
 test.describe('Extensions', {
 	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN],
 }, () => {
+
+	test.afterEach(async function ({ hotKeys, cleanup }) {
+		// Close first: the buffer holds the formatted text, and files.autoSave would write it
+		// back over the restore in the web lanes.
+		await hotKeys.closeAllEditors();
+		// Formatted in place. Never saved, but autoSave lands the edit on disk in the web lanes.
+		await cleanup.restoreFiles([join('workspaces', 'r-formatting', 'bad-formatting.r')]);
+	});
 
 	test('Verify AIR extension basic functionality', {
 		tag: [tags.ARK]
