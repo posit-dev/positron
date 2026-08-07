@@ -14,7 +14,7 @@ import { ConnectProviderView } from '../../browser/components/connectProviderVie
 
 const positAi: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
-	provider: { id: 'posit-ai', displayName: 'Posit AI', settingName: 'posit-ai' },
+	provider: { id: 'posit-ai', displayName: 'Posit AI' },
 	supportedOptions: ['oauth'],
 	signedIn: false,
 	defaults: {},
@@ -22,7 +22,7 @@ const positAi: IPositronLanguageModelSource = {
 
 const anthropic: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
-	provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic' },
+	provider: { id: 'anthropic-api', displayName: 'Anthropic' },
 	supportedOptions: ['apiKey', 'baseUrl'],
 	signedIn: false,
 	defaults: { baseUrl: 'https://api.anthropic.com' },
@@ -30,7 +30,7 @@ const anthropic: IPositronLanguageModelSource = {
 
 const lmstudio: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
-	provider: { id: 'lmstudio', displayName: 'LM Studio', settingName: 'lmStudio' },
+	provider: { id: 'lmstudio', displayName: 'LM Studio' },
 	supportedOptions: ['baseUrl'],
 	signedIn: false,
 	defaults: { baseUrl: 'http://localhost:1234/v1' },
@@ -52,6 +52,15 @@ const snowflake: IPositronLanguageModelSource = {
 	signedIn: false,
 	defaults: { baseUrl: 'myorg-account1' },
 };
+
+const databricksOAuth: IPositronLanguageModelSource = {
+	type: PositronLanguageModelType.Chat,
+	provider: { id: 'databricks', displayName: 'Databricks' },
+	supportedOptions: ['oauth', 'apiKey', 'baseUrl'],
+	signedIn: false,
+	defaults: { baseUrl: 'https://adb-123.7.azuredatabricks.net' },
+};
+
 
 const custom: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
@@ -293,5 +302,64 @@ describe('ConnectProviderView', () => {
 		await user.click(screen.getByRole('button', { name: 'Connect' }));
 		expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 		await act(async () => { resolve(); });
+	});
+
+	describe('with multiple auth methods (Databricks)', () => {
+		it('renders both radios with OAuth checked by default', () => {
+			rtl.render(<ConnectProviderView source={databricksOAuth} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+			expect(screen.getByRole('radio', { name: 'OAuth' })).toBeChecked();
+			expect(screen.getByRole('radio', { name: 'API Key' })).not.toBeChecked();
+			expect(screen.queryByLabelText(/api key/i, { selector: 'input[type="password"]' })).not.toBeInTheDocument();
+		});
+
+		it('reveals the API key input after selecting API Key', async () => {
+			const user = userEvent.setup();
+			rtl.render(<ConnectProviderView source={databricksOAuth} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+			await user.click(screen.getByRole('radio', { name: 'API Key' }));
+			expect(screen.getByRole('radio', { name: 'API Key' })).toBeChecked();
+			expect(screen.getByLabelText(/api key/i, { selector: 'input[type="password"]' })).toBeInTheDocument();
+		});
+
+		it('keeps the workspace URL field visible under both methods', async () => {
+			const user = userEvent.setup();
+			rtl.render(<ConnectProviderView source={databricksOAuth} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+			expect(screen.getByLabelText('Workspace URL')).toBeInTheDocument();
+			await user.click(screen.getByRole('radio', { name: 'API Key' }));
+			expect(screen.getByLabelText('Workspace URL')).toBeInTheDocument();
+		});
+
+		it('dispatches oauth-signin by default', async () => {
+			const onAction = vi.fn().mockResolvedValue(undefined);
+			const user = userEvent.setup();
+			rtl.render(<ConnectProviderView source={databricksOAuth} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+			await user.click(screen.getByRole('button', { name: 'Connect' }));
+			expect(onAction).toHaveBeenCalledWith(databricksOAuth, expect.anything(), 'oauth-signin');
+		});
+
+		it('dispatches save with the API key after selecting API Key', async () => {
+			const onAction = vi.fn().mockResolvedValue(undefined);
+			const user = userEvent.setup();
+			rtl.render(<ConnectProviderView source={databricksOAuth} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+			await user.click(screen.getByRole('radio', { name: 'API Key' }));
+			await user.type(screen.getByLabelText(/api key/i, { selector: 'input[type="password"]' }), 'dapi-test');
+			await user.click(screen.getByRole('button', { name: 'Connect' }));
+			expect(onAction).toHaveBeenCalledWith(databricksOAuth, expect.objectContaining({ apiKey: 'dapi-test' }), 'save');
+		});
+
+		it('hides the picker while signed in', () => {
+			rtl.render(<ConnectProviderView source={{ ...databricksOAuth, signedIn: true }} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+			expect(screen.queryByRole('radio', { name: 'OAuth' })).not.toBeInTheDocument();
+		});
+
+		it('disables the picker while a sign-in is in flight', async () => {
+			let resolveSignIn = () => { };
+			const onAction = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveSignIn = resolve; }));
+			const user = userEvent.setup();
+			rtl.render(<ConnectProviderView source={databricksOAuth} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+			await user.click(screen.getByRole('button', { name: 'Connect' }));
+			expect(screen.getByRole('radio', { name: 'OAuth' })).toBeDisabled();
+			expect(screen.getByRole('radio', { name: 'API Key' })).toBeDisabled();
+			await act(async () => { resolveSignIn(); });
+		});
 	});
 });

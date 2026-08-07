@@ -6,13 +6,13 @@
 /// <reference types="vitest/globals" />
 
 import { AuthMethod, AuthStatus } from '../../browser/types.js';
-import { deriveAuthMethod, deriveAuthStatus, deriveConnectAction, deriveDisconnectAction, selectProviderView } from '../../browser/providerConnection.js';
+import { availableAuthMethods, deriveAuthMethod, deriveAuthStatus, deriveConnectAction, deriveDisconnectAction, selectProviderView } from '../../browser/providerConnection.js';
 import { IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
 
 function source(overrides: Partial<IPositronLanguageModelSource> = {}): IPositronLanguageModelSource {
 	const result: IPositronLanguageModelSource = {
 		type: PositronLanguageModelType.Chat,
-		provider: { id: 'posit-ai', displayName: 'Posit AI', settingName: 'posit-ai' },
+		provider: { id: 'posit-ai', displayName: 'Posit AI' },
 		supportedOptions: ['oauth'],
 		signedIn: false,
 		defaults: {},
@@ -20,6 +20,19 @@ function source(overrides: Partial<IPositronLanguageModelSource> = {}): IPositro
 	};
 	return result;
 }
+
+describe('availableAuthMethods', () => {
+	it('lists OAuth first when both are supported', () => {
+		expect(availableAuthMethods(source({ supportedOptions: ['apiKey', 'oauth'] })))
+			.toEqual([AuthMethod.OAUTH, AuthMethod.API_KEY]);
+	});
+	it('lists only API key when OAuth is unsupported', () => {
+		expect(availableAuthMethods(source({ supportedOptions: ['apiKey'] }))).toEqual([AuthMethod.API_KEY]);
+	});
+	it('is empty when nothing is supported', () => {
+		expect(availableAuthMethods(source({ supportedOptions: [] }))).toEqual([]);
+	});
+});
 
 describe('deriveAuthMethod', () => {
 	it('prefers OAuth', () => {
@@ -30,6 +43,14 @@ describe('deriveAuthMethod', () => {
 	});
 	it('is NONE when nothing supported', () => {
 		expect(deriveAuthMethod(source({ supportedOptions: [] }))).toBe(AuthMethod.NONE);
+	});
+	it('honours a supported selection', () => {
+		const withBoth = source({ supportedOptions: ['oauth', 'apiKey'] });
+		expect(deriveAuthMethod(withBoth)).toBe(AuthMethod.OAUTH);
+		expect(deriveAuthMethod(withBoth, AuthMethod.API_KEY)).toBe(AuthMethod.API_KEY);
+	});
+	it('ignores an unsupported selection', () => {
+		expect(deriveAuthMethod(source({ supportedOptions: ['apiKey'] }), AuthMethod.OAUTH)).toBe(AuthMethod.API_KEY);
 	});
 });
 
@@ -55,6 +76,11 @@ describe('deriveConnectAction', () => {
 	it('saves for an api-key provider', () => {
 		expect(deriveConnectAction(source({ supportedOptions: ['apiKey'] }))).toBe('save');
 	});
+	it('follows the selected method when both are supported', () => {
+		const withBoth = source({ supportedOptions: ['oauth', 'apiKey'] });
+		expect(deriveConnectAction(withBoth, AuthMethod.API_KEY)).toBe('save');
+		expect(deriveConnectAction(withBoth, AuthMethod.OAUTH)).toBe('oauth-signin');
+	});
 });
 
 describe('deriveDisconnectAction', () => {
@@ -68,21 +94,21 @@ describe('deriveDisconnectAction', () => {
 
 describe('selectProviderView', () => {
 	it('routes a signed-in provider to the connected view regardless of type', () => {
-		expect(selectProviderView(source({ provider: { id: 'amazon-bedrock', displayName: 'AWS', settingName: 'amazonBedrock' }, signedIn: true }))).toBe('connected');
+		expect(selectProviderView(source({ provider: { id: 'amazon-bedrock', displayName: 'AWS' }, signedIn: true }))).toBe('connected');
 	});
 	it('routes a supported, signed-out provider to the connect view', () => {
-		expect(selectProviderView(source({ provider: { id: 'openai-api', displayName: 'OpenAI', settingName: 'openAI' }, signedIn: false }))).toBe('connect');
+		expect(selectProviderView(source({ provider: { id: 'openai-api', displayName: 'OpenAI' }, signedIn: false }))).toBe('connect');
 	});
 	it('routes an unsupported, signed-out provider to the connect view', () => {
-		expect(selectProviderView(source({ provider: { id: 'amazon-bedrock', displayName: 'AWS', settingName: 'amazonBedrock' }, signedIn: false }))).toBe('connect');
+		expect(selectProviderView(source({ provider: { id: 'amazon-bedrock', displayName: 'AWS' }, signedIn: false }))).toBe('connect');
 	});
 	it('routes GitHub Copilot to the connect view', () => {
-		expect(selectProviderView(source({ provider: { id: 'copilot-auth', displayName: 'GitHub Copilot', settingName: 'githubCopilot' }, signedIn: false }))).toBe('connect');
+		expect(selectProviderView(source({ provider: { id: 'copilot-auth', displayName: 'GitHub Copilot' }, signedIn: false }))).toBe('connect');
 	});
 	it('routes Ollama to the connect view', () => {
-		expect(selectProviderView(source({ provider: { id: 'ollama', displayName: 'Ollama', settingName: 'ollama' }, signedIn: false }))).toBe('connect');
+		expect(selectProviderView(source({ provider: { id: 'ollama', displayName: 'Ollama' }, signedIn: false }))).toBe('connect');
 	});
 	it('routes an errored provider to the connect view (to re-enter credentials)', () => {
-		expect(selectProviderView(source({ provider: { id: 'amazon-bedrock', displayName: 'AWS', settingName: 'amazonBedrock' }, signedIn: false, status: 'error' }))).toBe('connect');
+		expect(selectProviderView(source({ provider: { id: 'amazon-bedrock', displayName: 'AWS' }, signedIn: false, status: 'error' }))).toBe('connect');
 	});
 });

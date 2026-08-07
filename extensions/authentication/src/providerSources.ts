@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 import {
 	ANTHROPIC_AUTH_PROVIDER_ID,
 	ANTHROPIC_DEFAULT_BASE_URL,
@@ -284,8 +285,18 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			// saved to (and read from) connection.databricks.host, never the
 			// provider baseUrl: per-model endpoint resolution falls back to
 			// baseUrl, which would route chat at the bare host and 404.
-			// Personal access token only for now; OAuth lands next release.
-			supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
+			// OAuth U2M is desktop-only (the loopback redirect can't reach a
+			// remote or web extension host) and needs the new provider modal:
+			// the legacy modal derives "OAuth if supported" with no working
+			// method picker, so offering oauth there would remove PAT entry.
+			// The gate goes away with the legacy modal.
+			supportedOptions: (
+				vscode.env.remoteName === undefined &&
+				vscode.env.uiKind !== vscode.UIKind.Web &&
+				vscode.workspace.getConfiguration('assistant').get<boolean>('newProviderModal') === true
+			)
+				? ['oauth', 'apiKey', 'baseUrl', 'autoconfigure']
+				: ['apiKey', 'baseUrl', 'autoconfigure'],
 			defaults: {
 				model: 'databricks',
 				baseUrl: databricksHost,

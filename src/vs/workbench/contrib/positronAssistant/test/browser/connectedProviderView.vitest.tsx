@@ -14,7 +14,7 @@ import { ConnectedProviderView } from '../../browser/components/connectedProvide
 
 const positAi: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
-	provider: { id: 'posit-ai', displayName: 'Posit AI', settingName: 'posit-ai' },
+	provider: { id: 'posit-ai', displayName: 'Posit AI' },
 	supportedOptions: ['oauth'],
 	signedIn: true,
 	defaults: {},
@@ -43,7 +43,7 @@ describe('ConnectedProviderView', () => {
 	it('displays the current base URL for a provider that supports it', () => {
 		const anthropic: IPositronLanguageModelSource = {
 			type: PositronLanguageModelType.Chat,
-			provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic' },
+			provider: { id: 'anthropic-api', displayName: 'Anthropic' },
 			supportedOptions: ['apiKey', 'baseUrl'],
 			signedIn: true,
 			defaults: { baseUrl: 'https://proxy.example/v1' },
@@ -73,7 +73,7 @@ describe('ConnectedProviderView', () => {
 	it('shows an error banner (and not the connected line) when the provider status is error', () => {
 		const broken: IPositronLanguageModelSource = {
 			type: PositronLanguageModelType.Chat,
-			provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic' },
+			provider: { id: 'anthropic-api', displayName: 'Anthropic' },
 			supportedOptions: ['apiKey', 'baseUrl'],
 			signedIn: true,
 			status: 'error',
@@ -88,7 +88,7 @@ describe('ConnectedProviderView', () => {
 	it('shows the environment variable and no Disconnect footer button for env-authenticated providers', () => {
 		const envAnthropic: IPositronLanguageModelSource = {
 			type: PositronLanguageModelType.Chat,
-			provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic' },
+			provider: { id: 'anthropic-api', displayName: 'Anthropic' },
 			supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 			signedIn: true,
 			defaults: {
@@ -103,7 +103,7 @@ describe('ConnectedProviderView', () => {
 	it('shows Accounts-menu sign-out guidance and no Disconnect for GitHub Copilot', () => {
 		const copilot: IPositronLanguageModelSource = {
 			type: PositronLanguageModelType.Chat,
-			provider: { id: 'copilot-auth', displayName: 'GitHub Copilot', settingName: 'githubCopilot' },
+			provider: { id: 'copilot-auth', displayName: 'GitHub Copilot' },
 			supportedOptions: ['oauth', 'autoconfigure'],
 			signedIn: true,
 			defaults: {
@@ -131,7 +131,7 @@ describe('ConnectedProviderView', () => {
 	it('shows "Removing..." while removing an API-key provider', async () => {
 		const anthropic: IPositronLanguageModelSource = {
 			type: PositronLanguageModelType.Chat,
-			provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic' },
+			provider: { id: 'anthropic-api', displayName: 'Anthropic' },
 			supportedOptions: ['apiKey', 'baseUrl'],
 			signedIn: true,
 			defaults: {},
