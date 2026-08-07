@@ -199,6 +199,7 @@ configurationRegistry.registerConfiguration({
 				'Serve language features for code cells in Quarto and R Markdown documents from Positron. When disabled, the Quarto extension serves them from temporary virtual documents.'
 			),
 			scope: ConfigurationScope.WINDOW,
+			tags: ['experimental'],
 		},
 	},
 });
