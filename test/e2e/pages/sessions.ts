@@ -1044,9 +1044,12 @@ export class Sessions {
 	 */
 	async expectSessionNameToBe(sessionId: string, expectedName: string) {
 		await test.step(`Verify session name: ${sessionId} is ${expectedName}`, async () => {
+			// Assert on the aria-label rather than the tab's rendered text: the
+			// tab ellipsizes the name to whatever fits, so the visible text is a
+			// function of how many sessions are open and how wide the pane is.
+			// The aria-label carries the whole name.
 			const sessionTab = this.getSessionTab(sessionId);
-			const tabHeader = sessionTab.locator('.tab-header');
-			await expect(tabHeader).toHaveText(expectedName);
+			await expect(sessionTab).toHaveAttribute('aria-label', expectedName);
 		});
 	}
 

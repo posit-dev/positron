@@ -512,7 +512,12 @@ export const ConsoleTab = ({ positronConsoleInstance, width, hideSessionName, ho
 		<div
 			ref={tabRef}
 			aria-controls={`console-panel-${positronConsoleInstance.sessionMetadata.sessionId}`}
-			aria-label={positronConsoleInstance.sessionName}
+			// The displayed name rather than the raw one off the instance: for a
+			// notebook session those differ (the tab shows the notebook's
+			// filename), and the accessible name should be what the tab reads
+			// as. It's also the full name, which the rendered one may not be
+			// once it has been ellipsized to fit.
+			aria-label={sessionName}
 			aria-selected={positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId}
 			className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId && 'tab-button--active'}`}
 			data-testid={`console-tab-${positronConsoleInstance.sessionMetadata.sessionId}`}
