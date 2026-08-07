@@ -650,6 +650,21 @@ x = 1
 
 			await expect(model.whenParsed()).resolves.toBeUndefined();
 		});
+
+		it('whenParsed resolves for a waiter that arrived before a further edit rescheduled the parse', async () => {
+			const textModel = createTextModel('Just some markdown.\n', null, undefined, URI.file('/test.qmd'));
+			ctx.disposables.add(textModel);
+			const model = new QuartoDocumentModel(textModel, logService);
+			ctx.disposables.add(model);
+
+			textModel.setValue('```{python}\nx = 1\n```\n');
+			const waiter = model.whenParsed();
+			// Restarts the debounce; the waiter above must still be released.
+			textModel.setValue('```{python}\nx = 2\n```\n');
+
+			await expect(waiter).resolves.toBeUndefined();
+			expect(model.isParsed).toBe(true);
+		});
 	});
 
 });
