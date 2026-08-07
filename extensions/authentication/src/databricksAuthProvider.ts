@@ -90,6 +90,13 @@ export class DatabricksAuthProvider extends AuthProvider {
 		_scopes: readonly string[],
 		_options?: vscode.AuthenticationProviderSessionOptions
 	): Promise<vscode.AuthenticationSession> {
+		// The config dialog persists the workspace host before calling this, so
+		// a chain that failed at startup for a missing host can resolve now.
+		const chainSession = await this.resolveChainCredentials();
+		if (chainSession) {
+			return chainSession;
+		}
+
 		const host = normalizeHost(await this.resolveHost());
 		await this.persistHostSetting(host);
 
