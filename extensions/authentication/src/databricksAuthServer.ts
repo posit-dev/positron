@@ -103,35 +103,48 @@ export class DatabricksLoopbackServer {
 
 	/**
 	 * Attempt to bind both 127.0.0.1 and, best-effort, ::1 on one port.
-	 * Returns undefined when the port is unusable (IPv4 busy, or IPv6
-	 * genuinely occupied by another process rather than merely absent) so
-	 * the caller can move on to the next candidate port.
+	 * Sets `_port` as soon as the IPv4 listener is reachable, since
+	 * `handleRequest` (and thus incoming connections) depends on it -
+	 * otherwise a request arriving during the ::1 attempt would throw
+	 * `Server is not started`. Returns false when the port is unusable
+	 * (IPv4 busy, or IPv6 genuinely occupied by another process rather
+	 * than merely absent) so the caller can move on to the next candidate.
 	 */
-	private async tryBindPort(
-		port: number
-	): Promise<{ server: http.Server; server6: http.Server | undefined } | undefined> {
+	private async tryBindPort(port: number): Promise<boolean> {
 		let server: http.Server;
 		try {
 			server = await this.listenOn(port, '127.0.0.1');
 		} catch {
-			return undefined;
+			return false;
 		}
+		this._server = server;
+		this._port = port;
 		// Best-effort ::1 listener: `localhost` can resolve to IPv6 first
 		// (common on macOS), and an IPv4-only listener would refuse the
 		// browser's callback. IPv4 alone is still functional.
 		try {
-			const server6 = await this.listenOn(port, '::1');
-			return { server, server6 };
+			this._server6 = await this.listenOn(port, '::1');
+			return true;
 		} catch (err) {
 			const code = (err as NodeJS.ErrnoException).code;
 			if (IPV6_UNAVAILABLE_CODES.has(code ?? '')) {
-				return { server, server6: undefined };
+				return true;
+			}
+			if (code !== 'EADDRINUSE') {
+				// Not a port-availability error (e.g. resource exhaustion) -
+				// walking past it would produce a misleading "No free port".
+				await new Promise<void>(resolve => server.close(() => resolve()));
+				this._server = undefined;
+				this._port = undefined;
+				throw err;
 			}
 			// Another process owns ::1 on this port specifically (not just
 			// "no IPv6 on this host"). `localhost` may resolve to it first
 			// and receive the authorization code, so this port is unusable.
 			await new Promise<void>(resolve => server.close(() => resolve()));
-			return undefined;
+			this._server = undefined;
+			this._port = undefined;
+			return false;
 		}
 	}
 
@@ -148,11 +161,7 @@ export class DatabricksLoopbackServer {
 			if (Date.now() > deadline) {
 				break;
 			}
-			const bound = await this.tryBindPort(port);
-			if (bound) {
-				this._server = bound.server;
-				this._server6 = bound.server6;
-				this._port = port;
+			if (await this.tryBindPort(port)) {
 				return;
 			}
 		}
