@@ -28,6 +28,7 @@ import minimist from 'minimist';
 import { compileBuildWithoutManglingTask, compileBuildWithManglingTask } from './gulpfile.compile.ts';
 import { compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileAllExtensionsBuildTask, compileExtensionMediaBuildTask, cleanExtensionsBuildTask, compileCopilotExtensionBuildTask } from './gulpfile.extensions.ts';
 // --- Start Positron ---
+import { checkPathLengths } from './lib/positron-check-path-lengths.ts';
 // Do not import copyCodiconsTask. Positron maintains a custom codicon.ttf in the repo that
 // includes Positron-specific icons. Copying from the npm package would overwrite these.
 // import { copyCodiconsTask } from './lib/compilation.ts';
@@ -709,6 +710,31 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 	};
 }
 
+// --- Start Positron ---
+/**
+ * Fails the build when the packaged tree holds a path that is too long for a
+ * Windows per-user install or auto-update.
+ *
+ * This task runs for every platform, because the extension dependency trees that
+ * own the longest paths are the same everywhere. The first build of any platform
+ * therefore finds a regression, and not the next Windows release. See
+ * posit-dev/positron#14702.
+ */
+function checkPathLengthsTask(platform: string, destinationFolderName: string) {
+	const outputDir = path.join(path.dirname(root), destinationFolderName);
+
+	return async () => {
+		// The directory that matches the Windows install directory. The measured
+		// paths are then the paths that Inno Setup writes.
+		const appRoot = platform === 'darwin'
+			? path.join(outputDir, `${product.nameLong}.app`, 'Contents')
+			: path.join(outputDir, util.getVersionedResourcesFolder(platform, commit!));
+
+		checkPathLengths(appRoot);
+	};
+}
+// --- End Positron ---
+
 function prepareCopilotRipgrepShimTask(platform: string, arch: string, destinationFolderName: string) {
 	const outputDir = path.join(path.dirname(root), destinationFolderName);
 
@@ -757,7 +783,11 @@ BUILD_TARGETS.forEach(buildTarget => {
 			compileNativeExtensionsBuildTask,
 			util.rimraf(path.join(buildRoot, destinationFolderName)),
 			packageTask(platform, arch, sourceFolderName, destinationFolderName, opts),
-			prepareCopilotRipgrepShimTask(platform, arch, destinationFolderName)
+			// --- Start Positron ---
+			// prepareCopilotRipgrepShimTask(platform, arch, destinationFolderName)
+			prepareCopilotRipgrepShimTask(platform, arch, destinationFolderName),
+			checkPathLengthsTask(platform, destinationFolderName)
+			// --- End Positron ---
 		];
 
 		if (platform === 'win32') {
