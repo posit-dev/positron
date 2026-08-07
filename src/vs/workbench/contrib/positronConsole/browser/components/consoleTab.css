@@ -40,10 +40,11 @@
 }
 
 /*
- * Hover cue for high contrast themes, where list.hoverBackground is
- * undefined. contrastActiveBorder is only defined in high contrast
- * themes, so this renders nothing elsewhere. Scoped to inactive tabs
- * so it doesn't override the active tab's solid outline on hover.
+ * Hover cue for high contrast themes, matching the list widget's
+ * hover outline convention (listHoverOutline in defaultStyles.ts).
+ * contrastActiveBorder is only defined in high contrast themes, so
+ * this renders nothing elsewhere. Scoped to inactive tabs so it
+ * doesn't override the active tab's solid outline on hover.
  */
 .tab-button:not(.tab-button--active):hover {
 	outline: 1px dashed var(--vscode-contrastActiveBorder, transparent);
@@ -55,8 +56,9 @@
 	border-left: 1px solid var(--vscode-panelTitle-activeBorder);
 	/*
 	 * Active cue for high contrast themes, where the selection
-	 * background above is undefined. Offset draws the outline inside
-	 * the button so it isn't clipped by the tab list's overflow.
+	 * background above is missing (HC Dark) or subtle (HC Light).
+	 * Offset draws the outline inside the button so it isn't
+	 * clipped by the tab list's overflow.
 	 */
 	outline: 1px solid var(--vscode-contrastActiveBorder, transparent);
 	outline-offset: -1px;
