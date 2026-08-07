@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Barrier } from '../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -57,6 +58,9 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 	private _cellsById = new Map<string, QuartoCodeCell>();
 	private _parseTimeout: ReturnType<typeof setTimeout> | undefined;
 
+	// Open while `_cells` reflects the document's current content.
+	private _parsedBarrier = new Barrier();
+
 	private readonly _onDidChangeCells = this._register(new Emitter<QuartoCellChangeEvent>());
 	readonly onDidChangeCells: Event<QuartoCellChangeEvent> = this._onDidChangeCells.event;
 
@@ -77,6 +81,7 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 
 		// Listen for changes with debouncing
 		this._register(this._textModel.onDidChangeContent(() => {
+			this._markUnparsed();
 			if (this._parseTimeout) {
 				clearTimeout(this._parseTimeout);
 			}
@@ -110,6 +115,27 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 
 	get cells(): readonly QuartoCodeCell[] {
 		return this._cells;
+	}
+
+	get isParsed(): boolean {
+		// The constructor parses the initial content synchronously, so cells are
+		// unknown only while a debounced re-parse of changed content is pending.
+		return this._parsedBarrier.isOpen();
+	}
+
+	async whenParsed(): Promise<void> {
+		await this._parsedBarrier.wait();
+	}
+
+	/**
+	 * Closes the parse gate so `whenParsed` callers wait for the pending re-parse.
+	 * A `Barrier` can't be re-closed, hence the replacement -- but only when open,
+	 * since replacing a closed one strands the callers already waiting on it.
+	 */
+	private _markUnparsed(): void {
+		if (this._parsedBarrier.isOpen()) {
+			this._parsedBarrier = new Barrier();
+		}
 	}
 
 	getCellById(id: string): QuartoCodeCell | undefined {
@@ -225,6 +251,8 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 		}
 
 		this._jupyterKernel = parsed.jupyterKernel;
+
+		this._parsedBarrier.open();
 
 		// Always fire onDidParse after re-parsing, even if cells didn't change.
 		// This allows listeners to update positions based on fresh cell line numbers.
