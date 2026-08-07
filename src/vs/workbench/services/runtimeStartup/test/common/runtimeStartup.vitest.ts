@@ -597,14 +597,16 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			expect(lastFullDiscoveryReason(svc)).toBe('roots-changed');
 		});
 
-		it('falls back to periodic when getDiscoveryRootSignature throws', async () => {
-			// Periodic-stale bucket. If signature check throws, we shouldn't crash --
-			// we should fall through to the periodic decision (which will flag it).
+		it('rediscovers a fresh bucket when getDiscoveryRootSignature throws', async () => {
+			// Fresh bucket, so periodic would NOT fire: the throw is the only reason a
+			// full pass can run. A throw leaves staleness unknown, and the cache is not
+			// re-filtered against current settings on load, so an interpreter the user
+			// just excluded would otherwise be re-registered from cache and startable.
 			const bucket = makeBucket({
 				extensionId: 'ms.python',
 				languageId: 'python',
 				runtimePath: '/usr/bin/python3',
-				lastFullDiscovery: 0,
+				lastFullDiscovery: Date.now(),
 			});
 			cache.setBucket(bucket);
 
@@ -618,18 +620,17 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 
 			const plans = await managersNeedingFullDiscovery(svc);
 			expect(managersFromPlans(plans)).toEqual([pyManager]);
-			expect(lastFullDiscoveryReason(svc)).toBe('periodic');
+			expect(lastFullDiscoveryReason(svc)).toBe('signature-unavailable');
 		});
 
-		it('falls back to periodic when getDiscoveryRootSignature exceeds its 500ms timeout', async () => {
-			// Stale bucket so periodic fires regardless. The point of this test is
-			// that a never-resolving signature call doesn't hang the warm-start
-			// decision; the 500ms timeout returns undefined -> periodic logic runs.
+		it('rediscovers a fresh bucket when getDiscoveryRootSignature exceeds its 500ms timeout', async () => {
+			// Same contract as the throwing case, and additionally: a never-resolving
+			// signature call must not hang the warm-start decision.
 			const bucket = makeBucket({
 				extensionId: 'ms.python',
 				languageId: 'python',
 				runtimePath: '/usr/bin/python3',
-				lastFullDiscovery: 0,
+				lastFullDiscovery: Date.now(),
 			});
 			cache.setBucket(bucket);
 
@@ -650,7 +651,7 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 				await vi.advanceTimersByTimeAsync(600);
 				const plans = await promise;
 				expect(managersFromPlans(plans)).toEqual([pyManager]);
-				expect(lastFullDiscoveryReason(svc)).toBe('periodic');
+				expect(lastFullDiscoveryReason(svc)).toBe('signature-unavailable');
 			} finally {
 				vi.useRealTimers();
 			}
