@@ -243,7 +243,14 @@ options(
   repos = c(RSPM = Sys.getenv("RSPM")),
   pak.no_build_vignettes = TRUE,
   pkg.sysreqs = FALSE,
-  pkg.install.extra = c("--no-multiarch")
+  pkg.install.extra = c("--no-multiarch"),
+  # Defensive: PPM does not have a binary for every package on every arch, and
+  # pak omits `LinkingTo` dependencies from the plan when it expects binaries,
+  # so a source fallback fails with "Cannot install <pkg> from source: ... its
+  # LinkingTo dependency <dep> is not part of the installation plan". This
+  # image's current package set happens not to hit that, but rocky_8 did on
+  # aarch64 (arrow), and which packages have binaries changes over time.
+  pkg.include_linkingto = TRUE
 )
 
 pak::local_install_dev_deps(
