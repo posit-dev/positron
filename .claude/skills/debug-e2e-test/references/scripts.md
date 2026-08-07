@@ -199,7 +199,8 @@ Durable triage state at `<work-dir>/state.json`.
   actions. `done` is rejected -- that transition goes through the outcome gate.
 - **Phases**, in order: `awaiting-pattern-selection`, `pattern-selected`,
   `evidence-gathered`, `hypothesis-ready`, `awaiting-clear`, `implementation`,
-  `done`.
+  `done`. `awaiting-clear` is vestigial -- accepted on read so in-flight
+  checkpoints still validate, never routed to.
 - **`phase=done` is gated.** It requires an `outcome`; `no-op` additionally
   requires `outcomeReason`, and every other outcome requires `outcomeRef` plus
   `diagnosisBlockRecorded=true` (only `record-diagnosis.js` sets that flag). A

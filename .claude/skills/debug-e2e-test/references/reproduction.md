@@ -9,20 +9,18 @@ Implementation, not diagnosis, is where a triage's cost runs away: every turn
 re-reads the whole context, so a dead-end exploration keeps billing for the rest
 of the session.
 
-- **Offer a clear, don't impose one.** `--set phase=awaiting-clear`, `/clear`,
-  `--resume <id>` (then `phase=implementation` again) is worth *proposing* at a
-  context warning or right after the engineer redirects you off an approach --
-  working-tree edits and the checkpoint both survive, so `git diff` plus
-  `diagnosis.fixApproach` is the whole handoff. It is their call: in an
-  interactive session the lost thread usually costs more than the context does.
 - **Delegate source reading.** Finding a POM method, selector, command id, or
-  call chain goes to an `Explore` subagent under the cap in the SKILL's
-  root-cause step. Inline `sed`/`grep`/`cat` sweeps and whole-file `Read`s are
-  the largest avoidable line item in this phase.
+  call chain goes to an `Explore` subagent under the cap in
+  `references/evidence-escalation.md` ("Delegate the read").
 - **Keep verification output off the transcript.** Redirect runs to a file or
   run them in the background and read a summary -- a `--repeat-each` loop is
   noisy, and streaming full Playwright output into context bills it on every
   later turn.
+
+If the engineer clears anyway, `--resume <id>` picks the triage back up: the
+checkpoint and the working-tree edits both survive, so `git diff` plus
+`diagnosis.fixApproach` is the whole handoff. Don't propose a clear yourself --
+mid-triage the lost thread usually costs more than the context does.
 
 ## Prefer a unit-level repro when the mechanism lives below the e2e layer
 

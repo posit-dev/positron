@@ -60,7 +60,8 @@ These hold on both entries unless a line names one.
 - Agree the **fix approach** before the first edit, the same way you agree the
   pattern before fetching evidence.
 - Escalate evidence only to answer a concrete question, one evidence block per
-  step (below). Keep large output on disk, not in the conversation.
+  step (below), and dispatch the read to a subagent. Keep large output on disk,
+  not in the conversation.
 - **Never** increase a timeout or add an arbitrary wait as the fix.
 - **Never** claim a flaky test is fixed on one green run.
 - A previous merged fix must be checked against subsequent failures, and that
@@ -222,9 +223,11 @@ start at step 2. Steps 2 and 3 are shared.
 3. State the concrete questions that remain. **Before each escalation past the
    summary, emit the evidence block** (`Question` / `Next artifact` / `Reason`)
    defined in [`references/evidence-escalation.md`](references/evidence-escalation.md)
-   -- can't fill all three fields, don't escalate. That reference owns the block
-   format, the ladder, the reasons a second occurrence is allowed, raw-log
-   spelunking, and 403/null handling.
+   -- can't fill all three fields, don't escalate. **A filled block is a subagent
+   prompt: dispatch the escalation, don't open the artifact yourself.** That
+   reference owns the block format, the dispatch contract, the ladder, the
+   reasons a second occurrence is allowed, raw-log spelunking, and 403/null
+   handling.
 4. Save `phase=evidence-gathered` to the checkpoint.
 
 ## Determine root cause
@@ -240,13 +243,11 @@ could plausibly change the failure rate (a fix that couldn't is not a fix --
 keep digging).
 
 **Delegate cross-file tracing to an `Explore` subagent** only after the evidence
-names a concrete symbol / selector / event / subsystem. Give it the specific
-lead; require a compact response and **cap it**: a probable call chain (<=8
-entries), <=5 files with exact line ranges, one mechanism summary, <=3 open
-questions. It must not return full file contents, a repo tour, or speculation
-unsupported by evidence.
+names a concrete symbol / selector / event / subsystem -- under the same cap and
+forbidden list as an evidence read ("Delegate the read" in
+[`references/evidence-escalation.md`](references/evidence-escalation.md)).
 
-**Then agree the fix approach, before the clear.** Table the plausible fixes
+**Then agree the fix approach, before the first edit.** Table the plausible fixes
 (approach / what it changes / risk) with your recommendation and let the
 engineer pick -- editing before the pick burns a context on a rejected
 approach. Carry the pick as `diagnosis.fixApproach`.
@@ -266,15 +267,12 @@ working-tree edits are all durable on disk, so the invariant to hold is that
 implementation *could* start from the checkpoint alone -- a `fixApproach`
 specific enough to act on without re-reading the evidence.
 
-**Clearing is optional.** Offer `phase=awaiting-clear` -> `/clear` ->
-`--resume <id>` when the context is genuinely heavy (a long evidence dig, or
-the engineer redirected you off an approach), and let them decline. Mid-triage
-it costs them the thread -- earlier reasoning they may want to question, and
-steering they gave in passing -- so don't clear an interactive session by
-default, and never clear without saying why.
+That invariant is what makes a clear safe, so you never have to propose one: the
+engineer clears when they want and `--resume <id>` picks the triage back up.
 
 Read [`references/reproduction.md`](references/reproduction.md) now -- it owns
-when to re-clear again, project choice, race verification, and the RED bar
+keeping this phase's context small, project choice, race verification, and the
+RED bar
 **you** must hold when `author-vitest-tests` writes a lower-level regression
 test (that skill drives toward green; it does not enforce RED-first).
 

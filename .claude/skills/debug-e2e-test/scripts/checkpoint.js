@@ -32,6 +32,8 @@ export const PHASES = [
 	'pattern-selected',
 	'evidence-gathered',
 	'hypothesis-ready',
+	// Vestigial: the skill no longer routes here, but in-flight checkpoints may
+	// still hold it, so a --read of one must not fail validation.
 	'awaiting-clear',
 	'implementation',
 	'done',
@@ -93,7 +95,7 @@ export const PHASE_NEXT_ACTION = {
 	'awaiting-pattern-selection': 'Run the history helper, then select a failure pattern.',
 	'pattern-selected': 'Fetch evidence for the selected pattern\'s representative occurrence.',
 	'evidence-gathered': 'Reason through the evidence to a root-cause mechanism.',
-	'hypothesis-ready': 'Reproduce and verify the fix (diagnosis saved; safe to /clear and --resume).',
+	'hypothesis-ready': 'Reproduce and verify the fix (diagnosis saved).',
 	'awaiting-clear': 'Safe to /clear; resume with --resume to reproduce and fix.',
 	'implementation': 'Implement + verify the fix (no single-green-run claims for a flake), then set an outcome and record the diagnosis block (record-diagnosis.js) before phase=done.',
 	'done': 'Triage complete; diagnosis recorded.',
