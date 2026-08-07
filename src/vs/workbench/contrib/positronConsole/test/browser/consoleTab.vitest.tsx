@@ -10,6 +10,7 @@ import { userEvent } from '@testing-library/user-event';
 import { IAction } from '../../../../../base/common/actions.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { IContextMenuDelegate } from '../../../../../base/browser/contextmenu.js';
+import { IDelayedHoverOptions } from '../../../../../base/browser/ui/hover/hover.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IResourceUsageHistoryService } from '../../../../services/positronConsole/browser/resourceUsageHistoryService.js';
@@ -22,40 +23,42 @@ import { ConsoleTab } from '../../browser/components/consoleTab.js';
 import { PositronConsoleContextProvider } from '../../browser/positronConsoleContext.js';
 
 describe('ConsoleTab', () => {
+	// One container for the whole file: the workbench preset registers global
+	// extension point handlers, which can only be set once per module instance.
+	const showContextMenu = vi.fn<(delegate: IContextMenuDelegate) => void>();
+
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IContextMenuService, { showContextMenu })
+		.stub(IResourceUsageHistoryService, { getHistory: async () => [] })
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	function addActiveConsoleInstance(sessionId: string, sessionName: string): TestPositronConsoleInstance {
+		const sessionMetadata: IRuntimeSessionMetadata = {
+			sessionId,
+			sessionMode: LanguageRuntimeSessionMode.Console,
+			notebookUri: undefined,
+			createdTimestamp: 0,
+			startReason: 'test',
+		};
+		// ConsoleTab/RuntimeIcon read base64EncodedIconSvg and languageId off runtimeMetadata.
+		const runtimeMetadata = stubInterface<ILanguageRuntimeMetadata>({
+			base64EncodedIconSvg: undefined,
+			languageId: 'python',
+		});
+		const instance = new TestPositronConsoleInstance(
+			sessionId,
+			sessionName,
+			sessionMetadata,
+			runtimeMetadata,
+		);
+		const consoleService = ctx.get(IPositronConsoleService) as TestPositronConsoleService;
+		consoleService.addTestConsoleInstance(instance);
+		return instance;
+	}
+
 	describe('rename session', () => {
-		const showContextMenu = vi.fn<(delegate: IContextMenuDelegate) => void>();
-
-		const ctx = createTestContainer()
-			.withReactServices()
-			.stub(IContextMenuService, { showContextMenu })
-			.stub(IResourceUsageHistoryService, { getHistory: async () => [] })
-			.build();
-		const rtl = setupRTLRenderer(() => ctx.reactServices);
-
-		function addActiveConsoleInstance(sessionId: string, sessionName: string): TestPositronConsoleInstance {
-			const sessionMetadata: IRuntimeSessionMetadata = {
-				sessionId,
-				sessionMode: LanguageRuntimeSessionMode.Console,
-				notebookUri: undefined,
-				createdTimestamp: 0,
-				startReason: 'test',
-			};
-			// ConsoleTab/RuntimeIcon read base64EncodedIconSvg and languageId off runtimeMetadata.
-			const runtimeMetadata = stubInterface<ILanguageRuntimeMetadata>({
-				base64EncodedIconSvg: undefined,
-				languageId: 'python',
-			});
-			const instance = new TestPositronConsoleInstance(
-				sessionId,
-				sessionName,
-				sessionMetadata,
-				runtimeMetadata,
-			);
-			const consoleService = ctx.get(IPositronConsoleService) as TestPositronConsoleService;
-			consoleService.addTestConsoleInstance(instance);
-			return instance;
-		}
-
 		async function openRenameInput(instance: TestPositronConsoleInstance, sessionName: string) {
 			const user = userEvent.setup();
 			rtl.render(
@@ -233,6 +236,57 @@ describe('ConsoleTab', () => {
 			expect(notify).toHaveBeenCalledOnce();
 			expect(screen.queryByRole('tab', { name: newName })).not.toBeInTheDocument();
 			expect(screen.getByRole('tab', { name: sessionName })).toBeInTheDocument();
+		});
+	});
+
+	describe('session name tooltip', () => {
+		/**
+		 * Renders a tab and returns the tooltip text the hover would show. The
+		 * component registers the hover once with a factory that resolves the
+		 * content at hover time, so the content is read by invoking the factory
+		 * rather than by hovering.
+		 */
+		function renderTabAndResolveTooltip(sessionId: string, sessionName: string, hideSessionName: boolean): string {
+			const instance = addActiveConsoleInstance(sessionId, sessionName);
+
+			// Spy rather than stub the hover service: the action bar hover
+			// manager calls hideHover() as it is disposed during RTL cleanup,
+			// so the real implementation has to stay in place.
+			const setupDelayedHover = vi.spyOn(ctx.reactServices.hoverService, 'setupDelayedHover');
+
+			rtl.render(
+				<PositronConsoleContextProvider>
+					<ConsoleTab
+						hideSessionName={hideSessionName}
+						positronConsoleInstance={instance}
+						width={200}
+						onChangeSession={() => { }}
+						onSessionNameHiddenChange={() => { }}
+					/>
+				</PositronConsoleContextProvider>
+			);
+
+			const [target, hoverOptions] = setupDelayedHover.mock.calls.at(-1)!;
+			expect(target).toBe(screen.getByRole('tab'));
+
+			// The component always passes a factory, never a static options object.
+			const content = (hoverOptions as () => IDelayedHoverOptions)().content;
+			return typeof content === 'string' ? content : '';
+		}
+
+		// jsdom reports every element as zero-width, so getFittedSessionName
+		// always finds the full name fits: the rendered name is never cut short
+		// on its own here. hideSessionName is a plain prop, so it drives the
+		// truncated case. Empty content is how IHoverService is told not to
+		// show a hover at all -- see HoverService._createHover.
+		it('offers the full session name when the tab has no room to show it', () => {
+			expect(renderTabAndResolveTooltip('tooltip-session-1', 'My Python Session', true))
+				.toBe('My Python Session');
+		});
+
+		it('offers no tooltip when the tab shows the whole session name', () => {
+			expect(renderTabAndResolveTooltip('tooltip-session-2', 'My Python Session', false))
+				.toBe('');
 		});
 	});
 });

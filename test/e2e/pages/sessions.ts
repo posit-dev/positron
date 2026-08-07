@@ -467,9 +467,13 @@ export class Sessions {
 	private getSessionTab(sessionIdOrName: string): Locator {
 		const sessionIdPattern = /^(python|r)-[a-zA-Z0-9]+$/i;
 
+		// Match by name on the tab's aria-label, not its rendered text: the tab
+		// ellipsizes the session name to fit the space it has, so "Python
+		// (reticulate)" can render as "Python (retic...". The aria-label always
+		// carries the full name.
 		return sessionIdPattern.test(sessionIdOrName)
 			? this.page.getByTestId(`console-tab-${sessionIdOrName}`)
-			: this.sessionTabs.getByText(sessionIdOrName).locator('..');
+			: this.sessionTabs.and(this.page.getByLabel(sessionIdOrName));
 	}
 
 	/**

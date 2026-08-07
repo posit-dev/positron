@@ -18,6 +18,7 @@ import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
+import { HoverPosition } from '../../../../../base/browser/ui/hover/hoverWidget.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -74,6 +75,7 @@ export const ConsoleTab = ({ positronConsoleInstance, width, hideSessionName, on
 	const tabRef = useRef<HTMLDivElement>(null);
 	const inputRef = React.useRef<HTMLInputElement>(null);
 	const sessionNameRef = useRef<HTMLParagraphElement>(null);
+	const tooltipRef = useRef('');
 
 	// Variables
 	const isActiveTab = positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId;
@@ -180,6 +182,36 @@ export const ConsoleTab = ({ positronConsoleInstance, width, hideSessionName, on
 	useEffect(() => {
 		return () => onSessionNameHiddenChange(positronConsoleInstance.sessionId, false);
 	}, [onSessionNameHiddenChange, positronConsoleInstance.sessionId]);
+
+	// The tooltip content: the full session name, but only while the tab is
+	// showing less than all of it. A tooltip repeating a name that's already
+	// fully legible is just noise. Renaming shows the whole name in an input, so
+	// there's nothing to reveal then either.
+	useEffect(() => {
+		const nameIsCutShort = hideSessionName || fittedSessionName !== sessionName;
+		tooltipRef.current = nameIsCutShort && !isRenamingSession ? sessionName : '';
+	}, [hideSessionName, fittedSessionName, sessionName, isRenamingSession]);
+
+	// Show the full session name on hover. The hover targets the whole tab
+	// rather than the name element, because the case that most needs a tooltip
+	// is the one where the name has been squeezed out entirely and there is no
+	// name left to hover over. Reading the content from a ref keeps this
+	// registered once, instead of being torn down and rebuilt as the tab
+	// resizes.
+	useEffect(() => {
+		const tabElement = tabRef.current;
+		if (!tabElement) {
+			return;
+		}
+
+		const hover = services.hoverService.setupDelayedHover(tabElement, () => ({
+			content: tooltipRef.current,
+			target: tabElement,
+			position: { hoverPosition: HoverPosition.BELOW },
+			appearance: { showPointer: true }
+		}));
+		return () => hover.dispose();
+	}, [services.hoverService]);
 
 	// When entering rename mode, focus the input and select its text.
 	useEffect(() => {
