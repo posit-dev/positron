@@ -56,8 +56,7 @@ export interface ICommandMetadata {
 	// --- Start Positron ---
 	/**
 	 * When true, this command is exposed to AI agents via
-	 * `positron.ai.getAgentAllowedCommands()`. The command must also be
-	 * palette-exposed (`f1: true`) so a user could run it themselves.
+	 * `positron.ai.getAgentAllowedCommands()`.
 	 */
 	readonly agentCompatible?: boolean;
 	// --- End Positron ---
