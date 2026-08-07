@@ -219,18 +219,18 @@ export class ProductContribution implements IWorkbenchContribution {
 
 			// --- Start Positron ---
 			// Positron uses its calver `parseVersion` (rather than upstream's semver `tryParseVersion`),
-			// `productService.positronVersion`, `productService.downloadUrl`, and gates on the Positron
+			// `productService.positronVersion`, `productService.releaseNotesUrl`, and gates on the Positron
 			// `update.positron.channel === 'releases'` setting.
 			const lastVersion = parseVersion(storageService.get(ProductContribution.KEY, StorageScope.APPLICATION, ''));
 			const currentVersion = parseVersion(productService.positronVersion);
 			const shouldShowReleaseNotes = configurationService.getValue<boolean>('update.showReleaseNotes');
 			const shouldShowPostInstallInfo = configurationService.getValue<boolean>('update.showPostInstallInfo');
-			const downloadUrl = productService.downloadUrl;
+			const releaseNotesUrl = productService.releaseNotesUrl;
 			const channel = configurationService.getValue<string>('update.positron.channel');
 
 			// was there a major/minor update? if so, open release notes (unless post-install info is enabled, which takes over)
 			if (shouldShowReleaseNotes && !shouldShowPostInstallInfo && !environmentService.skipReleaseNotes
-				&& downloadUrl && lastVersion && currentVersion
+				&& releaseNotesUrl && lastVersion && currentVersion
 				&& isMajorMinorUpdate(lastVersion, currentVersion)
 				&& channel === 'releases'
 			) {
@@ -243,8 +243,8 @@ export class ProductContribution implements IWorkbenchContribution {
 							[{
 								label: nls.localize('releaseNotes', "Release Notes"),
 								run: () => {
-									// view release notes from the downloads page
-									const uri = URI.parse(downloadUrl);
+									// view release notes on the Positron website
+									const uri = URI.parse(releaseNotesUrl);
 									openerService.open(uri);
 								}
 							}],
