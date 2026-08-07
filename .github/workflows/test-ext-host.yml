@@ -166,7 +166,21 @@ jobs:
         id: electron-remote-integration-tests
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
-        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
+        # Since the Electron 42 bump (upstream 1.124.0, #14673), Electron
+        # intermittently segfaults (exit 139) at startup in the system
+        # libfontconfig/libexpat on the ubuntu24 CI image, killing whichever
+        # suite happens to be launching. Retry only on that exit code so real
+        # test failures still fail fast.
+        run: |
+          for attempt in 1 2 3; do
+            code=0
+            DISPLAY=:10 ./scripts/test-remote-integration.sh || code=$?
+            if [ "$code" -ne 139 ]; then
+              exit "$code"
+            fi
+            echo "Electron segfaulted at startup (exit 139) on attempt $attempt/3"
+          done
+          exit 139
 
       - name: 🧪 Run Extension Host Tests (Chromium)
         if: ${{ job.status != 'cancelled' && (success() || failure()) }}
