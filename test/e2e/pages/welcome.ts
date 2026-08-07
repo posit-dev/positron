@@ -16,9 +16,11 @@ const RECENT_SECTION = '.recently-opened';
 const WALKTHROUGH_SECTION = '.getting-started';
 const HEADING_ROLE = 'heading';
 const BUTTON_ROLE = 'button';
+const REDESIGNED_PAGE = '.positron-welcome-page';
 const CATEGORIES_SLIDE = '.gettingStartedSlideCategories';
 const DETAILS_SLIDE = '.gettingStartedSlideDetails';
 const GETTING_STARTED_CONTAINER = '.gettingStartedContainer';
+const STARTUP_CHECKBOX = '#showOnStartup';
 
 export class Welcome {
 
@@ -40,6 +42,8 @@ export class Welcome {
 	get openFolderButton(): Locator { return this.startButtons.getByText('Open Folder'); }
 	get walkthroughSection(): Locator { return this.code.driver.currentPage.locator(WALKTHROUGH_SECTION); }
 	get walkthroughButtons(): Locator { return this.walkthroughSection.getByRole(BUTTON_ROLE); }
+	get redesignedPage(): Locator { return this.code.driver.currentPage.locator(REDESIGNED_PAGE); }
+	get startupCheckbox(): Locator { return this.code.driver.currentPage.locator(STARTUP_CHECKBOX); }
 
 	constructor(private code: Code) { }
 
@@ -127,6 +131,22 @@ export class Welcome {
 	}
 
 	/**
+	 * Verify the redesigned welcome page renders. Only shows when the
+	 * `welcomePage.experimental` setting is on.
+	 */
+	async expectRedesignedPageToBeVisible() {
+		await test.step('Verify redesigned welcome page is visible', async () => {
+			await expect(this.redesignedPage).toBeVisible();
+		});
+	}
+
+	async expectStartupCheckboxToBeVisible() {
+		await test.step('Verify "Show welcome page on startup" checkbox is visible', async () => {
+			await expect(this.startupCheckbox).toBeVisible();
+		});
+	}
+
+	/**
 	 * Verify Tab never reaches the slide that is currently off-screen.
 	 *
 	 * The welcome page and the walkthrough sit side by side in one editor, and
@@ -153,4 +173,5 @@ export class Welcome {
 			}
 		});
 	}
+
 }
