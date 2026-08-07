@@ -431,10 +431,16 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
     ELECTRON_SKIP_BINARY_DOWNLOAD=1 \
     NODE_OPTIONS="--max-old-space-size=4095"
 
+# NB LD_LIBRARY_PATH *prepends* here. It used to assign, which dropped the
+# /opt/libgit2, /opt/gdal and /opt/geos entries accumulated above -- so the R
+# packages built from source against those libraries could not find them at
+# runtime: sf and terra failed with `libgdal.so.35: cannot open shared object
+# file` and gert with `libgit2.so.1.8`, in every published image up to and
+# including 24.18.0.
 ENV PATH="/opt/rh/gcc-toolset-13/root/usr/bin:${PATH}" \
     CC=/opt/rh/gcc-toolset-13/root/usr/bin/gcc \
     CXX=/opt/rh/gcc-toolset-13/root/usr/bin/g++ \
-    LD_LIBRARY_PATH="/opt/rh/gcc-toolset-13/root/usr/lib64"
+    LD_LIBRARY_PATH="/opt/rh/gcc-toolset-13/root/usr/lib64:${LD_LIBRARY_PATH}"
 
 # Sanity check
 RUN echo 'int main(){}' | g++ -std=gnu++20 -x c++ - -o /dev/null && g++ --version
