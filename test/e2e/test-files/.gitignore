@@ -11,3 +11,7 @@ proj/
 # spec owns it: several specs run the same python_apps, and the name carries the
 # CPython version, so it differs per lane.
 __pycache__/
+
+# CI sets PIP_CACHE_DIR to a relative .pip-cache, so every `pip install` a spec
+# runs in the console lands one here instead of in the runner's cache dir.
+.pip-cache/
