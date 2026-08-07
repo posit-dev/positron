@@ -285,11 +285,16 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			// provider baseUrl: per-model endpoint resolution falls back to
 			// baseUrl, which would route chat at the bare host and 404.
 			// Personal access token only for now; OAuth lands next release.
-			supportedOptions: ['apiKey', 'baseUrl'],
+			supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 			defaults: {
 				model: 'databricks',
 				baseUrl: databricksHost,
 				toolCalls: true,
+				autoconfigure: {
+					type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
+					key: 'DATABRICKS_TOKEN',
+					signedIn: false,
+				},
 			},
 		},
 	];

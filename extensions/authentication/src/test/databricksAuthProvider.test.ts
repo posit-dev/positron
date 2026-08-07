@@ -5,6 +5,7 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
+import { DATABRICKS_OAUTH_SESSION_ID } from '../constants';
 import { DatabricksAuthProvider } from '../databricksAuthProvider';
 import { resetOAuthEndpointCache } from '../databricksOAuth';
 
@@ -91,7 +92,7 @@ suite('DatabricksAuthProvider', () => {
 
 			const sessions = await provider.getSessions();
 			assert.strictEqual(sessions.length, 1);
-			assert.strictEqual(sessions[0].id, 'databricks');
+			assert.strictEqual(sessions[0].id, DATABRICKS_OAUTH_SESSION_ID);
 			assert.strictEqual(sessions[0].accessToken, 'fresh-token');
 			assert.strictEqual(
 				sessions[0].account.label,
@@ -148,7 +149,7 @@ suite('DatabricksAuthProvider', () => {
 
 			assert.strictEqual(events.length, 1);
 			assert.strictEqual(events[0].removed?.length, 1);
-			assert.strictEqual(events[0].removed?.[0].id, 'databricks');
+			assert.strictEqual(events[0].removed?.[0].id, DATABRICKS_OAUTH_SESSION_ID);
 		});
 
 		test('alerts the user when the refresh fails', async () => {
@@ -220,7 +221,7 @@ suite('DatabricksAuthProvider', () => {
 
 			const sessions = await provider.getSessions();
 			assert.strictEqual(sessions.length, 2);
-			assert.strictEqual(sessions[0].id, 'databricks');
+			assert.strictEqual(sessions[0].id, DATABRICKS_OAUTH_SESSION_ID);
 			assert.strictEqual(sessions[1].id, 'pat-account');
 		});
 	});
@@ -232,7 +233,7 @@ suite('DatabricksAuthProvider', () => {
 			const events: vscode.AuthenticationProviderAuthenticationSessionsChangeEvent[] = [];
 			const subscription = provider.onDidChangeSessions(e => events.push(e));
 			try {
-				await provider.removeSession('databricks');
+				await provider.removeSession(DATABRICKS_OAUTH_SESSION_ID);
 			} finally {
 				subscription.dispose();
 			}
@@ -242,7 +243,7 @@ suite('DatabricksAuthProvider', () => {
 			assert.strictEqual(secrets.get('databricks.token_expiry'), undefined);
 			assert.strictEqual(secrets.get('databricks.host'), undefined);
 			assert.strictEqual(events.length, 1);
-			assert.strictEqual(events[0].removed?.[0].id, 'databricks');
+			assert.strictEqual(events[0].removed?.[0].id, DATABRICKS_OAUTH_SESSION_ID);
 		});
 
 		test('delegates PAT sessions to the base class', async () => {
@@ -253,5 +254,51 @@ suite('DatabricksAuthProvider', () => {
 			const sessions = await provider.getSessions();
 			assert.deepStrictEqual(sessions, []);
 		});
+	});
+});
+
+suite('DatabricksAuthProvider credential chain', () => {
+	test('returns the chain session when the chain resolves', async () => {
+		const context = makeMockContext().context;
+		const provider = new DatabricksAuthProvider(context, {
+			resolve: async () => 'ambient-token',
+		});
+		await provider.resolveChainCredentials();
+		const sessions = await provider.getSessions();
+		assert.strictEqual(sessions.length, 1);
+		assert.strictEqual(sessions[0].id, 'databricks');
+		assert.strictEqual(sessions[0].accessToken, 'ambient-token');
+	});
+
+	test('lists the OAuth session ahead of the chain session', async () => {
+		const context = makeMockContext().context;
+		// Seed stored OAuth secrets with a far-future expiry so no refresh runs.
+		await context.secrets.store('databricks.access_token', 'oauth-token');
+		await context.secrets.store('databricks.token_expiry', String(Date.now() + 60 * 60 * 1000));
+		await context.secrets.store('databricks.host', 'https://h.example.com');
+		const provider = new DatabricksAuthProvider(context, {
+			resolve: async () => 'ambient-token',
+		});
+		await provider.resolveChainCredentials();
+		const sessions = await provider.getSessions();
+		assert.deepStrictEqual(
+			sessions.map(s => ({ id: s.id, accessToken: s.accessToken })),
+			[
+				{ id: 'databricks-oauth', accessToken: 'oauth-token' },
+				{ id: 'databricks', accessToken: 'ambient-token' },
+			]
+		);
+	});
+
+	test('OAuth sessions use the databricks-oauth session id', async () => {
+		const context = makeMockContext().context;
+		await context.secrets.store('databricks.access_token', 'oauth-token');
+		await context.secrets.store('databricks.token_expiry', String(Date.now() + 60 * 60 * 1000));
+		const provider = new DatabricksAuthProvider(context);
+		const sessions = await provider.getSessions();
+		assert.strictEqual(sessions[0].id, 'databricks-oauth');
+		// removeSession by the new id clears the OAuth secrets.
+		await provider.removeSession('databricks-oauth');
+		assert.strictEqual(await context.secrets.get('databricks.access_token'), undefined);
 	});
 });

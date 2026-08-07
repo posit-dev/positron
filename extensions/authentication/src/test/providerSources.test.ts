@@ -93,7 +93,7 @@ suite('getProviderSources baseUrl defaults from the catalog', () => {
 		const databricks = getProviderSources().find(
 			s => s.provider.id === PROVIDER_METADATA.databricks.id
 		);
-		assert.deepStrictEqual(databricks?.supportedOptions, ['apiKey', 'baseUrl']);
+		assert.deepStrictEqual(databricks?.supportedOptions, ['apiKey', 'baseUrl', 'autoconfigure']);
 	});
 
 	test('the Databricks workspace URL default comes from the catalog host', async () => {

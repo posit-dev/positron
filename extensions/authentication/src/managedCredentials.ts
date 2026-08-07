@@ -65,6 +65,16 @@ export const SNOWFLAKE_MANAGED_CREDENTIALS: EnvVarCredentialConfig = {
 };
 
 /**
+ * Databricks managed credentials configuration for Posit Workbench.
+ */
+export const DATABRICKS_MANAGED_CREDENTIALS: EnvVarCredentialConfig = {
+	kind: 'env-var',
+	displayName: 'OAuth (Managed)',
+	envVar: 'DATABRICKS_CONFIG_FILE',
+	validator: (value: string) => value.includes('posit-workbench'),
+};
+
+/**
  * Checks whether managed credentials are available for the given
  * credential configuration on Posit Workbench.
  */

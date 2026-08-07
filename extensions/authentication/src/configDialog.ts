@@ -7,9 +7,9 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { AuthProvider } from './authProvider';
-import { FOUNDRY_AUTH_PROVIDER_ID } from './constants';
+import { DATABRICKS_AUTH_PROVIDER_ID, FOUNDRY_AUTH_PROVIDER_ID } from './constants';
 import { log } from './log';
-import { FOUNDRY_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
+import { DATABRICKS_MANAGED_CREDENTIALS, FOUNDRY_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { getProviderSources } from './providerSources';
 
 export type ApiKeyValidator = (apiKey: string, config: positron.ai.LanguageModelConfig) => Promise<void>;
@@ -106,6 +106,18 @@ export async function updateProviderFromSessions(
 					autoconfigure: {
 						type: positron.ai.LanguageModelAutoconfigureType.Custom,
 						message: SNOWFLAKE_MANAGED_CREDENTIALS.displayName,
+						signedIn: true,
+					},
+				},
+			});
+		} else if (isAutoSession && providerId === DATABRICKS_AUTH_PROVIDER_ID && hasManagedCredentials(DATABRICKS_MANAGED_CREDENTIALS)) {
+			positron.ai.updateProvider(providerId, {
+				signedIn,
+				status,
+				defaults: {
+					autoconfigure: {
+						type: positron.ai.LanguageModelAutoconfigureType.Custom,
+						message: DATABRICKS_MANAGED_CREDENTIALS.displayName,
 						signedIn: true,
 					},
 				},
