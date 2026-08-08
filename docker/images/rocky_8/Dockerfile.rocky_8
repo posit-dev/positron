@@ -170,21 +170,21 @@ RUN set -eux; \
     cd pdol && \
     cargo build
 
-# Quarto
+# Quarto. Install the published RPM rather than unpacking the .deb with `ar x`:
+# that extraction only applies data.tar.gz and so skips the package's postinst,
+# which is what links the binary onto PATH -- leaving quarto installed at
+# /opt/quarto/bin but unreachable (`command -v quarto` finds nothing).
+# `quarto --version` runs in the same layer so this cannot silently regress.
 RUN dnf install -y wget && \
-    wget -O quarto-linux-${QUARTO_ARCH}.deb \
+    wget -O /tmp/quarto.rpm \
         --tries=5 \
         --waitretry=2 \
         --retry-connrefused \
-        https://quarto.org/download/latest/quarto-linux-${QUARTO_ARCH}.deb && \
-    dnf install -y /usr/bin/ar && \
-    mkdir -p /tmp/quarto && \
-    cd /tmp/quarto && \
-    ar x /quarto-linux-${QUARTO_ARCH}.deb && \
-    tar -xf data.tar.gz -C / && \
-    cd / && \
-    rm quarto-linux-${QUARTO_ARCH}.deb && \
-    rm -rf /tmp/quarto
+        https://quarto.org/download/latest/quarto-linux-${CPU_ARCH}.rpm && \
+    dnf install -y /tmp/quarto.rpm && \
+    dnf clean all && \
+    rm -f /tmp/quarto.rpm && \
+    quarto --version
 
 # Conda (install only; keep off PATH for now)
 RUN wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-${CONDA_ARCH}.sh" && \
@@ -273,16 +273,20 @@ ENV PATH="/root/.venv/bin:${PATH}"
 ENV GDAL_DATA=/opt/gdal/share/gdal
 ENV PROJ_LIB=/usr/share/proj
 
-# Configure R for root user (Rocky Linux 8 channel + UA) — write real newlines
+# Configure R for root user. NB the PPM binary channel for RHEL/Rocky 8 is
+# "centos8" -- there is no "rockylinux8" channel (see
+# https://packagemanager.posit.co/__api__/status -> .distros[].binaryURL, where
+# rhel8 maps to centos8). The old "rockylinux8" URL 404s, so R reported zero
+# available packages and fell back to building everything from source.
 RUN cat > ~/.Rprofile <<'RPROF'
 options(
-  repos = c(RSPM = "https://packagemanager.posit.co/cran/__linux__/rockylinux8/latest"),
+  repos = c(RSPM = "https://packagemanager.posit.co/cran/__linux__/centos8/latest"),
   HTTPUserAgent = sprintf("R/%s (rockylinux-8)", getRversion())
 )
 RPROF
 
 # Stable CRAN mirror for this image
-ENV RSPM=https://packagemanager.posit.co/cran/__linux__/rockylinux8/latest
+ENV RSPM=https://packagemanager.posit.co/cran/__linux__/centos8/latest
 
 # Use a shared site library (independent of $HOME)
 ENV R_LIBS_SITE=/usr/local/lib/R/site-library
@@ -360,7 +364,7 @@ RUN mkdir -p /tmp/test-content && cd /tmp/test-content && \
     PG_CONFIG=/usr/bin/pg_config \
     PKG_CONFIG_PATH="${GDAL_PREFIX}/lib64/pkgconfig:${GDAL_PREFIX}/lib/pkgconfig:${LIBGIT2_PREFIX}/lib64/pkgconfig:${LIBGIT2_PREFIX}/lib/pkgconfig:${GEOS_PREFIX}/lib64/pkgconfig:${GEOS_PREFIX}/lib/pkgconfig:/usr/lib64/pkgconfig:/usr/share/pkgconfig:/usr/lib/pkgconfig" \
     LD_LIBRARY_PATH="${GDAL_PREFIX}/lib64:${GDAL_PREFIX}/lib:${LIBGIT2_PREFIX}/lib64:${LIBGIT2_PREFIX}/lib:${GEOS_PREFIX}/lib64:${GEOS_PREFIX}/lib" \
-    RSPM="https://packagemanager.posit.co/cran/__linux__/rockylinux8/${PPM_SNAPSHOT}" \
+    RSPM="https://packagemanager.posit.co/cran/__linux__/centos8/${PPM_SNAPSHOT}" \
     Rscript - <<'EOF'
 options(
   # Pin the build-time install to a dated PPM snapshot so it can't hit the
@@ -371,7 +375,14 @@ options(
   repos = c(RSPM = Sys.getenv("RSPM")),
   pak.no_build_vignettes = TRUE,
   pkg.sysreqs = FALSE,
-  pkg.install.extra = c("--no-multiarch")
+  pkg.install.extra = c("--no-multiarch"),
+  # PPM serves most packages as binaries but falls back to source for a few
+  # (arrow and terra on aarch64, sf/terra on x86_64). pak omits `LinkingTo`
+  # dependencies from the plan when it expects binaries, so a source fallback
+  # then fails with "Cannot install <pkg> from source: ... its LinkingTo
+  # dependency <dep> is not part of the installation plan". Including them
+  # keeps mixed binary/source plans installable.
+  pkg.include_linkingto = TRUE
 )
 
 pak::local_install_dev_deps(
@@ -420,10 +431,16 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
     ELECTRON_SKIP_BINARY_DOWNLOAD=1 \
     NODE_OPTIONS="--max-old-space-size=4095"
 
+# NB LD_LIBRARY_PATH *prepends* here. It used to assign, which dropped the
+# /opt/libgit2, /opt/gdal and /opt/geos entries accumulated above -- so the R
+# packages built from source against those libraries could not find them at
+# runtime: sf and terra failed with `libgdal.so.35: cannot open shared object
+# file` and gert with `libgit2.so.1.8`, in every published image up to and
+# including 24.18.0.
 ENV PATH="/opt/rh/gcc-toolset-13/root/usr/bin:${PATH}" \
     CC=/opt/rh/gcc-toolset-13/root/usr/bin/gcc \
     CXX=/opt/rh/gcc-toolset-13/root/usr/bin/g++ \
-    LD_LIBRARY_PATH="/opt/rh/gcc-toolset-13/root/usr/lib64"
+    LD_LIBRARY_PATH="/opt/rh/gcc-toolset-13/root/usr/lib64:${LD_LIBRARY_PATH}"
 
 # Sanity check
 RUN echo 'int main(){}' | g++ -std=gnu++20 -x c++ - -o /dev/null && g++ --version

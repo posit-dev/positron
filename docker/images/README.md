@@ -14,6 +14,12 @@ This repository contains Docker images used for Positron continuous integration 
   - Includes PostgreSQL database configuration for testing
   - See the [Rocky 8 README](rocky_8/README.md) for detailed information
 
+- `rocky_9/` - Docker configurations for Rocky 9 environments
+  - Supports both AMD64 and ARM64 architectures
+  - Used by the Workbench e2e Rocky lane, which needs an arm64 host for a native
+    local loop (Posit publishes no arm64 Workbench package for RHEL 8)
+  - See the [Rocky 9 README](rocky_9/README.md) for detailed information
+
 ## Purpose
 
 These Docker images provide consistent testing environments for Positron across different architectures. They include:
