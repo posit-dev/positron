@@ -90,6 +90,8 @@ import { isDark } from '../../../../platform/theme/common/theme.js';
 // eslint-disable-next-line no-duplicate-imports
 import { isWeb } from '../../../../base/common/platform.js';
 import { gettingStartedPositronNotebookCategoryId } from '../common/gettingStartedPositronNotebookContent.js';
+import { createPositronWelcomePage } from './positronWelcomePage/positronWelcomePage.js';
+import { WELCOME_PAGE_EXPERIMENTAL_KEY } from '../common/positronWelcomePageConfiguration.js';
 // --- End Positron ---
 
 const SLIDE_TRANSITION_TIME_MS = 250;
@@ -286,6 +288,16 @@ export class GettingStartedPage extends EditorPane {
 
 		this._register(this.gettingStartedService.onDidAddWalkthrough(rerender));
 		this._register(this.gettingStartedService.onDidRemoveWalkthrough(rerender));
+
+		// --- Start Positron ---
+		// Rebuild the page when the experimental welcome page setting is toggled,
+		// so switching it does not need a window reload.
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(WELCOME_PAGE_EXPERIMENTAL_KEY)) {
+				this.buildSlideThrottle.queue(() => this.buildCategoriesSlide());
+			}
+		}));
+		// --- End Positron ---
 
 		this.recentlyOpened = this.workspacesService.getRecentlyOpened();
 		this._register(workspacesService.onDidChangeRecentlyOpened(() => {
@@ -978,41 +990,33 @@ export class GettingStartedPage extends EditorPane {
 			onShowOnStartupChanged();
 		}));
 		// --- Start Positron ---
-		// Positron replaces the upstream header with a theme-aware logo.
+		// Positron replaces the upstream header with a theme-aware logo. The
+		// logo is only shown on the original welcome page, so it is built with
+		// the rest of that page at the bottom of this method.
 		//
 		// const header = $('.header', {},
 		// 	$('h1.product-name.caption', {}, this.productService.nameLong),
 		// 	$('p.subtitle.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "Editing evolved"))
 		// );
-		// Create a function to get the header logo based on theme type
-		const getHeaderLogoClass = () => {
-			return isDark(this.themeService.getColorTheme().type)
-				? 'product-logo welcome-positron-logo-dark'
-				: 'product-logo welcome-positron-logo';
-		};
-		// Create element for the theme-aware logo
-		const logoElement = $('div', { class: getHeaderLogoClass() });
-		// Add a listener to update the logo when the theme changes
-		this.categoriesSlideDisposables.add(
-			this.themeService.onDidColorThemeChange(() => {
-				logoElement.className = getHeaderLogoClass();
-			})
-		);
-		// Display the theme-aware logo in the header
-		const header = $('.header', {}, logoElement);
 		// --- End Positron ---
 
 		const leftColumn = $('.categories-column.categories-column-left', {},);
 		const rightColumn = $('.categories-column.categories-column-right', {},);
 
 		// --- Start Positron ---
-		// Positron shows a Help list where upstream shows its start list.
+		// Positron shows a Help list where upstream shows its start list. The
+		// help list is only shown on the original welcome page, so it is built
+		// in layoutRecentList below.
 		//
 		// const startList = this.buildStartList();
-		const helpList = this.buildHelpList();
 		// --- End Positron ---
 		const recentList = this.buildRecentlyOpenedList();
-		const gettingStartedList = this.buildGettingStartedWalkthroughsList();
+		// --- Start Positron ---
+		// The walkthroughs list is only shown on the original welcome page, so
+		// it is built in layoutRecentList below.
+		//
+		// const gettingStartedList = this.buildGettingStartedWalkthroughsList();
+		// --- End Positron ---
 
 		// --- Start Positron ---
 		// The "Connect to..." button is normally a part of the start list
@@ -1096,6 +1100,11 @@ export class GettingStartedPage extends EditorPane {
 		// 	}
 		// };
 		const layoutRecentList = () => {
+			// These lists are only shown on the original welcome page, so they
+			// are built here rather than with the shared lists above.
+			const helpList = this.buildHelpList();
+			const gettingStartedList = this.buildGettingStartedWalkthroughsList();
+
 			const leftContent = $('div.positron-welcome-left-column');
 			this.positronReactRenderer = createWelcomePageLeft(leftContent);
 			this.categoriesSlideDisposables.add(this.positronReactRenderer);
@@ -1108,18 +1117,48 @@ export class GettingStartedPage extends EditorPane {
 			}
 			reset(rightColumn, gettingStartedList.getDomElement(), helpList.getDomElement());
 		};
-		// --- End Positron ---
 
-		// --- Start Positron ---
-		// Positron lays the page out once; upstream re-runs layoutLists when
-		// the walkthroughs change.
+		// The redesigned welcome page, gated on `welcomePage.experimental`.
+		// Returns undefined when the flag is off, in which case the original
+		// welcome page below is built unchanged.
+		const positronWelcomePageContainer = this.buildPositronWelcomePage(recentList, otherList, footer);
+
+		// When the redesigned page is on, it replaces the whole slide.
 		//
 		// gettingStartedList.onDidChange(layoutLists);
 		// layoutLists();
-		layoutRecentList();
+		//
+		// reset(this.categoriesSlide, $('.gettingStartedCategoriesContainer', {}, header, leftColumn, rightColumn, footer,));
+		if (positronWelcomePageContainer) {
+			reset(this.categoriesSlide, positronWelcomePageContainer);
+		} else {
+			// Everything in this branch is the original welcome page. It goes when
+			// the flag does, along with the files named on
+			// WELCOME_PAGE_EXPERIMENTAL_KEY, leaving the commented-out upstream
+			// code above to be restored or dropped as that change decides.
+
+			// Create a function to get the header logo based on theme type
+			const getHeaderLogoClass = () => {
+				return isDark(this.themeService.getColorTheme().type)
+					? 'product-logo welcome-positron-logo-dark'
+					: 'product-logo welcome-positron-logo';
+			};
+			// Create element for the theme-aware logo
+			const logoElement = $('div', { class: getHeaderLogoClass() });
+			// Add a listener to update the logo when the theme changes
+			this.categoriesSlideDisposables.add(
+				this.themeService.onDidColorThemeChange(() => {
+					logoElement.className = getHeaderLogoClass();
+				})
+			);
+			// Display the theme-aware logo in the header
+			const header = $('.header', {}, logoElement);
+
+			layoutRecentList();
+			reset(this.categoriesSlide, $('.gettingStartedCategoriesContainer', {}, header, leftColumn, rightColumn, footer,));
+		}
 		// --- End Positron ---
 
-		reset(this.categoriesSlide, $('.gettingStartedCategoriesContainer', {}, header, leftColumn, rightColumn, footer,));
 		this.categoriesPageScrollbar?.scanDomNode();
 
 		this.updateCategoryProgress();
@@ -1181,6 +1220,57 @@ export class GettingStartedPage extends EditorPane {
 
 		this.setSlide('categories');
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Builds the redesigned welcome page, which is gated on the
+	 * `welcomePage.experimental` setting. Returns undefined when the setting is
+	 * off, in which case the caller builds the original welcome page instead.
+	 *
+	 * The recent list, the "Connect to..." action and the show on startup
+	 * checkbox are passed in as already-built DOM so that they keep the
+	 * behaviour they have on the original page.
+	 * @param recentList The "Recent" list.
+	 * @param otherList The "Connect to..." action.
+	 * @param footer The "Show welcome page on startup" checkbox row.
+	 * @returns The container to show, or undefined when the setting is off.
+	 */
+	private buildPositronWelcomePage(
+		recentList: GettingStartedIndexList<RecentEntry>,
+		otherList: HTMLElement,
+		footer: HTMLElement
+	): HTMLElement | undefined {
+		// Compare against true rather than checking for false. The setting is
+		// registered with `included: false`, which drops it from the
+		// configuration properties, so its declared default is never applied and
+		// getValue returns undefined when the user has not set it.
+		if (this.configurationService.getValue<boolean>(WELCOME_PAGE_EXPERIMENTAL_KEY) !== true) {
+			return undefined;
+		}
+
+		const reactHost = $('div');
+		this.categoriesSlideDisposables.add(createPositronWelcomePage(reactHost, {
+			recentList: recentList.getDomElement(),
+			// Hide the "Connect to..." button if we are on a web platform
+			connectAction: isWeb ? undefined : otherList,
+			footer,
+			// React mounts asynchronously, so the elements above are not in the
+			// DOM yet when the caller runs registerDispatchListeners, nor when it
+			// measures the slide for scrolling. Redo both once they are.
+			//
+			// registerDispatchListeners clears its listeners and re-walks the
+			// container, so calling it twice is safe. Without the rescan the
+			// scrollable still believes the slide is empty and the page cannot be
+			// scrolled at all once its content is taller than the editor.
+			onDidMount: () => {
+				this.registerDispatchListeners();
+				this.categoriesPageScrollbar?.scanDomNode();
+			},
+		}));
+
+		return reactHost;
+	}
+	// --- End Positron ---
 
 	// --- Start Positron ---
 	private buildHelpList(): GettingStartedIndexList<IWelcomePageHelpEntry> {

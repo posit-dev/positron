@@ -1,0 +1,29 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Fills the slide when the content is short, so the footer rule below has space
+ * to push against, and grows past it when the content is tall. A fixed height
+ * would clip instead of scroll.
+ *
+ * No horizontal padding here: the parent .gettingStartedSlideCategories already
+ * supplies 24px.
+ */
+.positron-welcome-page {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	margin: 0 auto;
+	max-width: 1400px;
+	min-height: 100%;
+}
+
+/*
+ * Keeps the "Show welcome page on startup" checkbox at the bottom of the page,
+ * however tall the content above it is.
+ */
+.positron-welcome-page .positron-welcome-page-footer {
+	margin-top: auto;
+}
