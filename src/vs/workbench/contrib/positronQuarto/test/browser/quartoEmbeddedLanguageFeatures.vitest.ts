@@ -23,6 +23,7 @@ import {
 	SignatureHelpProvider,
 	SignatureHelpResult,
 } from '../../../../../editor/common/languages.js';
+import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -101,7 +102,7 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 				cells.some(c => c.cellUri.toString() === uri.toString()) ? SOURCE_URI : undefined,
 		});
 		ctx.disposables.add(new QuartoEmbeddedLanguageFeatures(
-			virtualNotebooks, languageFeatures, configurationService));
+			virtualNotebooks, languageFeatures, configurationService, new NullLogService()));
 	}
 
 	function completionProvider(): CompletionItemProvider {

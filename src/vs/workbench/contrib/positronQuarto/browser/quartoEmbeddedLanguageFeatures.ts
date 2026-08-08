@@ -28,6 +28,7 @@ import {
 } from '../../../../editor/common/languages.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ILogService, LogLevel } from '../../../../platform/log/common/log.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import {
 	QUARTO_LANGUAGE_IDS,
@@ -148,7 +149,29 @@ abstract class QuartoEmbeddedProvider {
 	constructor(
 		protected readonly _virtualNotebooks: IQuartoVirtualNotebookService,
 		protected readonly _languageFeatures: ILanguageFeaturesService,
+		protected readonly _logService: ILogService,
 	) { }
+
+	/**
+	 * Record that a request was answered from a cell rather than by the Quarto
+	 * extension's virtual documents.
+	 *
+	 * The two paths run side by side until the extension stops answering, and they
+	 * produce results a user cannot tell apart: Positron deduplicates completion
+	 * items, so even the overlap is invisible. Without this line there is no way to
+	 * confirm the feature is doing anything, which makes it untestable by hand and
+	 * unsupportable in the field.
+	 *
+	 * Guarded rather than left to the log level, because this runs on every
+	 * keystroke that opens the suggest widget and the message would be built even
+	 * when nothing reads it.
+	 */
+	protected _traceForwarded(feature: string, span: ICellLineSpan, providers: readonly unknown[]): void {
+		if (this._logService.getLevel() <= LogLevel.Trace) {
+			this._logService.trace(`[QuartoEmbedded] ${feature} answered from cell ` +
+				`${span.codeStartLine}-${span.codeEndLine} by ${providers.length} provider(s)`);
+		}
+	}
 
 	/**
 	 * Find the cell holding a position in a Quarto document, with the position
@@ -276,7 +299,10 @@ class QuartoEmbeddedCompletionProvider extends QuartoEmbeddedProvider implements
 		}
 		const { textModel, span, position: cellPosition } = resolved;
 
-		for (const provider of this._downstream(this._languageFeatures.completionProvider, textModel)) {
+		const downstream = this._downstream(this._languageFeatures.completionProvider, textModel);
+		this._traceForwarded('completion', span, downstream);
+
+		for (const provider of downstream) {
 			const result = await provider.provideCompletionItems(textModel, cellPosition, context, token);
 			if (!result) {
 				continue;
@@ -333,7 +359,10 @@ class QuartoEmbeddedHoverProvider extends QuartoEmbeddedProvider implements Hove
 		}
 		const { textModel, span, position: cellPosition } = resolved;
 
-		for (const provider of this._downstream(this._languageFeatures.hoverProvider, textModel)) {
+		const downstream = this._downstream(this._languageFeatures.hoverProvider, textModel);
+		this._traceForwarded('hover', span, downstream);
+
+		for (const provider of downstream) {
 			const result = await provider.provideHover(textModel, cellPosition, token);
 			if (result) {
 				return result.range ? { ...result, range: cellRangeToSource(span, result.range) } : result;
@@ -412,7 +441,10 @@ class QuartoEmbeddedDefinitionProvider extends QuartoEmbeddedProvider implements
 		}
 		const { textModel, span, position: cellPosition } = resolved;
 
-		for (const provider of this._downstream(this._languageFeatures.definitionProvider, textModel)) {
+		const downstream = this._downstream(this._languageFeatures.definitionProvider, textModel);
+		this._traceForwarded('definition', span, downstream);
+
+		for (const provider of downstream) {
 			const result = await provider.provideDefinition(textModel, cellPosition, token);
 			if (!result) {
 				continue;
@@ -442,6 +474,7 @@ export class QuartoEmbeddedLanguageFeatures extends Disposable implements IWorkb
 		@IQuartoVirtualNotebookService private readonly _virtualNotebooks: IQuartoVirtualNotebookService,
 		@ILanguageFeaturesService private readonly _languageFeatures: ILanguageFeaturesService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
 
@@ -459,7 +492,7 @@ export class QuartoEmbeddedLanguageFeatures extends Disposable implements IWorkb
 			return;
 		}
 
-		const args = [this._virtualNotebooks, this._languageFeatures] as const;
+		const args = [this._virtualNotebooks, this._languageFeatures, this._logService] as const;
 		this._registrations.add(this._languageFeatures.completionProvider.register(
 			QUARTO_SELECTOR, new QuartoEmbeddedCompletionProvider(...args)));
 		this._registrations.add(this._languageFeatures.hoverProvider.register(
