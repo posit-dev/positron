@@ -395,6 +395,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		private readonly _resourceUsageHistoryService?: IResourceUsageHistoryService,
 		private readonly _onTimestampTick?: VSEvent<void>,
 		private readonly _hoverService?: IHoverService,
+		// Test seam for the offsetHeight reads in `_updateHeight`. jsdom performs
+		// no layout, so tests inject a measurer that returns synthetic heights.
+		private readonly _measureOffsetHeight: (element: HTMLElement) => number = element => element.offsetHeight,
 	) {
 		super();
 
@@ -2622,6 +2625,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				React.createElement(QuartoOutputQuickFix, {
 					errorContent: errorText,
 					cellContext: this._cellContext,
+					// The buttons mount asynchronously; re-measure once they are in
+					// the DOM so the zone reserves room for them. Relying on the
+					// ResizeObserver alone misses a re-run that produces an
+					// identically sized error (posit-dev/positron#14844).
+					onLayout: () => this._updateHeight(),
 				})
 			);
 		}
@@ -3002,18 +3010,18 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// next scroll back, the whitespace would jump from 24px to the real
 		// height, causing a large scroll displacement. Skip measurement when
 		// the domNode is hidden to preserve the correct height.
-		if (!this.domNode.offsetHeight) {
+		if (!this._measureOffsetHeight(this.domNode)) {
 			return;
 		}
 
 		// Measure the styled container's height (content + padding + border, but not margin)
 		// plus the status bar height when it's displayed above the output
-		const statusBarHeight = this._statusBar.style.display !== 'none' ? this._statusBar.offsetHeight : 0;
-		const styledHeight = this._styledContainer.offsetHeight + statusBarHeight;
+		const statusBarHeight = this._statusBar.style.display !== 'none' ? this._measureOffsetHeight(this._statusBar) : 0;
+		const styledHeight = this._measureOffsetHeight(this._styledContainer) + statusBarHeight;
 
 		// Use the styled container's height (not including status bar) for button
 		// visibility, since the buttons are positioned inside the styled container
-		const containerHeight = this._styledContainer.offsetHeight;
+		const containerHeight = this._measureOffsetHeight(this._styledContainer);
 
 		if (this._isCollapsed) {
 			// Hide action buttons when collapsed since they operate on the
