@@ -350,6 +350,44 @@ describe('QuartoVirtualNotebookService', () => {
 		expect(service.getNotebookUri(source.uri)).toBeUndefined();
 	});
 
+	it('ignores read-only views of a Quarto document', async () => {
+		// A Git diff or a local history entry has the same path but holds an older
+		// revision. Giving one its own notebook would sync a second, stale copy of
+		// the document to the language servers.
+		const service = createService();
+		const modelService = ctx.instantiationService.get(IModelService);
+		const languageService = ctx.instantiationService.get(ILanguageService);
+		const gitUri = URI.file('/test/doc.qmd').with({ scheme: 'git', query: '{"ref":"HEAD"}' });
+		const gitModel = modelService.createModel(
+			R_AND_PYTHON, languageService.createById('plaintext'), gitUri);
+		ctx.disposables.add(gitModel);
+		await service.whenReady(gitUri);
+
+		expect({
+			notebook: service.getNotebookUri(gitUri),
+			cells: service.getAllCells().length,
+		}).toEqual({ notebook: undefined, cells: 0 });
+	});
+
+	it('gives up its place when a notebook already exists for the document', async () => {
+		// Left registered but without a notebook it would produce no cells forever,
+		// and the guard against duplicates would stop it ever being retried.
+		const service = createService();
+		const source = createSourceModel(R_AND_PYTHON);
+		await service.whenReady(source.uri);
+		const notebookUri = service.getNotebookUri(source.uri)!;
+
+		// A second service over the same notebook map hits the existing model.
+		const second = createService();
+		await second.whenReady(source.uri);
+
+		expect({
+			firstStillWorks: service.getCells(source.uri).length,
+			secondGaveUp: second.getNotebookUri(source.uri),
+			notebookIntact: notebooks.get(notebookUri) !== undefined,
+		}).toEqual({ firstStillWorks: 2, secondGaveUp: undefined, notebookIntact: true });
+	});
+
 	it('maps source lines to cells and back, treating prose as outside every cell', async () => {
 		const service = createService();
 		const source = createSourceModel(R_AND_PYTHON);

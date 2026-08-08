@@ -29,6 +29,17 @@ import { QUARTO_CELLS_SCHEME, QUARTO_CELLS_VIEW_TYPE } from '../common/quartoVir
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 
 /**
+ * Schemes whose documents are the ones a user edits, and so the only ones worth
+ * a virtual notebook. Everything else with a `.qmd` path (Git diffs, local
+ * history, other read-only providers) is a snapshot of some other revision.
+ */
+const EDITABLE_SCHEMES = new Set<string>([
+	Schemas.file,
+	Schemas.untitled,
+	Schemas.vscodeRemote,
+]);
+
+/**
  * A single code cell of a Quarto virtual notebook.
  */
 export interface IQuartoVirtualCell {
@@ -148,9 +159,11 @@ class QuartoVirtualNotebook extends Disposable {
 
 	async initialize(): Promise<void> {
 		if (this._notebookService.getNotebookTextModel(this.notebookUri)) {
-			this._logService.warn(
-				`[QuartoVirtualNotebook] A notebook already exists for ${this.notebookUri.toString()}`);
-			return;
+			// Throwing rather than returning: without a notebook this object can
+			// never produce a cell, and the caller's failure path removes it so a
+			// later edit can try again. Returning would leave it registered and
+			// permanently inert.
+			throw new Error(`A Quarto virtual notebook already exists for ${this.notebookUri.toString()}`);
 		}
 
 		const notebook = await this._notebookService.createNotebookTextModel(
@@ -336,7 +349,6 @@ export class QuartoVirtualNotebookService extends Disposable implements IQuartoV
 		if (this._notebookTypeRegistered) {
 			return;
 		}
-		this._notebookTypeRegistered = true;
 
 		// registerContributedNotebookType writes the type into profile-scoped
 		// storage, which is rehydrated on the next window, so registering
@@ -359,12 +371,19 @@ export class QuartoVirtualNotebookService extends Disposable implements IQuartoV
 			{ id: new ExtensionIdentifier('positron.quarto-cells'), location: undefined },
 			new QuartoCellsSerializer()
 		));
+
+		// Last, so that a failure part way through is retried rather than leaving
+		// the type half registered and every later notebook creation failing.
+		this._notebookTypeRegistered = true;
 	}
 
 	private _onModelAdded(model: ITextModel): void {
-		// Skip the models we create ourselves. Cell URIs carry the source
-		// document's path, so a path-based Quarto check matches them too.
-		if (model.uri.scheme === QUARTO_CELLS_SCHEME || model.uri.scheme === Schemas.vscodeNotebookCell) {
+		// Only documents the user is actually editing. A Quarto check on the path
+		// alone would also match the read-only models that back a Git diff or a
+		// local history entry, and each of those would get its own notebook whose
+		// cells hold some older revision of the file. Language servers would then
+		// be syncing several versions of the same document at once.
+		if (!EDITABLE_SCHEMES.has(model.uri.scheme)) {
 			return;
 		}
 		if (!usingNativeEmbeddedFeatures(this._configurationService)) {

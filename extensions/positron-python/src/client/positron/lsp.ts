@@ -33,9 +33,18 @@ const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
 // src/vs/workbench/contrib/positronQuarto/common/quartoVirtualNotebookTypes.ts.
 const QUARTO_CELLS_NOTEBOOK_TYPE = 'quarto-cells';
 
+// Matches the path of a Quarto or R Markdown document.
+const QUARTO_PATH_PATTERN = /\.(qmd|rmd)$/i;
+
 // Selector for the cells of Quarto virtual notebooks. A cell URI keeps the path
 // of the Quarto document the notebook was built from, so restricting the pattern
 // to Quarto extensions keeps the cells of real notebooks (.ipynb) out.
+//
+// `.Rmd` belongs here as much as `.qmd` does. R Markdown runs more than one
+// engine, so a Python chunk in an `.Rmd` is ordinary (see
+// test/e2e/test-files/workspaces/visual-mode/visual-mode.rmd). This never claims
+// the `.Rmd` document itself: that is `file` scheme with the `quarto` language,
+// and all three filters here have to match.
 const QUARTO_CELL_SELECTOR = {
     language: 'python',
     scheme: 'vscode-notebook-cell',
@@ -144,13 +153,30 @@ export class PythonLsp implements vscode.Disposable {
 
         const { notebookUri, workingDirectory } = this._metadata;
 
+        // Matches the cells of this client's own notebook.
+        //
+        // Skipped for Quarto sessions, whose notebook URI is the path of the .qmd
+        // document. The only Python documents with that path are the cells of the
+        // document's virtual notebook, and the console client serves those, so
+        // matching them here would only duplicate it. For a real notebook (.ipynb)
+        // this is what matches the notebook's own cells.
+        //
+        // `filterCells` below excludes them too, but only covers the case where the
+        // server claims notebook cells through `notebookDocumentSync`. Without that
+        // capability the client syncs them as ordinary text documents, and then the
+        // document selector is the only gate.
+        const ownNotebookCellSelectors =
+            notebookUri && !QUARTO_PATH_PATTERN.test(notebookUri.path)
+                ? [{ language: 'python', pattern: notebookUri.fsPath }]
+                : [];
+
         // If this client belongs to a notebook, set the document selector to only include that notebook,
         // Quarto virtual documents (vdocs), and notebook console inputs (inmemory scheme).
         // Otherwise, this is the main client for this language, so set the document selector to include
         // untitled Python files, in-memory Python files (e.g. the console), and Python files on disk.
         this._clientOptions.documentSelector = notebookUri
             ? [
-                  { language: 'python', pattern: notebookUri.fsPath },
+                  ...ownNotebookCellSelectors,
                   // Match Quarto virtual documents (vdocs). Vdocs are
                   // temporary .py files created for LSP features in
                   // embedded code blocks (e.g. completions, hover).

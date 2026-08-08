@@ -84,7 +84,8 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 	 * cell's own. Nothing does that in production, which is why forwarding cannot
 	 * loop there, but it is what makes the recursion guard observable.
 	 */
-	function createFeatures(options: { alwaysFindCell?: IQuartoVirtualCell } = {}): void {
+	function createFeatures(options: { alwaysFindCell?: IQuartoVirtualCell; cells?: IQuartoVirtualCell[] } = {}): void {
+		const cells = options.cells ?? [cell];
 		const virtualNotebooks = stubInterface<IQuartoVirtualNotebookService>({
 			ensureSynchronized: () => { calls.push('ensureSynchronized'); },
 			getCellAtLine: (_uri, lineNumber) => {
@@ -94,7 +95,10 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 				}
 				return lineNumber >= cell.codeStartLine && lineNumber <= cell.codeEndLine ? cell : undefined;
 			},
-			getAllCells: () => [cell],
+			getAllCells: () => cells,
+			getCells: () => cells,
+			getSourceUriForCell: (uri) =>
+				cells.some(c => c.cellUri.toString() === uri.toString()) ? SOURCE_URI : undefined,
 		});
 		ctx.disposables.add(new QuartoEmbeddedLanguageFeatures(
 			virtualNotebooks, languageFeatures, configurationService));
@@ -257,6 +261,81 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		}).toEqual({ labels: ['from-answers'], declinedFirst: true });
 	});
 
+	it('remaps the extra edits a completion carries, not only its own range', async () => {
+		// This is how a server adds an import when you accept a symbol. Left in cell
+		// coordinates it lands at the same line number of the Quarto document, which
+		// is usually the frontmatter.
+		registerCompletions('downstream', [{
+			label: 'array',
+			kind: CompletionItemKind.Variable,
+			insertText: 'array',
+			range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 3 },
+			additionalTextEdits: [{
+				range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 },
+				text: 'import numpy as np\n',
+			}],
+		}]);
+		createFeatures();
+
+		const result = await completionProvider().provideCompletionItems(
+			sourceModel, IN_CELL, { triggerKind: 0 }, CancellationToken.None);
+
+		expect(result?.suggestions[0].additionalTextEdits).toEqual([{
+			range: { startLineNumber: 4, startColumn: 1, endLineNumber: 4, endColumn: 1 },
+			text: 'import numpy as np\n',
+		}]);
+	});
+
+	it('resolves a completion through the provider that produced it', async () => {
+		// The suggest widget looks for resolveCompletionItem on the provider it
+		// called, which is ours, so without forwarding there is no documentation
+		// panel and no lazily computed edits.
+		ctx.disposables.add(languageFeatures.completionProvider.register({ language: 'r' }, {
+			_debugDisplayName: 'downstream',
+			provideCompletionItems: () => ({
+				suggestions: [suggestion('xylophone', 1)],
+			}),
+			resolveCompletionItem: (item) => ({
+				...item,
+				detail: 'resolved detail',
+				additionalTextEdits: [{
+					range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 },
+					text: 'library(dplyr)\n',
+				}],
+			}),
+		}));
+		createFeatures();
+
+		const provider = completionProvider();
+		const list = await provider.provideCompletionItems(
+			sourceModel, IN_CELL, { triggerKind: 0 }, CancellationToken.None);
+		const resolved = await provider.resolveCompletionItem!(list!.suggestions[0], CancellationToken.None);
+
+		expect({
+			detail: resolved?.detail,
+			// Edits from resolution need the same remapping as the first response.
+			edits: resolved?.additionalTextEdits,
+		}).toEqual({
+			detail: 'resolved detail',
+			edits: [{
+				range: { startLineNumber: 4, startColumn: 1, endLineNumber: 4, endColumn: 1 },
+				text: 'library(dplyr)\n',
+			}],
+		});
+	});
+
+	it('returns the item unchanged when the provider cannot resolve', async () => {
+		registerCompletions('downstream', [suggestion('xylophone', 1)]);
+		createFeatures();
+
+		const provider = completionProvider();
+		const list = await provider.provideCompletionItems(
+			sourceModel, IN_CELL, { triggerKind: 0 }, CancellationToken.None);
+		const item = list!.suggestions[0];
+
+		expect(await provider.resolveCompletionItem!(item, CancellationToken.None)).toBe(item);
+	});
+
 	it('returns nothing when the only provider has nothing to offer', async () => {
 		registerCompletions('empty', []);
 		createFeatures();
@@ -414,6 +493,52 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 			uri: SOURCE_URI,
 			range: { startLineNumber: 5, startColumn: 1, endLineNumber: 5, endColumn: 2 },
 		}]);
+	});
+
+	it('remaps a definition that lands in a different chunk', async () => {
+		// Servers index every open document, so a definition can sit in an earlier
+		// chunk. Returned as-is, the editor is handed a hidden cell URI it cannot
+		// open, which is what Go to Definition would try to do.
+		const otherCellUri = URI.parse('vscode-notebook-cell:/test/doc.qmd#ch1');
+		const otherCell: IQuartoVirtualCell = {
+			...cell, cellUri: otherCellUri, codeStartLine: 20, codeEndLine: 22,
+		};
+		ctx.disposables.add(languageFeatures.definitionProvider.register({ language: 'r' }, {
+			provideDefinition: (): LocationLink[] => [{
+				uri: otherCellUri,
+				range: { startLineNumber: 2, startColumn: 1, endLineNumber: 2, endColumn: 5 },
+			}],
+		} satisfies DefinitionProvider));
+		createFeatures({ cells: [cell, otherCell] });
+
+		const provider = languageFeatures.definitionProvider.ordered(sourceModel)[0];
+		const result = await provider.provideDefinition(sourceModel, IN_CELL, CancellationToken.None);
+
+		// Cell line 2 of a chunk starting at source line 20.
+		expect(result).toEqual([{
+			uri: SOURCE_URI,
+			range: { startLineNumber: 21, startColumn: 1, endLineNumber: 21, endColumn: 5 },
+		}]);
+	});
+
+	it('collects signature help retrigger characters as well as trigger characters', async () => {
+		// The hint widget reads the two sets separately. Without the retrigger set a
+		// hint never advances to the next parameter as you type past a comma.
+		ctx.disposables.add(languageFeatures.signatureHelpProvider.register({ language: 'r' }, {
+			signatureHelpTriggerCharacters: ['('],
+			signatureHelpRetriggerCharacters: [',', ')'],
+			provideSignatureHelp: () => undefined,
+		} satisfies SignatureHelpProvider));
+		createFeatures();
+
+		const provider = languageFeatures.signatureHelpProvider.ordered(sourceModel)[0];
+		expect({
+			trigger: provider.signatureHelpTriggerCharacters?.slice().sort(),
+			retrigger: provider.signatureHelpRetriggerCharacters?.slice().sort(),
+		}).toEqual({
+			trigger: ['('],
+			retrigger: [')', ','],
+		});
 	});
 
 	it('forwards signature help to the cell model and returns it unchanged', async () => {

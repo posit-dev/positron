@@ -196,7 +196,7 @@ configurationRegistry.registerConfiguration({
 			default: false,
 			markdownDescription: localize(
 				'positron.quarto.embeddedLanguageFeatures.native',
-				'Serve language features for code cells in Quarto and R Markdown documents from Positron. When disabled, the Quarto extension serves them from temporary virtual documents.'
+				'Also serve language features for code cells in Quarto and R Markdown documents from Positron, instead of only from the Quarto extension. The Quarto extension continues to answer these requests from temporary virtual documents until a later release turns that off.'
 			),
 			scope: ConfigurationScope.WINDOW,
 			tags: ['experimental'],

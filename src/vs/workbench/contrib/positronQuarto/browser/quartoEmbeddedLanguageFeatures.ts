@@ -35,7 +35,7 @@ import {
 	usingNativeEmbeddedFeatures,
 } from '../common/positronQuartoConfig.js';
 import { cellRangeToSource, ICellLineSpan, sourcePositionToCell } from '../common/quartoCellPositionMapping.js';
-import { IQuartoVirtualCell, IQuartoVirtualNotebookService } from './quartoVirtualNotebookService.js';
+import { IQuartoVirtualNotebookService } from './quartoVirtualNotebookService.js';
 
 /**
  * Documents that can hold embedded code cells. Taken from the shared list so
@@ -48,9 +48,17 @@ interface ITriggerCharacterProvider {
 	readonly triggerCharacters?: readonly string[];
 }
 
-/** A position in a Quarto document, resolved to the cell that holds it. */
+/**
+ * A position in a Quarto document, resolved to the cell that holds it.
+ *
+ * The line span is copied rather than referenced. Syncing a document can rebuild
+ * its cells while a request is still in flight, and a request that started before
+ * the rebuild has to finish in the coordinates it started with.
+ */
 interface IResolvedCell {
-	readonly cell: IQuartoVirtualCell;
+	readonly textModel: ITextModel;
+	readonly cellUri: URI;
+	readonly span: ICellLineSpan;
 	readonly position: Position;
 }
 
@@ -70,29 +78,63 @@ function mapCompletionItemRange(cell: ICellLineSpan, range: CompletionItem['rang
 }
 
 /**
- * Remap one definition result. Only entries that point into the cell itself are
- * rewritten, onto the source document; a definition in another file is already
- * in the coordinates its own document uses.
+ * Remap every part of a completion item that carries coordinates.
  *
- * `originSelectionRange` is always rewritten. It describes where the request
- * came from, which we translated into the cell before forwarding.
+ * `additionalTextEdits` matters as much as `range` does. It is how a server adds
+ * an import at the top of the file when you accept a symbol, so leaving it in
+ * cell coordinates writes that import into whatever happens to be at the same
+ * line of the Quarto document, which is usually the frontmatter.
+ *
+ * `command.arguments` is opaque, so a command that carries positions cannot be
+ * corrected here. No server we forward to is known to do that.
+ */
+function mapCompletionItem(cell: ICellLineSpan, item: CompletionItem): CompletionItem {
+	return {
+		...item,
+		range: mapCompletionItemRange(cell, item.range),
+		additionalTextEdits: item.additionalTextEdits?.map(edit => ({
+			...edit,
+			range: cellRangeToSource(cell, edit.range),
+		})),
+	};
+}
+
+/** Where a cell lives, for turning a definition inside it into a source location. */
+interface ICellLocation {
+	readonly sourceUri: URI;
+	readonly span: ICellLineSpan;
+}
+
+/**
+ * Remap one definition result.
+ *
+ * A definition can land in any cell, not only the one the request came from. A
+ * server that indexes every open document will happily point at a symbol defined
+ * in an earlier chunk, and returning that verbatim hands the editor a hidden cell
+ * URI that it cannot open. Entries in a real file are already in the coordinates
+ * their own document uses and pass through untouched.
+ *
+ * `originSelectionRange` is always rewritten against the requesting cell. It
+ * describes where the request came from, which we translated before forwarding.
  */
 function mapDefinitionEntry(
-	cell: IQuartoVirtualCell,
-	sourceUri: URI,
+	requestSpan: ICellLineSpan,
+	locate: (uri: URI) => ICellLocation | undefined,
 	entry: Location | LocationLink
 ): Location | LocationLink {
 	const link = entry as LocationLink;
 	const mapped: LocationLink = { ...link };
 
 	if (link.originSelectionRange) {
-		mapped.originSelectionRange = cellRangeToSource(cell, link.originSelectionRange);
+		mapped.originSelectionRange = cellRangeToSource(requestSpan, link.originSelectionRange);
 	}
-	if (entry.uri.toString() === cell.cellUri.toString()) {
-		mapped.uri = sourceUri;
-		mapped.range = cellRangeToSource(cell, entry.range);
+
+	const target = locate(entry.uri);
+	if (target) {
+		mapped.uri = target.sourceUri;
+		mapped.range = cellRangeToSource(target.span, entry.range);
 		if (link.targetSelectionRange) {
-			mapped.targetSelectionRange = cellRangeToSource(cell, link.targetSelectionRange);
+			mapped.targetSelectionRange = cellRangeToSource(target.span, link.targetSelectionRange);
 		}
 	}
 	return mapped;
@@ -131,7 +173,25 @@ abstract class QuartoEmbeddedProvider {
 		if (!cellPosition) {
 			return undefined;
 		}
-		return { cell, position: Position.lift(cellPosition) };
+		return {
+			textModel: cell.textModel,
+			cellUri: cell.cellUri,
+			span: { codeStartLine: cell.codeStartLine, codeEndLine: cell.codeEndLine },
+			position: Position.lift(cellPosition),
+		};
+	}
+
+	/** Find the Quarto document and cell span behind a cell URI, if it is ours. */
+	protected _locateCell(uri: URI): ICellLocation | undefined {
+		const sourceUri = this._virtualNotebooks.getSourceUriForCell(uri);
+		if (!sourceUri) {
+			return undefined;
+		}
+		const cell = this._virtualNotebooks.getCells(sourceUri)
+			.find(candidate => candidate.cellUri.toString() === uri.toString());
+		return cell
+			? { sourceUri, span: { codeStartLine: cell.codeStartLine, codeEndLine: cell.codeEndLine } }
+			: undefined;
 	}
 
 	/**
@@ -144,8 +204,8 @@ abstract class QuartoEmbeddedProvider {
 	 * Outline, and asking every server also doubles the work per request, which
 	 * runs against the slowness this routing exists to fix.
 	 */
-	protected _downstream<T>(registry: LanguageFeatureRegistry<T>, cell: IQuartoVirtualCell): T[] {
-		return registry.ordered(cell.textModel)
+	protected _downstream<T>(registry: LanguageFeatureRegistry<T>, textModel: ITextModel): T[] {
+		return registry.ordered(textModel)
 			.filter(provider => !(provider instanceof QuartoEmbeddedProvider));
 	}
 
@@ -171,7 +231,7 @@ abstract class QuartoEmbeddedProvider {
 	): string[] {
 		const characters = new Set<string>();
 		for (const cell of this._virtualNotebooks.getAllCells()) {
-			for (const provider of this._downstream(registry, cell)) {
+			for (const provider of this._downstream(registry, cell.textModel)) {
 				for (const character of provider.triggerCharacters ?? []) {
 					characters.add(character);
 				}
@@ -184,8 +244,21 @@ abstract class QuartoEmbeddedProvider {
 /**
  * Serves completions inside Quarto code cells.
  */
+interface ICompletionOrigin {
+	readonly provider: CompletionItemProvider;
+	readonly item: CompletionItem;
+	readonly span: ICellLineSpan;
+}
+
 class QuartoEmbeddedCompletionProvider extends QuartoEmbeddedProvider implements CompletionItemProvider {
 	readonly _debugDisplayName = 'quartoEmbeddedCompletions';
+
+	/**
+	 * Where each item we handed out came from, so that resolving it can go back to
+	 * the same provider with the same item. Weak, so entries go away with the items
+	 * the suggest widget drops.
+	 */
+	private readonly _origins = new WeakMap<CompletionItem, ICompletionOrigin>();
 
 	get triggerCharacters(): string[] {
 		return this._collectTriggerCharacters(this._languageFeatures.completionProvider);
@@ -201,10 +274,10 @@ class QuartoEmbeddedCompletionProvider extends QuartoEmbeddedProvider implements
 		if (!resolved) {
 			return undefined;
 		}
-		const { cell, position: cellPosition } = resolved;
+		const { textModel, span, position: cellPosition } = resolved;
 
-		for (const provider of this._downstream(this._languageFeatures.completionProvider, cell)) {
-			const result = await provider.provideCompletionItems(cell.textModel, cellPosition, context, token);
+		for (const provider of this._downstream(this._languageFeatures.completionProvider, textModel)) {
+			const result = await provider.provideCompletionItems(textModel, cellPosition, context, token);
 			if (!result) {
 				continue;
 			}
@@ -213,15 +286,35 @@ class QuartoEmbeddedCompletionProvider extends QuartoEmbeddedProvider implements
 				continue;
 			}
 			return {
-				suggestions: result.suggestions.map(item => ({
-					...item,
-					range: mapCompletionItemRange(cell, item.range),
-				})),
+				suggestions: result.suggestions.map(item => {
+					const mapped = mapCompletionItem(span, item);
+					this._origins.set(mapped, { provider, item, span });
+					return mapped;
+				}),
 				incomplete: result.incomplete,
 				dispose: () => result.dispose?.(),
 			};
 		}
 		return undefined;
+	}
+
+	/**
+	 * Forward resolution to whichever provider produced the item.
+	 *
+	 * Without this the suggest widget skips resolution altogether, because it looks
+	 * for the method on the provider it called, which is this one. That costs the
+	 * documentation panel, and it costs any edit a server only computes on resolve,
+	 * which is the usual way an auto-import arrives.
+	 */
+	async resolveCompletionItem(item: CompletionItem, token: CancellationToken): Promise<CompletionItem> {
+		const origin = this._origins.get(item);
+		if (!origin?.provider.resolveCompletionItem) {
+			return item;
+		}
+		const resolved = await origin.provider.resolveCompletionItem(origin.item, token);
+		// Resolution answers in the cell's coordinates, as the original did, and
+		// carries the same fields that have to move back to the source document.
+		return resolved ? mapCompletionItem(origin.span, resolved) : item;
 	}
 }
 
@@ -238,12 +331,12 @@ class QuartoEmbeddedHoverProvider extends QuartoEmbeddedProvider implements Hove
 		if (!resolved) {
 			return undefined;
 		}
-		const { cell, position: cellPosition } = resolved;
+		const { textModel, span, position: cellPosition } = resolved;
 
-		for (const provider of this._downstream(this._languageFeatures.hoverProvider, cell)) {
-			const result = await provider.provideHover(cell.textModel, cellPosition, token);
+		for (const provider of this._downstream(this._languageFeatures.hoverProvider, textModel)) {
+			const result = await provider.provideHover(textModel, cellPosition, token);
 			if (result) {
-				return result.range ? { ...result, range: cellRangeToSource(cell, result.range) } : result;
+				return result.range ? { ...result, range: cellRangeToSource(span, result.range) } : result;
 			}
 		}
 		return undefined;
@@ -256,12 +349,25 @@ class QuartoEmbeddedHoverProvider extends QuartoEmbeddedProvider implements Hove
  */
 class QuartoEmbeddedSignatureHelpProvider extends QuartoEmbeddedProvider implements SignatureHelpProvider {
 	get signatureHelpTriggerCharacters(): string[] {
-		// The registry stores these as `signatureHelpTriggerCharacters`, so they
-		// need reading under that name rather than the completion one.
+		return this._collectSignatureCharacters(provider => provider.signatureHelpTriggerCharacters);
+	}
+
+	/**
+	 * Retrigger characters are collected as well as trigger characters. The hint
+	 * widget reads them separately, and without them a hint never advances to the
+	 * next parameter as you type past a comma.
+	 */
+	get signatureHelpRetriggerCharacters(): string[] {
+		return this._collectSignatureCharacters(provider => provider.signatureHelpRetriggerCharacters);
+	}
+
+	private _collectSignatureCharacters(
+		select: (provider: SignatureHelpProvider) => readonly string[] | undefined
+	): string[] {
 		const characters = new Set<string>();
 		for (const cell of this._virtualNotebooks.getAllCells()) {
-			for (const provider of this._downstream(this._languageFeatures.signatureHelpProvider, cell)) {
-				for (const character of provider.signatureHelpTriggerCharacters ?? []) {
+			for (const provider of this._downstream(this._languageFeatures.signatureHelpProvider, cell.textModel)) {
+				for (const character of select(provider) ?? []) {
 					characters.add(character);
 				}
 			}
@@ -279,10 +385,10 @@ class QuartoEmbeddedSignatureHelpProvider extends QuartoEmbeddedProvider impleme
 		if (!resolved) {
 			return undefined;
 		}
-		const { cell, position: cellPosition } = resolved;
+		const { textModel, position: cellPosition } = resolved;
 
-		for (const provider of this._downstream(this._languageFeatures.signatureHelpProvider, cell)) {
-			const result = await provider.provideSignatureHelp(cell.textModel, cellPosition, token, context);
+		for (const provider of this._downstream(this._languageFeatures.signatureHelpProvider, textModel)) {
+			const result = await provider.provideSignatureHelp(textModel, cellPosition, token, context);
 			if (result) {
 				return result;
 			}
@@ -304,10 +410,10 @@ class QuartoEmbeddedDefinitionProvider extends QuartoEmbeddedProvider implements
 		if (!resolved) {
 			return undefined;
 		}
-		const { cell, position: cellPosition } = resolved;
+		const { textModel, span, position: cellPosition } = resolved;
 
-		for (const provider of this._downstream(this._languageFeatures.definitionProvider, cell)) {
-			const result = await provider.provideDefinition(cell.textModel, cellPosition, token);
+		for (const provider of this._downstream(this._languageFeatures.definitionProvider, textModel)) {
+			const result = await provider.provideDefinition(textModel, cellPosition, token);
 			if (!result) {
 				continue;
 			}
@@ -315,7 +421,8 @@ class QuartoEmbeddedDefinitionProvider extends QuartoEmbeddedProvider implements
 			if (entries.length === 0) {
 				continue;
 			}
-			return entries.map(entry => mapDefinitionEntry(cell, model.uri, entry)) as LocationLink[];
+			return entries.map(entry =>
+				mapDefinitionEntry(span, uri => this._locateCell(uri), entry)) as LocationLink[];
 		}
 		return undefined;
 	}
