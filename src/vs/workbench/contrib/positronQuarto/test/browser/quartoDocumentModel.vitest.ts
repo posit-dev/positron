@@ -667,4 +667,32 @@ x = 1
 		});
 	});
 
+	describe('synchronize', () => {
+		it('flushes a pending debounced re-parse without awaiting', () => {
+			const textModel = createTextModel('```{r}\nx <- 1\n```\n', null, undefined, URI.file('/test.qmd'));
+			ctx.disposables.add(textModel);
+			const model = new QuartoDocumentModel(textModel, logService);
+			ctx.disposables.add(model);
+
+			textModel.setValue('```{r}\nx <- 1\ny <- 2\n```\n');
+			expect(model.isParsed).toBe(false);
+
+			model.synchronize();
+
+			expect(model.isParsed).toBe(true);
+			expect(model.cells[0].codeEndLine).toBe(3);
+		});
+
+		it('is a no-op when no re-parse is pending', () => {
+			const model = createModel('```{r}\nx <- 1\n```\n');
+			const parses = vi.fn();
+			ctx.disposables.add(model.onDidParse(parses));
+
+			model.synchronize();
+
+			expect(parses).not.toHaveBeenCalled();
+			expect(model.isParsed).toBe(true);
+		});
+	});
+
 });

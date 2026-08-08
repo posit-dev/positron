@@ -28,6 +28,7 @@ import { RuntimeNotebookKernel } from '../../browser/runtimeNotebookKernel.js';
 import { RuntimeNotebookKernelService } from '../../browser/runtimeNotebookKernelService.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../common/runtimeNotebookKernelConfig.js';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../../positronNotebook/common/positronNotebookCommon.js';
+import { QUARTO_CELLS_VIEW_TYPE } from '../../../positronQuarto/common/quartoVirtualNotebookTypes.js';
 import { IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { GroupModelChangeKind, IEditorIdentifier } from '../../../../common/editor.js';
@@ -382,6 +383,52 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 			await expect(
 				runtimeNotebookKernelService.executeCodeInCell(URI.parse('file:///unknown.ipynb'), 0, '1 + 1')
 			).rejects.toThrow(/text model/);
+		});
+	});
+
+	describe('Quarto virtual notebooks', () => {
+		/** A notebook shaped like the hidden ones Positron creates per open .qmd. */
+		function createVirtualNotebook(viewType: string): NotebookTextModel {
+			const notebook = createTestNotebookEditor(
+				ctx.instantiationService,
+				ctx.disposables.add(new DisposableStore()),
+				[['x <- 1', runtime.languageId, CellKind.Code, [], {}]],
+			).viewModel.notebookDocument;
+			vi.spyOn(notebook, 'notebookType', 'get').mockReturnValue(viewType);
+			notebook.metadata = { metadata: { language_info: { name: runtime.languageId } } };
+			return notebook;
+		}
+
+		it('no kernel is selected and no session starts for a hidden Quarto notebook', async () => {
+			// These notebooks exist only so language servers can see the code
+			// cells embedded in a .qmd. They have no editor, so a session started
+			// for one is unusable, but it still shows up in the session picker.
+			const selectKernel = vi.spyOn(notebookKernelService, 'selectKernelForNotebook');
+			const startSession = vi.fn();
+			ctx.disposables.add(runtimeSessionService.onWillStartSession(startSession));
+
+			notebookService.onWillAddNotebookDocumentEmitter.fire(createVirtualNotebook(QUARTO_CELLS_VIEW_TYPE));
+			// Session starts are asynchronous, so give one a chance to happen.
+			await timeout(0);
+
+			expect({
+				kernelSelections: selectKernel.mock.calls.length,
+				sessionStarts: startSession.mock.calls.length,
+			}).toEqual({
+				kernelSelections: 0,
+				sessionStarts: 0,
+			});
+		});
+
+		it('an ordinary notebook of the same shape still gets a kernel', async () => {
+			// Guards the guard: the assertions above have to be about the view
+			// type, not about this notebook being unmatchable for other reasons.
+			const selectKernel = vi.spyOn(notebookKernelService, 'selectKernelForNotebook');
+
+			notebookService.onWillAddNotebookDocumentEmitter.fire(createVirtualNotebook(IPYNB_VIEW_TYPE));
+			await timeout(0);
+
+			expect(selectKernel.mock.calls.length).toBeGreaterThan(0);
 		});
 	});
 });
