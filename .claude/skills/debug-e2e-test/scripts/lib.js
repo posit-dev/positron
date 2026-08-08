@@ -1,4 +1,4 @@
-// Shared helpers for the triage-e2e-test skill scripts.
+// Shared helpers for the debug-e2e-test skill scripts.
 //
 // These helpers keep every triage script deterministic and side-effect-honest:
 // raw payloads land on disk under a per-triage work directory, and only compact
@@ -13,7 +13,7 @@ import { execFileSync } from 'child_process';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
-/** Repo root, resolved from this script's own location (scripts live at .claude/skills/triage-e2e-test/scripts). */
+/** Repo root, resolved from this script's own location (scripts live at .claude/skills/debug-e2e-test/scripts). */
 export function repoRoot() {
 	return path.resolve(HERE, '..', '..', '..', '..');
 }
@@ -24,9 +24,83 @@ export function analyzerScript(name) {
 }
 
 /**
+ * Whether an e2e-test-insights API key is resolvable, matching the lookup order
+ * in e2e-query-history.js (env var, then the repo-root .env.e2e).
+ *
+ * Checked before any query so a missing key fails as itself, with setup steps,
+ * instead of surfacing later as an indistinguishable "API unreachable" empty {}.
+ */
+export function insightsApiKeyPresent() {
+	return resolveInsightsApiKey() != null;
+}
+
+/**
+ * Root of the *main* checkout: the parent of the shared git common dir. Equals
+ * repoRoot() unless we're in a linked worktree.
+ */
+export function mainWorktreeRoot() {
+	const res = tryRun('git', ['rev-parse', '--git-common-dir']);
+	if (res.ok && res.stdout.trim()) {
+		return path.dirname(path.resolve(repoRoot(), res.stdout.trim()));
+	}
+	return repoRoot();
+}
+
+/**
+ * The usable API key, or null. Checks the environment, then this checkout's
+ * .env.e2e, then the main checkout's.
+ *
+ * The last source is why this exists: .env.e2e is gitignored, so a fresh
+ * worktree never has one even though the engineer's main checkout does. Without
+ * it, working from a worktree -- the normal way this repo gets used -- looks
+ * identical to having no key at all, and sends someone to 1Password for a
+ * credential already sitting one directory over.
+ */
+export function resolveInsightsApiKey() {
+	const fromEnv = process.env.E2E_INSIGHTS_API_KEY;
+	if (isUsableInsightsApiKey(fromEnv)) { return String(fromEnv).trim().replace(/^(['"])(.*)\1$/s, '$2').trim(); }
+	const seen = new Set();
+	for (const root of [repoRoot(), mainWorktreeRoot()]) {
+		if (seen.has(root)) { continue; }
+		seen.add(root);
+		try {
+			const body = fs.readFileSync(path.join(root, '.env.e2e'), 'utf8');
+			const line = /^\s*E2E_INSIGHTS_API_KEY\s*=\s*(.*)$/m.exec(body);
+			if (line && isUsableInsightsApiKey(line[1])) {
+				return line[1].trim().replace(/^(['"])(.*)\1$/s, '$2').trim();
+			}
+		} catch { /* try the next root */ }
+	}
+	return null;
+}
+
+/**
+ * Whether a raw key value is usable. Both sources go through this, because the
+ * placeholder from .env.e2e.example gets exported into the environment as often
+ * as it gets left in the file -- and a placeholder that passes preflight defeats
+ * the whole point of it, surfacing later as an indistinguishable "API unreachable".
+ */
+export function isUsableInsightsApiKey(value) {
+	const key = String(value ?? '').trim().replace(/^(['"])(.*)\1$/s, '$2').trim();
+	return key.length > 0 && key !== 'your_e2e_insights_api_key_here';
+}
+
+/** Setup steps for a missing API key. Kept here so every script reports it identically. */
+export const MISSING_API_KEY_HELP = [
+	'No e2e-test-insights API key found. This skill reads CI test history, so it cannot run without one.',
+	'Set it up once:',
+	'  1. Copy the key from 1Password: op://Positron/E2E_dashboard_api_key/credential',
+	'     (CLI: op read "op://Positron/E2E_dashboard_api_key/credential")',
+	'  2. Add it to .env.e2e in the repo root (copy .env.e2e.example if you have no .env.e2e yet):',
+	'       E2E_INSIGHTS_API_KEY=<the key>',
+	'     or export E2E_INSIGHTS_API_KEY=<the key> in your shell.',
+	'No 1Password access? Ask the Positron QA team for the dashboard key.',
+].join('\n');
+
+/**
  * Root of all triage work directories.
  *
- * Anchored on the shared git *common* dir (e.g. <repo>/.git/triage-e2e-test) so
+ * Anchored on the shared git *common* dir (e.g. <repo>/.git/debug-e2e-test) so
  * a triage started in one worktree is visible from every other worktree and
  * `--resume <id>` works no matter which checkout runs it. The previous location
  * (.claude/work/**) is gitignored and per-worktree, so a resume from a different
@@ -39,9 +113,9 @@ export function workRoot() {
 	if (res.ok && res.stdout.trim()) {
 		// --git-common-dir is relative to repoRoot for the main worktree (".git")
 		// and absolute for linked worktrees; path.resolve handles both.
-		_workRootCache = path.join(path.resolve(repoRoot(), res.stdout.trim()), 'triage-e2e-test');
+		_workRootCache = path.join(path.resolve(repoRoot(), res.stdout.trim()), 'debug-e2e-test');
 	} else {
-		_workRootCache = path.join(repoRoot(), '.claude', 'work', 'triage-e2e-test');
+		_workRootCache = path.join(repoRoot(), '.claude', 'work', 'debug-e2e-test');
 	}
 	return _workRootCache;
 }
@@ -106,13 +180,21 @@ export function fail(message, extra = {}) {
 	process.exit(1);
 }
 
-/** Run a node script, capturing stdout. stderr streams through (progress messages). */
-export function runNode(scriptPath, args) {
+/**
+ * Run a node script, capturing stdout. stderr streams through (progress messages).
+ *
+ * `extraEnv` matters for the analyzer scripts: they read .env.e2e relative to
+ * process.cwd(), which is this (possibly linked) worktree, so a key resolved
+ * from elsewhere has to be handed over explicitly or preflight passes and the
+ * query itself still comes back empty.
+ */
+export function runNode(scriptPath, args, extraEnv = null) {
 	return execFileSync('node', [scriptPath, ...args], {
 		cwd: repoRoot(),
 		encoding: 'utf8',
 		maxBuffer: 256 * 1024 * 1024,
 		stdio: ['ignore', 'pipe', 'inherit'],
+		...(extraEnv ? { env: { ...process.env, ...extraEnv } } : {}),
 	});
 }
 

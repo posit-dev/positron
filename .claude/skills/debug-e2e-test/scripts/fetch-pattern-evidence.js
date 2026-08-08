@@ -91,7 +91,13 @@ export function buildEvidenceSummary(result, filter = {}) {
 	const timeline = trace.timeline || '';
 	// Timeline tail: the last ~14 action/error lines, a deterministic slice (not
 	// an LLM paraphrase). The full timeline is written to disk for escalation.
-	const tail = timeline.split('\n').filter(Boolean).slice(-14);
+	const timelineLines = timeline.split('\n').filter(Boolean);
+	// Keep the t=0 anchor with the tail. It lives in the timeline's header, which
+	// the tail slice would drop -- leaving every t= below unconvertible to wall
+	// clock unless someone back-derives an origin, which is how a triage ends up
+	// reading the right evidence against the wrong minute.
+	const t0Line = timelineLines.find(l => l.startsWith('Trace t=0 ='));
+	const tail = [...(t0Line ? [t0Line, ''] : []), ...timelineLines.slice(-14)];
 
 	const siblings = (detail.siblingTests || [])
 		.map(s => `- ${s.title} (${s.status})`);

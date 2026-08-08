@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizePattern, mergeHistory, classifyVerdict, patternLabel, scopedRunsForEnvironments, resolveLastSeen } from '../triage-history.js';
+import { normalizePattern, mergeHistory, classifyVerdict, patternLabel, scopedRunsForEnvironments, resolveLastSeen, runApiPath } from '../triage-history.js';
 
 const mkTest = (runs, patterns, environmentBreakdown) => ({ history: { total_runs: runs }, failure_patterns: patterns, environment_breakdown: environmentBreakdown });
 const occ = (sha, os = 'ubuntu', browser = 'electron') => ({ sha, os, browser, outcome: 'flaky', report_url: `https://x/${sha}/index.html` });
@@ -128,4 +128,19 @@ test('classifyVerdict: triaging on main with zero runs is a key mismatch, not cl
 
 test('patternLabel: A..Z then AA, AB for 27+ patterns (no non-letter overflow)', () => {
 	assert.deepEqual([0, 25, 26, 27].map(patternLabel), ['A', 'Z', 'AA', 'AB']);
+});
+
+test('runApiPath takes owner/repo from the run_url, not the local checkout', () => {
+	// The e2e lanes run in positron-builds; resolving owner/repo from the working
+	// directory instead 404s and blanks every date in the failure table.
+	assert.equal(
+		runApiPath('https://github.com/posit-dev/positron-builds/actions/runs/30986925837'),
+		'repos/posit-dev/positron-builds/actions/runs/30986925837'
+	);
+	assert.equal(
+		runApiPath('https://github.com/posit-dev/positron/actions/runs/42'),
+		'repos/posit-dev/positron/actions/runs/42'
+	);
+	assert.equal(runApiPath('https://d38p2avprg8il3.cloudfront.net/playwright-report/index.html'), null);
+	assert.equal(runApiPath(null), null);
 });

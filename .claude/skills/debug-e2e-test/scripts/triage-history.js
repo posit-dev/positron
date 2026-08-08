@@ -26,6 +26,7 @@ import path from 'path';
 import {
 	analyzerScript, triageDir, deriveTriageId, ensureDir,
 	writeJson, emit, fail, runNode, tryRun, isMain, parseArgs,
+	insightsApiKeyPresent, resolveInsightsApiKey, MISSING_API_KEY_HELP,
 } from './lib.js';
 
 /** Normalize a failure-pattern string into a stable cross-branch match key. */
@@ -58,6 +59,21 @@ function envKey(os, browser) {
 const occurrenceDateCache = new Map();
 
 /**
+ * `repos/{owner}/{repo}/actions/runs/{id}` for a run_url, or null when the URL is
+ * not a workflow-run URL.
+ *
+ * The owner/repo must come from the URL, never from gh's working-directory
+ * default: the e2e lanes run in posit-dev/positron-builds, so letting gh resolve
+ * them against a positron checkout 404s on every occurrence and silently reports
+ * `lastSeen.date: null` for the whole failure table -- which also disables the
+ * "is this pattern already fixed?" read that recency exists to support.
+ */
+export function runApiPath(runUrl) {
+	const m = String(runUrl || '').match(/github\.com\/([^/]+)\/([^/]+)\/actions\/runs\/(\d+)/);
+	return m ? `repos/${m[1]}/${m[2]}/actions/runs/${m[3]}` : null;
+}
+
+/**
  * Calendar date of one failure occurrence. The test-health API returns no
  * timestamp on occurrences, so derive one: the local git commit date of the sha
  * (offline and instant, and within minutes of the CI run), falling back to the
@@ -75,10 +91,9 @@ export function occurrenceDate(o) {
 		if (r.ok) { iso = r.stdout.trim().split('\n').pop() || null; }
 	}
 	if (!iso && o.run_url) {
-		const runId = String(o.run_url).match(/\/runs\/(\d+)/)?.[1];
-		if (runId) {
-			// {owner}/{repo} are resolved by gh from the working directory.
-			const r = tryRun('gh', ['api', `repos/{owner}/{repo}/actions/runs/${runId}`, '--jq', '.created_at']);
+		const apiPath = runApiPath(o.run_url);
+		if (apiPath) {
+			const r = tryRun('gh', ['api', apiPath, '--jq', '.created_at']);
 			if (r.ok) { iso = r.stdout.trim() || null; }
 		}
 	}
@@ -271,7 +286,7 @@ function queryBranch(scriptPath, { repo, testKey, branch, lookbackDays, occ }) {
 		'--branch', branch,
 		'--lookback-days', String(lookbackDays),
 		'--occurrences-per-pattern', String(occ),
-	]);
+	], { E2E_INSIGHTS_API_KEY: resolveInsightsApiKey() ?? '' });
 	let data;
 	try { data = JSON.parse(out); } catch { data = {}; }
 	return data;
@@ -283,6 +298,13 @@ function main() {
 	if (!testKey || !testKey.includes('|||')) {
 		fail('Missing or malformed --test-key (expected "testName|||specPath").');
 	}
+	// Pre-flight: without a key every query returns {}, which is indistinguishable
+	// from a real outage. Fail as a setup problem, with the steps, before querying --
+	// and before creating a work dir, so a first-run setup gap leaves no debris.
+	if (!insightsApiKeyPresent()) {
+		fail(MISSING_API_KEY_HELP, { cause: 'missing-api-key' });
+	}
+
 	const repo = args.repo || 'positron';
 	const lookbackDays = Number(args['lookback-days'] || 14);
 	const occ = Number(args['occurrences-per-pattern'] || 1);
@@ -306,7 +328,7 @@ function main() {
 
 	// An empty {} means the API was unreachable for that call -- surface and stop.
 	if ((queriedCurrent && Object.keys(currentData).length === 0) || Object.keys(mainData).length === 0) {
-		fail('test-health API unreachable (empty response). Check E2E_INSIGHTS_API_KEY; do not treat this as "no failures".', { triageId });
+		fail('test-health API unreachable (empty response). A key was found, so this is an API-side or network failure, not setup -- retry, then check the dashboard. Do not treat this as "no failures".', { triageId, cause: 'api-unreachable' });
 	}
 
 	const rawFile = writeJson(path.join(dir, 'history-raw.json'), { currentBranch, currentData, mainData });
@@ -316,6 +338,11 @@ function main() {
 	const testDetailViewUrl = mainTest?.test_detail_view_url || currentTest?.test_detail_view_url || null;
 	const testName = (mainTest || currentTest)?.testName || testKey.split('|||')[0];
 	const specPath = (mainTest || currentTest)?.specPath || testKey.split('|||')[1];
+
+	// The API's own coarse recency/onset label ("Started" / "yesterday"). Independent
+	// of per-occurrence dates, so it still answers "is this pattern current?" when
+	// date resolution comes up empty.
+	const insight = mainTest?.insight || currentTest?.insight || null;
 
 	const merged = mergeHistory(currentTest, mainTest, currentBranch, occ, occurrenceDate);
 	const verdict = classifyVerdict({
@@ -343,6 +370,12 @@ function main() {
 			environments: p.environments, seenOn: p.seenOn, lastSeen: p.lastSeen,
 			representativeOccurrence: p.representativeOccurrence,
 		})),
+		onset: insight ? {
+			type: insight.type ?? null,
+			label: insight.timing_label ?? null,
+			value: insight.timing_value ?? null,
+			firstFailureSha: insight.first_failure_sha ?? null,
+		} : null,
 		verdict: verdict.verdict,
 		stop: verdict.stop,
 		note: verdict.note,

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // checkpoint.js -- durable triage state for start / resume / status.
 //
-// State lives at <git-common-dir>/triage-e2e-test/<triage-id>/state.json,
+// State lives at <git-common-dir>/debug-e2e-test/<triage-id>/state.json,
 // shared across worktrees so --resume works from any checkout.
 // A resume reads the checkpoint and continues from `phase`/`nextAction` without
 // replaying completed history work.
@@ -9,6 +9,8 @@
 // Usage:
 //   node checkpoint.js --triage-id <id> --init --test-key <key> [--branch b] [--lookback-days n]
 //     -- also seeds history/patterns from this triage's history-summary.json, if present
+//     -- [--phase <p>] starts somewhere other than awaiting-pattern-selection
+//        (the local entry inits at evidence-gathered; it never selected a pattern)
 //   node checkpoint.js --triage-id <id> --read
 //   node checkpoint.js --triage-id <id> --set phase=hypothesis-ready --set selectedPattern=A
 //   node checkpoint.js --triage-id <id> --patch '<json>'     # deep-merge a JSON object
@@ -30,6 +32,8 @@ export const PHASES = [
 	'pattern-selected',
 	'evidence-gathered',
 	'hypothesis-ready',
+	// Vestigial: the skill no longer routes here, but in-flight checkpoints may
+	// still hold it, so a --read of one must not fail validation.
 	'awaiting-clear',
 	'implementation',
 	'done',
@@ -91,7 +95,7 @@ export const PHASE_NEXT_ACTION = {
 	'awaiting-pattern-selection': 'Run the history helper, then select a failure pattern.',
 	'pattern-selected': 'Fetch evidence for the selected pattern\'s representative occurrence.',
 	'evidence-gathered': 'Reason through the evidence to a root-cause mechanism.',
-	'hypothesis-ready': 'Reproduce and verify the fix (diagnosis saved; safe to /clear and --resume).',
+	'hypothesis-ready': 'Reproduce and verify the fix (diagnosis saved).',
 	'awaiting-clear': 'Safe to /clear; resume with --resume to reproduce and fix.',
 	'implementation': 'Implement + verify the fix (no single-green-run claims for a flake), then set an outcome and record the diagnosis block (record-diagnosis.js) before phase=done.',
 	'done': 'Triage complete; diagnosis recorded.',
@@ -238,14 +242,33 @@ function statePath(triageId) {
 	return path.join(triageDir(triageId), 'state.json');
 }
 
+/**
+ * Starting phase for a fresh checkpoint. The CI entry always begins at
+ * `awaiting-pattern-selection` (its next step is the pattern table), but the
+ * local entry has no patterns to select and only checkpoints at all once it
+ * escalates -- by which point evidence is already in hand. `--init --phase` lets
+ * it start where it actually is instead of advancing through phases it skipped.
+ */
+export function initialPhase(requested) {
+	if (!requested) { return 'awaiting-pattern-selection'; }
+	if (!PHASES.includes(requested)) {
+		throw new Error(`--phase "${requested}" is not a known phase (${PHASES.join(', ')}).`);
+	}
+	if (requested === 'done') {
+		throw new Error('--init --phase done is not allowed: phase=done goes through the outcome gate, not an init.');
+	}
+	return requested;
+}
+
 function newState(triageId, args) {
+	const phase = initialPhase(args.phase);
 	return {
 		version: CHECKPOINT_VERSION,
 		triageId,
 		testKey: args['test-key'] || null,
 		branch: args.branch || null,
 		lookbackDays: Number(args['lookback-days'] || 14),
-		phase: 'awaiting-pattern-selection',
+		phase,
 		history: null,
 		patterns: [],
 		selectedPattern: null,
@@ -256,7 +279,7 @@ function newState(triageId, args) {
 		outcomeRef: null,
 		outcomeReason: null,
 		diagnosisBlockRecorded: false,
-		nextAction: PHASE_NEXT_ACTION['awaiting-pattern-selection'],
+		nextAction: PHASE_NEXT_ACTION[phase],
 		updatedAt: new Date().toISOString(),
 	};
 }
@@ -292,7 +315,9 @@ function main() {
 			fail(`A checkpoint for triage "${triageId}" already exists -- resume it (--read) or pass --force to overwrite.`, { stateFile: path.relative(process.cwd(), sp) });
 		}
 		ensureDir(triageDir(triageId));
-		let state = newState(triageId, args);
+		let state;
+		try { state = newState(triageId, args); }
+		catch (e) { fail(e.message); }
 		// Auto-seed history + patterns from triage-history.js's already-written
 		// summary, if present -- see applyHistorySummary's doc comment.
 		const historyFile = path.join(triageDir(triageId), 'history-summary.json');

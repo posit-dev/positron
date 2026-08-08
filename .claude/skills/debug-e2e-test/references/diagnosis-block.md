@@ -38,9 +38,9 @@ is how you catch a thin block:
 | `supersedes` | only after `recurred-after-fix` | `#123 (hypothesized <one-line>, recurred N times after merge)` |
 
 `fixApproach` is also saved on `diagnosis`, by the fix-approach gate, so the
-agreed direction survives the `/clear`. It is checkpoint-only -- neither
-validated nor rendered -- which is why it isn't in the table above. Save it
-anyway.
+agreed direction survives a clear or a resume tomorrow. It is checkpoint-only
+-- neither validated nor rendered -- which is why it isn't in the table above.
+Save it anyway.
 
 The test title, dashboard link, and **Frequency** clause are not yours to write
 -- the renderer pulls them from history so they can't drift from the data.
