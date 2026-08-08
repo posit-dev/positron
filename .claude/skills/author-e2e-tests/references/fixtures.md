@@ -228,10 +228,10 @@ test.afterAll(async ({ cleanup }) => {
 	// Remove an entire folder created during the test
 	await cleanup.removeTestFolder('generated-output');
 
-	// Reset the whole workspace (git reset --hard + git clean -fd) --
-	// use when tests edit existing workspace files, so edits don't leak
-	// into later test files
-	await cleanup.discardAllChanges();
+	// Restore tracked workspace files the test edited, so edits don't leak
+	// into later test files. List the files you touched: all workers share one
+	// workspace, so a repo-wide reset would clobber a concurrent spec.
+	await cleanup.restoreFiles([join('workspaces', 'read-xlsx-r', 'supermarket-sales.r')]);
 });
 ```
 

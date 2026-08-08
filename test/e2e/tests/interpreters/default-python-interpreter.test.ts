@@ -35,10 +35,6 @@ test.describe('Default Interpreters - Python', {
 		await settings.set({ 'python.defaultInterpreterPath': pythonPath }, { reload: true, waitForReady: true });
 	});
 
-	test.afterAll(async function ({ cleanup }) {
-		await cleanup.discardAllChanges();
-	});
-
 	test('Python - Add a default interpreter (Conda)', async function ({ sessions, hotKeys }) {
 		// Get version from appropriate env var (hidden Python in CI, regular in local)
 		const pythonVersion = process.env.CI

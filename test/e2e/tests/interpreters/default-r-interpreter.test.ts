@@ -36,12 +36,6 @@ test.describe('Default Interpreters - R', {
 
 	});
 
-	test.afterAll(async function ({ cleanup }) {
-
-		await cleanup.discardAllChanges();
-
-	});
-
 	test('R - Add a default interpreter', async function ({ sessions, hotKeys }) {
 
 		const hiddenRVersion = process.env.POSITRON_HIDDEN_R;
