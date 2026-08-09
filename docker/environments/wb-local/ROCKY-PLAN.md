@@ -3,7 +3,12 @@
 Goal: tag a PR with `@:workbench` and `@:workbench-rocky` and get the
 `@:workbench` test suite running in parallel on Ubuntu 24 and Rocky Linux.
 
-Status: planning. Nothing implemented yet.
+Status (2026-08-09): **Steps 0 and 1 are done and merged** (#15407) --
+`ghcr.io/posit-dev/positron-rocky9:24.18.0` is published and verified, and
+Workbench is proven to run on Rocky 9 without systemd. **Step 2 is next.**
+
+Nothing consumes either image yet: `test-e2e-rhel.yml` still pins
+`positron-rocky8:24.15.0`, so repointing it is a separate PR.
 
 ## Target: Rocky 9, not Rocky 8
 
@@ -110,9 +115,6 @@ Mechanism, from the separately verified facts:
 - `start()` then runs `daemon $rserver` and, because status always reports
   stopped, adds a **second** rserver (duplicate rservers were observed directly).
 
-This makes the swap+restart path a **Step 7 correctness blocker**, not the Step 4
-harness annoyance it was previously recorded as.
-
 Demonstrated end to end with a real build swap (bundled build 184 -> downloaded
 build 331, `positron-workbench-linux-arm64-2026.08.0-331.tar.gz`, which also
 confirms `positronDownload.sh` works on Rocky/arm64):
@@ -120,9 +122,13 @@ confirms `positronDownload.sh` works on Rocky/arm64):
 - **CI sequence (`rstudio-server restart`)**: swap at 22:43:20; the rserver still
   holding `:8787` afterwards had started at **22:34:26**, nine minutes before the
   new build existed. Two rservers, exit 0, `HTTP 302` served by the stale one.
-  This is the false pass, reproduced.
 - **Corrected sequence (signal-stop -> wait -> start)**: exactly one rserver,
   started after the swap, `HTTP 302`. Passes.
+
+Note the stale-rserver detail above is *not* by itself a wrong-build test run --
+the session-launch behaviour documented earlier means that rserver still hands new
+sessions whatever is on disk. Fix it for the duplicate-process mess, not because
+the lane would test the wrong Positron.
 
 Mitigation to implement in Step 3/7:
 
