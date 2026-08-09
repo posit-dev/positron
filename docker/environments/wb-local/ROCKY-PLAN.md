@@ -294,19 +294,37 @@ Also done: `rocky_9` added to `ci-images-build-os.yml` (choice, validation,
 `update-ci-images` skill (6 -> 7 builds, PR checklist, and both
 `bump-node-version.sh` / `bump-ppm-snapshot.sh` file lists).
 
-Two latent `rocky_8` bugs surfaced along the way. **Both are now fixed in the
-same PR as this image** (they are the same two defects `rocky_9` had to avoid):
+**Three** latent `rocky_8` bugs surfaced along the way, all now fixed and merged
+in the same PR as this image (#15407):
 
 1. Its PPM channel `__linux__/rockylinux8` does not exist and 404s -- R reported
    zero available packages and fell back to source builds. Corrected to
-   `centos8`, which is what PPM's own API maps `rhel8` to. This is plausibly the
-   root cause of the source-built GEOS/GDAL/libgit2 and `gcc-toolset-13` it
-   carries, but removing those is a **separate, riskier change** and was left
-   alone here.
+   `centos8`, which is what PPM's own API maps `rhel8` to. (Rocky **9** is
+   `rhel9`; there is no `rockylinux*` channel at all.) After the fix PPM served
+   **216 binary packages** on x86_64, and aarch64 binaries too -- which confirms
+   this was forcing the source builds.
 2. Its Quarto `ar x` unpack left the binary off PATH (confirmed against the
    published `positron-rocky8:24.18.0` image config -- `/opt/quarto/bin` is not
    in `PATH` and no symlink is created). Now installs the RPM, verified to work
    on EL8.
+3. **`sf`, `terra` and `gert` could not load at all.** The final `ENV` block
+   *assigned* `LD_LIBRARY_PATH` rather than prepending, discarding the
+   `/opt/gdal`, `/opt/libgit2` and `/opt/geos` entries accumulated above -- so
+   packages compiled against those libraries failed at runtime with
+   `libgdal.so.35: cannot open shared object file` and `libgit2.so.1.8`. This was
+   **pre-existing, not caused by fix 1**: verified by running the same check
+   against the previously published image
+   (`positron-rocky8-arm64@sha256:a52f0ea9`), which fails identically.
+
+Fixing 1 also required `pkg.include_linkingto = TRUE` (added to both images):
+once PPM serves binaries, pak omits `LinkingTo` dependencies from the plan, so
+the packages that have *no* binary for an arch (`arrow` on aarch64) can no longer
+be built from source. This is the remedy pak itself suggests.
+
+**Open follow-up:** all three bugs trace back to `rocky_8`'s `/opt` source-build
+machinery (GEOS/GDAL/libgit2 + `gcc-toolset-13`), which is plausibly unnecessary
+now that its PPM channel works -- `rocky_9` needs none of it. Removing it changes
+what the R packages link against, so it wants its own validation pass.
 
 Original delta list, for reference:
 
@@ -423,10 +441,12 @@ gated behind the broken stop/status described above, and the session-creation AP
 is scoped under `/s/<id>/` rather than the `/api/*` paths, so automated assertion
 of session launch is left to the real e2e suite in Step 5.
 
-**Reusable artifact:** the installed container was snapshotted as
-`rocky9-wb-installed:latest`, which brings a working Workbench up in seconds
-instead of repeating the ~40-minute install while iterating on Steps 2-4.
-Services do not auto-start: start the launcher, wait for its socket, then rserver.
+**Reusable artifact:** the installed container was snapshotted (locally, on the
+machine where the spike ran) as `rocky9-wb-installed:latest`, which brings a
+working Workbench up in seconds instead of repeating the ~40-minute install while
+iterating on Steps 2-4. It is not published anywhere -- recreate it by following
+this step if it is gone. Services do not auto-start: start the launcher, wait for
+`/var/run/rstudio-server/rserver-launcher.socket`, then start rserver.
 
 ### Step 1 (original plan text, for reference)
 
