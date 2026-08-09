@@ -35,6 +35,7 @@ import { ExtHostEditors } from '../extHostTextEditors.js';
 import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ExtHostConnections } from './extHostConnections.js';
 import { ExtHostDataConnections } from './extHostDataConnections.js';
+import { createLazyDriverLogger } from './extHostDataConnectionsLogging.js';
 import { ExtHostDataExplorer } from './extHostDataExplorer.js';
 import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 import { IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
@@ -325,6 +326,15 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		};
 
 		const dataConnections: typeof positron.dataConnections = {
+			/**
+			 * Creates a lazily built log output channel for a data connection driver.
+			 * @param driverName The driver's display name; core adds the shared prefix.
+			 */
+			createDriverLogger(driverName: string): positron.DataConnectionLogger & vscode.Disposable {
+				return createLazyDriverLogger(driverName, name =>
+					extHostOutputService.createOutputChannel(name, { log: true }, extension) as vscode.LogOutputChannel);
+			},
+
 			/**
 			 * Registers a data connection driver, allowing extensions to contribute to the
 			 * 'New Data Connection' dialog.

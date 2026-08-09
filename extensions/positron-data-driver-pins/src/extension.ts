@@ -6,48 +6,21 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DuckDBDataExplorerRpcHandler } from 'positron-data-explorer-duckdb';
-import { Logger } from './logging.js';
 import { PinsCache } from './pinsCache.js';
 import { createPinsDriver } from './pinsDriver.js';
 import { PINS_DATA_EXPLORER_PROVIDER_ID } from './pinsConnection.js';
-
-/**
- * Builds a {@link Logger} backed by an output channel that is created on first use. Deferring
- * creation keeps the "Posit Connect Pins" channel out of the Output panel until the driver
- * actually logs something (i.e. the first connection attempt), so activating the extension by
- * opening the Data Connections pane doesn't add an empty channel.
- *
- * @param name The output channel name.
- * @param context The extension context; the channel is registered for disposal once created.
- */
-function createLazyChannelLogger(name: string, context: vscode.ExtensionContext): Logger {
-	let channel: vscode.LogOutputChannel | undefined;
-	const channelFor = () => {
-		if (!channel) {
-			channel = vscode.window.createOutputChannel(name, { log: true });
-			context.subscriptions.push(channel);
-		}
-		return channel;
-	};
-	return {
-		trace: message => channelFor().trace(message),
-		debug: message => channelFor().debug(message),
-		info: message => channelFor().info(message),
-		warn: message => channelFor().warn(message),
-		error: message => channelFor().error(message),
-	};
-}
 
 /**
  * Activates the extension by registering the Posit Connect pins data connection driver.
  * @param context The extension context.
  */
 export function activate(context: vscode.ExtensionContext) {
-	// Log to a per-driver output channel, created on first use. The "Data Connections: " prefix is a
-	// shared convention across the data connection drivers so their channels cluster together in the
-	// Output dropdown (e.g. "Data Connections: PostgreSQL"). Set the channel's level to Trace (via
-	// its gear menu) to see individual requests.
-	const logger = createLazyChannelLogger('Data Connections: Posit Connect Pins', context);
+	// Log to a per-driver output channel, created by core on first use. Nothing may log during
+	// activation: the Data Connections pane activates every driver at once, so an activation-time
+	// log would add this channel for users who never opened a connection. Set the channel's level
+	// to Trace (via its gear menu) to see individual requests.
+	const logger = positron.dataConnections.createDriverLogger('Posit Connect Pins');
+	context.subscriptions.push(logger);
 
 	// Services Data Explorer RPCs for tabular pins previewed from a connection. Uses the shared DuckDB
 	// backend under this extension's own provider id.
