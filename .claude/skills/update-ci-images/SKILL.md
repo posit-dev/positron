@@ -1,7 +1,7 @@
 ---
 name: update-ci-images
 disable-model-invocation: true
-description: Long-running orchestration to rebuild every Positron CI image (ubuntu24_04, rocky_8, debian, openSUSE15_6, SLES15_6, and postgres — each as a multi-arch amd64+arm64 manifest) at one new tag with a new Node version. Creates a branch + PR, bumps NODE_VERSION, dispatches the build workflows on that branch with bounded concurrency, monitors the runs, auto-fixes failures and retries, and leaves the PR open for human review once all 6 builds are green.
+description: Long-running orchestration to rebuild every Positron CI image (ubuntu24_04, rocky_8, rocky_9, debian, openSUSE15_6, SLES15_6, and postgres — each as a multi-arch amd64+arm64 manifest) at one new tag with a new Node version. Creates a branch + PR, bumps NODE_VERSION, dispatches the build workflows on that branch with bounded concurrency, monitors the runs, auto-fixes failures and retries, and leaves the PR open for human review once all 7 builds are green.
 ---
 
 # Update all CI images
@@ -19,11 +19,11 @@ Parse from the user's invocation (ask only if missing):
   `https://nodejs.org/dist/v<version>/` for both x64 and arm64).
 - **concurrency N** (optional, default **4**) — max build jobs in flight at once.
 
-## The job matrix — 6 builds total
+## The job matrix — 7 builds total
 
 | Workflow | Variants |
 |---|---|
-| `ci-images-build-os.yml` | `os` in {ubuntu24_04, rocky_8, debian, openSUSE15_6, SLES15_6} = **5** |
+| `ci-images-build-os.yml` | `os` in {ubuntu24_04, rocky_8, rocky_9, debian, openSUSE15_6, SLES15_6} = **6** |
 | `ci-images-build-postgres.yml` | postgres = **1** |
 
 Each workflow run builds **both** architectures (amd64 + arm64) as a matrix on native
@@ -62,7 +62,7 @@ gh repo view --json nameWithOwner -q .nameWithOwner   # expect posit-dev/positro
 
 ```bash
 git -C "$REPO" switch -c update-images/<tag>          # sanitize <tag>: non-alnum -> '-'
-bash <dir>/scripts/bump-node-version.sh <node>        # edits all 10 compose files, prints proof
+bash <dir>/scripts/bump-node-version.sh <node>        # edits all 12 compose files, prints proof
 # NB: the R PPM snapshot pin is a SEPARATE knob (PPM_SNAPSHOT arg, bumped by
 # scripts/bump-ppm-snapshot.sh) and is NOT changed on a normal Node rebuild.
 # See the "PPM latest publish-window race" note in Phase 4 before touching it.
@@ -85,6 +85,7 @@ via workflow_dispatch with max <N> jobs in flight.
 ### Builds (each is a multi-arch amd64+arm64 manifest)
 - [ ] ubuntu24_04
 - [ ] rocky_8
+- [ ] rocky_9
 - [ ] debian
 - [ ] openSUSE15_6
 - [ ] SLES15_6
@@ -109,10 +110,10 @@ per-job counters (see Phase 4 for why):
 - `fix_attempts` — times a *real* code fix was made and the job re-dispatched.
 - `transient_retries` — times the job was re-dispatched for an infra flake (no code change).
 
-Use a TodoWrite list mirroring the 6 jobs so progress is visible.
+Use a TodoWrite list mirroring the 7 jobs so progress is visible.
 
-The 6 jobs (name them like the checklist rows). For each you'll call
-`dispatch-job.sh <branch> <tag> [os]` — pass `os` for the 5 OS jobs, omit it
+The 7 jobs (name them like the checklist rows). For each you'll call
+`dispatch-job.sh <branch> <tag> [os]` — pass `os` for the 6 OS jobs, omit it
 for the postgres job. Each job dispatches one run that builds both arches and
 merges them into a manifest list.
 
@@ -209,8 +210,11 @@ in flight keep the old code — that's fine; let them finish and judge them on t
   PPM snapshot from *before* the breaking package version, for that OS's `R_REPO`/`RSPM`:
   `https://packagemanager.posit.co/cran/<DATE>` (source) and
   `https://packagemanager.posit.co/cran/__linux__/<distro>/<DATE>` (binary). Find the
-  breaking date from `https://cran.r-project.org/src/contrib/Archive/<pkg>/`. (Rocky takes
-  a different route — it builds newer GEOS/GDAL from source — so this only bites Debian-ish.)
+  breaking date from `https://cran.r-project.org/src/contrib/Archive/<pkg>/`. (`rocky_8`
+  takes a different route (it builds newer GEOS/GDAL/libgit2 from source), so this only
+  bites Debian-ish. `rocky_9` needs neither: EL9 + EPEL9 already ship GEOS 3.13 / GDAL 3.10
+  / PROJ 9.6 / libgit2 1.7 and a GCC that does C++20, so prefer a dated PPM snapshot over
+  reintroducing a source build there.)
 - **PPM `latest` publish-window race** (`! Failed to download <pkg> from
   https://packagemanager.posit.co/cran/.../latest/.../<pkg>_<ver>.tar.gz` during
   `pak::local_install_dev_deps`, after many packages downloaded fine). Root cause: on the
@@ -231,11 +235,11 @@ in flight keep the old code — that's fine; let them finish and judge them on t
   https://mirror.ctan.org/...` is a round-robin that can land on a stale/unreachable
   mirror per call. Fix: pin to a single complete mirror
   (`https://ctan.math.illinois.edu/systems/texlive/tlnet`) and wrap the network-dependent
-  `tlmgr update`/`install` in a small retry loop. Present in all 5 OS Dockerfiles.
+  `tlmgr update`/`install` in a small retry loop. Present in all 6 OS Dockerfiles.
 
 ## Phase 5 — Finish
 
-When all 6 are `done` (success):
+When all 7 are `done` (success):
 
 - Tick all PR checklist boxes (`gh api -X PATCH`, per the Phase 1 note); add a summary
   comment (`gh pr comment <n>` works fine) listing each manifest:tag pushed, e.g.
@@ -243,7 +247,7 @@ When all 6 are `done` (success):
   `-amd64`/`-arm64` tags are also pushed as build outputs).
 - **Leave the PR open for human review — do NOT merge.**
 - Report to the user: the PR URL, the tag, the Node version, and confirmation that all
-  6 multi-arch images built and pushed. Note anything that needed a fix (link those commits).
+  7 multi-arch images built and pushed. Note anything that needed a fix (link those commits).
 
 If you stopped early on a stuck job, report exactly what's green, what's blocked, and the
 diagnosis, and leave the branch/PR in place for the user to take over.
