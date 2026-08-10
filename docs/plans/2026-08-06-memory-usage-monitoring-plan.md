@@ -1706,7 +1706,7 @@ git commit -m "test: publish memory snapshots to the insights API"
 - Consumes: everything from Tasks 2 through 8
 - Produces: `memory-snapshot.json`, `memory-report.html` in the run's output directory, and a step summary appended to `GITHUB_STEP_SUMMARY`
 
-- [ ] **Step 1: Check the fixtures and tags available**
+- [x] **Step 1: Check the fixtures and tags available**
 
 ```bash
 grep -n "PERFORMANCE\|WIN =" test/e2e/infra/test-runner/test-tags.ts | head
@@ -1715,7 +1715,7 @@ grep -n "suiteId" test/e2e/tests/notebooks-positron/performance/kernel-startup.t
 
 Reuse `tags.PERFORMANCE`. Do not add a new tag; this spec is not selected by tag in PR runs.
 
-- [ ] **Step 2: Add the pre-launch settings override**
+- [x] **Step 2: Add the pre-launch settings override**
 
 The scenario is only meaningful if idle means idle. A runtime auto-starting would add both its own memory and a large amount of variance, and it belongs to a later scenario.
 
@@ -1749,7 +1749,7 @@ Then merge it conditionally in `copyUserSettings` in `test/e2e/fixtures/test-set
 
 `MEMORY_SCENARIO=idle` is set on every measure step in Task 11.
 
-- [ ] **Step 3: Verify the override actually lands**
+- [x] **Step 3: Verify the override actually lands**
 
 ```bash
 MEMORY_SCENARIO=idle BUILD=/path/to/positron-build npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint' 2>&1 | head -5
@@ -1758,7 +1758,13 @@ grep -r "startupBehavior" /tmp/positron-*/User/settings.json 2>/dev/null | head 
 
 Expected: the setting appears in the launched instance's `settings.json`. If it does not, the merge is in the wrong place or the env var is not reaching the fixture, and every subsequent number would silently include an auto-started runtime.
 
-- [ ] **Step 4: Write the spec**
+Verified on macOS against the downloaded 2026.08.0-331 build: the launched
+instance's settings file carried `"interpreters.startupBehavior": "manual"`
+alongside the existing skip-pyrefly keys, so the merge lands and does not clobber
+what was already there. The user data dir is under
+`$TMPDIR/vscsmoke/d-<random>/User/settings.json`, not `/tmp/positron-*`.
+
+- [x] **Step 4: Write the spec**
 
 Create `test/e2e/tests/performance/memory-idle.test.ts`:
 
@@ -1883,7 +1889,7 @@ test.describe('Memory: report', { tag: [tags.PERFORMANCE] }, () => {
 });
 ```
 
-- [ ] **Step 5: Run it locally against a build**
+- [ ] **Step 5: Run it locally against a build** (partially done: see below)
 
 ```bash
 unset BUILD
@@ -1895,7 +1901,16 @@ Expected: passes, and logs a plausible total (roughly 400 MB to 1.5 GB) across m
 
 If many processes are `unlabeled`, that is the signal to add rules to `label.ts` (and tests for them in `label.vitest.ts`) before moving on.
 
-- [ ] **Step 6: Run the aggregation path**
+**Still outstanding, and it needs Linux.** Run on macOS the spec gets all the way
+through app launch, the extension inventory, and into `captureSnapshot` before
+failing at `readdir('/proc')`, which confirms the Playwright wiring (fixtures,
+`app.code.electronApp.process().pid`, `logsPath`, `BUILD`) and nothing about the
+measurement. The measurement chain itself is separately verified on Linux (see
+Task 6 Step 3), but not yet *through Playwright*, which needs Linux-native
+`node_modules`: either the ci-arm lab container or the nightly workflow from
+Task 11 running for real.
+
+- [x] **Step 6: Run the aggregation path**
 
 ```bash
 MEMORY_AGGREGATE=true npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Render and publish'
@@ -1903,7 +1918,28 @@ MEMORY_AGGREGATE=true npx playwright test test/e2e/tests/performance/memory-idle
 
 Expected: prints the markdown report, writes `${RUNNER_TEMP:-/tmp}/memory-snapshots/memory-report.html`, and logs that publishing was skipped for want of an API key. Open the HTML and confirm the tree reads correctly.
 
-- [ ] **Step 7: Commit**
+Verified, using three real snapshots captured from the Linux container so the
+report was exercised against real shapes and real variance (1159 / 1075 / 1067 MB
+across launches):
+
+```
+**Total: 1.0 GB**            Median of 3 launches. Settle time: 3s.
+extension_host 340.0 MB | renderer 241.8 MB | main 162.7 MB | shared 60.5 MB
+agent_host 57.2 MB | unlabeled 52.8 MB | gpu 50.1 MB | pty_host 47.3 MB
+file_watcher 42.5 MB | network 17.0 MB | kernel_supervisor 6.5 MB
+[memory] no CONNECT_API_KEY, skipping publish
+```
+
+Note that the report test still launches an app it does not use, because the `app`
+fixture is `auto: true`. That costs about a minute and is not worth fighting.
+
+**This run found a real defect in Task 7's renderer**, which only multi-launch data
+could expose: the role table reported medians across launches while the unlabeled
+note summed launch 0, so the same quantity appeared as 52.8 MB in the table and
+55.5 MB in the note directly below it. Both now read from the median, with a
+regression test that fails against the old code.
+
+- [x] **Step 7: Commit**
 
 ```bash
 npm run precommit -- test/e2e/tests/performance/memory-idle.test.ts test/e2e/fixtures/settingsMemory.json test/e2e/fixtures/test-setup/shared-utils.ts
