@@ -37,6 +37,7 @@ import os from 'os';
 import {
 	repoRoot, analyzerScript, triageDir, workRoot, ensureDir, writeText,
 	emit, fail, runNode, isMain, parseArgs, defineCli, handleHelp,
+	errorDetailsFromContext, FAILURE_TEXT_LIMIT,
 } from './lib.js';
 
 export const CLI = defineCli({
@@ -148,11 +149,13 @@ export function parseTraceReport(stdout) {
  * read it don't have to care which entry produced it -- with the two sections
  * local evidence genuinely cannot fill called out rather than faked.
  */
-export function buildLocalSummary({ selected, timeline, errors, snapshotFile, logDir, siblings = [] }) {
-	// The LAST error, matching the CI summary. Earlier entries in a trace are
-	// routinely non-fatal -- an expect.toPass() or waitFor retry logs its failed
-	// attempts too, which is why even a passing run's trace carries errors.
-	const failure = errors[errors.length - 1] || null;
+export function buildLocalSummary({ selected, timeline, errors, errorDetails = null, snapshotFile, logDir, siblings = [] }) {
+	// error-context.md first: it carries the locator and matched elements, where
+	// the trace reduces the same failure to a stub ("Expect failed").
+	// Falling back, the LAST trace error, matching the CI summary. Earlier entries
+	// are routinely non-fatal -- an expect.toPass() or waitFor retry logs its
+	// failed attempts too, which is why even a passing run's trace carries errors.
+	const failure = errorDetails || errors[errors.length - 1] || null;
 	const tail = timeline.slice(-14);
 	const md = [
 		'# Evidence summary (local run)',
@@ -165,7 +168,7 @@ export function buildLocalSummary({ selected, timeline, errors, snapshotFile, lo
 		// failed attempts), so labelling the last one "the failure" would invent one.
 		!selected.failed
 			? `(this run passed; its trace's last logged error, non-fatal, was: ${failure ? failure.slice(0, 200) : 'none'})`
-			: failure ? '```\n' + failure.slice(0, 500) + '\n```' : '(no error captured in trace)',
+			: failure ? '```\n' + failure.slice(0, FAILURE_TEXT_LIMIT) + '\n```' : '(no error captured in trace)',
 		'',
 		'## Timeline tail (last actions before failure)',
 		'',
@@ -397,6 +400,9 @@ async function main() {
 		selected,
 		timeline: report.timeline,
 		errors: report.errors,
+		errorDetails: snapshotFile
+			? errorDetailsFromContext(fs.readFileSync(snapshotFile, 'utf8'))
+			: null,
 		snapshotFile: rel(snapshotFile),
 		logDir: rel(logDir),
 	});

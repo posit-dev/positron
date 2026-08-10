@@ -165,6 +165,36 @@ export function writeText(file, text) {
 	return file;
 }
 
+/**
+ * How much of a failure message the summary keeps. The decisive part -- locator,
+ * matched elements, code frame -- routinely runs past 500 chars, and truncating
+ * it there sends the reader off to fetch evidence the summary already had.
+ */
+export const FAILURE_TEXT_LIMIT = 1200;
+
+// eslint-disable-next-line no-control-regex
+const ANSI_PATTERN = /\u001b\[[0-9;]*m/g;
+
+/** Strip the SGR colour codes Playwright bakes into reported error strings. */
+export function stripAnsi(text) {
+	return String(text || '').replace(ANSI_PATTERN, '');
+}
+
+/**
+ * Pull the fenced block under `# Error details` out of Playwright's
+ * error-context.md. That block is the full assertion message -- locator,
+ * matched elements, code frame -- which the trace's own error list reduces to a
+ * stub like "Expect failed".
+ */
+export function errorDetailsFromContext(markdown) {
+	const section = /^#\s*Error details\s*$/m.exec(String(markdown || ''));
+	if (!section) { return null; }
+	const rest = markdown.slice(section.index + section[0].length);
+	const fenced = /```[^\n]*\n([\s\S]*?)```/.exec(rest);
+	const text = stripAnsi(fenced ? fenced[1] : '').trim();
+	return text || null;
+}
+
 /** Print a compact object as JSON to stdout (the model reads this). */
 export function emit(obj) {
 	process.stdout.write(JSON.stringify(obj, null, 2) + '\n');

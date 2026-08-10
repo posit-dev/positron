@@ -26,6 +26,7 @@ import fs from 'fs';
 import {
 	analyzerScript, triageDir, ensureDir, writeJson, writeText,
 	emit, fail, runNode, isMain, parseArgs, defineCli, handleHelp,
+	stripAnsi, FAILURE_TEXT_LIMIT,
 } from './lib.js';
 
 export const CLI = defineCli({
@@ -93,6 +94,21 @@ function selectDetail(result, { title, testId }) {
  * The model reads this first and opens the full timeline/snapshot/logs only to
  * answer a concrete unresolved question.
  */
+/**
+ * The report's own failure text for this test: locator, matched elements and
+ * code frame. The trace's error list reduces the same failure to a stub
+ * ("Expect failed"), which names neither the assertion nor the locator.
+ */
+export function reportFailureText(result, detail) {
+	const failures = (result.failures || []).filter(f => f && typeof f === 'object');
+	const byIdentity = failures.filter(f =>
+		f.title === detail.title && (!f.file || !detail.file || f.file === detail.file));
+	const match = byIdentity[0] || (failures.length === 1 ? failures[0] : null);
+	// errors[0] is attempt 0 -- the failure itself, not a passing retry.
+	const text = stripAnsi(((match || {}).errors || [])[0]?.error || '').trim();
+	return text || null;
+}
+
 export function buildEvidenceSummary(result, filter = {}) {
 	const detail = selectDetail(result, filter);
 	if (!detail) {
@@ -101,7 +117,7 @@ export function buildEvidenceSummary(result, filter = {}) {
 	const attempt = (detail.attempts || [])[0] || {};
 	const trace = attempt.trace || {};
 	const errors = trace.errors || [];
-	const failure = errors[errors.length - 1] || (result.failures || [])[0] || null;
+	const failure = reportFailureText(result, detail) || errors[errors.length - 1] || null;
 
 	const timeline = trace.timeline || '';
 	// Timeline tail: the last ~14 action/error lines, a deterministic slice (not
@@ -123,7 +139,7 @@ export function buildEvidenceSummary(result, filter = {}) {
 		'',
 		'## Failure',
 		'',
-		failure ? '```\n' + failure.slice(0, 500) + '\n```' : '(no error captured in trace)',
+		failure ? '```\n' + failure.slice(0, FAILURE_TEXT_LIMIT) + '\n```' : '(no error captured in trace)',
 		'',
 		'## Timeline tail (last actions before failure)',
 		'',

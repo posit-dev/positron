@@ -97,6 +97,33 @@ test('buildLocalSummary keeps the CI summary headings and flags what local canno
 	assert.match(markdown, /No CI history was queried/);
 });
 
+test('buildLocalSummary prefers error-context.md details over the trace error stub', () => {
+	// Same gap as the CI entry: the trace reduces the assertion to a stub, while
+	// error-context.md carries the locator and the matched elements.
+	const errorDetails = [
+		'Error: expect(locator).toBeVisible() failed',
+		'',
+		"Locator: getByText('Browse[1]>')",
+		"Error: strict mode violation: getByText('Browse[1]>') resolved to 2 elements:",
+		'    1) <span>Browse[1]> </span>',
+		'    2) <div class="line-numbers active-line-number">Browse[1]></div>',
+	].join('\n');
+	const { markdown, failure } = buildLocalSummary({
+		selected: failed('spec-dir'), timeline: ['[after] ERROR: Expect failed'],
+		errors: ['Expect failed'], errorDetails, snapshotFile: 'error-context.md', logDir: null,
+	});
+	assert.match(failure, /strict mode violation/);
+	assert.match(markdown, /strict mode violation/);
+});
+
+test('buildLocalSummary falls back to the trace error when no error-context details exist', () => {
+	const { failure } = buildLocalSummary({
+		selected: failed('spec-dir'), timeline: [], errors: ['Expect failed'],
+		errorDetails: null, snapshotFile: null, logDir: null,
+	});
+	assert.equal(failure, 'Expect failed');
+});
+
 test('matchLogDir pairs on the spec prefix, surviving Playwright\'s truncated dir names', () => {
 	const logDirs = [
 		'e2e-workbench',
