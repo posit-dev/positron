@@ -67,18 +67,28 @@ export function resolveCliPath(buildRoot: string): string {
  * report to `unlabeled` rows rather than fail the run.
  *
  * The CLI spawns a child Electron main process to service `--status`, and that
- * child needs a display of its own. Without DISPLAY inherited from the caller it
- * exits silently with status 0 and no output, so the environment is passed
- * through rather than scrubbed.
+ * child has two environmental needs of its own. Both failures look identical:
+ * exit status 0, no output, nothing on stderr.
+ *
+ * - It needs a display, so the environment is passed through rather than
+ *   scrubbed. Running the app under `xvfb-run` does not cover this call.
+ * - It needs `--no-sandbox` in the containers this runs in. The call is
+ *   read-only diagnostics, so the sandbox buys nothing here.
  */
 export async function readProcessNames(buildRoot: string, userDataDir: string): Promise<Map<number, string>> {
 	try {
 		const { stdout } = await execFileAsync(
 			resolveCliPath(buildRoot),
-			['--user-data-dir', userDataDir, '--status'],
+			['--user-data-dir', userDataDir, '--no-sandbox', '--status'],
 			{ timeout: 30_000, maxBuffer: 10 * 1024 * 1024, env: process.env }
 		);
-		return parseStatusOutput(stdout);
+		const names = parseStatusOutput(stdout);
+		if (names.size === 0) {
+			// Silence here means every process lands in `unlabeled`, so say why
+			// rather than letting the report quietly degrade.
+			console.error(`[memory] --status produced no process table (${stdout.length} bytes): ${stdout.slice(0, 200)}`);
+		}
+		return names;
 	} catch (error) {
 		console.error(`[memory] could not read process names: ${error}`);
 		return new Map();
