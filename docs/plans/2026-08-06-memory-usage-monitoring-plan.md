@@ -2253,20 +2253,55 @@ unlabeled 124.8 MB, shared 118.7 MB, gpu 92.5 MB, agent_host 63.3 MB,
 extension_child 62.2 MB, pty_host 49.8 MB, file_watcher 46.7 MB, network 24.3 MB,
 kernel_supervisor 6.9 MB, language_server 6.9 MB. Total 1.7 GB across 20 processes.
 
-Two follow-ups this run surfaced:
+Two follow-ups this run surfaced, both since closed:
 
-- **Unlabeled is 124.8 MB, 7.3% of the tree, across 8 process names.** Inside the
-  one-third gate but worth closing. CI has more installed than the local container did,
-  so names appear here that never showed up before: `charliermarsh.ruff` language
-  servers (two versions), bundled `jsonServerMain`-style servers, and Chromium's
-  `zygote`. The ruff and server processes belong in `language_server`; per Task 9
-  Step 5 this is the signal to add rules to `label.ts`.
-- **Publishing failed soft against `127.0.0.1:8000`**, which is the branch gate working:
-  `apiUrl` only uses the production endpoint on `main`. Nothing to fix, but it means a
-  nightly on a branch can never write to the real dataset, and the first genuine publish
-  will not happen until this is on `main` with the endpoint live.
+- **Unlabeled was 124.8 MB, 7.3% of the tree, over 8 process names.** Only 5 real
+  processes: `--status` names anything it cannot identify by its whole command line,
+  which carries pids (`--clientProcessId=150`) and version numbers, so one process
+  produced a different name every launch. Beyond inflating the count, that would have
+  made the baseline diff report the same processes as newly appeared every night, and
+  blown up the dashboard's group-by cardinality. `normalizeProcessName` now reduces a
+  command line to stable tokens, and rules were added for the five: `zygote` and
+  `shell` are new roles, `pet server` is `extension_child`, and the language-server
+  rule was widened (it matched `language-server` but the extension is called
+  `json-language-features`). **Unlabeled is now 0 bytes.**
+- **`ruff` is Positron's memory after all.** It first looked like test-environment
+  contamination, appearing under two versions from the shared extensions dir. It is
+  actually a *bootstrap* extension: `resources/app/extensions/bootstrap/` ships
+  `charliermarsh.ruff`, `posit.air-vscode`, the Jupyter set and others as vsixes that
+  install themselves on first launch. So it belongs in the total, and `language_server`
+  is the right label. The two versions came from the shared dir accumulating an older
+  bootstrap alongside a newer one.
 
----
+**The idle scenario now uses its own extensions dir**, so the measured set is exactly
+what the build ships rather than whatever the suite has installed. That introduced one
+artifact and one fix: the first launch into a fresh dir pays to install the bootstrap
+vsixes, which read 60 MB high with a settle a second longer. The workflow now warms the
+dir first with `bootstrap-extensions.test.ts`, the same spec release-screenshots uses
+for the same reason.
+
+**Final measurement, run 31404147221:**
+
+| Launch | Total PSS | Settle |
+| --- | --- | --- |
+| 0 | 1767.9 MB | 3096 ms |
+| 1 | 1744.4 MB | 3100 ms |
+| 2 | 1725.0 MB | 3098 ms |
+
+Spread is **2.5% of the median** and settle times are now uniform to within 4 ms.
+Composition, median of three: renderer 505.3, extension_host 475.2, main 163.9,
+shared 121.5, language_server 97.2, gpu 91.7, extension_child 71.5, agent_host 62.5,
+pty_host 50.1, file_watcher 47.0, network 24.3, zygote 22.1, kernel_supervisor 6.1,
+shell 3.8 MB. Every byte is attributed.
+
+One thing to watch rather than fix: the three totals decline monotonically
+(1767.9 > 1744.4 > 1725.0). Three points is not a trend, but if it holds across
+nightlies it suggests something warms between launches that the fresh user-data dir
+does not reset, which would mean launch 0 is systematically the pessimistic one.
+
+Publishing correctly failed soft against `127.0.0.1:8000`: `apiUrl` gates the
+production endpoint on `main`, so a branch nightly can never write to the real dataset.
+The first genuine publish happens when this is on `main` with the endpoint live.
 
 ## Self-Review
 
