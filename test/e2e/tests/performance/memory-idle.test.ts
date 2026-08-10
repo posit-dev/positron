@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { expect, tags, test } from '../_test.setup';
 import { readActivatedExtensions } from '../../utils/memory/extensions.js';
@@ -89,25 +89,32 @@ test.describe('Memory: idle', { tag: [tags.PERFORMANCE] }, () => {
  */
 test.describe('Memory: report', { tag: [tags.PERFORMANCE] }, () => {
 
-	test('Render and publish the idle memory report', async function () {
+	test('Render and publish the idle memory report', async function ({ }, testInfo) {
 		test.skip(process.env.MEMORY_AGGREGATE !== 'true', 'only runs in the aggregation step');
-
-		const snapshots: MemorySnapshot[] = [];
-		for (let i = 0; i < 3; i++) {
-			snapshots.push(JSON.parse(readFileSync(join(SNAPSHOT_DIR, `memory-snapshot-${i}.json`), 'utf8')));
-		}
 
 		// Require all three. Reporting a "median" over one surviving launch
 		// would look identical to a healthy run while telling us nothing about
 		// variance, which is the whole reason we launch three times.
-		expect(snapshots.length, `expected 3 snapshots in ${SNAPSHOT_DIR}`).toBe(3);
+		//
+		// Checked before reading, so a missing launch fails with the path that is
+		// missing rather than a bare ENOENT from readFileSync.
+		const paths = [0, 1, 2].map(i => join(SNAPSHOT_DIR, `memory-snapshot-${i}.json`));
+		const missing = paths.filter(path => !existsSync(path));
+		expect(missing, `missing snapshot(s); a measure step probably failed: ${missing.join(', ')}`).toEqual([]);
+
+		const snapshots: MemorySnapshot[] = paths.map(path => JSON.parse(readFileSync(path, 'utf8')));
 
 		const baseline = await fetchBaseline();
 		const markdown = renderMarkdown(snapshots, baseline);
 		const html = renderHtml(snapshots, baseline);
 
 		mkdirSync(SNAPSHOT_DIR, { recursive: true });
-		writeFileSync(join(SNAPSHOT_DIR, 'memory-report.html'), html);
+		const htmlPath = join(SNAPSHOT_DIR, 'memory-report.html');
+		writeFileSync(htmlPath, html);
+		// Also attach it. RUNNER_TEMP is not collected as a CI artifact by default,
+		// so a job that dies before the upload step would otherwise lose the report;
+		// Playwright collects attachments even on failure.
+		await testInfo.attach('memory-report.html', { path: htmlPath, contentType: 'text/html' });
 		if (process.env.GITHUB_STEP_SUMMARY) {
 			appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${markdown}\n`);
 		}
