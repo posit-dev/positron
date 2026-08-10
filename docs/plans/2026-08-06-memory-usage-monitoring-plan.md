@@ -37,7 +37,7 @@ Issue: posit-dev/positron#15001
 | `test/e2e/utils/memory/positron-status.ts` | Run `--status`, parse to a pid-to-name map |
 | `test/e2e/utils/memory/positron-status.vitest.ts` | Unit tests for the `--status` parser |
 | `test/e2e/utils/memory/snapshot.ts` | Settle-poll, sample, join, emit a `MemorySnapshot` |
-| `test/e2e/utils/memory/extensions.ts` | Read activated extensions from the Running Extensions editor |
+| `test/e2e/utils/memory/extensions.ts` | Read activated extensions from the extension host log |
 | `test/e2e/utils/memory/render.ts` | Pure: snapshot (+ baseline) to markdown and HTML |
 | `test/e2e/utils/memory/render.vitest.ts` | Unit tests for both renderers |
 | `test/e2e/utils/memory/publish.ts` | Batched POST and baseline GET against `/memory` |
@@ -1050,85 +1050,102 @@ git commit -m "test: assemble memory snapshots from process tree samples"
 
 ### Task 6: Activated extension inventory
 
+**Executed, and the source changed.** The plan originally scraped the Running
+Extensions editor. That editor cannot supply what this task needs:
+
+- Its rows show `marketplaceInfo?.displayName || identifier.value` truncated to 50
+  characters (`abstractRuntimeExtensionsEditor.ts:284`). There is no extension id
+  anywhere in a row, and the id is the dataset's grouping key.
+- There is no `.activation-event` element. The activation event exists only as a
+  hover title (line 368), so a locator for it would throw and drop the entire
+  inventory into the catch block, returning `[]` on every run without a word.
+
+The extension host log has all of it. `extHostExtensionService.ts:499` logs, at
+info level and so present by default:
+
+```
+[info] ExtensionService#_doActivateExtension positron.authentication, startup: false, activationEvent: 'onAiEnabled', root cause: positron.next-edit-suggestions
+```
+
+A verified launch produced 32 such lines. Parsing that is also unit-testable
+against a fixture, which the DOM approach never was.
+
+The one thing only the editor has is per-extension activation times, so
+`activationTimeMs` is always null. The design wants the activation *set* ("this
+extension newly activates at startup"), not the timings, so this is an acceptable
+trade.
+
 **Files:**
 - Create: `test/e2e/utils/memory/extensions.ts`
+- Create: `test/e2e/utils/memory/extensions.vitest.ts`
+- Create: `test/e2e/utils/memory/fixtures/exthost.log`
 
 **Interfaces:**
-- Consumes: `ActivatedExtension` from `types.ts`, the e2e `Application` object
-- Produces: `readActivatedExtensions(app: Application): Promise<ActivatedExtension[]>`
+- Consumes: `ActivatedExtension` from `types.ts`. Notably not the e2e `Application`
+  object: this reads files, so it needs no driver and no running window.
+- Produces:
+  - `parseActivationLog(text: string, userInstalledIds?: Set<string>): ActivatedExtension[]`
+  - `readUserInstalledIds(extensionsDir: string): Promise<Set<string>>`
+  - `findExtHostLog(logsRoot: string): Promise<string | undefined>`
+  - `readActivatedExtensions(input: { logsRoot: string; extensionsDir?: string }): Promise<ActivatedExtension[]>`
 
-- [ ] **Step 1: Find the Running Extensions editor selectors**
+- [x] **Step 1: Tests first, then the parser**
 
-The editor is registered at `src/vs/workbench/contrib/extensions/browser/abstractRuntimeExtensionsEditor.ts:519` as command `workbench.action.showRuntimeExtensions`. Open Positron, run "Developer: Show Running Extensions" from the palette, and inspect the DOM to note the row, name, and activation-time selectors.
+Eight tests in `extensions.vitest.ts` cover the id and event, the `root cause`
+suffix not leaking into the event, the `*` wildcard event, one entry per id when
+activation is logged twice, non-activation lines ignored, empty input, the
+builtin split, and the real captured fixture.
 
-Do not guess selector names. Read them off the running app, and prefer whatever the e2e suite already uses for list rows if there is an existing page object that covers this editor:
+- [x] **Step 2: Log location**
 
-```bash
-grep -rn "runtimeExtension\|showRuntimeExtensions" test/e2e/pages/ || echo "no existing page object"
+Logs are **not** under the user data dir. They live at
+`~/.local/state/positron/logs/<timestamp>/window<n>/exthost/exthost.log`, so
+Worse, the nesting depth depends on how the app started, and both layouts are
+verified against real launches:
+
+| Started | Layout |
+| --- | --- |
+| `--logsPath=<dir>`, as the e2e harness does | `<dir>/window1/exthost/exthost.log`, and the default location is not written at all |
+| no flag | `~/.local/state/positron/logs/<timestamp>/window1/exthost/exthost.log` |
+
+`findExtHostLog` tries the direct layout first, then the newest timestamped session
+below the root, then the newest `window*` inside that. Task 9 passes the `logsPath`
+Playwright fixture, not `userDataDir` and not the default state dir.
+
+`isBuiltin` is derived by listing the run's extensions dir (directories named
+`<publisher>.<name>-<version>`) and treating anything absent from it as shipped
+with the build. Against a fresh profile that marks everything builtin, which is
+correct rather than a guess. Prefix heuristics on the id would have mislabelled
+the bundled non-`vscode.`/`positron.` extensions such as `ms-python.python`,
+`posit.assistant`, and `GitHub.copilot-chat`.
+
+- [x] **Step 3: Verified end to end against a real app**
+
+Rather than only checking selectors, `captureSnapshot` was run against a real
+launch in the container from Task 1, which exercises Tasks 3 through 6 together:
+
+```
+settleMs=3249 processes=16 totalPSS=1170.0MB extensions=32
+  extension_host  353.4MB | renderer 285.8MB | main 176.7MB | shared 61.2MB
+  gpu 58.7MB | agent_host 58.2MB | unlabeled 55.6MB (n=5) | pty_host 47.3MB
+  file_watcher 44.2MB | network 22.5MB | kernel_supervisor 6.4MB (n=2)
+named=16/16  unattributed=55.6MB
 ```
 
-- [ ] **Step 2: Implement the reader**
+Both of Task 9's quality gates pass with room to spare: every process is named,
+and unattributed memory is 4.8% against a one-third budget.
 
-Create `test/e2e/utils/memory/extensions.ts`. Replace the selectors below with the ones observed in Step 1:
+**This run also caught a bug no unit test could.** The first attempt reported
+`named=0/16` and 53% unattributed, because `readProcessNames` returned an empty
+map: the CLI's child Electron main needs `--no-sandbox` just as the app does, and
+without it exits 0 with no output. `readProcessNames` now passes `--no-sandbox`
+and logs loudly when the table comes back empty, since silence there quietly
+degrades every row to `unlabeled`.
 
-```ts
-import { Application } from '../../infra/index.js';
-import { ActivatedExtension } from './types.js';
+- [x] **Step 4: Commit**
 
-/**
- * Read the activated-extension list out of the Running Extensions editor.
- *
- * This is the companion signal for memory that the process tree cannot
- * attribute: Copilot and the Snowflake SDK both live inside the extension host,
- * so no amount of process detail separates them, but "extension host grew and
- * this extension newly activates at startup" is actionable.
- *
- * Returns an empty list on any failure. A missing inventory should cost us the
- * extension section of the report, not the whole run.
- */
-export async function readActivatedExtensions(app: Application): Promise<ActivatedExtension[]> {
-	try {
-		await app.workbench.quickaccess.runCommand('workbench.action.showRuntimeExtensions');
-
-		const rows = app.code.driver.page.locator('.runtime-extensions-editor .monaco-list-row');
-		await rows.first().waitFor({ state: 'visible', timeout: 15_000 });
-
-		const extensions: ActivatedExtension[] = [];
-		for (const row of await rows.all()) {
-			const extensionId = (await row.locator('.name').textContent())?.trim();
-			if (!extensionId) {
-				continue;
-			}
-			const activationText = (await row.locator('.activation-time').textContent())?.trim() ?? '';
-			const activationMs = activationText.match(/(\d+)\s*ms/);
-			const activationEvent = (await row.locator('.activation-event').textContent())?.trim() ?? null;
-
-			extensions.push({
-				extensionId,
-				isBuiltin: !extensionId.includes('.') || extensionId.startsWith('vscode.') || extensionId.startsWith('positron.'),
-				activationTimeMs: activationMs ? parseInt(activationMs[1], 10) : null,
-				activationEvent
-			});
-		}
-		return extensions;
-	} catch (error) {
-		console.error(`[memory] could not read activated extensions: ${error}`);
-		return [];
-	}
-}
-```
-
-- [ ] **Step 3: Verify against a real app**
-
-There is no unit test here, because the value is entirely in whether the selectors match the real DOM. Task 9's spec exercises it. For a faster loop, use the `drive-positron` skill to open the editor and confirm the selectors resolve before wiring it in.
-
-- [ ] **Step 4: Commit**
-
-```bash
-npm run precommit -- test/e2e/utils/memory/extensions.ts
-git add test/e2e/utils/memory/extensions.ts
-git commit -m "test: read activated extension inventory for memory metrics"
-```
+Committed as "test: read activated extension inventory from the extension host
+log" and "test: pass --no-sandbox when asking positron to name its processes".
 
 ---
 
@@ -1740,14 +1757,19 @@ const SNAPSHOT_DIR = join(process.env.RUNNER_TEMP ?? '/tmp', 'memory-snapshots')
 
 test.describe('Memory: idle', { tag: [tags.PERFORMANCE] }, () => {
 
-	test('Idle memory footprint of the Positron process tree', async function ({ app }) {
+	test('Idle memory footprint of the Positron process tree', async function ({ app, logsPath }) {
 		const buildRoot = process.env.BUILD;
 		expect(buildRoot, 'BUILD must point at a Positron build; memory numbers from a dev build are meaningless').toBeTruthy();
 
 		const mainPid = app.code.electronApp?.process().pid;
 		expect(mainPid, 'no Electron main pid; this spec only runs against Electron').toBeTruthy();
 
-		const extensions = await readActivatedExtensions(app);
+		// The harness passes --logsPath, so take the root from that same fixture
+		// rather than the default state dir. See Task 6.
+		const extensions = await readActivatedExtensions({
+			logsRoot: logsPath,
+			extensionsDir: app.extensionsPath
+		});
 
 		const snapshot = await captureSnapshot({
 			rootPid: mainPid!,
@@ -1774,10 +1796,10 @@ test.describe('Memory: idle', { tag: [tags.PERFORMANCE] }, () => {
 			.reduce((sum, p) => sum + p.pssBytes, 0);
 		expect(unlabeledBytes / snapshot.treeTotalPssBytes, 'more than a third of memory is unattributed; add rules to label.ts').toBeLessThan(0.34);
 
-		// Extensions activate in every normal run, so an empty inventory means
-		// the Running Extensions selectors have drifted rather than that
+		// Extensions activate in every normal run (a verified launch logged 32),
+		// so an empty inventory means the log was not found rather than that
 		// nothing activated.
-		expect(snapshot.extensions.length, 'no activated extensions found; the Running Extensions selectors in extensions.ts have probably drifted').toBeGreaterThan(0);
+		expect(snapshot.extensions.length, 'no activated extensions found; findExtHostLog probably looked in the wrong logsRoot').toBeGreaterThan(0);
 
 		mkdirSync(SNAPSHOT_DIR, { recursive: true });
 		writeFileSync(join(SNAPSHOT_DIR, `memory-snapshot-${snapshot.launchIndex}.json`), JSON.stringify(snapshot, null, 2));

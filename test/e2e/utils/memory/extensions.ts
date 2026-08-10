@@ -80,33 +80,52 @@ export async function readUserInstalledIds(extensionsDir: string): Promise<Set<s
 	}
 }
 
-/**
- * Find the extension host log for the most recent window of the most recent
- * session. Logs live under the state directory rather than the user data dir
- * (`~/.local/state/positron/logs/<timestamp>/window<n>/exthost/exthost.log`).
- */
-export async function findExtHostLog(logsRoot: string): Promise<string | undefined> {
-	const newestChild = async (dir: string, prefix = ''): Promise<string | undefined> => {
-		const entries = await fs.readdir(dir, { withFileTypes: true });
-		const matching = entries
-			.filter(entry => entry.isDirectory() && entry.name.startsWith(prefix))
-			.map(entry => entry.name)
-			.sort();
-		return matching.at(-1);
-	};
+async function newestDirectory(dir: string, prefix = ''): Promise<string | undefined> {
+	const entries = await fs.readdir(dir, { withFileTypes: true });
+	return entries
+		.filter(entry => entry.isDirectory() && entry.name.startsWith(prefix))
+		.map(entry => entry.name)
+		.sort()
+		.at(-1);
+}
 
+async function windowLog(sessionDir: string): Promise<string | undefined> {
+	const window = await newestDirectory(sessionDir, 'window');
+	if (!window) {
+		return undefined;
+	}
+	const candidate = join(sessionDir, window, 'exthost', 'exthost.log');
 	try {
-		const session = await newestChild(logsRoot);
-		if (!session) {
-			return undefined;
-		}
-		const window = await newestChild(join(logsRoot, session), 'window');
-		if (!window) {
-			return undefined;
-		}
-		const candidate = join(logsRoot, session, window, 'exthost', 'exthost.log');
 		await fs.access(candidate);
 		return candidate;
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Find the extension host log for the newest window, given a logs root.
+ *
+ * Two layouts exist and both are verified against a real launch, because the
+ * level of nesting depends on how the app was started:
+ *
+ * - Passed `--logsPath=<dir>`, as the e2e harness does, that directory *is* the
+ *   session dir: `<root>/window1/exthost/exthost.log`. The default location is
+ *   then not written at all.
+ * - Started without it, the app makes a timestamped session dir of its own under
+ *   the state dir (not the user data dir):
+ *   `~/.local/state/positron/logs/<timestamp>/window1/exthost/exthost.log`.
+ *
+ * The direct layout is tried first, then the newest timestamped session below it.
+ */
+export async function findExtHostLog(logsRoot: string): Promise<string | undefined> {
+	try {
+		const direct = await windowLog(logsRoot);
+		if (direct) {
+			return direct;
+		}
+		const session = await newestDirectory(logsRoot);
+		return session ? await windowLog(join(logsRoot, session)) : undefined;
 	} catch {
 		return undefined;
 	}

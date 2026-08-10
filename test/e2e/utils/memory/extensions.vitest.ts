@@ -3,10 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { readFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import { describe, expect, test } from 'vitest';
-import { parseActivationLog } from './extensions.js';
+import { findExtHostLog, parseActivationLog } from './extensions.js';
 
 const line = (id: string, startup: boolean, event: string, rootCause?: string): string =>
 	`2026-08-10 12:48:59.813 [info] ExtensionService#_doActivateExtension ${id}, startup: ${startup}, activationEvent: '${event}'${rootCause ? `, root cause: ${rootCause}` : ''}`;
@@ -61,5 +62,36 @@ describe('parseActivationLog', () => {
 		expect(parsed.length).toBeGreaterThan(10);
 		expect(parsed.map(e => e.extensionId)).toContain('positron.positron-r');
 		expect(parsed.every(e => e.extensionId.length > 0 && e.activationEvent)).toBe(true);
+	});
+});
+
+describe('findExtHostLog', () => {
+	const layout = (...segments: string[]): string => {
+		const root = mkdtempSync(join(tmpdir(), 'memory-logs-'));
+		const dir = join(root, ...segments);
+		mkdirSync(dir, { recursive: true });
+		writeFileSync(join(dir, 'exthost.log'), 'log');
+		return root;
+	};
+
+	test('finds the log when the root is the session dir, as --logsPath makes it', async () => {
+		const root = layout('window1', 'exthost');
+		expect(await findExtHostLog(root)).toBe(join(root, 'window1', 'exthost', 'exthost.log'));
+	});
+
+	test('finds the log below a timestamped session dir, as a default launch makes it', async () => {
+		const root = layout('20260810T124853', 'window1', 'exthost');
+		expect(await findExtHostLog(root)).toBe(join(root, '20260810T124853', 'window1', 'exthost', 'exthost.log'));
+	});
+
+	test('prefers the newest session and the newest window', async () => {
+		const root = layout('20260810T100000', 'window1', 'exthost');
+		mkdirSync(join(root, '20260810T235959', 'window2', 'exthost'), { recursive: true });
+		writeFileSync(join(root, '20260810T235959', 'window2', 'exthost', 'exthost.log'), 'log');
+		expect(await findExtHostLog(root)).toBe(join(root, '20260810T235959', 'window2', 'exthost', 'exthost.log'));
+	});
+
+	test('returns undefined rather than throwing when the root does not exist', async () => {
+		expect(await findExtHostLog(join(tmpdir(), 'memory-logs-does-not-exist'))).toBeUndefined();
 	});
 });
