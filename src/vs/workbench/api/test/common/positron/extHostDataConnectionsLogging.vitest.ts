@@ -98,14 +98,22 @@ describe('createLazyDriverLogger', () => {
 		expect([never.disposeCount(), created.disposeCount()]).toEqual([0, 1]);
 	});
 
-	it('logs a multi-line info message as its first line only', () => {
-		const { factory, messages } = createRecordingFactory();
-		const logger = createLazyDriverLogger('DuckDB', factory);
-		logger.info('Binder Error: Referenced column "x" not found!\n\nLINE 1: SELECT * FROM t WHERE email LIKE \'%secret-term%\'');
-		expect(messages).toEqual(['info: Binder Error: Referenced column "x" not found!']);
-		expect(messages[0]).not.toContain('LIKE');
-		expect(messages[0]).not.toContain('secret-term');
-	});
+	// Truncation is applied separately in each of the five methods, so each one is independently
+	// breakable. Covering them all matters most for `error`, which is where the drivers pass an
+	// engine error message, and where a DuckDB error echoes the failing statement.
+	it.each(['trace', 'debug', 'info', 'warn', 'error'] as const)(
+		'truncates a multi-line %s message to its first line', method => {
+			const { factory, messages } = createRecordingFactory();
+			const logger = createLazyDriverLogger('DuckDB', factory);
+			// `trace` and `debug` only write once the channel exists, so create it first.
+			logger.info('Connecting');
+			logger[method]('Binder Error: Referenced column "x" not found!\n\nLINE 1: SELECT * FROM t WHERE email LIKE \'%secret-term%\'');
+
+			const logged = messages[messages.length - 1];
+			expect(logged).toBe(`${method}: Binder Error: Referenced column "x" not found!`);
+			expect(logged).not.toContain('LIKE');
+			expect(logged).not.toContain('secret-term');
+		});
 
 	it('leaves a single-line message unchanged', () => {
 		const { factory, messages } = createRecordingFactory();
@@ -121,11 +129,4 @@ describe('createLazyDriverLogger', () => {
 		expect(messages).toEqual(['info: Connecting']);
 	});
 
-	it('truncates a multi-line trace message once the channel exists', () => {
-		const { factory, messages } = createRecordingFactory();
-		const logger = createLazyDriverLogger('DuckDB', factory);
-		logger.info('Connecting');
-		logger.trace('Query failed\nSELECT * FROM t WHERE email LIKE \'%secret-term%\'');
-		expect(messages).toEqual(['info: Connecting', 'trace: Query failed']);
-	});
 });
