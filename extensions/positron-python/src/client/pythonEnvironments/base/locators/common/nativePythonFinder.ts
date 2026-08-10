@@ -32,7 +32,7 @@ import { executeCommand } from '../../../../common/vscodeApis/commandApis';
 import { getGlobalStorage, IPersistentStorage } from '../../../../common/persistentState';
 
 // --- Start Positron ---
-import { getCustomEnvDirs } from '../../../../positron/interpreterSettings';
+import { getCustomEnvDirs, isPythonStartupDisabled } from '../../../../positron/interpreterSettings';
 import { traceVerbose } from '../../../../logging';
 import { ADDITIONAL_POSIX_BIN_PATHS } from '../../../common/posixUtils';
 import { PythonEnvSource } from '../../info/index';
@@ -47,6 +47,10 @@ const PYTHON_ENV_TOOLS_PATH = isWindows()
 // --- End Positron ---
 
 const DONT_SHOW_SPAWN_ERROR_AGAIN = 'DONT_SHOW_NATIVE_FINDER_SPAWN_ERROR_AGAIN';
+
+// --- Start Positron ---
+const LOCATOR_IDLE_TIMEOUT_SETTING_KEY = 'locatorIdleTimeout';
+// --- End Positron ---
 
 export interface NativeEnvInfo {
     displayName?: string;
@@ -120,6 +124,12 @@ export interface NativePythonFinder extends Disposable {
      * distinguish a broken locator from an empty one.
      */
     readonly lastDiscoveryError: string | undefined;
+    /**
+     * Process id of the running PET server, or `undefined` when the server is
+     * not running (never started, shut down after the idle timeout, or exited).
+     * Used by tests and diagnostics.
+     */
+    readonly serverPid: number | undefined;
     // --- End Positron ---
 }
 
@@ -181,7 +191,20 @@ export function bufferedEvents<T>(discovered: Event<T>, completed: Promise<void>
 // --- End Positron ---
 
 class NativePythonFinderImpl extends DisposableBase implements NativePythonFinder {
-    private readonly connection: rpc.MessageConnection;
+    // --- Start Positron ---
+    // private readonly connection: rpc.MessageConnection;
+    // The connection and server process are created lazily and can be torn down
+    // (idle timeout, crash, dispose) and recreated by the next request.
+    private connection: rpc.MessageConnection | undefined;
+
+    private serverProc: ch.ChildProcess | undefined;
+
+    private connectionDisposable: Disposable | undefined;
+
+    public get serverPid(): number | undefined {
+        return this.serverProc?.pid;
+    }
+    // --- End Positron ---
 
     // --- Start Positron ---
     // private firstRefreshResults: undefined | (() => AsyncGenerator<NativeEnvInfo, void, unknown>);
@@ -211,14 +234,39 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         this.suppressErrorNotification = this.context
             ? getGlobalStorage<boolean>(this.context, DONT_SHOW_SPAWN_ERROR_AGAIN, false)
             : ({ get: () => false, set: async () => {} } as IPersistentStorage<boolean>);
-        this.connection = this.start();
-        void this.configure();
-        this.firstRefreshResults = this.refreshFirstTime();
+        // --- Start Positron ---
+        // this.connection = this.start();
+        // The connection now starts lazily via ensureConnection(); make sure the
+        // server is stopped when the finder itself is disposed.
+        this._register(new Disposable(() => this.shutdownServer()));
+        // void this.configure();
+        // this.firstRefreshResults = this.refreshFirstTime();
+        // When Python startup is disabled, skip the eager configure and first
+        // refresh so no PET server spawns at startup; discovery still works
+        // lazily when explicitly requested.
+        if (!isPythonStartupDisabled()) {
+            void this.configure();
+            this.firstRefreshResults = this.refreshFirstTime();
+        }
+        // --- End Positron ---
     }
 
-    public async resolve(executable: string): Promise<NativeEnvInfo> {
+    // --- Start Positron ---
+    // Positron wrapper: counts the request so the idle timer stays disarmed while
+    // it runs, then delegates to the upstream body (renamed to `resolveImpl`).
+    // Wrapping rather than re-indenting keeps the upstream body byte-identical,
+    // so upstream merges do not conflict on it. Mirrors configure/configureImpl.
+    public resolve(executable: string): Promise<NativeEnvInfo> {
+        return this.trackRequest(() => this.resolveImpl(executable));
+    }
+
+    private async resolveImpl(executable: string): Promise<NativeEnvInfo> {
+        // --- End Positron ---
         await this.configure();
-        const environment = await this.connection.sendRequest<NativeEnvInfo>('resolve', {
+        // --- Start Positron ---
+        // const environment = await this.connection.sendRequest<NativeEnvInfo>('resolve', {
+        const environment = await this.ensureConnection().sendRequest<NativeEnvInfo>('resolve', {
+            // --- End Positron ---
             executable,
         });
 
@@ -258,6 +306,119 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         // --- End Positron ---
     }
 
+    // --- Start Positron ---
+    /**
+     * Returns the JSON-RPC connection to the PET server, spawning the server
+     * if it is not currently running (first use, after the idle timeout, or
+     * after a crash).
+     */
+    private ensureConnection(): rpc.MessageConnection {
+        if (!this.connection) {
+            this.connection = this.start();
+        }
+        return this.connection;
+    }
+
+    /**
+     * Stops the PET server and disposes the JSON-RPC connection. Safe to call
+     * when the server is not running. The next request respawns the server.
+     */
+    private inFlightRequests = 0;
+
+    private idleTimer: NodeJS.Timeout | undefined;
+
+    /** Marks the start of a PET request; suspends the idle timer. */
+    private beginRequest(): void {
+        this.inFlightRequests += 1;
+        this.clearIdleTimer();
+    }
+
+    /** Marks the end of a PET request; arms the idle timer when none remain. */
+    private endRequest(): void {
+        this.inFlightRequests = Math.max(0, this.inFlightRequests - 1);
+        if (this.inFlightRequests === 0 && this.connection) {
+            this.armIdleTimer();
+        }
+    }
+
+    /**
+     * Runs a PET request with idle-timer accounting, so the server is never shut
+     * down underneath an in-flight request. Lets the upstream method bodies stay
+     * untouched: the exported method becomes a one-line wrapper around this and
+     * the original body keeps its shape as an `Impl` method.
+     */
+    private async trackRequest<T>(run: () => Promise<T>): Promise<T> {
+        this.beginRequest();
+        try {
+            return await run();
+        } finally {
+            this.endRequest();
+        }
+    }
+
+    private clearIdleTimer(): void {
+        if (this.idleTimer) {
+            clearTimeout(this.idleTimer);
+            this.idleTimer = undefined;
+        }
+    }
+
+    /**
+     * Schedules an idle shutdown of the PET server. The timeout is read live
+     * from `python.locatorIdleTimeout` (seconds) so setting changes apply
+     * without a reload; 0 (or a negative value) disables the shutdown.
+     */
+    private armIdleTimer(): void {
+        this.clearIdleTimer();
+        const timeoutSeconds = getConfiguration('python').get<number>(LOCATOR_IDLE_TIMEOUT_SETTING_KEY, 180);
+        if (!timeoutSeconds || timeoutSeconds <= 0) {
+            return;
+        }
+        this.idleTimer = setTimeout(() => {
+            this.idleTimer = undefined;
+            if (this.inFlightRequests === 0 && this.connection) {
+                this.outputChannel.info(
+                    `Shutting down Python Locator server after ${timeoutSeconds}s idle; it restarts on the next request`,
+                );
+                this.shutdownServer();
+            }
+        }, timeoutSeconds * 1000);
+    }
+
+    /**
+     * Clears the cached connection state once `proc`'s server is gone, whether it
+     * exited, failed to spawn, or its RPC connection errored, so the next request
+     * starts a fresh server instead of reusing a dead one. Identity-guarded: a
+     * late event from a superseded server must not clobber its replacement.
+     */
+    private handleServerGone(proc: ch.ChildProcess): void {
+        if (this.serverProc !== proc) {
+            return;
+        }
+        const disposable = this.connectionDisposable;
+        this.serverProc = undefined;
+        this.connection = undefined;
+        this.connectionDisposable = undefined;
+        this.lastConfiguration = undefined;
+        this.clearIdleTimer();
+        // Dispose rather than just drop: disposing the RPC connection rejects
+        // requests that are still in flight. Without this a request issued
+        // against a server that then dies never settles, which is the hang this
+        // whole teardown exists to prevent. On a normal exit `connection.onClose`
+        // would also get here, but a failed spawn has no close and no exit.
+        disposable?.dispose();
+    }
+
+    private shutdownServer(): void {
+        this.clearIdleTimer();
+        const disposable = this.connectionDisposable;
+        this.connectionDisposable = undefined;
+        this.connection = undefined;
+        this.lastConfiguration = undefined;
+        disposable?.dispose();
+    }
+    // --- End Positron ---
+
     // eslint-disable-next-line class-methods-use-this
     private start(): rpc.MessageConnection {
         this.outputChannel.info(`Starting Python Locator ${PYTHON_ENV_TOOLS_PATH} server`);
@@ -272,6 +433,9 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
             const stopWatch = new StopWatch();
             const proc = ch.spawn(PYTHON_ENV_TOOLS_PATH, ['server'], { env: process.env });
             this.initialRefreshMetrics.timeToSpawn = stopWatch.elapsedTime;
+            // --- Start Positron ---
+            this.serverProc = proc;
+            // --- End Positron ---
             proc.stdout.pipe(readable, { end: false });
             proc.stderr.on('data', (data) => this.outputChannel.error(data.toString()));
             writable.pipe(proc.stdin, { end: false });
@@ -282,6 +446,12 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
                 this.outputChannel.error(`Error details: ${JSON.stringify(error)}`);
                 // --- Start Positron ---
                 this._lastDiscoveryError = error.message;
+                // A process that never started must not stay cached as the current
+                // server: Node may emit 'error' without a following 'exit', so this
+                // is the only teardown some spawn failures get.
+                this.handleServerGone(proc);
+                // eslint-disable-next-line @typescript-eslint/no-use-before-define
+                disposeStreams.dispose();
                 // --- End Positron ---
                 this.handleSpawnError(error.message);
             });
@@ -304,6 +474,18 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
                     // --- End Positron ---
                     this.handleSpawnError(errorMessage);
                 }
+                // --- Start Positron ---
+                // Tear down the RPC plumbing whenever the server exits, expected
+                // or not. The stdio pipes use { end: false }, so without this the
+                // connection never closes and any later request hangs forever
+                // instead of respawning the server.
+                this.handleServerGone(proc);
+                // `disposeStreams` is declared after this try block, but the exit
+                // handler only runs on a later event-loop turn, so it is always
+                // initialized by then; `connection.onError` relies on this too.
+                // eslint-disable-next-line @typescript-eslint/no-use-before-define
+                disposeStreams.dispose();
+                // --- End Positron ---
             });
 
             disposables.push({
@@ -320,6 +502,11 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         } catch (ex) {
             this.outputChannel.error(`Error starting Python Finder ${PYTHON_ENV_TOOLS_PATH} server`, ex);
         }
+        // --- Start Positron ---
+        // The spawned process, captured outside the try block above so the
+        // connection-level handlers below can identity-guard their teardown.
+        const spawnedProc = this.serverProc;
+        // --- End Positron ---
         const disposeStreams = new Disposable(() => {
             readable.end();
             writable.end();
@@ -336,6 +523,11 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
                 this.outputChannel.error('Connection Error:', ex);
                 // --- Start Positron ---
                 this._lastDiscoveryError = `Connection error: ${String(ex)}`;
+                // The streams are dead, so this connection can never serve another
+                // request; drop it so the next one starts a fresh server.
+                if (spawnedProc) {
+                    this.handleServerGone(spawnedProc);
+                }
                 // --- End Positron ---
             }),
             connection.onNotification('log', (data: NativeLog) => {
@@ -365,7 +557,13 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         );
 
         connection.listen();
-        this._register(Disposable.from(...disposables));
+        // --- Start Positron ---
+        // this._register(Disposable.from(...disposables));
+        // Held per-connection instead of on the class store so shutdownServer()
+        // can dispose one server's resources without leaking entries across
+        // respawns; the class-level dispose runs shutdownServer().
+        this.connectionDisposable = Disposable.from(...disposables);
+        // --- End Positron ---
         return connection;
     }
 
@@ -373,6 +571,12 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         completed: Promise<void>;
         discovered: Event<NativeEnvInfo | NativeEnvManagerInfo>;
     } {
+        // --- Start Positron ---
+        // All notification handlers and requests in this refresh must target one
+        // and the same server instance, so capture the connection once.
+        this.beginRequest();
+        const connection = this.ensureConnection();
+        // --- End Positron ---
         const disposable = this._register(new DisposableStore());
         const discovered = disposable.add(new EventEmitter<NativeEnvInfo | NativeEnvManagerInfo>());
         const completed = createDeferred<void>();
@@ -399,7 +603,10 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         // Assumption is server will ensure there's only one refresh at a time.
         // Perhaps we should have a request Id or the like to map the results back to the `refresh` request.
         disposable.add(
-            this.connection.onNotification('environment', (data: NativeEnvInfo) => {
+            // --- Start Positron ---
+            // this.connection.onNotification('environment', (data: NativeEnvInfo) => {
+            connection.onNotification('environment', (data: NativeEnvInfo) => {
+                // --- End Positron ---
                 this.outputChannel.info(`Discovered env: ${data.executable || data.prefix}`);
                 // We know that in the Python extension if either Version of Prefix is not provided by locator
                 // Then we end up resolving the information.
@@ -411,7 +618,10 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
                     // HACK = TEMPORARY WORK AROUND, TO GET STUFF WORKING
                     // HACK = TEMPORARY WORK AROUND, TO GET STUFF WORKING
                     // HACK = TEMPORARY WORK AROUND, TO GET STUFF WORKING
-                    const promise = this.connection
+                    // --- Start Positron ---
+                    // const promise = this.connection
+                    const promise = connection
+                        // --- End Positron ---
                         .sendRequest<NativeEnvInfo>('resolve', {
                             executable: data.executable,
                         })
@@ -427,7 +637,10 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
             }),
         );
         disposable.add(
-            this.connection.onNotification('manager', (data: NativeEnvManagerInfo) => {
+            // --- Start Positron ---
+            // this.connection.onNotification('manager', (data: NativeEnvManagerInfo) => {
+            connection.onNotification('manager', (data: NativeEnvManagerInfo) => {
+                // --- End Positron ---
                 this.outputChannel.info(`Discovered manager: (${data.tool}) ${data.executable}`);
                 discovered.fire(data);
             }),
@@ -446,7 +659,10 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         }
         trackPromiseAndNotifyOnCompletion(
             this.configure().then(() =>
-                this.connection
+                // --- Start Positron ---
+                // this.connection
+                connection
+                    // --- End Positron ---
                     .sendRequest<{ duration: number }>('refresh', refreshOptions)
                     .then(({ duration }) => {
                         this.outputChannel.info(`Refresh completed in ${duration}ms`);
@@ -464,7 +680,13 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
             ),
         );
 
-        completed.promise.finally(() => disposable.dispose());
+        // --- Start Positron ---
+        // completed.promise.finally(() => disposable.dispose());
+        completed.promise.finally(() => {
+            disposable.dispose();
+            this.endRequest();
+        });
+        // --- End Positron ---
         return {
             completed: completed.promise,
             discovered: discovered.event,
@@ -491,11 +713,12 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
      */
     // --- Start Positron ---
     private configure(): Promise<void> {
+        this.beginRequest();
         const next = this.configureQueue.then(() => this.configureImpl());
         // A failed configure must not poison the queue for later callers; the
         // returned promise still rejects so this caller observes the failure.
         this.configureQueue = next.catch(() => undefined);
-        return next;
+        return next.finally(() => this.endRequest());
     }
 
     private async configureImpl() {
@@ -518,15 +741,28 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         try {
             const stopWatch = new StopWatch();
             this.lastConfiguration = options;
-            await this.connection.sendRequest('configure', options);
+            // --- Start Positron ---
+            // await this.connection.sendRequest('configure', options);
+            await this.ensureConnection().sendRequest('configure', options);
+            // --- End Positron ---
             this.initialRefreshMetrics.timeToConfigure = stopWatch.elapsedTime;
         } catch (ex) {
             this.outputChannel.error('Refresh error', ex);
         }
     }
 
-    async getCondaInfo(): Promise<NativeCondaInfo> {
-        return this.connection.sendRequest<NativeCondaInfo>('condaInfo');
+    // --- Start Positron ---
+    // Positron wrapper, as for resolve() above.
+    getCondaInfo(): Promise<NativeCondaInfo> {
+        return this.trackRequest(() => this.getCondaInfoImpl());
+    }
+
+    private async getCondaInfoImpl(): Promise<NativeCondaInfo> {
+        // --- End Positron ---
+        // --- Start Positron ---
+        // return this.connection.sendRequest<NativeCondaInfo>('condaInfo');
+        return this.ensureConnection().sendRequest<NativeCondaInfo>('condaInfo');
+        // --- End Positron ---
     }
 
     private async handleSpawnError(errorMessage: string): Promise<void> {
@@ -659,6 +895,7 @@ export function getNativePythonFinder(context?: IExtensionContext): NativePython
             },
             // --- Start Positron ---
             lastDiscoveryError: undefined,
+            serverPid: undefined,
             // --- End Positron ---
             dispose() {
                 // do nothing
@@ -674,6 +911,16 @@ export function getNativePythonFinder(context?: IExtensionContext): NativePython
     }
     return _finder;
 }
+
+// --- Start Positron ---
+/**
+ * Test-only: constructs a fresh finder, bypassing the module-level singleton,
+ * so lifecycle tests can create and dispose independent instances.
+ */
+export function createNativePythonFinder(cacheDirectory?: Uri, context?: IExtensionContext): NativePythonFinder {
+    return new NativePythonFinderImpl(cacheDirectory, context);
+}
+// --- End Positron ---
 
 export function getCacheDirectory(context: IExtensionContext): Uri {
     return Uri.joinPath(context.globalStorageUri, 'pythonLocator');

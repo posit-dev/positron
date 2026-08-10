@@ -842,6 +842,13 @@
                     "scope": "machine-overridable",
                     "type": "string"
                 },
+                "python.locatorIdleTimeout": {
+                    "default": 180,
+                    "markdownDescription": "%python.locatorIdleTimeout.description%",
+                    "minimum": 0,
+                    "scope": "machine-overridable",
+                    "type": "number"
+                },
                 "python.pipenvPath": {
                     "default": "pipenv",
                     "description": "%python.pipenvPath.description%",
