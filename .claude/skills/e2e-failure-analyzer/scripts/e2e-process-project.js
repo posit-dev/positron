@@ -29,11 +29,13 @@ import { execFileSync } from 'child_process';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
 import {
+	buildDomPresence,
 	extractTraceClock,
 	findFailureWindow,
 	mineLogs,
 	phaseLabel,
 	relevanceHintsForSpec,
+	traceEpochOrigin,
 } from './lib-failure-window.js';
 
 // ---------------------------------------------------------------------------
@@ -410,80 +412,6 @@ function selectorTokens(selectors) {
 		for (const m of String(sel).matchAll(/\[id=["']([^"']+)["']\]/g)) { tokens.add(m[1]); }
 	}
 	return [...tokens];
-}
-
-/** Wall-clock epoch (ms) of trace t=0. A screencast frame carries both its
- *  epoch ms (trailing the sha1 filename) and its trace offset, so the two give
- *  the origin directly. Without this, t= values can only be back-derived from
- *  the mined failure window's deadline, which is a heuristic and not a clock. */
-function traceEpochOrigin(evts) {
-	for (const e of evts) {
-		if (e.type !== "screencast-frame" || e.timestamp == null) { continue; }
-		const m = /-(\d{13})\.jpe?g$/.exec(String(e.sha1 || ""));
-		if (m) { return Number(m[1]) - e.timestamp; }
-	}
-	return null;
-}
-
-/** Pull the class/id attribute values out of a serialized snapshot. Playwright
- *  serializes elements as ["TAG", {"class": "a b"}, ...children], so matching
- *  attributes rather than the raw JSON keeps stylesheet text, script bodies and
- *  unrelated attributes out of the result -- without this a `codicon-*` token
- *  matches its own rule in the inlined codicon.css and reports as "present". */
-function snapshotAttrTokens(json) {
-	const found = new Set();
-	for (const m of json.matchAll(/"(?:class|id)":"((?:[^"\\]|\\.)*)"/g)) {
-		for (const t of m[1].split(/\s+/)) { if (t) { found.add(t); } }
-	}
-	return found;
-}
-
-/** When the failing action started waiting: the `startTime` of the nearest
- *  `before` preceding the first errored `after`. Null if it can't be found. */
-function failingActionStart(evts) {
-	for (let i = 0; i < evts.length; i++) {
-		if (evts[i].type !== 'after' || !evts[i].error) { continue; }
-		for (let j = i - 1; j >= 0; j--) {
-			if (evts[j].type === 'before') { return evts[j].startTime ?? null; }
-		}
-	}
-	return null;
-}
-
-/**
- * Report whether each failing-selector token was in the DOM across the trace's
- * frame snapshots, and in particular during the failing action's wait. Matches
- * class/id attributes only, and reports the wait window separately because the
- * snapshot span starts at app launch: a token seen only before the action began
- * was not on screen when it ran.
- */
-function buildDomPresence(evts, tokens) {
-	if (!tokens.length) { return null; }
-	const snaps = evts
-		.filter(e => e.type === 'frame-snapshot' && e.snapshot?.timestamp != null)
-		.map(s => ({ ts: s.snapshot.timestamp, attrs: snapshotAttrTokens(JSON.stringify(s)) }));
-	if (!snaps.length) { return null; }
-	const waitStart = failingActionStart(evts);
-	const span = `t=${Math.round(snaps[0].ts)}..${Math.round(snaps[snaps.length - 1].ts)}`;
-	const out = [`\n=== DOM presence across ${snaps.length} frame snapshots (${span}) ===`];
-	out.push("Whether each failing-selector token appeared in a snapshot's class/id ATTRIBUTES (stylesheet and script text are excluded, so a token cannot match its own CSS rule). When a wait window is known, that window is the decisive one: the snapshot span starts at app launch and covers fixture setup, so a token seen only in earlier snapshots was NOT on screen when the failing action ran. 'NEVER present at all' stays AMBIGUOUS on its own -- it fits both a never-rendered element (product open-path bug, strongest when the console digest shows its command fired) and locator drift (rendered under different markup). Disambiguate with the error-context snapshot's stable text/label, not this line alone.");
-	for (const tok of tokens) {
-		const hits = snaps.filter(s => s.attrs.has(tok));
-		if (!hits.length) {
-			out.push(`- '${tok}': NEVER present in any snapshot`);
-			continue;
-		}
-		const range = `t=${Math.round(hits[0].ts)}..${Math.round(hits[hits.length - 1].ts)}`;
-		if (waitStart == null) {
-			out.push(`- '${tok}': present in ${hits.length}/${snaps.length} snapshots (${range}); no wait window found, so this cannot say whether it was present when the action ran`);
-			continue;
-		}
-		const during = hits.filter(h => h.ts >= waitStart);
-		out.push(during.length
-			? `- '${tok}': present in ${hits.length}/${snaps.length} snapshots (${range}), ${during.length} of them during the wait (from t=${Math.round(waitStart)}) => it WAS in the DOM while the action waited; a visibility/timeout error is then a timing or dismiss race`
-			: `- '${tok}': present in ${hits.length}/${snaps.length} snapshots (${range}) but NEVER during the wait (from t=${Math.round(waitStart)}) => it was gone, or had not yet rendered, when the action ran -- treat this as absent, not as "rendered then vanished mid-wait"`);
-	}
-	return out.join('\n');
 }
 
 /** Strip the `%c`/`color:#…` console-formatting noise VS Code prepends. */
