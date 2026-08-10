@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 export { prepareTestEnv } from './test-setup';
-export { provisionTestFiles, copyFixtureFile, copyFixtureFolder } from './utils';
+export { provisionTestFiles, copyFixtureFile, copyFixtureFolder, defaultWorkspacePath } from './utils';
 export { createApp, getRandomUserDataDir } from './create-app';
 export { createLogger } from './logger';
 export { TestTags } from './test-tags';
