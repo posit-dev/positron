@@ -8,6 +8,8 @@ its work by hand, that is [`script-fallbacks.md`](script-fallbacks.md) instead.
 ## Shared conventions
 
 - **Run from the repo root**, as `node .claude/skills/debug-e2e-test/scripts/<name>.js`.
+- **Every script takes `--help`** and prints its own flags, which stay in sync
+  with this file (`scripts/test/cli-flags.test.js` fails the build otherwise).
 - **stdout is compact JSON only.** Large payloads (full API responses, processor
   output, trace timelines) are written to disk and referenced by path, so they
   never enter the conversation.
@@ -101,13 +103,28 @@ against each merged fix.
 |---|---|---|
 | `--spec-path <path>` | *required* | exact spec path from the test key |
 | `--occurrence-shas <json>` | `[]` | JSON array; **omitting it forces the `too-recent-to-tell` verdict** (nothing to check ancestry against) |
+| `--fix-sha <sha>` | none | treat this commit as a merged fix even when no PR body names the spec -- the POM/helper-only case the spec-path match misses |
+| `--post-fix-runs <n>` | none | CI runs of this test since the fix; the denominator, without which "held" is unprovable |
+| `--baseline-rate <p>` | none | pre-fix per-run failure rate (0-1), to score what a clean post-fix streak is worth |
+| `--environment <os/browser>` | none | the lane the previous two numbers describe |
 | `--repo <owner/repo>` | `posit-dev/positron` | |
 | `--triage-id <id>` | none | needed for the on-disk `prior-triage-raw.json` |
 | `--limit <n>` | `50` | PR search limit |
 
-**Output:** `{ specPath, openAttempts[], mergedAttempts[], verdict,
+**Output:** `{ specPath, openAttempts[], mergedAttempts[], sufficiency, verdict,
 rawResultFile }`. Verdict meanings and how to act on them:
 [`prior-triage.md`](prior-triage.md).
+
+**`sufficiency` is how you avoid calling a fix held on nothing.** A clean streak
+after a fix is only evidence in proportion to the runs behind it: at baseline
+rate `p`, N clean runs occur by luck with probability `(1-p)^N` even if nothing
+changed. Pass `--post-fix-runs` and `--baseline-rate` to get that scored
+(`meaningful`, `probabilityIfUnfixed`, `runsNeeded`); with no `--post-fix-runs`
+the answer is always `meaningful: false`, which is the honest reading of "no
+failures seen since." Both numbers must describe **one** lane -- an all-env
+`total_runs` paired with an env-specific rate inflates N and clears the bar on
+runs that never touched the failing lane, so pass `--environment` too or take
+the `scopeWarning` seriously.
 
 ## `fetch-pattern-evidence.js`
 
@@ -120,8 +137,7 @@ payload.
 | `--report-url <url>` | *required* | the pattern's `representativeOccurrence.report_url`; the `index.html#?testId=` fragment is stripped for you and the testId reused as the filter |
 | `--triage-id <id>` | *required* | |
 | `--pattern <id>` | `A` | names the evidence sub-directory |
-| `--title <full title>` | none | filter fallback when the URL carries no `testId` |
-| `--test-id <id>` | none | explicit testId filter |
+| `--title <full title>` | none | filter fallback when the URL carries no `testId`. There is no flag for the testId itself -- it is read from the `--report-url` fragment |
 | `--keep-raw-logs` | off | extracts the raw logs into `<evidenceDir>/raw-logs/`. Without it the processor cleans up its temp extract, so escalating to raw logs means refetching with the flag |
 | `--occurrence <label>` | none | nests artifacts under `evidence/<pattern>/<label>` so several occurrences of one pattern can coexist. Use it whenever you fetch a second occurrence |
 
@@ -198,9 +214,9 @@ Durable triage state at `<work-dir>/state.json`.
   selected a pattern, and replaying phases it skipped would print misleading next
   actions. `done` is rejected -- that transition goes through the outcome gate.
 - **Phases**, in order: `awaiting-pattern-selection`, `pattern-selected`,
-  `evidence-gathered`, `hypothesis-ready`, `awaiting-clear`, `implementation`,
-  `done`. `awaiting-clear` is vestigial -- accepted on read so in-flight
-  checkpoints still validate, never routed to.
+  `evidence-gathered`, `hypothesis-ready`, `implementation`, `done`. A
+  checkpoint written before `awaiting-clear` was retired loads as
+  `hypothesis-ready` instead of failing validation.
 - **`phase=done` is gated.** It requires an `outcome`; `no-op` additionally
   requires `outcomeReason`, and every other outcome requires `outcomeRef` plus
   `diagnosisBlockRecorded=true` (only `record-diagnosis.js` sets that flag). A

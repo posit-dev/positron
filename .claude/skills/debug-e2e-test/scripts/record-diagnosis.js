@@ -12,26 +12,12 @@
 // from the checkpoint's `diagnosis` object. Idempotent: if the target body
 // already carries a block, it re-affirms the flag without a second append.
 //
-// Usage:
-//   node record-diagnosis.js --triage-id <id> --pr <n> [--outcome fix-test|fix-product]
-//   node record-diagnosis.js --triage-id <id> --issue <n> [--outcome file-issue]
-//   node record-diagnosis.js --triage-id <id> --pr <n> --secondary   # extra artifact, keep outcomeRef
-//   node record-diagnosis.js --triage-id <id> --pr <n> --dry-run   # render only, no write
+// Flags: see CLI below, or run with --help.
 //
 // A single triage can resolve across TWO artifacts -- e.g. a root-cause issue
 // (the `outcome`) plus a mitigation PR. Record the primary artifact first (the
 // one that matches `outcome`; it sets `outcomeRef`), then record the other with
 // `--secondary` so the block lands on both without repointing `outcomeRef`.
-//
-// Options:
-//   --triage-id <id>   work-dir id  [required]
-//   --pr <n>           target PR number   (one of --pr/--issue required unless --dry-run)
-//   --issue <n>        target issue number
-//   --repo <owner/repo>  default: posit-dev/positron
-//   --outcome <o>      also set checkpoint outcome (fix-test | fix-product | file-issue)
-//   --secondary        append the block to a supplementary artifact; leave
-//                      `outcomeRef`/`outcome` untouched (the primary owns them)
-//   --dry-run          print the rendered block; do not edit the artifact or checkpoint
 //
 // Output (stdout): compact JSON { block, target, alreadyPresent, recorded }.
 // Exit 0; on gh failure or missing diagnosis prints { error }.
@@ -40,8 +26,29 @@ import fs from 'fs';
 import path from 'path';
 import {
 	triageDir, readJson, writeJson, writeText, emit, fail, tryRun, isMain, parseArgs,
+	defineCli, handleHelp,
 } from './lib.js';
 import { OUTCOMES } from './checkpoint.js';
+
+export const CLI = defineCli({
+	name: 'record-diagnosis.js',
+	summary: 'render the E2E Triage Diagnosis block and append it to the PR or issue',
+	usage: [
+		'--triage-id <id> --pr <n> [--outcome fix-test|fix-product]',
+		'--triage-id <id> --issue <n> [--outcome file-issue]',
+		'--triage-id <id> --pr <n> --secondary',
+		'--triage-id <id> --pr <n> --dry-run',
+	],
+	flags: [
+		{ name: 'triage-id', value: '<id>', required: true, description: 'work-dir id' },
+		{ name: 'pr', value: '<n>', description: 'target PR number (one of --pr/--issue required unless --dry-run)' },
+		{ name: 'issue', value: '<n>', description: 'target issue number' },
+		{ name: 'repo', value: '<owner/repo>', description: 'default: posit-dev/positron' },
+		{ name: 'outcome', value: '<o>', description: 'also set the checkpoint outcome (fix-test | fix-product | file-issue); no-op goes through checkpoint.js' },
+		{ name: 'secondary', type: 'boolean', description: 'append to a supplementary artifact without repointing outcome/outcomeRef; cannot be combined with --outcome' },
+		{ name: 'dry-run', type: 'boolean', description: 'render and print only; touches neither the artifact nor the checkpoint' },
+	],
+});
 
 const BLOCK_HEADING = '### E2E Triage Diagnosis';
 
@@ -158,7 +165,8 @@ function ghPatchBody(repo, kind, num, bodyFile) {
 }
 
 function main() {
-	const args = parseArgs(process.argv.slice(2), ['dry-run', 'secondary']);
+	handleHelp(CLI, process.argv.slice(2));
+	const args = parseArgs(process.argv.slice(2), CLI.booleanFlags);
 	const triageId = args['triage-id'];
 	if (!triageId) { fail('Missing --triage-id.'); }
 	if (args.outcome && !ARTIFACT_OUTCOMES.includes(args.outcome)) {

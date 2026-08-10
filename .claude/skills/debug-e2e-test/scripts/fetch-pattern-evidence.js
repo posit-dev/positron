@@ -8,9 +8,10 @@
 // manifest (file paths + a deterministic summary) rather than the multi-megabyte
 // processor payload.
 //
-// Usage:
-//   node fetch-pattern-evidence.js --report-url <url> --triage-id <id> --pattern <A> \
-//     (--title '<full title>' | --test-id <id>) [--keep-raw-logs] [--occurrence <label>]
+// Flags: see CLI below, or run with --help.
+//
+// The testId filter is read from the --report-url fragment, never from a flag;
+// --title is the fallback for a URL that carries no testId.
 //
 // --occurrence nests the artifacts under evidence/<pattern>/<label>, so several
 // occurrences of the same pattern can be compared side by side instead of
@@ -24,8 +25,22 @@ import path from 'path';
 import fs from 'fs';
 import {
 	analyzerScript, triageDir, ensureDir, writeJson, writeText,
-	emit, fail, runNode, isMain, parseArgs,
+	emit, fail, runNode, isMain, parseArgs, defineCli, handleHelp,
 } from './lib.js';
+
+export const CLI = defineCli({
+	name: 'fetch-pattern-evidence.js',
+	summary: 'pull evidence for ONE occurrence of ONE failure pattern, summary-first',
+	usage: ['--report-url <url> --triage-id <id> [--pattern A] [options]'],
+	flags: [
+		{ name: 'report-url', value: '<url>', required: true, description: "the pattern's representativeOccurrence.report_url; the index.html#?testId= fragment is stripped and the testId reused as the filter" },
+		{ name: 'triage-id', value: '<id>', required: true, description: 'work-dir id from triage-history.js' },
+		{ name: 'pattern', value: '<id>', description: 'names the evidence sub-directory (default: A)' },
+		{ name: 'title', value: '<full title>', description: 'filter fallback when the URL carries no testId' },
+		{ name: 'keep-raw-logs', type: 'boolean', description: 'extract raw logs into <evidenceDir>/raw-logs/ instead of letting the processor clean them up' },
+		{ name: 'occurrence', value: '<label>', description: 'nest artifacts under evidence/<pattern>/<label> so several occurrences can coexist' },
+	],
+});
 
 /**
  * Split a test-health report_url into the base directory URL the S3 processor
@@ -143,7 +158,8 @@ export function buildEvidenceSummary(result, filter = {}) {
 }
 
 function main() {
-	const args = parseArgs(process.argv.slice(2), ['keep-raw-logs']);
+	handleHelp(CLI, process.argv.slice(2));
+	const args = parseArgs(process.argv.slice(2), CLI.booleanFlags);
 	const reportUrl = args['report-url'];
 	const triageId = args['triage-id'];
 	const pattern = args.pattern || 'A';

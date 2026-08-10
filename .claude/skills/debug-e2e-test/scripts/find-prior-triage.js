@@ -8,24 +8,7 @@
 // before-fix / after-fix by git ancestry. Full search results go to disk; only
 // a compact verdict is printed.
 //
-// Usage:
-//   node find-prior-triage.js --spec-path <path> [--occurrence-shas '["sha",...]'] [options]
-//
-// Options:
-//   --spec-path <path>           exact spec path from the test key  [required]
-//   --occurrence-shas <json>     JSON array of occurrence SHAs to test for ancestry
-//   --fix-sha <sha>              treat this commit as a merged fix even if no PR
-//                                body names the spec (POM/helper-only fixes)
-//   --post-fix-runs <n>          CI runs of this test since the fix -- the
-//                                denominator, without which "held" is unprovable
-//   --baseline-rate <p>          pre-fix per-run failure rate (0-1), to score how
-//                                much a clean post-fix streak is actually worth
-//   --environment <os/browser>   lane both numbers above describe (e.g.
-//                                ubuntu/chromium); omitting it warns, since an
-//                                all-env run total inflates the denominator
-//   --repo <owner/repo>          default: posit-dev/positron
-//   --triage-id <id>             work-dir id  [required for disk output]
-//   --limit <n>                  PR search limit (default: 50)
+// Flags: see CLI below, or run with --help.
 //
 // Output (stdout): compact JSON { openAttempts[], mergedAttempts[], sufficiency,
 //   verdict, rawResultFile }. Exit 0; on gh failure prints { error }.
@@ -33,7 +16,25 @@
 import path from 'path';
 import {
 	triageDir, ensureDir, writeJson, emit, fail, tryRun, isMain, parseArgs,
+	defineCli, handleHelp,
 } from './lib.js';
+
+export const CLI = defineCli({
+	name: 'find-prior-triage.js',
+	summary: 'find previous triage attempts on this spec and score whether a merged fix held',
+	usage: ["--spec-path <path> [--occurrence-shas '[\"sha\",...]'] [options]"],
+	flags: [
+		{ name: 'spec-path', value: '<path>', required: true, description: 'exact spec path from the test key' },
+		{ name: 'occurrence-shas', value: '<json>', description: 'JSON array of occurrence SHAs to test for ancestry; omitting it forces the too-recent-to-tell verdict' },
+		{ name: 'fix-sha', value: '<sha>', description: 'treat this commit as a merged fix even if no PR body names the spec (POM/helper-only fixes)' },
+		{ name: 'post-fix-runs', value: '<n>', description: 'CI runs of this test since the fix -- the denominator, without which "held" is unprovable' },
+		{ name: 'baseline-rate', value: '<p>', description: 'pre-fix per-run failure rate (0-1), to score what a clean post-fix streak is worth' },
+		{ name: 'environment', value: '<os/browser>', description: 'lane both numbers above describe (e.g. ubuntu/chromium); omitting it warns, since an all-env total inflates the denominator' },
+		{ name: 'repo', value: '<owner/repo>', description: 'default: posit-dev/positron' },
+		{ name: 'triage-id', value: '<id>', description: 'work-dir id; required for the on-disk prior-triage-raw.json' },
+		{ name: 'limit', value: '<n>', description: 'PR search limit (default: 50)' },
+	],
+});
 
 /** True when a PR body names this exact spec path (the per-test filter). */
 export function bodyNamesSpec(body, specPath) {
@@ -152,7 +153,8 @@ function ancestryAfterFix(mergeSha, shas) {
 }
 
 function main() {
-	const args = parseArgs(process.argv.slice(2));
+	handleHelp(CLI, process.argv.slice(2));
+	const args = parseArgs(process.argv.slice(2), CLI.booleanFlags);
 	const specPath = args['spec-path'];
 	if (!specPath) { fail('Missing --spec-path.'); }
 	const repo = args.repo || 'posit-dev/positron';

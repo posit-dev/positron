@@ -7,9 +7,7 @@
 // query returns zero runs, which reads as "clean" rather than "bad key". So the
 // hierarchy is read from Playwright itself (`--list`), never hand-assembled.
 //
-// Usage:
-//   node resolve-test-key.js '<anything>'
-//   node resolve-test-key.js --input '<anything>'
+// Flags: see CLI below, or run with --help.
 //
 // Accepted inputs (auto-detected, see classifyInput):
 //   exact key        'Console History > R - ...|||test/e2e/tests/console/console-history.test.ts'
@@ -26,7 +24,16 @@
 
 import fs from 'fs';
 import path from 'path';
-import { repoRoot, emit, fail, tryRun, isMain, parseArgs } from './lib.js';
+import { repoRoot, emit, fail, tryRun, isMain, parseArgs, defineCli, handleHelp } from './lib.js';
+
+export const CLI = defineCli({
+	name: 'resolve-test-key.js',
+	summary: 'turn a loose test reference into an exact testName|||specPath key',
+	usage: ["'<anything>'", "--input '<anything>'"],
+	flags: [
+		{ name: 'input', value: '<anything>', description: 'the test reference, if not given as a leading positional' },
+	],
+});
 
 const KEY_SEP = '|||';
 /** Cap on returned candidates -- enough to choose from, not a wall of output. */
@@ -187,7 +194,8 @@ function listEntries() {
 
 function main() {
 	const argv = process.argv.slice(2);
-	const args = parseArgs(argv);
+	handleHelp(CLI, argv);
+	const args = parseArgs(argv, CLI.booleanFlags);
 	// parseArgs keeps only --flags; the input is usually a leading positional.
 	// Only argv[0] counts, so a later flag's value can never be mistaken for it.
 	const raw = args.input || (argv[0]?.startsWith('--') ? undefined : argv[0]);

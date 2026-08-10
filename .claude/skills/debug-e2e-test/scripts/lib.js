@@ -223,6 +223,58 @@ export function isMain(importMetaUrl) {
 	return process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(importMetaUrl);
 }
 
+/**
+ * Declare a script's CLI surface once, so `--help`, the boolean-flag list handed
+ * to parseArgs, and references/scripts.md all read from the same declaration.
+ *
+ * Before this existed each of those three lived separately and drifted:
+ * find-prior-triage.js grew four flags the reference never documented (so the
+ * skill could not use them), and the reference documented a --test-id on
+ * fetch-pattern-evidence.js that the script never read. cli-flags.test.js holds
+ * the declaration and the reference together.
+ *
+ * Each flag: { name, value, type, required, description }. `value` is the
+ * placeholder shown in help (omit for booleans); `type: 'boolean'` also opts the
+ * flag into parseArgs's boolean list.
+ */
+export function defineCli({ name, summary, usage = [], flags = [] }) {
+	return {
+		name,
+		summary,
+		usage,
+		flags,
+		booleanFlags: flags.filter(f => f.type === 'boolean').map(f => f.name),
+		help() {
+			const lines = [`${name} -- ${summary}`, ''];
+			if (usage.length) {
+				lines.push('Usage:');
+				for (const u of usage) { lines.push(`  node ${name} ${u}`); }
+				lines.push('');
+			}
+			lines.push('Flags:');
+			const left = flags.map(f => `  --${f.name}${f.value ? ' ' + f.value : ''}`);
+			const width = Math.max(...left.map(s => s.length), 0);
+			flags.forEach((f, i) => {
+				const req = f.required ? ' (required)' : '';
+				lines.push(`${left[i].padEnd(width)}  ${f.description}${req}`);
+			});
+			return lines.join('\n') + '\n';
+		},
+	};
+}
+
+/**
+ * Print help and exit 0 when `--help`/`-h` is present. Call before any argument
+ * validation, so `--help` works on a script whose required flags are missing --
+ * which is exactly when someone asks for it.
+ */
+export function handleHelp(cli, argv) {
+	if (argv.includes('--help') || argv.includes('-h')) {
+		process.stdout.write(cli.help());
+		process.exit(0);
+	}
+}
+
 /** Minimal flag parser: `--flag value` and boolean `--flag`. */
 export function parseArgs(argv, booleanFlags = []) {
 	const out = {};

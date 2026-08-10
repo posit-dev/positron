@@ -221,10 +221,11 @@ start at step 2. Steps 2 and 3 are shared.
 2. Read the generated `summary.md` (failure, timeline tail, sibling tests,
    error-shaped logs, unresolved questions). **Read only the summary first.**
 3. State the concrete questions that remain. **Before each escalation past the
-   summary, emit the evidence block** (`Question` / `Next artifact` / `Reason`)
+   summary, show the evidence block** (`Question` / `Next artifact` / `Reason`)
    defined in [`references/evidence-escalation.md`](references/evidence-escalation.md)
-   -- can't fill all three fields, don't escalate. **A filled block is a subagent
-   prompt: dispatch the escalation, don't open the artifact yourself.** That
+   -- can't fill all three fields, don't escalate. **Show it, then dispatch the
+   escalation as a subagent with that block as its prompt; don't open the
+   artifact yourself, and don't let the block reach only the subagent.** That
    reference owns the block format, the dispatch contract, the ladder, the
    reasons a second occurrence is allowed, raw-log spelunking, and 403/null
    handling.

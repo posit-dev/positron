@@ -34,8 +34,10 @@ question depends on.
 Reason identifies why the current evidence cannot answer the question. For a
 second occurrence, state the reason that justifies comparing another run.
 
-Emit this block for every escalation beyond Level 2. It is structured
-diagnostic metadata, not narration.
+Show this block in the conversation for every escalation beyond Level 2, before
+you act on it. It is structured diagnostic metadata rather than narration, and
+it is the one moment the engineer can redirect the read before it is paid for --
+so a block that only reaches a subagent has been lost.
 
 Do not escalate unless all three fields can be completed. Otherwise, reason from
 the current evidence or state what evidence is missing and stop.
@@ -52,8 +54,9 @@ answer is a line or two. Both dispatches below share one forbidden list: no full
 file contents, no repo tour, no fix suggestion, no speculation past what was
 read.
 
-**Evidence artifacts (Levels 3-5).** A filled block *is* the prompt: pass the
-three fields plus the artifact path, and require back
+**Evidence artifacts (Levels 3-5).** The shown block *is* the prompt: pass the
+same three fields plus the artifact path -- a copy of what you just showed, never
+a substitute for showing it -- and require back
 
 - the direct answer to `Question`, or "cannot be answered from this artifact";
 - **verbatim** excerpts with timestamps, <=20 lines total -- never a paraphrase;

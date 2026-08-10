@@ -7,16 +7,7 @@
 // selects ONE representative occurrence per pattern, writes the full responses
 // to disk, and prints only a compact JSON summary to stdout.
 //
-// Usage:
-//   node triage-history.js --test-key '<testName>|||<specPath>' [options]
-//
-// Options:
-//   --test-key <key>              testName|||specPath  [required]
-//   --repo <id>                   test-health repo id (default: positron)
-//   --branch <branch>             override the current branch (skips git lookup)
-//   --lookback-days <n>           1-30 (default: 14)
-//   --occurrences-per-pattern <n> default: 1 (fetch a 2nd only with a stated reason)
-//   --triage-id <id>              work-dir id (default: derived from the test key)
+// Flags: see CLI below, or run with --help.
 //
 // Output (stdout): compact JSON { testKey, branchSummary, patterns[], verdict,
 //   summaryFile, rawResultFile }. Full API responses are written to disk.
@@ -27,7 +18,22 @@ import {
 	analyzerScript, triageDir, deriveTriageId, ensureDir,
 	writeJson, emit, fail, runNode, tryRun, isMain, parseArgs,
 	insightsApiKeyPresent, resolveInsightsApiKey, MISSING_API_KEY_HELP,
+	defineCli, handleHelp,
 } from './lib.js';
+
+export const CLI = defineCli({
+	name: 'triage-history.js',
+	summary: 'dual-branch failure history, merged into one pattern list',
+	usage: ["--test-key '<testName>|||<specPath>' [options]"],
+	flags: [
+		{ name: 'test-key', value: '<key>', required: true, description: 'testName|||specPath' },
+		{ name: 'repo', value: '<id>', description: 'test-health repo id (default: positron)' },
+		{ name: 'branch', value: '<branch>', description: 'override the current branch (skips the git lookup)' },
+		{ name: 'lookback-days', value: '<n>', description: '1-30 (default: 14)' },
+		{ name: 'occurrences-per-pattern', value: '<n>', description: 'default 1; raise to 2 only for a listed escalation reason' },
+		{ name: 'triage-id', value: '<id>', description: 'work-dir id (default: derived from the test key)' },
+	],
+});
 
 /** Normalize a failure-pattern string into a stable cross-branch match key. */
 export function normalizePattern(pattern) {
@@ -293,7 +299,8 @@ function queryBranch(scriptPath, { repo, testKey, branch, lookbackDays, occ }) {
 }
 
 function main() {
-	const args = parseArgs(process.argv.slice(2));
+	handleHelp(CLI, process.argv.slice(2));
+	const args = parseArgs(process.argv.slice(2), CLI.booleanFlags);
 	const testKey = args['test-key'];
 	if (!testKey || !testKey.includes('|||')) {
 		fail('Missing or malformed --test-key (expected "testName|||specPath").');

@@ -18,9 +18,7 @@
 // Runs on Windows: unlike the CI-entry scripts it needs no `unzip` binary, and
 // no `gh`, no API key, no network.
 //
-// Usage:
-//   node collect-local-evidence.js [--results-dir test-results] [--logs-dir test-logs]
-//     [--test '<substring>'] [--dir <exact result dir name>] [--triage-id <id>] [--list]
+// Flags: see CLI below, or run with --help.
 //
 // Output (stdout): compact JSON { verdict, resultsDir, candidates[], selected,
 //   evidenceDir, summaryFile, timelineFile, snapshotFile, screenshots[],
@@ -38,8 +36,22 @@ import path from 'path';
 import os from 'os';
 import {
 	repoRoot, analyzerScript, triageDir, workRoot, ensureDir, writeText,
-	emit, fail, runNode, isMain, parseArgs,
+	emit, fail, runNode, isMain, parseArgs, defineCli, handleHelp,
 } from './lib.js';
+
+export const CLI = defineCli({
+	name: 'collect-local-evidence.js',
+	summary: "build the evidence summary from this machine's test-results/ (the local entry)",
+	usage: ['[options]'],
+	flags: [
+		{ name: 'results-dir', value: '<dir>', description: "Playwright's output dir, repo-relative (default: test-results)" },
+		{ name: 'logs-dir', value: '<dir>', description: 'app/kernel logs; a different root from the results dir (default: test-logs)' },
+		{ name: 'test', value: '<substring>', description: "filters on the result directory name; takes a fragment or the full title" },
+		{ name: 'dir', value: '<exact>', description: 'pin one result directory (use after an ambiguous verdict)' },
+		{ name: 'list', type: 'boolean', description: 'show the candidates and exit without collecting' },
+		{ name: 'triage-id', value: '<id>', description: "write into that triage's evidence/local/ instead of a standalone dir" },
+	],
+});
 
 const TRACE_NAME = '_trace.zip';
 const ERROR_CONTEXT_NAME = 'error-context.md';
@@ -320,7 +332,8 @@ async function extractTrace(zipPath, destDir) {
 }
 
 async function main() {
-	const args = parseArgs(process.argv.slice(2), ['list']);
+	handleHelp(CLI, process.argv.slice(2));
+	const args = parseArgs(process.argv.slice(2), CLI.booleanFlags);
 	const resultsDir = path.resolve(repoRoot(), args['results-dir'] || 'test-results');
 	const logsDir = path.resolve(repoRoot(), args['logs-dir'] || 'test-logs');
 	const rel = p => (p ? path.relative(process.cwd(), p) : null);

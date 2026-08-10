@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateCheckpoint, applyPatch, coerce, PHASES, PHASE_NEXT_ACTION, applyMutations, defaultNextAction, checkDoneGate, OUTCOMES, SETTABLE_FIELDS, mergePatternPatch, applyHistorySummary, initialPhase } from '../checkpoint.js';
+import { validateCheckpoint, applyPatch, coerce, PHASES, PHASE_NEXT_ACTION, applyMutations, defaultNextAction, checkDoneGate, OUTCOMES, SETTABLE_FIELDS, mergePatternPatch, applyHistorySummary, initialPhase, migrateState, RETIRED_PHASES } from '../checkpoint.js';
 
 test('initialPhase defaults to the CI entry, accepts the local entry, rejects done', () => {
 	assert.equal(initialPhase(undefined), 'awaiting-pattern-selection');
@@ -25,6 +25,30 @@ test('validateCheckpoint rejects bad version, missing key, unknown phase', () =>
 test('every declared phase validates', () => {
 	for (const phase of PHASES) {
 		assert.equal(validateCheckpoint({ ...valid(), phase }).ok, true, phase);
+	}
+});
+
+test('a retired phase migrates on read instead of failing validation', () => {
+	// awaiting-clear was written by earlier versions of the skill. An engineer
+	// resuming one of those triages must not be told their checkpoint is corrupt.
+	const stale = { ...valid(), phase: 'awaiting-clear', nextAction: 'Safe to /clear; ...' };
+	assert.equal(validateCheckpoint(stale).ok, false);
+	const migrated = migrateState(stale);
+	assert.equal(migrated.phase, 'hypothesis-ready');
+	assert.equal(migrated.nextAction, PHASE_NEXT_ACTION['hypothesis-ready']);
+	assert.equal(validateCheckpoint(migrated).ok, true);
+});
+
+test('migrateState leaves a current checkpoint untouched', () => {
+	const current = valid();
+	assert.equal(migrateState(current), current);
+});
+
+test('no retired phase is also a live phase', () => {
+	// A name in both lists would migrate a phase the skill still routes to.
+	for (const retired of Object.keys(RETIRED_PHASES)) {
+		assert.ok(!PHASES.includes(retired), retired);
+		assert.ok(PHASES.includes(RETIRED_PHASES[retired]), RETIRED_PHASES[retired]);
 	}
 });
 
