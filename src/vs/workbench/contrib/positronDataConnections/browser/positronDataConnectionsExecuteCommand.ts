@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize, localize2 } from '../../../../nls.js';
+import { assertNever } from '../../../../base/common/assert.js';
 import { IUntitledTextResourceEditorInput } from '../../../common/editor.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
@@ -22,21 +23,29 @@ import { IDataConnectionSchemaCommandArgs, IDataConnectionsGetConnectionsResult,
 // dataConnections.enabled feature flag -- see isDataConnectionsCommandEnabled for why.
 export const DATA_CONNECTIONS_EXECUTE_COMMAND_ID = 'positron.dataConnections.execute';
 
-/**
- * The sub-commands {@link DATA_CONNECTIONS_EXECUTE_COMMAND_ID} dispatches to, each named after the
- * payload it produces.
- */
-export type DataConnectionsSubCommand = 'getDataConnections' | 'getSchema';
+// The sub-commands DATA_CONNECTIONS_EXECUTE_COMMAND_ID dispatches to, each named after the payload
+// it produces. This list is the one place a sub-command name is spelled: the type below derives from
+// it, the arg schema's enum is built from it, the picker is built from it, and validation checks
+// against it. Renaming one here makes every place that has to follow suit fail to compile.
+const SUB_COMMANDS = ['getDataConnections', 'getSchema'] as const;
 
-const SUB_COMMANDS: readonly DataConnectionsSubCommand[] = ['getDataConnections', 'getSchema'];
+/**
+ * The name of a sub-command {@link DATA_CONNECTIONS_EXECUTE_COMMAND_ID} accepts.
+ */
+export type DataConnectionsSubCommand = typeof SUB_COMMANDS[number];
+
+// The argument shape for one sub-command: its name, plus that sub-command's own options. Naming the
+// sub-command through DataConnectionsSubCommand is what ties the union below to SUB_COMMANDS -- a
+// name that isn't in that list is a compile error here rather than a silently unreachable member.
+type ArgsFor<K extends DataConnectionsSubCommand, TOptions = unknown> = { command: K } & TOptions;
 
 /**
  * The single argument object {@link DATA_CONNECTIONS_EXECUTE_COMMAND_ID} takes: the sub-command to
  * run, plus that sub-command's own options.
  */
 export type DataConnectionsCommandArgs =
-	| { command: 'getDataConnections' }
-	| ({ command: 'getSchema' } & IDataConnectionSchemaCommandArgs);
+	| ArgsFor<'getDataConnections'>
+	| ArgsFor<'getSchema', IDataConnectionSchemaCommandArgs>;
 
 /**
  * What {@link DATA_CONNECTIONS_EXECUTE_COMMAND_ID} resolves to: the payload of whichever
@@ -45,6 +54,19 @@ export type DataConnectionsCommandArgs =
  */
 export type DataConnectionsCommandResult =
 	IDataConnectionsGetConnectionsResult[] | IDataConnectionSchemaSummary | undefined;
+
+// How each sub-command presents itself in the interactive picker. A Record over every sub-command
+// name, so one added or renamed in SUB_COMMANDS doesn't compile until its picker entry follows.
+const SUB_COMMAND_PICKS: Record<DataConnectionsSubCommand, { label: string; description: string }> = {
+	getDataConnections: {
+		label: localize('positron.dataConnections.execute.getDataConnections', "Get Data Connections"),
+		description: localize('positron.dataConnections.execute.getDataConnections.description', "Every saved connection profile"),
+	},
+	getSchema: {
+		label: localize('positron.dataConnections.execute.getSchema', "Get Schema"),
+		description: localize('positron.dataConnections.execute.getSchema.description', "The schema of a live connection"),
+	},
+};
 
 interface ISubCommandPickItem extends IQuickPickItem {
 	command: DataConnectionsSubCommand;
@@ -86,10 +108,16 @@ function parseCommandArgs(value: unknown): DataConnectionsCommandArgs {
  * @param args The validated command arguments.
  */
 function runSubCommand(accessor: ServicesAccessor, args: DataConnectionsCommandArgs): Promise<DataConnectionsCommandResult> {
-	if (args.command === 'getSchema') {
-		return getDataConnectionSchema(accessor, args);
+	switch (args.command) {
+		case 'getDataConnections':
+			return getDataConnections(accessor);
+		case 'getSchema':
+			return getDataConnectionSchema(accessor, args);
+		default:
+			// A sub-command added to SUB_COMMANDS without a case here fails to compile, rather than
+			// falling through to whichever payload happens to be last.
+			return assertNever(args);
 	}
-	return getDataConnections(accessor);
 }
 
 /**
@@ -190,18 +218,10 @@ export class DataConnectionsExecuteAction extends Action2 {
 		const editorService = accessor.get(IEditorService);
 		const dataConnectionsService = accessor.get(IPositronDataConnectionsService);
 
-		const picks: ISubCommandPickItem[] = [
-			{
-				label: localize('positron.dataConnections.execute.getDataConnections', "Get Data Connections"),
-				description: localize('positron.dataConnections.execute.getDataConnections.description', "Every saved connection profile"),
-				command: 'getDataConnections',
-			},
-			{
-				label: localize('positron.dataConnections.execute.getSchema', "Get Schema"),
-				description: localize('positron.dataConnections.execute.getSchema.description', "The schema of a live connection"),
-				command: 'getSchema',
-			},
-		];
+		const picks: ISubCommandPickItem[] = SUB_COMMANDS.map(command => ({
+			...SUB_COMMAND_PICKS[command],
+			command,
+		}));
 		const pick = await quickInputService.pick(picks, {
 			placeHolder: localize('positron.dataConnections.execute.pickCommand', "Select a data connections command to run"),
 		});
