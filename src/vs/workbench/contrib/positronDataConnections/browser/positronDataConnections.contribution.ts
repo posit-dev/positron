@@ -4,10 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import './positronDataConnectionsCommands.js';
+import './positronDataConnectionsExecuteCommand.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataViewPane } from './positronDataConnectionsView.js';
-import './positronDataConnectionsDebugActions.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';

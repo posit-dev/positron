@@ -3,24 +3,27 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize2 } from '../../../../nls.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IUntitledTextResourceEditorInput } from '../../../common/editor.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
-import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
-import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from './positronDataConnectionsConfiguration.js';
+import { IDataConnectionInstance } from '../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile, resolveDataConnectionMechanism } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionSchemaSummary, IDataConnectionSchemaSummaryOptions, summarizeDataConnectionSchema } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 
-// The id of the getConnections command. Always registered, regardless of the
-// dataConnections.enabled feature flag -- see getDataConnections for why.
-export const GET_CONNECTIONS_COMMAND_ID = 'positronDataConnections.getConnections';
+/**
+ * Whether the data connections commands should produce a payload at all. They exist solely for
+ * Assistant to consume, so they go quiet when the dataConnections.enabled feature flag is off, or
+ * when the ai.enabled main switch is off. The command stays registered either way, so
+ * Assistant-side feature detection is a simple getCommands() check.
+ * @param configurationService The configuration service.
+ */
+export function isDataConnectionsCommandEnabled(configurationService: IConfigurationService): boolean {
+	return configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) === true
+		&& configurationService.getValue<boolean>(AI_ENABLED_KEY) !== false;
+}
 
 /**
  * Flat JSON payload for a single language a data connection profile supports: the profile's
@@ -160,19 +163,13 @@ async function getLanguagePayloads(
 }
 
 /**
- * Builds the getConnections payload: a flat JSON summary of every saved data connection profile,
- * for cold-start Assistant awareness (no live connection required). Returns an empty list when
- * the dataConnections.enabled feature flag is off, or when the ai.enabled main switch is off (this
- * command exists solely for Assistant to consume), so the command stays registered and
- * Assistant-side feature detection is a simple getCommands() check.
+ * Builds the getDataConnections payload: a flat JSON summary of every saved data connection
+ * profile, for cold-start Assistant awareness (no live connection required). Returns an empty list
+ * when the commands are gated off -- see {@link isDataConnectionsCommandEnabled}.
  * @param accessor The services accessor.
  */
 export async function getDataConnections(accessor: ServicesAccessor): Promise<IDataConnectionsGetConnectionsResult[]> {
-	const configurationService = accessor.get(IConfigurationService);
-	if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) !== true) {
-		return [];
-	}
-	if (configurationService.getValue<boolean>(AI_ENABLED_KEY) === false) {
+	if (!isDataConnectionsCommandEnabled(accessor.get(IConfigurationService))) {
 		return [];
 	}
 
@@ -205,33 +202,74 @@ export async function getDataConnections(accessor: ServicesAccessor): Promise<ID
 	}));
 }
 
-CommandsRegistry.registerCommand(GET_CONNECTIONS_COMMAND_ID, getDataConnections);
+/**
+ * Arguments for the getSchema sub-command. Extends the summarizer's own bounds so a caller can cap
+ * the walk, and the field docs live in one place (see {@link IDataConnectionSchemaSummaryOptions}).
+ */
+export interface IDataConnectionSchemaCommandArgs extends IDataConnectionSchemaSummaryOptions {
+	// The profile whose live connection to summarize. Optional: when omitted and exactly one
+	// connection is live, that one is summarized.
+	profileId?: string;
+}
 
-// Developer-only Command Palette entry that runs getConnections and opens its JSON payload in a
-// new untitled editor. Assistant consumes the command directly via executeCommand; this exists
-// solely so the payload can be inspected by hand while developing against it.
-registerAction2(class extends Action2 {
-	constructor() {
-		super({
-			id: 'positronDataConnections.debugGetConnections',
-			title: localize2('positron.dataConnections.debugGetConnections', 'Get Data Connections (Debug)'),
-			category: Categories.Developer,
-			f1: true,
-			precondition: IsDevelopmentContext, // hide this from release builds -- manual testing aid only
-		});
+/**
+ * Resolves which live connection getSchema should summarize. Returns undefined -- with the reason
+ * logged -- rather than guessing when there's no unambiguous answer, since a summary of the wrong
+ * connection is worse for the caller than none at all.
+ * @param dataConnectionsService The data connections service.
+ * @param profileId The requested profile id, if the caller named one.
+ * @param logService The log service.
+ */
+function resolveSchemaTarget(
+	dataConnectionsService: IPositronDataConnectionsService,
+	profileId: string | undefined,
+	logService: ILogService,
+): IDataConnectionInstance | undefined {
+	if (profileId !== undefined) {
+		const instance = dataConnectionsService.getInstanceForProfile(profileId);
+		if (!instance) {
+			logService.warn(`[DataConnections] getSchema: profile ${profileId} has no live connection.`);
+		}
+		return instance;
 	}
 
-	async run(accessor: ServicesAccessor): Promise<void> {
-		const commandService = accessor.get(ICommandService);
-		const editorService = accessor.get(IEditorService);
-
-		const result = await commandService.executeCommand(GET_CONNECTIONS_COMMAND_ID);
-
-		await editorService.openEditor({
-			resource: undefined,
-			contents: JSON.stringify(result, null, 2),
-			languageId: 'json',
-			options: { pinned: true },
-		} satisfies IUntitledTextResourceEditorInput);
+	const instances = dataConnectionsService.getInstances();
+	if (instances.length === 1) {
+		return instances[0];
 	}
-});
+
+	logService.warn(instances.length === 0
+		? '[DataConnections] getSchema: no live data connections to summarize.'
+		: `[DataConnections] getSchema: ${instances.length} live data connections; pass profileId to choose one.`);
+	return undefined;
+}
+
+/**
+ * Builds the getSchema payload: a bounded, JSON-serializable summary of a live connection's schema
+ * tree, for Assistant to reason about the tables and columns a connection exposes. Unlike
+ * getDataConnections this needs a live connection -- it walks the real schema over RPC. Returns
+ * undefined when the commands are gated off (see {@link isDataConnectionsCommandEnabled}) or when
+ * there is no unambiguous connection to summarize.
+ * @param accessor The services accessor.
+ * @param args The sub-command arguments; see {@link IDataConnectionSchemaCommandArgs}.
+ */
+export async function getDataConnectionSchema(
+	accessor: ServicesAccessor,
+	args: IDataConnectionSchemaCommandArgs = {},
+): Promise<IDataConnectionSchemaSummary | undefined> {
+	if (!isDataConnectionsCommandEnabled(accessor.get(IConfigurationService))) {
+		return undefined;
+	}
+
+	const instance = resolveSchemaTarget(
+		accessor.get(IPositronDataConnectionsService),
+		args.profileId,
+		accessor.get(ILogService),
+	);
+	if (!instance) {
+		return undefined;
+	}
+
+	// args carries the summary bounds directly, so it doubles as the options object.
+	return summarizeDataConnectionSchema(instance.connectionHandle, args);
+}
