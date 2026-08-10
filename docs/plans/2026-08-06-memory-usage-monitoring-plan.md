@@ -2075,7 +2075,7 @@ git commit -m "ci: support linux builds in download-build.sh"
 - Consumes: the spec from Task 9, the Linux build path from Task 10
 - Produces: nightly runs, a step summary, and an uploaded HTML artifact
 
-- [ ] **Step 1: Read the workflow being modelled**
+- [x] **Step 1: Read the workflow being modelled**
 
 ```bash
 sed -n '1,60p' .github/workflows/release-screenshots.yml
@@ -2084,7 +2084,36 @@ sed -n '90,140p' .github/workflows/test-e2e-ubuntu-run.yml
 
 Note how `release-screenshots.yml` resolves a version and calls `download-build.sh`, and how `test-e2e-ubuntu-run.yml` declares the container and runner. Reuse both patterns rather than inventing new ones.
 
-- [ ] **Step 2: Write the workflow**
+- [x] **Step 2: Write the workflow**
+
+**The draft in this plan was missing five things the harness actually requires.**
+Every one of them fails the whole run, and none is visible without reading the
+working lanes, so the shipped workflow differs from the YAML below:
+
+| Missing | Why the run fails without it |
+| --- | --- |
+| `POSITRON_PY_VER_SEL`, `POSITRON_R_VER_SEL`, and both `_ALT_` variants | The `envVars` fixture in `_test.setup.ts` is `auto: true` and calls `validateEnvironmentVars(..., { allowEmpty: false })`. Unset means *every* test fails at setup. No interpreter is installed or started; the values only have to be present. |
+| `./.github/actions/setup-xvfb` | Exports `DISPLAY=:10`. Without it the app has no display, and `positron --status` silently returns nothing, so every process is `unlabeled` and the attribution gate fails. |
+| `./.github/actions/setup-e2e-test-dependencies` instead of `npm ci` | The Ubuntu lane never runs `npm ci`; it extracts a prebuilt repo including `node_modules`. This action installs just the Playwright and e2e deps and compiles `test/e2e`, which is all a downloaded build needs. |
+| An explicit `undici` install | `publish.ts` imports it, the action above does not install it, and it currently resolves only as a transitive dep of the reporters. The range is captured before that action replaces the root `package.json` with a stub, so it cannot drift. |
+| `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` | Copied from the lanes; Playwright needs it on these runners. |
+
+Also changed: `ENABLE_CUSTOM_REPORTER: 'false'`, so memory runs do not land in the e2e
+results dataset as ordinary test runs (and the job needs no AWS credentials);
+`actions/checkout@v7` and `actions/upload-artifact@v7`, which is what the rest of the
+repo uses (the plan's `@v4` was stale); and a `concurrency` group, since the job holds
+an 8x runner for three cold launches.
+
+**Temporary `pull_request` trigger.** The workflow is nightly by design, but nothing
+about it can be verified locally, so it is also scoped to pull requests touching the
+collector so it can be proven before merging. Marked with a `TEMPORARY, remove before
+merging` comment at the trigger.
+
+Known limitation, not fixed here: `latest-prerelease` resolution goes through
+`download-build.sh`, whose `.[0]`-of-prereleases logic can pick a mirrored stable build,
+where `release-screenshots.yml` has more careful resolution that excludes stable tags.
+For a memory *trend* that means an occasional run measuring different code. Worth
+sharing that resolution between the two callers later.
 
 Create `.github/workflows/test-memory-metrics.yml`:
 
@@ -2174,7 +2203,7 @@ jobs:
           path: ${{ runner.temp }}/memory-snapshots/
 ```
 
-- [ ] **Step 3: Validate the workflow syntax**
+- [x] **Step 3: Validate the workflow syntax**
 
 ```bash
 gh workflow view test-memory-metrics.yml --repo posit-dev/positron 2>/dev/null || echo "not yet pushed, syntax checked on push"
