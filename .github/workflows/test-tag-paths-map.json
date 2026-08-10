@@ -157,6 +157,7 @@
   "src/vs/workbench/contrib/inlineChat/browser/positronNotebookUtils.ts": ["@:positron-notebooks", "@:assistant"],
   "src/vs/workbench/contrib/preferences/": [],
   "src/vs/workbench/contrib/preferences/common/positronSettingBadges.ts": ["@:vscode-settings"],
+  "src/vs/workbench/contrib/update/": [],
   "src/vs/workbench/contrib/welcomeGettingStarted/": [],
   "src/vs/workbench/contrib/welcomeGettingStarted/browser/media/positronGettingStarted.css": ["@:welcome"],
   "src/vs/workbench/contrib/welcomeGettingStarted/browser/positronWelcome": ["@:welcome"],
