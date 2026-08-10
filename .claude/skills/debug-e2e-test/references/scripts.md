@@ -24,6 +24,14 @@ its work by hand, that is [`script-fallbacks.md`](script-fallbacks.md) instead.
   (`<leaf-test-slug>-<hash8>`) and returns it as `triageId`; pass that verbatim to
   every later script. Inventing one splits the checkpoint from the work dir
   holding the history and evidence, which is what `--resume` reads.
+- **The scripts' own tests** run from the repo root, and need the **quoted glob**
+  -- passing the directory makes node resolve it as a module and die with
+  `Cannot find module`, which reads like a broken suite rather than a bad
+  invocation:
+
+  ```bash
+  node --test ".claude/skills/debug-e2e-test/scripts/test/*.test.js"
+  ```
 
 ## `resolve-test-key.js`
 
