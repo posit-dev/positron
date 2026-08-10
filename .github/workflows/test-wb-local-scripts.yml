@@ -1,0 +1,35 @@
+name: 'Test: wb-local scripts'
+
+# Unit tests for docker/environments/wb-local/workbench-local-lib.sh, which
+# resolves the Workbench package URL that both the local QA stack and the
+# workbench e2e lanes install. A wrong URL here means testing the wrong build
+# (or a 404 an hour into a job), so it gets a fast, dependency-free suite that
+# stubs the feed calls with fixtures. Runs only when those scripts change.
+on:
+  pull_request:
+    paths:
+      - 'docker/environments/wb-local/**'
+      - 'scripts/test/workbench-local-lib-test.sh'
+      - '.github/workflows/test-wb-local-scripts.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docker/environments/wb-local/**'
+      - 'scripts/test/workbench-local-lib-test.sh'
+      - '.github/workflows/test-wb-local-scripts.yml'
+
+jobs:
+  test:
+    name: workbench-local-lib
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Resolver unit tests
+        run: bash scripts/test/workbench-local-lib-test.sh
+      # Cheap guard against a syntax error reaching the container, where it
+      # would only surface partway through a 40-minute install.
+      - name: Syntax-check the wb-local shell scripts
+        run: |
+          for f in docker/environments/wb-local/*.sh; do
+            bash -n "$f" || exit 1
+          done
