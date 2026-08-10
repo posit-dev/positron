@@ -155,3 +155,23 @@ describe('baselineToSnapshot', () => {
 		expect(mapped?.processes[0].rssBytes).toBe(0);
 	});
 });
+
+describe('baseline activation events', () => {
+	const baseline = (extensions: { extension_id: string; activation_event?: string | null }[]) =>
+		baselineToSnapshot({
+			found: true,
+			snapshot: { tree_total_pss_bytes: 1000, settle_ms: 5000, processes: [], extensions }
+		});
+
+	test('carries the activation event through', () => {
+		// Without it the report cannot tell an extension that was always eager
+		// from one that just became eager, which is the whole point of the diff.
+		const mapped = baseline([{ extension_id: 'github.copilot', activation_event: 'onStartupFinished' }]);
+		expect(mapped?.extensions[0].activationEvent).toBe('onStartupFinished');
+	});
+
+	test('degrades to null when the endpoint does not send one', () => {
+		const mapped = baseline([{ extension_id: 'github.copilot' }]);
+		expect(mapped?.extensions[0].activationEvent).toBeNull();
+	});
+});

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { normalizeProcessName, resolveRole } from './label.js';
+import { deriveExtensionName, normalizeProcessName, resolveRole } from './label.js';
 import { readProcessNames } from './positron-status.js';
 import { readProcessTree } from './process-tree.js';
 import { ActivatedExtension, LabeledProcess, MemorySnapshot, RawProcess } from './types.js';
@@ -56,12 +56,21 @@ export function joinProcesses(
 			cmd: proc.cmd,
 			isRoot: proc.pid === rootPid
 		});
+		// Preferred over the normalized command line, but only when that is all
+		// Positron gave us. A real Positron name (`extension-host [1]`) never
+		// starts with a path and always wins; a command line means Positron could
+		// not identify the process, and the extension that spawned it is a better
+		// answer than its argv.
+		const derived = reported === undefined || reported.startsWith('/')
+			? deriveExtensionName(proc.cmd)
+			: undefined;
+
 		const observed = pssByPid.get(proc.pid) ?? [proc.pssBytes];
 		return {
 			pid: proc.pid,
 			ppid: proc.ppid,
 			depth: depthOf(proc.pid, byPid, rootPid),
-			processName: positronName ?? basename(proc.cmd.split(' ')[0] || 'unknown'),
+			processName: derived ?? positronName ?? basename(proc.cmd.split(' ')[0] || 'unknown'),
 			processRole: role,
 			labeled,
 			cmdBasename: basename(proc.cmd.split(' ')[0] || 'unknown'),

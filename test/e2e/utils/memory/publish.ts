@@ -187,7 +187,10 @@ export type BaselineResponse =
 			tree_total_pss_bytes: number;
 			settle_ms: number;
 			processes: { process_name: string; process_role: string; pss_bytes: number }[];
-			extensions: { extension_id: string }[];
+			// Optional because an endpoint deployed before this field was read will
+			// omit it. The report degrades to an eager count with no newly-eager
+			// list rather than treating every extension as newly eager.
+			extensions: { extension_id: string; activation_event?: string | null }[];
 		};
 	};
 
@@ -218,7 +221,7 @@ export function baselineToSnapshot(body: BaselineResponse): MemorySnapshot | und
 		})),
 		extensions: body.snapshot.extensions.map(e => ({
 			extensionId: e.extension_id, isBuiltin: false,
-			activationTimeMs: null, activationEvent: null
+			activationTimeMs: null, activationEvent: e.activation_event ?? null
 		}))
 	};
 }

@@ -4,7 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, test } from 'vitest';
-import { normalizeProcessName, resolveRole } from './label.js';
+import { deriveExtensionName, normalizeProcessName, resolveRole } from './label.js';
+
+/**
+ * Command lines for the child processes the memory-hog deck named as Culprit 1.
+ * Real shapes, with the paths shortened to the parts the rules actually read.
+ */
+const QUARTO_LSP = '/build/bundled/node /home/u/.positron-server/extensions/quarto.quarto-1.135.0-universal/out/lsp/lsp.js --stdio';
+const DUCKDB_WORKER = '/build/bundled/node /build/bundled/extensions/positron-duckdb/dist/duckdb-worker.js';
+const PET_SERVER = '/build/bundled/extensions/positron-python/python-env-tools/pet server';
+const AIR_LSP = '/home/u/.positron-server/extensions/posit.air-vscode-0.28.0-linux-x64/bundled/bin/air language-server';
+const RUFF_SERVER = '/tmp/extensions-dir/charliermarsh.ruff-2026.70.0-linux-x64/bundled/libs/bin/ruff server';
 
 describe('resolveRole', () => {
 	test('names the root process main', () => {
@@ -134,5 +144,58 @@ describe('roles for processes CI surfaced', () => {
 		expect(role('extension-host [1]')).toBe('extension_host');
 		expect(role('window [1] (Welcome)')).toBe('renderer');
 		expect(role('pty-host')).toBe('pty_host');
+	});
+});
+
+describe('deriveExtensionName', () => {
+	// The deck's Culprit 1: eagerly started servers, all of which today land in
+	// the report as an anonymous share of `language_server` or `extension_child`.
+	test.each([
+		[QUARTO_LSP, 'quarto.quarto (lsp)'],
+		[DUCKDB_WORKER, 'positron-duckdb (duckdb-worker)'],
+		[PET_SERVER, 'positron-python (pet)'],
+	])('names the extension that spawned the process', (cmd, expected) => {
+		expect(deriveExtensionName(cmd)).toBe(expected);
+	});
+
+	test('drops the executable when the id already says it', () => {
+		// `charliermarsh.ruff (ruff)` and `posit.air-vscode (air)` carry no more
+		// information than the id alone.
+		expect(deriveExtensionName(RUFF_SERVER)).toBe('charliermarsh.ruff');
+		expect(deriveExtensionName(AIR_LSP)).toBe('posit.air-vscode');
+	});
+
+	test('strips the version so the name is stable across builds', () => {
+		const older = deriveExtensionName('/x/extensions/quarto.quarto-1.135.0-universal/out/lsp/lsp.js');
+		const newer = deriveExtensionName('/x/extensions/quarto.quarto-1.140.2-universal/out/lsp/lsp.js');
+		expect(older).toBe(newer);
+	});
+
+	test('returns undefined for a process no extension spawned', () => {
+		expect(deriveExtensionName('/opt/positron/positron --type=renderer')).toBeUndefined();
+		expect(deriveExtensionName('/usr/bin/bash --init-file /x/shellIntegration-bash.sh')).toBeUndefined();
+	});
+});
+
+describe('roles for the eagerly started servers', () => {
+	const roleOf = (cmd: string): string => resolveRole({ cmd, isRoot: false }).role;
+
+	test('Quarto\'s language server is a language server, not a generic child', () => {
+		expect(roleOf(QUARTO_LSP)).toBe('language_server');
+	});
+
+	test('the duckdb worker falls back to extension_child rather than unlabeled', () => {
+		expect(roleOf(DUCKDB_WORKER)).toBe('extension_child');
+	});
+
+	test('the extension fallback cannot steal a process an earlier rule claimed', () => {
+		// Both live under /extensions/, so an ordering mistake would re-bucket
+		// them into extension_child and silently re-shape the dashboard's history.
+		expect(roleOf(AIR_LSP)).toBe('language_server');
+		expect(resolveRole({ positronName: 'ruff server', cmd: RUFF_SERVER, isRoot: false }).role).toBe('language_server');
+	});
+
+	test('a process outside any extension dir is still unlabeled', () => {
+		expect(roleOf('/opt/positron/positron --type=utility --utility-sub-type=node.mojom.NodeService')).toBe('unlabeled');
 	});
 });

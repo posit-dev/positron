@@ -3,7 +3,25 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { LabeledProcess, MemorySnapshot, ProcessRole } from './types.js';
+import { ActivatedExtension, LabeledProcess, MemorySnapshot, ProcessRole } from './types.js';
+
+/** How many processes the top-processes table lists. */
+const TOP_PROCESSES = 8;
+
+/**
+ * Activation events that cost memory in every window, whether or not the user
+ * ever touches the feature.
+ *
+ * `startup: true` on the same log line is VS Code's own notion of a startup
+ * activation and is deliberately not used: it also reports extensions that won
+ * an activation race during startup, which would put demand-activated
+ * extensions in a section whose whole point is what to stop adding.
+ */
+const EAGER_EVENTS = new Set(['onStartupFinished', '*']);
+
+export function isEagerActivation(event: string | null): boolean {
+	return event !== null && EAGER_EVENTS.has(event);
+}
 
 const MB = 1024 * 1024;
 
@@ -21,6 +39,18 @@ function median(values: number[]): number {
 function signed(bytes: number): string {
 	const sign = bytes >= 0 ? '+' : '-';
 	return `${sign}${formatBytes(Math.abs(bytes))}`;
+}
+
+function signedCount(count: number): string {
+	return count >= 0 ? `+${count}` : `${count}`;
+}
+
+/**
+ * A process nothing could name is reported by its whole command line, which can
+ * run to hundreds of characters. Enough to identify one is enough to print.
+ */
+function shortName(name: string): string {
+	return name.length > 60 ? `${name.slice(0, 60)}...` : name;
 }
 
 function escapeHtml(text: string): string {
@@ -55,6 +85,59 @@ function byRole(snapshots: MemorySnapshot[]): Map<ProcessRole, number> {
 
 	const roles = new Set(perLaunch.flatMap(totals => [...totals.keys()]));
 	return new Map([...roles].map(role => [role, median(perLaunch.map(totals => totals.get(role) ?? 0))]));
+}
+
+/**
+ * Median PSS per process name across launches, zero-filling a launch that did
+ * not have it, for the same reason `byRole` does: a process present in one
+ * launch of three should not read as heavy as one present in all three.
+ *
+ * Keyed on name rather than pid because pids change every launch. The role is
+ * carried along for display and taken from the first launch that had the
+ * process; a name that resolved to two different roles across launches would be
+ * a labeling bug, not something to average.
+ */
+function byProcessName(snapshots: MemorySnapshot[]): Map<string, { bytes: number; role: ProcessRole }> {
+	const perLaunch = snapshots.map(snapshot => {
+		const totals = new Map<string, number>();
+		for (const proc of snapshot.processes) {
+			totals.set(proc.processName, (totals.get(proc.processName) ?? 0) + proc.pssBytes);
+		}
+		return totals;
+	});
+
+	const roles = new Map<string, ProcessRole>();
+	for (const snapshot of snapshots) {
+		for (const proc of snapshot.processes) {
+			if (!roles.has(proc.processName)) {
+				roles.set(proc.processName, proc.processRole);
+			}
+		}
+	}
+
+	return new Map([...roles].map(([name, role]) => [
+		name,
+		{ bytes: median(perLaunch.map(totals => totals.get(name) ?? 0)), role }
+	]));
+}
+
+/**
+ * Eager activations across launches, keyed by id.
+ *
+ * A union rather than launch 0, and an extension counts as eager if any launch
+ * saw it activate eagerly. An extension that is eager only sometimes is still
+ * eager, and reading one launch would miss it whenever it lost the race.
+ */
+function eagerExtensions(snapshots: MemorySnapshot[]): ActivatedExtension[] {
+	const eager = new Map<string, ActivatedExtension>();
+	for (const snapshot of snapshots) {
+		for (const extension of snapshot.extensions) {
+			if (isEagerActivation(extension.activationEvent) && !eager.has(extension.extensionId)) {
+				eager.set(extension.extensionId, extension);
+			}
+		}
+	}
+	return [...eager.values()];
 }
 
 /** Every process seen in any launch, keyed by name, so an intermittent one is not missed. */
@@ -106,6 +189,51 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 	}
 	lines.push('');
 
+	// Names the culprit behind a role. `language_server` growing says nothing on
+	// its own; `quarto.quarto (lsp)` growing is a place to go and look.
+	const named = byProcessName(snapshots);
+	const baselineNames = baseline ? byProcessName([baseline]) : new Map<string, { bytes: number; role: ProcessRole }>();
+	const top = [...named].sort((a, b) => b[1].bytes - a[1].bytes).slice(0, TOP_PROCESSES);
+	if (top.length > 0) {
+		lines.push('### Top processes', '');
+		lines.push('| Process | Role | PSS | Change |', '| --- | --- | --- | --- |');
+		for (const [name, { bytes, role }] of top) {
+			const before = baselineNames.get(name)?.bytes;
+			const change = baseline ? (before === undefined ? 'new' : signed(bytes - before)) : '';
+			lines.push(`| \`${shortName(name)}\` | \`${role}\` | ${formatBytes(bytes)} | ${change} |`);
+		}
+		lines.push('');
+	}
+
+	// The only handle on memory held inside the extension host, which is one
+	// process and so cannot be split by any amount of process detail.
+	const eager = eagerExtensions(snapshots);
+	if (eager.length > 0) {
+		// A baseline whose rows all carry a null event cannot say how anything
+		// activated, so every extension would read as newly eager. Suppress both
+		// the delta and the list rather than publish a fake alarm.
+		const baselineKnowsEvents = baseline?.extensions.some(e => e.activationEvent !== null) ?? false;
+		const baselineEager = baselineKnowsEvents ? eagerExtensions([baseline!]) : [];
+		const delta = baselineKnowsEvents ? ` (${signedCount(eager.length - baselineEager.length)} vs previous nightly)` : '';
+
+		lines.push('### Extensions activating at startup', '');
+		lines.push(`**${eager.length} eager**${delta}`, '');
+
+		if (baselineKnowsEvents) {
+			const before = new Set(baselineEager.map(e => e.extensionId));
+			const newlyEager = eager.filter(e => !before.has(e.extensionId));
+			if (newlyEager.length > 0) {
+				lines.push('Newly eager:', '');
+				for (const extension of newlyEager) {
+					lines.push(`- \`${extension.extensionId}\` (\`${extension.activationEvent}\`)`);
+				}
+				lines.push('');
+			}
+		}
+
+		lines.push(`All eager: ${eager.map(e => `\`${e.extensionId}\``).join(', ')}`, '');
+	}
+
 	const appeared = newProcesses(snapshots, baseline);
 	if (appeared.length > 0) {
 		lines.push('### New processes since the last nightly', '');
@@ -127,8 +255,7 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 		// Unnamed children are reported by their whole command line, which can run
 		// to hundreds of characters. Enough to identify one is enough here.
 		const names = unlabeled
-			.map(p => p.processName.length > 60 ? `${p.processName.slice(0, 60)}...` : p.processName)
-			.map(name => `\`${name}\``)
+			.map(p => `\`${shortName(p.processName)}\``)
 			.join(', ');
 		lines.push(`> ${unlabeled.length} unlabeled process name(s) across ${snapshots.length} launch(es), ${formatBytes(bytes)} in the median launch: ${names}. Add them to the role map in \`test/e2e/utils/memory/label.ts\`.`, '');
 	}

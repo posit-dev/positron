@@ -42,6 +42,55 @@ export function normalizeProcessName(name: string): string {
 	return [...words, ...flags].join(' ');
 }
 
+/** Version suffixes an extension dir and an executable both carry. */
+const VERSION_SUFFIX = /-\d+(\.\d+)+.*$/;
+
+/**
+ * The token of a command line that sits inside some extension's directory.
+ *
+ * Three dir names are in play: `bundled/extensions/` for what ships with the
+ * build, `~/.positron-server/extensions/` for what the user installed, and
+ * `extensions-dir/` for the throwaway dir the e2e harness passes. Missing the
+ * last one would leave every bootstrap extension unnamed in exactly the runs
+ * this harness produces.
+ */
+const EXTENSION_PATH = /\/extensions(?:-dir)?\/([^/\s]+)\//;
+
+/**
+ * Name a process after the extension that spawned it.
+ *
+ * The eagerly started servers are the largest single processes in an idle tree
+ * (Quarto's language server and the duckdb worker are ~100mb and ~86mb), and
+ * every one of them is spawned by `node` from inside an extension directory. So
+ * `--status` cannot name them, and their whole command line is what gets
+ * reported instead. The result is bytes attributed to a role but to no culprit.
+ *
+ * The extension id is already in the path, so take it from there. The executable
+ * is appended only when it says something the id does not: `charliermarsh.ruff`
+ * running `ruff` gains nothing from `(ruff)`, but `positron-python` running `pet`
+ * does.
+ *
+ * This is deliberately display-only. It sets `processName`, never `processRole`,
+ * so a mistake here cannot re-bucket the dashboard's grouping key. See the note
+ * on the role fallback below.
+ */
+export function deriveExtensionName(cmd: string): string | undefined {
+	const token = cmd.split(/\s+/).find(part => EXTENSION_PATH.test(part));
+	if (!token) {
+		return undefined;
+	}
+
+	const id = token.match(EXTENSION_PATH)![1].replace(VERSION_SUFFIX, '');
+	const exe = (token.split('/').pop() || '')
+		.replace(/\.(js|cjs|mjs|sh)$/, '')
+		.replace(VERSION_SUFFIX, '');
+
+	// Substring either way: the id may name the executable (`posit.air-vscode`
+	// running `air`) or the executable may name the id.
+	const redundant = !exe || id.includes(exe) || exe.includes(id);
+	return redundant ? id : `${id} (${exe})`;
+}
+
 /**
  * Ordered rules matched against the name Positron reports via `--status`, after
  * normalization. First match wins, so put more specific patterns first.
@@ -84,7 +133,10 @@ const CMD_RULES: [RegExp, ProcessRole][] = [
 	[/\/kcserver\b/, 'kernel_supervisor'],
 	[/supervisor-wrapper\.sh/, 'kernel_supervisor'],
 	[/\bipykernel_launcher\b|\/ark\b/, 'kernel'],
-	[/language-server/, 'language_server'],
+	// Quarto ships its server under `out/lsp/`, which neither spells
+	// `language-server` nor ends in `ServerMain`, so the name rules miss it and it
+	// would otherwise fall through to the extension fallback below.
+	[/language-server|\/lsp\//, 'language_server'],
 ];
 
 function firstMatch(rules: [RegExp, ProcessRole][], subject: string): ProcessRole | undefined {
@@ -120,6 +172,19 @@ export function resolveRole(input: { positronName?: string; cmd: string; isRoot:
 	const byCmd = firstMatch(CMD_RULES, input.cmd);
 	if (byCmd) {
 		return { role: byCmd, labeled };
+	}
+
+	// Last, and it must stay last. Everything an extension spawns lives under an
+	// extension directory, including the language servers the rules above claim,
+	// so moving this earlier would swallow them and silently re-bucket the
+	// dashboard's history. It exists only to catch what nothing else did: the next
+	// duckdb worker becomes a named `extension_child` instead of a mystery.
+	//
+	// This is the one inference in role resolution. It infers a category, never a
+	// specific role, so getting it wrong costs a coarse bucket rather than a wrong
+	// answer. Anything more specific belongs in the rule lists above, as a row.
+	if (deriveExtensionName(input.cmd)) {
+		return { role: 'extension_child', labeled };
 	}
 
 	return { role: 'unlabeled', labeled };

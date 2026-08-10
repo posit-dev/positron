@@ -5,7 +5,7 @@
 
 import { describe, expect, test } from 'vitest';
 import { formatBytes, renderHtml, renderMarkdown } from './render.js';
-import { LabeledProcess, MemorySnapshot } from './types.js';
+import { ActivatedExtension, LabeledProcess, MemorySnapshot } from './types.js';
 
 const MB = 1024 * 1024;
 
@@ -15,10 +15,13 @@ const proc = (overrides: Partial<LabeledProcess> = {}): LabeledProcess => ({
 	pssMin: 100 * MB, pssMax: 100 * MB, ...overrides
 });
 
-const snapshot = (procs: LabeledProcess[], launchIndex = 0): MemorySnapshot => ({
+const ext = (extensionId: string, activationEvent: string | null): ActivatedExtension =>
+	({ extensionId, isBuiltin: true, activationTimeMs: null, activationEvent });
+
+const snapshot = (procs: LabeledProcess[], launchIndex = 0, extensions: ActivatedExtension[] = []): MemorySnapshot => ({
 	scenario: 'idle', launchIndex, settleMs: 12_000,
 	treeTotalPssBytes: procs.reduce((sum, p) => sum + p.pssBytes, 0),
-	processes: procs, extensions: []
+	processes: procs, extensions
 });
 
 describe('formatBytes', () => {
@@ -140,5 +143,86 @@ describe('renderHtml', () => {
 		const output = renderHtml([snapshot([proc({ processName: 'window [1] (<script>alert(1)</script>)' })])]);
 		expect(output).not.toContain('<script>alert(1)</script>');
 		expect(output).toContain('&lt;script&gt;');
+	});
+});
+
+describe('top processes', () => {
+	// Culprit 1 from the memory-hog deck. The role table already carries these
+	// bytes; what it cannot say is that most of `language_server` is Quarto.
+	const tree = [
+		proc({ processName: 'extension-host [1]', processRole: 'extension_host', pssBytes: 475 * MB }),
+		proc({ pid: 2, processName: 'quarto.quarto (lsp)', processRole: 'language_server', pssBytes: 101 * MB }),
+		proc({ pid: 3, processName: 'positron-duckdb (duckdb-worker)', processRole: 'extension_child', pssBytes: 86 * MB }),
+		proc({ pid: 4, processName: 'positron-python (pet)', processRole: 'extension_child', pssBytes: 9 * MB }),
+	];
+
+	test('names the processes behind the roles', () => {
+		const output = renderMarkdown([snapshot(tree)]);
+		expect(output).toContain('quarto.quarto (lsp)');
+		expect(output).toContain('positron-duckdb (duckdb-worker)');
+	});
+
+	test('shows each process delta against the baseline', () => {
+		const baseline = snapshot([proc({ pid: 2, processName: 'quarto.quarto (lsp)', processRole: 'language_server', pssBytes: 81 * MB })]);
+		const output = renderMarkdown([snapshot(tree)], baseline);
+		expect(output).toMatch(/quarto\.quarto \(lsp\).*\+20\.0 MB/);
+	});
+
+	test('orders by size so the culprit is first', () => {
+		const output = renderMarkdown([snapshot(tree)]);
+		expect(output.indexOf('quarto.quarto')).toBeLessThan(output.indexOf('positron-python'));
+	});
+});
+
+describe('startup activations', () => {
+	const eager = [
+		ext('github.copilot', 'onStartupFinished'),
+		ext('posit.assistant', '*'),
+		ext('quarto.quarto', 'onStartupFinished'),
+	];
+	const lazy = [ext('ms-python.python', 'onLanguage:python'), ext('vscode.git', 'workspaceContains:.git')];
+
+	test('lists extensions that activate eagerly', () => {
+		const output = renderMarkdown([snapshot([proc()], 0, [...eager, ...lazy])]);
+		expect(output).toContain('github.copilot');
+		expect(output).toContain('posit.assistant');
+	});
+
+	test('leaves demand-activated extensions out', () => {
+		// The deck asks people to stop adding eager activations. Listing all 32
+		// activations would bury that in the same summary as the process tables.
+		const output = renderMarkdown([snapshot([proc()], 0, [...eager, ...lazy])]);
+		expect(output).not.toContain('ms-python.python');
+		expect(output).not.toContain('vscode.git');
+	});
+
+	test('counts them and diffs the count against the baseline', () => {
+		const baseline = snapshot([proc()], 0, [ext('github.copilot', 'onStartupFinished')]);
+		const output = renderMarkdown([snapshot([proc()], 0, eager)], baseline);
+		expect(output).toMatch(/3 eager/);
+		expect(output).toMatch(/\+2/);
+	});
+
+	test('calls out an extension that is newly eager', () => {
+		// Newly eager includes an extension that was present before but activated
+		// on demand, which an id-only diff would miss entirely.
+		const baseline = snapshot([proc()], 0, [ext('github.copilot', 'onStartupFinished'), ext('quarto.quarto', 'onLanguage:quarto')]);
+		const output = renderMarkdown([snapshot([proc()], 0, eager)], baseline);
+		expect(output).toMatch(/[Nn]ewly eager/);
+		expect(output).toContain('quarto.quarto');
+	});
+
+	test('degrades to a count when the baseline carries no activation events', () => {
+		// A deployed /memory GET that omits activation_event must not produce a
+		// report claiming every extension is newly eager.
+		const baseline = snapshot([proc()], 0, [ext('github.copilot', null), ext('posit.assistant', null)]);
+		const output = renderMarkdown([snapshot([proc()], 0, eager)], baseline);
+		expect(output).toMatch(/3 eager/);
+		expect(output).not.toMatch(/[Nn]ewly eager/);
+	});
+
+	test('says nothing at all when no extensions were collected', () => {
+		const output = renderMarkdown([snapshot([proc()])]);
+		expect(output).not.toMatch(/eager/);
 	});
 });
