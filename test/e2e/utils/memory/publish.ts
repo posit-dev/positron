@@ -12,7 +12,20 @@ import {
 	platformVersion,
 	positronVersion
 } from '../metrics/metric-base.js';
-import { MemorySnapshot } from './types.js';
+import { MemorySnapshot, ProcessRole } from './types.js';
+
+/**
+ * The roles the client knows about. Kept beside the guard below so a role added
+ * to `ProcessRole` without being added here fails to compile.
+ */
+const PROCESS_ROLES: Record<ProcessRole, true> = {
+	main: true, renderer: true, gpu: true, network: true, shared: true,
+	extension_host: true, pty_host: true, file_watcher: true, agent_host: true,
+	kernel_supervisor: true, kernel: true, language_server: true,
+	extension_child: true, unlabeled: true
+};
+
+const isProcessRole = (value: string): value is ProcessRole => value in PROCESS_ROLES;
 
 /**
  * The memory endpoints sit beside the existing metrics ones on the same service,
@@ -139,6 +152,9 @@ export async function publishSnapshots(snapshots: MemorySnapshot[], meta: RunMet
 			headers: { Authorization: `Key ${CONNECT_API_KEY}`, 'Content-Type': 'application/json' },
 			body: JSON.stringify(buildPayload(snapshots, meta))
 		});
+		// undici will not release the socket until the body is consumed, so drain
+		// it even though only the status code matters here.
+		await response.body.dump();
 		console.log(`[memory] publish responded ${response.statusCode}`);
 		return response.statusCode < 400;
 	} catch (error) {
@@ -193,7 +209,10 @@ export function baselineToSnapshot(body: BaselineResponse): MemorySnapshot | und
 		processes: body.snapshot.processes.map(p => ({
 			pid: 0, ppid: 0, depth: 0,
 			processName: p.process_name,
-			processRole: p.process_role as MemorySnapshot['processes'][number]['processRole'],
+			// Validated rather than cast. A role added server-side before the client
+			// knows it would otherwise become an invalid ProcessRole at runtime and
+			// fall through every switch downstream.
+			processRole: isProcessRole(p.process_role) ? p.process_role : 'unlabeled',
 			labeled: true, cmdBasename: '',
 			pssBytes: p.pss_bytes, rssBytes: 0, pssMin: p.pss_bytes, pssMax: p.pss_bytes
 		})),

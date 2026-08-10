@@ -116,6 +116,32 @@ describe('baselineToSnapshot', () => {
 		expect(mapped?.extensions[0].extensionId).toBe('vscode.git');
 	});
 
+	test('falls back to unlabeled for a role the client does not know', () => {
+		// The API gaining a role before the client does must not produce a
+		// ProcessRole value that no downstream switch handles.
+		const mapped = baselineToSnapshot({
+			found: true,
+			snapshot: {
+				tree_total_pss_bytes: 1000, settle_ms: 5000,
+				processes: [{ process_name: 'something-new', process_role: 'quantum_host', pss_bytes: 40 }],
+				extensions: []
+			}
+		});
+		expect(mapped?.processes[0].processRole).toBe('unlabeled');
+	});
+
+	test('keeps a role the client does know', () => {
+		const mapped = baselineToSnapshot({
+			found: true,
+			snapshot: {
+				tree_total_pss_bytes: 1000, settle_ms: 5000,
+				processes: [{ process_name: 'ark', process_role: 'kernel', pss_bytes: 40 }],
+				extensions: []
+			}
+		});
+		expect(mapped?.processes[0].processRole).toBe('kernel');
+	});
+
 	test('fills unmapped numbers with zero rather than plausible values', () => {
 		const mapped = baselineToSnapshot({
 			found: true,
