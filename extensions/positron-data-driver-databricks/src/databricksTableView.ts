@@ -70,21 +70,13 @@ import {
 	TableSelectionKind,
 	TextSearchType,
 } from 'positron-data-explorer-protocol';
+import type * as positron from 'positron';
 import { quoteAlias, quoteIdentifier, quoteLiteral } from './databricksSql.js';
 
 /** The query surface the table view needs. Implemented by the connection over its SDK client. */
 export interface IDatabricksQueryClient {
 	/** Run a SQL query and return its rows as plain objects keyed by column name. */
 	runQuery(sql: string): Promise<Array<Record<string, unknown>>>;
-}
-
-/**
- * A minimal sink for the table view's diagnostic logging, so the class stays decoupled from vscode.
- * Structurally satisfied by a `vscode.LogOutputChannel`. Optional throughout; when absent, nothing
- * is logged.
- */
-export interface IProfileLogger {
-	info(message: string): void;
 }
 
 /**
@@ -304,7 +296,7 @@ export class DatabricksTableView {
 		private readonly displayName: string,
 		private readonly objectKind: 'table' | 'view',
 		private readonly schema: Array<DatabricksSchemaEntry>,
-		private readonly _logger?: IProfileLogger,
+		private readonly _logger?: positron.DataConnectionLogger,
 	) {
 		this._unfilteredRows = this._countRows('');
 		this._filteredRows = this._unfilteredRows;

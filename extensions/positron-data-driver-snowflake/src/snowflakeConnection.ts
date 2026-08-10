@@ -47,10 +47,12 @@ export class SnowflakeConnection implements positron.DataConnection, ISnowflakeP
 	 * Constructor. Call connect() after constructing to establish the connection.
 	 * @param _config The connection configuration.
 	 * @param _dataExplorerHandler Hosts table views previewed in the Data Explorer.
+	 * @param _logger Optional diagnostic log sink for connection lifecycle and query events.
 	 */
 	constructor(
 		private readonly _config: SnowflakeConnectionConfig,
-		private readonly _dataExplorerHandler: ISnowflakeDataExplorerHost
+		private readonly _dataExplorerHandler: ISnowflakeDataExplorerHost,
+		private readonly _logger?: positron.DataConnectionLogger
 	) {
 		this._client = new SnowflakeClient(this._config);
 	}
@@ -60,12 +62,16 @@ export class SnowflakeConnection implements positron.DataConnection, ISnowflakeP
 		if (!this._client) {
 			throw new Error('Snowflake connection has been disconnected');
 		}
+		this._logger?.info(`Connecting to account ${this._config.account} as ${this._config.username ?? '(no user)'} (${this._config.authenticator ?? 'default authenticator'})`);
 		try {
 			await this._client.connect();
 		} catch (err: any) {
 			this._client = null;
-			throw new Error(`Failed to connect to Snowflake account ${this._config.account}: ${err.message}`);
+			const error = new Error(`Failed to connect to Snowflake account ${this._config.account}: ${err.message}`);
+			this._logger?.error(error.message);
+			throw error;
 		}
+		this._logger?.info(`Connected to account ${this._config.account}`);
 	}
 
 	/**
@@ -121,7 +127,12 @@ export class SnowflakeConnection implements positron.DataConnection, ISnowflakeP
 
 	/** A query client over the given sdk client, for the Data Explorer table views. */
 	private _queryClient(client: SnowflakeClient) {
-		return { runQuery: async (sql: string) => (await client.query(sql)).rows };
+		return {
+			runQuery: async (sql: string) => {
+				this._logger?.trace(`SQL: ${sql.length > 200 ? `${sql.slice(0, 200)}...` : sql}`);
+				return (await client.query(sql)).rows;
+			}
+		};
 	}
 
 	/** Closes the connection and releases any previewed table views. Idempotent. */

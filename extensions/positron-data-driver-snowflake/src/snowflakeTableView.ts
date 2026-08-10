@@ -15,6 +15,7 @@
 //     column when no sort is set, because Snowflake requires an ORDER BY inside the window.
 //   - Semi-structured values (VARIANT, OBJECT, ARRAY) are rendered as their JSON text.
 
+import type * as positron from 'positron';
 import {
 	ArraySelection,
 	BackendState,
@@ -73,15 +74,6 @@ import {
 export interface ISnowflakeQueryClient {
 	/** Run a SQL query and return its rows as plain objects keyed by column name. */
 	runQuery(sql: string): Promise<Array<Record<string, unknown>>>;
-}
-
-/**
- * A minimal sink for the table view's diagnostic logging, so the class stays decoupled from vscode.
- * Structurally satisfied by a `vscode.LogOutputChannel`. Optional throughout; when absent, nothing
- * is logged.
- */
-export interface IProfileLogger {
-	info(message: string): void;
 }
 
 /**
@@ -359,7 +351,7 @@ export class SnowflakeTableView {
 		private readonly displayName: string,
 		private readonly objectKind: 'table' | 'view',
 		private readonly schema: Array<SnowflakeSchemaEntry>,
-		private readonly _logger?: IProfileLogger,
+		private readonly _logger?: positron.DataConnectionLogger,
 	) {
 		this._unfilteredRows = this._countRows('');
 		this._filteredRows = this._unfilteredRows;

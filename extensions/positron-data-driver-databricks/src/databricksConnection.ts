@@ -47,10 +47,12 @@ export class DatabricksConnection implements positron.DataConnection, IDatabrick
 	 * Constructor. Call connect() after constructing to establish the connection.
 	 * @param _config The connection configuration.
 	 * @param _dataExplorerHandler Hosts table views previewed in the Data Explorer.
+	 * @param _logger Optional diagnostic log sink for connection lifecycle and query events.
 	 */
 	constructor(
 		private readonly _config: DatabricksConnectionConfig,
-		private readonly _dataExplorerHandler: IDatabricksDataExplorerHost
+		private readonly _dataExplorerHandler: IDatabricksDataExplorerHost,
+		private readonly _logger?: positron.DataConnectionLogger
 	) {
 		this._client = new DatabricksClient(this._config);
 	}
@@ -60,12 +62,16 @@ export class DatabricksConnection implements positron.DataConnection, IDatabrick
 		if (!this._client) {
 			throw new Error('Databricks connection has been disconnected');
 		}
+		this._logger?.info(`Connecting to ${this._config.host}${this._config.httpPath} (${this._config.authType})`);
 		try {
 			await this._client.connect();
 		} catch (err: any) {
 			this._client = null;
-			throw new Error(`Failed to connect to Databricks workspace ${this._config.host}: ${err.message}`);
+			const error = new Error(`Failed to connect to Databricks workspace ${this._config.host}: ${err.message}`);
+			this._logger?.error(error.message);
+			throw error;
 		}
+		this._logger?.info(`Connected to ${this._config.host}`);
 	}
 
 	/**
@@ -121,7 +127,12 @@ export class DatabricksConnection implements positron.DataConnection, IDatabrick
 
 	/** A query client over the given SDK client, for the Data Explorer table views. */
 	private _queryClient(client: DatabricksClient) {
-		return { runQuery: async (sql: string) => (await client.query(sql)).rows };
+		return {
+			runQuery: async (sql: string) => {
+				this._logger?.trace(`SQL: ${sql.length > 200 ? `${sql.slice(0, 200)}...` : sql}`);
+				return (await client.query(sql)).rows;
+			}
+		};
 	}
 
 	/** Closes the connection and releases any previewed table views. Idempotent. */
