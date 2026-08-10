@@ -32,8 +32,63 @@ export const CLI = defineCli({
 		{ name: 'lookback-days', value: '<n>', description: '1-30 (default: 14)' },
 		{ name: 'occurrences-per-pattern', value: '<n>', description: 'default 1; raise to 2 only for a listed escalation reason' },
 		{ name: 'triage-id', value: '<id>', description: 'work-dir id (default: derived from the test key)' },
+		{ name: 'since-fix', value: '<iso-date>', description: "a merged fix's date (mergedAt from find-prior-triage.js); adds per-pattern fixHeld numbers to feed back into its sufficiency scoring" },
 	],
 });
+
+/** Whole days between an ISO date and now, at least 1. */
+export function daysSince(isoDate, now = Date.now()) {
+	const t = Date.parse(isoDate);
+	if (!Number.isFinite(t)) { return null; }
+	return Math.max(1, Math.ceil((now - t) / 86400000));
+}
+
+/**
+ * Split a pattern's history into the window since a fix merged and everything
+ * before it, so "did the fix hold?" gets a denominator instead of a vibe.
+ *
+ * Both windows are scoped to the environments the pattern actually occurs in --
+ * the same scoping `rates` uses, and the reason this cannot be done by
+ * subtracting raw totals: an all-environment run count paired with a
+ * lane-specific failure rate inflates N and clears the sufficiency bar on runs
+ * that never exercised the failing lane.
+ *
+ * The baseline is the *pre-fix* remainder (full window minus the post-fix
+ * window), never the full window itself: including post-fix runs in the baseline
+ * drags the rate toward zero exactly when the fix worked, which flatters the fix
+ * with its own evidence.
+ *
+ * @returns {{usable: boolean, note: string|null, postFixRuns: number|null,
+ *   postFixFailures: number, baselineRuns: number|null, baselineFailures: number,
+ *   baselineRate: number|null, environment: string|null}}
+ */
+export function deriveFixHeld({ scopedRunsFull, scopedRunsPost, failuresFull, failuresPost, environments }) {
+	const environment = environments?.length ? environments.join(',') : null;
+	const base = {
+		postFixRuns: scopedRunsPost ?? null,
+		postFixFailures: failuresPost,
+		baselineRuns: null,
+		baselineFailures: failuresFull - failuresPost,
+		baselineRate: null,
+		environment,
+	};
+	if (scopedRunsFull == null || scopedRunsPost == null) {
+		return { ...base, usable: false, note: 'No environment breakdown for one of the windows, so the post-fix runs cannot be scoped to the failing lane.' };
+	}
+	const baselineRuns = scopedRunsFull - scopedRunsPost;
+	if (baselineRuns <= 0) {
+		return { ...base, baselineRuns, usable: false, note: 'The lookback window does not reach back before the fix, so there is no pre-fix baseline. Re-run with a longer --lookback-days.' };
+	}
+	const baselineFailures = failuresFull - failuresPost;
+	return {
+		...base,
+		baselineRuns,
+		baselineFailures,
+		baselineRate: baselineFailures > 0 ? baselineFailures / baselineRuns : 0,
+		usable: true,
+		note: baselineFailures > 0 ? null : 'No pre-fix failures in this window either, so a clean post-fix streak says nothing about the fix.',
+	};
+}
 
 /** Normalize a failure-pattern string into a stable cross-branch match key. */
 export function normalizePattern(pattern) {
@@ -243,6 +298,9 @@ export function mergeHistory(current, main, currentBranch, occurrencesPerPattern
 			return {
 				id: patternLabel(i), // A, B, .. Z, AA, AB, ...
 				failure: entry.failure,
+				// The untruncated text, kept for cross-window matching (--since-fix).
+				// `failure` is a headline and two distinct patterns can share one.
+				fullPattern: entry.fullPattern,
 				count: entry.count,
 				rates,
 				environments,
@@ -314,6 +372,18 @@ function main() {
 
 	const repo = args.repo || 'positron';
 	const lookbackDays = Number(args['lookback-days'] || 14);
+
+	// Validate --since-fix before any query: an unusable date or too-short window
+	// is a caller error, and finding it after two API round-trips just wastes them.
+	let daysSinceFix = null;
+	if (args['since-fix']) {
+		daysSinceFix = daysSince(args['since-fix']);
+		if (daysSinceFix === null) { fail(`--since-fix "${args['since-fix']}" is not a parseable date (expected the mergedAt ISO timestamp from find-prior-triage.js).`); }
+		if (daysSinceFix > lookbackDays) {
+			fail(`--since-fix is ${daysSinceFix}d ago but --lookback-days is ${lookbackDays}, so the window holds no pre-fix baseline. Re-run with --lookback-days ${Math.min(30, daysSinceFix + 7)}.`,
+				{ cause: 'lookback-too-short', daysSinceFix });
+		}
+	}
 	const occ = Number(args['occurrences-per-pattern'] || 1);
 	const triageId = args['triage-id'] || deriveTriageId(testKey);
 	const dir = triageDir(triageId);
@@ -352,6 +422,41 @@ function main() {
 	const insight = mainTest?.insight || currentTest?.insight || null;
 
 	const merged = mergeHistory(currentTest, mainTest, currentBranch, occ, occurrenceDate);
+
+	// --since-fix: a second, shorter query bounded by the fix's merge date. A fix
+	// merges to main, so "did it hold?" is a question about main -- the current
+	// branch's own runs predate the merge or duplicate it.
+	let fixHeldByPattern = null;
+	if (daysSinceFix !== null) {
+		const postData = queryBranch(scriptPath, { repo, testKey, branch: 'main', lookbackDays: daysSinceFix, occ: 1 });
+		if (Object.keys(postData).length === 0) {
+			fail('test-health API unreachable on the --since-fix query.', { triageId, cause: 'api-unreachable' });
+		}
+		const postTest = (postData?.tests || [])[0] || null;
+		const postBreakdown = postTest?.environment_breakdown;
+		const mainBreakdown = mainTest?.environment_breakdown;
+		fixHeldByPattern = {};
+		for (const p of merged.patterns) {
+			const failuresFull = p.rates.find(r => r.branch === 'main')?.count ?? 0;
+			// Matched on the same normalized full text mergeHistory keys on, so a
+			// pattern present in both windows is the same pattern in both.
+			const failuresPost = (postTest?.failure_patterns || [])
+				.filter(fp => normalizePattern(fp.pattern) === normalizePattern(p.fullPattern))
+				.reduce((n, fp) => n + (fp.count || 0), 0);
+			fixHeldByPattern[p.id] = {
+				sinceFix: args['since-fix'],
+				daysSinceFix,
+				...deriveFixHeld({
+					scopedRunsFull: scopedRunsForEnvironments(mainBreakdown, p.environments),
+					scopedRunsPost: scopedRunsForEnvironments(postBreakdown, p.environments),
+					failuresFull,
+					failuresPost,
+					environments: p.environments,
+				}),
+			};
+		}
+	}
+
 	const verdict = classifyVerdict({
 		currentBranch,
 		currentRuns: merged.currentRuns,
@@ -376,6 +481,7 @@ function main() {
 			id: p.id, failure: p.failure, count: p.count, rates: p.rates,
 			environments: p.environments, seenOn: p.seenOn, lastSeen: p.lastSeen,
 			representativeOccurrence: p.representativeOccurrence,
+			...(fixHeldByPattern ? { fixHeld: fixHeldByPattern[p.id] } : {}),
 		})),
 		onset: insight ? {
 			type: insight.type ?? null,

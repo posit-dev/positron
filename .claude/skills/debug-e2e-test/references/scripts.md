@@ -66,6 +66,7 @@ occurrence per pattern.
 | `--lookback-days <n>` | `14` | 1-30 |
 | `--occurrences-per-pattern <n>` | `1` | raise to `2` only for a listed escalation reason |
 | `--triage-id <id>` | derived from the test key | |
+| `--since-fix <iso-date>` | none | a merged fix's `mergedAt`; runs a second, shorter query and adds `fixHeld` to every pattern (below) |
 
 **Output:** `{ triageId, testKey, testName, specPath, testDetailViewUrl,
 branchSummary, patterns[], onset, verdict, stop, note, lookbackDays, queriedAt,
@@ -86,6 +87,13 @@ lastSeen, representativeOccurrence }`.
 - `lastSeen` is `{ date, daysAgo, sha }`, any of which may be `null` -- see
   [`history-query.md`](history-query.md#how-lastseen-is-derived).
 - `id` is a spreadsheet-style label: `A`..`Z`, then `AA`, `AB`, ...
+- **`fixHeld`** appears only with `--since-fix`: `{ sinceFix, daysSinceFix,
+  usable, note, postFixRuns, postFixFailures, baselineRuns, baselineFailures,
+  baselineRate, environment }`. Both windows are scoped to the environments the
+  pattern occurs in, and the baseline is the **pre-fix remainder** (full window
+  minus the post-fix window) -- counting the post-fix runs in the baseline would
+  drag the rate toward zero exactly when the fix worked. `usable: false` means
+  the numbers cannot support a "held" claim; read `note`, don't pass them on.
 
 Also writes `history-summary.json` and `history-raw.json` to the work dir.
 `checkpoint.js --init` auto-seeds `history` + `patterns` from that summary file.

@@ -175,6 +175,10 @@ saved data is invalid, or the branch/test identity changed.
      --occurrence-shas '["<sha1>","<sha2>"]'
    ```
    A non-`none` verdict changes the plan -- read [`references/prior-triage.md`](references/prior-triage.md).
+   A merged fix additionally needs a **denominator** before "it held" is sayable:
+   re-run the history query with `--since-fix <mergedAt>` and pass the resulting
+   `fixHeld` numbers back in. Without them the verdict is `too-recent-to-tell`
+   by construction, so skipping this step silently downgrades the answer.
    `none` is not conclusive -- it matches spec paths, so a POM/helper-only fix
    never registers. If the failing locator is gone from the working tree, read
    that file anyway.
