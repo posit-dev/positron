@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { resolveRole } from './label.js';
+import { normalizeProcessName, resolveRole } from './label.js';
 import { readProcessNames } from './positron-status.js';
 import { readProcessTree } from './process-tree.js';
 import { ActivatedExtension, LabeledProcess, MemorySnapshot, RawProcess } from './types.js';
@@ -47,7 +47,10 @@ export function joinProcesses(
 	}
 
 	return raw.map(proc => {
-		const positronName = names.get(proc.pid);
+		// Normalized once, here, so the name the role rules see is the same one the
+		// report and the payload carry.
+		const reported = names.get(proc.pid);
+		const positronName = reported === undefined ? undefined : normalizeProcessName(reported);
 		const { role, labeled } = resolveRole({
 			positronName,
 			cmd: proc.cmd,

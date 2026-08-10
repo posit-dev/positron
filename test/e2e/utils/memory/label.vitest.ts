@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, test } from 'vitest';
-import { resolveRole } from './label.js';
+import { normalizeProcessName, resolveRole } from './label.js';
 
 describe('resolveRole', () => {
 	test('names the root process main', () => {
@@ -79,5 +79,60 @@ describe('resolveRole', () => {
 		const { role, labeled } = resolveRole({ positronName: 'some-new-host [1]', cmd: 'positron --type=utility', isRoot: false });
 		expect(role).toBe('unlabeled');
 		expect(labeled).toBe(true);
+	});
+});
+
+describe('normalizeProcessName', () => {
+	// Every input here is a real name from CI run 31401098950, where these
+	// produced eight "distinct" unlabeled names for five actual processes.
+	test('drops the pid a language server carries in its command line', () => {
+		const a = normalizeProcessName('/build/positron /build/resources/app/extensions/json-language-features/server/dist/node/jsonServerMain --node-ipc --clientProcessId=150');
+		const b = normalizeProcessName('/build/positron /build/resources/app/extensions/json-language-features/server/dist/node/jsonServerMain --node-ipc --clientProcessId=161');
+		expect(a).toBe(b);
+		expect(a).not.toMatch(/\d{3}/);
+	});
+
+	test('collapses two installed versions of the same server to one name', () => {
+		const older = normalizeProcessName('/tmp/vscsmoke/extensions-dir/charliermarsh.ruff-2026.68.0/bundled/libs/bin/ruff server');
+		const newer = normalizeProcessName('/tmp/vscsmoke/extensions-dir/charliermarsh.ruff-2026.70.0-linux-x64/bundled/libs/bin/ruff server');
+		expect(older).toBe('ruff server');
+		expect(newer).toBe('ruff server');
+	});
+
+	test('keeps enough to tell processes apart', () => {
+		expect(normalizeProcessName('/build/resources/app/extensions/positron-python/python-env-tools/pet server')).toBe('pet server');
+		expect(normalizeProcessName('/usr/bin/bash --init-file /build/resources/app/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh'))
+			.toBe('bash shellIntegration-bash.sh --init-file');
+	});
+
+	test('drops volatile socket and log paths from the supervisor command line', () => {
+		const first = normalizeProcessName('/build/positron /build/extensions/positron-supervisor/resources/kallichore/kcserver --log-file /tmp/kallichore-7fd2f58c-150.log --handshake-socket /tmp/kc-handshake-NxKaM3/s.sock');
+		const second = normalizeProcessName('/build/positron /build/extensions/positron-supervisor/resources/kallichore/kcserver --log-file /tmp/kallichore-91ab22de-207.log --handshake-socket /tmp/kc-handshake-QqZz91/s.sock');
+		expect(first).toBe(second);
+	});
+
+	test('leaves the names Positron reports itself untouched', () => {
+		// These never start with a path, and a window title can contain anything.
+		expect(normalizeProcessName('window [1] (Welcome - Positron)')).toBe('window [1] (Welcome - Positron)');
+		expect(normalizeProcessName('extension-host [1]')).toBe('extension-host [1]');
+		expect(normalizeProcessName('gpu-process')).toBe('gpu-process');
+	});
+});
+
+describe('roles for processes CI surfaced', () => {
+	const role = (positronName: string): string => resolveRole({ positronName, cmd: '', isRoot: false }).role;
+
+	test('labels the processes that were unattributed in the first real run', () => {
+		expect(role('zygote')).toBe('zygote');
+		expect(role('pet server')).toBe('extension_child');
+		expect(role('bash shellIntegration-bash.sh --init-file')).toBe('shell');
+		expect(role('positron jsonServerMain --node-ipc --clientProcessId')).toBe('language_server');
+		expect(role('ruff server')).toBe('language_server');
+	});
+
+	test('still labels the processes Positron names outright', () => {
+		expect(role('extension-host [1]')).toBe('extension_host');
+		expect(role('window [1] (Welcome)')).toBe('renderer');
+		expect(role('pty-host')).toBe('pty_host');
 	});
 });

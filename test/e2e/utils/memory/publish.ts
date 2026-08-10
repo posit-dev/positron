@@ -22,7 +22,7 @@ const PROCESS_ROLES: Record<ProcessRole, true> = {
 	main: true, renderer: true, gpu: true, network: true, shared: true,
 	extension_host: true, pty_host: true, file_watcher: true, agent_host: true,
 	kernel_supervisor: true, kernel: true, language_server: true,
-	extension_child: true, unlabeled: true
+	extension_child: true, zygote: true, shell: true, unlabeled: true
 };
 
 const isProcessRole = (value: string): value is ProcessRole => value in PROCESS_ROLES;

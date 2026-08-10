@@ -6,8 +6,45 @@
 import { ProcessRole } from './types.js';
 
 /**
- * Ordered rules matched against the name Positron reports via `--status`.
- * First match wins, so put more specific patterns first.
+ * Reduce a command line to a stable name.
+ *
+ * `--status` reports processes it could not name by their entire command line,
+ * which carries absolute paths, version numbers, and pids
+ * (`--clientProcessId=4242`). Left raw, one process produces a different name on
+ * every launch, and three things break at once: the unlabeled count inflates, the
+ * dashboard's group-by explodes in cardinality, and the baseline diff reports the
+ * same process as newly appeared every single night.
+ *
+ * Keeps the first two non-flag tokens as basenames plus flag names without their
+ * values, which distinguishes these processes without carrying anything that
+ * changes between launches. A real CI run had one bundled language server under
+ * three names in three launches, and `ruff` under two.
+ */
+export function normalizeProcessName(name: string): string {
+	// Positron's own names never begin with a path, and window titles can contain
+	// anything, so only rewrite what is unambiguously a command line.
+	if (!name.startsWith('/')) {
+		return name;
+	}
+
+	const basename = (token: string): string =>
+		(token.split('/').pop() || token).replace(/-\d+(\.\d+)+.*$/, '');
+
+	const words: string[] = [];
+	const flags: string[] = [];
+	for (const token of name.split(/\s+/).filter(Boolean)) {
+		if (token.startsWith('-')) {
+			flags.push(token.split('=')[0]);
+		} else if (words.length < 2) {
+			words.push(basename(token));
+		}
+	}
+	return [...words, ...flags].join(' ');
+}
+
+/**
+ * Ordered rules matched against the name Positron reports via `--status`, after
+ * normalization. First match wins, so put more specific patterns first.
  */
 const NAME_RULES: [RegExp, ProcessRole][] = [
 	[/^gpu-process$/, 'gpu'],
@@ -18,8 +55,20 @@ const NAME_RULES: [RegExp, ProcessRole][] = [
 	[/^file-watcher\b/, 'file_watcher'],
 	[/^extension-host\b/, 'extension_host'],
 	[/^window\b/, 'renderer'],
-	[/language-server/, 'language_server'],
+	// Chromium's fork helper. Small and always present in pairs, so leaving it
+	// unlabeled means a permanent unattributed row in every report.
+	[/^zygote$/, 'zygote'],
+	// Bundled servers: json/html/css ship as `<lang>ServerMain`, TypeScript as
+	// `tsserver`. Matching only `language-server` missed all of them, because the
+	// extension is named `json-language-features`, not `-server`.
+	[/ServerMain\b|language-server|language-features|tsserver|^ruff\b/, 'language_server'],
+	// python-env-tools, spawned by positron-python to enumerate interpreters.
+	[/^pet\b/, 'extension_child'],
 	[/^electron-nodejs\b/, 'extension_child'],
+	// A terminal's shell, spawned by pty-host. Its own role rather than folded
+	// into pty_host, so terminal overhead stays separable from shells the user
+	// or shell integration started.
+	[/^bash\b|^zsh\b|^fish\b|shellIntegration/, 'shell'],
 ];
 
 /**

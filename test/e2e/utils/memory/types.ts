@@ -25,6 +25,8 @@ export type ProcessRole =
 	| 'kernel'
 	| 'language_server'
 	| 'extension_child'
+	| 'zygote'
+	| 'shell'
 	| 'unlabeled';
 
 /** One process as read from procfs, before naming or labeling. */
