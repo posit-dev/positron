@@ -144,8 +144,9 @@ export function connectionTarget(config: PostgreSQLConnectionConfig): string {
  * than in `message`, but that is a library convention, not a guarantee -- some engines (verified
  * for DuckDB) append the statement to `message` itself, and the Data Explorer inlines the user's
  * filter and search values into SQL rather than binding parameters. Taking only the first line
- * keeps whatever diagnostic text an engine puts first while dropping any statement echo that might
- * follow it.
+ * drops that trailing statement echo in the common case, but it is partial mitigation, not a
+ * guarantee: an engine can still inline such a value into the first line of the message itself
+ * (verified for DuckDB, whose "Conversion Error" message embeds the offending value directly).
  */
 function firstLineOf(error: unknown): string {
 	const message = error instanceof Error ? error.message : String(error);

@@ -124,9 +124,7 @@ export class Output {
 		await this.quickinput.waitForQuickInputOpened();
 		await this.quickinput.type(filter);
 
-		const labels = this.code.driver.currentPage.locator(
-			'.quick-input-widget .quick-input-list .monaco-list-row .quick-input-list-row > .monaco-icon-label .label-name'
-		);
+		const labels = this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_ENTRY_LABEL);
 		await labels.first().waitFor({ state: 'attached', timeout: 2000 }).catch(() => { /* no matches is a valid result */ });
 		const names = await labels.allTextContents();
 

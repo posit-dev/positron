@@ -98,6 +98,29 @@ describe('createLazyDriverLogger', () => {
 		expect([never.disposeCount(), created.disposeCount()]).toEqual([0, 1]);
 	});
 
+	it('creates no new channel and logs nothing after dispose()', () => {
+		const { factory, names, messages } = createRecordingFactory();
+		const logger = createLazyDriverLogger('DuckDB', factory);
+		logger.info('Connecting');
+		logger.dispose();
+		logger.info('Should be dropped');
+		expect({ names, messages }).toEqual({
+			names: ['Data Connections: DuckDB'],
+			messages: ['info: Connecting'],
+		});
+	});
+
+	it('does not throw and disposes the channel only once when dispose() is called twice', () => {
+		const { factory, disposeCount } = createRecordingFactory();
+		const logger = createLazyDriverLogger('DuckDB', factory);
+		logger.info('Connecting');
+		expect(() => {
+			logger.dispose();
+			logger.dispose();
+		}).not.toThrow();
+		expect(disposeCount()).toBe(1);
+	});
+
 	// Truncation is applied separately in each of the five methods, so each one is independently
 	// breakable. Covering them all matters most for `error`, which is where the drivers pass an
 	// engine error message, and where a DuckDB error echoes the failing statement.
@@ -127,6 +150,22 @@ describe('createLazyDriverLogger', () => {
 		const logger = createLazyDriverLogger('DuckDB', factory);
 		logger.info('  Connecting  \nSELECT * FROM t');
 		expect(messages).toEqual(['info: Connecting']);
+	});
+
+	it('logs the first non-empty line when the message starts with a newline', () => {
+		const { factory, messages } = createRecordingFactory();
+		const logger = createLazyDriverLogger('DuckDB', factory);
+		logger.error('\nBinder Error: Referenced column "x" not found!');
+		expect(messages).toEqual(['error: Binder Error: Referenced column "x" not found!']);
+	});
+
+	it('truncates a CRLF-separated message at the line break and skips a leading blank line', () => {
+		const { factory, messages } = createRecordingFactory();
+		const logger = createLazyDriverLogger('DuckDB', factory);
+		logger.error('\r\nConversion Error: Could not convert string \'alice@example.com\' to INT32\r\nLINE 1: SELECT * FROM t WHERE email = \'alice@example.com\'');
+		expect(messages).toEqual([
+			'error: Conversion Error: Could not convert string \'alice@example.com\' to INT32',
+		]);
 	});
 
 });

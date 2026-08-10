@@ -709,13 +709,16 @@ export class RedshiftTableView {
 		const passId = ++this._profilePassId;
 		this._profileQueryCount = 0;
 		const startedAt = Date.now();
-		this._logger?.info(`[profiles #${passId}] ${this.displayName}: ${params.profiles.length} column(s) in one request; ${this._summarizeRequestedTypes(params.profiles)}`);
+		// These are performance-tuning detail for column-profile queries, not connection diagnostics, so
+		// they stay at trace to avoid flooding the "Data Connections" channel a user opens to see why a
+		// connection failed.
+		this._logger?.trace(`[profiles #${passId}] ${this.displayName}: ${params.profiles.length} column(s) in one request; ${this._summarizeRequestedTypes(params.profiles)}`);
 
 		// Bail at each statement boundary when a newer pass has superseded this one, so a burst of
 		// requests doesn't queue every pass's statements on the single connection.
 		const superseded = () => {
 			if (token?.isCancellationRequested) {
-				this._logger?.info(`[profiles #${passId}] ${this.displayName}: superseded after ${Date.now() - startedAt}ms, ${this._profileQueryCount} query/queries`);
+				this._logger?.trace(`[profiles #${passId}] ${this.displayName}: superseded after ${Date.now() - startedAt}ms, ${this._profileQueryCount} query/queries`);
 				return true;
 			}
 			return false;
@@ -735,7 +738,7 @@ export class RedshiftTableView {
 		const profiles = params.profiles.map(request =>
 			this._assembleProfile(request, filteredRows, params.format_options, scalar, histogramPlans, histogramBins, frequencyData));
 
-		this._logger?.info(`[profiles #${passId}] ${this.displayName}: done in ${Date.now() - startedAt}ms across ${this._profileQueryCount} query/queries`);
+		this._logger?.trace(`[profiles #${passId}] ${this.displayName}: done in ${Date.now() - startedAt}ms across ${this._profileQueryCount} query/queries`);
 		return { callback_id: params.callback_id, profiles };
 	}
 
@@ -757,11 +760,11 @@ export class RedshiftTableView {
 	private async _profileQuery(label: string, sql: string): Promise<Array<Record<string, unknown>>> {
 		const startedAt = Date.now();
 		// Log before issuing so a query that hangs (never returns) is still visible in the timeline.
-		this._logger?.info(`[profiles #${this._profilePassId}]   issuing ${label}...`);
+		this._logger?.trace(`[profiles #${this._profilePassId}]   issuing ${label}...`);
 		try {
 			const rows = await this.client.runQuery(sql);
 			this._profileQueryCount++;
-			this._logger?.info(`[profiles #${this._profilePassId}]   ${label}: ${Date.now() - startedAt}ms, ${rows.length} row(s)`);
+			this._logger?.trace(`[profiles #${this._profilePassId}]   ${label}: ${Date.now() - startedAt}ms, ${rows.length} row(s)`);
 			return rows;
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);

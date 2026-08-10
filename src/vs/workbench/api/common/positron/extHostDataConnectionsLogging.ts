@@ -32,17 +32,26 @@ export interface IDriverLogChannel {
 }
 
 /**
- * Reduces a message to its first line.
+ * Reduces a message to its first non-empty line.
  *
  * Driver errors can echo the failing SQL statement after their first line, and the Data Explorer
  * inlines the user's filter and search values into that SQL rather than binding them as
- * parameters, so the echo would carry user data into the log file on disk. Truncating here makes
- * that structural: no driver can leak it by forgetting to trim at the call site. A
- * `LogOutputChannel` renders one timestamped entry per call anyway, so multi-line messages
- * already displayed poorly.
+ * parameters, so taking only the first line drops that trailing echo in the common case. This is
+ * partial mitigation, not a guarantee: an engine can still inline a value into the primary
+ * message itself (verified for DuckDB, whose "Conversion Error" message embeds the offending
+ * value directly), and truncation does nothing to stop that. A `LogOutputChannel` renders one
+ * timestamped entry per call anyway, so multi-line messages already displayed poorly.
+ *
+ * Lines are split on `\r?\n` so CRLF-separated messages behave the same as LF ones. A message
+ * that starts with a blank line (a leading newline, or captured stderr that begins with one)
+ * would otherwise reduce to an empty string and log a blank entry while discarding the real
+ * diagnostic, so this returns the first line that is not empty once trimmed. If every line is
+ * empty, the result is the empty string.
  */
 function firstLine(message: string): string {
-	return message.split('\n')[0].trim();
+	const lines = message.split(/\r?\n/);
+	const nonEmptyLine = lines.find(line => line.trim().length > 0);
+	return (nonEmptyLine ?? '').trim();
 }
 
 /**
@@ -60,8 +69,19 @@ export function createLazyDriverLogger(
 	createChannel: (name: string) => IDriverLogChannel
 ): positron.DataConnectionLogger & vscode.Disposable {
 	let channel: IDriverLogChannel | undefined;
+	// Every driver pushes its logger into `context.subscriptions` before its RPC handler, and
+	// VS Code disposes subscriptions in push order, so on deactivation the logger is disposed
+	// before the handler. In-flight work started through the handler (a pending column-profile
+	// promise, a rejected connect still unwinding) can still call a log method afterwards. Without
+	// this flag that would recreate the channel via `ensureChannel()` and register it for an
+	// extension that is already gone, with nothing left to dispose it. Once disposed, every method
+	// is a permanent no-op.
+	let disposed = false;
 
-	const ensureChannel = (): IDriverLogChannel => {
+	const ensureChannel = (): IDriverLogChannel | undefined => {
+		if (disposed) {
+			return undefined;
+		}
 		if (!channel) {
 			channel = createChannel(localize(
 				'positron.dataConnections.driverLogChannel',
@@ -74,10 +94,14 @@ export function createLazyDriverLogger(
 	return {
 		trace: message => channel?.trace(firstLine(message)),
 		debug: message => channel?.debug(firstLine(message)),
-		info: message => ensureChannel().info(firstLine(message)),
-		warn: message => ensureChannel().warn(firstLine(message)),
-		error: message => ensureChannel().error(firstLine(message)),
+		info: message => ensureChannel()?.info(firstLine(message)),
+		warn: message => ensureChannel()?.warn(firstLine(message)),
+		error: message => ensureChannel()?.error(firstLine(message)),
 		dispose: () => {
+			if (disposed) {
+				return;
+			}
+			disposed = true;
 			channel?.dispose();
 			channel = undefined;
 		},

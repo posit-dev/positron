@@ -11,7 +11,7 @@ test.use({
 	enableDataConnections: true,
 });
 
-const connectionName = 'driverLoggingDuckDB';
+const connectionName = 'driverLoggingSQLite';
 
 // The display name each driver registers via `registerDriver`, which is the last statement in
 // every driver's `activate()`. Waiting for all seven provider cards to render is therefore proof
@@ -52,12 +52,18 @@ test.describe('Data connection driver logging', {
 		// The negative assertion above would also pass if the logger were broken and never created
 		// a channel at all, so prove the other direction with a local driver that needs no
 		// credentials or network access.
+		//
+		// Use SQLite against a database no other spec opens, rather than DuckDB: duckdb.test.ts
+		// holds order_tracking.duckdb open for its whole file in a beforeAll, and DuckDB's write
+		// lock is exclusive, so a second DuckDB connect from this file would race that lock when
+		// both spec files land on workers at the same time. SQLite tolerates concurrent openers,
+		// which removes the contention instead of just moving it to a different file.
 		const { dataConnections } = app.workbench;
-		const databaseFile = join(app.workspacePathOrFolder, 'data-files/order-tracking/order_tracking.duckdb');
+		const databaseFile = join(app.workspacePathOrFolder, 'data-files/chinook/chinook.db');
 
 		await dataConnections.openDataConnectionsView();
 		await dataConnections.clickAddConnection();
-		await dataConnections.selectProvider('DuckDB');
+		await dataConnections.selectProvider('SQLite');
 		await dataConnections.fillConnectionInputs({
 			'Connection Name': connectionName,
 			'Database File': databaseFile,
@@ -69,7 +75,10 @@ test.describe('Data connection driver logging', {
 		// lives) does not run until the connection is actually opened, which happens here.
 		await dataConnections.expandConnection(connectionName);
 
-		const channels = await app.workbench.output.getChannelNamesContaining('Data Connections:');
-		expect(channels).toContain('Data Connections: DuckDB');
+		// Channel registration is asynchronous relative to expandConnection (which only waits for
+		// the tree's twisty state), so poll until it lands instead of reading the list once.
+		await expect.poll(
+			() => app.workbench.output.getChannelNamesContaining('Data Connections:')
+		).toContain('Data Connections: SQLite');
 	});
 });
