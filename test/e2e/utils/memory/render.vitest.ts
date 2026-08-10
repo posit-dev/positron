@@ -263,3 +263,44 @@ describe('eager activations grouped by event', () => {
 		expect(output).toMatch(/`onStartupFinished` \(1\)/);
 	});
 });
+
+describe('top processes excludes the fixed process skeleton', () => {
+	// Nine of fourteen roles hold exactly one process, and for those the process
+	// row repeats the role row byte for byte. Listing them spent most of the
+	// table restating the table above it and pushed the informative rows off it.
+	const tree = [
+		proc({ pid: 1, processName: 'positron', processRole: 'main', pssBytes: 165 * MB }),
+		proc({ pid: 2, processName: 'window [1] (a-project)', processRole: 'renderer', pssBytes: 485 * MB }),
+		proc({ pid: 3, processName: 'extension-host [1]', processRole: 'extension_host', pssBytes: 468 * MB }),
+		proc({ pid: 4, processName: 'gpu-process', processRole: 'gpu', pssBytes: 94 * MB }),
+		proc({ pid: 5, processName: 'quarto.quarto (lsp)', processRole: 'language_server', pssBytes: 62 * MB }),
+		proc({ pid: 6, processName: 'positron-python (pet)', processRole: 'extension_child', pssBytes: 9 * MB }),
+	];
+	const output = () => renderMarkdown([snapshot(tree)]);
+
+	test('leaves the skeleton to the role table', () => {
+		const top = output().split('### Top processes')[1].split('###')[0];
+		expect(top).not.toContain('positron`');
+		expect(top).not.toContain('window [1]');
+		expect(top).not.toContain('extension-host');
+		expect(top).not.toContain('gpu-process');
+	});
+
+	test('keeps everything an extension spawned, however small', () => {
+		const top = output().split('### Top processes')[1].split('###')[0];
+		expect(top).toContain('quarto.quarto (lsp)');
+		// 9 MB would never survive a size cut against a 485 MB renderer, and it is
+		// exactly the kind of process this section exists to name.
+		expect(top).toContain('positron-python (pet)');
+	});
+
+	test('says nothing when only skeleton processes are present', () => {
+		const skeleton = tree.filter(p => ['main', 'renderer', 'extension_host', 'gpu'].includes(p.processRole));
+		expect(renderMarkdown([snapshot(skeleton)])).not.toContain('### Top processes');
+	});
+
+	test('still names an unlabeled process, which has no role to fall back on', () => {
+		const withMystery = [...tree, proc({ pid: 7, processName: 'something-new', processRole: 'unlabeled', pssBytes: 100 * MB })];
+		expect(renderMarkdown([snapshot(withMystery)])).toContain('something-new');
+	});
+});

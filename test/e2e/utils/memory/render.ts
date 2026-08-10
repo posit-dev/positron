@@ -9,6 +9,25 @@ import { ActivatedExtension, LabeledProcess, MemorySnapshot, ProcessRole } from 
 const TOP_PROCESSES = 8;
 
 /**
+ * Roles that are Positron's fixed process architecture: exactly one process
+ * each, always present, and named predictably by their role.
+ *
+ * Excluded from the top-processes table because their rows repeat the role table
+ * byte for byte. `main` is `positron`, `gpu` is `gpu-process`, `extension_host`
+ * is `extension-host [1]`. Nine of fourteen roles are singletons like this, so
+ * listing them spent six of eight rows restating the table directly above and
+ * pushed the informative rows off the bottom.
+ *
+ * What is left is everything spawned by or for an extension, which is what the
+ * table exists to name. Nothing is lost: a regression in the renderer or the
+ * extension host shows in the role table at the same number.
+ */
+const SKELETON_ROLES = new Set<ProcessRole>([
+	'main', 'renderer', 'gpu', 'network', 'shared',
+	'extension_host', 'pty_host', 'file_watcher', 'agent_host'
+]);
+
+/**
  * Activation events that cost memory in every window, whether or not the user
  * ever touches the feature.
  *
@@ -208,9 +227,13 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 	// its own; `quarto.quarto (lsp)` growing is a place to go and look.
 	const named = byProcessName(snapshots);
 	const baselineNames = baseline ? byProcessName([baseline]) : new Map<string, { bytes: number; role: ProcessRole }>();
-	const top = [...named].sort((a, b) => b[1].bytes - a[1].bytes).slice(0, TOP_PROCESSES);
+	const top = [...named]
+		.filter(([, { role }]) => !SKELETON_ROLES.has(role))
+		.sort((a, b) => b[1].bytes - a[1].bytes)
+		.slice(0, TOP_PROCESSES);
 	if (top.length > 0) {
 		lines.push('### Top processes', '');
+		lines.push('Excludes the one-per-role processes (renderer, extension host, main, gpu, network, shared, pty host, file watcher, agent host); the role table above reports those at the same figures.', '');
 		lines.push('| Process | Role | PSS | Change |', '| --- | --- | --- | --- |');
 		for (const [name, { bytes, role }] of top) {
 			const before = baselineNames.get(name)?.bytes;

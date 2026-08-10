@@ -30,7 +30,7 @@ env:
 
 jobs:
   memory:
-    name: Idle memory footprint
+    name: measure-idle-memory
     runs-on: ubuntu-latest-8x
     timeout-minutes: 45
     container:
