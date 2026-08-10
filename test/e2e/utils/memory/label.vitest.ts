@@ -199,3 +199,45 @@ describe('roles for the eagerly started servers', () => {
 		expect(roleOf('/opt/positron/positron --type=utility --utility-sub-type=node.mojom.NodeService')).toBe('unlabeled');
 	});
 });
+
+describe('names that CI proved wrong', () => {
+	// The idle memory scenario runs with its own extensions dir, so the segment
+	// is `extensions-dir-memory`. Enumerating dir names missed it and left ruff
+	// and air named after their executable instead of their extension.
+	const RUFF_IN_MEMORY_DIR = '/data/extensions-dir-memory/charliermarsh.ruff-2026.70.0-linux-x64/bundled/libs/bin/ruff server';
+	const AIR_IN_MEMORY_DIR = '/data/extensions-dir-memory/posit.air-vscode-0.28.0-linux-x64/bundled/bin/air language-server';
+
+	test.each([
+		['/data/extensions/positron-duckdb/dist/w.js', 'positron-duckdb (w)'],
+		['/data/extensions-dir/positron-duckdb/dist/w.js', 'positron-duckdb (w)'],
+		['/data/extensions-dir-memory/positron-duckdb/dist/w.js', 'positron-duckdb (w)'],
+	])('derives from any extensions dir variant', (cmd, expected) => {
+		expect(deriveExtensionName(cmd)).toBe(expected);
+	});
+
+	test('names ruff and air after their extension', () => {
+		expect(deriveExtensionName(RUFF_IN_MEMORY_DIR)).toBe('charliermarsh.ruff');
+		expect(deriveExtensionName(AIR_IN_MEMORY_DIR)).toBe('posit.air-vscode');
+	});
+
+	test('electron-nodejs is too generic to identify anything, so argv wins', () => {
+		// CI reported Quarto's server as `electron-nodejs (lsp.js)` in
+		// `extension_child`. The name says a node process runs lsp.js; it does not
+		// say whose. Argv does.
+		const { role } = resolveRole({
+			positronName: 'electron-nodejs (lsp.js)',
+			cmd: '/build/node /data/extensions-dir-memory/quarto.quarto-1.135.0-universal/out/lsp/lsp.js --stdio',
+			isRoot: false
+		});
+		expect(role).toBe('language_server');
+	});
+
+	test('electron-nodejs still falls back to extension_child when argv says nothing', () => {
+		const { role } = resolveRole({
+			positronName: 'electron-nodejs (helper.js)',
+			cmd: '/build/node /build/some/helper.js',
+			isRoot: false
+		});
+		expect(role).toBe('extension_child');
+	});
+});

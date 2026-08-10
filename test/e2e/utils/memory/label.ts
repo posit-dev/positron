@@ -48,13 +48,15 @@ const VERSION_SUFFIX = /-\d+(\.\d+)+.*$/;
 /**
  * The token of a command line that sits inside some extension's directory.
  *
- * Three dir names are in play: `bundled/extensions/` for what ships with the
- * build, `~/.positron-server/extensions/` for what the user installed, and
- * `extensions-dir/` for the throwaway dir the e2e harness passes. Missing the
- * last one would leave every bootstrap extension unnamed in exactly the runs
- * this harness produces.
+ * Any segment beginning `extensions`, rather than a list of known names. The
+ * build uses `bundled/extensions/`, a user install uses
+ * `~/.positron-server/extensions/`, and the e2e harness passes a throwaway
+ * `extensions-dir/` which the memory scenario further varies to
+ * `extensions-dir-memory/`. A first attempt enumerated the first two and shipped
+ * a labeler that silently missed every extension in exactly the runs this
+ * harness produces.
  */
-const EXTENSION_PATH = /\/extensions(?:-dir)?\/([^/\s]+)\//;
+const EXTENSION_PATH = /\/extensions[^/]*\/([^/\s]+)\//;
 
 /**
  * Name a process after the extension that spawned it.
@@ -113,7 +115,6 @@ const NAME_RULES: [RegExp, ProcessRole][] = [
 	[/ServerMain\b|language-server|language-features|tsserver|^ruff\b/, 'language_server'],
 	// python-env-tools, spawned by positron-python to enumerate interpreters.
 	[/^pet\b/, 'extension_child'],
-	[/^electron-nodejs\b/, 'extension_child'],
 	// A terminal's shell, spawned by pty-host. Its own role rather than folded
 	// into pty_host, so terminal overhead stays separable from shells the user
 	// or shell integration started.
@@ -138,6 +139,24 @@ const CMD_RULES: [RegExp, ProcessRole][] = [
 	// would otherwise fall through to the extension fallback below.
 	[/language-server|\/lsp\//, 'language_server'],
 ];
+
+/**
+ * Names Positron reports that identify a wrapper rather than a process.
+ *
+ * `electron-nodejs (lsp.js)` says a node process is running `lsp.js`; it does
+ * not say whose. CI reported Quarto's language server under exactly that name,
+ * which put it in `extension_child` and made the argv rules unreachable. These
+ * are consulted only after argv has had its turn, so a generic name can no
+ * longer outrank a specific identification.
+ */
+const GENERIC_NAME_RULES: [RegExp, ProcessRole][] = [
+	[/^electron-nodejs\b/, 'extension_child'],
+];
+
+/** Whether a name Positron reported identifies only a wrapper. */
+export function isGenericName(positronName: string): boolean {
+	return GENERIC_NAME_RULES.some(([pattern]) => pattern.test(positronName));
+}
 
 function firstMatch(rules: [RegExp, ProcessRole][], subject: string): ProcessRole | undefined {
 	for (const [pattern, role] of rules) {
@@ -172,6 +191,11 @@ export function resolveRole(input: { positronName?: string; cmd: string; isRoot:
 	const byCmd = firstMatch(CMD_RULES, input.cmd);
 	if (byCmd) {
 		return { role: byCmd, labeled };
+	}
+
+	const byGenericName = input.positronName ? firstMatch(GENERIC_NAME_RULES, input.positronName) : undefined;
+	if (byGenericName) {
+		return { role: byGenericName, labeled };
 	}
 
 	// Last, and it must stay last. Everything an extension spawns lives under an

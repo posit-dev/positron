@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { deriveExtensionName, normalizeProcessName, resolveRole } from './label.js';
+import { deriveExtensionName, isGenericName, normalizeProcessName, resolveRole } from './label.js';
 import { readProcessNames } from './positron-status.js';
 import { readProcessTree } from './process-tree.js';
 import { ActivatedExtension, LabeledProcess, MemorySnapshot, RawProcess } from './types.js';
@@ -56,12 +56,12 @@ export function joinProcesses(
 			cmd: proc.cmd,
 			isRoot: proc.pid === rootPid
 		});
-		// Preferred over the normalized command line, but only when that is all
-		// Positron gave us. A real Positron name (`extension-host [1]`) never
-		// starts with a path and always wins; a command line means Positron could
-		// not identify the process, and the extension that spawned it is a better
-		// answer than its argv.
-		const derived = reported === undefined || reported.startsWith('/')
+		// Preferred whenever Positron did not actually identify the process. That
+		// covers two cases: no name at all or a raw command line (Positron could
+		// not name it), and a generic wrapper name like `electron-nodejs (lsp.js)`,
+		// which names the runtime and the script but not the owner. A real name
+		// such as `extension-host [1]` still wins.
+		const derived = reported === undefined || reported.startsWith('/') || isGenericName(reported)
 			? deriveExtensionName(proc.cmd)
 			: undefined;
 
