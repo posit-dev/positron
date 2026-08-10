@@ -127,12 +127,7 @@ export class DatabricksConnection implements positron.DataConnection, IDatabrick
 
 	/** A query client over the given SDK client, for the Data Explorer table views. */
 	private _queryClient(client: DatabricksClient) {
-		return {
-			runQuery: async (sql: string) => {
-				this._logger?.trace(`SQL: ${sql.length > 200 ? `${sql.slice(0, 200)}...` : sql}`);
-				return (await client.query(sql)).rows;
-			}
-		};
+		return { runQuery: async (sql: string) => (await client.query(sql)).rows };
 	}
 
 	/** Closes the connection and releases any previewed table views. Idempotent. */

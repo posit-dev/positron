@@ -807,7 +807,6 @@ export class SnowflakeTableView {
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			this._logger?.info(`[profiles #${this._profilePassId}]   ${label}: FAILED after ${Date.now() - startedAt}ms: ${message}`);
-			this._logger?.info(`[profiles #${this._profilePassId}]   failing SQL: ${sql}`);
 			throw err;
 		}
 	}

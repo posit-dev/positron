@@ -151,12 +151,7 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 
 	/** A query client over the given pg client, for the Data Explorer table views. */
 	private _queryClient(client: RedshiftClient) {
-		return {
-			runQuery: async (sql: string) => {
-				this._logger?.trace(`SQL: ${sql.length > 200 ? `${sql.slice(0, 200)}...` : sql}`);
-				return (await client.query(sql)).rows;
-			}
-		};
+		return { runQuery: async (sql: string) => (await client.query(sql)).rows };
 	}
 
 	/** Closes the connection and releases any previewed table views. Idempotent. */
