@@ -51,11 +51,17 @@ const positronUpdatePackage = localize(
 const ROW_ITEM_HEIGHT = 26;
 const CARD_ITEM_HEIGHT = 72;
 
+// Width below which fixed-size controls are dropped so the package name and version are kept.
+const NARROW_WIDTH_THRESHOLD = 240;
+
 export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const {
 		activeInstance,
 	} = usePositronPackagesContext();
 	const services = usePositronReactServicesContext();
+
+	// Whether the pane is too narrow to spend width on the item's fixed-size controls.
+	const isNarrow = props.width < NARROW_WIDTH_THRESHOLD;
 
 	const [packages, setPackages] = useState<ILanguageRuntimePackage[]>([]);
 
@@ -314,6 +320,81 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		await showPackageHelp(session, services.positronHelpService, services.notificationService, packageName);
 	}, [activeInstance, services]);
 
+	// Shows the row context menu for a package, anchored on either a point (right-click) or an
+	// element (keyboard). Defined at component scope rather than inside the item renderer because
+	// the keyboard path below has no item closure to reach into: it looks the package up from the
+	// list's cursor instead. Both paths must offer the same actions.
+	const showPackageContextMenu = useCallback((
+		pkg: ILanguageRuntimePackage,
+		anchor: { x: number; y: number } | HTMLElement
+	) => {
+		const { name, version, url } = pkg;
+		// Validate the kernel-provided URL in core: only surface http(s) links so a malformed or
+		// non-web scheme (file:, javascript:, ...) coming from the runtime can never reach the
+		// opener.
+		const hasValidUrl = !!url && matchesSomeScheme(url, Schemas.http, Schemas.https);
+
+		services.contextMenuService.showContextMenu({
+			getActions: () => [
+				{
+					id: 'showHelp',
+					label: localize('positronPackages.showHelp', "Show Help"),
+					tooltip: localize('positronPackages.showHelp', "Show Help"),
+					class: undefined,
+					enabled: true,
+					run: () => { void showHelpForPackage(name); }
+				},
+				// Mirrors the icon button, which is only rendered for a package that has a
+				// valid website. This is also the only way to reach the website once the
+				// pane is too narrow to render that button.
+				...(hasValidUrl ? [{
+					id: 'openWebsite',
+					label: localize('positronPackages.openWebsite', "Open Website"),
+					tooltip: localize('positronPackages.openWebsite', "Open Website"),
+					class: undefined,
+					enabled: true,
+					run: () => { void services.openerService.open(URI.parse(url!), { openExternal: true }); }
+				}] : []),
+				new Separator(),
+				{
+					id: 'copy',
+					label: localize('positronPackages.copyPackage', "Copy '{0} ({1})'", name, version),
+					tooltip: localize('positronPackages.copyPackage', "Copy '{0} ({1})'", name, version),
+					class: undefined,
+					enabled: true,
+					run: () => services.clipboardService.writeText(`${name} (${version})`)
+				},
+				{
+					id: 'copyAll',
+					label: localize('positronPackages.copyAllPackages', 'Copy All'),
+					tooltip: localize('positronPackages.copyAllPackages', 'Copy All'),
+					class: undefined,
+					enabled: true,
+					run: () => services.clipboardService.writeText(deduplicatedPackages.map((p) => `${p.name} (${p.version})`).join('\n'))
+				},
+				new Separator(),
+				{
+					id: 'updatePackage',
+					label: positronUpdatePackage,
+					tooltip: positronUpdatePackage,
+					class: undefined,
+					enabled: true,
+					run: () => services.commandService.executeCommand('positronPackages.updatePackage', name)
+
+				},
+				{
+					id: 'uninstallPackage',
+					label: positronUninstallPackage,
+					tooltip: positronUninstallPackage,
+					class: undefined,
+					enabled: true,
+					run: () => services.commandService.executeCommand('positronPackages.uninstallPackage', name)
+				}
+			],
+			getAnchor: () => anchor
+		});
+	}, [services, deduplicatedPackages, showHelpForPackage]);
+
 	// Replace the item renderer whenever its closed-over deps change so the latest
 	// deduplicatedPackages snapshot is visible to "Copy All" and clicks select via the
 	// instance.
@@ -329,57 +410,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			// resolver-supplied `latestVersion` (or P3M as fallback) feeds the
 			// tooltip; without it we'd render "Update available: undefined".
 			const hasUpdate = outdated === true && !!latestVersion;
-
-			const showRowContextMenu = (anchor: { x: number; y: number }) => {
-				services.contextMenuService.showContextMenu({
-					getActions: () => [
-						{
-							id: 'showHelp',
-							label: localize('positronPackages.showHelp', "Show Help"),
-							tooltip: localize('positronPackages.showHelp', "Show Help"),
-							class: undefined,
-							enabled: true,
-							run: () => { void showHelpForPackage(name); }
-						},
-						new Separator(),
-						{
-							id: 'copy',
-							label: localize('positronPackages.copyPackage', "Copy '{0} ({1})'", name, version),
-							tooltip: localize('positronPackages.copyPackage', "Copy '{0} ({1})'", name, version),
-							class: undefined,
-							enabled: true,
-							run: () => services.clipboardService.writeText(`${name} (${version})`)
-						},
-						{
-							id: 'copyAll',
-							label: localize('positronPackages.copyAllPackages', 'Copy All'),
-							tooltip: localize('positronPackages.copyAllPackages', 'Copy All'),
-							class: undefined,
-							enabled: true,
-							run: () => services.clipboardService.writeText(deduplicatedPackages.map((pkg) => `${pkg.name} (${pkg.version})`).join('\n'))
-						},
-						new Separator(),
-						{
-							id: 'updatePackage',
-							label: positronUpdatePackage,
-							tooltip: positronUpdatePackage,
-							class: undefined,
-							enabled: true,
-							run: () => services.commandService.executeCommand('positronPackages.updatePackage', name)
-
-						},
-						{
-							id: 'uninstallPackage',
-							label: positronUninstallPackage,
-							tooltip: positronUninstallPackage,
-							class: undefined,
-							enabled: true,
-							run: () => services.commandService.executeCommand('positronPackages.uninstallPackage', name)
-						}
-					],
-					getAnchor: () => anchor
-				});
-			};
+			// Card mode advertises an update with a ~60px "Update" button on the description row,
+			// which is more width than a narrow pane can spare. Below the threshold it falls back
+			// to the compact arrow that row mode already uses; updating is still a right-click away.
+			const showUpdateButton = hasUpdate && itemSize === 'card' && !isNarrow;
+			const showUpdateIndicator = hasUpdate && !showUpdateButton;
 
 			const helpButton = (
 				<Button
@@ -403,7 +438,9 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				</Button>
 			) : null;
 
-			const rowActions = (
+			// The buttons are a fixed width, so at narrow pane widths they squeeze the name and
+			// version into ellipses. Drop them below the threshold and let right-click carry them.
+			const rowActions = isNarrow ? null : (
 				<>
 					{urlButton}
 					{helpButton}
@@ -419,7 +456,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 						// mousedown, so right-click handling lives on contextmenu instead.
 						e.preventDefault();
 						e.stopPropagation();
-						showRowContextMenu({ x: e.clientX, y: e.clientY });
+						showPackageContextMenu(pkg, { x: e.clientX, y: e.clientY });
 					}}
 					onDoubleClick={() => {
 						// Double-click pins the editor (matching the Extensions pane behaviour).
@@ -443,7 +480,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 						<div className='packages-list-item-header'>
 							<div className='packages-list-item-name'>{displayName}</div>
 							<div className='packages-list-item-version'>{version}</div>
-							{itemSize === 'row' && hasUpdate && (
+							{showUpdateIndicator && (
 								<div
 									className='packages-list-item-update'
 									title={localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion)}
@@ -458,7 +495,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 								<div className='packages-list-item-description' title={description ?? ''}>
 									{description ?? ''}
 								</div>
-								{hasUpdate && (
+								{showUpdateButton && (
 									<Button
 										ariaLabel={localize('positronPackages.updatePackageAria', "Update {0} to {1}", name, latestVersion)}
 										className='packages-list-item-update-button'
@@ -477,7 +514,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		};
 
 		listInstance.setItemRenderer(renderItem);
-	}, [listInstance, deduplicatedPackages, services, itemSize, showHelpForPackage, flashedIds]);
+	}, [listInstance, deduplicatedPackages, services, itemSize, isNarrow, showHelpForPackage, showPackageContextMenu, flashedIds]);
 
 	// Sync the currently-selected package's name into the packages service. onDidUpdate fires
 	// for any instance change (selection, cursor, scroll), so we dedupe before pushing.
@@ -601,6 +638,39 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		});
 	};
 
+	// Shift+F10 and the ContextMenu key open the row menu, which is the keyboard equivalent of
+	// right-click. The data grid keeps DOM focus on its own container rather than on a row, so a
+	// keyboard-fired contextmenu event targets that container and never reaches the row's
+	// onContextMenu handler; the list has to translate these keys itself. This matters most below
+	// the narrow-width threshold, where the menu is the only route to the row's actions, but it is
+	// deliberately not width-gated: the menu's Copy and Uninstall entries have no button at any
+	// width. The keydown bubbles up from the focused grid container to this wrapper.
+	const handleListKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+		const isContextMenuKey = e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey);
+		if (!isContextMenuKey) {
+			return;
+		}
+
+		// The menu acts on the row the cursor is on, not the selection. Arrow keys move the cursor
+		// and leave the selection behind, so targeting the selection would open the menu for a
+		// different package than the one the user navigated to. A click sets both, so the mouse
+		// path is unaffected.
+		const cursorItem = listInstance.getCursorItem();
+		if (!cursorItem) {
+			return;
+		}
+
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Anchor on the cursor row so the menu opens next to it rather than at the pane's corner.
+		// The class is PositronList's default row styling, applied by the list itself. Falling back
+		// to the wrapper keeps the menu reachable if the row is scrolled out of the rendered window.
+		// eslint-disable-next-line no-restricted-syntax -- the row belongs to PositronList's DOM and carries no role or text of its own to query by.
+		const cursorRow = e.currentTarget.querySelector('.positron-list-row.focused');
+		showPackageContextMenu(cursorItem, (cursorRow as HTMLElement | null) ?? e.currentTarget);
+	};
+
 	// Only show the "No packages found" message when the user has narrowed the
 	// list (free text or active category filters). An unfiltered empty list
 	// renders the (empty) data grid, matching prior behavior.
@@ -623,7 +693,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					onFilterTextChanged={handleFilterTextChanged}
 				/>
 			</div>
-			<div className='packages-list-container'>
+			{/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- this wrapper only relays a key the focused grid inside it does not handle; the grid owns the focus and the roles. */}
+			<div className='packages-list-container' onKeyDown={handleListKeyDown}>
 				<PositronList
 					emptyListRenderer={emptyListRenderer}
 					instance={listInstance}
