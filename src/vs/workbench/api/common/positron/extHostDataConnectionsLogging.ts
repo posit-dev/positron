@@ -32,6 +32,20 @@ export interface IDriverLogChannel {
 }
 
 /**
+ * Reduces a message to its first line.
+ *
+ * Driver errors can echo the failing SQL statement after their first line, and the Data Explorer
+ * inlines the user's filter and search values into that SQL rather than binding them as
+ * parameters, so the echo would carry user data into the log file on disk. Truncating here makes
+ * that structural: no driver can leak it by forgetting to trim at the call site. A
+ * `LogOutputChannel` renders one timestamped entry per call anyway, so multi-line messages
+ * already displayed poorly.
+ */
+function firstLine(message: string): string {
+	return message.split('\n')[0].trim();
+}
+
+/**
  * Builds a data connection driver logger whose output channel is created on first use.
  *
  * `info`, `warn`, and `error` create the channel. `trace` and `debug` write only if it
@@ -58,11 +72,11 @@ export function createLazyDriverLogger(
 	};
 
 	return {
-		trace: message => channel?.trace(message),
-		debug: message => channel?.debug(message),
-		info: message => ensureChannel().info(message),
-		warn: message => ensureChannel().warn(message),
-		error: message => ensureChannel().error(message),
+		trace: message => channel?.trace(firstLine(message)),
+		debug: message => channel?.debug(firstLine(message)),
+		info: message => ensureChannel().info(firstLine(message)),
+		warn: message => ensureChannel().warn(firstLine(message)),
+		error: message => ensureChannel().error(firstLine(message)),
 		dispose: () => {
 			channel?.dispose();
 			channel = undefined;

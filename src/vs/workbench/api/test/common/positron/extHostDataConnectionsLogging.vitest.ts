@@ -97,4 +97,35 @@ describe('createLazyDriverLogger', () => {
 
 		expect([never.disposeCount(), created.disposeCount()]).toEqual([0, 1]);
 	});
+
+	it('logs a multi-line info message as its first line only', () => {
+		const { factory, messages } = createRecordingFactory();
+		const logger = createLazyDriverLogger('DuckDB', factory);
+		logger.info('Binder Error: Referenced column "x" not found!\n\nLINE 1: SELECT * FROM t WHERE email LIKE \'%secret-term%\'');
+		expect(messages).toEqual(['info: Binder Error: Referenced column "x" not found!']);
+		expect(messages[0]).not.toContain('LIKE');
+		expect(messages[0]).not.toContain('secret-term');
+	});
+
+	it('leaves a single-line message unchanged', () => {
+		const { factory, messages } = createRecordingFactory();
+		const logger = createLazyDriverLogger('DuckDB', factory);
+		logger.info('Connecting');
+		expect(messages).toEqual(['info: Connecting']);
+	});
+
+	it('trims leading and trailing whitespace from the first line', () => {
+		const { factory, messages } = createRecordingFactory();
+		const logger = createLazyDriverLogger('DuckDB', factory);
+		logger.info('  Connecting  \nSELECT * FROM t');
+		expect(messages).toEqual(['info: Connecting']);
+	});
+
+	it('truncates a multi-line trace message once the channel exists', () => {
+		const { factory, messages } = createRecordingFactory();
+		const logger = createLazyDriverLogger('DuckDB', factory);
+		logger.info('Connecting');
+		logger.trace('Query failed\nSELECT * FROM t WHERE email LIKE \'%secret-term%\'');
+		expect(messages).toEqual(['info: Connecting', 'trace: Query failed']);
+	});
 });

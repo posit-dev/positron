@@ -137,12 +137,15 @@ export function connectionTarget(config: PostgreSQLConnectionConfig): string {
 }
 
 /**
- * Returns just the first line of an error's message, for logging. The pg client's error messages
- * normally keep the failing statement in a separate field rather than in `message`, but that is a
- * library convention, not a guarantee -- some engines (verified for DuckDB) append the statement to
- * `message` itself, and the Data Explorer inlines the user's filter and search values into SQL
- * rather than binding parameters. Taking only the first line keeps whatever diagnostic text an
- * engine puts first while dropping any statement echo that might follow it.
+ * Returns just the first line of an error's message, for the error we throw to the caller of
+ * connect(). Logging is handled separately by core, which truncates every log message to its
+ * first line; this helper exists only for the thrown path, which core's truncation does not cover.
+ * The pg client's error messages normally keep the failing statement in a separate field rather
+ * than in `message`, but that is a library convention, not a guarantee -- some engines (verified
+ * for DuckDB) append the statement to `message` itself, and the Data Explorer inlines the user's
+ * filter and search values into SQL rather than binding parameters. Taking only the first line
+ * keeps whatever diagnostic text an engine puts first while dropping any statement echo that might
+ * follow it.
  */
 function firstLineOf(error: unknown): string {
 	const message = error instanceof Error ? error.message : String(error);

@@ -3403,6 +3403,10 @@ declare module 'positron' {
 		 * driver at once, so an activation-time log would put every channel in the Output
 		 * panel for users who never opened a connection.
 		 *
+		 * Each message is logged as a single line: content after the first newline is dropped,
+		 * because driver errors can echo query text that carries user-entered filter or search
+		 * values.
+		 *
 		 * @param driverName The driver's display name, e.g. `Snowflake`. Core adds the prefix.
 		 * @returns A logger that also disposes the channel, for `context.subscriptions`.
 		 */

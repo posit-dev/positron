@@ -31,17 +31,6 @@ function describeOpenError(err: SqliteError, databasePath: string): string {
 }
 
 /**
- * Returns just the first line of an error's message, for logging. Data Explorer queries inline the
- * user's filter and search values into SQL rather than binding parameters, and some engines append
- * the failing statement to their error message after the first line (verified for DuckDB); the first
- * line holds the diagnostic without the query text.
- */
-function firstLineOf(error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return message.split('\n')[0].trim();
-}
-
-/**
  * A live SQLite connection implementing the DataConnection interface.
  *
  * The native SQLite database runs in a separate child process via
@@ -90,10 +79,8 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 			this._client = client;
 		} catch (err) {
 			client.dispose();
-			// Only the first line is logged: some engines echo the failing statement in their error
-			// message after the first line (verified for DuckDB), and the probe here is a fixed
-			// literal, but describeOpenError's message is not guaranteed to stay that way.
-			this._logger?.error(`Failed to open ${this._databasePath}: ${firstLineOf(err)}`);
+			const message = err instanceof Error ? err.message : String(err);
+			this._logger?.error(`Failed to open ${this._databasePath}: ${message}`);
 			throw new Error(describeOpenError(err as SqliteError, this._databasePath));
 		}
 		this._logger?.info(`Opened ${this._databasePath}`);

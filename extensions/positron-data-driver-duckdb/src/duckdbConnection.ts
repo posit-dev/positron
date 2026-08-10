@@ -14,16 +14,6 @@ export const DUCKDB_DATA_EXPLORER_PROVIDER_ID = 'positron-data-driver-duckdb';
 let nextConnectionId = 1;
 
 /**
- * Returns only the first line of an error message. DuckDB embeds the failing statement in its
- * error text after a `LINE n:` block, and that statement can carry user-entered filter/search
- * values, so only the first line (the error description) is ever safe to log.
- */
-function firstLineOf(error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return message.split('\n')[0].trim();
-}
-
-/**
  * Connection configuration passed from the driver.
  */
 export interface DuckDBConnectionConfig {
@@ -93,7 +83,7 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 		} catch (err: any) {
 			// Release the lease so the worker is torn down if we were the only one holding it.
 			lease.release();
-			this._logger?.error(`Failed to open ${databasePath}: ${firstLineOf(err)}`);
+			this._logger?.error(`Failed to open ${databasePath}: ${err?.message ?? err}`);
 			throw new Error(`Failed to open DuckDB database: ${databasePath}. ${err?.message ?? err}`);
 		}
 

@@ -27,17 +27,6 @@ import {
 export const SQLITE_DATA_EXPLORER_PROVIDER_ID = 'positron-data-driver-sqlite';
 
 /**
- * Returns just the first line of an error's message, for logging. Data Explorer queries inline the
- * user's filter and search values into SQL rather than binding parameters, and some engines append
- * the failing statement to their error message after the first line (verified for DuckDB); the first
- * line holds the diagnostic without the query text.
- */
-function firstLineOf(error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return message.split('\n')[0].trim();
-}
-
-/**
  * The slice of the RPC handler a connection needs to preview its tables. Kept as an interface so a
  * connection can be tested without registering the real Data Explorer provider.
  */
@@ -169,10 +158,8 @@ export class SqliteDataExplorerRpcHandler implements vscode.Disposable, ISqliteD
 					params: profiles,
 				} satisfies DataExplorerUiEvent);
 			} catch (error) {
-				// Only the first line is logged: computeColumnProfiles runs queries with the user's
-				// filter and search values inlined into the SQL rather than bound as parameters, and an
-				// engine error can echo the failing statement after its first line.
-				this._logger?.error(`Failed to compute SQLite column profiles: ${firstLineOf(error)}`);
+				const message = error instanceof Error ? error.message : 'unknown error';
+				this._logger?.error(`Failed to compute SQLite column profiles: ${message}`);
 			}
 		})();
 	}
