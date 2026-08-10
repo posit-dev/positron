@@ -47,11 +47,10 @@ import * as fs from 'fs';
 import { log } from './log';
 import { migrateAwsSettings } from './migration/aws';
 import { migrateSnowflakeSettings } from './migration/snowflake';
-import { registerProvidersJsonMigration } from './migration/providersJsonUi';
+import { autoMigrateProvidersJson, registerProvidersJsonMigration } from './migration/providersJsonUi';
 import { AuthProviderLogger } from './authProviderLogger';
 import { applyPwbPositAIDefault } from './pwbDefaults';
 import {
-	createConfigurationLegacySettingsReader,
 	getCachedProvider,
 	initProviderCatalog,
 	onDidChangeProviderCatalog,
@@ -73,20 +72,23 @@ const SETTINGS_MIGRATIONS: readonly SettingsMigration[] = [
 ];
 
 /**
- * Runs the settings migrations, then primes the cached provider catalog.
+ * Runs the settings migrations, migrates them into providers.json, then primes
+ * the cached provider catalog.
  *
- * The order matters: the legacy-settings reader hands the catalog the same
- * `authentication.aws.credentials` / `authentication.snowflake.credentials`
- * keys these migrations write, so a catalog primed first misses migrated
- * AWS/Snowflake connections on the first run and resolves credentials against
- * the wrong profile until the debounced catalog watch catches up.
+ * The order is load-bearing in both directions: the providers.json migration
+ * reads the `authentication.aws.credentials` /
+ * `authentication.snowflake.credentials` keys the settings migrations write, and
+ * the catalog reads no legacy settings, so anything not in providers.json by
+ * prime time is missing when providers resolve credentials.
  *
- * `catalogOptions` and `migrations` are test seams; production passes neither.
+ * `catalogOptions`, `migrations` and `autoMigrate` are test seams; production
+ * passes none of them.
  */
 export async function migrateSettingsAndPrimeCatalog(
 	context: vscode.ExtensionContext,
 	catalogOptions: ProviderCatalogOptions = {},
 	migrations: readonly SettingsMigration[] = SETTINGS_MIGRATIONS,
+	autoMigrate: () => Promise<void> = autoMigrateProvidersJson,
 ): Promise<void> {
 	for (const { name, run } of migrations) {
 		await run().catch(err =>
@@ -94,14 +96,11 @@ export async function migrateSettingsAndPrimeCatalog(
 		);
 	}
 
+	await autoMigrate();
+
 	// Prime the cached provider catalog before registering providers so
 	// registration callbacks resolve connection config from it synchronously.
-	// The legacy-settings reader keeps this cache in sync with the core catalog
-	// during the providers.json migration window.
-	await initProviderCatalog(context, {
-		legacyPositronSettings: createConfigurationLegacySettingsReader(),
-		...catalogOptions,
-	});
+	await initProviderCatalog(context, catalogOptions);
 }
 
 export async function activate(context: vscode.ExtensionContext) {

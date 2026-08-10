@@ -33,11 +33,13 @@ import { execFileSync } from 'child_process';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
 import {
+	buildDomPresence,
 	extractTraceClock,
 	findFailureWindow,
 	mineLogs,
 	phaseLabel,
 	relevanceHintsForSpec,
+	traceEpochOrigin,
 } from './lib-failure-window.js';
 
 // ---------------------------------------------------------------------------
@@ -190,31 +192,6 @@ function selectorTokens(selectors) {
 	return [...tokens];
 }
 
-/**
- * Report whether each failing-selector token ever entered the DOM across the
- * trace's frame snapshots. "NEVER present" => the element never rendered (a
- * product open-path bug), not a render-then-dismiss.
- */
-function buildDomPresence(evts, tokens) {
-	if (!tokens.length) { return null; }
-	const snaps = evts
-		.filter(e => e.type === 'frame-snapshot' && e.snapshot?.timestamp != null)
-		.map(s => ({ ts: s.snapshot.timestamp, json: JSON.stringify(s) }));
-	if (!snaps.length) { return null; }
-	const span = `t=${Math.round(snaps[0].ts)}..${Math.round(snaps[snaps.length - 1].ts)}`;
-	const out = [`\n=== DOM presence across ${snaps.length} frame snapshots (${span}) ===`];
-	out.push("Whether the failing selector's class/id token ever matched a DOM snapshot. 'present in N/M' => the element WAS in the DOM (rules out never-rendered; a visibility/timeout error is then a timing or dismiss race). 'NEVER present' is AMBIGUOUS on its own: the exact class never matched, which fits BOTH a never-rendered element (product open-path bug -- strongest when the console digest shows its command fired) AND locator drift (the element rendered under different markup). Disambiguate with the error-context snapshot's stable text/label, not this line alone.");
-	for (const tok of tokens) {
-		const hits = snaps.filter(s => s.json.includes(tok));
-		if (!hits.length) {
-			out.push(`- '${tok}': NEVER present in any snapshot`);
-		} else {
-			out.push(`- '${tok}': present in ${hits.length}/${snaps.length} snapshots (t=${Math.round(hits[0].ts)}..${Math.round(hits[hits.length - 1].ts)})`);
-		}
-	}
-	return out.join('\n');
-}
-
 /** Strip the `%c`/`color:#…` console-formatting noise VS Code prepends. */
 function cleanConsole(text) {
 	return String(text)
@@ -307,6 +284,11 @@ function parseTrace(tracePath) {
 
 	const timelineLines = [];
 	timelineLines.push(`=== Action Timeline (last ${recent.length} of ${actions.length} events) ===\n`);
+
+	const traceT0 = traceEpochOrigin(events);
+	if (traceT0 != null) {
+		timelineLines.push(`Trace t=0 = ${new Date(traceT0).toISOString()} -- add (t / 1000) seconds to any t= below to get wall clock.\n`);
+	}
 
 	for (const a of recent) {
 		if (a.type === 'before') {

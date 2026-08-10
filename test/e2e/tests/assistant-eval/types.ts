@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application, TestTags, Sessions, HotKeys, TestTeardown } from '../../infra';
+import { Application, TestTags, Sessions, HotKeys } from '../../infra';
 import { Settings } from '../../fixtures/test-setup/settings.fixtures';
 import { EnterChatMessageResult } from '../../pages/positronAssistant';
 
@@ -15,7 +15,6 @@ export interface TestFixtures {
 	app: Application;
 	sessions: Sessions;
 	hotKeys: HotKeys;
-	cleanup: TestTeardown;
 	settings: Settings;
 }
 

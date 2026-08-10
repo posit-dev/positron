@@ -297,7 +297,7 @@ async function writeOpenAndSave(
 
 	await test.step(`Open ${fileName} in Positron`, async () => {
 		await app.workbench.quickaccess.openFile(filePath);
-		await expect(page.getByRole('tab', { name: fileName })).toBeVisible();
+		await expect(app.workbench.editors.editorTab(fileName)).toBeVisible();
 	});
 
 	await test.step('Save to trigger formatOnSave (if applicable)', async () => {

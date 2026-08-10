@@ -201,7 +201,7 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 		});
 
 		await test.step('Navigate back to notebook', async () => {
-			await page.getByRole('tab', { name: /Untitled/ }).click();
+			await editors.editorTab(/Untitled/).click();
 			await inlineDataExplorer.expectToBeVisible();
 		});
 

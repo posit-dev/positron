@@ -180,7 +180,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		});
 	});
 
-	test('ensure closing a notebook removes its console session', { tag: [tags.CONSOLE, tags.EDITOR] }, async function ({ app, page, sessions, runCommand }) {
+	test('ensure closing a notebook removes its console session', { tag: [tags.CONSOLE, tags.EDITOR] }, async function ({ app, sessions, runCommand }) {
 		const { notebooksPositron } = app.workbench;
 
 		// clear any sessions left by prior tests (e.g. a terminated notebook
@@ -200,7 +200,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await sessions.expectStatusToBe('Untitled-1.ipynb', 'idle');
 
 		// closing the notebook removes its console session while the standalone sessions remain (#12940)
-		await page.getByRole('tab', { name: 'Untitled-1.ipynb' }).click();
+		await app.workbench.editors.clickTab('Untitled-1.ipynb');
 		await runCommand('workbench.action.revertAndCloseActiveEditor');
 		await sessions.expectSessionCountToBe(sessionCountBefore);
 	});

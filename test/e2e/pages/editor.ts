@@ -59,7 +59,7 @@ export class Editor {
 	 */
 	async selectTab(filename: string): Promise<void> {
 		await test.step(`Select tab ${filename}`, async () => {
-			await this.code.driver.currentPage.getByRole('tab', { name: filename }).click();
+			await this.editorPane.getByRole('tab', { name: filename }).click();
 		});
 	}
 
@@ -259,7 +259,7 @@ export class Editor {
 
 	async replaceTerm(file: string, term: string, line: number, replaceWith: string) {
 		await test.step(`Replace "${term}" on line ${line} with "${replaceWith}"`, async () => {
-			await this.code.driver.currentPage.getByRole('tab', { name: file }).click();
+			await this.editorPane.getByRole('tab', { name: file }).click();
 			await this.clickOnTerm(file, term, line, true);
 			await this.code.driver.currentPage.keyboard.type(replaceWith);
 		});

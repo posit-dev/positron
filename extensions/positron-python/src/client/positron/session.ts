@@ -225,14 +225,22 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         errorBehavior: positron.RuntimeErrorBehavior,
         codeLocation?: positron.Utf8Location,
         executionMetadata?: Record<string, any>,
-    ): void {
+    ): Promise<void> {
         if (this._kernel) {
             if (this._isUninstallBundledPackageCommand(code, id)) {
                 // It's an attempt to uninstall a bundled package, don't execute.
-                return;
+                return Promise.resolve();
             }
 
-            this._kernel.execute(code, id, mode, errorBehavior, codeLocation, executionMetadata);
+            // Return the kernel's execution promise so a rejection propagates
+            // back to the caller. This matters for the `Unprocessed` mode: the
+            // supervisor checks completeness and rejects (with a
+            // `CodeIncompleteError`) when the code is incomplete, and the
+            // console relies on that rejection to show a continuation prompt.
+            // Dropping it here would leave the console waiting forever.
+            return Promise.resolve(
+                this._kernel.execute(code, id, mode, errorBehavior, codeLocation, executionMetadata),
+            );
         } else {
             throw new Error(`Cannot execute '${code}'; kernel not started`);
         }

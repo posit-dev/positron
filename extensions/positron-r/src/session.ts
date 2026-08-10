@@ -277,9 +277,13 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		errorBehavior: positron.RuntimeErrorBehavior,
 		codeLocation?: positron.Utf8Location,
 		executionMetadata?: Record<string, any>
-	): void {
+	): Promise<void> {
 		if (this._kernel) {
-			this._kernel.execute(code, id, mode, errorBehavior, codeLocation, executionMetadata);
+			// Return the kernel's execution promise so a rejection (e.g. an
+			// Unprocessed submission found to be incomplete) propagates back to
+			// the caller instead of surfacing as an unhandled rejection.
+			return Promise.resolve(
+				this._kernel.execute(code, id, mode, errorBehavior, codeLocation, executionMetadata));
 		} else {
 			throw new Error(`Cannot execute '${code}'; kernel not started`);
 		}

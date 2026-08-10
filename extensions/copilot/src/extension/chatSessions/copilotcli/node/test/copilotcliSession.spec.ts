@@ -7,9 +7,11 @@ import type { SessionOptions } from '@github/copilot/sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatParticipantToolToken, ChatResponseStream } from 'vscode';
 import { ConfigKey, IConfigurationService } from '../../../../../platform/configuration/common/configurationService';
+import { QuotaSnapshots } from '../../../../../platform/chat/common/chatQuotaService';
 import { MockGitService } from '../../../../../platform/ignore/node/test/mockGitService';
 import { ILogService } from '../../../../../platform/log/common/logService';
-import { NoopOTelService, resolveOTelConfig } from '../../../../../platform/otel/common/index';
+import { GenAiAttr, IOTelService, NoopOTelService, resolveOTelConfig, SpanKind } from '../../../../../platform/otel/common/index';
+import { CapturingOTelService } from '../../../../../platform/otel/common/test/capturingOTelService';
 import { IRequestLogger } from '../../../../../platform/requestLogger/common/requestLogger';
 import { NullRequestLogger } from '../../../../../platform/requestLogger/node/nullRequestLogger';
 import { NullTelemetryService } from '../../../../../platform/telemetry/common/nullTelemetryService';
@@ -150,9 +152,15 @@ class MockSdkSession {
 	set toolMetadata(value: unknown[] | undefined) { this._toolMetadata = value; }
 
 	setAuthInfo(info: any) { this.authInfo = info; }
-	updateOptions(options: { authInfo?: unknown }) {
+	public lastSandboxConfig: unknown;
+	public sandboxConfigUpdates: unknown[] = [];
+	updateOptions(options: { authInfo?: unknown; sandboxConfig?: unknown }) {
 		if (options.authInfo !== undefined) {
 			this.authInfo = options.authInfo;
+		}
+		if (options.sandboxConfig !== undefined) {
+			this.lastSandboxConfig = options.sandboxConfig;
+			this.sandboxConfigUpdates.push(options.sandboxConfig);
 		}
 	}
 	async getSelectedModel() { return this._selectedModel; }
@@ -224,6 +232,7 @@ describe('CopilotCLISession', () => {
 	let authInfo: NonNullable<SessionOptions['authInfo']>;
 	let userQuestionAnswer: IQuestionAnswer | undefined;
 	let telemetryService: ITelemetryService;
+	let processedQuotaSnapshots: QuotaSnapshots[];
 	beforeEach(async () => {
 		const services = disposables.add(createExtensionUnitTestingServices());
 		const accessor = services.createTestingAccessor();
@@ -245,6 +254,7 @@ describe('CopilotCLISession', () => {
 		toolsService = new FakeToolsService();
 		userQuestionAnswer = undefined;
 		telemetryService = new NullTelemetryService();
+		processedQuotaSnapshots = [];
 	});
 
 	afterEach(() => {
@@ -253,19 +263,26 @@ describe('CopilotCLISession', () => {
 	});
 
 
-	async function createSession(): Promise<CopilotCLISession> {
+	async function createSession(opts?: { sandboxEnabled?: boolean }): Promise<CopilotCLISession> {
+		return createSessionWith(new NoopOTelService(resolveOTelConfig({ env: {}, extensionVersion: '0.0.0', sessionId: 'test' })), opts?.sandboxEnabled ?? false);
+	}
+
+	async function createSessionWith(otelService: IOTelService, sandboxEnabled = false): Promise<CopilotCLISession> {
 		class FakeUserQuestionHandler implements IUserQuestionHandler {
 			_serviceBrand: undefined;
 			async askUserQuestion(question: IQuestion, toolInvocationToken: ChatParticipantToolToken, token: CancellationToken, toolCallId?: string): Promise<IQuestionAnswer | undefined> {
 				return userQuestionAnswer;
 			}
 		}
+		const sandboxConfig = sandboxEnabled
+			? { enabled: true as const, userPolicy: { filesystem: {}, network: { allowOutbound: false } } }
+			: undefined;
 		return disposables.add(new CopilotCLISession(
 			sessionWorkspaceInfo,
 			sessionAgentName,
 			sdkSession as unknown as Session,
 			[],
-			false,
+			sandboxConfig as any,
 			logger,
 			workspaceService,
 			chatSessionMetadataStore,
@@ -275,10 +292,10 @@ describe('CopilotCLISession', () => {
 			toolsService,
 			new FakeUserQuestionHandler(),
 			configurationService,
-			new NoopOTelService(resolveOTelConfig({ env: {}, extensionVersion: '0.0.0', sessionId: 'test' })),
+			otelService,
 			new MockGitService(),
 			{ _serviceBrand: undefined } as any,
-			{ _serviceBrand: undefined, resetTurnCredits() { }, getCreditsForTurn() { return undefined; }, setLastCopilotUsage() { } } as any,
+			{ _serviceBrand: undefined, resetTurnCredits() { }, getCreditsForTurn() { return undefined; }, setLastCopilotUsage() { }, processQuotaSnapshots(snapshots: QuotaSnapshots) { processedQuotaSnapshots.push(snapshots); } } as any,
 			telemetryService
 		));
 	}
@@ -294,6 +311,63 @@ describe('CopilotCLISession', () => {
 		expect(session.status).toBe(ChatSessionStatus.Completed);
 		expect(stream.output.join('\n')).toContain('Echo: Hello');
 		// Listeners are disposed after completion, so we only assert original streamed content.
+	});
+
+	it('synthesizes chat and execute_tool spans for the in-process CLI turn', async () => {
+		sdkSession.send = async ({ prompt }) => {
+			sdkSession.emit('user.message', { content: prompt });
+			sdkSession.emit('assistant.turn_start', {});
+			sdkSession.emit('tool.execution_start', { toolCallId: 'tc1', toolName: 'bash', arguments: { command: 'ls' } });
+			sdkSession.emit('tool.execution_complete', { toolCallId: 'tc1', success: true, result: { content: 'file.txt' } });
+			sdkSession.emit('assistant.usage', { model: 'claude-x', inputTokens: 100, outputTokens: 20, cacheReadTokens: 5 });
+			sdkSession.emit('assistant.message', { messageId: 'm1', content: 'Done!' });
+			sdkSession.emit('assistant.turn_end', {});
+		};
+
+		const otel = new CapturingOTelService();
+		const session = await createSessionWith(otel);
+		session.attachStream(new MockChatResponseStream());
+		await session.handleRequest({ id: '', toolInvocationToken: undefined as never }, { prompt: 'Run ls' }, [], undefined, authInfo, CancellationToken.None);
+
+		const [chatSpan] = otel.findSpans('chat');
+		const [toolSpan] = otel.findSpans('execute_tool');
+		expect({
+			chat: {
+				name: chatSpan?.name,
+				kind: chatSpan?.kind,
+				model: chatSpan?.attributes[GenAiAttr.REQUEST_MODEL],
+				inputTokens: chatSpan?.attributes[GenAiAttr.USAGE_INPUT_TOKENS],
+				outputTokens: chatSpan?.attributes[GenAiAttr.USAGE_OUTPUT_TOKENS],
+				cacheReadTokens: chatSpan?.attributes[GenAiAttr.USAGE_CACHE_READ_INPUT_TOKENS],
+				outputMessages: chatSpan?.attributes[GenAiAttr.OUTPUT_MESSAGES],
+				parent: chatSpan?.parentTraceContext !== undefined,
+			},
+			tool: {
+				name: toolSpan?.name,
+				kind: toolSpan?.kind,
+				toolName: toolSpan?.attributes[GenAiAttr.TOOL_NAME],
+				result: toolSpan?.attributes[GenAiAttr.TOOL_CALL_RESULT],
+				parent: toolSpan?.parentTraceContext !== undefined,
+			},
+		}).toEqual({
+			chat: {
+				name: 'chat claude-x',
+				kind: SpanKind.CLIENT,
+				model: 'claude-x',
+				inputTokens: 100,
+				outputTokens: 20,
+				cacheReadTokens: 5,
+				outputMessages: JSON.stringify([{ role: 'assistant', parts: [{ type: 'text', content: 'Done!' }] }]),
+				parent: true,
+			},
+			tool: {
+				name: 'execute_tool bash',
+				kind: SpanKind.INTERNAL,
+				toolName: 'bash',
+				result: 'file.txt',
+				parent: true,
+			},
+		});
 	});
 
 	it('routes in-flight output to the latest attached stream', async () => {
@@ -785,6 +859,92 @@ describe('CopilotCLISession', () => {
 		sdkSession.emit('tool.execution_complete', { toolCallId: 'bash-delay-1', toolName: 'bash', success: true, result: { content: 'hi' } });
 		resolveSend!();
 		await requestPromise;
+	});
+
+	it('auto-approves an ordinary shell command when the sandbox is enabled', async () => {
+		let result: unknown;
+		sdkSession.send = async () => {
+			result = await sdkSession.emitPermissionRequest({
+				kind: 'shell',
+				toolCallId: 'sandboxed-tool',
+				commands: [{ identifier: 'ls', readOnly: true }],
+				intention: 'List files',
+				fullCommandText: 'ls',
+				possiblePaths: [],
+				possibleUrls: [],
+				hasWriteFileRedirection: false,
+				canOfferSessionApproval: false,
+			});
+		};
+		const session = await createSession({ sandboxEnabled: true });
+		session.attachStream(new MockChatResponseStream());
+		await session.handleRequest({ id: '', toolInvocationToken: undefined as never }, { prompt: 'Run bash' }, [], undefined, authInfo, CancellationToken.None);
+
+		// The sandbox contains the command, so it is auto-approved without a prompt.
+		expect(result).toEqual({ kind: 'approve-once' });
+		expect(toolsService.invokeToolCalls.filter(c => c.name === 'vscode_get_terminal_confirmation')).toHaveLength(0);
+	});
+
+	it('does not auto-approve a sandbox-bypass shell command and flags it runs outside the sandbox', async () => {
+		let result: unknown;
+		sdkSession.send = async () => {
+			result = await sdkSession.emitPermissionRequest({
+				kind: 'shell',
+				toolCallId: 'bypass-tool',
+				commands: [{ identifier: 'cat ~/secret', readOnly: true }],
+				intention: 'Read secret',
+				fullCommandText: 'cat ~/secret',
+				possiblePaths: [],
+				possibleUrls: [],
+				hasWriteFileRedirection: false,
+				canOfferSessionApproval: false,
+				requestSandboxBypass: true,
+				requestSandboxBypassReason: 'Needs access outside the workspace',
+			});
+		};
+		toolsService.setConfirmationResult('yes');
+		const session = await createSession({ sandboxEnabled: true });
+		session.attachStream(new MockChatResponseStream());
+		await session.handleRequest({ id: '', toolInvocationToken: undefined as never }, { prompt: 'Run bash' }, [], undefined, authInfo, CancellationToken.None);
+
+		// Opting out of the sandbox is an elevation of privilege, so it must fall
+		// through to the confirmation prompt rather than being auto-approved, and
+		// the confirmation must be flagged as running outside the sandbox.
+		const confirmationCalls = toolsService.invokeToolCalls.filter(c => c.name === 'vscode_get_terminal_confirmation');
+		expect(confirmationCalls).toHaveLength(1);
+		expect(confirmationCalls[0].input as { sandboxBypass?: boolean; sandboxBypassReason?: string }).toMatchObject({
+			sandboxBypass: true,
+			sandboxBypassReason: 'Needs access outside the workspace',
+		});
+		expect(result).toEqual({ kind: 'approve-once' });
+	});
+
+	it('applies the configured sandbox for a request running with default approvals', async () => {
+		const session = await createSession({ sandboxEnabled: true });
+		session.attachStream(new MockChatResponseStream());
+		await session.handleRequest({ id: '', toolInvocationToken: undefined as never }, { prompt: 'Run' }, [], undefined, authInfo, CancellationToken.None);
+
+		expect(sdkSession.lastSandboxConfig).toEqual({ enabled: true, userPolicy: { filesystem: {}, network: { allowOutbound: false } } });
+	});
+
+	it('disables the sandbox for a request running with bypass approvals', async () => {
+		for (const level of ['autopilot', 'autoApprove'] as const) {
+			sdkSession = new MockSdkSession();
+			const session = await createSession({ sandboxEnabled: true });
+			session.setPermissionLevel(level);
+			session.attachStream(new MockChatResponseStream());
+			await session.handleRequest({ id: '', toolInvocationToken: undefined as never }, { prompt: 'Run' }, [], undefined, authInfo, CancellationToken.None);
+
+			expect(sdkSession.lastSandboxConfig, level).toEqual({ enabled: false });
+		}
+	});
+
+	it('explicitly disables the sandbox when the session has no sandbox configured', async () => {
+		const session = await createSession({ sandboxEnabled: false });
+		session.attachStream(new MockChatResponseStream());
+		await session.handleRequest({ id: '', toolInvocationToken: undefined as never }, { prompt: 'Run' }, [], undefined, authInfo, CancellationToken.None);
+
+		expect(sdkSession.lastSandboxConfig).toEqual({ enabled: false });
 	});
 
 	it('emits languageModelToolInvoked telemetry for each completed tool invocation', async () => {
@@ -1458,7 +1618,7 @@ describe('CopilotCLISession', () => {
 		expect((remoteState.mcEventBuffer[0] as { data: { toolName: string } }).data.toolName).toBe('bash');
 	});
 
-	it('forwards command-sourced user messages with source and acknowledges the command', async () => {
+	it('forwards command-sourced user messages and acknowledges the command with the echoed turn', async () => {
 		const session = await createSession();
 		const remoteState = {
 			mcSessionId: 'mc-session',
@@ -1471,7 +1631,6 @@ describe('CopilotCLISession', () => {
 			mcLastSubmitAttemptTimeMs: Date.now(),
 			mcProcessedCommandIds: new Set<string>(),
 			mcPendingCommandCompletionIds: new Set<string>(['mc-command-1']),
-			mcPendingCommandPrompts: new Map<string, string>([['mc-command-1', 'hey']]),
 			mcSdkSession: sdkSession as unknown as Session,
 			mcEventListenerDispose: undefined,
 			mcSessionResource: Uri.file('/workspace') as unknown as import('vscode').Uri,
@@ -1486,17 +1645,6 @@ describe('CopilotCLISession', () => {
 			data: { content: 'hey', source: 'command-mc-command-1' },
 		});
 		expect(remoteState.mcCompletedCommandIds).toEqual(['mc-command-1']);
-		expect(remoteState.mcPendingCommandPrompts).toEqual(new Map());
-		expect(remoteState.mcEventBuffer).toHaveLength(1);
-		expect((remoteState.mcEventBuffer[0] as {
-			type: string;
-			parentId: string | null;
-			data: { content: string; source: string };
-		})).toEqual(expect.objectContaining({
-			type: 'user.message',
-			parentId: 'visible-root-message',
-			data: { content: 'hey', source: 'command-mc-command-1' },
-		}));
 
 		(session as any)._bufferMcEvent({
 			type: 'assistant.message',
@@ -1507,216 +1655,10 @@ describe('CopilotCLISession', () => {
 		});
 
 		expect(remoteState.mcEventBuffer).toHaveLength(2);
+		expect((remoteState.mcEventBuffer[0] as { type: string }).type).toBe('user.message');
+		expect((remoteState.mcEventBuffer[0] as { data: { content: string } }).data.content).toBe('hey');
 		expect((remoteState.mcEventBuffer[1] as { type: string; parentId: string | null }).type).toBe('assistant.message');
 		expect((remoteState.mcEventBuffer[1] as { parentId: string | null }).parentId).toBe('remote-command-message');
-	});
-
-	it('synthesizes command source for user messages by pending command content when SDK source is absent', async () => {
-		const session = await createSession();
-		const remoteState = {
-			mcSessionId: 'mc-session',
-			mcEventBuffer: [],
-			mcCompletedCommandIds: [],
-			mcPendingPermissionRequests: new Map(),
-			mcFlushInterval: undefined,
-			mcPollInterval: undefined,
-			mcLastEventId: null,
-			mcLastSubmitAttemptTimeMs: Date.now(),
-			mcProcessedCommandIds: new Set<string>(),
-			mcPendingCommandCompletionIds: new Set<string>(['mc-command-1']),
-			mcPendingCommandPrompts: new Map<string, string>([['mc-command-1', 'ask me my favorite color']]),
-			mcSdkSession: sdkSession as unknown as Session,
-			mcEventListenerDispose: undefined,
-			mcSessionResource: Uri.file('/workspace') as unknown as import('vscode').Uri,
-		};
-		Object.defineProperty(session, '_mcState', { value: remoteState, configurable: true });
-
-		(session as any)._bufferMcEvent({
-			type: 'user.message',
-			id: 'remote-command-message',
-			timestamp: '2026-01-01T00:00:00.000Z',
-			parentId: 'visible-root-message',
-			data: { content: 'ask me my favorite color' },
-		});
-		expect(remoteState.mcCompletedCommandIds).toEqual(['mc-command-1']);
-		expect(remoteState.mcPendingCommandPrompts).toEqual(new Map());
-		expect(remoteState.mcEventBuffer).toHaveLength(1);
-		expect((remoteState.mcEventBuffer[0] as {
-			type: string;
-			parentId: string | null;
-			data: { content: string; source: string };
-		})).toEqual(expect.objectContaining({
-			type: 'user.message',
-			parentId: 'visible-root-message',
-			data: { content: 'ask me my favorite color', source: 'command-mc-command-1' },
-		}));
-
-		(session as any)._bufferMcEvent({
-			type: 'user_input.requested',
-			id: 'ask-user',
-			timestamp: '2026-01-01T00:00:01.000Z',
-			parentId: 'remote-command-message',
-			data: { requestId: 'user-input-1', question: 'What is your favorite color?' },
-		});
-
-		expect(remoteState.mcEventBuffer).toHaveLength(2);
-		expect((remoteState.mcEventBuffer[1] as { type: string; parentId: string | null }).type).toBe('user_input.requested');
-		expect((remoteState.mcEventBuffer[1] as { parentId: string | null }).parentId).toBe('remote-command-message');
-
-		(session as any)._bufferMcEvent({
-			type: 'assistant.message',
-			id: 'assistant-reply',
-			timestamp: '2026-01-01T00:00:02.000Z',
-			parentId: 'ask-user',
-			data: { content: 'Nice, blue is a great choice!' },
-		});
-		(session as any)._bufferMcEvent({
-			type: 'user.message',
-			id: 'late-remote-command-message',
-			timestamp: '2026-01-01T00:00:03.000Z',
-			parentId: 'assistant-reply',
-			data: { content: 'ask me my favorite color' },
-		});
-
-		expect(remoteState.mcEventBuffer).toHaveLength(3);
-		expect((remoteState.mcEventBuffer[2] as { type: string }).type).toBe('assistant.message');
-	});
-
-	it('does not double-buffer duplicated local request events', async () => {
-		const session = await createSession();
-		const remoteState = {
-			mcSessionId: 'mc-session',
-			mcEventBuffer: [],
-			mcCompletedCommandIds: [],
-			mcPendingPermissionRequests: new Map(),
-			mcFlushInterval: undefined,
-			mcPollInterval: undefined,
-			mcLastEventId: null,
-			mcLastSubmitAttemptTimeMs: Date.now(),
-			mcProcessedCommandIds: new Set<string>(),
-			mcSdkSession: sdkSession as unknown as Session,
-			mcEventListenerDispose: undefined,
-			mcSessionResource: Uri.file('/workspace') as unknown as import('vscode').Uri,
-		};
-		Object.defineProperty(session, '_mcState', { value: remoteState, configurable: true });
-
-		const event = {
-			type: 'user.message',
-			data: { content: 'ask me my favorite color' },
-		};
-		(session as any)._bufferMcEvent(event);
-		(session as any)._bufferMcEvent(event);
-
-		expect(remoteState.mcEventBuffer).toHaveLength(1);
-		expect((remoteState.mcEventBuffer[0] as { data: { content: string } }).data.content).toBe('ask me my favorite color');
-	});
-
-	it('still forwards ask-user requests when the persistent Mission Control listener is active', async () => {
-		const session = await createSession();
-		const remoteState = {
-			mcSessionId: 'mc-session',
-			mcEventBuffer: [],
-			mcCompletedCommandIds: [],
-			mcPendingPermissionRequests: new Map(),
-			mcFlushInterval: undefined,
-			mcPollInterval: undefined,
-			mcLastEventId: null,
-			mcLastSubmitAttemptTimeMs: Date.now(),
-			mcProcessedCommandIds: new Set<string>(),
-			mcSdkSession: sdkSession as unknown as Session,
-			mcEventListenerDispose: vi.fn(),
-			mcSessionResource: Uri.file('/workspace') as unknown as import('vscode').Uri,
-		};
-		Object.defineProperty(session, '_mcState', { value: remoteState, configurable: true });
-
-		(session as any)._bufferMcEvent({
-			type: 'user_input.requested',
-			data: {
-				requestId: 'user-input-1',
-				question: 'What is your favorite color?',
-				allowFreeform: true,
-			},
-		});
-
-		expect(remoteState.mcEventBuffer).toHaveLength(1);
-		expect((remoteState.mcEventBuffer[0] as { type: string }).type).toBe('user_input.requested');
-	});
-
-	it('suppresses Mission Control user message commands that echo recently forwarded local prompts', async () => {
-		const session = await createSession();
-		const remoteState = {
-			mcSessionId: 'mc-session',
-			mcEventBuffer: [],
-			mcCompletedCommandIds: [],
-			mcPendingPermissionRequests: new Map(),
-			mcFlushInterval: undefined,
-			mcPollInterval: undefined,
-			mcLastEventId: null,
-			mcLastSubmitAttemptTimeMs: Date.now(),
-			mcProcessedCommandIds: new Set<string>(),
-			mcPendingCommandCompletionIds: new Set<string>(),
-			mcSdkSession: sdkSession as unknown as Session,
-			mcEventListenerDispose: undefined,
-			mcSessionResource: Uri.file('/workspace') as unknown as import('vscode').Uri,
-		};
-		Object.defineProperty(session, '_mcState', { value: remoteState, configurable: true });
-
-		(session as any)._bufferMcEvent({
-			type: 'user.message',
-			id: 'local-user-message',
-			timestamp: '2026-01-01T00:00:00.000Z',
-			data: { content: 'ask me my favorite color' },
-		});
-
-		await (CopilotCLISession as any)._pollMcCommandsStatic('mock-session-id', remoteState, {
-			getPendingCommands: vi.fn(async () => [{ id: 'mc-command-1', content: 'ask me my favorite color', state: 'in_progress' }]),
-		}, logger);
-
-		expect({
-			completedCommandIds: remoteState.mcCompletedCommandIds,
-			pendingCommandCompletionIds: remoteState.mcPendingCommandCompletionIds ? [...remoteState.mcPendingCommandCompletionIds] : [],
-		}).toEqual({
-			completedCommandIds: ['mc-command-1'],
-			pendingCommandCompletionIds: [],
-		});
-	});
-
-	it('does not suppress Mission Control user message commands that are not local prompt echoes', async () => {
-		const session = await createSession();
-		const remoteState = {
-			mcSessionId: 'mc-session',
-			mcEventBuffer: [],
-			mcCompletedCommandIds: [],
-			mcPendingPermissionRequests: new Map(),
-			mcFlushInterval: undefined,
-			mcPollInterval: undefined,
-			mcLastEventId: null,
-			mcLastSubmitAttemptTimeMs: Date.now(),
-			mcProcessedCommandIds: new Set<string>(),
-			mcSdkSession: sdkSession as unknown as Session,
-			mcEventListenerDispose: undefined,
-			mcSessionResource: Uri.file('/workspace') as unknown as import('vscode').Uri,
-		};
-		Object.defineProperty(session, '_mcState', { value: remoteState, configurable: true });
-
-		(session as any)._bufferMcEvent({
-			type: 'user.message',
-			id: 'local-user-message',
-			timestamp: '2026-01-01T00:00:00.000Z',
-			data: { content: 'ask me my favorite color' },
-		});
-
-		await (CopilotCLISession as any)._pollMcCommandsStatic('mock-session-id', remoteState, {
-			getPendingCommands: vi.fn(async () => [{ id: 'mc-command-1', content: 'what is next?', state: 'in_progress' }]),
-		}, logger);
-
-		expect({
-			completedCommandIds: remoteState.mcCompletedCommandIds,
-			processedCommandIds: [...remoteState.mcProcessedCommandIds],
-		}).toEqual({
-			completedCommandIds: [],
-			processedCommandIds: ['mc-command-1'],
-		});
 	});
 
 	it('forwards remote command source to the SDK send options', async () => {
@@ -2665,6 +2607,105 @@ describe('CopilotCLISession', () => {
 			const usageFromEvent = stream.usages.find(u => u.promptTokens === 200 && u.completionTokens === 80);
 			expect(usageFromEvent).toBeDefined();
 			expect(session.getLastResponseModelId()).toBe('claude-opus-4.7');
+		});
+
+		it('syncs quota snapshots from assistant.usage event into the quota service', async () => {
+			sdkSession.send = async (options: any) => {
+				sdkSession.emit('user.message', { content: options.prompt });
+				sdkSession.emit('assistant.usage', {
+					model: 'claude-opus-4.7',
+					inputTokens: 200,
+					outputTokens: 80,
+					quotaSnapshots: {
+						premium_interactions: {
+							isUnlimitedEntitlement: false,
+							entitlementRequests: 300,
+							usedRequests: 75,
+							usageAllowedWithExhaustedQuota: true,
+							overage: 1.5,
+							overageAllowedWithExhaustedQuota: true,
+							remainingPercentage: 75,
+							resetDate: new Date('2026-07-01T00:00:00.000Z'),
+						},
+						chat: {
+							isUnlimitedEntitlement: true,
+							entitlementRequests: -1,
+							usedRequests: 10,
+							usageAllowedWithExhaustedQuota: false,
+							overage: 0,
+							overageAllowedWithExhaustedQuota: false,
+							remainingPercentage: 100,
+						},
+					},
+				});
+				sdkSession.emit('assistant.turn_end', {});
+			};
+
+			const session = await createSession();
+			session.attachStream(new UsageCapturingStream());
+
+			await session.handleRequest({ id: 'req-1', toolInvocationToken: undefined as never }, { prompt: 'Hello' }, [], undefined, authInfo, CancellationToken.None);
+
+			expect(processedQuotaSnapshots).toEqual([{
+				premium_interactions: {
+					entitlement: '300',
+					percent_remaining: 75,
+					overage_permitted: true,
+					overage_count: 1.5,
+					reset_date: '2026-07-01T00:00:00.000Z',
+				},
+				chat: {
+					entitlement: '-1',
+					percent_remaining: 100,
+					overage_permitted: false,
+					overage_count: 0,
+					reset_date: undefined,
+				},
+			}]);
+		});
+
+		it('tolerates a string resetDate and skips malformed snapshots from assistant.usage', async () => {
+			sdkSession.send = async (options: any) => {
+				sdkSession.emit('user.message', { content: options.prompt });
+				sdkSession.emit('assistant.usage', {
+					model: 'claude-opus-4.7',
+					inputTokens: 200,
+					outputTokens: 80,
+					quotaSnapshots: {
+						// The internal field can drift from the published type: `resetDate` may arrive as an
+						// ISO string and a snapshot may be missing `remainingPercentage` entirely.
+						premium_interactions: {
+							isUnlimitedEntitlement: false,
+							entitlementRequests: 300,
+							overage: 1.5,
+							overageAllowedWithExhaustedQuota: true,
+							remainingPercentage: 75,
+							resetDate: '2026-07-01T00:00:00.000Z',
+						},
+						completions: {
+							isUnlimitedEntitlement: false,
+							entitlementRequests: 50,
+							// remainingPercentage absent — snapshot must be skipped rather than producing "undefined".
+						},
+					},
+				});
+				sdkSession.emit('assistant.turn_end', {});
+			};
+
+			const session = await createSession();
+			session.attachStream(new UsageCapturingStream());
+
+			await session.handleRequest({ id: 'req-1', toolInvocationToken: undefined as never }, { prompt: 'Hello' }, [], undefined, authInfo, CancellationToken.None);
+
+			expect(processedQuotaSnapshots).toEqual([{
+				premium_interactions: {
+					entitlement: '300',
+					percent_remaining: 75,
+					overage_permitted: true,
+					overage_count: 1.5,
+					reset_date: '2026-07-01T00:00:00.000Z',
+				},
+			}]);
 		});
 
 		it('reports usage from session.usage_info event immediately', async () => {

@@ -65,6 +65,7 @@ if (process.env.CI) {
 export default defineConfig<CustomTestOptions>({
 	captureGitInfo: { commit: true, diff: true },
 	globalSetup: './test/e2e/tests/_global.setup.ts',
+	globalTeardown: './test/e2e/tests/_global.teardown.ts',
 	testDir: './test/e2e',
 	testMatch: '*.test.ts',
 	testIgnore: process.env.ALLOW_PYREFLY === 'true'

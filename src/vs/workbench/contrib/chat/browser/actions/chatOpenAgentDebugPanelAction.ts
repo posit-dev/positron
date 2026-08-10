@@ -25,7 +25,7 @@ import { ChatViewId, IChatWidgetService } from '../chat.js';
 import { CHAT_CATEGORY, CHAT_CONFIG_MENU_ID } from './chatActions.js';
 import { ChatDebugEditorInput } from '../chatDebug/chatDebugEditorInput.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
-import { IChatDebugEditorOptions } from '../chatDebug/chatDebugTypes.js';
+import { IChatDebugEditorOptions, CHAT_DEBUG_ACTIVE_SESSION_IS_AGENT_HOST } from '../chatDebug/chatDebugTypes.js';
 import { LocalChatSessionUri } from '../../common/model/chatUri.js';
 
 /**
@@ -126,7 +126,7 @@ export function registerChatOpenAgentDebugPanelAction() {
 				menu: [{
 					id: MenuId.EditorTitle,
 					group: 'navigation',
-					when: ActiveEditorContext.isEqualTo(ChatDebugEditorInput.ID),
+					when: ContextKeyExpr.and(ActiveEditorContext.isEqualTo(ChatDebugEditorInput.ID), CHAT_DEBUG_ACTIVE_SESSION_IS_AGENT_HOST.negate()),
 					order: 10
 				}],
 			});
@@ -191,7 +191,7 @@ export function registerChatOpenAgentDebugPanelAction() {
 				menu: [{
 					id: MenuId.EditorTitle,
 					group: 'navigation',
-					when: ActiveEditorContext.isEqualTo(ChatDebugEditorInput.ID),
+					when: ContextKeyExpr.and(ActiveEditorContext.isEqualTo(ChatDebugEditorInput.ID), CHAT_DEBUG_ACTIVE_SESSION_IS_AGENT_HOST.negate()),
 					order: 11
 				}],
 			});

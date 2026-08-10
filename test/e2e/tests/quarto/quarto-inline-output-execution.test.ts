@@ -18,6 +18,11 @@ test.describe('Quarto - Inline Output: Execution', {
 		await hotKeys.closeAllEditors();
 	});
 
+	test.afterAll(async function ({ cleanup }) {
+		// Both tests type into the cell; autoSave puts that on disk in the web lanes.
+		await cleanup.restoreFiles([join('workspaces', 'quarto_inline_output', 'editable_cell.qmd')]);
+	});
+
 	test('Python - Verify running cell after editing content works via toolbar', async function ({ python, app, page, openFile }) {
 		const { editors, inlineQuarto } = app.workbench;
 

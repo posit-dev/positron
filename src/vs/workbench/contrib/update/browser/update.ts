@@ -166,6 +166,16 @@ export function appendUpdateMenuItems(menuId: MenuId, group: string): void {
 
 	MenuRegistry.appendMenuItem(menuId, {
 		group,
+		command: {
+			id: 'update.cancelling',
+			title: nls.localize('cancellingUpdateMenuEntry', "Cancelling Update..."),
+			precondition: ContextKeyExpr.false()
+		},
+		when: CONTEXT_UPDATE_STATE.isEqualTo(StateType.Cancelling)
+	});
+
+	MenuRegistry.appendMenuItem(menuId, {
+		group,
 		order: 2,
 		command: {
 			id: 'update.restart',
@@ -219,18 +229,18 @@ export class ProductContribution implements IWorkbenchContribution {
 
 			// --- Start Positron ---
 			// Positron uses its calver `parseVersion` (rather than upstream's semver `tryParseVersion`),
-			// `productService.positronVersion`, `productService.downloadUrl`, and gates on the Positron
+			// `productService.positronVersion`, `productService.releaseNotesUrl`, and gates on the Positron
 			// `update.positron.channel === 'releases'` setting.
 			const lastVersion = parseVersion(storageService.get(ProductContribution.KEY, StorageScope.APPLICATION, ''));
 			const currentVersion = parseVersion(productService.positronVersion);
 			const shouldShowReleaseNotes = configurationService.getValue<boolean>('update.showReleaseNotes');
 			const shouldShowPostInstallInfo = configurationService.getValue<boolean>('update.showPostInstallInfo');
-			const downloadUrl = productService.downloadUrl;
+			const releaseNotesUrl = productService.releaseNotesUrl;
 			const channel = configurationService.getValue<string>('update.positron.channel');
 
 			// was there a major/minor update? if so, open release notes (unless post-install info is enabled, which takes over)
 			if (shouldShowReleaseNotes && !shouldShowPostInstallInfo && !environmentService.skipReleaseNotes
-				&& downloadUrl && lastVersion && currentVersion
+				&& releaseNotesUrl && lastVersion && currentVersion
 				&& isMajorMinorUpdate(lastVersion, currentVersion)
 				&& channel === 'releases'
 			) {
@@ -243,8 +253,8 @@ export class ProductContribution implements IWorkbenchContribution {
 							[{
 								label: nls.localize('releaseNotes', "Release Notes"),
 								run: () => {
-									// view release notes from the downloads page
-									const uri = URI.parse(downloadUrl);
+									// view release notes on the Positron website
+									const uri = URI.parse(releaseNotesUrl);
 									openerService.open(uri);
 								}
 							}],
@@ -404,6 +414,8 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			badge = new ProgressBadge(() => nls.localize('downloading', "Downloading {0} update...", this.productService.nameShort));
 		} else if (state.type === StateType.Updating) {
 			badge = new ProgressBadge(() => nls.localize('updating', "Updating {0}...", this.productService.nameShort));
+		} else if (state.type === StateType.Cancelling) {
+			badge = new ProgressBadge(() => nls.localize('cancellingUpdate', "Cancelling {0} update...", this.productService.nameShort));
 		}
 
 		this.badgeDisposable.clear();
@@ -599,6 +611,7 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 		CommandsRegistry.registerCommand('update.downloading', () => { });
 		CommandsRegistry.registerCommand('update.install', () => this.updateService.applyUpdate());
 		CommandsRegistry.registerCommand('update.updating', () => { });
+		CommandsRegistry.registerCommand('update.cancelling', () => { });
 		CommandsRegistry.registerCommand('update.restart', () => this.updateService.quitAndInstall());
 		CommandsRegistry.registerCommand('_update.state', () => {
 			return this.state;

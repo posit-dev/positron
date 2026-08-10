@@ -31,6 +31,8 @@ FILES=(
   docker/images/SLES15_6/docker-compose.arm64.yml
   docker/images/rocky_8/docker-compose.amd64.yml
   docker/images/rocky_8/docker-compose.arm64.yml
+  docker/images/rocky_9/docker-compose.amd64.yml
+  docker/images/rocky_9/docker-compose.arm64.yml
 )
 
 changed=0

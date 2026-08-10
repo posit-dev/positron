@@ -7,7 +7,7 @@
 	<!-- Start PWB: serve same origin -->
 	<!-- Start Positron -->
 	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; script-src 'sha256-8+wpbl9zAtTQSNL7wdqpog+ZLPHo9zCOO72J0fOZKUo=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
+		content="default-src 'none'; script-src 'sha256-mXmbGZWc7y57qzxx5u1Cv1JgPhGq1xeU/qZdSKeBwIo=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
 
 	<!-- Disable pinch zooming -->
 	<meta name="viewport"
@@ -260,8 +260,8 @@
 			// causes the request to fail.
 			//
 			// Upstream VS Code doesn't have this issue since it loads this file from a CDN.
-			const swPath = encodeURI(`service-worker.js?v=${expectedWorkerVersion}&vscode-resource-base-authority=${searchParams.get('vscode-resource-base-authority')}&remoteAuthority=${searchParams.get('remoteAuthority') ?? ''}`);
-			navigator.serviceWorker.register(swPath)
+			const swPath = encodeURI(`service-worker.js?v=${expectedWorkerVersion}&vscode-resource-base-authority=${searchParams.get('vscode-resource-base-authority')}&remoteAuthority=${searchParams.get('remoteAuthority') ?? ''}&platform=${searchParams.get('platform')}`);
+			navigator.serviceWorker.register(swPath, { updateViaCache: 'none' })
 			// --- End Positron ---
 				.then(async registration => {
 					if (navigator.serviceWorker.controller) {

@@ -27,7 +27,7 @@ export const rNotebookEditCells: EvalTestCase = {
 	mode,
 	tags: [TestTags.POSITRON_NOTEBOOKS],
 
-	run: async ({ app, hotKeys, cleanup, settings }): Promise<RunResult> => {
+	run: async ({ app, hotKeys, settings }): Promise<RunResult> => {
 		const { assistant, notebooksPositron } = app.workbench;
 
 		// Enable Positron notebooks
@@ -56,7 +56,6 @@ export const rNotebookEditCells: EvalTestCase = {
 
 		// Cleanup
 		await hotKeys.closeAllEditors();
-		await cleanup.discardAllChanges();
 
 		return { response, timing };
 	},

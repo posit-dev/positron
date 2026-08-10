@@ -7,11 +7,12 @@
 import './consoleTab.css';
 
 // React.
-import React, { KeyboardEvent, MouseEvent, useEffect, useRef, useState } from 'react';
+import React, { KeyboardEvent, MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
 import { ConsoleSessionStatusIcon } from './consoleSessionStatusIcon.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
@@ -22,7 +23,7 @@ import { isMacintosh } from '../../../../../base/common/platform.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { RuntimeIcon } from './runtimeIcon.js';
-import { getSessionDisplayName } from '../../common/sessionDisplayUtils.js';
+import { getFittedSessionName, getSessionDisplayName } from '../../common/sessionDisplayUtils.js';
 import { ResourceUsageGraph } from './resourceUsageGraph.js';
 import { ResourceUsageStats } from './resourceUsageStats.js';
 import { useResourceUsageHistory } from './useResourceUsageHistory.js';
@@ -42,10 +43,13 @@ const RESOURCE_GRAPH_HEIGHT = 24;
 interface ConsoleTabProps {
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 	readonly width: number; // The width of the console tab list.
+	readonly hideSessionName: boolean; // Set when any tab has no room for its name.
+	readonly hoverManager: IHoverManager | undefined; // Shared by every tab in the list.
+	readonly onSessionNameHiddenChange: (sessionId: string, hidden: boolean) => void;
 	readonly onChangeSession: (instance: IPositronConsoleInstance) => void;
 }
 
-export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: ConsoleTabProps) => {
+export const ConsoleTab = ({ positronConsoleInstance, width, hideSessionName, hoverManager, onSessionNameHiddenChange, onChangeSession }: ConsoleTabProps) => {
 
 	// Context
 	const services = usePositronReactServicesContext();
@@ -63,6 +67,8 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 	const [sessionName, setSessionName] = useState(sessionDisplayName);
 	const resourceUsageHistory = useResourceUsageHistory(positronConsoleInstance);
 	const [consoleState, setConsoleState] = useState(positronConsoleInstance.state);
+	const [fittedSessionName, setFittedSessionName] = useState(sessionDisplayName);
+	const [mouseInside, setMouseInside] = useState(false);
 	const [showResourceMonitor, setShowResourceMonitor] = useState(
 		services.configurationService.getValue<boolean>('console.showResourceMonitor') ?? true
 	);
@@ -70,6 +76,7 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 	// Refs
 	const tabRef = useRef<HTMLDivElement>(null);
 	const inputRef = React.useRef<HTMLInputElement>(null);
+	const sessionNameRef = useRef<HTMLParagraphElement>(null);
 
 	// Variables
 	const isActiveTab = positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId;
@@ -133,6 +140,70 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 		};
 	}, [services.configurationService, services.runtimeSessionService, positronConsoleInstance]);
 
+	// Fit the session name to the space the tab has for it, ellipsizing it as the
+	// tab narrows. This runs in a layout effect so that the measurement happens
+	// after the tab has been laid out at its new width, but before the browser
+	// paints.
+	useLayoutEffect(() => {
+		const sessionNameElement = sessionNameRef.current;
+		if (!sessionNameElement) {
+			return;
+		}
+
+		// Candidate names are measured in a hidden element inside the session
+		// name element so that they're measured in the font that will render
+		// them. It's positioned absolutely so that it takes no part in layout.
+		const measureElement = sessionNameElement.ownerDocument.createElement('span');
+		measureElement.style.position = 'absolute';
+		measureElement.style.visibility = 'hidden';
+		measureElement.style.whiteSpace = 'pre';
+		sessionNameElement.appendChild(measureElement);
+
+		try {
+			// The session name element is a flex item with a basis of zero, so
+			// its width is the space left over by the icons and the delete
+			// button, regardless of the name currently rendered in it.
+			const availableWidth = sessionNameElement.getBoundingClientRect().width;
+			const fittedName = getFittedSessionName(sessionName, availableWidth, text => {
+				measureElement.textContent = text;
+				return measureElement.getBoundingClientRect().width;
+			});
+			setFittedSessionName(fittedName);
+
+			// Report a name with no room left, so that the tab list can hide the
+			// names on the other tabs too rather than showing a ragged mix of
+			// named and unnamed tabs.
+			onSessionNameHiddenChange(positronConsoleInstance.sessionId, fittedName.length === 0);
+		} finally {
+			measureElement.remove();
+		}
+	}, [width, sessionName, isRenamingSession, onSessionNameHiddenChange, positronConsoleInstance.sessionId]);
+
+	// Stop counting this tab's name once the tab goes away.
+	useEffect(() => {
+		return () => onSessionNameHiddenChange(positronConsoleInstance.sessionId, false);
+	}, [onSessionNameHiddenChange, positronConsoleInstance.sessionId]);
+
+	// Show the full session name on hover, but only while the tab is showing
+	// less than all of it. A tooltip repeating a name that's already fully
+	// legible is just noise, and renaming shows the whole name in an input, so
+	// there's nothing to reveal then either.
+	//
+	// The hover targets the whole tab rather than the name element, because the
+	// case that most needs a tooltip is the one where the name has been squeezed
+	// out entirely and there is no name left to hover over.
+	const nameIsCutShort = hideSessionName || fittedSessionName !== sessionName;
+	const tooltip = nameIsCutShort && !isRenamingSession ? sessionName : undefined;
+
+	// Re-runs when the tooltip changes as well as when the mouse moves in, so a
+	// name that gets cut short while the pointer is already on the tab updates
+	// the hover in place.
+	useEffect(() => {
+		if (mouseInside) {
+			hoverManager?.showHover(tabRef.current!, tooltip);
+		}
+	}, [mouseInside, hoverManager, tooltip]);
+
 	// When entering rename mode, focus the input and select its text.
 	useEffect(() => {
 		if (isRenamingSession && inputRef.current) {
@@ -148,6 +219,9 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 	const handleClick = (e: MouseEvent<HTMLDivElement>) => {
 		// Prevent the console from stealing focus from the tab element
 		e.stopPropagation();
+
+		// Don't leave the hover sitting over the tab the user just acted on.
+		hoverManager?.hideHover();
 
 		// Change the active console instance if clicking a different tab
 		if (!isActiveTab) {
@@ -180,9 +254,22 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 			// Show the context menu when the user right-clicks on a tab or
 			// when the user executes ctrl + left-click on macOS
 			if ((e.button === 0 && isMacintosh && e.ctrlKey) || e.button === 2) {
+				// Get the hover out of the way of the menu.
+				hoverManager?.hideHover();
 				showContextMenu(e.clientX, e.clientY);
 			}
 		};
+
+	/**
+	 * Tracks whether the pointer is over the tab, which drives the hover. React's
+	 * onMouseEnter / onMouseLeave map to mouseenter / mouseleave, which don't
+	 * bubble, so moving between the tab's children doesn't re-trigger them.
+	 */
+	const handleMouseEnter = () => setMouseInside(true);
+	const handleMouseLeave = () => {
+		setMouseInside(false);
+		hoverManager?.hideHover();
+	};
 
 	/**
 	 * Shows the context menu when a user right-clicks on a console instance tab.
@@ -425,7 +512,12 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 		<div
 			ref={tabRef}
 			aria-controls={`console-panel-${positronConsoleInstance.sessionMetadata.sessionId}`}
-			aria-label={positronConsoleInstance.sessionName}
+			// The displayed name rather than the raw one off the instance: for a
+			// notebook session those differ (the tab shows the notebook's
+			// filename), and the accessible name should be what the tab reads
+			// as. It's also the full name, which the rendered one may not be
+			// once it has been ellipsized to fit.
+			aria-label={sessionName}
 			aria-selected={positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId}
 			className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId && 'tab-button--active'}`}
 			data-testid={`console-tab-${positronConsoleInstance.sessionMetadata.sessionId}`}
@@ -433,6 +525,8 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 			tabIndex={isActiveTab ? 0 : -1}
 			onClick={handleClick}
 			onMouseDown={handleMouseDown}
+			onMouseEnter={handleMouseEnter}
+			onMouseLeave={handleMouseLeave}
 		>
 			{/* Header row with session info */}
 			<div className='tab-header show-file-icons'>
@@ -456,7 +550,7 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 					/>
 				) : (
 					<>
-						<p className='session-name'>{sessionName}</p>
+						<p ref={sessionNameRef} className='session-name'>{hideSessionName ? '' : fittedSessionName}</p>
 						{/* Show the delete button only if the width of the tab is greater than the minimum width */
 							width > MINIMUM_ACTION_CONSOLE_TAB_WIDTH &&
 							<button

@@ -159,11 +159,14 @@ test.describe('Tests', () => {
 });
 ```
 
-If tests edit workspace files, reset them in `afterAll` with `cleanup.discardAllChanges()` (`git reset --hard` + `git clean -fd` on the workspace) so edits don't leak into later test files:
+If tests edit workspace files, restore those files in `afterAll` so edits don't leak into later test files. Name the files you touched -- all workers share one workspace directory, so a repo-wide reset would clobber a spec running concurrently:
 
 ```typescript
 test.afterAll(async ({ cleanup }) => {
-	await cleanup.discardAllChanges();
+	// Tracked files the test edited
+	await cleanup.restoreFiles([join('workspaces', 'chinook-db-py', 'chinook-sqlite.py')]);
+	// New files the test created
+	await cleanup.removeTestFiles(['output.txt']);
 });
 ```
 

@@ -4,7 +4,11 @@ services:
     # locally on Apple Silicon) automatically, so no per-arch tag is needed here.
     # ARCH_SUFFIX still drives the in-container Positron download (see
     # workbench-local.sh / install-workbench.sh); it does not affect this base image.
-    image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
+    #
+    # WB_TEST_IMAGE is set by workbench-local.sh from --os (see wb_os_image in
+    # workbench-local-lib.sh). The default keeps a bare `docker compose up` and
+    # the CI action, which do not set it, on Ubuntu.
+    image: ${WB_TEST_IMAGE:-ghcr.io/posit-dev/positron-ubuntu24:24.18.0}
     container_name: test
     init: true
     ports:
@@ -32,7 +36,7 @@ services:
       - connect_tokens:/tokens
 
   postgres:
-    image: ghcr.io/posit-dev/positron-postgres:24.15.0
+    image: ghcr.io/posit-dev/positron-postgres:24.18.0
     container_name: postgres
     ports:
       - "5432:5432"
