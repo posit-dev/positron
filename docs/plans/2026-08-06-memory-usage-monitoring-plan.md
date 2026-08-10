@@ -1423,15 +1423,47 @@ git commit -m "test: render memory snapshots to markdown and html"
 
 **Files:**
 - Create: `test/e2e/utils/memory/publish.ts`
+- Create: `test/e2e/utils/memory/publish.vitest.ts`
 
 **Interfaces:**
-- Consumes: `MemorySnapshot` from `types.ts`
+- Consumes: `MemorySnapshot` from `types.ts`, and `CONNECT_API_KEY`, `PROD_API_URL`,
+  `LOCAL_API_URL`, `platformOs`, `platformVersion`, `positronVersion` from
+  `test/e2e/utils/metrics/metric-base.ts`
 - Produces:
   - `type MemoryPayload` (the contract the dashboard plan implements)
+  - `type BaselineResponse`
+  - `buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): MemoryPayload`
+  - `redactProcessName(name: string): string`
+  - `baselineToSnapshot(body: BaselineResponse): MemorySnapshot | undefined`
   - `publishSnapshots(snapshots: MemorySnapshot[], meta: RunMeta): Promise<boolean>`
   - `fetchBaseline(): Promise<MemorySnapshot | undefined>`
 
-- [ ] **Step 1: Implement the client**
+**Three changes made while executing:**
+
+- **The URLs are derived, not restated.** `metric-base.ts` already owns the host and
+  the PROD/LOCAL split, so the memory endpoints come from
+  `PROD_API_URL.replace(/\/metrics$/, '/memory')`. Hard-coding the host a second time
+  means a future host change fixes metrics and leaves memory posting into the void.
+- **`platform_version` was wrong.** The draft set it to `process.platform`, which is
+  the platform *name* (`'linux'`) and a duplicate of `platform_os`. It now uses
+  `platformVersion` (`os.release()`), the kernel release, which is what actually
+  distinguishes two container images running the same OS. A test asserts the two
+  fields differ.
+- **`baselineToSnapshot` was split out** of `fetchBaseline` so the response mapping
+  is testable without a live endpoint.
+
+The payload is a cross-repo contract, so it gets unit tests rather than only a
+compile check: 12 tests covering the version pin, run metadata, snake_case
+conversion of every process field, title redaction, the extension inventory,
+platform fields, and both baseline branches.
+
+Note for anyone running these tests: importing `metric-base.ts` pulls in the whole
+e2e infra, and something in that chain imports `@playwright/test`, which tries to
+reach `localhost:3000` when loaded outside the Playwright runner. The resulting
+`ECONNREFUSED` noise predates this work, is unrelated to it, and does not fail the
+run.
+
+- [x] **Step 1: Implement the client, tests alongside**
 
 Create `test/e2e/utils/memory/publish.ts`. It follows the existing conventions in `test/e2e/utils/metrics/api.ts`: same auth header, same PROD/LOCAL branch gate, same fail-soft behaviour.
 
@@ -1645,7 +1677,7 @@ export async function fetchBaseline(): Promise<MemorySnapshot | undefined> {
 }
 ```
 
-- [ ] **Step 2: Verify it compiles and fails soft**
+- [x] **Step 2: Verify it compiles and fails soft**
 
 ```bash
 npm run test:positron:check-ts 2>&1 | grep 'memory/' || echo "no type errors"
