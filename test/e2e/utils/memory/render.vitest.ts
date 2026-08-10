@@ -226,3 +226,40 @@ describe('startup activations', () => {
 		expect(output).not.toMatch(/eager/);
 	});
 });
+
+describe('eager activations grouped by event', () => {
+	const mixed = [
+		ext('vscode.git', '*'),
+		ext('posit.assistant', 'onStartupFinished'),
+		ext('vscode.git-base', '*'),
+		ext('GitHub.vscode-pull-request-github', 'onStartupFinished'),
+		ext('ms-python.python', 'onLanguage:python'),
+	];
+	const output = () => renderMarkdown([snapshot([proc()], 0, mixed)]);
+
+	test('puts the worse event first, because * beats onStartupFinished to the punch', () => {
+		expect(output().indexOf('`*`')).toBeLessThan(output().indexOf('onStartupFinished'));
+	});
+
+	test('counts each group', () => {
+		expect(output()).toMatch(/`\*` \(2\)/);
+		expect(output()).toMatch(/`onStartupFinished` \(2\)/);
+	});
+
+	test('lists each extension on its own line, sorted', () => {
+		const lines = output().split('\n');
+		expect(lines).toContain('- `vscode.git`');
+		expect(lines).toContain('- `vscode.git-base`');
+		expect(lines.indexOf('- `GitHub.vscode-pull-request-github`')).toBeLessThan(lines.indexOf('- `posit.assistant`'));
+	});
+
+	test('drops the old comma-run entirely', () => {
+		expect(output()).not.toContain('All eager:');
+	});
+
+	test('omits a group nothing used', () => {
+		const output = renderMarkdown([snapshot([proc()], 0, [ext('posit.assistant', 'onStartupFinished')])]);
+		expect(output).not.toContain('`*`');
+		expect(output).toMatch(/`onStartupFinished` \(1\)/);
+	});
+});

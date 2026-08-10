@@ -17,11 +17,26 @@ const TOP_PROCESSES = 8;
  * an activation race during startup, which would put demand-activated
  * extensions in a section whose whole point is what to stop adding.
  */
-const EAGER_EVENTS = new Set(['onStartupFinished', '*']);
+const EAGER_EVENTS: { event: string; note?: string }[] = [
+	// Worst first. `*` does not wait for startup to finish, so it delays the
+	// window itself rather than merely costing memory once it is up.
+	{ event: '*', note: 'activates before startup finishes' },
+	{ event: 'onStartupFinished' }
+];
 
 export function isEagerActivation(event: string | null): boolean {
-	return event !== null && EAGER_EVENTS.has(event);
+	return event !== null && EAGER_EVENTS.some(eager => eager.event === event);
 }
+
+/**
+ * How many extensions one group lists before collapsing to a count.
+ *
+ * High enough that a normal run shows everything: the point of the section is
+ * the ids, and a reader who has to open the HTML artifact to see them has been
+ * given a number instead of a lead. The cap exists only so the summary cannot
+ * grow without bound.
+ */
+const MAX_PER_GROUP = 20;
 
 const MB = 1024 * 1024;
 
@@ -231,7 +246,26 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 			}
 		}
 
-		lines.push(`All eager: ${eager.map(e => `\`${e.extensionId}\``).join(', ')}`, '');
+		// Grouped rather than one comma-separated run. Fifteen ids on one line wrap
+		// mid-name and are unreadable, and the run hid the distinction that matters
+		// most: which of them use `*`.
+		for (const { event, note } of EAGER_EVENTS) {
+			const inGroup = eager
+				.filter(e => e.activationEvent === event)
+				.map(e => e.extensionId)
+				.sort((a, b) => a.localeCompare(b));
+			if (inGroup.length === 0) {
+				continue;
+			}
+			lines.push(`\`${event}\` (${inGroup.length})${note ? ` -- ${note}` : ''}:`, '');
+			for (const id of inGroup.slice(0, MAX_PER_GROUP)) {
+				lines.push(`- \`${id}\``);
+			}
+			if (inGroup.length > MAX_PER_GROUP) {
+				lines.push(`- ...${inGroup.length - MAX_PER_GROUP} more`);
+			}
+			lines.push('');
+		}
 	}
 
 	const appeared = newProcesses(snapshots, baseline);
