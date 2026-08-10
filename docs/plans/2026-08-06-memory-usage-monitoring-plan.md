@@ -101,7 +101,16 @@ cat test/e2e/utils/memory/fixtures/status-linux.txt
 
 Expected: a `CPU %	Mem MB	   PID	Process` header followed by one row per process, with names like `positron`, `gpu-process`, `utility-network-service`, `window [1] (...)`, `shared-process`, `file-watcher [1]`, `pty-host`, `extension-host [1]`.
 
-**This is the gate.** If the command instead prints usage text, hangs, or starts a second Positron window, stop and report. The likely cause is the CLI not finding the running instance's IPC handle, and the fallback would be setting `VSCODE_IPC_HOOK_CLI` from the launched app's environment. Do not proceed to Task 2 until real output is captured.
+**This is the gate.** If the command instead prints usage text, hangs, or starts a second Positron window, stop and report. Do not proceed to Task 2 until real output is captured.
+
+Executed, and the gate passes: the fixtures in `test/e2e/utils/memory/fixtures/` come from Positron 2026.08.0-331 (linux arm64) running under Xvfb in `mcr.microsoft.com/playwright:v1.55.0-jammy`. Two things had to be right, and both cost a run each:
+
+- **`DISPLAY` must be set for the `--status` call, not just for the app.** The CLI services `--status` by spawning a *child* Electron main process (`cli.ts` line 249 pipes that child's stdout). With no display the child dies during GTK init and the CLI exits 0 having printed nothing at all - no error, no usage text. Launching the app with `xvfb-run` and then calling the CLI outside it reproduces this every time. Start one `Xvfb :99` and export `DISPLAY` for both.
+- **Do not run as root.** As root, Electron's super-user guard demands `--no-sandbox` on every invocation including the CLI's; as a normal user without `--no-sandbox` the sandbox cannot start. Run as a non-root user *and* pass `--no-sandbox`.
+
+`VSCODE_IPC_HOOK_CLI` turned out to be a red herring: no `vscode-ipc-*.sock` exists at idle and no child carries that variable. `--status` is routed through the user-data-dir handle, so `--user-data-dir` is the only thing that has to match.
+
+The captured table also contains two names the sample below does not: `zygote` (twice) and `.../json-language-features/.../jsonServerMain`. Both resolve to `unlabeled`, which is the intended behaviour - the vocabulary stays fixed and unclassified processes stay visible as a gap. Revisit only if Task 9's unattributed-memory gate starts tripping.
 
 Ignore the `Mem MB` column entirely. It is known-broken (issue #15382) and we never read it.
 
@@ -779,7 +788,9 @@ export async function readProcessNames(buildRoot: string, userDataDir: string): 
 		const { stdout } = await execFileAsync(
 			resolveCliPath(buildRoot),
 			['--user-data-dir', userDataDir, '--status'],
-			{ timeout: 30_000, maxBuffer: 10 * 1024 * 1024 }
+			// env is passed through deliberately: the child Electron main this
+			// spawns needs DISPLAY, and without it exits 0 with no output.
+			{ timeout: 30_000, maxBuffer: 10 * 1024 * 1024, env: process.env }
 		);
 		return parseStatusOutput(stdout);
 	} catch (error) {
