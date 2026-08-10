@@ -84,10 +84,21 @@ jobs:
           install -m 0755 "/tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh
           gh --version
 
+      # positron-builds is a separate private repo, so the job's default
+      # GITHUB_TOKEN cannot see it and every gh call there 404s. Same app token
+      # release-screenshots.yml mints for the same download.
+      - name: Generate POSITRON_BOT token
+        id: bot-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
       - name: Download build
         id: build
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
         run: |
           OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ inputs.version || 'latest-prerelease' }}")
           echo "$OUTPUT" >> "$GITHUB_OUTPUT"
