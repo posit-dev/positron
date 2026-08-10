@@ -3,9 +3,21 @@
 Goal: tag a PR with `@:workbench` and `@:workbench-rocky` and get the
 `@:workbench` test suite running in parallel on Ubuntu 24 and Rocky Linux.
 
-Status (2026-08-09): **Steps 0 and 1 are done and merged** (#15407) --
+Status (2026-08-09): **Steps 0-4 are done.** Steps 0 and 1 are merged (#15407):
 `ghcr.io/posit-dev/positron-rocky9:24.18.0` is published and verified, and
-Workbench is proven to run on Rocky 9 without systemd. **Step 2 is next.**
+Workbench is proven to run on Rocky 9 without systemd. Steps 2-4 are on this
+branch and make the local harness run **either OS**:
+
+```bash
+npm run pwb -- --os=rocky9  --workbench=daily --positron=daily
+npm run pwb -- --os=ubuntu24 --workbench=daily --positron=daily   # the default
+```
+
+**Step 5 (triage the real suite on Rocky) is next**, and it is where the calendar
+time goes. Steps 6 (the `@:workbench-rocky` tag) and 7 (CI wiring) are untouched:
+nothing in CI consumes any of this yet -- the workflow and the composite action
+set neither `WB_OS` nor `WB_TEST_IMAGE`, so both fall back to the Ubuntu defaults
+and the existing lane is byte-for-byte unaffected.
 
 Nothing consumes either image yet: `test-e2e-rhel.yml` still pins
 `positron-rocky8:24.15.0`, so repointing it is a separate PR.
@@ -479,65 +491,192 @@ copy; PAM service naming (the rpm ships no `pam.d` file of its own, so rserver
 falls back to the system `login` service); rpm dependency resolution against
 EPEL/CRB; and the `rstudio-server` uid.
 
-### Step 2 -- OS-parameterize the URL resolvers (pure bash, no Docker)
+### Step 2 -- OS-parameterize the URL resolvers (DONE)
 
-- `workbench-local-lib.sh`: give `wb_resolve_stable_url` / `wb_resolve_daily_url`
-  an OS parameter (`noble` | `rhel9`) so they read the right JSON key, and teach
-  the stable resolver the rhel9 arm64 rewrite (`/x86_64/` -> `/arm64/`,
-  `-x86_64.rpm` -> `-aarch64.rpm`) alongside the existing noble
-  `amd64` -> `arm64` one. Make `wb_is_deb_url` / `wb_deb_arch` / `wb_deb_version`
-  package-format-aware -- `.deb` vs `.rpm`, `amd64|arm64` vs `x86_64|aarch64`,
-  and the `rstudio-workbench-rhel-` filename stem rather than
-  `rstudio-workbench-`. Probably rename them `wb_is_pkg_url` / `wb_pkg_arch` /
-  `wb_pkg_version`.
-- `get-latest-wb-noble-url.sh`: generalize to take an OS argument. It is copied
-  into the container **by name** in three places (`workbench-local.sh`'s
-  `WB_SCRIPTS`, `setup-workbench-docker/action.yml`, and `install-workbench.sh`'s
-  `CI_STABLE_MODE` branch), so either update all three call sites or keep the old
-  filename as a shim.
-- Add `scripts/test/workbench-local-lib-test.sh`, modelled on
-  `scripts/test/pr-tags-lib-test.sh`, stubbing the `_wb_fetch_*` seams with
-  fixtures. The lib's header comment already promises those seams exist for
-  testing but no test file was ever written; this step pays that off.
+Done as specified, plus a rename and a CI hook. All four OS/arch combinations
+resolve on both channels, and **all eight resolved URLs were verified HTTP 200
+against the live feeds**.
 
-**Validate:** `bash scripts/test/workbench-local-lib-test.sh`. Seconds, offline.
+What landed:
 
-### Step 3 -- Package-manager abstraction in `install-workbench.sh`
+- `workbench-local-lib.sh` takes an OS parameter (`noble` | `rhel9`) on
+  `wb_resolve_stable_url` / `wb_resolve_daily_url`. Everything that differs
+  between the two OSes now funnels through four one-line helpers
+  (`wb_os_valid`, `wb_os_pkg_ext`, `wb_os_pkg_stem`, `wb_os_key_arch`), so a
+  third OS means editing those and nothing else.
+- `wb_is_deb_url` / `wb_deb_arch` / `wb_deb_version` renamed to `wb_is_pkg_url` /
+  `wb_pkg_arch` / `wb_pkg_version` and made format-aware. `wb_pkg_arch`
+  *normalizes* to `amd64|arm64` so callers keep comparing against `WB_ARCH`.
+- `wb_validate_wb_url` and `wb_url_reachable` moved from `workbench-local.sh`
+  into the lib so they are testable, and validation now also rejects a package
+  whose **format** doesn't match the OS (a `.deb` pinned against a rocky9 stack)
+  -- the likeliest paste-o once two lanes exist.
+- `get-latest-wb-noble-url.sh` -> **`get-latest-wb-url.sh`**, taking `<os>
+  [arch]`, and reduced to a thin wrapper that *sources the lib* rather than
+  carrying its own copy of the rewrite rules. All three call sites updated
+  (`WB_SCRIPTS`, `setup-workbench-docker/action.yml`, `install-workbench.sh`).
+  **Consequence: `workbench-local-lib.sh` is now copied into the container too**
+  -- any new copy site must copy both files or the wrapper fails fast with an
+  explicit "not found next to this script" error.
+- `install-workbench.sh` got only a `WB_OS` default (`noble`) to feed that call.
+  Its apt-specific install path is untouched -- that is Step 3.
+- `scripts/test/workbench-local-lib-test.sh`: 73 offline checks, fixtures
+  captured verbatim from the live feeds. Wired into CI as
+  `.github/workflows/test-wb-local-scripts.yml` (path-scoped to
+  `docker/environments/wb-local/**`, modelled on `test-cache-scripts.yml`), which
+  also `bash -n`s every script in the directory -- a syntax error there otherwise
+  surfaces partway through a 40-minute in-container install.
 
-Introduce a `WB_OS` (`ubuntu24` | `rocky9`) switch and branch the apt-specific
-parts: the `apt-get update` / `add-apt-repository universe` /
-`apt-get install acl jq curl` preamble; the download filename and
-`apt install ./workbench.deb`; `fetch_latest_wb_url`'s platform key; the
-`environment-modules` install; the init.d copy from Step 1; and the
-`chown 999:999` fix.
+Three things worth knowing downstream:
 
-Keep the module-file setup identical across both OSes -- the Rocky image has the
-same `/root/scratch/python-env` and `/root/scratch/R-4.4.1` layout, so
-`POSITRON_HIDDEN_PY: "3.12.10 Module"` and `POSITRON_HIDDEN_R: 4.4.1` carry over
-and the `@:environment-modules` tests keep working.
+1. **The rhel9 feed uses two different spellings of arm64.** The dailies
+   *platform key* is `rhel9-arm64`, but the *filename* in that same entry is
+   `-aarch64.rpm`. (amd64 is `x86_64` in both.) So the feed-key spelling
+   (`wb_os_key_arch`) and the filename spelling (`wb_pkg_arch`, plus the rewrite
+   in `wb_resolve_stable_url`) are deliberately handled in separate places.
+   "Correcting" the key to say `aarch64` is the obvious-looking fix and it just
+   404s; there is a test pinning it.
+2. **The stable rhel9 arm64 URL is derived, not published.** downloads.json
+   carries only x86 for every OS. `noble` needs one substitution
+   (`amd64` -> `arm64`); `rhel9` needs two different ones (path `/x86_64/` ->
+   `/arm64/`, filename `-x86_64.rpm` -> `-aarch64.rpm`). Both rewrites are
+   guarded, so a feed that ever starts publishing arm64 directly passes through
+   untouched instead of producing `...-aarch64.rpm-aarch64.rpm`.
+   `get-latest-wb-url.sh` still HEAD-checks derived arm64 URLs before returning
+   them.
+3. **Don't substitute slashes inside `${var//.../...}`.** The first cut wrote the
+   path rewrite that way; the escaping needed for the `/` delimiter is read
+   differently by bash and zsh, and it silently produced a URL containing literal
+   backslashes. It now splits on the last slash and rewrites the two halves
+   separately -- verified byte-identical under both shells.
 
-**Validate:** first re-run the *Ubuntu* stack (`npm run pwb -- --reinstall
---workbench=daily --positron=daily`) to prove no regression, then move on.
+**Open decision for Step 4: which OS names the `--os` flag exposes.** The lib
+deliberately speaks only the *feed's* vocabulary (`noble` | `rhel9`), because
+those strings are literally the JSON keys. Step 4 as written proposes
+`--os=ubuntu24|rocky9` (the *image* names). Either adopt `noble|rhel9` end to end
+or map at the flag -- but don't let both vocabularies leak into the middle
+layers. `wb_os_valid` currently rejects `ubuntu24`/`rocky9` outright, and there
+is a test asserting exactly that, so the choice can't be made by accident.
 
-### Step 4 -- `--os` flag in the local harness
+**Validated:** `bash scripts/test/workbench-local-lib-test.sh` (73 PASS,
+offline, ~1s); the suite re-run against three deliberate mutations of the lib
+(dropped rhel9 filename rewrite, `key_arch` confusion, deb stem applied to rpms)
+to confirm it fails when the code is wrong; all 8 live URLs HEAD-checked 200; and
+`wb_pick_workbench` driven directly for both OSes, including the rejection paths
+and the rendered menu labels.
 
-- `docker-compose.workbench.yml`: `image: ${WB_TEST_IMAGE:-ghcr.io/posit-dev/positron-ubuntu24:24.15.0}`.
-- `workbench-local.sh`: accept `--os=ubuntu24|rocky9` (and `WB_OS` in `.env`),
-  set `WB_TEST_IMAGE`, thread the OS into `wb_pick_workbench` and into the
-  `docker exec` env for the installer. The image change makes Compose recreate
-  the `test` container, which wipes the install -- so `--os` implies a reinstall;
-  make that explicit rather than surprising.
-- `wb_ensure_workbench`'s `/etc/init.d/rstudio-launcher` path now works on both,
-  courtesy of Step 3.
-- The compose file pins `container_name: test` and fixed host ports, so only one
-  stack runs at a time locally. That is already documented; keep it, and require
-  a `down` before switching OS if the recreate path proves fragile.
+### Step 3 -- Package-manager abstraction in `install-workbench.sh` (DONE)
 
-**Validate:** `npm run pwb -- --os=rocky9 --workbench=daily --positron=daily
---reinstall`, then `npm run pwb -- status` and a manual browser login. First
-end-to-end proof.
+`WB_OS` (`ubuntu24` | `rocky9`) now gates every OS-specific step, validated at
+the top of the script so a bad value fails immediately:
+
+- **Dependency preamble**: `dnf install acl jq curl initscripts` on Rocky vs the
+  apt/`add-apt-repository universe` sequence. `initscripts` is genuinely absent
+  from the image (verified: `package initscripts is not installed`) and is what
+  provides `/etc/rc.d/init.d/functions`, which the shipped SysV scripts source.
+- **Download + install**: `workbench.${WB_PKG_EXT}` and `dnf install` vs
+  `apt install`. The download also gained `curl -fL`; without `-f` a 404 wrote an
+  HTML error page into `workbench.deb` and the failure surfaced later, as a
+  confusing package error.
+- **init.d copy**: the rpm's postinst installs systemd units, so `/etc/init.d`
+  really is empty on a fresh container (verified). The installer copies
+  `extras/init.d/redhat/{rstudio-server,rstudio-launcher}` into `/etc/init.d/`
+  and marks them executable, and hard-fails if that directory is missing.
+- **`/home/rstudio-server`** created, so the launcher stops warning that HOME is
+  unset.
+- **License ownership**: `chown 999:999` -> `chown rstudio-server:rstudio-server`.
+  Confirmed necessary rather than theoretical: the uid is **995** on Rocky.
+- **`fetch_latest_wb_url` deleted** in favour of the lib's `wb_resolve_daily_url`,
+  which the container already has. Its hardcoded 2025.11 jammy fallback URL went
+  with it: silently installing a year-old build of the wrong OS is worse than
+  failing, and it could never have been right for Rocky.
+- **`environment-modules`** installed with the OS's package manager. The
+  modulefile setup itself is unchanged and shared -- the Rocky image has the same
+  `/root/scratch/{R-4.4.1,python-env}` layout, so `POSITRON_HIDDEN_PY` /
+  `POSITRON_HIDDEN_R` and the `@:environment-modules` tests carry over untouched.
+
+Two service-control helpers replaced inline code, because the EL9 init scripts
+cannot be trusted (Step 1):
+
+- `stop_rserver` signals and **verifies**, escalating TERM -> KILL, instead of
+  believing `rstudio-server stop`'s exit status (a silent no-op on Rocky).
+- `start_workbench` starts the launcher directly with `nohup setsid` on Rocky and
+  waits for its **socket** (not its process) before starting rserver. The
+  launcher init script the rpm ships is unusable on EL9 in three separate ways,
+  all documented inline at the function.
+
+### Step 4 -- `--os` flag in the local harness (DONE)
+
+- `docker-compose.workbench.yml`: `image: ${WB_TEST_IMAGE:-...ubuntu24...}`. The
+  default keeps a bare `docker compose up` and the CI action on Ubuntu.
+- `workbench-local.sh`: `--os=ubuntu24|rocky9` (or `WB_OS` in `.env`), validated
+  before any Docker work so a typo costs a second rather than several minutes.
+  Precedence is `--os` > `.env` > `ubuntu24`, which required applying the flag
+  *after* `wb_bootstrap_env` -- it sources `.env` under `set -a` and would
+  otherwise clobber the flag.
+- Switching OS changes the image, so Compose recreates `test` and the install is
+  wiped. The run now says so explicitly ("Switching the test container to
+  --os=..., this recreates the container") rather than letting the reinstall look
+  spurious.
+- `status` reports the OS of the **running container**, mapped back from its
+  image, not `$WB_OS` -- `status` never parses `--os`, so the variable would
+  always read `ubuntu24` and could contradict what is actually up.
+
+**Sticky OS.** Once a stack exists, a bare `npm run pwb` stays on its OS instead
+of falling back to the `ubuntu24` default -- otherwise resuming a Rocky stack
+would recreate the container and silently discard a ~10-minute install. An
+explicit `--os` or a `WB_OS` in `.env` still wins; the `.env` case is detected by
+grepping the file, because the variable alone cannot distinguish "unset" from
+"explicitly ubuntu24".
+
+**Two real bugs found and fixed while wiring this up, both the same root cause.**
+`wb_ensure_workbench` checked for the session launcher with
+`docker exec test bash -c 'pgrep -f /usr/lib/rstudio-server/bin/rstudio-launcher'`.
+That pattern matches the **wrapper shell's own command line**, so it returns a
+pid unconditionally -- proven by running it against a launcher path that does not
+exist and still getting a pid back. The launcher therefore always looked alive,
+and the one case the function exists to repair (rserver up, launcher dead ->
+"Unable to contact session launcher") would be skipped. Pre-existing on Ubuntu;
+the fix is the `[/]usr/...` bracket form. Note `pgrep -x rstudio-launcher` is
+*not* an alternative -- comm truncates to 15 chars, so it reads
+`rstudio-launche`.
+
+The **second** instance was newly written Rocky code, and the bracket form did
+not save it: the `docker exec` string both grepped for the launcher *and*
+contained the launcher's literal path in order to start it, so the pattern
+matched that second, unbracketed copy in the very same command line and the guard
+took its `exit 0` path. The launcher was never started and the wait then accepted
+the **stale socket left over from before the stop** -- so a resumed Rocky stack
+came back with rserver up, no launcher, and a dead socket, which fails only later
+when a session is launched.
+
+The lesson generalizes: bracketing hides the pattern's *own* text, not another
+copy of the path sitting beside it. The fix is to not re-check in the same
+command at all -- `wb_ensure_workbench` already computed the answer in a
+dedicated `docker exec` whose command line contains only the bracketed pattern,
+so the start block reuses that variable. Removing the socket before waiting is
+what makes the wait mean anything.
+
+**Validation (all run locally on arm64):**
+
+| Flow | Result |
+| --- | --- |
+| `--os=ubuntu24 --reinstall` | Positron 2026.09.0-12 on Workbench 2026.08.0+187.pro5, 0 errors, HTTP 302, exactly one rserver |
+| `--os=rocky9 --reinstall` | same builds from `...-aarch64.rpm`, 0 errors, HTTP 302, sign-in page renders, one rserver, one launcher |
+| Rocky package/init specifics | `/etc/init.d/{rstudio-server,rstudio-launcher}` installed by the copy step; license `rstudio-server:rstudio-server (995:995) 600`; `positron-server/new` holds the swapped build alongside `bundled/` |
+| bare `npm run pwb` on a Rocky stack | stays `rocky9`, no recreate, no reinstall |
+| `stop` then resume on Rocky | launcher restarted, socket recreated (mtime advances), one rserver, HTTP 302 |
+| invalid `--os=rocky` / `--os=rhel9` | rejected in under a second, before any Docker work |
 
 ### Step 5 -- Run the real suite locally against Rocky
+
+**Iteration gotcha, learned the hard way in Step 4:** do not edit
+`workbench-local.sh` (or any script) while a run of it is in flight. Bash reads a
+script incrementally by byte offset, so inserting lines mid-run makes it resume
+at a shifted offset -- in practice it re-entered `main` and installed everything
+a second time. The symptom (every log line appearing exactly twice, two
+`docker exec` installers from one script pid) looks exactly like a harness bug
+and is not one. Let the run finish, or `Ctrl-C` first.
 
 `npx playwright test --project e2e-workbench` against the Rocky stack. Triage
 every failure into one of three buckets:
