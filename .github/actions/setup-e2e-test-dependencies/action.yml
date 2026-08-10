@@ -37,13 +37,35 @@ runs:
           console.log(names.map((n) => n + "@" + ranges[n]).join(" "));
         ')
 
+        # Captured here for the same reason as ROOT_DEPS: the root package.json is
+        # about to be removed, and the range has to come from it rather than be
+        # restated, or it drifts.
+        TS_SPEC=$(node -e '
+          const pkg = require("./package.json");
+          const range = { ...pkg.dependencies, ...pkg.devDependencies }.typescript;
+          if (!range) {
+            console.error("typescript not declared in the root package.json");
+            process.exit(1);
+          }
+          console.log("typescript@" + range);
+        ')
+
         # Must remove root package.json and provide simple stub to use root dir for test run but not build
         rm package.json
         echo '{"scripts":{"compile":"npx tsc"}}' > package.json
 
-        # Not inherited from the root on purpose: the root pins a TypeScript dev
-        # build for the product build, and this step only compiles test/e2e.
-        npm install typescript
+        # The compile script in test/e2e/package.json invokes the root's
+        # TypeScript by path, so the binary's *name* follows the root dependency.
+        # `typescript` is currently aliased to @typescript/typescript6, whose bin
+        # is `tsc6` rather than `tsc`.
+        #
+        # This used to install an unpinned `typescript` deliberately, on the
+        # grounds that the root pins a build for the product and this step only
+        # compiles test/e2e. That stopped being safe when the alias landed: the
+        # unpinned install resolved to registry TypeScript 7, which ships only
+        # `bin/tsc`, and every lane using this action failed with
+        # "Cannot find module .../bin/tsc6".
+        npm install "$TS_SPEC"
 
         npm install $ROOT_DEPS
         npx playwright install
