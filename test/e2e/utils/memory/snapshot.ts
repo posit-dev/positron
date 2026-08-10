@@ -72,6 +72,39 @@ export function joinProcesses(
 
 const totalPss = (procs: RawProcess[]): number => procs.reduce((sum, p) => sum + p.pssBytes, 0);
 
+/** How many consecutive readings within `SETTLE_TOLERANCE` mean the tree has settled. */
+const SETTLE_READINGS = 3;
+const SETTLE_TOLERANCE = 0.01;
+
+/**
+ * Whether a sequence of PSS totals has settled: the last `SETTLE_READINGS`
+ * consecutive readings each within 1% of the one before it.
+ *
+ * Pure so it can be tested against synthetic sequences. Note this returns false
+ * for a single reading: one measurement says nothing about whether the tree is
+ * still growing.
+ *
+ * A total of zero counts as settled. It means the root process is gone, and there
+ * is nothing left to wait for; the caller's quality gate rejects the empty tree.
+ */
+export function isSettled(readings: number[]): boolean {
+	if (readings.length === 0) {
+		return false;
+	}
+	if (readings[readings.length - 1] === 0) {
+		return true;
+	}
+	if (readings.length <= SETTLE_READINGS) {
+		return false;
+	}
+	return readings
+		.slice(-SETTLE_READINGS)
+		.every((value, index, recent) => {
+			const previous = index === 0 ? readings[readings.length - SETTLE_READINGS - 1] : recent[index - 1];
+			return previous > 0 && Math.abs(value - previous) / previous < SETTLE_TOLERANCE;
+		});
+}
+
 /**
  * Wait until the process tree stops growing, rather than sleeping a fixed
  * amount. Returns how long that took, which is worth recording on its own.
@@ -83,15 +116,11 @@ export async function waitForSettle(
 	const pollMs = options.pollMs ?? 1000;
 	const capMs = options.capMs ?? 90_000;
 	const started = Date.now();
-	let previous = 0;
-	let stableCount = 0;
+	const readings: number[] = [];
 
 	while (Date.now() - started < capMs) {
-		const current = totalPss(await readProcessTree(rootPid));
-		const changed = previous === 0 ? 1 : Math.abs(current - previous) / previous;
-		stableCount = changed < 0.01 ? stableCount + 1 : 0;
-		previous = current;
-		if (stableCount >= 3) {
+		readings.push(totalPss(await readProcessTree(rootPid)));
+		if (isSettled(readings)) {
 			break;
 		}
 		await new Promise(resolve => setTimeout(resolve, pollMs));

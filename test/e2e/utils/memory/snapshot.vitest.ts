@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, test } from 'vitest';
-import { joinProcesses } from './snapshot.js';
+import { isSettled, joinProcesses } from './snapshot.js';
 import { RawProcess } from './types.js';
 
 const proc = (pid: number, ppid: number, cmd: string, pss: number): RawProcess =>
@@ -59,5 +59,40 @@ describe('joinProcesses', () => {
 		];
 		const joined = joinProcesses(samples[0], names, 100, samples);
 		expect(joined.find(p => p.pid === 101)?.pssBytes).toBe(10);
+	});
+});
+
+describe('isSettled', () => {
+	const MB = 1048576;
+
+	test('a single reading is never settled', () => {
+		expect(isSettled([500 * MB])).toBe(false);
+	});
+
+	test('no readings at all is not settled', () => {
+		expect(isSettled([])).toBe(false);
+	});
+
+	test('three consecutive readings within 1% are settled', () => {
+		expect(isSettled([400 * MB, 500 * MB, 501 * MB, 502 * MB, 503 * MB])).toBe(true);
+	});
+
+	test('a tree still growing is not settled', () => {
+		expect(isSettled([100 * MB, 200 * MB, 300 * MB, 400 * MB])).toBe(false);
+	});
+
+	test('a late spike resets the count', () => {
+		expect(isSettled([500 * MB, 500 * MB, 500 * MB, 900 * MB])).toBe(false);
+	});
+
+	test('a zero total counts as settled, because the root is gone', () => {
+		// Previously the zero sentinel meant "no reading yet", so a dead root kept
+		// the loop running to the 90s cap while comparing against zero forever.
+		expect(isSettled([0])).toBe(true);
+		expect(isSettled([500 * MB, 0])).toBe(true);
+	});
+
+	test('growth resuming after a plateau is not settled', () => {
+		expect(isSettled([500 * MB, 501 * MB, 502 * MB, 700 * MB])).toBe(false);
 	});
 });
