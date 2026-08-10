@@ -57,8 +57,9 @@ export function mainWorktreeRoot() {
  * credential already sitting one directory over.
  */
 export function resolveInsightsApiKey() {
-	const fromEnv = process.env.E2E_INSIGHTS_API_KEY;
-	if (isUsableInsightsApiKey(fromEnv)) { return String(fromEnv).trim().replace(/^(['"])(.*)\1$/s, '$2').trim(); }
+	if (isUsableInsightsApiKey(process.env.E2E_INSIGHTS_API_KEY)) {
+		return normalizeInsightsApiKey(process.env.E2E_INSIGHTS_API_KEY);
+	}
 	const seen = new Set();
 	for (const root of [repoRoot(), mainWorktreeRoot()]) {
 		if (seen.has(root)) { continue; }
@@ -67,11 +68,16 @@ export function resolveInsightsApiKey() {
 			const body = fs.readFileSync(path.join(root, '.env.e2e'), 'utf8');
 			const line = /^\s*E2E_INSIGHTS_API_KEY\s*=\s*(.*)$/m.exec(body);
 			if (line && isUsableInsightsApiKey(line[1])) {
-				return line[1].trim().replace(/^(['"])(.*)\1$/s, '$2').trim();
+				return normalizeInsightsApiKey(line[1]);
 			}
 		} catch { /* try the next root */ }
 	}
 	return null;
+}
+
+/** Trim a raw key value and strip the quotes a .env line may wrap it in. */
+function normalizeInsightsApiKey(value) {
+	return String(value ?? '').trim().replace(/^(['"])(.*)\1$/s, '$2').trim();
 }
 
 /**
@@ -81,7 +87,7 @@ export function resolveInsightsApiKey() {
  * the whole point of it, surfacing later as an indistinguishable "API unreachable".
  */
 export function isUsableInsightsApiKey(value) {
-	const key = String(value ?? '').trim().replace(/^(['"])(.*)\1$/s, '$2').trim();
+	const key = normalizeInsightsApiKey(value);
 	return key.length > 0 && key !== 'your_e2e_insights_api_key_here';
 }
 
@@ -172,7 +178,6 @@ export function writeText(file, text) {
  */
 export const FAILURE_TEXT_LIMIT = 1200;
 
-// eslint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g;
 
 /** Strip the SGR colour codes Playwright bakes into reported error strings. */
@@ -257,11 +262,8 @@ export function isMain(importMetaUrl) {
  * Declare a script's CLI surface once, so `--help`, the boolean-flag list handed
  * to parseArgs, and references/scripts.md all read from the same declaration.
  *
- * Before this existed each of those three lived separately and drifted:
- * find-prior-triage.js grew four flags the reference never documented (so the
- * skill could not use them), and the reference documented a --test-id on
- * fetch-pattern-evidence.js that the script never read. cli-flags.test.js holds
- * the declaration and the reference together.
+ * They drifted when kept separately, so cli-flags.test.js asserts the
+ * declaration and the reference still agree.
  *
  * Each flag: { name, value, type, required, description }. `value` is the
  * placeholder shown in help (omit for booleans); `type: 'boolean'` also opts the

@@ -149,7 +149,7 @@ export function parseTraceReport(stdout) {
  * read it don't have to care which entry produced it -- with the two sections
  * local evidence genuinely cannot fill called out rather than faked.
  */
-export function buildLocalSummary({ selected, timeline, errors, errorDetails = null, snapshotFile, logDir, siblings = [] }) {
+export function buildLocalSummary({ selected, timeline, errors, errorDetails = null, snapshotFile, logDir }) {
 	// error-context.md first: it carries the locator and matched elements, where
 	// the trace reduces the same failure to a stub ("Expect failed").
 	// Falling back, the LAST trace error, matching the CI summary. Earlier entries
@@ -178,7 +178,7 @@ export function buildLocalSummary({ selected, timeline, errors, errorDetails = n
 		'',
 		'## Sibling tests in the same file',
 		'',
-		siblings.length ? siblings.map(s => `- ${s}`).join('\n') : '(local runs write no report, so sibling outcomes are unknown -- rerun the whole spec to see them)',
+		'(local runs write no report, so sibling outcomes are unknown -- rerun the whole spec to see them)',
 		'',
 		'## Error-shaped log lines',
 		'',

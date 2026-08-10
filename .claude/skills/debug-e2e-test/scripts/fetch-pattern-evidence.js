@@ -90,11 +90,6 @@ function selectDetail(result, { title, testId }) {
 }
 
 /**
- * Build a compact, deterministic evidence summary from the processor result.
- * The model reads this first and opens the full timeline/snapshot/logs only to
- * answer a concrete unresolved question.
- */
-/**
  * The report's own failure text for this test: locator, matched elements and
  * code frame. The trace's error list reduces the same failure to a stub
  * ("Expect failed"), which names neither the assertion nor the locator.
@@ -109,6 +104,11 @@ export function reportFailureText(result, detail) {
 	return text || null;
 }
 
+/**
+ * Build a compact, deterministic evidence summary from the processor result.
+ * The model reads this first and opens the full timeline/snapshot/logs only to
+ * answer a concrete unresolved question.
+ */
 export function buildEvidenceSummary(result, filter = {}) {
 	const detail = selectDetail(result, filter);
 	if (!detail) {
