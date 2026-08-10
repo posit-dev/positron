@@ -26,6 +26,10 @@ export const DISCONNECTED_STATUS_ICON = '.codicon-positron-runtime-status-discon
 // the quick pick label produced by getRuntimeSourceAndShortName.
 export const DEPRIORITIZED_PYTHON_SOURCES = ['(Pyenv', '(Global', '(System', '(Unknown'];
 
+// Quick pick attempts that insist on a non-deprioritized Python source before accepting
+// the fallback. Attempts, not a wait: each one re-reads a list that may have grown.
+const STRICT_SOURCE_ATTEMPTS = 3;
+
 // Quickpick labels - keep in sync with languageRuntimeActions.ts
 const INTERPRETER_SESSIONS_LABEL = 'Interpreter Sessions';
 const START_NEW_CONSOLE_SESSION_LABEL = 'Start New Console Session';
@@ -61,6 +65,10 @@ export class Sessions {
 	private get metadataDialog() { return this.page.getByRole('dialog').locator('.console-instance-info').first(); }
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 	private get outputChannel() { return this.page.getByRole('combobox'); }
+
+	// Quick pick label of the runtime row most recently clicked, e.g. "Python 3.10.12
+	// (uv: root)", compared against the session that actually starts.
+	private _lastSelectedRuntimeLabel: string | undefined;
 
 	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private console: Console, private contextMenu: ContextMenu, private modals: Modals) { }
 
@@ -115,7 +123,9 @@ export class Sessions {
 				version: sessionTemplate.version, // This will call the getter again
 			};
 			newSession.id = await this.startAndSkipMetadata(newSession);
-			return await this.getMetadata(newSession.id);
+			const metadata = await this.getMetadata(newSession.id);
+			this.expectStartedSourceToMatchSelection(metadata);
+			return metadata;
 		};
 
 		if (reuse) {
@@ -511,6 +521,10 @@ export class Sessions {
 			triggerMode = 'hotkey',
 		} = options;
 
+		// Callers reach this directly too, bypassing the check that consumes the label, so
+		// clear any leftover rather than compare a stale selection to this session.
+		this._lastSelectedRuntimeLabel = undefined;
+
 		return await test.step(`Start session via ${triggerMode}: ${language} ${version} ${options.disambiguator}`, async () => {
 
 			// Don't try to start a new runtime if one is currently starting up
@@ -518,7 +532,9 @@ export class Sessions {
 
 			// Retry the quick pick interaction to handle race conditions where the
 			// picker may not open or populate correctly on the first attempt.
+			let attempt = 0;
 			await expect(async () => {
+				attempt++;
 				// Dismiss any stale quick input from a previous attempt
 				await this.quickinput.closeQuickInput().catch(() => { });
 
@@ -553,9 +569,14 @@ export class Sessions {
 				// We need to click instead of using 'enter' because the Python select interpreter command
 				// may include additional items above the desired interpreter string.
 				try {
-					await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, {
+					this._lastSelectedRuntimeLabel = await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, {
 						timeout: 2000,
 						deprioritize: language === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
+						// The discovery-complete wait above only sees the placeholder clear, which
+						// precedes registration: a uv venv can land after a bare version match
+						// already settled on the same-version base install, where pip then refuses
+						// to install under PEP 668. Retry rather than accept that immediately.
+						requireNonDeprioritized: language === 'Python' && attempt <= STRICT_SOURCE_ATTEMPTS,
 					});
 				} catch (e) {
 					// Auto-discovery is intermittent: POSITRON_PY_VER_SEL's interpreter
@@ -619,6 +640,34 @@ export class Sessions {
 
 			return sessionId!;
 		});
+	}
+
+	/**
+	 * Confirm the session that started is the one that was selected in the quick pick.
+	 *
+	 * Only flags the direction that breaks package installs: a better-ranked row was
+	 * clicked but a deprioritized source started anyway. A deprioritized row being
+	 * clicked was the deliberate fallback, so nothing is asserted there.
+	 */
+	private expectStartedSourceToMatchSelection(metadata: SessionMetaData): void {
+		const selected = this._lastSelectedRuntimeLabel;
+		this._lastSelectedRuntimeLabel = undefined;
+
+		// The markers are Python source names; R shares some spellings (e.g. "System").
+		if (!selected?.startsWith('Python')) {
+			return;
+		}
+
+		const isDeprioritized = (label: string) => DEPRIORITIZED_PYTHON_SOURCES.some(source => label.includes(source));
+		if (isDeprioritized(selected) || !isDeprioritized(`(${metadata.source}`)) {
+			return;
+		}
+
+		throw new Error(
+			`Selected "${selected}" in the quick pick but session ${metadata.id} started on a deprioritized `
+			+ `source "${metadata.source}" (${metadata.path}). The runtime list was re-ranked between `
+			+ 'selection and start.'
+		);
 	}
 
 	/**
