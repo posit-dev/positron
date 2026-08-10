@@ -595,12 +595,6 @@ export class WebClientServer {
 			// --- End Positron ---
 		} satisfies Partial<IProductConfiguration>;
 
-		const proposedApi = this._environmentService.args['enable-proposed-api'];
-		if (proposedApi?.length) {
-			productConfiguration.extensionsEnabledWithApiProposalVersion ??= [];
-			productConfiguration.extensionsEnabledWithApiProposalVersion.push(...proposedApi);
-		}
-
 		if (!this._environmentService.isBuilt) {
 			try {
 				const productOverrides = JSON.parse((await promises.readFile(join(APP_ROOT, 'product.overrides.json'))).toString());
@@ -733,7 +727,10 @@ export class WebClientServer {
 			return void res.end('Not found');
 		}
 
-		const webWorkerExtensionHostIframeScriptSHA = 'sha256-2Q+j4hfT09+1+imS46J2YlkCtHWQt0/BE79PXjJ0ZJ8=';
+		// --- Start PWB ---
+		// Update SHA hash to account for our modifications to the script.
+		const webWorkerExtensionHostIframeScriptSHA = 'sha256-ghZYhGSRQSQb5D/2cH7lc4GsDuoiyAikrw/Ur/xPKc0=';
+		// --- End PWB ---
 
 		const cspDirectives = [
 			'default-src \'self\';',

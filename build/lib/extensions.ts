@@ -5,7 +5,11 @@
 
 import es from 'event-stream';
 import fs from 'fs';
-import cp from 'child_process';
+// --- Start Positron ---
+// child_process is no longer imported directly; child processes are spawned via
+// spawnWithRetry (imported below), which retries transient macOS `spawn EBADF`
+// failures under a file-descriptor spike. Upstream: `import cp from 'child_process';`.
+// --- End Positron ---
 import glob from 'glob';
 import { gulp, filter, rename, buffer, vinylZip, jsonEditor } from './gulp/facade.ts';
 import path from 'path';
@@ -21,6 +25,11 @@ import { getProductionDependencies } from './dependencies.ts';
 import { type IExtensionDefinition, getExtensionStream } from './builtInExtensions.ts';
 import { fetchUrls, fetchGithub } from './fetch.ts';
 import { createTsgoStream, spawnTsgo } from './tsgo.ts';
+// --- Start Positron ---
+// Spawn child processes via spawnWithRetry so transient macOS `spawn EBADF`
+// failures under a file-descriptor spike are retried. See spawnRetry.ts.
+import { spawnWithRetry } from './spawnRetry.ts';
+// --- End Positron ---
 import watcher from './watch/index.ts';
 // --- Start Positron ---
 import os from 'os';
@@ -208,24 +217,31 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 		return result.pipe(createStatsStream(extensionName));
 	}
 
-	new Promise<void>((resolve, reject) => {
-		const proc = cp.execFile(
-			process.execPath,
-			[webpackJs, '--config', webpackConfigFileName, '--mode', 'production', '--devtool', 'source-map'],
-			{ cwd: extensionPath, maxBuffer: 200 * 1024 * 1024 },
-			(err, _stdout, stderr) => {
-				if (err) {
-					fancyLog.error(stderr);
-					return reject(err);
-				}
-				fancyLog(`Bundled extension: ${ansiColors.yellow(path.join(extensionName, webpackConfigFileName))}`);
-				resolve();
-			}
-		);
+	// Spawn via spawnWithRetry (instead of cp.execFile) so a transient macOS
+	// `spawn EBADF` under a descriptor spike is retried rather than failing the
+	// build. See spawnRetry.ts.
+	spawnWithRetry(
+		process.execPath,
+		[webpackJs, '--config', webpackConfigFileName, '--mode', 'production', '--devtool', 'source-map'],
+		{ cwd: extensionPath, stdio: ['ignore', 'pipe', 'pipe'] }
+	).then(proc => new Promise<void>((resolve, reject) => {
+		let stderr = '';
 		proc.stdout?.on('data', data => {
 			fancyLog(`${ansiColors.green('webpacking')} ${extensionName}: ${data.toString('utf8').trimEnd()}`);
 		});
-	}).then(() => {
+		proc.stderr?.on('data', (data: Buffer) => {
+			stderr += data.toString('utf8');
+		});
+		proc.on('error', reject);
+		proc.on('close', code => {
+			if (code !== 0) {
+				fancyLog.error(stderr);
+				return reject(new Error(`webpack exited with code ${code} for ${extensionName}`));
+			}
+			fancyLog(`Bundled extension: ${ansiColors.yellow(path.join(extensionName, webpackConfigFileName))}`);
+			resolve();
+		});
+	})).then(() => {
 		// Webpack inlines runtime dependencies, so PackageManager.None keeps
 		// node_modules out of the packaged extension.
 		return listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.None });
@@ -259,26 +275,34 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 	const esbuildScript = path.join(extensionPath, esbuildConfigFileName);
 
 	// Run esbuild, then collect the files
-	new Promise<void>((resolve, reject) => {
-		const proc = cp.execFile(process.argv[0], [esbuildScript], { cwd: extensionPath }, (error, _stdout, stderr) => {
-			if (error) {
-				return reject(error);
+	// --- Start Positron ---
+	// Spawn via spawnWithRetry (instead of cp.execFile) so a transient
+	// macOS `spawn EBADF` under a descriptor spike is retried rather than
+	// failing the build. See spawnRetry.ts. stderr is accumulated manually
+	// to preserve the original error-count reporting.
+	spawnWithRetry(process.argv[0], [esbuildScript], { cwd: extensionPath, stdio: ['ignore', 'pipe', 'pipe'] }).then(proc => new Promise<void>((resolve, reject) => {
+		let stderr = '';
+		proc.stdout?.on('data', (data: Buffer) => {
+			fancyLog(`${ansiColors.green('esbuilding')}: ${data.toString('utf8')}`);
+		});
+		proc.stderr?.on('data', (data: Buffer) => {
+			stderr += data.toString('utf8');
+		});
+		proc.on('error', reject);
+		proc.on('close', code => {
+			if (code !== 0) {
+				return reject(new Error(`esbuild exited with code ${code} for ${extensionName}\n${stderr}`));
 			}
 
-			const matches = (stderr || '').match(/\> (.+): error: (.+)?/g);
+			const matches = stderr.match(/\> (.+): error: (.+)?/g);
 			fancyLog(`Bundled extension: ${ansiColors.yellow(path.join(path.basename(extensionPath), esbuildConfigFileName))} with ${matches ? matches.length : 0} errors.`);
 			for (const match of matches || []) {
 				fancyLog.error(match);
 			}
 			return resolve();
 		});
-
-		proc.stdout!.on('data', (data) => {
-			fancyLog(`${ansiColors.green('esbuilding')}: ${data.toString('utf8')}`);
-		});
-	}).then(() => {
+	})).then(() => {
 		// After esbuild completes, collect all files using vsce
-		// --- Start Positron ---
 
 		// The upstream strategy is currently to ignore external
 		// dependencies, and some built-in extensions (e.g. git) do not
@@ -508,15 +532,23 @@ export function fromVsix(vsixPath: string, { name: extensionName, version, sha25
 		.pipe(packageJsonFilter.restore);
 }
 
-export function fromGithub({ name, version, repo, sha256, metadata }: IExtensionDefinition): Stream {
-	fancyLog('Downloading extension from GH:', ansiColors.yellow(`${name}@${version}`), '...');
+export function fromGithub({ name, version, repo, sha256, metadata }: IExtensionDefinition, options?: { asset?: { assetName: string; sha256: string }; latest?: boolean }): Stream {
+	const asset = options?.asset;
+	const latest = options?.latest ?? false;
+	fancyLog('Downloading extension from GH:', ansiColors.yellow(`${name}@${latest ? 'latest' : version}`), asset ? ansiColors.gray(`(${asset.assetName})`) : '', '...');
+	if (latest) {
+		fancyLog(ansiColors.yellow(`Warning: skipping checksum validation for ${name} (downloading latest release, no pinned checksum available)`));
+	}
 
 	const packageJsonFilter = filter('package.json', { restore: true });
 
 	return fetchGithub(new URL(repo).pathname, {
 		version,
-		name: name => name.endsWith('.vsix'),
-		checksumSha256: sha256
+		name: asset ? asset.assetName : name => name.endsWith('.vsix'),
+		// The checksum is tied to a specific version; when resolving the latest release the
+		// downloaded asset differs, so it cannot be validated against the pinned checksum.
+		checksumSha256: latest ? undefined : (asset ? asset.sha256 : sha256),
+		latest
 	})
 		.pipe(buffer())
 		.pipe(vinylZip.src())
@@ -914,26 +946,36 @@ export async function esbuildExtensions(taskName: string, isWatch: boolean, scri
 	}
 
 	const tasks = scripts.map(({ script, outputRoot }) => {
-		return new Promise<void>((resolve, reject) => {
-			const args = [script];
-			if (isWatch) {
-				args.push('--watch');
-			}
-			if (outputRoot) {
-				args.push('--outputRoot', outputRoot);
-			}
-			const proc = cp.execFile(process.argv[0], args, {}, (error, _stdout, stderr) => {
-				if (error) {
-					return reject(error);
+		const args = [script];
+		if (isWatch) {
+			args.push('--watch');
+		}
+		if (outputRoot) {
+			args.push('--outputRoot', outputRoot);
+		}
+		// --- Start Positron ---
+		// Spawn via spawnWithRetry (instead of cp.execFile) so a transient macOS
+		// `spawn EBADF` under a descriptor spike is retried rather than failing
+		// the build. These media builds run concurrently (Promise.all below), so
+		// they are especially prone to the spike. See spawnRetry.ts.
+		return spawnWithRetry(process.argv[0], args, { stdio: ['ignore', 'pipe', 'pipe'] }).then(proc => new Promise<void>((resolve, reject) => {
+			let stderr = '';
+			proc.stdout?.on('data', (data: Buffer) => {
+				fancyLog(`${ansiColors.green(taskName)}: ${data.toString('utf8')}`);
+			});
+			proc.stderr?.on('data', (data: Buffer) => {
+				stderr += data.toString('utf8');
+			});
+			proc.on('error', reject);
+			proc.on('close', code => {
+				if (code !== 0) {
+					return reject(new Error(`${taskName} exited with code ${code} for ${script}\n${stderr}`));
 				}
 				reporter(stderr, script);
 				return resolve();
 			});
-
-			proc.stdout!.on('data', (data) => {
-				fancyLog(`${ansiColors.green(taskName)}: ${data.toString('utf8')}`);
-			});
-		});
+		}));
+		// --- End Positron ---
 	});
 
 	await Promise.all(tasks);
@@ -945,6 +987,7 @@ const esbuildMediaScripts: { script: string; tsconfig: string }[] = [
 	{ script: 'ipynb/esbuild.notebook.mts', tsconfig: 'ipynb/notebook-src/tsconfig.json' },
 	{ script: 'markdown-language-features/esbuild.notebook.mts', tsconfig: 'markdown-language-features/notebook/tsconfig.json' },
 	{ script: 'markdown-language-features/esbuild.webview.mts', tsconfig: 'markdown-language-features/preview-src/tsconfig.json' },
+	{ script: 'markdown-language-features/esbuild.markdownEditor.mts', tsconfig: 'markdown-language-features/markdown-editor-src/tsconfig.json' },
 	{ script: 'markdown-math/esbuild.notebook.mts', tsconfig: 'markdown-math/notebook/tsconfig.json' },
 	{ script: 'mermaid-markdown-features/esbuild.webview.mts', tsconfig: 'mermaid-markdown-features/preview-src/tsconfig.json' },
 	{ script: 'notebook-renderers/esbuild.notebook.mts', tsconfig: 'notebook-renderers/tsconfig.json' },

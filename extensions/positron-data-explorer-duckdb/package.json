@@ -21,7 +21,7 @@
     "prepare": "npm run compile"
   },
   "dependencies": {
-    "@duckdb/node-api": "^1.5.3-r.3"
+    "@duckdb/node-api": "^1.5.5-r.3"
   },
   "devDependencies": {
     "@types/node": "14.x",

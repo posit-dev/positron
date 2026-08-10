@@ -31,6 +31,8 @@ import { IExtHostMpcService } from '../common/extHostMcp.js';
 import { NodeExtHostMpcService } from './extHostMcpNode.js';
 import { IExtHostAuthentication } from '../common/extHostAuthentication.js';
 import { NodeExtHostAuthentication } from './extHostAuthentication.js';
+import { IExtHostBrowserTunnelProxy } from '../common/extHostBrowserTunnelProxy.js';
+import { NodeExtHostBrowserTunnelProxy } from './extHostBrowserTunnelProxy.js';
 // --- Start Positron ---
 import { IExtHostDocs } from '../common/positron/extHostDocs.js';
 import { NodeExtHostDocs } from './positron/extHostDocsNode.js';
@@ -57,6 +59,7 @@ registerSingleton(IExtHostTerminalService, ExtHostTerminalService, Instantiation
 registerSingleton(IExtHostTunnelService, NodeExtHostTunnelService, InstantiationType.Eager);
 registerSingleton(IExtHostVariableResolverProvider, NodeExtHostVariableResolverProviderService, InstantiationType.Eager);
 registerSingleton(IExtHostMpcService, NodeExtHostMpcService, InstantiationType.Eager);
+registerSingleton(IExtHostBrowserTunnelProxy, NodeExtHostBrowserTunnelProxy, InstantiationType.Eager);
 
 // --- Start Positron ---
 // Eager so the launch trigger has something to fire from. The constructor only
