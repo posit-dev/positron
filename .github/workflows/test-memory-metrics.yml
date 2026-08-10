@@ -1,0 +1,144 @@
+name: "Test: Memory Metrics"
+
+on:
+  schedule:
+    - cron: '0 7 * * *' # 07:00 UTC, avoiding the 02:00 and 09:00 scheduled jobs
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Positron version: a tag, 'latest-prerelease', or 'latest-release'"
+        required: false
+        default: "latest-prerelease"
+  # TEMPORARY, remove before merging. This workflow is meant to be nightly only:
+  # it holds an 8x runner for three cold launches and its numbers are only
+  # comparable run to run in a fixed image, so it earns nothing on a PR. It is
+  # here so the workflow can be proven end to end before it lands, since nothing
+  # about it can be verified locally. The paths filter keeps it off PRs that do
+  # not touch the collector.
+  pull_request:
+    paths:
+      - '.github/workflows/test-memory-metrics.yml'
+      - 'test/e2e/utils/memory/**'
+      - 'test/e2e/tests/performance/memory-idle.test.ts'
+
+concurrency:
+  group: memory-metrics-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MEMORY_CONTAINER_IMAGE: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
+
+jobs:
+  memory:
+    name: Idle memory footprint
+    runs-on: ubuntu-latest-8x
+    timeout-minutes: 45
+    container:
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
+      # The image is private, so the pull needs credentials. Copied from
+      # test-e2e-ubuntu-run.yml; without these the job fails before any step.
+      # --user 0:0 also matters here beyond convention: reading
+      # /proc/<pid>/smaps_rollup for another process requires matching uid or
+      # CAP_SYS_PTRACE.
+      options: --user 0:0 --init
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+    env:
+      HOME: /root
+      PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
+      PW_PROJECT_NAME: e2e-electron
+      # The insights reporter and its sharding hook are off deliberately. This
+      # workflow publishes its own payload to /memory, and letting the reporter
+      # upload would add memory runs to the e2e results dataset as if they were
+      # ordinary test runs. It also keeps the job from needing AWS credentials.
+      ENABLE_CUSTOM_REPORTER: 'false'
+      # Required by the envVars fixture in _test.setup.ts, which validates all
+      # four and fails every test if any is unset. No interpreter is installed
+      # or started here: the idle scenario pins interpreters.startupBehavior to
+      # manual, so these only have to be present.
+      POSITRON_PY_VER_SEL: "3.10.12"
+      POSITRON_R_VER_SEL: 4.5.2
+      POSITRON_PY_ALT_VER_SEL: "3.13.0"
+      POSITRON_R_ALT_VER_SEL: 4.4.2
+    steps:
+      - uses: actions/checkout@v7
+
+      # Captured before the next step replaces the root package.json with a
+      # stub, so the version cannot drift from the root declaration.
+      - name: Resolve the undici range
+        run: |
+          RANGE=$(node -e 'console.log(require("./package.json").dependencies.undici)')
+          echo "UNDICI_RANGE=$RANGE" >> "$GITHUB_ENV"
+          echo "undici range: $RANGE"
+
+      - name: Download build
+        id: build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ inputs.version || 'latest-prerelease' }}")
+          echo "$OUTPUT" >> "$GITHUB_OUTPUT"
+
+      # Installs the Playwright and e2e dependencies and compiles test/e2e,
+      # rather than a full `npm ci`: nothing here builds Positron from source.
+      - name: Setup test dependencies and compile tests
+        uses: ./.github/actions/setup-e2e-test-dependencies
+
+      # publish.ts imports undici, which the action above does not install; it
+      # currently resolves only as a transitive dependency of the reporters.
+      - name: Install the publish client
+        run: npm install "undici@${{ env.UNDICI_RANGE }}"
+
+      - name: Alter AppArmor Restrictions for Playwright
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      # Exports DISPLAY=:10. Needed by the app and, less obviously, by
+      # `positron --status`: that CLI spawns its own child Electron main, which
+      # exits 0 printing nothing if it has no display, leaving every process
+      # unnamed and the run failing its attribution gate.
+      - name: Setup Xvfb
+        uses: ./.github/actions/setup-xvfb
+
+      # Three launches, because launch-to-launch variance dominates. Each is a
+      # separate Playwright invocation so every launch is genuinely cold.
+      - name: Measure (launch 0)
+        env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
+          MEMORY_SCENARIO: idle
+          MEMORY_LAUNCH_INDEX: 0
+        run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
+
+      - name: Measure (launch 1)
+        env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
+          MEMORY_SCENARIO: idle
+          MEMORY_LAUNCH_INDEX: 1
+        run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
+
+      - name: Measure (launch 2)
+        env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
+          MEMORY_SCENARIO: idle
+          MEMORY_LAUNCH_INDEX: 2
+        run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
+
+      # Separate from the launches so a failure to render or publish cannot lose
+      # the measurements, which are the expensive part. Publishing fails soft
+      # until the dashboard side of this work lands.
+      - name: Render and publish report
+        env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
+          MEMORY_AGGREGATE: 'true'
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+        run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Render and publish'
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: memory-report
+          # Matches SNAPSHOT_DIR in the spec. Deliberately not test-results/,
+          # which Playwright wipes at the start of every invocation.
+          path: ${{ runner.temp }}/memory-snapshots/
+          if-no-files-found: warn
