@@ -39,34 +39,13 @@ async function readOrEmpty(path: string): Promise<string> {
 }
 
 /**
- * Walk every descendant of rootPid, returning the root first.
+ * Breadth-first walk of rootPid and its descendants, root first.
  *
- * Reads all of /proc once and builds the parent map in memory rather than
- * recursing with repeated directory listings, so the snapshot is close to
- * instantaneous and less likely to catch the tree mid-change.
+ * Separated from the reading so it can be tested with a synthetic map: this is
+ * the only stateful part of this file, and the part with edge cases worth pinning
+ * (an absent root, a cycle, processes that are not descendants).
  */
-export async function readProcessTree(rootPid: number): Promise<RawProcess[]> {
-	const entries = await fs.readdir('/proc');
-	const pids = entries.map(e => parseInt(e, 10)).filter(pid => !isNaN(pid));
-
-	const all = new Map<number, RawProcess>();
-	for (const pid of pids) {
-		const status = await readOrEmpty(`/proc/${pid}/status`);
-		if (!status) {
-			continue;
-		}
-		const rawCmd = await readOrEmpty(`/proc/${pid}/cmdline`);
-		const { pssBytes, rssBytes } = parseSmapsRollup(await readOrEmpty(`/proc/${pid}/smaps_rollup`));
-		all.set(pid, {
-			pid,
-			ppid: parsePpid(status),
-			// /proc/<pid>/cmdline separates arguments with NUL bytes.
-			cmd: rawCmd.replace(/\0/g, ' ').trim(),
-			pssBytes,
-			rssBytes
-		});
-	}
-
+export function buildTree(all: Map<number, RawProcess>, rootPid: number): RawProcess[] {
 	const childrenOf = new Map<number, number[]>();
 	for (const proc of all.values()) {
 		const siblings = childrenOf.get(proc.ppid) ?? [];
@@ -90,4 +69,50 @@ export async function readProcessTree(rootPid: number): Promise<RawProcess[]> {
 		}
 	}
 	return result;
+}
+
+async function readProcess(pid: number): Promise<RawProcess | undefined> {
+	// The three reads for one pid are independent, and so are the pids. Issuing
+	// them together keeps the whole sweep to roughly one round of I/O rather than
+	// 3xN sequential reads, which matters because this runs once a second during
+	// settle detection and a slow sweep smears the snapshot across a changing tree.
+	const [status, rawCmd, rollup] = await Promise.all([
+		readOrEmpty(`/proc/${pid}/status`),
+		readOrEmpty(`/proc/${pid}/cmdline`),
+		readOrEmpty(`/proc/${pid}/smaps_rollup`)
+	]);
+	if (!status) {
+		return undefined;
+	}
+	const { pssBytes, rssBytes } = parseSmapsRollup(rollup);
+	return {
+		pid,
+		ppid: parsePpid(status),
+		// /proc/<pid>/cmdline separates arguments with NUL bytes.
+		cmd: rawCmd.replace(/\0/g, ' ').trim(),
+		pssBytes,
+		rssBytes
+	};
+}
+
+/**
+ * Walk every descendant of rootPid, returning the root first.
+ *
+ * Reads all of /proc once and builds the parent map in memory rather than
+ * recursing with repeated directory listings, so the snapshot is close to
+ * instantaneous and less likely to catch the tree mid-change.
+ */
+export async function readProcessTree(rootPid: number): Promise<RawProcess[]> {
+	const entries = await fs.readdir('/proc');
+	const pids = entries.map(e => parseInt(e, 10)).filter(pid => !isNaN(pid));
+
+	const read = await Promise.all(pids.map(pid => readProcess(pid)));
+	const all = new Map<number, RawProcess>();
+	for (const proc of read) {
+		if (proc) {
+			all.set(proc.pid, proc);
+		}
+	}
+
+	return buildTree(all, rootPid);
 }

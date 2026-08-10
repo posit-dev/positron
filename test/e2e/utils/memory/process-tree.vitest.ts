@@ -6,7 +6,8 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, test } from 'vitest';
-import { parsePpid, parseSmapsRollup } from './process-tree.js';
+import { RawProcess } from './types.js';
+import { buildTree, parsePpid, parseSmapsRollup } from './process-tree.js';
 
 const fixture = (name: string): string => readFileSync(join(__dirname, 'fixtures', name), 'utf8');
 
@@ -54,5 +55,44 @@ describe('parsePpid', () => {
 
 	test('returns 0 when PPid is missing', () => {
 		expect(parsePpid('Name:\tpositron\n')).toBe(0);
+	});
+});
+
+describe('buildTree', () => {
+	const proc = (pid: number, ppid: number): RawProcess =>
+		({ pid, ppid, cmd: `p${pid}`, pssBytes: 10, rssBytes: 20 });
+
+	const map = (...procs: RawProcess[]): Map<number, RawProcess> =>
+		new Map(procs.map(p => [p.pid, p]));
+
+	test('returns the root first, then its descendants', () => {
+		const tree = buildTree(map(proc(100, 1), proc(101, 100), proc(102, 101)), 100);
+		expect(tree.map(p => p.pid)).toEqual([100, 101, 102]);
+	});
+
+	test('returns an empty list when the root is absent from /proc', () => {
+		// The app died between the readdir sweep and the walk.
+		expect(buildTree(map(proc(101, 100)), 100)).toEqual([]);
+	});
+
+	test('returns just the root when it has no children', () => {
+		expect(buildTree(map(proc(100, 1)), 100).map(p => p.pid)).toEqual([100]);
+	});
+
+	test('excludes processes that are not descendants of the root', () => {
+		const tree = buildTree(map(proc(100, 1), proc(101, 100), proc(900, 1), proc(901, 900)), 100);
+		expect(tree.map(p => p.pid)).toEqual([100, 101]);
+	});
+
+	test('walks breadth first, so siblings precede grandchildren', () => {
+		const tree = buildTree(map(proc(100, 1), proc(101, 100), proc(102, 100), proc(103, 101)), 100);
+		expect(tree.map(p => p.pid)).toEqual([100, 101, 102, 103]);
+	});
+
+	test('terminates on a parent cycle rather than looping forever', () => {
+		// Not something Linux produces, but the guard is what makes the walk safe
+		// to run against a map assembled from a racing /proc sweep.
+		const tree = buildTree(map(proc(100, 101), proc(101, 100)), 100);
+		expect(tree.map(p => p.pid)).toEqual([100, 101]);
 	});
 });
