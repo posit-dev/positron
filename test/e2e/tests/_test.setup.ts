@@ -9,6 +9,7 @@ const { test: base, expect: playwrightExpect } = playwright;
 
 // Node.js built-in modules
 import { join } from 'path';
+import * as fs from 'fs';
 
 // Local imports
 import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, SettingsFile, USER_SETTINGS_FILENAME, getFreeMemory, getCondensedProcessList, getLoadAverageAndCpuUsage, Assistant } from '../infra';
@@ -19,6 +20,7 @@ import {
 	TracingFixture, shouldUseCustomTracing, AppFixture, UserDataDirFixture, OptionsFixture,
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
 } from '../fixtures/test-setup';
+import { defaultWorkspacePath } from '../infra/test-runner';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
 import { runDockerCommand, RunResult, FOUNDRY_ASSISTANT_SETTINGS } from '../fixtures/test-setup/docker-utils.js';
@@ -422,6 +424,21 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		logger.log('');
 	} catch (error) {
 		// ignore
+	}
+
+	// Names the likely owner of a leak that _global.teardown.ts can only report after
+	// every worker has finished. Warn rather than fail: this runs while other specs are
+	// still going, so their in-flight files can show up here too.
+	try {
+		const workspacePath = defaultWorkspacePath();
+		if (fs.existsSync(join(workspacePath, '.git'))) {
+			const leftover = [...new TestTeardown(workspacePath).dirtyFiles()];
+			if (leftover.length > 0) {
+				logger.log(`>>> Workspace left dirty (this spec, or another worker mid-test): ${leftover.join(', ')} <<<`);
+			}
+		}
+	} catch (error) {
+		// A diagnostic must never fail the run
 	}
 
 	// Clean up Docker container logs at worker teardown (once per test file)

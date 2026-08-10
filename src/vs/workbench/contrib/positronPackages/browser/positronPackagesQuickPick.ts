@@ -10,7 +10,7 @@ import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.
 import { localize } from '../../../../nls.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IInputBox, IQuickInput, IQuickInputButton, IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
-import * as semver from '../../../../base/common/semver/semver.js';
+import { sortVersionsDescending } from './packageVersions.js';
 
 /**
  * Debounce interval (ms) before firing a package search as the user types. Long
@@ -54,24 +54,6 @@ interface PackageSearchResult {
 	description?: string;
 	// detail appears on the second line
 	detail?: string;
-}
-
-/**
- * Sort version strings in descending order (newest first).
- * Uses semver comparison when possible, falls back to string comparison.
- */
-function sortVersionsDescending(versions: string[]): string[] {
-	return [...versions].sort((a, b) => {
-		const aSemver = semver.valid(a, true) ? a : semver.coerce(a);
-		const bSemver = semver.valid(b, true) ? b : semver.coerce(b);
-
-		if (aSemver && bSemver) {
-			return semver.rcompare(aSemver, bSemver, true);
-		}
-
-		// Fall back to simple string comparison
-		return a < b ? 1 : a > b ? -1 : 0;
-	});
 }
 
 export const updatePackage = async (

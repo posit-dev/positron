@@ -39,7 +39,7 @@ import { IUpdate } from '../common/update.js';
 import { hasUpdate } from '../common/positronVersion.js';
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
 import { IStateService } from '../../state/node/state.js';
-import { buildUpdateUrl, mergeActiveLanguageRecord, parseActiveLanguageRecord, reportableLanguages } from '../common/positronUpdateUtils.js';
+import { buildReleaseNotesUrl, buildUpdateUrl, mergeActiveLanguageRecord, parseActiveLanguageRecord, reportableLanguages } from '../common/positronUpdateUtils.js';
 
 // This was modfied from the original createUpdateURL as our update URL structure is much simpler
 export function createUpdateURL(platform: string, channel: string, productService: IProductService): string {
@@ -539,7 +539,7 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	async getReleaseNotes(version?: string): Promise<string> {
 		const targetVersion = version ?? this.productService.positronVersion;
 		const channel = process.env.POSITRON_UPDATE_CHANNEL ?? this.configurationService.getValue<string>('update.positron.channel');
-		const url = `${this.productService.releaseNotesUrl}/${channel}/release-notes/release-${targetVersion}.md`;
+		const url = buildReleaseNotesUrl(this.productService.updateUrl ?? '', channel, targetVersion);
 		const releaseNotesResponse = await this.requestService.request({ url, callSite: 'update.getReleaseNotes' }, CancellationToken.None);
 
 		if (process.env.POSITRON_UPDATE_CHANNEL) {

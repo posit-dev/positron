@@ -298,4 +298,31 @@ suite('Python Runtime Session', () => {
         const state = messages[1] as positron.LanguageRuntimeState;
         assert.strictEqual(state.state, positron.RuntimeOnlineState.Idle);
     });
+
+    test('Execute: propagates the kernel execute promise (e.g. incomplete code)', async () => {
+        sinon.stub(fs, 'readdirSync').returns(['ipykernel']);
+
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console);
+        await session.start();
+
+        // For Unprocessed code the supervisor checks completeness itself and
+        // rejects with a CodeIncompleteError when the code is incomplete. That
+        // rejection must propagate back through execute() so the console can
+        // show a continuation prompt instead of hanging forever.
+        const incompleteError = new Error('Code fragment is incomplete');
+        incompleteError.name = 'CodeIncompleteError';
+        sinon.stub(kernel, 'execute').rejects(incompleteError);
+
+        await assert.rejects(
+            Promise.resolve(
+                session.execute(
+                    'def f():',
+                    'execute-id',
+                    positron.RuntimeCodeExecutionMode.Unprocessed,
+                    positron.RuntimeErrorBehavior.Continue,
+                ),
+            ),
+            (err: Error) => err.name === 'CodeIncompleteError',
+        );
+    });
 });

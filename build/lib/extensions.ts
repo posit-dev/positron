@@ -34,6 +34,7 @@ import watcher from './watch/index.ts';
 // --- Start Positron ---
 import os from 'os';
 import { getBootstrapExtensionStream } from './bootstrapExtensions.ts';
+import { isPrunedExtensionDependencyFile, isUnusedCopilotOpenTelemetryPackage } from './positron-path-budget.ts';
 // --- End Positron ---
 
 import { createRequire } from 'module';
@@ -355,6 +356,18 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 		}
 
 		// --- Start Positron ---
+		// Remove the files in the production dependencies of the extension that
+		// no code loads at runtime. These extensions ship node_modules without
+		// change, and most of them have no .vscodeignore. As a result, the
+		// longest paths in the shipped tree were TypeScript declarations. See
+		// positron-path-budget.ts and posit-dev/positron#14702.
+		const prunedFileNames = fileNames.filter(fileName => !isPrunedExtensionDependencyFile(fileName));
+
+		if (prunedFileNames.length !== fileNames.length) {
+			fancyLog(`Pruned ${ansiColors.yellow(String(fileNames.length - prunedFileNames.length))} unused dependency files from ${ansiColors.cyan(extensionName)}`);
+			fileNames = prunedFileNames;
+		}
+
 		// Stream the files sequentially rather than eagerly opening a read
 		// stream for every file up front. Extensions with npm dependencies
 		// (e.g. positron-data-driver-snowflake, which bundles @azure/msal-node)
@@ -781,7 +794,27 @@ export function packageCopilotExtensionStream(disableMangle: boolean): Stream {
 	);
 
 	const productionDependencies = getProductionDependencies('extensions/copilot');
-	const dependenciesSrc = productionDependencies.map(d => path.relative(root, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat();
+	// --- Start Positron ---
+	// The extension bundles OpenTelemetry into dist/extension.js and keeps only
+	// @opentelemetry/instrumentation external. No code loads the other
+	// @opentelemetry packages in node_modules. Each OTLP exporter also carries a
+	// nested @opentelemetry/resources, so these packages held some of the longest
+	// paths that Positron shipped. See positron-path-budget.ts and
+	// posit-dev/positron#14702.
+	//
+	// A negative glob excludes each unused package. Without it, a positive glob
+	// for a parent package returns a nested copy of an unused package. The
+	// negative globs come last, because the last glob wins.
+	//
+	const relativeDependencies = productionDependencies.map(d => path.relative(root, d));
+	const unusedDependencies = relativeDependencies.filter(isUnusedCopilotOpenTelemetryPackage);
+	const usedDependencies = relativeDependencies.filter(d => !isUnusedCopilotOpenTelemetryPackage(d));
+	const dependenciesSrc = [
+		...usedDependencies.map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat(),
+		...unusedDependencies.map(d => `!${d}/**`)
+	];
+	// const dependenciesSrc = productionDependencies.map(d => path.relative(root, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat();
+	// --- End Positron ---
 
 	return es.merge(
 		localExtensionsStream,

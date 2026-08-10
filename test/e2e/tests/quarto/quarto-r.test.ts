@@ -20,7 +20,9 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 
 	test.afterEach(async function ({ hotKeys, cleanup }) {
 		await hotKeys.killAllTerminals();
-		await cleanup.removeTestFiles(['quarto_basic.pdf', 'quarto_basic.html', 'quarto_basic.docx']);
+		await cleanup.removeGeneratedFiles(path.join('workspaces', 'quarto_basic', 'quarto_basic'));
+		// LaTeX writes texput.log next to the source, and its name shares no prefix with the output stem.
+		await cleanup.removeTestFiles([path.join('workspaces', 'quarto_basic', 'texput.log')]);
 	});
 
 	test('Verify Quarto can render html', { tag: [tags.WORKBENCH, tags.JUPYTER] }, async function ({ app, runDockerCommand }, testInfo) {

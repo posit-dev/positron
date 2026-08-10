@@ -24,7 +24,7 @@ import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../b
 
 // Constants.
 const ACTION_BAR_HEIGHT = 28;
-const MINIMUM_CONSOLE_TAB_LIST_WIDTH = 64;
+const MINIMUM_CONSOLE_TAB_LIST_WIDTH = 60;
 const MINIMUM_CONSOLE_PANE_WIDTH = 120;
 
 // ConsoleCoreProps interface.

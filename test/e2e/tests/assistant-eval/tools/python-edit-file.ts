@@ -21,16 +21,17 @@ export const pythonEditFile: EvalTestCase = {
 	prompt,
 	mode,
 
-	run: async ({ app, sessions, hotKeys, cleanup }): Promise<RunResult> => {
+	run: async ({ app, sessions, hotKeys }): Promise<RunResult> => {
 		const { assistant, console, quickaccess } = app.workbench;
 
 		// Start Python session
 		const [pySession] = await sessions.start(['python']);
 
-		// Setup: Open file
+		// Setup: open this eval's own copy -- the assistant edits the file, and shared
+		// fixtures are read-only so a writer's teardown cannot revert a concurrent spec's work.
 		await expect(async () => {
 			await quickaccess.openFile(
-				join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py')
+				join(app.workspacePathOrFolder, 'workspaces', 'assistant-eval', 'chinook-sqlite.py')
 			);
 		}).toPass({ timeout: 5000 });
 
@@ -46,7 +47,6 @@ export const pythonEditFile: EvalTestCase = {
 		await hotKeys.closeAllEditors();
 		await console.focus();
 		await sessions.restart(pySession.id);
-		await cleanup.discardAllChanges();
 
 		return { response, timing };
 	},

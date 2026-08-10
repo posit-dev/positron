@@ -465,11 +465,18 @@ export class Sessions {
 	 * @returns locator for the session tab
 	 */
 	private getSessionTab(sessionIdOrName: string): Locator {
-		const sessionIdPattern = /^(python|r)-[a-zA-Z0-9]+$/i;
+		// Notebook sessions are `<language>-notebook-<hex>`, so the optional
+		// `-notebook` segment is what keeps their ids out of the name branch
+		// below. Mirrors the pattern openMetadataDialog() uses for `info-` ids.
+		const sessionIdPattern = /^(python|r)(-notebook)?-[a-zA-Z0-9]+$/i;
 
+		// Match by name on the tab's aria-label, not its rendered text: the tab
+		// ellipsizes the session name to fit the space it has, so "Python
+		// (reticulate)" can render as "Python (retic...". The aria-label always
+		// carries the full name.
 		return sessionIdPattern.test(sessionIdOrName)
 			? this.page.getByTestId(`console-tab-${sessionIdOrName}`)
-			: this.sessionTabs.getByText(sessionIdOrName).locator('..');
+			: this.sessionTabs.and(this.page.getByLabel(sessionIdOrName));
 	}
 
 	/**
@@ -700,7 +707,9 @@ export class Sessions {
 				for (const session of allSessions) {
 					// extract session ID from data-testid attribute
 					const testId = await session.getAttribute('data-testid');
-					const match = testId?.match(/console-tab-((python|r)-[a-zA-Z0-9]+)/);
+					// The `-notebook` segment matters: without it a notebook
+					// session's id is captured truncated, as just `python-notebook`.
+					const match = testId?.match(/console-tab-((python|r)(-notebook)?-[a-zA-Z0-9]+)/);
 					const id = match ? match[1] : null;
 
 					// extract session name from aria-label attribute
@@ -1040,9 +1049,12 @@ export class Sessions {
 	 */
 	async expectSessionNameToBe(sessionId: string, expectedName: string) {
 		await test.step(`Verify session name: ${sessionId} is ${expectedName}`, async () => {
+			// Assert on the aria-label rather than the tab's rendered text: the
+			// tab ellipsizes the name to whatever fits, so the visible text is a
+			// function of how many sessions are open and how wide the pane is.
+			// The aria-label carries the whole name.
 			const sessionTab = this.getSessionTab(sessionId);
-			const tabHeader = sessionTab.locator('.tab-header');
-			await expect(tabHeader).toHaveText(expectedName);
+			await expect(sessionTab).toHaveAttribute('aria-label', expectedName);
 		});
 	}
 

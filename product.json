@@ -46,7 +46,7 @@
 	"agentsTelemetryAppName": "agents",
 	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
 	"updateUrl": "https://cdn.posit.co/positron",
-	"releaseNotesUrl": "https://cdn.posit.co/positron",
+	"releaseNotesUrl": "https://positron.posit.co/release-notes.html",
 	"downloadUrl": "https://positron.posit.co/download",
 	"builtInExtensions": [
 		{
@@ -99,10 +99,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.8.6",
+			"version": "2026.9.1",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "2f4828bfa0a16ac070d21e1d8cccc56d1b9351e449661a1d32afaf7419c3b0d5",
+			"sha256": "ecd5749e452e4e26662052773319645256c506a4c04dd6639e99926bbb5d05da",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -121,7 +121,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.68.0",
+			"version": "2026.70.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -309,8 +309,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.9.1",
-			"sha256": "141eb6f1de2f128b4f6d668f0bfbdb6069d11161ed708776cf5e032614b5ae83",
+			"version": "0.10.0",
+			"sha256": "7289eac43dd684f8f4e6cfc9e05a94268c7f796beeb0dfc2231c083608152b9c",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"

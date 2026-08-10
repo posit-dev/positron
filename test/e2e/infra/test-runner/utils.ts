@@ -5,7 +5,18 @@
 
 import * as cp from 'child_process';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
+
+/**
+ * The workspace `provisionTestFiles` populates and every local project opens.
+ * Callers that check or clean it must agree on this path, so derive it here
+ * rather than recomputing the join.
+ */
+export function defaultWorkspacePath(): string {
+	const testDataPath = process.env.POSITRON_TEST_DATA_PATH || path.join(os.tmpdir(), 'vscsmoke');
+	return path.join(testDataPath, 'test-files');
+}
 
 /**
  * Provisions the e2e test workspace by copying the local `test/e2e/test-files`
@@ -13,10 +24,9 @@ import * as path from 'path';
  * workspace path, then initializing it as a git repo with a single baseline
  * commit.
  *
- * The git baseline is required by test teardown: `TestTeardown.discardAllChanges`
- * runs `git rev-list --max-parents=0 HEAD` + `git reset --hard` + `git clean -fd`
- * to restore the workspace between tests, and some tests (e.g. scm) expect the
- * opened folder to be a git working tree.
+ * The git baseline is required by test teardown: `TestTeardown.restoreFiles`
+ * restores individual files from this commit to undo a spec's edits, and some
+ * tests (e.g. scm) expect the opened folder to be a git working tree.
  */
 export function provisionTestFiles(workspacePath = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH is not set in provisionTestFiles'): void {
 	// Prevent Git warnings about missing templates.
