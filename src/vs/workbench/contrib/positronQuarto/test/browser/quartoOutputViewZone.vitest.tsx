@@ -5,10 +5,18 @@
 
 /// <reference types="vitest/globals" />
 
+import { act } from '@testing-library/react';
 import { Event } from '../../../../../base/common/event.js';
 import { BareFontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { EditorOption } from '../../../../../editor/common/config/editorOptions.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
+import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ICellOutput } from '../../common/quartoExecutionTypes.js';
 import { chooseHtmlRenderMode, isInertHtml, isWebviewOverlayShown, QuartoOutputViewZone } from '../../browser/quartoOutputViewZone.js';
@@ -171,6 +179,103 @@ describe('QuartoOutputViewZone collapse across a re-execution', () => {
 		zone.setRecomputing(true);
 		zone.addOutput(textOutput('out-2', 'second run'));
 		expect(zone.isCollapsed).toBe(false);
+
+		zone.dispose();
+	});
+});
+
+// The Fix/Explain quick-fix buttons mount asynchronously (a React root), so
+// they are not in the DOM when addOutput() measures the zone synchronously.
+// The original code relied solely on a ResizeObserver to grow the zone once
+// the buttons appeared, but on a re-run that produces an identically sized
+// error the observer sees no net change from its last-reported size and never
+// fires, leaving the zone too short so the buttons paint over the editor lines
+// below The zone must instead re-measure deterministically once the buttons
+// render.
+describe('QuartoOutputViewZone error quick-fix height', () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
+		.build();
+
+	// jsdom performs no layout, so offsetHeight is always 0. Inject a measurer
+	// that reports the styled container as taller once the Fix/Explain buttons
+	// have been committed to the DOM, standing in for the real height the
+	// buttons occupy. Crucially it does NOT rely on a ResizeObserver, so the
+	// only thing that can grow the zone is the zone's own re-measure.
+	const TEXT_HEIGHT = 40;
+	const BUTTONS_HEIGHT = 30;
+	function measureOffsetHeight(el: HTMLElement): number {
+		if (el.classList.contains('quarto-inline-output-wrapper')) {
+			return 1; // domNode: any non-zero value means "laid out"
+		}
+		if (el.classList.contains('quarto-inline-output')) {
+			// eslint-disable-next-line no-restricted-syntax -- simulating layout: detect the mounted quick-fix subtree
+			const hasButtons = !!el.querySelector('.assistant-error-quick-fix');
+			return TEXT_HEIGHT + (hasButtons ? BUTTONS_HEIGHT : 0);
+		}
+		return 0;
+	}
+
+	function createViewZone(): QuartoOutputViewZone {
+		const containerDomNode = document.createElement('div');
+		const editor = stubInterface<ICodeEditor>({
+			getContainerDomNode: () => containerDomNode,
+			onDidChangeConfiguration: Event.None,
+			onDidLayoutChange: Event.None,
+			onDidScrollChange: Event.None,
+			onDidContentSizeChange: Event.None,
+			onDidChangeHiddenAreas: Event.None,
+			onMouseMove: Event.None,
+			onMouseLeave: Event.None,
+			getOption: ((id: EditorOption) => {
+				if (id !== EditorOption.fontInfo) {
+					throw new Error(`unexpected getOption(${id})`);
+				}
+				return BareFontInfo._create('monospace', 'normal', 12, '', '', 18, 0, 1, false);
+			}) as ICodeEditor['getOption'],
+		});
+		return new QuartoOutputViewZone(
+			editor, 'cell-1', 1,
+			undefined, undefined, 40, undefined, undefined, undefined, undefined, undefined,
+			measureOffsetHeight,
+		);
+	}
+
+	function errorOutput(id: string): ICellOutput {
+		return {
+			outputId: id,
+			items: [{
+				mime: 'application/vnd.code.notebook.error',
+				data: JSON.stringify({ name: 'Error', message: 'oh no', stack: 'Error: oh no' }),
+			}],
+		};
+	}
+
+	it('grows to fit the async quick-fix buttons on the first run and again on a re-run', async () => {
+		// Gate the assistant on so the Fix/Explain buttons actually render.
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('ai.enabled', true);
+		(ctx.get(IContextKeyService) as MockContextKeyService).createKey('posit-assistant.hasChatModels', true);
+		// The view zone renders the buttons through a PositronReactRenderer,
+		// which reads the services singleton; bridge the test container in.
+		PositronReactServices.services = ctx.reactServices;
+
+		const zone = createViewZone();
+		zone.enableQuickFix();
+
+		await act(async () => {
+			zone.addOutput(errorOutput('err-1'));
+		});
+		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 13);
+
+		// Re-run: the same error is produced. A ResizeObserver would see no net
+		// change and stay silent, so the zone's own re-measure is what keeps the
+		// buttons inside the reserved whitespace.
+		zone.setRecomputing(true);
+		await act(async () => {
+			zone.addOutput(errorOutput('err-2'));
+		});
+		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 13);
 
 		zone.dispose();
 	});
