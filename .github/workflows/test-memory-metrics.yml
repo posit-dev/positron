@@ -123,6 +123,20 @@ jobs:
       - name: Setup Xvfb
         uses: ./.github/actions/setup-xvfb
 
+      # The idle scenario uses its own extensions dir, so the first launch into it
+      # pays to install the build's bootstrap vsixes (ruff, air, jupyter, and the
+      # rest). Measured without this, launch 0 read 60 MB high with a settle a
+      # second longer than the other two, which is a systematic artifact in the
+      # variance figure this workflow exists to produce. This spec waits for that
+      # install; release-screenshots.yml uses it the same way. Its own result is
+      # incidental here, but it is left strict: if warming fails, launch 0 is
+      # skewed and we want to know rather than quietly publish it.
+      - name: Warm the extensions dir
+        env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
+          MEMORY_SCENARIO: idle
+        run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
+
       # Three launches, because launch-to-launch variance dominates. Each is a
       # separate Playwright invocation so every launch is genuinely cold.
       - name: Measure (launch 0)
