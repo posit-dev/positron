@@ -35,6 +35,22 @@ const isProcessRole = (value: string): value is ProcessRole => value in PROCESS_
  */
 const memoryUrl = (base: string): string => base.replace(/\/metrics$/, '/memory');
 
+/**
+ * Whether to talk to the insights API at all. Opt in with `MEMORY_PUBLISH=true`.
+ *
+ * The `/memory` endpoints do not exist yet; they are a follow-up. Until they do,
+ * a run should not attempt the call. Failing soft is not sufficient on its own:
+ * a POST that errors and a POST to an endpoint nobody has written look identical
+ * in the log, so an absent endpoint could sit unnoticed behind a line that reads
+ * like ordinary noise.
+ *
+ * Exactly `'true'`, not any truthy string. A workflow that sets `MEMORY_PUBLISH:
+ * 'false'` to document the switch must not thereby turn it on.
+ */
+export function publishingEnabled(): boolean {
+	return process.env.MEMORY_PUBLISH === 'true';
+}
+
 export type RunMeta = {
 	runId: string;
 	commitSha: string;
@@ -142,6 +158,10 @@ export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): Memory
 
 /** Returns whether the publish succeeded. Never throws: reports are the point. */
 export async function publishSnapshots(snapshots: MemorySnapshot[], meta: RunMeta): Promise<boolean> {
+	if (!publishingEnabled()) {
+		console.log('[memory] MEMORY_PUBLISH is not true, skipping publish; the report is still rendered and attached');
+		return false;
+	}
 	if (!CONNECT_API_KEY) {
 		console.log('[memory] no CONNECT_API_KEY, skipping publish');
 		return false;
@@ -232,7 +252,7 @@ export function baselineToSnapshot(body: BaselineResponse): MemorySnapshot | und
  * which case the report shows absolute numbers only.
  */
 export async function fetchBaseline(): Promise<MemorySnapshot | undefined> {
-	if (!CONNECT_API_KEY) {
+	if (!publishingEnabled() || !CONNECT_API_KEY) {
 		return undefined;
 	}
 	try {

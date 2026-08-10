@@ -160,13 +160,18 @@ jobs:
           MEMORY_LAUNCH_INDEX: 2
         run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
 
-      # Separate from the launches so a failure to render or publish cannot lose
-      # the measurements, which are the expensive part. Publishing fails soft
-      # until the dashboard side of this work lands.
-      - name: Render and publish report
+      # Separate from the launches so a failure to render cannot lose the
+      # measurements, which are the expensive part.
+      #
+      # MEMORY_PUBLISH stays 'false' until the /memory endpoints exist; they are
+      # a follow-up. Set here rather than omitted so the switch is visible at the
+      # point someone will look for it. The step summary and the HTML artifact
+      # are produced either way, so the run is still useful with it off.
+      - name: Render report
         env:
           BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_AGGREGATE: 'true'
+          MEMORY_PUBLISH: 'false'
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
         run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Render and publish'
 

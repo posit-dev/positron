@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { describe, expect, test } from 'vitest';
-import { baselineToSnapshot, buildPayload, redactProcessName, RunMeta } from './publish.js';
+import { afterEach, describe, expect, test } from 'vitest';
+import { baselineToSnapshot, buildPayload, fetchBaseline, publishingEnabled, publishSnapshots, redactProcessName, RunMeta } from './publish.js';
 import { LabeledProcess, MemorySnapshot } from './types.js';
 
 const process1: LabeledProcess = {
@@ -173,5 +173,41 @@ describe('baseline activation events', () => {
 	test('degrades to null when the endpoint does not send one', () => {
 		const mapped = baseline([{ extension_id: 'github.copilot' }]);
 		expect(mapped?.extensions[0].activationEvent).toBeNull();
+	});
+});
+
+describe('publishingEnabled', () => {
+	afterEach(() => { delete process.env.MEMORY_PUBLISH; });
+
+	test('is off unless explicitly turned on', () => {
+		// The /memory endpoint does not exist yet. Off by default means a run
+		// cannot post into the void, and cannot appear to have published.
+		delete process.env.MEMORY_PUBLISH;
+		expect(publishingEnabled()).toBe(false);
+	});
+
+	test('stays off for any value that is not exactly true', () => {
+		process.env.MEMORY_PUBLISH = '1';
+		expect(publishingEnabled()).toBe(false);
+		process.env.MEMORY_PUBLISH = 'yes';
+		expect(publishingEnabled()).toBe(false);
+	});
+
+	test('turns on for true', () => {
+		process.env.MEMORY_PUBLISH = 'true';
+		expect(publishingEnabled()).toBe(true);
+	});
+
+	test('publishSnapshots reports failure rather than pretending it published', async () => {
+		delete process.env.MEMORY_PUBLISH;
+		const published = await publishSnapshots([], {
+			runId: 'r', commitSha: 'c', branch: 'main', containerImage: 'i'
+		});
+		expect(published).toBe(false);
+	});
+
+	test('fetchBaseline yields no baseline, so the report shows absolute numbers', async () => {
+		delete process.env.MEMORY_PUBLISH;
+		expect(await fetchBaseline()).toBeUndefined();
 	});
 });
