@@ -52,7 +52,7 @@ const ROW_ITEM_HEIGHT = 26;
 const CARD_ITEM_HEIGHT = 72;
 
 // Width below which fixed-size controls are dropped so the package name and version are kept.
-const NARROW_WIDTH_THRESHOLD = 240;
+const NARROW_WIDTH_THRESHOLD = 200;
 
 export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const {

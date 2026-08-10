@@ -35,6 +35,9 @@ const VIEWPORT_HEIGHT = 400;
 // Below NARROW_WIDTH_THRESHOLD, so the row actions and the Update button drop out.
 const NARROW_VIEWPORT_WIDTH = 180;
 
+// Positron's out-of-box sidebar width, measured in a clean profile at both 1280x800 and 1920x1080.
+const DEFAULT_SIDEBAR_WIDTH = 230;
+
 const pkg = (name: string, version: string): ILanguageRuntimePackage => ({
 	id: name,
 	name,
@@ -252,6 +255,16 @@ describe('ListPackages', () => {
 		expect(await screen.findByText('numpy')).toBeInTheDocument();
 
 		expect(screen.getByRole('button', { name: 'Open website for numpy' })).toBeInTheDocument();
+	});
+
+	// The default layout must not land in narrow mode. This pins the threshold below the shipped
+	// sidebar width so raising it cannot silently take the buttons away from every user.
+	it('keeps the row actions at the default sidebar width', async () => {
+		renderList(DEFAULT_SIDEBAR_WIDTH);
+		expect(await screen.findByText('numpy')).toBeInTheDocument();
+
+		expect(screen.getByRole('button', { name: 'Open website for numpy' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Show help for numpy' })).toBeInTheDocument();
 	});
 
 	// Card mode's Update button is a ~60px text button on the description row. Narrow, it is
