@@ -420,10 +420,16 @@ alongside the `vitest.config.ts` change from Step 1.
 Prove the check is actually reading the new files rather than trusting a clean
 result, by appending a deliberate error and confirming it is caught:
 
+Use a throwaway probe file, never the real one. At this point `label.vitest.ts` is
+new and uncommitted, so `git checkout --` either fails outright (untracked) or
+discards the work it is meant to protect (tracked but uncommitted):
+
 ```bash
-printf '\nconst deliberateTypeError: number = "not a number";\n' >> test/e2e/utils/memory/label.vitest.ts
-npm run test:positron:check-ts 2>&1 | grep 'test/e2e'   # must report TS2322
-git checkout -- test/e2e/utils/memory/label.vitest.ts
+cat > test/e2e/utils/memory/probe.vitest.ts <<'PROBE'
+const deliberateTypeError: number = "not a number";
+PROBE
+npm run test:positron:check-ts 2>&1 | grep 'probe.vitest'   # must report TS2322
+rm test/e2e/utils/memory/probe.vitest.ts
 ```
 
 ```bash
