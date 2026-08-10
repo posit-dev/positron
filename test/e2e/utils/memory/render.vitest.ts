@@ -56,6 +56,21 @@ describe('renderMarkdown', () => {
 		expect(output).toContain('unlabeled');
 	});
 
+	test('reports the same unlabeled total in the note as in the role table', () => {
+		// Three launches whose unlabeled totals differ, so a note summing launch 0
+		// alone would disagree with the median in the table.
+		const unlabeled = (pssBytes: number): LabeledProcess =>
+			proc({ pid: 300, processName: 'mystery', processRole: 'unlabeled', labeled: false, pssBytes });
+		const output = renderMarkdown([
+			snapshot([unlabeled(90 * MB)], 0),
+			snapshot([unlabeled(50 * MB)], 1),
+			snapshot([unlabeled(40 * MB)], 2)
+		]);
+		expect(output).toContain('| `unlabeled` | 50.0 MB |');
+		expect(output).toContain('totalling 50.0 MB');
+		expect(output).not.toContain('totalling 90.0 MB');
+	});
+
 	test('works with no baseline', () => {
 		expect(() => renderMarkdown([snapshot([proc()])])).not.toThrow();
 	});

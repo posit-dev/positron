@@ -96,7 +96,10 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 
 	const unlabeled = (snapshots[0]?.processes ?? []).filter(p => p.processRole === 'unlabeled');
 	if (unlabeled.length > 0) {
-		const bytes = unlabeled.reduce((sum, p) => sum + p.pssBytes, 0);
+		// Take the byte figure from the same median the table above uses. Summing
+		// launch 0 instead reports a different number for the row the reader is
+		// looking at, which reads as a bug in the report.
+		const bytes = byRole(snapshots).get('unlabeled') ?? 0;
 		lines.push(`> ${unlabeled.length} unlabeled process(es) totalling ${formatBytes(bytes)}. Add them to the role map in \`test/e2e/utils/memory/label.ts\`.`, '');
 	}
 
