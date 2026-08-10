@@ -423,7 +423,8 @@ function requireTcpEndpoint(params: positron.DataConnectionParameterValues): { h
  */
 export function createPostgreSQLDriver(
 	context: vscode.ExtensionContext,
-	dataExplorerHandler: PostgresDataExplorerRpcHandler
+	dataExplorerHandler: PostgresDataExplorerRpcHandler,
+	logger?: positron.DataConnectionLogger
 ): positron.DataConnectionDriver {
 	// Load the SVG icon once at registration time.
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'postgresql.svg');
@@ -525,7 +526,7 @@ export function createPostgreSQLDriver(
 						password: isNonEmptyString(params.password) ? params.password : undefined,
 						database: isNonEmptyString(params.database) ? params.database : undefined,
 						ssl: params.ssl === true,
-					}, dataExplorerHandler);
+					}, dataExplorerHandler, logger);
 
 					// Connect the connection.
 					await connection.connect();
@@ -544,7 +545,7 @@ export function createPostgreSQLDriver(
 						host: isNonEmptyString(params.socketDirectory) ? params.socketDirectory : undefined,
 						user: isNonEmptyString(params.user) ? params.user : os.userInfo().username,
 						database: isNonEmptyString(params.database) ? params.database : undefined,
-					}, dataExplorerHandler);
+					}, dataExplorerHandler, logger);
 
 					// Connect the connection.
 					await connection.connect();
@@ -577,7 +578,7 @@ export function createPostgreSQLDriver(
 						sslRootCert: isNonEmptyString(params.sslrootcert) ? params.sslrootcert : undefined,
 						sslCert,
 						sslKey,
-					}, dataExplorerHandler);
+					}, dataExplorerHandler, logger);
 
 					// Connect the connection.
 					await connection.connect();
@@ -593,7 +594,7 @@ export function createPostgreSQLDriver(
 					}
 
 					// Create the connection.
-					const connection = new PostgreSQLConnection({ kind: 'connectionString', connectionString }, dataExplorerHandler);
+					const connection = new PostgreSQLConnection({ kind: 'connectionString', connectionString }, dataExplorerHandler, logger);
 
 					// Connect the connection.
 					await connection.connect();

@@ -31,6 +31,17 @@ function describeOpenError(err: SqliteError, databasePath: string): string {
 }
 
 /**
+ * Returns just the first line of an error's message, for logging. Data Explorer queries inline the
+ * user's filter and search values into SQL rather than binding parameters, and some engines append
+ * the failing statement to their error message after the first line (verified for DuckDB); the first
+ * line holds the diagnostic without the query text.
+ */
+function firstLineOf(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return message.split('\n')[0].trim();
+}
+
+/**
  * A live SQLite connection implementing the DataConnection interface.
  *
  * The native SQLite database runs in a separate child process via
@@ -54,11 +65,13 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 	 * @param _databasePath Absolute path to the SQLite database file.
 	 * @param _readOnly Whether to open the database in read-only mode.
 	 * @param _dataExplorerHandler Hosts table views previewed in the Data Explorer.
+	 * @param _logger Optional diagnostic log sink for connection lifecycle events.
 	 */
 	constructor(
 		private readonly _databasePath: string,
 		private readonly _readOnly: boolean,
-		private readonly _dataExplorerHandler: ISqliteDataExplorerHost
+		private readonly _dataExplorerHandler: ISqliteDataExplorerHost,
+		private readonly _logger?: positron.DataConnectionLogger
 	) { }
 
 	/**
@@ -67,6 +80,7 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 	 * (e.g. a missing file, or a file that is not a valid SQLite database).
 	 */
 	async connect(): Promise<void> {
+		this._logger?.info(`Opening ${this._databasePath}${this._readOnly ? ' (read-only)' : ''}`);
 		const client = new SqliteWorkerClient({ databasePath: this._databasePath, readOnly: this._readOnly });
 		try {
 			// Probe the connection so an open failure surfaces here rather than on
@@ -76,8 +90,13 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 			this._client = client;
 		} catch (err) {
 			client.dispose();
+			// Only the first line is logged: some engines echo the failing statement in their error
+			// message after the first line (verified for DuckDB), and the probe here is a fixed
+			// literal, but describeOpenError's message is not guaranteed to stay that way.
+			this._logger?.error(`Failed to open ${this._databasePath}: ${firstLineOf(err)}`);
 			throw new Error(describeOpenError(err as SqliteError, this._databasePath));
 		}
+		this._logger?.info(`Opened ${this._databasePath}`);
 	}
 
 	/**

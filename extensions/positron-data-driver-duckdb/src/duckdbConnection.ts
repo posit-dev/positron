@@ -14,6 +14,16 @@ export const DUCKDB_DATA_EXPLORER_PROVIDER_ID = 'positron-data-driver-duckdb';
 let nextConnectionId = 1;
 
 /**
+ * Returns only the first line of an error message. DuckDB embeds the failing statement in its
+ * error text after a `LINE n:` block, and that statement can carry user-entered filter/search
+ * values, so only the first line (the error description) is ever safe to log.
+ */
+function firstLineOf(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return message.split('\n')[0].trim();
+}
+
+/**
  * Connection configuration passed from the driver.
  */
 export interface DuckDBConnectionConfig {
@@ -49,10 +59,12 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 	 * Constructor. Call connect() after constructing to open the database.
 	 * @param _config The connection configuration.
 	 * @param _dataExplorerHandler Hosts table views previewed in the Data Explorer.
+	 * @param _logger Optional diagnostic log sink for connection lifecycle events.
 	 */
 	constructor(
 		private readonly _config: DuckDBConnectionConfig,
-		private readonly _dataExplorerHandler: IDuckDBDataExplorerHost
+		private readonly _dataExplorerHandler: IDuckDBDataExplorerHost,
+		private readonly _logger?: positron.DataConnectionLogger
 	) { }
 
 	/**
@@ -65,6 +77,8 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 		if (!databasePath) {
 			throw new Error('Database file path is required');
 		}
+
+		this._logger?.info(`Opening ${databasePath}${this._config.readOnly ? ' (read-only)' : ''}`);
 
 		// Borrow a worker from the pool: connections to the same file + mode share one worker (and
 		// therefore one file lock), so opening the same database twice reuses the existing worker
@@ -79,8 +93,11 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 		} catch (err: any) {
 			// Release the lease so the worker is torn down if we were the only one holding it.
 			lease.release();
+			this._logger?.error(`Failed to open ${databasePath}: ${firstLineOf(err)}`);
 			throw new Error(`Failed to open DuckDB database: ${databasePath}. ${err?.message ?? err}`);
 		}
+
+		this._logger?.info(`Opened ${databasePath}`);
 	}
 
 	/**

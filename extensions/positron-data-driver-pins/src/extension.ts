@@ -24,7 +24,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Services Data Explorer RPCs for tabular pins previewed from a connection. Uses the shared DuckDB
 	// backend under this extension's own provider id.
-	const dataExplorerHandler = new DuckDBDataExplorerRpcHandler(PINS_DATA_EXPLORER_PROVIDER_ID);
+	const dataExplorerHandler = new DuckDBDataExplorerRpcHandler(PINS_DATA_EXPLORER_PROVIDER_ID, logger);
 	context.subscriptions.push(dataExplorerHandler);
 
 	// Downloaded pin data files are cached under the extension's global storage. Prune stale entries

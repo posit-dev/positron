@@ -123,6 +123,33 @@ function withConnectionStringDatabase(connectionString: string, database: string
 }
 
 /**
+ * Describes what a connection targets, for error messages and logging. A connection string is
+ * never shown, because it can embed a password; a socket-directory host (or no host) means a
+ * local-socket connection; otherwise the host:port is reported.
+ */
+export function connectionTarget(config: PostgreSQLConnectionConfig): string {
+	if (config.kind === 'connectionString') {
+		return 'the server in the connection string';
+	} else if (config.host && !config.host.startsWith('/')) {
+		return `${config.host}:${config.port ?? 5432}`;
+	}
+	return 'the local socket';
+}
+
+/**
+ * Returns just the first line of an error's message, for logging. The pg client's error messages
+ * normally keep the failing statement in a separate field rather than in `message`, but that is a
+ * library convention, not a guarantee -- some engines (verified for DuckDB) append the statement to
+ * `message` itself, and the Data Explorer inlines the user's filter and search values into SQL
+ * rather than binding parameters. Taking only the first line keeps whatever diagnostic text an
+ * engine puts first while dropping any statement echo that might follow it.
+ */
+function firstLineOf(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return message.split('\n')[0].trim();
+}
+
+/**
  * A live PostgreSQL connection implementing the DataConnection interface.
  * Connects via the pg Client and provides schema browsing via getChildren().
  */
@@ -149,10 +176,12 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresC
 	 * Constructor. Call connect() after constructing to establish the connection.
 	 * @param _config The connection configuration.
 	 * @param _dataExplorerHandler Hosts table views previewed in the Data Explorer.
+	 * @param _logger Optional diagnostic log sink for connection lifecycle events.
 	 */
 	constructor(
 		private readonly _config: PostgreSQLConnectionConfig,
-		private readonly _dataExplorerHandler: IPostgresDataExplorerHost
+		private readonly _dataExplorerHandler: IPostgresDataExplorerHost,
+		private readonly _logger?: positron.DataConnectionLogger
 	) {
 		// Server mode when no database is specified: for fields, a blank database; for a connection
 		// string, one that names no database.
@@ -207,6 +236,7 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresC
 		if (!this._client) {
 			throw new Error('PostgreSQL connection has been disconnected');
 		}
+		this._logger?.info(`Connecting to ${connectionTarget(this._config)}`);
 		try {
 			await this._client.connect();
 		} catch (err: any) {
@@ -218,32 +248,32 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresC
 				this._client = this._buildClient();
 				try {
 					await this._client.connect();
+					this._logger?.info(`Connected to ${connectionTarget(this._config)}`);
 					return;
 				} catch (fallbackErr: any) {
 					this._client = null;
-					throw this._connectError(fallbackErr);
+					const error = this._connectError(fallbackErr);
+					this._logger?.error(error.message);
+					throw error;
 				}
 			}
 			this._client = null;
-			throw this._connectError(err);
+			const error = this._connectError(err);
+			this._logger?.error(error.message);
+			throw error;
 		}
+		this._logger?.info(`Connected to ${connectionTarget(this._config)}`);
 	}
 
 	/**
 	 * Builds the error thrown when the base client fails to connect, naming what we tried to connect
-	 * to. A connection string hides the host; a socket-directory host (or no host) means a local-socket
-	 * connection; otherwise the host:port is reported.
+	 * to via connectionTarget(). Only the first line of the underlying engine error is interpolated:
+	 * node-postgres normally keeps the failing statement in a separate field rather than in `message`,
+	 * but that is a library convention, not a guarantee, and the Data Explorer inlines the user's
+	 * filter and search values into SQL rather than binding parameters.
 	 */
 	private _connectError(err: any): Error {
-		let target: string;
-		if (this._config.kind === 'connectionString') {
-			target = 'the server in the connection string';
-		} else if (this._config.host && !this._config.host.startsWith('/')) {
-			target = `${this._config.host}:${this._config.port ?? 5432}`;
-		} else {
-			target = 'the local socket';
-		}
-		return new Error(`Failed to connect to PostgreSQL at ${target}: ${err.message}`);
+		return new Error(`Failed to connect to PostgreSQL at ${connectionTarget(this._config)}: ${firstLineOf(err)}`);
 	}
 
 	/**

@@ -108,4 +108,29 @@ export class Output {
 		await startLine.click();
 		await endLine.click({ modifiers: ['Shift'] });
 	}
+
+	/**
+	 * Returns the names of the output channels whose label contains the given text, by opening the
+	 * channel picker, typing the filter, and reading the visible rows. Closes the picker before
+	 * returning so the workbench is left as it was found.
+	 *
+	 * Reads only the row's label (`.monaco-icon-label .label-name`), not the whole row's text: the
+	 * output channel picker can render a description or a "recently used" separator alongside a row,
+	 * and `allTextContents()` on the whole row would fold that extra text into the label, breaking
+	 * an exact-match comparison against the channel name.
+	 */
+	async getChannelNamesContaining(filter: string): Promise<string[]> {
+		await this.quickaccess.runCommand('workbench.action.showOutputChannels', { keepOpen: true });
+		await this.quickinput.waitForQuickInputOpened();
+		await this.quickinput.type(filter);
+
+		const labels = this.code.driver.currentPage.locator(
+			'.quick-input-widget .quick-input-list .monaco-list-row .quick-input-list-row > .monaco-icon-label .label-name'
+		);
+		await labels.first().waitFor({ state: 'attached', timeout: 2000 }).catch(() => { /* no matches is a valid result */ });
+		const names = await labels.allTextContents();
+
+		await this.quickinput.closeQuickInput();
+		return names.filter(name => name.includes(filter));
+	}
 }

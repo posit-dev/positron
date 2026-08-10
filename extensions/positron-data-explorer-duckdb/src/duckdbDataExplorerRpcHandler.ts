@@ -71,6 +71,19 @@ export interface IDuckDBDataExplorerHost {
  * The provider id is supplied by the consuming extension, so each data driver that reuses this
  * DuckDB backend registers under its own id (and must pass the same id to `positron.dataExplorer.open`).
  */
+/**
+ * Reduces an error to its first line, for logging.
+ *
+ * DuckDB appends the failing statement to its errors in a `LINE n:` block after the primary
+ * message. That statement carries the user's filter and search values, because the Data Explorer
+ * inlines them rather than binding parameters, so the echo must not reach the log file. The first
+ * line holds the diagnostic ("Binder Error: Referenced column ... not found") and none of the query.
+ */
+function firstLineOf(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return message.split('\n')[0].trim();
+}
+
 export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBDataExplorerHost {
 	private readonly _views = new Map<string, DuckDBTableView>();
 	/** Per-dataset close hooks, invoked when the user closes a dataset's Data Explorer tab. */
@@ -80,8 +93,9 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 	/**
 	 * @param providerId The Data Explorer provider id to register under; the consuming extension
 	 * passes the same id to `positron.dataExplorer.open`.
+	 * @param _logger Optional logger for reporting RPC failures to the consuming extension's output channel.
 	 */
-	constructor(providerId: string) {
+	constructor(providerId: string, private readonly _logger?: positron.DataConnectionLogger) {
 		this._session = positron.dataExplorer.registerRpcHandler(providerId, {
 			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc),
 			closeDataset: (datasetId) => this.closeDataset(datasetId),
@@ -162,6 +176,7 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 			return { result: await this._dispatch(rpc) };
 		} catch (error) {
 			const message = error instanceof Error ? error.message : `Unknown error handling ${rpc.method}`;
+			this._logger?.error(`DuckDB Data Explorer RPC failed (method: ${rpc.method}, dataset: ${rpc.uri ?? 'unknown'}): ${firstLineOf(error)}`);
 			return { error_message: message };
 		}
 	}
@@ -215,8 +230,7 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 					params: profiles,
 				} satisfies DataExplorerUiEvent);
 			} catch (error) {
-				const message = error instanceof Error ? error.message : 'unknown error';
-				console.error(`Failed to compute DuckDB column profiles: ${message}`);
+				this._logger?.error(`DuckDB Data Explorer RPC failed (method: ${DataExplorerBackendRequest.GetColumnProfiles}, dataset: ${datasetId}): ${firstLineOf(error)}`);
 			}
 		})();
 	}

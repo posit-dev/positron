@@ -29,6 +29,17 @@ import {
 export const POSTGRESQL_DATA_EXPLORER_PROVIDER_ID = 'positron-data-driver-postgresql';
 
 /**
+ * Returns just the first line of an error's message, for logging. Data Explorer queries inline the
+ * user's filter and search values into SQL rather than binding parameters, and some engines append
+ * the failing statement to their error message after the first line (verified for DuckDB); the first
+ * line holds the diagnostic without the query text.
+ */
+function firstLineOf(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return message.split('\n')[0].trim();
+}
+
+/**
  * The slice of the RPC handler a connection needs to preview its tables. Kept as an interface so a
  * connection can be tested without registering the real Data Explorer provider.
  */
@@ -53,7 +64,7 @@ export class PostgresDataExplorerRpcHandler implements vscode.Disposable, IPostg
 	private readonly _views = new Map<string, PostgresTableView>();
 	private readonly _session: positron.DataExplorerRpcSession;
 
-	constructor() {
+	constructor(private readonly _logger?: positron.DataConnectionLogger) {
 		this._session = positron.dataExplorer.registerRpcHandler(POSTGRESQL_DATA_EXPLORER_PROVIDER_ID, {
 			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc)
 		});
@@ -162,8 +173,10 @@ export class PostgresDataExplorerRpcHandler implements vscode.Disposable, IPostg
 					params: profiles,
 				} satisfies DataExplorerUiEvent);
 			} catch (error) {
-				const message = error instanceof Error ? error.message : 'unknown error';
-				console.error(`Failed to compute PostgreSQL column profiles: ${message}`);
+				// Only the first line is logged: computeColumnProfiles runs queries with the user's
+				// filter and search values inlined into the SQL rather than bound as parameters, and an
+				// engine error can echo the failing statement after its first line.
+				this._logger?.error(`Failed to compute PostgreSQL column profiles: ${firstLineOf(error)}`);
 			}
 		})();
 	}
