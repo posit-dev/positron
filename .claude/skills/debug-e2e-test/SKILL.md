@@ -11,6 +11,9 @@ file-a-bug with the action to match. This is an orchestrator: deterministic work
 lives in `scripts/`, and detailed procedures live in `references/` that you read
 only when a stage needs them.
 
+*Editing this skill:* this file holds the invariant, the reference holds the
+mechanism. Restating a mechanism here makes two copies that drift apart silently.
+
 ## When to use
 
 You picked up one specific e2e test that is failing or flaking, and want its
@@ -59,16 +62,17 @@ These hold on both entries unless a line names one.
   reason in `references/evidence-escalation.md` -- name which.
 - Agree the **fix approach** before the first edit, the same way you agree the
   pattern before fetching evidence.
-- Escalate evidence only to answer a concrete question, one evidence block per
-  step (below), and dispatch the read to a subagent. Keep large output on disk,
-  not in the conversation.
+- Escalate evidence only to answer a concrete question, and **show the evidence
+  block before you act on it**. Large output stays on disk and out of the
+  conversation; how the read is delegated is
+  [`references/evidence-escalation.md`](references/evidence-escalation.md).
 - **Never** increase a timeout or add an arbitrary wait as the fix.
 - **Never** claim a flaky test is fixed on one green run.
 - A previous merged fix must be checked against subsequent failures, and that
   check reported as four lines, not a triage report (`references/prior-triage.md`).
 - Root-cause claims cite observed evidence and the alternatives ruled out.
-- Checkpoint at every phase transition (CI). The local entry checkpoints only
-  once it escalates to a PR, an issue, or a `/clear`.
+- Checkpoint at every phase transition (CI). The local entry starts one only
+  once it escalates ([`references/local-evidence.md`](references/local-evidence.md)).
 
 ## Requirements
 
@@ -286,11 +290,9 @@ test (that skill drives toward green; it does not enforce RED-first).
 Every triage ends by declaring an `outcome` and recording its diagnosis -- this
 is not optional, and `checkpoint.js` refuses `phase=done` until it's satisfied.
 **On the local entry there is no checkpoint to gate you**, so the rule is yours
-to keep: a local dig that produces a PR or an issue still gets the block, which
-means initializing the checkpoint at that point
-([`references/local-evidence.md`](references/local-evidence.md)). A local dig
-that ends with a fix and no artifact ends when the fix is verified -- say so and
-stop; don't manufacture a checkpoint to close.
+to keep: a PR or an issue still gets the block. A local dig that ends with a fix
+and no artifact ends when the fix is verified -- say so and stop; don't
+manufacture a checkpoint to close.
 The outcome spans two axes (what you found x what you did):
 
 | Outcome | Meaning | Where the block goes | To reach `done` |
