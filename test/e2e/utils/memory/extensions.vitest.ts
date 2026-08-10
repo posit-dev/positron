@@ -56,6 +56,20 @@ describe('parseActivationLog', () => {
 		expect(parsed.find(e => e.extensionId === 'vscode.git')?.isBuiltin).toBe(true);
 	});
 
+	test('matches installed ids case-insensitively', () => {
+		// The extensions dir lowercases directory names; the log reports the id as
+		// package.json declares it. A case-sensitive lookup marks every GitHub.*
+		// and Posit.* extension builtin.
+		const text = [line('GitHub.copilot-chat', false, 'onStartup'), line('Posit.air-vscode', false, 'onLanguage:r')].join('\n');
+		const parsed = parseActivationLog(text, new Set(['github.copilot-chat', 'posit.air-vscode']));
+		expect(parsed.map(e => e.isBuiltin)).toEqual([false, false]);
+	});
+
+	test('preserves the id as logged, even when matching lowercased', () => {
+		const parsed = parseActivationLog(line('GitHub.copilot-chat', false, 'onStartup'), new Set(['github.copilot-chat']));
+		expect(parsed[0].extensionId).toBe('GitHub.copilot-chat');
+	});
+
 	test('parses the captured real exthost log', () => {
 		const fixture = readFileSync(join(__dirname, 'fixtures', 'exthost.log'), 'utf8');
 		const parsed = parseActivationLog(fixture);
@@ -93,5 +107,18 @@ describe('findExtHostLog', () => {
 
 	test('returns undefined rather than throwing when the root does not exist', async () => {
 		expect(await findExtHostLog(join(tmpdir(), 'memory-logs-does-not-exist'))).toBeUndefined();
+	});
+
+	test('picks window10 over window9, which a string sort gets backwards', async () => {
+		const root = layout('window9', 'exthost');
+		mkdirSync(join(root, 'window10', 'exthost'), { recursive: true });
+		writeFileSync(join(root, 'window10', 'exthost', 'exthost.log'), 'log');
+		expect(await findExtHostLog(root)).toBe(join(root, 'window10', 'exthost', 'exthost.log'));
+	});
+
+	test('ignores a non-session dir that sorts after the real session', async () => {
+		const root = layout('20260810T124853', 'window1', 'exthost');
+		mkdirSync(join(root, 'zzz-scratch'), { recursive: true });
+		expect(await findExtHostLog(root)).toBe(join(root, '20260810T124853', 'window1', 'exthost', 'exthost.log'));
 	});
 });

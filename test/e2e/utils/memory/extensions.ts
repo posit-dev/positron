@@ -53,7 +53,11 @@ export function parseActivationLog(text: string, userInstalledIds: Set<string> =
 		}
 		byId.set(extensionId, {
 			extensionId,
-			isBuiltin: !userInstalledIds.has(extensionId),
+			// Compared case-insensitively. The installed set comes from directory
+			// names, which the extension manager lowercases, while the log reports
+			// the id as the extension's package.json declares it. A case-sensitive
+			// lookup marks every `GitHub.*` and `Posit.*` extension builtin.
+			isBuiltin: !userInstalledIds.has(extensionId.toLowerCase()),
 			activationTimeMs: null,
 			activationEvent
 		});
@@ -66,6 +70,9 @@ export function parseActivationLog(text: string, userInstalledIds: Set<string> =
  * Ids of extensions installed into a run's extensions dir, where directories are
  * named `<publisher>.<name>-<version>`. Returns an empty set if the directory is
  * missing, which is the common case for a fresh profile.
+ *
+ * Ids are lowercased, matching how the extension manager writes the directory
+ * names, so callers must lowercase before looking one up.
  */
 export async function readUserInstalledIds(extensionsDir: string): Promise<Set<string>> {
 	try {
@@ -73,24 +80,48 @@ export async function readUserInstalledIds(extensionsDir: string): Promise<Set<s
 		return new Set(
 			entries
 				.filter(entry => entry.isDirectory() && !entry.name.startsWith('.'))
-				.map(entry => entry.name.replace(/-\d+\.\d+\.\d+.*$/, ''))
+				.map(entry => entry.name.replace(/-\d+\.\d+\.\d+.*$/, '').toLowerCase())
 		);
 	} catch {
 		return new Set();
 	}
 }
 
-async function newestDirectory(dir: string, prefix = ''): Promise<string | undefined> {
+/** Log session dirs are named `<YYYYMMDD>T<HHMMSS>`. */
+const SESSION_DIR = /^\d{8}T\d{6}$/;
+
+/** Window dirs are named `window<n>`, with no zero padding. */
+const WINDOW_DIR = /^window(\d+)$/;
+
+async function directoryNames(dir: string): Promise<string[]> {
 	const entries = await fs.readdir(dir, { withFileTypes: true });
-	return entries
-		.filter(entry => entry.isDirectory() && entry.name.startsWith(prefix))
-		.map(entry => entry.name)
-		.sort()
-		.at(-1);
+	return entries.filter(entry => entry.isDirectory()).map(entry => entry.name);
+}
+
+/**
+ * Newest session dir, by name. The timestamps are fixed width and zero padded,
+ * so a lexicographic sort is chronological. Names that are not session dirs are
+ * ignored: a stray scratch dir sorting after the real session would otherwise
+ * win and hide a log that is present.
+ */
+async function newestSession(logsRoot: string): Promise<string | undefined> {
+	return (await directoryNames(logsRoot)).filter(name => SESSION_DIR.test(name)).sort().at(-1);
+}
+
+/**
+ * Highest-numbered window dir. Sorted numerically, because `window10` sorts
+ * before `window2` as a string.
+ */
+async function newestWindow(sessionDir: string): Promise<string | undefined> {
+	return (await directoryNames(sessionDir))
+		.map(name => ({ name, index: Number(name.match(WINDOW_DIR)?.[1]) }))
+		.filter(entry => !isNaN(entry.index))
+		.sort((a, b) => a.index - b.index)
+		.at(-1)?.name;
 }
 
 async function windowLog(sessionDir: string): Promise<string | undefined> {
-	const window = await newestDirectory(sessionDir, 'window');
+	const window = await newestWindow(sessionDir);
 	if (!window) {
 		return undefined;
 	}
@@ -124,7 +155,7 @@ export async function findExtHostLog(logsRoot: string): Promise<string | undefin
 		if (direct) {
 			return direct;
 		}
-		const session = await newestDirectory(logsRoot);
+		const session = await newestSession(logsRoot);
 		return session ? await windowLog(join(logsRoot, session)) : undefined;
 	} catch {
 		return undefined;
