@@ -36,33 +36,53 @@ function totalAcrossLaunches(snapshots: MemorySnapshot[]): number {
 	return median(snapshots.map(s => s.treeTotalPssBytes));
 }
 
+/**
+ * Median PSS per role across launches.
+ *
+ * A role absent from a launch counts as zero for that launch rather than being
+ * left out of the median. Skipping it would report an intermittent role from the
+ * one launch it appeared in, making something present in 1 of 3 launches look as
+ * heavy as something present in all three.
+ */
 function byRole(snapshots: MemorySnapshot[]): Map<ProcessRole, number> {
-	const totals = new Map<ProcessRole, number[]>();
-	for (const snapshot of snapshots) {
-		const perLaunch = new Map<ProcessRole, number>();
+	const perLaunch = snapshots.map(snapshot => {
+		const totals = new Map<ProcessRole, number>();
 		for (const proc of snapshot.processes) {
-			perLaunch.set(proc.processRole, (perLaunch.get(proc.processRole) ?? 0) + proc.pssBytes);
+			totals.set(proc.processRole, (totals.get(proc.processRole) ?? 0) + proc.pssBytes);
 		}
-		for (const [role, bytes] of perLaunch) {
-			totals.set(role, [...(totals.get(role) ?? []), bytes]);
-		}
-	}
-	return new Map([...totals].map(([role, values]) => [role, median(values)]));
+		return totals;
+	});
+
+	const roles = new Set(perLaunch.flatMap(totals => [...totals.keys()]));
+	return new Map([...roles].map(role => [role, median(perLaunch.map(totals => totals.get(role) ?? 0))]));
 }
 
-/** Processes present now that were absent from the baseline, keyed by name. */
+/** Every process seen in any launch, keyed by name, so an intermittent one is not missed. */
+function processesAcrossLaunches(snapshots: MemorySnapshot[]): LabeledProcess[] {
+	const seen = new Map<string, LabeledProcess>();
+	for (const snapshot of snapshots) {
+		for (const proc of snapshot.processes) {
+			if (!seen.has(proc.processName)) {
+				seen.set(proc.processName, proc);
+			}
+		}
+	}
+	return [...seen.values()];
+}
+
+/**
+ * Processes present now that were absent from the baseline, keyed by name.
+ *
+ * Taken from the union across launches, not launch 0. A process that starts only
+ * sometimes is exactly the kind of regression this section exists to surface, and
+ * reading one launch would hide it whenever it missed that launch.
+ */
 function newProcesses(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): LabeledProcess[] {
 	if (!baseline) {
 		return [];
 	}
 	const known = new Set(baseline.processes.map(p => p.processName));
-	const seen = new Map<string, LabeledProcess>();
-	for (const proc of snapshots[0]?.processes ?? []) {
-		if (!known.has(proc.processName)) {
-			seen.set(proc.processName, proc);
-		}
-	}
-	return [...seen.values()];
+	return processesAcrossLaunches(snapshots).filter(proc => !known.has(proc.processName));
 }
 
 export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): string {
@@ -76,9 +96,10 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 	lines.push(`Median of ${snapshots.length} launches. Settle time: ${Math.round(median(snapshots.map(s => s.settleMs)) / 1000)}s.`);
 	lines.push('');
 
+	const roleTotals = byRole(snapshots);
 	const baselineRoles = baseline ? byRole([baseline]) : new Map<ProcessRole, number>();
 	lines.push('| Role | PSS | Change |', '| --- | --- | --- |');
-	for (const [role, bytes] of [...byRole(snapshots)].sort((a, b) => b[1] - a[1])) {
+	for (const [role, bytes] of [...roleTotals].sort((a, b) => b[1] - a[1])) {
 		const before = baselineRoles.get(role);
 		const change = baseline ? (before === undefined ? 'new' : signed(bytes - before)) : '';
 		lines.push(`| \`${role}\` | ${formatBytes(bytes)} | ${change} |`);
@@ -94,13 +115,22 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 		lines.push('');
 	}
 
-	const unlabeled = (snapshots[0]?.processes ?? []).filter(p => p.processRole === 'unlabeled');
+	// Both figures span every launch, and the wording says which basis each uses.
+	// The count is distinct names across all launches, so a process that starts
+	// only sometimes still shows up; the bytes are the same median the table above
+	// reports, so the two agree on the row the reader is looking at. Naming the
+	// basis matters because the two cannot be made identical: several processes
+	// share a name (Chromium runs two zygotes), and the count is per name.
+	const unlabeled = processesAcrossLaunches(snapshots).filter(p => p.processRole === 'unlabeled');
 	if (unlabeled.length > 0) {
-		// Take the byte figure from the same median the table above uses. Summing
-		// launch 0 instead reports a different number for the row the reader is
-		// looking at, which reads as a bug in the report.
-		const bytes = byRole(snapshots).get('unlabeled') ?? 0;
-		lines.push(`> ${unlabeled.length} unlabeled process(es) totalling ${formatBytes(bytes)}. Add them to the role map in \`test/e2e/utils/memory/label.ts\`.`, '');
+		const bytes = roleTotals.get('unlabeled') ?? 0;
+		// Unnamed children are reported by their whole command line, which can run
+		// to hundreds of characters. Enough to identify one is enough here.
+		const names = unlabeled
+			.map(p => p.processName.length > 60 ? `${p.processName.slice(0, 60)}...` : p.processName)
+			.map(name => `\`${name}\``)
+			.join(', ');
+		lines.push(`> ${unlabeled.length} unlabeled process name(s) across ${snapshots.length} launch(es), ${formatBytes(bytes)} in the median launch: ${names}. Add them to the role map in \`test/e2e/utils/memory/label.ts\`.`, '');
 	}
 
 	return lines.join('\n');

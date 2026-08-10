@@ -67,8 +67,50 @@ describe('renderMarkdown', () => {
 			snapshot([unlabeled(40 * MB)], 2)
 		]);
 		expect(output).toContain('| `unlabeled` | 50.0 MB |');
-		expect(output).toContain('totalling 50.0 MB');
-		expect(output).not.toContain('totalling 90.0 MB');
+		expect(output).toContain('50.0 MB in the median launch');
+		expect(output).not.toContain('90.0 MB in the median launch');
+	});
+
+	test('treats a role absent from a launch as zero, not as a missing sample', () => {
+		// `kernel` appears in one launch of three. Taking the median of only the
+		// launches it appeared in would report it at its full 90 MB, as heavy as a
+		// role present every time.
+		const kernel = proc({ pid: 400, processName: 'ark', processRole: 'kernel', pssBytes: 90 * MB });
+		const output = renderMarkdown([
+			snapshot([proc(), kernel], 0),
+			snapshot([proc()], 1),
+			snapshot([proc()], 2)
+		]);
+		expect(output).toContain('| `kernel` | 0.0 MB |');
+	});
+
+	test('surfaces a process that appears in a later launch only', () => {
+		// Reading launch 0 alone would miss it, which is exactly the intermittent
+		// regression this section exists to catch.
+		const latecomer = proc({ pid: 500, processName: 'duckdb-worker', processRole: 'unlabeled', labeled: false, pssBytes: 30 * MB });
+		const output = renderMarkdown(
+			[snapshot([proc()], 0), snapshot([proc(), latecomer], 1)],
+			snapshot([proc()])
+		);
+		expect(output).toContain('duckdb-worker');
+	});
+
+	test('counts unlabeled processes across every launch', () => {
+		const first = proc({ pid: 600, processName: 'mystery-a', processRole: 'unlabeled', labeled: false, pssBytes: 10 * MB });
+		const second = proc({ pid: 601, processName: 'mystery-b', processRole: 'unlabeled', labeled: false, pssBytes: 10 * MB });
+		const output = renderMarkdown([snapshot([first], 0), snapshot([second], 1)]);
+		expect(output).toContain('2 unlabeled process name(s) across 2 launch(es)');
+		// Naming them is what makes the note actionable for label.ts.
+		expect(output).toContain('`mystery-a`');
+		expect(output).toContain('`mystery-b`');
+	});
+
+	test('truncates a command-line process name in the unlabeled note', () => {
+		// Unnamed children are reported by their full command line.
+		const long = '/build/positron /build/resources/app/extensions/json-language-features/server/dist/node/jsonServerMain --node-ipc';
+		const output = renderMarkdown([snapshot([proc({ processName: long, processRole: 'unlabeled', labeled: false })])]);
+		expect(output).toContain('...');
+		expect(output).not.toContain('--node-ipc');
 	});
 
 	test('works with no baseline', () => {
