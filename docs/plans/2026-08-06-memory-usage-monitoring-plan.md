@@ -2212,7 +2212,7 @@ python3 -c "import yaml,sys; yaml.safe_load(open('.github/workflows/test-memory-
 
 Expected: `valid yaml`.
 
-- [ ] **Step 4: Commit and dispatch a real run**
+- [x] **Step 4: Commit and dispatch a real run**
 
 ```bash
 npm run precommit -- .github/workflows/test-memory-metrics.yml
@@ -2230,9 +2230,41 @@ gh run watch "$(gh run list --workflow=test-memory-metrics.yml --limit 1 --json 
 
 Expected: three measure steps pass, the report step prints a markdown table, and `memory-report` appears as an artifact. Publishing will fail until the dashboard plan lands, which is expected and must not fail the job.
 
-- [ ] **Step 5: Record the observed variance**
+- [x] **Step 5: Record the observed variance**
 
 Compare the three launch totals in the step summary. Note the spread in the PR description. This is the number phase 2 needs to choose an alert threshold, and it is the answer to the spec's main open risk. If the spread exceeds roughly 5%, say so explicitly, because it means the idle total alone will not detect small regressions and per-process rows carry the load.
+
+**Measured, on run 31401098950 (2026.08.0-331, ubuntu24 container, 8x runner):**
+
+| Launch | Total PSS | Settle |
+| --- | --- | --- |
+| 0 | 1789.4 MB | 3110 ms |
+| 1 | 1768.0 MB | 3117 ms |
+| 2 | 1752.2 MB | 3101 ms |
+
+Spread is **2.1% of the median**, comfortably inside the 5% budget, so the idle total
+is usable on its own for regressions above roughly 2%. Settle time is strikingly
+consistent (3101-3117 ms), which suggests the 90s cap is never approached and the
+three-stable-readings rule fires at the earliest opportunity; worth revisiting whether
+the tree is genuinely settled that fast or whether the 1% tolerance is too loose.
+
+Median composition: renderer 498.8 MB, extension_host 492.4 MB, main 166.6 MB,
+unlabeled 124.8 MB, shared 118.7 MB, gpu 92.5 MB, agent_host 63.3 MB,
+extension_child 62.2 MB, pty_host 49.8 MB, file_watcher 46.7 MB, network 24.3 MB,
+kernel_supervisor 6.9 MB, language_server 6.9 MB. Total 1.7 GB across 20 processes.
+
+Two follow-ups this run surfaced:
+
+- **Unlabeled is 124.8 MB, 7.3% of the tree, across 8 process names.** Inside the
+  one-third gate but worth closing. CI has more installed than the local container did,
+  so names appear here that never showed up before: `charliermarsh.ruff` language
+  servers (two versions), bundled `jsonServerMain`-style servers, and Chromium's
+  `zygote`. The ruff and server processes belong in `language_server`; per Task 9
+  Step 5 this is the signal to add rules to `label.ts`.
+- **Publishing failed soft against `127.0.0.1:8000`**, which is the branch gate working:
+  `apiUrl` only uses the production endpoint on `main`. Nothing to fix, but it means a
+  nightly on a branch can never write to the real dataset, and the first genuine publish
+  will not happen until this is on `main` with the endpoint live.
 
 ---
 
