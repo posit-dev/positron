@@ -76,6 +76,29 @@ The test title, dashboard link, and **Frequency** clause are not yours to write
 - `<details>` collapsing is rendering-only: `gh api` / `gh pr view --json body`
   still return the full text, so nothing is lost for scoring.
 
+## Two artifacts (split outcome)
+
+Usually one triage resolves into one artifact. When the root cause and a
+mitigation land separately -- a product bug filed as an issue *plus* a PR that
+works around it -- the block goes on **both**, so neither reader has to find the
+other to learn the mechanism.
+
+`outcome` still names only one of them. Record the primary first (the artifact
+matching `outcome`; that call sets `outcomeRef`), then append to the other:
+
+```bash
+node .claude/skills/debug-e2e-test/scripts/record-diagnosis.js \
+  --triage-id <id> --pr <n> --secondary
+```
+
+`--secondary` appends the block without repointing `outcome`/`outcomeRef`, and
+refuses to be combined with `--outcome` -- so a second artifact can't silently
+become the answer to "how did this triage resolve?"
+
+Don't reach for this when a triage merely *mentions* something in passing. A
+note about a product race in a PR that fixes the test is a note; the split is
+for a second artifact that exists.
+
 ## Do not rewrite after merge
 
 Do NOT edit the block after merge to record whether the hypothesis was right --

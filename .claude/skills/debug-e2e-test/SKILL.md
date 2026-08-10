@@ -303,8 +303,9 @@ The outcome spans two axes (what you found x what you did):
 | `no-op` | not fixed and not filed (accepted flake, dup, backlog, handed off) | checkpoint only | `--set outcome=no-op --set outcomeReason="..."` |
 
 `outcome` is the **primary** artifact -- a secondary *note* (e.g. mentioning a
-product race in the backlog while you fix the test) does not change it. A second
-*artifact* is different: see the split-outcome rule below.
+product race in the backlog while you fix the test) does not change it. When a
+triage genuinely produces **two** artifacts, the block goes on both and `outcome`
+still names one: [`references/diagnosis-block.md`](references/diagnosis-block.md).
 
 **A returning sub-tool is not the end of the triage** -- opening the PR via
 `positron-pr-helper` or a passing `author-vitest-tests` run resolves a *step*.
@@ -315,9 +316,3 @@ Once the PR/issue exists:
    `outcomeRef` + `diagnosisBlockRecorded` in one call. For a `no-op`, skip this
    and `checkpoint.js --set outcome=no-op --set outcomeReason="..."` instead.
 2. `checkpoint.js --set phase=done`.
-
-**Split outcome (two artifacts).** When the root cause and a mitigation land
-separately -- e.g. a product bug filed as an issue *plus* a fix PR -- the block
-goes on **both**. Do step 1 for the primary (the artifact matching `outcome`),
-then rerun `record-diagnosis.js --pr <n> --secondary` for the other: it appends
-the block but won't repoint `outcomeRef`/`outcome`. `outcome` stays single.
