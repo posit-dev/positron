@@ -22,6 +22,7 @@ import { INotebookSerializer, INotebookService } from '../../notebook/common/not
 import {
 	QUARTO_NATIVE_LANGUAGE_FEATURES_KEY,
 	isQuartoDocument,
+	isQuartoOrRmdFile,
 	usingNativeEmbeddedFeatures,
 } from '../common/positronQuartoConfig.js';
 import { IQuartoDocumentModel } from '../common/quartoTypes.js';
@@ -126,6 +127,25 @@ class QuartoCellsSerializer implements INotebookSerializer {
 }
 
 /**
+ * The URI of the hidden notebook for a source document: the source URI under our
+ * own scheme, since the extension host cannot hold a text document and a notebook
+ * document at the same URI.
+ *
+ * The path is kept because a cell URI carries the path of the notebook it belongs
+ * to, and that path is how a language client tells our cells from the cells of a
+ * real notebook: both clients select on `**\/*.{qmd,rmd}`. An untitled document
+ * has no extension to select on ("Untitled-1", from _Quarto: New Document_), so
+ * it gets a Quarto one. Otherwise its cells reach no language server and the
+ * document silently has no language features.
+ */
+function quartoNotebookUri(sourceUri: URI): URI {
+	return sourceUri.with({
+		scheme: QUARTO_CELLS_SCHEME,
+		path: isQuartoOrRmdFile(sourceUri.path) ? sourceUri.path : `${sourceUri.path}.qmd`,
+	});
+}
+
+/**
  * The hidden notebook backing a single Quarto document, and the machinery that
  * keeps it in sync with the source text model.
  */
@@ -144,7 +164,7 @@ class QuartoVirtualNotebook extends Disposable {
 		private readonly _logService: ILogService,
 	) {
 		super();
-		this.notebookUri = sourceUri.with({ scheme: QUARTO_CELLS_SCHEME });
+		this.notebookUri = quartoNotebookUri(sourceUri);
 
 		// onDidParse rather than onDidChangeCells: cells also need re-syncing when
 		// they merely move, which happens whenever prose above a chunk grows or
