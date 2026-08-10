@@ -221,6 +221,15 @@ export interface IQuartoDocumentModel extends IDisposable {
 	whenParsed(): Promise<void>;
 
 	/**
+	 * Re-parses right now if a debounced re-parse is pending, so that `cells`
+	 * reflects the document's current content on return. No-op otherwise.
+	 *
+	 * This is the synchronous counterpart to {@link whenParsed}, for callers on
+	 * a path that cannot await, such as a language feature provider.
+	 */
+	synchronize(): void;
+
+	/**
 	 * Fired when cells change (add/remove/modify).
 	 */
 	readonly onDidChangeCells: Event<QuartoCellChangeEvent>;

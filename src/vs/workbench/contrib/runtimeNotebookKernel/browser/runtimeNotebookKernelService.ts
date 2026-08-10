@@ -35,6 +35,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { GroupIdentifier, GroupModelChangeKind } from '../../../common/editor.js';
+import { QUARTO_CELLS_VIEW_TYPE } from '../../positronQuarto/common/quartoVirtualNotebookTypes.js';
 
 /**
  * The service responsible for managing {@link RuntimeNotebookKernel}s.
@@ -443,6 +444,14 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	}
 
 	private attachNotebook(notebook: NotebookTextModel): void {
+		// Quarto virtual notebooks are hidden models that exist only so language
+		// servers can see embedded code cells. They have no editor, so a session
+		// started here could never be used, but it would still show up in the
+		// session picker
+		if (notebook.notebookType === QUARTO_CELLS_VIEW_TYPE) {
+			return;
+		}
+
 		// If a kernel is already selected for the notebook, there's nothing to do
 		if (this.getOrSelectKernel(notebook)) {
 			return;
