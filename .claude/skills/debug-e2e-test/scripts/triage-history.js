@@ -7,16 +7,7 @@
 // selects ONE representative occurrence per pattern, writes the full responses
 // to disk, and prints only a compact JSON summary to stdout.
 //
-// Usage:
-//   node triage-history.js --test-key '<testName>|||<specPath>' [options]
-//
-// Options:
-//   --test-key <key>              testName|||specPath  [required]
-//   --repo <id>                   test-health repo id (default: positron)
-//   --branch <branch>             override the current branch (skips git lookup)
-//   --lookback-days <n>           1-30 (default: 14)
-//   --occurrences-per-pattern <n> default: 1 (fetch a 2nd only with a stated reason)
-//   --triage-id <id>              work-dir id (default: derived from the test key)
+// Flags: see CLI below, or run with --help.
 //
 // Output (stdout): compact JSON { testKey, branchSummary, patterns[], verdict,
 //   summaryFile, rawResultFile }. Full API responses are written to disk.
@@ -26,7 +17,78 @@ import path from 'path';
 import {
 	analyzerScript, triageDir, deriveTriageId, ensureDir,
 	writeJson, emit, fail, runNode, tryRun, isMain, parseArgs,
+	insightsApiKeyPresent, resolveInsightsApiKey, MISSING_API_KEY_HELP,
+	defineCli, handleHelp,
 } from './lib.js';
+
+export const CLI = defineCli({
+	name: 'triage-history.js',
+	summary: 'dual-branch failure history, merged into one pattern list',
+	usage: ["--test-key '<testName>|||<specPath>' [options]"],
+	flags: [
+		{ name: 'test-key', value: '<key>', required: true, description: 'testName|||specPath' },
+		{ name: 'repo', value: '<id>', description: 'test-health repo id (default: positron)' },
+		{ name: 'branch', value: '<branch>', description: 'override the current branch (skips the git lookup)' },
+		{ name: 'lookback-days', value: '<n>', description: '1-30 (default: 14)' },
+		{ name: 'occurrences-per-pattern', value: '<n>', description: 'default 1; raise to 2 only for a listed escalation reason' },
+		{ name: 'triage-id', value: '<id>', description: 'work-dir id (default: derived from the test key)' },
+		{ name: 'since-fix', value: '<iso-date>', description: "a merged fix's date (mergedAt from find-prior-triage.js); adds per-pattern fixHeld numbers to feed back into its sufficiency scoring" },
+	],
+});
+
+/** Whole days between an ISO date and now, at least 1. */
+export function daysSince(isoDate, now = Date.now()) {
+	const t = Date.parse(isoDate);
+	if (!Number.isFinite(t)) { return null; }
+	return Math.max(1, Math.ceil((now - t) / 86400000));
+}
+
+/**
+ * Split a pattern's history into the window since a fix merged and everything
+ * before it, so "did the fix hold?" gets a denominator instead of a vibe.
+ *
+ * Both windows are scoped to the environments the pattern actually occurs in --
+ * the same scoping `rates` uses, and the reason this cannot be done by
+ * subtracting raw totals: an all-environment run count paired with a
+ * lane-specific failure rate inflates N and clears the sufficiency bar on runs
+ * that never exercised the failing lane.
+ *
+ * The baseline is the *pre-fix* remainder (full window minus the post-fix
+ * window), never the full window itself: including post-fix runs in the baseline
+ * drags the rate toward zero exactly when the fix worked, which flatters the fix
+ * with its own evidence.
+ *
+ * @returns {{usable: boolean, note: string|null, postFixRuns: number|null,
+ *   postFixFailures: number, baselineRuns: number|null, baselineFailures: number,
+ *   baselineRate: number|null, environment: string|null}}
+ */
+export function deriveFixHeld({ scopedRunsFull, scopedRunsPost, failuresFull, failuresPost, environments }) {
+	const environment = environments?.length ? environments.join(',') : null;
+	const base = {
+		postFixRuns: scopedRunsPost ?? null,
+		postFixFailures: failuresPost,
+		baselineRuns: null,
+		baselineFailures: failuresFull - failuresPost,
+		baselineRate: null,
+		environment,
+	};
+	if (scopedRunsFull == null || scopedRunsPost == null) {
+		return { ...base, usable: false, note: 'No environment breakdown for one of the windows, so the post-fix runs cannot be scoped to the failing lane.' };
+	}
+	const baselineRuns = scopedRunsFull - scopedRunsPost;
+	if (baselineRuns <= 0) {
+		return { ...base, baselineRuns, usable: false, note: 'The lookback window does not reach back before the fix, so there is no pre-fix baseline. Re-run with a longer --lookback-days.' };
+	}
+	const baselineFailures = failuresFull - failuresPost;
+	return {
+		...base,
+		baselineRuns,
+		baselineFailures,
+		baselineRate: baselineFailures > 0 ? baselineFailures / baselineRuns : 0,
+		usable: true,
+		note: baselineFailures > 0 ? null : 'No pre-fix failures in this window either, so a clean post-fix streak says nothing about the fix.',
+	};
+}
 
 /** Normalize a failure-pattern string into a stable cross-branch match key. */
 export function normalizePattern(pattern) {
@@ -58,6 +120,21 @@ function envKey(os, browser) {
 const occurrenceDateCache = new Map();
 
 /**
+ * `repos/{owner}/{repo}/actions/runs/{id}` for a run_url, or null when the URL is
+ * not a workflow-run URL.
+ *
+ * The owner/repo must come from the URL, never from gh's working-directory
+ * default: the e2e lanes run in posit-dev/positron-builds, so letting gh resolve
+ * them against a positron checkout 404s on every occurrence and silently reports
+ * `lastSeen.date: null` for the whole failure table -- which also disables the
+ * "is this pattern already fixed?" read that recency exists to support.
+ */
+export function runApiPath(runUrl) {
+	const m = String(runUrl || '').match(/github\.com\/([^/]+)\/([^/]+)\/actions\/runs\/(\d+)/);
+	return m ? `repos/${m[1]}/${m[2]}/actions/runs/${m[3]}` : null;
+}
+
+/**
  * Calendar date of one failure occurrence. The test-health API returns no
  * timestamp on occurrences, so derive one: the local git commit date of the sha
  * (offline and instant, and within minutes of the CI run), falling back to the
@@ -75,10 +152,9 @@ export function occurrenceDate(o) {
 		if (r.ok) { iso = r.stdout.trim().split('\n').pop() || null; }
 	}
 	if (!iso && o.run_url) {
-		const runId = String(o.run_url).match(/\/runs\/(\d+)/)?.[1];
-		if (runId) {
-			// {owner}/{repo} are resolved by gh from the working directory.
-			const r = tryRun('gh', ['api', `repos/{owner}/{repo}/actions/runs/${runId}`, '--jq', '.created_at']);
+		const apiPath = runApiPath(o.run_url);
+		if (apiPath) {
+			const r = tryRun('gh', ['api', apiPath, '--jq', '.created_at']);
 			if (r.ok) { iso = r.stdout.trim() || null; }
 		}
 	}
@@ -222,6 +298,9 @@ export function mergeHistory(current, main, currentBranch, occurrencesPerPattern
 			return {
 				id: patternLabel(i), // A, B, .. Z, AA, AB, ...
 				failure: entry.failure,
+				// The untruncated text, kept for cross-window matching (--since-fix).
+				// `failure` is a headline and two distinct patterns can share one.
+				fullPattern: entry.fullPattern,
 				count: entry.count,
 				rates,
 				environments,
@@ -271,20 +350,40 @@ function queryBranch(scriptPath, { repo, testKey, branch, lookbackDays, occ }) {
 		'--branch', branch,
 		'--lookback-days', String(lookbackDays),
 		'--occurrences-per-pattern', String(occ),
-	]);
+	], { E2E_INSIGHTS_API_KEY: resolveInsightsApiKey() ?? '' });
 	let data;
 	try { data = JSON.parse(out); } catch { data = {}; }
 	return data;
 }
 
 function main() {
-	const args = parseArgs(process.argv.slice(2));
+	handleHelp(CLI, process.argv.slice(2));
+	const args = parseArgs(process.argv.slice(2), CLI.booleanFlags);
 	const testKey = args['test-key'];
 	if (!testKey || !testKey.includes('|||')) {
 		fail('Missing or malformed --test-key (expected "testName|||specPath").');
 	}
+	// Pre-flight: without a key every query returns {}, which is indistinguishable
+	// from a real outage. Fail as a setup problem, with the steps, before querying --
+	// and before creating a work dir, so a first-run setup gap leaves no debris.
+	if (!insightsApiKeyPresent()) {
+		fail(MISSING_API_KEY_HELP, { cause: 'missing-api-key' });
+	}
+
 	const repo = args.repo || 'positron';
 	const lookbackDays = Number(args['lookback-days'] || 14);
+
+	// Validate --since-fix before any query: an unusable date or too-short window
+	// is a caller error, and finding it after two API round-trips just wastes them.
+	let daysSinceFix = null;
+	if (args['since-fix']) {
+		daysSinceFix = daysSince(args['since-fix']);
+		if (daysSinceFix === null) { fail(`--since-fix "${args['since-fix']}" is not a parseable date (expected the mergedAt ISO timestamp from find-prior-triage.js).`); }
+		if (daysSinceFix > lookbackDays) {
+			fail(`--since-fix is ${daysSinceFix}d ago but --lookback-days is ${lookbackDays}, so the window holds no pre-fix baseline. Re-run with --lookback-days ${Math.min(30, daysSinceFix + 7)}.`,
+				{ cause: 'lookback-too-short', daysSinceFix });
+		}
+	}
 	const occ = Number(args['occurrences-per-pattern'] || 1);
 	const triageId = args['triage-id'] || deriveTriageId(testKey);
 	const dir = triageDir(triageId);
@@ -306,7 +405,7 @@ function main() {
 
 	// An empty {} means the API was unreachable for that call -- surface and stop.
 	if ((queriedCurrent && Object.keys(currentData).length === 0) || Object.keys(mainData).length === 0) {
-		fail('test-health API unreachable (empty response). Check E2E_INSIGHTS_API_KEY; do not treat this as "no failures".', { triageId });
+		fail('test-health API unreachable (empty response). A key was found, so this is an API-side or network failure, not setup -- retry, then check the dashboard. Do not treat this as "no failures".', { triageId, cause: 'api-unreachable' });
 	}
 
 	const rawFile = writeJson(path.join(dir, 'history-raw.json'), { currentBranch, currentData, mainData });
@@ -317,7 +416,47 @@ function main() {
 	const testName = (mainTest || currentTest)?.testName || testKey.split('|||')[0];
 	const specPath = (mainTest || currentTest)?.specPath || testKey.split('|||')[1];
 
+	// The API's own coarse recency/onset label ("Started" / "yesterday"). Independent
+	// of per-occurrence dates, so it still answers "is this pattern current?" when
+	// date resolution comes up empty.
+	const insight = mainTest?.insight || currentTest?.insight || null;
+
 	const merged = mergeHistory(currentTest, mainTest, currentBranch, occ, occurrenceDate);
+
+	// --since-fix: a second, shorter query bounded by the fix's merge date. A fix
+	// merges to main, so "did it hold?" is a question about main -- the current
+	// branch's own runs predate the merge or duplicate it.
+	let fixHeldByPattern = null;
+	if (daysSinceFix !== null) {
+		const postData = queryBranch(scriptPath, { repo, testKey, branch: 'main', lookbackDays: daysSinceFix, occ: 1 });
+		if (Object.keys(postData).length === 0) {
+			fail('test-health API unreachable on the --since-fix query.', { triageId, cause: 'api-unreachable' });
+		}
+		const postTest = (postData?.tests || [])[0] || null;
+		const postBreakdown = postTest?.environment_breakdown;
+		const mainBreakdown = mainTest?.environment_breakdown;
+		fixHeldByPattern = {};
+		for (const p of merged.patterns) {
+			const failuresFull = p.rates.find(r => r.branch === 'main')?.count ?? 0;
+			// Matched on the same normalized full text mergeHistory keys on, so a
+			// pattern present in both windows is the same pattern in both.
+			const failuresPost = (postTest?.failure_patterns || [])
+				.filter(fp => normalizePattern(fp.pattern) === normalizePattern(p.fullPattern))
+				.reduce((n, fp) => n + (fp.count || 0), 0);
+			fixHeldByPattern[p.id] = {
+				sinceFix: args['since-fix'],
+				daysSinceFix,
+				...deriveFixHeld({
+					scopedRunsFull: scopedRunsForEnvironments(mainBreakdown, p.environments),
+					scopedRunsPost: scopedRunsForEnvironments(postBreakdown, p.environments),
+					failuresFull,
+					failuresPost,
+					environments: p.environments,
+				}),
+			};
+		}
+	}
+
 	const verdict = classifyVerdict({
 		currentBranch,
 		currentRuns: merged.currentRuns,
@@ -342,7 +481,14 @@ function main() {
 			id: p.id, failure: p.failure, count: p.count, rates: p.rates,
 			environments: p.environments, seenOn: p.seenOn, lastSeen: p.lastSeen,
 			representativeOccurrence: p.representativeOccurrence,
+			...(fixHeldByPattern ? { fixHeld: fixHeldByPattern[p.id] } : {}),
 		})),
+		onset: insight ? {
+			type: insight.type ?? null,
+			label: insight.timing_label ?? null,
+			value: insight.timing_value ?? null,
+			firstFailureSha: insight.first_failure_sha ?? null,
+		} : null,
 		verdict: verdict.verdict,
 		stop: verdict.stop,
 		note: verdict.note,

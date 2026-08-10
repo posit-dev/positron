@@ -12,9 +12,9 @@
 //
 // Imported by e2e-parse-trace.js, e2e-process-project.js and e2e-process-s3.js
 // so the windowing logic has a single home. NOTE: the older analysis helpers
-// (collectFailingSelectors / selectorTokens / buildDomPresence / cleanConsole /
-// buildConsoleDigest / parseTrace) predate this module and are still copy-pasted
-// into all three of those files; new shared logic belongs here instead.
+// (collectFailingSelectors / selectorTokens / cleanConsole / buildConsoleDigest /
+// parseTrace) predate this module and are still copy-pasted into all three of
+// those files; new shared logic belongs here instead.
 //
 // Unit tests: node --test ".claude/skills/e2e-failure-analyzer/scripts/test/*.test.js"
 
@@ -84,6 +84,76 @@ export function phaseLabel(t, window) {
 	if (t > window.deadlineT) { return 'after deadline'; }
 	if (window.actionStartT != null && t < window.actionStartT) { return 'before action'; }
 	return 'during wait';
+}
+
+/** Wall-clock epoch (ms) of trace t=0. A screencast frame carries both its
+ *  epoch ms (trailing the sha1 filename) and its trace offset, so the two give
+ *  the origin directly. Without this, t= values can only be back-derived from
+ *  the mined failure window's deadline, which is a heuristic and not a clock. */
+export function traceEpochOrigin(evts) {
+	for (const e of evts) {
+		if (e.type !== 'screencast-frame' || e.timestamp == null) { continue; }
+		const m = /-(\d{13})\.jpe?g$/.exec(String(e.sha1 || ''));
+		if (m) { return Number(m[1]) - e.timestamp; }
+	}
+	return null;
+}
+
+// ---------------------------------------------------------------------------
+// DOM presence
+// ---------------------------------------------------------------------------
+
+/** Pull the class/id attribute values out of a serialized snapshot. Playwright
+ *  serializes elements as ["TAG", {"class": "a b"}, ...children], so matching
+ *  attributes rather than the raw JSON keeps stylesheet text, script bodies and
+ *  unrelated attributes out of the result -- without this a `codicon-*` token
+ *  matches its own rule in the inlined codicon.css and reports as "present". */
+export function snapshotAttrTokens(json) {
+	const found = new Set();
+	for (const m of json.matchAll(/"(?:class|id)":"((?:[^"\\]|\\.)*)"/g)) {
+		for (const t of m[1].split(/\s+/)) { if (t) { found.add(t); } }
+	}
+	return found;
+}
+
+/**
+ * Report whether each failing-selector token was in the DOM across the trace's
+ * frame snapshots, and in particular during the failing action's wait. Matches
+ * class/id attributes only, and reports the wait window separately because the
+ * snapshot span starts at app launch: a token seen only before the action began
+ * was not on screen when it ran.
+ *
+ * The wait start comes from findFailureWindow, so this anchors on the same
+ * action the timeline's `phaseLabel` buckets do -- the two disagreeing would
+ * put "during wait" in one section and "before action" in the other.
+ */
+export function buildDomPresence(evts, tokens) {
+	if (!tokens.length) { return null; }
+	const snaps = evts
+		.filter(e => e.type === 'frame-snapshot' && e.snapshot?.timestamp != null)
+		.map(s => ({ ts: s.snapshot.timestamp, attrs: snapshotAttrTokens(JSON.stringify(s)) }));
+	if (!snaps.length) { return null; }
+	const waitStart = findFailureWindow(evts)?.actionStartT ?? null;
+	const span = `t=${Math.round(snaps[0].ts)}..${Math.round(snaps[snaps.length - 1].ts)}`;
+	const out = [`\n=== DOM presence across ${snaps.length} frame snapshots (${span}) ===`];
+	out.push("Whether each failing-selector token appeared in a snapshot's class/id ATTRIBUTES (stylesheet and script text are excluded, so a token cannot match its own CSS rule). When a wait window is known, that window is the decisive one: the snapshot span starts at app launch and covers fixture setup, so a token seen only in earlier snapshots was NOT on screen when the failing action ran. 'NEVER present at all' stays AMBIGUOUS on its own -- it fits both a never-rendered element (product open-path bug, strongest when the console digest shows its command fired) and locator drift (rendered under different markup). Disambiguate with the error-context snapshot's stable text/label, not this line alone.");
+	for (const tok of tokens) {
+		const hits = snaps.filter(s => s.attrs.has(tok));
+		if (!hits.length) {
+			out.push(`- '${tok}': NEVER present in any snapshot`);
+			continue;
+		}
+		const range = `t=${Math.round(hits[0].ts)}..${Math.round(hits[hits.length - 1].ts)}`;
+		if (waitStart == null) {
+			out.push(`- '${tok}': present in ${hits.length}/${snaps.length} snapshots (${range}); no wait window found, so this cannot say whether it was present when the action ran`);
+			continue;
+		}
+		const during = hits.filter(h => h.ts >= waitStart);
+		out.push(during.length
+			? `- '${tok}': present in ${hits.length}/${snaps.length} snapshots (${range}), ${during.length} of them during the wait (from t=${Math.round(waitStart)}) => it WAS in the DOM while the action waited; a visibility/timeout error is then a timing or dismiss race`
+			: `- '${tok}': present in ${hits.length}/${snaps.length} snapshots (${range}) but NEVER during the wait (from t=${Math.round(waitStart)}) => it was gone, or had not yet rendered, when the action ran -- treat this as absent, not as "rendered then vanished mid-wait"`);
+	}
+	return out.join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -285,6 +355,11 @@ export function mineLogs(logsZipPath, opts = {}) {
 	const perFile = [];   // { rel, relevant, lines[] } -- merged round-robin below
 	const silence = [];
 	let sawAnyTimestamp = false;
+	// The runner log's own "Test start" marker. It is the only wall-clock anchor
+	// for where the test itself begins: the trace's t= origin sits earlier (app
+	// launch and fixture setup), so anything derived from the window deadline
+	// instead lands minutes off.
+	let testStartMs = null;
 
 	for (const f of logFiles) {
 		const rel = f.slice(dir.length + 1).replace(/\\/g, '/');
@@ -311,6 +386,7 @@ export function mineLogs(logsZipPath, opts = {}) {
 				carried = ts;
 				sawAnyTimestamp = true;
 				if (deadlineMs == null || ts <= deadlineMs) { lastTsInWait = ts; }
+				if (isRunnerLog && testStartMs == null && / Test start: /.test(line)) { testStartMs = ts; }
 			}
 			const at = ts ?? carried;
 			if (at == null || at < windowStart || at > windowEnd) { continue; }
@@ -389,6 +465,9 @@ export function mineLogs(logsZipPath, opts = {}) {
 
 	const out = [];
 	out.push(`Failure window: ${ISO(windowStart)} .. ${ISO(windowEnd)} (deadline ${deadlineMs != null ? ISO(deadlineMs) : 'unknown'})`);
+	if (testStartMs != null) {
+		out.push(`Test start: ${ISO(testStartMs)} (from e2e-test-runner.log) -- anchor trace t= values on this and the timeline's "Trace t=0" line, never on the deadline above, which is a mined heuristic rather than a clock.`);
+	}
 	out.push('All severities are included inside the window -- an info-level success line often refutes an "external dependency broke" theory, so do not assume the absence of errors means the absence of evidence.');
 
 	if (silence.length) {

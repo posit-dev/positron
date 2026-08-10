@@ -71,3 +71,62 @@ test('clearManagedArtifacts drops a previous occurrence\'s artifacts, including 
 	assert.deepEqual(clearManagedArtifacts(dir), [], 'second call is a no-op');
 	fs.rmSync(dir, { recursive: true, force: true });
 });
+
+const ESC = String.fromCharCode(27);
+
+test('buildEvidenceSummary prefers the report failure text over the trace error stub', () => {
+	// The trace's own error list is routinely a useless stub ("Expect failed")
+	// while the report carries the locator, the matched elements and the code
+	// frame -- the whole diagnosis. Reading the stub costs a needless escalation.
+	const fullError = [
+		`Error: ${ESC}[2mexpect(${ESC}[22mlocator).toBeVisible() failed`,
+		'',
+		"Locator: getByText('Browse[1]>')",
+		"Error: strict mode violation: getByText('Browse[1]>') resolved to 2 elements:",
+		'    1) <span>Browse[1]> </span>',
+		'    2) <div class="line-numbers active-line-number">Browse[1]></div>',
+		'   at pages/debug.ts:249',
+	].join('\n');
+	const result = {
+		failures: [{ title: 'opens a file', file: 'a.test.ts', errors: [{ error: fullError }] }],
+		testDetails: [{
+			testId: 't1',
+			title: 'opens a file',
+			file: 'a.test.ts',
+			attempts: [{ attemptIndex: 0, trace: { timeline: '[before] step', errors: ['Expect failed'] } }],
+		}],
+	};
+	const s = buildEvidenceSummary(result, { testId: 't1' });
+	assert.match(s.failure, /strict mode violation/);
+	assert.match(s.failure, /pages\/debug\.ts:249/);
+	assert.equal(s.failure.includes(ESC), false, 'ANSI escapes must be stripped');
+	assert.match(s.markdown, /strict mode violation/);
+});
+
+test('buildEvidenceSummary falls back to the trace error when the report carries none', () => {
+	const result = {
+		failures: [],
+		testDetails: [{
+			testId: 't1',
+			title: 'opens a file',
+			attempts: [{ attemptIndex: 0, trace: { timeline: '[before] step', errors: ['Expect failed'] } }],
+		}],
+	};
+	const s = buildEvidenceSummary(result, { testId: 't1' });
+	assert.equal(s.failure, 'Expect failed');
+});
+
+test('buildEvidenceSummary does not crash when failures hold objects and the trace has no errors', () => {
+	// Regression: the old fallback handed an object to .slice() and threw.
+	const result = {
+		failures: [{ title: 'opens a file', errors: [] }],
+		testDetails: [{
+			testId: 't1',
+			title: 'opens a file',
+			attempts: [{ attemptIndex: 0, trace: { timeline: '[before] step', errors: [] } }],
+		}],
+	};
+	const s = buildEvidenceSummary(result, { testId: 't1' });
+	assert.equal(s.failure, null);
+	assert.match(s.markdown, /no error captured/);
+});

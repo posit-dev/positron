@@ -34,15 +34,55 @@ question depends on.
 Reason identifies why the current evidence cannot answer the question. For a
 second occurrence, state the reason that justifies comparing another run.
 
-Emit this block for every escalation beyond Level 2. It is structured
-diagnostic metadata, not narration.
+Show this block in the conversation for every escalation beyond Level 2, before
+you act on it. It is structured diagnostic metadata rather than narration, and
+it is the one moment the engineer can redirect the read before it is paid for --
+so a block that only reaches a subagent has been lost.
 
 Do not escalate unless all three fields can be completed. Otherwise, reason from
 the current evidence or state what evidence is missing and stop.
 
-“To be thorough”, “to confirm”, and “to get more context” are not valid
+"To be thorough", "to confirm", and "to get more context" are not valid
 questions. A valid question identifies a fact whose possible answers would
 change the diagnosis.
+
+## Delegate the read
+
+Everything you read once, to answer one question, goes to an `Explore` subagent
+-- an artifact you open stays in your context for every turn after, and its
+answer is a line or two. Both dispatches below share one forbidden list: no full
+file contents, no repo tour, no fix suggestion, no speculation past what was
+read.
+
+**Evidence artifacts (Levels 3-5).** The shown block *is* the prompt: pass the
+same three fields plus the artifact path -- a copy of what you just showed, never
+a substitute for showing it -- and require back
+
+- the direct answer to `Question`, or "cannot be answered from this artifact";
+- **verbatim** excerpts with timestamps, <=20 lines total -- never a paraphrase;
+- anything surprising adjacent to what it was asked about.
+
+The third bullet is not optional. The decisive line is often one you weren't
+looking for -- an `[info]` at the right timestamp -- and a subagent answering
+only the literal question will drop it.
+
+**Then show the engineer the excerpt, not just your conclusion.** Quote the
+returned lines (trimmed to what bears on the question) in the same turn you
+report the answer. You have the artifact and they don't, so a bare "confirmed"
+asks them to trust a read they cannot check -- and this is a collaborative dig
+precisely because they catch things you won't. Deferring the evidence to the
+diagnosis writeup is too late: by then the alternatives have already been ruled
+out, and ruling them out is the part worth challenging.
+
+Read inline instead only when you'll question the same artifact repeatedly (an
+ordering you are walking step by step); say which artifact and why.
+
+**Source tracing.** Same dispatch, once the evidence names a concrete symbol /
+selector / event / subsystem -- give it that lead, never a topic. Its cap: a
+probable call chain (<=8 entries), <=5 files with exact line ranges, one
+mechanism summary, <=3 open questions. This is also how you find a POM method,
+selector, or command id during the fix; inline `grep`/`cat` sweeps and whole-file
+`Read`s are the largest avoidable line item in that phase.
 
 ## The escalation ladder
 
@@ -58,7 +98,9 @@ change the diagnosis.
    for: prefer `snapshotFile`, which is text and says what the DOM actually
    contained. Open one frame -- the moment of failure, per the manifest -- only
    for a genuinely visual question (layout, overlay, z-order) the snapshot and
-   timeline cannot answer, write down what you saw, and never re-read it.
+   timeline cannot answer. Delegated, its answer costs a few hundred tokens
+   rather than the frame's 20k; either way write down what you saw and never
+   re-read it.
 4. **Raw logs** -- read only when the issue depends on sequence/ordering,
    missing output, extension-channel behavior, or process termination -- a
    detail absent from processed evidence (see "raw logs" below).
@@ -121,6 +163,10 @@ a file produces the same filename. A leftover dir from an earlier triage of a
 the wrong run's logs, with internally consistent timestamps from the wrong day.
 If `rawLogDir` is null, the report had no log bundle attached -- say so rather
 than reaching into temp.
+
+Run the fetch yourself, then hand the subagent `rawLogDir` and the channel to
+read -- a full channel file is the largest artifact on the ladder and the one
+whose answer is usually a single ordering.
 
 Each extension's real output channel is its own file under
 `server/exthost2/<extension-id>/*.log` (e.g.

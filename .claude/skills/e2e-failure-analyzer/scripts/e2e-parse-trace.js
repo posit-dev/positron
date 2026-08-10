@@ -5,7 +5,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
-import { findFailureWindow, phaseLabel } from './lib-failure-window.js';
+import { buildDomPresence, findFailureWindow, phaseLabel, traceEpochOrigin } from './lib-failure-window.js';
 
 const args = process.argv.slice(2);
 let tracePath = null;
@@ -79,33 +79,6 @@ function selectorTokens(selectors) {
 		for (const m of String(sel).matchAll(/\[id=["']([^"']+)["']\]/g)) { tokens.add(m[1]); }
 	}
 	return [...tokens];
-}
-
-/**
- * Report whether each failing-selector token ever entered the DOM across the
- * trace's frame snapshots. "NEVER present" means the element genuinely never
- * rendered (a product open-path bug) -- as opposed to rendering and then being
- * dismissed, which the single moment-of-failure error-context snapshot cannot
- * distinguish. Substring-matches the token in each serialized snapshot.
- */
-function buildDomPresence(evts, tokens) {
-	if (!tokens.length) { return null; }
-	const snaps = evts
-		.filter(e => e.type === 'frame-snapshot' && e.snapshot?.timestamp != null)
-		.map(s => ({ ts: s.snapshot.timestamp, json: JSON.stringify(s) }));
-	if (!snaps.length) { return null; }
-	const span = `t=${Math.round(snaps[0].ts)}..${Math.round(snaps[snaps.length - 1].ts)}`;
-	const out = [`\n=== DOM presence across ${snaps.length} frame snapshots (${span}) ===`];
-	out.push("Whether the failing selector's class/id token ever matched a DOM snapshot. 'present in N/M' => the element WAS in the DOM (rules out never-rendered; a visibility/timeout error is then a timing or dismiss race). 'NEVER present' is AMBIGUOUS on its own: the exact class never matched, which fits BOTH a never-rendered element (product open-path bug -- strongest when the console digest shows its command fired) AND locator drift (the element rendered under different markup). Disambiguate with the error-context snapshot's stable text/label, not this line alone.");
-	for (const tok of tokens) {
-		const hits = snaps.filter(s => s.json.includes(tok));
-		if (!hits.length) {
-			out.push(`- '${tok}': NEVER present in any snapshot`);
-		} else {
-			out.push(`- '${tok}': present in ${hits.length}/${snaps.length} snapshots (t=${Math.round(hits[0].ts)}..${Math.round(hits[hits.length - 1].ts)})`);
-		}
-	}
-	return out.join('\n');
 }
 
 /** Strip the `%c`/`color:#…` console-formatting noise VS Code prepends. */
@@ -190,6 +163,11 @@ const actions = events.filter(e => e.type === 'before' || e.type === 'after');
 const recent = actions.slice(-lastN);
 
 console.log(`=== Action Timeline (last ${Math.min(lastN, actions.length)} of ${actions.length} events) ===\n`);
+
+const traceT0 = traceEpochOrigin(events);
+if (traceT0 != null) {
+	console.log(`Trace t=0 = ${new Date(traceT0).toISOString()} -- add (t / 1000) seconds to any t= below to get wall clock.\n`);
+}
 
 for (const a of recent) {
 	if (a.type === 'before') {

@@ -1,36 +1,57 @@
 #!/usr/bin/env node
 // checkpoint.js -- durable triage state for start / resume / status.
 //
-// State lives at <git-common-dir>/triage-e2e-test/<triage-id>/state.json,
+// State lives at <git-common-dir>/debug-e2e-test/<triage-id>/state.json,
 // shared across worktrees so --resume works from any checkout.
 // A resume reads the checkpoint and continues from `phase`/`nextAction` without
 // replaying completed history work.
 //
-// Usage:
-//   node checkpoint.js --triage-id <id> --init --test-key <key> [--branch b] [--lookback-days n]
-//     -- also seeds history/patterns from this triage's history-summary.json, if present
-//   node checkpoint.js --triage-id <id> --read
-//   node checkpoint.js --triage-id <id> --set phase=hypothesis-ready --set selectedPattern=A
-//   node checkpoint.js --triage-id <id> --patch '<json>'     # deep-merge a JSON object
-//     -- WARNING: arrays (e.g. patterns) REPLACE wholesale, not merge by element.
-//     -- to annotate one pattern without resending the others, use --patch-pattern instead:
-//   node checkpoint.js --triage-id <id> --patch-pattern A --patch '{"note": "..."}'
-//   node checkpoint.js --status                              # list all triages
-//   node checkpoint.js --triage-id <id> --validate
+// Flags: see CLI below, or run with --help.
+//
+// --patch WARNING: arrays (e.g. patterns) REPLACE wholesale, not merge by
+// element. To annotate one pattern without resending the others, use
+// --patch-pattern A --patch '{"note": "..."}'.
 
 import fs from 'fs';
 import path from 'path';
 import {
 	workRoot, triageDir, ensureDir, readJson, writeJson,
-	emit, fail, isMain, parseArgs,
+	emit, fail, isMain, parseArgs, defineCli, handleHelp,
 } from './lib.js';
+
+export const CLI = defineCli({
+	name: 'checkpoint.js',
+	summary: 'durable triage state for start / resume / status',
+	usage: [
+		'--triage-id <id> --init --test-key <key> [--branch b] [--lookback-days n] [--phase p] [--force]',
+		'--triage-id <id> --read | --validate',
+		'--triage-id <id> --set phase=hypothesis-ready --set selectedPattern=A',
+		"--triage-id <id> --patch '<json>'",
+		"--triage-id <id> --patch-pattern A --patch '{\"note\": \"...\"}'",
+		'--status',
+	],
+	flags: [
+		{ name: 'triage-id', value: '<id>', description: 'work-dir id; required for everything except --status' },
+		{ name: 'init', type: 'boolean', description: "create state; seeds history/patterns from this triage's history-summary.json if present" },
+		{ name: 'test-key', value: '<key>', description: 'testName|||specPath; required with --init' },
+		{ name: 'branch', value: '<branch>', description: 'branch recorded on the checkpoint' },
+		{ name: 'lookback-days', value: '<n>', description: 'lookback recorded on the checkpoint' },
+		{ name: 'phase', value: '<p>', description: `with --init, start somewhere other than ${'awaiting-pattern-selection'} (done is rejected)` },
+		{ name: 'force', type: 'boolean', description: 'allow --init to clobber an existing checkpoint' },
+		{ name: 'read', type: 'boolean', description: 'print state (plus _validation when invalid)' },
+		{ name: 'validate', type: 'boolean', description: 'print { ok, errors[], phase, nextAction } only' },
+		{ name: 'set', value: 'key=value', description: 'set one scalar; repeatable' },
+		{ name: 'patch', value: '<json>', description: 'deep-merge an object; rejects unknown top-level keys' },
+		{ name: 'patch-pattern', value: '<id>', description: 'merge --patch into exactly one patterns[] entry' },
+		{ name: 'status', type: 'boolean', description: 'list every saved triage' },
+	],
+});
 
 export const PHASES = [
 	'awaiting-pattern-selection',
 	'pattern-selected',
 	'evidence-gathered',
 	'hypothesis-ready',
-	'awaiting-clear',
 	'implementation',
 	'done',
 ];
@@ -91,14 +112,31 @@ export const PHASE_NEXT_ACTION = {
 	'awaiting-pattern-selection': 'Run the history helper, then select a failure pattern.',
 	'pattern-selected': 'Fetch evidence for the selected pattern\'s representative occurrence.',
 	'evidence-gathered': 'Reason through the evidence to a root-cause mechanism.',
-	'hypothesis-ready': 'Reproduce and verify the fix (diagnosis saved; safe to /clear and --resume).',
-	'awaiting-clear': 'Safe to /clear; resume with --resume to reproduce and fix.',
+	'hypothesis-ready': 'Reproduce and verify the fix (diagnosis saved).',
 	'implementation': 'Implement + verify the fix (no single-green-run claims for a flake), then set an outcome and record the diagnosis block (record-diagnosis.js) before phase=done.',
 	'done': 'Triage complete; diagnosis recorded.',
 };
 
 export function defaultNextAction(phase) {
 	return PHASE_NEXT_ACTION[phase] || null;
+}
+
+/**
+ * Phases retired from PHASES, mapped to what they now mean. Kept so a checkpoint
+ * written before the retirement still loads instead of failing validation on a
+ * phase the engineer never chose.
+ *
+ * `awaiting-clear` predates delegating evidence reads to subagents: the skill
+ * used to park here and ask for a /clear before implementing. It no longer
+ * proposes one, so the state it parked in is just hypothesis-ready.
+ */
+export const RETIRED_PHASES = { 'awaiting-clear': 'hypothesis-ready' };
+
+/** Normalize a checkpoint read from disk. Pure -- returns a new state. */
+export function migrateState(state) {
+	const to = RETIRED_PHASES[state?.phase];
+	if (!to) { return state; }
+	return { ...state, phase: to, nextAction: defaultNextAction(to) };
 }
 
 /**
@@ -238,14 +276,33 @@ function statePath(triageId) {
 	return path.join(triageDir(triageId), 'state.json');
 }
 
+/**
+ * Starting phase for a fresh checkpoint. The CI entry always begins at
+ * `awaiting-pattern-selection` (its next step is the pattern table), but the
+ * local entry has no patterns to select and only checkpoints at all once it
+ * escalates -- by which point evidence is already in hand. `--init --phase` lets
+ * it start where it actually is instead of advancing through phases it skipped.
+ */
+export function initialPhase(requested) {
+	if (!requested) { return 'awaiting-pattern-selection'; }
+	if (!PHASES.includes(requested)) {
+		throw new Error(`--phase "${requested}" is not a known phase (${PHASES.join(', ')}).`);
+	}
+	if (requested === 'done') {
+		throw new Error('--init --phase done is not allowed: phase=done goes through the outcome gate, not an init.');
+	}
+	return requested;
+}
+
 function newState(triageId, args) {
+	const phase = initialPhase(args.phase);
 	return {
 		version: CHECKPOINT_VERSION,
 		triageId,
 		testKey: args['test-key'] || null,
 		branch: args.branch || null,
 		lookbackDays: Number(args['lookback-days'] || 14),
-		phase: 'awaiting-pattern-selection',
+		phase,
 		history: null,
 		patterns: [],
 		selectedPattern: null,
@@ -256,7 +313,7 @@ function newState(triageId, args) {
 		outcomeRef: null,
 		outcomeReason: null,
 		diagnosisBlockRecorded: false,
-		nextAction: PHASE_NEXT_ACTION['awaiting-pattern-selection'],
+		nextAction: PHASE_NEXT_ACTION[phase],
 		updatedAt: new Date().toISOString(),
 	};
 }
@@ -278,7 +335,8 @@ function statusAll() {
 }
 
 function main() {
-	const args = parseArgs(process.argv.slice(2), ['init', 'read', 'status', 'validate', 'force']);
+	handleHelp(CLI, process.argv.slice(2));
+	const args = parseArgs(process.argv.slice(2), CLI.booleanFlags);
 
 	if (args.status) { emit(statusAll()); return; }
 
@@ -292,7 +350,9 @@ function main() {
 			fail(`A checkpoint for triage "${triageId}" already exists -- resume it (--read) or pass --force to overwrite.`, { stateFile: path.relative(process.cwd(), sp) });
 		}
 		ensureDir(triageDir(triageId));
-		let state = newState(triageId, args);
+		let state;
+		try { state = newState(triageId, args); }
+		catch (e) { fail(e.message); }
 		// Auto-seed history + patterns from triage-history.js's already-written
 		// summary, if present -- see applyHistorySummary's doc comment.
 		const historyFile = path.join(triageDir(triageId), 'history-summary.json');
@@ -306,7 +366,7 @@ function main() {
 	}
 
 	if (!fs.existsSync(sp)) { fail(`No checkpoint for triage "${triageId}" (run --init first).`); }
-	let state = readJson(sp);
+	let state = migrateState(readJson(sp));
 
 	if (args.read || args.validate) {
 		const v = validateCheckpoint(state);

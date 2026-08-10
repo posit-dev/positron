@@ -1,30 +1,64 @@
 # Scripts -- flags and output contracts
 
-Reference for the five helpers in `scripts/`. Read it when you need a flag that
+Reference for the seven helpers in `scripts/`. Read it when you need a flag that
 the SKILL's workflow steps don't already spell out, or when you need to know what
 a script's output actually contains. If a script is *broken* and you need to do
 its work by hand, that is [`script-fallbacks.md`](script-fallbacks.md) instead.
 
-End-to-end runs of these commands in order:
-[`workflow-examples.md`](workflow-examples.md).
-
 ## Shared conventions
 
-- **Run from the repo root**, as `node .claude/skills/triage-e2e-test/scripts/<name>.js`.
+- **Run from the repo root**, as `node .claude/skills/debug-e2e-test/scripts/<name>.js`.
+- **Every script takes `--help`** and prints its own flags, which stay in sync
+  with this file (`scripts/test/cli-flags.test.js` fails the build otherwise).
 - **stdout is compact JSON only.** Large payloads (full API responses, processor
   output, trace timelines) are written to disk and referenced by path, so they
   never enter the conversation.
 - **Errors are structured**: `{ "error": "..." }` on stdout plus a non-zero exit.
   Treat that as stop-and-surface, never as "no data" or a cue to fall back to a
   broader search.
-- **Work directory**: `<git-common-dir>/triage-e2e-test/<triage-id>/`. It is
+- **Work directory**: `<git-common-dir>/debug-e2e-test/<triage-id>/`. It is
   anchored on the git *common* dir, so a triage started in one worktree resumes
   from any other. Outside a git repo it falls back to
-  `.claude/work/triage-e2e-test/`.
+  `.claude/work/debug-e2e-test/`.
 - **`--triage-id`** is the same value everywhere. `triage-history.js` derives it
   (`<leaf-test-slug>-<hash8>`) and returns it as `triageId`; pass that verbatim to
   every later script. Inventing one splits the checkpoint from the work dir
   holding the history and evidence, which is what `--resume` reads.
+- **The scripts' own tests** run from the repo root, and need the **quoted glob**
+  -- passing the directory makes node resolve it as a module and die with
+  `Cannot find module`, which reads like a broken suite rather than a bad
+  invocation:
+
+  ```bash
+  node --test ".claude/skills/debug-e2e-test/scripts/test/*.test.js"
+  ```
+
+## `resolve-test-key.js`
+
+Turns a loose test reference into an exact `testName|||specPath` key by reading
+the hierarchy from `npx playwright test --list` (~2s, all projects, deduped --
+the key has no project dimension). Takes the input as a leading positional or
+`--input`; no other flags.
+
+| Input shape | `mode` | Behavior |
+|---|---|---|
+| `Suite > test\|\|\|test/e2e/...ts` | `exact-key` | validated against the tree, passed through either way |
+| dashboard test-detail URL | `dashboard-url` | decodes the `test` query param |
+| `test/e2e/tests/x.test.ts` or `x.test.ts` | `spec-path` | every test in the file; resolves only if the file has exactly one |
+| `x.test.ts:41` | `spec-line` | the test at that line, else the nearest declared above it |
+| any other text | `title-search` | exact full title, then exact leaf, then substring (case-insensitive) |
+
+Output: `{ input, mode, resolved, candidates, totalListed, inWorkingTree, note }`.
+
+- **`resolved`** non-null -> use `resolved.testKey`. Fields: `testKey`, `testName`,
+  `specPath`, `line`, `leaf`.
+- **`candidates`** non-empty with `resolved: null` -> ambiguous, capped at 15.
+  Present them and ask; never pick one silently.
+- **`inWorkingTree: false`** -> the key isn't in the tree (renamed or deleted
+  test). Still resolved, because CI history outlives the source; relay the `note`.
+- Non-zero exit: no match, an empty input, a URL with no `test` param, or a
+  listing failure. A listing failure with an exact key given is *not* fatal -- the
+  key is emitted with a `note` instead, since it needs no working tree.
 
 ## `triage-history.js`
 
@@ -40,10 +74,16 @@ occurrence per pattern.
 | `--lookback-days <n>` | `14` | 1-30 |
 | `--occurrences-per-pattern <n>` | `1` | raise to `2` only for a listed escalation reason |
 | `--triage-id <id>` | derived from the test key | |
+| `--since-fix <iso-date>` | none | a merged fix's `mergedAt`; runs a second, shorter query and adds `fixHeld` to every pattern (below) |
 
 **Output:** `{ triageId, testKey, testName, specPath, testDetailViewUrl,
-branchSummary, patterns[], verdict, stop, note, lookbackDays, queriedAt,
+branchSummary, patterns[], onset, verdict, stop, note, lookbackDays, queriedAt,
 rawResultFile, summaryFile }`.
+
+- `onset` is the API's own coarse recency read: `{ type, label, value,
+  firstFailureSha }` (e.g. `Started` / `yesterday`). It is independent of
+  per-occurrence dates, so it still answers "is this current?" when every
+  `lastSeen.date` is `null`.
 
 Each `patterns[]` entry: `{ id, failure, count, rates[], environments[], seenOn,
 lastSeen, representativeOccurrence }`.
@@ -55,6 +95,13 @@ lastSeen, representativeOccurrence }`.
 - `lastSeen` is `{ date, daysAgo, sha }`, any of which may be `null` -- see
   [`history-query.md`](history-query.md#how-lastseen-is-derived).
 - `id` is a spreadsheet-style label: `A`..`Z`, then `AA`, `AB`, ...
+- **`fixHeld`** appears only with `--since-fix`: `{ sinceFix, daysSinceFix,
+  usable, note, postFixRuns, postFixFailures, baselineRuns, baselineFailures,
+  baselineRate, environment }`. Both windows are scoped to the environments the
+  pattern occurs in, and the baseline is the **pre-fix remainder** (full window
+  minus the post-fix window) -- counting the post-fix runs in the baseline would
+  drag the rate toward zero exactly when the fix worked. `usable: false` means
+  the numbers cannot support a "held" claim; read `note`, don't pass them on.
 
 Also writes `history-summary.json` and `history-raw.json` to the work dir.
 `checkpoint.js --init` auto-seeds `history` + `patterns` from that summary file.
@@ -72,13 +119,28 @@ against each merged fix.
 |---|---|---|
 | `--spec-path <path>` | *required* | exact spec path from the test key |
 | `--occurrence-shas <json>` | `[]` | JSON array; **omitting it forces the `too-recent-to-tell` verdict** (nothing to check ancestry against) |
+| `--fix-sha <sha>` | none | treat this commit as a merged fix even when no PR body names the spec -- the POM/helper-only case the spec-path match misses |
+| `--post-fix-runs <n>` | none | CI runs of this test since the fix; the denominator, without which "held" is unprovable |
+| `--baseline-rate <p>` | none | pre-fix per-run failure rate (0-1), to score what a clean post-fix streak is worth |
+| `--environment <os/browser>` | none | the lane the previous two numbers describe |
 | `--repo <owner/repo>` | `posit-dev/positron` | |
 | `--triage-id <id>` | none | needed for the on-disk `prior-triage-raw.json` |
 | `--limit <n>` | `50` | PR search limit |
 
-**Output:** `{ specPath, openAttempts[], mergedAttempts[], verdict,
+**Output:** `{ specPath, openAttempts[], mergedAttempts[], sufficiency, verdict,
 rawResultFile }`. Verdict meanings and how to act on them:
 [`prior-triage.md`](prior-triage.md).
+
+**`sufficiency` is how you avoid calling a fix held on nothing.** A clean streak
+after a fix is only evidence in proportion to the runs behind it: at baseline
+rate `p`, N clean runs occur by luck with probability `(1-p)^N` even if nothing
+changed. Pass `--post-fix-runs` and `--baseline-rate` to get that scored
+(`meaningful`, `probabilityIfUnfixed`, `runsNeeded`); with no `--post-fix-runs`
+the answer is always `meaningful: false`, which is the honest reading of "no
+failures seen since." Both numbers must describe **one** lane -- an all-env
+`total_runs` paired with an env-specific rate inflates N and clears the bar on
+runs that never touched the failing lane, so pass `--environment` too or take
+the `scopeWarning` seriously.
 
 ## `fetch-pattern-evidence.js`
 
@@ -91,8 +153,7 @@ payload.
 | `--report-url <url>` | *required* | the pattern's `representativeOccurrence.report_url`; the `index.html#?testId=` fragment is stripped for you and the testId reused as the filter |
 | `--triage-id <id>` | *required* | |
 | `--pattern <id>` | `A` | names the evidence sub-directory |
-| `--title <full title>` | none | filter fallback when the URL carries no `testId` |
-| `--test-id <id>` | none | explicit testId filter |
+| `--title <full title>` | none | filter fallback when the URL carries no `testId`. There is no flag for the testId itself -- it is read from the `--report-url` fragment |
 | `--keep-raw-logs` | off | extracts the raw logs into `<evidenceDir>/raw-logs/`. Without it the processor cleans up its temp extract, so escalating to raw logs means refetching with the flag |
 | `--occurrence <label>` | none | nests artifacts under `evidence/<pattern>/<label>` so several occurrences of one pattern can coexist. Use it whenever you fetch a second occurrence |
 
@@ -108,13 +169,45 @@ presence of a `raw-logs/` directory.
 **Read `summaryFile` first**, and open anything else only under the gate in
 [`evidence-escalation.md`](evidence-escalation.md).
 
+## `collect-local-evidence.js`
+
+The local entry's counterpart to `fetch-pattern-evidence.js`: walks this
+machine's Playwright output instead of a CI report, and writes the same
+`summary.md` shape. Procedure and verdict handling:
+[`local-evidence.md`](local-evidence.md).
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--results-dir <dir>` | `test-results` | Playwright's output dir, repo-relative |
+| `--logs-dir <dir>` | `test-logs` | app/kernel logs; a *different* root from the results dir |
+| `--test <substring>` | none | filters on the result directory name |
+| `--dir <exact>` | none | pins one result directory (use after an `ambiguous` verdict) |
+| `--list` | off | show the candidates and exit without collecting |
+| `--triage-id <id>` | none | write into that triage's `evidence/local/` instead of a standalone dir; only needed once a checkpoint exists |
+
+**Output:** `{ verdict, resultsDir, candidates[], selected, evidenceDir,
+summaryFile, timelineFile, snapshotFile, screenshots[], logDir, failure,
+nextStep }`.
+
+- **`verdict`** is `ok` | `no-results` | `no-failure` | `ambiguous`; `nextStep`
+  carries the matching instruction. `no-results` and `no-failure` are different
+  states -- local runs retain traces for passing tests, so artifacts existing
+  proves nothing about whether anything failed.
+- **`--test` takes a fragment or the full title**; both resolve against Playwright's
+  hyphenated, middle-truncated directory names.
+- **Failure is detected from `error-context.md`**, which Playwright writes only
+  for a failed test. Never from the trace's presence.
+- A `no-failure` run that *has* a trace is still collected, flagged as passing --
+  that trace is the only way to diff a green ordering against a red one locally
+  (`retries: 0` off CI means there is no attempt pair).
+
 ## `checkpoint.js`
 
 Durable triage state at `<work-dir>/state.json`.
 
 | Invocation | Does |
 |---|---|
-| `--triage-id <id> --init --test-key <key> [--branch b] [--lookback-days n] [--force]` | create state; auto-seeds `history`/`patterns` from `history-summary.json` if present. Refuses to clobber an existing checkpoint without `--force` |
+| `--triage-id <id> --init --test-key <key> [--branch b] [--lookback-days n] [--phase p] [--force]` | create state; auto-seeds `history`/`patterns` from `history-summary.json` if present. Refuses to clobber an existing checkpoint without `--force` |
 | `--triage-id <id> --read` | print state (plus `_validation` when invalid) |
 | `--triage-id <id> --validate` | print `{ ok, errors[], phase, nextAction }` only |
 | `--triage-id <id> --set key=value` | set one scalar; repeatable |
@@ -132,9 +225,14 @@ Durable triage state at `<work-dir>/state.json`.
   resending the rest, use `--patch-pattern`.
 - **Setting `phase` derives `nextAction`** unless `nextAction` is set in the same
   call.
+- **`--init --phase <p>`** starts somewhere other than `awaiting-pattern-selection`.
+  The local entry uses `--phase evidence-gathered` when it escalates: it never
+  selected a pattern, and replaying phases it skipped would print misleading next
+  actions. `done` is rejected -- that transition goes through the outcome gate.
 - **Phases**, in order: `awaiting-pattern-selection`, `pattern-selected`,
-  `evidence-gathered`, `hypothesis-ready`, `awaiting-clear`, `implementation`,
-  `done`.
+  `evidence-gathered`, `hypothesis-ready`, `implementation`, `done`. A
+  checkpoint written before `awaiting-clear` was retired loads as
+  `hypothesis-ready` instead of failing validation.
 - **`phase=done` is gated.** It requires an `outcome`; `no-op` additionally
   requires `outcomeReason`, and every other outcome requires `outcomeRef` plus
   `diagnosisBlockRecorded=true` (only `record-diagnosis.js` sets that flag). A

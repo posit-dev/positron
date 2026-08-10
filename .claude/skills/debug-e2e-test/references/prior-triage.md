@@ -44,21 +44,49 @@ git log --oneline -S'<failing locator or helper>' -- test/e2e/
 
 ## Judging whether a fix held
 
-Occurrence SHAs are the numerator only. Pass `--post-fix-runs` (and
-`--baseline-rate` from the pattern's `rates[]`) to get a scored `sufficiency`
-object; without a denominator the verdict is `too-recent-to-tell` by
-construction, never `fix-holding`. Read three fields off it:
+Occurrence SHAs are the numerator only. Without a denominator the verdict is
+`too-recent-to-tell` by construction, never `fix-holding`.
+
+**Get both numbers from `--since-fix`, not from `rates[]`.** Re-run the history
+query with the fix's `mergedAt`, then feed the `fixHeld` block straight back:
+
+```bash
+node .claude/skills/debug-e2e-test/scripts/triage-history.js \
+  --test-key '<key>' --lookback-days 30 --since-fix '<mergedAt>'
+# -> patterns[].fixHeld: { usable, postFixRuns, baselineRate, environment, note }
+
+node .claude/skills/debug-e2e-test/scripts/find-prior-triage.js \
+  --spec-path '<path>' --triage-id <id> --occurrence-shas '[...]' \
+  --fix-sha '<mergeSha>' \
+  --post-fix-runs <fixHeld.postFixRuns> \
+  --baseline-rate <fixHeld.baselineRate> \
+  --environment '<fixHeld.environment>'
+```
+
+`rates[]` is the wrong baseline source even though it looks right: it covers the
+**whole** lookback, so it already contains the post-fix runs. Feeding it back
+lets a fix be judged partly by its own clean runs, which drags the rate toward
+zero exactly when the fix worked and makes `runsNeeded` too easy to clear.
+`fixHeld.baselineRate` is the pre-fix remainder instead.
+
+Use a `--lookback-days` long enough to reach back before the fix (30 is the max,
+and the usual choice here); the script refuses rather than guessing when the
+window doesn't. On `usable: false`, report `note` and stop -- that is a
+`too-recent-to-tell`, not a reason to substitute an unscoped number.
+
+Then read three fields off `sufficiency`:
 
 - `probabilityIfUnfixed` -- `(1-p)^N`: how often that clean streak happens by
   luck anyway. Quote it. At p~0.5, N=4 is ~0.06: suggestive, not proof.
 - `runsNeeded` -- clean runs required to clear the bar. A rare flake needs far
   more than a frequent one, so this is what "check back later" should mean.
   Very sensitive to `p` -- one real triage needed 4 runs at a 54% burst rate but
-  15 at the 19% lookback rate. Feed the lookback rate from `rates[]`; say which.
+  15 at the 19% lookback rate. Say which rate you fed it.
 - `scopeWarning` -- set when `--environment` was omitted. Both numbers must
   describe **one** os/browser lane; a test-health `total_runs` spans them all,
   and mixing it with a lane-specific rate inflates N and clears the bar on runs
-  that never exercised the failing lane.
+  that never exercised the failing lane. `fixHeld.environment` is already scoped
+  this way, so passing it through is what keeps the warning off.
 
 ## Reporting the check
 

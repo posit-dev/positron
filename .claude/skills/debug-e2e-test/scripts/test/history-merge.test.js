@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizePattern, mergeHistory, classifyVerdict, patternLabel, scopedRunsForEnvironments, resolveLastSeen } from '../triage-history.js';
+import { normalizePattern, mergeHistory, classifyVerdict, patternLabel, scopedRunsForEnvironments, resolveLastSeen, runApiPath, deriveFixHeld, daysSince } from '../triage-history.js';
 
 const mkTest = (runs, patterns, environmentBreakdown) => ({ history: { total_runs: runs }, failure_patterns: patterns, environment_breakdown: environmentBreakdown });
 const occ = (sha, os = 'ubuntu', browser = 'electron') => ({ sha, os, browser, outcome: 'flaky', report_url: `https://x/${sha}/index.html` });
@@ -128,4 +128,76 @@ test('classifyVerdict: triaging on main with zero runs is a key mismatch, not cl
 
 test('patternLabel: A..Z then AA, AB for 27+ patterns (no non-letter overflow)', () => {
 	assert.deepEqual([0, 25, 26, 27].map(patternLabel), ['A', 'Z', 'AA', 'AB']);
+});
+
+test('runApiPath takes owner/repo from the run_url, not the local checkout', () => {
+	// The e2e lanes run in positron-builds; resolving owner/repo from the working
+	// directory instead 404s and blanks every date in the failure table.
+	assert.equal(
+		runApiPath('https://github.com/posit-dev/positron-builds/actions/runs/30986925837'),
+		'repos/posit-dev/positron-builds/actions/runs/30986925837'
+	);
+	assert.equal(
+		runApiPath('https://github.com/posit-dev/positron/actions/runs/42'),
+		'repos/posit-dev/positron/actions/runs/42'
+	);
+	assert.equal(runApiPath('https://d38p2avprg8il3.cloudfront.net/playwright-report/index.html'), null);
+	assert.equal(runApiPath(null), null);
+});
+
+test('daysSince rounds up and never returns zero', () => {
+	const now = Date.parse('2026-08-10T12:00:00Z');
+	assert.equal(daysSince('2026-08-01T12:00:00Z', now), 9);
+	// A fix merged hours ago is still one day of window, not zero.
+	assert.equal(daysSince('2026-08-10T09:00:00Z', now), 1);
+	assert.equal(daysSince('not-a-date', now), null);
+});
+
+test('deriveFixHeld builds the baseline from the pre-fix remainder, not the full window', () => {
+	// 400 scoped runs total, 100 of them since the fix; 21 failures total, 1 after.
+	const r = deriveFixHeld({
+		scopedRunsFull: 400, scopedRunsPost: 100,
+		failuresFull: 21, failuresPost: 1,
+		environments: ['ubuntu/electron'],
+	});
+	assert.equal(r.usable, true);
+	assert.equal(r.postFixRuns, 100);
+	assert.equal(r.postFixFailures, 1);
+	// Baseline is the 300 pre-fix runs and the 20 failures in them -- NOT 21/400,
+	// which would let the fix's own clean runs dilute the rate it is judged against.
+	assert.equal(r.baselineRuns, 300);
+	assert.equal(r.baselineFailures, 20);
+	assert.equal(r.baselineRate, 20 / 300);
+	assert.equal(r.environment, 'ubuntu/electron');
+});
+
+test('deriveFixHeld refuses when the lookback does not reach before the fix', () => {
+	const r = deriveFixHeld({ scopedRunsFull: 100, scopedRunsPost: 100, failuresFull: 5, failuresPost: 5, environments: ['ubuntu/electron'] });
+	assert.equal(r.usable, false);
+	assert.match(r.note, /no pre-fix baseline/);
+});
+
+test('deriveFixHeld refuses when a window has no environment breakdown', () => {
+	// Unscoped runs are the trap this whole path exists to avoid, so a missing
+	// breakdown must fail rather than fall back to an all-environment total.
+	const r = deriveFixHeld({ scopedRunsFull: 400, scopedRunsPost: null, failuresFull: 21, failuresPost: 1, environments: ['ubuntu/electron'] });
+	assert.equal(r.usable, false);
+	assert.equal(r.postFixRuns, null);
+	assert.match(r.note, /cannot be scoped/);
+});
+
+test('deriveFixHeld flags a zero baseline rate as uninformative', () => {
+	// Never failed before the fix either: a clean streak after it proves nothing.
+	const r = deriveFixHeld({ scopedRunsFull: 400, scopedRunsPost: 100, failuresFull: 2, failuresPost: 2, environments: ['ubuntu/electron'] });
+	assert.equal(r.baselineFailures, 0);
+	assert.equal(r.baselineRate, 0);
+	assert.match(r.note, /says nothing about the fix/);
+});
+
+test('mergeHistory carries the untruncated pattern text for cross-window matching', () => {
+	const long = 'Error: expect(locator).toBeVisible() failed because ' + 'x'.repeat(200);
+	const { patterns } = mergeHistory(null, mkTest(50, [{ pattern: long, count: 1, occurrences: [occ('m1')] }], [env('ubuntu', 'electron', 50)]), 'main', 1);
+	assert.equal(patterns[0].fullPattern, long);
+	// The headline is what the table shows; it is lossy, so it cannot be the match key.
+	assert.notEqual(patterns[0].failure, long);
 });

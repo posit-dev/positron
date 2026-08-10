@@ -9,19 +9,18 @@ Implementation, not diagnosis, is where a triage's cost runs away: every turn
 re-reads the whole context, so a dead-end exploration keeps billing for the rest
 of the session.
 
-- **Re-clear.** `--set phase=awaiting-clear`, `/clear`, `--resume <id>` -- at the
-  first context warning, or immediately after the engineer redirects you off an
-  approach. Working-tree edits and the checkpoint both survive, so `git diff`
-  plus `diagnosis.fixApproach` is the whole handoff. Set `phase=implementation`
-  again on resume.
 - **Delegate source reading.** Finding a POM method, selector, command id, or
-  call chain goes to an `Explore` subagent under the cap in the SKILL's
-  root-cause step. Inline `sed`/`grep`/`cat` sweeps and whole-file `Read`s are
-  the largest avoidable line item in this phase.
+  call chain goes to an `Explore` subagent under the cap in
+  `references/evidence-escalation.md` ("Delegate the read").
 - **Keep verification output off the transcript.** Redirect runs to a file or
   run them in the background and read a summary -- a `--repeat-each` loop is
   noisy, and streaming full Playwright output into context bills it on every
   later turn.
+
+If the engineer clears anyway, `--resume <id>` picks the triage back up: the
+checkpoint and the working-tree edits both survive, so `git diff` plus
+`diagnosis.fixApproach` is the whole handoff. Don't propose a clear yourself --
+mid-triage the lost thread usually costs more than the context does.
 
 ## Prefer a unit-level repro when the mechanism lives below the e2e layer
 
@@ -51,7 +50,9 @@ shared fixture, UI timing).
 
 The selected pattern's `environment_breakdown` names the OS/browser combos it
 actually failed on. Pick the cheapest project that covers one of them, and move
-down only for a reason you can state:
+down only for a reason you can state (on the local entry there is no breakdown --
+reproduce on the project the failure came from, and note that one machine's
+result says nothing about the others):
 
 1. `e2e-electron` -- desktop app, no extra setup. Try this first unless the
    pattern occurred only in a browser environment.
