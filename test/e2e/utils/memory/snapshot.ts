@@ -142,10 +142,8 @@ export async function waitForSettle(
 }
 
 /**
- * Which build produced these numbers, as `2026.09.0-35`.
- *
- * Returns '' rather than throwing; the spec asserts on it, so a build whose
- * product.json cannot be read fails there with the rest of the quality gate.
+ * Which build produced these numbers, as `2026.09.0-35`. Returns '' rather than
+ * throwing; the spec asserts on it alongside the rest of the quality gate.
  */
 function readPositronVersion(buildRoot: string): string {
 	const version = getPositronVersion(buildRoot);

@@ -209,9 +209,8 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 	lines.push(baseline
 		? `**Total: ${formatBytes(total)}** (${signed(total - baseline.treeTotalPssBytes)} vs previous nightly)`
 		: `**Total: ${formatBytes(total)}**`);
-	// The workflow measures latest-prerelease, so the build changes run to run and a
-	// number is not interpretable without it. Omitted rather than shown empty when
-	// absent, so a report that cannot name its build does not look like one that can.
+	// The workflow measures latest-prerelease, so the build changes run to run and the
+	// numbers mean little without it. Omitted when absent rather than rendered empty.
 	if (snapshots[0]?.positronVersion) {
 		lines.push(`**Build: ${snapshots[0].positronVersion}**`);
 	}

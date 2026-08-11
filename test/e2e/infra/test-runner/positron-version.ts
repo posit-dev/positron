@@ -8,14 +8,12 @@ import { join } from 'path';
 import { execSync } from 'child_process';
 
 /**
- * Split out of test-setup.ts so callers that want only the version do not pull in
+ * Split out of test-setup.ts so unit tests can read the version without pulling in
  * the harness: test-setup imports the infra barrel, which reaches electron.ts and
- * its `ncp` dependency. `ncp` is declared in test/e2e/package.json and absent from
- * the root lockfile, so that chain fails to resolve in the root vitest lane.
+ * its `ncp` dependency, which is absent from the root lockfile.
  *
- * Deliberately in the same directory as test-setup.ts: getVersionFromScript walks
- * __dirname up four levels to the repo root, and moving the file would silently
- * change where that lands.
+ * Kept in this directory because getVersionFromScript walks __dirname up four
+ * levels to the repo root; moving the file would silently change where that lands.
  */
 
 export type PositronVersion = { positronVersion: string; buildNumber: number };

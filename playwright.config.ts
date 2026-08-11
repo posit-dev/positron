@@ -105,10 +105,9 @@ export default defineConfig<CustomTestOptions>({
 				'**/remote-wsl/**',
 				// Note: assistant-eval NOT ignored here - runs on e2e-electron only
 				...(process.env.ALLOW_PYREFLY === 'true' ? [] : ['**/lsp/**']),
-				// Only test-memory-metrics.yml sets this, and it selects the spec by
-				// path. Ignored rather than skipped in-test so it leaves no permanently
-				// skipped row in the results dashboard; merge-to-main runs this lane
-				// ungrepped, so it would otherwise appear on every merge.
+				// Set only by test-memory-metrics.yml, which selects the spec by path.
+				// Ignored rather than skipped in-test because merge-to-main runs this
+				// lane ungrepped, so a skip would report a permanently skipped row.
 				...(process.env.MEMORY_SCENARIO === 'idle' ? [] : ['**/performance/memory-idle.test.ts']),
 			],
 			use: {

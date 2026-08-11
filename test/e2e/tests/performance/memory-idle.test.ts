@@ -28,18 +28,16 @@ test.use({
 const SNAPSHOT_DIR = join(process.env.RUNNER_TEMP ?? '/tmp', 'memory-snapshots');
 
 /**
- * How old a snapshot may be before the report refuses it. Bounded by the job's
- * own `timeout-minutes: 45` in test-memory-metrics.yml, so anything older than
- * this cannot have come from the run doing the rendering.
+ * Above the job's own `timeout-minutes: 45`, so anything older than this cannot
+ * have come from the run doing the rendering.
  */
 const MAX_SNAPSHOT_AGE_MS = 60 * 60 * 1000;
 
 test.describe('Memory: idle', { tag: [tags.PERFORMANCE] }, () => {
 
 	test('Idle memory footprint of the Positron process tree', async function ({ app, logsPath }) {
-		// Only test-memory-metrics.yml collects this spec (see the MEMORY_SCENARIO
-		// entry in playwright.config.ts), and it always sets BUILD, so a missing one
-		// here is a broken workflow rather than a lane to opt out of.
+		// Only test-memory-metrics.yml collects this spec (see playwright.config.ts)
+		// and it always sets BUILD, so a missing one is a broken workflow.
 		const buildRoot = process.env.BUILD;
 		expect(buildRoot, 'BUILD must point at a Positron build; memory numbers from a dev build are meaningless').toBeTruthy();
 
@@ -113,10 +111,9 @@ test.describe('Memory: report', { tag: [tags.PERFORMANCE] }, () => {
 
 		const snapshots: MemorySnapshot[] = paths.map(path => JSON.parse(readFileSync(path, 'utf8')));
 
-		// Outside CI, SNAPSHOT_DIR falls back to /tmp, which survives between runs, so
-		// this would otherwise render whatever is lying around into a report that looks
-		// exactly like a healthy one. A malformed or absent capturedAt counts as stale
-		// rather than parsing to NaN and passing the comparison.
+		// Outside CI, SNAPSHOT_DIR falls back to /tmp and survives between runs, so an
+		// earlier run's files would otherwise render as a healthy-looking report. A
+		// malformed capturedAt counts as stale rather than parsing to NaN and passing.
 		const stale = snapshots.filter(({ capturedAt }) => {
 			const ageMs = Date.now() - Date.parse(capturedAt);
 			return !Number.isFinite(ageMs) || ageMs > MAX_SNAPSHOT_AGE_MS;
@@ -124,9 +121,8 @@ test.describe('Memory: report', { tag: [tags.PERFORMANCE] }, () => {
 		expect(stale.map(s => `launch ${s.launchIndex} at ${s.capturedAt}`),
 			'stale snapshot(s); these are from an earlier run, so re-run the measure steps').toEqual([]);
 
-		// A median taken across two different builds would look exactly like a healthy
-		// one while describing neither, and the report names only the first launch's
-		// build. Cheap to check, and the only symptom otherwise is a bogus number.
+		// The report names only launch 0's build, so a median spanning two builds would
+		// look healthy while describing neither.
 		const versions = [...new Set(snapshots.map(s => s.positronVersion))];
 		expect(versions, 'launches measured different builds; the median would be meaningless').toHaveLength(1);
 

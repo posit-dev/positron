@@ -7,9 +7,8 @@ import os from 'os';
 import { DataExplorerShortcutOptions } from './metric-data-explorer.js';
 import type { SessionStartShortcutOptions } from './metric-sessions.js';
 import type { ConsoleShortcutOptions } from './metric-console.js';
-// The leaf module, not test-setup: that one imports the infra barrel, which reaches
-// electron.ts and its `ncp` dependency, which does not resolve in the root vitest
-// lane. Anything importing this file from a unit test would fail to load.
+// The leaf module, not test-setup: that one reaches electron.ts and its `ncp`
+// dependency, which does not resolve in the root vitest lane.
 import { getPositronVersion } from '../../infra/test-runner/positron-version.js';
 
 export const CONNECT_API_KEY = process.env.CONNECT_API_KEY!;

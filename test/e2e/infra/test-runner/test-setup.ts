@@ -115,8 +115,3 @@ function prepareTestDataDirectory() {
 	}
 	mkdirp.sync(TEST_DATA_PATH);
 }
-
-// getPositronVersion and its helpers live in positron-version.ts; re-exported
-// here so existing importers of this module keep working.
-export { getPositronVersion };
-

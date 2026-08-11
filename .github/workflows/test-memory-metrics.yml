@@ -37,9 +37,8 @@ jobs:
       HOME: /root
       PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
       PW_PROJECT_NAME: e2e-electron
-      # Job-wide, not per-step: playwright.config.ts keys the collection of
-      # memory-idle.test.ts off this, so every step that invokes it needs it,
-      # including the render step that launches no app.
+      # Job-wide, not per-step: playwright.config.ts keys collection of
+      # memory-idle.test.ts off this, so the render step needs it too.
       MEMORY_SCENARIO: idle
       # The insights reporter and its sharding hook are off deliberately. This
       # workflow publishes its own payload to /memory, and letting the reporter
