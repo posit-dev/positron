@@ -70,15 +70,6 @@ export const positronClassNames = (...args: Argument[]) => {
  * Serializes a URI for navigation to an external address, preserving query
  * string delimiters.
  *
- * `URI.toString()` treats the query as a single opaque component and escapes
- * `=` to `%3D` and `&` to `%26`. That is harmless for the custom schemes the
- * class was designed around, but it corrupts query parameters on `http(s)`
- * URLs: the server receives one nameless parameter instead of the parameters
- * that were sent. Round-tripping through the WHATWG `URL` parser keeps the
- * delimiters intact while still percent-encoding everything that needs it,
- * including characters such as `"` that would otherwise break out of an HTML
- * attribute.
- *
  * @param uri The URI to serialize.
  * @returns The serialized URI, or `URI.toString()` when it cannot be parsed.
  */

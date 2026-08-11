@@ -794,9 +794,7 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 			return;
 		}
 
-		// Tell the webview to load the URI. Serialize with
-		// `externalUriToString` rather than `URI.toString()`, which escapes the
-		// `=` and `&` delimiters and would corrupt any query parameters.
+		// Tell the webview to load the URI
 		this._uri = uri;
 		const uriString = externalUriToString(uri);
 		this._send('set-uri', uriString);
