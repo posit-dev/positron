@@ -687,6 +687,20 @@ begin
   Result := FileExists(ExpandConstant('{param:update}'))
 end;
 
+// Positron creates a session-end flag file when the OS is shutting down (/sessionend=C:\foo\bar).
+// This prevents calling inno_updater.exe during system shutdown, where the OS would kill it
+// partway through the swap and leave the installation half-updated.
+function SessionEndFileExists(): Boolean;
+begin
+  Result := FileExists(ExpandConstant('{param:sessionend}'))
+end;
+
+// Positron creates a cancel flag file to signal that the update should be aborted (/cancel=C:\foo\bar).
+function CancelFileExists(): Boolean;
+begin
+  Result := FileExists(ExpandConstant('{param:cancel}'))
+end;
+
 function ShouldRunAfterUpdate(): Boolean;
 begin
   if IsBackgroundUpdate() then
@@ -768,17 +782,35 @@ begin
     begin
       CreateMutex('{#AppMutex}-ready');
 
+      // Wait for Positron to exit so that its files can be replaced. This wait is deliberately
+      // unbounded: the `-ready` mutex created above has already told Positron that the update is
+      // staged, so what this loop waits for is the user choosing "Restart to Update", which can
+      // easily be hours away. Writing the cancel file is the only way to abandon the update, and
+      // Positron does that from `cancelPendingUpdate()`.
       Log('Checking whether application is still running...');
       while (CheckForMutexes('{#AppMutex}')) do
       begin
+        if CancelFileExists() then
+        begin
+          Log('Cancel file detected, aborting background update.');
+          Abort;
+        end;
         Sleep(1000)
       end;
       Log('Application appears not to be running.');
 
-      StopTunnelServiceIfNeeded();
+      // Never swap files while the OS session is ending: the OS can kill inno_updater partway
+      // through and leave the installation half-updated.
+      if not SessionEndFileExists() and not CancelFileExists() then
+      begin
+        StopTunnelServiceIfNeeded();
 
-      // inno_updater requires 3 arguments (exe of current installation, lock file status, and a string for the log)
-      Exec(ExpandConstant('{app}\tools\inno_updater.exe'), ExpandConstant('"{app}\{#ExeBasename}.exe" ' + BoolToStr(LockFileExists()) + ' "Updating Positron..."'), '', SW_SHOW, ewWaitUntilTerminated, UpdateResultCode);
+        // inno_updater requires 3 arguments (exe of current installation, lock file status, and a string for the log)
+        Exec(ExpandConstant('{app}\tools\inno_updater.exe'), ExpandConstant('"{app}\{#ExeBasename}.exe" ' + BoolToStr(LockFileExists()) + ' "Updating Positron..."'), '', SW_SHOW, ewWaitUntilTerminated, UpdateResultCode);
+        Log('inno_updater completed with result code ' + IntToStr(UpdateResultCode));
+      end
+      else
+        Log('Skipping inno_updater.exe call because the OS session is ending or cancel was requested.');
     end;
 
     if ShouldRestartTunnelService then

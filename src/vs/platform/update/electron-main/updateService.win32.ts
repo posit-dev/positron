@@ -40,7 +40,11 @@ import { AbstractUpdateService, createUpdateURL, getUpdateRequestHeaders, Update
 // --- End Positron ---
 
 // --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { writeFileSync } from 'fs';
 import { IStateService } from '../../state/node/state.js';
+import { ICodeWindow } from '../../window/electron-main/window.js';
+import { IWindowsMainService } from '../../windows/electron-main/windows.js';
 // --- End Positron ---
 
 interface IAvailableUpdate {
@@ -80,10 +84,20 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	get cachePath(): Promise<string> {
 		// --- Start Positron ---
 		// Use Positron specific cache path
-		const result = path.join(tmpdir(), `positron-${this.productService.target}-${process.arch}`);
+		const result = this.cachePathValue;
 		// --- End Positron ---
 		return mkdir(result, { recursive: true }).then(() => result);
 	}
+
+	// --- Start Positron ---
+	/**
+	 * The cache directory, without creating it. `cachePath` mkdirs as a side effect, which is not
+	 * wanted on paths that run before we know whether updates are even enabled.
+	 */
+	private get cachePathValue(): string {
+		return path.join(tmpdir(), `positron-${this.productService.target}-${process.arch}`);
+	}
+	// --- End Positron ---
 
 	@memoize
 	private get mutex(): Promise<typeof import('@vscode/windows-mutex')> {
@@ -108,6 +122,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		@IMeteredConnectionService meteredConnectionService: IMeteredConnectionService,
 		// --- Start Positron ---
 		@IStateService stateService: IStateService,
+		@IWindowsMainService private readonly windowsMainService: IWindowsMainService,
 		// --- End Positron ---
 	) {
 		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, telemetryService, applicationStorageMainService, meteredConnectionService, productService, nativeHostMainService, stateService, true);
@@ -135,6 +150,12 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	}
 
 	protected override async initialize(): Promise<void> {
+		// --- Start Positron ---
+		// Before the disabled checks below, and without touching disk, so that the listeners are in
+		// place even if updates are turned on later in the session.
+		await this.installSessionEndFlagHandler();
+		// --- End Positron ---
+
 		if (this.productService.win32VersionedUpdate) {
 			const cachePath = await this.cachePath;
 			app.setPath('appUpdate', cachePath);
@@ -165,6 +186,47 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 		await super.initialize();
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Maintains the session-end flag file that `doApplyUpdate()` passes to the installer as
+	 * `/sessionend`. While that flag exists, build/win32/positron.iss skips the file swap, so that
+	 * the OS cannot kill inno_updater partway through an update and leave a half-swapped install.
+	 */
+	private async installSessionEndFlagHandler(): Promise<void> {
+		// `cachePathValue` rather than `cachePath`, so that a disabled update service does not create
+		// the cache directory just by starting up.
+		// Must match the path passed as `/sessionend` in `doApplyUpdate()`.
+		const sessionEndFlagPath = path.join(this.cachePathValue, 'session-ending.flag');
+
+		// Clear a flag left behind by a previous shutdown. The upstream cleanup in `initialize()`
+		// is gated on `win32VersionedUpdate`, which Positron does not set, so without this a single
+		// OS shutdown would leave the flag on disk and every later background update would be
+		// skipped for good. `doApplyUpdate()` clears it again before each spawn.
+		await this.unlink(sessionEndFlagPath);
+
+		// Written synchronously: the OS is tearing the process down and will not wait for us.
+		const onSessionEnd = () => {
+			this.logService.info('update#onSessionEnd: OS session is ending, flagging the update swap to be skipped');
+			try {
+				writeFileSync(sessionEndFlagPath, 'session-end');
+			} catch (err) {
+				this.logService.error('update#onSessionEnd: failed to write the session end flag', err);
+			}
+		};
+
+		// `session-end` is a window event rather than an app event, so it has to be attached to every
+		// window. Whichever window fires first is enough, since all the handler does is write a flag.
+		// The listeners are owned by their BrowserWindow and go away when the window is destroyed.
+		const listenForSessionEnd = (window: ICodeWindow) => {
+			window.win?.on('session-end', onSessionEnd);
+		};
+		for (const window of this.windowsMainService.getWindows()) {
+			listenForSessionEnd(window);
+		}
+		this._register(this.windowsMainService.onDidOpenWindow(listenForSessionEnd));
+	}
+	// --- End Positron ---
 
 	// --- Start Positron ---
 	// 1.107.0 - Disabled pending further investigation into adapting this code for Positron.
@@ -473,6 +535,21 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		const sessionEndFlagPath = path.join(cachePath, 'session-ending.flag');
 		const cancelFilePath = path.join(cachePath, `cancel.flag`);
 		const progressFilePath = path.join(cachePath, `update-progress`);
+
+		// --- Start Positron ---
+		// Point Electron's `appUpdate` path at the same directory we pass as `/sessionend`. Upstream
+		// closed microsoft/vscode#264571 ("session-ending.flag is not present") with a commit whose
+		// only relevant change was this call, which implies a native writer that puts the flag in
+		// `appUpdate`. Upstream only does it under `win32VersionedUpdate`, which Positron does not
+		// set, so Positron has never pointed that writer anywhere useful. Done here rather than in
+		// `initialize()` because `setPath` throws unless the directory already exists, and because
+		// this is exactly when the flag starts to matter: an installer is about to wait on it.
+		try {
+			app.setPath('appUpdate', cachePath);
+		} catch (err) {
+			this.logService.warn('update#doApplyUpdate: failed to set the appUpdate path', err);
+		}
+		// --- End Positron ---
 		this.availableUpdate.updateFilePath = path.join(cachePath, `CodeSetup-${this.productService.quality}-${update.version}.flag`);
 		this.availableUpdate.cancelFilePath = cancelFilePath;
 
@@ -486,6 +563,13 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		} else {
 			await this.unlink(cancelFilePath);
 			await this.unlink(progressFilePath);
+			// --- Start Positron ---
+			// Clear the session-end flag here as well as at startup. Windows sends WM_ENDSESSION with
+			// `wParam = FALSE` when a shutdown is queried and then cancelled, so the process can outlive
+			// its own `session-end` event. A flag left over from that would make the installer skip the
+			// swap for the rest of the session, silently, on every later update.
+			await this.unlink(sessionEndFlagPath);
+			// --- End Positron ---
 			await pfs.Promises.writeFile(this.availableUpdate.updateFilePath, 'flag');
 
 			// --- Start Positron ---
@@ -670,6 +754,31 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		this.availableUpdate = undefined;
 	}
 
+	// --- Start Positron ---
+	protected override async prepareForQuitAndInstall(): Promise<void> {
+		// Deleting the flag file is what tells the waiting installer to relaunch Positron once the
+		// swap finishes (see `LockFileExists` in build/win32/positron.iss). It has to happen before
+		// the shutdown starts, because the app mutex the installer waits on is released during
+		// `onWillShutdown`, and the installer reads the flag as soon as that mutex clears.
+		await this.unlink(this.availableUpdate?.updateFilePath);
+	}
+
+	protected override async undoPrepareForQuitAndInstall(): Promise<void> {
+		// The quit was vetoed, so the user is staying in this session after all. Restore the flag so
+		// that a later plain quit does not relaunch Positron behind their back after the swap.
+		const updateFilePath = this.availableUpdate?.updateFilePath;
+		if (!updateFilePath) {
+			return;
+		}
+
+		try {
+			await pfs.Promises.writeFile(updateFilePath, 'flag');
+		} catch (err) {
+			this.logService.warn('update#undoPrepareForQuitAndInstall: failed to restore the update flag', err);
+		}
+	}
+	// --- End Positron ---
+
 	protected override doQuitAndInstall(): void {
 		if ((this.state.type !== StateType.Ready && this.state.type !== StateType.Restarting) || !this.availableUpdate) {
 			return;
@@ -679,6 +788,11 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 		if (this.availableUpdate.updateFilePath) {
 			try {
+				// --- Start Positron ---
+				// Normally already deleted by `prepareForQuitAndInstall()`. This remains the only
+				// deletion on the relaunch path, where `handleRelaunch()` calls us straight from
+				// `app.on('quit')`, which is after the app mutex has been released.
+				// --- End Positron ---
 				unlinkSync(this.availableUpdate.updateFilePath);
 			} catch {
 				// ignore
