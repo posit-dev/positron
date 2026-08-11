@@ -24,6 +24,7 @@ import { Socket } from 'net';
 import { RHelpTopicProvider } from './help';
 import { R_DOCUMENT_SELECTORS } from './provider';
 import { VirtualDocumentProvider } from './virtual-documents';
+import { isQuartoInlineOutputEnabled } from './quarto';
 
 // Regex to match Quarto virtual document files: .vdoc.[uuid].[ext]
 const VDOC_PATTERN = /^\.vdoc\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$/i;
@@ -250,13 +251,8 @@ export class ArkLsp implements vscode.Disposable {
 						// exists, so the console LSP must handle vdocs.
 						if (document.uri.scheme === 'file') {
 							const baseName = path.basename(document.uri.fsPath);
-							if (VDOC_PATTERN.test(baseName)) {
-								const inlineOutputEnabled = vscode.workspace
-									.getConfiguration('positron.quarto.inlineOutput')
-									.get<boolean>('enabled', false);
-								if (inlineOutputEnabled) {
-									return undefined;
-								}
+							if (VDOC_PATTERN.test(baseName) && isQuartoInlineOutputEnabled()) {
+								return undefined;
 							}
 						}
 						// Console LSP: skip notebook console inputs
