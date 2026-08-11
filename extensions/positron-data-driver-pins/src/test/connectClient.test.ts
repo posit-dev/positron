@@ -235,4 +235,25 @@ suite('ConnectClient.downloadPinFile', () => {
 		// No temporary files are left behind by either download.
 		assert.strictEqual(readdirSync(dirname(destPath)).filter(f => f.includes('.download')).length, 0);
 	});
+
+	test('never logs the API key, even when a request fails', async () => {
+		const apiKey = 'SUPERSECRETAPIKEY0123456789';
+		// Each entry is prefixed with its level so the assertions below can tell an actual error log
+		// apart from the unrelated trace('GET ...') call that _get always makes.
+		const messages: string[] = [];
+		const recordingLogger = {
+			trace: (m: string) => messages.push(`trace: ${m}`),
+			debug: (m: string) => messages.push(`debug: ${m}`),
+			info: (m: string) => messages.push(`info: ${m}`),
+			warn: (m: string) => messages.push(`warn: ${m}`),
+			error: (m: string) => messages.push(`error: ${m}`),
+		};
+		const failingFetch = async () => new Response('nope', { status: 401, statusText: 'Unauthorized' });
+
+		const client = new ConnectClient('https://connect.example.com', new KeyAuthenticator(apiKey), failingFetch as typeof fetch, recordingLogger);
+		await assert.rejects(() => client.listPins());
+
+		assert.ok(messages.some(m => m.startsWith('error: ')), `expected the failure to be logged at error level: ${messages.join(' | ')}`);
+		assert.ok(!messages.some(m => m.includes(apiKey)), `API key leaked into: ${messages.join(' | ')}`);
+	});
 });

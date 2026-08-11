@@ -2240,6 +2240,19 @@ declare module 'positron' {
 		code: string;
 	}
 
+	/**
+	 * The logging surface a data connection driver writes to. `vscode.LogOutputChannel`
+	 * satisfies it structurally, and a driver's internal modules can depend on this
+	 * interface alone so they stay free of a `vscode` import.
+	 */
+	export interface DataConnectionLogger {
+		trace(message: string): void;
+		debug(message: string): void;
+		info(message: string): void;
+		warn(message: string): void;
+		error(message: string): void;
+	}
+
 	export interface DataConnectionDriver {
 		/**
 		 * The driver identifier.
@@ -3376,6 +3389,30 @@ declare module 'positron' {
 	 * Methods for managing data connections.
 	 */
 	namespace dataConnections {
+		/**
+		 * Creates a logger for a data connection driver, backed by an output channel named
+		 * "Data Connections: <driverName>".
+		 *
+		 * The channel is created on the first `info`, `warn`, or `error` call, so a driver
+		 * that has never connected adds no entry to the Output panel. `trace` and `debug`
+		 * write only once the channel exists; before that they are dropped, which keeps a
+		 * trace-only code path from creating a channel that would then render empty at the
+		 * default log level.
+		 *
+		 * Do not log during extension activation. The Data Connections pane activates every
+		 * driver at once, so an activation-time log would put every channel in the Output
+		 * panel for users who never opened a connection.
+		 *
+		 * Each message is logged as a single line: only the first non-empty line is kept, because
+		 * driver errors can echo query text that carries user-entered filter or search values
+		 * after their first line. This is partial mitigation, not a guarantee -- an engine can
+		 * still inline such a value into the first line of the message itself.
+		 *
+		 * @param driverName The driver's display name, e.g. `Snowflake`. Core adds the prefix.
+		 * @returns A logger that also disposes the channel, for `context.subscriptions`.
+		 */
+		export function createDriverLogger(driverName: string): DataConnectionLogger & vscode.Disposable;
+
 		/**
 		 * Registers a data connection driver, allowing extensions to contribute
 		 * to the 'New Database' dialog.

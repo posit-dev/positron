@@ -8,7 +8,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { IProfileLogger, IRedshiftQueryClient, RedshiftSchemaEntry, RedshiftTableView, redshiftDisplayType } from './redshiftTableView.js';
+import { IRedshiftQueryClient, RedshiftSchemaEntry, RedshiftTableView, redshiftDisplayType } from './redshiftTableView.js';
 import {
 	ConvertToCodeParams,
 	DataExplorerBackendRequest,
@@ -61,7 +61,7 @@ export class RedshiftDataExplorerRpcHandler implements vscode.Disposable, IRedsh
 	private readonly _profileDraining = new Set<string>();
 
 	/** @param _logger Optional diagnostic log sink, threaded to each table view for profile timing. */
-	constructor(private readonly _logger?: IProfileLogger) {
+	constructor(private readonly _logger?: positron.DataConnectionLogger) {
 		this._session = positron.dataExplorer.registerRpcHandler(REDSHIFT_DATA_EXPLORER_PROVIDER_ID, {
 			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc)
 		});
@@ -207,8 +207,7 @@ export class RedshiftDataExplorerRpcHandler implements vscode.Disposable, IRedsh
 				} catch (error) {
 					if (!token.isCancellationRequested) {
 						const message = error instanceof Error ? error.message : 'unknown error';
-						this._logger?.info(`Failed to compute column profiles for ${datasetId}: ${message}`);
-						console.error(`Failed to compute Redshift column profiles: ${message}`);
+						this._logger?.error(`Failed to compute column profiles for ${datasetId}: ${message}`);
 					}
 				}
 			}

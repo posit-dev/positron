@@ -54,11 +54,13 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 	 * @param _databasePath Absolute path to the SQLite database file.
 	 * @param _readOnly Whether to open the database in read-only mode.
 	 * @param _dataExplorerHandler Hosts table views previewed in the Data Explorer.
+	 * @param _logger Optional diagnostic log sink for connection lifecycle events.
 	 */
 	constructor(
 		private readonly _databasePath: string,
 		private readonly _readOnly: boolean,
-		private readonly _dataExplorerHandler: ISqliteDataExplorerHost
+		private readonly _dataExplorerHandler: ISqliteDataExplorerHost,
+		private readonly _logger?: positron.DataConnectionLogger
 	) { }
 
 	/**
@@ -67,6 +69,7 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 	 * (e.g. a missing file, or a file that is not a valid SQLite database).
 	 */
 	async connect(): Promise<void> {
+		this._logger?.info(`Opening ${this._databasePath}${this._readOnly ? ' (read-only)' : ''}`);
 		const client = new SqliteWorkerClient({ databasePath: this._databasePath, readOnly: this._readOnly });
 		try {
 			// Probe the connection so an open failure surfaces here rather than on
@@ -76,8 +79,11 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 			this._client = client;
 		} catch (err) {
 			client.dispose();
+			const message = err instanceof Error ? err.message : String(err);
+			this._logger?.error(`Failed to open ${this._databasePath}: ${message}`);
 			throw new Error(describeOpenError(err as SqliteError, this._databasePath));
 		}
+		this._logger?.info(`Opened ${this._databasePath}`);
 	}
 
 	/**

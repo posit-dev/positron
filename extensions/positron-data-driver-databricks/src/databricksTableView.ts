@@ -70,21 +70,13 @@ import {
 	TableSelectionKind,
 	TextSearchType,
 } from 'positron-data-explorer-protocol';
+import type * as positron from 'positron';
 import { quoteAlias, quoteIdentifier, quoteLiteral } from './databricksSql.js';
 
 /** The query surface the table view needs. Implemented by the connection over its SDK client. */
 export interface IDatabricksQueryClient {
 	/** Run a SQL query and return its rows as plain objects keyed by column name. */
 	runQuery(sql: string): Promise<Array<Record<string, unknown>>>;
-}
-
-/**
- * A minimal sink for the table view's diagnostic logging, so the class stays decoupled from vscode.
- * Structurally satisfied by a `vscode.LogOutputChannel`. Optional throughout; when absent, nothing
- * is logged.
- */
-export interface IProfileLogger {
-	info(message: string): void;
 }
 
 /**
@@ -304,7 +296,7 @@ export class DatabricksTableView {
 		private readonly displayName: string,
 		private readonly objectKind: 'table' | 'view',
 		private readonly schema: Array<DatabricksSchemaEntry>,
-		private readonly _logger?: IProfileLogger,
+		private readonly _logger?: positron.DataConnectionLogger,
 	) {
 		this._unfilteredRows = this._countRows('');
 		this._filteredRows = this._unfilteredRows;
@@ -704,13 +696,16 @@ export class DatabricksTableView {
 		const passId = ++this._profilePassId;
 		this._profileQueryCount = 0;
 		const startedAt = Date.now();
-		this._logger?.info(`[profiles #${passId}] ${this.displayName}: ${params.profiles.length} column(s) in one request; ${this._summarizeRequestedTypes(params.profiles)}`);
+		// These are performance-tuning detail for column-profile queries, not connection diagnostics, so
+		// they stay at trace to avoid flooding the "Data Connections" channel a user opens to see why a
+		// connection failed.
+		this._logger?.trace(`[profiles #${passId}] ${this.displayName}: ${params.profiles.length} column(s) in one request; ${this._summarizeRequestedTypes(params.profiles)}`);
 
 		// Bail at each statement boundary when a newer pass has superseded this one, so a burst of
 		// requests doesn't queue every pass's statements on the single session.
 		const superseded = () => {
 			if (token?.isCancellationRequested) {
-				this._logger?.info(`[profiles #${passId}] ${this.displayName}: superseded after ${Date.now() - startedAt}ms, ${this._profileQueryCount} query/queries`);
+				this._logger?.trace(`[profiles #${passId}] ${this.displayName}: superseded after ${Date.now() - startedAt}ms, ${this._profileQueryCount} query/queries`);
 				return true;
 			}
 			return false;
@@ -727,7 +722,7 @@ export class DatabricksTableView {
 			const emptyPlans = this._planHistograms(params.profiles, emptyScalar, 0);
 			const profiles = params.profiles.map(request =>
 				this._assembleProfile(request, 0, params.format_options, emptyScalar, emptyPlans, new Map(), new Map()));
-			this._logger?.info(`[profiles #${passId}] ${this.displayName}: 0 rows, answered without querying`);
+			this._logger?.trace(`[profiles #${passId}] ${this.displayName}: 0 rows, answered without querying`);
 			return { callback_id: params.callback_id, profiles };
 		}
 
@@ -744,7 +739,7 @@ export class DatabricksTableView {
 		const profiles = params.profiles.map(request =>
 			this._assembleProfile(request, filteredRows, params.format_options, scalar, histogramPlans, histogramBins, frequencyData));
 
-		this._logger?.info(`[profiles #${passId}] ${this.displayName}: done in ${Date.now() - startedAt}ms across ${this._profileQueryCount} query/queries`);
+		this._logger?.trace(`[profiles #${passId}] ${this.displayName}: done in ${Date.now() - startedAt}ms across ${this._profileQueryCount} query/queries`);
 		return { callback_id: params.callback_id, profiles };
 	}
 
@@ -766,16 +761,15 @@ export class DatabricksTableView {
 	private async _profileQuery(label: string, sql: string): Promise<Array<Record<string, unknown>>> {
 		const startedAt = Date.now();
 		// Log before issuing so a query that hangs (never returns) is still visible in the timeline.
-		this._logger?.info(`[profiles #${this._profilePassId}]   issuing ${label}...`);
+		this._logger?.trace(`[profiles #${this._profilePassId}]   issuing ${label}...`);
 		try {
 			const rows = await this.client.runQuery(sql);
 			this._profileQueryCount++;
-			this._logger?.info(`[profiles #${this._profilePassId}]   ${label}: ${Date.now() - startedAt}ms, ${rows.length} row(s)`);
+			this._logger?.trace(`[profiles #${this._profilePassId}]   ${label}: ${Date.now() - startedAt}ms, ${rows.length} row(s)`);
 			return rows;
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			this._logger?.info(`[profiles #${this._profilePassId}]   ${label}: FAILED after ${Date.now() - startedAt}ms: ${message}`);
-			this._logger?.info(`[profiles #${this._profilePassId}]   failing SQL: ${sql}`);
 			throw err;
 		}
 	}

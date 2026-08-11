@@ -9,7 +9,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { IProfileLogger, ISnowflakeQueryClient, SnowflakeSchemaEntry, SnowflakeTableView, snowflakeDisplayType } from './snowflakeTableView.js';
+import { ISnowflakeQueryClient, SnowflakeSchemaEntry, SnowflakeTableView, snowflakeDisplayType } from './snowflakeTableView.js';
 import {
 	ConvertToCodeParams,
 	DataExplorerBackendRequest,
@@ -62,7 +62,7 @@ export class SnowflakeDataExplorerRpcHandler implements vscode.Disposable, ISnow
 	private readonly _profileDraining = new Set<string>();
 
 	/** @param _logger Optional diagnostic log sink, threaded to each table view for profile timing. */
-	constructor(private readonly _logger?: IProfileLogger) {
+	constructor(private readonly _logger?: positron.DataConnectionLogger) {
 		this._session = positron.dataExplorer.registerRpcHandler(SNOWFLAKE_DATA_EXPLORER_PROVIDER_ID, {
 			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc)
 		});
@@ -208,8 +208,7 @@ export class SnowflakeDataExplorerRpcHandler implements vscode.Disposable, ISnow
 				} catch (error) {
 					if (!token.isCancellationRequested) {
 						const message = error instanceof Error ? error.message : 'unknown error';
-						this._logger?.info(`Failed to compute column profiles for ${datasetId}: ${message}`);
-						console.error(`Failed to compute Snowflake column profiles: ${message}`);
+						this._logger?.error(`Failed to compute column profiles for ${datasetId}: ${message}`);
 					}
 				}
 			}

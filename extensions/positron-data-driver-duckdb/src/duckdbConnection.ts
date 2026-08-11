@@ -49,10 +49,12 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 	 * Constructor. Call connect() after constructing to open the database.
 	 * @param _config The connection configuration.
 	 * @param _dataExplorerHandler Hosts table views previewed in the Data Explorer.
+	 * @param _logger Optional diagnostic log sink for connection lifecycle events.
 	 */
 	constructor(
 		private readonly _config: DuckDBConnectionConfig,
-		private readonly _dataExplorerHandler: IDuckDBDataExplorerHost
+		private readonly _dataExplorerHandler: IDuckDBDataExplorerHost,
+		private readonly _logger?: positron.DataConnectionLogger
 	) { }
 
 	/**
@@ -65,6 +67,8 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 		if (!databasePath) {
 			throw new Error('Database file path is required');
 		}
+
+		this._logger?.info(`Opening ${databasePath}${this._config.readOnly ? ' (read-only)' : ''}`);
 
 		// Borrow a worker from the pool: connections to the same file + mode share one worker (and
 		// therefore one file lock), so opening the same database twice reuses the existing worker
@@ -79,8 +83,11 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 		} catch (err: any) {
 			// Release the lease so the worker is torn down if we were the only one holding it.
 			lease.release();
+			this._logger?.error(`Failed to open ${databasePath}: ${err?.message ?? err}`);
 			throw new Error(`Failed to open DuckDB database: ${databasePath}. ${err?.message ?? err}`);
 		}
+
+		this._logger?.info(`Opened ${databasePath}`);
 	}
 
 	/**
