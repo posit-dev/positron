@@ -209,6 +209,12 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 	lines.push(baseline
 		? `**Total: ${formatBytes(total)}** (${signed(total - baseline.treeTotalPssBytes)} vs previous nightly)`
 		: `**Total: ${formatBytes(total)}**`);
+	// The workflow measures latest-prerelease, so the build changes run to run and a
+	// number is not interpretable without it. Omitted rather than shown empty when
+	// absent, so a report that cannot name its build does not look like one that can.
+	if (snapshots[0]?.positronVersion) {
+		lines.push(`**Build: ${snapshots[0].positronVersion}**`);
+	}
 	lines.push('');
 	lines.push(`Median of ${snapshots.length} launches. Settle time: ${Math.round(median(snapshots.map(s => s.settleMs)) / 1000)}s.`);
 	lines.push('');
@@ -351,6 +357,7 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 <body>
 	<h1>Positron memory: idle</h1>
 	<p>Total PSS: <strong>${formatBytes(total)}</strong>${baseline ? ` (${signed(total - baseline.treeTotalPssBytes)} vs previous nightly)` : ''}</p>
+	${snapshots[0]?.positronVersion ? `<p>Build: <strong>${escapeHtml(snapshots[0].positronVersion)}</strong></p>` : ''}
 	<h2>Process tree</h2>
 	<table>
 		<tr><th align="left">Process</th><th align="left">Role</th><th align="right">PSS</th><th align="right">RSS</th><th align="right">PID</th></tr>

@@ -231,6 +231,9 @@ export function baselineToSnapshot(body: BaselineResponse): MemorySnapshot | und
 		// The report never age-checks the baseline, and '' fails that check loudly
 		// if anything ever starts to.
 		capturedAt: '',
+		// Likewise: the response carries no version field yet, and the report names
+		// only the current build. Wiring one through is a follow-up.
+		positronVersion: '',
 		launchIndex: 0,
 		settleMs: body.snapshot.settle_ms,
 		treeTotalPssBytes: body.snapshot.tree_total_pss_bytes,

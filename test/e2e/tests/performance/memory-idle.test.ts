@@ -65,6 +65,7 @@ test.describe('Memory: idle', { tag: [tags.PERFORMANCE] }, () => {
 		// otherwise publish a convincing-looking zero.
 		expect(snapshot.processes.length, 'no processes found in the tree').toBeGreaterThan(3);
 		expect(snapshot.treeTotalPssBytes, 'total PSS was zero; smaps_rollup is probably unreadable').toBeGreaterThan(0);
+		expect(snapshot.positronVersion, 'could not read positronVersion from the build\'s product.json').toBeTruthy();
 
 		// Quality gate. Every component here fails soft, which is right for a
 		// report but wrong for a baseline: if `--status` silently returns
@@ -122,6 +123,12 @@ test.describe('Memory: report', { tag: [tags.PERFORMANCE] }, () => {
 		});
 		expect(stale.map(s => `launch ${s.launchIndex} at ${s.capturedAt}`),
 			'stale snapshot(s); these are from an earlier run, so re-run the measure steps').toEqual([]);
+
+		// A median taken across two different builds would look exactly like a healthy
+		// one while describing neither, and the report names only the first launch's
+		// build. Cheap to check, and the only symptom otherwise is a bogus number.
+		const versions = [...new Set(snapshots.map(s => s.positronVersion))];
+		expect(versions, 'launches measured different builds; the median would be meaningless').toHaveLength(1);
 
 		const baseline = await fetchBaseline();
 		const markdown = renderMarkdown(snapshots, baseline);

@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { basename } from 'path';
+import { readFileSync } from 'fs';
+import { basename, join } from 'path';
 import { deriveExtensionName, isGenericName, normalizeProcessName, resolveRole } from './label.js';
 import { readProcessNames } from './positron-status.js';
 import { readProcessTree } from './process-tree.js';
@@ -140,6 +141,27 @@ export async function waitForSettle(
 	return Date.now() - started;
 }
 
+/**
+ * Which build produced these numbers. Read here rather than through the harness's
+ * getPositronVersion so this stays a leaf module: that helper lives in test-setup,
+ * which pulls in the infra barrel plus rimraf and mkdirp.
+ *
+ * Returns '' rather than throwing; the spec asserts on it, so a build whose
+ * product.json cannot be read fails there with the rest of the quality gate.
+ */
+function readPositronVersion(buildRoot: string): string {
+	const productJson = process.platform === 'darwin'
+		? join(buildRoot, 'Contents', 'Resources', 'app', 'product.json')
+		: join(buildRoot, 'resources', 'app', 'product.json');
+
+	try {
+		const product = JSON.parse(readFileSync(productJson, 'utf8'));
+		return product.positronVersion ? `${product.positronVersion}-${product.positronBuildNumber ?? 0}` : '';
+	} catch {
+		return '';
+	}
+}
+
 /** Take three samples five seconds apart once the app has settled. */
 export async function captureSnapshot(input: {
 	rootPid: number;
@@ -164,6 +186,7 @@ export async function captureSnapshot(input: {
 	return {
 		scenario: 'idle',
 		capturedAt: new Date().toISOString(),
+		positronVersion: readPositronVersion(input.buildRoot),
 		launchIndex: input.launchIndex,
 		settleMs,
 		treeTotalPssBytes: processes.reduce((sum, p) => sum + p.pssBytes, 0),

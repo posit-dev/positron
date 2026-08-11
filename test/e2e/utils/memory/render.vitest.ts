@@ -19,7 +19,8 @@ const ext = (extensionId: string, activationEvent: string | null): ActivatedExte
 	({ extensionId, isBuiltin: true, activationTimeMs: null, activationEvent });
 
 const snapshot = (procs: LabeledProcess[], launchIndex = 0, extensions: ActivatedExtension[] = []): MemorySnapshot => ({
-	scenario: 'idle', capturedAt: '2026-08-11T00:00:00.000Z', launchIndex, settleMs: 12_000,
+	scenario: 'idle', capturedAt: '2026-08-11T00:00:00.000Z',
+	positronVersion: '2026.09.0-35', launchIndex, settleMs: 12_000,
 	treeTotalPssBytes: procs.reduce((sum, p) => sum + p.pssBytes, 0),
 	processes: procs, extensions
 });
@@ -37,6 +38,16 @@ describe('renderMarkdown', () => {
 	test('reports the total', () => {
 		const output = renderMarkdown([snapshot([proc()])]);
 		expect(output).toContain('100.0 MB');
+	});
+
+	test('names the build that produced the numbers', () => {
+		const output = renderMarkdown([snapshot([proc()])]);
+		expect(output).toContain('**Build: 2026.09.0-35**');
+	});
+
+	test('omits the build line when the snapshot cannot name one', () => {
+		const output = renderMarkdown([{ ...snapshot([proc()]), positronVersion: '' }]);
+		expect(output).not.toContain('Build:');
 	});
 
 	test('shows a delta against the baseline', () => {

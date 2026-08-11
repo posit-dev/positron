@@ -65,6 +65,8 @@ export type MemorySnapshot = {
 	scenario: 'idle';
 	/** ISO 8601, set when the tree was read. Lets the report reject stale files. */
 	capturedAt: string;
+	/** e.g. `2026.09.0-35`: version plus build number, from the build's product.json. */
+	positronVersion: string;
 	launchIndex: number;
 	settleMs: number;
 	treeTotalPssBytes: number;
