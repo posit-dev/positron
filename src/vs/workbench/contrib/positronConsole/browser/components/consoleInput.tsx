@@ -18,9 +18,7 @@ import { ISelection } from '../../../../../editor/common/core/selection.js';
 import { IKeyboardEvent } from '../../../../../base/browser/keyboardEvent.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { CursorChangeReason } from '../../../../../editor/common/cursorEvents.js';
-import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
 import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
-import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
 import { FormatOnType } from '../../../../../editor/contrib/format/browser/formatActions.js';
 import { EditorExtensionsRegistry } from '../../../../../editor/browser/editorExtensions.js';
 import { MarkerController } from '../../../../../editor/contrib/gotoError/browser/gotoError.js';
@@ -31,7 +29,6 @@ import { SnippetController2 } from '../../../../../editor/contrib/snippet/browse
 import { ContextMenuController } from '../../../../../editor/contrib/contextmenu/browser/contextmenu.js';
 import { EditOperation, ISingleEditOperation } from '../../../../../editor/common/core/editOperation.js';
 import { TabCompletionController } from '../../../snippets/browser/tabCompletion.js';
-import { TerminalContextKeys } from '../../../terminal/common/terminalContextKey.js';
 import { ParameterHintsController } from '../../../../../editor/contrib/parameterHints/browser/parameterHints.js';
 import { SelectionClipboardContributionID } from '../../../codeEditor/browser/selectionClipboard.js';
 import { LanguageRuntimeSessionMode, RuntimeCodeExecutionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -46,6 +43,7 @@ import { IInputHistoryEntry } from '../../../../services/positronHistory/common/
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { createConsoleInputEditorOptions, createConsoleInputLineNumbersOptions, ILineNumbersOptions } from './consoleInputOptions.js';
 import { createConsoleInputModel } from './consoleInputModel.js';
+import { okToTakeFocus as okToTakeFocusHelper } from './consoleInputFocus.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { getForegroundDebugState, isForegroundDebugSession } from '../../../debug/common/debug.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
@@ -123,35 +121,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	 * Determines whether it is OK to take focus.
 	 * @returns true if it is OK to take focus; otherwise, false.
 	 */
-	const okToTakeFocus = () => {
-		// https://github.com/posit-dev/positron/issues/2802
-		// It's only OK to take focus if there is no focused editor. This avoids stealing focus when
-		// the user could be actively working in an editor.
-
-		// Get the context key service context.
-		const contextKeyContext = services.contextKeyService.getContext(
-			DOM.getActiveElement()
-		);
-
-		// Sensitive to all editor contexts, simple (e.g. git commit textbox) or not (e.g. code
-		// editor).
-		if (contextKeyContext.getValue(EditorContextKeys.textInputFocus.key)) {
-			return false;
-		}
-
-		// Sensitive to all quick pick contexts, e.g. the commande palette or the file picker.
-		if (contextKeyContext.getValue(InQuickPickContextKey.key)) {
-			return false;
-		}
-
-		// Sensitive to terminal focus.
-		if (contextKeyContext.getValue(TerminalContextKeys.focus.key)) {
-			return false;
-		}
-
-		// It's OK to take focus.
-		return true;
-	};
+	const okToTakeFocus = () => okToTakeFocusHelper(
+		services.contextKeyService,
+		services.workbenchLayoutService,
+		DOM.getActiveElement()
+	);
 
 	/**
 	 * Updates the code editor widget position.
