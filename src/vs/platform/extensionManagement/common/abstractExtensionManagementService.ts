@@ -830,19 +830,18 @@ export abstract class AbstractExtensionManagementService extends CommontExtensio
 				throw new ExtensionManagementError(nls.localize('incompatible platform', "The '{0}' extension is not available in {1} for the {2} platform.", extension.identifier.id, this.productService.nameLong, TargetPlatformToString(targetPlatform)), ExtensionManagementErrorCode.IncompatibleTargetPlatform);
 			}
 
-			// --- Start Positron ---
-			// An explicitly requested version cannot fall back to another version, so report the blocked
-			// dependency instead of the generic incompatible-version error that version selection would
-			// produce once isValidVersion rejects it (#15124).
-			if (sameVersion) {
+			compatibleExtension = await this.getCompatibleVersion(extension, sameVersion, installPreRelease, productVersion);
+			if (!compatibleExtension) {
+				// --- Start Positron ---
+				// No version passed selection. When the requested version depends on an extension Positron
+				// blocks and does not provide as a built-in, name that dependency instead of blaming the
+				// engine or a missing release version. This covers an explicitly requested version and an
+				// extension whose every version declares such a dependency (#15124).
 				const blockedDependencies = (extension.properties.dependencies ?? []).filter(isUnsatisfiableDependency);
 				if (blockedDependencies.length > 0) {
 					throw positronBlockedDependencyError(extension.displayName ?? extension.identifier.id, extension.version, blockedDependencies);
 				}
-			}
-			// --- End Positron ---
-			compatibleExtension = await this.getCompatibleVersion(extension, sameVersion, installPreRelease, productVersion);
-			if (!compatibleExtension) {
+				// --- End Positron ---
 				/** If no compatible release version is found, check if the extension has a release version or not and throw relevant error */
 				if (!installPreRelease && extension.hasPreReleaseVersion && extension.properties.isPreReleaseVersion && (await this.galleryService.getExtensions([extension.identifier], CancellationToken.None))[0]) {
 					throw new ExtensionManagementError(nls.localize('notFoundReleaseExtension', "Can't install release version of '{0}' extension because it has no release version.", extension.displayName ?? extension.identifier.id), ExtensionManagementErrorCode.ReleaseVersionNotFound);
