@@ -19,7 +19,6 @@ const BUTTON_ROLE = 'button';
 const REDESIGNED_PAGE = '.positron-welcome-page';
 const CATEGORIES_SLIDE = '.gettingStartedSlideCategories';
 const DETAILS_SLIDE = '.gettingStartedSlideDetails';
-const GETTING_STARTED_CONTAINER = '.gettingStartedContainer';
 const STARTUP_CHECKBOX = '#showOnStartup';
 
 export class Welcome {
@@ -157,20 +156,24 @@ export class Welcome {
 	 * @param hidden Which slide should be unreachable.
 	 * @param tabPresses How far to walk the tab order.
 	 */
-	async expectTabToStayOutOf(hidden: 'welcome' | 'walkthrough', tabPresses = 8) {
-		await test.step(`Verify Tab does not reach the hidden ${hidden} slide`, async () => {
+	/**
+	 * Verifies the off-screen slide is inert, which is what keeps its focusable
+	 * content out of the tab order, and that the visible slide is not.
+	 *
+	 * Asserts the mechanism rather than walking the page with Tab. A counted walk
+	 * has to know how many tab stops the page has, and that number changes with
+	 * the recent list and between web and desktop; too low a count stops short of
+	 * the boundary and passes without testing anything.
+	 * @param hidden Which slide is currently parked off-screen.
+	 */
+	async expectHiddenSlideToBeInert(hidden: 'welcome' | 'walkthrough') {
+		await test.step(`Verify the off-screen ${hidden} slide is inert`, async () => {
 			const page = this.code.driver.currentPage;
 			const hiddenSlide = hidden === 'welcome' ? CATEGORIES_SLIDE : DETAILS_SLIDE;
+			const visibleSlide = hidden === 'welcome' ? DETAILS_SLIDE : CATEGORIES_SLIDE;
 
-			await page.locator(GETTING_STARTED_CONTAINER).focus();
-			for (let i = 0; i < tabPresses; i++) {
-				await page.keyboard.press('Tab');
-				const landedInHidden = await page.evaluate(
-					(selector) => !!document.activeElement?.closest(selector),
-					hiddenSlide
-				);
-				expect(landedInHidden, `Tab stop ${i + 1} landed in the off-screen ${hidden} slide`).toBe(false);
-			}
+			await expect(page.locator(hiddenSlide)).toHaveAttribute('inert');
+			await expect(page.locator(visibleSlide)).not.toHaveAttribute('inert');
 		});
 	}
 

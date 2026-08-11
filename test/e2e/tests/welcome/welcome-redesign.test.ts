@@ -49,6 +49,21 @@ async function openWalkthrough(app: Application, runCommand: RunCommand) {
  *
  * Kept separate from welcome.test.ts so the two never share an app: the tests
  * there assert the original page, which only renders with the setting off.
+ *
+ * When the setting becomes the default, these tests move into welcome.test.ts's
+ * `Workspace` describe, whose `beforeEach` already matches this one. The
+ * `beforeApp` wrapper above and this describe stay behind and go with the file.
+ *
+ * | Delete from welcome.test.ts | Replaced by |
+ * |---|---|
+ * | Verify page header, footer, content (Workspace) | Verify redesigned page renders... |
+ * | Verify Tab does not reach the welcome page while a walkthrough is open | the test of the same name here |
+ * | Verify limited walkthroughs on Welcome page and full list in `More...` | nothing: the redesigned page has no walkthrough list, only a link to the quick pick |
+ *
+ * Two groups have no replacement yet, because the redesigned page has no Start
+ * section: the four Python and R `new notebook` / `new file` tests, and the whole
+ * `No Workspace` describe, which drives Open Folder, New Folder and New from Git.
+ * Those need redesigned equivalents before the setting can flip.
  */
 test.describe('Redesigned Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 
@@ -78,7 +93,7 @@ test.describe('Redesigned Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () =
 		await welcome.expectRedesignedPageToBeVisible();
 		await openWalkthrough(app, runCommand);
 
-		await welcome.expectTabToStayOutOf('welcome');
+		await welcome.expectHiddenSlideToBeInert('welcome');
 	});
 
 	test('Verify Tab does not reach a walkthrough opened earlier, which would shift the page', async function ({ app, hotKeys, runCommand }) {
@@ -93,7 +108,7 @@ test.describe('Redesigned Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () =
 		await welcome.expectRedesignedPageToBeVisible();
 
 		// Tabbing into it would scroll it into view and slide the welcome page
-		// off the left edge. 18 presses clears the whole page, checkbox included.
-		await welcome.expectTabToStayOutOf('walkthrough', 18);
+		// off the left edge.
+		await welcome.expectHiddenSlideToBeInert('walkthrough');
 	});
 });

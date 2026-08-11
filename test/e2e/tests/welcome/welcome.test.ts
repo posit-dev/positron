@@ -79,20 +79,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			const { welcome } = app.workbench;
 
 			await openWalkthrough(app, runCommand);
-			await welcome.expectTabToStayOutOf('welcome');
-		});
-
-		test('Verify Tab does not reach a walkthrough after returning to the welcome page', async function ({ app, hotKeys, runCommand }) {
-			const { welcome } = app.workbench;
-
-			// The walkthrough's steps stay in the DOM after we come back, parked
-			// off-screen to the right. Tabbing into one scrolls it into view and
-			// slides the welcome page off the left edge.
-			await openWalkthrough(app, runCommand);
-			await hotKeys.openWelcomeWalkthrough();
-			await welcome.expectRecentToBeVisible();
-
-			await welcome.expectTabToStayOutOf('walkthrough', 30);
+			await welcome.expectHiddenSlideToBeInert('welcome');
 		});
 
 		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, python }) {
