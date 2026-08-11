@@ -4,13 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 /*
- * Fills the slide when the content is short, so the footer rule below has space
- * to push against, and grows past it when the content is tall. A fixed height
- * would clip instead of scroll.
+ * This page renders inside .gettingStartedContainer, so gettingStarted.css
+ * applies to everything here. Its rules use four-class selectors on bare
+ * elements, so the overrides in this folder repeat the container chain to win on
+ * specificity.
  *
- * No horizontal padding here: the parent .gettingStartedSlideCategories already
- * supplies 24px.
+ * Do not add a page-wide reset. The page also hosts widgets the editor pane
+ * builds -- the recent list, the connect action, the startup checkbox -- and
+ * gettingStarted.css is what styles those correctly. Override on your own
+ * elements only.
  */
+
+/* No horizontal padding: .gettingStartedSlideCategories already supplies 24px. */
 .positron-welcome-page {
 	display: flex;
 	flex-direction: column;
@@ -21,9 +26,19 @@
 }
 
 /*
- * Keeps the "Show welcome page on startup" checkbox at the bottom of the page,
- * however tall the content above it is.
+ * Pins the footer to the bottom of the page. The min-height above leaves free
+ * space when the content is short, and this margin takes all of it.
  */
 .positron-welcome-page .positron-welcome-page-footer {
 	margin-top: auto;
+}
+
+/* Opt-in link color, for elements this page owns rather than the editor pane. */
+.monaco-workbench .part.editor > .content .gettingStartedContainer .positron-welcome-page .positron-welcome-page-link {
+	color: var(--vscode-textLink-foreground);
+	text-decoration: var(--text-link-decoration);
+}
+
+.monaco-workbench .part.editor > .content .gettingStartedContainer .positron-welcome-page .positron-welcome-page-link:hover {
+	color: var(--vscode-textLink-activeForeground);
 }
