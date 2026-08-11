@@ -6,7 +6,15 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import './mocha-setup';
-import { archesMismatch, resolveLibRPath } from '../environmentHealth';
+import {
+	archesMismatch,
+	probeDedicatedEnvironment,
+	probeDiscovery,
+	probeEnvironmentReady,
+	probeRInstalled,
+	resolveLibRPath,
+	RInstallationLike,
+} from '../environmentHealth';
 
 suite('environment health: libR path resolution', () => {
 	// Mirrors harp::find_r_shared_library_folder. Windows arm64 is deliberately
@@ -64,5 +72,148 @@ suite('environment health: architecture comparison', () => {
 		assert.strictEqual(archesMismatch(undefined, 'arm64'), false);
 		assert.strictEqual(archesMismatch('arm64', undefined), false);
 		assert.strictEqual(archesMismatch('', undefined), false);
+	});
+});
+
+function installation(over: Partial<RInstallationLike> = {}): RInstallationLike {
+	return {
+		binpath: '/opt/R/4.4.1/bin/R',
+		usable: true,
+		supported: true,
+		version: '4.4.1',
+		reasonRejected: null,
+		...over,
+	};
+}
+
+const READY_OK = {
+	usable: true,
+	versionSupported: true,
+	version: '4.4.1',
+	arkFound: true,
+	libRPath: '/opt/R/4.4.1/lib/libR.dylib',
+	libRExists: true,
+	archMismatch: false,
+	rArch: 'arm64',
+	arkArch: 'arm64' as const,
+};
+
+suite('environment health: probeDiscovery', () => {
+	test('passes when binaries were found', () => {
+		assert.strictEqual(probeDiscovery({ binaryCount: 2 }).status, 'pass');
+	});
+
+	test('fails with a diagnostics fix when no binaries were found', () => {
+		const item = probeDiscovery({ binaryCount: 0 });
+		assert.strictEqual(item.status, 'fail');
+		assert.strictEqual(item.fix?.commandId, 'positron.startupDiagnostics.show');
+	});
+
+	test('fails and reports the error when discovery threw', () => {
+		const item = probeDiscovery({ binaryCount: 0, error: 'boom' });
+		assert.strictEqual(item.status, 'fail');
+		assert.ok(item.detail?.includes('boom'));
+	});
+});
+
+suite('environment health: probeRInstalled', () => {
+	test('passes when a usable supported install exists', () => {
+		assert.strictEqual(probeRInstalled({ installations: [installation()] }).status, 'pass');
+	});
+
+	test('fails when every install is unusable, naming the reason', () => {
+		const item = probeRInstalled({
+			installations: [installation({ usable: false, reasonRejected: 'nonOrthogonal' })],
+		});
+		assert.strictEqual(item.status, 'fail');
+		assert.ok(item.detail?.includes('nonOrthogonal'));
+	});
+
+	test('fails when the only install is below the minimum version', () => {
+		// RInstallation always sets usable=false and reasonRejected='unsupported'
+		// for an old R (r-installation.ts:320-340), so this is what real data
+		// looks like. The version must still surface, not a generic reason.
+		const item = probeRInstalled({
+			installations: [installation({
+				usable: false, supported: false, version: '4.0.5', reasonRejected: 'unsupported',
+			})],
+		});
+		assert.strictEqual(item.status, 'fail');
+		assert.ok(item.detail?.includes('4.0.5'));
+	});
+
+	test('offers no fix but does link to the discovery docs', () => {
+		// There is no install-R command in the repo, unlike python.installPythonViaUv.
+		const item = probeRInstalled({ installations: [] });
+		assert.strictEqual(item.fix, undefined);
+		assert.strictEqual(item.learnMoreUrl, 'https://positron.posit.co/r-installations');
+	});
+});
+
+suite('environment health: probeEnvironmentReady', () => {
+	test('passes when every gate is satisfied', () => {
+		assert.strictEqual(probeEnvironmentReady(READY_OK).status, 'pass');
+	});
+
+	test('fails when the installation is not usable, reporting the reason', () => {
+		const item = probeEnvironmentReady({
+			...READY_OK, usable: false, rejectedReason: 'invalid',
+		});
+		assert.strictEqual(item.status, 'fail');
+		assert.ok(item.detail?.includes('invalid'));
+	});
+
+	test('fails on an unsupported version', () => {
+		const item = probeEnvironmentReady({
+			...READY_OK, versionSupported: false, version: '4.0.5',
+		});
+		assert.strictEqual(item.status, 'fail');
+		assert.ok(item.detail?.includes('4.0.5'));
+	});
+
+	test('fails when the ark kernel cannot be located', () => {
+		const item = probeEnvironmentReady({ ...READY_OK, arkFound: false });
+		assert.strictEqual(item.status, 'fail');
+	});
+
+	test('fails when libR is missing, naming the path and R-shlib', () => {
+		const item = probeEnvironmentReady({ ...READY_OK, libRExists: false });
+		assert.strictEqual(item.status, 'fail');
+		assert.ok(item.detail?.includes('/opt/R/4.4.1/lib/libR.dylib'));
+		assert.ok(item.detail?.includes('--enable-R-shlib'));
+	});
+
+	test('checks ark before libR, because libR resolution needs ark arch', () => {
+		const item = probeEnvironmentReady({ ...READY_OK, arkFound: false, libRExists: false });
+		assert.ok(!item.detail?.includes('--enable-R-shlib'));
+	});
+
+	test('warns without failing on an architecture mismatch', () => {
+		const item = probeEnvironmentReady({
+			...READY_OK, archMismatch: true, rArch: 'x86_64', arkArch: 'arm64',
+		});
+		assert.strictEqual(item.status, 'warn');
+		assert.ok(item.detail?.includes('x86_64'));
+		assert.ok(item.detail?.includes('arm64'));
+	});
+});
+
+suite('environment health: probeDedicatedEnvironment', () => {
+	test('passes when the open folder has an renv project', () => {
+		const item = probeDedicatedEnvironment({ workspaceFolderPath: '/work/proj', hasRenv: true });
+		assert.strictEqual(item.status, 'pass');
+	});
+
+	test('fails with the renv fix when the open folder has no renv project', () => {
+		const item = probeDedicatedEnvironment({ workspaceFolderPath: '/work/proj', hasRenv: false });
+		assert.strictEqual(item.status, 'fail');
+		assert.strictEqual(item.fix?.commandId, 'r.renvInit');
+		assert.ok(item.detail?.includes('/work/proj'));
+	});
+
+	test('warns with the new-folder fix when no folder is open', () => {
+		const item = probeDedicatedEnvironment({ hasRenv: false });
+		assert.strictEqual(item.status, 'warn');
+		assert.strictEqual(item.fix?.commandId, 'positron.workbench.action.newFolderFromTemplate');
 	});
 });
