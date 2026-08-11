@@ -3,24 +3,23 @@
 Goal: tag a PR with `@:workbench` and `@:workbench-rocky` and get the
 `@:workbench` test suite running in parallel on Ubuntu 24 and Rocky Linux.
 
-Status (2026-08-09): **Steps 0-4 are done.** Steps 0 and 1 are merged (#15407):
-`ghcr.io/posit-dev/positron-rocky9:24.18.0` is published and verified, and
-Workbench is proven to run on Rocky 9 without systemd. Steps 2-4 are on this
-branch and make the local harness run **either OS**:
+Status (2026-08-11): **Steps 0-7 are done.** Steps 0-1 merged as #15407, Steps 2-4
+as #15429. Steps 5 (first real suite run on Rocky, triaged), 6 (the
+`@:workbench-rocky` tag) and 7 (CI wiring) are on this branch, so a PR tagged
+`@:workbench-rocky` now starts a real lane.
 
 ```bash
 npm run pwb -- --os=rocky9  --workbench=daily --positron=daily
 npm run pwb -- --os=ubuntu24 --workbench=daily --positron=daily   # the default
 ```
 
-**Step 5 (triage the real suite on Rocky) is next**, and it is where the calendar
-time goes. Steps 6 (the `@:workbench-rocky` tag) and 7 (CI wiring) are untouched:
-nothing in CI consumes any of this yet -- the workflow and the composite action
-set neither `WB_OS` nor `WB_TEST_IMAGE`, so both fall back to the Ubuntu defaults
-and the existing lane is byte-for-byte unaffected.
+**The lane is not green yet, and that is the expected state**: Step 5 found four
+genuinely Rocky-only failures, two of which are fixed here and two of which need
+follow-up work (see [Step 5's results](#step-5----run-the-real-suite-locally-against-rocky-done)).
+The lane is PR-tag-triggered, so it blocks nobody while that lands.
 
-Nothing consumes either image yet: `test-e2e-rhel.yml` still pins
-`positron-rocky8:24.15.0`, so repointing it is a separate PR.
+`test-e2e-rhel.yml` still pins `positron-rocky8:24.15.0`; repointing it is a
+separate PR.
 
 ## Target: Rocky 9, not Rocky 8
 
@@ -239,7 +238,7 @@ different one. Change to `chown rstudio-server:rstudio-server`, correct on both.
 
 ### Shards: default only
 
-`test-e2e-workbench-ubuntu.yml` runs a 4-way matrix: `default` plus `snowflake` /
+`test-e2e-workbench-linux.yml` runs a 4-way matrix: `default` plus `snowflake` /
 `databricks` / `azure` credential shards. The Rocky lane runs **`default` only**.
 Managed-credential plumbing is OS-independent, so the other three would triple
 live cloud-auth usage for no new signal. Add them later only if a Rocky-specific
@@ -668,7 +667,140 @@ what makes the wait mean anything.
 | `stop` then resume on Rocky | launcher restarted, socket recreated (mtime advances), one rserver, HTTP 302 |
 | invalid `--os=rocky` / `--os=rhel9` | rejected in under a second, before any Docker work |
 
-### Step 5 -- Run the real suite locally against Rocky
+### Step 5 -- Run the real suite locally against Rocky (DONE)
+
+First full run of the default shard against Rocky 9 (arm64, Positron 2026.09.0-35
+on Workbench 2026.08.0+187.pro5): **30 passed, 8 failed, 9 skipped** in 33.5m.
+
+Green, and worth listing because these are the ones that exercise the image's
+toolchain: both data-explorer suites, duckdb + sqlite data-connections, all three
+plots, all three `quarto-r` renders (including pdf via typst),
+bootstrap-extensions, layouts, and all three enforced-settings tests.
+
+**Every failure was attributed by re-running the same tests on an Ubuntu stack on
+the same machine** (same arm64, same Connect container, same Positron/Workbench
+builds -- only the OS differs). That control run passed 5/5, which is what makes
+the attribution below trustworthy rather than a guess.
+
+| Failure | Verdict | State |
+| --- | --- | --- |
+| `posit-assistant-signin` x3 (anthropic-api, openai-api, posit-ai) | **Not Rocky.** Local env gap: `ANTHROPIC_KEY` / `OPENAI_KEY` / `POSIT_AUTH_HOST`+`POSIT_EMAIL`+`POSIT_PASSWORD` are absent from `.env.e2e-workbench`. posit-ai says so outright ("OAuth auth host not configured"). | Documented in `.env.e2e-workbench.example` |
+| `environment-modules` (R) | **Rocky-only.** Two bugs, below. | **Fixed** |
+| `environment-modules` (Python) | **Rocky-only.** Same two bugs, plus a third layer still open. | Partly fixed |
+| `connect/publisher-quarto-r` | **Rocky-only.** Root cause proven, below. | Open |
+| `connect/publisher-shiny` | **Rocky-only.** Same publisher/quarto resolution. | Open |
+| `console/files-pane-refresh` | **Rocky-only.** Not investigated yet. | Open |
+
+The 9 skips are all explained and none are Rocky: redshift x3 needs
+`REDSHIFT_TEST_HOST`, postgres x3 + `connections-postgres` x2 are gated on
+`process.platform === 'darwin'`, and the Assistant layout test skips on its own.
+Note this means a local run **under-covers** exactly the suites that need private
+infrastructure; CI's Rocky lane will actually run them.
+
+#### Fixed here: the module environments were invisible to the session user
+
+Two independent bugs, both of which made `module avail` list nothing in the
+session while the install still reported success:
+
+1. **A leaked umask.** `ensure-connect-token.sh` set `umask 077` and never
+   restored it. That is the right umask for a token file, but the script is
+   *sourced* by `install-workbench.sh` and its function is called unconditionally
+   just before the modulefile setup -- so the modulefile tree was created
+   `0700`/`0600` root-only, as was `~/.profile`. Now scoped to a subshell around
+   the token write, and the modulefile modes are stated explicitly
+   (`install -d -m 755` + `chmod 644`) instead of inherited.
+2. **`~/.profile` is never read on EL9.** Bash reads it only when
+   `~/.bash_profile` and `~/.bash_login` are both absent; EL9's `/etc/skel` ships
+   a `~/.bash_profile` (which sources only `~/.bashrc`). So the installer's
+   `module use` append was dead code on Rocky -- `MODULEPATH` never gained
+   `/opt/modules/modulefiles`. Now written to `/etc/profile.d/positron-modules.sh`
+   (read by login shells on both OSes) plus an idempotent `~/.bashrc` append.
+
+With those two fixed the **R** test passes on Rocky. The **Python** one gets
+further and then fails inside positron-python's ipykernel bootstrap: the trigger
+is that the hidden conda env has no ipykernel (true on both images -- the
+Dockerfile blocks are byte-identical), and the sqlite3 guard on that path reports
+`_sqlite3` as missing. `import _sqlite3` succeeds in every context reproducible
+from a shell (root, `user1`, and `user1` after `module load python/3.12.10`), so
+the check's environment differs from a shell's. Needs positron-python's own log
+from a live session, which the fixture destroys on teardown.
+
+#### Open, root cause proven: publisher can't resolve quarto on Rocky
+
+`publisher-quarto-r` fails with a Connect-side render error that looks like a
+Connect or R problem and is neither:
+
+```
+[connect-quarto] Running 'quarto render'
+ERROR: Error executing 'Rscript': Failed to spawn 'Rscript': entity not found
+Unable to locate an installed version of R.
+```
+
+The chain: the bundle manifest Connect receives says
+`"quarto": {"version": "1.7.34", "engines": []}`. Connect keys R provisioning off
+those engines, so an empty list means it never puts `/opt/R/4.6.1/bin` on the
+render's PATH (R *is* in the Connect container and Connect detects it at startup).
+`1.7.34` is not a real quarto anywhere in the stack -- it is a hardcoded fallback
+in the publisher extension (`fZ="1.7.34"` in `posit.publisher-2.8.0`), which means
+publisher never successfully inspected the document.
+
+Established by swapping one variable at a time on an otherwise-passing Ubuntu
+stack:
+
+| Stack | quarto on PATH | publisher recorded | Result |
+| --- | --- | --- | --- |
+| Rocky 9 | 1.10.18 (present) | `1.7.34`, `engines = []` | fail |
+| Ubuntu 24 | 1.9.38 | `1.9.38`, engines populated | pass |
+| Ubuntu 24 | swapped to 1.10.18 | `1.10.18`, engines populated | pass |
+| Ubuntu 24 | **removed** | `1.7.34`, `engines = []` | **fail, identically** |
+
+So the cause is that publisher cannot find `quarto` when it inspects, and **not**
+a Quarto version incompatibility -- an earlier revision of this document blamed
+Quarto 1.10 (the images ship different versions because both fetch
+`download/latest`); row 3 disproves that, and pinning Quarto would have fixed
+nothing.
+
+Two things make this hard to see, worth knowing before picking it up:
+
+- **The status bar reads "Quarto: 1.9.38" even when it is broken.** Positron's
+  Quarto extension resolves Workbench's bundled quarto by a different mechanism
+  than publisher uses, so the UI looks healthy.
+- On Rocky, `user1`'s *login* PATH does contain a working
+  `/usr/local/bin/quarto` (1.10.18). So the gap is in the **extension host's**
+  environment, not the login shell -- the same class of problem as the
+  `.bash_profile` bug above. The next diagnostic is to print the extension
+  host's `process.env.PATH` in a Rocky session.
+
+#### Also measured: the duplicate-rserver bug is real, and the suite causes it
+
+After one suite run the Rocky container had **three** rservers: the original from
+the install, plus one per `sudo rstudio-server restart` in
+`enforced-settings-language-scoped.test.ts`. `rserver.log` then fills with
+`Error response from monitor request: 401` from the duplicates contending for the
+monitor socket.
+
+Two corrections to earlier revisions of this document. First, the enforced-settings
+tests **pass** -- the prediction that they would fail was wrong, and consistent
+with the corrected model that resolution happens at session launch rather than
+being cached at rserver startup. Second, this is not only the harness's resume
+path: **test code** produces it, twice per run, with exit status 0. So the
+signal-stop -> verify -> start mitigation is worth doing before the lane is
+promoted, purely so later diagnosis isn't done against a wedged process tree. It
+is deliberately **not** bundled into this PR -- a botched stop/start would break
+both lanes at once.
+
+#### Bug found on the way: the local harness ran a different Ubuntu image than CI
+
+`wb_os_image ubuntu24` was pinned to `positron-ubuntu24:24.15.0` while
+`docker-compose.workbench.yml` had moved to `24.18.0` (#15243 bumped Compose;
+#15429 then added the function with the stale tag). So `--os=ubuntu24` silently
+ran an older image than a bare `docker compose up` or CI -- exactly the kind of
+difference that makes a local repro of a CI failure disagree for no visible
+reason. Fixed, with a comment tying the two copies together. The durable fix is
+for `update-ci-images` to bump *consumers* of a published tag and not just
+`NODE_VERSION` in the image-build compose files; it does not today.
+
+### Step 5 (original plan text, for reference)
 
 **Iteration gotcha, learned the hard way in Step 4:** do not edit
 `workbench-local.sh` (or any script) while a run of it is in flight. Bash reads a
@@ -692,7 +824,7 @@ namespace stays "which lane runs" rather than "which test runs where".
 **Validate:** a green (or knowingly-triaged) local run. Expect this step to be
 the bulk of the calendar time.
 
-### Step 6 -- The `@:workbench-rocky` tag (pure bash, no Docker)
+### Step 6 -- The `@:workbench-rocky` tag (DONE)
 
 - `test/e2e/infra/test-runner/test-tags.ts`: add
   `WORKBENCH_ROCKY = '@:workbench-rocky'` to **`PlatformTags`** (not
@@ -712,7 +844,7 @@ detail of the lane.
 `pr-tags-parse.sh` against a fake PR body asserting `@:workbench-rocky` alone
 sets `workbench_rocky_tag_found` and **not** `workbench_tag_found`.
 
-### Step 7 -- CI wiring
+### Step 7 -- CI wiring (DONE)
 
 - Rename `test-e2e-workbench-ubuntu.yml` -> `test-e2e-workbench-linux.yml` and
   add an `os` input (default `ubuntu24`). Thread it to the `test` image, the

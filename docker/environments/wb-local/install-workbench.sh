@@ -451,16 +451,41 @@ else
         log_error "Failed to install environment-modules"
     fi
 fi
-if ! sudo mkdir -p /opt/modules/modulefiles/R; then
+# The session user (not root) resolves these modulefiles, so the tree has to be
+# world-readable. State the modes rather than inheriting the ambient umask: a
+# sourced helper leaking `umask 077` once made these 0700/0600, which hid both
+# module environments from the session and failed the @:environment-modules
+# tests while the install still reported success.
+if ! sudo install -d -m 755 /opt/modules/modulefiles/R; then
     log_error "Failed to create /opt/modules/modulefiles/R directory"
 fi
 printf '#%%Module1.0\nset root /root/scratch/R-4.4.1\nprepend-path PATH $root/bin\nprepend-path MANPATH $root/share/man\nsetenv R_HOME $root/lib/R\n' | sudo tee /opt/modules/modulefiles/R/4.4.1 > /dev/null
-if ! sudo mkdir -p /opt/modules/modulefiles/python; then
+sudo chmod 644 /opt/modules/modulefiles/R/4.4.1
+if ! sudo install -d -m 755 /opt/modules/modulefiles/python; then
     log_error "Failed to create /opt/modules/modulefiles/python directory"
 fi
 printf '#%%Module1.0\nset root /root/scratch/python-env\nprepend-path PATH $root/bin\n' | sudo tee /opt/modules/modulefiles/python/3.12.10 > /dev/null
-echo 'source /etc/profile.d/modules.sh' >> /home/${Q_USER}/.profile
-echo 'module use /opt/modules/modulefiles' >> /home/${Q_USER}/.profile
+sudo chmod 644 /opt/modules/modulefiles/python/3.12.10
+# Put the module setup on /etc/profile.d rather than in a user dotfile. This
+# used to append to ~/.profile, which is a Debian-ism: bash reads ~/.profile only
+# when ~/.bash_profile and ~/.bash_login are both absent, and EL9's /etc/skel
+# ships a ~/.bash_profile. So on Rocky the appends were never read, MODULEPATH
+# never gained /opt/modules/modulefiles, and both @:environment-modules tests
+# failed with an empty module picker. A profile.d drop-in is read by login shells
+# on both OSes and needs no per-user ownership fixing.
+printf 'source /etc/profile.d/modules.sh\nmodule use /opt/modules/modulefiles\n' \
+    | sudo tee /etc/profile.d/positron-modules.sh > /dev/null
+sudo chmod 644 /etc/profile.d/positron-modules.sh
+
+# Also cover interactive non-login shells, which read ~/.bashrc and not
+# profile.d. Idempotent: --reinstall re-runs this, and the @:environment-modules
+# test appends the same two lines itself if they are missing.
+if ! sudo grep -q 'module use /opt/modules/modulefiles' /home/${Q_USER}/.bashrc 2>/dev/null; then
+    printf 'source /etc/profile.d/modules.sh\nmodule use /opt/modules/modulefiles\n' \
+        | sudo tee -a /home/${Q_USER}/.bashrc > /dev/null
+fi
+sudo chown ${Q_USER}:${Q_GROUP} /home/${Q_USER}/.bashrc
+sudo chmod 644 /home/${Q_USER}/.bashrc
 
 # Log completion and versions
 echo ""
