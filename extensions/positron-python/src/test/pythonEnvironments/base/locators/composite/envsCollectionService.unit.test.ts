@@ -31,6 +31,7 @@ import * as nativeFinder from '../../../../../client/pythonEnvironments/base/loc
 class MockNativePythonFinder implements nativeFinder.NativePythonFinder {
     // --- Start Positron ---
     readonly lastDiscoveryError: string | undefined;
+    readonly serverPid: number | undefined;
     // --- End Positron ---
 
     find(_searchPath: string): Promise<nativeFinder.NativeEnvInfo[]> {

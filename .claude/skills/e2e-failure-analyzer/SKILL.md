@@ -12,7 +12,7 @@ Analyzes Playwright e2e test failures from a GitHub Actions run using JSON repor
 
 - A CI run has failed and you want to understand why
 - Triaging e2e test failures from `Test: Merge to branch`, `Test: Full Suite`, or `Positron Build: Daily Release`
-- Triaging a whole run's hard failures (for deep per-test investigation of one flaky/failing test, use the `triage-e2e-test` skill instead)
+- Triaging a whole run's hard failures (for deep per-test investigation of one flaky/failing test, use the `debug-e2e-test` skill instead)
 
 ## Prerequisites
 
@@ -209,7 +209,7 @@ When multiple projects/platforms are analyzed in a single run, note which platfo
 
 Deep-analyze the **hard failures** -- tests that **failed all retries** (`failures` in the extractor output, as opposed to `failedTests`, which includes attempts that recovered). Present them in a summary table with columns: test name, platform, root cause category, and severity (`hard`), then give the detailed per-failure analysis below the table.
 
-**Flaky tests** (passed on retry) are not deep-analyzed here: they recovered on the same run, so they didn't break it, and per-test flaky investigation is the `triage-e2e-test` skill's specialty. List them compactly under a short "Flaky (passed on retry)" section (name + one-line history) and point to `triage-e2e-test` for any worth chasing -- unless the user explicitly asks you to dig into a flaky one. This keeps the run-centric analysis focused (and, in the Action, keeps token cost to the hard failures that actually need it).
+**Flaky tests** (passed on retry) are not deep-analyzed here: they recovered on the same run, so they didn't break it, and per-test flaky investigation is the `debug-e2e-test` skill's specialty. List them compactly under a short "Flaky (passed on retry)" section (name + one-line history) and point to `debug-e2e-test` for any worth chasing -- unless the user explicitly asks you to dig into a flaky one. This keeps the run-centric analysis focused (and, in the Action, keeps token cost to the hard failures that actually need it).
 
 Include **non-e2e job failures** (unit tests, integration tests, build failures) in the summary table as well, with the job name as the test name and a brief description of the failure extracted from the job logs.
 

@@ -5,12 +5,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+	buildDomPresence,
 	extractTraceClock,
 	findFailureWindow,
 	logRelevance,
 	parseLogTimestamp,
 	phaseLabel,
 	relevanceHintsForSpec,
+	snapshotAttrTokens,
+	traceEpochOrigin,
 	traceTimeToWallMs,
 } from '../lib-failure-window.js';
 
@@ -66,6 +69,66 @@ test('phaseLabel separates the wait from post-deadline teardown', () => {
 	assert.equal(phaseLabel(2660000, win), 'during wait');
 	assert.equal(phaseLabel(DEADLINE_T, win), 'during wait');  // boundary is inclusive
 	assert.equal(phaseLabel(123, null), null);
+});
+
+test('traceEpochOrigin recovers t=0 from a screencast frame, and null without one', () => {
+	// The frame's sha1 ends in its own epoch ms, and its timestamp is the trace
+	// offset -- so origin = epoch - offset.
+	assert.equal(
+		traceEpochOrigin([{ type: 'screencast-frame', sha1: 'abc-1785521606767.jpeg', timestamp: 2606564 }]),
+		1785521606767 - 2606564
+	);
+	// A sha1 without the trailing epoch cannot anchor anything.
+	assert.equal(traceEpochOrigin([{ type: 'screencast-frame', sha1: 'abc.jpeg', timestamp: 10 }]), null);
+	assert.equal(traceEpochOrigin([{ type: 'before', startTime: 1 }]), null);
+});
+
+test('snapshotAttrTokens reads class/id attributes, not stylesheet text', () => {
+	// The bug this exists for: a `codicon-x` token matching its own CSS rule in
+	// the inlined stylesheet, and reporting the element as present.
+	const json = '["DIV",{"class":"panel codicon-x","id":"main"},["STYLE",{},".codicon-y{color:red}"]]';
+	assert.deepEqual([...snapshotAttrTokens(json)].sort(), ['codicon-x', 'main', 'panel']);
+});
+
+// JSON.stringify of the event is what buildDomPresence matches against, so the
+// token has to sit in a `class`/`id` attribute position within it.
+const snap = (t, cls) => ({ type: 'frame-snapshot', snapshot: { timestamp: t }, x: { class: cls } });
+
+test('buildDomPresence anchors the wait window on findFailureWindow', () => {
+	// Two errored actions: the first has no usable deadline, so findFailureWindow
+	// skips it and the window opens at the SECOND action (t=500). A token seen
+	// only at t=100 is therefore before the wait, not during it. The private
+	// helper this replaced stopped at the first errored `after` and would have
+	// anchored at t=50, flipping this token to "during the wait".
+	const events = [
+		{ type: 'before', class: 'Frame', method: 'click', startTime: 50 },
+		{ type: 'after', error: { message: 'boom' } },              // no endTime/startTime
+		{ type: 'before', class: 'Frame', method: 'expect', startTime: 500 },
+		{ type: 'after', endTime: 900, error: { message: 'Expect failed' } },
+		snap(100, 'target-token'),
+		snap(800, 'other-token'),
+	];
+	assert.equal(findFailureWindow(events).actionStartT, 500);
+	const out = buildDomPresence(events, ['target-token']);
+	assert.match(out, /NEVER during the wait \(from t=500\)/);
+	assert.doesNotMatch(out, /during the wait; a visibility/);
+});
+
+test('buildDomPresence separates present-during-wait, absent, and no-window', () => {
+	const events = [
+		{ type: 'before', class: 'Frame', method: 'expect', startTime: 500 },
+		{ type: 'after', endTime: 900, error: { message: 'Expect failed' } },
+		snap(600, 'target-token'),
+	];
+	assert.match(buildDomPresence(events, ['target-token']), /1 of them during the wait \(from t=500\)/);
+	assert.match(buildDomPresence(events, ['absent-token']), /NEVER present in any snapshot/);
+	// No errored action at all -> no window, and the report must say so rather
+	// than implying the token was present when the action ran.
+	const noFailure = [{ type: 'before', startTime: 1 }, snap(600, 'target-token')];
+	assert.match(buildDomPresence(noFailure, ['target-token']), /no wait window found/);
+	// Nothing to report without tokens or without snapshots.
+	assert.equal(buildDomPresence(events, []), null);
+	assert.equal(buildDomPresence([{ type: 'before', startTime: 1 }], ['target-token']), null);
 });
 
 test('parseLogTimestamp handles every Positron log shape as UTC', () => {

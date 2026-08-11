@@ -5,6 +5,7 @@ Thumbs.db
 node_modules/
 .tmp/
 .build/
+/extensionsCG/
 .vscode/extensions/**/out/
 extensions/**/dist/
 # --- Start Positron ---
@@ -17,6 +18,8 @@ extensions/**/dist/
 build/node_modules
 build/darwin/.dmgbuild
 coverage/
+!src/vs/platform/agentHost/test/node/protocol/coverage/
+!src/vs/platform/agentHost/test/node/protocol/coverage/agentHostE2E.json
 test_data/
 test-results/
 test-results.xml
@@ -71,7 +74,10 @@ test/componentFixtures/.screenshots/*
 dist
 .playwright-cli
 .playwright-mcp
-.claude/
+# -- Start Positron --
+# We have our own Claude rules (above)
+# .claude/
+# -- End Positron --
 .agents/agents/*.local.md
 .github/agents/*.local.md
 .agents/agents/*.local.agent.md

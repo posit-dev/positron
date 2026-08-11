@@ -408,7 +408,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test.afterAll(async function ({ cleanup }) {
-			await cleanup.removeTestFiles(['r-cars.svg', 'r-cars.jpeg', 'plot.png']);
+			await cleanup.removeTestFiles(['R-cars.svg', 'R-cars.jpeg', 'plot.png']);
 		});
 
 		test('R - Verify basic plot functionality', {
@@ -556,7 +556,11 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			// Run the code that creates a plot and saves it to the temp file
 			await console.pasteCodeToConsole(rPlotAndSave(tempFilePath), true);
+
+			// The pane plot comes from the block's first statement, so it does not mean the
+			// file was written; the sentinel only prints once dev.off() has flushed the PNG.
 			await plots.waitForCurrentPlot();
+			await console.waitForConsoleContents(PLOT_SAVED_MARKER);
 
 			// Verify that the file exists on disk
 			expect(fs.existsSync(tempFilePath)).toBe(true);
@@ -809,14 +813,20 @@ fig`;
 const rTwoPlots = `plot(1:10)
 plot(1:100)`;
 
+// Printed by the R block once the plot file is closed. Assembled from two fragments at
+// runtime so the console's echo of the pasted source cannot match it before the code runs.
+const PLOT_SAVED_MARKER = 'e2e-plot-saved';
+
 const rPlotAndSave = (filePath: string) => {
 	// Convert backslashes to forward slashes for R compatibility on Windows
 	// (R interprets \U as unicode escape sequence)
 	const safePath = filePath.replace(/\\/g, '/');
+	const marker = `paste0("${PLOT_SAVED_MARKER.slice(0, 4)}", "${PLOT_SAVED_MARKER.slice(4)}")`;
 	return `plot(1:10)
 grDevices::png(filename = "${safePath}")
 plot(1:20)
-dev.off()`;
+dev.off()
+cat(${marker}, "\\n")`;
 };
 
 async function dismissPlotZoomTooltip(page: Page) {

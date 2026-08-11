@@ -1,0 +1,306 @@
+ARG ARCH=amd64
+
+FROM --platform=linux/${ARCH} rockylinux:9
+
+# Re-define ARCH after FROM to make it available in build stage
+ARG ARCH
+ARG TARGETPLATFORM=linux/${ARCH}
+
+# Define architecture-specific build-time arguments
+# These will be passed from docker-compose files
+ARG CPU_ARCH
+ARG NODE_ARCH
+ARG NODE_VERSION
+# Dated PPM snapshot for the build-time R dev-deps install (see the dev-deps
+# RUN below). Set per-OS in the docker-compose files; bump with
+# scripts/bump-ppm-snapshot.sh.
+ARG PPM_SNAPSHOT
+ARG TINYTEX_ARCH
+ARG AWS_ARCH
+ARG CONDA_ARCH
+ARG RIG_ARCH
+ARG QUARTO_ARCH
+ARG R_ARCH_SUFFIX
+
+# Log the architecture variables for verification
+RUN echo "Using architecture: ${ARCH}" && \
+    echo "CPU_ARCH: ${CPU_ARCH}" && \
+    echo "NODE_ARCH: ${NODE_ARCH}" && \
+    echo "NODE_VERSION: ${NODE_VERSION}" && \
+    echo "TINYTEX_ARCH: ${TINYTEX_ARCH}" && \
+    echo "AWS_ARCH: ${AWS_ARCH}" && \
+    echo "CONDA_ARCH: ${CONDA_ARCH}" && \
+    echo "RIG_ARCH: ${RIG_ARCH}" && \
+    echo "QUARTO_ARCH: ${QUARTO_ARCH}" && \
+    echo "R_ARCH_SUFFIX: ${R_ARCH_SUFFIX}"
+
+# Arguments
+ARG TOKEN
+
+# Set environment variables
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV HOME=/root
+# IMPORTANT: keep conda OFF PATH until after the R package installs, so its
+# xml2-config/pkg-config don't hijack any package that falls back to a source build
+ENV PATH="${HOME}/.pyenv/bin:$PATH"
+ENV ELECTRON_ARCH=${ARCH}
+ENV LIBGL_ALWAYS_SOFTWARE=1
+ENV QT_QUICK_BACKEND=software
+ENV QT_XCB_GL_INTEGRATION=none
+
+# Enable EPEL and CRB repositories. CRB (CodeReady Builder) is EL9's rename of
+# EL8's PowerTools; it carries the -devel packages EPEL builds against.
+RUN dnf install -y epel-release && \
+    dnf config-manager --set-enabled crb && \
+    dnf clean all
+
+# Install system dependencies, VNC server, and window manager.
+# --allowerasing: the EL9 base image ships the *-minimal curl variants
+# (curl-minimal / libcurl-minimal), which conflict with the full curl and with
+# libcurl-devel that R's curl package needs. Allow dnf to swap minimal -> full
+# rather than dropping those packages from the list.
+ADD deps/rocky9_packages_${ARCH}.txt /tmp/dnf_packages.txt
+RUN dnf update -y && dnf install -y --allowerasing $(cat /tmp/dnf_packages.txt) \
+	&& dnf clean all \
+	&& rm -f /tmp/dnf_packages.txt \
+    && update-ca-trust
+
+# Unlike EL8, EL9 + EPEL9 ship system GEOS/GDAL/PROJ/libgit2 that are new enough
+# for sf/terra/gert (GEOS 3.13, GDAL 3.10, PROJ 9.6, libgit2 1.7 -- all *newer*
+# than the versions the Rocky 8 image builds from source), and system GCC 11
+# supports -std=gnu++20 for Arrow. So this image installs none of those from
+# source and pins no gcc-toolset; if a future R package outgrows the distro
+# versions, prefer a dated PPM snapshot (see PPM_SNAPSHOT) over a source build.
+
+# Make the CA bundle discoverable to OpenSSL/Python at build *and* runtime
+ENV SSL_CERT_FILE=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
+    SSL_CERT_DIR=/etc/pki/ca-trust/extracted/pem
+
+# Install AWS CLI v2
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" -o "/tmp/awscliv2.zip" && \
+    unzip /tmp/awscliv2.zip -d /tmp && \
+    /tmp/aws/install && \
+    rm -rf /tmp/aws /tmp/awscliv2.zip
+
+# Configure Git for better permissions
+RUN git config --system core.sharedRepository group && \
+    git config --system core.fileMode true && \
+	git config --system --add safe.directory /__w/positron/positron && \
+    chmod 1777 /tmp
+
+# Install Node.js and npm
+RUN curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz -o /tmp/node.tar.xz && \
+	tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 && \
+	rm /tmp/node.tar.xz && \
+	ln -sf /usr/local/bin/node /usr/bin/node && \
+	ln -sf /usr/local/bin/npm /usr/bin/npm
+
+# Verify Node.js
+RUN node -v && npm -v
+
+# Global npm deps
+RUN npm install -g node-gyp npm-run-all yarn
+
+# Positron License (moved early to use TOKEN before expiration)
+# Persist Cargo on PATH for this and future layers
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN set -eux; \
+    mkdir -p positron-license && \
+    cd positron-license && \
+    git clone --depth 1 https://x-access-token:${TOKEN}@github.com/posit-dev/positron-license.git . && \
+    git remote set-url origin https://github.com/posit-dev/positron-license.git && \
+    curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable && \
+    cd pdol && \
+    cargo build
+
+# Quarto. EL9 is RPM-based, so install the published RPM (as the openSUSE/SLES
+# images do) rather than the Rocky 8 image's `ar x` unpack of the .deb: that
+# extraction skips the package's postinst, which is what links the binary onto
+# PATH, leaving quarto installed under /opt/quarto/bin but unreachable.
+# `quarto --version` asserts it, so this can't silently regress again.
+RUN wget -O /tmp/quarto.rpm \
+        --tries=5 \
+        --waitretry=2 \
+        --retry-connrefused \
+        https://quarto.org/download/latest/quarto-linux-${CPU_ARCH}.rpm && \
+    dnf install -y /tmp/quarto.rpm && \
+    dnf clean all && \
+    rm -f /tmp/quarto.rpm && \
+    quarto --version
+
+# Conda (install only; keep off PATH for now)
+RUN wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-${CONDA_ARCH}.sh" && \
+	bash Miniforge3.sh -b -p "/opt/conda" && rm Miniforge3.sh && \
+	echo "source \"/opt/conda/etc/profile.d/conda.sh\"" >> ~/.bashrc
+RUN /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && conda init bash"
+
+# Rig and R
+RUN curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-${RIG_ARCH}-latest.tar.gz | tar xz -C /usr/local
+RUN rig add 4.5.2
+RUN rig add 4.4.2 && rig default 4.5.2
+
+# Install TinyTeX. EL9's glibc 2.34 clears the 2.29 floor the TinyTeX binaries
+# need, so unlike the Rocky 8 image this is arch-agnostic (no system TeX Live
+# fallback on arm64). tlmgr is pinned to one complete CTAN mirror and retried:
+# the default mirror.ctan.org round-robin can land on a stale mirror per call.
+RUN set -eu; \
+    wget -qO /tmp/install-tinytex.sh "https://yihui.org/tinytex/install-bin-unix.sh" && \
+    chmod +x /tmp/install-tinytex.sh && \
+    TMPDIR=/ /tmp/install-tinytex.sh && \
+    /root/.TinyTeX/bin/*/tlmgr path remove || true && \
+    mv /root/.TinyTeX /opt/TinyTeX && \
+    /opt/TinyTeX/bin/*/tlmgr option sys_bin /usr/local/bin && \
+    /opt/TinyTeX/bin/*/tlmgr path add && \
+    TT_BIN="$(echo /opt/TinyTeX/bin/*)"; \
+    retry() { for i in 1 2 3; do "$@" && return 0; echo "tlmgr step failed (attempt $i), retrying in 15s..."; sleep 15; done; return 1; }; \
+    "$TT_BIN/tlmgr" option repository "https://ctan.math.illinois.edu/systems/texlive/tlnet" && \
+    "$TT_BIN/tlmgr" option autobackup 0 && \
+    retry "$TT_BIN/tlmgr" update --self --all --reinstall-forcibly-removed && \
+    retry "$TT_BIN/tlmgr" install \
+        xetex latexmk \
+        collection-latexrecommended collection-fontsrecommended \
+        koma-script caption && \
+    "$TT_BIN/fmtutil-sys" --all || true && \
+    "$TT_BIN/mktexlsr" && \
+    fc-cache -f
+
+# Ensure TeX binaries are on PATH
+ENV PATH="/usr/local/bin:/opt/TinyTeX/bin:${PATH}"
+
+# Install uv (latest)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add uv to PATH before first use
+ENV PATH="/root/.local/bin:${PATH}"
+
+# Create a uv-managed Python 3.10.12 venv and bootstrap pip
+RUN uv venv --python=3.10.12 /root/.venv && \
+    curl -sS https://bootstrap.pypa.io/get-pip.py | /root/.venv/bin/python
+
+# Install the e2e test-content Python deps into that Python 3.10 env
+RUN curl -fsSL https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/test-files/requirements.txt -o /tmp/requirements.txt && \
+    uv pip install --python /root/.venv/bin/python -r /tmp/requirements.txt
+
+# Ensure uv-managed Python is default
+ENV PATH="/root/.venv/bin:${PATH}"
+
+# =========================
+# R + pak configuration
+# =========================
+
+# Helpful at build/runtime for GDAL/PROJ (system packages, not /opt builds)
+ENV GDAL_DATA=/usr/share/gdal
+ENV PROJ_LIB=/usr/share/proj
+
+# Configure R for root user. NB the PPM binary channel for Rocky Linux 9 is
+# "rhel9" -- there is no "rockylinux9" channel (see
+# https://packagemanager.posit.co/__api__/status -> .distros[].binaryURL). The
+# HTTPUserAgent is what makes PPM serve binaries rather than source.
+RUN cat > ~/.Rprofile <<'RPROF'
+options(
+  repos = c(RSPM = "https://packagemanager.posit.co/cran/__linux__/rhel9/latest"),
+  HTTPUserAgent = sprintf("R/%s (rockylinux-9)", getRversion())
+)
+RPROF
+
+# Stable CRAN mirror for this image
+ENV RSPM=https://packagemanager.posit.co/cran/__linux__/rhel9/latest
+
+# Use a shared site library (independent of $HOME)
+ENV R_LIBS_SITE=/usr/local/lib/R/site-library
+ENV R_LIBS_USER=/usr/local/lib/R/site-library
+RUN mkdir -p "$R_LIBS_SITE" && chmod -R 755 "$R_LIBS_SITE"
+
+# Ensure rig's R is on PATH at runtime
+ENV PATH="/root/.rig/bin:${PATH}"
+
+# Pin R 4.5.2
+RUN rig add 4.5.2 && rig default 4.5.2
+
+# Install pak into the site library (RSPM first, r-lib as fallback)
+RUN set -eux; \
+  export XML_CONFIG=/usr/bin/xml2-config; \
+  export PG_CONFIG=/usr/bin/pg_config; \
+  Rscript -e 'if (!requireNamespace("pak", quietly = TRUE)) try(install.packages("pak", repos = Sys.getenv("RSPM"), lib = Sys.getenv("R_LIBS_SITE")), silent = TRUE); \
+              if (!requireNamespace("pak", quietly = TRUE)) install.packages("pak", repos = "https://r-lib.github.io/p/pak/stable", lib = Sys.getenv("R_LIBS_SITE"))'; \
+  Rscript -e 'if (!requireNamespace("pak", quietly = TRUE)) quit(status = 1); cat("pak installed at:", system.file(package="pak"), "\n")'
+
+# Install the project dev deps to the same site library via pak
+RUN mkdir -p /tmp/test-content && cd /tmp/test-content && \
+    curl -O https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/test-files/DESCRIPTION && \
+    XML_CONFIG=/usr/bin/xml2-config \
+    PG_CONFIG=/usr/bin/pg_config \
+    RSPM="https://packagemanager.posit.co/cran/__linux__/rhel9/${PPM_SNAPSHOT}" \
+    Rscript - <<'EOF'
+options(
+  # Pin the build-time install to a dated PPM snapshot so it can't hit the
+  # `latest` publish-window race (metadata resolves a version whose file has
+  # already rotated out of `latest`, causing intermittent 404s). The snapshot
+  # URL comes from the RSPM env var set in this RUN's prefix (from the
+  # PPM_SNAPSHOT build arg); the image's runtime .Rprofile/RSPM stay on `latest`.
+  repos = c(RSPM = Sys.getenv("RSPM")),
+  pak.no_build_vignettes = TRUE,
+  pkg.sysreqs = FALSE,
+  pkg.install.extra = c("--no-multiarch"),
+  # Defensive: PPM does not have a binary for every package on every arch, and
+  # pak omits `LinkingTo` dependencies from the plan when it expects binaries,
+  # so a source fallback fails with "Cannot install <pkg> from source: ... its
+  # LinkingTo dependency <dep> is not part of the installation plan". This
+  # image's current package set happens not to hit that, but rocky_8 did on
+  # aarch64 (arrow), and which packages have binaries changes over time.
+  pkg.include_linkingto = TRUE
+)
+
+pak::local_install_dev_deps(
+  ask = FALSE,
+  dependencies = TRUE,
+  upgrade = FALSE,
+  lib = Sys.getenv("R_LIBS_SITE")
+)
+EOF
+
+# =========================
+# Python extras
+# =========================
+
+# pyenv and alt Python
+RUN curl https://pyenv.run | bash
+RUN export PATH="$HOME/.pyenv/bin:$PATH" && \
+	eval "$(pyenv init --path)" && \
+	eval "$(pyenv virtualenv-init -)" && \
+	pyenv install 3.13.0 && \
+	pyenv global 3.13.0 && \
+	python -m pip install --upgrade pip ipykernel && \
+	pyenv global system
+
+# Now it's safe to add Conda to PATH (after all the R package installs)
+ENV PATH="/opt/conda/bin:${PATH}"
+
+# Hidden Python
+RUN mkdir -p ${HOME}/scratch && \
+	/bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && \
+	conda create -y -p \"${HOME}/scratch/python-env\" python=3.12.10 pip setuptools && \
+	conda activate \"${HOME}/scratch/python-env\" && \
+	python -c \"import sys; print(f'Python {sys.version} is working!')\""
+
+# Hidden R
+RUN mkdir -p ${HOME}/scratch/R-4.4.1 && \
+	cd ${HOME}/scratch && \
+	curl -fLO "https://cdn.posit.co/r/rhel-9/R-4.4.1-rhel-9${R_ARCH_SUFFIX}.tar.gz" && \
+	tar -xzf R-4.4.1-rhel-9${R_ARCH_SUFFIX}.tar.gz -C R-4.4.1 --strip-components=1 && \
+	sed -i "s|/opt/R/4.4.1|${HOME}/scratch/R-4.4.1|g" ${HOME}/scratch/R-4.4.1/bin/R && \
+	sed -i "s|/opt/R/4.4.1|${HOME}/scratch/R-4.4.1|g" ${HOME}/scratch/R-4.4.1/lib/R/etc/Renviron && \
+	chmod +x ${HOME}/scratch/R-4.4.1/bin/R
+
+# Playwright/Electron/Positron
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    ELECTRON_SKIP_BINARY_DOWNLOAD=1 \
+    NODE_OPTIONS="--max-old-space-size=4095"
+
+# Sanity check: system GCC must handle C++20 (Arrow), no gcc-toolset needed
+RUN echo 'int main(){}' | g++ -std=gnu++20 -x c++ - -o /dev/null && g++ --version
+
+# Expose ports
+EXPOSE 8080 5900 9323

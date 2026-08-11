@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -102,6 +102,18 @@ export function getCustomEnvDirs(): string[] {
     }
 
     return [];
+}
+
+/**
+ * Whether interpreter startup is disabled for Python via Positron's
+ * `interpreters.startupBehavior` setting. Reads the python language-scoped
+ * configuration, which falls back to the general value when no `[python]`
+ * override is set. When disabled, eager Python environment discovery (and
+ * the PET server it spawns) is skipped at startup; discovery still runs
+ * lazily if explicitly requested.
+ */
+export function isPythonStartupDisabled(): boolean {
+    return getConfiguration('interpreters', { languageId: 'python' })?.get<string>('startupBehavior') === 'disabled';
 }
 
 /**

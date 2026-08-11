@@ -13,6 +13,12 @@ test.use({
 // This test group aims to verify basic functionalities of Quarto for Python users
 test.describe('Quarto - Python', { tag: [tags.WEB, tags.WIN, tags.QUARTO] }, () => {
 
+	test.afterEach(async function ({ cleanup }) {
+		await cleanup.removeGeneratedFiles(join('workspaces', 'quarto_python', 'report'));
+		// LaTeX writes texput.log next to the source, and its name shares no prefix with the output stem.
+		await cleanup.removeTestFiles([join('workspaces', 'quarto_python', 'texput.log')]);
+	});
+
 	test('Verify Quarto app can render correctly with Python script', async function ({ app, openFile, python }, testInfo) {
 
 		// This test verifies basic rendering of report in PDF after user clicks 'Preview'

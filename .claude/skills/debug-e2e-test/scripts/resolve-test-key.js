@@ -1,0 +1,252 @@
+#!/usr/bin/env node
+// Resolve whatever the engineer has into a `testName|||specPath` test key.
+//
+// The test-health API matches on the full hierarchical Playwright title, but
+// engineers arrive with a leaf title, a spec path, a spec:line from a stack
+// trace, or a pasted dashboard URL. Getting the hierarchy wrong is silent: the
+// query returns zero runs, which reads as "clean" rather than "bad key". So the
+// hierarchy is read from Playwright itself (`--list`), never hand-assembled.
+//
+// Flags: see CLI below, or run with --help.
+//
+// Accepted inputs (auto-detected, see classifyInput):
+//   exact key        'Console History > R - ...|||test/e2e/tests/console/console-history.test.ts'
+//   dashboard URL    'https://connect.posit.it/e2e-test-insights/?...&test=<encoded key>'
+//   spec path        'test/e2e/tests/console/console-history.test.ts' (or a bare basename)
+//   spec:line        'test/e2e/tests/console/console-history.test.ts:35'
+//   partial title    'Cmd+Up engages prefix-match'
+//
+// Output (stdout): compact JSON { input, mode, resolved, candidates, ... }.
+//   resolved non-null  -> use resolved.testKey
+//   candidates.length  -> ambiguous; the caller must ask which
+// Exit code: 0 when something resolved or candidates were found, 1 on no match
+// or a listing failure.
+
+import fs from 'fs';
+import path from 'path';
+import { repoRoot, emit, fail, tryRun, isMain, parseArgs, defineCli, handleHelp } from './lib.js';
+
+export const CLI = defineCli({
+	name: 'resolve-test-key.js',
+	summary: 'turn a loose test reference into an exact testName|||specPath key',
+	usage: ["'<anything>'", "--input '<anything>'"],
+	flags: [
+		{ name: 'input', value: '<anything>', description: 'the test reference, if not given as a leading positional' },
+	],
+});
+
+const KEY_SEP = '|||';
+/** Cap on returned candidates -- enough to choose from, not a wall of output. */
+const MAX_CANDIDATES = 15;
+
+/** Build a `testName|||specPath` key. */
+export function buildKey(testName, specPath) {
+	return `${testName}${KEY_SEP}${specPath}`;
+}
+
+/**
+ * Flatten Playwright's `--list --reporter=json` output into test entries.
+ *
+ * The outermost suite per file is titled with the file path, so it is skipped:
+ * the API's testName is the `test.describe()` hierarchy only. Paths come from
+ * `config.rootDir` + `spec.file` because projects can set their own testDir
+ * (release-screenshots does), so a fixed `test/e2e/` prefix would be wrong.
+ * Keys are deduped: every project lists the same spec, and the key has no
+ * project dimension.
+ */
+export function flattenListJson(json, repoRootPath) {
+	const rootDir = json?.config?.rootDir || '';
+	const byKey = new Map();
+
+	const visit = (suite, ancestors) => {
+		for (const spec of suite.specs || []) {
+			const specPath = rootDir
+				? path.relative(repoRootPath, path.resolve(rootDir, spec.file))
+				: spec.file;
+			const testName = [...ancestors, spec.title].join(' > ');
+			const key = buildKey(testName, specPath);
+			if (!byKey.has(key)) {
+				byKey.set(key, { testKey: key, testName, specPath, line: spec.line, leaf: spec.title });
+			}
+		}
+		for (const child of suite.suites || []) {
+			// A child suite always contributes its title; the file-level suite does not.
+			visit(child, [...ancestors, child.title]);
+		}
+	};
+
+	// Top-level suites are files: drop their titles, keep descending.
+	for (const fileSuite of json?.suites || []) {
+		visit(fileSuite, []);
+	}
+	return [...byKey.values()];
+}
+
+/** Pull the `test` query param out of a dashboard test-detail URL. */
+export function keyFromDashboardUrl(input) {
+	try {
+		const value = new URL(input).searchParams.get('test');
+		return value && value.includes(KEY_SEP) ? value : null;
+	} catch {
+		return null;
+	}
+}
+
+/** Classify the input shape so matching knows what it is looking at. */
+export function classifyInput(raw) {
+	const input = String(raw || '').trim().replace(/^['"]|['"]$/g, '');
+	if (!input) { return { mode: 'empty', input }; }
+	if (/^https?:\/\//i.test(input)) {
+		const key = keyFromDashboardUrl(input);
+		return key ? { mode: 'dashboard-url', input, key } : { mode: 'unusable-url', input };
+	}
+	if (input.includes(KEY_SEP)) { return { mode: 'exact-key', input, key: input }; }
+
+	const withLine = input.match(/^(?<file>[^\s:]+\.(?:test|screenshot)\.ts):(?<line>\d+)/);
+	if (withLine) {
+		return { mode: 'spec-line', input, file: withLine.groups.file, line: Number(withLine.groups.line) };
+	}
+	if (/\.(?:test|screenshot)\.ts$/.test(input) && !input.includes(' ')) {
+		return { mode: 'spec-path', input, file: input };
+	}
+	return { mode: 'title-search', input };
+}
+
+/** True when `specPath` is the file the engineer named (full, partial, or basename). */
+function fileMatches(specPath, file) {
+	const norm = s => s.replace(/\\/g, '/').replace(/^\.\//, '');
+	const a = norm(specPath);
+	const b = norm(file);
+	return a === b || a.endsWith(`/${b}`) || path.basename(a) === path.basename(b);
+}
+
+/**
+ * Find entries matching the classified input.
+ *
+ * Tiered so a precise input never drowns in loose substring hits: an exact full
+ * title wins outright, then an exact leaf title, then substring. Returns
+ * `{ resolved, candidates }` -- resolved only when exactly one entry survives
+ * the best tier that matched anything.
+ */
+export function matchEntries(entries, classified) {
+	const only = list => (list.length === 1
+		? { resolved: list[0], candidates: [] }
+		: { resolved: null, candidates: list.slice(0, MAX_CANDIDATES) });
+
+	switch (classified.mode) {
+		case 'exact-key':
+		case 'dashboard-url': {
+			const hit = entries.find(e => e.testKey === classified.key);
+			if (hit) { return { resolved: hit, candidates: [] }; }
+			// Not in the working tree, but CI history can outlive a rename or
+			// deletion -- pass it through rather than blocking the triage.
+			const [testName, specPath] = classified.key.split(KEY_SEP);
+			return {
+				resolved: { testKey: classified.key, testName, specPath, line: null, leaf: null },
+				candidates: [],
+				inWorkingTree: false,
+			};
+		}
+		case 'spec-path':
+			return only(entries.filter(e => fileMatches(e.specPath, classified.file)));
+		case 'spec-line': {
+			const inFile = entries.filter(e => fileMatches(e.specPath, classified.file));
+			// `test()` line, or the nearest test declared at or above it (a stack
+			// trace usually points at the failing line inside the body).
+			const exact = inFile.filter(e => e.line === classified.line);
+			if (exact.length) { return only(exact); }
+			const above = inFile.filter(e => e.line <= classified.line).sort((x, y) => y.line - x.line);
+			return above.length ? { resolved: above[0], candidates: [] } : only(inFile);
+		}
+		case 'title-search': {
+			const needle = classified.input.toLowerCase();
+			const full = entries.filter(e => e.testName.toLowerCase() === needle);
+			if (full.length) { return only(full); }
+			const leaf = entries.filter(e => e.leaf.toLowerCase() === needle);
+			if (leaf.length) { return only(leaf); }
+			const sub = entries.filter(e => e.testName.toLowerCase().includes(needle));
+			return sub.length ? only(sub) : { resolved: null, candidates: [] };
+		}
+		default:
+			return { resolved: null, candidates: [] };
+	}
+}
+
+/** Enumerate every test Playwright knows about (~2s, all projects, deduped). */
+function listEntries() {
+	// tryRun already runs at the repo root, where the Playwright config lives.
+	const res = tryRun('npx', ['playwright', 'test', '--list', '--reporter=json']);
+	if (!res.ok || !res.stdout.trim()) {
+		// Name the dependency-free cause when it applies. A fresh worktree has no
+		// node_modules, and npx then resolves some other Playwright (or none), which
+		// looks nothing like the spec-import failure the generic message describes.
+		if (!fs.existsSync(path.join(repoRoot(), 'node_modules'))) {
+			return { error: 'Could not list Playwright tests: no node_modules in this checkout, so there is no local Playwright to list with. Install dependencies (or run from a checkout that has them); test-key resolution is the only step that needs them.' };
+		}
+		return { error: 'Could not list Playwright tests. Run `npx playwright test --list` to see the underlying error (a spec that fails to import breaks listing for the whole suite).' };
+	}
+	try {
+		return { entries: flattenListJson(JSON.parse(res.stdout), repoRoot()) };
+	} catch (e) {
+		return { error: `Could not parse Playwright's --list JSON: ${e.message}` };
+	}
+}
+
+function main() {
+	const argv = process.argv.slice(2);
+	handleHelp(CLI, argv);
+	const args = parseArgs(argv, CLI.booleanFlags);
+	// parseArgs keeps only --flags; the input is usually a leading positional.
+	// Only argv[0] counts, so a later flag's value can never be mistaken for it.
+	const raw = args.input || (argv[0]?.startsWith('--') ? undefined : argv[0]);
+	const classified = classifyInput(raw);
+
+	if (classified.mode === 'empty') {
+		fail('Nothing to resolve. Pass a test title, a spec path, a spec:line, a full testName|||specPath key, or a dashboard test-detail URL.');
+	}
+	if (classified.mode === 'unusable-url') {
+		fail('That URL has no `test` parameter, so it names no test. Copy the dashboard link from a test-detail view, or pass the test title instead.', { input: classified.input });
+	}
+
+	const listed = listEntries();
+	if (listed.error) {
+		// An exact key needs no working tree, so a listing failure is not fatal.
+		if (classified.key) {
+			const [testName, specPath] = classified.key.split(KEY_SEP);
+			emit({
+				input: classified.input, mode: classified.mode,
+				resolved: { testKey: classified.key, testName, specPath, line: null, leaf: null },
+				candidates: [], inWorkingTree: null, note: `Key used as given; ${listed.error}`,
+			});
+			return;
+		}
+		fail(listed.error, { input: classified.input, mode: classified.mode });
+	}
+
+	const { resolved, candidates, inWorkingTree } = matchEntries(listed.entries, classified);
+
+	if (!resolved && candidates.length === 0) {
+		fail(`No test matches ${JSON.stringify(classified.input)} (searched ${listed.entries.length} tests). Check the spelling, or pass the spec path to see every test in that file.`,
+			{ input: classified.input, mode: classified.mode });
+	}
+
+	const notes = [];
+	if (inWorkingTree === false) {
+		notes.push('This key is not in the working tree -- the test may have been renamed or deleted. CI history can still exist for it; if the query returns zero runs, that is why.');
+	}
+	if (!resolved) {
+		notes.push(`Ambiguous: ${candidates.length} tests match. Ask which one before querying history.`);
+	}
+
+	emit({
+		input: classified.input,
+		mode: classified.mode,
+		resolved: resolved || null,
+		candidates,
+		totalListed: listed.entries.length,
+		inWorkingTree: inWorkingTree === false ? false : true,
+		note: notes.length ? notes.join(' ') : null,
+	});
+}
+
+if (isMain(import.meta.url)) { main(); }

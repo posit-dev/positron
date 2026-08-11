@@ -46,6 +46,7 @@ import { getInternalOrg } from '../../../../platform/assignment/common/assignmen
 // --- Start Positron ---
 // Upstream's IVersion / tryParseVersion are unused — Positron uses calver parsing below.
 import { IPositronVersion, parse } from '../../../../platform/update/common/positronVersion.js';
+import { UpdateNotificationThrottle } from '../common/positronUpdateNotificationThrottle.js';
 // --- End Positron ---
 
 export const CONTEXT_UPDATE_STATE = new RawContextKey<string>('updateState', StateType.Uninitialized);
@@ -166,6 +167,16 @@ export function appendUpdateMenuItems(menuId: MenuId, group: string): void {
 
 	MenuRegistry.appendMenuItem(menuId, {
 		group,
+		command: {
+			id: 'update.cancelling',
+			title: nls.localize('cancellingUpdateMenuEntry', "Cancelling Update..."),
+			precondition: ContextKeyExpr.false()
+		},
+		when: CONTEXT_UPDATE_STATE.isEqualTo(StateType.Cancelling)
+	});
+
+	MenuRegistry.appendMenuItem(menuId, {
+		group,
 		order: 2,
 		command: {
 			id: 'update.restart',
@@ -267,6 +278,7 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 	private majorMinorUpdateAvailableContextKey: IContextKey<boolean>;
 	// --- Start Positron ---
 	private explicitCheck: boolean = false;
+	private readonly notificationThrottle = new UpdateNotificationThrottle();
 	// --- End Positron ---
 
 	constructor(
@@ -404,6 +416,8 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			badge = new ProgressBadge(() => nls.localize('downloading', "Downloading {0} update...", this.productService.nameShort));
 		} else if (state.type === StateType.Updating) {
 			badge = new ProgressBadge(() => nls.localize('updating', "Updating {0}...", this.productService.nameShort));
+		} else if (state.type === StateType.Cancelling) {
+			badge = new ProgressBadge(() => nls.localize('cancellingUpdate', "Cancelling {0} update...", this.productService.nameShort));
 		}
 
 		this.badgeDisposable.clear();
@@ -449,6 +463,15 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			return;
 		}
 
+		// --- Start Positron ---
+		// Cap repeats at one notification per pending version per window session.
+		// Checked here, below the early return above, so we only ever record a
+		// notification we actually showed.
+		if (!this.explicitCheck && !this.notificationThrottle.shouldNotify('availableForDownload', update)) {
+			return;
+		}
+		// --- End Positron ---
+
 		this.notificationService.prompt(
 			severity.Info,
 			nls.localize('thereIsUpdateAvailable', "There is an available update."),
@@ -493,6 +516,15 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			return;
 		}
 
+		// --- Start Positron ---
+		// Cap repeats at one notification per pending version per window session.
+		// Checked here, below the early return above, so we only ever record a
+		// notification we actually showed.
+		if (!this.explicitCheck && !this.notificationThrottle.shouldNotify('downloaded', update)) {
+			return;
+		}
+		// --- End Positron ---
+
 		this.notificationService.prompt(
 			severity.Info,
 			nls.localize('updateAvailable', "There's an update available: {0} {1}", this.productService.nameLong, productVersion),
@@ -526,6 +558,18 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 		// Otherwise respect the throttle
 		const isWindowsSystemWide = isWindows && this.productService.target !== 'user';
 		if (!isWindowsSystemWide && !this.explicitCheck && !this.shouldShowNotification()) {
+			return;
+		}
+
+		// Then cap repeats at one notification per pending version per window
+		// session. The update service can re-enter `Ready` indefinitely for a
+		// single pending update, and upstream's staleness gate above has no
+		// ceiling once it opens. See #15031.
+		//
+		// Unlike that gate, this cap also applies to Windows system-wide
+		// installs, which are just as capable of storming. Only an explicit
+		// "Check for Updates" skips it, because the user asked just now.
+		if (!this.explicitCheck && !this.notificationThrottle.shouldNotify('ready', update)) {
 			return;
 		}
 		// --- End Positron ---
@@ -599,6 +643,7 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 		CommandsRegistry.registerCommand('update.downloading', () => { });
 		CommandsRegistry.registerCommand('update.install', () => this.updateService.applyUpdate());
 		CommandsRegistry.registerCommand('update.updating', () => { });
+		CommandsRegistry.registerCommand('update.cancelling', () => { });
 		CommandsRegistry.registerCommand('update.restart', () => this.updateService.quitAndInstall());
 		CommandsRegistry.registerCommand('_update.state', () => {
 			return this.state;
