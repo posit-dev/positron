@@ -241,3 +241,71 @@ export function probeDedicatedEnvironment(deps: {
 		fix: { commandId: 'r.renvInit', label: vscode.l10n.t('Initialize renv') },
 	};
 }
+
+export interface REnvironmentHealthResult {
+	/** True when no item has status 'fail'. Warn and skipped do not affect it. */
+	ok: boolean;
+	/** Always all four, in dependency order. */
+	items: HealthItem[];
+	rBinPath?: string;
+	rHome?: string;
+}
+
+function skipped(id: HealthItemId): HealthItem {
+	return { id, status: 'skipped', summary: id };
+}
+
+async function runItem(
+	id: HealthItemId,
+	produce: () => HealthItem | Promise<HealthItem>
+): Promise<HealthItem> {
+	try {
+		return await produce();
+	} catch (ex) {
+		return {
+			id, status: 'fail', summary: id,
+			detail: vscode.l10n.t(
+				'Health check failed: {0}', ex instanceof Error ? ex.message : String(ex)),
+		};
+	}
+}
+
+function finalize(items: HealthItem[]): REnvironmentHealthResult {
+	return { ok: !items.some((i) => i.status === 'fail'), items };
+}
+
+export async function assembleItems(producers: {
+	discovery: () => HealthItem | Promise<HealthItem>;
+	rInstalled: () => HealthItem | Promise<HealthItem>;
+	ready: () => HealthItem | Promise<HealthItem>;
+	dedicated: () => HealthItem | Promise<HealthItem>;
+}): Promise<REnvironmentHealthResult> {
+	const items: HealthItem[] = [];
+
+	const discovery = await runItem('discovery', producers.discovery);
+	items.push(discovery);
+	if (discovery.status === 'fail') {
+		items.push(skipped('rInstalled'), skipped('environmentReady'), skipped('dedicatedEnvironment'));
+		return finalize(items);
+	}
+
+	const rInstalled = await runItem('rInstalled', producers.rInstalled);
+	items.push(rInstalled);
+	if (rInstalled.status === 'fail') {
+		items.push(skipped('environmentReady'), skipped('dedicatedEnvironment'));
+		return finalize(items);
+	}
+
+	// dedicatedEnvironment follows environmentReady: an unusable R makes the
+	// renv verdict meaningless, and a "use renv" nudge alongside a broken
+	// installation is misleading advice.
+	const ready = await runItem('environmentReady', producers.ready);
+	items.push(ready);
+	if (ready.status === 'fail') {
+		items.push(skipped('dedicatedEnvironment'));
+		return finalize(items);
+	}
+
+	items.push(await runItem('dedicatedEnvironment', producers.dedicated));
+	return finalize(items);
+}

@@ -8,6 +8,9 @@ import * as path from 'path';
 import './mocha-setup';
 import {
 	archesMismatch,
+	assembleItems,
+	HealthItem,
+	HealthItemId,
 	probeDedicatedEnvironment,
 	probeDiscovery,
 	probeEnvironmentReady,
@@ -215,5 +218,60 @@ suite('environment health: probeDedicatedEnvironment', () => {
 		const item = probeDedicatedEnvironment({ hasRenv: false });
 		assert.strictEqual(item.status, 'warn');
 		assert.strictEqual(item.fix?.commandId, 'positron.workbench.action.newFolderFromTemplate');
+	});
+});
+
+suite('environment health: assembleItems cascade', () => {
+	const pass = (id: HealthItemId): HealthItem => ({ id, status: 'pass', summary: id });
+	const fail = (id: HealthItemId): HealthItem => ({ id, status: 'fail', summary: id });
+	const warn = (id: HealthItemId): HealthItem => ({ id, status: 'warn', summary: id });
+
+	const allPass = {
+		discovery: () => pass('discovery'),
+		rInstalled: () => pass('rInstalled'),
+		ready: () => pass('environmentReady'),
+		dedicated: () => pass('dedicatedEnvironment'),
+	};
+
+	test('reports ok with four items when everything passes', async () => {
+		const result = await assembleItems(allPass);
+		assert.strictEqual(result.ok, true);
+		assert.deepStrictEqual(result.items.map((i) => i.id),
+			['discovery', 'rInstalled', 'environmentReady', 'dedicatedEnvironment']);
+	});
+
+	test('a discovery failure skips the other three', async () => {
+		const result = await assembleItems({ ...allPass, discovery: () => fail('discovery') });
+		assert.strictEqual(result.ok, false);
+		assert.deepStrictEqual(result.items.map((i) => i.status),
+			['fail', 'skipped', 'skipped', 'skipped']);
+	});
+
+	test('an rInstalled failure skips the last two', async () => {
+		const result = await assembleItems({ ...allPass, rInstalled: () => fail('rInstalled') });
+		assert.deepStrictEqual(result.items.map((i) => i.status),
+			['pass', 'fail', 'skipped', 'skipped']);
+	});
+
+	test('an environmentReady failure skips only dedicatedEnvironment', async () => {
+		const result = await assembleItems({ ...allPass, ready: () => fail('environmentReady') });
+		assert.deepStrictEqual(result.items.map((i) => i.status),
+			['pass', 'pass', 'fail', 'skipped']);
+	});
+
+	test('a warn does not flip ok and does not short-circuit', async () => {
+		const result = await assembleItems({ ...allPass, ready: () => warn('environmentReady') });
+		assert.strictEqual(result.ok, true);
+		assert.strictEqual(result.items[3].status, 'pass');
+	});
+
+	test('a throwing producer becomes a fail item rather than rejecting', async () => {
+		const result = await assembleItems({
+			...allPass,
+			ready: () => { throw new Error('kaboom'); },
+		});
+		assert.strictEqual(result.items[2].status, 'fail');
+		assert.ok(result.items[2].detail?.includes('kaboom'));
+		assert.strictEqual(result.items[3].status, 'skipped');
 	});
 });
