@@ -193,6 +193,24 @@ const defaultLaunchArgs = process.env.API_TESTS_EXTRA_ARGS?.split(' ') || [
 	'--disable-telemetry', '--disable-experiments', '--skip-welcome', '--skip-release-notes', `--crash-reporter-directory=${__dirname}/.build/crashes`, `--logsPath=${__dirname}/.build/logs/integration-tests`, '--no-cached-data', '--disable-updates', '--use-inmemory-secretstorage', '--disable-extensions', '--disable-workspace-trust'
 ];
 
+// --- Start Positron ---
+// Headless Electron on the CI image intermittently GP-faults during startup,
+// inside libexpat while fontconfig initializes fonts on a worker thread (stack:
+// libexpat <- libfontconfig <- libpangoft2). It happens before any test runs and
+// takes the whole suite down. `scripts/test-remote-integration.sh` forces
+// software GL for the launches it drives directly and does not hit this; the
+// suites launched through vscode-test never saw those flags, because
+// `API_TESTS_EXTRA_ARGS` is not exported by the shell drivers, so they fall back
+// to the list above. Add the flags here so every desktop extension suite starts
+// up the same way the Remote ones (and the e2e harness) do.
+//
+// Linux-only: the race is in the Linux system font stack, and forcing software
+// GL for a headless test run is harmless there.
+if (process.platform === 'linux') {
+	defaultLaunchArgs.push('--no-sandbox', '--disable-dev-shm-usage', '--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-compositing');
+}
+// --- End Positron ---
+
 const config = defineConfig(extensions.map(extension => {
 	/** @type {import('@vscode/test-cli').TestConfiguration} */
 	const config = {
