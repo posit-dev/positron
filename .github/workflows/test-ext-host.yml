@@ -53,6 +53,12 @@ jobs:
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
       RETICULATE_PYTHON: /root/.venv/bin/python
+      # The agent host e2e tests spawn the bundled Claude CLI, which refuses the
+      # `--allow-dangerously-skip-permissions` flag the agent host always passes
+      # when it runs as root -- and this container runs as root (`--user 0:0`).
+      # `IS_SANDBOX=1` is the CLI's escape hatch for sandboxed environments; the
+      # agent host forwards it to the subprocess (see claudeSdkOptions.ts).
+      IS_SANDBOX: '1'
     steps:
       - uses: actions/checkout@v7
         with:

@@ -29,6 +29,15 @@ import { DiskFileSystemProvider } from '../../../files/node/diskFileSystemProvid
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { AgentHostGitService } from '../../node/agentHostGitService.js';
 
+// --- Start Positron ---
+// Positron's extension-host CI job runs inside a container as root (`--user 0:0`).
+// Root bypasses file permission checks, so the tests below that make staging fail
+// by `chmod`-ing a file to `0` cannot fail there: `git add` reads the file anyway
+// and the service returns diffs instead of `undefined`. Skip them as root rather
+// than assert something the OS cannot produce.
+const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
+// --- End Positron ---
+
 function createGitService(disposables: Pick<DisposableStore, 'add'>): AgentHostGitService {
 	const logService = new NullLogService();
 	const fileService = disposables.add(new FileService(logService));
@@ -174,6 +183,13 @@ suite('AgentHostGitService - computeSessionFileDiffs (real git)', () => {
 		try { cp.execFileSync('git', ['--version'], { stdio: 'ignore' }); return true; } catch { return false; }
 	})();
 
+	// --- Start Positron ---
+	// Gate for the two tests that force a staging failure with `chmod 0`. Upstream
+	// gates them on `hasGit && !isWindows`; as root the `chmod` has no effect (see
+	// `isRoot` above), so drop them there too.
+	const stagingFailureTest = hasGit && !isWindows && !isRoot ? test : test.skip;
+	// --- End Positron ---
+
 	let tmpRoot: string | undefined;
 	let svc: AgentHostGitService | undefined;
 
@@ -261,7 +277,10 @@ suite('AgentHostGitService - computeSessionFileDiffs (real git)', () => {
 		});
 	});
 
-	(hasGit && !isWindows ? test : test.skip)('returns undefined when temp-index staging fails', async () => {
+	// --- Start Positron ---
+	// (hasGit && !isWindows ? test : test.skip)('returns undefined when temp-index staging fails', async () => {
+	// --- End Positron ---
+	stagingFailureTest('returns undefined when temp-index staging fails', async () => {
 		const fs = await import('fs/promises');
 		const { dir } = initRepo();
 		const blockedPath = join(dir, 'blocked.txt');
@@ -372,7 +391,10 @@ suite('AgentHostGitService - computeSessionFileDiffs (real git)', () => {
 		assert.deepStrictEqual(treePaths, ['fresh.txt', 'new.txt']);
 	});
 
-	(hasGit && !isWindows ? test : test.skip)('captureWorkingTreeAsTree returns undefined when staging fails', async () => {
+	// --- Start Positron ---
+	// (hasGit && !isWindows ? test : test.skip)('captureWorkingTreeAsTree returns undefined when staging fails', async () => {
+	// --- End Positron ---
+	stagingFailureTest('captureWorkingTreeAsTree returns undefined when staging fails', async () => {
 		const fs = await import('fs/promises');
 		const { dir } = initRepo();
 		const blockedPath = join(dir, 'blocked.txt');

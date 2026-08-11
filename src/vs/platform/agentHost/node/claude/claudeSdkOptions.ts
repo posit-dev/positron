@@ -232,6 +232,19 @@ export function buildSubprocessEnv(proxied: boolean = true): Record<string, stri
 			ANTHROPIC_API_KEY: undefined,
 			HOME: process.env['HOME'],
 			USERPROFILE: process.env['USERPROFILE'],
+			// --- Start Positron ---
+			// The agent host always passes `allowDangerouslySkipPermissions`, which the
+			// SDK turns into `--allow-dangerously-skip-permissions`. The CLI refuses that
+			// flag when it runs as root ("--dangerously-skip-permissions cannot be used
+			// with root/sudo privileges for security reasons") and exits before the first
+			// model call, so every Claude session fails to start. `IS_SANDBOX=1` is the
+			// CLI's escape hatch for container/sandbox environments; forward it so a
+			// Positron running as root in a container (dev containers, and Positron's
+			// extension-host CI job) can still start Claude sessions. Proxy mode replaces
+			// the subprocess env wholesale, so it has to be listed explicitly here; the
+			// native branch below already spreads `process.env`.
+			IS_SANDBOX: process.env['IS_SANDBOX'],
+			// --- End Positron ---
 		}
 		: { ...process.env, ELECTRON_RUN_AS_NODE: '1', NODE_OPTIONS: undefined };
 	for (const key of Object.keys(process.env)) {
