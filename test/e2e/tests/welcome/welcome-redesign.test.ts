@@ -57,8 +57,11 @@ async function openWalkthrough(app: Application, runCommand: RunCommand) {
  * | Delete from welcome.test.ts | Replaced by |
  * |---|---|
  * | Verify page header, footer, content (Workspace) | Verify redesigned page renders... |
- * | Verify Tab does not reach the welcome page while a walkthrough is open | the test of the same name here |
  * | Verify limited walkthroughs on Welcome page and full list in `More...` | nothing: the redesigned page has no walkthrough list, only a link to the quick pick |
+ *
+ * The two tab-order tests here have no counterpart to delete. They cover
+ * setSlideInert, which belongs to the editor pane rather than to either page, so
+ * one copy is enough and it lives with these tests.
  *
  * Two groups have no replacement yet, because the redesigned page has no Start
  * section: the four Python and R `new notebook` / `new file` tests, and the whole
