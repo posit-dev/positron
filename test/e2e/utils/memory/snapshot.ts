@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { readFileSync } from 'fs';
-import { basename, join } from 'path';
+import { basename } from 'path';
+import { getPositronVersion } from '../../infra/test-runner/positron-version.js';
 import { deriveExtensionName, isGenericName, normalizeProcessName, resolveRole } from './label.js';
 import { readProcessNames } from './positron-status.js';
 import { readProcessTree } from './process-tree.js';
@@ -142,24 +142,14 @@ export async function waitForSettle(
 }
 
 /**
- * Which build produced these numbers. Read here rather than through the harness's
- * getPositronVersion so this stays a leaf module: that helper lives in test-setup,
- * which pulls in the infra barrel plus rimraf and mkdirp.
+ * Which build produced these numbers, as `2026.09.0-35`.
  *
  * Returns '' rather than throwing; the spec asserts on it, so a build whose
  * product.json cannot be read fails there with the rest of the quality gate.
  */
 function readPositronVersion(buildRoot: string): string {
-	const productJson = process.platform === 'darwin'
-		? join(buildRoot, 'Contents', 'Resources', 'app', 'product.json')
-		: join(buildRoot, 'resources', 'app', 'product.json');
-
-	try {
-		const product = JSON.parse(readFileSync(productJson, 'utf8'));
-		return product.positronVersion ? `${product.positronVersion}-${product.positronBuildNumber ?? 0}` : '';
-	} catch {
-		return '';
-	}
+	const version = getPositronVersion(buildRoot);
+	return version ? `${version.positronVersion}-${version.buildNumber}` : '';
 }
 
 /** Take three samples five seconds apart once the app has settled. */
