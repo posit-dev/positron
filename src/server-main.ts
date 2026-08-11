@@ -229,6 +229,37 @@ function sanitizeStringArg(val: unknown): string | undefined {
  * provided) so they survive process teardown (an async stdio write from an
  * `exit` handler does not).
  */
+// --- Start Positron ---
+/** How long shutdown waits for the license manager to check its license in. */
+const LICENSE_MANAGER_SHUTDOWN_TIMEOUT_MS = 15_000;
+
+/**
+ * Stops the license manager, if one is running, so it can check its license
+ * back in before the process exits.
+ *
+ * Bounded and never rejects: a wedged licensing client must not be able to stop
+ * the server from terminating.
+ */
+async function stopLicenseManagerForShutdown(): Promise<void> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		const { stopRemoteLicenseManager } = await import('./vs/server/node/remoteLicenseKey.js');
+		await Promise.race([
+			stopRemoteLicenseManager(),
+			new Promise<void>(resolve => {
+				timer = setTimeout(resolve, LICENSE_MANAGER_SHUTDOWN_TIMEOUT_MS);
+			}),
+		]);
+	} catch {
+		// Licensing cleanup is best effort; termination continues regardless.
+	} finally {
+		if (timer) {
+			clearTimeout(timer);
+		}
+	}
+}
+// --- End Positron ---
+
 function installServerProcessExitDiagnostics(): void {
 	if (!process.env['VSCODE_SERVER_EXIT_DIAGNOSTICS']) {
 		return;
@@ -329,7 +360,14 @@ function installServerProcessExitDiagnostics(): void {
 				log(`received signal '${signal}' — terminating. ${describeState()}`);
 				// Preserve default termination semantics after logging.
 				const signalNumber = (os.constants.signals as Record<string, number>)[signal];
-				process.exit(typeof signalNumber === 'number' ? 128 + signalNumber : 1);
+				const code = typeof signalNumber === 'number' ? 128 + signalNumber : 1;
+				// --- Start Positron ---
+				// Let the license manager check its license back in before we
+				// exit. Skipping this strands the seat until the lease expires,
+				// which can block the next server that needs it. This resolves
+				// immediately when no license manager is running.
+				void stopLicenseManagerForShutdown().finally(() => process.exit(code));
+				// --- End Positron ---
 			});
 		} catch {
 			// Not all signals can be listened to on all platforms (e.g. SIGBREAK).

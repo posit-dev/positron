@@ -7,6 +7,8 @@ import { ServerParsedArgs } from './serverEnvironmentService.js';
 import * as fs from 'fs';
 import * as path from '../../base/common/path.js';
 import * as crypto from 'crypto';
+import { LicenseManagerSupervisor } from './licenseManagerSupervisor.js';
+import { LicenseStateMachine } from './licenseManagerState.js';
 
 /**
  * The result of validating a license.
@@ -109,6 +111,19 @@ jv4RUEuRUo3aePrbcc3Wfl8CAwEAAQ==
  * @returns A promise that resolves to the license validation result.
  */
 export async function validateLicenseKey(connectionToken: string, args: ServerParsedArgs): Promise<ILicenseValidationResult> {
+
+	// Remote license manager mode takes precedence over every key-based source.
+	// In this mode the license is held by a supervised client process rather
+	// than proven by a signed token, so a stale key in the environment must not
+	// win over it.
+	if (isRemoteLicenseManagerMode()) {
+		console.log('Acquiring a Positron license through the license manager named by POSITRON_LICENSE_MANAGER_PATH.');
+		const session = startRemoteLicenseManager({
+			binaryPath: process.env.POSITRON_LICENSE_MANAGER_PATH!,
+		});
+		activeLicenseManagerSession = session;
+		return session.validation;
+	}
 
 	// Check the command-line arguments for a license key.
 	if (args['license-key']) {
@@ -260,5 +275,136 @@ export async function validateLicense(connectionToken: string, license: string, 
 		valid: true,
 		licensee: licenseKey.licensee,
 		issuer: licenseKey.issuer
+	};
+}
+
+/**
+ * Remote license manager mode.
+ *
+ * In hosted environments such as SageMaker there is no signed license token to
+ * present. Instead the server runs a licensing client that checks a license out
+ * of a vendor's license service for as long as the server is running, and the
+ * server's licensed state follows what that client reports.
+ */
+
+/** A running license manager session. */
+export interface ILicenseManagerSession {
+	/** Resolves once the license is confirmed, or the startup wait times out. */
+	readonly validation: Promise<ILicenseValidationResult>;
+	/** Whether the client process is still supervised. */
+	readonly isRunning: boolean;
+	/** Stops the client, giving it the chance to check the license back in. */
+	stop(): Promise<void>;
+}
+
+/** Options for {@link startRemoteLicenseManager}. */
+export interface ILicenseManagerModeOptions {
+	/** Path to the license manager client binary. */
+	binaryPath: string;
+	/** Arguments for the client; defaults to the lease acquisition subcommand. */
+	args?: string[];
+	/** Environment for the client; defaults to this process's environment. */
+	env?: NodeJS.ProcessEnv;
+	/** How long to wait for the first successful checkout. */
+	startupTimeoutMs?: number;
+	/** How long a lost license is tolerated before enforcement. */
+	graceMs?: number;
+	/** Delay before respawning a client that exited. */
+	restartDelayMs?: number;
+	/** What to do when the license is lost for longer than the grace period. */
+	onUnlicensed?: () => void;
+}
+
+/** The session started by validateLicenseKey, so shutdown can stop it. */
+let activeLicenseManagerSession: ILicenseManagerSession | undefined;
+
+/**
+ * Whether the server should get its license from a license manager client
+ * rather than from a signed license key.
+ */
+export function isRemoteLicenseManagerMode(): boolean {
+	return !!process.env.POSITRON_LICENSE_MANAGER_PATH;
+}
+
+/**
+ * Stops the license manager started by {@link validateLicenseKey}, if any.
+ *
+ * Called from the server's signal handling on shutdown. Without it the license
+ * stays checked out until its lease expires, which blocks the next server that
+ * needs that seat. Resolves immediately when this mode is not in use.
+ */
+export async function stopRemoteLicenseManager(): Promise<void> {
+	const session = activeLicenseManagerSession;
+	activeLicenseManagerSession = undefined;
+	await session?.stop();
+}
+
+/**
+ * Starts and supervises the license manager client.
+ *
+ * @param options Client location and licensing policy.
+ * @returns A handle to the running session.
+ */
+export function startRemoteLicenseManager(options: ILicenseManagerModeOptions): ILicenseManagerSession {
+	const state = new LicenseStateMachine({
+		graceMs: options.graceMs,
+		startupTimeoutMs: options.startupTimeoutMs,
+	});
+
+	const supervisor = new LicenseManagerSupervisor({
+		binaryPath: options.binaryPath,
+		args: options.args,
+		env: options.env,
+		restartDelayMs: options.restartDelayMs,
+		onMessage: m => state.onMessage(m),
+		onChildDown: () => state.onChildDown(),
+	});
+
+	let running = true;
+
+	// Enforcement is deliberately the same fail-closed outcome as a missing
+	// license key at startup: the server does not keep running unlicensed. The
+	// grace period in the state machine is what keeps a brief outage from
+	// ending a user's session.
+	const onUnlicensed = options.onUnlicensed ?? (() => {
+		console.error('Positron is no longer licensed: the license manager could not hold a license. Shutting down.');
+		process.exit(1);
+	});
+
+	state.onStateChange(next => {
+		// A stopped session is expected to lose its license: stop() kills the
+		// client, which looks exactly like a crash to the state machine. Without
+		// this guard, shutting the server down would trigger enforcement.
+		if (!running) {
+			return;
+		}
+		if (next === 'unlicensed') {
+			onUnlicensed();
+		}
+	});
+
+	supervisor.start();
+
+	const stop = async (): Promise<void> => {
+		if (!running) {
+			return;
+		}
+		running = false;
+		await supervisor.stop();
+	};
+
+	const validation = state.awaitStartup().then((licensed): ILicenseValidationResult => {
+		if (!licensed) {
+			console.error('The license manager did not report an activated license. Positron requires a license to run in a hosted environment.');
+			return { valid: false };
+		}
+		console.log('Successfully acquired a Positron license from the license manager.');
+		return { valid: true };
+	});
+
+	return {
+		validation,
+		get isRunning() { return running; },
+		stop,
 	};
 }
