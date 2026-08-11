@@ -39,11 +39,20 @@ export class MainThreadEnvironment implements MainThreadEnvironmentShape {
 		// Iterate through collections and extract environment variable actions
 		for (const [extensionIdentifier, collection] of collections.entries()) {
 			const actions: IEnvironmentVariableAction[] = [];
-			for (const [variable, action] of collection.map) {
+			for (const [variable, mutator] of collection.map) {
+				// Skip mutators that opt out of process creation. These are
+				// contributed for interactive terminals only (applied via shell
+				// integration) and must not be inherited by spawned runtime
+				// processes such as kernels. The default is to apply at process
+				// creation, so only explicit opt-outs are excluded and existing
+				// contributions are unaffected.
+				if (mutator.options?.applyAtProcessCreation === false) {
+					continue;
+				}
 				actions.push({
-					action: action.type,
+					action: mutator.type,
 					name: variable,
-					value: action.value
+					value: mutator.value
 				});
 			}
 			result[extensionIdentifier] = actions;

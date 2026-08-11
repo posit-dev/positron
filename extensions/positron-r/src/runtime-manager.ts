@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { currentRBinary, getRDiscoveryRootSignature, makeMetadata, registerModuleRuntimeWithApi, rRuntimeDiscoverer } from './provider';
-import { RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason, isModuleMetadata } from './r-installation';
+import { PackagerMetadata, RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason, isModuleMetadata, isRVersionsMetadata } from './r-installation';
 import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
 import { LOGGER, supervisorApi } from './extension';
@@ -16,6 +16,28 @@ import { getDefaultInterpreterPath } from './interpreter-settings.js';
 import { dirname } from 'path';
 import { getEnvironmentModulesApi } from './provider-module.js';
 import { setupArkJupyterKernel } from './kernel';
+
+/**
+ * Extract the list of environment modules to load from an R installation's
+ * packager metadata, if it is module-based. Module-discovered installations
+ * carry the full list of modules; r-versions entries with a `Module:` field
+ * carry a single module.
+ *
+ * @param packagerMetadata The packager metadata to inspect.
+ * @returns The modules to load, or an empty array if not module-based.
+ */
+function getModulesFromMetadata(packagerMetadata: PackagerMetadata | undefined): string[] {
+	if (!packagerMetadata) {
+		return [];
+	}
+	if (isModuleMetadata(packagerMetadata)) {
+		return packagerMetadata.modules;
+	}
+	if (isRVersionsMetadata(packagerMetadata) && packagerMetadata.module) {
+		return [packagerMetadata.module];
+	}
+	return [];
+}
 
 export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
@@ -27,6 +49,15 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 	/** The number of R runtimes discovered */
 	private _discoveredRuntimeCount = 0;
+
+	/**
+	 * The names of the environment variables most recently applied to the
+	 * terminal environment collection from a module-based interpreter. Tracked
+	 * so they can be removed when the active interpreter changes (or the feature
+	 * is disabled), rather than clearing the whole collection, which also holds
+	 * QUARTO_R and JUPYTER_PATH.
+	 */
+	private _appliedModuleEnvKeys = new Set<string>();
 
 	constructor(private readonly _context: vscode.ExtensionContext) {
 		this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
@@ -163,6 +194,105 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		// the same R installation as the active Positron console.
 		if (metadataExtra.homepath) {
 			setupArkJupyterKernel(this._context, metadataExtra.homepath);
+		}
+
+		// If this R comes from an environment module, capture the environment
+		// variables the module sets and apply them to terminals so tools launched
+		// there (Shiny, Quarto preview, etc.) use the same R as the console. This
+		// runs asynchronously since it involves launching a shell; the terminal
+		// environment collection persists and open terminals get a relaunch
+		// indicator when it changes.
+		void this.applyModuleTerminalEnvironment(collection, metadataExtra.packagerMetadata);
+	}
+
+	/**
+	 * Capture and apply the environment variables contributed by a module-based
+	 * interpreter to the terminal environment collection. Removes any variables
+	 * applied for a previous interpreter first, and is a no-op (beyond that
+	 * cleanup) when the feature is disabled or the interpreter is not
+	 * module-based.
+	 *
+	 * @param collection The terminal environment variable collection to mutate.
+	 * @param packagerMetadata The active interpreter's packager metadata, if any.
+	 */
+	private async applyModuleTerminalEnvironment(
+		collection: vscode.EnvironmentVariableCollection,
+		packagerMetadata: PackagerMetadata | undefined
+	): Promise<void> {
+		// Remove any variables applied for a previously-active interpreter. The
+		// collection is keyed by variable name, so a stale variable no longer set
+		// by the new interpreter would otherwise linger.
+		for (const key of this._appliedModuleEnvKeys) {
+			collection.delete(key);
+		}
+		this._appliedModuleEnvKeys.clear();
+		collection.description = undefined;
+
+		// Environment modules are only supported on Linux.
+		if (process.platform !== 'linux') {
+			return;
+		}
+
+		// Respect the setting that guards this behavior.
+		const applyToTerminals = vscode.workspace
+			.getConfiguration('positron.environmentModules')
+			.get<boolean>('applyToTerminals', true);
+		if (!applyToTerminals) {
+			return;
+		}
+
+		const modules = getModulesFromMetadata(packagerMetadata);
+		if (modules.length === 0) {
+			return;
+		}
+
+		const api = await getEnvironmentModulesApi();
+		if (!api) {
+			return;
+		}
+
+		let captured;
+		try {
+			captured = await api.captureEnvironmentVariables(modules);
+		} catch (error) {
+			LOGGER.warn(`Failed to capture module environment for terminals: ${error}`);
+			return;
+		}
+
+		// Apply these only via shell integration, not at process creation. The
+		// supervisor reads terminal environment contributions and applies them to
+		// kernel processes; if these were applied at process creation they would
+		// be layered on top of the `module load` startup command the kernel
+		// already runs, double-applying the module environment (and leaking this
+		// R interpreter's module environment into other-language kernels). Kernels
+		// get their module environment from the startup command instead; these
+		// contributions are for interactive terminals only. See
+		// getEnvironmentContributions in mainThreadEnvironment.ts, which skips
+		// mutators that opt out of process creation.
+		const options = { applyAtProcessCreation: false, applyAtShellIntegration: true };
+		for (const v of captured) {
+			switch (v.action) {
+				case 'prepend':
+					collection.prepend(v.name, v.value, options);
+					break;
+				case 'append':
+					collection.append(v.name, v.value, options);
+					break;
+				default:
+					collection.replace(v.name, v.value, options);
+					break;
+			}
+			this._appliedModuleEnvKeys.add(v.name);
+		}
+
+		if (captured.length > 0) {
+			collection.description = vscode.l10n.t(
+				'Environment from modules: {0}', modules.join(', ')
+			);
+			LOGGER.info(
+				`Applied ${captured.length} module environment variable(s) to terminals ` +
+				`for modules [${modules.join(', ')}]: ${captured.map(v => v.name).join(', ')}`
+			);
 		}
 	}
 

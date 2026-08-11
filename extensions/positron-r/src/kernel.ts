@@ -235,6 +235,19 @@ function safeStatSync(targetPath: string): fs.Stats | undefined {
 }
 
 /**
+ * Prepend a library directory to an existing (possibly undefined) path-style
+ * environment variable value, avoiding a trailing separator when there is no
+ * existing value.
+ *
+ * @param libDir The library directory to place at the front.
+ * @param existing The current value of the environment variable, if any.
+ * @returns The combined value with `libDir` first.
+ */
+function prependLibDir(libDir: string, existing: string | undefined): string {
+	return existing ? `${libDir}:${existing}` : libDir;
+}
+
+/**
  * Returns the base environment variables needed to run ark with a given R installation.
  * This includes R_HOME and platform-specific library paths.
  *
@@ -246,14 +259,20 @@ export function getArkEnvironmentVariables(rHomePath: string): Record<string, st
 		R_HOME: rHomePath
 	};
 
-	// Set library paths to help ark find R's shared libraries
-	// Workaround for https://github.com/posit-dev/positron/issues/1619
+	// Set library paths to help ark find R's shared libraries. Prepend R's lib
+	// directory to any existing value rather than clobbering it: the kernel spec
+	// environment is applied to the supervisor's environment before the kernel's
+	// startup command runs (e.g. `module load`), and the kcserver process
+	// inherits Positron's environment. Clobbering would drop library paths the
+	// user (or an environment module) already contributed. See
+	// getArkEnvironmentVariables callers and the Kallichore EnvironmentResolver.
 	if (process.platform === 'linux') {
-		env['LD_LIBRARY_PATH'] = rHomePath + '/lib';
+		// Workaround for https://github.com/posit-dev/positron/issues/1619
+		env['LD_LIBRARY_PATH'] = prependLibDir(rHomePath + '/lib', process.env.LD_LIBRARY_PATH);
 	}
-	// Workaround for https://github.com/posit-dev/positron/issues/3732
 	if (process.platform === 'darwin') {
-		env['DYLD_LIBRARY_PATH'] = rHomePath + '/lib';
+		// Workaround for https://github.com/posit-dev/positron/issues/3732
+		env['DYLD_LIBRARY_PATH'] = prependLibDir(rHomePath + '/lib', process.env.DYLD_LIBRARY_PATH);
 	}
 
 	return env;
