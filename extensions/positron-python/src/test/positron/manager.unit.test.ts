@@ -28,6 +28,8 @@ import {
 } from '../../client/common/types';
 import { IServiceContainer } from '../../client/ioc/types';
 import { PythonRuntimeManager } from '../../client/positron/manager';
+import * as createVirtualEnvironmentPrompt from '../../client/positron/createVirtualEnvironmentPrompt';
+import { CreateVirtualEnvironmentPromptOutcome } from '../../client/positron/createVirtualEnvironmentPrompt';
 import { PythonRuntimeSession } from '../../client/positron/session';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { PythonEnvironment } from '../../client/pythonEnvironments/info';
@@ -48,6 +50,7 @@ suite('Python runtime manager', () => {
 
     let getConfigurationStub: sinon.SinonStub;
     let isVersionSupportedStub: sinon.SinonStub;
+    let promptToCreateVirtualEnvironmentStub: sinon.SinonStub;
 
     let pythonRuntimeManager: PythonRuntimeManager;
     let disposables: IDisposable[];
@@ -84,6 +87,10 @@ suite('Python runtime manager', () => {
 
         isVersionSupportedStub = sinon.stub(environmentTypeComparer, 'isVersionSupported');
         isVersionSupportedStub.returns(true);
+
+        promptToCreateVirtualEnvironmentStub = sinon
+            .stub(createVirtualEnvironmentPrompt, 'promptToCreateVirtualEnvironment')
+            .resolves(CreateVirtualEnvironmentPromptOutcome.Proceed);
 
         pythonRuntimeManager = new PythonRuntimeManager(serviceContainer.object, interpreterService.object);
         disposables = [];
@@ -125,9 +132,39 @@ suite('Python runtime manager', () => {
         });
     });
 
-    // TODO: Test createSession
-    // test('createSession', async () => {
-    // });
+    test('createSession rejects with a cancellation error when the prompt aborts', async () => {
+        promptToCreateVirtualEnvironmentStub.resolves(CreateVirtualEnvironmentPromptOutcome.Abort);
+
+        const sessionMetadata = {
+            sessionId: 'session-id',
+            sessionMode: positron.LanguageRuntimeSessionMode.Console,
+            userSelected: true,
+        } as unknown as positron.RuntimeSessionMetadata;
+
+        await assert.rejects(
+            pythonRuntimeManager.createSession(runtimeMetadata.object, sessionMetadata),
+            (error: unknown) => error instanceof vscode.CancellationError,
+        );
+    });
+
+    test('createSession passes the interpreter path and session metadata to the prompt', async () => {
+        const sessionMetadata = {
+            sessionId: 'session-id',
+            sessionMode: positron.LanguageRuntimeSessionMode.Console,
+            userSelected: true,
+        } as unknown as positron.RuntimeSessionMetadata;
+
+        promptToCreateVirtualEnvironmentStub.resolves(CreateVirtualEnvironmentPromptOutcome.Abort);
+        await pythonRuntimeManager.createSession(runtimeMetadata.object, sessionMetadata).catch(() => undefined);
+
+        assert.deepStrictEqual(
+            {
+                interpreterPath: promptToCreateVirtualEnvironmentStub.firstCall.args[2],
+                metadata: promptToCreateVirtualEnvironmentStub.firstCall.args[3],
+            },
+            { interpreterPath: pythonPath, metadata: sessionMetadata },
+        );
+    });
 
     // TODO: Test discoverRuntimes
     // test('discoverRuntimes', async () => {

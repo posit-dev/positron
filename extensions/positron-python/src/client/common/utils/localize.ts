@@ -654,8 +654,20 @@ export namespace CreateEnv {
             );
         export const installingDeps = l10n.t('Installing dependencies...');
         export const selectDepSource = l10n.t('Select which dependencies to install');
-        // --- End Positron ---
     }
+
+    export namespace InterpreterSelect {
+        export const title = l10n.t('Create a virtual environment for this workspace?');
+        export const message = (interpreterLabel: string) =>
+            l10n.t(
+                '{0} is managed by your operating system or a package manager. Installing Python packages into it can break other software, so Positron recommends a separate environment for this workspace.',
+                interpreterLabel,
+            );
+        export const createEnvironment = l10n.t('Create Environment');
+        export const notNow = l10n.t('Not Now');
+        export const neverForThisInterpreter = l10n.t('Never for This Interpreter');
+    }
+    // --- End Positron ---
 }
 
 export namespace PythonLocator {

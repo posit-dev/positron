@@ -34,6 +34,10 @@ import {
     getEnvironmentModulesApi,
 } from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
 import { CondaPythonPickerContribution } from './condaPickerContribution';
+import {
+    CreateVirtualEnvironmentPromptOutcome,
+    promptToCreateVirtualEnvironment,
+} from './createVirtualEnvironmentPrompt';
 
 export const IPythonRuntimeManager = Symbol('IPythonRuntimeManager');
 
@@ -425,6 +429,20 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         const extraData: PythonRuntimeExtraData = runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
         if (!extraData || !extraData.pythonPath) {
             throw new Error(`Runtime metadata missing Python path: ${JSON.stringify(extraData)}`);
+        }
+
+        // When the user explicitly picks an externally-managed Python, offer to create a
+        // virtual environment instead. Aborting here is invisible to the user: the console
+        // instance is not created until this method resolves.
+        const promptOutcome = await promptToCreateVirtualEnvironment(
+            this.serviceContainer,
+            this.interpreterService,
+            extraData.pythonPath,
+            sessionMetadata,
+        );
+        if (promptOutcome === CreateVirtualEnvironmentPromptOutcome.Abort) {
+            traceInfo(`createPythonSession: aborting the session start for ${extraData.pythonPath}`);
+            throw new vscode.CancellationError();
         }
 
         // Check Python kernel debug and log level settings

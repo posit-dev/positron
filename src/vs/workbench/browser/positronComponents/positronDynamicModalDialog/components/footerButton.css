@@ -8,8 +8,15 @@
  * lives on `.positron-dynamic-modal-dialog-box .dialog-button` in positronDynamicModalDialog.css;
  * FooterButton applies both classes, so this file only carries the footer button dimensions.
  */
+/*
+ * `flex: 0 0 auto` plus `white-space: nowrap` keep a button's label on one line. Without them the
+ * button shrinks toward min-width and the label wraps to two lines, which also makes the footer
+ * taller than its siblings.
+ */
 .positron-dynamic-modal-dialog-box .footer-button {
 	height: 32px;
 	min-width: 80px;
 	padding: 0 12px;
+	flex: 0 0 auto;
+	white-space: nowrap;
 }

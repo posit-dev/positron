@@ -882,7 +882,8 @@ describe('StartNewConsoleSessionAction', () => {
 			undefined,
 			'Runtime id supplied to startNewConsoleSession command',
 			RuntimeStartMode.Starting,
-			true
+			true,
+			{ userSelected: false }
 		);
 	});
 
@@ -913,7 +914,8 @@ describe('StartNewConsoleSessionAction', () => {
 			undefined,
 			'User selected runtime',
 			RuntimeStartMode.Starting,
-			true
+			true,
+			{ userSelected: true }
 		);
 	});
 

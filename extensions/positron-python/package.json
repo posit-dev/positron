@@ -584,6 +584,12 @@
                         "hide"
                     ]
                 },
+                "python.createEnvironment.promptOnInterpreterSelect": {
+                    "default": true,
+                    "markdownDescription": "%python.createEnvironment.promptOnInterpreterSelect.description%",
+                    "scope": "machine-overridable",
+                    "type": "boolean"
+                },
                 "python.createEnvironment.trigger": {
                     "default": "prompt",
                     "markdownDescription": "%python.createEnvironment.trigger.description%",

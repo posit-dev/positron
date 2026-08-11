@@ -6,6 +6,9 @@
 import * as playwright from 'playwright';
 import { Code, createCodeFromPage } from './code';
 import { Modals } from '../pages/dialog-modals';
+// --- Start Positron ---
+import { DynamicModals } from '../pages/dialog-dynamic-modals.js';
+// --- End Positron ---
 import { Toasts } from '../pages/dialog-toasts';
 import { Popups } from '../pages/dialog-popups.js';
 import { ContextMenu } from '../pages/dialog-contextMenu.js';
@@ -62,6 +65,9 @@ export interface Commands {
 export class Workbench {
 
 	readonly modals: Modals;
+	// --- Start Positron ---
+	readonly dynamicModals: DynamicModals;
+	// --- End Positron ---
 	readonly toasts: Toasts;
 	readonly popups: Popups;
 	readonly contextMenu: ContextMenu;
@@ -133,6 +139,9 @@ export class Workbench {
 		this.output = new Output(code, this.quickaccess, this.quickInput);
 		this.console = new Console(code, this.quickInput, this.hotKeys, this.contextMenu);
 		this.modals = new Modals(code, this.toasts);
+		// --- Start Positron ---
+		this.dynamicModals = new DynamicModals(code);
+		// --- End Positron ---
 		this.clipboard = new Clipboard(code, this.hotKeys);
 		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.console, this.contextMenu, this.modals);
 		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
