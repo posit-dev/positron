@@ -58,6 +58,11 @@ import { WorkbenchStateContext } from '../../../common/contextkeys.js';
 import { IEditorOpenContext, IEditorSerializer } from '../../../common/editor.js';
 import { IWebviewElement, IWebviewService } from '../../webview/browser/webview.js';
 import './gettingStartedColors.js';
+// --- Start Positron ---
+// Colors for the redesigned welcome page. Registered here for the same reason as
+// the line above: a color has to be registered before any CSS may use it.
+import './positronWelcomePageColors.js';
+// --- End Positron ---
 import { GettingStartedDetailsRenderer } from './gettingStartedDetailsRenderer.js';
 import { gettingStartedCheckedCodicon, gettingStartedUncheckedCodicon } from './gettingStartedIcons.js';
 import { GettingStartedEditorOptions, GettingStartedInput } from './gettingStartedInput.js';
