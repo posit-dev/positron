@@ -180,3 +180,18 @@ jobs:
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
+
+      # The suites already write window, extension-host and main-process logs
+      # (`--logsPath`) plus crash dumps (`--crash-reporter-directory`), but the
+      # job discarded them, so a failure here left only "the test timed out" to
+      # work from. Keep them on failure.
+      - name: Upload extension host logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ext-host-logs
+          path: |
+            .build/logs
+            .build/crashes
+          if-no-files-found: ignore
+          retention-days: 7
