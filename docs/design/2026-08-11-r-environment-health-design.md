@@ -40,9 +40,11 @@ on demand before the interpreter quick pick (`runtime-quickpick.ts:45-48`), so t
 pattern as `resolveSnapshot()` in the Python module, for the same reason: later items must read the
 post-discovery list, not a pre-discovery one.
 
-**The would-be R comes from core**, via `positron.runtime.getPreferredRuntime('r')`, mapped back to
-its `RInstallation` by `binpath`. That is the real answer to "what would start", and it already
-accounts for the `positron.r.interpreters.default` setting.
+**The would-be R comes from core**, via `positron.runtime.getPreferredRuntime('r')`, which returns
+`LanguageRuntimeMetadata | undefined`. The join key back to the discovered `RInstallation[]` is
+`metadata.runtimePath`, which `makeMetadata` sets directly from `rInst.binpath`
+(`provider.ts:687`), so the match is exact rather than heuristic. This is the real answer to "what
+would start", and it already accounts for the `positron.r.interpreters.default` setting.
 
 ## Probe depth: static only
 
@@ -110,16 +112,57 @@ Gates in order:
 
 1. fail -- `RInstallation.usable` is false; detail reports `reasonRejected`
 2. fail -- version below `MINIMUM_R_VERSION`
-3. fail -- `libR` shared library missing (`<R_HOME>/lib/libR.{so,dylib}`, or `bin/x64/R.dll` on
-   Windows)
-4. fail -- ark kernel binary unresolvable (`getArkKernelPath()` returns undefined, `kernel.ts:44`)
+3. fail -- ark kernel binary unresolvable (`getArkKernelPath()` returns undefined, `kernel.ts:44`)
+4. fail -- `libR` shared library missing (see below)
 5. warn -- R architecture differs from the ark binary's architecture
 
-Gates 3 and 5 are new signals. positron-r has no `libR` check anywhere today, and architecture
+Gates 4 and 5 are new signals. positron-r has no `libR` check anywhere today, and architecture
 mismatch currently only logs a warning (`r-installation.ts:371-378`) without affecting usability.
+
+Gate 3 precedes gate 4 because resolving the libR path needs ark's architecture (below), so ark must
+be located first.
 
 Gate 5 is a `warn`, so it does not flip `ok` to false. It is the closest analog to Python's Rosetta
 warn.
+
+#### Resolving the libR path
+
+Mirror ark's own resolution exactly. Ark is the process that loads the library, so its layout
+assumptions are the only ones that matter. From `harp::find_r_shared_library_folder`:
+
+| platform | folder | file |
+|---|---|---|
+| macOS | `<R_HOME>/lib` | `libR.dylib` |
+| Linux | `<R_HOME>/lib` | `libR.so` |
+| Windows, x64 ark | `<R_HOME>/bin/x64` | `R.dll` |
+| Windows, arm64 ark | `<R_HOME>/bin` | `R.dll` |
+
+Two things here are easy to get wrong:
+
+- **Windows arm64 uses a flatter layout, `bin/R.dll`, not `bin/arm64/R.dll`**
+  (`crates/harp/src/sys/windows/library.rs:107-117`). Windows-on-ARM R is a supported configuration
+  -- `r-installation.ts:361-371` has explicit arm64/aarch64 detection added for #15297 -- so a
+  hardcoded `bin/x64/R.dll` would report libR missing on a healthy arm64 install.
+- **The Windows folder is chosen by ark's architecture, not R's.** In ark that choice is
+  `#[cfg(target_arch)]`, resolved when ark is compiled. The health check must therefore key off the
+  ark binary's architecture, which is also what gate 5 compares against.
+
+This gate is also, in effect, the `--enable-R-shlib` check: ark panics with exactly that advice when
+the library is absent (`crates/harp/src/library.rs:65`). Reporting it as a health item turns that
+crash into a diagnosable item.
+
+#### Architecture sources for gate 5
+
+R's architecture is read from `RInstallation.arch`, never re-sniffed. That field is already computed
+through a layered strategy -- DESCRIPTION `Built:` parsing, then PE-header sniffing on Windows and
+Mach-O sniffing on macOS (`r-installation.ts:341-390`). Duplicating it would create logic that
+drifts.
+
+Ark's architecture has no equivalent ready-made accessor: the only existing helper is
+`determineWindowsKernelArch` (`kernel.ts:132`), which is Windows-only. On macOS the existing
+`sniffMachOBinaryArchitecture` (`kernel.ts`) can be pointed at the resolved ark binary. On Linux,
+where cross-architecture R installs are not a practical concern, gate 5 is skipped and the libR
+folder is unconditionally `<R_HOME>/lib`.
 
 ### 4. `dedicatedEnvironment`
 
@@ -137,6 +180,13 @@ cannot be used here.
 This drops Python's `anyDedicatedDiscovered` branch. Python can enumerate every discovered venv;
 there is no global index of renv projects on disk, so the no-folder case is a flat `warn`.
 
+**Multi-root workspaces.** Only the first workspace folder is inspected
+(`vscode.workspace.workspaceFolders?.[0]`), matching what the Python check does with
+`resolveWorkspaceUri` (`environmentHealth.ts:534-539`). The command also accepts an optional
+`workspaceFolder` URI-string argument so a future frontend can ask about a specific root. The
+reported item names the folder it evaluated, so the answer is never ambiguous even though it is
+partial. Reporting per-root health is a frontend concern and is out of scope here.
+
 ## Command surface
 
 `r.getEnvironmentHealth` returns the result object. Registered in `commands.ts`, not declared in
@@ -148,12 +198,33 @@ there is no global index of renv projects on disk, so the no-folder case is a fl
 between `[START]` / `[END]` markers, following both the Python command and the existing
 `r.interpreters.settingsInfo` pattern (`commands.ts:255-258`).
 
-Result shape, where Python has `interpreterPath`:
+The full wire format. `HealthItemStatus`, `HealthItemFix` and `HealthItem` are structurally
+identical to their Python counterparts (`environmentHealth.ts:41-66`); only the result wrapper
+differs, where Python has `interpreterPath`:
 
 ```ts
+type HealthItemStatus = 'pass' | 'warn' | 'fail' | 'skipped';
+
+type HealthItemId = 'discovery' | 'rInstalled' | 'environmentReady' | 'dedicatedEnvironment';
+
+interface HealthItemFix {
+    commandId: string;   // extension or core command id
+    args?: unknown[];    // fully computed at check time; plain JSON only
+    label: string;       // localized button label
+}
+
+interface HealthItem {
+    id: HealthItemId;
+    status: HealthItemStatus;
+    summary: string;      // localized one-liner
+    detail?: string;      // localized, with actual paths and versions
+    fix?: HealthItemFix;
+    learnMoreUrl?: string;
+}
+
 interface REnvironmentHealthResult {
-    ok: boolean;        // true when no item is 'fail'; 'warn' does not flip it
-    items: HealthItem[];
+    ok: boolean;          // true when no item is 'fail'; 'warn' does not flip it
+    items: HealthItem[];  // always all four, in dependency order
     rBinPath?: string;
     rHome?: string;
 }
@@ -180,6 +251,40 @@ accept a URI-string `workspaceFolder` so its fix button would work across the co
 This also fixes an existing latent bug for the command's current caller. The New Folder flow invokes
 it at `positronNewFolderService.ts:623`, where the session may not be up yet either.
 
+**This must land in the same PR as the health check.** Shipped separately, the
+`dedicatedEnvironment` fix button silently does nothing -- precisely the defect the hardening
+exists to remove.
+
+### Specified behavior
+
+Ordered, so an implementer has no open questions:
+
+1. `checkInstalled('renv', MINIMUM_RENV_VERSION)` as today. If it returns false, the user declined
+   the install prompt: return quietly, no error. That is a choice, not a failure.
+2. `session = await positron.runtime.getForegroundSession()`. If defined, skip to step 5. The
+   existing path is unchanged, so nothing about the current New Folder behavior regresses when a
+   session is already up.
+3. No session: resolve the runtime with `positron.runtime.getPreferredRuntime('r')` -- the same
+   source the health check uses, so the button acts on the R the report just described. If it
+   returns undefined, throw; there is no R to initialize renv with.
+4. `await positron.runtime.selectLanguageRuntime(metadata.runtimeId)`, then poll
+   `getForegroundSession()` until it resolves to a session or a bounded timeout elapses.
+
+   The poll is required, not defensive padding. `selectLanguageRuntime` resolves through a bare
+   proxy call (`extHostLanguageRuntime.ts:1749-1751`) and its contract says "select and start"; it
+   does not promise the session is ready. Executing `renv::init()` on the strength of that
+   resolution would race startup. On timeout, throw.
+
+   `selectLanguageRuntime` shuts down other active runtimes for the language, which is acceptable
+   only because this branch runs exclusively when there is no session.
+5. `session.execute('renv::init()', ...)` exactly as today.
+
+Failures in steps 3 and 4 throw with a message naming the cause, replacing the silent
+`console.debug`. The two existing callers differ in how that surfaces: the health-check fix button
+is invoked by a frontend that can show it, while `positronNewFolderService` currently ignores the
+result. Making the failure visible there is out of scope; the error is logged to `LOGGER` regardless
+so it is at least diagnosable.
+
 ## Testing
 
 `extensions/positron-r/src/test/environmentHealth.unit.test.ts` -- Mocha TDD plus sinon, matching the
@@ -189,11 +294,27 @@ Because every `probe*` function takes a plain deps object, the four probes and t
 cascade test with no filesystem and no session. The two filesystem-touching helpers (libR lookup,
 renv detection) get tmpdir fixtures, following `sniff-macho.unit.test.ts` and `rootSignature.test.ts`.
 
-Coverage:
+Coverage of the health check:
 
 - each probe's status branches, including every ordered gate in `environmentReady`
 - the short-circuit cascade: a fail at item 1 skips 2 through 4, a fail at 2 skips 3 and 4, and so on
 - `ok` is false only for `fail`, not for `warn`
 - a throwing probe yields a `fail` item rather than rejecting the command
+- libR path resolution per platform and per ark architecture, including the Windows arm64 flat
+  layout -- a table-driven test over the four rows above, since that is the gate most likely to be
+  wrong and least likely to be caught by hand-testing on one machine
+
+Coverage of the `r.renvInit` hardening, the one live behavior change here:
+
+- a session already running: `getForegroundSession` is used and no runtime is started, proving the
+  existing New Folder path does not regress
+- no session: the preferred runtime is selected and `renv::init()` executes only after a session
+  becomes available
+- no session and no preferred runtime: throws, rather than returning silently
+- session never becomes available: throws on timeout, rather than executing into the void
+- renv install declined: returns quietly with no error and no session started
+
+These use a stubbed `positron.runtime` surface, following the fake-session approach in
+`packages.unit.test.ts:22`.
 
 Run with `npm run test-extension -- -l positron-r --grep "environment health"`.
