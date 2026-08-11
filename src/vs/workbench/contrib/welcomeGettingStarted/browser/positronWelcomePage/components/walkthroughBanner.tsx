@@ -13,6 +13,7 @@ import { useId } from 'react';
 import { localize } from '../../../../../../nls.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
+import type { GettingStartedActionClassification, GettingStartedActionEvent } from '../../gettingStarted.js';
 import { IWalkthroughsService } from '../../gettingStartedService.js';
 
 /**
@@ -35,6 +36,14 @@ export const WalkthroughBanner = () => {
 	}
 
 	const showAllWalkthroughs = () => {
+		services.telemetryService.publicLog2<GettingStartedActionEvent, GettingStartedActionClassification>(
+			'gettingStarted.ActionExecuted',
+			{
+				command: 'welcomeBannerSeeAllWalkthroughs',
+				argument: undefined,
+				walkthroughId: undefined,
+			});
+
 		services.commandService.executeCommand('welcome.showAllWalkthroughs');
 	};
 

@@ -140,7 +140,12 @@ const parsedStartEntries: IWelcomePageStartEntry[] = startEntries.map((e, i) => 
 */
 // --- End Positron ---
 
-type GettingStartedActionClassification = {
+// --- Start Positron ---
+// Exported so the redesigned welcome page's walkthrough banner logs this event
+// with the same shape, instead of declaring the event twice.
+// type GettingStartedActionClassification = {
+export type GettingStartedActionClassification = {
+	// --- End Positron ---
 	command: { classification: 'PublicNonPersonalData'; purpose: 'FeatureInsight'; comment: 'The command being executed on the getting started page.' };
 	walkthroughId: { classification: 'PublicNonPersonalData'; purpose: 'FeatureInsight'; comment: 'The walkthrough which the command is in' };
 	argument: { classification: 'PublicNonPersonalData'; purpose: 'FeatureInsight'; comment: 'The arguments being passed to the command' };
@@ -148,7 +153,10 @@ type GettingStartedActionClassification = {
 	comment: 'Help understand what actions are most commonly taken on the getting started page';
 };
 
-type GettingStartedActionEvent = {
+// --- Start Positron ---
+// type GettingStartedActionEvent = {
+export type GettingStartedActionEvent = {
+	// --- End Positron ---
 	command: string;
 	walkthroughId: string | undefined;
 	argument: string | undefined;

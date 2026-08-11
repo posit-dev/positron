@@ -11,6 +11,7 @@ import { Codicon } from '../../../../../base/common/codicons.js';
 import { Event } from '../../../../../base/common/event.js';
 import { ContextKeyExpr, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -40,6 +41,7 @@ const walkthrough = (id: string): IResolvedWalkthrough => ({
 
 describe('WalkthroughBanner', () => {
 	const executeCommand = vi.fn();
+	const publicLog2 = vi.fn();
 
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -50,6 +52,7 @@ describe('WalkthroughBanner', () => {
 			onDidChangeWalkthrough: Event.None,
 		})
 		.stub(ICommandService, { executeCommand })
+		.stub(ITelemetryService, { publicLog2 })
 		// MockContextKeyService answers false to every `when` clause, which would
 		// hide the banner outright.
 		.stub(IContextKeyService, stubInterface<IContextKeyService>({ contextMatchesRules: () => true }))
@@ -63,12 +66,17 @@ describe('WalkthroughBanner', () => {
 		expect(screen.getByRole('button', { name: 'See all walkthroughs' })).toBeInTheDocument();
 	});
 
-	it('opens the walkthrough list when clicked', async () => {
+	it('opens the walkthrough list and logs the click', async () => {
 		const user = userEvent.setup();
 		rtl.render(<WalkthroughBanner />);
 
 		await user.click(screen.getByRole('button', { name: 'See all walkthroughs' }));
 
 		expect(executeCommand).toHaveBeenCalledWith('welcome.showAllWalkthroughs');
+		expect(publicLog2).toHaveBeenCalledWith('gettingStarted.ActionExecuted', {
+			command: 'welcomeBannerSeeAllWalkthroughs',
+			argument: undefined,
+			walkthroughId: undefined,
+		});
 	});
 });
