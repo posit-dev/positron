@@ -31,7 +31,7 @@ jobs:
     timeout-minutes: 60
     # Run inside the shared CI image, which bakes in the system dependencies,
     # Node (matching .nvmrc), and R 4.5.2 + test-files deps that this
-    # job used to install at runtime. See posit-dev/positron-ci-images.
+    # job used to install at runtime. Built from docker/images/ubuntu24_04.
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
       # --shm-size: Chromium/Electron exhausts the container's default 64MB
