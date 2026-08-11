@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { URI } from './uri.js';
+
 // Types.
 type Value = string | number | undefined;
 type Mapping = Record<string, unknown>;
@@ -63,3 +65,29 @@ export const positronClassNames = (...args: Argument[]) => {
 
 	return classes.join(' ');
 };
+
+/**
+ * Serializes a URI for navigation to an external address, preserving query
+ * string delimiters.
+ *
+ * `URI.toString()` treats the query as a single opaque component and escapes
+ * `=` to `%3D` and `&` to `%26`. That is harmless for the custom schemes the
+ * class was designed around, but it corrupts query parameters on `http(s)`
+ * URLs: the server receives one nameless parameter instead of the parameters
+ * that were sent. Round-tripping through the WHATWG `URL` parser keeps the
+ * delimiters intact while still percent-encoding everything that needs it,
+ * including characters such as `"` that would otherwise break out of an HTML
+ * attribute.
+ *
+ * @param uri The URI to serialize.
+ * @returns The serialized URI, or `URI.toString()` when it cannot be parsed.
+ */
+export function externalUriToString(uri: URI): string {
+	try {
+		// `toString(true)` leaves the query untouched; the `URL` parser then
+		// re-encodes each component under the correct rules for its position.
+		return new URL(uri.toString(true)).toString();
+	} catch {
+		return uri.toString();
+	}
+}
