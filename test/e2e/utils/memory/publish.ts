@@ -226,6 +226,11 @@ export function baselineToSnapshot(body: BaselineResponse): MemorySnapshot | und
 	}
 	return {
 		scenario: 'idle',
+		// Neutral rather than faked, per the note above: the baseline is from an
+		// earlier run by definition, so there is no honest capture time to give it.
+		// The report never age-checks the baseline, and '' fails that check loudly
+		// if anything ever starts to.
+		capturedAt: '',
 		launchIndex: 0,
 		settleMs: body.snapshot.settle_ms,
 		treeTotalPssBytes: body.snapshot.tree_total_pss_bytes,

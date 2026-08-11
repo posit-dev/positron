@@ -63,6 +63,8 @@ export type ActivatedExtension = {
 /** Everything one app launch produced. */
 export type MemorySnapshot = {
 	scenario: 'idle';
+	/** ISO 8601, set when the tree was read. Lets the report reject stale files. */
+	capturedAt: string;
 	launchIndex: number;
 	settleMs: number;
 	treeTotalPssBytes: number;

@@ -163,6 +163,7 @@ export async function captureSnapshot(input: {
 
 	return {
 		scenario: 'idle',
+		capturedAt: new Date().toISOString(),
 		launchIndex: input.launchIndex,
 		settleMs,
 		treeTotalPssBytes: processes.reduce((sum, p) => sum + p.pssBytes, 0),

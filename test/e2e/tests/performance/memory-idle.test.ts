@@ -27,6 +27,13 @@ test.use({
  */
 const SNAPSHOT_DIR = join(process.env.RUNNER_TEMP ?? '/tmp', 'memory-snapshots');
 
+/**
+ * How old a snapshot may be before the report refuses it. Bounded by the job's
+ * own `timeout-minutes: 45` in test-memory-metrics.yml, so anything older than
+ * this cannot have come from the run doing the rendering.
+ */
+const MAX_SNAPSHOT_AGE_MS = 60 * 60 * 1000;
+
 test.describe('Memory: idle', { tag: [tags.PERFORMANCE] }, () => {
 
 	test('Idle memory footprint of the Positron process tree', async function ({ app, logsPath }) {
@@ -104,6 +111,17 @@ test.describe('Memory: report', { tag: [tags.PERFORMANCE] }, () => {
 		expect(missing, `missing snapshot(s); a measure step probably failed: ${missing.join(', ')}`).toEqual([]);
 
 		const snapshots: MemorySnapshot[] = paths.map(path => JSON.parse(readFileSync(path, 'utf8')));
+
+		// Outside CI, SNAPSHOT_DIR falls back to /tmp, which survives between runs, so
+		// this would otherwise render whatever is lying around into a report that looks
+		// exactly like a healthy one. A malformed or absent capturedAt counts as stale
+		// rather than parsing to NaN and passing the comparison.
+		const stale = snapshots.filter(({ capturedAt }) => {
+			const ageMs = Date.now() - Date.parse(capturedAt);
+			return !Number.isFinite(ageMs) || ageMs > MAX_SNAPSHOT_AGE_MS;
+		});
+		expect(stale.map(s => `launch ${s.launchIndex} at ${s.capturedAt}`),
+			'stale snapshot(s); these are from an earlier run, so re-run the measure steps').toEqual([]);
 
 		const baseline = await fetchBaseline();
 		const markdown = renderMarkdown(snapshots, baseline);

@@ -16,6 +16,7 @@ const process1: LabeledProcess = {
 
 const snapshot: MemorySnapshot = {
 	scenario: 'idle',
+	capturedAt: '2026-08-11T00:00:00.000Z',
 	launchIndex: 2,
 	settleMs: 4200,
 	treeTotalPssBytes: 300,
