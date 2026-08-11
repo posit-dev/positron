@@ -30,6 +30,9 @@ const SNAPSHOT_DIR = join(process.env.RUNNER_TEMP ?? '/tmp', 'memory-snapshots')
 test.describe('Memory: idle', { tag: [tags.PERFORMANCE] }, () => {
 
 	test('Idle memory footprint of the Positron process tree', async function ({ app, logsPath }) {
+		// Only test-memory-metrics.yml collects this spec (see the MEMORY_SCENARIO
+		// entry in playwright.config.ts), and it always sets BUILD, so a missing one
+		// here is a broken workflow rather than a lane to opt out of.
 		const buildRoot = process.env.BUILD;
 		expect(buildRoot, 'BUILD must point at a Positron build; memory numbers from a dev build are meaningless').toBeTruthy();
 
@@ -90,8 +93,6 @@ test.describe('Memory: idle', { tag: [tags.PERFORMANCE] }, () => {
 test.describe('Memory: report', { tag: [tags.PERFORMANCE] }, () => {
 
 	test('Render and publish the idle memory report', async function ({ }, testInfo) {
-		test.skip(process.env.MEMORY_AGGREGATE !== 'true', 'only runs in the aggregation step');
-
 		// Require all three. Reporting a "median" over one surviving launch
 		// would look identical to a healthy run while telling us nothing about
 		// variance, which is the whole reason we launch three times.

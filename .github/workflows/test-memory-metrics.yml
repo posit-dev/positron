@@ -48,6 +48,10 @@ jobs:
       HOME: /root
       PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
       PW_PROJECT_NAME: e2e-electron
+      # Job-wide, not per-step: playwright.config.ts keys the collection of
+      # memory-idle.test.ts off this, so every step that invokes it needs it,
+      # including the render step that launches no app.
+      MEMORY_SCENARIO: idle
       # The insights reporter and its sharding hook are off deliberately. This
       # workflow publishes its own payload to /memory, and letting the reporter
       # upload would add memory runs to the e2e results dataset as if they were
@@ -134,7 +138,6 @@ jobs:
       - name: Warm the extensions dir
         env:
           BUILD: ${{ steps.build.outputs.BUILD }}
-          MEMORY_SCENARIO: idle
         run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
 
       # Three launches, because launch-to-launch variance dominates. Each is a
@@ -142,21 +145,18 @@ jobs:
       - name: Measure (launch 0)
         env:
           BUILD: ${{ steps.build.outputs.BUILD }}
-          MEMORY_SCENARIO: idle
           MEMORY_LAUNCH_INDEX: 0
         run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
 
       - name: Measure (launch 1)
         env:
           BUILD: ${{ steps.build.outputs.BUILD }}
-          MEMORY_SCENARIO: idle
           MEMORY_LAUNCH_INDEX: 1
         run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
 
       - name: Measure (launch 2)
         env:
           BUILD: ${{ steps.build.outputs.BUILD }}
-          MEMORY_SCENARIO: idle
           MEMORY_LAUNCH_INDEX: 2
         run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
 
@@ -170,7 +170,6 @@ jobs:
       - name: Render report
         env:
           BUILD: ${{ steps.build.outputs.BUILD }}
-          MEMORY_AGGREGATE: 'true'
           MEMORY_PUBLISH: 'false'
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
         run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Render and publish'

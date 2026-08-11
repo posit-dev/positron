@@ -97,24 +97,20 @@ export default defineConfig<CustomTestOptions>({
 	projects: [
 		{
 			name: 'e2e-electron',
-			testIgnore: process.env.ALLOW_PYREFLY === 'true'
-				? [
-					'example.test.ts',
-					'**/workbench/**',
-					'**/connect/**',
-					'**/remote-ssh/**',
-					'**/remote-wsl/**',
-					// Note: assistant-eval NOT ignored here - runs on e2e-electron only
-				]
-				: [
-					'example.test.ts',
-					'**/workbench/**',
-					'**/connect/**',
-					'**/remote-ssh/**',
-					'**/remote-wsl/**',
-					'**/lsp/**',
-					// Note: assistant-eval NOT ignored here - runs on e2e-electron only
-				],
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**',
+				'**/connect/**',
+				'**/remote-ssh/**',
+				'**/remote-wsl/**',
+				// Note: assistant-eval NOT ignored here - runs on e2e-electron only
+				...(process.env.ALLOW_PYREFLY === 'true' ? [] : ['**/lsp/**']),
+				// Only test-memory-metrics.yml sets this, and it selects the spec by
+				// path. Ignored rather than skipped in-test so it leaves no permanently
+				// skipped row in the results dashboard; merge-to-main runs this lane
+				// ungrepped, so it would otherwise appear on every merge.
+				...(process.env.MEMORY_SCENARIO === 'idle' ? [] : ['**/performance/memory-idle.test.ts']),
+			],
 			use: {
 				artifactDir: 'e2e-electron'
 			},
