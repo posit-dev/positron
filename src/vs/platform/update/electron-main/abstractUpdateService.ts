@@ -600,7 +600,26 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		// noop
 	}
 
-	quitAndInstall(): Promise<void> {
+	// --- Start Positron ---
+	/**
+	 * Called once the user has accepted the restart but before the shutdown begins, so that a
+	 * platform can hand off to its installer while the app is still running. Windows needs this:
+	 * the installer reads the update flag file as soon as the app mutex clears, and the mutex is
+	 * released during `onWillShutdown`, which is before `lifecycleMainService.quit()` resolves.
+	 */
+	protected async prepareForQuitAndInstall(): Promise<void> {
+		// noop
+	}
+
+	/** Undoes {@link prepareForQuitAndInstall} when the quit turns out to be vetoed. */
+	protected async undoPrepareForQuitAndInstall(): Promise<void> {
+		// noop
+	}
+
+	// `async` so that `prepareForQuitAndInstall()` can complete before the shutdown starts.
+	// quitAndInstall(): Promise<void> {
+	// --- End Positron ---
+	async quitAndInstall(): Promise<void> {
 		this.logService.trace('update#quitAndInstall, state = ', this.state.type);
 
 		if (this.state.type !== StateType.Ready) {
@@ -613,10 +632,23 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		this.setState(State.Restarting(this.state.update));
 		this.logService.trace('update#quitAndInstall(): before lifecycle quit()');
 
-		this.lifecycleMainService.quit(true /* will restart */).then(vetod => {
+		// --- Start Positron ---
+		// this.lifecycleMainService.quit(true /* will restart */).then(vetod => {
+
+		await this.prepareForQuitAndInstall();
+
+		// `async` so that the undo completes before Ready is advertised again. Otherwise a failed
+		// restore would leave us advertising Ready with no flag file on disk, and the next ordinary
+		// quit would let the installer swap and then relaunch Positron behind the user's back.
+
+		// --- End Positron ---
+		this.lifecycleMainService.quit(true /* will restart */).then(async vetod => {
 			this.logService.trace(`update#quitAndInstall(): after lifecycle quit() with veto: ${vetod}`);
 			if (vetod) {
 				this.logService.info('update#quitAndInstall(): quit was vetoed, restoring Ready state');
+				// --- Start Positron ---
+				await this.undoPrepareForQuitAndInstall().catch(err => this.logService.error('update#quitAndInstall(): failed to undo the install preparation', err));
+				// --- End Positron ---
 				this.setState(readyState);
 				return;
 			}
