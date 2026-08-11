@@ -5,7 +5,7 @@
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
-import { DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
+import { CodeSubmissionResult, DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
 import { RuntimeItem } from '../../browser/classes/runtimeItem.js';
 import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
@@ -313,8 +313,11 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 	private readonly _onDidAttachSessionEmitter = new Emitter<ILanguageRuntimeSession | undefined>();
 	private readonly _onDidChangeWidthInCharsEmitter = new Emitter<number>();
 	private readonly _onDidRequestRevealExecutionEmitter = new Emitter<string>();
+	private readonly _onDidChangeCodeSubmissionInProgressEmitter = new Emitter<boolean>();
+	private readonly _onDidSetCodeEditorEmitter = new Emitter<ICodeEditor>();
 
 	private _findWidget: IConsoleFindWidget | undefined;
+	private _codeSubmissionInProgress = false;
 
 	private _state: PositronConsoleState = PositronConsoleState.Ready;
 	private _trace: boolean = false;
@@ -331,8 +334,18 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		public readonly sessionMetadata: IRuntimeSessionMetadata,
 		public readonly runtimeMetadata: ILanguageRuntimeMetadata,
 		public readonly runtimeItems: RuntimeItem[] = [],
-		public readonly codeEditor: ICodeEditor | undefined = undefined
+		public codeEditor: ICodeEditor | undefined = undefined
 	) { }
+
+	/**
+	 * Attaches a code editor and fires the onDidSetCodeEditor event, mirroring the console input
+	 * component assigning its Monaco editor once it mounts.
+	 * @param codeEditor The code editor to attach.
+	 */
+	setCodeEditor(codeEditor: ICodeEditor): void {
+		this.codeEditor = codeEditor;
+		this._onDidSetCodeEditorEmitter.fire(codeEditor);
+	}
 
 	get onFocusInput(): Event<FocusInputOptions> {
 		return this._onFocusInputEmitter.event;
@@ -404,6 +417,10 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 
 	get onDidRequestRevealExecution(): Event<string> {
 		return this._onDidRequestRevealExecutionEmitter.event;
+	}
+
+	get onDidSetCodeEditor(): Event<ICodeEditor> {
+		return this._onDidSetCodeEditorEmitter.event;
 	}
 
 	get onDidChangeWidthInChars(): Event<number> {
@@ -591,6 +608,31 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 	 * Interrupts the console.
 	 */
 	interrupt(code: string): void {
+		// No-op for test implementation
+	}
+
+	get onDidChangeCodeSubmissionInProgress(): Event<boolean> {
+		return this._onDidChangeCodeSubmissionInProgressEmitter.event;
+	}
+
+	get codeSubmissionInProgress(): boolean {
+		return this._codeSubmissionInProgress;
+	}
+
+	get submittingInputPromoted(): boolean {
+		return false;
+	}
+
+	async submitCode(code: string, attribution: IConsoleCodeAttribution): Promise<CodeSubmissionResult> {
+		this.executeCode(code, attribution);
+		return CodeSubmissionResult.Executed;
+	}
+
+	cancelCodeSubmission(): void {
+		// No-op for test implementation
+	}
+
+	cancelCompletenessCheck(): void {
 		// No-op for test implementation
 	}
 

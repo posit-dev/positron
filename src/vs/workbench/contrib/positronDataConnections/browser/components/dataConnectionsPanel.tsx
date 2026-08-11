@@ -50,6 +50,29 @@ export const DataConnectionsPanel = () => {
 	// Right action bar actions.
 	const rightActions: DynamicActionBarAction[] = [];
 
+	// Refresh all. Pushed before Add Connection because the action bar lays each group out in array
+	// order, left to right, so this sits to its left.
+	const refreshAll = localize('positronDataConnections.refreshAll', "Refresh All");
+	rightActions.push({
+		fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
+		separator: false,
+		component: (
+			<ActionBarButton
+				ariaLabel={refreshAll}
+				// Left enabled while a refresh is running rather than disabled: clicking a disabled
+				// control moves focus to the view pane and leaves a focus ring behind, and a user
+				// hammering this button would collect one. reloadAll is re-entrant, so the extra
+				// presses fold into the run already in flight.
+				disabled={false}
+				icon={ThemeIcon.fromId('refresh')}
+				tooltip={refreshAll}
+				// Fire-and-forget: each reloaded connection drives its own twisty spinner and
+				// records any failure against its node, so there's nothing to await here.
+				onPressed={() => { void treeInstance.reloadAll(); }}
+			/>
+		)
+	});
+
 	// Add connection.
 	const addConnection = localize('positronDataConnections.addConnection', "Add Connection");
 	rightActions.push({

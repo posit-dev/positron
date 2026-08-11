@@ -37,10 +37,15 @@ alike, since GitHub records `merge_commit_sha` for all three.
 When the bumped PRs close Positron issues, the body opens with `Closes #<N>`
 lines. Then the tag line, a `### Release Notes` section aggregated from the
 bumped Ark PRs, and a `### Commits` first-parent list of the Ark commits between
-the current submodule pointer and the target.
+the current submodule pointer and the target. Commits belonging to an unmerged
+PR collapse to one line per PR, in the squash-merge form they will take once that
+PR lands. The target's stack is found by matching each PR's base branch against
+the head branch of another open PR, down to the PR based on Ark main, so a
+stacked target contributes one line per PR in the stack.
 
 Release notes are scraped from each bumped Ark PR's `#### New Features` /
-`#### Bug Fixes` bullets. `parse_description.py` is a vendored copy of
+`#### Bug Fixes` bullets, covering every PR in the target's stack rather than the
+target alone. `parse_description.py` is a vendored copy of
 `posit-dev/positron-release-notes`'s parser, so extraction matches the
 release-notes collector; `bump_notes.py` is the skill-local glue on top of it
 (section rendering, `Closes` collection).

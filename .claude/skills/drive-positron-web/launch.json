@@ -1,0 +1,22 @@
+{
+	"//": "Template only. Copy this file to <primary-cwd>/.claude/launch.json and replace REPO_PATH with an absolute checkout path.",
+	"//2": "The launch format has no cwd field, so runtimeArgs uses bash -c.",
+	"//3": "For reliable readiness, start the server with scripts/start-web.sh and then use positron-web-attach. preview_start only waits for the port.",
+	"version": "0.0.1",
+	"configurations": [
+		{
+			"name": "positron-web",
+			"runtimeExecutable": "bash",
+			"runtimeArgs": [
+				"-c",
+				"cd REPO_PATH && npm run e2e-start-server"
+			],
+			"port": 8080
+		},
+		{
+			"name": "positron-web-attach",
+			"url": "http://localhost:8080",
+			"port": 8080
+		}
+	]
+}

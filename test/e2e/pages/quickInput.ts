@@ -13,7 +13,7 @@ export class QuickInput {
 	private static QUICK_INPUT_INPUT = `${QuickInput.QUICK_INPUT} .quick-input-box input`;
 	private static QUICK_INPUT_RESULT = `${QuickInput.QUICK_INPUT} .quick-input-list .monaco-list-row`;
 	// Note: this only grabs the label and not the description or detail
-	private static QUICK_INPUT_ENTRY_LABEL = `${this.QUICK_INPUT_RESULT} .quick-input-list-row > .monaco-icon-label .label-name`;
+	static readonly QUICK_INPUT_ENTRY_LABEL = `${this.QUICK_INPUT_RESULT} .quick-input-list-row > .monaco-icon-label .label-name`;
 	private static QUICKINPUT_OK_BUTTON =
 		'.quick-input-widget .quick-input-action a:has-text(\'OK\')';
 	quickInputList: Locator;

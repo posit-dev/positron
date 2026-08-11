@@ -35,6 +35,8 @@ import httpProxy from 'http-proxy';
 // eslint-disable-next-line no-duplicate-imports
 import { existsSync } from 'fs';
 import { kProxyRegex, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX } from './pwbConstants.js';
+import { getListeningPortUid, isProxyPortOwnershipEnforced, ISocketOwnershipCheck } from './socketOwnership.js';
+import type * as net from 'net';
 // --- End PWB ---
 // --- Start Positron ---
 import { HAS_STATIC_ROUTE } from './pwbConstants.js';
@@ -160,6 +162,16 @@ export class WebClientServer {
 	// --- Start PWB ---
 	private readonly _proxyServer;
 	private readonly _rsLoginCheckScriptTag: string;
+	private _loggedProxyOwnershipDisabled = false;
+	private _socketOwnershipCheck: ISocketOwnershipCheck = { getListeningPortUid, isProxyPortOwnershipEnforced };
+
+	/**
+	 * Test-only seam for the `/proxy/` ownership gate (rstudio-pro#11470): overrides the
+	 * `/proc`-reading implementations with stubs. Not called in production. See webClientServer.vitest.ts.
+	 */
+	setSocketOwnershipCheckForTesting(check: ISocketOwnershipCheck): void {
+		this._socketOwnershipCheck = check;
+	}
 	// --- End PWB ---
 
 	constructor(
@@ -245,6 +257,12 @@ export class WebClientServer {
 			}
 			// --- PWB Start: Server proxy support ---
 			if (kProxyRegex.test(pathname)) {
+				// Refuse to proxy to a localhost port owned by another user (rstudio-pro#11470).
+				const proxyPort = this._parseProxyPort(pathname);
+				if (proxyPort !== undefined && !this._verifyProxyPortOwnership(proxyPort)) {
+					return serveError(req, res, 403, 'Access to the requested port is forbidden.');
+				}
+
 				let path: string = pathname.replace('/proxy/', 'http://0.0.0.0:');
 
 				// Append query string if it exists
@@ -277,11 +295,63 @@ export class WebClientServer {
 	 * Handle proxy requests for websockets
 	 */
 	async handleUpgrade(req: http.IncomingMessage, socket: unknown, upgradeHead: unknown, parsedUrl: string): Promise<void> {
+		// Refuse to proxy to a localhost port owned by another user (rstudio-pro#11470). There is no
+		// response object on the upgrade path, so on failure we just destroy the socket.
+		const proxyPort = this._parseProxyPort(parsedUrl);
+		if (proxyPort !== undefined && !this._verifyProxyPortOwnership(proxyPort)) {
+			(socket as net.Socket).destroy();
+			return;
+		}
+
 		const path: string = parsedUrl.replace('/proxy/', 'http://0.0.0.0:');
 		return this._proxyServer.ws(req, socket, upgradeHead, {
 			ignorePath: true,
 			target: path
 		});
+	}
+
+	/**
+	 * Extract the localhost port number from a `/proxy/<port>/...` path, or undefined if it can't be
+	 * parsed (in which case the caller skips the ownership check rather than blocking).
+	 */
+	private _parseProxyPort(pathname: string): number | undefined {
+		const match = /\/proxy\/([0-9]+)/.exec(pathname);
+		if (!match) {
+			return undefined;
+		}
+		const port = parseInt(match[1], 10);
+		return Number.isNaN(port) ? undefined : port;
+	}
+
+	/**
+	 * Verify the localhost port we've been asked to proxy to is owned by this session's user. Each
+	 * vscode-server session runs as its own user, so the expected owner is simply our own uid.
+	 * Skipped entirely when disabled via `--www-proxy-localhost-verify-port-owner=0` (or `=false`).
+	 * Otherwise fails open when enforcement is not applicable (non-Linux, root session, or /proc
+	 * unreadable); fails closed (returns false) when the check runs but no matching listener is
+	 * owned by us.
+	 */
+	private _verifyProxyPortOwnership(port: number): boolean {
+		const verifyPortOwnerArg = this._environmentService.args['www-proxy-localhost-verify-port-owner'];
+		if (verifyPortOwnerArg === '0' || verifyPortOwnerArg === 'false') {
+			return true;
+		}
+
+		const uid = process.getuid?.() ?? 0;
+		if (!this._socketOwnershipCheck.isProxyPortOwnershipEnforced(uid)) {
+			if (!this._loggedProxyOwnershipDisabled && uid !== 0) {
+				this._loggedProxyOwnershipDisabled = true;
+				this._logService.warn(`Cannot verify which local ports belong to your session, so requests will be forwarded to any port on this server without verifying ownership.`);
+			}
+			return true;
+		}
+
+		const ownerUid = this._socketOwnershipCheck.getListeningPortUid(port);
+		if (ownerUid === uid) {
+			return true;
+		}
+		this._logService.warn(`Cannot forward your request to port ${port}: it is in use by another user (uid ${ownerUid ?? '<no listener>'}, not your uid ${uid}). You can only reach applications running under your own account.`);
+		return false;
 	}
 	// --- PWB End ---
 
@@ -525,12 +595,6 @@ export class WebClientServer {
 			// --- End Positron ---
 		} satisfies Partial<IProductConfiguration>;
 
-		const proposedApi = this._environmentService.args['enable-proposed-api'];
-		if (proposedApi?.length) {
-			productConfiguration.extensionsEnabledWithApiProposalVersion ??= [];
-			productConfiguration.extensionsEnabledWithApiProposalVersion.push(...proposedApi);
-		}
-
 		if (!this._environmentService.isBuilt) {
 			try {
 				const productOverrides = JSON.parse((await promises.readFile(join(APP_ROOT, 'product.overrides.json'))).toString());
@@ -663,7 +727,10 @@ export class WebClientServer {
 			return void res.end('Not found');
 		}
 
-		const webWorkerExtensionHostIframeScriptSHA = 'sha256-2Q+j4hfT09+1+imS46J2YlkCtHWQt0/BE79PXjJ0ZJ8=';
+		// --- Start PWB ---
+		// Update SHA hash to account for our modifications to the script.
+		const webWorkerExtensionHostIframeScriptSHA = 'sha256-ghZYhGSRQSQb5D/2cH7lc4GsDuoiyAikrw/Ur/xPKc0=';
+		// --- End PWB ---
 
 		const cspDirectives = [
 			'default-src \'self\';',

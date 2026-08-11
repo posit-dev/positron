@@ -132,6 +132,30 @@ function quoteLiteral(value: string): string {
 	return value.replace(/'/g, '\'\'');
 }
 
+/**
+ * The escape character for the LIKE patterns the text filters build.
+ *
+ * Deliberately not backslash: LIKE already takes backslash as its escape character by default, so
+ * naming a different one keeps a literal backslash in the user's search text matching a backslash in
+ * the data rather than escaping whatever follows it.
+ */
+const LIKE_ESCAPE_CHAR = '!';
+
+/** Appended to every generated LIKE, so the pattern's escapes are interpreted as intended. */
+const LIKE_ESCAPE_CLAUSE = ` ESCAPE '${LIKE_ESCAPE_CHAR}'`;
+
+/**
+ * Escapes the LIKE wildcards in a search term, so the user's text is matched literally: `%` (any run of
+ * characters), `_` (any single character), and the escape character itself. Without this, searching for
+ * `10%` matches any value starting with `10`, and `a_b` matches `axb`.
+ *
+ * One pass over the string handles all three, so an escape character this function introduces is never
+ * escaped again.
+ */
+function escapeLikeWildcards(value: string): string {
+	return value.replace(/[!%_]/g, character => `${LIKE_ESCAPE_CHAR}${character}`);
+}
+
 const COMPARISON_OPS = new Map<FilterComparisonOp, string>([
 	[FilterComparisonOp.Eq, '='],
 	[FilterComparisonOp.NotEq, '<>'],
@@ -185,18 +209,22 @@ export function makeWhereExpr(rowFilter: RowFilter): string {
 		case RowFilterType.Search: {
 			const params = rowFilter.params as FilterTextSearch;
 			const searchArg = params.case_sensitive ? quotedName : `lower(${quotedName})`;
+			// The wildcards in the user's text are escaped so it matches literally; the ESCAPE clause on
+			// each pattern below is what makes those escapes mean anything. Lower-casing happens in SQL
+			// rather than here so it follows the server's collation, and it leaves the escape character
+			// alone since that character has no case.
 			const term = params.case_sensitive
-				? `'${quoteLiteral(params.term)}'`
-				: `lower('${quoteLiteral(params.term)}')`;
+				? `'${quoteLiteral(escapeLikeWildcards(params.term))}'`
+				: `lower('${quoteLiteral(escapeLikeWildcards(params.term))}')`;
 			switch (params.search_type) {
 				case TextSearchType.Contains:
-					return `${searchArg} LIKE '%' || ${term} || '%'`;
+					return `${searchArg} LIKE '%' || ${term} || '%'${LIKE_ESCAPE_CLAUSE}`;
 				case TextSearchType.NotContains:
-					return `${searchArg} NOT LIKE '%' || ${term} || '%'`;
+					return `${searchArg} NOT LIKE '%' || ${term} || '%'${LIKE_ESCAPE_CLAUSE}`;
 				case TextSearchType.StartsWith:
-					return `${searchArg} LIKE ${term} || '%'`;
+					return `${searchArg} LIKE ${term} || '%'${LIKE_ESCAPE_CLAUSE}`;
 				case TextSearchType.EndsWith:
-					return `${searchArg} LIKE '%' || ${term}`;
+					return `${searchArg} LIKE '%' || ${term}${LIKE_ESCAPE_CLAUSE}`;
 				case TextSearchType.RegexMatch: {
 					const op = params.case_sensitive ? '~' : '~*';
 					return `${quotedName} ${op} '${quoteLiteral(params.term)}'`;
@@ -401,7 +429,11 @@ export class PostgresTableView {
 				return formatFloat(num, opts);
 			}
 			case ColumnDisplayType.Integer: {
-				const num = typeof value === 'bigint' ? value : Number(value);
+				// `pg` hands back int8/bigint as an exact string precisely because a JS number cannot hold
+				// it, so that string is formatted as-is rather than being coerced and rounded past 2^53.
+				// Anything else -- a plain number, or a string that isn't a clean integer literal -- is
+				// coerced as before.
+				const num = typeof value === 'bigint' || isIntegerLiteral(value) ? value : Number(value);
 				return formatInteger(num, opts);
 			}
 			case ColumnDisplayType.Boolean:
@@ -896,8 +928,23 @@ function formatFloat(value: number, opts: FormatOptions): string {
 	return opts.thousands_sep ? applyThousandsSep(formatted, opts.thousands_sep) : formatted;
 }
 
-/** Formats an integer value (number or bigint), optionally with a thousands separator. */
-function formatInteger(value: number | bigint, opts: FormatOptions): string {
+/**
+ * Whether a value is an exact integer literal: a string of digits with an optional sign. `pg` returns
+ * int8/bigint in this form, and it is only safe to format such a string as-is when it holds nothing
+ * but digits -- anything else (an exponent, a decimal point, stray text) still goes through `Number`
+ * so it is normalized rather than printed raw.
+ */
+function isIntegerLiteral(value: unknown): value is string {
+	return typeof value === 'string' && /^[+-]?\d+$/.test(value);
+}
+
+/**
+ * Formats an integer value, optionally with a thousands separator. Accepts an exact digit string
+ * alongside number and bigint so a wide int8 keeps every digit: the body only stringifies its
+ * argument, and `applyThousandsSep` groups the digits textually, so no step here narrows the value to
+ * a JS number.
+ */
+function formatInteger(value: number | bigint | string, opts: FormatOptions): string {
 	const formatted = value.toString();
 	return opts.thousands_sep ? applyThousandsSep(formatted, opts.thousands_sep) : formatted;
 }

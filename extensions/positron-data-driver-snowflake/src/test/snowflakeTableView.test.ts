@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileType, ColumnSchema, FilterComparisonOp, FormatOptions, RowFilter, RowFilterCondition, RowFilterType } from 'positron-data-explorer-protocol';
+import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileType, ColumnSchema, FilterComparisonOp, FormatOptions, RowFilter, RowFilterCondition, RowFilterType, TextSearchType } from 'positron-data-explorer-protocol';
 import { ISnowflakeQueryClient, makeWhereExpr, SnowflakeSchemaEntry, SnowflakeTableView } from '../snowflakeTableView.js';
 
 // Minimal format options; only the numeric-summary path reads them.
@@ -276,5 +276,42 @@ suite('Snowflake Row Filter SQL', () => {
 	test('string comparisons are quoted; numbers pass through unquoted', () => {
 		assert.strictEqual(makeWhereExpr(compareFilter('name', ColumnDisplayType.String, "O'Brien")), `"name" = 'O''Brien'`);
 		assert.strictEqual(makeWhereExpr(compareFilter('n', ColumnDisplayType.Integer, '42')), `"n" = 42`);
+	});
+
+	function searchFilter(search_type: TextSearchType, term: string, case_sensitive: boolean): RowFilter {
+		return {
+			filter_id: 'f',
+			filter_type: RowFilterType.Search,
+			column_schema: columnSchema('name', ColumnDisplayType.String),
+			condition: RowFilterCondition.And,
+			params: { search_type, term, case_sensitive },
+		};
+	}
+
+	test('LIKE wildcards in the search term are escaped so they match literally', () => {
+		// Unescaped, '10%' would match anything starting with 10, and 'a_b' would match 'axb'.
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.Contains, '10%', true)), `"name" LIKE '%' || '10!%' || '%' ESCAPE '!'`);
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.StartsWith, 'a_b', true)), `"name" LIKE 'a!_b' || '%' ESCAPE '!'`);
+		// The escape character itself is escaped, in one pass, so it is never double-escaped.
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.EndsWith, 'wow!', true)), `"name" LIKE '%' || 'wow!!' ESCAPE '!'`);
+	});
+
+	test('every LIKE variant carries the ESCAPE clause that gives those escapes meaning', () => {
+		const variants = [TextSearchType.Contains, TextSearchType.NotContains, TextSearchType.StartsWith, TextSearchType.EndsWith]
+			.map(type => makeWhereExpr(searchFilter(type, '50%_off', false)));
+
+		assert.deepStrictEqual(variants, [
+			`lower("name") LIKE '%' || lower('50!%!_off') || '%' ESCAPE '!'`,
+			`lower("name") NOT LIKE '%' || lower('50!%!_off') || '%' ESCAPE '!'`,
+			`lower("name") LIKE lower('50!%!_off') || '%' ESCAPE '!'`,
+			`lower("name") LIKE '%' || lower('50!%!_off') ESCAPE '!'`,
+		]);
+	});
+
+	test('regex search is left alone, since REGEXP_LIKE has no LIKE wildcards', () => {
+		// '%' and '_' carry no special meaning in a regex, so escaping them would corrupt the pattern.
+		assert.strictEqual(
+			makeWhereExpr(searchFilter(TextSearchType.RegexMatch, '^10%_$', true)),
+			`REGEXP_LIKE("name", '.*' || '^10%_$' || '.*', 'c')`);
 	});
 });

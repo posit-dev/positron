@@ -1028,7 +1028,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return Promise.resolve(this._runtimeSessions[handle].openResource!(resource));
 	}
 
-	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation, _executionId?: string, executionMetadata?: Record<string, unknown>): void {
+	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation, _executionId?: string, executionMetadata?: Record<string, unknown>): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot execute code: session handle '${handle}' not found or no longer valid.`);
 		}
@@ -1042,7 +1042,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			};
 		}
 
-		this._runtimeSessions[handle].execute(code, id, mode, errorBehavior, codeLocationRevived, executionMetadata);
+		// Wrap in Promise.resolve so both void- and thenable-returning session
+		// implementations work, and so a thrown/rejected error propagates back
+		// over RPC (preserving error.name for CodeIncompleteError etc.).
+		return Promise.resolve(this._runtimeSessions[handle].execute(code, id, mode, errorBehavior, codeLocationRevived, executionMetadata));
 	}
 
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus> {
@@ -1821,6 +1824,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>):
 		Promise<Array<QueryTableSummaryResult>> {
 		return this._proxy.$querySessionTables(sessionId, accessKeys, queryTypes);
+	}
+
+	public getConsoleHistory(sessionId: string, numberOfEntries?: number): Promise<extHostProtocol.ISerializedConsoleHistoryEntry[]> {
+		return this._proxy.$getConsoleHistory(sessionId, numberOfEntries);
 	}
 
 	/**

@@ -32,6 +32,7 @@ Opens a PR against posit-dev/positron bumping the Ark submodule.
   --dry-run    print the PR body to stdout; no branch, ref, or PR is touched"""
 
 ARK_REPO = "posit-dev/ark"
+ARK_BASE_BRANCH = "main"
 POSITRON_REPO = "posit-dev/positron"
 SUBMODULE_PATH = "extensions/positron-r/ark"
 BASE_BRANCH = "main"
@@ -112,9 +113,14 @@ def build_bump(
     walk = first_parent_commits(
         compare.merge_base, resolution.sha, compare.commit_map, compare.total_commits
     )
-    commit_lines = "\n".join(commit_line(sha, subject) for sha, subject in walk)
 
-    notes = collect_release_notes(walk, resolution.open_pr_number)
+    associations = pr_associations(walk, resolution.target_pr)
+    chain, chain_messages = stack_chain(resolution.target_pr, associations.unmerged)
+    for message in chain_messages:
+        eprint(message)
+    commit_lines = walk_lines(group_walk(walk, associations, chain))
+
+    notes = collect_release_notes(associations, chain)
     closes = "\n".join(f"Closes #{n}" for n in notes["closes"])
     body = build_body(closes, tag_line(tag_args), notes["notes"], commit_lines)
 
@@ -156,15 +162,37 @@ def check_gh():
 
 
 @dataclass
+class UnmergedPr:
+    number: int
+    title: str
+    body: str
+    base_ref: str
+    head_ref: str
+
+
+@dataclass
 class Resolution:
     sha: str
     title: str
     branch: str
-    # Set only on an open PR bump: its head commit belongs to the still-open PR,
-    # which the walk's merged-only filter drops, so its notes are added by number
-    # instead. None on a merged PR bump and a main bump, whose notes ride the walk.
-    open_pr_number: Optional[str]
+    # Set only on an unmerged PR bump. The target's own commits, and those of the
+    # PRs it is stacked on, belong to no merged PR, so the walk's merged-only
+    # filter can't see them. None on a merged PR bump and a main bump, whose
+    # notes ride the walk.
+    target_pr: Optional[UnmergedPr]
     is_pr_bump: bool
+
+
+def unmerged_pr(pr: dict) -> UnmergedPr:
+    base = pr.get("base") or {}
+    head = pr.get("head") or {}
+    return UnmergedPr(
+        number=pr["number"],
+        title=pr.get("title") or "",
+        body=pr.get("body") or "",
+        base_ref=base.get("ref") or "",
+        head_ref=head.get("ref") or "",
+    )
 
 
 # Each logical bump gets a single fixed branch it advances in place. A PR bump
@@ -173,7 +201,7 @@ class Resolution:
 # main bump uses `bump-ark/main` and tracks the latest Ark main.
 def resolve_target(arg: str) -> Resolution:
     if arg == "main":
-        sha = gh_json("api", f"repos/{ARK_REPO}/commits/main")["sha"]
+        sha = gh_json("api", f"repos/{ARK_REPO}/commits/{ARK_BASE_BRANCH}")["sha"]
         return Resolution(sha, "Bump Ark to latest main", "bump-ark/main", None, False)
 
     if not arg.isdigit():
@@ -226,7 +254,7 @@ def pr_resolution(pr_number: str, pr: dict) -> tuple[Resolution, list[str]]:
             "       The submodule can't resolve to a fork commit, so refusing to bump."
         )
 
-    return Resolution(head["sha"], title, branch, pr_number, True), messages
+    return Resolution(head["sha"], title, branch, unmerged_pr(pr), True), messages
 
 
 # --- ancestry ---------------------------------------------------------------
@@ -394,30 +422,148 @@ def walk_first_parents(
     return walk
 
 
+# --- PR associations and stacking -------------------------------------------
+
+
+@dataclass
+class PrAssociations:
+    # PR number -> body, for the merged PRs behind the walked commits.
+    merged_bodies: dict[int, str]
+    # PR number -> PR, for the unmerged PRs whose branch contains a walked commit.
+    unmerged: dict[int, UnmergedPr]
+    # Walked commit sha -> the unmerged PRs GitHub associates with it.
+    commit_prs: dict[str, list[int]]
+
+
+@dataclass
+class GroupEntry:
+    # None for a commit rendered on its own, otherwise the PR whose commits this
+    # entry collapses.
+    pr_number: Optional[int]
+    # The entry's own commit, or the newest of the group.
+    sha: str
+    subject: str
+    count: int
+    title: str = ""
+
+
+# Fetch, for every walked commit, every PR whose branch contains it. Splits them
+# into merged PR bodies and unmerged PRs, plus the per-commit association lists
+# `group_walk` needs to attribute a commit to the right PR in a stack.
+#
+# `target_pr` seeds `unmerged` before the walk, so an unmerged bump target that
+# GitHub's association list happens to omit still roots its stack.
+def pr_associations(
+    walk: list[tuple[str, str]], target_pr: Optional[UnmergedPr]
+) -> PrAssociations:
+    merged_bodies: dict[int, str] = {}
+    unmerged: dict[int, UnmergedPr] = {}
+    commit_prs: dict[str, list[int]] = {}
+
+    if target_pr is not None:
+        unmerged[target_pr.number] = target_pr
+
+    for sha, _ in walk:
+        for pr in gh_json("api", f"repos/{ARK_REPO}/commits/{sha}/pulls") or []:
+            number = pr["number"]
+            if pr.get("merged_at"):
+                merged_bodies.setdefault(number, pr.get("body") or "")
+            else:
+                unmerged.setdefault(number, unmerged_pr(pr))
+                commit_prs.setdefault(sha, []).append(number)
+
+    return PrAssociations(merged_bodies, unmerged, commit_prs)
+
+
+# The target's stack, top first, ending at the PR based on Ark main, plus the
+# stderr messages the caller should emit. Each step matches a PR's base branch
+# against the head branch of another unmerged PR, so it recognizes a stack however
+# it was built. `target_pr` is None on a merged PR bump and a main bump, neither of
+# which has a stack, so they get back `([], [])`.
+#
+# The chain stops at a base branch no unmerged PR heads, which is silent because
+# that also covers the ordinary case of a branch pushed without a PR. The commits
+# below such a branch stay listed individually.
+def stack_chain(
+    target_pr: Optional[UnmergedPr], unmerged: dict[int, UnmergedPr]
+) -> tuple[list[int], list[str]]:
+    if target_pr is None:
+        return [], []
+
+    chain = [target_pr.number]
+    current = target_pr
+
+    while current.base_ref != ARK_BASE_BRANCH:
+        next_pr = next(
+            (
+                pr
+                for pr in unmerged.values()
+                if pr.head_ref == current.base_ref and pr.number not in chain
+            ),
+            None,
+        )
+        if next_pr is None:
+            break
+        chain.append(next_pr.number)
+        current = next_pr
+
+    messages = []
+    if len(chain) > 1:
+        stacked_on = ", ".join(f"#{number}" for number in chain[1:])
+        messages.append(
+            f"PR #{chain[0]} is stacked on {stacked_on}. Collapsing each PR's commits into one line."
+        )
+
+    return chain, messages
+
+
+# Group the walk into one entry per `chain` PR, collapsing its commits, and one
+# entry per commit belonging to no `chain` PR. A commit's owner is the `chain` PR
+# closest to Ark main among those associated with it, because every PR's branch
+# contains the commits of the PRs below it, so a bottom-of-stack commit is listed
+# under the whole stack above it too. Unmerged PRs outside `chain` are ignored,
+# which keeps a mid-stack target from pulling in the PRs stacked above it.
+def group_walk(
+    walk: list[tuple[str, str]], associations: PrAssociations, chain: list[int]
+) -> list[GroupEntry]:
+    chain_index = {number: index for index, number in enumerate(chain)}
+    entries: list[GroupEntry] = []
+    entry_by_pr: dict[int, GroupEntry] = {}
+
+    for sha, subject in walk:
+        candidates = [
+            n for n in associations.commit_prs.get(sha, []) if n in chain_index
+        ]
+        owner = max(candidates, key=lambda n: chain_index[n]) if candidates else None
+
+        if owner is None:
+            entries.append(GroupEntry(None, sha, subject, 1))
+            continue
+
+        entry = entry_by_pr.get(owner)
+        if entry is None:
+            entry = GroupEntry(
+                owner, sha, subject, 1, associations.unmerged[owner].title
+            )
+            entry_by_pr[owner] = entry
+            entries.append(entry)
+        else:
+            entry.count += 1
+
+    return entries
+
+
 # --- release notes ----------------------------------------------------------
 
 
-# Gather the merged Ark PRs behind the walked commits, plus the target PR itself
-# on an open PR bump, and hand their bodies to the vendored release-notes parser.
-#
-# On an open PR bump the target PR is added explicitly: its head commit is
-# associated only with the still-open PR, which the `merged_at` filter drops, yet
-# its notes are the point of the bump. On a merged PR bump `open_pr_number` is
-# empty, because the merge commit already surfaces the PR through the walk. The
-# dict keeps the first body seen per PR number, collapsing a PR that spans several
-# walked commits (or the target reappearing among a commit's associated PRs).
-def collect_release_notes(
-    walk: list[tuple[str, str]], open_pr_number: Optional[str]
-) -> dict:
-    bodies: dict[int, str] = {}
-    for sha, _ in walk:
-        for pr in gh_json("api", f"repos/{ARK_REPO}/commits/{sha}/pulls") or []:
-            if pr.get("merged_at"):
-                bodies.setdefault(pr["number"], pr.get("body") or "")
-
-    if open_pr_number:
-        pr = gh_json("api", f"repos/{ARK_REPO}/pulls/{open_pr_number}")
-        bodies.setdefault(pr["number"], pr.get("body") or "")
+# Gather the release notes of every merged PR behind the walked commits and of
+# every PR in the target's stack, and hand their bodies to the vendored
+# release-notes parser. `chain` order (top first) matches the newest-first
+# ordering the rest of the body uses.
+def collect_release_notes(associations: PrAssociations, chain: list[int]) -> dict:
+    bodies = dict(associations.merged_bodies)
+    for number in chain:
+        bodies.setdefault(number, associations.unmerged[number].body)
 
     return build_notes([{"number": n, "body": b} for n, b in bodies.items()])
 
@@ -436,14 +582,39 @@ def tag_line(tags: list[str]) -> str:
     return " ".join(result)
 
 
+# Escape brackets in link text, so a stray `[`/`]` (e.g. `[skip ci]`) can't break
+# the surrounding markdown link syntax.
+def escape_brackets(text: str) -> str:
+    return text.replace("[", r"\[").replace("]", r"\]")
+
+
 # Render a walked commit as a markdown link to the Ark commit. The link does
 # double duty: it points at the Ark side, and it stops GitHub from autolinking the
 # `(#NNNN)` Ark PR reference in the subject to a Positron issue of the same number,
-# since autolinking doesn't fire inside link text. Brackets in the subject are
-# escaped so a stray `[`/`]` (e.g. `[skip ci]`) can't break the link syntax.
+# since autolinking doesn't fire inside link text.
 def commit_line(sha: str, subject: str) -> str:
-    text = subject.replace("[", r"\[").replace("]", r"\]")
-    return f"- [{text}](https://github.com/{ARK_REPO}/commit/{sha})"
+    return f"- [{escape_brackets(subject)}](https://github.com/{ARK_REPO}/commit/{sha})"
+
+
+# Render an unmerged PR's collapsed group as a markdown link to the PR, the
+# squash-merge-style line it will get once the PR merges. Same link-text
+# placement of `(#N)` as `commit_line`, for the same autolinking reason.
+def pr_line(number: int, title: str, count: int) -> str:
+    text = escape_brackets(f"{title} (#{number})")
+    unit = "commit" if count == 1 else "commits"
+    return f"- [{text}](https://github.com/{ARK_REPO}/pull/{number}) ({count} unmerged {unit})"
+
+
+# Render the `### Commits` block: a `pr_line` for an entry with a `pr_number`, a
+# `commit_line` otherwise.
+def walk_lines(entries: list[GroupEntry]) -> str:
+    lines = []
+    for entry in entries:
+        if entry.pr_number is None:
+            lines.append(commit_line(entry.sha, entry.subject))
+        else:
+            lines.append(pr_line(entry.pr_number, entry.title, entry.count))
+    return "\n".join(lines)
 
 
 # Assemble the PR body. `Closes` lines go first (GitHub reads closing keywords

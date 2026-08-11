@@ -5,7 +5,7 @@
 		<meta http-equiv="Content-Security-Policy" content="
 			default-src 'none';
 			child-src 'self' data: blob:;
-			script-src 'self' 'unsafe-eval' 'sha256-0uuk6gBMVybxcszoThLPB6VN0YTufyw2SDD+rBV+uvI=' https: http://localhost:* blob:;
+			script-src 'self' 'unsafe-eval' 'sha256-ghZYhGSRQSQb5D/2cH7lc4GsDuoiyAikrw/Ur/xPKc0=' https: http://localhost:* blob:;
 			connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*;"/>
 		<!-- End PWB: serve same origin -->
 	</head>
@@ -17,14 +17,23 @@
 	// DO NOT CHANGE the name of the worker without also updating js-debug, as that
 	// is used to filter targets to attach to (e.g. #232544)
 	const name = searchParams.get('debugged') ? 'DebugExtensionHostWorker' : 'ExtensionHostWorker';
-	const parentOrigin = searchParams.get('parentOrigin') || window.origin;
+	const parentOriginParam = searchParams.get('parentOrigin');
+	const parentOrigin = parentOriginParam || window.origin;
 	const salt = searchParams.get('salt');
 
 	(async function () {
 		const hostnameValidationMarker = 'v--';
 		const hostname = location.hostname;
 		if (!hostname.startsWith(hostnameValidationMarker)) {
-			// validation not requested
+			// Validation not requested by the hosting origin. In this configuration the iframe is
+			// expected to be same-origin with its parent, so a caller-supplied `parentOrigin` that
+			// differs from `window.origin` must be rejected. Otherwise an attacker who can trick a
+			// user into navigating to this static page could supply their own `parentOrigin`, receive
+			// the bootstrap handshake, and cause the iframe to `import()` attacker-controlled worker
+			// code inside the authenticated origin.
+			if (parentOriginParam && parentOriginParam !== window.origin) {
+				return sendError(new Error(`Refusing to load: 'parentOrigin' does not match window origin and hostname validation is not enabled.`));
+			}
 			return start();
 		}
 		// --- Start PWB: server same origin ---
@@ -33,8 +42,7 @@
 			if (parent.hostname === hostname) {
 				return start(parentOrigin);
 			}
-		}
-		// --- End PWB: server same origin ---
+		} // --- End PWB: server same origin ---
 		if (!crypto.subtle) {
 			// cannot validate, not running in a secure context
 			return sendError(new Error(`Cannot validate in current context!`));

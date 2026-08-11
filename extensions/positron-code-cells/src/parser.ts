@@ -16,8 +16,8 @@ export enum CellType {
 }
 
 export interface CellParser {
-	isCellStart(line: string): boolean;
-	isCellEnd(line: string): boolean;
+	isCellStart(line: string, additionalCellDelimiter: string): boolean;
+	isCellEnd(line: string, additionalCellDelimiter: string): boolean;
 	getCellType(line: string): CellType;
 	getCellText(cell: Cell, document: vscode.TextDocument): string;
 	newCell(): string;
@@ -64,14 +64,18 @@ const pythonMarkdownRegExp = new RegExp(/^#\s*%%[^[]*\[markdown\]/);
 const rIsCellStartRegExp = new RegExp(/^#\s*(%%|\+)/);
 const rIsSectionHeaderRegExp = new RegExp(/^#+.*[-=]{4,}\s*$/);
 
+// Reading a configuration value is expensive: each call rebuilds and clones the
+// consolidated configuration model in the extension host. Callers must read the
+// delimiter once per parse and pass it down to the line predicates, never once
+// per line of the document. See https://github.com/posit-dev/positron/issues/14990.
 function getAdditionalCellDelimiter(): string {
 	return vscode.workspace.getConfiguration('codeCells').get('additionalCellDelimiter', '# COMMAND ----------');
 }
 
 // TODO: Expose an API to let extensions register parsers
 const pythonCellParser: CellParser = {
-	isCellStart: (line) => pythonIsCellStartRegExp.test(line) || line === getAdditionalCellDelimiter(),
-	isCellEnd: (_line) => false,
+	isCellStart: (line, additionalCellDelimiter) => pythonIsCellStartRegExp.test(line) || line === additionalCellDelimiter,
+	isCellEnd: () => false,
 	getCellType: (line) => pythonMarkdownRegExp.test(line) ? CellType.Markdown : CellType.Code,
 	getCellText: (cell, document) =>
 		cell.type === CellType.Code
@@ -81,8 +85,8 @@ const pythonCellParser: CellParser = {
 };
 
 const rCellParser: CellParser = {
-	isCellStart: (line) => rIsCellStartRegExp.test(line) || line === getAdditionalCellDelimiter(),
-	isCellEnd: (_line) => _line !== getAdditionalCellDelimiter() && rIsSectionHeaderRegExp.test(_line),
+	isCellStart: (line, additionalCellDelimiter) => rIsCellStartRegExp.test(line) || line === additionalCellDelimiter,
+	isCellEnd: (line, additionalCellDelimiter) => line !== additionalCellDelimiter && rIsSectionHeaderRegExp.test(line),
 	getCellType: (_line) => CellType.Code,
 	getCellText: getCellText,
 	newCell: () => '\n# %%\n'
@@ -99,11 +103,20 @@ export function getParser(languageId: string): CellParser | undefined {
 }
 
 // This function was adapted from the vscode-jupyter extension.
-export function parseCells(document: vscode.TextDocument): Cell[] {
+//
+// The delimiter reader is injectable so that tests can count how often it is
+// called; production callers use the default.
+export function parseCells(
+	document: vscode.TextDocument,
+	readAdditionalCellDelimiter: () => string = getAdditionalCellDelimiter,
+): Cell[] {
 	const parser = getParser(document.languageId);
 	if (!parser) {
 		return [];
 	}
+
+	// Read once for the whole document, before the loop over its lines.
+	const additionalCellDelimiter = readAdditionalCellDelimiter();
 
 	const cells: Cell[] = [];
 	let currentStart: vscode.Position | undefined;
@@ -112,7 +125,7 @@ export function parseCells(document: vscode.TextDocument): Cell[] {
 	for (let index = 0; index < document.lineCount; index += 1) {
 		const line = document.lineAt(index);
 
-		if (parser.isCellStart(line.text)) {
+		if (parser.isCellStart(line.text, additionalCellDelimiter)) {
 			// The current cell had no explicit end, close and push it now
 			if (currentStart !== undefined && currentType !== undefined && currentEnd === undefined) {
 				currentEnd = document.lineAt(index - 1).range.end;
@@ -126,7 +139,7 @@ export function parseCells(document: vscode.TextDocument): Cell[] {
 		}
 
 		if (currentStart !== undefined) {
-			if (parser.isCellEnd(line.text)) {
+			if (parser.isCellEnd(line.text, additionalCellDelimiter)) {
 				// The current cell has an explicit end
 				currentEnd = document.lineAt(index - 1).range.end;
 			} else if (index === document.lineCount - 1) {

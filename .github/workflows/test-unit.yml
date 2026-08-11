@@ -35,12 +35,16 @@ jobs:
   unit-tests:
     name: unit
     runs-on: ubuntu-latest-4x
-    timeout-minutes: 40
+    # The job takes ~37m when the npm caches hit, so 40m left no headroom: an
+    # evicted npm-extensions-stable entry adds ~4m (cold extension install plus
+    # the extra cache save) and the run got cancelled part-way through the
+    # browser tests. 60m absorbs a cold cache while still capping a hung run.
+    timeout-minutes: 60
     # Run inside the shared CI image, which bakes in the system dependencies,
     # Node (matching .nvmrc), and R 4.5.2 + test-files deps that this
     # job used to install at runtime. See posit-dev/positron-ci-images.
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
       # --shm-size: the Electron unit runner loads each test file's full module
       # graph over file://. A wide graph (>~256 parallel fetches) exhausts the
       # container's default 64MB /dev/shm and fails with "Failed to fetch

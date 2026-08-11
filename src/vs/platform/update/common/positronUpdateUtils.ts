@@ -28,6 +28,18 @@ export function buildUpdateUrl(
 }
 
 /**
+ * Builds the URL of the release notes markdown for a version on the update CDN.
+ *
+ * @param updateUrl The update CDN base URL (product.json's `updateUrl`)
+ * @param channel The release channel (e.g. 'releases')
+ * @param version The Positron calver version to fetch release notes for
+ * @returns The complete URL of the release notes markdown file
+ */
+export function buildReleaseNotesUrl(updateUrl: string, channel: string, version: string): string {
+	return `${updateUrl}/${channel}/release-notes/release-${version}.md`;
+}
+
+/**
  * A persisted record of the languages the user ran code in on a given UTC day.
  * Reported on the next update check so usage survives short sessions and cold
  * starts (the check often fires before any code has run in the current session).

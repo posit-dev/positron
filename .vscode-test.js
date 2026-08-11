@@ -104,6 +104,11 @@ const extensions = [
 		mocha: { timeout: 60_000 }
 	},
 	{
+		label: 'positron-data-driver-databricks',
+		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-databricks-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
 		label: 'positron-data-driver-duckdb',
 		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-duckdb-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
@@ -116,6 +121,11 @@ const extensions = [
 	{
 		label: 'positron-data-driver-postgresql',
 		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-postgresql-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
+		label: 'positron-data-driver-redshift',
+		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-redshift-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
 	},
 	{

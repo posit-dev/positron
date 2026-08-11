@@ -269,7 +269,13 @@ export enum RuntimeCodeExecutionMode {
 	 * Combined with pending code: No
 	 *          Stored in history: No
 	 */
-	Silent = 'silent'
+	Silent = 'silent',
+
+	/**
+	 * Unprocessed code execution: behaves like `Interactive`, but the code has
+	 * not been checked for completeness; the session checks it before executing.
+	 */
+	Unprocessed = 'unprocessed'
 }
 
 /**
@@ -492,20 +498,31 @@ export enum DataConnectionParameterType {
 
 export enum DataConnectionNodeKind {
 	Database = 'database',
+	// A catalog: the level above a schema in a three-part namespace, e.g. a Unity Catalog catalog
+	// (positron-data-driver-databricks).
+	Catalog = 'catalog',
 	Schema = 'schema',
 	Table = 'table',
 	View = 'view',
 	Field = 'field',
 	GroupDatabases = 'group-databases',
+	GroupCatalogs = 'group-catalogs',
 	GroupSchemas = 'group-schemas',
 	GroupTables = 'group-tables',
 	GroupViews = 'group-views',
 	GroupColumns = 'group-columns',
 	GroupIndexes = 'group-indexes',
 	GroupStages = 'group-stages',
+	GroupVolumes = 'group-volumes',
 	Index = 'index',
 	// A Snowflake stage: a named location for staging files (positron-data-driver-snowflake).
 	Stage = 'stage',
+	// A Unity Catalog volume: a governed location for non-tabular files
+	// (positron-data-driver-databricks).
+	Volume = 'volume',
+	// A directory inside a volume, and a file inside one.
+	Directory = 'directory',
+	File = 'file',
 	// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
 	Owner = 'owner',
 	// A pin on a Posit Connect server (positron-data-driver-pins).

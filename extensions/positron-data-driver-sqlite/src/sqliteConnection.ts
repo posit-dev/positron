@@ -54,11 +54,13 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 	 * @param _databasePath Absolute path to the SQLite database file.
 	 * @param _readOnly Whether to open the database in read-only mode.
 	 * @param _dataExplorerHandler Hosts table views previewed in the Data Explorer.
+	 * @param _logger Optional diagnostic log sink for connection lifecycle events.
 	 */
 	constructor(
 		private readonly _databasePath: string,
 		private readonly _readOnly: boolean,
-		private readonly _dataExplorerHandler: ISqliteDataExplorerHost
+		private readonly _dataExplorerHandler: ISqliteDataExplorerHost,
+		private readonly _logger?: positron.DataConnectionLogger
 	) { }
 
 	/**
@@ -67,6 +69,7 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 	 * (e.g. a missing file, or a file that is not a valid SQLite database).
 	 */
 	async connect(): Promise<void> {
+		this._logger?.info(`Opening ${this._databasePath}${this._readOnly ? ' (read-only)' : ''}`);
 		const client = new SqliteWorkerClient({ databasePath: this._databasePath, readOnly: this._readOnly });
 		try {
 			// Probe the connection so an open failure surfaces here rather than on
@@ -76,8 +79,11 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 			this._client = client;
 		} catch (err) {
 			client.dispose();
+			const message = err instanceof Error ? err.message : String(err);
+			this._logger?.error(`Failed to open ${this._databasePath}: ${message}`);
 			throw new Error(describeOpenError(err as SqliteError, this._databasePath));
 		}
+		this._logger?.info(`Opened ${this._databasePath}`);
 	}
 
 	/**
@@ -92,9 +98,10 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 	/**
 	 * Opens the given table or view in the Data Explorer. Registers a table view with the RPC
 	 * handler under a stable per-connection dataset id, then asks Positron to open (or focus) the
-	 * explorer backed by this extension's RPC command.
+	 * explorer backed by this extension's RPC command. Returns the dataset id it was opened under,
+	 * which Positron uses to tell that this connection has a Data Explorer open on it.
 	 */
-	async previewObject(name: string, kind: 'table' | 'view'): Promise<void> {
+	async previewObject(name: string, kind: 'table' | 'view'): Promise<string> {
 		this._ensureConnected();
 		const datasetId = `sqlite:${this._connectionId}:${kind}:${name}`;
 		await this._dataExplorerHandler.openTableView(datasetId, this._client!, name, kind);
@@ -104,13 +111,15 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 			datasetId,
 			displayName: name,
 		});
+		return datasetId;
 	}
 
 	/**
 	 * Opens a single column of the given table or view in the Data Explorer as a one-column grid.
-	 * Uses a dataset id distinct from the table's so both can be open at once.
+	 * Uses a dataset id distinct from the table's so both can be open at once. Returns the dataset id
+	 * it was opened under.
 	 */
-	async previewColumn(tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
+	async previewColumn(tableName: string, kind: 'table' | 'view', columnName: string): Promise<string> {
 		this._ensureConnected();
 		const datasetId = `sqlite:${this._connectionId}:column:${tableName}.${columnName}`;
 		await this._dataExplorerHandler.openColumnView(datasetId, this._client!, tableName, kind, columnName);
@@ -120,6 +129,7 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 			datasetId,
 			displayName: `${tableName}.${columnName}`,
 		});
+		return datasetId;
 	}
 
 	/** Returns whether this connection was opened in read-only mode. */

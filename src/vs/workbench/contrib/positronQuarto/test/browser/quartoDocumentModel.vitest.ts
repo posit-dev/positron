@@ -625,5 +625,74 @@ x = 1
 		});
 	});
 
+	// Callers that read `cells` to decide something about the document need to
+	// tell "this document has no cells" apart from "the cells aren't known yet".
+	describe('isParsed', () => {
+		it('is false while a debounced re-parse is pending, and true once it lands', async () => {
+			const textModel = createTextModel('Just some markdown.\n', null, undefined, URI.file('/test.qmd'));
+			ctx.disposables.add(textModel);
+			const model = new QuartoDocumentModel(textModel, logService);
+			ctx.disposables.add(model);
+
+			expect(model.isParsed).toBe(true);
+
+			textModel.setValue('```{python}\nx = 1\n```\n');
+			expect(model.isParsed).toBe(false);
+
+			await model.whenParsed();
+
+			expect(model.isParsed).toBe(true);
+			expect(model.cells.length).toBe(1);
+		});
+
+		it('whenParsed resolves without waiting when no re-parse is pending', async () => {
+			const model = createModel('Just some markdown.\n');
+
+			await expect(model.whenParsed()).resolves.toBeUndefined();
+		});
+
+		it('whenParsed resolves for a waiter that arrived before a further edit rescheduled the parse', async () => {
+			const textModel = createTextModel('Just some markdown.\n', null, undefined, URI.file('/test.qmd'));
+			ctx.disposables.add(textModel);
+			const model = new QuartoDocumentModel(textModel, logService);
+			ctx.disposables.add(model);
+
+			textModel.setValue('```{python}\nx = 1\n```\n');
+			const waiter = model.whenParsed();
+			// Restarts the debounce; the waiter above must still be released.
+			textModel.setValue('```{python}\nx = 2\n```\n');
+
+			await expect(waiter).resolves.toBeUndefined();
+			expect(model.isParsed).toBe(true);
+		});
+	});
+
+	describe('synchronize', () => {
+		it('flushes a pending debounced re-parse without awaiting', () => {
+			const textModel = createTextModel('```{r}\nx <- 1\n```\n', null, undefined, URI.file('/test.qmd'));
+			ctx.disposables.add(textModel);
+			const model = new QuartoDocumentModel(textModel, logService);
+			ctx.disposables.add(model);
+
+			textModel.setValue('```{r}\nx <- 1\ny <- 2\n```\n');
+			expect(model.isParsed).toBe(false);
+
+			model.synchronize();
+
+			expect(model.isParsed).toBe(true);
+			expect(model.cells[0].codeEndLine).toBe(3);
+		});
+
+		it('is a no-op when no re-parse is pending', () => {
+			const model = createModel('```{r}\nx <- 1\n```\n');
+			const parses = vi.fn();
+			ctx.disposables.add(model.onDidParse(parses));
+
+			model.synchronize();
+
+			expect(parses).not.toHaveBeenCalled();
+			expect(model.isParsed).toBe(true);
+		});
+	});
 
 });

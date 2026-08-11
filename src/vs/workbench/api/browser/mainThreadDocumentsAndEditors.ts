@@ -33,6 +33,11 @@ import { IPaneCompositePartService } from '../../services/panecomposite/browser/
 import { ViewContainerLocation } from '../../common/views.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { IQuickDiffModelService } from '../../contrib/scm/browser/quickDiffModel.js';
+// --- Start Positron ---
+// Used by `registerHiddenTextEditor`, which lets Positron expose an editor to the extension host
+// without adding it to the core documents-and-editors state.
+import { IHiddenTextEditorRegistration, IMainThreadHiddenEditorManager, MainPositronContext } from '../common/positron/extHost.positron.protocol.js';
+// --- End Positron ---
 
 
 class TextEditorSnapshot {
@@ -274,7 +279,13 @@ class MainThreadDocumentAndEditorStateComputer {
 }
 
 @extHostCustomer
-export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator {
+// --- Start Positron ---
+// Additionally implement IMainThreadHiddenEditorManager so MainThreadConsoleService can register
+// the console input editor without it leaking into core editor APIs (see
+// `registerHiddenTextEditor` below).
+// export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator {
+export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator, IMainThreadHiddenEditorManager {
+	// --- End Positron ---
 
 	private readonly _toDispose = new DisposableStore();
 	private readonly _proxy: ExtHostDocumentsAndEditorsShape;
@@ -310,6 +321,11 @@ export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator {
 
 		// It is expected that the ctor of the state computer calls our `_onDelta`.
 		this._toDispose.add(new MainThreadDocumentAndEditorStateComputer(delta => this._onDelta(delta), _modelService, codeEditorService, this._editorService, paneCompositeService));
+
+		// --- Start Positron ---
+		// Register this instance so MainThreadConsoleService can reach it via getRaw.
+		extHostContext.set(MainPositronContext.MainThreadHiddenEditorManager, this);
+		// --- End Positron ---
 	}
 
 	dispose(): void {
@@ -433,4 +449,42 @@ export class MainThreadDocumentsAndEditors implements IMainThreadEditorLocator {
 	getEditor(id: string): MainThreadTextEditor | undefined {
 		return this._textEditors.get(id);
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Registers an editor that is deliberately hidden from the core editor pipeline: it is never
+	 * sent through `$acceptDocumentsAndEditorsDelta`, so it does not appear in
+	 * `vscode.window.visibleTextEditors`, never becomes `vscode.window.activeTextEditor`, and
+	 * never raises `vscode.window.onDidChangeTextEditorSelection` and friends.
+	 *
+	 * The editor is only added to the main-thread editor map, so that operations the extension host
+	 * addresses by id (`edit()`, `insertSnippet()`, selection writes) can resolve it. It is up to
+	 * the caller to forward `addData` and `onPropertiesChanged` to the extension host over a
+	 * Positron-specific channel; see `MainThreadConsoleService` for the console input editor that
+	 * backs `positron.window.activeConsoleEditor`.
+	 */
+	registerHiddenTextEditor(id: string, codeEditor: ICodeEditor, model: ITextModel): IHiddenTextEditorRegistration {
+		const editor = new MainThreadTextEditor(
+			id,
+			model,
+			codeEditor,
+			{ onGainedFocus() { }, onLostFocus() { } },
+			this._mainThreadDocuments,
+			this._modelService,
+			this._clipboardService,
+		);
+		this._textEditors.set(id, editor);
+
+		return {
+			addData: this._toTextEditorAddData(editor),
+			onPropertiesChanged: editor.onPropertiesChanged,
+			dispose: () => {
+				this._textEditors.delete(id);
+				// Disposing the editor also disposes its `onPropertiesChanged` emitter, so no
+				// further state can be forwarded for an id the caller is about to retire.
+				editor.dispose();
+			}
+		};
+	}
+	// --- End Positron ---
 }

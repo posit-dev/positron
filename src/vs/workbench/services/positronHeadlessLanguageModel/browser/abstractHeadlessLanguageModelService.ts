@@ -18,6 +18,7 @@ import {
 	FastCheap,
 	IAvailableModel,
 	IHeadlessLanguageModelService,
+	IModelListingDiagnostics,
 	IStreamTextRequest,
 	ModelSelection,
 	StreamTextResult,
@@ -28,10 +29,22 @@ import { type CredentialConfig, shapeCredentials } from 'ai-provider-bridge/cred
 
 interface IResolvedState {
 	readonly models: readonly IModelDescriptor[];
+	/**
+	 * Every model each provider returned, before the cross-provider de-duplication
+	 * that produces {@link models}. Kept for diagnostics: a provider whose models
+	 * all lost the dedupe contributes nothing to `models`, which otherwise looks
+	 * identical to the provider having returned nothing at all.
+	 */
+	readonly allModels: readonly IModelDescriptor[];
+	/** Providers actually queried this listing, whether or not they returned models. */
+	readonly queriedProviders: readonly string[];
 	readonly anyCredential: boolean;
 	/** Whether any enabled, registered provider was a candidate at all (vs. genuine absence). */
 	readonly anyProvider: boolean;
 }
+
+/** No engine, or the listing failed: nothing available, nothing queried. */
+const EMPTY_STATE: IResolvedState = { models: [], allModels: [], queriedProviders: [], anyCredential: false, anyProvider: false };
 
 /**
  * Built-in preference patterns for the fast/cheap model tier, tried in order
@@ -284,22 +297,43 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 	}
 
 	async getAvailableModels(): Promise<readonly IAvailableModel[]> {
-		// A transient failure yields an empty list (the list API has no reason
-		// slot); the state cache self-heals so the next call can recover.
-		let state: IResolvedState;
+		const state = await this.resolveState();
+		return state.models.map(model => ({ id: model.id, name: model.name, vendor: model.vendor }));
+	}
+
+	async getModelListingDiagnostics(): Promise<IModelListingDiagnostics> {
+		// Not resolveState(): its empty fallback would report a listing failure as
+		// "no provider was queried".
+		const state = await this._state.get();
+		return {
+			queriedProviders: state.queriedProviders,
+			models: state.allModels.map(model => ({
+				id: model.id,
+				name: model.name,
+				vendor: model.vendor,
+				providerId: model.providerId,
+			})),
+		};
+	}
+
+	/**
+	 * The cached listing state, or an empty one. A transient failure yields empty
+	 * (no accessor here has a reason slot); the state cache self-heals so the next
+	 * call can recover.
+	 */
+	private async resolveState(): Promise<IResolvedState> {
 		try {
-			state = await this._state.get();
+			return await this._state.get();
 		} catch (error) {
 			this._logService.warn(`[headless-lm] Listing available models failed: ${error}`);
-			return [];
+			return EMPTY_STATE;
 		}
-		return state.models.map(model => ({ id: model.id, name: model.name, vendor: model.vendor }));
 	}
 
 	private async computeState(): Promise<IResolvedState> {
 		const engine = this.getEngine();
 		if (!engine) {
-			return { models: [], anyCredential: false, anyProvider: false };
+			return EMPTY_STATE;
 		}
 
 		// Wait for the catalog snapshot before reading enablement/connection: a
@@ -341,8 +375,11 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 			}
 		}));
 
+		const allModels = byPriority(listed.flat());
 		return {
-			models: distinct(byPriority(listed.flat()), model => model.id),
+			models: distinct(allModels, model => model.id),
+			allModels,
+			queriedProviders: credentialed.map(entry => entry.providerId),
 			anyCredential: credentialed.length > 0,
 			anyProvider: relevant.length > 0,
 		};

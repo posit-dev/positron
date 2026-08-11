@@ -36,6 +36,14 @@ const lmstudio: IPositronLanguageModelSource = {
 	defaults: { baseUrl: 'http://localhost:1234/v1' },
 };
 
+const databricks: IPositronLanguageModelSource = {
+	type: PositronLanguageModelType.Chat,
+	provider: { id: 'databricks', displayName: 'Databricks' },
+	supportedOptions: ['apiKey', 'baseUrl'],
+	signedIn: false,
+	defaults: { baseUrl: 'https://adb-123.7.azuredatabricks.net' },
+};
+
 describe('ConnectProviderView', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -137,6 +145,12 @@ describe('ConnectProviderView', () => {
 		rtl.render(<ConnectProviderView source={lmstudio} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
 		expect(screen.getByLabelText(/base url/i)).toHaveValue('http://localhost:1234/v1');
 		expect(screen.queryByLabelText(/api key/i)).not.toBeInTheDocument();
+	});
+
+	it('labels the Databricks base URL input as the workspace URL', () => {
+		rtl.render(<ConnectProviderView source={databricks} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		expect(screen.getByLabelText('Workspace URL')).toHaveValue('https://adb-123.7.azuredatabricks.net');
+		expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
 	});
 
 	it('dispatches save with the base URL for a base-URL-only provider', async () => {

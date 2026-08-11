@@ -35,10 +35,12 @@ the stack up. Open http://localhost:8787 and log in as `user1` and password as s
 | `npm run pwb` | Bring the stack up. First run: pick versions and install. Already installed: (re)start and show status. Safe to re-run anytime. |
 | `npm run pwb -- --reinstall` | Re-run the pickers and reinstall, to switch Positron/Workbench versions. |
 | `npm run pwb -- --credentials=<type>` | Install with a managed data-source connection: `databricks`, `snowflake`, or `azure`. See [Managed credentials](#managed-credentials). |
+| `npm run pwb -- --workbench=<release\|daily\|URL> --positron=<release\|daily\|TAG>` | Skip the version pickers. Required when there is no TTY (agents, CI, piped runs). See [Non-interactive runs](#non-interactive-runs). |
 | `npm run pwb -- --ttl N` | Set the auto-stop to N minutes; `--no-ttl` disables it. |
 | `npm run pwb -- status` | Containers, installed versions, and URLs. |
 | `npm run pwb -- logs [svc]` | Tail logs: `rserver` (default), `connect`, or a container name. |
 | `npm run pwb -- shell [svc]` | Open a shell in a container: `test` (default), `postgres`, or `connect`. |
+| `npm run pwb -- --os=<os>` | Host OS for the test container: `ubuntu24` (default) or `rocky9`. |
 | `npm run pwb -- stop` | Pause the stack (containers stopped, volumes kept). |
 | `npm run pwb -- down` | Tear the stack down (removes containers and volumes). |
 
@@ -56,8 +58,60 @@ it was scheduled for, so a manual restart is never cut short. Change it with
 
 - **Positron**: choose Release or Daily, then pick a specific version.
 - **Workbench**: Release or Daily (each resolves to the current build, matching
-  the workbench-nightly CI), or a custom `.deb` URL to pin a specific build.
-  The URL is checked for format, arch, and reachability before install.
+  the workbench-nightly CI), or a custom package URL to pin a specific build.
+  The URL is checked for format, arch, and reachability before install -- including
+  that the package format matches the OS, so a `.deb` pinned against a `rocky9`
+  stack is rejected up front rather than at install time.
+
+## Non-interactive runs
+
+The pickers read from `/dev/tty`, so they can't be answered by an agent, a cron
+job, or a piped run. Name the builds up front instead and both pickers are
+skipped:
+
+```bash
+npm run pwb -- --workbench=daily --positron=release
+npm run pwb -- --reinstall --workbench=daily --positron=daily
+# pin exact builds
+npm run pwb -- --workbench=https://dl.dailies.rstudio.com/.../rstudio-workbench-...deb --positron=2026.08.0-304
+```
+
+`release` or `daily` resolves that channel's current build; anything else is used
+verbatim (a package URL for `--workbench`, a build tag for `--positron`).
+`WB_WORKBENCH` / `WB_POSITRON` in `.env` do the same. Without a TTY and without
+these flags the run now stops and tells you what to pass, rather than silently
+installing whichever build happened to be listed first.
+
+Note that the e2e suites which exercise newer Positron features (for example
+Data Connections) need `--positron=daily`; a release build can be too old and the
+test fails on a missing UI element rather than anything real.
+
+## Choosing the OS
+
+The stack runs on Ubuntu 24 by default. Pass `--os=rocky9` (or set `WB_OS` in
+`.env`) to run the same Workbench + Positron install on Rocky Linux 9 instead --
+the OS used by the Rocky e2e lane:
+
+```bash
+npm run pwb -- --os=rocky9 --workbench=daily --positron=daily
+```
+
+The two OSes differ in more than the base image, and all of it is handled for
+you: Rocky installs an `.rpm` (from the feed's `rhel9` entries) with `dnf`
+instead of a `.deb` with `apt`. The Workbench rpm's postinst installs systemd
+units, and this container has no systemd, so the installer copies the SysV init
+scripts it ships into `/etc/init.d/` and starts the session launcher directly --
+the launcher script Posit ships is unusable on EL9.
+
+`--os` changes the compose `image:`, which makes Compose recreate the `test`
+container. That wipes the in-container install, so **switching OS always
+reinstalls**; the run tells you when it is about to do that. Only one stack runs
+at a time locally either way, because the compose file pins `container_name` and
+fixed host ports.
+
+Once a stack exists, a bare `npm run pwb` **stays on whatever OS it already is**,
+so resuming a Rocky stack doesn't silently rebuild it as Ubuntu. Pass `--os`
+(or set `WB_OS`) to move it deliberately.
 
 ## Managed credentials
 

@@ -29,6 +29,7 @@ import { PositronAssistantToolsContribution } from './tools/positronAssistantToo
 import { IAiProviderService } from '../../../services/positronAiProvider/common/aiProviderService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
+import { CreateAIDiagnosticReportAction } from './aiDiagnostics.js';
 // Importing this module also registers the `ai.enabled` main switch for Positron's AI features.
 import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
 
@@ -38,6 +39,9 @@ import './inlineCompletionsMigration.js';
 
 // Register the commit message generation feature.
 registerCommitMessageGeneration();
+
+// Register the "AI: Create Diagnostic Report" command.
+registerAction2(CreateAIDiagnosticReportAction);
 
 const consoleLanguageIds = ['r', 'python'];
 

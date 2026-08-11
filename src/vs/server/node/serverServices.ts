@@ -122,7 +122,7 @@ import { HEADLESS_LM_ENGINE_CHANNEL } from '../../platform/positronHeadlessLangu
 import { HeadlessLanguageModelEngine } from '../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngine.js';
 import { HeadlessLanguageModelEngineChannel } from '../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngineChannel.js';
 import { POSITRON_AI_PROVIDER_CHANNEL } from '../../platform/positronAiProvider/common/aiProviderCatalog.js';
-import { AiProviderCatalog, createConfigurationLegacySettingsReader } from '../../platform/positronAiProvider/node/aiProviderCatalog.js';
+import { AiProviderCatalog } from '../../platform/positronAiProvider/node/aiProviderCatalog.js';
 import { AiProviderCatalogChannel } from '../../platform/positronAiProvider/node/aiProviderCatalogChannel.js';
 // --- End Positron ---
 
@@ -245,7 +245,7 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 		services.set(IServerTelemetryService, ServerNullTelemetryService);
 	}
 
-	services.set(IExtensionGalleryManifestService, new ExtensionGalleryManifestIPCService(socketServer, productService));
+	services.set(IExtensionGalleryManifestService, new ExtensionGalleryManifestIPCService(socketServer, logService, productService));
 	services.set(IMcpGalleryManifestService, new McpGalleryManifestIPCService(socketServer));
 	services.set(IExtensionGalleryService, new SyncDescriptor(ExtensionGalleryServiceWithNoStorageService));
 
@@ -338,7 +338,6 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 				connectionToken: bridgeToken,
 			},
 			logService,
-			serverLifetimeService,
 		));
 		socketServer.registerChannel(AgentHostIpcChannels.RemoteProxy, agentHostBridge);
 		logService.info(`[AgentHostChannel] Registered IPC channel '${AgentHostIpcChannels.RemoteProxy}' (upstream: ${bridgePath ?? `${bridgeHost}:${bridgePort}`})`);
@@ -416,12 +415,7 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 		// AI provider catalog: resolves providers.json + enforced/default env
 		// fragments where they live (this remote host's HOME/env); the
 		// workbench reaches it over this channel.
-		const aiProviderCatalog = disposables.add(new AiProviderCatalog(logService, {
-			// PROVIDER-SETTINGS-MIGRATION(legacy-positron): fold this host's view of
-			// the legacy settings (the remote machine settings) into the catalog
-			// until the migration window closes.
-			legacyPositronSettings: createConfigurationLegacySettingsReader(configurationService),
-		}));
+		const aiProviderCatalog = disposables.add(new AiProviderCatalog(logService));
 		socketServer.registerChannel(POSITRON_AI_PROVIDER_CHANNEL, new AiProviderCatalogChannel(aiProviderCatalog));
 		// --- End Positron ---
 		// clean up extensions folder

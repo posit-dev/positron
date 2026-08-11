@@ -2,18 +2,22 @@
 
 Shared reference for querying the `test-health` endpoint of the e2e-test-insights
 API (`https://connect.posit.it/e2e-test-insights-api`). Used today by
-`e2e-failure-analyzer` (run-centric) and `triage-e2e-test` (test-centric); any
+`e2e-failure-analyzer` (run-centric) and `debug-e2e-test` (test-centric); any
 skill may call it directly for a lightweight "does this test have known CI
-history" check. The API itself has no gate -- only the guided triage workflow
-in `triage-e2e-test` is manual-only, not the underlying script.
+history" check. The API itself has no gate.
 
 ## Auth
 
 Requires `E2E_INSIGHTS_API_KEY`. Falls back to the `.env.e2e` file at the repo
 root (same local secrets file the e2e Playwright suite uses; see
-`test/e2e/.env.e2e.example`) if the env var isn't set. If neither is present
-the script warns on stderr and returns `{}` with exit code 0 -- treat an empty
-response as "API unreachable," not "no failures."
+`.env.e2e.example`, also at the repo root) if the env var isn't set. If neither
+is present the script warns on stderr and returns `{}` with exit code 0 -- treat
+an empty response as "API unreachable," not "no failures."
+
+The key lives in 1Password at `op://Positron/E2E_dashboard_api_key/credential`
+(the same secret CI reads). To set it up locally, copy it into `.env.e2e` as
+`E2E_INSIGHTS_API_KEY=<key>`, or export it in your shell. Without 1Password
+access, ask the Positron QA team.
 
 ## `repo_id`
 
@@ -67,6 +71,12 @@ such ambiguity. Use it even for a single key.
   `"recurring"` / `"known_flaky"` (established pattern), `"rare_flake"`
   (infrequent).
 - `history.pass_rate` -- low = known flaky; 100% before this run = regression.
+- `window_start` -- the first date the lookback window covers (added by this
+  script from `lookback_days`, not by the API). Compare it against
+  `insight.timing_value` ("First seen ..."): a first failure at the window's
+  edge means the onset is unknown -- earlier occurrences are out of range, not
+  absent -- while clean runs between `window_start` and the first failure are
+  what make a "started here" claim meaningful.
 - `environment_breakdown` -- check this **before** concluding a test is
   "flaky": 0% pass on one OS/browser combo with 100% on others is a
   deterministic regression on that platform, not flakiness, even when the

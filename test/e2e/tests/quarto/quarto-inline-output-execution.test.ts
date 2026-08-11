@@ -18,6 +18,11 @@ test.describe('Quarto - Inline Output: Execution', {
 		await hotKeys.closeAllEditors();
 	});
 
+	test.afterAll(async function ({ cleanup }) {
+		// Both tests type into the cell; autoSave puts that on disk in the web lanes.
+		await cleanup.restoreFiles([join('workspaces', 'quarto_inline_output', 'editable_cell.qmd')]);
+	});
+
 	test('Python - Verify running cell after editing content works via toolbar', async function ({ python, app, page, openFile }) {
 		const { editors, inlineQuarto } = app.workbench;
 
@@ -79,8 +84,9 @@ One more line for good measure.
 		await inlineQuarto.gotoLine(25);
 		await inlineQuarto.runCurrentCode();
 
-		// Verify no errors and output is correct
-		await inlineQuarto.gotoLine(30);
+		// Verify no errors and output is correct. Line 25 is the second cell's
+		// closing fence after the three inserted lines shifted it down.
+		await inlineQuarto.revealOutput(25, { target: inlineQuarto.getInlineOutputAt(1) });
 		await inlineQuarto.expectOutputVisible({ index: 1 });
 		await inlineQuarto.expectErrorCount(0);
 

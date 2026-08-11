@@ -9,6 +9,7 @@ import {
 	ANTHROPIC_DEFAULT_BASE_URL,
 	AWS_AUTH_PROVIDER_ID,
 	CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
+	DATABRICKS_AUTH_PROVIDER_ID,
 	DEEPSEEK_AUTH_PROVIDER_ID,
 	DEEPSEEK_DEFAULT_BASE_URL,
 	FOUNDRY_AUTH_PROVIDER_ID,
@@ -103,6 +104,12 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		status: 'experimental',
 		catalogId: 'deepseek',
 	},
+	databricks: {
+		id: DATABRICKS_AUTH_PROVIDER_ID,
+		displayName: 'Databricks',
+		status: 'experimental',
+		catalogId: 'databricks',
+	},
 };
 
 export function getProviderSources(): positron.ai.LanguageModelSource[] {
@@ -111,6 +118,12 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 	// Bedrock (no label, Sign Out button visible).
 	const geapFromEnv = !!process.env.GOOGLE_VERTEX_PROJECT
 		&& !!process.env.GOOGLE_VERTEX_LOCATION;
+
+	// The workspace host lives in its own connection section, not baseUrl:
+	// the bridge derives the serving-endpoints URL from it.
+	const databricksHost = getCachedProvider(
+		PROVIDER_METADATA.databricks.catalogId!
+	)?.connection.databricks?.host ?? '';
 
 	return [
 		{
@@ -262,6 +275,21 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 					key: 'DEEPSEEK_API_KEY',
 					signedIn: false,
 				},
+			},
+		},
+		{
+			type: positron.PositronLanguageModelType.Chat,
+			provider: PROVIDER_METADATA.databricks,
+			// baseUrl carries the workspace host through the modal only. It is
+			// saved to (and read from) connection.databricks.host, never the
+			// provider baseUrl: per-model endpoint resolution falls back to
+			// baseUrl, which would route chat at the bare host and 404.
+			// Personal access token only for now; OAuth lands next release.
+			supportedOptions: ['apiKey', 'baseUrl'],
+			defaults: {
+				model: 'databricks',
+				baseUrl: databricksHost,
+				toolCalls: true,
 			},
 		},
 	];

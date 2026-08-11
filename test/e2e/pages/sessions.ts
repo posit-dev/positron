@@ -465,11 +465,18 @@ export class Sessions {
 	 * @returns locator for the session tab
 	 */
 	private getSessionTab(sessionIdOrName: string): Locator {
-		const sessionIdPattern = /^(python|r)-[a-zA-Z0-9]+$/i;
+		// Notebook sessions are `<language>-notebook-<hex>`, so the optional
+		// `-notebook` segment is what keeps their ids out of the name branch
+		// below. Mirrors the pattern openMetadataDialog() uses for `info-` ids.
+		const sessionIdPattern = /^(python|r)(-notebook)?-[a-zA-Z0-9]+$/i;
 
+		// Match by name on the tab's aria-label, not its rendered text: the tab
+		// ellipsizes the session name to fit the space it has, so "Python
+		// (reticulate)" can render as "Python (retic...". The aria-label always
+		// carries the full name.
 		return sessionIdPattern.test(sessionIdOrName)
 			? this.page.getByTestId(`console-tab-${sessionIdOrName}`)
-			: this.sessionTabs.getByText(sessionIdOrName).locator('..');
+			: this.sessionTabs.and(this.page.getByLabel(sessionIdOrName));
 	}
 
 	/**
@@ -700,7 +707,9 @@ export class Sessions {
 				for (const session of allSessions) {
 					// extract session ID from data-testid attribute
 					const testId = await session.getAttribute('data-testid');
-					const match = testId?.match(/console-tab-((python|r)-[a-zA-Z0-9]+)/);
+					// The `-notebook` segment matters: without it a notebook
+					// session's id is captured truncated, as just `python-notebook`.
+					const match = testId?.match(/console-tab-((python|r)(-notebook)?-[a-zA-Z0-9]+)/);
 					const id = match ? match[1] : null;
 
 					// extract session name from aria-label attribute
@@ -753,22 +762,92 @@ export class Sessions {
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
 		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
-			// Read the metadata directly from the runtime session service via the
-			// internal `_positron.session.getMetadata` command (registered in
-			// languageRuntimeActionsForSmokeTests.ts). This avoids selecting the
-			// session tab and scraping the info popup, which is slower and flaky
-			// when notification toasts overlay the tab.
-			const metadata = await this.code.driver.executeCommand<SessionMetaData | undefined>(
-				'_positron.session.getMetadata',
-				sessionId
-			);
-
-			if (!metadata) {
-				throw new Error(`No session metadata found for: ${sessionId ?? 'current session'}`);
-			}
-
-			return metadata;
+			// The fast path reads metadata through the internal
+			// `_positron.session.getMetadata` command, but that command is only
+			// registered when the smoke-test driver is enabled (see
+			// languageRuntimeActionsForSmokeTests.ts). The Electron and local web
+			// launchers pass `--enable-smoke-test-driver`; the external-server runs
+			// (Posit Workbench, Jupyter, Positron Server) connect to a server that
+			// does not, so the command is absent there. Fall back to scraping the
+			// session info popup in that case.
+			return this.isExternalServer()
+				? await this.getMetadataFromDialog(sessionId)
+				: await this.getMetadataFromCommand(sessionId);
 		});
+	}
+
+	/**
+	 * Helper: True when connected to an external server (Posit Workbench on
+	 * :8787, Jupyter on :8888, or Positron Server on :8080). These are launched
+	 * without `--enable-smoke-test-driver`, so the smoke-test-only metadata
+	 * command is unavailable and metadata must be scraped from the info popup
+	 * instead. The local browser (port 9000+) and Electron are not external.
+	 * Mirrors HotKeys.isExternalBrowser().
+	 */
+	private isExternalServer(): boolean {
+		return /(8080|8787|8888)/.test(this.page.url());
+	}
+
+	/**
+	 * Helper: Read session metadata via the internal smoke-test command.
+	 */
+	private async getMetadataFromCommand(sessionId?: string): Promise<SessionMetaData> {
+		const metadata = await this.code.driver.executeCommand<SessionMetaData | undefined>(
+			'_positron.session.getMetadata',
+			sessionId
+		);
+
+		if (!metadata) {
+			throw new Error(`No session metadata found for: ${sessionId ?? 'current session'}`);
+		}
+
+		return metadata;
+	}
+
+	/**
+	 * Helper: Read session metadata by opening the console info popup and
+	 * scraping its fields. Used on external servers where the smoke-test command
+	 * is not registered. Selects the target session's tab first when more than
+	 * one session is open, mirroring what the popup reflects.
+	 */
+	private async getMetadataFromDialog(sessionId?: string): Promise<SessionMetaData> {
+		const isSingleSession = (await this.getSessionCount()) === 1;
+
+		if (!isSingleSession && sessionId) {
+			const targetTab = this.getSessionTab(sessionId);
+			await expect(async () => {
+				// Use force to bypass notification toasts that may overlay the tab. A
+				// toast can also swallow the click outright (it's on top, so the real
+				// tab never receives it) -- verify the tab actually went active instead
+				// of assuming the click landed, and retry if it didn't.
+				await targetTab.click({ force: true });
+				await expect(targetTab).toHaveClass(/tab-button--active/);
+			}, `Select session tab: ${sessionId}`).toPass({ timeout: 10000 });
+		}
+
+		let metadata: SessionMetaData | undefined;
+		await expect(async () => {
+			await this.openMetadataDialog(sessionId);
+			const [name, id, state, path, source] = await Promise.all([
+				this.metadataDialog.getByTestId('session-name').textContent(),
+				this.metadataDialog.getByTestId('session-id').textContent(),
+				this.metadataDialog.getByTestId('session-state').textContent(),
+				this.metadataDialog.getByTestId('session-path').textContent(),
+				this.metadataDialog.getByTestId('session-source').textContent(),
+			]);
+			metadata = {
+				name: (name ?? '').trim(),
+				id: (id ?? '').replace('Session ID: ', ''),
+				state: (state ?? '').replace('State: ', '') as SessionState,
+				path: (path ?? '').replace('Path: ', ''),
+				source: (source ?? '').replace('Source: ', ''),
+			};
+		}, 'Extract session metadata').toPass({ intervals: [500], timeout: 10000 });
+
+		// Close the metadata dialog
+		await this.page.keyboard.press('Escape');
+
+		return metadata!;
 	}
 
 	/**
@@ -970,9 +1049,12 @@ export class Sessions {
 	 */
 	async expectSessionNameToBe(sessionId: string, expectedName: string) {
 		await test.step(`Verify session name: ${sessionId} is ${expectedName}`, async () => {
+			// Assert on the aria-label rather than the tab's rendered text: the
+			// tab ellipsizes the name to whatever fits, so the visible text is a
+			// function of how many sessions are open and how wide the pane is.
+			// The aria-label carries the whole name.
 			const sessionTab = this.getSessionTab(sessionId);
-			const tabHeader = sessionTab.locator('.tab-header');
-			await expect(tabHeader).toHaveText(expectedName);
+			await expect(sessionTab).toHaveAttribute('aria-label', expectedName);
 		});
 	}
 
@@ -1297,25 +1379,33 @@ export class SessionQuickPick {
 			// Page through the list to load all entries (handles virtualized lists)
 			let stable = false;
 			while (!stable) {
-				const entries = this.code.driver.currentPage.locator('.quick-input-list-entry');
-				const entryCount = await entries.count();
+				// Read every rendered entry in a single DOM pass rather than with per-element
+				// locators. quickInputList.ts always renders both `.quick-input-list-row`
+				// elements and the separator, but the *inner* `.label-name
+				// .monaco-highlighted-label` only exists when that row has content. Not every
+				// entry is a runtime -- extensions contribute action items with a label and no
+				// detail (e.g. "$(add) Create Python Environment"), whose second row is empty.
+				// A chained locator read on those waits for an element that never appears,
+				// which surfaced as an opaque "waiting on the predicate" timeout in the caller.
+				// Reading in-page yields '' for a missing node instead of blocking, and keeps
+				// this cheap enough to poll.
+				const entryData = await this.code.driver.currentPage
+					.locator('.quick-input-list-entry')
+					.evaluateAll(entries => entries.map(entry => {
+						const rows = entry.querySelectorAll('.quick-input-list-row');
+						const labelText = (root: Element | undefined) =>
+							root?.querySelector('.label-name .monaco-highlighted-label')?.textContent ?? '';
+
+						return {
+							name: labelText(rows[0]),
+							path: labelText(rows[1]),
+							category: entry.querySelector('.quick-input-list-separator')?.textContent ?? ''
+						};
+					}));
 
 				let newEntriesFound = false;
-				for (let i = 0; i < entryCount; i++) {
-					const entry = entries.nth(i);
-
-					// Get the runtime name from the first row
-					const nameElement = entry.locator('.quick-input-list-row').nth(0).locator('.label-name .monaco-highlighted-label');
-					const name = await nameElement.textContent();
-
-					// Get the path from the second row
-					const pathElement = entry.locator('.quick-input-list-row').nth(1).locator('.label-name .monaco-highlighted-label');
-					const path = await pathElement.textContent();
-
-					// Get the category from the separator
-					const separatorElement = entry.locator('.quick-input-list-separator');
-					const category = await separatorElement.textContent();
-
+				for (const { name, path, category } of entryData) {
+					// Entries without a path are not runtimes (contributed action items)
 					if (name && path) {
 						const key = `${name}||${path}`;
 						if (!seen.has(key)) {
@@ -1323,7 +1413,7 @@ export class SessionQuickPick {
 							runtimes.push({
 								name: name.trim(),
 								path: path.trim(),
-								category: category?.trim() || ''
+								category: category.trim()
 							});
 							newEntriesFound = true;
 						}

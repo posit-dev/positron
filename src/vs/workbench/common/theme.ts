@@ -163,9 +163,14 @@ export const TAB_UNFOCUSED_ACTIVE_BORDER_TOP = registerColor('tab.unfocusedActiv
 	hcLight: '#B5200D'
 }, localize('tabActiveUnfocusedBorderTop', "Border to the top of an active tab in an unfocused group. Tabs are the containers for editors in the editor area. Multiple tabs can be opened in one editor group. There can be multiple editor groups."));
 
-export const TAB_SELECTED_BORDER_TOP = registerColor('tab.selectedBorderTop', TAB_ACTIVE_BORDER_TOP, localize('tabSelectedBorderTop', "Border to the top of a selected tab. Tabs are the containers for editors in the editor area. Multiple tabs can be opened in one editor group. There can be multiple editor groups."));
+export const TAB_SELECTED_BORDER_TOP = registerColor('tab.selectedBorderTop', {
+	dark: focusBorder,
+	light: focusBorder,
+	hcDark: activeContrastBorder,
+	hcLight: activeContrastBorder
+}, localize('tabSelectedBorderTop', "Border to the top of a selected tab. Tabs are the containers for editors in the editor area. Multiple tabs can be opened in one editor group. There can be multiple editor groups."));
 
-export const TAB_SELECTED_BACKGROUND = registerColor('tab.selectedBackground', TAB_ACTIVE_BACKGROUND, localize('tabSelectedBackground', "Background of a selected tab. Tabs are the containers for editors in the editor area. Multiple tabs can be opened in one editor group. There can be multiple editor groups."));
+export const TAB_SELECTED_BACKGROUND = registerColor('tab.selectedBackground', listInactiveSelectionBackground, localize('tabSelectedBackground', "Background of a selected tab. Tabs are the containers for editors in the editor area. Multiple tabs can be opened in one editor group. There can be multiple editor groups."));
 
 export const TAB_SELECTED_FOREGROUND = registerColor('tab.selectedForeground', TAB_ACTIVE_FOREGROUND, localize('tabSelectedForeground', "Foreground of a selected tab. Tabs are the containers for editors in the editor area. Multiple tabs can be opened in one editor group. There can be multiple editor groups."));
 
@@ -1215,20 +1220,30 @@ export const POSITRON_MODAL_DIALOG_DEFAULT_BUTTON_FOREGROUND = registerColor('po
 	hcLight: buttonForeground
 }, localize('positronModalDialog.defaultButtonForeground', "Positron modal dialog default button foreground color."));
 
-// Positron modal dialog button destructive background color.
+// Positron modal dialog button destructive background color. Filled with the same red a destructive
+// context menu item is labelled in, so an irreversible action reads the same wherever it is offered.
 export const POSITRON_MODAL_DIALOG_BUTTON_DESTRUCTIVE_BACKGROUND = registerColor('positronModalDialog.buttonDestructiveBackground', {
-	dark: buttonSecondaryBackground,
-	light: buttonSecondaryBackground,
-	hcDark: buttonSecondaryBackground,
-	hcLight: buttonSecondaryBackground
+	dark: errorForeground,
+	light: errorForeground,
+	hcDark: errorForeground,
+	hcLight: errorForeground
 }, localize('positronModalDialog.buttonDestructiveBackground', "Positron modal dialog button destructive background color."));
 
-// Positron modal dialog button destructive foreground color.
+// Positron modal dialog button destructive hover background color.
+export const POSITRON_MODAL_DIALOG_BUTTON_DESTRUCTIVE_HOVER_BACKGROUND = registerColor('positronModalDialog.buttonDestructiveHoverBackground', {
+	dark: lighten(POSITRON_MODAL_DIALOG_BUTTON_DESTRUCTIVE_BACKGROUND, 0.15),
+	light: darken(POSITRON_MODAL_DIALOG_BUTTON_DESTRUCTIVE_BACKGROUND, 0.15),
+	hcDark: lighten(POSITRON_MODAL_DIALOG_BUTTON_DESTRUCTIVE_BACKGROUND, 0.15),
+	hcLight: darken(POSITRON_MODAL_DIALOG_BUTTON_DESTRUCTIVE_BACKGROUND, 0.15)
+}, localize('positronModalDialog.buttonDestructiveHoverBackground', "Positron modal dialog button destructive hover background color."));
+
+// Positron modal dialog button destructive foreground color. White, for legibility on the red fill,
+// following statusBarItem.errorForeground.
 export const POSITRON_MODAL_DIALOG_BUTTON_DESTRUCTIVE_FOREGROUND = registerColor('positronModalDialog.buttonDestructiveForeground', {
-	dark: buttonSecondaryForeground,
-	light: buttonSecondaryForeground,
-	hcDark: buttonSecondaryForeground,
-	hcLight: buttonSecondaryForeground
+	dark: Color.white,
+	light: Color.white,
+	hcDark: Color.white,
+	hcLight: Color.white
 }, localize('positronModalDialog.buttonDestructiveForeground', "Positron modal dialog button destructive foreground color."));
 
 // Positron modal dialog button disabled foreground color.

@@ -28,6 +28,50 @@
 	color: var(--vscode-list-activeSelectionForeground);
 }
 
+/*
+ * The two rules below are identical apart from their animation name, and so are the two keyframes.
+ * The row alternates between them by reload generation (see cell()): a CSS animation restarts only
+ * when animation-name changes, so a row re-marked while its previous run is still going needs a
+ * different name to start over rather than sit out the new highlight.
+ */
+.positron-tree-row.recently-refreshed-even {
+	animation: positron-tree-recently-refreshed-even 1400ms ease-out forwards;
+}
+
+.positron-tree-row.recently-refreshed-odd {
+	animation: positron-tree-recently-refreshed-odd 1400ms ease-out forwards;
+}
+
+@keyframes positron-tree-recently-refreshed-even {
+	0%,
+	20% {
+		box-shadow: inset 1px 0 0 var(--vscode-list-focusOutline);
+	}
+
+	100% {
+		box-shadow: inset 1px 0 0 transparent;
+	}
+}
+
+@keyframes positron-tree-recently-refreshed-odd {
+	0%,
+	20% {
+		box-shadow: inset 1px 0 0 var(--vscode-list-focusOutline);
+	}
+
+	100% {
+		box-shadow: inset 1px 0 0 transparent;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.positron-tree-row.recently-refreshed-even,
+	.positron-tree-row.recently-refreshed-odd {
+		box-shadow: inset 1px 0 0 var(--vscode-list-focusOutline);
+		animation: none;
+	}
+}
+
 .positron-tree-indent {
 	flex: 0 0 auto;
 	height: 100%;
@@ -53,9 +97,14 @@
 	outline: none !important;
 }
 
-/* The leaf twisty (an empty placeholder for alignment) is not clickable. */
+/*
+ * The leaf twisty (an empty placeholder for alignment) is not clickable, nor is one on a loading
+ * or stale row. The :disabled rule covers the stale case, where the row keeps its collapsed or
+ * expanded class but the twisty is inert while an ancestor refreshes.
+ */
 .positron-tree-twisty-leaf,
-.positron-tree-twisty-loading {
+.positron-tree-twisty-loading,
+.positron-tree-twisty:disabled {
 	cursor: default;
 }
 

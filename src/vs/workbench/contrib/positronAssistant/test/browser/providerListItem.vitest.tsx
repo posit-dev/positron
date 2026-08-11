@@ -13,13 +13,14 @@ import { IPositronLanguageModelSource, LanguageModelAutoconfigureType, PositronL
 
 function source(overrides: Partial<IPositronLanguageModelSource> & { id: string }): IPositronLanguageModelSource {
 	const { id, ...rest } = overrides;
-	return {
+	const result: IPositronLanguageModelSource = {
 		type: PositronLanguageModelType.Chat,
 		provider: { id, displayName: id, settingName: id },
 		supportedOptions: [],
 		defaults: {},
 		...rest,
-	} as IPositronLanguageModelSource;
+	};
+	return result;
 }
 
 describe('ProviderListItem', () => {
@@ -27,6 +28,12 @@ describe('ProviderListItem', () => {
 		render(<ProviderListItem section='model-providers' source={source({ id: 'a', provider: { id: 'a', displayName: 'Anthropic', settingName: 'a', status: 'preview' } })} />);
 		expect(screen.getByText('Anthropic')).toBeInTheDocument();
 		expect(screen.getByText('Preview')).toBeInTheDocument();
+	});
+
+	it('shows an Experimental badge for an experimental provider', () => {
+		render(<ProviderListItem section='model-providers' source={source({ id: 'databricks', provider: { id: 'databricks', displayName: 'Databricks', status: 'experimental' } })} />);
+		expect(screen.getByText('Databricks')).toBeInTheDocument();
+		expect(screen.getByText('Experimental')).toBeInTheDocument();
 	});
 
 	it('shows a description and a Connect action in the model-providers section', () => {

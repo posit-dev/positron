@@ -28,7 +28,7 @@ test.describe('Quarto - Inline Output: Copy and Select', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('text_output.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 13, outputLine: 20 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 13, outputLine: 15 });
 		await inlineQuarto.expectStdoutContains('Hello World');
 
 		// Select text via drag and verify
@@ -91,7 +91,7 @@ test.describe('Quarto - Inline Output: Copy and Select', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('text_output.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 13, outputLine: 20 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 13, outputLine: 15 });
 
 		// Position cursor back in cell and use copy command
 		await inlineQuarto.gotoLine(13);

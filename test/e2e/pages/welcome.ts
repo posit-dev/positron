@@ -16,6 +16,9 @@ const RECENT_SECTION = '.recently-opened';
 const WALKTHROUGH_SECTION = '.getting-started';
 const HEADING_ROLE = 'heading';
 const BUTTON_ROLE = 'button';
+const CATEGORIES_SLIDE = '.gettingStartedSlideCategories';
+const DETAILS_SLIDE = '.gettingStartedSlideDetails';
+const GETTING_STARTED_CONTAINER = '.gettingStartedContainer';
 
 export class Welcome {
 
@@ -55,7 +58,7 @@ export class Welcome {
 
 	async expectTabTitleToBe(title: string) {
 		await test.step(`Verify tab title: ${title}`, async () => {
-			await expect(this.code.driver.currentPage.getByRole('tab', { name: title })).toBeVisible();
+			await expect(this.code.driver.currentPage.locator('[id="workbench.parts.editor"]').getByRole('tab', { name: title })).toBeVisible();
 		});
 	}
 
@@ -120,6 +123,34 @@ export class Welcome {
 		await test.step(`Verify walkthroughs count is ${count}`, async () => {
 			const walkthroughs = this.walkthroughSection.getByRole(BUTTON_ROLE);
 			await expect(walkthroughs).toHaveCount(count);
+		});
+	}
+
+	/**
+	 * Verify Tab never reaches the slide that is currently off-screen.
+	 *
+	 * The welcome page and the walkthrough sit side by side in one editor, and
+	 * whichever is hidden is moved off-screen rather than hidden with
+	 * `display: none`. If it stays in the tab order, focus lands somewhere the
+	 * user cannot see, and the browser scrolls it into view, dragging the
+	 * visible slide sideways.
+	 * @param hidden Which slide should be unreachable.
+	 * @param tabPresses How far to walk the tab order.
+	 */
+	async expectTabToStayOutOf(hidden: 'welcome' | 'walkthrough', tabPresses = 8) {
+		await test.step(`Verify Tab does not reach the hidden ${hidden} slide`, async () => {
+			const page = this.code.driver.currentPage;
+			const hiddenSlide = hidden === 'welcome' ? CATEGORIES_SLIDE : DETAILS_SLIDE;
+
+			await page.locator(GETTING_STARTED_CONTAINER).focus();
+			for (let i = 0; i < tabPresses; i++) {
+				await page.keyboard.press('Tab');
+				const landedInHidden = await page.evaluate(
+					(selector) => !!document.activeElement?.closest(selector),
+					hiddenSlide
+				);
+				expect(landedInHidden, `Tab stop ${i + 1} landed in the off-screen ${hidden} slide`).toBe(false);
+			}
 		});
 	}
 }

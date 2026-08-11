@@ -34,21 +34,21 @@ import { TabCompletionController } from '../../../snippets/browser/tabCompletion
 import { TerminalContextKeys } from '../../../terminal/common/terminalContextKey.js';
 import { ParameterHintsController } from '../../../../../editor/contrib/parameterHints/browser/parameterHints.js';
 import { SelectionClipboardContributionID } from '../../../codeEditor/browser/selectionClipboard.js';
-import { LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { LanguageRuntimeSessionMode, RuntimeCodeExecutionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { PositronConsoleInputCursorBoundary } from '../../../../common/contextkeys.js';
 import { HistoryBrowserPopup } from './historyBrowserPopup.js';
 import { HistoryInfixMatchStrategy } from '../../common/historyInfixMatchStrategy.js';
 import { HistoryPrefixMatchStrategy } from '../../common/historyPrefixMatchStrategy.js';
 import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from '../../common/historyMatchStrategy.js';
-import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { CodeSubmissionResult, IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ContentHoverController } from '../../../../../editor/contrib/hover/browser/contentHoverController.js';
 import { IInputHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { localize } from '../../../../../nls.js';
 import { createConsoleInputEditorOptions, createConsoleInputLineNumbersOptions, ILineNumbersOptions } from './consoleInputOptions.js';
 import { createConsoleInputModel } from './consoleInputModel.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { getForegroundDebugState, isForegroundDebugSession } from '../../../debug/common/debug.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 // Position enumeration.
 const enum Position {
@@ -92,6 +92,17 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
 		useStateRef<string | undefined>(undefined);
 	const shouldExecuteOnStartRef = useRef(false);
+
+	// Whether a submission started from this console input is currently in
+	// flight (its completeness check has not yet resolved). Only one submission
+	// runs at a time; see executeCodeEditorWidgetCodeIfPossible.
+	const submissionInFlightRef = useRef(false);
+
+	// Whether the user pressed Enter (requesting a submit) while a submission was
+	// in flight. The follow-up is replayed once the in-flight submission settles,
+	// keeping evaluation in the order typed rather than letting a later line jump
+	// ahead of an incomplete earlier one.
+	const resubmitQueuedRef = useRef(false);
 
 	/**
 	 * Gets the appropriate history navigator based on whether a debug session
@@ -168,96 +179,154 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	};
 
 	/**
-	 * Executes the code editor widget's code, if possible.
-	 * @returns A Promise<boolean> that indicates whether the code was executed.
+	 * Submits the code currently in the editor to the runtime, reconciling the
+	 * result back into the editor and honoring any follow-up submit the user
+	 * requested (via Enter) while a submission was still in flight.
+	 *
+	 * Only one submission from the console input is ever in flight at a time.
+	 * Whether a line typed after a submission is a new statement or a
+	 * continuation of it depends on that submission's completeness result, which
+	 * is not known until the (possibly slow) check resolves. So a follow-up Enter
+	 * does not start a competing submission -- it sets `resubmitQueuedRef` and is
+	 * replayed here once the in-flight submission settles, keeping evaluation in
+	 * the order the user typed:
+	 *   - Executed: the editor holds the user's type-ahead; submit it next.
+	 *   - Incomplete: the editor holds "<submitted>\n<type-ahead>" (merged by
+	 *     restoreWithTypeAhead); re-check the combined code as a continuation.
+	 *
+	 * @returns A Promise<boolean>; `false` if the caller should insert a
+	 *   continuation line (the final result was incomplete, or there is no
+	 *   session), `true` otherwise.
 	 */
 	const executeCodeEditorWidgetCodeIfPossible = async () => {
-		// Get the code from the code editor widget.
-		const code = codeEditorWidgetRef.current.getValue();
-
-		// Get the session to check against.
-		const session = props.positronConsoleInstance.attachedRuntimeSession;
-		if (!session) {
-			return false;
+		// If a submission is already in flight, do not start a competing one:
+		// remember that the user wants to submit and let the in-flight driver
+		// replay it once the current submission resolves. Abort the in-flight
+		// completeness check so the follow-up is merged and the combined code is
+		// re-checked immediately, rather than waiting for the current check to
+		// finish. (A no-op if the check has already been accepted for execution;
+		// then the loop simply submits this follow-up next.) Return true so the
+		// Enter handler leaves the buffered code untouched (no continuation line).
+		if (submissionInFlightRef.current) {
+			resubmitQueuedRef.current = true;
+			props.positronConsoleInstance.cancelCompletenessCheck();
+			return true;
 		}
 
-		// Determine whether the code is complete, incomplete, invalid, or
-		// unknown. We handle errors here since callers don't handle them.
-		let status = RuntimeCodeFragmentStatus.Unknown;
+		submissionInFlightRef.current = true;
 		try {
-			status = await session.isCodeFragmentComplete(code);
-		} catch (err) {
-			if (err instanceof Error) {
-				services.notificationService.error(
-					localize('positronConsole.incompleteError', 'Cannot execute code: {0} ({1})', err.name, err.message)
+			// Loop so that a follow-up Enter pressed while a submission was in
+			// flight is honored in order (see the doc comment): after each
+			// submission resolves, if the user requested another submit during the
+			// check, run again on the (merged / type-ahead) editor contents.
+			for (; ;) {
+				// Get the session to check against.
+				const session = props.positronConsoleInstance.attachedRuntimeSession;
+				if (!session) {
+					return false;
+				}
+
+				// Get the code from the code editor widget.
+				const code = codeEditorWidgetRef.current.getValue();
+
+				const attribution: IConsoleCodeAttribution = {
+					source: CodeAttributionSource.Interactive
+				};
+
+				// Clear the input immediately so that any keystrokes typed while
+				// this submission is in flight (type-ahead) land in a clean editor
+				// rather than being appended to the code being submitted. The
+				// submitted code stays visible throughout: the service promotes it
+				// into the transcript as a read-only barber-pole item the moment it
+				// is submitted (see promoteSubmittingInputToTranscript), so there is
+				// no blank gap. It is echoed into the transcript when it executes;
+				// if the submission turns out incomplete or cancelled it is restored
+				// below so the user can finish editing it. Reset the resubmit flag so
+				// an Enter pressed during THIS submission queues a fresh follow-up.
+				setCurrentCodeFragment(undefined);
+				codeEditorWidgetRef.current.setValue('');
+				resubmitQueuedRef.current = false;
+
+				const result = await props.positronConsoleInstance.submitCode(code, attribution);
+
+				// Restores the submitted code to the input, merging in any
+				// type-ahead the user entered while the check was in flight. The
+				// input was cleared on submit, so its current contents are exactly
+				// that type-ahead; appending it below the submitted code preserves
+				// it as the continuation rather than clobbering it.
+				const restoreWithTypeAhead = () => {
+					const typeAhead = codeEditorWidgetRef.current.getValue();
+					codeEditorWidgetRef.current.setValue(typeAhead ? `${code}\n${typeAhead}` : code);
+					updateCodeEditorWidgetPosition(Position.Last, Position.Last);
+				};
+
+				// Incomplete: restore the code (merged with any type-ahead) so it
+				// can be continued.
+				if (result === CodeSubmissionResult.Incomplete) {
+					restoreWithTypeAhead();
+
+					// If the user pressed Enter for a follow-up line during the
+					// check, it is now merged in above; replay the submit so the
+					// combined code is re-checked in order rather than left sitting
+					// in the input.
+					if (resubmitQueuedRef.current &&
+						codeEditorWidgetRef.current.getValue().length > 0) {
+						continue;
+					}
+
+					// Otherwise let the Enter handler insert a continuation line.
+					return false;
+				}
+
+				// Cancelled: restore the code, merging in any type-ahead.
+				if (result === CodeSubmissionResult.Cancelled) {
+					restoreWithTypeAhead();
+
+					// A cancel triggered by a follow-up Enter (see the guard above)
+					// aborts the check so the merged code can be re-checked now;
+					// replay the submit. A genuine cancel (e.g. Ctrl-C) leaves the
+					// code editable and stops.
+					if (resubmitQueuedRef.current &&
+						codeEditorWidgetRef.current.getValue().length > 0) {
+						continue;
+					}
+					return true;
+				}
+
+				// Executed: the input was already cleared above (any type-ahead
+				// entered since is preserved). Prepare for the next prompt.
+
+				// Immediately change the prompt to be spaces to eliminate prompt flickering.
+				const promptWidth = Math.max(
+					session.dynState.inputPrompt.length,
+					session.dynState.continuationPrompt.length
 				);
-			} else {
-				services.notificationService.error(
-					localize('positronConsole.incompleteUnknownError', 'Cannot execute code: {0}', JSON.stringify(err))
-				);
+				codeEditorWidgetRef.current.updateOptions({
+					lineNumbers: (_: number) => ' '.repeat(promptWidth),
+					lineNumbersMinChars: promptWidth
+				});
+
+				// Render the code editor widget.
+				codeEditorWidgetRef.current.render(true);
+
+				// Call the code executed callback.
+				props.onCodeExecuted();
+
+				// If the user pressed Enter for a follow-up line during the check,
+				// the editor now holds that type-ahead; submit it next so it runs
+				// in order.
+				if (resubmitQueuedRef.current &&
+					codeEditorWidgetRef.current.getValue().length > 0) {
+					continue;
+				}
+
+				// Code was executed.
+				return true;
 			}
-			return false;
+		} finally {
+			submissionInFlightRef.current = false;
+			resubmitQueuedRef.current = false;
 		}
-
-		switch (status) {
-			// If the code fragment is complete, execute it.
-			case RuntimeCodeFragmentStatus.Complete:
-				break;
-
-			// If the code fragment is incomplete, don't do anything. The user will just see a new
-			// line in the input area.
-			case RuntimeCodeFragmentStatus.Incomplete: {
-				// Don't execute the code, let the code editor widget handle the key event.
-				return false;
-			}
-
-			// If the code fragment is invalid (contains syntax errors), log a warning but execute
-			// it anyway (so the user can see a syntax error from the interpreter).
-			case RuntimeCodeFragmentStatus.Invalid:
-				services.logService.warn(
-					`Executing invalid code fragment: '${code}'`
-				);
-				break;
-
-			// If the code fragment status is unknown, log a warning but execute it anyway (so the
-			// user can see an error from the interpreter).
-			case RuntimeCodeFragmentStatus.Unknown:
-				services.logService.warn(
-					`Could not determine whether code fragment: '${code}' is complete.`
-				);
-				break;
-		}
-
-		// Clear the current code fragment.
-		setCurrentCodeFragment(undefined);
-
-		// Clear the code editor widget's model.
-		codeEditorWidgetRef.current.setValue('');
-
-		// Immediately change the prompt to be spaces to eliminate prompt flickering.
-		const promptWidth = Math.max(
-			session.dynState.inputPrompt.length,
-			session.dynState.continuationPrompt.length
-		);
-		codeEditorWidgetRef.current.updateOptions({
-			lineNumbers: (_: number) => ' '.repeat(promptWidth),
-			lineNumbersMinChars: promptWidth
-		});
-
-		// Execute the code.
-		const attribution: IConsoleCodeAttribution = {
-			source: CodeAttributionSource.Interactive
-		};
-		props.positronConsoleInstance.executeCode(code, attribution);
-
-		// Render the code editor widget.
-		codeEditorWidgetRef.current.render(true);
-
-		// Call the code executed callback.
-		props.onCodeExecuted();
-
-		// Code was executed.
-		return true;
 	};
 
 	/**
@@ -1097,8 +1166,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	}
 
 	// Render.
+	const consoleInputClassName = positronClassNames(
+		'console-input',
+		{ 'hidden': props.hidden }
+	);
 	return (
-		<div className={props.hidden ? 'console-input hidden' : 'console-input'} tabIndex={0} onFocus={focusHandler}>
+		<div className={consoleInputClassName} tabIndex={0} onFocus={focusHandler}>
 			<div ref={codeEditorWidgetContainerRef} />
 			{historyBrowserActive &&
 				<HistoryBrowserPopup

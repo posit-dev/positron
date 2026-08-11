@@ -35,6 +35,7 @@ noxfile.py
 .prettierrc.js
 .sonarcloud.properties
 .venv/**
+.venv*/**
 .vscode/**
 .vscode-test/**
 .vscode test/**

@@ -91,7 +91,7 @@ jobs:
           role-duration-seconds: 21600
 
       - name: Load secret
-        uses: 1password/load-secrets-action@v4
+        uses: 1password/load-secrets-action@v5
         with:
           export-env: true
         env:

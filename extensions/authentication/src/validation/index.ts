@@ -5,6 +5,7 @@
 
 export { validateAnthropicApiKey } from './anthropic';
 export { validateCustomProviderApiKey } from './customProvider';
+export { validateDatabricksApiKey } from './databricks';
 export { validateDeepSeekApiKey } from './deepseek';
 export { normalizeToV1Url, validateFoundryApiKey } from './foundry';
 export { validateGeminiApiKey } from './gemini';

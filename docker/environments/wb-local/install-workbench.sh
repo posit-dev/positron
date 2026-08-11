@@ -108,35 +108,77 @@ elif [ -z "${WB_URL}" ] && [ -z "${POSITRON_TAG}" ]; then
     echo ""
 fi
 
-# Function to fetch the latest Workbench URL based on architecture
-fetch_latest_wb_url() {
-    local arch=$1
-    local json_url="https://dailies.rstudio.com/rstudio/latest/index.json"
-    
-    # Map architecture to the correct key in the json
-    local platform_key
-    if [ "$arch" = "arm64" ]; then
-        platform_key="noble-arm64"
-    else
-        platform_key="noble-amd64"
-    fi
-    
-    # Fetch the json and extract the URL
-    local url
-    url=$(curl -s "$json_url" | jq -r ".products.workbench.platforms[\"$platform_key\"].link")
-    
-    if [ -z "$url" ] || [ "$url" = "null" ]; then
-        echo "Failed to fetch the latest Workbench URL for $arch architecture" >&2
-        return 1
-    fi
-    
-    echo "$url"
-}
-
 # ensure_connect_token is defined in ensure-connect-token.sh (copied alongside
 # this script into /tmp). Sourcing it here keeps the Workbench flow and the
 # standalone connect-local bootstrap using the exact same logic.
 source "$(dirname "${BASH_SOURCE[0]}")/ensure-connect-token.sh"
+# workbench-local-lib.sh is copied in alongside us too. It owns every per-OS
+# fact (package format, feed keys, the arm64 URL rewrites), so the daily/stable
+# URL resolution here is the same code the host-side picker runs.
+source "$(dirname "${BASH_SOURCE[0]}")/workbench-local-lib.sh"
+
+# Stop rserver and *verify* it exited. Do not trust `rstudio-server stop`'s exit
+# status: on EL9 the init script's status check uses `pidof -c`, which cannot see
+# rserver inside a container, so the stop short-circuits to a silent no-op and
+# still returns 0. Signal directly, poll, then escalate -- a settled rserver
+# exits on TERM in about a second, but one left wedged by a bad restart has been
+# observed surviving 30s of TERM.
+stop_rserver() {
+    sudo rstudio-server stop >/dev/null 2>&1 || true
+    pgrep -x rserver >/dev/null 2>&1 || return 0
+    echo "Stopping rserver..."
+    sudo pkill -x rserver 2>/dev/null || true
+    local i
+    for i in $(seq 1 15); do
+        pgrep -x rserver >/dev/null 2>&1 || return 0
+        sleep 1
+    done
+    echo "rserver did not exit on TERM - sending KILL..."
+    sudo pkill -KILL -x rserver 2>/dev/null || true
+    for i in $(seq 1 5); do
+        pgrep -x rserver >/dev/null 2>&1 || return 0
+        sleep 1
+    done
+    log_error "rserver still running after KILL"
+    return 1
+}
+
+# Start the session launcher, then rserver. Order matters: rserver's
+# LauncherClient::initialize() fails with ENOENT and rserver shuts itself down if
+# /var/run/rstudio-server/rserver-launcher.socket does not exist yet, so wait for
+# the socket rather than for the process.
+LAUNCHER_SOCKET=/var/run/rstudio-server/rserver-launcher.socket
+# Leading [/] so the pattern cannot match a shell whose own command line quotes
+# it -- see the same note in workbench-local.sh.
+LAUNCHER_PGREP='[/]usr/lib/rstudio-server/bin/rstudio-launcher'
+
+start_workbench() {
+    if [ "${WB_OS}" = "rocky9" ]; then
+        # The rstudio-launcher script the rpm ships is unusable on EL9: its
+        # install guard tests $rserver, which that script never defines (so start
+        # silently exits 0); it passes --name/--pidfiles/--stop to `daemon`, none
+        # of which EL9's initscripts supports; and the launcher does not
+        # self-daemonize the way rserver does, so a plain `daemon` call would
+        # block forever. Start it directly instead.
+        if ! pgrep -f "${LAUNCHER_PGREP}" >/dev/null 2>&1; then
+            echo "Starting rstudio-launcher..."
+            sudo rm -f "${LAUNCHER_SOCKET}"
+            sudo nohup setsid /usr/lib/rstudio-server/bin/rstudio-launcher \
+                >/var/log/rstudio-launcher.stdout.log 2>&1 &
+        fi
+        local i
+        for i in $(seq 1 30); do
+            [ -S "${LAUNCHER_SOCKET}" ] && break
+            sleep 1
+        done
+        if [ ! -S "${LAUNCHER_SOCKET}" ]; then
+            log_error "rstudio-launcher socket never appeared at ${LAUNCHER_SOCKET}"
+        fi
+    fi
+    if ! sudo rstudio-server start; then
+        log_error "Failed to start RStudio server"
+    fi
+}
 
 # Initial parameter setup - auto-detect architecture if not set
 if [ -z "${ARCH_SUFFIX:-}" ]; then
@@ -148,6 +190,14 @@ if [ -z "${ARCH_SUFFIX:-}" ]; then
 fi
 POSITRON_TAG=${POSITRON_TAG:-""}  # Empty default will get the latest release
 GITHUB_TOKEN=${GITHUB_TOKEN:-"myToken"}
+# Host OS of this container: ubuntu24 (apt/.deb) or rocky9 (dnf/.rpm). Every
+# OS-specific step below branches on it. Same vocabulary the --os flag and the
+# compose image use -- see workbench-local-lib.sh.
+WB_OS=${WB_OS:-"ubuntu24"}
+if ! wb_os_valid "${WB_OS}"; then
+    exit 1
+fi
+WB_PKG_EXT="$(wb_os_pkg_ext "${WB_OS}")"
 
 # User configuration with defaults that can be overridden by environment variables
 Q_USER=${Q_USER:-"user1"}
@@ -157,37 +207,46 @@ Q_GROUP=${Q_GROUP:-"user1g"}
 WB_PASSWORD=${WB_PASSWORD:-"testpassword"}
 
 # Install required packages early so we have jq for URL fetching
-echo "Installing required packages..."
-if ! sudo apt-get update; then
-    log_error "Failed to update package lists"
-fi
-if ! sudo add-apt-repository -y universe; then
-    log_error "Failed to add universe repository"
-fi
-if ! sudo apt-get update; then
-    log_error "Failed to update package lists after adding universe"
-fi
-if ! sudo apt-get install -y acl jq curl; then
-    log_error "Failed to install required packages (acl, jq, curl)"
+echo "Installing required packages (${WB_OS})..."
+if [ "${WB_OS}" = "rocky9" ]; then
+    # initscripts provides /etc/rc.d/init.d/functions, which the SysV scripts the
+    # Workbench rpm ships in extras/init.d/redhat/ source on line 8. The rpm's
+    # postinst installs systemd units instead of those scripts, and this container
+    # has no systemd, so we copy them in by hand after the install below.
+    if ! sudo dnf install -y acl jq curl initscripts; then
+        log_error "Failed to install required packages (acl, jq, curl, initscripts)"
+    fi
+else
+    if ! sudo apt-get update; then
+        log_error "Failed to update package lists"
+    fi
+    if ! sudo add-apt-repository -y universe; then
+        log_error "Failed to add universe repository"
+    fi
+    if ! sudo apt-get update; then
+        log_error "Failed to update package lists after adding universe"
+    fi
+    if ! sudo apt-get install -y acl jq curl; then
+        log_error "Failed to install required packages (acl, jq, curl)"
+    fi
 fi
 
 # Now we can fetch the WB_URL if it wasn't provided
 if [ -z "${WB_URL}" ]; then
     if [ "$CI_STABLE_MODE" = true ]; then
-        echo "CI Stable Mode: Fetching latest released Workbench URL for ${ARCH_SUFFIX} architecture..."
+        echo "CI Stable Mode: Fetching latest released Workbench URL for ${WB_OS}/${ARCH_SUFFIX}..."
         # Get the directory where this script is located
         SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-        WB_URL=$("${SCRIPT_DIR}/get-latest-wb-noble-url.sh" "${ARCH_SUFFIX}")
+        WB_URL=$("${SCRIPT_DIR}/get-latest-wb-url.sh" "${WB_OS}" "${ARCH_SUFFIX}")
         if [ $? -ne 0 ] || [ -z "${WB_URL}" ]; then
-            log_error "Failed to fetch released Workbench URL from get-latest-wb-noble-url.sh"
+            log_error "Failed to fetch released Workbench URL from get-latest-wb-url.sh"
         fi
         echo "Using released Workbench URL: ${WB_URL}"
     else
-        echo "No WB_URL provided, fetching latest Workbench URL for ${ARCH_SUFFIX} architecture..."
-        WB_URL=$(fetch_latest_wb_url "${ARCH_SUFFIX}")
-        if [ $? -ne 0 ]; then
-            echo "Failed to fetch Workbench URL. Using fallback URL."
-            WB_URL="https://s3.amazonaws.com/rstudio-ide-build/server/jammy/${ARCH_SUFFIX}/rstudio-workbench-2025.11.0-daily-131.pro5-${ARCH_SUFFIX}.deb"
+        echo "No WB_URL provided, fetching latest daily Workbench URL for ${WB_OS}/${ARCH_SUFFIX}..."
+        WB_URL=$(wb_resolve_daily_url "${WB_OS}" "${ARCH_SUFFIX}")
+        if [ $? -ne 0 ] || [ -z "${WB_URL}" ]; then
+            log_error "Failed to resolve the latest daily Workbench URL for ${WB_OS}/${ARCH_SUFFIX}"
         fi
         echo "Using Workbench URL: ${WB_URL}"
     fi
@@ -204,6 +263,7 @@ else
     echo "  POSITRON_TAG: [LATEST]"
 fi
 echo "  ARCH_SUFFIX: ${ARCH_SUFFIX}"
+echo "  WB_OS: ${WB_OS}"
 echo "  Q_USER: ${Q_USER}"
 echo "  Q_UID: ${Q_UID}"
 echo "  Q_GID: ${Q_GID}"
@@ -244,14 +304,35 @@ echo "unprivileged=1" | sudo tee /etc/rstudio/launcher.local.conf > /dev/null
 
 # Download Workbench
 echo "Downloading Workbench..."
-if ! curl ${WB_URL} --output workbench.deb; then
+if ! curl -fL ${WB_URL} --output "workbench.${WB_PKG_EXT}"; then
     log_error "Failed to download Workbench from ${WB_URL}"
 fi
 
 # Install Workbench
 echo "Installing Workbench..."
-if ! sudo apt install -y ./workbench.deb; then
-    log_error "Failed to install Workbench package"
+if [ "${WB_OS}" = "rocky9" ]; then
+    if ! sudo dnf install -y "./workbench.${WB_PKG_EXT}"; then
+        log_error "Failed to install Workbench package"
+    fi
+    # The rpm's postinst installs systemd units, so /etc/init.d stays empty and
+    # `rstudio-server start` has nothing to run. The SysV scripts it ships are
+    # the ones the Ubuntu .deb installs for us; copy them into place so the
+    # start/stop paths below (and wb_ensure_workbench) work on both OSes.
+    if [ -d /usr/lib/rstudio-server/extras/init.d/redhat ]; then
+        sudo cp /usr/lib/rstudio-server/extras/init.d/redhat/rstudio-server /etc/init.d/
+        sudo cp /usr/lib/rstudio-server/extras/init.d/redhat/rstudio-launcher /etc/init.d/
+        sudo chmod +x /etc/init.d/rstudio-server /etc/init.d/rstudio-launcher
+    else
+        log_error "Workbench rpm did not ship extras/init.d/redhat (no SysV scripts to install)"
+    fi
+    # Without this the launcher warns that HOME is unset and that plugins may
+    # inherit an incorrect one.
+    sudo mkdir -p /home/rstudio-server
+    sudo chown rstudio-server:rstudio-server /home/rstudio-server
+else
+    if ! sudo apt install -y "./workbench.${WB_PKG_EXT}"; then
+        log_error "Failed to install Workbench package"
+    fi
 fi
 
 # Copy and configure Workbench license if present
@@ -259,7 +340,9 @@ if [ -f "/tmp/workbench.lic" ]; then
     echo "Configuring Workbench license..."
     sudo mkdir -p /var/lib/rstudio-server
     sudo cp /tmp/workbench.lic /var/lib/rstudio-server/workbench.lic
-    sudo chown 999:999 /var/lib/rstudio-server/workbench.lic
+    # By name, not 999:999 -- that uid is Ubuntu's; the rpm picks a different one
+    # (995 on Rocky 9), so the numeric form silently mis-owned the license there.
+    sudo chown rstudio-server:rstudio-server /var/lib/rstudio-server/workbench.lic
     sudo chmod 0600 /var/lib/rstudio-server/workbench.lic
     echo "Workbench license configured"
 else
@@ -274,24 +357,7 @@ sudo setfacl -R -m d:u:${Q_USER}:rx /root/.venv /root/.pyenv
 
 # Update positron-server
 echo "Updating positron-server..."
-if ! sudo rstudio-server stop; then
-    log_error "Failed to stop RStudio server"
-fi
-
-# rstudio-server stop can return before rserver has fully exited, and this
-# container has no systemd to wait on. Wait for rserver to actually exit so we
-# don't mutate its install dir while it's still running.
-echo "Waiting for rserver to stop..."
-for _ in $(seq 1 15); do
-    pgrep -x rserver >/dev/null 2>&1 || break
-    sleep 1
-done
-
-# Safety net: if rserver is still alive, signal it.
-if pgrep -x rserver >/dev/null 2>&1; then
-    echo "rserver still running - sending TERM..."
-    sudo pkill -x rserver 2>/dev/null || true
-fi
+stop_rserver
 
 cd /usr/lib/rstudio-server/bin/
 
@@ -365,19 +431,25 @@ else
     echo "No --credentials specified - skipping data source configuration"
 fi
 
-# Start RStudio server
+# Start the launcher (Rocky only) and RStudio server
 echo "Starting RStudio server..."
-if ! sudo rstudio-server start; then
-    log_error "Failed to start RStudio server"
-fi
+start_workbench
 
 # Ensure (fetch once) + export CONNECT_TOKEN for subsequent steps/tests
 ensure_connect_token || true
 
-# Setup environment modules
+# Setup environment modules. Both images bake the package in, so this is a
+# no-op reinstall on a normal run; it stays as a safety net for an image that
+# predates it.
 echo "Setting up environment modules..."
-if ! sudo apt install -y environment-modules; then
-    log_error "Failed to install environment-modules"
+if [ "${WB_OS}" = "rocky9" ]; then
+    if ! sudo dnf install -y environment-modules; then
+        log_error "Failed to install environment-modules"
+    fi
+else
+    if ! sudo apt install -y environment-modules; then
+        log_error "Failed to install environment-modules"
+    fi
 fi
 if ! sudo mkdir -p /opt/modules/modulefiles/R; then
     log_error "Failed to create /opt/modules/modulefiles/R directory"

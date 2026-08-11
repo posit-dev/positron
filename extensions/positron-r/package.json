@@ -229,6 +229,16 @@
             "default": true,
             "description": "%r.configuration.diagnostics.enable.description%"
           },
+          "oak.sourceFetching.enabled": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%r.configuration.oak.sourceFetching.enabled.description%"
+          },
+          "oak.diagnostics.experimental.enabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "%r.configuration.oak.diagnostics.experimental.enabled.description%"
+          },
           "positron.r.symbols.includeAssignmentsInBlocks": {
             "type": "boolean",
             "default": false,

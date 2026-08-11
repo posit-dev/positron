@@ -180,6 +180,521 @@ describe('PositronTreeInstance', () => {
 		expect(tree.rows).toBe(3);
 	});
 
+	it('reload re-fetches an expanded node and restores the expansion beneath it', async () => {
+		// Every branch yields one branch child, so the tree can be opened to any depth.
+		const getChildren = vi.fn(async (node: TreeNode<DemoNode>) => [branch(`${node.id}.0`)]);
+		const instance = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			getRoots: async () => [branch('r0')],
+			getChildren,
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(instance);
+		await instance.refresh();
+
+		// Open three levels: r0 -> r0.0 -> r0.0.0 (which loads r0.0.0.0).
+		await instance.expand('r0');
+		await instance.expand('r0.0');
+		await instance.expand('r0.0.0');
+		const callsBeforeReload = getChildren.mock.calls.length;
+		const rowsBeforeReload = instance.rows;
+
+		await instance.reload('r0');
+
+		expect({
+			callsBeforeReload,
+			// Each of the three re-expanded levels was re-fetched.
+			callsAfterReload: getChildren.mock.calls.length,
+			// The same rows are on screen as before the reload.
+			rowsBeforeReload,
+			rows: instance.rows,
+			expanded: ['r0', 'r0.0', 'r0.0.0'].filter(id => instance.isExpanded(id)),
+		}).toMatchInlineSnapshot(`
+			{
+			  "callsAfterReload": 6,
+			  "callsBeforeReload": 3,
+			  "expanded": [
+			    "r0",
+			    "r0.0",
+			    "r0.0.0",
+			  ],
+			  "rows": 4,
+			  "rowsBeforeReload": 4,
+			}
+		`);
+	});
+
+	it('reload leaves expansion behind for descendants that no longer exist', async () => {
+		// 'gone' disappears on the second fetch of r0; 'stays' survives it.
+		let firstFetch = true;
+		const instance = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			getRoots: async () => [branch('r0')],
+			getChildren: async node => {
+				if (node.id !== 'r0') {
+					return [leaf(`${node.id}.child`)];
+				}
+				const children = firstFetch ? [branch('gone'), branch('stays')] : [branch('stays')];
+				firstFetch = false;
+				return children;
+			},
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(instance);
+		await instance.refresh();
+
+		await instance.expand('r0');
+		await instance.expand('gone');
+		await instance.expand('stays');
+
+		await instance.reload('r0');
+
+		expect({
+			goneRestored: instance.isExpanded('gone'),
+			staysRestored: instance.isExpanded('stays'),
+			rows: instance.rows, // r0 + stays + stays.child
+		}).toMatchInlineSnapshot(`
+			{
+			  "goneRestored": false,
+			  "rows": 3,
+			  "staysRestored": true,
+			}
+		`);
+	});
+
+	it('reload matches nodes by reload key when ids change on every fetch', async () => {
+		// Mimics a source that mints a fresh id per fetch (e.g. a handle from a counter): the id
+		// carries a fetch sequence number, while the label identifies the node itself.
+		let fetchSequence = 0;
+		const instance = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			getRoots: async () => [branch('r0')],
+			getChildren: async node => {
+				const id = `child@${fetchSequence++}`;
+				return [{ id, data: { label: `${node.data.label}.child` }, hasChildren: true }];
+			},
+			getReloadKey: node => node.data.label,
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(instance);
+		await instance.refresh();
+
+		await instance.expand('r0');
+		const childId = instance.visibleNodes[1].node.id;
+		await instance.expand(childId);
+		const rowsBeforeReload = instance.rows;
+
+		await instance.reload('r0');
+
+		// The re-fetched child has a different id, so only a key-based match can restore it.
+		const reloadedChildId = instance.visibleNodes[1].node.id;
+		expect({
+			childId,
+			reloadedChildId,
+			rowsBeforeReload,
+			rows: instance.rows,
+			reloadedChildExpanded: instance.isExpanded(reloadedChildId),
+		}).toMatchInlineSnapshot(`
+			{
+			  "childId": "child@0",
+			  "reloadedChildExpanded": true,
+			  "reloadedChildId": "child@2",
+			  "rows": 3,
+			  "rowsBeforeReload": 3,
+			}
+		`);
+	});
+
+	it('reload keeps the stale subtree on screen until the new one is ready', async () => {
+		// The reload's fetch is held open so the in-flight state can be observed. Without the
+		// staged swap, the rows would empty out here and refill when the fetch lands.
+		const pending = deferred<readonly TreeNode<DemoNode>[]>();
+		let reloading = false;
+		const instance = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			getRoots: async () => [branch('r0')],
+			getChildren: async node => reloading ? pending.promise : [leaf(`${node.id}.0`), leaf(`${node.id}.1`)],
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(instance);
+		await instance.refresh();
+		await instance.expand('r0');
+
+		reloading = true;
+		const reload = instance.reload('r0');
+		const inFlight = {
+			rows: instance.rows,
+			refreshing: instance.isRefreshing('r0'),
+			// The row keeps its expanded state -- only the twisty glyph changes.
+			expandState: instance.visibleNodes[0].expandState,
+		};
+
+		pending.resolve([leaf('r0.0'), leaf('r0.1')]);
+		await reload;
+
+		expect({
+			inFlight,
+			rowsAfter: instance.rows,
+			refreshingAfter: instance.isRefreshing('r0'),
+		}).toMatchInlineSnapshot(`
+			{
+			  "inFlight": {
+			    "expandState": "expanded",
+			    "refreshing": true,
+			    "rows": 3,
+			  },
+			  "refreshingAfter": false,
+			  "rowsAfter": 3,
+			}
+		`);
+	});
+
+	it('reload discards its result if the node was collapsed while the fetch was in flight', async () => {
+		// Mirrors a consumer whose collapse releases the resources the fetch is using -- Data
+		// Connections disconnects and drops the subtree. A late commit would install rows whose
+		// handles are already dead, and expand() never re-fetches a node whose children are
+		// loaded, so they would be stuck there.
+		class DropOnCollapseTree extends PositronTreeInstance<DemoNode> {
+			override collapse(id: string): void {
+				this.dropLoadedChildren(id);
+				super.collapse(id);
+			}
+		}
+
+		const pending = deferred<readonly TreeNode<DemoNode>[]>();
+		let reloading = false;
+		const tree = new DropOnCollapseTree({
+			rowHeight: ROW_HEIGHT,
+			getRoots: async () => [branch('r0')],
+			getChildren: async () => reloading ? pending.promise : [leaf('before')],
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(tree);
+		await tree.refresh();
+		await tree.expand('r0');
+
+		reloading = true;
+		const reload = tree.reload('r0');
+		tree.collapse('r0');
+		pending.resolve([leaf('after')]);
+		await reload;
+
+		expect({
+			expanded: tree.isExpanded('r0'),
+			// Nothing installed, so the next expand fetches against a live resource.
+			loadedChildren: tree.hasLoadedChildren('r0'),
+		}).toEqual({ expanded: false, loadedChildren: false });
+	});
+
+	it('reload caps how many getChildren calls run at once while restoring', async () => {
+		// A root with more expanded children than the concurrency cap, so the restore has to
+		// queue rather than fire them all at once.
+		const wide = Array.from({ length: 20 }, (_, i) => branch(`child${i}`));
+		let inFlight = 0;
+		let peakInFlight = 0;
+		const tree = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			getRoots: async () => [branch('r0')],
+			getChildren: async node => {
+				if (node.id === 'r0') {
+					return wide;
+				}
+				inFlight++;
+				peakInFlight = Math.max(peakInFlight, inFlight);
+				await new Promise(resolve => setTimeout(resolve, 0));
+				inFlight--;
+				return [leaf(`${node.id}.leaf`)];
+			},
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(tree);
+		await tree.refresh();
+		await tree.expand('r0');
+		for (const child of wide) {
+			await tree.expand(child.id);
+		}
+
+		peakInFlight = 0;
+		await tree.reload('r0');
+
+		expect({
+			restored: wide.filter(child => tree.isExpanded(child.id)).length,
+			cappedBelowChildCount: peakInFlight < wide.length,
+			peakInFlight,
+		}).toEqual({ restored: 20, cappedBelowChildCount: true, peakInFlight: 8 });
+	});
+
+	it('marks everything under a refreshing node stale, and nothing else', async () => {
+		// Two roots, each with a child that has its own child, so the walk has depth and a sibling
+		// branch that must stay untouched.
+		const pending = deferred<readonly TreeNode<DemoNode>[]>();
+		let reloading = false;
+		const tree = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			getRoots: async () => [branch('r0'), branch('r1')],
+			getChildren: async node => {
+				if (reloading && node.id === 'r0') {
+					return pending.promise;
+				}
+				return node.id.includes('.') ? [leaf(`${node.id}.leaf`)] : [branch(`${node.id}.c`)];
+			},
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(tree);
+		await tree.refresh();
+		await tree.expand('r0');
+		await tree.expand('r0.c');
+		await tree.expand('r1');
+		await tree.expand('r1.c');
+
+		reloading = true;
+		const reload = tree.reload('r0');
+		const duringRefresh = tree.visibleNodes.map(v => `${v.node.id}${v.stale ? ':stale' : ''}`);
+
+		pending.resolve([branch('r0.c')]);
+		await reload;
+
+		expect({
+			// r0 is refreshing, not stale: it is the node being replaced into. Its whole subtree is
+			// stale. r1's branch is untouched.
+			duringRefresh,
+			anyStaleAfter: tree.visibleNodes.some(v => v.stale),
+		}).toMatchInlineSnapshot(`
+			{
+			  "anyStaleAfter": false,
+			  "duringRefresh": [
+			    "r0",
+			    "r0.c:stale",
+			    "r0.c.leaf:stale",
+			    "r1",
+			    "r1.c",
+			    "r1.c.leaf",
+			  ],
+			}
+		`);
+	});
+
+	it('reload drops the stale subtree and records the error when the fetch fails', async () => {
+		let shouldFail = false;
+		const instance = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			getRoots: async () => [branch('r0')],
+			getChildren: async node => {
+				if (shouldFail) {
+					throw new Error('connection lost');
+				}
+				return [leaf(`${node.id}.0`)];
+			},
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(instance);
+		await instance.refresh();
+		await instance.expand('r0');
+
+		shouldFail = true;
+		await instance.reload('r0');
+
+		expect({
+			rows: instance.rows,
+			error: (instance.getError('r0') as Error).message,
+			loadedChildren: instance.hasLoadedChildren('r0'),
+			refreshing: instance.isRefreshing('r0'),
+		}).toMatchInlineSnapshot(`
+			{
+			  "error": "connection lost",
+			  "loadedChildren": false,
+			  "refreshing": false,
+			  "rows": 1,
+			}
+		`);
+	});
+
+	it('reload marks the rows it brought in as recently refreshed, then clears the mark', async () => {
+		vi.useFakeTimers();
+		try {
+			const tree = await newTree(1, 2);
+			await tree.expand('r0');
+
+			await tree.reload('r0');
+			// The reloaded node is marked along with the rows brought in beneath it, so the whole
+			// refreshed block reads as one.
+			const marked = tree.visibleNodes.filter(v => v.recentlyRefreshed).map(v => v.node.id);
+
+			// The highlight is on a timer, so it clears without any further interaction.
+			await vi.advanceTimersByTimeAsync(3000);
+
+			expect({
+				marked,
+				afterTimeout: tree.visibleNodes.filter(v => v.recentlyRefreshed).map(v => v.node.id),
+			}).toMatchInlineSnapshot(`
+				{
+				  "afterTimeout": [],
+				  "marked": [
+				    "r0",
+				    "r0.0",
+				    "r0.1",
+				  ],
+				}
+			`);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('reload drops a collapsed node\'s children so the next expand re-fetches', async () => {
+		const tree = await newTree(1, 2);
+		await tree.expand('r0');
+		tree.collapse('r0');
+
+		await tree.reload('r0');
+
+		expect(tree.hasLoadedChildren('r0')).toBe(false);
+	});
+
+	it('reloadAll re-runs getRoots and reloads every expanded root', async () => {
+		const getRoots = vi.fn(async () => [branch('r0'), branch('r1')]);
+		const getChildren = vi.fn(async (node: TreeNode<DemoNode>) => [leaf(`${node.id}.0`)]);
+		const tree = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			getRoots,
+			getChildren,
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(tree);
+		await tree.refresh();
+
+		// Only r0 is opened, so only its subtree is on screen.
+		await tree.expand('r0');
+		const rootsBefore = getRoots.mock.calls.length;
+		const childrenBefore = getChildren.mock.calls.length;
+
+		await tree.reloadAll();
+
+		expect({
+			rootsFetches: getRoots.mock.calls.length - rootsBefore,
+			// r0's subtree is re-fetched; collapsed r1 has nothing on screen to replace.
+			childrenFetches: getChildren.mock.calls.length - childrenBefore,
+			stillExpanded: tree.isExpanded('r0'),
+			rows: tree.rows,
+		}).toEqual({ rootsFetches: 1, childrenFetches: 1, stillExpanded: true, rows: 3 });
+	});
+
+	it('a second reload keeps the highlight on rows the first one had already marked', async () => {
+		vi.useFakeTimers();
+		try {
+			// Root ids are stable while child ids carry a per-fetch handle, as in Data Connections.
+			// The root is therefore in both reloads' batches, and the first batch's timer must not
+			// clear a mark the second reload has taken over.
+			let handle = 0;
+			const tree = new PositronTreeInstance<DemoNode>({
+				rowHeight: ROW_HEIGHT,
+				getRoots: async () => [{ id: 'root', data: { label: 'root' }, hasChildren: true }],
+				getChildren: async () => [{ id: `child@${handle++}`, data: { label: 'child' }, hasChildren: false }],
+				getReloadKey: node => node.data.label,
+				renderNode: visible => <span>{visible.node.data.label}</span>,
+			});
+			store.add(tree);
+			await tree.refresh();
+			await tree.expand('root');
+
+			await tree.reload('root');
+			const firstGeneration = tree.visibleNodes[0].refreshGeneration;
+
+			// Second reload lands mid-highlight.
+			await vi.advanceTimersByTimeAsync(500);
+			await tree.reload('root');
+			// A fresh generation is what makes the row restart its animation rather than sit out
+			// the new highlight.
+			const secondGeneration = tree.visibleNodes[0].refreshGeneration;
+
+			// The first reload's timer comes due; it must not clear what the second one re-marked.
+			await vi.advanceTimersByTimeAsync(1000);
+			const afterFirstTimer = tree.visibleNodes.map(v => v.recentlyRefreshed);
+
+			// The second reload's own timer then clears everything.
+			await vi.advanceTimersByTimeAsync(600);
+
+			expect({
+				afterFirstTimer,
+				generationAdvanced: secondGeneration > firstGeneration,
+				afterSecondTimer: tree.visibleNodes.map(v => v.recentlyRefreshed),
+			}).toEqual({
+				afterFirstTimer: [true, true],
+				generationAdvanced: true,
+				afterSecondTimer: [false, false],
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('reloadAll folds a repeat press into the pass already running', async () => {
+		// Hammering the refresh action must not start a second sweep of the tree: the control stays
+		// enabled (a disabled one would steal focus on click), so the extra presses land here.
+		const pending = deferred<readonly TreeNode<DemoNode>[]>();
+		let reloading = false;
+		let signalSubtreeFetchStarted!: () => void;
+		const subtreeFetchStarted = new Promise<void>(resolve => { signalSubtreeFetchStarted = resolve; });
+
+		const getRoots = vi.fn(async () => [branch('r0')]);
+		const getChildren = vi.fn(async () => {
+			if (!reloading) {
+				return [leaf('r0.0')];
+			}
+			signalSubtreeFetchStarted();
+			return pending.promise;
+		});
+		const tree = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			getRoots,
+			getChildren,
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(tree);
+		await tree.refresh();
+		await tree.expand('r0');
+
+		reloading = true;
+		const rootsBefore = getRoots.mock.calls.length;
+
+		const first = tree.reloadAll();
+
+		// Wait until the roots pass has finished and the subtree fetch is in flight. That is the
+		// window a second press actually lands in -- pressing during the roots pass is already
+		// absorbed by refresh's own re-entrancy, so it would prove nothing.
+		await subtreeFetchStarted;
+		const second = tree.reloadAll();
+
+		pending.resolve([leaf('r0.0')]);
+		await Promise.all([first, second]);
+
+		// A second sweep would have re-run getRoots.
+		expect(getRoots.mock.calls.length - rootsBefore).toBe(1);
+	});
+
+	it('holds the focused appearance while an overlay owns DOM focus', async () => {
+		const tree = await newTree(1, 0);
+		tree.setFocused(true);
+
+		// A row's context menu opens: it takes DOM focus, which blurs the tree, but the row it
+		// belongs to should keep its active-selection styling.
+		const hold = tree.holdFocusAppearance();
+		tree.setFocused(false);
+		const whileHeld = tree.focused;
+
+		hold.dispose();
+		const afterRelease = tree.focused;
+
+		// Disposing twice must not drive the count negative and re-focus the tree.
+		hold.dispose();
+
+		expect({ whileHeld, afterRelease, afterDoubleDispose: tree.focused }).toEqual({
+			whileHeld: true,
+			afterRelease: false,
+			afterDoubleDispose: false,
+		});
+	});
+
 	it('setChildren pushes loaded children without invoking getChildren', async () => {
 		const tree = await newTree(2, 0); // getChildren would yield nothing; push explicitly instead
 		tree.setChildren('r0', [leaf('pushed-a'), leaf('pushed-b')]);
@@ -415,6 +930,36 @@ describe('PositronTree rendering and loading states', () => {
 		children.resolve([leaf('r0.0')]);
 		await expanding;
 		expect(await screen.findByText('r0.0')).toBeInTheDocument();
+	});
+
+	it('makes a stale row\'s twisty inert while an ancestor refreshes', async () => {
+		const pending = deferred<readonly TreeNode<DemoNode>[]>();
+		let reloading = false;
+		const instance = makeTree(
+			async () => [branch('r0')],
+			async node => reloading && node.id === 'r0' ? pending.promise : [branch('r0.c')]
+		);
+		await instance.refresh();
+		await instance.expand('r0');
+		rtl.render(<PositronTree instance={instance} />);
+
+		// Before the refresh, r0.c offers an Expand affordance.
+		expect(await screen.findByRole('button', { name: 'Expand' })).toBeInTheDocument();
+
+		reloading = true;
+		const reload = instance.reload('r0');
+
+		// While r0 refreshes, r0.c is stale: expanding it would fetch against a resource the
+		// refresh may already have released, so the twisty loses its label and is disabled.
+		await waitFor(() => expect(screen.queryByRole('button', { name: 'Expand' })).not.toBeInTheDocument());
+		// The row is still on screen -- a reload doesn't empty the subtree before its replacement.
+		expect(screen.getByText('r0.c')).toBeInTheDocument();
+
+		pending.resolve([branch('r0.c')]);
+		await reload;
+
+		// Once the replacement lands the affordance comes back.
+		expect(await screen.findByRole('button', { name: 'Expand' })).toBeInTheDocument();
 	});
 
 	it('shows a clickable error affordance carrying the failure message when a child fetch fails', async () => {

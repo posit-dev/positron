@@ -10,6 +10,9 @@ import * as child_process from 'child_process';
 import { createRequire } from 'module';
 import { dirs } from './dirs.ts';
 import { root, stateFile, stateContentsFile, computeState, computeContents, isUpToDate } from './installStateHash.ts';
+// --- Start Positron ---
+import { initAiLibSubmodule } from './initAiLibSubmodule.ts';
+// --- End Positron ---
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const rootNpmrcConfigKeys = getNpmrcConfigKeys(path.join(root, '.npmrc'));
@@ -137,7 +140,7 @@ async function npmInstallAsync(dir: string, opts?: child_process.SpawnOptions): 
 			'docker', 'run',
 			'-e', 'GITHUB_TOKEN',
 			'-v', `${process.env['VSCODE_HOST_MOUNT']}:/root/vscode`,
-			'-v', `${process.env['VSCODE_HOST_MOUNT']}/.build/.netrc:/root/.netrc`,
+			'-v', `${process.env['VSCODE_HOST_MOUNT']}/.build/.gitconfig-distro:/root/.gitconfig`,
 			'-v', `${process.env['VSCODE_NPMRC_PATH']}:/root/.npmrc`,
 			'-w', path.resolve('/root/vscode', dir),
 			process.env['VSCODE_REMOTE_DEPENDENCIES_CONTAINER_NAME'],
@@ -593,12 +596,12 @@ async function main() {
 	// authentication extension's postinstall, which builds ai-config from the
 	// ai-lib submodule. Unlike ark, ai-lib has no install step of its own to
 	// initialize it, so a missing ai-lib checkout is initialized here first —
-	// there is no working tree to lose.
+	// there is no working tree to lose. npm has already created
+	// ai-lib/packages/<pkg>/node_modules by this point (the root package.json takes
+	// `file:` deps on those packages), so the init has to be able to clone into a
+	// directory that is not empty -- see initAiLibSubmodule.
 	try {
-		if (!fs.existsSync(path.join(root, 'ai-lib', '.git'))) {
-			log('ai-lib', 'Submodule not initialized; running `git submodule update --init`...');
-			run('git', ['submodule', 'update', '--init', '--', 'ai-lib'], { cwd: root, stdio: 'inherit' });
-		}
+		initAiLibSubmodule(root, message => log('ai-lib', message));
 		await syncSubmoduleIfSafe('extensions/positron-r/ark');
 		await syncSubmoduleIfSafe('ai-lib');
 	} catch (err) {

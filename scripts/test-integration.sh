@@ -418,6 +418,12 @@ npm run test-extension -- -l positron-data-driver-sqlite
 kill_app
 
 echo
+echo "### Positron Databricks data connection tests"
+echo
+npm run test-extension -- -l positron-data-driver-databricks
+kill_app
+
+echo
 echo "### Positron Connect Pins data connection tests"
 echo
 npm run test-extension -- -l positron-data-driver-pins
