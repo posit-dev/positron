@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "license": "MIT",
   "scripts": {
-    "compile": "node ../../node_modules/typescript/bin/tsc6",
+    "compile": "node ../../node_modules/typescript/bin/tsc",
     "watch-e2e": "npm run compile -- --watch --preserveWatchOutput",
     "watch": "npm-run-all -lp watch-e2e"
   },
