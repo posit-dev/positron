@@ -9,17 +9,6 @@ on:
         description: "Positron version: a tag, 'latest-prerelease', or 'latest-release'"
         required: false
         default: "latest-prerelease"
-  # TEMPORARY, remove before merging. This workflow is meant to be nightly only:
-  # it holds an 8x runner for three cold launches and its numbers are only
-  # comparable run to run in a fixed image, so it earns nothing on a PR. It is
-  # here so the workflow can be proven end to end before it lands, since nothing
-  # about it can be verified locally. The paths filter keeps it off PRs that do
-  # not touch the collector.
-  pull_request:
-    paths:
-      - '.github/workflows/test-memory-metrics.yml'
-      - 'test/e2e/utils/memory/**'
-      - 'test/e2e/tests/performance/memory-idle.test.ts'
 
 concurrency:
   group: memory-metrics-${{ github.ref }}
