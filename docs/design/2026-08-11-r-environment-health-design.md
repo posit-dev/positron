@@ -151,6 +151,19 @@ This gate is also, in effect, the `--enable-R-shlib` check: ark panics with exac
 the library is absent (`crates/harp/src/library.rs:65`). Reporting it as a health item turns that
 crash into a diagnosable item.
 
+**Testability requirement.** Path resolution is a pure function of `(rHome, platform, arkArch)`,
+with platform and architecture passed in as arguments rather than read from `os.platform()` inside:
+
+```ts
+export function resolveLibRPath(rHome: string, platform: NodeJS.Platform,
+                                arkArch: 'arm64' | 'x64' | undefined): string
+```
+
+Existence checking stays separate, in the caller. This matters because three of the four rows in the
+table above cannot be exercised on any single developer machine -- the whole gate would otherwise be
+verified only by the one row the author happens to run on, and the Windows arm64 row is exactly the
+one that was wrong in the first draft of this design.
+
 #### Architecture sources for gate 5
 
 R's architecture is read from `RInstallation.arch`, never re-sniffed. That field is already computed
@@ -158,11 +171,27 @@ through a layered strategy -- DESCRIPTION `Built:` parsing, then PE-header sniff
 Mach-O sniffing on macOS (`r-installation.ts:341-390`). Duplicating it would create logic that
 drifts.
 
-Ark's architecture has no equivalent ready-made accessor: the only existing helper is
-`determineWindowsKernelArch` (`kernel.ts:132`), which is Windows-only. On macOS the existing
-`sniffMachOBinaryArchitecture` (`kernel.ts`) can be pointed at the resolved ark binary. On Linux,
-where cross-architecture R installs are not a practical concern, gate 5 is skipped and the libR
-folder is unconditionally `<R_HOME>/lib`.
+Ark's architecture needs no new detection code. Both existing sniffers are exported and take an
+arbitrary binary path, so they are pointed at the resolved ark binary rather than at R:
+
+- Windows: `sniffWindowsBinaryArchitecture(arkPath)` (`kernel.ts:268`), PE header
+- macOS: `sniffMachOBinaryArchitecture(arkPath)` (`kernel.ts:352`), Mach-O header
+- Linux: gate 5 is skipped, and the libR folder is unconditionally `<R_HOME>/lib`
+
+Note `determineWindowsKernelArch` (`kernel.ts:132`) is *not* the accessor to use. Despite the name
+it reports the architecture of **R**, not of ark, and exists so `resolveWindowsEmbeddedKernel` can
+pick the ark subdirectory matching R. Using it for gate 5 would compare R against itself and never
+fire.
+
+That Windows selection also explains why gate 5 is still worth running there even though ark is
+normally chosen to match R: `getWindowsSearchOrder` falls back to other subdirectories, and then to
+`resources/ark/ark.exe`, when the preferred one is absent (`kernel.ts:103-124`). A mismatch is
+therefore reachable, just rarer than on macOS.
+
+The two sniffers return different vocabularies -- `'arm64' | 'x64'` versus `'arm64' | 'x86_64'` --
+and `RInstallation.arch` uses the latter. Normalize before comparing, reusing `normalizeWindowsArch`
+(`kernel.ts:166`), and treat an undetectable architecture on either side as "no warn" rather than a
+mismatch: a failed sniff is missing information, not evidence of a problem.
 
 ### 4. `dedicatedEnvironment`
 
