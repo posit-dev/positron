@@ -269,9 +269,18 @@ render a report.
 
 ## Supporting change: harden `r.renvInit`
 
-`r.renvInit` currently calls `getForegroundSession()` and silently `console.debug`s when there is
-none (`commands.ts:236-251`). A health check is exactly the moment when no session is running, so
-the fix button would appear to do nothing.
+`r.renvInit` does not work without a running R session (`commands.ts:236-251`), and a health check is
+exactly the moment when no session is running.
+
+The failure mode is worth stating precisely, because the code reads misleadingly. The command's
+visible no-session branch is `console.debug('[r.renvInit] no session available')` -- but control
+never reaches it. `checkInstalled` runs first, and it resolves its own session via
+`RSessionManager.instance.getConsoleSession()` and **throws** when there is none:
+`Cannot check install status of renv; no R session available` (`session.ts:1216-1224`). So today the
+command rejects with an unhandled error, and its `console.debug` branch is dead code for this case.
+
+This drives the step order below: the session must be established *before* `checkInstalled`, not
+after.
 
 It gets changed to start an R session when none is running, and to surface a real error instead of
 `console.debug`. There is precedent: the Python PR modified `python.createEnvironmentAndRegister` to
@@ -288,15 +297,13 @@ exists to remove.
 
 Ordered, so an implementer has no open questions:
 
-1. `checkInstalled('renv', MINIMUM_RENV_VERSION)` as today. If it returns false, the user declined
-   the install prompt: return quietly, no error. That is a choice, not a failure.
-2. `session = await positron.runtime.getForegroundSession()`. If defined, skip to step 5. The
-   existing path is unchanged, so nothing about the current New Folder behavior regresses when a
-   session is already up.
-3. No session: resolve the runtime with `positron.runtime.getPreferredRuntime('r')` -- the same
+1. `session = await positron.runtime.getForegroundSession()`. If defined, skip to step 4. The
+   existing path is then unchanged, so nothing about the current New Folder behavior regresses when
+   a session is already up.
+2. No session: resolve the runtime with `positron.runtime.getPreferredRuntime('r')` -- the same
    source the health check uses, so the button acts on the R the report just described. If it
    returns undefined, throw; there is no R to initialize renv with.
-4. `await positron.runtime.selectLanguageRuntime(metadata.runtimeId)`, then poll
+3. `await positron.runtime.selectLanguageRuntime(metadata.runtimeId)`, then poll
    `getForegroundSession()` until it resolves to a session or a bounded timeout elapses.
 
    The poll is required, not defensive padding. `selectLanguageRuntime` resolves through a bare
@@ -306,10 +313,12 @@ Ordered, so an implementer has no open questions:
 
    `selectLanguageRuntime` shuts down other active runtimes for the language, which is acceptable
    only because this branch runs exclusively when there is no session.
+4. `checkInstalled('renv', MINIMUM_RENV_VERSION)`, now guaranteed a session. If it returns false the
+   user declined the install prompt: return quietly, no error. That is a choice, not a failure.
 5. `session.execute('renv::init()', ...)` exactly as today.
 
-Failures in steps 3 and 4 throw with a message naming the cause, replacing the silent
-`console.debug`. The two existing callers differ in how that surfaces: the health-check fix button
+Failures in steps 2 and 3 throw with a message naming the cause. The two existing callers differ in
+how that surfaces: the health-check fix button
 is invoked by a frontend that can show it, while `positronNewFolderService` currently ignores the
 result. Making the failure visible there is out of scope; the error is logged to `LOGGER` regardless
 so it is at least diagnosable.
@@ -339,9 +348,12 @@ Coverage of the `r.renvInit` hardening, the one live behavior change here:
   existing New Folder path does not regress
 - no session: the preferred runtime is selected and `renv::init()` executes only after a session
   becomes available
-- no session and no preferred runtime: throws, rather than returning silently
+- no session and no preferred runtime: throws a message naming that cause, rather than the current
+  misleading `Cannot check install status of renv`
 - session never becomes available: throws on timeout, rather than executing into the void
-- renv install declined: returns quietly with no error and no session started
+- renv install declined: returns quietly with no error
+- `checkInstalled` is never called before a session exists -- the ordering guard that keeps the
+  command from reproducing today's misleading throw
 
 These use a stubbed `positron.runtime` surface, following the fake-session approach in
 `packages.unit.test.ts:22`.
