@@ -18,11 +18,24 @@ export function availableAuthMethods(source: IPositronLanguageModelSource): Auth
 	return methods;
 }
 
-/** The effective method: the user's selection when supported, else the first available. */
+/**
+ * The effective method: while signed in, the method the source reports it
+ * actually connected with (source.authMethods, set by the extension from the
+ * live session) takes precedence over guessing - a provider that supports
+ * both OAuth and API key does not necessarily mean the current session used
+ * either particular one. Otherwise, the user's in-progress selection when
+ * supported, else the first available method.
+ */
 export function deriveAuthMethod(
 	source: IPositronLanguageModelSource,
 	selected?: AuthMethod,
 ): AuthMethod {
+	if (source.signedIn && source.authMethods?.length) {
+		const active = source.authMethods[0];
+		if (active === AuthMethod.OAUTH || active === AuthMethod.API_KEY) {
+			return active;
+		}
+	}
 	const methods = availableAuthMethods(source);
 	if (selected && methods.includes(selected)) {
 		return selected;

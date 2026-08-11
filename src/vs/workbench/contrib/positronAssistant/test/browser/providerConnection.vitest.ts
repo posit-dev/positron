@@ -52,6 +52,25 @@ describe('deriveAuthMethod', () => {
 	it('ignores an unsupported selection', () => {
 		expect(deriveAuthMethod(source({ supportedOptions: ['apiKey'] }), AuthMethod.OAUTH)).toBe(AuthMethod.API_KEY);
 	});
+	it('reports the actual connected method over the supported-options guess while signed in', () => {
+		const connectedViaApiKey = source({
+			supportedOptions: ['oauth', 'apiKey'],
+			signedIn: true,
+			authMethods: ['apiKey'],
+		});
+		expect(deriveAuthMethod(connectedViaApiKey)).toBe(AuthMethod.API_KEY);
+	});
+	it('falls back to the supported-options guess when signed in with no authMethods reported', () => {
+		expect(deriveAuthMethod(source({ supportedOptions: ['oauth', 'apiKey'], signedIn: true }))).toBe(AuthMethod.OAUTH);
+	});
+	it('ignores authMethods while signed out', () => {
+		const signedOutWithStaleAuthMethods = source({
+			supportedOptions: ['oauth', 'apiKey'],
+			signedIn: false,
+			authMethods: ['apiKey'],
+		});
+		expect(deriveAuthMethod(signedOutWithStaleAuthMethods)).toBe(AuthMethod.OAUTH);
+	});
 });
 
 describe('deriveAuthStatus', () => {
@@ -89,6 +108,14 @@ describe('deriveDisconnectAction', () => {
 	});
 	it('deletes for an api-key provider', () => {
 		expect(deriveDisconnectAction(source({ supportedOptions: ['apiKey'] }))).toBe('delete');
+	});
+	it('deletes an API-key connection even when the provider also supports oauth', () => {
+		const connectedViaApiKey = source({
+			supportedOptions: ['oauth', 'apiKey'],
+			signedIn: true,
+			authMethods: ['apiKey'],
+		});
+		expect(deriveDisconnectAction(connectedViaApiKey)).toBe('delete');
 	});
 });
 

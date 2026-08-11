@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { AuthProvider } from './authProvider';
-import { DATABRICKS_AUTH_PROVIDER_ID, FOUNDRY_AUTH_PROVIDER_ID } from './constants';
+import { DATABRICKS_AUTH_PROVIDER_ID, DATABRICKS_OAUTH_SESSION_ID, FOUNDRY_AUTH_PROVIDER_ID } from './constants';
 import { log } from './log';
 import { DATABRICKS_MANAGED_CREDENTIALS, FOUNDRY_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { getProviderSources } from './providerSources';
@@ -57,6 +57,24 @@ export function registerAuthProvider(
 }
 
 /**
+ * Derive which auth method a live session actually used, for providers that
+ * offer more than one (currently only Databricks). Only the OAuth session
+ * has a distinct id (DATABRICKS_OAUTH_SESSION_ID); chain and PAT sessions
+ * both use the provider id or a random UUID, so anything else is 'apiKey'.
+ * Returns undefined for single-method providers, where the connected/error
+ * views fall back to the provider's sole supported method.
+ */
+function deriveActiveAuthMethods(
+	providerId: string,
+	sessions: vscode.AuthenticationSession[],
+): string[] | undefined {
+	if (providerId !== DATABRICKS_AUTH_PROVIDER_ID || sessions.length === 0) {
+		return undefined;
+	}
+	return sessions[0].id === DATABRICKS_OAUTH_SESSION_ID ? ['oauth'] : ['apiKey'];
+}
+
+/**
  * Update a provider's signedIn and autoconfigure state from its current sessions.
  * The caller is responsible for fetching sessions via the appropriate mechanism.
  */
@@ -71,6 +89,7 @@ export async function updateProviderFromSessions(
 		// random UUID. Only autoconfigured sessions should show the
 		// "authenticated automatically" UI and hide the sign-out button.
 		const isAutoSession = signedIn && (sessions[0].id === providerId || providerId === 'copilot-auth');
+		const authMethods = deriveActiveAuthMethods(providerId, sessions);
 
 		// Distinguish "configured but expired" from "never configured" using
 		// the persisted flag. Copilot is excluded: it rides GitHub's built-in
@@ -114,6 +133,7 @@ export async function updateProviderFromSessions(
 			positron.ai.updateProvider(providerId, {
 				signedIn,
 				status,
+				...(authMethods ? { authMethods } : {}),
 				defaults: {
 					autoconfigure: {
 						type: positron.ai.LanguageModelAutoconfigureType.Custom,
@@ -141,8 +161,8 @@ export async function updateProviderFromSessions(
 				? getProviderSources().find(s => s.provider.id === providerId)?.defaults.autoconfigure
 				: undefined;
 			positron.ai.updateProvider(providerId, autoconfigure
-				? { signedIn, status, statusMessage, defaults: { autoconfigure: { ...autoconfigure, signedIn: true } } }
-				: { signedIn, status, statusMessage });
+				? { signedIn, status, statusMessage, ...(authMethods ? { authMethods } : {}), defaults: { autoconfigure: { ...autoconfigure, signedIn: true } } }
+				: { signedIn, status, statusMessage, ...(authMethods ? { authMethods } : {}) });
 		}
 	} catch (err) {
 		log.error(`Failed to check credential state for ${providerId}: ${err instanceof Error ? err.message : String(err)}`);

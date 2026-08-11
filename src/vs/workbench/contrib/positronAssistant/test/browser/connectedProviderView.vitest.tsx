@@ -154,4 +154,37 @@ describe('ConnectedProviderView', () => {
 		expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 		await act(async () => { resolve(); });
 	});
+
+	it('shows "Connected via API key" and a Remove action for a Databricks connection made with an API key, even though the provider also supports OAuth', async () => {
+		const databricksApiKey: IPositronLanguageModelSource = {
+			type: PositronLanguageModelType.Chat,
+			provider: { id: 'databricks', displayName: 'Databricks' },
+			supportedOptions: ['oauth', 'apiKey', 'baseUrl'],
+			signedIn: true,
+			authMethods: ['apiKey'],
+			defaults: { baseUrl: 'https://adb-123.7.azuredatabricks.net' },
+		};
+		const onAction = vi.fn().mockResolvedValue(undefined);
+		const user = userEvent.setup();
+		rtl.render(<ConnectedProviderView source={databricksApiKey} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		expect(screen.getByText(/connected via api key/i)).toBeInTheDocument();
+		const removeButton = screen.getByRole('button', { name: 'Remove' });
+		expect(removeButton).toBeInTheDocument();
+		await user.click(removeButton);
+		expect(onAction).toHaveBeenCalledWith(databricksApiKey, expect.anything(), 'delete');
+	});
+
+	it('shows "Connected via OAuth" and a Sign Out action for a Databricks connection made with OAuth', () => {
+		const databricksOAuth: IPositronLanguageModelSource = {
+			type: PositronLanguageModelType.Chat,
+			provider: { id: 'databricks', displayName: 'Databricks' },
+			supportedOptions: ['oauth', 'apiKey', 'baseUrl'],
+			signedIn: true,
+			authMethods: ['oauth'],
+			defaults: { baseUrl: 'https://adb-123.7.azuredatabricks.net' },
+		};
+		rtl.render(<ConnectedProviderView source={databricksOAuth} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		expect(screen.getByText(/connected via oauth/i)).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Sign Out' })).toBeInTheDocument();
+	});
 });
