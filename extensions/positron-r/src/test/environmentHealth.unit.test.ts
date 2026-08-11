@@ -5,6 +5,7 @@
 
 import * as assert from 'assert';
 import * as path from 'path';
+import * as semver from 'semver';
 import './mocha-setup';
 import {
 	archesMismatch,
@@ -14,9 +15,12 @@ import {
 	probeDedicatedEnvironment,
 	probeDiscovery,
 	probeEnvironmentReady,
+	probeNoUsableTarget,
 	probeRInstalled,
 	resolveLibRPath,
 	RInstallationLike,
+	RInstallationRankable,
+	selectTargetInstallation,
 } from '../environmentHealth';
 
 suite('environment health: libR path resolution', () => {
@@ -116,6 +120,8 @@ suite('environment health: probeDiscovery', () => {
 		const item = probeDiscovery({ binaryCount: 0, error: 'boom' });
 		assert.strictEqual(item.status, 'fail');
 		assert.ok(item.detail?.includes('boom'));
+		// Both discovery failure modes point at the same docs.
+		assert.strictEqual(item.learnMoreUrl, 'https://positron.posit.co/r-installations');
 	});
 });
 
@@ -198,6 +204,61 @@ suite('environment health: probeEnvironmentReady', () => {
 		assert.strictEqual(item.status, 'warn');
 		assert.ok(item.detail?.includes('x86_64'));
 		assert.ok(item.detail?.includes('arm64'));
+	});
+});
+
+suite('environment health: target selection', () => {
+	function rankable(over: Partial<RInstallationRankable> = {}): RInstallationRankable {
+		const version = over.semVersion ?? new semver.SemVer('4.4.1');
+		return {
+			binpath: `/opt/R/${version.format()}/bin/R`,
+			usable: true,
+			current: false,
+			arch: 'x86_64',
+			...over,
+			semVersion: version,
+		};
+	}
+
+	test('prefers the installation matching the preferred runtime path', () => {
+		const older = rankable({ semVersion: new semver.SemVer('4.2.0') });
+		const newer = rankable({ semVersion: new semver.SemVer('4.4.1') });
+		assert.strictEqual(selectTargetInstallation([newer, older], older.binpath), older);
+	});
+
+	test('falls back to the current installation when nothing is registered yet', () => {
+		// The health check can run before startup discovery registers a runtime,
+		// which must not be reported as a broken environment.
+		const newer = rankable({ semVersion: new semver.SemVer('4.4.1') });
+		const current = rankable({ semVersion: new semver.SemVer('4.2.0'), current: true });
+		assert.strictEqual(selectTargetInstallation([newer, current], undefined), current);
+	});
+
+	test('falls back to the highest version when none is marked current', () => {
+		const older = rankable({ semVersion: new semver.SemVer('4.2.0') });
+		const newer = rankable({ semVersion: new semver.SemVer('4.4.1') });
+		assert.strictEqual(selectTargetInstallation([older, newer], undefined), newer);
+	});
+
+	test('falls back when the preferred path matches nothing', () => {
+		// A settings change between registry read and discovery leaves a
+		// preferred path that is no longer in the discovered list.
+		const only = rankable();
+		assert.strictEqual(selectTargetInstallation([only], '/nowhere/bin/R'), only);
+	});
+
+	test('never falls back to an unusable installation', () => {
+		const broken = rankable({ usable: false, current: true });
+		assert.strictEqual(selectTargetInstallation([broken], undefined), undefined);
+	});
+
+	test('the no-target verdict is a localized fail, not a developer string', () => {
+		const item = probeNoUsableTarget();
+		assert.strictEqual(item.id, 'environmentReady');
+		assert.strictEqual(item.status, 'fail');
+		assert.ok(!item.summary.includes('environmentReady'));
+		assert.ok(!item.detail?.includes('Health check failed'));
+		assert.strictEqual(item.fix?.commandId, 'positron.startupDiagnostics.show');
 	});
 });
 

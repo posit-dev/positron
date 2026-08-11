@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as positron from 'positron';
+import * as semver from 'semver';
 import * as vscode from 'vscode';
 import { LOGGER } from './extension';
 import { getArkKernelPath, normalizeWindowsArch, sniffMachOBinaryArchitecture, sniffWindowsBinaryArchitecture } from './kernel';
@@ -106,6 +107,7 @@ export function probeDiscovery(deps: { binaryCount: number; error?: string }): H
 			id, status: 'fail', summary,
 			detail: vscode.l10n.t('R discovery could not complete: {0}', deps.error),
 			fix: diagnosticsFix(),
+			learnMoreUrl: R_INSTALL_DOCS,
 		};
 	}
 	if (deps.binaryCount === 0) {
@@ -151,11 +153,76 @@ export function probeRInstalled(deps: { installations: RInstallationLike[] }): H
 			learnMoreUrl: R_INSTALL_DOCS,
 		};
 	}
+	// Defensive: unreachable from getEnvironmentHealth, because the same array
+	// feeds probeDiscovery's binaryCount, so an empty list fails discovery and
+	// this probe is skipped. Kept for direct callers, with wording distinct from
+	// probeDiscovery's so the two cases stay distinguishable in a report.
 	return {
 		id, status: 'fail', summary,
-		detail: vscode.l10n.t('No R installations were found on this machine.'),
+		detail: vscode.l10n.t('There is no R installation to evaluate.'),
 		learnMoreUrl: R_INSTALL_DOCS,
 	};
+}
+
+function environmentReadySummary(): string {
+	return vscode.l10n.t('The R installation is ready to use with Positron');
+}
+
+/**
+ * The environmentReady verdict when no usable R installation could be picked at
+ * all: neither the registered preferred runtime nor the freshly discovered list
+ * yielded one.
+ */
+export function probeNoUsableTarget(): HealthItem {
+	return {
+		id: 'environmentReady',
+		status: 'fail',
+		summary: environmentReadySummary(),
+		detail: vscode.l10n.t('Positron could not resolve an R installation to use.'),
+		fix: diagnosticsFix(),
+		learnMoreUrl: R_INSTALL_DOCS,
+	};
+}
+
+/** Structural subset of RInstallation needed to rank fallback candidates. */
+export interface RInstallationRankable {
+	binpath: string;
+	usable: boolean;
+	current: boolean;
+	semVersion: semver.SemVer;
+	arch: string;
+}
+
+/**
+ * Picks the installation the report should describe.
+ *
+ * The preferred runtime comes from the runtime registry while `all` is a fresh
+ * discovery, so the two can disagree: nothing is registered yet when the check
+ * runs before startup discovery completes, or a settings change landed between
+ * them. Rather than failing, fall back to the installation Positron itself
+ * would rank first, mirroring the sort in `rRuntimeDiscoverer`.
+ */
+export function selectTargetInstallation<T extends RInstallationRankable>(
+	all: T[],
+	preferredRuntimePath: string | undefined
+): T | undefined {
+	if (preferredRuntimePath) {
+		// runtimePath is set directly from RInstallation.binpath in makeMetadata,
+		// so this join is exact rather than heuristic.
+		const match = all.find((i) => i.binpath === preferredRuntimePath);
+		if (match) {
+			return match;
+		}
+	}
+	const usable = all.filter((i) => i.usable);
+	usable.sort((a, b) => {
+		if (a.current || b.current) {
+			return Number(b.current) - Number(a.current);
+		}
+		// Version descending, ties broken by architecture, as in provider.ts.
+		return semver.compare(b.semVersion, a.semVersion) || a.arch.localeCompare(b.arch);
+	});
+	return usable[0];
 }
 
 export function probeEnvironmentReady(deps: {
@@ -171,7 +238,7 @@ export function probeEnvironmentReady(deps: {
 	arkArch?: ArkArch;
 }): HealthItem {
 	const id = 'environmentReady';
-	const summary = vscode.l10n.t('The R installation is ready to use with Positron');
+	const summary = environmentReadySummary();
 
 	if (!deps.usable) {
 		return {
@@ -350,8 +417,8 @@ export async function getEnvironmentHealth(
 ): Promise<REnvironmentHealthResult> {
 	const folderPath = resolveWorkspaceFolderPath(args?.workspaceFolder);
 
-	// Discovery runs once and is memoized: later probes must read the same
-	// snapshot, and re-running it would be wasteful and possibly inconsistent.
+	// Discovery runs once per invocation and every probe below reads that one
+	// snapshot. Nothing is cached across calls; each call re-runs full discovery.
 	let all: RInstallation[] = [];
 	let discoveryError: string | undefined;
 	try {
@@ -361,19 +428,14 @@ export async function getEnvironmentHealth(
 	}
 
 	const preferred = await positron.runtime.getPreferredRuntime('r');
-	// runtimePath is set directly from RInstallation.binpath in makeMetadata,
-	// so this join is exact rather than heuristic.
-	const target = preferred
-		? all.find((i) => i.binpath === preferred.runtimePath)
-		: undefined;
+	const target = selectTargetInstallation(all, preferred?.runtimePath);
 
 	const result = await assembleItems({
 		discovery: () => probeDiscovery({ binaryCount: all.length, error: discoveryError }),
 		rInstalled: () => probeRInstalled({ installations: all }),
 		ready: () => {
 			if (!target) {
-				throw new Error(
-					`No preferred R installation could be resolved${preferred ? ` for ${preferred.runtimePath}` : ''}`);
+				return probeNoUsableTarget();
 			}
 			const arkPath = getArkKernelPath({
 				rBinaryPath: target.binpath,
@@ -387,7 +449,9 @@ export async function getEnvironmentHealth(
 				rejectedReason: target.reasonRejected ?? undefined,
 				versionSupported: target.supported,
 				version: target.version,
-				arkFound: arkPath !== undefined,
+				// getArkKernelPath returns the positron.r.kernel.path setting
+				// verbatim, so a stale override must be checked on disk.
+				arkFound: arkPath !== undefined && fs.existsSync(arkPath),
 				libRPath,
 				libRExists: fs.existsSync(libRPath),
 				archMismatch: archesMismatch(target.arch, arkArch),
