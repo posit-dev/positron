@@ -128,11 +128,8 @@ export function probeRInstalled(deps: { installations: RInstallationLike[] }): H
 		return { id, status: 'pass', summary };
 	}
 
-	// Explain why the closest candidate did not qualify rather than just
-	// reporting absence: the user usually does have R, just not one we can use.
-	// Version is checked before the generic rejection branch because an old R is
-	// always ALSO marked unusable (r-installation.ts:320-340), and "your R is
-	// 4.0.5" is more actionable than "unusable: unsupported".
+	// Version first: an old R is always ALSO marked unusable, so the generic
+	// branch would otherwise shadow the more actionable "your R is 4.0.5".
 	const unsupported = deps.installations.find((i) => !i.supported);
 	if (unsupported) {
 		return {
@@ -153,10 +150,8 @@ export function probeRInstalled(deps: { installations: RInstallationLike[] }): H
 			learnMoreUrl: R_INSTALL_DOCS,
 		};
 	}
-	// Defensive: unreachable from getEnvironmentHealth, because the same array
-	// feeds probeDiscovery's binaryCount, so an empty list fails discovery and
-	// this probe is skipped. Kept for direct callers, with wording distinct from
-	// probeDiscovery's so the two cases stay distinguishable in a report.
+	// Unreachable via getEnvironmentHealth: the same array feeds probeDiscovery,
+	// so an empty list fails there first. Kept for direct callers.
 	return {
 		id, status: 'fail', summary,
 		detail: vscode.l10n.t('There is no R installation to evaluate.'),
@@ -196,11 +191,10 @@ export interface RInstallationRankable {
 /**
  * Picks the installation the report should describe.
  *
- * The preferred runtime comes from the runtime registry while `all` is a fresh
- * discovery, so the two can disagree: nothing is registered yet when the check
- * runs before startup discovery completes, or a settings change landed between
- * them. Rather than failing, fall back to the installation Positron itself
- * would rank first, mirroring the sort in `rRuntimeDiscoverer`.
+ * The preferred runtime comes from the registry while `all` is a fresh
+ * discovery, so they can disagree (nothing registered yet, or a settings change
+ * between them). Fall back to whatever `rRuntimeDiscoverer` would rank first
+ * rather than reporting a failure on a healthy machine.
  */
 export function selectTargetInstallation<T extends RInstallationRankable>(
 	all: T[],

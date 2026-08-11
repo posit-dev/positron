@@ -803,7 +803,7 @@ async function showRVersion(): Promise<void> {
 	}
 }
 
-/** How long to wait for a freshly started session to become the foreground session. */
+/** How long to wait for a freshly started R console session to appear. */
 const RENV_SESSION_TIMEOUT_MS = 30_000;
 const RENV_SESSION_POLL_MS = 250;
 
@@ -811,16 +811,12 @@ const RENV_SESSION_POLL_MS = 250;
  * Initializes renv in the current project, starting an R session first if none
  * is running.
  *
- * Ordering matters: `checkInstalled` resolves its own session and throws when
- * there is none, so it must not run until a session exists.
+ * Uses `RSessionManager.getConsoleSession()` throughout, the same source
+ * `checkInstalled` resolves internally, so readiness, the install check, and the
+ * execute target agree on one session. The foreground session is unusable here:
+ * it is language-agnostic and can be set while R is still Uninitialized.
  *
- * The session comes from `RSessionManager.getConsoleSession()`, the same source
- * `checkInstalled` uses, so readiness, the install check, and the execute target
- * all agree on one session. The foreground session is not usable here: it is
- * language-agnostic and can be set while the R session is still Uninitialized.
- *
- * @param timeoutMs How long to wait for a started session to appear. Overridden
- *   only by tests; production callers use the default.
+ * @param timeoutMs Overridden only by tests; production callers use the default.
  * @param pollMs How often to re-check for the session while waiting.
  */
 export async function renvInit(
