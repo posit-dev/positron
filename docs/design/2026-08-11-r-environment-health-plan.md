@@ -303,8 +303,13 @@ suite('environment health: probeRInstalled', () => {
 	});
 
 	test('fails when the only install is below the minimum version', () => {
+		// RInstallation always sets usable=false and reasonRejected='unsupported'
+		// for an old R (r-installation.ts:320-340), so this is what real data
+		// looks like. The version must still surface, not a generic reason.
 		const item = probeRInstalled({
-			installations: [installation({ supported: false, version: '4.0.5' })],
+			installations: [installation({
+				usable: false, supported: false, version: '4.0.5', reasonRejected: 'unsupported',
+			})],
 		});
 		assert.strictEqual(item.status, 'fail');
 		assert.ok(item.detail?.includes('4.0.5'));
@@ -471,7 +476,10 @@ export function probeRInstalled(deps: { installations: RInstallationLike[] }): H
 
 	// Explain why the closest candidate did not qualify rather than just
 	// reporting absence: the user usually does have R, just not one we can use.
-	const unsupported = deps.installations.find((i) => i.usable && !i.supported);
+	// Version is checked before the generic rejection branch because an old R is
+	// always ALSO marked unusable (r-installation.ts:320-340), and "your R is
+	// 4.0.5" is more actionable than "unusable: unsupported".
+	const unsupported = deps.installations.find((i) => !i.supported);
 	if (unsupported) {
 		return {
 			id, status: 'fail', summary,
