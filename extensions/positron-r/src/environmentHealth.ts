@@ -3,9 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
+import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { normalizeWindowsArch } from './kernel';
+import { LOGGER } from './extension';
+import { getArkKernelPath, normalizeWindowsArch, sniffMachOBinaryArchitecture, sniffWindowsBinaryArchitecture } from './kernel';
+import { discoverRInstallations } from './provider';
+import { RInstallation } from './r-installation';
 
 /** Architecture vocabulary used by the ark binary sniffers. */
 export type ArkArch = 'arm64' | 'x64';
@@ -308,4 +314,100 @@ export async function assembleItems(producers: {
 
 	items.push(await runItem('dedicatedEnvironment', producers.dedicated));
 	return finalize(items);
+}
+
+/** Sniffs the architecture of the resolved ark binary, not of R. */
+function arkArchitecture(arkPath: string | undefined): ArkArch | undefined {
+	if (!arkPath) {
+		return undefined;
+	}
+	if (os.platform() === 'win32') {
+		return sniffWindowsBinaryArchitecture(arkPath);
+	}
+	if (os.platform() === 'darwin') {
+		const sniffed = sniffMachOBinaryArchitecture(arkPath);
+		return sniffed === 'x86_64' ? 'x64' : sniffed;
+	}
+	// Linux: cross-architecture R is not a practical concern, so skip the check.
+	return undefined;
+}
+
+function hasRenvProject(folderPath: string): boolean {
+	return fs.existsSync(path.join(folderPath, 'renv.lock')) ||
+		fs.existsSync(path.join(folderPath, 'renv', 'activate.R'));
+}
+
+function resolveWorkspaceFolderPath(workspaceFolder: string | undefined): string | undefined {
+	if (workspaceFolder) {
+		return vscode.Uri.parse(workspaceFolder).fsPath;
+	}
+	// First folder only; multi-root reporting is a frontend concern.
+	return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
+export async function getEnvironmentHealth(
+	args?: { workspaceFolder?: string }
+): Promise<REnvironmentHealthResult> {
+	const folderPath = resolveWorkspaceFolderPath(args?.workspaceFolder);
+
+	// Discovery runs once and is memoized: later probes must read the same
+	// snapshot, and re-running it would be wasteful and possibly inconsistent.
+	let all: RInstallation[] = [];
+	let discoveryError: string | undefined;
+	try {
+		all = await discoverRInstallations();
+	} catch (ex) {
+		discoveryError = ex instanceof Error ? ex.message : String(ex);
+	}
+
+	const preferred = await positron.runtime.getPreferredRuntime('r');
+	// runtimePath is set directly from RInstallation.binpath in makeMetadata,
+	// so this join is exact rather than heuristic.
+	const target = preferred
+		? all.find((i) => i.binpath === preferred.runtimePath)
+		: undefined;
+
+	const result = await assembleItems({
+		discovery: () => probeDiscovery({ binaryCount: all.length, error: discoveryError }),
+		rInstalled: () => probeRInstalled({ installations: all }),
+		ready: () => {
+			if (!target) {
+				throw new Error(
+					`No preferred R installation could be resolved${preferred ? ` for ${preferred.runtimePath}` : ''}`);
+			}
+			const arkPath = getArkKernelPath({
+				rBinaryPath: target.binpath,
+				rHomePath: target.homepath,
+				rArch: target.arch,
+			});
+			const arkArch = arkArchitecture(arkPath);
+			const libRPath = resolveLibRPath(target.homepath, os.platform(), arkArch);
+			return probeEnvironmentReady({
+				usable: target.usable,
+				rejectedReason: target.reasonRejected ?? undefined,
+				versionSupported: target.supported,
+				version: target.version,
+				arkFound: arkPath !== undefined,
+				libRPath,
+				libRExists: fs.existsSync(libRPath),
+				archMismatch: archesMismatch(target.arch, arkArch),
+				rArch: target.arch,
+				arkArch,
+			});
+		},
+		dedicated: () => probeDedicatedEnvironment({
+			workspaceFolderPath: folderPath,
+			hasRenv: folderPath ? hasRenvProject(folderPath) : false,
+		}),
+	});
+
+	result.rBinPath = target?.binpath;
+	result.rHome = target?.homepath;
+	return result;
+}
+
+export function logEnvironmentHealth(result: REnvironmentHealthResult): void {
+	LOGGER.info('===================== [START] R ENVIRONMENT HEALTH =====================');
+	LOGGER.info(JSON.stringify(result, null, 2));
+	LOGGER.info('====================== [END] R ENVIRONMENT HEALTH ======================');
 }

@@ -152,6 +152,11 @@
         "title": "%r.command.interpreters.settingsInfo.title%"
       },
       {
+        "command": "r.printEnvironmentHealth",
+        "category": "R",
+        "title": "%r.command.printEnvironmentHealth.title%"
+      },
+      {
         "command": "r.loadRDataFile",
         "category": "R",
         "title": "%r.command.loadRDataFile.title%"
