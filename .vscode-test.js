@@ -206,8 +206,15 @@ const defaultLaunchArgs = process.env.API_TESTS_EXTRA_ARGS?.split(' ') || [
 //
 // Linux-only: the race is in the Linux system font stack, and forcing software
 // GL for a headless test run is harmless there.
+//
+// `unshift`, not `push`: vscode-test appends `workspaceFolder` as a positional
+// argument after these, and VS Code's CLI parser treats an unrecognized
+// `--flag` as taking the next positional as its value. A Chromium switch left
+// last therefore swallows the workspace path, and the suite launches with no
+// folder open (`workspace.workspaceFolders` undefined). Keep a flag VS Code
+// knows -- `--disable-workspace-trust` above -- at the end of this list.
 if (process.platform === 'linux') {
-	defaultLaunchArgs.push('--no-sandbox', '--disable-dev-shm-usage', '--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-compositing');
+	defaultLaunchArgs.unshift('--no-sandbox', '--disable-dev-shm-usage', '--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-compositing');
 }
 // --- End Positron ---
 
