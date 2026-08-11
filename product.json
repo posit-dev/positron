@@ -295,8 +295,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.156.0",
-			"sha256": "e92de13cb9a7a73f71029aa827b8e4f8b104fbdea628dd23d90e4ddec3afa309",
+			"version": "0.162.0",
+			"sha256": "819e5127fe6c221b868e78145d77e5276ababc49db8e2798014470d31e2f8f22",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
@@ -402,17 +402,8 @@
 		"resolveMergeConflictsCommand": "github.copilot.git.resolveMergeConflicts",
 		"completionsAdvancedSetting": "github.copilot.advanced",
 		"nextEditSuggestionsSetting": "github.copilot.nextEditSuggestions.enabled",
-		"chatExtensionOutputId": "GitHub.copilot-chat.GitHub Copilot Chat.log",
-		"documentationUrl": "https://aka.ms/github-copilot-overview",
-		"termsStatementUrl": "https://aka.ms/github-copilot-terms-statement",
-		"privacyStatementUrl": "https://aka.ms/github-copilot-privacy-statement",
-		"skusDocumentationUrl": "https://aka.ms/github-copilot-plans",
-		"publicCodeMatchesUrl": "https://aka.ms/github-copilot-match-public-code",
 		"manageSettingsUrl": "https://aka.ms/github-copilot-settings",
-		"managePlanUrl": "https://aka.ms/github-copilot-manage-plan",
 		"manageOverageUrl": "https://aka.ms/github-copilot-manage-overage",
-		"upgradePlanUrl": "https://aka.ms/github-copilot-upgrade-plan",
-		"signUpUrl": "https://aka.ms/github-sign-up",
 		"tokenEntitlementUrl": "https://api.github.com/copilot_internal/v2/token",
 		"mcpRegistryDataUrl": "https://api.github.com/copilot/mcp_registry",
 		"managedSettingsUrl": "https://api.github.com/copilot_internal/managed_settings"
