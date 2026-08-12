@@ -3,7 +3,7 @@
 Goal: tag a PR with `@:workbench` and `@:workbench-rocky` and get the
 `@:workbench` test suite running in parallel on Ubuntu 24 and Rocky Linux.
 
-Status (2026-08-11): **Steps 0-7 are done.** Steps 0-1 merged as #15407, Steps 2-4
+Status (2026-08-12): **Steps 0-7 are done, and the lane has had its first CI run.** Steps 0-1 merged as #15407, Steps 2-4
 as #15429. Steps 5 (first real suite run on Rocky, triaged), 6 (the
 `@:workbench-rocky` tag) and 7 (CI wiring) are on this branch, so a PR tagged
 `@:workbench-rocky` now starts a real lane.
@@ -13,10 +13,18 @@ npm run pwb -- --os=rocky9  --workbench=daily --positron=daily
 npm run pwb -- --os=ubuntu24 --workbench=daily --positron=daily   # the default
 ```
 
-**The lane is not green yet, and that is the expected state**: Step 5 found four
-genuinely Rocky-only failures, two of which are fixed here and two of which need
-follow-up work (see [Step 5's results](#step-5----run-the-real-suite-locally-against-rocky-done)).
-The lane is PR-tag-triggered, so it blocks nobody while that lands.
+**The lane is not green yet, and that is the expected state.** After the first CI
+run and the fixes on this branch, **two** genuinely Rocky-only failures remain
+(down from the four first estimated -- `publisher-shiny` turned out not to be
+Rocky at all, and `files-pane-refresh` was a cascade):
+
+| Remaining | State |
+| --- | --- |
+| `connect/publisher-quarto-r` | Root cause proven: publisher cannot resolve `quarto` in the extension host. Not yet fixed. |
+| `environment-modules` (Python) | Fails in positron-python's ipykernel bootstrap. Diagnosed to a boundary, not a cause. |
+
+The lane is PR-tag-triggered, so it blocks nobody while those land. See
+[Step 5's results](#step-5----run-the-real-suite-locally-against-rocky-done).
 
 `test-e2e-rhel.yml` still pins `positron-rocky8:24.15.0`; repointing it is a
 separate PR.
@@ -688,8 +696,8 @@ the attribution below trustworthy rather than a guess.
 | `environment-modules` (R) | **Rocky-only.** Two bugs, below. | **Fixed** |
 | `environment-modules` (Python) | **Rocky-only.** Same two bugs, plus a third layer still open. | Partly fixed |
 | `connect/publisher-quarto-r` | **Rocky-only.** Root cause proven, below. | Open |
-| `connect/publisher-shiny` | **Rocky-only.** Same publisher/quarto resolution. | Open |
-| `console/files-pane-refresh` | **Rocky-only.** Not investigated yet. | Open |
+| `connect/publisher-shiny` | **Not Rocky** -- see the CI results below. It passes on Rocky in CI; the local failure was arm64 or flake. | Closed |
+| `console/files-pane-refresh` | **Test fragility Rocky exposed**, not a Rocky defect. Cascade of the publisher failure. | **Fixed** |
 
 The 9 skips are all explained and none are Rocky: redshift x3 needs
 `REDSHIFT_TEST_HOST`, postgres x3 + `connections-postgres` x2 are gated on
@@ -770,6 +778,53 @@ Two things make this hard to see, worth knowing before picking it up:
   environment, not the login shell -- the same class of problem as the
   `.bash_profile` bug above. The next diagnostic is to print the extension
   host's `process.env.PATH` in a Rocky session.
+
+#### Confirmed in CI, with one retraction
+
+First real lane run ([run 31526068531](https://github.com/posit-dev/positron/actions/runs/31526068531?pr=15472)),
+which added the two things the local run could not: **amd64** and the real
+credentials.
+
+- **The regression check passed.** `workbench (default)`: 46 passed, 1 skipped, 0
+  failed -- including both `@:environment-modules` tests, which is the specific
+  thing the umask and profile.d changes had to not break. All three credential
+  shards passed.
+- **Rocky lane**: 42 passed, 3 failed, 1 flaky, 1 skipped. The `shards` job
+  emitted exactly one shard, the rpm resolved and installed, and the lane reported
+  separately -- so the wiring works.
+- **`environment-modules` (R) passes on Rocky in CI**, confirming the umask +
+  profile.d fixes work on the real lane and not just locally.
+- **Retraction: `publisher-shiny` is not Rocky-specific.** It passes on Rocky in
+  CI. It was called Rocky-only because the local Ubuntu control passed it while
+  Rocky failed -- on amd64 with real credentials it is fine, so the local failure
+  was arm64 or flake. `publisher-quarto-r` does reproduce, so the
+  quarto-resolution root cause stands; it accounts for one publisher test, not two.
+- **The assistant tests are not a Rocky problem.** All three sign-ins pass on
+  Rocky (`openai-api` failed once and passed on retry). The same test is the only
+  `workbench-stable (default)` failure, and `workbench-stable (azure)` is
+  `posit-assistant-foundry` failing with `OTP authentication failed after 3
+  attempts` -- pre-existing credential flake in a lane whose behaviour this work
+  does not change.
+
+#### Fixed: `files-pane-refresh` was a cascade, not a Rocky defect
+
+`verifyExplorerFilesExist` asserted a row was visible inside the Explorer's
+**virtualized** list. A row outside the rendered window is absent from the DOM
+rather than scrolled out of sight, which is why it failed with `element(s) not
+found` and could not recover. Whether a row is inside that window depends on how
+many folders are expanded, and the `app` fixture is `{ scope: 'worker' }` -- so
+expansion state accumulates across every earlier test in the session.
+
+Order in the Rocky lane: `publisher-quarto-r` (#3, failed) ... `files-pane-refresh`
+(#8, failed). The publisher tests leave `.posit/publish/deployments/...` expanded,
+pushing the root-level `file.txt` below the rendered window. Fixed by collapsing
+the tree first, which makes the assertion depend only on the file existing. All
+ten callers assert root-level files, so collapsing is safe for them; verified
+locally against `files-pane-refresh` and the `plots` suite (five calls).
+
+The general lesson for this lane: **a worker-scoped session means a failing test
+can fail a later, unrelated one.** Expect some Rocky failures to be cascades, and
+check test order before attributing one to the OS.
 
 #### Also measured: the duplicate-rserver bug is real, and the suite causes it
 
