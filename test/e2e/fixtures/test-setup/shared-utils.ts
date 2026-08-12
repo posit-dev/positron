@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import { constants, access, rm, mkdir, rename } from 'fs/promises';
 import { MultiLogger, Application } from '../../infra';
 import { SPEC_NAME, ROOT_PATH } from './constants';
+import { isMemoryScenario } from '../../utils/memory/scenarios.js';
 
 let fixtureScreenshot: Buffer | undefined;
 
@@ -75,10 +76,12 @@ export async function copyUserSettings(userDir: string): Promise<string> {
 		}
 	}
 
-	// 3. Merge memory-scenario settings so the idle memory spec measures a
-	// genuinely idle app. Must be pre-launch: starting a runtime and then
-	// disabling it would leave it running and counted.
-	if (process.env.MEMORY_SCENARIO === 'idle') {
+	// 3. Merge memory-scenario settings for every memory scenario, not just idle.
+	// Must be pre-launch: starting a runtime and then disabling it would leave it
+	// running and counted. Session scenarios keep auto-start off too and start
+	// their session explicitly, so the session they measure is the one they asked
+	// for and reports Ready at a known point.
+	if (isMemoryScenario(process.env.MEMORY_SCENARIO)) {
 		const memorySettingsFile = path.join(fixturesDir, 'settingsMemory.json');
 		if (fs.existsSync(memorySettingsFile)) {
 			const memorySettings = JSON.parse(fs.readFileSync(memorySettingsFile, 'utf8'));
