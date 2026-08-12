@@ -21,6 +21,8 @@ import { HorizontalSplitter } from '../../../../base/browser/ui/positronComponen
  * DataGridRowCellProps interface.
  */
 interface DataGridRowCellProps {
+	clipLeft: number;
+	clipTop: number;
 	columnIndex: number;
 	height: number;
 	left: number;
@@ -133,6 +135,14 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 		);
 	};
 
+	// Data grid row cells do not paint a background, so a cell that scrolls under a pinned column or
+	// a pinned row would show through it. Clip away the part of the cell that lies within a pinned
+	// band so that only the pinned cell paints there. Clipping also removes the clipped area from
+	// hit testing, so the pinned cell receives the mouse events over it.
+	const clipPath = props.clipLeft > 0 || props.clipTop > 0 ?
+		`inset(${props.clipTop}px 0 0 ${props.clipLeft}px)` :
+		undefined;
+
 	// Render.
 	return (
 		<div
@@ -141,7 +151,9 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 				'data-grid-row-cell',
 				{ pinned: props.pinned },
 			)}
+			data-testid={`data-grid-row-cell-${props.columnIndex}-${props.rowIndex}`}
 			style={{
+				clipPath,
 				height: props.height,
 				left: props.left,
 				width: context.instance.getCustomColumnWidth(props.columnIndex) ?? props.width,

@@ -12,11 +12,26 @@ import { deriveStatusContext, isAIEnabled, isCompletionEnabled, isCompletionEnab
 import { getLLMConfiguration, isSignedIn, resetModelCache } from './model.js';
 import { sendFeedback } from './feedback.js';
 import { debounceDelayMs, generateSuggestion } from './suggestions.js';
+import { BufferedLogOutputChannel } from './log.js';
 
-export const log = vscode.window.createOutputChannel('Next Edit Suggestions', { log: true });
+export const log = new BufferedLogOutputChannel(
+	vscode.window.createOutputChannel('Next Edit Suggestions', { log: true })
+);
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	context.subscriptions.push(log);
+
+	// Exposes the buffered trace/debug logs to the core "Collect AI Diagnostics"
+	// command. It runs in the workbench (renderer), which can't read an
+	// extension's activate() exports, so we bridge via a command: the command
+	// invocation and its return value cross the extension-host boundary.
+	// Registered first thing so the logs stay reachable even if the rest of
+	// activation fails or hangs. Not declared in package.json, so it stays out
+	// of the command palette.
+	context.subscriptions.push(
+		vscode.commands.registerCommand('next-edit-suggestions.getDiagnosticLogs',
+			() => log.formatEntriesForDiagnostics()),
+	);
 
 	log.info('Next Edit Suggestions extension is now activating...');
 

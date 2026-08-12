@@ -30,7 +30,10 @@ export interface ProviderCatalogChangeEvent {
 	readonly disabledIds: string[];
 }
 
-/** Test seam: `configPath`/`envVars` overrides; production passes nothing. */
+/**
+ * Test seam: `configPath`/`envVars` overrides. Production passes neither, so
+ * real user settings never leak into a `configPath`-based fixture.
+ */
 export interface ProviderCatalogOptions {
 	configPath?: string;
 	envVars?: Record<string, string | undefined>;
@@ -90,6 +93,13 @@ async function loadCatalog(options: ProviderCatalogOptions): Promise<readonly Re
 		baseline: { defaultEnabled: true },
 		configPath: options.configPath,
 		envVars: options.envVars,
+		// PROVIDER-SETTINGS-MIGRATION(legacy-positron): keep the legacy
+		// POSITRON_ENFORCED_SETTINGS admin channel applying above the user file.
+		// The user-set legacy settings reader is deliberately NOT passed: this
+		// Positron migrates those settings into providers.json, and a reader
+		// layer would make a cleared providers.json value fall back to its
+		// stale legacy source.
+		legacyPositronEnforcedSettings: true,
 		logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
 	});
 }
@@ -117,6 +127,9 @@ export async function initProviderCatalog(
 			baseline: { defaultEnabled: true },
 			configPath: options.configPath,
 			envVars: options.envVars,
+			// PROVIDER-SETTINGS-MIGRATION(legacy-positron): same opt-in as
+			// loadCatalog — enforced channel only, no user-set reader.
+			legacyPositronEnforcedSettings: true,
 			logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
 		}
 	);
@@ -219,6 +232,26 @@ export async function saveSnowflakeAccount(
 	await mutate(providers => {
 		const block = providers['snowflake-cortex'] ?? {};
 		providers['snowflake-cortex'] = { ...block, snowflake: { ...block.snowflake, account } };
+	}, opts);
+}
+
+/**
+ * Writes providers.databricks.databricks.host only when it changed. The
+ * workspace host lives in its own connection section, not `baseUrl`: per-model
+ * endpoint resolution falls back to `baseUrl`, so a host there would route chat
+ * at the bare workspace and bypass the serving-endpoints path.
+ */
+export async function saveDatabricksHost(
+	host: string,
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	if (getCachedProvider('databricks')?.connection.databricks?.host === host) {
+		return;
+	}
+	const opts = effectiveOptions(options);
+	await mutate(providers => {
+		const block = providers['databricks'] ?? {};
+		providers['databricks'] = { ...block, databricks: { ...block.databricks, host } };
 	}, opts);
 }
 

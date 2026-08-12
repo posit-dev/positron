@@ -271,4 +271,84 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 
 		expect(await fired).toEqual([['numpy']]);
 	});
+
+	describe('resolveLatestVersion', () => {
+		it('returns the version the package manager reports as latest', async () => {
+			const instance = makeInstance();
+			await instance.refreshPackages();
+
+			expect(await instance.resolveLatestVersion('numpy', CancellationToken.None)).toBe('2.1.0');
+		});
+
+		it('populates the installed list first when nothing has been refreshed yet', async () => {
+			// An agent can reach this before the pane has ever been shown. Without
+			// the installed version there is nothing to anchor a metadata entry to,
+			// so the answer would be undefined.
+			const instance = makeInstance();
+
+			expect(await instance.resolveLatestVersion('numpy', CancellationToken.None)).toBe('2.1.0');
+			expect(getPackages).toHaveBeenCalled();
+		});
+
+		it('matches the package name case-insensitively', async () => {
+			getPackages.mockResolvedValue([pkg('PyYAML', '6.0.1')]);
+			getPackageMetadata.mockResolvedValue(new Map<string, Partial<ILanguageRuntimePackage>>([
+				['pyyaml', { outdated: true, latestVersion: '6.0.2' }],
+			]));
+			const instance = makeInstance();
+
+			expect(await instance.resolveLatestVersion('pyyaml', CancellationToken.None)).toBe('6.0.2');
+		});
+
+		it('refetches rather than trusting a fresh cache entry', async () => {
+			// "The latest version" has to be answered against the repository as it
+			// is now, so the freshness window must not short-circuit the fetch.
+			// Every installed package is seeded fresh, which is what would let an
+			// unforced fetch skip the network entirely. The cache says 2.0.0; the
+			// repository has since published 2.1.0.
+			seed({
+				numpy: { version: '1.26.0', outdated: true, latestVersion: '2.0.0' },
+				pandas: { version: '2.0.0', outdated: false },
+			}, 1 * HOUR_MS);
+			// No refreshPackages() first: its background stage-2 fetch would
+			// overwrite the seeded entry and this would pass either way.
+			const instance = makeInstance();
+
+			expect(await instance.resolveLatestVersion('numpy', CancellationToken.None)).toBe('2.1.0');
+			expect(getPackageMetadata).toHaveBeenCalled();
+		});
+
+		it('returns undefined when the runtime reports nothing newer', async () => {
+			getPackageMetadata.mockResolvedValue(new Map<string, Partial<ILanguageRuntimePackage>>([
+				['numpy', { outdated: false }],
+			]));
+			const instance = makeInstance();
+
+			expect(await instance.resolveLatestVersion('numpy', CancellationToken.None)).toBeUndefined();
+		});
+
+		it('returns undefined for a package that is not installed', async () => {
+			const instance = makeInstance();
+
+			expect(await instance.resolveLatestVersion('scipy', CancellationToken.None)).toBeUndefined();
+		});
+
+		it('returns undefined when the package manager does not report metadata', async () => {
+			const packageManager = stubInterface<ILanguageRuntimePackageManager>({
+				getPackages,
+				getPackageMetadata: undefined,
+			});
+			session = stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'session-1',
+				runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: RUNTIME_ID }),
+				getRuntimeState: () => RuntimeState.Uninitialized,
+				onDidChangeRuntimeState: Event.None,
+				getPackageManager: () => packageManager,
+			});
+			const instance = makeInstance();
+
+			expect(await instance.resolveLatestVersion('numpy', CancellationToken.None)).toBeUndefined();
+			expect(getPackages).not.toHaveBeenCalled();
+		});
+	});
 });

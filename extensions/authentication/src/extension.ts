@@ -11,6 +11,7 @@ import {
 	AWS_AUTH_PROVIDER_ID,
 	CREDENTIAL_REFRESH_INTERVAL_MS,
 	CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
+	DATABRICKS_AUTH_PROVIDER_ID,
 	DEEPSEEK_AUTH_PROVIDER_ID,
 	FOUNDRY_AUTH_PROVIDER_ID,
 	GEMINI_AUTH_PROVIDER_ID,
@@ -25,6 +26,7 @@ import {
 	normalizeToV1Url,
 	validateAnthropicApiKey,
 	validateCustomProviderApiKey,
+	validateDatabricksApiKey,
 	validateDeepSeekApiKey,
 	validateFoundryApiKey,
 	validateGeminiApiKey,
@@ -39,45 +41,140 @@ import {
 	getSnowflakeConnectionsTomlPath,
 } from './credentials/snowflake';
 import { PositOAuthProvider } from './positOAuthProvider';
+import { DatabricksAuthProvider } from './databricksAuthProvider';
+import { normalizeHost } from './databricksOAuth';
 import * as fs from 'fs';
 import { log } from './log';
 import { migrateAwsSettings } from './migration/aws';
 import { migrateSnowflakeSettings } from './migration/snowflake';
-import { registerProvidersJsonMigration } from './migration/providersJsonUi';
+import { autoMigrateProvidersJson, registerProvidersJsonMigration } from './migration/providersJsonUi';
 import { AuthProviderLogger } from './authProviderLogger';
 import { applyPwbPositAIDefault } from './pwbDefaults';
 import {
 	getCachedProvider,
 	initProviderCatalog,
 	onDidChangeProviderCatalog,
+	ProviderCatalogOptions,
+	saveDatabricksHost,
 	saveProviderBaseUrl,
 	saveSnowflakeAccount,
 } from './providerCatalog';
 
-export async function activate(context: vscode.ExtensionContext) {
-	context.subscriptions.push(log);
+/** A settings migration, named so a failure says which one gave up. */
+interface SettingsMigration {
+	readonly name: string;
+	readonly run: () => Promise<void>;
+}
+
+const SETTINGS_MIGRATIONS: readonly SettingsMigration[] = [
+	{ name: 'AWS', run: migrateAwsSettings },
+	{ name: 'Snowflake', run: migrateSnowflakeSettings },
+];
+
+/**
+ * Runs the settings migrations, migrates them into providers.json, then primes
+ * the cached provider catalog.
+ *
+ * The order is load-bearing in both directions: the providers.json migration
+ * reads the `authentication.aws.credentials` /
+ * `authentication.snowflake.credentials` keys the settings migrations write, and
+ * the catalog reads no legacy settings, so anything not in providers.json by
+ * prime time is missing when providers resolve credentials.
+ *
+ * `catalogOptions`, `migrations` and `autoMigrate` are test seams; production
+ * passes none of them.
+ */
+export async function migrateSettingsAndPrimeCatalog(
+	context: vscode.ExtensionContext,
+	catalogOptions: ProviderCatalogOptions = {},
+	migrations: readonly SettingsMigration[] = SETTINGS_MIGRATIONS,
+	autoMigrate: () => Promise<void> = autoMigrateProvidersJson,
+): Promise<void> {
+	for (const { name, run } of migrations) {
+		await run().catch(err =>
+			log.error(`${name} settings migration failed: ${err}`)
+		);
+	}
+
+	await autoMigrate();
 
 	// Prime the cached provider catalog before registering providers so
 	// registration callbacks resolve connection config from it synchronously.
-	await initProviderCatalog(context);
+	await initProviderCatalog(context, catalogOptions);
+}
+
+export async function activate(context: vscode.ExtensionContext) {
+	context.subscriptions.push(log);
+
+	// Bridge the buffered trace/debug logs to the core "Collect AI Diagnostics"
+	// command. That command runs in the workbench (renderer), which can't read an
+	// extension's activate() exports, so it invokes this command across the
+	// extension-host boundary and receives the return value. The `getLogs` export
+	// below stays for any extension-to-extension consumer. Not declared in
+	// package.json, so it stays out of the command palette. Registered before the
+	// migration and catalog init below so the logs stay reachable if either throws
+	// or hangs.
+	context.subscriptions.push(
+		vscode.commands.registerCommand('authentication.getDiagnosticLogs',
+			() => log.formatEntriesForDiagnostics()),
+	);
+
+	await migrateSettingsAndPrimeCatalog(context);
+
+	// Reports provider state for the core "AI: Create Diagnostic Report" command:
+	// which providers the user is signed in to, and which are turned off in
+	// settings. Returns display names only (no account details). Bridged as a
+	// command for the same reason as the logs above.
+	context.subscriptions.push(
+		vscode.commands.registerCommand('authentication.getProviderDiagnostics', async () => {
+			const authenticated: string[] = [];
+
+			// "Authenticated" means an active session (getSessions().length > 0),
+			// matching how the Accounts UI decides signed-in - not isConfigured(),
+			// which also counts providers set up once but now signed out or expired.
+			await Promise.all([...authProviders.values()].map(async (provider) => {
+				try {
+					if ((await provider.getSessions()).length > 0) {
+						authenticated.push(provider.label);
+					}
+				} catch (e) {
+					log.warn(`getProviderDiagnostics: could not check ${provider.label}: ${e instanceof Error ? e.message : String(e)}`);
+				}
+			}));
+
+			// Copilot rides GitHub's built-in auth, not a registered AuthProvider.
+			try {
+				if (await vscode.authentication.getSession('github', [], { silent: true })) {
+					authenticated.push('GitHub Copilot');
+				}
+			} catch (e) {
+				log.warn(`getProviderDiagnostics: could not check GitHub: ${e instanceof Error ? e.message : String(e)}`);
+			}
+
+			// "Disabled" means the provider's catalog entry isn't enabled.
+			// Enablement now lives in the provider catalog (providers.json), not
+			// the deprecated `*.enable` settings. Match core's rule: enabled only
+			// when `enabled === true`, so a missing or false entry counts as off.
+			const disabled = Object.values(PROVIDER_METADATA)
+				.filter(meta => !meta.catalogId || getCachedProvider(meta.catalogId)?.enabled !== true)
+				.map(meta => meta.displayName);
+
+			return { authenticated: authenticated.sort(), disabled: disabled.sort() };
+		}),
+	);
 
 	await registerAnthropicProvider(context);
 	registerPositAIProvider(context);
 	registerFoundryProvider(context);
 
-	// Migrate settings before registering providers so they
-	// read the migrated values during initialization.
 	await registerAwsProvider(context);
-
-	await migrateSnowflakeSettings().catch(err =>
-		log.error(`Snowflake settings migration failed: ${err}`)
-	);
 	await registerSnowflakeProvider(context);
 
 	await registerOpenaiProvider(context);
 	await registerGeminiProvider(context);
 	await registerGeapProvider(context);
 	await registerDeepSeekProvider(context);
+	registerDatabricksProvider(context);
 	registerCustomProvider(context);
 
 	// Register providers so the assistant knows about them; enablement is
@@ -229,10 +326,6 @@ async function registerAwsProvider(
 	context: vscode.ExtensionContext
 ): Promise<void> {
 	const logger = new AuthProviderLogger('AWS');
-
-	await migrateAwsSettings().catch(err =>
-		logger.logOperationError('settings migration', err)
-	);
 
 	const provider = new AuthProvider(
 		AWS_AUTH_PROVIDER_ID, 'AWS', context,
@@ -570,6 +663,32 @@ async function registerDeepSeekProvider(
 	);
 
 	log.info(`Registered auth provider: ${DEEPSEEK_AUTH_PROVIDER_ID}`);
+}
+
+function registerDatabricksProvider(
+	context: vscode.ExtensionContext
+): void {
+	const logger = new AuthProviderLogger('Databricks');
+	const provider = new DatabricksAuthProvider(context);
+	context.subscriptions.push(
+		vscode.authentication.registerAuthenticationProvider(
+			DATABRICKS_AUTH_PROVIDER_ID, 'Databricks', provider,
+			{ supportsMultipleAccounts: false }
+		),
+		provider
+	);
+	registerAuthProvider(DATABRICKS_AUTH_PROVIDER_ID, provider, {
+		validateApiKey: validateDatabricksApiKey,
+		onSave: async (config) => {
+			// baseUrl carries the workspace host through the modal; persist it
+			// as the catalog's databricks host, not as a baseUrl.
+			const host = config.baseUrl?.trim();
+			if (host) {
+				await saveDatabricksHost(normalizeHost(host));
+			}
+		},
+	});
+	logger.info('Registered auth provider');
 }
 
 function registerCustomProvider(

@@ -7,7 +7,7 @@ import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { IHostedLanguageContribution, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, IRuntimeRootSignature, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
-import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatProgressDto, ExtHostQuickOpenShape } from '../extHost.protocol.js';
+import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatProgressDto, ExtHostQuickOpenShape, ITextEditorAddData, IEditorPropertiesChangeData } from '../extHost.protocol.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
@@ -26,6 +26,9 @@ import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronCon
 import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { EvalResult } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
+import { ITextModel } from '../../../../editor/common/model.js';
+import { Event } from '../../../../base/common/event.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -105,6 +108,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$getSessionWorkingDirectory(sessionId?: string): Promise<string | undefined>;
 	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
 	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
+	$getConsoleHistory(sessionId: string, numberOfEntries?: number): Promise<ISerializedConsoleHistoryEntry[]>;
 	$callMethod(sessionId: string, method: string, args: unknown[]): Thenable<unknown>;
 	$emitPerfMark(extensionId: string, name: string): void;
 	$emitLanguageRuntimeMessage(sessionId: string, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
@@ -129,7 +133,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$disposeLanguageRuntime(handle: number): Promise<void>;
 	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo>;
 	$openResource(handle: number, resource: URI | string): Promise<boolean>;
-	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation, executionId?: string, executionMetadata?: Record<string, unknown>): void;
+	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation, executionId?: string, executionMetadata?: Record<string, unknown>): Promise<void>;
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus>;
 	$createClient(handle: number, id: string, type: RuntimeClientType, params: unknown, metadata?: unknown): Promise<void>;
 	$listClients(handle: number, type?: RuntimeClientType): Promise<Record<string, string>>;
@@ -195,12 +199,51 @@ export interface MainThreadConsoleServiceShape {
 	$getConsoleWidth(): Promise<number>;
 	$getSessionIdForLanguage(languageId: string): Promise<string | undefined>;
 	$tryPasteText(sessionId: string, text: string): void;
+	$getActiveConsoleSessionId(): Promise<string | undefined>;
 }
 
 export interface ExtHostConsoleServiceShape {
 	$onDidChangeConsoleWidth(newWidth: number): void;
 	$addConsole(sessionId: string): void;
 	$removeConsole(sessionId: string): void;
+	$onDidChangeActiveConsole(sessionId: string | undefined): void;
+
+	// Console input editors travel over this Positron-only channel rather than the core
+	// `$acceptDocumentsAndEditorsDelta` one, so they never surface through the standard VS Code
+	// editor APIs (`visibleTextEditors`, `onDidChangeTextEditorSelection`, ...).
+	$addConsoleEditor(sessionId: string, data: ITextEditorAddData): void;
+	$removeConsoleEditor(sessionId: string): void;
+	$acceptConsoleEditorPropertiesChanged(sessionId: string, data: IEditorPropertiesChangeData): void;
+}
+
+/**
+ * A text editor that lives in the main thread's editor map -- so operations the extension host
+ * addresses by id (`edit()`, `insertSnippet()`, selection writes) can resolve it -- but which is
+ * deliberately absent from the core documents-and-editors state.
+ */
+export interface IHiddenTextEditorRegistration extends IDisposable {
+	/** The data the extension host needs to build its own editor object for this editor. */
+	readonly addData: ITextEditorAddData;
+
+	/** Fires when the editor's selections, options or visible ranges change. */
+	readonly onPropertiesChanged: Event<IEditorPropertiesChangeData>;
+}
+
+/**
+ * Implemented by MainThreadDocumentsAndEditors so Positron can register editors that are hidden
+ * from the core editor pipeline, without exposing the full upstream internals.
+ */
+export interface IMainThreadHiddenEditorManager {
+	/**
+	 * Registers a hidden text editor.
+	 *
+	 * @param id A stable id for this editor (e.g. `console-<sessionId>`)
+	 * @param codeEditor The Monaco editor to expose
+	 * @param model The text model attached to `codeEditor`
+	 * @returns A registration the caller must forward to the extension host over its own channel,
+	 * and dispose when the editor goes away
+	 */
+	registerHiddenTextEditor(id: string, codeEditor: ICodeEditor, model: ITextModel): IHiddenTextEditorRegistration;
 }
 
 export interface MainThreadMethodsShape { }
@@ -280,9 +323,10 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	$nodeGetChildrenViaService(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
 
 	/**
-	 * Previews a node via the main thread service.
+	 * Previews a node via the main thread service. Resolves to the dataset id the preview was
+	 * opened under, or undefined when the driver did not report one.
 	 */
-	$nodePreviewViaService(connectionHandle: number, nodeHandle: number): Promise<void>;
+	$nodePreviewViaService(connectionHandle: number, nodeHandle: number): Promise<string | undefined>;
 
 	/**
 	 * Releases a connection handle via the main thread service.
@@ -304,7 +348,7 @@ export interface ExtHostDataConnectionsShape {
 	$connectionDisconnect(connectionHandle: number): Promise<void>;
 	$connectionIsConnected(connectionHandle: number): Promise<boolean>;
 	$nodeGetChildren(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
-	$nodePreview(connectionHandle: number, nodeHandle: number): Promise<void>;
+	$nodePreview(connectionHandle: number, nodeHandle: number): Promise<string | undefined>;
 	$releaseConnection(connectionHandle: number): void;
 }
 
@@ -368,6 +412,13 @@ export type ISerializedValidateAndExecuteCommandResult =
 		precondition?: string;
 		message?: string;
 	};
+
+export interface ISerializedConsoleHistoryEntry {
+	input: string;
+	output: string;
+	error?: { name: string; message: string; traceback: string[] };
+	when: number;
+}
 
 export interface MainThreadAiFeaturesShape {
 	$registerChatAgent(agentData: IChatAgentData): Thenable<void>;
@@ -571,6 +622,7 @@ export interface MainThreadPositronEphemeralStorageShape extends IDisposable {
 }
 
 export const MainPositronContext = {
+	MainThreadHiddenEditorManager: createProxyIdentifier<IMainThreadHiddenEditorManager>('MainThreadHiddenEditorManager'),
 	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
 	MainThreadPreviewPanel: createProxyIdentifier<MainThreadPreviewPanelShape>('MainThreadPreviewPanel'),
 	MainThreadModalDialogs: createProxyIdentifier<MainThreadModalDialogsShape>('MainThreadModalDialogs'),

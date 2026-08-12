@@ -133,7 +133,7 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 		this._disposables.add(this._executionManager.onDidChangeExecutionState((event) => {
 			const toolbar = this._toolbars.get(event.execution.cellId);
 			if (toolbar) {
-				toolbar.setExecutionState(event.execution.state);
+				toolbar.setExecutionState(event.execution.state, event.execution.executionId);
 			}
 		}));
 

@@ -31,9 +31,9 @@ jobs:
     timeout-minutes: 60
     # Run inside the shared CI image, which bakes in the system dependencies,
     # Node (matching .nvmrc), and R 4.5.2 + test-files deps that this
-    # job used to install at runtime. See posit-dev/positron-ci-images.
+    # job used to install at runtime. Built from docker/images/ubuntu24_04.
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
       # --shm-size: Chromium/Electron exhausts the container's default 64MB
       # /dev/shm under load (e.g. the web integration tests), which can surface
       # as "Failed to fetch dynamically imported module". Size it up to match
@@ -53,6 +53,12 @@ jobs:
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
       RETICULATE_PYTHON: /root/.venv/bin/python
+      # The agent host e2e tests spawn the bundled Claude CLI, which refuses the
+      # `--allow-dangerously-skip-permissions` flag the agent host always passes
+      # when it runs as root -- and this container runs as root (`--user 0:0`).
+      # `IS_SANDBOX=1` is the CLI's escape hatch for sandboxed environments; the
+      # agent host forwards it to the subprocess (see claudeSdkOptions.ts).
+      IS_SANDBOX: '1'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -174,3 +180,18 @@ jobs:
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
+
+      # The suites already write window, extension-host and main-process logs
+      # (`--logsPath`) plus crash dumps (`--crash-reporter-directory`), but the
+      # job discarded them, so a failure here left only "the test timed out" to
+      # work from. Keep them on failure.
+      - name: Upload extension host logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ext-host-logs
+          path: |
+            .build/logs
+            .build/crashes
+          if-no-files-found: ignore
+          retention-days: 7

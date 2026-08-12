@@ -1,0 +1,44 @@
+[main 2026-08-10T12:16:58.488Z] [PolicyConfiguration] No admin policy service provided
+Version:          Positron 2026.08.0+331 (a3a370d4187484ce962794408c76dab702978eaf, 2026-08-05T17:02:37-07:00)
+Code OSS Version: VS Code 1.124.0
+OS Version:       Linux arm64 6.10.14-linuxkit
+CPUs:             unknown (8 x 0)
+Memory (System):  11.67GB (9.99GB free)
+Load (avg):       1, 1, 1
+VM:               0%
+Screen Reader:    no
+Process Argv:     --user-data-dir=/tmp/udd --extensions-dir=/tmp/udd/exts --no-sandbox --disable-dev-shm-usage
+GPU Status:       2d_canvas:                              unavailable_software
+                  direct_rendering_display_compositor:    disabled_off_ok
+                  gpu_compositing:                        disabled_software
+                  multiple_raster_threads:                enabled_on
+                  opengl:                                 unavailable_off
+                  rasterization:                          unavailable_off
+                  raw_draw:                               disabled_off_ok
+                  skia_graphite:                          disabled_off
+                  trees_in_viz:                           disabled_off
+                  video_decode:                           unavailable_off
+                  video_encode:                           disabled_software
+                  vulkan:                                 disabled_off
+                  webgl:                                  unavailable_off
+                  webgpu:                                 unavailable_software
+                  webgpu_on_vk_via_gl_interop:            disabled_off
+                  webnn:                                  disabled_off
+
+CPU %	Mem MB	   PID	Process
+    0	28447523392	    13	positron
+    0	1497238073	    17	   zygote
+    0	1497238073	    18	   zygote
+    0	31441999538	    89	window [1] (Welcome - Positron)
+    0	10480666513	    36	   gpu-process
+    0	2994476146	    41	   utility-network-service
+    0	7486190366	   120	shared-process
+    0	5988952293	   121	file-watcher [1]
+    0	43419904124	   148	extension-host [1]
+    0	     0	   217	     /build/resources/app/extensions/positron-python/python-env-tools/pet server
+    0	4491714220	   376	     /build/positron /build/resources/app/extensions/json-language-features/server/dist/node/jsonServerMain --node-ipc --clientProcessId=148
+    0	7486190366	   179	agent-host
+    0	5988952293	   270	pty-host
+    0	     0	   300	     /usr/bin/bash --init-file /build/resources/app/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh
+    0	     0	   303	     bash /build/resources/app/extensions/positron-supervisor/resources/supervisor-wrapper.sh /tmp/kallichore-878f884a-148.out.log /build/resources/app/extensions/positron-supervisor/resources/kallichore/kcserver --log-level debug --log-file /tmp/kallichore-878f884a-148.log --handshake-socket /tmp/kc-handshake-NOoXSe/s.sock --resource-sample-interval 1000 --transport socket --idle-shutdown-hours 1
+    0	     0	   365	       /build/resources/app/extensions/positron-supervisor/resources/kallichore/kcserver --log-level debug --log-file /tmp/kallichore-878f884a-148.log --handshake-socket /tmp/kc-handshake-NOoXSe/s.sock --resource-sample-interval 1000 --transport socket --idle-shutdown-hours 1

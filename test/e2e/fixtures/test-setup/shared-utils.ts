@@ -75,6 +75,20 @@ export async function copyUserSettings(userDir: string): Promise<string> {
 		}
 	}
 
+	// 3. Merge memory-scenario settings so the idle memory spec measures a
+	// genuinely idle app. Must be pre-launch: starting a runtime and then
+	// disabling it would leave it running and counted.
+	if (process.env.MEMORY_SCENARIO === 'idle') {
+		const memorySettingsFile = path.join(fixturesDir, 'settingsMemory.json');
+		if (fs.existsSync(memorySettingsFile)) {
+			const memorySettings = JSON.parse(fs.readFileSync(memorySettingsFile, 'utf8'));
+			mergedSettings = {
+				...mergedSettings,
+				...memorySettings,
+			};
+		}
+	}
+
 	// Write merged settings directly to user data directory (avoids race condition with shared fixture file)
 	await mkdir(userDir, { recursive: true });
 	const userSettingsFile = path.join(userDir, settingsFileName);

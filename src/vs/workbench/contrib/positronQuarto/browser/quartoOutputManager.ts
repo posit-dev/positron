@@ -19,9 +19,11 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { localize } from '../../../../nls.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { VSBuffer } from '../../../../base/common/buffer.js';
-import { dirname, basename, extname } from '../../../../base/common/resources.js';
+import { basename } from '../../../../base/common/resources.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { getImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
+import { getImageOutputName, openImageOutputInNewTab, saveImageOutput } from '../../positronNotebook/common/imageOutputUtils.js';
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
@@ -295,6 +297,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		@IFileService private readonly _fileService: IFileService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IPositronPreviewService private readonly _previewService: IPositronPreviewService,
+		@IPositronPlotsService private readonly _plotsService: IPositronPlotsService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IResourceUsageHistoryService private readonly _resourceUsageHistoryService: IResourceUsageHistoryService,
 		@IHoverService private readonly _hoverService: IHoverService,
@@ -378,11 +381,12 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			const newModel = this._editor.getModel();
 			this._documentUri = newModel?.uri;
 
-			// Handle untitled->saved transition: transfer cache from old URI to new URI
-			// This happens when a user saves an untitled Quarto document to a file
+			// Handle untitled->saved transition: transfer cache from old URI to new URI.
+			// Any non-untitled scheme counts as saved; a remote or web window saves
+			// to `vscode-remote`, not `file`.
 			if (previousUri && this._documentUri &&
 				previousUri.scheme === 'untitled' &&
-				this._documentUri.scheme === 'file' &&
+				this._documentUri.scheme !== 'untitled' &&
 				this._isQuartoDocument()) {
 				this._transferCacheFromUntitled(previousUri, this._documentUri);
 			}
@@ -744,10 +748,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		for (const output of outputs) {
 			for (const item of output.items) {
 				if (item.mime.startsWith('image/')) {
-					const dataUrl = item.data.startsWith('data:')
-						? item.data
-						: `data:${item.mime};base64,${item.data}`;
-					return { type: 'image', dataUrl };
+					return { type: 'image', dataUrl: getImageDataUrl(item.mime, item.data) };
 				}
 			}
 		}
@@ -933,6 +934,16 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 			const quartoModel = this._documentModelService.getModel(model);
 
+			// Both lookups below match cached outputs to live cells by content
+			// hash, so they need the model's cells to be current.
+			if (!quartoModel.isParsed) {
+				this._logService.debug('[QuartoOutputContribution] Waiting for the document to be parsed before restoring cached outputs');
+				await quartoModel.whenParsed();
+				if (this._cachedOutputsLoaded || this._store.isDisposed) {
+					return;
+				}
+			}
+
 			// If no cache found, try to find cache by content hash
 			// This handles two cases:
 			// 1. A file document that was just saved from an untitled document
@@ -946,26 +957,6 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				if (cachedDoc) {
 					this._logService.debug('[QuartoOutputContribution] Found cache by content hash match');
 				}
-			}
-
-			// If no cache found and no cells available yet, subscribe to model parse events.
-			// This handles the case where an untitled document is being restored via hot exit
-			// and the content hasn't been loaded yet when _loadCachedOutputs is first called.
-			if ((!cachedDoc || cachedDoc.cells.length === 0) &&
-				quartoModel.cells.length === 0 &&
-				this._documentUri.scheme === 'untitled') {
-
-				this._logService.debug('[QuartoOutputContribution] No cells found for untitled document, waiting for content to be restored');
-
-				// Subscribe to parse events - when content is restored and parsed, cells will appear
-				this._outputHandlingDisposables.add(quartoModel.onDidParse(() => {
-					// Only try once more after cells appear
-					if (quartoModel.cells.length > 0 && !this._cachedOutputsLoaded) {
-						this._logService.debug('[QuartoOutputContribution] Cells found after parse, retrying cache load');
-						this._loadCachedOutputs();
-					}
-				}));
-				return;
 			}
 
 			// Mark as loaded to prevent re-entry
@@ -1371,7 +1362,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	 * Shows a file save dialog and saves the plot to the selected location.
 	 */
 	private async _handleSaveRequest(request: SavePlotRequest, cellId: string): Promise<void> {
-		await this._savePlot(request.dataUrl, request.mimeType, cellId);
+		await this.savePlot(request.dataUrl, cellId);
 	}
 
 	/**
@@ -1387,7 +1378,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		try {
 			switch (popout.type) {
 				case 'plot':
-					await this._openPlotInEditor(popout.dataUrl, popout.mimeType, request.cellId);
+					await this._openPlotInEditor(popout.dataUrl, request.cellId);
 					break;
 				case 'text':
 					await this._openTextInEditor(popout.text);
@@ -1406,44 +1397,42 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	/**
-	 * Open a plot image in a new editor tab.
+	 * Opens a plot image in a data-backed editor tab without creating a project
+	 * file.
 	 */
-	private async _openPlotInEditor(dataUrl: string, mimeType: string, cellId: string): Promise<void> {
+	private async _openPlotInEditor(dataUrl: string, cellId: string): Promise<void> {
 		if (!this._documentUri) {
 			return;
 		}
 
-		// Extract base64 data from data URL
-		const base64Data = this._extractBase64FromDataUrl(dataUrl);
-		if (!base64Data) {
-			throw new Error('Invalid data URL format');
+		await openImageOutputInNewTab(
+			dataUrl,
+			this._documentUri,
+			getImageOutputName(this._documentUri, this._getCellIndex(cellId)),
+			this._plotsService,
+			this._logService,
+			this._notificationService,
+			this._getCellCode(cellId),
+		);
+	}
+
+	/**
+	 * Returns the zero-based cell index encoded at the start of the cell ID.
+	 */
+	private _getCellIndex(cellId: string): number {
+		const index = parseInt(cellId.split('-')[0], 10);
+		return Number.isNaN(index) ? 0 : index;
+	}
+
+	/** Returns the cell's current code, when the cell still exists. */
+	private _getCellCode(cellId: string): string | undefined {
+		const model = this._editor.getModel();
+		if (!model) {
+			return undefined;
 		}
-
-		// Decode base64 to binary
-		const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-
-		// Create a temporary file to open the image
-		// Use the document name + cell index for the filename
-		const extension = this._getExtensionForMimeType(mimeType);
-		const docName = basename(this._documentUri);
-		const docNameWithoutExt = docName.substring(0, docName.length - extname(this._documentUri).length);
-		const cellIndex = cellId.split('-')[0];
-		const filename = `${docNameWithoutExt}_cell${cellIndex}${extension}`;
-
-		// Write to a temp location and open it
-		const tempDir = dirname(this._documentUri);
-		const tempUri = tempDir.with({ path: `${tempDir.path}/.positron-temp-${filename}` });
-
-		await this._fileService.writeFile(tempUri, VSBuffer.wrap(binaryData));
-
-		// Open the temp file in the editor
-		await this._editorService.openEditor({
-			resource: tempUri,
-			options: {
-				pinned: false,
-				preserveFocus: false,
-			}
-		});
+		const quartoModel = this._documentModelService.getModel(model);
+		const cell = quartoModel.getCellById(cellId);
+		return cell && quartoModel.getCellCode(cell);
 	}
 
 	/**
@@ -1580,7 +1569,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	 */
 	setAllOutputsCollapsed(collapsed: boolean): void {
 		for (const viewZone of this._viewZones.values()) {
-			viewZone.setCollapsed(collapsed);
+			viewZone.setCollapsed(collapsed, true);
 		}
 	}
 
@@ -1612,85 +1601,31 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 	/**
 	 * Save a plot to a file.
-	 * @param dataUrl The data URL of the image
-	 * @param mimeType The MIME type of the image
 	 * @param cellId The cell ID (used for generating default filename)
 	 * @param targetPath Optional target path for testing (bypasses dialog)
 	 */
-	async savePlot(dataUrl: string, mimeType: string, cellId: string, targetPath?: URI): Promise<boolean> {
-		return this._savePlot(dataUrl, mimeType, cellId, targetPath);
-	}
-
-	private async _savePlot(dataUrl: string, mimeType: string, cellId: string, targetPath?: URI): Promise<boolean> {
+	async savePlot(dataUrl: string, cellId: string, targetPath?: URI): Promise<boolean> {
 		if (!this._documentUri) {
 			return false;
 		}
 
-		try {
-			// Determine file extension from MIME type
-			const extension = this._getExtensionForMimeType(mimeType);
-
-			// Generate default filename from document name + cell number
-			const docName = basename(this._documentUri);
-			const docNameWithoutExt = docName.substring(0, docName.length - extname(this._documentUri).length);
-
-			// Extract cell index from cell ID (format: index-hashPrefix-label or just index-hashPrefix)
-			const cellIndex = cellId.split('-')[0];
-			const defaultFilename = `${docNameWithoutExt}_cell${cellIndex}${extension}`;
-
-			// Default directory is same as the document
-			const defaultDir = dirname(this._documentUri);
-			const defaultUri = defaultDir.with({ path: `${defaultDir.path}/${defaultFilename}` });
-
-			let saveUri: URI | undefined;
-
-			if (targetPath) {
-				// Use provided path (for testing)
-				saveUri = targetPath;
-			} else {
-				// Show save dialog
-				saveUri = await this._fileDialogService.showSaveDialog({
-					title: localize('savePlotTitle', 'Save Plot'),
-					defaultUri,
-					filters: [
-						{ name: localize('imageFiles', 'Image Files'), extensions: [extension.substring(1)] }
-					]
-				});
-			}
-
-			if (!saveUri) {
-				return false; // User cancelled
-			}
-
-			// Extract base64 data from data URL
-			const base64Data = this._extractBase64FromDataUrl(dataUrl);
-			if (!base64Data) {
-				throw new Error('Invalid data URL format');
-			}
-
-			// Decode base64 to binary
-			const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-
-			// Write the file
-			await this._fileService.writeFile(saveUri, VSBuffer.wrap(binaryData));
-
-			// Show success toast
-			const savedFilename = basename(saveUri);
-			this._notificationService.info(localize('plotSaved', '{0} saved', savedFilename));
-
-			return true;
-		} catch (error) {
-			this._logService.error('[QuartoOutputContribution] Save failed:', error);
-			this._notificationService.error(localize('savePlotFailed', 'Failed to save plot'));
-			return false;
-		}
+		return saveImageOutput(
+			dataUrl,
+			this._documentUri,
+			getImageOutputName(this._documentUri, this._getCellIndex(cellId)),
+			this._fileDialogService,
+			this._fileService,
+			this._logService,
+			this._notificationService,
+			targetPath,
+		);
 	}
 
 	/**
 	 * Get the plot info for a cell at a given line number.
 	 * Returns undefined if no single plot exists.
 	 */
-	getPlotInfoForCellAtLine(lineNumber: number): { dataUrl: string; mimeType: string; cellId: string } | undefined {
+	getPlotInfoForCellAtLine(lineNumber: number): { dataUrl: string; cellId: string } | undefined {
 		const model = this._editor.getModel();
 		if (!model) {
 			return undefined;
@@ -1714,7 +1649,6 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 		return {
 			dataUrl: plotInfo.dataUrl,
-			mimeType: plotInfo.mimeType,
 			cellId: cell.id,
 		};
 	}
@@ -1732,35 +1666,6 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		const quartoModel = this._documentModelService.getModel(model);
 		const cell = quartoModel.getCellAtLine(lineNumber);
 		return cell?.id;
-	}
-
-	/**
-	 * Get file extension for a MIME type.
-	 */
-	private _getExtensionForMimeType(mimeType: string): string {
-		switch (mimeType) {
-			case 'image/png':
-				return '.png';
-			case 'image/jpeg':
-			case 'image/jpg':
-				return '.jpg';
-			case 'image/gif':
-				return '.gif';
-			case 'image/svg+xml':
-				return '.svg';
-			case 'image/webp':
-				return '.webp';
-			default:
-				return '.png'; // Default to PNG
-		}
-	}
-
-	/**
-	 * Extract base64 data from a data URL.
-	 */
-	private _extractBase64FromDataUrl(dataUrl: string): string | undefined {
-		const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-		return match ? match[2] : undefined;
 	}
 
 	/**

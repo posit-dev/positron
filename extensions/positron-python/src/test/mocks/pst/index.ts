@@ -46,6 +46,12 @@ export enum RuntimeCodeExecutionMode {
      *          Stored in history: No
      */
     Silent = 'silent',
+
+    /**
+     * Unprocessed code execution: behaves like `Interactive`, but the code has
+     * not been checked for completeness; the session checks it before executing.
+     */
+    Unprocessed = 'unprocessed',
 }
 
 export enum RuntimeErrorBehavior {

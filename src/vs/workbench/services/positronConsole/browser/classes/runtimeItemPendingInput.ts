@@ -21,6 +21,9 @@ export class RuntimeItemPendingInput extends RuntimeItemStandard {
 	 * @param executionId The execution identifier for the code.
 	 * @param code The code.
 	 * @param mode The code execution mode.
+	 * @param submitting Whether this item represents code that is actively being
+	 *   submitted (checked for completeness), as opposed to code queued behind
+	 *   it. Submitting items render the green barber pole and are not dimmed.
 	 */
 	constructor(
 		id: string,
@@ -28,7 +31,8 @@ export class RuntimeItemPendingInput extends RuntimeItemStandard {
 		readonly attribution: IConsoleCodeAttribution,
 		readonly executionId: string | undefined,
 		readonly code: string,
-		readonly mode: RuntimeCodeExecutionMode = RuntimeCodeExecutionMode.Interactive
+		readonly mode: RuntimeCodeExecutionMode = RuntimeCodeExecutionMode.Interactive,
+		readonly submitting: boolean = false
 	) {
 		// Call the base class's constructor.
 		super(id, code);

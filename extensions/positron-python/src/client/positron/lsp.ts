@@ -17,6 +17,7 @@ import { PromiseHandles } from './util';
 import { PythonErrorHandler } from './errorHandler';
 import { PythonHelpTopicProvider } from './help';
 import { PythonStatementRangeProvider } from './statementRange';
+import { isQuartoInlineOutputEnabled } from './quarto';
 
 // Regex to match Quarto virtual document files: .vdoc.[uuid].[ext]
 const VDOC_PATTERN = /^\.vdoc\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$/i;
@@ -26,6 +27,42 @@ const VDOC_SELECTOR = { language: 'python', pattern: '**/.vdoc.*.{py,PY}' };
 
 // Regex to match notebook console REPL URIs: /notebook-repl-<lang>-<uuid>
 const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
+
+// Positron core creates a hidden notebook of this type for each open Quarto
+// document, so that language servers see the embedded code cells as ordinary
+// notebook cells. See
+// src/vs/workbench/contrib/positronQuarto/common/quartoVirtualNotebookTypes.ts.
+const QUARTO_CELLS_NOTEBOOK_TYPE = 'quarto-cells';
+
+// Matches the path of a Quarto or R Markdown document.
+const QUARTO_PATH_PATTERN = /\.(qmd|rmd)$/i;
+
+// Selector for the cells of Quarto virtual notebooks. A cell URI keeps the path
+// of the Quarto document the notebook was built from, so restricting the pattern
+// to Quarto extensions keeps the cells of real notebooks (.ipynb) out.
+//
+// `.Rmd` belongs here as much as `.qmd` does. R Markdown runs more than one
+// engine, so a Python chunk in an `.Rmd` is ordinary (see
+// test/e2e/test-files/workspaces/visual-mode/visual-mode.rmd). This never claims
+// the `.Rmd` document itself: that is `file` scheme with the `quarto` language,
+// and all three filters here have to match.
+const QUARTO_CELL_SELECTOR = {
+    language: 'python',
+    scheme: 'vscode-notebook-cell',
+    pattern: '**/*.{qmd,QMD,rmd,Rmd,RMD}',
+};
+
+/**
+ * Whether a document is a cell of a Quarto virtual notebook.
+ */
+function isQuartoVirtualCell(document: vscode.TextDocument): boolean {
+    if (document.uri.scheme !== 'vscode-notebook-cell') {
+        return false;
+    }
+    return vscode.workspace.notebookDocuments.some(
+        (notebook) => notebook.notebookType === QUARTO_CELLS_NOTEBOOK_TYPE && notebook.uri.path === document.uri.path,
+    );
+}
 
 /**
  * Global output channel for Python LSP sessions
@@ -117,13 +154,30 @@ export class PythonLsp implements vscode.Disposable {
 
         const { notebookUri, workingDirectory } = this._metadata;
 
+        // Matches the cells of this client's own notebook.
+        //
+        // Skipped for Quarto sessions, whose notebook URI is the path of the .qmd
+        // document. The only Python documents with that path are the cells of the
+        // document's virtual notebook, and the console client serves those, so
+        // matching them here would only duplicate it. For a real notebook (.ipynb)
+        // this is what matches the notebook's own cells.
+        //
+        // `filterCells` below excludes them too, but only covers the case where the
+        // server claims notebook cells through `notebookDocumentSync`. Without that
+        // capability the client syncs them as ordinary text documents, and then the
+        // document selector is the only gate.
+        const ownNotebookCellSelectors =
+            notebookUri && !QUARTO_PATH_PATTERN.test(notebookUri.path)
+                ? [{ language: 'python', pattern: notebookUri.fsPath }]
+                : [];
+
         // If this client belongs to a notebook, set the document selector to only include that notebook,
         // Quarto virtual documents (vdocs), and notebook console inputs (inmemory scheme).
         // Otherwise, this is the main client for this language, so set the document selector to include
         // untitled Python files, in-memory Python files (e.g. the console), and Python files on disk.
         this._clientOptions.documentSelector = notebookUri
             ? [
-                  { language: 'python', pattern: notebookUri.fsPath },
+                  ...ownNotebookCellSelectors,
                   // Match Quarto virtual documents (vdocs). Vdocs are
                   // temporary .py files created for LSP features in
                   // embedded code blocks (e.g. completions, hover).
@@ -146,6 +200,9 @@ export class PythonLsp implements vscode.Disposable {
                   // code blocks when inline output is disabled and
                   // no notebook LSP exists.
                   VDOC_SELECTOR,
+                  // Match Quarto virtual notebook cells. The console
+                  // client serves these for every open Quarto document.
+                  QUARTO_CELL_SELECTOR,
               ];
 
         // This is needed in addition to the document selector, otherwise every client seems to
@@ -156,8 +213,16 @@ export class PythonLsp implements vscode.Disposable {
                   filterCells: (notebookDocument, cells) =>
                       notebookUri.toString() === notebookDocument.uri.toString() ? cells : [],
               }
-            : // For console clients, exclude all notebook cells.
-              { filterCells: () => [] };
+            : // Console clients exclude notebook cells, which belong to their own
+              // notebook's client, except for the cells of Quarto virtual notebooks.
+              // Those have no client of their own. A Quarto session starts only for
+              // the active pinned editor and only when inline output is enabled, so
+              // routing these cells to a session instead would leave every other open
+              // Quarto document without language features.
+              {
+                  filterCells: (notebookDocument, cells) =>
+                      notebookDocument.notebookType === QUARTO_CELLS_NOTEBOOK_TYPE ? cells : [],
+              };
 
         // Override default error handler with one that doesn't automatically restart the client,
         // and that logs to the appropriate place.
@@ -177,13 +242,8 @@ export class PythonLsp implements vscode.Disposable {
                 // exists, so the console LSP must handle vdocs.
                 if (document.uri.scheme === 'file') {
                     const baseName = path.basename(document.uri.fsPath);
-                    if (VDOC_PATTERN.test(baseName)) {
-                        const inlineOutputEnabled = vscode.workspace
-                            .getConfiguration('positron.quarto.inlineOutput')
-                            .get<boolean>('enabled', false);
-                        if (inlineOutputEnabled) {
-                            return true;
-                        }
+                    if (VDOC_PATTERN.test(baseName) && isQuartoInlineOutputEnabled()) {
+                        return true;
                     }
                 }
                 // Console LSP: skip notebook console inputs
@@ -191,6 +251,10 @@ export class PythonLsp implements vscode.Disposable {
                     return true;
                 }
             } else {
+                // Notebook LSP: skip Quarto virtual notebook cells, which the console LSP serves.
+                if (isQuartoVirtualCell(document)) {
+                    return true;
+                }
                 // Notebook LSP: skip regular (non-notebook) console inputs
                 if (document.uri.scheme === 'inmemory' && !NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
                     return true;

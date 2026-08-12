@@ -27,6 +27,11 @@ import { CreateEnvironmentProvider } from '../../../client/pythonEnvironments/cr
 import { WorkspaceConfiguration } from 'vscode';
 import * as workspaceApis from '../../../client/common/vscodeApis/workspaceApis';
 import { IPythonRuntimeManager } from '../../../client/positron/manager';
+import { capture, when } from 'ts-mockito';
+// eslint-disable-next-line import/no-unresolved
+import * as positron from 'positron';
+import { mockedPositronNamespaces } from '../../vscode-mock';
+import { Commands } from '../../../client/common/constants';
 // --- End Positron ---
 
 chaiUse(chaiAsPromised.default);
@@ -137,4 +142,88 @@ suite('Create Environment APIs', () => {
             interpreterPathService.verifyAll();
         });
     });
+
+    // --- Start Positron ---
+    suite('Runtime picker contribution', () => {
+        let executeCommandStub: sinon.SinonStub;
+
+        setup(() => {
+            executeCommandStub = sinon.stub(commandApis, 'executeCommand');
+            executeCommandStub.resolves(undefined);
+        });
+
+        function capturedContribution(): positron.runtime.RuntimePickerContribution {
+            // The outer setup() calls registerCreateEnvironmentFeatures, which registers
+            // the contribution on the global positron mock; grab that registration.
+            const [contribution] = capture(mockedPositronNamespaces.runtime!.registerRuntimePickerContribution).last();
+            return contribution;
+        }
+
+        function stubRegisteredRuntimes(sources: string[]): void {
+            const runtimes = sources.map(
+                (runtimeSource, i) =>
+                    ({
+                        runtimeId: `runtime-${i}`,
+                        languageId: 'python',
+                        runtimeSource,
+                    } as unknown as positron.LanguageRuntimeMetadata),
+            );
+            when(mockedPositronNamespaces.runtime!.getRegisteredRuntimes()).thenReturn(Promise.resolve(runtimes));
+        }
+
+        test('getItems shows only the uv install item when no Python runtimes exist', async () => {
+            stubRegisteredRuntimes([]);
+
+            const items = await capturedContribution().getItems();
+
+            assert.deepEqual(
+                items.map((item) => item.id),
+                ['install-python-uv'],
+            );
+        });
+
+        test('getItems shows only the uv install item when only system/global Pythons exist', async () => {
+            stubRegisteredRuntimes(['System', 'Global']);
+
+            const items = await capturedContribution().getItems();
+
+            assert.deepEqual(
+                items.map((item) => item.id),
+                ['install-python-uv'],
+            );
+        });
+
+        test('getItems shows only the create environment item when a non-system Python exists', async () => {
+            stubRegisteredRuntimes(['System', 'Venv']);
+
+            const items = await capturedContribution().getItems();
+
+            assert.deepEqual(
+                items.map((item) => ({ id: item.id, label: item.label, separatorLabel: item.separatorLabel })),
+                [
+                    {
+                        id: 'create-python-env',
+                        label: '$(add) Create Python Environment',
+                        separatorLabel: 'Create Environment',
+                    },
+                ],
+            );
+        });
+
+        test('onDidSelectItem create-python-env runs the Create Environment command', async () => {
+            const result = await capturedContribution().onDidSelectItem('create-python-env');
+
+            assert.ok(executeCommandStub.calledOnceWithExactly(Commands.Create_Environment));
+            assert.strictEqual(result, undefined);
+        });
+
+        test('onDidSelectItem create-python-env resolves undefined when the command fails', async () => {
+            executeCommandStub.rejects(new Error('create env failed'));
+
+            const result = await capturedContribution().onDidSelectItem('create-python-env');
+
+            assert.strictEqual(result, undefined);
+        });
+    });
+    // --- End Positron ---
 });

@@ -804,14 +804,15 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						},
 					};
 
-					session.execute(
+					Promise.resolve(session.execute(
 						fragment,
 						fragmentExecutionId,
 						RuntimeCodeExecutionMode.Interactive,
 						errorBehavior,
 						attribution,
 						executionMetadata
-					);
+					)).catch((err) => this._logService.error(
+						`[QuartoExecutionManager] Failed to execute fragment: ${err}`));
 
 					// Fire the event signaling code execution.
 					const event: ILanguageRuntimeCodeExecutedEvent = {
@@ -1712,6 +1713,14 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	/**
 	 * Ask a language provider for all input boundaries in one request and split
 	 * the code accordingly.
+	 *
+	 * TODO(console-roundtrip.md Phase 4a): the provider iteration here overlaps
+	 * with the shared `provideInputBoundaries` helper in
+	 * editor/contrib/positronInputBoundaries. This code isn't migrated because
+	 * Quarto's boundary->fragment conversion below differs (it needs per-
+	 * fragment `lineRanges` and treats incomplete/invalid boundaries as
+	 * fragments), and its vitest coverage only guards the conversion, not the
+	 * iteration.
 	 */
 	private async _getCodeFragmentsFromInputBoundaryProvider(languageId: string, code: string, token: CancellationToken): Promise<QuartoCodeFragments | undefined> {
 		const model = this._modelService.createModel(
@@ -2047,7 +2056,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			}
 			// Cast to ILanguageRuntimeMessageWebOutput to get resource_roots if available
 			const webMessage = message as ILanguageRuntimeMessageWebOutput;
-			this._handleOutputMessage(tracker, documentUri, message.data, webMessage);
+			this._handleOutputMessage(tracker, documentUri, message.data, message.outputMetadata, webMessage);
 		}));
 
 		// Handle result messages (execute_result) - these are computation results like "2 + 3"
@@ -2055,7 +2064,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			if (message.parent_id !== executionId) {
 				return;
 			}
-			this._handleOutputMessage(tracker, documentUri, message.data);
+			this._handleOutputMessage(tracker, documentUri, message.data, message.outputMetadata);
 		}));
 
 		// Handle stream messages (stdout/stderr)
@@ -2106,6 +2115,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		tracker: ExecutionTracker,
 		documentUri: URI,
 		data: Record<string, unknown>,
+		outputMetadata?: Record<string, unknown>,
 		runtimeMessage?: ILanguageRuntimeMessageWebOutput
 	): void {
 		const outputItems: ICellOutputItem[] = [];
@@ -2190,7 +2200,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				};
 			}
 
-			this._addOutput(tracker, documentUri, outputItems, webviewMetadata);
+			this._addOutput(tracker, documentUri, outputItems, webviewMetadata, outputMetadata);
 		}
 	}
 
@@ -2201,7 +2211,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		tracker: ExecutionTracker,
 		documentUri: URI,
 		items: ICellOutputItem[],
-		webviewMetadata?: ICellOutputWebviewMetadata
+		webviewMetadata?: ICellOutputWebviewMetadata,
+		outputMetadata?: Record<string, unknown>
 	): void {
 		// Check output limits
 		if (tracker.outputCount >= DEFAULT_EXECUTION_CONFIG.maxOutputItems) {
@@ -2249,6 +2260,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			outputId: generateUuid(),
 			items,
 			webviewMetadata,
+			outputMetadata,
 		};
 
 		// Store output

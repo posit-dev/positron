@@ -14,6 +14,7 @@ import { localize } from '../../../../nls.js';
 import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, CellExecutionState, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { formatCellDuration, getRelativeTime } from '../../positronNotebook/browser/notebookCells/cellExecutionUtils.js';
+import { getImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Event as VSEvent, Emitter } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -60,15 +61,13 @@ export interface SavePlotRequest {
 	readonly cellId: string;
 	/** The image data URL */
 	readonly dataUrl: string;
-	/** The MIME type of the image */
-	readonly mimeType: string;
 }
 
 /**
  * Type of popout action to perform.
  */
 export type PopoutType =
-	| { type: 'plot'; dataUrl: string; mimeType: string }
+	| { type: 'plot'; dataUrl: string }
 	| { type: 'text'; text: string }
 	| { type: 'html'; html: string; webviewMetadata?: ICellOutput['webviewMetadata'] }
 	| { type: 'webview'; rawData: Record<string, unknown>; outputId: string };
@@ -201,6 +200,21 @@ export function chooseHtmlRenderMode(html: string, hasWebviewService: boolean): 
 }
 
 /**
+ * Whether a fresh output arriving mid-re-execution should expand a collapsed
+ * output. Expanding is the default so the user sees new results, but it must not
+ * override a collapse the user made *during* this execution: output can arrive
+ * hundreds of ms after they collapsed, and silently re-expanding both discards
+ * an explicit action and leaves the next toggle inverted (posit-dev/positron
+ * flake in quarto-inline-output-collapse).
+ *
+ * A collapse made *before* the re-execution started does not suppress the
+ * expand, which is the case the behavior exists for.
+ */
+export function shouldExpandOnFreshOutput(isCollapsed: boolean, userCollapsedDuringExecution: boolean): boolean {
+	return isCollapsed && !userCollapsedDuringExecution;
+}
+
+/**
  * View zone for displaying Quarto cell output inline in the editor.
  * Supports text, images, error output, and complex webview-based outputs.
  */
@@ -329,6 +343,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 	// Collapse state: when true, outputs are hidden and a textual summary is shown
 	private _isCollapsed = false;
+	// Set when the user collapses while the cell is re-executing, so a late
+	// output doesn't expand it back out from under them.
+	private _userCollapsedDuringExecution = false;
 	// Collapse chevron button (portaled into the editor's container node)
 	private readonly _collapseButton: HTMLButtonElement;
 	private _collapseChevronIcon!: HTMLSpanElement;
@@ -378,6 +395,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		private readonly _resourceUsageHistoryService?: IResourceUsageHistoryService,
 		private readonly _onTimestampTick?: VSEvent<void>,
 		private readonly _hoverService?: IHoverService,
+		// Test seam for the offsetHeight reads in `_updateHeight`. jsdom performs
+		// no layout, so tests inject a measurer that returns synthetic heights.
+		private readonly _measureOffsetHeight: (element: HTMLElement) => number = element => element.offsetHeight,
 	) {
 		super();
 
@@ -461,13 +481,13 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._summaryElement.addEventListener('click', (e) => {
 			e.preventDefault();
 			e.stopPropagation();
-			this.setCollapsed(false);
+			this.setCollapsed(false, true);
 		});
 		this._summaryElement.addEventListener('keydown', (e) => {
 			if (e.key === 'Enter' || e.key === ' ') {
 				e.preventDefault();
 				e.stopPropagation();
-				this.setCollapsed(false);
+				this.setCollapsed(false, true);
 			}
 		});
 		this._styledContainer.appendChild(this._summaryElement);
@@ -672,6 +692,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			return;
 		}
 		this._isRecomputing = isRecomputing;
+		if (isRecomputing) {
+			// A new execution starts a new window for the user's collapse intent.
+			this._userCollapsedDuringExecution = false;
+		}
 		this._updateRecomputingState();
 	}
 
@@ -1062,8 +1086,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._disposeAllWebviews();
 			this._disposeAllReactRenderers();
 			this.setRecomputing(false);
-			// Fresh outputs on re-execution: expand so the user sees them.
-			if (this._isCollapsed) {
+			// Fresh outputs on re-execution: expand so the user sees them, unless
+			// the user collapsed during this execution.
+			if (shouldExpandOnFreshOutput(this._isCollapsed, this._userCollapsedDuringExecution)) {
 				this.setCollapsed(false);
 			}
 		}
@@ -1133,6 +1158,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Reset collapse state so the next output starts expanded
 		const wasCollapsed = this._isCollapsed;
 		this._isCollapsed = false;
+		this._userCollapsedDuringExecution = false;
 		this._styledContainer.classList.remove('quarto-output-collapsed');
 		this._collapseChevronIcon.classList.remove('collapsed');
 		const collapseLabel = localize('quartoCollapseOutput', 'Collapse Output');
@@ -1597,14 +1623,22 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * Toggle the collapsed state of the output.
 	 */
 	toggleCollapsed(): void {
-		this.setCollapsed(!this._isCollapsed);
+		this.setCollapsed(!this._isCollapsed, true);
 	}
 
 	/**
 	 * Set the collapsed state. When collapsed, the output content is hidden
 	 * and a textual summary is shown in its place.
+	 *
+	 * @param userInitiated Whether this came from a user action (chevron, toggle
+	 * command, summary click) rather than a restore or an automatic expand. A
+	 * user collapse during a re-execution suppresses the auto-expand that a late
+	 * output would otherwise trigger.
 	 */
-	setCollapsed(collapsed: boolean): void {
+	setCollapsed(collapsed: boolean, userInitiated = false): void {
+		if (userInitiated) {
+			this._userCollapsedDuringExecution = collapsed && this._isRecomputing;
+		}
 		if (this._isCollapsed === collapsed) {
 			return;
 		}
@@ -1812,7 +1846,6 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._onSaveRequested.fire({
 				cellId: this.cellId,
 				dataUrl: plotInfo.dataUrl,
-				mimeType: plotInfo.mimeType,
 			});
 		}
 	}
@@ -1844,10 +1877,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		for (const output of this._outputs) {
 			for (const item of output.items) {
 				if (item.mime.startsWith('image/')) {
-					const dataUrl = item.data.startsWith('data:')
-						? item.data
-						: `data:${item.mime};base64,${item.data}`;
-					return { type: 'plot', dataUrl, mimeType: item.mime };
+					return { type: 'plot', dataUrl: getImageDataUrl(item.mime, item.data) };
 				}
 			}
 		}
@@ -1942,10 +1972,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			for (const item of output.items) {
 				if (item.mime.startsWith('image/')) {
 					// Return the first image found
-					const dataUrl = item.data.startsWith('data:')
-						? item.data
-						: `data:${item.mime};base64,${item.data}`;
-					return { type: 'image', dataUrl };
+					return { type: 'image', dataUrl: getImageDataUrl(item.mime, item.data) };
 				}
 			}
 		}
@@ -2048,7 +2075,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * Get the single plot info if exactly one plot exists.
 	 * Returns undefined if there are zero or more than one images.
 	 */
-	getSinglePlotInfo(): { dataUrl: string; mimeType: string } | undefined {
+	getSinglePlotInfo(): { dataUrl: string } | undefined {
 		return this._getSinglePlotInfo();
 	}
 
@@ -2056,9 +2083,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * Get info about the single plot if exactly one exists.
 	 * Used internally for the save button logic.
 	 */
-	private _getSinglePlotInfo(): { dataUrl: string; mimeType: string } | undefined {
+	private _getSinglePlotInfo(): { dataUrl: string } | undefined {
 		let imageCount = 0;
-		let imageInfo: { dataUrl: string; mimeType: string } | undefined;
+		let imageInfo: { dataUrl: string } | undefined;
 
 		for (const output of this._outputs) {
 			for (const item of output.items) {
@@ -2069,10 +2096,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 						return undefined;
 					}
 					// Build the data URL
-					const dataUrl = item.data.startsWith('data:')
-						? item.data
-						: `data:${item.mime};base64,${item.data}`;
-					imageInfo = { dataUrl, mimeType: item.mime };
+					imageInfo = { dataUrl: getImageDataUrl(item.mime, item.data) };
 				}
 			}
 		}
@@ -2300,7 +2324,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		}
 
 		if (mime.startsWith('image/')) {
-			return this._renderImage(mime, data, output.outputId);
+			return this._renderImage(mime, data, output.outputId, output.outputMetadata);
 		}
 
 		if (mime === 'text/html') {
@@ -2601,6 +2625,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				React.createElement(QuartoOutputQuickFix, {
 					errorContent: errorText,
 					cellContext: this._cellContext,
+					// The buttons mount asynchronously; re-measure once they are in
+					// the DOM so the zone reserves room for them. Relying on the
+					// ResizeObserver alone misses a re-run that produces an
+					// identically sized error (posit-dev/positron#14844).
+					onLayout: () => this._updateHeight(),
 				})
 			);
 		}
@@ -2608,13 +2637,32 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		return container;
 	}
 
-	private _renderImage(mime: string, data: string, outputId: string): HTMLElement {
+	private _renderImage(
+		mime: string,
+		data: string,
+		outputId: string,
+		outputMetadata?: Record<string, unknown>
+	): HTMLElement {
 		const container = document.createElement('div');
 		container.className = 'quarto-output-image-container';
 
 		const img = document.createElement('img');
 		img.className = 'quarto-output-image';
 		img.setAttribute('alt', localize('outputImage', 'Output image'));
+
+		// Set width and height from output metadata if available.
+		// On high DPI displays, kernels render images at >1 pixel ratio
+		// and specify the actual display size in the metadata.
+		const meta = outputMetadata?.[mime];
+		if (meta && typeof meta === 'object') {
+			const { width, height } = meta as Record<string, unknown>;
+			if (typeof width === 'number') {
+				img.width = width;
+			}
+			if (typeof height === 'number') {
+				img.height = height;
+			}
+		}
 
 		// Cache the natural dimensions once the image loads so the collapse
 		// summary can show "Plot (WxH)".
@@ -2628,13 +2676,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			}
 		});
 
-		// Check if data is already a data URL
-		if (data.startsWith('data:')) {
-			img.src = data;
-		} else {
-			// Assume base64 encoded
-			img.src = `data:${mime};base64,${data}`;
-		}
+		img.src = getImageDataUrl(mime, data);
 
 		container.appendChild(img);
 		return container;
@@ -2968,18 +3010,18 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// next scroll back, the whitespace would jump from 24px to the real
 		// height, causing a large scroll displacement. Skip measurement when
 		// the domNode is hidden to preserve the correct height.
-		if (!this.domNode.offsetHeight) {
+		if (!this._measureOffsetHeight(this.domNode)) {
 			return;
 		}
 
 		// Measure the styled container's height (content + padding + border, but not margin)
 		// plus the status bar height when it's displayed above the output
-		const statusBarHeight = this._statusBar.style.display !== 'none' ? this._statusBar.offsetHeight : 0;
-		const styledHeight = this._styledContainer.offsetHeight + statusBarHeight;
+		const statusBarHeight = this._statusBar.style.display !== 'none' ? this._measureOffsetHeight(this._statusBar) : 0;
+		const styledHeight = this._measureOffsetHeight(this._styledContainer) + statusBarHeight;
 
 		// Use the styled container's height (not including status bar) for button
 		// visibility, since the buttons are positioned inside the styled container
-		const containerHeight = this._styledContainer.offsetHeight;
+		const containerHeight = this._measureOffsetHeight(this._styledContainer);
 
 		if (this._isCollapsed) {
 			// Hide action buttons when collapsed since they operate on the

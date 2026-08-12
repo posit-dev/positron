@@ -9,8 +9,9 @@ import { ReactNode } from 'react';
 // Other dependencies.
 import { DataConnectionEntryRow } from '../components/dataConnectionEntryRow.js';
 import { DataConnectionNodeRow } from '../components/dataConnectionNodeRow.js';
-import { TreeNode, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
+import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
 import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
+import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
@@ -35,7 +36,7 @@ export interface DataConnectionEntry {
 
 /**
  * DataConnectionNode discriminated union. Each tree node wraps exactly one of:
- * - an entry (root rows; expanding connects, collapsing disconnects),
+ * - an entry (root rows; expanding connects, collapsing may disconnect -- see collapse below),
  * - a server-side node DTO returned from a connection's getChildren / nodeGetChildren calls.
  *
  * DTO nodes carry the originating IDataConnectionHandle so deeper children can be fetched
@@ -54,11 +55,29 @@ const entryNodeId = (profile: IDataConnectionProfile): string => `entry:${profil
 const dtoNodeId = (handle: IDataConnectionHandle, dto: IDataConnectionNodeDTO): string =>
 	`dto:${handle.handle}:${dto.nodeHandle}`;
 
+/**
+ * The identity a node keeps across a refresh, used by the tree to re-expand a subtree after
+ * reload. Node handles are minted from a counter on every fetch, so a node's id always changes
+ * even when the node itself hasn't -- its kind and name are what actually stay the same. The pair
+ * is JSON-encoded so a name that happens to contain the separator can't collide with a different
+ * kind/name pair.
+ *
+ * DTO keys deliberately don't include the originating connection handle: the tree matches a node
+ * to its counterpart among its own siblings, which always come from the same connection, so a
+ * kind/name pair only ever has to be unique within one level.
+ *
+ * Exported for tests.
+ */
+export const reloadKey = (node: DataConnectionNode): string =>
+	node.kind === 'entry'
+		? entryNodeId(node.entry.profile)
+		: JSON.stringify([node.dto.kind, node.dto.name]);
+
 const wrapEntry = (entry: DataConnectionEntry): TreeNode<DataConnectionNode> => ({
 	id: entryNodeId(entry.profile),
 	data: { kind: 'entry', entry },
-	// Entries always show a twistie -- clicking it connects (or disconnects). Whether children
-	// exist is only knowable after the connect succeeds.
+	// Entries always show a twisty -- clicking it connects (or collapses, which may disconnect).
+	// Whether children exist is only knowable after the connect succeeds.
 	hasChildren: true,
 });
 
@@ -73,8 +92,9 @@ const wrapDto = (dto: IDataConnectionNodeDTO, handle: IDataConnectionHandle): Tr
  *
  * Roots are one entry per saved profile, joined with its live instance (if connected). Expanding
  * an entry opens the connection via the service and fetches the connection's top-level DTOs;
- * collapsing an entry closes the connection and drops the loaded subtree so the next expand
- * re-fetches against a fresh handle.
+ * collapsing an entry closes the connection -- immediately, or once the last Data Explorer previewed
+ * from it closes -- and drops the loaded subtree so the next expand re-fetches against a fresh
+ * handle.
  */
 export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnectionNode> {
 	constructor(private readonly _service: IPositronDataConnectionsService) {
@@ -84,31 +104,61 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			getRoots: async () => buildEntries(_service).map(wrapEntry),
 			// Bound to `this` so the closure can reach _service for the connect-on-expand path.
 			getChildren: node => this._fetchChildrenForNode(node),
-			renderNode: renderRow,
+			getReloadKey: node => reloadKey(node.data),
+			renderNode: (visible, context) => this._renderRow(visible, context),
 		});
 
 		// When profiles or instances change, rebuild roots so each entry sees its current
 		// connected/disconnected state. setRoots is sync and preserves existing expansion /
 		// loaded children by id, so unaffected entries keep their state.
 		const refreshRoots = () => {
-			this.setRoots(buildEntries(this._service).map(wrapEntry));
+			const entries = buildEntries(this._service);
+			this.setRoots(entries.map(wrapEntry));
+
+			// A loaded DTO subtree is only valid while its connection is open -- its node handles live
+			// in the ext host and die with the connection -- so drop the subtree of any entry that no
+			// longer has a live instance, and the next expand re-fetches against a fresh handle. Doing
+			// it here covers every route a connection can close by, not just the ones the tree starts:
+			// a collapse, a deferred close once the last Data Explorer closed, or the driver dropping
+			// the connection on its own.
+			for (const entry of entries) {
+				const id = entryNodeId(entry.profile);
+				if (entry.instance === undefined && this.hasLoadedChildren(id)) {
+					this.dropLoadedChildren(id);
+				}
+			}
 		};
 		this._register(this._service.onDidChangeProfiles(refreshRoots));
 		this._register(this._service.onDidChangeInstances(refreshRoots));
 	}
 
 	/**
-	 * Tree-semantic collapse. For entry nodes, disconnects the underlying connection and drops
-	 * any loaded DTO subtree so the next expand re-fetches against a fresh handle. Disconnect is
-	 * fire-and-forget -- the UI shouldn't block on the network round trip to close the channel.
+	 * Tree-semantic expand. Expanding a connected entry means the user wants the connection again, so
+	 * it cancels any pending close a previous collapse left behind.
+	 */
+	override async expand(id: string): Promise<void> {
+		const node = this._findEntryNode(id);
+		if (node !== undefined) {
+			this._service.cancelDisconnectWhenUnused(node.entry.profile.id);
+		}
+		await super.expand(id);
+	}
+
+	/**
+	 * Tree-semantic collapse. Collapsing an entry gives up the tree's use of its connection, which
+	 * closes the connection unless Data Explorers previewed from it are still open. In that case the
+	 * connection stays up and closes when the last of them does: collapsing an entry is how a user
+	 * reclaims the panel's vertical space, and previews opened from it should keep working. The entry
+	 * row's connected indicator shows the connection is still live in the meantime, and its loaded
+	 * subtree is kept too, so re-expanding is immediate rather than a fresh round trip.
+	 *
+	 * The subtree is dropped when the connection actually closes, wherever that happens -- see the
+	 * roots refresh in the constructor.
 	 */
 	override collapse(id: string): void {
 		const node = this._findEntryNode(id);
 		if (node !== undefined && node.entry.instance !== undefined) {
-			// Drop loaded children first so the projection updates before the service-driven
-			// rebuild (from onDidChangeInstances) lands.
-			this.dropLoadedChildren(id);
-			void this._service.disconnect(node.entry.profile.id);
+			this._service.disconnectWhenUnused(node.entry.profile.id);
 		}
 		super.collapse(id);
 	}
@@ -116,7 +166,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	/**
 	 * Fetches children for a node. For an entry node without a live instance, opens the
 	 * connection first, then fetches the top-level DTOs against the new handle. Running this
-	 * inside the base class's _fetchChildren means the loading state (twistie spinner) covers
+	 * inside the base class's _fetchChildren means the loading state (twisty spinner) covers
 	 * the connect + getChildren as one continuous operation, and a connect failure surfaces
 	 * through the tree's existing error state.
 	 */
@@ -135,6 +185,46 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 				const dtos = await data.handle.nodeGetChildren(data.dto.nodeHandle);
 				return dtos.map(dto => wrapDto(dto, data.handle));
 			}
+		}
+	}
+
+	/**
+	 * Renders one row. Each row gets callbacks bound to its own node id and position, so a row can
+	 * act on itself without knowing anything about the tree.
+	 *
+	 * Reload (rather than invalidate) is required at every level: re-fetching a connection's
+	 * top-level nodes invalidates every node handle the extension host has issued for that
+	 * connection, and re-fetching an interior node's children issues new handles for them. In
+	 * both cases the descendants loaded under the old handles are stale, so they're dropped and
+	 * re-fetched rather than left in place. Reload restores the expansion the user had open (see
+	 * reloadKey for how a node is matched to its post-refresh counterpart).
+	 */
+	private _renderRow(visible: VisibleNode<DataConnectionNode>, context: TreeNodeContext): ReactNode {
+		const { id, data } = visible.node;
+
+		// Fire-and-forget: reload drives the twisty's loading state and records any failure
+		// against the node, so there's nothing for the row to await.
+		// Offered whatever the node's expansion state: on an expanded node the subtree visibly
+		// swaps, and on a collapsed one the stale children are dropped so the next expand fetches
+		// from the source. Nothing is on screen beneath a collapsed node, so the absence of a
+		// visible change there isn't the silent no-op it would be on an expanded one.
+		const onRefresh = () => { void this.reload(id); };
+
+		// Rows announce their context menu here rather than selecting themselves directly, so the
+		// tree owns what opening a menu means: select the row the menu belongs to (as a left click
+		// would), and keep the tree looking focused while the menu holds DOM focus. The returned
+		// handle is disposed when the menu closes.
+		const onMenuOpening = () => {
+			void this.mouseSelectRow(context.index, MouseSelectionType.Single);
+			return this.holdFocusAppearance();
+		};
+
+		switch (data.kind) {
+			case 'entry':
+				// Entries are roots, so no ancestor can be refreshing them out from under the row.
+				return <DataConnectionEntryRow entry={data.entry} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
+			case 'dto':
+				return <DataConnectionNodeRow dto={data.dto} handle={data.handle} stale={visible.stale} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
 		}
 	}
 
@@ -157,14 +247,4 @@ function buildEntries(service: IPositronDataConnectionsService): DataConnectionE
 		profile,
 		instance: service.getInstanceForProfile(profile.id),
 	}));
-}
-
-function renderRow(visible: VisibleNode<DataConnectionNode>): ReactNode {
-	const data = visible.node.data;
-	switch (data.kind) {
-		case 'entry':
-			return <DataConnectionEntryRow entry={data.entry} />;
-		case 'dto':
-			return <DataConnectionNodeRow dto={data.dto} handle={data.handle} />;
-	}
 }

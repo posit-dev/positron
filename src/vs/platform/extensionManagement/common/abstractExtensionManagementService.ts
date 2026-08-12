@@ -26,7 +26,6 @@ import {
 } from './extensionManagement.js';
 import { areSameExtensions, ExtensionKey, getGalleryExtensionId, getGalleryExtensionTelemetryData, getLocalExtensionTelemetryData, isMalicious } from './extensionManagementUtil.js';
 import { ExtensionType, IExtensionManifest, isApplicationScopedExtension, TargetPlatform } from '../../extensions/common/extensions.js';
-import { areApiProposalsCompatible } from '../../extensions/common/extensionValidator.js';
 // --- Start Positron ---
 import { validatePositronExtensionManifest } from '../../extensions/common/positronExtensionValidator.js';
 // --- End Positron ---
@@ -828,10 +827,6 @@ export abstract class AbstractExtensionManagementService extends CommontExtensio
 
 			compatibleExtension = await this.getCompatibleVersion(extension, sameVersion, installPreRelease, productVersion);
 			if (!compatibleExtension) {
-				const incompatibleApiProposalsMessages: string[] = [];
-				if (!areApiProposalsCompatible(extension.properties.enabledApiProposals ?? [], incompatibleApiProposalsMessages)) {
-					throw new ExtensionManagementError(nls.localize('incompatibleAPI', "Can't install '{0}' extension. {1}", extension.displayName ?? extension.identifier.id, incompatibleApiProposalsMessages[0]), ExtensionManagementErrorCode.IncompatibleApi);
-				}
 				/** If no compatible release version is found, check if the extension has a release version or not and throw relevant error */
 				if (!installPreRelease && extension.hasPreReleaseVersion && extension.properties.isPreReleaseVersion && (await this.galleryService.getExtensions([extension.identifier], CancellationToken.None))[0]) {
 					throw new ExtensionManagementError(nls.localize('notFoundReleaseExtension', "Can't install release version of '{0}' extension because it has no release version.", extension.displayName ?? extension.identifier.id), ExtensionManagementErrorCode.ReleaseVersionNotFound);

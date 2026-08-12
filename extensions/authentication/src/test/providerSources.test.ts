@@ -39,6 +39,15 @@ suite('PROVIDER_METADATA package.json consistency', () => {
 
 		assert.deepStrictEqual(resolved, manifestIds);
 	});
+
+	test('Databricks is catalog-backed and marked experimental', () => {
+		assert.deepStrictEqual(PROVIDER_METADATA.databricks, {
+			id: 'databricks',
+			displayName: 'Databricks',
+			status: 'experimental',
+			catalogId: 'databricks',
+		});
+	});
 });
 
 /** Minimal ExtensionContext stub: only `subscriptions` is read by initProviderCatalog. */
@@ -76,5 +85,26 @@ suite('getProviderSources baseUrl defaults from the catalog', () => {
 			s => s.provider.id === PROVIDER_METADATA.anthropic.id
 		);
 		assert.strictEqual(anthropic?.defaults.baseUrl, 'https://gateway.example.com');
+	});
+
+	test('Databricks offers a personal access token and the workspace URL', async () => {
+		await initProviderCatalog(context, { configPath });
+
+		const databricks = getProviderSources().find(
+			s => s.provider.id === PROVIDER_METADATA.databricks.id
+		);
+		assert.deepStrictEqual(databricks?.supportedOptions, ['apiKey', 'baseUrl']);
+	});
+
+	test('the Databricks workspace URL default comes from the catalog host', async () => {
+		writeConfig(configPath, {
+			databricks: { databricks: { host: 'https://adb-123.4.azuredatabricks.net' } },
+		});
+		await initProviderCatalog(context, { configPath });
+
+		const databricks = getProviderSources().find(
+			s => s.provider.id === PROVIDER_METADATA.databricks.id
+		);
+		assert.strictEqual(databricks?.defaults.baseUrl, 'https://adb-123.4.azuredatabricks.net');
 	});
 });

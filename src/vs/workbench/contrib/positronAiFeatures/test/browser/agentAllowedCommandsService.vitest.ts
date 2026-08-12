@@ -12,7 +12,9 @@ import { ContextKeyExpr, IContextKeyService, ContextKeyExpression } from '../../
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { AgentAllowedCommandsService } from '../../common/agentAllowedCommandsService.js';
+import { AgentAllowedCommandsService, IGetAgentAllowedCommandsOptions } from '../../common/agentAllowedCommandsService.js';
+import { IProductService } from '../../../../../platform/product/common/productService.js';
+import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 
 describe('AgentAllowedCommandsService', () => {
 	const disposables = ensureNoLeakedDisposables();
@@ -26,6 +28,8 @@ describe('AgentAllowedCommandsService', () => {
 	function makeService(overrides: {
 		executeCommand?: ICommandService['executeCommand'];
 		contextMatchesRules?: IContextKeyService['contextMatchesRules'];
+		trustedPublishers?: string[];
+		extensions?: IExtensionService['extensions'];
 	} = {}) {
 		const commandService = stubInterface<ICommandService>({
 			executeCommand: overrides.executeCommand ?? vi.fn(async () => undefined),
@@ -33,7 +37,13 @@ describe('AgentAllowedCommandsService', () => {
 		const contextKeyService = stubInterface<IContextKeyService>({
 			contextMatchesRules: overrides.contextMatchesRules ?? (() => true),
 		});
-		return new AgentAllowedCommandsService(commandService, contextKeyService, new NullLogService());
+		const productService = stubInterface<IProductService>({
+			trustedExtensionPublishers: overrides.trustedPublishers ?? [],
+		});
+		const extensionService = stubInterface<IExtensionService>({
+			extensions: overrides.extensions ?? [],
+		});
+		return new AgentAllowedCommandsService(commandService, contextKeyService, new NullLogService(), productService, extensionService);
 	}
 
 	/** Register a command and add it to the command palette (mirrors `registerAction2` with `f1: true`). */
@@ -60,6 +70,12 @@ describe('AgentAllowedCommandsService', () => {
 			id,
 			title: options.description ?? id,
 			precondition: options.precondition,
+			metadata: {
+				description: options.description ?? id,
+				agentCompatible: options.agentCompatible,
+				args: options.metadataArgs,
+				returns: options.metadataReturns,
+			},
 		}));
 		store.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, {
 			command: { id, title: options.description ?? id },
@@ -80,20 +96,12 @@ describe('AgentAllowedCommandsService', () => {
 			});
 			registerPaletteCommand('test.agent.excluded', { agentCompatible: false, description: 'not marked' });
 
-			// Marked agentCompatible but NOT registered in the command palette -- still included.
-			store.add(CommandsRegistry.registerCommand({
-				id: 'test.agent.notPalette',
-				handler: () => { },
-				metadata: { description: 'not palette-exposed', agentCompatible: true },
-			}));
-
 			const service = makeService();
 			const commands = service.getAgentAllowedCommands();
 			const ids = commands.map(c => c.id);
 
 			expect(ids).toContain('test.agent.included');
 			expect(ids).not.toContain('test.agent.excluded');
-			expect(ids).toContain('test.agent.notPalette');
 
 			const included = commands.find(c => c.id === 'test.agent.included')!;
 			expect(included).toMatchObject({
@@ -132,6 +140,48 @@ describe('AgentAllowedCommandsService', () => {
 			expect(makeService().getAgentAllowedCommands().map(c => c.id))
 				.not.toContain('test.agent.transient');
 		});
+
+		it('includes non-palette commands by default', () => {
+			// Registered via CommandsRegistry only (no MenuRegistry entry → not in the palette).
+			// The default call must still surface it; f1Only is an opt-in filter.
+			store.add(CommandsRegistry.registerCommand({
+				id: 'test.agent.notPalette',
+				handler: () => { },
+				metadata: { description: 'not in palette', agentCompatible: true },
+			}));
+			expect(makeService().getAgentAllowedCommands().map(c => c.id))
+				.toContain('test.agent.notPalette');
+		});
+
+		it('f1Only option excludes commands not in the command palette', () => {
+			registerPaletteCommand('test.agent.f1.palette', { agentCompatible: true });
+			store.add(CommandsRegistry.registerCommand({
+				id: 'test.agent.f1.nonPalette',
+				handler: () => { },
+				metadata: { description: 'not in palette', agentCompatible: true },
+			}));
+			const service = makeService();
+			const options: IGetAgentAllowedCommandsOptions = { f1Only: true };
+			const ids = service.getAgentAllowedCommands(options).map(c => c.id);
+			expect(ids).toContain('test.agent.f1.palette');
+			expect(ids).not.toContain('test.agent.f1.nonPalette');
+		});
+
+		it('enabledOnly: false includes commands whose precondition does not hold', () => {
+			const precondition = ContextKeyExpr.equals('foo', 'bar')!;
+			registerPaletteCommand('test.agent.enabledOnly.gated', {
+				agentCompatible: true,
+				description: 'gated',
+				precondition,
+			});
+			const service = makeService({
+				contextMatchesRules: (expr: ContextKeyExpression | undefined) => expr === undefined,
+			});
+			expect(service.getAgentAllowedCommands().map(c => c.id))
+				.not.toContain('test.agent.enabledOnly.gated');
+			expect(service.getAgentAllowedCommands({ enabledOnly: false }).map(c => c.id))
+				.toContain('test.agent.enabledOnly.gated');
+		});
 	});
 
 	describe('getAllAgentCompatibleCommands', () => {
@@ -146,10 +196,11 @@ describe('AgentAllowedCommandsService', () => {
 				description: 'gated cmd',
 				precondition,
 			});
+			// CommandsRegistry-only: not in MenuRegistry → inPalette: false.
 			store.add(CommandsRegistry.registerCommand({
 				id: 'test.agent.debug.notPalette',
 				handler: () => { },
-				metadata: { description: 'not palette-exposed', agentCompatible: true },
+				metadata: { description: 'not in palette', agentCompatible: true },
 			}));
 
 			const service = makeService({
@@ -173,6 +224,89 @@ describe('AgentAllowedCommandsService', () => {
 				precondition: undefined,
 				inPalette: false,
 			});
+		});
+
+		it('includes a command from a built-in extension regardless of publisher', () => {
+			// A bundled (isBuiltin) extension that is not a trusted publisher still
+			// qualifies -- isBuiltin is the second acceptance path in _isTrustedCommandSource.
+			store.add(MenuRegistry.addCommand({
+				id: 'thirdparty.builtinCmd',
+				title: 'Built-in Extension Command',
+				source: { id: 'thirdparty.builtinExt', title: 'Built-in Ext' },
+				metadata: { description: 'desc', agentCompatible: true },
+			}));
+
+			const service = makeService({
+				trustedPublishers: ['posit'],  // 'thirdparty' is NOT in the trusted list
+				extensions: [{ identifier: { value: 'thirdparty.builtinExt' }, isBuiltin: true }] as unknown as IExtensionService['extensions'],
+			});
+
+			const cmd = service.getAllAgentCompatibleCommands().find(c => c.id === 'thirdparty.builtinCmd');
+			expect(cmd).toBeDefined();
+			expect(cmd!.source).toEqual({ type: 'extension', id: 'thirdparty.builtinExt', displayName: 'Built-in Ext' });
+		});
+
+		it('includes a command from a trusted-publisher extension with full metadata', () => {
+			// Mirrors what menusExtensionPoint handleCommand produces when positron-r
+			// declares "agent": {...} in its contributes.commands package.json entry.
+			const precondition = ContextKeyExpr.equals('positronR.activeSession', 'true')!;
+			store.add(MenuRegistry.addCommand({
+				id: 'positron-r.restartSession',
+				title: 'Restart R Session',
+				category: { value: 'R', original: 'R' },
+				source: { id: 'posit.positron-r', title: 'Positron R' },
+				precondition,
+				metadata: {
+					description: 'Restarts the active R interpreter session. Use when the session is stuck or needs a clean environment.',
+					agentCompatible: true,
+					args: [
+						{
+							name: 'sessionId',
+							description: 'ID of the session to restart. Omit to restart the active session.',
+							isOptional: true,
+							schema: { type: 'string' },
+						},
+					],
+					returns: 'void',
+				},
+			}));
+
+			const service = makeService({
+				trustedPublishers: ['posit'],
+				contextMatchesRules: (expr: ContextKeyExpression | undefined) => expr === undefined,
+			});
+
+			const cmd = service.getAllAgentCompatibleCommands().find(c => c.id === 'positron-r.restartSession');
+			expect(cmd).toMatchObject({
+				id: 'positron-r.restartSession',
+				description: 'Restarts the active R interpreter session. Use when the session is stuck or needs a clean environment.',
+				source: { type: 'extension', id: 'posit.positron-r', displayName: 'Positron R' },
+				args: [
+					{
+						name: 'sessionId',
+						description: 'ID of the session to restart. Omit to restart the active session.',
+						required: false,
+						schema: { type: 'string' },
+					},
+				],
+				returns: 'void',
+				enabled: false,  // precondition fails (positronR.activeSession not set)
+				precondition: precondition.serialize(),
+				inPalette: true,  // all MenuRegistry commands are implicitly palette-visible
+			});
+		});
+
+		it('excludes a command from an untrusted non-builtin extension', () => {
+			store.add(MenuRegistry.addCommand({
+				id: 'untrusted.agentCmd',
+				title: 'Untrusted Extension Command',
+				source: { id: 'untrusted.ext', title: 'Untrusted Ext' },
+				metadata: { description: 'desc', agentCompatible: true },
+			}));
+
+			const service = makeService({ trustedPublishers: ['posit'], extensions: [] });
+			expect(service.getAllAgentCompatibleCommands().find(c => c.id === 'untrusted.agentCmd'))
+				.toBeUndefined();
 		});
 	});
 

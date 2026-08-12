@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as positron from 'positron';
 import { PostgreSQLClient } from '../postgresqlClient.js';
-import { PostgreSQLConnection, PostgreSQLConnectionConfig } from '../postgresqlConnection.js';
+import { connectionTarget, PostgreSQLConnection, PostgreSQLConnectionConfig } from '../postgresqlConnection.js';
 import { createSchemaNode } from '../postgresqlNodes.js';
 
 // Default config for tests -- not used to connect, just to construct.
@@ -24,8 +24,8 @@ const TEST_CONFIG: PostgreSQLConnectionConfig = {
 // handler would register a vscode command that collides with the activated extension's. One object
 // satisfies both the connection's host interface and the node-builder's preview-host interface.
 const noopHost = {
-	previewObject: async () => { },
-	previewColumn: async () => { },
+	previewObject: async () => 'noop-dataset',
+	previewColumn: async () => 'noop-dataset',
 	openTableView: async () => { },
 	openColumnView: async () => { },
 	closeTableView: () => { },
@@ -470,6 +470,28 @@ suite('PostgreSQL Driver Tests', () => {
 		const tables = await tablesOf(schema);
 		assert.ok(tables[0].preview);
 		await tables[0].preview!();
+	});
+
+	// --- connectionTarget redaction ---
+
+	test('connectionTarget never reveals a connection string password', () => {
+		const target = connectionTarget({
+			kind: 'connectionString',
+			connectionString: 'postgres://alice:hunter2@db.example.com:5432/sales',
+		});
+		assert.strictEqual(target, 'the server in the connection string');
+	});
+
+	test('connectionTarget reports host and port for field configs', () => {
+		assert.strictEqual(
+			connectionTarget({ kind: 'fields', host: 'db.example.com', port: 5432, database: 'sales', user: 'alice', password: 'hunter2' }),
+			'db.example.com:5432');
+	});
+
+	test('connectionTarget reports the local socket for a socket-directory host', () => {
+		assert.strictEqual(
+			connectionTarget({ kind: 'fields', host: '/var/run/postgresql', port: 5432, database: 'sales', user: 'alice' }),
+			'the local socket');
 	});
 });
 

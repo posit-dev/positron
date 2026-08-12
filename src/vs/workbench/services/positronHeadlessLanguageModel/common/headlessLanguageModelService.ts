@@ -42,6 +42,19 @@ export interface IHeadlessLanguageModelService {
 	getAvailableModels(): Promise<readonly IAvailableModel[]>;
 
 	/**
+	 * What each provider actually contributed, for the AI diagnostic report. Unlike
+	 * {@link getAvailableModels} this reports before de-duplication and names the
+	 * providers that were queried, so "my provider is signed in but none of its
+	 * models show up" has a visible answer. Feature code must use
+	 * `getAvailableModels`: requests select a model and the service picks the
+	 * provider, so branching on the provider id would route around that.
+	 *
+	 * Rejects when the listing failed (catalog unavailable, engine or bridge
+	 * startup error), where {@link getAvailableModels} degrades to an empty list.
+	 */
+	getModelListingDiagnostics(): Promise<IModelListingDiagnostics>;
+
+	/**
 	 * Fires when the available-model set changes -- for example after a sign-in
 	 * or sign-out -- so a picker can stay current.
 	 */
@@ -150,6 +163,38 @@ export interface IAvailableModel {
 	readonly id: string;
 	/** A human-readable display name. */
 	readonly name: string;
-	/** The display vendor, for grouping in a picker (e.g. "Anthropic", "OpenAI"). */
+	/**
+	 * The vendor the model is branded under (e.g. "Anthropic", "OpenAI"), for
+	 * grouping in a picker. This is what the provider reports, so it describes the
+	 * model, not who served it: an OpenAI-compatible gateway will report "OpenAI"
+	 * for a Google model.
+	 */
 	readonly vendor: string;
+}
+
+/**
+ * An available model plus the provider serving it, for the AI diagnostic report.
+ * Kept off {@link IAvailableModel} so feature code can't reach the provider id
+ * and start routing by it; only diagnostics, which reports rather than decides,
+ * gets to see it.
+ */
+export interface IModelWithProvider extends IAvailableModel {
+	/** The provider that returned this model (e.g. "positai", "copilot"). */
+	readonly providerId: string;
+}
+
+/** What the AI diagnostic report needs to explain a provider's contribution. */
+export interface IModelListingDiagnostics {
+	/**
+	 * Providers actually queried, whether or not they returned anything. A
+	 * provider missing here was skipped before the call: disabled in the catalog,
+	 * its auth backend unregistered, or no credentials resolved.
+	 */
+	readonly queriedProviders: readonly string[];
+	/**
+	 * Every model returned, before de-duplication. Pre-dedupe because a provider
+	 * whose models a higher-priority provider also offers contributes nothing to
+	 * the deduped set, which reads identically to it having returned nothing.
+	 */
+	readonly models: readonly IModelWithProvider[];
 }

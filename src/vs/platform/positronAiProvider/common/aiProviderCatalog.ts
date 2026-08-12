@@ -20,6 +20,7 @@ export interface IResolvedConnectionData {
 	readonly aws?: { readonly region?: string; readonly profile?: string };
 	readonly googleCloud?: { readonly project?: string; readonly location?: string };
 	readonly snowflake?: { readonly account?: string; readonly host?: string; readonly home?: string };
+	readonly databricks?: { readonly host?: string };
 }
 
 /** Mirrors ai-config's ResolvedProvider (id, enabled, connection). */

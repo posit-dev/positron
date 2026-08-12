@@ -15,6 +15,7 @@ import { deriveAuthMethod, deriveAuthStatus, deriveConnectAction } from '../prov
 import { getProviderGettingStartedText, getProviderTermsOfServiceText, getProviderUsageDisclaimerText } from '../providerLegalText.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { LanguageModelIcon } from './languageModelButton.js';
+import { getBaseUrlLabel } from '../providerFieldLabels.js';
 import { ProviderModalFooter } from './providerModalFooter.js';
 
 export interface ConnectProviderViewProps {
@@ -133,7 +134,7 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 							{supportsBaseUrl &&
 								<>
 									<label className='connect-provider-apikey-label' htmlFor='connect-provider-baseurl-input'>
-										{localize('positron.connectProvider.baseUrlLabel', "Base URL")}
+										{getBaseUrlLabel(props.source.provider.id)}
 									</label>
 									<input
 										autoComplete='off'

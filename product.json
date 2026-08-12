@@ -3,8 +3,9 @@
 	"nameShort": "Positron",
 	"nameLong": "Positron",
 	"version": "",
-	"positronVersion": "2026.08.0",
+	"positronVersion": "2026.09.0",
 	"positronBuildNumber": 0,
+	"positronLlmsDocsUrl": "https://cdn.posit.co/positron/releases/docs",
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
 	"sharedDataFolderName": ".positron-shared",
@@ -39,11 +40,13 @@
 	"licenseFileName": "LICENSE.txt",
 	"reportIssueUrl": "https://github.com/posit-dev/positron/issues/new",
 	"nodejsRepository": "https://nodejs.org",
+	"nodejsArtifactFeed": "",
+	"electronArtifactFeed": "",
 	"urlProtocol": "positron",
 	"agentsTelemetryAppName": "agents",
 	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
 	"updateUrl": "https://cdn.posit.co/positron",
-	"releaseNotesUrl": "https://cdn.posit.co/positron",
+	"releaseNotesUrl": "https://positron.posit.co/release-notes.html",
 	"downloadUrl": "https://positron.posit.co/download",
 	"builtInExtensions": [
 		{
@@ -96,10 +99,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.8.2",
+			"version": "2026.9.1",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "3100037ea45430b0ae11b02b469ed8b9454dcf9281fcf9a909fd5317a8973351",
+			"sha256": "ecd5749e452e4e26662052773319645256c506a4c04dd6639e99926bbb5d05da",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -118,7 +121,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.66.0",
+			"version": "2026.70.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -212,7 +215,7 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "1.1.1",
+			"version": "1.2.0",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
@@ -292,8 +295,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.156.0",
-			"sha256": "e92de13cb9a7a73f71029aa827b8e4f8b104fbdea628dd23d90e4ddec3afa309",
+			"version": "0.162.0",
+			"sha256": "819e5127fe6c221b868e78145d77e5276ababc49db8e2798014470d31e2f8f22",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
@@ -306,8 +309,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.9.0",
-			"sha256": "79d924691c11b2aa5a966346f207be15a5698e44ff24c7cc37c6b507e63243f6",
+			"version": "0.10.0",
+			"sha256": "7289eac43dd684f8f4e6cfc9e05a94268c7f796beeb0dfc2231c083608152b9c",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -341,6 +344,17 @@
 	"defaultChatAgent": {
 		"extensionId": "GitHub.copilot-chat",
 		"chatExtensionId": "GitHub.copilot-chat",
+		"chatExtensionOutputId": "GitHub.copilot-chat.GitHub Copilot Chat.log",
+		"chatExtensionOutputExtensionStateCommand": "github.copilot.debug.extensionState",
+		"documentationUrl": "https://aka.ms/github-copilot-overview",
+		"termsStatementUrl": "https://aka.ms/github-copilot-terms-statement",
+		"privacyStatementUrl": "https://aka.ms/github-copilot-privacy-statement",
+		"skusDocumentationUrl": "https://aka.ms/github-copilot-plans",
+		"optimizeUsageDocumentationUrl": "https://aka.ms/token-usage-tips",
+		"publicCodeMatchesUrl": "https://aka.ms/github-copilot-match-public-code",
+		"managePlanUrl": "https://aka.ms/github-copilot-manage-plan",
+		"upgradePlanUrl": "https://aka.ms/github-copilot-upgrade-plan",
+		"signUpUrl": "https://aka.ms/github-sign-up",
 		"provider": {
 			"default": {
 				"id": "github",
@@ -388,17 +402,8 @@
 		"resolveMergeConflictsCommand": "github.copilot.git.resolveMergeConflicts",
 		"completionsAdvancedSetting": "github.copilot.advanced",
 		"nextEditSuggestionsSetting": "github.copilot.nextEditSuggestions.enabled",
-		"chatExtensionOutputId": "GitHub.copilot-chat.GitHub Copilot Chat.log",
-		"documentationUrl": "https://aka.ms/github-copilot-overview",
-		"termsStatementUrl": "https://aka.ms/github-copilot-terms-statement",
-		"privacyStatementUrl": "https://aka.ms/github-copilot-privacy-statement",
-		"skusDocumentationUrl": "https://aka.ms/github-copilot-plans",
-		"publicCodeMatchesUrl": "https://aka.ms/github-copilot-match-public-code",
 		"manageSettingsUrl": "https://aka.ms/github-copilot-settings",
-		"managePlanUrl": "https://aka.ms/github-copilot-manage-plan",
 		"manageOverageUrl": "https://aka.ms/github-copilot-manage-overage",
-		"upgradePlanUrl": "https://aka.ms/github-copilot-upgrade-plan",
-		"signUpUrl": "https://aka.ms/github-sign-up",
 		"tokenEntitlementUrl": "https://api.github.com/copilot_internal/v2/token",
 		"mcpRegistryDataUrl": "https://api.github.com/copilot/mcp_registry",
 		"managedSettingsUrl": "https://api.github.com/copilot_internal/managed_settings"
@@ -743,6 +748,10 @@
 		"google-cloud": [
 			"positron.authentication",
 			"posit.assistant"
+		],
+		"databricks": [
+			"positron.authentication",
+			"posit.assistant"
 		]
 	},
 	"onboardingKeymaps": [
@@ -823,5 +832,6 @@
 	"builtInExtensionsEnabledWithAutoUpdates": [
 		"GitHub.copilot-chat"
 	],
-	"sessionsWindowAllowedExtensions": []
+	"sessionsWindowAllowedExtensions": [],
+	"voiceWsUrl": "wss://falcon-caas.mai.microsoft.com/voice-code/api/v1/realtime/voice"
 }

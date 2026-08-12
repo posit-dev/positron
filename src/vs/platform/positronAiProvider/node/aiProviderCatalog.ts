@@ -23,7 +23,10 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 
 	constructor(
 		private readonly _logService: ILogService,
-		private readonly _options?: { configPath?: string; envVars?: Record<string, string | undefined> },
+		private readonly _options?: {
+			configPath?: string;
+			envVars?: Record<string, string | undefined>;
+		},
 	) {
 		super();
 	}
@@ -33,6 +36,13 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 			baseline: { defaultEnabled: true },
 			configPath: this._options?.configPath,
 			envVars: this._options?.envVars,
+			// PROVIDER-SETTINGS-MIGRATION(legacy-positron): keep the legacy
+			// POSITRON_ENFORCED_SETTINGS admin channel applying above the user
+			// file. The user-set legacy settings reader is deliberately NOT
+			// passed: this Positron migrates those settings into providers.json,
+			// and a reader layer would make a cleared providers.json value fall
+			// back to its stale legacy source.
+			legacyPositronEnforcedSettings: true,
 			logger: {
 				debug: (message: string) => this._logService.debug(`[AI Provider Catalog] ${message}`),
 				warn: (message: string) => this._logService.warn(`[AI Provider Catalog] ${message}`),
@@ -85,6 +95,7 @@ function toProviderData(provider: ResolvedProvider): IResolvedProviderData {
 			aws: connection.aws,
 			googleCloud: connection.googleCloud,
 			snowflake: connection.snowflake,
+			databricks: connection.databricks,
 		},
 	};
 }

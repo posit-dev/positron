@@ -113,5 +113,18 @@ export interface IPositronPackagesService {
 	 */
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 
+	/**
+	 * The newest version of an installed package available to the active
+	 * session, as the session's package manager reports it.
+	 *
+	 * Resolves undefined when the session offers nothing newer than what is
+	 * installed, when the package isn't installed, or when the package manager
+	 * doesn't report metadata.
+	 *
+	 * @param name Package name
+	 * @param token Optional cancellation token
+	 */
+	resolveLatestVersion(name: string, token?: CancellationToken): Promise<string | undefined>;
+
 	getInstances(): IPositronPackagesInstance[];
 }

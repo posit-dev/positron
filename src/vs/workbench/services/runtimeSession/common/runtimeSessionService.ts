@@ -108,6 +108,21 @@ export interface IRuntimeSessionMetadata {
 }
 
 /**
+ * Statistics about code execution in a session, surfaced for diagnostics.
+ */
+export interface IRuntimeExecutionStatistics {
+	/** The number of executions that have been submitted to the runtime. */
+	readonly executionCount: number;
+
+	/**
+	 * The average latency, in milliseconds, between submitting an execution and
+	 * receiving the corresponding input echo back from the runtime on iopub.
+	 * `undefined` if no latency samples have been collected yet.
+	 */
+	readonly averageInputLatencyMs: number | undefined;
+}
+
+/**
  * The main interface for interacting with a language runtime session.
  */
 
@@ -184,7 +199,16 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	 */
 	openResource(resource: URI | string): Thenable<boolean>;
 
-	/** Execute code in the runtime */
+	/**
+	 * Execute code in the runtime.
+	 *
+	 * The returned promise signals ACCEPTANCE of the code for execution, not
+	 * completion of the execution. When `mode` is
+	 * `RuntimeCodeExecutionMode.Unprocessed`, the promise rejects if the code
+	 * is found to be incomplete (error `name` is
+	 * `RUNTIME_CODE_INCOMPLETE_ERROR`) or the submission was cancelled (error
+	 * `name` is `RUNTIME_EXECUTION_CANCELLED_ERROR`).
+	 */
 	execute(
 		code: string,
 		id: string,
@@ -192,7 +216,7 @@ export interface ILanguageRuntimeSession extends IDisposable {
 		errorBehavior: RuntimeErrorBehavior,
 		attribution?: IConsoleCodeAttribution,
 		executionMetadata?: Record<string, unknown>,
-	): void;
+	): Promise<void>;
 
 	/**
 	 * Returns the source code location that was attributed to a recent
@@ -207,6 +231,13 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	 * @returns The associated code location, or `undefined` if unknown.
 	 */
 	getExecutionCodeLocation?(executionId: string): ICodeLocation | undefined;
+
+	/**
+	 * Returns statistics about code execution in this session (execution count
+	 * and average input-echo latency), for diagnostics. Optional; not all
+	 * session implementations track these.
+	 */
+	getExecutionStatistics?(): IRuntimeExecutionStatistics;
 
 	/**
 	 * Calls a runtime-specific method and returns the result.

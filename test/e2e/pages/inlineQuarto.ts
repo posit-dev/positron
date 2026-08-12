@@ -15,6 +15,10 @@ const INLINE_OUTPUT = '.quarto-inline-output';
 const OUTPUT_CONTENT = '.quarto-output-content';
 const OUTPUT_ITEM = '.quarto-output-item';
 const CELL_TOOLBAR = '.quarto-cell-toolbar';
+// Set by the cell toolbar on every execution state change and retained after the
+// execution ends, unlike the queued/running run button.
+const EXECUTION_ID_ATTR = 'data-execution-id';
+const EXECUTED_CELL_TOOLBAR = `${CELL_TOOLBAR}[${EXECUTION_ID_ATTR}]`;
 const TOOLBAR_RUN = '.quarto-toolbar-run';
 const TOOLBAR_MORE = '.quarto-toolbar-more';
 const OUTPUT_CLOSE = '.quarto-output-close';
@@ -51,9 +55,11 @@ export class InlineQuarto {
 	readonly outputItem: Locator;
 	readonly cellToolbar: Locator;
 	readonly visibleCellToolbar: Locator;
+	// Backs the run gate only; keeping it private keeps the `data-execution-id`
+	// contract an implementation detail that can be swapped without touching tests.
+	private readonly executedCellToolbar: Locator;
 	readonly toolbarRunButton: Locator;
 	readonly toolbarCancelButton: Locator;
-	readonly executingToolbarButton: Locator;
 	readonly closeButton: Locator;
 	readonly copyButton: Locator;
 	readonly saveButton: Locator;
@@ -83,11 +89,9 @@ export class InlineQuarto {
 		this.outputItem = page.locator(`${INLINE_OUTPUT} ${OUTPUT_ITEM}`);
 		this.cellToolbar = page.locator(CELL_TOOLBAR);
 		this.visibleCellToolbar = page.locator(`${CELL_TOOLBAR}.visible`);
+		this.executedCellToolbar = page.locator(EXECUTED_CELL_TOOLBAR);
 		this.toolbarRunButton = page.locator(`${CELL_TOOLBAR} ${TOOLBAR_RUN}`);
 		this.toolbarCancelButton = page.getByRole('button', { name: 'Cancel pending execution' });
-		// The run button toggles between run/queued/running; matches while the
-		// cell is queued or running, i.e. once a run has actually registered.
-		this.executingToolbarButton = page.getByRole('button', { name: /Cancel pending execution|Stop cell execution/ });
 		this.closeButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_CLOSE}`);
 		this.copyButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_COPY}`);
 		this.saveButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_SAVE}`);
@@ -179,34 +183,78 @@ export class InlineQuarto {
 	}
 
 	/**
+	 * Execution ids recorded across all cell toolbars. Document-scoped, not
+	 * cell-scoped: the toolbar DOM carries no cell identity, so a new id proves
+	 * *some* cell ran, not which one.
+	 */
+	private async _recordedExecutionIds(): Promise<string[]> {
+		return this.executedCellToolbar.evaluateAll(
+			(toolbars, attr) => toolbars.map(toolbar => toolbar.getAttribute(attr)!),
+			EXECUTION_ID_ATTR
+		);
+	}
+
+	/**
 	 * Fire a run action at `cellLine` and confirm the cell actually started
 	 * executing before returning. The Quarto run command is extension-contributed,
 	 * so a transient extension-host stall (e.g. right after a window reload) can
 	 * swallow the run hotkey and leave the cell idle -- which would otherwise burn
 	 * the full output timeout waiting on a run that never took. Re-fire (moving the
-	 * cursor back onto the cell each attempt) until the cell enters queued/running.
+	 * cursor back onto the cell each attempt) until a new execution is recorded.
+	 *
+	 * Gates on a newly recorded execution id rather than the toolbar's
+	 * queued/running button: a short cell can finish in a couple hundred
+	 * milliseconds, and that button is only visible while the cursor is in its cell
+	 * and it is on screen, so it comes and goes between polls under CI load.
 	 */
 	private async _runCellUntilStarted(cellLine: number, run: () => Promise<void>): Promise<void> {
+		const before = new Set(await this._recordedExecutionIds());
 		await expect(async () => {
 			await this.gotoLine(cellLine);
 			await run();
-			await expect(this.executingToolbarButton.first()).toBeVisible({ timeout: 10000 });
+			await expect
+				.poll(async () => (await this._recordedExecutionIds()).some(id => !before.has(id)), { timeout: 10000, intervals: [250] })
+				.toBe(true);
 		}).toPass({ timeout: 30000, intervals: [1000] });
 	}
 
-	async runCellAndWaitForOutput({ cellLine, outputLine, timeout = 120000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
-		await test.step(`Run cell at line ${cellLine} and wait for output at line ${outputLine}`, async () => {
-			await this._runCellUntilStarted(cellLine, () => this.runCurrentCell());
-			await this.gotoLine(outputLine);
-			await expect(this.inlineOutput).toBeVisible({ timeout });
+	/**
+	 * Navigate to `outputLine` and confirm the inline output rendered, re-driving
+	 * the navigation until it does. Monaco sets a view zone to `display: none`
+	 * whenever it falls outside the rendered range, so an output that resizes
+	 * itself after the reveal (a plotly webview settling to its final height
+	 * shrinks the document, which makes Monaco clamp scrollTop back to the
+	 * bottom) can end up stranded off-screen with nothing left to scroll it into
+	 * view. Repeating the reveal recovers; a single long wait never can.
+	 *
+	 * Pass `outputLine` a line at or above the output -- usually the cell's
+	 * closing fence. A line past the end of the document clamps to the last line
+	 * and reveals it at maximum scroll, which is where the strand happens.
+	 *
+	 * `target` overrides what is waited for (e.g. `inlineOutput.last()` for a
+	 * document with several cells); it defaults to any inline output.
+	 */
+	async revealOutput(outputLine: number, { target, timeout = 30000 }: { target?: Locator; timeout?: number } = {}): Promise<void> {
+		await test.step(`Reveal inline output at line ${outputLine}`, async () => {
+			const output = target ?? this.inlineOutput;
+			await expect(async () => {
+				await this.gotoLine(outputLine);
+				await expect(output).toBeVisible({ timeout: 5000 });
+			}).toPass({ timeout, intervals: [1000] });
 		});
 	}
 
-	async runCodeAndWaitForOutput({ cellLine, outputLine, timeout = 120000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
+	async runCellAndWaitForOutput({ cellLine, outputLine, timeout = 60000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
+		await test.step(`Run cell at line ${cellLine} and wait for output at line ${outputLine}`, async () => {
+			await this._runCellUntilStarted(cellLine, () => this.runCurrentCell());
+			await this.revealOutput(outputLine, { timeout });
+		});
+	}
+
+	async runCodeAndWaitForOutput({ cellLine, outputLine, timeout = 60000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
 		await test.step(`Run code at line ${cellLine} and wait for output at line ${outputLine}`, async () => {
 			await this._runCellUntilStarted(cellLine, () => this.runCurrentCode());
-			await this.gotoLine(outputLine);
-			await expect(this.inlineOutput).toBeVisible({ timeout });
+			await this.revealOutput(outputLine, { timeout });
 		});
 	}
 

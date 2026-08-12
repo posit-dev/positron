@@ -51,7 +51,7 @@ export class SqliteDataExplorerRpcHandler implements vscode.Disposable, ISqliteD
 	private readonly _views = new Map<string, SqliteTableView>();
 	private readonly _session: positron.DataExplorerRpcSession;
 
-	constructor() {
+	constructor(private readonly _logger?: positron.DataConnectionLogger) {
 		this._session = positron.dataExplorer.registerRpcHandler(SQLITE_DATA_EXPLORER_PROVIDER_ID, {
 			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc)
 		});
@@ -159,7 +159,7 @@ export class SqliteDataExplorerRpcHandler implements vscode.Disposable, ISqliteD
 				} satisfies DataExplorerUiEvent);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : 'unknown error';
-				console.error(`Failed to compute SQLite column profiles: ${message}`);
+				this._logger?.error(`Failed to compute SQLite column profiles: ${message}`);
 			}
 		})();
 	}

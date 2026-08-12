@@ -411,8 +411,41 @@ export enum RuntimeCodeExecutionMode {
 	 * Combined with pending code: No
 	 *          Stored in history: No
 	 */
-	Silent = 'silent'
+	Silent = 'silent',
+
+	/**
+	 * Unprocessed code execution: behaves exactly like `Interactive`
+	 * (displayed to the user, stored in history), except the code has NOT
+	 * been checked for completeness. A session receiving this mode must check
+	 * completeness itself before executing; if the code is incomplete it must
+	 * not execute it and must reject the `execute()` call with an error whose
+	 * `name` is `RUNTIME_CODE_INCOMPLETE_ERROR` ('CodeIncompleteError').
+	 * Sessions that cannot check completeness should treat `Unprocessed`
+	 * exactly as `Interactive` (the interpreter will surface a syntax error
+	 * for incomplete code).
+	 *
+	 *          Displayed to user: Yes
+	 * Combined with pending code: Yes
+	 *          Stored in history: Yes
+	 */
+	Unprocessed = 'unprocessed'
 }
+
+/**
+ * Error name used to signal that code submitted with
+ * `RuntimeCodeExecutionMode.Unprocessed` was found to be incomplete and was
+ * therefore not executed. The VS Code RPC layer preserves `error.name` and
+ * `error.message`, so consumers check `error?.name === RUNTIME_CODE_INCOMPLETE_ERROR`
+ * rather than relying on `instanceof` across the RPC boundary.
+ */
+export const RUNTIME_CODE_INCOMPLETE_ERROR = 'CodeIncompleteError';
+
+/**
+ * Error name used to signal that an in-flight code submission was cancelled
+ * before the code was executed. See {@link RUNTIME_CODE_INCOMPLETE_ERROR} for
+ * notes on cross-RPC error identification.
+ */
+export const RUNTIME_EXECUTION_CANCELLED_ERROR = 'ExecutionCancelledError';
 
 /**
  * The CPU architecture of an interpreter.
