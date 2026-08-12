@@ -824,6 +824,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						runtimeName: session.runtimeMetadata.runtimeName,
 						errorBehavior,
 						mode: RuntimeCodeExecutionMode.Interactive,
+						executionMetadata,
 					};
 					this._onDidExecuteCode.fire(event);
 

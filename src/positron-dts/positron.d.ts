@@ -1089,17 +1089,30 @@ declare module 'positron' {
 		/** The ID of the code execution. */
 		executionId: string;
 
+		/** The ID of the session that executed the code. */
+		sessionId: string;
+
 		/** The ID of the language in which the code was executed (e.g. 'python') */
 		languageId: string;
 
 		/** The name of the runtime that executed the code (e.g. 'Python 3.12') */
 		runtimeName: string;
 
+		/** The mode in which the code was executed. */
+		mode: RuntimeCodeExecutionMode;
+
 		/** The actual code that was executed. */
 		code: string;
 
 		/** An object describing the origin of the code. */
 		attribution: CodeAttribution;
+
+		/**
+		 * Additional metadata supplied by the caller of `executeCode`, if any.
+		 * This is the same object passed as the `executionMetadata` argument to
+		 * `executeCode`.
+		 */
+		metadata?: Record<string, any>;
 	}
 
 	export interface LanguageRuntimeManager {
