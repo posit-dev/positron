@@ -730,6 +730,7 @@ async function registerDatabricksProvider(
 		// sign-out is blocked while Workbench is managing them.
 		preventSignOutNow: () => !process.env.DATABRICKS_TOKEN &&
 			hasManagedCredentials(DATABRICKS_MANAGED_CREDENTIALS),
+		sourceDescription: 'Posit Workbench',
 	});
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(

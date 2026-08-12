@@ -160,7 +160,7 @@ suite('configDialog', () => {
 				{ model: 'claude-sonnet-4-0' },
 				'delete'
 			),
-			(error: Error) => error.message.includes('Another system manages this credential')
+			(error: Error) => error.message.includes('An environment variable manages this credential')
 		);
 
 		// Chain session should still exist

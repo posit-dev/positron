@@ -52,6 +52,8 @@ export interface CredentialChainConfig {
 	 * but not a user-supplied env var on the same chain).
 	 */
 	readonly preventSignOutNow?: () => boolean;
+	/** Names what manages the credential, for the sign-out-blocked message. */
+	readonly sourceDescription?: string;
 }
 
 /**
@@ -95,6 +97,11 @@ export class AuthProvider
 	get chainPreventsSignOut(): boolean {
 		return !!this.credentialChain?.preventSignOut ||
 			!!this.credentialChain?.preventSignOutNow?.();
+	}
+
+	/** What manages the chain credential, for sign-out-blocked messages. */
+	get chainSourceDescription(): string {
+		return this.credentialChain?.sourceDescription ?? 'An environment variable';
 	}
 
 	/**
@@ -280,9 +287,8 @@ export class AuthProvider
 						);
 						vscode.window.showInformationMessage(
 							vscode.l10n.t(
-								'{0} manages these credentials. You cannot sign ' +
-								'out of them here.',
-								this.displayName
+								'{0} manages these credentials. You cannot sign out.',
+								this.chainSourceDescription
 							)
 						);
 						return;

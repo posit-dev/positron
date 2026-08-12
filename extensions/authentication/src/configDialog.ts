@@ -343,8 +343,8 @@ async function handleDelete(
 	if (deletable.length === 0 && sessions.length > 0) {
 		throw new Error(
 			vscode.l10n.t(
-				'Another system manages this credential. You cannot remove ' +
-				'it here.'
+				'{0} manages this credential. You cannot remove it.',
+				provider.chainSourceDescription
 			)
 		);
 	}
