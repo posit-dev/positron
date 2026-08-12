@@ -101,7 +101,8 @@ export class AuthProvider
 
 	/** What manages the chain credential, for sign-out-blocked messages. */
 	get chainSourceDescription(): string {
-		return this.credentialChain?.sourceDescription ?? 'An environment variable';
+		return this.credentialChain?.sourceDescription ??
+			vscode.l10n.t('An environment variable');
 	}
 
 	/**

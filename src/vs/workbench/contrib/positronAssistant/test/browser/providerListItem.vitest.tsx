@@ -45,6 +45,17 @@ describe('ProviderListItem', () => {
 		expect(screen.getByText('PWB Managed')).toBeInTheDocument();
 	});
 
+	it('shows an OAuth badge, not PWB Managed, for a connected copilot-auth provider', () => {
+		render(<ProviderListItem section='connected' source={source({
+			id: 'copilot-auth',
+			signedIn: true,
+			supportedOptions: [AuthMethod.OAUTH],
+			defaults: { autoconfigure: { type: LanguageModelAutoconfigureType.Custom, message: 'the Accounts menu.', signedIn: true } },
+		})} />);
+		expect(screen.getByText('OAuth')).toBeInTheDocument();
+		expect(screen.queryByText('PWB Managed')).not.toBeInTheDocument();
+	});
+
 	it('shows a description and a Connect action in the model-providers section', () => {
 		render(<ProviderListItem description='Access Claude models' section='model-providers' source={source({ id: 'a' })} />);
 		expect(screen.getByText('Access Claude models')).toBeInTheDocument();
