@@ -96,6 +96,27 @@ accept the upstream change and then reapply the Positron change by adding the
 missing fields, matching the new formatting and adding appropriate change
 markers..
 
+### Copilot Chat commands
+
+We take `extensions/copilot` straight from upstream, so a bump can add new
+commands under the `"Chat"` category. Positron hides those when AI is off by adding a
+`commandPalette` entry gated on the `chatAiFeaturesEnabled` context key (set by
+core from `chat.disableAIFeatures` and `ai.enabled`). That list is maintained by
+hand and lives in the same `package.json` the merge replaces, so it drifts:
+#14673 brought in two ungated commands and "Chat: Reindex Sessions" shipped
+visible with AI disabled.
+
+Whenever `extensions/copilot/package.json` changes, run:
+
+```
+npx vitest run src/vs/workbench/contrib/positronAssistant/test/node/copilotChatCommandGating.vitest.ts
+```
+
+It names any Chat command missing its gate. Fix by adding a `commandPalette`
+entry with `"when": "chatAiFeaturesEnabled"` next to the existing ones. The e2e
+test `test/e2e/tests/assistant/chat-command-palette-gating.test.ts` covers the
+same ground end to end, but it runs much later and only says that *some* Chat
+row was visible.
 
 ## Upstream Divergence
 
@@ -188,7 +209,9 @@ build. If you're on macOS: `npm run gulp vscode-darwin-arm64`
 ### Step 5: Test
 
 Run the unit tests and the extension host tests. Investigate and fix any
-failures, and keep running until they pass.
+failures, and keep running until they pass. If `extensions/copilot` changed,
+check the Chat command gating first (see "Copilot Chat commands" above) so you
+catch it here rather than in the e2e run.
 
 Next, install all e2e test dependencies and run the test suite. Investigate any
 failures and fix them if they are caused by the merge.
