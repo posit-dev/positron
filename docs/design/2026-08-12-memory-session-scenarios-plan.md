@@ -55,36 +55,28 @@ The idle scenario never starts a kernel, so `test-memory-metrics.yml` sets `POSI
 
 No code. This is a gate.
 
-- [ ] **Step 1: Dispatch the current nightly workflow and read the interpreter inventory**
+**SATISFIED, 2026-08-12, no CI spend required.** `test-e2e-ubuntu-run.yml` runs the full e2e suite, which starts Python and R sessions throughout, against the same image this workflow uses:
+
+- `.github/workflows/test-e2e-ubuntu-run.yml:101` -> `ghcr.io/posit-dev/positron-ubuntu24:24.18.0`, identical to `test-memory-metrics.yml:18,26`
+- `.github/workflows/test-e2e-ubuntu-run.yml:280-281` -> `POSITRON_PY_VER_SEL: "3.10.12"`, `POSITRON_R_VER_SEL: 4.5.2`, identical to `test-memory-metrics.yml:52-53`
+
+The same pairing appears in `test-e2e-ubuntu.yml:253-254` and `extensions-check-nightly.yml:59-60`. A green Ubuntu e2e lane is standing proof that both versions resolve and start in this image, which is what Tasks 5 and 6 depend on.
+
+Two known hazards in this image are recorded here so a later failure is recognized rather than re-debugged:
+
+- `/root/.venv` wins interpreter selection in Docker, and include/exclude settings do not fix it ([#15039](https://github.com/posit-dev/positron/pull/15039)). If `session-python` measures an unexpected interpreter, look here first.
+- Interpreter tests in the CI-arm container need `CI=true` plus `POSITRON_HIDDEN_PY` / `POSITRON_HIDDEN_R`. That applies to the arm repro container, not to this workflow, which already runs with `CI` set by Actions.
+
+- [ ] **Step 1: Confirm the two workflow files still agree**
+
+Guards against the image or versions drifting apart between the two workflows after this plan was written:
 
 ```bash
-gh workflow run test-memory-metrics.yml -R posit-dev/positron --ref <this-branch>
+grep -n "positron-ubuntu24\|POSITRON_PY_VER_SEL\|POSITRON_R_VER_SEL" \
+  .github/workflows/test-memory-metrics.yml .github/workflows/test-e2e-ubuntu-run.yml
 ```
 
-Wait for it, then download the artifact and check which interpreters the image actually has:
-
-```bash
-gh run download <run-id> -R posit-dev/positron -n memory-report -D /tmp/memcheck
-```
-
-- [ ] **Step 2: Verify the versions the workflow declares are present**
-
-The workflow declares `POSITRON_PY_VER_SEL: "3.10.12"` and `POSITRON_R_VER_SEL: 4.5.2`. Confirm both exist in the image:
-
-```bash
-docker run --rm --entrypoint bash ghcr.io/posit-dev/positron-ubuntu24:24.18.0 -c \
-  'ls /usr/lib/R/ /opt/R 2>/dev/null; python3 --version; ls /root/.pyenv/versions 2>/dev/null'
-```
-
-Expected: a Python 3.10.12 and an R 4.5.2 are resolvable.
-
-- [ ] **Step 3: Record the outcome and stop if it fails**
-
-If either is missing, do not continue. Two known hazards in this image, both from prior debugging:
-- `/root/.venv` wins interpreter selection in Docker, and include/exclude settings do not fix it ([#15039](https://github.com/posit-dev/positron/pull/15039)).
-- Interpreter tests in the CI-arm container need `CI=true` plus `POSITRON_HIDDEN_PY` / `POSITRON_HIDDEN_R` set.
-
-Report back with what the image has before writing any code. A missing interpreter changes Task 5 and Task 6 from "start a session" to "install an interpreter first," which is a different plan.
+Expected: the same image tag and the same two versions in both files. If they have diverged, stop and re-verify against the image directly before continuing.
 
 ---
 
