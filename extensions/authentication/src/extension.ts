@@ -33,7 +33,7 @@ import {
 	validateOpenaiApiKey,
 	validateSnowflakeApiKey
 } from './validation';
-import { DATABRICKS_MANAGED_CREDENTIALS, FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
+import { DATABRICKS_MANAGED_CREDENTIALS, FOUNDRY_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { resolveAwsChainInit } from './credentials/aws';
 import { resolveGeapCredential } from './credentials/geap';
 import {
@@ -475,6 +475,8 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 					return false;
 				}
 			},
+			preventSignOutNow: () => hasManagedCredentials(SNOWFLAKE_MANAGED_CREDENTIALS),
+			sourceDescription: 'Posit Workbench',
 		}
 	);
 	context.subscriptions.push(
