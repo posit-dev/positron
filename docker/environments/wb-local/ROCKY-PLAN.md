@@ -13,17 +13,20 @@ npm run pwb -- --os=rocky9  --workbench=daily --positron=daily
 npm run pwb -- --os=ubuntu24 --workbench=daily --positron=daily   # the default
 ```
 
-**The lane is not green yet, and that is the expected state.** After the first CI
-run and the fixes on this branch, **two** genuinely Rocky-only failures remain
-(down from the four first estimated -- `publisher-shiny` turned out not to be
-Rocky at all, and `files-pane-refresh` was a cascade):
+**One expected failure remains, and it is a product bug rather than lane work.**
+Step 5 started from four Rocky failures; two were fixed here, one was a
+misattribution, and one is filed:
 
-| Remaining | State |
+| Failure | Outcome |
 | --- | --- |
-| `connect/publisher-quarto-r` | **Fixed** -- PAM sessions had no `/usr/local/bin` on PATH. See below. |
-| `environment-modules` (Python) | Fails in positron-python's ipykernel bootstrap. Diagnosed to a boundary, not a cause. |
+| `connect/publisher-quarto-r` | **Fixed** -- PAM sessions had no `/usr/local/bin` on PATH. |
+| `console/files-pane-refresh` | **Fixed** -- Explorer list virtualization plus state left by an earlier test. |
+| `connect/publisher-shiny` | **Not Rocky** -- passes on Rocky in CI; the local failure was arm64 or flake. |
+| `environment-modules` (Python) | **Filed as [#15509](https://github.com/posit-dev/positron/issues/15509)** -- positron-python probes a module interpreter by bare name. Root cause understood; do not work around it in the lane. |
 
-The lane is PR-tag-triggered, so it blocks nobody while those land. See
+So a reviewer (or a future session) seeing a red `workbench-rocky (default)` should
+expect exactly one test, #15509's. The lane is PR-tag-triggered, so it blocks
+nobody meanwhile. Full evidence in
 [Step 5's results](#step-5----run-the-real-suite-locally-against-rocky-done).
 
 `test-e2e-rhel.yml` still pins `positron-rocky8:24.15.0`; repointing it is a
@@ -724,14 +727,27 @@ session while the install still reported success:
    `/opt/modules/modulefiles`. Now written to `/etc/profile.d/positron-modules.sh`
    (read by login shells on both OSes) plus an idempotent `~/.bashrc` append.
 
-With those two fixed the **R** test passes on Rocky. The **Python** one gets
-further and then fails inside positron-python's ipykernel bootstrap: the trigger
-is that the hidden conda env has no ipykernel (true on both images -- the
-Dockerfile blocks are byte-identical), and the sqlite3 guard on that path reports
-`_sqlite3` as missing. `import _sqlite3` succeeds in every context reproducible
-from a shell (root, `user1`, and `user1` after `module load python/3.12.10`), so
-the check's environment differs from a shell's. Needs positron-python's own log
-from a live session, which the fixture destroys on teardown.
+With those two fixed the **R** test passes on Rocky. The **Python** one is a
+product bug, now filed as
+[#15509](https://github.com/posit-dev/positron/issues/15509) and **not** something
+this lane should work around.
+
+positron-python's `ModuleEnvironmentLocator` finds the interpreter at an absolute
+path (`/root/scratch/python-env/bin/python3`) and the kernelSpec argv uses it, but
+the ipykernel setup then probes the interpreter as the **bare name `python`** via
+`/bin/sh`, applying neither that path nor the module startup command it logs a line
+earlier. EL9 ships only `python3`, so the probe exits 127, `implementation` comes
+back `undefined`, the bundled ipykernel is skipped
+(`unsupported interpreter implementation: undefined`), and the install path's
+sqlite3 guard -- probing the same bare name -- reports "The Python sqlite3
+extension is required but not installed". That message is a red herring: sqlite3,
+the interpreter and the libraries are all fine.
+
+Ubuntu masks it because `/usr/bin/python` exists, so the probe succeeds against a
+*different interpreter than the module's* -- meaning the bundle's arch/`cpXY`
+selection is currently made from the wrong Python there too. Getting this required
+copying the `Python Language Pack.log` out of the container mid-run, since the
+fixture destroys the session's log directory on teardown.
 
 #### Open, root cause proven: publisher can't resolve quarto on Rocky
 
@@ -960,7 +976,32 @@ lanes start, run the same test set, and report separately.
 
 ## Follow-ups (explicitly out of scope for now)
 
-- Promote the Rocky lane into the nightly / full-suite run.
+Surfaced by this work, roughly in order of value:
+
+- **Fix the duplicate-rserver bug** (`setup-workbench-docker/action.yml`'s trailing
+  `sudo rstudio-server restart`, and the same call in
+  `enforced-settings-language-scoped.test.ts`). Measured: three rservers after one
+  Rocky suite run, `rserver.log` filling with monitor `401`s, exit status 0
+  throughout. Replace with signal-stop -> verify -> start, ideally via a small
+  sourceable helper shared with `install-workbench.sh`'s `stop_rserver` /
+  `start_workbench` rather than a third copy. Do it on its own, since a botched
+  stop/start breaks both lanes at once.
+- **Pin Quarto in the image Dockerfiles.** `ubuntu24_04`, `rocky_8`, `rocky_9` and
+  `debian` all fetch `quarto.org/download/latest`, so each image freezes whatever
+  was current on its build date and a rebuild can change Quarto with no diff. The
+  *build* lane already pins it (`v1.10.18`), so the images are the odd ones out.
+- **Teach `update-ci-images` to bump consumers of a published tag**, not just
+  `NODE_VERSION` in the image-build compose files. `wb_os_image` drifting from the
+  Compose default (24.15.0 vs 24.18.0) came from exactly that gap, and the same
+  gap covers `test-e2e-rhel.yml`'s pin and the ci-arm lab images.
+- **Track [#15509](https://github.com/posit-dev/positron/issues/15509)** and drop
+  the `@:environment-modules` Python failure from the expected-failures list once
+  it lands. The issue carries two comments on how to test it so it fails on Ubuntu
+  too, which is what stops it regressing.
+
+From the original plan:
+
+- Promote the Rocky lane into the nightly / full-suite run, once it is green.
 - The Rocky 9 Dockerfile simplifications (drop the source GEOS/GDAL/libgit2
   builds and `gcc-toolset-13`).
 - Add the credential shards to the Rocky lane.
