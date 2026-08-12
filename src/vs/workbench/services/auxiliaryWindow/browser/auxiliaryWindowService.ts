@@ -260,7 +260,6 @@ export class AuxiliaryWindow extends BaseWindow implements IAuxiliaryWindow {
 			},
 			zoomLevel: getZoomLevel(this.window),
 			// --- Start Positron ---
-			// compact: this.compact
 			compact: this.compact,
 			// `EditorParts.restoreState()` feeds this object straight back in as
 			// open options, so anything omitted here is a trait the restored
