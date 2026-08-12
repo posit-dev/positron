@@ -74,8 +74,34 @@ export interface EnvironmentHealthResult {
     interpreterPath?: string;
 }
 
+/**
+ * The claim a check makes, phrased so it reads the same whatever the outcome is: 'pass' means it
+ * holds, 'fail' means it does not, 'skipped' means it was never evaluated. Callers that never run
+ * the probe (a skipped item, a probe that threw) still need the text, so it lives here rather than
+ * inside each probe.
+ */
+export function itemSummary(id: HealthItemId): string {
+    switch (id) {
+        case 'discovery':
+            return vscode.l10n.t('Positron can discover Python environments');
+        case 'pythonInstalled':
+            return vscode.l10n.t('A supported Python is installed');
+        case 'environmentReady':
+            return vscode.l10n.t('The environment is ready to use with Positron');
+        case 'dedicatedEnvironment':
+            return vscode.l10n.t('A dedicated Python environment is available');
+        default:
+            // `id` narrows to `never`; a new HealthItemId without a summary is a compile error.
+            return assertNever(id);
+    }
+}
+
+function assertNever(value: never): never {
+    throw new Error(`Unhandled health item id: ${value}`);
+}
+
 export function probeDiscovery(finder: Pick<NativePythonFinder, 'lastDiscoveryError'>): HealthItem {
-    const summary = vscode.l10n.t('Positron can discover Python environments');
+    const summary = itemSummary('discovery');
     if (finder.lastDiscoveryError) {
         return {
             id: 'discovery',
@@ -123,7 +149,7 @@ export async function probePythonInstalled(deps: {
     allowUvPythonInstall: boolean;
     waitMs: number;
 }): Promise<HealthItem> {
-    const summary = vscode.l10n.t('A supported Python is installed');
+    const summary = itemSummary('pythonInstalled');
     const hasSupported = () => deps.getInterpreters().some((i) => isVersionSupported(i.version));
 
     if (hasSupported()) {
@@ -302,7 +328,7 @@ export function probeDedicatedEnvironment(deps: {
     newFolderFix: HealthItemFix;
 }): HealthItem {
     const id = 'dedicatedEnvironment';
-    const summary = vscode.l10n.t('A dedicated Python environment is available');
+    const summary = itemSummary(id);
 
     if (deps.workspaceOpen) {
         if (deps.interpreterDedicated) {
@@ -353,7 +379,7 @@ export function probeEnvironmentReady(deps: {
     installNativePythonFix?: HealthItemFix;
 }): HealthItem {
     const id = 'environmentReady';
-    const summary = vscode.l10n.t('The environment is ready to use with Positron');
+    const summary = itemSummary(id);
 
     if (!deps.resolvesAndRuns) {
         return {
@@ -409,7 +435,7 @@ interface ItemProducers {
 }
 
 function skipped(id: HealthItemId): HealthItem {
-    return { id, status: 'skipped', summary: id };
+    return { id, status: 'skipped', summary: itemSummary(id) };
 }
 
 async function runItem(id: HealthItemId, produce: () => HealthItem | Promise<HealthItem>): Promise<HealthItem> {
@@ -419,7 +445,7 @@ async function runItem(id: HealthItemId, produce: () => HealthItem | Promise<Hea
         return {
             id,
             status: 'fail',
-            summary: id,
+            summary: itemSummary(id),
             detail: vscode.l10n.t('Health check failed: {0}', ex instanceof Error ? ex.message : String(ex)),
         };
     }
