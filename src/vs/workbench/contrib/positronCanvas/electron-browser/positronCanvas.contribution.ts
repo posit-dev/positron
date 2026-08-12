@@ -234,7 +234,7 @@ class PositronCanvasStartupContribution extends Disposable implements IWorkbench
 			async () => {
 				// The workspace trust decision must land before Canvas covers
 				// the IDE: the trust startup prompt renders in this main
-				// window, which Canvas mode minimizes, and an undecided
+				// window, which Canvas mode hides, and an undecided
 				// workspace holds back trust-gated extensions - including the
 				// auth providers behind the Canvas model picker. The prompt
 				// shows over the curtain (dialogs render above it) and the

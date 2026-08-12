@@ -283,7 +283,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 
 		if (superseded()) {
 			// The exit already unwound everything, but its reveal may have
-			// raced the minimize in flight here; reveal unconditionally.
+			// raced the hide in flight here; reveal unconditionally.
 			this.logService.info('[canvas] Abandoning entry: Canvas went away while the IDE window was being put away');
 			await this.revealIdeWindow(true);
 			return supersededOutcome;
@@ -394,7 +394,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		// A timeout is a failure, never a panel to adopt: the panel a scan
 		// would find is one the assistant is still working on, and its own
 		// readiness deadline is about to dispose it. Adopting it would report
-		// success, minimize the IDE, then bounce the user back.
+		// success, hide the IDE, then bounce the user back.
 		if (timedOut) {
 			return undefined;
 		}
@@ -508,19 +508,22 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 
 	private async hideIdeWindow(): Promise<void> {
 		// Unguarded, unlike `revealIdeWindow()`: a forwarded `--canvas`
-		// re-entry can focus (un-minimize) the IDE window on its way in, so
+		// re-entry can focus (reveal) the IDE window on its way in, so
 		// skipping "already hidden" work would leave it behind Canvas.
 		this.ideWindowHidden = true;
 
-		// Minimize rather than hide: a minimized window is still listed by
-		// the OS, so the user can always get back to Positron, and an app
-		// with no visible windows has its own hazards.
-		await this.nativeHostService.minimizeWindow({ targetWindowId: mainWindow.vscodeWindowId });
+		// Hide rather than minimize: minimize animates the IDE window into the
+		// dock next to the Canvas window that just appeared, which reads as
+		// two windows rather than Canvas replacing Positron. Hiding drops the
+		// IDE from the OS window list, but the app never has zero visible
+		// windows: the IDE is only hidden while a live Canvas window is up,
+		// and every way of losing that window runs `revealIdeWindow()`.
+		await this.nativeHostService.hideWindow({ targetWindowId: mainWindow.vscodeWindowId });
 	}
 
 	/**
 	 * @param force reveal even when we do not believe the IDE window is away,
-	 * for the one caller with a minimize of its own in flight.
+	 * for the one caller with a hide of its own in flight.
 	 */
 	private async revealIdeWindow(force = false): Promise<void> {
 		if (!this.ideWindowHidden && !force) {
@@ -528,7 +531,8 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		}
 		this.ideWindowHidden = false;
 
-		// Focusing is what un-minimizes; there is no separate restore call.
+		// A hidden window is not brought back by focus alone; show it first.
+		await this.nativeHostService.showWindow({ targetWindowId: mainWindow.vscodeWindowId });
 		await this.hostService.focus(mainWindow);
 	}
 }

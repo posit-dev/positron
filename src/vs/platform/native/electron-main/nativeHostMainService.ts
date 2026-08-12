@@ -375,6 +375,21 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 		window?.win?.minimize();
 	}
 
+	// --- Start Positron ---
+	async hideWindow(windowId: number | undefined, options?: INativeHostOptions): Promise<void> {
+		const window = this.windowById(options?.targetWindowId, windowId);
+		window?.win?.hide();
+	}
+
+	async showWindow(windowId: number | undefined, options?: INativeHostOptions): Promise<void> {
+		const window = this.windowById(options?.targetWindowId, windowId);
+		const win = window?.win;
+		if (win && !win.isVisible()) {
+			win.show();
+		}
+	}
+	// --- End Positron ---
+
 	async moveWindowTop(windowId: number | undefined, options?: INativeHostOptions): Promise<void> {
 		const window = this.windowById(options?.targetWindowId, windowId);
 		window?.win?.moveTop();

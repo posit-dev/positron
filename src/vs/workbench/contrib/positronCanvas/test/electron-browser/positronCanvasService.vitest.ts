@@ -86,7 +86,7 @@ describe('PositronCanvasService', () => {
 		executeCommand?: () => Promise<undefined>;
 		createAuxiliaryEditorPart?: IEditorGroupsService['createAuxiliaryEditorPart'];
 		acquireGranted?: boolean | Promise<boolean>;
-		minimizeWindow?: () => Promise<void>;
+		hideWindow?: () => Promise<void>;
 	} = {}) {
 		const auxiliaryGroups = options.auxiliaryGroups ?? [];
 		const mainGroup = options.mainGroup ?? createGroup();
@@ -101,7 +101,8 @@ describe('PositronCanvasService', () => {
 		const storageService = stubInterface<IStorageService>({ store: vi.fn(), remove: vi.fn() });
 		const mergeGroup = vi.fn().mockReturnValue(true);
 		const setPartHidden = vi.fn();
-		const minimizeWindow = vi.fn(options.minimizeWindow ?? (() => Promise.resolve()));
+		const hideWindow = vi.fn(options.hideWindow ?? (() => Promise.resolve()));
+		const showWindow = vi.fn().mockResolvedValue(undefined);
 		const createAuxiliaryEditorPart = vi.fn(options.createAuxiliaryEditorPart ?? (() => Promise.resolve(auxiliaryPart)));
 
 		ctx.instantiationService.stub(IEditorGroupsService, stubInterface<IEditorGroupsService>({
@@ -113,7 +114,7 @@ describe('PositronCanvasService', () => {
 		}));
 		ctx.instantiationService.stub(ICommandService, stubInterface<ICommandService>({ executeCommand }));
 		ctx.instantiationService.stub(IConfigurationService, stubInterface<IConfigurationService>({ getValue: () => true }));
-		ctx.instantiationService.stub(INativeHostService, stubInterface<INativeHostService>({ minimizeWindow }));
+		ctx.instantiationService.stub(INativeHostService, stubInterface<INativeHostService>({ hideWindow, showWindow }));
 		const focus = vi.fn().mockResolvedValue(undefined);
 		ctx.instantiationService.stub(IHostService, stubInterface<IHostService>({ focus }));
 		ctx.instantiationService.stub(IWorkbenchLayoutService, stubInterface<IWorkbenchLayoutService>({ setPartHidden }));
@@ -132,7 +133,7 @@ describe('PositronCanvasService', () => {
 
 		const service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronCanvasService));
 
-		return { service, mainGroup, auxiliaryPart, executeCommand, storageService, mergeGroup, setPartHidden, minimizeWindow, channelCall, focus };
+		return { service, mainGroup, auxiliaryPart, executeCommand, storageService, mergeGroup, setPartHidden, hideWindow, showWindow, channelCall, focus };
 	}
 
 	it('coalesces concurrent entries so the assistant is asked for one Canvas', async () => {
@@ -173,7 +174,7 @@ describe('PositronCanvasService', () => {
 	it('does not adopt a restored Canvas when the assistant cannot ensure it', async () => {
 		const restored = createCanvasEditor();
 		const mainGroup = createGroup([restored]);
-		const { service, executeCommand, minimizeWindow } = build({
+		const { service, executeCommand, hideWindow } = build({
 			mainGroup,
 			executeCommand: () => Promise.reject(new Error('command not found')),
 		});
@@ -181,7 +182,7 @@ describe('PositronCanvasService', () => {
 		expect(await service.enter()).toMatchObject({ entered: false, reason: 'no-panel' });
 
 		expect(executeCommand).toHaveBeenCalledWith(CANVAS_ENSURE_COMMAND);
-		expect(minimizeWindow).not.toHaveBeenCalled();
+		expect(hideWindow).not.toHaveBeenCalled();
 		expect(mainGroup.editors).toEqual([restored]);
 	});
 
@@ -243,7 +244,7 @@ describe('PositronCanvasService', () => {
 	it('lets an exit stand that lands while the Canvas window is being created', async () => {
 		const created = new DeferredPromise<IAuxiliaryEditorPart>();
 		const mainGroup = createGroup([createCanvasEditor()]);
-		const { service, auxiliaryPart, storageService, minimizeWindow } = build({
+		const { service, auxiliaryPart, storageService, hideWindow } = build({
 			mainGroup,
 			createAuxiliaryEditorPart: () => created.p,
 		});
@@ -255,10 +256,10 @@ describe('PositronCanvasService', () => {
 		await created.complete(auxiliaryPart);
 
 		// The entry must not resume into a window the user has since left: no
-		// re-stored intent, no re-minimized IDE, and no reported entry.
+		// re-stored intent, no re-hidden IDE, and no reported entry.
 		expect(await entering).toMatchObject({ entered: false });
 		expect(storageService.store).not.toHaveBeenCalled();
-		expect(minimizeWindow).not.toHaveBeenCalled();
+		expect(hideWindow).not.toHaveBeenCalled();
 		expect(service.isActive).toBe(false);
 	});
 
@@ -278,21 +279,21 @@ describe('PositronCanvasService', () => {
 
 	it('reports no-window when auxiliary window creation rejects', async () => {
 		const mainGroup = createGroup([createCanvasEditor()]);
-		const { service, minimizeWindow } = build({
+		const { service, hideWindow } = build({
 			mainGroup,
 			createAuxiliaryEditorPart: () => Promise.reject(new Error('window creation failed')),
 		});
 
 		expect(await service.enter()).toMatchObject({ entered: false, reason: 'no-window' });
-		expect(minimizeWindow).not.toHaveBeenCalled();
+		expect(hideWindow).not.toHaveBeenCalled();
 		expect(service.isActive).toBe(false);
 	});
 
-	it('merges Canvas back into the IDE when minimizing the IDE fails', async () => {
+	it('merges Canvas back into the IDE when hiding the IDE fails', async () => {
 		const auxiliaryGroup = createGroup([createCanvasEditor()]);
 		const { service, mainGroup, mergeGroup } = build({
 			auxiliaryGroups: [auxiliaryGroup],
-			minimizeWindow: () => Promise.reject(new Error('minimize failed')),
+			hideWindow: () => Promise.reject(new Error('hide failed')),
 		});
 
 		expect(await service.enter()).toMatchObject({ entered: false, reason: 'no-window' });
@@ -408,25 +409,26 @@ describe('PositronCanvasService', () => {
 	it('does not report entry when the Canvas window dies while the IDE is being put away', async () => {
 		const willDispose = new Emitter<void>();
 		ctx.disposables.add(willDispose);
-		const minimize = new DeferredPromise<void>();
+		const hide = new DeferredPromise<void>();
 		const auxiliaryGroup = createGroup([createCanvasEditor()]);
-		const { service, minimizeWindow, focus } = build({
+		const { service, hideWindow, showWindow, focus } = build({
 			auxiliaryGroups: [auxiliaryGroup],
 			onWillDispose: willDispose.event,
-			minimizeWindow: () => minimize.p,
+			hideWindow: () => hide.p,
 		});
 
 		const entering = service.enter();
-		await vi.waitFor(() => expect(minimizeWindow).toHaveBeenCalled());
+		await vi.waitFor(() => expect(hideWindow).toHaveBeenCalled());
 
-		// The OS close button lands while the IDE minimize is still in flight.
+		// The OS close button lands while the IDE hide is still in flight.
 		willDispose.fire();
-		await minimize.complete();
+		await hide.complete();
 
 		expect(await entering).toMatchObject({ entered: false, reason: 'superseded' });
 		expect(service.isActive).toBe(false);
-		// Whatever order the dying window's reveal and the minimize settled
+		// Whatever order the dying window's reveal and the hide settled
 		// in, the user ends with a visible IDE.
+		expect(showWindow).toHaveBeenCalled();
 		expect(focus).toHaveBeenCalled();
 	});
 

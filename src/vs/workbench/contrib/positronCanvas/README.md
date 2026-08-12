@@ -1,7 +1,7 @@
 # Positron Canvas mode
 
 Canvas mode presents Posit Assistant's Canvas panel as the whole product: one
-conversation in a chromeless standalone window, with the IDE window minimized.
+conversation in a chromeless standalone window, with the IDE window hidden.
 Positron owns windows, groups, focus, and the mode transaction; the assistant
 owns Canvas content, panel identity, singleton-ness, and UI readiness. When a
 new command is needed in either direction, ask which side owns the fact, not
@@ -61,7 +61,7 @@ never offers a way out of Canvas mode besides the top bar's Open Positron.
 ## Workspace trust at boot
 
 The workspace trust startup prompt renders in the main window, which Canvas
-mode minimizes, and an undecided workspace holds back trust-gated extensions -
+mode hides, and an undecided workspace holds back trust-gated extensions -
 including the authentication providers behind the Canvas model picker. Boot
 therefore waits for the trust decision behind the curtain before entering
 Canvas (`browser/positronCanvasTrustGate.ts`): the curtain's z-index sits

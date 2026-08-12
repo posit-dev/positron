@@ -50,7 +50,7 @@ export interface CanvasTrustDecisionServices {
  *
  * Canvas boot must wait for this before it covers the IDE: the workspace
  * trust startup prompt renders in the main window, which Canvas mode
- * minimizes, and an undecided workspace keeps trust-gated extensions - the
+ * hides, and an undecided workspace keeps trust-gated extensions - the
  * authentication providers behind the Canvas model picker among them - from
  * activating. Deciding behind the startup curtain (whose z-index sits below
  * workbench dialogs) keeps the prompt visible and answered before Canvas is
