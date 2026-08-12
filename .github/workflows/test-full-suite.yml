@@ -92,7 +92,7 @@ on:
       run_ext_host_tests:
         description: "Extension Host Tests"
         required: false
-        default: false
+        default: true
         type: boolean
       commit:
         description: "Commit SHA to test:"
