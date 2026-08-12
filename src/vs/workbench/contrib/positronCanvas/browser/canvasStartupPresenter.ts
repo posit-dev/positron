@@ -74,6 +74,7 @@ class CanvasStartupCurtain extends Disposable {
 		container: HTMLElement,
 		private readonly enter: () => Promise<CanvasEntryOutcome>,
 		private readonly recoverMainWindow: () => Promise<void>,
+		private readonly showLogs: () => Promise<void>,
 		private readonly quit: () => Promise<void>,
 		private readonly logService: ILogService,
 		private readonly onDidDispose: () => void,
@@ -161,8 +162,11 @@ class CanvasStartupCurtain extends Disposable {
 		buttons.className = 'positron-canvas-startup-actions';
 		const retry = this.createButton(localize('positron.canvas.retry', "Retry"), true, () => void this.start(), actions);
 		const openPositron = this.createButton(localize('positron.canvas.openPositron', "Open Positron"), false, () => void this.openPositron(), actions);
+		// The curtain covers the notifications and output that explain the
+		// failure; this is the road to them.
+		const showLogs = this.createButton(localize('positron.canvas.showLogs', "Show Logs"), false, () => void this.openPositron(true), actions);
 		const quit = this.createButton(localize('positron.canvas.quit', "Quit"), false, () => void this.quit(), actions);
-		buttons.append(retry, openPositron, quit);
+		buttons.append(retry, openPositron, showLogs, quit);
 		card.append(brand, message, buttons);
 		this.element.replaceChildren(card);
 		retry.focus();
@@ -174,13 +178,16 @@ class CanvasStartupCurtain extends Disposable {
 	 * checks), so cancelling mid-load is the same operation as leaving a
 	 * failure card.
 	 */
-	private async openPositron(): Promise<void> {
+	private async openPositron(withLogs = false): Promise<void> {
 		if (this.recovering || this.disposed) {
 			return;
 		}
 		this.recovering = true;
 		try {
 			await this.recoverMainWindow();
+			if (withLogs) {
+				await this.showLogs();
+			}
 			this.dispose();
 		} catch (error) {
 			this.logService.error('[canvas] Failed to recover the Positron window.', error);
@@ -224,6 +231,7 @@ export class CanvasStartupPresenter extends Disposable {
 		private readonly container: HTMLElement,
 		private readonly enter: () => Promise<CanvasEntryOutcome>,
 		private readonly recoverMainWindow: () => Promise<void>,
+		private readonly showLogs: () => Promise<void>,
 		private readonly quit: () => Promise<void>,
 		private readonly logService: ILogService,
 	) {
@@ -239,6 +247,7 @@ export class CanvasStartupPresenter extends Disposable {
 			this.container,
 			this.enter,
 			this.recoverMainWindow,
+			this.showLogs,
 			this.quit,
 			this.logService,
 			() => {

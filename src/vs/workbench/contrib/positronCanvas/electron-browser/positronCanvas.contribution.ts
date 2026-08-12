@@ -27,6 +27,8 @@ import { INativeWorkbenchEnvironmentService } from '../../../services/environmen
 import { IHostService } from '../../../services/host/browser/host.js';
 import { ILifecycleService } from '../../../services/lifecycle/common/lifecycle.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
+import { windowLogId } from '../../../services/log/common/logConstants.js';
+import { IOutputService } from '../../../services/output/common/output.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { WebviewInput } from '../../webviewPanel/browser/webviewEditorInput.js';
 import { CanvasStartupPresenter } from '../browser/canvasStartupPresenter.js';
@@ -149,6 +151,7 @@ class PositronCanvasStartupContribution extends Disposable implements IWorkbench
 		@INativeWorkbenchEnvironmentService private readonly environmentService: INativeWorkbenchEnvironmentService,
 		@IStorageService private readonly storageService: IStorageService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
+		@IOutputService private readonly outputService: IOutputService,
 		@IHostService private readonly hostService: IHostService,
 		@IWorkspaceContextService private readonly contextService: IWorkspaceContextService,
 		@IWorkspaceTrustEnablementService private readonly trustEnablementService: IWorkspaceTrustEnablementService,
@@ -259,6 +262,15 @@ class PositronCanvasStartupContribution extends Disposable implements IWorkbench
 			// intent, and its IDE-restoring steps are safe no-ops when Canvas
 			// never came up.
 			() => this.canvasService.exit().then(() => undefined),
+			// "Show Logs" lands the user on the output that explains the
+			// failure: the assistant's channel when it registered one, the
+			// window log (where [canvas] entries go) otherwise. Resolved at
+			// click time because the assistant's channel appears only once the
+			// extension has run.
+			async () => {
+				const assistantChannel = this.outputService.getChannelDescriptors().find(descriptor => descriptor.label === 'Posit Assistant');
+				await this.outputService.showChannel(assistantChannel?.id ?? windowLogId);
+			},
 			() => this.hostService.shutdown(),
 			this.logService
 		));

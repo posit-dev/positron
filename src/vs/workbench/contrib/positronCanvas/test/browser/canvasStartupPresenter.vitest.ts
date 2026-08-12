@@ -47,6 +47,7 @@ describe('CanvasStartupPresenter', () => {
 	function createPresenter(container: HTMLElement, callbacks: {
 		enter: () => Promise<CanvasEntryOutcome>;
 		recoverMainWindow?: () => Promise<void>;
+		showLogs?: () => Promise<void>;
 		quit?: () => Promise<void>;
 		logError?: (message: string, error: unknown) => void;
 	}): CanvasStartupPresenter {
@@ -54,6 +55,7 @@ describe('CanvasStartupPresenter', () => {
 			container,
 			callbacks.enter,
 			callbacks.recoverMainWindow ?? vi.fn().mockResolvedValue(undefined),
+			callbacks.showLogs ?? vi.fn().mockResolvedValue(undefined),
 			callbacks.quit ?? vi.fn().mockResolvedValue(undefined),
 			stubInterface<ILogService>({ error: callbacks.logError ?? vi.fn(), info: vi.fn() }),
 		));
@@ -159,7 +161,7 @@ describe('CanvasStartupPresenter', () => {
 		// The curtain starts as a status region (loading); once it needs the user
 		// to act, it becomes a dialog, so it's found by its new role here.
 		const curtain = await vi.waitFor(() => within(container).getByRole('dialog'));
-		expect(within(curtain).getAllByRole('button')).toHaveLength(3);
+		expect(within(curtain).getAllByRole('button')).toHaveLength(4);
 		expect(curtain).toHaveAttribute('aria-busy', 'false');
 		expect(curtain).toHaveAccessibleName('Canvas could not start');
 		expect(within(curtain).getByText('Canvas is unavailable because AI features are disabled.')).toBeInTheDocument();
@@ -177,7 +179,7 @@ describe('CanvasStartupPresenter', () => {
 		presenter.present();
 
 		const curtain = within(container).getByRole('status');
-		await vi.waitFor(() => expect(within(curtain).getAllByRole('button')).toHaveLength(3));
+		await vi.waitFor(() => expect(within(curtain).getAllByRole('button')).toHaveLength(4));
 		expect(within(container).getAllByRole('dialog')).toHaveLength(1);
 		expect(within(curtain).getByText('Canvas could not be loaded. Try again, open Positron, or quit.')).toBeInTheDocument();
 		expect(within(curtain).getByRole('button', { name: 'Retry' })).toHaveFocus();
@@ -196,7 +198,7 @@ describe('CanvasStartupPresenter', () => {
 		presenter.present();
 		const curtain = within(container).getByRole('status');
 		await firstEntry.complete(AI_DISABLED);
-		await vi.waitFor(() => expect(within(curtain).getAllByRole('button')).toHaveLength(3));
+		await vi.waitFor(() => expect(within(curtain).getAllByRole('button')).toHaveLength(4));
 
 		const user = userEvent.setup();
 		await user.click(within(curtain).getByRole('button', { name: 'Retry' }));
@@ -223,7 +225,7 @@ describe('CanvasStartupPresenter', () => {
 
 		presenter.present();
 		const curtain = within(container).getByRole('status');
-		await vi.waitFor(() => expect(within(curtain).getAllByRole('button')).toHaveLength(3));
+		await vi.waitFor(() => expect(within(curtain).getAllByRole('button')).toHaveLength(4));
 
 		const user = userEvent.setup();
 		await user.click(within(curtain).getByRole('button', { name: 'Quit' }));
@@ -233,6 +235,31 @@ describe('CanvasStartupPresenter', () => {
 		expect(recoverMainWindow).toHaveBeenCalledTimes(1);
 		// Recovering leaves the IDE on screen, so the curtain has nothing left to
 		// cover.
+		await vi.waitFor(() => expect(within(container).queryByRole('status')).not.toBeInTheDocument());
+	});
+
+	// The curtain covers the notifications and output that explain a failure;
+	// Show Logs recovers the IDE and lands the user on them in one step.
+	it('recovers the IDE and shows the logs when Show Logs is clicked', async () => {
+		const calls: string[] = [];
+		const recoverMainWindow = vi.fn(async () => { calls.push('recover'); });
+		const showLogs = vi.fn(async () => { calls.push('logs'); });
+		const container = createContainer();
+		const presenter = createPresenter(container, {
+			enter: vi.fn().mockResolvedValue(AI_DISABLED),
+			recoverMainWindow,
+			showLogs,
+		});
+
+		presenter.present();
+		const curtain = within(container).getByRole('status');
+		await vi.waitFor(() => expect(within(curtain).getAllByRole('button')).toHaveLength(4));
+
+		const user = userEvent.setup();
+		await user.click(within(curtain).getByRole('button', { name: 'Show Logs' }));
+
+		// The IDE must be back on screen before the output view is asked to show.
+		expect(calls).toEqual(['recover', 'logs']);
 		await vi.waitFor(() => expect(within(container).queryByRole('status')).not.toBeInTheDocument());
 	});
 });
