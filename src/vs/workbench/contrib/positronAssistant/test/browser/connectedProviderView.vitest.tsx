@@ -100,6 +100,22 @@ describe('ConnectedProviderView', () => {
 		expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
 	});
 
+	it('shows the managed-credentials message and no Disconnect button for PWB-managed Databricks', () => {
+		const managedDatabricks: IPositronLanguageModelSource = {
+			type: PositronLanguageModelType.Chat,
+			provider: { id: 'databricks', displayName: 'Databricks' },
+			supportedOptions: ['oauth', 'apiKey', 'baseUrl', 'autoconfigure'],
+			signedIn: true,
+			defaults: {
+				autoconfigure: { type: LanguageModelAutoconfigureType.Custom, message: 'OAuth (Workbench Managed Credentials)', signedIn: true },
+			},
+		};
+		rtl.render(<ConnectedProviderView source={managedDatabricks} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		expect(screen.getByText(/connected via oauth \(workbench managed credentials\)/i)).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Sign Out' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+	});
+
 	it('shows Accounts-menu sign-out guidance and no Disconnect for GitHub Copilot', () => {
 		const copilot: IPositronLanguageModelSource = {
 			type: PositronLanguageModelType.Chat,

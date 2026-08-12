@@ -160,7 +160,7 @@ suite('configDialog', () => {
 				{ model: 'claude-sonnet-4-0' },
 				'delete'
 			),
-			(error: Error) => error.message.includes('environment variable')
+			(error: Error) => error.message.includes('managed outside Positron')
 		);
 
 		// Chain session should still exist

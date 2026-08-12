@@ -45,6 +45,13 @@ export interface CredentialChainConfig {
 	 * just reappear immediately after removal.
 	 */
 	readonly preventSignOut?: boolean;
+	/**
+	 * Like `preventSignOut`, but evaluated at removal time rather than
+	 * fixed at registration. Use when only some of the chain's credential
+	 * sources should block sign-out (e.g. Workbench-managed credentials,
+	 * but not a user-supplied env var on the same chain).
+	 */
+	readonly preventSignOutNow?: () => boolean;
 }
 
 /**
@@ -84,9 +91,10 @@ export class AuthProvider
 		return this.displayName;
 	}
 
-	/** Whether this provider blocks sign-out for chain sessions. */
+	/** Whether this provider blocks sign-out for chain sessions right now. */
 	get chainPreventsSignOut(): boolean {
-		return !!this.credentialChain?.preventSignOut;
+		return !!this.credentialChain?.preventSignOut ||
+			!!this.credentialChain?.preventSignOutNow?.();
 	}
 
 	/**
@@ -261,7 +269,7 @@ export class AuthProvider
 
 	async removeSession(sessionId: string): Promise<void> {
 		if (this.credentialChain && sessionId === this.providerId) {
-			if (this.credentialChain.preventSignOut) {
+			if (this.credentialChain.preventSignOut || this.credentialChain.preventSignOutNow?.()) {
 				try {
 					const result = await this.credentialChain.resolve();
 					const token = typeof result === 'string' ? result : result.token;
@@ -272,9 +280,8 @@ export class AuthProvider
 						);
 						vscode.window.showInformationMessage(
 							vscode.l10n.t(
-								'{0} credentials are configured via ' +
-								'environment variable and cannot be ' +
-								'signed out.',
+								'{0} credentials are managed outside Positron ' +
+								'and cannot be signed out here.',
 								this.displayName
 							)
 						);

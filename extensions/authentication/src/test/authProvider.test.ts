@@ -233,6 +233,27 @@ suite('AuthProvider (credential chain)', () => {
 		protectedProvider.dispose();
 	});
 
+	test('removeSession is blocked when preventSignOutNow returns true and chain resolves', async () => {
+		let blockRemoval = true;
+		const protectedProvider = new AuthProvider(
+			'test-protected-now', 'Test Protected Now', createMockContext(),
+			undefined,
+			{
+				resolve: async () => resolveResult,
+				preventSignOutNow: () => blockRemoval,
+			}
+		);
+		await protectedProvider.resolveChainCredentials();
+
+		await protectedProvider.removeSession('test-protected-now');
+		assert.strictEqual((await protectedProvider.getSessions()).length, 1);
+
+		blockRemoval = false;
+		await protectedProvider.removeSession('test-protected-now');
+		assert.strictEqual((await protectedProvider.getSessions()).length, 0);
+		protectedProvider.dispose();
+	});
+
 	test('removeSession clears chain session when chain fails', async () => {
 		await chainProvider.resolveChainCredentials();
 

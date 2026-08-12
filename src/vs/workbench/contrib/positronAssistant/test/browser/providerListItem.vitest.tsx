@@ -15,7 +15,7 @@ function source(overrides: Partial<IPositronLanguageModelSource> & { id: string 
 	const { id, ...rest } = overrides;
 	const result: IPositronLanguageModelSource = {
 		type: PositronLanguageModelType.Chat,
-		provider: { id, displayName: id, settingName: id },
+		provider: { id, displayName: id },
 		supportedOptions: [],
 		defaults: {},
 		...rest,
@@ -25,7 +25,7 @@ function source(overrides: Partial<IPositronLanguageModelSource> & { id: string 
 
 describe('ProviderListItem', () => {
 	it('renders the display name and a maturity badge', () => {
-		render(<ProviderListItem section='model-providers' source={source({ id: 'a', provider: { id: 'a', displayName: 'Anthropic', settingName: 'a', status: 'preview' } })} />);
+		render(<ProviderListItem section='model-providers' source={source({ id: 'a', provider: { id: 'a', displayName: 'Anthropic', status: 'preview' } })} />);
 		expect(screen.getByText('Anthropic')).toBeInTheDocument();
 		expect(screen.getByText('Preview')).toBeInTheDocument();
 	});
@@ -34,6 +34,15 @@ describe('ProviderListItem', () => {
 		render(<ProviderListItem section='model-providers' source={source({ id: 'databricks', provider: { id: 'databricks', displayName: 'Databricks', status: 'experimental' } })} />);
 		expect(screen.getByText('Databricks')).toBeInTheDocument();
 		expect(screen.getByText('Experimental')).toBeInTheDocument();
+	});
+
+	it('shows a PWB Managed badge for a managed-credentials connected provider', () => {
+		render(<ProviderListItem section='connected' source={source({
+			id: 'databricks',
+			signedIn: true,
+			defaults: { autoconfigure: { type: LanguageModelAutoconfigureType.Custom, message: 'OAuth (Workbench Managed Credentials)', signedIn: true } },
+		})} />);
+		expect(screen.getByText('PWB Managed')).toBeInTheDocument();
 	});
 
 	it('shows a description and a Connect action in the model-providers section', () => {

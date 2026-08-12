@@ -59,7 +59,7 @@ export const FOUNDRY_MANAGED_CREDENTIALS: AuthTokenCredentialConfig = {
  */
 export const SNOWFLAKE_MANAGED_CREDENTIALS: EnvVarCredentialConfig = {
 	kind: 'env-var',
-	displayName: 'OAuth (Managed)',
+	displayName: 'OAuth (Workbench Managed Credentials)',
 	envVar: 'SNOWFLAKE_HOME',
 	validator: (value: string) => value.includes('posit-workbench'),
 };
@@ -69,7 +69,7 @@ export const SNOWFLAKE_MANAGED_CREDENTIALS: EnvVarCredentialConfig = {
  */
 export const DATABRICKS_MANAGED_CREDENTIALS: EnvVarCredentialConfig = {
 	kind: 'env-var',
-	displayName: 'OAuth (Managed)',
+	displayName: 'OAuth (Workbench Managed Credentials)',
 	envVar: 'DATABRICKS_CONFIG_FILE',
 	validator: (value: string) => value.includes('posit-workbench'),
 };
