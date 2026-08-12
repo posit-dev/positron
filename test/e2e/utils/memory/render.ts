@@ -88,6 +88,40 @@ function byRole(snapshots: MemorySnapshot[]): Map<ProcessRole, number> {
 }
 
 /**
+ * Median PSS per process name across launches, zero-filling a launch that did
+ * not have it, for the same reason `byRole` does: a process present in one
+ * launch of three should not read as heavy as one present in all three.
+ *
+ * Keyed on name rather than pid because pids change every launch. The role is
+ * carried along for display and taken from the first launch that had the
+ * process; a name that resolved to two different roles across launches would be
+ * a labeling bug, not something to average.
+ */
+function byProcessName(snapshots: MemorySnapshot[]): Map<string, { bytes: number; role: ProcessRole }> {
+	const perLaunch = snapshots.map(snapshot => {
+		const totals = new Map<string, number>();
+		for (const proc of snapshot.processes) {
+			totals.set(proc.processName, (totals.get(proc.processName) ?? 0) + proc.pssBytes);
+		}
+		return totals;
+	});
+
+	const roles = new Map<string, ProcessRole>();
+	for (const snapshot of snapshots) {
+		for (const proc of snapshot.processes) {
+			if (!roles.has(proc.processName)) {
+				roles.set(proc.processName, proc.processRole);
+			}
+		}
+	}
+
+	return new Map([...roles].map(([name, role]) => [
+		name,
+		{ bytes: median(perLaunch.map(totals => totals.get(name) ?? 0)), role }
+	]));
+}
+
+/**
  * Eager activations across launches, keyed by id.
  *
  * A union rather than launch 0, and an extension counts as eager if any launch
@@ -193,16 +227,30 @@ function deltaHtml(current: number, before: number): string {
  * parent/child structure visible: sorting by PSS would scatter a child away from
  * the parent that spawned it, which is exactly the relationship this table
  * exists to show.
+ *
+ * Each row also carries a delta against `baselineNames`, matched by process
+ * name since pids do not survive across launches. This is what tells the
+ * reader which of several processes sharing a role actually grew -- a role-level
+ * delta on `language_server` cannot say whether the Quarto LSP or the JSON one
+ * moved, and that is exactly the distinction this column exists to draw.
  */
-function processTreeRows(snapshot: MemorySnapshot, maxBytes: number): string {
-	return snapshot.processes.map(proc => `<tr>
+function processTreeRows(snapshot: MemorySnapshot, maxBytes: number, baseline: MemorySnapshot | undefined, baselineNames: Map<string, { bytes: number; role: ProcessRole }>): string {
+	return snapshot.processes.map(proc => {
+		let change = '';
+		if (baseline) {
+			const before = baselineNames.get(proc.processName);
+			change = before === undefined ? '<span class="delta-flat">new</span>' : deltaHtml(proc.pssBytes, before.bytes);
+		}
+		return `<tr>
 			<td class="tree-name" style="padding-left:${8 + proc.depth * 20}px">${escapeHtml(proc.processName)}</td>
 			<td><code>${escapeHtml(proc.processRole)}</code></td>
 			<td align="right">${formatBytes(proc.pssBytes)}</td>
 			<td>${magnitudeBar(proc.pssBytes, maxBytes)}</td>
 			<td align="right">${formatBytes(proc.rssBytes)}</td>
 			<td align="right">${proc.pid}</td>
-		</tr>`).join('\n');
+			<td align="right">${change}</td>
+		</tr>`;
+	}).join('\n');
 }
 
 /** Extension ids grouped by activation event, most eventful group first, capped per group. */
@@ -356,7 +404,8 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 			<td align="right">${baseline ? (baselineRoles.has(role) ? deltaHtml(bytes, baselineRoles.get(role)!) : '<span class="delta-flat">new</span>') : ''}</td>
 		</tr>`).join('\n');
 
-	const treeRows = processTreeRows(first, maxBytes);
+	const baselineNames = baseline ? byProcessName([baseline]) : new Map<string, { bytes: number; role: ProcessRole }>();
+	const treeRows = processTreeRows(first, maxBytes, baseline, baselineNames);
 	const extensionsByEvent = groupedExtensionsHtml(first);
 	const eagerHtml = eagerExtensionsHtml(snapshots, baseline);
 	const newProcessesCard = newProcessesHtml(snapshots, baseline);
@@ -425,7 +474,7 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 	<div class="card">
 		<h2>Process tree</h2>
 		<table>
-			<tr><th>Process</th><th>Role</th><th align="right">PSS</th><th></th><th align="right">RSS</th><th align="right">PID</th></tr>
+			<tr><th>Process</th><th>Role</th><th align="right">PSS</th><th></th><th align="right">RSS</th><th align="right">PID</th><th align="right">Change</th></tr>
 			${treeRows}
 		</table>
 	</div>

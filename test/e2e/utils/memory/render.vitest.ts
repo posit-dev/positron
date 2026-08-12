@@ -187,6 +187,43 @@ describe('renderHtml', () => {
 		expect(output).toContain('ms-python.python');
 	});
 
+	// Isolates the process-tree table from the header and role table, both of
+	// which also render a total delta, so a match here cannot be a false
+	// positive from one of those.
+	const treeSection = (output: string) => output.split('Process tree')[1].split('</table>')[0];
+
+	test('shows each process delta against the baseline', () => {
+		const tree = [
+			proc({ processName: 'extension-host [1]', processRole: 'extension_host', pssBytes: 475 * MB }),
+			proc({ pid: 2, processName: 'quarto.quarto (lsp)', processRole: 'language_server', pssBytes: 101 * MB }),
+			proc({ pid: 3, processName: 'json-language-features (jsonServerMain)', processRole: 'language_server', pssBytes: 40 * MB }),
+		];
+		const baseline = snapshot([
+			proc({ processName: 'extension-host [1]', processRole: 'extension_host', pssBytes: 475 * MB }),
+			proc({ pid: 2, processName: 'quarto.quarto (lsp)', processRole: 'language_server', pssBytes: 81 * MB }),
+			proc({ pid: 3, processName: 'json-language-features (jsonServerMain)', processRole: 'language_server', pssBytes: 40 * MB }),
+		]);
+		const output = renderHtml([snapshot(tree)], baseline);
+		// Both processes share the `language_server` role, so a role-level delta
+		// could not say which one moved. The per-process row must.
+		expect(treeSection(output)).toMatch(/quarto\.quarto \(lsp\)[\s\S]*&#9650;[^<]*\+20\.0 MB/);
+	});
+
+	test('marks a process absent from the baseline as new in the tree, not a fabricated delta', () => {
+		const current = snapshot([proc(), proc({ pid: 200, processName: 'duckdb-worker', processRole: 'unlabeled', pssBytes: 86 * MB })]);
+		const baseline = snapshot([proc()]);
+		const output = renderHtml([current], baseline);
+		expect(treeSection(output)).toMatch(/duckdb-worker[\s\S]*delta-flat">new</);
+	});
+
+	test('renders no delta at all in the tree when there is no baseline', () => {
+		const output = renderHtml([snapshot([proc()])]);
+		const tree = treeSection(output);
+		expect(tree).not.toMatch(/delta-up|delta-down|delta-flat/);
+		// The row's last cell must be empty, not a fabricated zero.
+		expect(tree).toMatch(/<td align="right"><\/td>\s*<\/tr>/);
+	});
+
 	test('calls out a process that is new since the baseline', () => {
 		const current = snapshot([proc(), proc({ pid: 200, processName: 'duckdb-worker', processRole: 'unlabeled', pssBytes: 100 * MB })]);
 		const baseline = snapshot([proc()]);
