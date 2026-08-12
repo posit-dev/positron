@@ -28,13 +28,22 @@ const SUCCESS_HTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
+function escapeHtml(text: string): string {
+	return text
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
+
 function errorHtml(message: string): string {
 	return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><title>Databricks Sign In</title></head>
 <body style="font-family: sans-serif; text-align: center; padding-top: 4em;">
 <h2>Databricks sign-in failed</h2>
-<p>${message}</p>
+<p>${escapeHtml(message)}</p>
 </body>
 </html>`;
 }
@@ -190,20 +199,22 @@ export class DatabricksLoopbackServer {
 			return;
 		}
 
-		if (error) {
-			const message = errorDescription ?? error;
-			res.writeHead(400, { 'Content-Type': 'text/html' });
-			res.end(errorHtml(message));
-			this._rejectCode(new Error(message));
-			return;
-		}
-
+		// Checked before the error branch so an unauthenticated request to this
+		// predictable port cannot fail the pending sign-in.
 		if (state !== this.expectedState) {
 			res.writeHead(400, { 'Content-Type': 'text/html' });
 			res.end(errorHtml('State mismatch. Please try signing in again.'));
 			this._rejectCode(new Error(
 				'Databricks sign-in failed: state parameter does not match.'
 			));
+			return;
+		}
+
+		if (error) {
+			const message = errorDescription ?? error;
+			res.writeHead(400, { 'Content-Type': 'text/html' });
+			res.end(errorHtml(message));
+			this._rejectCode(new Error(message));
 			return;
 		}
 

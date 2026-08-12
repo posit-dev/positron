@@ -96,6 +96,38 @@ suite('DatabricksLoopbackServer', () => {
 		);
 	});
 
+	test('rejects an error redirect that does not carry the expected state', async () => {
+		const port = await getFreePort();
+		server = new DatabricksLoopbackServer('expected-state', port, port);
+		await server.start();
+
+		const codePromise = server.waitForCode(5000);
+		const response = await get(port, '/?error=access_denied&state=wrong-state');
+
+		assert.strictEqual(response.status, 400);
+		await assert.rejects(
+			() => codePromise,
+			(err: Error) => err.message.includes('state')
+		);
+	});
+
+	test('escapes the error description in the response body', async () => {
+		const port = await getFreePort();
+		server = new DatabricksLoopbackServer('expected-state', port, port);
+		await server.start();
+
+		const codePromise = server.waitForCode(5000);
+		const response = await get(
+			port,
+			'/?error=bad&error_description=%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E&state=expected-state'
+		);
+
+		assert.strictEqual(response.status, 400);
+		assert.ok(!response.body.includes('<img'));
+		assert.ok(response.body.includes('&lt;img'));
+		await assert.rejects(() => codePromise, (err: Error) => err.message.includes('<img'));
+	});
+
 	test('falls back to the next port when the first is busy', async () => {
 		const portA = await getFreePort();
 		// Occupy portA so the server must fall back to portA+1... within range.
