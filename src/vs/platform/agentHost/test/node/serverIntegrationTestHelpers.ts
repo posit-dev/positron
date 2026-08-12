@@ -591,11 +591,16 @@ export function dispatchTurnStarted(c: TestProtocolClient, session: string, turn
  * requests) live on the session's default chat channel, so reading them
  * requires merging the session snapshot with its default chat snapshot.
  */
-export async function fetchSessionWithChat(c: TestProtocolClient, sessionUri: string): Promise<ISessionWithDefaultChat> {
+// --- Start Positron ---
+// `timeoutMs` added: a subscribe that has to restore a released session needs
+// more than the client's generic 5s default. Omitted by every other caller, so
+// their behaviour is unchanged.
+export async function fetchSessionWithChat(c: TestProtocolClient, sessionUri: string, timeoutMs?: number): Promise<ISessionWithDefaultChat> {
 	const owningSession = parseDefaultChatUri(sessionUri) ?? sessionUri;
 	const chatUri = parseDefaultChatUri(sessionUri) ? sessionUri : buildDefaultChatUri(sessionUri);
-	const sessionSnap = await c.call<SubscribeResult>('subscribe', { channel: owningSession });
-	const chatSnap = await c.call<SubscribeResult>('subscribe', { channel: chatUri });
+	const sessionSnap = await c.call<SubscribeResult>('subscribe', { channel: owningSession }, timeoutMs);
+	const chatSnap = await c.call<SubscribeResult>('subscribe', { channel: chatUri }, timeoutMs);
+	// --- End Positron ---
 	return mergeSessionWithDefaultChat(
 		sessionSnap.snapshot!.state as SessionState,
 		chatSnap.snapshot?.state as ChatState | undefined,
