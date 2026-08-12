@@ -1,0 +1,119 @@
+2026-08-10 12:48:58.834 [info] Extension host with pid 162 started
+2026-08-10 12:48:59.813 [info] ExtensionService#_doActivateExtension vscode.github-authentication, startup: false, activationEvent: 'onAuthenticationRequest:github'
+2026-08-10 12:48:59.834 [info] ExtensionService#_doActivateExtension vscode.emmet, startup: false, activationEvent: 'onLanguage'
+2026-08-10 12:48:59.846 [info] ExtensionService#_doActivateExtension positron.authentication, startup: false, activationEvent: 'onAiEnabled', root cause: positron.next-edit-suggestions
+2026-08-10 12:48:59.921 [info] ExtensionService#_doActivateExtension positron.positron-environment, startup: false, activationEvent: 'onLanguageRuntime:python', root cause: ms-python.python
+2026-08-10 12:48:59.987 [info] ExtensionService#_doActivateExtension positron.positron-proxy, startup: false, activationEvent: 'onCommand:positronProxy.setHelpProxyServerStyles'
+2026-08-10 12:49:00.214 [info] ExtensionService#_doActivateExtension vscode.git-base, startup: false, activationEvent: '*', root cause: vscode.git
+2026-08-10 12:49:00.225 [info] ExtensionService#_doActivateExtension positron.positron-supervisor, startup: false, activationEvent: 'onLanguageRuntime:python', root cause: ms-python.python
+2026-08-10 12:49:00.265 [info] ExtensionService#_doActivateExtension vscode.git, startup: false, activationEvent: '*'
+2026-08-10 12:49:00.307 [info] ExtensionService#_doActivateExtension vscode.github, startup: false, activationEvent: '*'
+2026-08-10 12:49:00.337 [info] ExtensionService#_doActivateExtension ms-python.python, startup: false, activationEvent: 'onLanguageRuntime:python'
+2026-08-10 12:49:00.535 [info] ExtensionService#_doActivateExtension positron.positron-r, startup: false, activationEvent: 'onLanguageRuntime:r'
+2026-08-10 12:49:00.694 [info] ExtensionService#_doActivateExtension positron.positron-environment-modules, startup: false, activationEvent: 'api', root cause: ms-python.python
+2026-08-10 12:49:00.723 [info] Eager extensions activated
+2026-08-10 12:49:00.756 [info] ExtensionService#_doActivateExtension vscode.debug-auto-launch, startup: false, activationEvent: 'onStartupFinished'
+2026-08-10 12:49:00.760 [info] ExtensionService#_doActivateExtension vscode.merge-conflict, startup: false, activationEvent: 'onStartupFinished'
+2026-08-10 12:49:00.773 [info] ExtensionService#_doActivateExtension positron.positron-code-cells, startup: false, activationEvent: 'onStartupFinished'
+2026-08-10 12:49:00.778 [info] ExtensionService#_doActivateExtension positron.positron-connections, startup: false, activationEvent: 'onStartupFinished'
+2026-08-10 12:49:00.783 [info] ExtensionService#_doActivateExtension positron.dev-containers, startup: false, activationEvent: 'onStartupFinished'
+2026-08-10 12:49:00.868 [info] ExtensionService#_doActivateExtension positron.positron-file-transfer, startup: false, activationEvent: 'onStartupFinished'
+2026-08-10 12:49:00.881 [info] ExtensionService#_doActivateExtension positron.notebook-export, startup: false, activationEvent: 'onStartupFinished'
+2026-08-10 12:49:00.888 [info] ExtensionService#_doActivateExtension positron.positron-notebooks-helpers, startup: false, activationEvent: 'onStartupFinished'
+2026-08-10 12:49:00.895 [info] ExtensionService#_doActivateExtension positron.positron-reticulate, startup: false, activationEvent: 'onStartupFinished'
+2026-08-10 12:49:00.901 [info] ExtensionService#_doActivateExtension positron.positron-run-app, startup: false, activationEvent: 'onStartupFinished'
+2026-08-10 12:49:00.909 [info] ExtensionService#_doActivateExtension GitHub.vscode-pull-request-github, startup: false, activationEvent: 'onStartupFinished'
+2026-08-10 12:49:00.979 [info] ExtensionService#_doActivateExtension posit.assistant, startup: false, activationEvent: 'onStartupFinished'
+2026-08-10 12:49:01.472 [info] ExtensionService#_doActivateExtension positron.positron-runtime-debugger, startup: false, activationEvent: 'onStartupFinished'
+2026-08-10 12:49:01.477 [info] ExtensionService#_doActivateExtension vscode.configuration-editing, startup: false, activationEvent: 'onLanguage:jsonc'
+2026-08-10 12:49:01.486 [info] ExtensionService#_doActivateExtension vscode.json-language-features, startup: false, activationEvent: 'onLanguage:jsonc'
+2026-08-10 12:49:01.537 [info] ExtensionService#_doActivateExtension vscode.typescript-language-features, startup: false, activationEvent: 'onLanguage:jsonc'
+2026-08-10 12:49:01.584 [warning] Could not identify extension for 'positron' require call from file:///build/resources/app/out/bootstrap-fork.js. These are the extension path mappings: 
+	file:///build/resources/app/extensions/authentication -> positron.authentication
+	file:///build/resources/app/extensions/configuration-editing -> vscode.configuration-editing
+	file:///build/resources/app/extensions/copilot -> GitHub.copilot-chat
+	file:///build/resources/app/extensions/css-language-features -> vscode.css-language-features
+	file:///build/resources/app/extensions/debug-auto-launch -> vscode.debug-auto-launch
+	file:///build/resources/app/extensions/debug-server-ready -> vscode.debug-server-ready
+	file:///build/resources/app/extensions/emmet -> vscode.emmet
+	file:///build/resources/app/extensions/extension-editing -> vscode.extension-editing
+	file:///build/resources/app/extensions/git -> vscode.git
+	file:///build/resources/app/extensions/git-base -> vscode.git-base
+	file:///build/resources/app/extensions/github -> vscode.github
+	file:///build/resources/app/extensions/github-authentication -> vscode.github-authentication
+	file:///build/resources/app/extensions/grunt -> vscode.grunt
+	file:///build/resources/app/extensions/gulp -> vscode.gulp
+	file:///build/resources/app/extensions/html-language-features -> vscode.html-language-features
+	file:///build/resources/app/extensions/ipynb -> vscode.ipynb
+	file:///build/resources/app/extensions/jake -> vscode.jake
+	file:///build/resources/app/extensions/json-language-features -> vscode.json-language-features
+	file:///build/resources/app/extensions/markdown-language-features -> vscode.markdown-language-features
+	file:///build/resources/app/extensions/markdown-math -> vscode.markdown-math
+	file:///build/resources/app/extensions/media-preview -> vscode.media-preview
+	file:///build/resources/app/extensions/merge-conflict -> vscode.merge-conflict
+	file:///build/resources/app/extensions/mermaid-markdown-features -> vscode.mermaid-markdown-features
+	file:///build/resources/app/extensions/microsoft-authentication -> vscode.microsoft-authentication
+	file:///build/resources/app/extensions/ms-vscode.js-debug -> ms-vscode.js-debug
+	file:///build/resources/app/extensions/ms-vscode.js-debug-companion -> ms-vscode.js-debug-companion
+	file:///build/resources/app/extensions/ms-vscode.vscode-js-profile-table -> ms-vscode.vscode-js-profile-table
+	file:///build/resources/app/extensions/next-edit-suggestions -> positron.next-edit-suggestions
+	file:///build/resources/app/extensions/npm -> vscode.npm
+	file:///build/resources/app/extensions/open-remote-ssh -> jeanp413.open-remote-ssh
+	file:///build/resources/app/extensions/php-language-features -> vscode.php-language-features
+	file:///build/resources/app/extensions/positron-catalog-explorer -> positron.positron-catalog-explorer
+	file:///build/resources/app/extensions/positron-code-cells -> positron.positron-code-cells
+	file:///build/resources/app/extensions/positron-connections -> positron.positron-connections
+	file:///build/resources/app/extensions/positron-data-driver-databricks -> positron.positron-data-driver-databricks
+	file:///build/resources/app/extensions/positron-data-driver-duckdb -> positron.positron-data-driver-duckdb
+	file:///build/resources/app/extensions/positron-data-driver-pins -> positron.positron-data-driver-pins
+	file:///build/resources/app/extensions/positron-data-driver-postgresql -> positron.positron-data-driver-postgresql
+	file:///build/resources/app/extensions/positron-data-driver-redshift -> positron.positron-data-driver-redshift
+	file:///build/resources/app/extensions/positron-data-driver-snowflake -> positron.positron-data-driver-snowflake
+	file:///build/resources/app/extensions/positron-data-driver-sqlite -> positron.positron-data-driver-sqlite
+	file:///build/resources/app/extensions/positron-dev-containers -> positron.dev-containers
+	file:///build/resources/app/extensions/positron-duckdb -> positron.positron-duckdb
+	file:///build/resources/app/extensions/positron-environment -> positron.positron-environment
+	file:///build/resources/app/extensions/positron-environment-modules -> positron.positron-environment-modules
+	file:///build/resources/app/extensions/positron-file-transfer -> positron.positron-file-transfer
+	file:///build/resources/app/extensions/positron-notebook-export -> positron.notebook-export
+	file:///build/resources/app/extensions/positron-notebooks -> positron.positron-notebooks-helpers
+	file:///build/resources/app/extensions/positron-pdf-server -> positron.positron-pdf-server
+	file:///build/resources/app/extensions/positron-proxy -> positron.positron-proxy
+	file:///build/resources/app/extensions/positron-python -> ms-python.python
+	file:///build/resources/app/extensions/positron-r -> positron.positron-r
+	file:///build/resources/app/extensions/positron-reticulate -> positron.positron-reticulate
+	file:///build/resources/app/extensions/positron-run-app -> positron.positron-run-app
+	file:///build/resources/app/extensions/positron-runtime-debugger -> positron.positron-runtime-debugger
+	file:///build/resources/app/extensions/positron-supervisor -> positron.positron-supervisor
+	file:///build/resources/app/extensions/positron-viewer -> positron.positron-viewer
+	file:///build/resources/app/extensions/references-view -> vscode.references-view
+	file:///build/resources/app/extensions/search-result -> vscode.search-result
+	file:///build/resources/app/extensions/simple-browser -> vscode.simple-browser
+	file:///build/resources/app/extensions/terminal-suggest -> vscode.terminal-suggest
+	file:///build/resources/app/extensions/tunnel-forwarding -> vscode.tunnel-forwarding
+	file:///build/resources/app/extensions/typescript-language-features -> vscode.typescript-language-features
+	file:///tmp/udd/exts/charliermarsh.ruff-2026.68.0 -> charliermarsh.ruff
+	file:///tmp/udd/exts/github.vscode-pull-request-github-0.156.0 -> GitHub.vscode-pull-request-github
+	file:///tmp/udd/exts/meta.pyrefly-1.2.0 -> meta.pyrefly
+	file:///tmp/udd/exts/ms-python.debugpy-2026.6.0 -> ms-python.debugpy
+	file:///tmp/udd/exts/ms-toolsai.jupyter-2025.9.1 -> ms-toolsai.jupyter
+	file:///tmp/udd/exts/ms-toolsai.jupyter-renderers-1.3.0 -> ms-toolsai.jupyter-renderers
+	file:///tmp/udd/exts/ms-toolsai.vscode-jupyter-cell-tags-0.1.9 -> ms-toolsai.vscode-jupyter-cell-tags
+	file:///tmp/udd/exts/ms-toolsai.vscode-jupyter-slideshow-0.1.6 -> ms-toolsai.vscode-jupyter-slideshow
+	file:///tmp/udd/exts/posit.air-vscode-0.28.0 -> Posit.air-vscode
+	file:///tmp/udd/exts/posit.assistant-0.9.1 -> posit.assistant
+	file:///tmp/udd/exts/posit.publisher-2.8.0 -> posit.publisher
+	file:///tmp/udd/exts/posit.shiny-1.4.2 -> Posit.shiny
+	file:///tmp/udd/exts/quarto.quarto-1.135.0 -> quarto.quarto
+
+2026-08-10 12:49:01.620 [info] ExtensionService#_doActivateExtension vscode.terminal-suggest, startup: false, activationEvent: 'onTerminalShellIntegration:*'
+2026-08-10 12:49:02.402 [info] ExtensionService#_doActivateExtension GitHub.copilot-chat, startup: false, activationEvent: 'onLanguageModelChatProvider:ollama'
+2026-08-10 12:49:04.665 [info] ExtensionService#_doActivateExtension vscode.microsoft-authentication, startup: false, activationEvent: 'onAuthenticationRequest:microsoft'
+2026-08-10 12:49:04.725 [info] ExtensionService#_doActivateExtension positron.next-edit-suggestions, startup: false, activationEvent: 'onAiEnabled'
+2026-08-10 12:49:05.720 [error] CodeExpectedError: GitHubLoginFailed
+	at Iie._authShowWarnings (/build/resources/app/extensions/copilot/dist/extension.js:1698:18963)
+	at async Iie.getCopilotToken (/build/resources/app/extensions/copilot/dist/extension.js:1698:16681)
+	at async Fhe.getCopilotToken (/build/resources/app/extensions/copilot/dist/extension.js:1400:8800)
+	at async dme.updateCachedToken (/build/resources/app/extensions/copilot/dist/extension.js:3149:8746)
+2026-08-10 12:49:06.493 [info] [llm-docs] fetching https://cdn.posit.co/positron/releases/docs/positron-llms-2026.08.0-331.zip (exact)
+2026-08-10 12:49:06.883 [info] [llm-docs] installed 2026.08.0-331 from https://cdn.posit.co/positron/releases/docs/positron-llms-2026.08.0-331.zip

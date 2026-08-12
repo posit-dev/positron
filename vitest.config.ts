@@ -7,7 +7,11 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	test: {
-		include: ['src/vs/**/*.vitest.{ts,tsx}', 'src/*.vitest.{ts,tsx}'],
+		include: [
+			'src/vs/**/*.vitest.{ts,tsx}',
+			'src/*.vitest.{ts,tsx}',
+			'test/e2e/**/*.vitest.{ts,tsx}'
+		],
 		environment: 'happy-dom',
 		globals: true,
 		// Registers @testing-library/jest-dom matchers (toBeInTheDocument, toHaveTextContent, etc.).

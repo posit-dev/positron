@@ -31,7 +31,14 @@ export interface CustomTestOptions {
 export function OptionsFixture() {
 	return async (logsPath: string, logger: any, snapshots: boolean, project: CustomTestOptions, workerInfo: playwright.WorkerInfo) => {
 		const TEST_DATA_PATH = process.env.POSITRON_TEST_DATA_PATH || join(os.tmpdir(), 'vscsmoke');
-		const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
+		// The idle memory scenario measures Positron and its bundled extensions, so
+		// it gets an extensions dir of its own. The shared one accumulates whatever
+		// the suite installs, and that lands in the memory baseline as if it were
+		// product memory: one CI run had two versions of ruff in it, 60 MB, with the
+		// version changing between launches of the same run.
+		const EXTENSIONS_PATH = process.env.MEMORY_SCENARIO === 'idle'
+			? join(TEST_DATA_PATH, 'extensions-dir-memory')
+			: join(TEST_DATA_PATH, 'extensions-dir');
 		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'test-files');
 		const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', project.artifactDir, TEMP_DIR);
 
