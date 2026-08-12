@@ -82,9 +82,9 @@ session.
 ### Python and R get separate scenarios
 
 The kernels themselves are distinguishable either way, since the snapshot keeps a row per process
-and Ark and ipykernel can be told apart by command name. What a combined scenario loses is
-attribution of the shared processes. `label.ts` maps both `ipykernel_launcher` and `ark` to one
-`kernel` role, so the per-role rollup #15495 charts would sum them, and more to the point both
+and Ark and Positron's Python kernel can be told apart by command name. What a combined scenario
+loses is attribution of the shared processes. `label.ts` maps both to one `kernel` role, so the
+per-role rollup #15495 charts would sum them, and more to the point both
 positron-r and positron-python load their session code into the same extension host heap. That
 heap is 429 MB at idle and is where the talk's second culprit lives, so an ext host jump in a
 combined run cannot be pinned on either language. Split, and each language's ext host delta over

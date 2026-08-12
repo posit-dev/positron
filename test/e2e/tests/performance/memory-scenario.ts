@@ -49,6 +49,9 @@ export function defineMemoryScenario(options: {
 	test.describe(`Memory: ${scenario}`, { tag: [tags.PERFORMANCE] }, () => {
 
 		test(`Memory footprint of the Positron process tree: ${scenario}`, async function ({ app, sessions, logsPath }) {
+			// Only test-memory-metrics.yml collects these specs, and it always sets
+			// BUILD. A missing one means the workflow is broken, not that the spec
+			// ran somewhere it should not have.
 			const buildRoot = process.env.BUILD;
 			expect(buildRoot, 'BUILD must point at a Positron build; memory numbers from a dev build are meaningless').toBeTruthy();
 
@@ -84,6 +87,11 @@ export function defineMemoryScenario(options: {
 			for (const role of expectRoles) {
 				expect(roles, `scenario ${scenario} expected a ${role} process; the app never reached the state being measured`).toContain(role);
 			}
+
+			// waitForSettle gives up at its cap regardless of whether the tree
+			// actually stopped growing. A settleMs near the cap means this snapshot
+			// is a mid-load number, not the steady state the scenario claims.
+			expect(snapshot.settleMs, 'the tree never settled before the cap, so this is a mid-load number rather than a steady state').toBeLessThan(85_000);
 
 			const namedShare = snapshot.processes.filter(p => p.labeled).length / snapshot.processes.length;
 			expect(namedShare, 'Positron named too few processes; --status probably failed, and an unattributable total is worse than no data').toBeGreaterThan(0.5);

@@ -4,13 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Which app state a memory run measured. The dashboard keys one series per
+ * Which app states a memory run can measure. The dashboard keys one series per
  * scenario, so these strings are a published contract; renaming one splits its
  * history in two.
+ *
+ * The single source of truth: MemoryScenario is derived from this array so
+ * that adding a scenario here and forgetting it everywhere else is a compile
+ * error, not a silent gap.
  */
-export type MemoryScenario = 'idle' | 'session-python' | 'session-r';
+export const MEMORY_SCENARIOS = ['idle', 'session-python', 'session-r'] as const;
 
-export const MEMORY_SCENARIOS: readonly MemoryScenario[] = ['idle', 'session-python', 'session-r'];
+export type MemoryScenario = typeof MEMORY_SCENARIOS[number];
 
 /**
  * Whether MEMORY_SCENARIO names a real scenario. Unset means an ordinary e2e
@@ -19,7 +23,7 @@ export const MEMORY_SCENARIOS: readonly MemoryScenario[] = ['idle', 'session-pyt
  * config loading is the wrong place to die.
  */
 export function isMemoryScenario(value: string | undefined): value is MemoryScenario {
-	return value !== undefined && (MEMORY_SCENARIOS as readonly string[]).includes(value);
+	return value !== undefined && MEMORY_SCENARIOS.includes(value as MemoryScenario);
 }
 
 /** The spec file that measures each scenario. */
