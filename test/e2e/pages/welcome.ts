@@ -146,17 +146,6 @@ export class Welcome {
 	}
 
 	/**
-	 * Verify Tab never reaches the slide that is currently off-screen.
-	 *
-	 * The welcome page and the walkthrough sit side by side in one editor, and
-	 * whichever is hidden is moved off-screen rather than hidden with
-	 * `display: none`. If it stays in the tab order, focus lands somewhere the
-	 * user cannot see, and the browser scrolls it into view, dragging the
-	 * visible slide sideways.
-	 * @param hidden Which slide should be unreachable.
-	 * @param tabPresses How far to walk the tab order.
-	 */
-	/**
 	 * Verifies the off-screen slide is inert, which is what keeps its focusable
 	 * content out of the tab order, and that the visible slide is not.
 	 *
