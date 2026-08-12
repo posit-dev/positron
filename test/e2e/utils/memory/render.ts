@@ -204,7 +204,7 @@ function newProcesses(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): L
 
 export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): string {
 	const total = totalAcrossLaunches(snapshots);
-	const lines: string[] = ['## Memory: idle', ''];
+	const lines: string[] = [`## Memory: ${snapshots[0].scenario}`, ''];
 
 	lines.push(baseline
 		? `**Total: ${formatBytes(total)}** (${signed(total - baseline.treeTotalPssBytes)} vs previous nightly)`
@@ -346,7 +346,7 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>Positron memory: idle</title>
+	<title>Positron memory: ${snapshots[0].scenario}</title>
 	<style>
 		body { font-family: system-ui, sans-serif; margin: 2rem; }
 		table { border-collapse: collapse; width: 100%; }
@@ -354,7 +354,7 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 	</style>
 </head>
 <body>
-	<h1>Positron memory: idle</h1>
+	<h1>Positron memory: ${snapshots[0].scenario}</h1>
 	<p>Total PSS: <strong>${formatBytes(total)}</strong>${baseline ? ` (${signed(total - baseline.treeTotalPssBytes)} vs previous nightly)` : ''}</p>
 	${snapshots[0]?.positronVersion ? `<p>Build: <strong>${escapeHtml(snapshots[0].positronVersion)}</strong></p>` : ''}
 	<h2>Process tree</h2>

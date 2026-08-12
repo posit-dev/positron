@@ -52,6 +52,7 @@ test.describe('Memory: idle', { tag: [tags.PERFORMANCE] }, () => {
 		});
 
 		const snapshot = await captureSnapshot({
+			scenario: 'idle',
 			rootPid: mainPid!,
 			buildRoot: buildRoot!,
 			userDataDir: app.userDataPath,
@@ -126,7 +127,7 @@ test.describe('Memory: report', { tag: [tags.PERFORMANCE] }, () => {
 		const versions = [...new Set(snapshots.map(s => s.positronVersion))];
 		expect(versions, 'launches measured different builds; the median would be meaningless').toHaveLength(1);
 
-		const baseline = await fetchBaseline();
+		const baseline = await fetchBaseline('idle');
 		const markdown = renderMarkdown(snapshots, baseline);
 		const html = renderHtml(snapshots, baseline);
 

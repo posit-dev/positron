@@ -94,11 +94,16 @@ describe('buildPayload', () => {
 		expect(payload.platform_version).not.toBe(payload.platform_os);
 		expect(payload.platform_version.length).toBeGreaterThan(0);
 	});
+
+	test('carries the snapshot scenario rather than assuming idle', () => {
+		const payload = buildPayload([{ ...snapshot, scenario: 'session-r' }], meta);
+		expect(payload.scenario).toBe('session-r');
+	});
 });
 
 describe('baselineToSnapshot', () => {
 	test('returns undefined on a first run, when no baseline exists yet', () => {
-		expect(baselineToSnapshot({ found: false })).toBeUndefined();
+		expect(baselineToSnapshot({ found: false }, 'idle')).toBeUndefined();
 	});
 
 	test('maps the fields the report delta reads', () => {
@@ -110,7 +115,7 @@ describe('baselineToSnapshot', () => {
 				processes: [{ process_name: 'gpu-process', process_role: 'gpu', pss_bytes: 40 }],
 				extensions: [{ extension_id: 'vscode.git' }]
 			}
-		});
+		}, 'idle');
 		expect(mapped?.treeTotalPssBytes).toBe(1000);
 		expect(mapped?.settleMs).toBe(5000);
 		expect(mapped?.processes[0].processName).toBe('gpu-process');
@@ -128,7 +133,7 @@ describe('baselineToSnapshot', () => {
 				processes: [{ process_name: 'something-new', process_role: 'quantum_host', pss_bytes: 40 }],
 				extensions: []
 			}
-		});
+		}, 'idle');
 		expect(mapped?.processes[0].processRole).toBe('unlabeled');
 	});
 
@@ -140,7 +145,7 @@ describe('baselineToSnapshot', () => {
 				processes: [{ process_name: 'ark', process_role: 'kernel', pss_bytes: 40 }],
 				extensions: []
 			}
-		});
+		}, 'idle');
 		expect(mapped?.processes[0].processRole).toBe('kernel');
 	});
 
@@ -152,7 +157,7 @@ describe('baselineToSnapshot', () => {
 				processes: [{ process_name: 'gpu-process', process_role: 'gpu', pss_bytes: 40 }],
 				extensions: []
 			}
-		});
+		}, 'idle');
 		expect(mapped?.processes[0].pid).toBe(0);
 		expect(mapped?.processes[0].rssBytes).toBe(0);
 	});
@@ -163,7 +168,7 @@ describe('baseline activation events', () => {
 		baselineToSnapshot({
 			found: true,
 			snapshot: { tree_total_pss_bytes: 1000, settle_ms: 5000, processes: [], extensions }
-		});
+		}, 'idle');
 
 	test('carries the activation event through', () => {
 		// Without it the report cannot tell an extension that was always eager
@@ -210,6 +215,6 @@ describe('publishingEnabled', () => {
 
 	test('fetchBaseline yields no baseline, so the report shows absolute numbers', async () => {
 		delete process.env.MEMORY_PUBLISH;
-		expect(await fetchBaseline()).toBeUndefined();
+		expect(await fetchBaseline('idle')).toBeUndefined();
 	});
 });

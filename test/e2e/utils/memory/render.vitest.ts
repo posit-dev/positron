@@ -35,6 +35,11 @@ describe('formatBytes', () => {
 });
 
 describe('renderMarkdown', () => {
+	test('names the scenario in the heading, so two reports cannot be confused', () => {
+		const markdown = renderMarkdown([{ ...snapshot([proc()]), scenario: 'session-python' }], undefined);
+		expect(markdown).toContain('## Memory: session-python');
+	});
+
 	test('reports the total', () => {
 		const output = renderMarkdown([snapshot([proc()])]);
 		expect(output).toContain('100.0 MB');

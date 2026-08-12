@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { MemoryScenario } from './scenarios.js';
+
 /**
  * Grouping key for memory attribution. Deliberately a small, fixed vocabulary:
  * the dashboard groups on it, so anything high-cardinality (a window title, a
@@ -62,7 +64,7 @@ export type ActivatedExtension = {
 
 /** Everything one app launch produced. */
 export type MemorySnapshot = {
-	scenario: 'idle';
+	scenario: MemoryScenario;
 	/** ISO 8601, set when the tree was read. Lets the report reject stale files. */
 	capturedAt: string;
 	/** e.g. `2026.09.0-35`: version plus build number, from the build's product.json. */

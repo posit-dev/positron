@@ -12,6 +12,7 @@ import {
 	platformVersion,
 	positronVersion
 } from '../metrics/metric-base.js';
+import { MemoryScenario } from './scenarios.js';
 import { MemorySnapshot, ProcessRole } from './types.js';
 
 /**
@@ -79,7 +80,7 @@ export type MemoryPayload = {
 	platform_os: string;
 	platform_version: string;
 	container_image: string;
-	scenario: 'idle';
+	scenario: MemoryScenario;
 	launches: {
 		launch_index: number;
 		settle_ms: number;
@@ -134,7 +135,7 @@ export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): Memory
 		platform_os: platformOs,
 		platform_version: platformVersion,
 		container_image: meta.containerImage,
-		scenario: 'idle',
+		scenario: snapshots[0].scenario,
 		launches: snapshots.map(snapshot => ({
 			launch_index: snapshot.launchIndex,
 			settle_ms: snapshot.settleMs,
@@ -220,12 +221,12 @@ export type BaselineResponse =
  * faked, so anything reading further gets an obvious zero instead of a plausible
  * number.
  */
-export function baselineToSnapshot(body: BaselineResponse): MemorySnapshot | undefined {
+export function baselineToSnapshot(body: BaselineResponse, scenario: MemoryScenario): MemorySnapshot | undefined {
 	if (!body.found) {
 		return undefined;
 	}
 	return {
-		scenario: 'idle',
+		scenario,
 		// Neutral rather than faked, per the note above: the baseline predates this run
 		// and the response carries neither field. The report reads neither for the
 		// baseline, and '' fails the freshness check loudly if anything ever starts to.
@@ -256,19 +257,19 @@ export function baselineToSnapshot(body: BaselineResponse): MemorySnapshot | und
  * Undefined when there is no baseline yet or the endpoint is unavailable, in
  * which case the report shows absolute numbers only.
  */
-export async function fetchBaseline(): Promise<MemorySnapshot | undefined> {
+export async function fetchBaseline(scenario: MemoryScenario): Promise<MemorySnapshot | undefined> {
 	if (!publishingEnabled() || !CONNECT_API_KEY) {
 		return undefined;
 	}
 	try {
-		const response = await request(`${memoryUrl(PROD_API_URL)}/baseline?scenario=idle&branch=main`, {
+		const response = await request(`${memoryUrl(PROD_API_URL)}/baseline?scenario=${scenario}&branch=main`, {
 			method: 'GET',
 			headers: { Authorization: `Key ${CONNECT_API_KEY}` }
 		});
 		if (response.statusCode >= 400) {
 			return undefined;
 		}
-		return baselineToSnapshot(await response.body.json() as BaselineResponse);
+		return baselineToSnapshot(await response.body.json() as BaselineResponse, scenario);
 	} catch (error) {
 		console.error(`[memory] could not fetch baseline: ${error}`);
 		return undefined;

@@ -8,6 +8,7 @@ import { getPositronVersion } from '../../infra/test-runner/positron-version.js'
 import { deriveExtensionName, isGenericName, normalizeProcessName, resolveRole } from './label.js';
 import { readProcessNames } from './positron-status.js';
 import { readProcessTree } from './process-tree.js';
+import { MemoryScenario } from './scenarios.js';
 import { ActivatedExtension, LabeledProcess, MemorySnapshot, RawProcess } from './types.js';
 
 function median(values: number[]): number {
@@ -152,6 +153,7 @@ function readPositronVersion(buildRoot: string): string {
 
 /** Take three samples five seconds apart once the app has settled. */
 export async function captureSnapshot(input: {
+	scenario: MemoryScenario;
 	rootPid: number;
 	buildRoot: string;
 	userDataDir: string;
@@ -172,7 +174,7 @@ export async function captureSnapshot(input: {
 	const processes = joinProcesses(samples[samples.length - 1], names, input.rootPid, samples);
 
 	return {
-		scenario: 'idle',
+		scenario: input.scenario,
 		capturedAt: new Date().toISOString(),
 		positronVersion: readPositronVersion(input.buildRoot),
 		launchIndex: input.launchIndex,
