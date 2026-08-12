@@ -1099,6 +1099,7 @@
 		"--vscode-tree-tableOddRowsBackground",
 		"--vscode-walkThrough-embeddedEditorBackground",
 		"--vscode-walkthrough-stepTitle-foreground",
+		"--vscode-walkthroughActivityBarBadge-background",
 		"--vscode-welcomePage-background",
 		"--vscode-welcomePage-progress-background",
 		"--vscode-welcomePage-progress-foreground",
