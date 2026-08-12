@@ -6,31 +6,54 @@
 /// <reference types="vitest/globals" />
 
 import { screen } from '@testing-library/react';
+import { Event } from '../../../../../base/common/event.js';
+import { ContextKeyExpr, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { IResolvedWalkthrough, IWalkthroughsService } from '../../browser/gettingStartedService.js';
 import { createPositronWelcomePage, PositronWelcomePage } from '../../browser/positronWelcomePage/positronWelcomePage.js';
 
+/**
+ * The page renders the walkthrough banner, which reads this service. One
+ * walkthrough with no `when` clause is what the real window always has, so the
+ * banner shows and its place in the page order can be asserted.
+ */
+const oneWalkthrough = {
+	getWalkthroughs: () => [stubInterface<IResolvedWalkthrough>({ when: ContextKeyExpr.true() })],
+	onDidAddWalkthrough: Event.None,
+	onDidRemoveWalkthrough: Event.None,
+	onDidChangeWalkthrough: Event.None,
+};
+
+/**
+ * Builds the DOM the editor pane hands to the page. These are real widgets
+ * on the welcome page, so the test only needs something findable in their
+ * place.
+ */
+const slottedDom = () => {
+	const recentList = document.createElement('div');
+	recentList.textContent = 'Recent';
+
+	const connectAction = document.createElement('div');
+	connectAction.textContent = 'Connect to...';
+
+	const footer = document.createElement('div');
+	footer.textContent = 'Show welcome page on startup';
+
+	return { recentList, connectAction, footer };
+};
+
 describe('PositronWelcomePage', () => {
-	const rtl = setupRTLRenderer();
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IWalkthroughsService, oneWalkthrough)
+		.stub(IContextKeyService, stubInterface<IContextKeyService>({ contextMatchesRules: () => true }))
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	/**
-	 * Builds the DOM the editor pane hands to the page. These are real widgets
-	 * on the welcome page, so the test only needs something findable in their
-	 * place.
-	 */
-	const slottedDom = () => {
-		const recentList = document.createElement('div');
-		recentList.textContent = 'Recent';
-
-		const connectAction = document.createElement('div');
-		connectAction.textContent = 'Connect to...';
-
-		const footer = document.createElement('div');
-		footer.textContent = 'Show welcome page on startup';
-
-		return { recentList, connectAction, footer };
-	};
-
-	it('renders the recent list, then the connect action, then the footer', () => {
+	it('renders the banner, then the recent list, the connect action and the footer', () => {
 		const { recentList, connectAction, footer } = slottedDom();
 		const { container } = rtl.render(
 			<PositronWelcomePage
@@ -41,7 +64,7 @@ describe('PositronWelcomePage', () => {
 			/>
 		);
 
-		expect(container).toHaveTextContent(/Recent.*Connect to\.\.\..*Show welcome page on startup/);
+		expect(container).toHaveTextContent(/Learn.*Recent.*Connect to\.\.\..*Show welcome page on startup/);
 	});
 
 	it('omits the connect action when there is none, as on web', () => {
@@ -80,6 +103,23 @@ describe('PositronWelcomePage', () => {
 });
 
 describe('createPositronWelcomePage', () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IWalkthroughsService, oneWalkthrough)
+		.stub(IContextKeyService, stubInterface<IContextKeyService>({ contextMatchesRules: () => true }))
+		.build();
+
+	beforeEach(() => {
+		// createPositronWelcomePage builds its own PositronReactRenderer, whose
+		// provider reads this singleton rather than taking services as an
+		// argument. Nothing else can reach into that renderer to supply them.
+		PositronReactServices.services = ctx.reactServices;
+	});
+
+	afterEach(() => {
+		PositronReactServices.services = undefined!;
+	});
+
 	const renderInto = (container: HTMLElement) => {
 		const recentList = document.createElement('div');
 		recentList.textContent = 'Recent';

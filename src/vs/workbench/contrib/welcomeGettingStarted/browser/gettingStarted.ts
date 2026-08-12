@@ -58,6 +58,11 @@ import { WorkbenchStateContext } from '../../../common/contextkeys.js';
 import { IEditorOpenContext, IEditorSerializer } from '../../../common/editor.js';
 import { IWebviewElement, IWebviewService } from '../../webview/browser/webview.js';
 import './gettingStartedColors.js';
+// --- Start Positron ---
+// Colors for the redesigned welcome page. Registered here for the same reason as
+// the line above: a color has to be registered before any CSS may use it.
+import './positronWelcomePageColors.js';
+// --- End Positron ---
 import { GettingStartedDetailsRenderer } from './gettingStartedDetailsRenderer.js';
 import { gettingStartedCheckedCodicon, gettingStartedUncheckedCodicon } from './gettingStartedIcons.js';
 import { GettingStartedEditorOptions, GettingStartedInput } from './gettingStartedInput.js';
@@ -135,7 +140,12 @@ const parsedStartEntries: IWelcomePageStartEntry[] = startEntries.map((e, i) => 
 */
 // --- End Positron ---
 
-type GettingStartedActionClassification = {
+// --- Start Positron ---
+// Exported so the redesigned welcome page's walkthrough banner logs this event
+// with the same shape, instead of declaring the event twice.
+// type GettingStartedActionClassification = {
+export type GettingStartedActionClassification = {
+	// --- End Positron ---
 	command: { classification: 'PublicNonPersonalData'; purpose: 'FeatureInsight'; comment: 'The command being executed on the getting started page.' };
 	walkthroughId: { classification: 'PublicNonPersonalData'; purpose: 'FeatureInsight'; comment: 'The walkthrough which the command is in' };
 	argument: { classification: 'PublicNonPersonalData'; purpose: 'FeatureInsight'; comment: 'The arguments being passed to the command' };
@@ -143,7 +153,10 @@ type GettingStartedActionClassification = {
 	comment: 'Help understand what actions are most commonly taken on the getting started page';
 };
 
-type GettingStartedActionEvent = {
+// --- Start Positron ---
+// type GettingStartedActionEvent = {
+export type GettingStartedActionEvent = {
+	// --- End Positron ---
 	command: string;
 	walkthroughId: string | undefined;
 	argument: string | undefined;

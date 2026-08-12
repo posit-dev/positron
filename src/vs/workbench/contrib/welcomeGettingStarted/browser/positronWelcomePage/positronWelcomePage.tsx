@@ -12,6 +12,7 @@ import { useEffect } from 'react';
 // Other dependencies.
 import { PositronReactRenderer } from '../../../../../base/browser/positronReactRenderer.js';
 import { DomSlot } from './components/domSlot.js';
+import { WalkthroughBanner } from './components/walkthroughBanner.js';
 
 /**
  * PositronWelcomePageProps interface.
@@ -63,7 +64,7 @@ export const PositronWelcomePage = (props: PositronWelcomePageProps) => {
 	// layout lives on one element instead of two nested ones.
 	return (
 		<>
-			<p>Hello world</p>
+			<WalkthroughBanner />
 			<DomSlot element={props.recentList} />
 			{props.connectAction && <DomSlot element={props.connectAction} />}
 			<DomSlot className='positron-welcome-page-footer' element={props.footer} />

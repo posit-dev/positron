@@ -781,6 +781,8 @@
 		"--vscode-positronVariables-rowHoverBackground",
 		"--vscode-positronVariables-rowHoverForeground",
 		"--vscode-positronWelcome-background",
+		"--vscode-positronWelcome-bannerBackground",
+		"--vscode-positronWelcome-bannerBorder",
 		"--vscode-positronWelcome-foreground",
 		"--vscode-positronWelcome-hoverBackground",
 		"--vscode-positronWelcome-secondaryForeground",
