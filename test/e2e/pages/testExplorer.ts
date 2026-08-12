@@ -4,8 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { Code } from '../infra/code';
-import { QuickAccess } from './quickaccess';
 import { Explorer } from './explorer';
 
 const TEST_EXPLORER_ICON = '.composite-bar .codicon-test-view-icon';
@@ -27,10 +25,6 @@ const STATE_ICON_CLASS = {
  *  Reuseable Positron test explorer functionality for tests to leverage.
  */
 export class TestExplorer extends Explorer {
-
-	constructor(code: Code, private quickaccess: QuickAccess) {
-		super(code);
-	}
 
 	async openTestExplorer(): Promise<void> {
 		// The view container's activity-bar icon appears once test discovery has
