@@ -329,6 +329,27 @@ if [ "${WB_OS}" = "rocky9" ]; then
     # inherit an incorrect one.
     sudo mkdir -p /home/rstudio-server
     sudo chown rstudio-server:rstudio-server /home/rstudio-server
+
+    # Give PAM sessions a PATH that includes /usr/local/bin.
+    #
+    # rserver launches sessions through PAM, which builds a fresh environment
+    # rather than inheriting the container's -- so the image's `ENV PATH` never
+    # reaches a session, and putting a directory on PATH in the Dockerfile does
+    # not help. `pam_env` (in /etc/pam.d/system-auth on EL9) reads
+    # /etc/environment for that PATH; Debian/Ubuntu ship a populated one, EL9
+    # ships it empty. The result on Rocky was a session PATH without
+    # /usr/local/bin, which is where the image installs quarto -- so Posit
+    # Publisher's `quarto inspect` (spawned by name) failed, it fell back to a
+    # hardcoded version with no engines, and Connect then declined to provision R
+    # for the render and died with "Failed to spawn 'Rscript'".
+    #
+    # Only written when PATH is absent, so a future image that sets its own is
+    # left alone.
+    if ! sudo grep -q '^PATH=' /etc/environment 2>/dev/null; then
+        printf 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"\n' \
+            | sudo tee -a /etc/environment > /dev/null
+        sudo chmod 644 /etc/environment
+    fi
 else
     if ! sudo apt install -y "./workbench.${WB_PKG_EXT}"; then
         log_error "Failed to install Workbench package"

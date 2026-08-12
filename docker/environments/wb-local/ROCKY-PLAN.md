@@ -20,7 +20,7 @@ Rocky at all, and `files-pane-refresh` was a cascade):
 
 | Remaining | State |
 | --- | --- |
-| `connect/publisher-quarto-r` | Root cause proven: publisher cannot resolve `quarto` in the extension host. Not yet fixed. |
+| `connect/publisher-quarto-r` | **Fixed** -- PAM sessions had no `/usr/local/bin` on PATH. See below. |
 | `environment-modules` (Python) | Fails in positron-python's ipykernel bootstrap. Diagnosed to a boundary, not a cause. |
 
 The lane is PR-tag-triggered, so it blocks nobody while those land. See
@@ -825,6 +825,43 @@ locally against `files-pane-refresh` and the `plots` suite (five calls).
 The general lesson for this lane: **a worker-scoped session means a failing test
 can fail a later, unrelated one.** Expect some Rocky failures to be cascades, and
 check test order before attributing one to the OS.
+
+#### Fixed: PAM sessions had no `/usr/local/bin`, so publisher could not find quarto
+
+The chain, every link measured on a Rocky stack:
+
+1. rserver launches sessions through **PAM**, which builds a fresh environment
+   instead of inheriting the container's. Proof: the image's `ENV PATH` contains
+   `/usr/local/bin` *twice*, yet the extension host's PATH contained none of the
+   image's entries. **Putting a directory on PATH in the Dockerfile therefore does
+   not reach a session** -- it only affects `docker exec` and PID 1.
+2. `pam_env` (present in `/etc/pam.d/system-auth` on EL9) takes that PATH from
+   `/etc/environment`. Debian/Ubuntu ship a populated one; **EL9 ships it empty**.
+3. So the Rocky extension host's PATH lacked `/usr/local/bin`, where the image
+   installs quarto. Measured before the fix:
+   `.../remote-cli:/home/user1/.local/bin:/home/user1/bin:/usr/share/Modules/bin:/sbin:/bin:/usr/sbin:/usr/bin:/bin:/usr/local/sbin`
+   -- note `/usr/local/sbin` but no `/usr/local/bin`.
+4. Publisher runs `execFile("quarto", ["inspect", <file>])` -- **by name**, so
+   PATH-dependent. On failure it logs `attempting fallback` and writes its
+   hardcoded `fZ = "1.7.34"` with `engines: []`.
+5. Connect keys R provisioning off those engines, so it never puts
+   `/opt/R/4.6.1/bin` on the render's PATH and `quarto render` dies with
+   `Failed to spawn 'Rscript'`.
+
+The installer now writes `/etc/environment` on Rocky (only when it has no `PATH`
+line). Verified at every level afterwards: the ext host PATH gains
+`/usr/local/bin`; `quarto inspect` succeeds in a session-like minimal env
+(`engines: ["knitr"]`); publisher records `version = "1.10.18"` with
+`engines = ["knitr"]`; and the test passes on Rocky.
+
+**Trap that cost two runs:** `.posit/publish/*.toml` persists in the container
+between runs and publisher reuses it, so the first runs after the fix still used
+the stale `engines: []` config and looked like failures. The fixture re-tars
+`test-files` in each session but tar does not delete extra files. Remove
+`.posit` when iterating on a publisher test. Separately, the very first run after
+deleting it failed in the publisher UI (a `not.toBeVisible` predicate, never
+reaching Connect) and passed on the next run, so the first-time
+config-creation path looks flaky independently of this bug.
 
 #### Also measured: the duplicate-rserver bug is real, and the suite causes it
 
