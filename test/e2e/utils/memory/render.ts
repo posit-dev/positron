@@ -501,7 +501,8 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 
 	<div class="card">
 		<h2>Process tree</h2>
-		<table>
+		<table class="tree-table">
+			<colgroup><col><col style="width:150px"><col style="width:90px"><col style="width:100px"><col style="width:90px"><col style="width:60px"><col style="width:110px"></colgroup>
 			<tr><th>Process</th><th>Role</th><th class="num-cell" align="right">PSS</th><th></th><th class="num-cell" align="right">RSS</th><th class="num-cell" align="right">PID</th><th class="num-cell" align="right">Change</th></tr>
 			${treeRows}
 		</table>

@@ -73,9 +73,15 @@ export const REPORT_CSS = `
 		td, th { padding: 4px 8px; text-align: left; }
 		th { color: #6b7280; font-weight: 500; font-size: 0.85rem; border-bottom: 1px solid #e5e7eb; }
 		tr:not(:last-child) td { border-bottom: 1px solid #f3f4f6; }
-		.tree-name { max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.num-cell { white-space: nowrap; }
+		.tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.num-cell { white-space: nowrap; }
+		/* Fixed layout + colgroup: sized columns hold, the name absorbs the slack. A max-width cannot, it guesses the viewport. */
+		.tree-table { table-layout: fixed; }
+		/* Every cell: a role like kernel_supervisor also outgrows its column and would overlap the PSS number. */
+		.tree-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		.bar-track { background: #e5e7eb; border-radius: 4px; height: 8px; width: 100px; }
+		/* Fills its column instead of a fixed 100px, which the rule above would clip by the padding, shortening the longest bar most. */
+		.tree-table .bar-track { width: 100%; }
 		.bar-fill { background: #86b6ef; border-radius: 0 4px 4px 0; height: 8px; }
 		.delta-up { color: #d03b3b; }
 		.delta-down { color: #2a78d6; }

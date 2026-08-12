@@ -428,6 +428,21 @@ describe('renderHtml', () => {
 		expect(output).toContain('quarto.quarto');
 	});
 
+	// The tree once rendered 7 columns wider than its 960px card, pushing the
+	// Change column off the right edge. The fix is structural: a fixed-layout
+	// table whose colgroup sizes every column except the name, so the name
+	// absorbs the slack and ellipsizes. Only a browser can confirm the visual
+	// result; this guards the structure the fix depends on.
+	test('sizes every tree column except the name, so the name absorbs the slack', () => {
+		const output = renderHtml([snapshot([proc()])]);
+		const colgroup = output.match(/<colgroup>.*?<\/colgroup>/s);
+		expect(colgroup).not.toBeNull();
+		expect(output).toContain('class="tree-table"');
+		// One bare <col> (the name) and six sized ones: role, PSS, bar, RSS, PID, Change.
+		expect(colgroup![0].match(/<col>/g)).toHaveLength(1);
+		expect(colgroup![0].match(/<col style="width:/g)).toHaveLength(6);
+	});
+
 	test('puts the worse event first, because * beats onStartupFinished to the punch', () => {
 		const mixed = [
 			ext('vscode.git', '*'),
