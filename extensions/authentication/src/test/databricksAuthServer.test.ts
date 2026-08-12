@@ -63,19 +63,15 @@ suite('DatabricksLoopbackServer', () => {
 		assert.strictEqual(await codePromise, 'abc');
 	});
 
-	test('responds 400 and rejects on a state mismatch', async () => {
+	test('responds 400 on a state mismatch', async () => {
 		const port = await getFreePort();
 		server = new DatabricksLoopbackServer('expected-state', port, port);
 		await server.start();
 
-		const codePromise = server.waitForCode(5000);
 		const response = await get(port, '/?code=auth-code-123&state=wrong-state');
 
 		assert.strictEqual(response.status, 400);
-		await assert.rejects(
-			() => codePromise,
-			(err: Error) => err.message.includes('state')
-		);
+		assert.ok(response.body.includes('State mismatch'));
 	});
 
 	test('rejects with the error description on an error redirect', async () => {
@@ -96,19 +92,22 @@ suite('DatabricksLoopbackServer', () => {
 		);
 	});
 
-	test('rejects an error redirect that does not carry the expected state', async () => {
+	test('a mismatched-state callback does not settle the pending sign-in', async () => {
 		const port = await getFreePort();
 		server = new DatabricksLoopbackServer('expected-state', port, port);
 		await server.start();
 
 		const codePromise = server.waitForCode(5000);
-		const response = await get(port, '/?error=access_denied&state=wrong-state');
+		const errorResponse = await get(port, '/?error=access_denied&state=wrong-state');
+		const codeResponse = await get(port, '/?code=intruder-code&state=wrong-state');
 
-		assert.strictEqual(response.status, 400);
-		await assert.rejects(
-			() => codePromise,
-			(err: Error) => err.message.includes('state')
-		);
+		assert.strictEqual(errorResponse.status, 400);
+		assert.strictEqual(codeResponse.status, 400);
+
+		// The real redirect still completes the flow afterwards.
+		const valid = await get(port, '/?code=real-code&state=expected-state');
+		assert.strictEqual(valid.status, 200);
+		assert.strictEqual(await codePromise, 'real-code');
 	});
 
 	test('escapes the error description in the response body', async () => {

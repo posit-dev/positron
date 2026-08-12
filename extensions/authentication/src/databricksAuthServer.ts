@@ -199,14 +199,12 @@ export class DatabricksLoopbackServer {
 			return;
 		}
 
-		// Checked before the error branch so an unauthenticated request to this
-		// predictable port cannot fail the pending sign-in.
+		// The port is predictable and needs no secret to reach, so a callback
+		// carrying the wrong state is answered but left unsettled: only the
+		// timeout or cancellation ends the wait for the real redirect.
 		if (state !== this.expectedState) {
 			res.writeHead(400, { 'Content-Type': 'text/html' });
 			res.end(errorHtml('State mismatch. Please try signing in again.'));
-			this._rejectCode(new Error(
-				'Databricks sign-in failed: state parameter does not match.'
-			));
 			return;
 		}
 
