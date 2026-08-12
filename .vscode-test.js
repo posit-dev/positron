@@ -253,6 +253,32 @@ const config = defineConfig(extensions.map(extension => {
 
 	if (!config.platform || config.platform === 'desktop') {
 		config.launchArgs = defaultLaunchArgs;
+
+		// --- Start Positron ---
+		// Completions in `settings.json` pull in the JSON schema the Copilot
+		// extension contributes at `ccsettings://root/schema.json` (see
+		// `jsonValidation` in extensions/copilot/package.json, `fileMatch:
+		// settings.json`). Fetching it activates that extension via
+		// `onFileSystem:ccsettings`, and in the CI container that activation does not
+		// complete, so every settings.json completion request hangs until mocha's 60s
+		// timeout -- six deterministic failures per run. Only `settings.json` matches
+		// that `fileMatch`, which is why the suite's other files are unaffected.
+		// Disable the extension here so the suite tests its own providers.
+		//
+		// `--disable-extensions` in the list above cannot do this: it exempts
+		// built-ins (`_isDisabledInEnv` in extensionEnablementService.ts) and every
+		// extension is a built-in when running from source, and its presence also
+		// short-circuits the per-extension list (`disableExtensions` in
+		// environmentService.ts). Hence the filter. The `=` form keeps the trailing
+		// token a value rather than a dangling flag, which would otherwise swallow
+		// the `workspaceFolder` positional vscode-test appends after these.
+		if (extension.label === 'configuration-editing') {
+			config.launchArgs = [
+				...defaultLaunchArgs.filter(a => a !== '--disable-extensions'),
+				'--disable-extension=GitHub.copilot-chat',
+			];
+		}
+		// --- End Positron ---
 		config.useInstallation = {
 			fromPath: process.env.INTEGRATION_TEST_ELECTRON_PATH || `${__dirname}/scripts/code.${process.platform === 'win32' ? 'bat' : 'sh'}`,
 		};
