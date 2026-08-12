@@ -176,6 +176,15 @@ export class AuxiliaryEditorPart {
 				return;
 			}
 
+			// --- Start Positron ---
+			// A `lockCompact` window is chromeless because it is compact, and
+			// compact mode is persisted: letting a stray editor or menu action
+			// switch it off would grow workbench chrome back on every restore.
+			if (options?.lockCompact === true) {
+				return;
+			}
+			// --- End Positron ---
+
 			compact = newCompact;
 			auxiliaryWindow.updateOptions({ compact });
 			titlebarPart?.updateOptions({ compact });
