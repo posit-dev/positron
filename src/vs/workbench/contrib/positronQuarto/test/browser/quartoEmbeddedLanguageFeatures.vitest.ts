@@ -638,11 +638,16 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		};
 	}
 
-	function symbol(name: string, line: number, children?: DocumentSymbol[]): DocumentSymbol {
+	function symbol(
+		name: string,
+		line: number,
+		children?: DocumentSymbol[],
+		extra: { detail?: string; kind?: SymbolKind } = {}
+	): DocumentSymbol {
 		return {
 			name,
-			detail: '',
-			kind: SymbolKind.Variable,
+			detail: extra.detail ?? '',
+			kind: extra.kind ?? SymbolKind.Variable,
 			tags: [],
 			range: { startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 7 },
 			selectionRange: { startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 2 },
@@ -664,10 +669,16 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		return languageFeatures.documentSymbolProvider.ordered(sourceModel)[0];
 	}
 
-	/** Names and line numbers only; the rest of a symbol is not what is mapped. */
+	/**
+	 * Both halves of what the remap owes: the ranges it rewrites, and the fields
+	 * it has to carry through untouched. `detail` is what renders beside a symbol
+	 * in the Outline, so losing it is user visible and no range check would see it.
+	 */
 	function outline(symbols: DocumentSymbol[] | null | undefined): unknown {
 		return symbols?.map(s => ({
 			name: s.name,
+			detail: s.detail,
+			kind: s.kind,
 			range: s.range,
 			selectionRange: s.selectionRange,
 			children: outline(s.children),
@@ -681,7 +692,7 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		const second = makeCell(CELL2_URI, 'f <- function() {\n  1\n}', 20);
 		registerSymbols('downstream', uri => uri === CELL_URI.toString()
 			? [symbol('x', 1)]
-			: [symbol('f', 1, [symbol('inner', 2)])]);
+			: [symbol('f', 1, [symbol('inner', 2)], { detail: 'function(x)', kind: SymbolKind.Function })]);
 		createFeatures({ cells: [cell, second] });
 
 		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
@@ -689,18 +700,25 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		expect(outline(result as DocumentSymbol[])).toEqual([
 			{
 				name: 'x',
+				detail: '',
+				kind: SymbolKind.Variable,
 				range: { startLineNumber: 4, startColumn: 1, endLineNumber: 4, endColumn: 7 },
 				selectionRange: { startLineNumber: 4, startColumn: 1, endLineNumber: 4, endColumn: 2 },
 				children: undefined,
 			},
 			{
 				name: 'f',
+				// Everything that is not a range has to survive the remap.
+				detail: 'function(x)',
+				kind: SymbolKind.Function,
 				range: { startLineNumber: 20, startColumn: 1, endLineNumber: 20, endColumn: 7 },
 				selectionRange: { startLineNumber: 20, startColumn: 1, endLineNumber: 20, endColumn: 2 },
 				// A nested symbol carries its own range, so correcting only the
 				// root would leave every child pointing at the wrong line.
 				children: [{
 					name: 'inner',
+					detail: '',
+					kind: SymbolKind.Variable,
 					range: { startLineNumber: 21, startColumn: 1, endLineNumber: 21, endColumn: 7 },
 					selectionRange: { startLineNumber: 21, startColumn: 1, endLineNumber: 21, endColumn: 2 },
 					children: undefined,
