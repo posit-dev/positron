@@ -5,6 +5,7 @@
 
 import { describe, expect, test } from 'vitest';
 import { formatBytes, renderHtml, renderMarkdown } from './render.js';
+import { REPORT_CSS } from './report-shell.js';
 import { ActivatedExtension, LabeledProcess, MemorySnapshot } from './types.js';
 
 const MB = 1024 * 1024;
@@ -246,6 +247,21 @@ describe('renderHtml', () => {
 		expect(Math.max(...widths)).toBeGreaterThan(Math.min(...widths));
 	});
 
+	test('marks the tree\'s PSS, RSS, PID and Change cells so a value can never split across lines', () => {
+		// Regression: PSS/RSS values wrapped onto two lines ("168.0" then "MB"),
+		// doubling every row's height, and the Change column was clipped off the
+		// card entirely. Both header and data cells need the nowrap treatment.
+		const current = snapshot([proc({ pssBytes: 150 * MB })]);
+		const baseline = snapshot([proc({ pssBytes: 100 * MB })]);
+		const output = renderHtml([current], baseline);
+		const treeSection = output.split('Process tree')[1].split('</table>')[0];
+		const numCells = [...treeSection.matchAll(/<t[hd] class="num-cell"/g)];
+		// One header row (PSS, RSS, PID, Change) plus one data row of the same
+		// four columns.
+		expect(numCells.length).toBeGreaterThanOrEqual(8);
+		expect(REPORT_CSS).toMatch(/\.num-cell\s*\{[^}]*white-space:\s*nowrap/);
+	});
+
 	test('groups activated extensions by activation event', () => {
 		const output = renderHtml([snapshot([proc()], 0, [
 			ext('github.copilot', 'onStartupFinished'),
@@ -291,7 +307,7 @@ describe('renderHtml', () => {
 		const tree = treeSection(output);
 		expect(tree).not.toMatch(/delta-up|delta-down|delta-flat/);
 		// The row's last cell must be empty, not a fabricated zero.
-		expect(tree).toMatch(/<td align="right"><\/td>\s*<\/tr>/);
+		expect(tree).toMatch(/<td class="num-cell" align="right"><\/td>\s*<\/tr>/);
 	});
 
 	test('calls out a process that is new since the baseline', () => {
@@ -300,6 +316,21 @@ describe('renderHtml', () => {
 		const output = renderHtml([current], baseline);
 		expect(output).toContain('duckdb-worker');
 		expect(output.toLowerCase()).toContain('new since the previous nightly');
+	});
+
+	test('truncates a long process name in the new-since card but keeps the full name in a title', () => {
+		// Regression: this card rendered the full 465-char supervisor-wrapper
+		// command line untruncated, wrapping over six lines and dominating the
+		// card -- the truncation added to the tree was never applied here.
+		const longName = 'bash /__w/_temp/positron-build/positron-linux/resources/app/extensions/positron-supervisor/resources/supervisor-wrapper.sh /tmp/kallichore-1234567890.log --some-flag --another-flag --and-another-one-for-good-measure --keep-going';
+		const current = snapshot([proc(), proc({ pid: 200, processName: longName, processRole: 'unlabeled', pssBytes: 100 * MB })]);
+		const baseline = snapshot([proc()]);
+		const output = renderHtml([current], baseline);
+		const card = output.split('New since the previous nightly')[1].split('</table>')[0];
+		expect(card).toContain(`title="${longName}"`);
+		const cellText = card.match(/<td class="tree-name"[^>]*>([^<]*)<\/td>/)![1];
+		expect(cellText.length).toBeLessThan(longName.length);
+		expect(cellText.length).toBeLessThan(80);
 	});
 
 	test('surfaces a process that appears in a later launch only', () => {

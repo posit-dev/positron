@@ -289,11 +289,11 @@ function processTreeRows(snapshot: MemorySnapshot, maxBytes: number, baseline: M
 		return `<tr>
 			<td class="tree-name" style="padding-left:${8 + proc.depth * 20}px" title="${fullName}">${displayName}</td>
 			<td><code>${escapeHtml(proc.processRole)}</code></td>
-			<td align="right">${formatBytes(proc.pssBytes)}</td>
+			<td class="num-cell" align="right">${formatBytes(proc.pssBytes)}</td>
 			<td>${magnitudeBar(proc.pssBytes, maxBytes)}</td>
-			<td align="right">${formatBytes(proc.rssBytes)}</td>
-			<td align="right">${proc.pid}</td>
-			<td align="right">${change}</td>
+			<td class="num-cell" align="right">${formatBytes(proc.rssBytes)}</td>
+			<td class="num-cell" align="right">${proc.pid}</td>
+			<td class="num-cell" align="right">${change}</td>
 		</tr>`;
 	}).join('\n');
 }
@@ -416,14 +416,14 @@ function newProcessesHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapshot
 		return '';
 	}
 	const rows = appeared.map(proc => `<tr>
-			<td>${escapeHtml(proc.processName)}</td>
+			<td class="tree-name" title="${escapeHtml(proc.processName)}">${escapeHtml(shortName(proc.processName))}</td>
 			<td><code>${escapeHtml(proc.processRole)}</code></td>
-			<td align="right">${formatBytes(proc.pssBytes)}</td>
+			<td class="num-cell" align="right">${formatBytes(proc.pssBytes)}</td>
 		</tr>`).join('\n');
 	return `<div class="card">
 		<h2>New since the previous nightly (${appeared.length})</h2>
 		<table>
-			<tr><th>Process</th><th>Role</th><th align="right">PSS</th></tr>
+			<tr><th>Process</th><th>Role</th><th class="num-cell" align="right">PSS</th></tr>
 			${rows}
 		</table>
 	</div>`;
@@ -442,7 +442,10 @@ function unlabeledNoteHtml(snapshots: MemorySnapshot[], roleTotals: Map<ProcessR
 		return '';
 	}
 	const bytes = roleTotals.get('unlabeled') ?? 0;
-	const names = unlabeled.map(p => `<code>${escapeHtml(p.processName)}</code>`).join(', ');
+	// Truncated the same way as the tree: an unlabeled process is just as
+	// likely to be a full command line, and a wall of path text would dominate
+	// this note the same way it dominated the tree and the new-since card.
+	const names = unlabeled.map(p => `<code title="${escapeHtml(p.processName)}">${escapeHtml(shortName(p.processName))}</code>`).join(', ');
 	return `<p class="muted">${unlabeled.length} unlabeled process name(s) across ${snapshots.length} launch(es), ${formatBytes(bytes)} in the median launch: ${names}. Add them to the role map in <code>test/e2e/utils/memory/label.ts</code>.</p>`;
 }
 
@@ -499,7 +502,7 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 	<div class="card">
 		<h2>Process tree</h2>
 		<table>
-			<tr><th>Process</th><th>Role</th><th align="right">PSS</th><th></th><th align="right">RSS</th><th align="right">PID</th><th align="right">Change</th></tr>
+			<tr><th>Process</th><th>Role</th><th class="num-cell" align="right">PSS</th><th></th><th class="num-cell" align="right">RSS</th><th class="num-cell" align="right">PID</th><th class="num-cell" align="right">Change</th></tr>
 			${treeRows}
 		</table>
 	</div>

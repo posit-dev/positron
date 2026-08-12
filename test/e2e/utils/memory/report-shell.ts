@@ -73,7 +73,8 @@ export const REPORT_CSS = `
 		td, th { padding: 4px 8px; text-align: left; }
 		th { color: #6b7280; font-weight: 500; font-size: 0.85rem; border-bottom: 1px solid #e5e7eb; }
 		tr:not(:last-child) td { border-bottom: 1px solid #f3f4f6; }
-		.tree-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; display: inline-block; vertical-align: middle; }
+		.tree-name { max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.num-cell { white-space: nowrap; }
 		.bar-track { background: #e5e7eb; border-radius: 4px; height: 8px; width: 100px; }
 		.bar-fill { background: #86b6ef; border-radius: 0 4px 4px 0; height: 8px; }
 		.delta-up { color: #d03b3b; }
