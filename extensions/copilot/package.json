@@ -6202,6 +6202,14 @@
         {
           "command": "github.copilot.chat.tools.memory.clearMemories",
           "when": "chatAiFeaturesEnabled"
+        },
+        {
+          "command": "github.copilot.sessionSync.deleteSessions",
+          "when": "chatAiFeaturesEnabled"
+        },
+        {
+          "command": "github.copilot.chronicle.reindex",
+          "when": "chatAiFeaturesEnabled"
         }
       ],
       "view/title": [
