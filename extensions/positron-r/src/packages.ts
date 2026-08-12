@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import { LOGGER } from './extension';
 import { RSession } from './session';
+import { discoverPpmApi, fetchPpmVulnerabilities, resolveRRepoUrl } from './ppmVulnerabilities';
 
 /**
  * R Package Manager
@@ -49,32 +50,79 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Ask R which packages are outdated and return `latestVersion` for each.
+	 * Ask R which packages are outdated and return `latestVersion` for each,
+	 * plus known security advisories when the configured repository is a
+	 * Posit Package Manager instance.
+	 *
 	 * Ark's `pkg_outdated` (backed by `utils::old.packages()`) queries the
 	 * user's configured repositories, so its `ReposVer` reflects what an
 	 * upgrade would actually fetch. Version comparison happens in R using
 	 * `numeric_version` semantics, since R package versions don't play
 	 * nicely with semver -- see ark PR #625.
-	 * @param packageNames Names of installed R packages to look up
+	 * @param packages Installed R packages (name and installed version) to look up
 	 * @param token Optional cancellation token
 	 */
 	async getPackageMetadata(
-		packageNames: string[],
+		packages: positron.PackageSpec[],
 		token?: vscode.CancellationToken,
 	): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-		const outdated = await this._getOutdatedVersions(token);
+		const [outdated, vulnerabilities] = await Promise.all([
+			this._getOutdatedVersions(token),
+			this._getVulnerabilities(packages, token),
+		]);
 
 		const metadata = new Map<string, Partial<positron.LanguageRuntimePackage>>();
-		for (const name of packageNames) {
-			const key = name.toLowerCase();
-			const latestFromArk = outdated.get(name);
+		for (const pkg of packages) {
+			const key = pkg.name.toLowerCase();
+			const latestFromArk = outdated.get(pkg.name);
+			// A package absent from the vulnerability map is *unknown* to the
+			// repository at its installed version (or no PPM is configured);
+			// leave the field undefined rather than claiming it's clean.
+			const packageVulnerabilities = vulnerabilities?.get(key);
 			metadata.set(key, {
-				outdated: outdated.has(name),
+				outdated: outdated.has(pkg.name),
 				...(latestFromArk ? { latestVersion: latestFromArk } : {}),
+				...(packageVulnerabilities ? { vulnerabilities: packageVulnerabilities } : {}),
 			});
 		}
 
 		return metadata;
+	}
+
+	/**
+	 * Fetch known security advisories for the installed packages from the
+	 * session's configured PPM repository. Resolves undefined (no data for
+	 * any package) when the feature is disabled, the configured repository
+	 * isn't a PPM instance, or the lookup fails -- vulnerability data is
+	 * optional and must never break the metadata fetch.
+	 */
+	private async _getVulnerabilities(
+		packages: positron.PackageSpec[],
+		token?: vscode.CancellationToken,
+	): Promise<Map<string, positron.PackageVulnerability[]> | undefined> {
+		const enabled = vscode.workspace.getConfiguration('packages')
+			.get<boolean>('vulnerabilities.enabled');
+		if (enabled === false) {
+			return undefined;
+		}
+
+		try {
+			const repoUrl = resolveRRepoUrl();
+			if (!repoUrl) {
+				return undefined;
+			}
+			const ppm = await discoverPpmApi(repoUrl);
+			if (!ppm) {
+				return undefined;
+			}
+			return await fetchPpmVulnerabilities(ppm, packages, token);
+		} catch (err) {
+			if (err instanceof vscode.CancellationError) {
+				throw err;
+			}
+			LOGGER.warn(`[PPM] Failed to fetch package vulnerabilities: ${err}`);
+			return undefined;
+		}
 	}
 
 	/**

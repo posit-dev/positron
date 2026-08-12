@@ -161,6 +161,40 @@
 	font-size: 0.9em;
 }
 
+.packages-list-item-vulnerable {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	margin-left: 0.5em;
+	font-size: 0.9em;
+}
+
+.packages-list-item-vulnerable .codicon-shield {
+	font-size: 12px;
+}
+
+.packages-list-item-vulnerable-score {
+	font-variant-numeric: tabular-nums;
+}
+
+/* NVD severity bands. Critical and High share the error color; the shield
+ * icon plus the numeric score carries the distinction. Unscored advisories
+ * (common for CRAN) still warrant attention, so they use the warning color. */
+.packages-list-item-vulnerable.severity-critical,
+.packages-list-item-vulnerable.severity-high {
+	color: var(--vscode-charts-red);
+}
+
+.packages-list-item-vulnerable.severity-medium,
+.packages-list-item-vulnerable.severity-unscored {
+	color: var(--vscode-charts-orange);
+}
+
+.packages-list-item-vulnerable.severity-low {
+	color: var(--vscode-descriptionForeground);
+}
+
 .packages-list-item-description-row {
 	display: flex;
 	flex-direction: row;

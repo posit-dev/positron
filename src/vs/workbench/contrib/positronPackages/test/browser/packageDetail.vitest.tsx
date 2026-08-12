@@ -236,6 +236,78 @@ describe('PackageDetail with resolved detail fields', () => {
 	});
 });
 
+describe('PackageDetail security section', () => {
+	function renderWithVulnerabilities(vulnerabilities: ILanguageRuntimePackage['vulnerabilities']) {
+		const instance = makeInstance([dplyr({ vulnerabilities })]);
+		const packagesService = stubInterface<IPositronPackagesService>({
+			getInstances: () => [instance],
+			activePackagesInstance: instance,
+			onDidChangeActivePackagesInstance: new Emitter<IPositronPackagesInstance | undefined>().event,
+			onDidStopPackagesInstance: new Emitter<IPositronPackagesInstance>().event,
+		});
+		rtl.render(
+			<PackageDetail languageId='r' packageName='dplyr' packagesService={packagesService} sessionId={SESSION_ID} />
+		);
+	}
+
+	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand: vi.fn() }).build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('lists advisories with severity, linked id, summary, and fix version', async () => {
+		renderWithVulnerabilities([{
+			id: 'CVE-2018-6594',
+			osvId: 'GHSA-6528-wvf6-f6qg',
+			score: 8.7,
+			scoreVersion: 'v4',
+			summary: 'Pycrypto generates weak key parameters',
+			fixedIn: '2.7.0',
+			published: '2018-02-03T15:29:00Z',
+			url: 'https://nvd.nist.gov/vuln/detail/CVE-2018-6594',
+		}]);
+
+		expect(await screen.findByText('Security')).toBeInTheDocument();
+		// Severity chip: band label + score, tagged with the CVSS revision.
+		expect(screen.getByText('High 8.7')).toBeInTheDocument();
+		expect(screen.getByText('CVSS v4')).toBeInTheDocument();
+		// The advisory id is a button that opens the NVD page.
+		expect(screen.getByRole('button', { name: 'Open advisory CVE-2018-6594' })).toBeInTheDocument();
+		expect(screen.getByText('Pycrypto generates weak key parameters')).toBeInTheDocument();
+		expect(screen.getByText('Fixed in 2.7.0')).toBeInTheDocument();
+		expect(screen.getByText('Published 2018-02-03')).toBeInTheDocument();
+	});
+
+	it('shows an unscored advisory without a score or CVSS tag', async () => {
+		renderWithVulnerabilities([{
+			id: 'RSEC-2023-7',
+			osvId: 'RSEC-2023-7',
+			summary: 'Denial of Service (DoS) vulnerabilities',
+			fixedIn: '1.8',
+		}]);
+
+		expect(await screen.findByText('Security')).toBeInTheDocument();
+		// No score: the chip reads as severity-unknown, and no CVSS tag renders.
+		expect(screen.getByText('Severity unknown')).toBeInTheDocument();
+		expect(screen.queryByText(/CVSS/)).not.toBeInTheDocument();
+	});
+
+	it('affirms "no known vulnerabilities" for an empty advisory list', async () => {
+		renderWithVulnerabilities([]);
+
+		expect(await screen.findByText('Security')).toBeInTheDocument();
+		expect(screen.getByText('No known vulnerabilities have been reported for this version.')).toBeInTheDocument();
+	});
+
+	it('renders no Security section when no vulnerability data is available', async () => {
+		// undefined = unknown (no PPM, or package/version not in the repo):
+		// neither a warning nor an unearned all-clear.
+		renderWithVulnerabilities(undefined);
+
+		// Wait for the Overview (Metadata section) to render, then check.
+		expect(await screen.findByText('Metadata')).toBeInTheDocument();
+		expect(screen.queryByText('Security')).not.toBeInTheDocument();
+	});
+});
+
 describe('PackageDetail while detail fetch is pending', () => {
 	const instance = makeInstance([dplyr()]);
 	(instance.getPackageDetail as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => { /* never resolves */ }));

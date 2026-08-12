@@ -138,7 +138,10 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 
 		// The forced Stage 2 refetches every package (not just uncached ones, as
 		// a non-forced refresh of a fresh entry would) and clears the stale flag.
-		expect(getPackageMetadata).toHaveBeenCalledWith(['numpy', 'pandas'], expect.anything());
+		expect(getPackageMetadata).toHaveBeenCalledWith([
+			{ name: 'numpy', version: '1.26.0' },
+			{ name: 'pandas', version: '2.0.0' },
+		], expect.anything());
 		expect(stage2.find(p => p.name === 'numpy')?.outdated).toBe(false);
 	});
 
@@ -153,7 +156,10 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		expect(stage1.find(p => p.name === 'numpy')?.latestVersion).toBe('2.0.0');
 		expect(stage2.find(p => p.name === 'numpy')?.latestVersion).toBe('2.1.0');
 		// Stale entry forces a refetch for every installed package, not just uncached ones.
-		expect(getPackageMetadata).toHaveBeenCalledWith(['numpy', 'pandas'], expect.anything());
+		expect(getPackageMetadata).toHaveBeenCalledWith([
+			{ name: 'numpy', version: '1.26.0' },
+			{ name: 'pandas', version: '2.0.0' },
+		], expect.anything());
 	});
 
 	it('ignores a cached entry whose installed version no longer matches, and refetches just that package', async () => {
@@ -170,7 +176,9 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		// The stale-version numpy entry is dropped, not shown.
 		expect(stage1.find(p => p.name === 'numpy')?.latestVersion).toBeUndefined();
 		// Only numpy lacks a fresh hit, so only numpy is refetched despite the entry being fresh.
-		expect(getPackageMetadata).toHaveBeenCalledWith(['numpy'], expect.anything());
+		expect(getPackageMetadata).toHaveBeenCalledWith([
+			{ name: 'numpy', version: '1.26.0' },
+		], expect.anything());
 	});
 
 	it('runs a normal Stage 2 on a cold start with no cached entry', async () => {
@@ -194,6 +202,34 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 			numpy: { version: '1.26.0', outdated: true, latestVersion: '2.1.0' },
 			pandas: { version: '2.0.0', outdated: true, latestVersion: '2.2.0' },
 		});
+	});
+
+	it('merges, exposes, and persists vulnerabilities from Stage 2 metadata', async () => {
+		const advisory = {
+			id: 'CVE-2018-6594',
+			osvId: 'GHSA-6528-wvf6-f6qg',
+			score: 8.7,
+			scoreVersion: 'v4' as const,
+		};
+		getPackageMetadata.mockResolvedValue(new Map<string, Partial<ILanguageRuntimePackage>>([
+			// numpy is vulnerable; pandas is affirmatively clean ([]); a package
+			// with no vulnerabilities key at all stays undefined (unknown).
+			['numpy', { outdated: false, vulnerabilities: [advisory] }],
+			['pandas', { outdated: false, vulnerabilities: [] }],
+		]));
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [stage1, stage2] = await fires;
+
+		// Stage 1 has no advisory data yet (cold cache).
+		expect(stage1.find(p => p.name === 'numpy')?.vulnerabilities).toBeUndefined();
+		// Stage 2 merges the advisories into the exposed packages.
+		expect(stage2.find(p => p.name === 'numpy')?.vulnerabilities).toEqual([advisory]);
+		expect(stage2.find(p => p.name === 'pandas')?.vulnerabilities).toEqual([]);
+		// The advisories persist with the version-anchored cache entry.
+		expect(cache.get(RUNTIME_ID)?.packages.numpy?.vulnerabilities).toEqual([advisory]);
 	});
 
 	it('leaves the on-disk entry intact when Stage 2 returns an empty map', async () => {

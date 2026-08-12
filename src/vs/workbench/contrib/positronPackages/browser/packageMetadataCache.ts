@@ -6,6 +6,7 @@
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { IPackageVulnerability } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
  * Setting key: when `false`, all reads return empty and all writes no-op,
@@ -28,8 +29,9 @@ export const PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT = 24;
  * On-disk schema version. Bumped when {@link ICachedPackageMetadata} or the
  * surrounding shape changes; a mismatch on load discards the persisted blob
  * and re-seeds it fresh.
+ * v2: added `vulnerabilities` (security advisories from PPM).
  */
-export const PACKAGE_METADATA_CACHE_SCHEMA_VERSION = 1;
+export const PACKAGE_METADATA_CACHE_SCHEMA_VERSION = 2;
 
 /** Storage key for the persisted cache blob. */
 export const PACKAGE_METADATA_CACHE_STORAGE_KEY = 'positron.packages.metadataCache';
@@ -53,6 +55,15 @@ export interface ICachedPackageMetadata {
 
 	/** Latest available version from the environment's configured repository. */
 	latestVersion?: string;
+
+	/**
+	 * Security advisories for the installed version from the environment's
+	 * configured PPM repository. `undefined` when no vulnerability data was
+	 * available at fetch time (no PPM, or package/version not in the repo);
+	 * an empty array is an affirmative "no known advisories". Version-specific
+	 * like the rest of the entry, so the version-match guard applies.
+	 */
+	vulnerabilities?: IPackageVulnerability[];
 }
 
 /**

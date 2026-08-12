@@ -31,6 +31,7 @@ import { ILanguageRuntimePackage, IRuntimeSessionService } from '../../../servic
 import { positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
 import { PACKAGE_METADATA_CACHE_ENABLED_SETTING, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING } from './packageMetadataCache.js';
+import { PACKAGES_VULNERABILITIES_ENABLED_SETTING } from './packageVulnerabilities.js';
 import { PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
 import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { PositronPackagesService } from './positronPackagesService.js';
@@ -121,6 +122,13 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			default: true,
 			scope: ConfigurationScope.RESOURCE,
 			markdownDescription: nls.localize('positron.packages.r.renvAutoSnapshot', "When using renv, automatically run `renv::snapshot()` in the Console after installing, updating, or removing packages to keep `renv.lock` in sync. The snapshot runs independently, so its success or failure does not affect the package operation."),
+			tags: ['preview'],
+		},
+		[PACKAGES_VULNERABILITIES_ENABLED_SETTING]: {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.APPLICATION,
+			description: nls.localize('positron.packages.vulnerabilities.enabled', "Show known security vulnerabilities (CVEs) for installed packages. Only available when the environment's package repository is a Posit Package Manager instance; the lookup sends the names and versions of installed packages to that repository."),
 			tags: ['preview'],
 		},
 		[PACKAGE_METADATA_CACHE_ENABLED_SETTING]: {

@@ -214,3 +214,74 @@
 /* Header placeholders read as a name / one-line summary, so size them wider. */
 .package-detail-author .package-detail-skeleton { width: 140px; }
 .package-detail-description .package-detail-skeleton { width: 240px; }
+
+/* Security section. */
+.package-detail-security-clean {
+	color: var(--vscode-descriptionForeground);
+}
+
+.package-detail-vulnerabilities {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.package-detail-vulnerability-header {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+}
+
+/* Severity chip: band-colored text at label size, matching the section-title
+ * tier so the page keeps a single small-caps label voice. */
+.package-detail-vulnerability-severity {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	white-space: nowrap;
+}
+
+.package-detail-vulnerability-severity.severity-critical,
+.package-detail-vulnerability-severity.severity-high {
+	color: var(--vscode-charts-red);
+}
+
+.package-detail-vulnerability-severity.severity-medium,
+.package-detail-vulnerability-severity.severity-unscored {
+	color: var(--vscode-charts-orange);
+}
+
+.package-detail-vulnerability-severity.severity-low {
+	color: var(--vscode-descriptionForeground);
+}
+
+.package-detail-vulnerability-id {
+	font-weight: 600;
+}
+
+.package-detail-vulnerability-link.positron-button {
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+}
+
+.package-detail-vulnerability-link.positron-button:hover {
+	text-decoration: underline;
+}
+
+.package-detail-vulnerability-cvss {
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.9em;
+}
+
+.package-detail-vulnerability-summary {
+	margin-top: 4px;
+	word-break: break-word;
+}
+
+.package-detail-vulnerability-meta {
+	margin-top: 4px;
+	display: flex;
+	gap: 16px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.9em;
+}

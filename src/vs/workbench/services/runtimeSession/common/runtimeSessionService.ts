@@ -429,6 +429,56 @@ export interface ILanguageRuntimePackage {
 
 	/** Source repository label or URL (e.g. "CRAN", or a Project-URL). */
 	sourceRepository?: string;
+
+	/**
+	 * Known security advisories affecting the *installed* version, from the
+	 * environment's configured Posit Package Manager repository. Three states:
+	 * `undefined` means no vulnerability data is available (no PPM configured,
+	 * or the package/version isn't in the repository); an empty array means the
+	 * repository knows the version and reports no advisories; a non-empty array
+	 * lists the advisories, already deduplicated across aliased records
+	 * (PYSEC/GHSA/CVE) by the language runtime.
+	 */
+	vulnerabilities?: IPackageVulnerability[];
+}
+
+/**
+ * A single security advisory affecting an installed package version.
+ * Normalized by the language runtime from OSV-format records served by
+ * Posit Package Manager.
+ */
+export interface IPackageVulnerability {
+	/** Preferred display id: the CVE when one exists, otherwise the OSV id. */
+	readonly id: string;
+
+	/** OSV record id (PYSEC-*, GHSA-*, RSEC-*) the advisory came from. */
+	readonly osvId: string;
+
+	/**
+	 * CVSS base score (0-10). Absent when no aliased record carries a score,
+	 * which is the common case for CRAN's RSEC advisories -- "vulnerable,
+	 * score unknown" is a first-class state, not an error.
+	 */
+	readonly score?: number;
+
+	/** Which CVSS revision `score` came from, so the UI can label it. */
+	readonly scoreVersion?: 'v3' | 'v4';
+
+	/** One-line advisory summary. */
+	readonly summary?: string;
+
+	/**
+	 * Display-ready fixed version(s), e.g. "1.26.5" or "1.26.5, 2.0.2" when the
+	 * advisory has fixes on multiple release branches. Not machine-comparable;
+	 * version semantics stay with the language runtimes.
+	 */
+	readonly fixedIn?: string;
+
+	/** ISO 8601 publication date of the advisory. */
+	readonly published?: string;
+
+	/** Advisory URL (NVD page for CVEs, osv.dev page otherwise). */
+	readonly url?: string;
 }
 
 /**
@@ -534,15 +584,17 @@ export interface ILanguageRuntimePackageManager {
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 
 	/**
-	 * Fetch additional metadata for packages from external sources (e.g., P3M).
+	 * Fetch additional metadata for packages from external sources (e.g., PPM).
 	 * This is called separately from getPackages() to allow the UI to display
 	 * the basic package list quickly while metadata loads in the background.
-	 * @param packageNames Array of package names to fetch metadata for
+	 * Specs carry the installed version so version-specific lookups (security
+	 * advisories) query the right release, not the latest one.
+	 * @param packages Installed packages (name and installed version) to fetch metadata for
 	 * @param token Optional cancellation token
 	 * @returns Map of package name (lowercase) to partial package metadata, or undefined if not supported
 	 */
 	getPackageMetadata?(
-		packageNames: string[],
+		packages: IPackageSpec[],
 		token?: CancellationToken,
 	): Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined>;
 

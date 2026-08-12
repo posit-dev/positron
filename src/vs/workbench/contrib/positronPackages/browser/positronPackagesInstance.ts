@@ -154,7 +154,12 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			// a different library context or a since-changed install, so we
 			// drop it rather than risk a misleading indicator.
 			if (metadata && metadata.version === pkg.version) {
-				return { ...pkg, outdated: metadata.outdated, latestVersion: metadata.latestVersion };
+				return {
+					...pkg,
+					outdated: metadata.outdated,
+					latestVersion: metadata.latestVersion,
+					vulnerabilities: metadata.vulnerabilities,
+				};
 			}
 			return pkg;
 		});
@@ -241,7 +246,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	 * This runs asynchronously after the initial package list is returned.
 	 */
 	private async _fetchAndMergeMetadata(
-		packageManager: { getPackageMetadata?: (names: string[], token?: CancellationToken) => Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined> },
+		packageManager: { getPackageMetadata?: (packages: IPackageSpec[], token?: CancellationToken) => Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined> },
 		externalToken: CancellationToken,
 		fetchAll: boolean,
 	): Promise<void> {
@@ -263,8 +268,10 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		const versionByName = new Map(this._packages.map((pkg) => [pkg.name.toLowerCase(), pkg.version]));
 
 		const fetch = createCancelablePromise<void>(async (token) => {
-			const packageNames = packagesToFetch.map((pkg) => pkg.name);
-			const metadataMap = await packageManager.getPackageMetadata!(packageNames, token);
+			// Send the installed version with each name so version-specific
+			// lookups (security advisories) answer for what's installed.
+			const packageSpecs = packagesToFetch.map((pkg): IPackageSpec => ({ name: pkg.name, version: pkg.version }));
+			const metadataMap = await packageManager.getPackageMetadata!(packageSpecs, token);
 
 			// Re-check cancellation before writing so a cancelled fetch
 			// can't pollute the cache after a caller has cleared it.
@@ -283,6 +290,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 					version,
 					outdated: metadata.outdated,
 					latestVersion: metadata.latestVersion,
+					vulnerabilities: metadata.vulnerabilities,
 				});
 			}
 

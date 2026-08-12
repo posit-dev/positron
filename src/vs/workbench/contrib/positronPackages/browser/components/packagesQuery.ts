@@ -18,6 +18,7 @@ export enum PackagesSortOrder {
 export enum PackagesFilter {
 	Outdated = 'outdated',
 	Attached = 'attached',
+	Vulnerable = 'vulnerable',
 }
 
 // Token value <-> PackagesSortOrder mapping used to (de)serialize the
@@ -33,15 +34,18 @@ const SORT_ORDER_TO_TOKEN: Record<PackagesSortOrder, string> = {
 	[PackagesSortOrder.NameDesc]: 'name-desc',
 };
 
-// Bare-token grammar for category filters: `@outdated`, `@attached`.
+// Bare-token grammar for category filters: `@outdated`, `@attached`,
+// `@vulnerable`.
 const FILTER_TOKEN_TO_FILTER: Record<string, PackagesFilter> = {
 	'outdated': PackagesFilter.Outdated,
 	'attached': PackagesFilter.Attached,
+	'vulnerable': PackagesFilter.Vulnerable,
 };
 
 const FILTER_TO_TOKEN: Record<PackagesFilter, string> = {
 	[PackagesFilter.Outdated]: 'outdated',
 	[PackagesFilter.Attached]: 'attached',
+	[PackagesFilter.Vulnerable]: 'vulnerable',
 };
 
 /** Matches `@key` or `@key:value` tokens in the filter input. */

@@ -10,17 +10,17 @@ import * as vscode from 'vscode';
  * Interface for emitting messages to the Positron console
  */
 export interface MessageEmitter {
-    fire(message: positron.LanguageRuntimeMessage): void;
+	fire(message: positron.LanguageRuntimeMessage): void;
 }
 
 /**
  * Interface for a session that supports RPC method calls.
  */
 export interface PackageSession {
-    /** Session metadata containing the session ID */
-    metadata: { sessionId: string };
-    /** Call an RPC method on the session */
-    callMethod(method: string, ...args: unknown[]): Thenable<unknown>;
+	/** Session metadata containing the session ID */
+	metadata: { sessionId: string };
+	/** Call an RPC method on the session */
+	callMethod(method: string, ...args: unknown[]): Thenable<unknown>;
 }
 
 /**
@@ -29,77 +29,79 @@ export interface PackageSession {
  * Provides package management functionality for Python sessions.
  */
 export interface IPackageManager {
-    /**
-     * Get list of installed packages.
-     * @param token Optional cancellation token
-     * @returns Array of installed packages
-     */
-    getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]>;
+	/**
+	 * Get list of installed packages.
+	 * @param token Optional cancellation token
+	 * @returns Array of installed packages
+	 */
+	getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]>;
 
-    /**
-     * Install one or more packages.
-     * @param packages Array of package install requests with name and optional version
-     * @param token Optional cancellation token
-     */
-    installPackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void>;
+	/**
+	 * Install one or more packages.
+	 * @param packages Array of package install requests with name and optional version
+	 * @param token Optional cancellation token
+	 */
+	installPackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void>;
 
-    /**
-     * Uninstall one or more packages.
-     * @param packages Array of package names to uninstall
-     * @param token Optional cancellation token
-     */
-    uninstallPackages(packages: string[], token?: vscode.CancellationToken): Promise<void>;
+	/**
+	 * Uninstall one or more packages.
+	 * @param packages Array of package names to uninstall
+	 * @param token Optional cancellation token
+	 */
+	uninstallPackages(packages: string[], token?: vscode.CancellationToken): Promise<void>;
 
-    /**
-     * Update specific packages to latest versions.
-     * @param packages Array of package install requests with name and optional version
-     * @param token Optional cancellation token
-     */
-    updatePackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void>;
+	/**
+	 * Update specific packages to latest versions.
+	 * @param packages Array of package install requests with name and optional version
+	 * @param token Optional cancellation token
+	 */
+	updatePackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void>;
 
-    /**
-     * Update all installed packages to their latest versions.
-     * @param token Optional cancellation token
-     */
-    updateAllPackages(token?: vscode.CancellationToken): Promise<void>;
+	/**
+	 * Update all installed packages to their latest versions.
+	 * @param token Optional cancellation token
+	 */
+	updateAllPackages(token?: vscode.CancellationToken): Promise<void>;
 
-    /**
-     * Search for packages matching a query.
-     * @param query Search query string
-     * @param token Optional cancellation token
-     * @returns Array of matching packages
-     */
-    searchPackages(query: string, token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]>;
+	/**
+	 * Search for packages matching a query.
+	 * @param query Search query string
+	 * @param token Optional cancellation token
+	 * @returns Array of matching packages
+	 */
+	searchPackages(query: string, token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]>;
 
-    /**
-     * Search for available versions of a specific package.
-     * @param name Package name
-     * @param token Optional cancellation token
-     * @returns Array of version strings
-     */
-    searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]>;
+	/**
+	 * Search for available versions of a specific package.
+	 * @param name Package name
+	 * @param token Optional cancellation token
+	 * @returns Array of version strings
+	 */
+	searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]>;
 
-    /**
-     * Fetch additional metadata for packages from external sources (e.g., P3M).
-     * This is called separately from getPackages() to allow the UI to display
-     * the basic package list quickly while metadata loads in the background.
-     * @param packageNames Array of package names to fetch metadata for
-     * @param token Optional cancellation token
-     * @returns Map of package name (lowercase) to partial package metadata
-     */
-    getPackageMetadata?(
-        packageNames: string[],
-        token?: vscode.CancellationToken,
-    ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>>;
+	/**
+	 * Fetch additional metadata for packages from external sources (e.g., PPM).
+	 * This is called separately from getPackages() to allow the UI to display
+	 * the basic package list quickly while metadata loads in the background.
+	 * Specs carry the installed version so version-specific lookups (security
+	 * advisories) query the right release, not the latest one.
+	 * @param packages Installed packages (name and installed version) to fetch metadata for
+	 * @param token Optional cancellation token
+	 * @returns Map of package name (lowercase) to partial package metadata
+	 */
+	getPackageMetadata?(
+		packages: positron.PackageSpec[],
+		token?: vscode.CancellationToken,
+	): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>>;
 
-    /**
-     * Fetch detailed metadata for a single package (title, author, dependency
-     * count, source repository), called when the package detail editor opens.
-     * @param name Package name
-     * @param token Optional cancellation token
-     */
-    getPackageDetail?(
-        name: string,
-        token?: vscode.CancellationToken,
-    ): Promise<Partial<positron.LanguageRuntimePackage> | undefined>;
+	/**
+	 * Fetch detailed metadata for a single package (title, author, dependency
+	 * count, source repository), called when the package detail editor opens.
+	 * @param name Package name
+	 * @param token Optional cancellation token
+	 */
+	getPackageDetail?(
+		name: string,
+		token?: vscode.CancellationToken,
+	): Promise<Partial<positron.LanguageRuntimePackage> | undefined>;
 }

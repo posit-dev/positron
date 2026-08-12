@@ -163,10 +163,10 @@ class ExtHostLanguageRuntimePackageManagerAdapter implements ILanguageRuntimePac
 	}
 
 	async getPackageMetadata(
-		packageNames: string[],
+		packages: IPackageSpec[],
 		token: CancellationToken,
 	): Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined> {
-		const result = await this._proxy.$getPackageMetadata(this._handle, packageNames, token);
+		const result = await this._proxy.$getPackageMetadata(this._handle, packages, token);
 		if (!result) {
 			return undefined;
 		}

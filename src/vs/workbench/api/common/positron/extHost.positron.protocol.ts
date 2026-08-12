@@ -170,7 +170,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$updateAllPackages(handle: number, token: CancellationToken): Promise<void>;
 	$searchPackages(handle: number, query: string, token: CancellationToken): Promise<LanguageRuntimePackage[]>;
 	$searchPackageVersions(handle: number, name: string, token: CancellationToken): Promise<string[]>;
-	$getPackageMetadata(handle: number, packageNames: string[], token: CancellationToken): Promise<Record<string, Partial<LanguageRuntimePackage>> | undefined>;
+	$getPackageMetadata(handle: number, packages: PackageSpec[], token: CancellationToken): Promise<Record<string, Partial<LanguageRuntimePackage>> | undefined>;
 	$listMissingPackages(handle: number, target: RuntimeMissingPackagesTarget, token: CancellationToken): Promise<RuntimeMissingPackage[]>;
 	$getMissingPackageProbe(handle: number, error: RuntimeConsoleError, token: CancellationToken): Promise<string | undefined>;
 	$getPackageDetail(handle: number, name: string, token: CancellationToken): Promise<Partial<LanguageRuntimePackage> | undefined>;

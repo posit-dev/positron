@@ -13,13 +13,16 @@ import { useEffect, useRef, useState } from 'react';
 import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, IPackageVulnerability } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from '../interfaces/positronPackagesService.js';
 import { IPositronPackagesInstance } from '../positronPackagesInstance.js';
 import { derivePackageViewState, PackageAction } from '../packageViewState.js';
 import { showPackageHelp } from '../packageHelp.js';
+import { PACKAGES_VULNERABILITIES_ENABLED_SETTING, severityBand, severityBandLabel } from '../packageVulnerabilities.js';
 
 export interface PackageDetailProps {
 	readonly languageId: string;
@@ -79,6 +82,60 @@ const MetaRow = (props: { label: string; value: string | number | undefined }) =
 			<div className='package-detail-meta-label'>{props.label}</div>
 			<div className='package-detail-meta-value'>{props.value}</div>
 		</>
+	);
+};
+
+/**
+ * A single advisory in the Security section: severity + score, the advisory
+ * id (linked to its NVD/OSV page when a URL is available), summary, and the
+ * fixed-in / published metadata line.
+ */
+const VulnerabilityRow = (props: { vulnerability: IPackageVulnerability }) => {
+	const services = usePositronReactServicesContext();
+	const vulnerability = props.vulnerability;
+	const band = severityBand(vulnerability.score);
+	const severityText = vulnerability.score !== undefined
+		? localize('positron.packages.detail.severityScored', "{0} {1}", severityBandLabel(band), vulnerability.score.toFixed(1))
+		: severityBandLabel(band);
+	return (
+		<div className='package-detail-vulnerability'>
+			<div className='package-detail-vulnerability-header'>
+				<span className={positronClassNames('package-detail-vulnerability-severity', `severity-${band}`)}>
+					{severityText}
+				</span>
+				{vulnerability.url ? (
+					<Button
+						ariaLabel={localize('positron.packages.detail.openAdvisory', "Open advisory {0}", vulnerability.id)}
+						className='package-detail-vulnerability-id package-detail-vulnerability-link'
+						onPressed={() => { void services.openerService.open(URI.parse(vulnerability.url!), { openExternal: true }); }}
+					>
+						{vulnerability.id}
+					</Button>
+				) : (
+					<span className='package-detail-vulnerability-id'>{vulnerability.id}</span>
+				)}
+				{vulnerability.score !== undefined && vulnerability.scoreVersion && (
+					<span className='package-detail-vulnerability-cvss'>
+						{vulnerability.scoreVersion === 'v4'
+							? localize('positron.packages.detail.cvssV4', "CVSS v4")
+							: localize('positron.packages.detail.cvssV3', "CVSS v3")}
+					</span>
+				)}
+			</div>
+			{vulnerability.summary && (
+				<div className='package-detail-vulnerability-summary'>{vulnerability.summary}</div>
+			)}
+			{(vulnerability.fixedIn || vulnerability.published) && (
+				<div className='package-detail-vulnerability-meta'>
+					{vulnerability.fixedIn && (
+						<span>{localize('positron.packages.detail.fixedIn', "Fixed in {0}", vulnerability.fixedIn)}</span>
+					)}
+					{vulnerability.published && (
+						<span>{localize('positron.packages.detail.advisoryPublished', "Published {0}", formatPublishedDate(vulnerability.published))}</span>
+					)}
+				</div>
+			)}
+		</div>
 	);
 };
 
@@ -266,6 +323,18 @@ export const PackageDetail = (props: PackageDetailProps) => {
 	// immediately.
 	const merged = { ...pkg, ...detail };
 
+	// Advisories ride in with the list metadata (Stage 2), not the detail
+	// fetch, so they read off the merged entry and may appear after the
+	// Overview first renders. `undefined` means no data (no PPM configured, or
+	// this package/version is unknown to it): render no Security section at
+	// all rather than an affirmative "no vulnerabilities" that isn't earned.
+	const vulnerabilitiesEnabled = usePositronConfiguration<boolean>(PACKAGES_VULNERABILITIES_ENABLED_SETTING) !== false;
+	const vulnerabilities = vulnerabilitiesEnabled ? merged.vulnerabilities : undefined;
+
+	// Highest-severity first; unscored advisories sort after scored ones.
+	const sortedVulnerabilities = vulnerabilities === undefined ? undefined : [...vulnerabilities].sort(
+		(a, b) => (b.score ?? -1) - (a.score ?? -1));
+
 	// Header subtitle: prefer the short one-line title (R's `Title`, Python's
 	// `Summary`) over the longer list `description` (R's full Description).
 	const subtitle = merged.title || pkg?.description;
@@ -327,6 +396,21 @@ export const PackageDetail = (props: PackageDetailProps) => {
 						<Stat label={localize('positron.packages.detail.version', "Version")} value={installedVersionText} />
 						<Stat label={localize('positron.packages.detail.license', "License")} value={merged.license} />
 					</div>
+
+					{sortedVulnerabilities !== undefined &&
+						<div className='package-detail-section'>
+							<div className='package-detail-section-title'>{localize('positron.packages.detail.security', "Security")}</div>
+							{sortedVulnerabilities.length === 0
+								? <div className='package-detail-security-clean'>
+									{localize('positron.packages.detail.noVulnerabilities', "No known vulnerabilities have been reported for this version.")}
+								</div>
+								: <div className='package-detail-vulnerabilities'>
+									{sortedVulnerabilities.map(vulnerability =>
+										<VulnerabilityRow key={vulnerability.osvId} vulnerability={vulnerability} />)}
+								</div>
+							}
+						</div>
+					}
 
 					<div className='package-detail-section'>
 						<div className='package-detail-section-title'>{localize('positron.packages.detail.metadata', "Metadata")}</div>

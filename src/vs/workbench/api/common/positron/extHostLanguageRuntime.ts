@@ -893,7 +893,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	async $getPackageMetadata(
 		handle: number,
-		packageNames: string[],
+		packages: positron.PackageSpec[],
 		token: CancellationToken,
 	): Promise<Record<string, Partial<positron.LanguageRuntimePackage>> | undefined> {
 		const packageManager = this.getPackageManagerOrThrow(handle, 'get package metadata');
@@ -901,7 +901,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		if (!packageManager.getPackageMetadata) {
 			return undefined;
 		}
-		const result = await packageManager.getPackageMetadata(packageNames, token);
+		const result = await packageManager.getPackageMetadata(packages, token);
 		if (!result) {
 			return undefined;
 		}
