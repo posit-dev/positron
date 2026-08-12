@@ -2047,11 +2047,19 @@ export class GettingStartedPage extends EditorPane {
 					this.editorInput.walkthroughPageTitle = undefined;
 				}
 
-				if (this.gettingStartedCategories.length !== this.gettingStartedList.value?.itemCount) {
+				// --- Start Positron ---
+				// Requires the list to exist before treating it as stale. The
+				// redesigned welcome page does not build a walkthrough list, so
+				// without this the comparison against undefined is always true and
+				// every trip back here rebuilds the whole slide.
+				//
+				// if (this.gettingStartedCategories.length !== this.gettingStartedList.value?.itemCount) {
+				if (this.gettingStartedList.value && this.gettingStartedCategories.length !== this.gettingStartedList.value.itemCount) {
 					// extensions may have changed in the time since we last displayed the walkthrough list
 					// rebuild the list
 					this.buildCategoriesSlide();
 				}
+				// --- End Positron ---
 
 				this.selectStep(undefined);
 				this.setSlide('categories');
