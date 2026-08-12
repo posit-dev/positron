@@ -114,6 +114,7 @@ export async function updateProviderFromSessions(
 						type: positron.ai.LanguageModelAutoconfigureType.Custom,
 						message: FOUNDRY_MANAGED_CREDENTIALS.displayName,
 						signedIn: true,
+						isPositWorkbench: true,
 					},
 				},
 			});
@@ -126,6 +127,7 @@ export async function updateProviderFromSessions(
 						type: positron.ai.LanguageModelAutoconfigureType.Custom,
 						message: SNOWFLAKE_MANAGED_CREDENTIALS.displayName,
 						signedIn: true,
+						isPositWorkbench: true,
 					},
 				},
 			});
@@ -139,6 +141,7 @@ export async function updateProviderFromSessions(
 						type: positron.ai.LanguageModelAutoconfigureType.Custom,
 						message: DATABRICKS_MANAGED_CREDENTIALS.displayName,
 						signedIn: true,
+						isPositWorkbench: true,
 					},
 				},
 			});

@@ -40,7 +40,14 @@ describe('ProviderListItem', () => {
 		render(<ProviderListItem section='connected' source={source({
 			id: 'databricks',
 			signedIn: true,
-			defaults: { autoconfigure: { type: LanguageModelAutoconfigureType.Custom, message: 'OAuth (Workbench Managed Credentials)', signedIn: true } },
+			defaults: {
+				autoconfigure: {
+					type: LanguageModelAutoconfigureType.Custom,
+					message: 'OAuth (Workbench Managed Credentials)',
+					signedIn: true,
+					isPositWorkbench: true,
+				},
+			},
 		})} />);
 		expect(screen.getByText('PWB Managed')).toBeInTheDocument();
 	});
@@ -53,6 +60,15 @@ describe('ProviderListItem', () => {
 			defaults: { autoconfigure: { type: LanguageModelAutoconfigureType.Custom, message: 'the Accounts menu.', signedIn: true } },
 		})} />);
 		expect(screen.getByText('OAuth')).toBeInTheDocument();
+		expect(screen.queryByText('PWB Managed')).not.toBeInTheDocument();
+	});
+
+	it('does not show PWB Managed for a Custom autoconfigure without isPositWorkbench', () => {
+		render(<ProviderListItem section='connected' source={source({
+			id: 'a',
+			signedIn: true,
+			defaults: { autoconfigure: { type: LanguageModelAutoconfigureType.Custom, message: 'Some other reason', signedIn: true } },
+		})} />);
 		expect(screen.queryByText('PWB Managed')).not.toBeInTheDocument();
 	});
 

@@ -27,7 +27,7 @@ function authBadgeLabel(source: IPositronLanguageModelSource): string | undefine
 		return localize('positron.configureLLMProvidersModal.badge.environment', "Environment");
 	}
 	if (autoconfigure?.type === LanguageModelAutoconfigureType.Custom && autoconfigure.signedIn &&
-		source.provider.id !== 'copilot-auth') {
+		autoconfigure.isPositWorkbench) {
 		return localize('positron.configureLLMProvidersModal.badge.pwbManaged', "PWB Managed");
 	}
 	if (source.supportedOptions.includes(AuthMethod.OAUTH)) {
