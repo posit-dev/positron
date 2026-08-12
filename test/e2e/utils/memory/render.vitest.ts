@@ -186,4 +186,97 @@ describe('renderHtml', () => {
 		expect(output).toContain('github.copilot');
 		expect(output).toContain('ms-python.python');
 	});
+
+	test('calls out a process that is new since the baseline', () => {
+		const current = snapshot([proc(), proc({ pid: 200, processName: 'duckdb-worker', processRole: 'unlabeled', pssBytes: 100 * MB })]);
+		const baseline = snapshot([proc()]);
+		const output = renderHtml([current], baseline);
+		expect(output).toContain('duckdb-worker');
+		expect(output.toLowerCase()).toContain('new since the previous nightly');
+	});
+
+	test('surfaces a process that appears in a later launch only', () => {
+		// Reading launch 0 alone would miss it, which is exactly the intermittent
+		// regression this section exists to catch.
+		const latecomer = proc({ pid: 500, processName: 'duckdb-worker', processRole: 'unlabeled', labeled: false, pssBytes: 30 * MB });
+		const output = renderHtml(
+			[snapshot([proc()], 0), snapshot([proc(), latecomer], 1)],
+			snapshot([proc()])
+		);
+		expect(output).toContain('duckdb-worker');
+	});
+
+	test('says nothing about new processes when there is no baseline, or nothing appeared', () => {
+		expect(renderHtml([snapshot([proc()])])).not.toContain('New since the previous nightly');
+	});
+
+	test('flags unlabeled processes so a new one cannot hide', () => {
+		const output = renderHtml([snapshot([proc({ processRole: 'unlabeled', labeled: false, processName: 'mystery' })])]);
+		expect(output).toContain('unlabeled');
+	});
+
+	test('reports the same unlabeled total in the note as in the role table', () => {
+		// Three launches whose unlabeled totals differ, so a note summing launch 0
+		// alone would disagree with the median in the table.
+		const unlabeled = (pssBytes: number): LabeledProcess =>
+			proc({ pid: 300, processName: 'mystery', processRole: 'unlabeled', labeled: false, pssBytes });
+		const output = renderHtml([
+			snapshot([unlabeled(90 * MB)], 0),
+			snapshot([unlabeled(50 * MB)], 1),
+			snapshot([unlabeled(40 * MB)], 2)
+		]);
+		expect(output).toContain('50.0 MB');
+		expect(output).toContain('50.0 MB in the median launch');
+		expect(output).not.toContain('90.0 MB in the median launch');
+	});
+
+	test('lists extensions that activate eagerly', () => {
+		const output = renderHtml([snapshot([proc()], 0, [
+			ext('github.copilot', 'onStartupFinished'),
+			ext('posit.assistant', '*'),
+			ext('ms-python.python', 'onLanguage:python'),
+			ext('vscode.git', 'workspaceContains:.git'),
+		])]);
+		expect(output).toContain('github.copilot');
+		expect(output).toContain('posit.assistant');
+	});
+
+	test('leaves demand-activated extensions out of the eager card', () => {
+		// The deck asks people to stop adding eager activations. Listing every
+		// activation would bury that signal among the demand-activated ones.
+		const output = renderHtml([snapshot([proc()], 0, [
+			ext('github.copilot', 'onStartupFinished'),
+			ext('ms-python.python', 'onLanguage:python'),
+			ext('vscode.git', 'workspaceContains:.git'),
+		])]);
+		const eagerCard = output.split('Eagerly activated extensions')[1].split('<h2>Activated extensions')[0];
+		expect(eagerCard).not.toContain('ms-python.python');
+		expect(eagerCard).not.toContain('vscode.git');
+	});
+
+	test('calls out an extension that is newly eager', () => {
+		// Newly eager includes an extension that was present before but activated
+		// on demand, which an id-only diff would miss entirely.
+		const eager = [
+			ext('github.copilot', 'onStartupFinished'),
+			ext('posit.assistant', '*'),
+			ext('quarto.quarto', 'onStartupFinished'),
+		];
+		const baseline = snapshot([proc()], 0, [ext('github.copilot', 'onStartupFinished'), ext('quarto.quarto', 'onLanguage:quarto')]);
+		const output = renderHtml([snapshot([proc()], 0, eager)], baseline);
+		expect(output).toMatch(/[Nn]ewly eager/);
+		expect(output).toContain('quarto.quarto');
+	});
+
+	test('puts the worse event first, because * beats onStartupFinished to the punch', () => {
+		const mixed = [
+			ext('vscode.git', '*'),
+			ext('posit.assistant', 'onStartupFinished'),
+			ext('vscode.git-base', '*'),
+			ext('GitHub.vscode-pull-request-github', 'onStartupFinished'),
+			ext('ms-python.python', 'onLanguage:python'),
+		];
+		const output = renderHtml([snapshot([proc()], 0, mixed)]);
+		expect(output.indexOf('<code>*</code>')).toBeLessThan(output.indexOf('onStartupFinished'));
+	});
 });
