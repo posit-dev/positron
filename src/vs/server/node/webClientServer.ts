@@ -10,7 +10,7 @@ import * as cookie from 'cookie';
 import * as crypto from 'crypto';
 import { isEqualOrParent } from '../../base/common/extpath.js';
 import { getMediaMime } from '../../base/common/mime.js';
-import { isLinux, isWorkbench } from '../../base/common/platform.js';
+import { isAcademic, isLinux, isWorkbench } from '../../base/common/platform.js';
 import { ILogService, LogLevel } from '../../platform/log/common/log.js';
 import { IServerEnvironmentService } from './serverEnvironmentService.js';
 import { extname, dirname, join, normalize, posix, resolve } from '../../base/common/path.js';
@@ -683,6 +683,13 @@ export class WebClientServer {
 		const pwbWorkbenchMarker = isWorkbench ? '<script>globalThis._PWB_IS_WORKBENCH = true;</script>' : '';
 		// --- End PWB ---
 
+		// --- Start Positron: browser-side academic marker ---
+		// Same early-injection trick as the Workbench marker above, reusing the PWB_WORKBENCH_MARKER
+		// slot so no template changes are needed. `platform.isAcademic` defaults to true, so we only
+		// need to inject the global when the server-side value is false (SHOW_ACADEMIC_BANNER=0).
+		const academicMarker = isAcademic ? '' : '<script>globalThis._POSITRON_IS_ACADEMIC = false;</script>';
+		// --- End Positron ---
+
 		const values: { [key: string]: string } = {
 			WORKBENCH_WEB_CONFIGURATION: asJSON(workbenchWebConfiguration),
 			WORKBENCH_AUTH_SESSION: authSessionInfo ? asJSON(authSessionInfo) : '',
@@ -695,7 +702,7 @@ export class WebClientServer {
 			BASE: base,
 			VS_BASE: vscodeBase,
 			RS_LOGIN_CHECK_SCRIPT: rsLoginCheckScript,
-			PWB_WORKBENCH_MARKER: pwbWorkbenchMarker,
+			PWB_WORKBENCH_MARKER: pwbWorkbenchMarker + academicMarker,
 			// --- End PWB ---
 		};
 

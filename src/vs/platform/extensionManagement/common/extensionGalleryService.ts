@@ -9,7 +9,7 @@ import * as semver from '../../../base/common/semver/semver.js';
 import { IStringDictionary } from '../../../base/common/collections.js';
 import { CancellationError, getErrorMessage, isCancellationError } from '../../../base/common/errors.js';
 import { IPager } from '../../../base/common/paging.js';
-import { isWeb, platform } from '../../../base/common/platform.js';
+import { isAcademic, isWeb, platform } from '../../../base/common/platform.js';
 import { arch } from '../../../base/common/process.js';
 import { isBoolean, isNumber, isString } from '../../../base/common/types.js';
 import { URI } from '../../../base/common/uri.js';
@@ -796,6 +796,7 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 			options.checkTrigger,
 			getPositronSessionType(),
 			formatPositronVersion(this.productService.positronVersion, this.productService.positronBuildNumber),
+			isAcademic,
 			sendUsageData,
 		);
 		resourceApi = {
@@ -1443,6 +1444,7 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 			query.checkTrigger,
 			getPositronSessionType(),
 			formatPositronVersion(this.productService.positronVersion, this.productService.positronBuildNumber),
+			isAcademic,
 			sendUsageData,
 		);
 		// --- End Positron ---

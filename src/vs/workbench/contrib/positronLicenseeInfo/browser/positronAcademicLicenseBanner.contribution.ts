@@ -5,7 +5,7 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
-import { isWeb, isWorkbench } from '../../../../base/common/platform.js';
+import { isAcademic, isWeb, isWorkbench } from '../../../../base/common/platform.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
@@ -33,6 +33,12 @@ class PositronAcademicLicenseBannerContribution extends Disposable implements IW
 		// Only show on web builds that are not Posit Workbench. Remote SSH runs the UI in
 		// desktop Electron (isWeb === false), so it is already excluded by the !isWeb check.
 		if (!isWeb || isWorkbench) {
+			return;
+		}
+
+		// Server deployments (e.g. Positron Server Pro on SageMaker) can suppress this banner
+		// by setting SHOW_ACADEMIC_BANNER=0, since it does not apply to them.
+		if (!isAcademic) {
 			return;
 		}
 
@@ -69,6 +75,12 @@ Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench)
 	.registerWorkbenchContribution(PositronAcademicLicenseBannerContribution, LifecyclePhase.Restored);
 
 CommandsRegistry.registerCommand(SHOW_ACADEMIC_LICENSE_BANNER_COMMAND_ID, (accessor: ServicesAccessor) => {
+	// Server deployments (e.g. Positron Server Pro on SageMaker) can suppress this banner
+	// by setting SHOW_ACADEMIC_BANNER=0, since it does not apply to them.
+	if (!isAcademic) {
+		return;
+	}
+
 	const bannerService = accessor.get(IBannerService);
 	const storageService = accessor.get(IStorageService);
 	bannerService.show({

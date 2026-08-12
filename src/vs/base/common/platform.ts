@@ -168,6 +168,18 @@ export const isWorkbench = _isWeb
 	? !!$globalThis._PWB_IS_WORKBENCH
 	: !!nodeProcess?.env['RS_SERVER_URL'];
 // --- End PWB ---
+// --- Start Positron: academic license detection ---
+// True unless explicitly disabled via the server's SHOW_ACADEMIC_BANNER=0 environment
+// variable, e.g. on Positron Server Pro deployments (SageMaker, JupyterHub) where the
+// education terms do not apply. Drives the academic license banner and P3M telemetry.
+//   Server (Node):  reads process.env['SHOW_ACADEMIC_BANNER'] directly.
+//   Browser (web):  webClientServer.ts injects an inline
+//                   `<script>globalThis._POSITRON_IS_ACADEMIC = false;</script>` only when the
+//                   server-side value is false, so its absence means true (the default).
+export const isAcademic = _isWeb
+	? $globalThis._POSITRON_IS_ACADEMIC !== false
+	: nodeProcess?.env['SHOW_ACADEMIC_BANNER'] !== '0';
+// --- End Positron ---
 export const platform = _platform;
 export const userAgent = _userAgent;
 
