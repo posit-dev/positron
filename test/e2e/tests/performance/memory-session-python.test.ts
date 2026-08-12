@@ -23,8 +23,10 @@ defineMemoryScenario({
 	prepare: async ({ sessions }) => {
 		await sessions.startAndSkipMetadata({ language: 'Python', waitForReady: true });
 	},
-	// kernel proves a Python kernel is running, kernel_supervisor proves
-	// kcserver went from empty to hosting it. Without these the run could
-	// publish an idle-shaped number as if the session were free.
+	// kernel only exists once a session has actually started, so it is what
+	// keeps a failed run from publishing an idle-shaped number as if the
+	// session were free. kernel_supervisor is present even at idle, since
+	// kcserver runs regardless of whether it is hosting anything, so it only
+	// proves kcserver itself did not crash.
 	expectRoles: ['kernel', 'kernel_supervisor']
 });

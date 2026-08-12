@@ -14,6 +14,11 @@ test.use({
 // maps ipykernel_launcher and ark to a single `kernel` role, and both extensions
 // load their session code into the same extension host heap, so a combined run
 // could not tell an R-side regression from a Python-side one.
+// kernel only exists once a session has actually started, so it is what
+// keeps a failed run from publishing an idle-shaped number as if the
+// session were free. kernel_supervisor is present even at idle, since
+// kcserver runs regardless of whether it is hosting anything, so it only
+// proves kcserver itself did not crash.
 defineMemoryScenario({
 	scenario: 'session-r',
 	prepare: async ({ sessions }) => {
