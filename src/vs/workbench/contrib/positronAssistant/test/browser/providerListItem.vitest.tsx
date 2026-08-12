@@ -93,6 +93,26 @@ describe('ProviderListItem', () => {
 		expect(screen.getByText('OAuth')).toBeInTheDocument();
 	});
 
+	it('shows no OAuth badge when a dual-method provider connected with an API key', () => {
+		render(<ProviderListItem section='connected' source={source({
+			id: 'databricks',
+			signedIn: true,
+			authMethods: [AuthMethod.API_KEY],
+			supportedOptions: [AuthMethod.OAUTH, AuthMethod.API_KEY],
+		})} />);
+		expect(screen.queryByText('OAuth')).not.toBeInTheDocument();
+	});
+
+	it('shows an OAuth badge when a dual-method provider connected with OAuth', () => {
+		render(<ProviderListItem section='connected' source={source({
+			id: 'databricks',
+			signedIn: true,
+			authMethods: [AuthMethod.OAUTH],
+			supportedOptions: [AuthMethod.OAUTH, AuthMethod.API_KEY],
+		})} />);
+		expect(screen.getByText('OAuth')).toBeInTheDocument();
+	});
+
 	it('shows an Error badge, the error message, and a Fix Connection action in needs-attention', () => {
 		render(<ProviderListItem section='needs-attention' source={source({ id: 'a', signedIn: true, status: 'error', statusMessage: 'Session expired' })} />);
 		expect(screen.getByText('Error')).toBeInTheDocument();

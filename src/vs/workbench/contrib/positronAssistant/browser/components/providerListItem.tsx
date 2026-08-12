@@ -7,6 +7,7 @@ import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { IPositronLanguageModelSource, LanguageModelAutoconfigureType } from '../../common/interfaces/positronAssistantService.js';
 import { ProviderSectionId } from '../../common/providerGrouping.js';
+import { deriveAuthMethod } from '../providerConnection.js';
 import { AuthMethod } from '../types.js';
 import { LanguageModelIcon, getStatusLabel } from './languageModelButton.js';
 
@@ -30,7 +31,7 @@ function authBadgeLabel(source: IPositronLanguageModelSource): string | undefine
 		autoconfigure.isPositWorkbench) {
 		return localize('positron.configureLLMProvidersModal.badge.pwbManaged', "PWB Managed");
 	}
-	if (source.supportedOptions.includes(AuthMethod.OAUTH)) {
+	if (deriveAuthMethod(source) === AuthMethod.OAUTH) {
 		return localize('positron.configureLLMProvidersModal.badge.oauth', "OAuth");
 	}
 	return undefined;
