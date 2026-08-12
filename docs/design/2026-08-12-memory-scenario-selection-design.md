@@ -91,8 +91,8 @@ combined run cannot be pinned on either language. Split, and each language's ext
 idle is its own number, which is a coarse version of what #15494 eventually does properly.
 
 Most people also run one language, not both, so a combined figure describes nobody's real session.
-The split costs three extra launches, which under the job matrix below is a parallel job and does
-not move wall clock.
+The split costs one extra scenario, so three extra launches, which under the job matrix below is one
+extra parallel job and does not move wall clock.
 
 There is deliberately no third scenario with both languages running at once. It would catch
 interaction effects such as reticulate and the session list UI, but nothing has regressed there and
@@ -116,10 +116,14 @@ scenario and record why, so the question does not come back.
 
 ## How the scenarios relate
 
-Features never share a launch. Each feature scenario is a cold launch that reaches exactly one
-feature state, so its cost is `scenario_total - baseline_total` and a regression lands on one
-series. A cumulative walk through session, then CSV, then cell run, then plot would be cheaper, but
-every number after the first would depend on the order, and one flaky step would lose the chain.
+Every scenario is three cold launches with a per-process median across them, which is what idle
+already does and what makes launch-to-launch variance readable before #15496 picks a threshold. So
+one scenario costs three launches, and adding a scenario adds three.
+
+Features never share a launch. Each feature scenario reaches exactly one feature state, so its cost
+is `scenario_total - baseline_total` and a regression lands on one series. A cumulative walk through
+session, then CSV, then cell run, then plot would be cheaper, but every number after the first would
+depend on the order, and one flaky step would lose the chain.
 
 ## Settle protocol
 
