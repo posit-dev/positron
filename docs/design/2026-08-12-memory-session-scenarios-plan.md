@@ -736,18 +736,26 @@ Replace lines 108 to 111 with:
 
 - [ ] **Step 6: Verify collection both ways**
 
+Match on test titles, not file paths. `--list` prints the `test()` call site, which Task 3 moved into `memory-scenario.ts`, so a grep for `memory-idle` matches nothing however collection behaves. A bare grep for `memory` is also useless here: `test/e2e/tests/variables/variables-memory-usage.test.ts` is an unrelated pre-existing spec that matches it.
+
 ```bash
 unset MEMORY_SCENARIO
-npx playwright test --project e2e-electron --list 2>&1 | grep -c memory
+npx playwright test --project e2e-electron --list 2>/dev/null | grep -cE 'performance/memory|Memory: idle|Memory: session-|Memory report:'
 ```
 
-Expected: `0`.
+Expected: `0`. Anything else means memory specs leak into ordinary lanes, which would start interpreter sessions on every PR. Do not commit until this reads `0`.
 
 ```bash
-MEMORY_SCENARIO=idle npx playwright test --project e2e-electron --list 2>&1 | grep -c 'memory-idle'
+MEMORY_SCENARIO=idle npx playwright test --project e2e-electron --list 2>/dev/null | grep -cE 'Memory: idle'
 ```
 
-Expected: non-zero.
+Expected: `1`.
+
+```bash
+MEMORY_SCENARIO=idle npx playwright test --project e2e-electron --list 2>/dev/null | grep -cE 'Memory: session-'
+```
+
+Expected: `0`. Proves the ignore list excludes the scenarios that are not running, not merely that the running one is present.
 
 - [ ] **Step 7: Commit**
 
