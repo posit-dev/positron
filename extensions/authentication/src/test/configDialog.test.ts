@@ -160,7 +160,7 @@ suite('configDialog', () => {
 				{ model: 'claude-sonnet-4-0' },
 				'delete'
 			),
-			(error: Error) => error.message.includes('managed outside Positron')
+			(error: Error) => error.message.includes('Another system manages this credential')
 		);
 
 		// Chain session should still exist

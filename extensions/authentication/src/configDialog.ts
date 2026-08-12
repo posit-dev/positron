@@ -343,8 +343,8 @@ async function handleDelete(
 	if (deletable.length === 0 && sessions.length > 0) {
 		throw new Error(
 			vscode.l10n.t(
-				'This credential is managed outside Positron and cannot be ' +
-				'removed from the UI.'
+				'Another system manages this credential. You cannot remove ' +
+				'it here.'
 			)
 		);
 	}

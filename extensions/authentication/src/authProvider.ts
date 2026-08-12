@@ -280,8 +280,8 @@ export class AuthProvider
 						);
 						vscode.window.showInformationMessage(
 							vscode.l10n.t(
-								'{0} credentials are managed outside Positron ' +
-								'and cannot be signed out here.',
+								'{0} manages these credentials. You cannot sign ' +
+								'out of them here.',
 								this.displayName
 							)
 						);
