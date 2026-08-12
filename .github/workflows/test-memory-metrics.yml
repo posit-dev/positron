@@ -19,9 +19,15 @@ env:
 
 jobs:
   memory:
-    name: measure-idle-memory
+    name: measure-${{ matrix.scenario }}-memory
     runs-on: ubuntu-latest-8x
     timeout-minutes: 45
+    strategy:
+      # One scenario's failure should not cancel the others: a broken session
+      # scenario must not cost us that night's idle datapoint.
+      fail-fast: false
+      matrix:
+        scenario: [idle, session-python, session-r]
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
       # The image is private, so the pull needs credentials. Copied from
@@ -37,18 +43,21 @@ jobs:
       HOME: /root
       PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
       PW_PROJECT_NAME: e2e-electron
-      # Job-wide, not per-step: playwright.config.ts keys collection of
-      # memory-idle.test.ts off this, so the render step needs it too.
-      MEMORY_SCENARIO: idle
+      # Job-wide, not per-step: playwright.config.ts keys test collection off
+      # this, so the render step needs it too. Now sourced from the matrix
+      # rather than hardcoded.
+      MEMORY_SCENARIO: ${{ matrix.scenario }}
+      MEMORY_SPEC: test/e2e/tests/performance/memory-${{ matrix.scenario }}.test.ts
       # The insights reporter and its sharding hook are off deliberately. This
       # workflow publishes its own payload to /memory, and letting the reporter
       # upload would add memory runs to the e2e results dataset as if they were
       # ordinary test runs. It also keeps the job from needing AWS credentials.
       ENABLE_CUSTOM_REPORTER: 'false'
       # Required by the envVars fixture in _test.setup.ts, which validates all
-      # four and fails every test if any is unset. No interpreter is installed
-      # or started here: the idle scenario pins interpreters.startupBehavior to
-      # manual, so these only have to be present.
+      # four and fails every test if any is unset. The idle scenario pins
+      # interpreters.startupBehavior to manual, so these only have to be
+      # present there; the session scenarios start their session explicitly
+      # and need real values. All three matrix jobs set them.
       POSITRON_PY_VER_SEL: "3.10.12"
       POSITRON_R_VER_SEL: 4.5.2
       POSITRON_PY_ALT_VER_SEL: "3.13.0"
@@ -134,19 +143,19 @@ jobs:
         env:
           BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_LAUNCH_INDEX: 0
-        run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
+        run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Memory footprint'
 
       - name: Measure (launch 1)
         env:
           BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_LAUNCH_INDEX: 1
-        run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
+        run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Memory footprint'
 
       - name: Measure (launch 2)
         env:
           BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_LAUNCH_INDEX: 2
-        run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
+        run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Memory footprint'
 
       # Separate from the launches so a failure to render cannot lose the
       # measurements, which are the expensive part.
@@ -160,14 +169,15 @@ jobs:
           BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_PUBLISH: 'false'
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
-        run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Render and publish'
+        run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Render and publish'
 
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: memory-report
-          # Matches SNAPSHOT_DIR in the spec. Deliberately not test-results/,
-          # which Playwright wipes at the start of every invocation.
-          path: ${{ runner.temp }}/memory-snapshots/
+          name: memory-report-${{ matrix.scenario }}
+          # Matches snapshotDir() in the spec, which is per scenario.
+          # Deliberately not test-results/, which Playwright wipes at the
+          # start of every invocation.
+          path: ${{ runner.temp }}/memory-snapshots-${{ matrix.scenario }}/
           if-no-files-found: warn
