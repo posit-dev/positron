@@ -256,7 +256,7 @@ suite('environment health: target selection', () => {
 		const item = probeNoUsableTarget();
 		assert.strictEqual(item.id, 'environmentReady');
 		assert.strictEqual(item.status, 'fail');
-		assert.ok(!item.summary.includes('environmentReady'));
+		assert.strictEqual(item.summary, 'The R installation is ready to use with Positron');
 		assert.ok(!item.detail?.includes('Health check failed'));
 		assert.strictEqual(item.fix?.commandId, 'positron.startupDiagnostics.show');
 	});
@@ -306,6 +306,9 @@ suite('environment health: assembleItems cascade', () => {
 		assert.strictEqual(result.ok, false);
 		assert.deepStrictEqual(result.items.map((i) => i.status),
 			['fail', 'skipped', 'skipped', 'skipped']);
+		// A skipped item is still rendered, so its summary must not be the id.
+		assert.ok(result.items.slice(1).every((i) => !i.summary.includes(i.id)),
+			`skipped summaries leaked an id: ${result.items.slice(1).map((i) => i.summary)}`);
 	});
 
 	test('an rInstalled failure skips the last two', async () => {
@@ -333,6 +336,8 @@ suite('environment health: assembleItems cascade', () => {
 		});
 		assert.strictEqual(result.items[2].status, 'fail');
 		assert.ok(result.items[2].detail?.includes('kaboom'));
+		// The raw error goes in detail; summary stays user-facing, not the id.
+		assert.ok(!result.items[2].summary.includes('environmentReady'));
 		assert.strictEqual(result.items[3].status, 'skipped');
 	});
 });

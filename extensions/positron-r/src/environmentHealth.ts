@@ -319,7 +319,7 @@ export interface REnvironmentHealthResult {
 }
 
 function skipped(id: HealthItemId): HealthItem {
-	return { id, status: 'skipped', summary: id };
+	return { id, status: 'skipped', summary: vscode.l10n.t('Skipped') };
 }
 
 async function runItem(
@@ -330,7 +330,7 @@ async function runItem(
 		return await produce();
 	} catch (ex) {
 		return {
-			id, status: 'fail', summary: id,
+			id, status: 'fail', summary: vscode.l10n.t('Health check error'),
 			detail: vscode.l10n.t(
 				'Health check failed: {0}', ex instanceof Error ? ex.message : String(ex)),
 		};

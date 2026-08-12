@@ -9,12 +9,16 @@ import * as positron from 'positron';
 import './mocha-setup';
 import { renvInit } from '../commands';
 import * as sessionModule from '../session';
+import { RSession } from '../session';
 import { RSessionManager } from '../session-manager';
+
+/** Only runtimeId is read, so the rest of the metadata is not worth building. */
+const PREFERRED_RUNTIME = { runtimeId: 'r-1' } as unknown as positron.LanguageRuntimeMetadata;
 
 suite('r.renvInit session handling', () => {
 	let sandbox: Sinon.SinonSandbox;
 	let execute: Sinon.SinonSpy;
-	let fakeSession: { execute: Sinon.SinonSpy };
+	let fakeSession: RSession;
 
 	/**
 	 * Stubs the one session source renvInit and checkInstalled share.
@@ -31,13 +35,13 @@ suite('r.renvInit session handling', () => {
 	setup(() => {
 		sandbox = Sinon.createSandbox();
 		execute = sandbox.spy();
-		fakeSession = { execute };
+		fakeSession = { execute } as unknown as RSession;
 	});
 
 	teardown(() => sandbox.restore());
 
 	test('uses the existing console session and starts no runtime', async () => {
-		stubConsoleSession().resolves(fakeSession as any);
+		stubConsoleSession().resolves(fakeSession);
 		sandbox.stub(sessionModule, 'checkInstalled').resolves(true);
 		const select = sandbox.stub(positron.runtime, 'selectLanguageRuntime').resolves();
 
@@ -46,14 +50,18 @@ suite('r.renvInit session handling', () => {
 		assert.strictEqual(select.called, false, 'must not restart a live session');
 		assert.strictEqual(execute.calledOnce, true);
 		assert.ok(execute.firstCall.args[0].includes('renv::init()'));
+		// renv::init() prompts, so it has to run visibly and survive an error.
+		assert.strictEqual(execute.firstCall.args[2],
+			positron.RuntimeCodeExecutionMode.Interactive);
+		assert.strictEqual(execute.firstCall.args[3],
+			positron.RuntimeErrorBehavior.Continue);
 	});
 
 	test('starts the preferred runtime when no session is running', async () => {
 		const consoleSession = stubConsoleSession();
 		consoleSession.onFirstCall().resolves(undefined);
-		consoleSession.resolves(fakeSession as any);
-		sandbox.stub(positron.runtime, 'getPreferredRuntime')
-			.resolves({ runtimeId: 'r-1' } as any);
+		consoleSession.resolves(fakeSession);
+		sandbox.stub(positron.runtime, 'getPreferredRuntime').resolves(PREFERRED_RUNTIME);
 		const select = sandbox.stub(positron.runtime, 'selectLanguageRuntime').resolves();
 		sandbox.stub(sessionModule, 'checkInstalled').resolves(true);
 
@@ -65,12 +73,12 @@ suite('r.renvInit session handling', () => {
 
 	test('passes the resolved session to checkInstalled', async () => {
 		// checkInstalled must not resolve a second, possibly different session.
-		stubConsoleSession().resolves(fakeSession as any);
+		stubConsoleSession().resolves(fakeSession);
 		const checkInstalled = sandbox.stub(sessionModule, 'checkInstalled').resolves(true);
 
 		await renvInit();
 
-		assert.strictEqual(checkInstalled.firstCall.args[2], fakeSession as any);
+		assert.strictEqual(checkInstalled.firstCall.args[2], fakeSession);
 	});
 
 	test('never calls checkInstalled before the poll yields a session', async () => {
@@ -80,9 +88,8 @@ suite('r.renvInit session handling', () => {
 		// the poll iteration that actually produced a session.
 		const consoleSession = stubConsoleSession();
 		consoleSession.onFirstCall().resolves(undefined);
-		consoleSession.resolves(fakeSession as any);
-		sandbox.stub(positron.runtime, 'getPreferredRuntime')
-			.resolves({ runtimeId: 'r-1' } as any);
+		consoleSession.resolves(fakeSession);
+		sandbox.stub(positron.runtime, 'getPreferredRuntime').resolves(PREFERRED_RUNTIME);
 		sandbox.stub(positron.runtime, 'selectLanguageRuntime').resolves();
 
 		let sessionLookupsWhenChecked = -1;
@@ -109,8 +116,7 @@ suite('r.renvInit session handling', () => {
 
 	test('throws when the session never becomes available', async () => {
 		stubConsoleSession().resolves(undefined);
-		sandbox.stub(positron.runtime, 'getPreferredRuntime')
-			.resolves({ runtimeId: 'r-1' } as any);
+		sandbox.stub(positron.runtime, 'getPreferredRuntime').resolves(PREFERRED_RUNTIME);
 		sandbox.stub(positron.runtime, 'selectLanguageRuntime').resolves();
 
 		// Short timeout: the production default is 30s and waiting it out here
@@ -119,7 +125,7 @@ suite('r.renvInit session handling', () => {
 	});
 
 	test('returns quietly when the user declines to install renv', async () => {
-		stubConsoleSession().resolves(fakeSession as any);
+		stubConsoleSession().resolves(fakeSession);
 		sandbox.stub(sessionModule, 'checkInstalled').resolves(false);
 
 		await renvInit();
