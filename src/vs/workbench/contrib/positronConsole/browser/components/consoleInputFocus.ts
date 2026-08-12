@@ -9,6 +9,7 @@ import { EditorContextKeys } from '../../../../../editor/common/editorContextKey
 import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
 import { TerminalContextKeys } from '../../../terminal/common/terminalContextKey.js';
 import { FocusedViewContext } from '../../../../common/contextkeys.js';
+import { IWebviewService } from '../../../webview/browser/webview.js';
 import { IWorkbenchLayoutService, Parts } from '../../../../services/layout/browser/layoutService.js';
 import { POSITRON_CONSOLE_VIEW_ID } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
@@ -27,12 +28,14 @@ import { POSITRON_CONSOLE_VIEW_ID } from '../../../../services/positronConsole/b
  *
  * @param contextKeyService The context key service.
  * @param layoutService The workbench layout service.
+ * @param webviewService The webview service.
  * @param activeElement The active element, used to resolve scoped context keys.
  * @returns true if it is OK to take focus; otherwise, false.
  */
 export function okToTakeFocus(
 	contextKeyService: IContextKeyService,
 	layoutService: IWorkbenchLayoutService,
+	webviewService: IWebviewService,
 	activeElement: Element | null
 ): boolean {
 	// Get the context key service context at the active element so that scoped keys resolve from
@@ -66,6 +69,14 @@ export function okToTakeFocus(
 	// Sensitive to focus anywhere in the editor part. This covers editors that hold focus without
 	// a text input, e.g. the Settings editor, the Data Explorer, and the welcome page.
 	if (layoutService.hasFocus(Parts.EDITOR_PART)) {
+		return false;
+	}
+
+	// Sensitive to focus inside a webview, e.g. a chat view contributed by an extension or the
+	// Help pane. A webview mounts its iframe in an overlay at the workbench root rather than
+	// inside its view pane, so focus in the iframe never reaches the view pane's focus tracker:
+	// `focusedView` is reset to empty and the checks above all miss it.
+	if (webviewService.activeWebview) {
 		return false;
 	}
 

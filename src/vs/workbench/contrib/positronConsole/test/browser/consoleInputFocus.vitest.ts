@@ -15,6 +15,7 @@ import { EditorContextKeys } from '../../../../../editor/common/editorContextKey
 import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
 import { TerminalContextKeys } from '../../../terminal/common/terminalContextKey.js';
 import { FocusedViewContext } from '../../../../common/contextkeys.js';
+import { IWebview, IWebviewService } from '../../../webview/browser/webview.js';
 import { IWorkbenchLayoutService, Parts } from '../../../../services/layout/browser/layoutService.js';
 import { POSITRON_CONSOLE_VIEW_ID } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { okToTakeFocus } from '../../browser/components/consoleInputFocus.js';
@@ -33,6 +34,12 @@ interface Scenario {
 	 */
 	widgetKeys?: Record<string, ContextKeyValue>;
 	editorPartHasFocus?: boolean;
+	/**
+	 * Whether a webview holds focus. A webview mounts its iframe outside its view
+	 * pane, so this is the only signal the guard gets for focus in a chat view
+	 * contributed by an extension or in the Help pane.
+	 */
+	webviewHasFocus?: boolean;
 }
 
 describe('okToTakeFocus', () => {
@@ -49,7 +56,12 @@ describe('okToTakeFocus', () => {
 	 * Asks the guard about an element that is inside a scoped context, with the
 	 * given keys set on the root and scoped services.
 	 */
-	function check({ rootKeys = {}, widgetKeys = {}, editorPartHasFocus = false }: Scenario = {}): boolean {
+	function check({
+		rootKeys = {},
+		widgetKeys = {},
+		editorPartHasFocus = false,
+		webviewHasFocus = false,
+	}: Scenario = {}): boolean {
 		const contextKeyService = disposables.add(
 			new ContextKeyService(new TestConfigurationService())
 		);
@@ -69,7 +81,11 @@ describe('okToTakeFocus', () => {
 			hasFocus: (part: Parts) => part === Parts.EDITOR_PART && editorPartHasFocus
 		});
 
-		return okToTakeFocus(contextKeyService, layoutService, focusedElement);
+		const webviewService = stubInterface<IWebviewService>({
+			activeWebview: webviewHasFocus ? stubInterface<IWebview>() : undefined
+		});
+
+		return okToTakeFocus(contextKeyService, layoutService, webviewService, focusedElement);
 	}
 
 	// Every surface the guard has to refuse. One case per surface; the guard's
@@ -80,6 +96,7 @@ describe('okToTakeFocus', () => {
 		['the terminal', { widgetKeys: { [TerminalContextKeys.focus.key]: true } }],
 		['another view', { rootKeys: { [FocusedViewContext.key]: 'workbench.view.search' } }],
 		['the editor part', { editorPartHasFocus: true }],
+		['a webview, e.g. an extension chat view or the Help pane', { webviewHasFocus: true }],
 	])('refuses focus when %s has it', (_surface, scenario) => {
 		expect(check(scenario)).toBe(false);
 	});

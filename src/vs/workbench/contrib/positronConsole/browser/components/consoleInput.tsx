@@ -124,6 +124,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	const okToTakeFocus = () => okToTakeFocusHelper(
 		services.contextKeyService,
 		services.workbenchLayoutService,
+		services.webviewService,
 		DOM.getActiveElement()
 	);
 
