@@ -58,7 +58,7 @@ export const WalkthroughBanner = () => {
 				<p className='walkthrough-banner-description'>
 					{localize(
 						'positron.welcome.walkthroughBannerDescription',
-						"Walk through the basics of using Positron. See what changes if you're moving from VS Code or RStudio."
+						"Take a guided tour of Positron without leaving the IDE. Start with the basics, or see what's different if you're coming from RStudio or VS Code."
 					)}
 				</p>
 				<Button
