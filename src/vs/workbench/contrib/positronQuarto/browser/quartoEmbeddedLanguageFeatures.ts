@@ -530,47 +530,34 @@ class QuartoEmbeddedDocumentSymbolProvider extends QuartoEmbeddedProvider implem
 	async provideDocumentSymbols(model: ITextModel, token: CancellationToken): Promise<DocumentSymbol[] | undefined> {
 		this._virtualNotebooks.ensureSynchronized(model.uri);
 
-		// Snapshot before the first await, since a sync rebuilds the cells and this
-		// request awaits once per cell rather than once in total. The spans are a
-		// copy, not a guarantee: an edit that leaves the chunk structure alone
-		// updates them in place, and the next pass corrects what this one missed.
+		// Snapshot before the requests go out, since a sync rebuilds the cells. The
+		// spans are a copy, not a guarantee: an edit that leaves the chunk structure
+		// alone updates them in place, and the next pass corrects what this missed.
 		const cells = this._virtualNotebooks.getCells(model.uri).map(cell => ({
 			textModel: cell.textModel,
 			span: { codeStartLine: cell.codeStartLine, codeEndLine: cell.codeEndLine },
 		}));
 
-		const symbols: DocumentSymbol[] = [];
-		let answered = 0;
-
-		for (const { textModel, span } of cells) {
-			// The Outline recomputes on every debounced edit, so without this a
-			// superseded request keeps paying a round trip per remaining cell.
-			if (token.isCancellationRequested) {
-				return undefined;
-			}
-			// A rebuild disposes the models it replaced, so one read before an
-			// earlier await can be gone by the time its turn comes.
-			if (textModel.isDisposed()) {
-				continue;
-			}
-			for (const provider of this._downstream(this._languageFeatures.documentSymbolProvider, textModel)) {
-				let result: DocumentSymbol[] | null | undefined;
-				try {
-					result = await provider.provideDocumentSymbols(textModel, token);
-				} catch (error) {
-					// The walk is one promise, so an unguarded rejection here would
-					// discard every cell's symbols rather than only this cell's.
-					onUnexpectedExternalError(error);
-					continue;
-				}
-				if (!result || result.length === 0) {
-					continue;
-				}
-				symbols.push(...result.map(symbol => mapDocumentSymbol(span, symbol)));
-				answered++;
-				break;
-			}
+		if (token.isCancellationRequested) {
+			return undefined;
 		}
+
+		// Ask every cell at once. Cells are independent and each request is a round
+		// trip to a language server, so asking them one at a time makes the walk
+		// cost the sum of those trips instead of the longest one. On the 45 chunks
+		// of posit-dev/positron#14512 that was the difference between 5049 ms and
+		// 63 ms.
+		const perCell = await Promise.all(cells.map(
+			({ textModel, span }) => this._symbolsForCell(textModel, span, token)));
+
+		// Cancelling cannot un-ask a request that already went out. What it must do
+		// is keep a superseded pass from contributing to the Outline.
+		if (token.isCancellationRequested) {
+			return undefined;
+		}
+
+		const symbols = perCell.flatMap(cellSymbols => cellSymbols ?? []);
+		const answered = perCell.filter(cellSymbols => cellSymbols !== undefined).length;
 
 		if (this._tracing) {
 			this._logService.trace('[QuartoEmbedded] document symbols answered from ' +
@@ -580,6 +567,33 @@ class QuartoEmbeddedDocumentSymbolProvider extends QuartoEmbeddedProvider implem
 		// An empty list would still build a group in the Outline, which is noise
 		// beside the Quarto server's headings.
 		return symbols.length > 0 ? symbols : undefined;
+	}
+
+	/** The first usable answer for one cell, already in source coordinates. */
+	private async _symbolsForCell(
+		textModel: ITextModel,
+		span: ICellLineSpan,
+		token: CancellationToken
+	): Promise<DocumentSymbol[] | undefined> {
+		// A rebuild disposes the models it replaced, so a model read before the
+		// requests went out can be gone by the time this runs.
+		if (textModel.isDisposed()) {
+			return undefined;
+		}
+		for (const provider of this._downstream(this._languageFeatures.documentSymbolProvider, textModel)) {
+			let result: DocumentSymbol[] | null | undefined;
+			try {
+				result = await provider.provideDocumentSymbols(textModel, token);
+			} catch (error) {
+				// One provider failing must not discard the other cells' symbols.
+				onUnexpectedExternalError(error);
+				continue;
+			}
+			if (result && result.length > 0) {
+				return result.map(symbol => mapDocumentSymbol(span, symbol));
+			}
+		}
+		return undefined;
 	}
 }
 

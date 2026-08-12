@@ -801,10 +801,39 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 			.toEqual([{ name: 'y', line: 20 }]);
 	});
 
-	it('stops walking cells once the request is cancelled', async () => {
-		// The Outline recomputes on every debounced edit. Without this check a
-		// superseded request keeps issuing one language server round trip per
-		// remaining cell, which works against the slowness this provider fixes.
+	it('asks every cell at once rather than one at a time', async () => {
+		// Each cell request is a round trip to a language server. Asked serially,
+		// the 45 chunks of the posit-dev/positron#14512 repro cost the sum of 45
+		// trips, which measured 5049 ms. Asked together they cost the longest one,
+		// which measured 63 ms.
+		//
+		// Neither cell here can answer until both have been asked, so a serial
+		// implementation deadlocks and this test times out.
+		const second = makeCell(CELL2_URI, 'y <- 2', 20);
+		let asked = 0;
+		let release!: () => void;
+		const bothAsked = new Promise<void>(resolve => { release = resolve; });
+		ctx.disposables.add(languageFeatures.documentSymbolProvider.register({ language: 'r' }, {
+			provideDocumentSymbols: async () => {
+				if (++asked === 2) {
+					release();
+				}
+				await bothAsked;
+				return [symbol('s', 1)];
+			},
+		} satisfies DocumentSymbolProvider));
+		createFeatures({ cells: [cell, second] });
+
+		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
+
+		// Concurrent, and still in document order.
+		expect((result as DocumentSymbol[]).map(s => s.range.startLineNumber)).toEqual([4, 20]);
+	});
+
+	it('discards its results once the request is cancelled', async () => {
+		// The Outline recomputes on every debounced edit. Cells are asked in
+		// parallel, so cancelling cannot un-ask a request that already went out.
+		// What it must do is keep a superseded pass out of the Outline.
 		const second = makeCell(CELL2_URI, 'y <- 2', 20);
 		const cts = ctx.disposables.add(new CancellationTokenSource());
 		registerSymbols('downstream', () => {
@@ -815,13 +844,7 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 
 		const result = await symbolProvider().provideDocumentSymbols(sourceModel, cts.token);
 
-		expect({
-			asked: calls.filter(c => c.startsWith('downstream:')),
-			result,
-		}).toEqual({
-			asked: [`downstream:${CELL_URI.toString()}`],
-			result: undefined,
-		});
+		expect(result).toBeUndefined();
 	});
 
 	it('returns nothing when no cell has a symbol to offer', async () => {
