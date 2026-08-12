@@ -203,7 +203,10 @@ export class GettingStartedPage extends EditorPane {
 	private showFeaturedWalkthrough = true;
 
 	// --- Start Positron ---
-	private positronReactRenderer!: PositronReactRenderer;
+	// Holds the React root for whichever welcome page is built. Assigning a new
+	// one unmounts the previous one, and clearInput clears it so the tree does
+	// not stay mounted while the editor is closed.
+	private readonly positronReactRenderer = this._register(new MutableDisposable<PositronReactRenderer>());
 	// --- End Positron ---
 
 	get editorInput(): GettingStartedInput | undefined {
@@ -1106,8 +1109,7 @@ export class GettingStartedPage extends EditorPane {
 			const gettingStartedList = this.buildGettingStartedWalkthroughsList();
 
 			const leftContent = $('div.positron-welcome-left-column');
-			this.positronReactRenderer = createWelcomePageLeft(leftContent);
-			this.categoriesSlideDisposables.add(this.positronReactRenderer);
+			this.positronReactRenderer.value = createWelcomePageLeft(leftContent);
 
 			// Hide the "Connect to..." button if we are on a web platform
 			if (!isWeb) {
@@ -1249,7 +1251,7 @@ export class GettingStartedPage extends EditorPane {
 		}
 
 		const reactHost = $('div');
-		this.categoriesSlideDisposables.add(createPositronWelcomePage(reactHost, {
+		this.positronReactRenderer.value = createPositronWelcomePage(reactHost, {
 			recentList: recentList.getDomElement(),
 			// Hide the "Connect to..." button if we are on a web platform
 			connectAction: isWeb ? undefined : otherList,
@@ -1266,7 +1268,7 @@ export class GettingStartedPage extends EditorPane {
 				this.registerDispatchListeners();
 				this.categoriesPageScrollbar?.scanDomNode();
 			},
-		}));
+		});
 
 		return reactHost;
 	}
@@ -1838,7 +1840,9 @@ export class GettingStartedPage extends EditorPane {
 	override clearInput() {
 		this.stepDisposables.clear();
 		// --- Start Positron ---
-		this.positronReactRenderer?.dispose();
+		// Closing the editor does not dispose the pane, so unmount the welcome
+		// page here rather than waiting for the next build or for teardown.
+		this.positronReactRenderer.clear();
 		// --- End Positron ---
 		super.clearInput();
 	}
