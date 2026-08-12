@@ -187,7 +187,11 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 				<div className='connect-provider-view' data-testid='provider-connect-view'>
 					<ConnectProviderHeader source={props.source} />
 					{methods.length > 1 && !props.source.signedIn &&
-						<div className='connect-provider-auth-method' role='radiogroup'>
+						<div
+							aria-label={localize('positron.connectProvider.authMethodGroup', "Authentication Method")}
+							className='connect-provider-auth-method'
+							role='radiogroup'
+						>
 							{methods.map(method =>
 								<label key={method}>
 									<input

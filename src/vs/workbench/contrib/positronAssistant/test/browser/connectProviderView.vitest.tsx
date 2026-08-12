@@ -305,6 +305,11 @@ describe('ConnectProviderView', () => {
 	});
 
 	describe('with multiple auth methods (Databricks)', () => {
+		it('names the auth method radio group', () => {
+			rtl.render(<ConnectProviderView source={databricksOAuth} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+			expect(screen.getByRole('radiogroup', { name: 'Authentication Method' })).toBeInTheDocument();
+		});
+
 		it('renders both radios with OAuth checked by default', () => {
 			rtl.render(<ConnectProviderView source={databricksOAuth} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
 			expect(screen.getByRole('radio', { name: 'OAuth' })).toBeChecked();
