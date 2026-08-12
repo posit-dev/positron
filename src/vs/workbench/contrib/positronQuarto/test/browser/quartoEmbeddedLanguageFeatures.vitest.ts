@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
+import { errorHandler } from '../../../../../base/common/errors.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { Position } from '../../../../../editor/common/core/position.js';
 import { ITextModel } from '../../../../../editor/common/model.js';
@@ -795,10 +796,23 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		});
 		createFeatures({ cells: [cell, second] });
 
-		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
+		const reported: Error[] = [];
+		const previousHandler = errorHandler.getUnexpectedErrorHandler();
+		errorHandler.setUnexpectedErrorHandler(error => reported.push(error));
+		let result: DocumentSymbol[] | undefined;
+		try {
+			result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None) as DocumentSymbol[];
+		} finally {
+			errorHandler.setUnexpectedErrorHandler(previousHandler);
+		}
 
-		expect((result as DocumentSymbol[])?.map(s => ({ name: s.name, line: s.range.startLineNumber })))
-			.toEqual([{ name: 'y', line: 20 }]);
+		expect({
+			symbols: result?.map(s => ({ name: s.name, line: s.range.startLineNumber })),
+			reported: reported.map(error => error.message),
+		}).toEqual({
+			symbols: [{ name: 'y', line: 20 }],
+			reported: ['server had a bad moment'],
+		});
 	});
 
 	it('asks every cell at once rather than one at a time', async () => {
