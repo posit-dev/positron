@@ -71,6 +71,37 @@ export function defineMemoryScenario(options: {
 			await app.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
 			await sessions.expectNoStartUpMessaging();
 
+			// --- Start temporary diagnostic ---
+			// Investigating a bimodal renderer PSS split (~430 MB vs ~595 MB) across
+			// otherwise-identical launches. Leading hypothesis is a raster/compositing
+			// buffer size difference driven by window dimensions or devicePixelRatio.
+			// Remove once the split is explained. Must never fail the measurement.
+			const launchIndex = Number(process.env.MEMORY_LAUNCH_INDEX ?? 0);
+			try {
+				const rendererContext = await app.code.driver.currentPage.evaluate(() => ({
+					innerWidth: window.innerWidth,
+					innerHeight: window.innerHeight,
+					outerWidth: window.outerWidth,
+					outerHeight: window.outerHeight,
+					devicePixelRatio: window.devicePixelRatio,
+					screenWidth: window.screen.width,
+					screenHeight: window.screen.height
+				}));
+				mkdirSync(SNAPSHOT_DIR, { recursive: true });
+				writeFileSync(join(SNAPSHOT_DIR, `launch-${launchIndex}-context.json`), JSON.stringify(rendererContext, null, 2));
+				console.log(`[memory] ${scenario} launch ${launchIndex} renderer context: inner=${rendererContext.innerWidth}x${rendererContext.innerHeight} outer=${rendererContext.outerWidth}x${rendererContext.outerHeight} dpr=${rendererContext.devicePixelRatio} screen=${rendererContext.screenWidth}x${rendererContext.screenHeight}`);
+			} catch (error) {
+				console.log(`[memory] ${scenario} launch ${launchIndex}: failed to capture renderer context diagnostic: ${error}`);
+			}
+
+			try {
+				mkdirSync(SNAPSHOT_DIR, { recursive: true });
+				await app.code.driver.currentPage.screenshot({ path: join(SNAPSHOT_DIR, `launch-${launchIndex}.png`), fullPage: true });
+			} catch (error) {
+				console.log(`[memory] ${scenario} launch ${launchIndex}: failed to capture screenshot diagnostic: ${error}`);
+			}
+			// --- End temporary diagnostic ---
+
 			const extensions = await readActivatedExtensions({
 				logsRoot: logsPath,
 				extensionsDir: app.extensionsPath
