@@ -457,6 +457,7 @@ Create `test/e2e/tests/performance/memory-scenario.ts`. Move the two `test.descr
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { expect, tags, test } from '../_test.setup';
+import { Application, Sessions } from '../../infra';
 import { readActivatedExtensions } from '../../utils/memory/extensions.js';
 import { fetchBaseline, publishSnapshots } from '../../utils/memory/publish.js';
 import { renderHtml, renderMarkdown } from '../../utils/memory/render.js';
@@ -489,7 +490,7 @@ function snapshotDir(scenario: MemoryScenario): string {
 export function defineMemoryScenario(options: {
 	scenario: MemoryScenario;
 	/** Drives the app into the state being measured. Omitted for idle. */
-	prepare?: (fixtures: { app: any; sessions: any }) => Promise<void>;
+	prepare?: (fixtures: { app: Application; sessions: Sessions }) => Promise<void>;
 	/** Roles that must be present, proving the scenario reached its state. */
 	expectRoles?: ProcessRole[];
 }): void {
@@ -599,7 +600,7 @@ export function defineMemoryScenario(options: {
 }
 ```
 
-The `prepare` fixtures are typed `any` because importing the `Application` and `Sessions` classes into this file pulls the harness into a module that `playwright.config.ts` must not load. If the e2e compile accepts the concrete types, prefer them; if it complains about a cycle, leave `any` and note why in a comment.
+`Application` and `Sessions` come from `test/e2e/infra`, which is where `_test.setup.ts` itself gets them (see its line 15, and the fixture declarations at lines 613 and 648). This file is never imported by `playwright.config.ts`, so pulling in the harness types costs nothing.
 
 - [ ] **Step 2: Rewrite the idle spec on top of the factory**
 
