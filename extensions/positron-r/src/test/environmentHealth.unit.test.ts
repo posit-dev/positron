@@ -12,7 +12,6 @@ import {
 	assembleItems,
 	HealthItem,
 	HealthItemId,
-	probeDedicatedEnvironment,
 	probeDiscovery,
 	probeEnvironmentReady,
 	probeNoUsableTarget,
@@ -22,6 +21,7 @@ import {
 	RInstallationRankable,
 	selectTargetInstallation,
 } from '../environmentHealth';
+import { friendlyReason, ReasonRejected } from '../r-installation';
 
 suite('environment health: libR path resolution', () => {
 	// Mirrors harp::find_r_shared_library_folder. Windows arm64 is deliberately
@@ -86,7 +86,6 @@ function installation(over: Partial<RInstallationLike> = {}): RInstallationLike 
 	return {
 		binpath: '/opt/R/4.4.1/bin/R',
 		usable: true,
-		supported: true,
 		version: '4.4.1',
 		reasonRejected: null,
 		...over,
@@ -95,6 +94,7 @@ function installation(over: Partial<RInstallationLike> = {}): RInstallationLike 
 
 const READY_OK = {
 	usable: true,
+	rejectedReason: null,
 	versionSupported: true,
 	version: '4.4.1',
 	arkFound: true,
@@ -130,12 +130,16 @@ suite('environment health: probeRInstalled', () => {
 		assert.strictEqual(probeRInstalled({ installations: [installation()] }).status, 'pass');
 	});
 
-	test('fails when every install is unusable, naming the reason', () => {
+	test('fails when every install is unusable, naming the reason in prose', () => {
 		const item = probeRInstalled({
-			installations: [installation({ usable: false, reasonRejected: 'nonOrthogonal' })],
+			installations: [installation({
+				usable: false, reasonRejected: ReasonRejected.nonOrthogonal,
+			})],
 		});
 		assert.strictEqual(item.status, 'fail');
-		assert.ok(item.detail?.includes('nonOrthogonal'));
+		// The enum token is a developer string; the report gets the sentence.
+		assert.ok(!item.detail?.includes('nonOrthogonal'));
+		assert.ok(item.detail?.includes(friendlyReason(ReasonRejected.nonOrthogonal)));
 	});
 
 	test('fails when the only install is below the minimum version', () => {
@@ -144,11 +148,25 @@ suite('environment health: probeRInstalled', () => {
 		// looks like. The version must still surface, not a generic reason.
 		const item = probeRInstalled({
 			installations: [installation({
-				usable: false, supported: false, version: '4.0.5', reasonRejected: 'unsupported',
+				usable: false, version: '4.0.5', reasonRejected: ReasonRejected.unsupported,
 			})],
 		});
 		assert.strictEqual(item.status, 'fail');
 		assert.ok(item.detail?.includes('4.0.5'));
+	});
+
+	test('a broken install is not reported as an old version', () => {
+		// A missing R_HOME, DESCRIPTION, or Built field rejects as `invalid`
+		// before a version is ever parsed (r-installation.ts:274-307), so the
+		// version sentence would read "is version , below the minimum".
+		const item = probeRInstalled({
+			installations: [installation({
+				usable: false, version: '', reasonRejected: ReasonRejected.invalid,
+			})],
+		});
+		assert.strictEqual(item.status, 'fail');
+		assert.ok(!item.detail?.includes('below the minimum'));
+		assert.ok(item.detail?.includes(friendlyReason(ReasonRejected.invalid)));
 	});
 
 	test('offers no fix but does link to the discovery docs', () => {
@@ -164,12 +182,13 @@ suite('environment health: probeEnvironmentReady', () => {
 		assert.strictEqual(probeEnvironmentReady(READY_OK).status, 'pass');
 	});
 
-	test('fails when the installation is not usable, reporting the reason', () => {
+	test('fails when the installation is not usable, reporting the reason in prose', () => {
 		const item = probeEnvironmentReady({
-			...READY_OK, usable: false, rejectedReason: 'invalid',
+			...READY_OK, usable: false, rejectedReason: ReasonRejected.nonOrthogonal,
 		});
 		assert.strictEqual(item.status, 'fail');
-		assert.ok(item.detail?.includes('invalid'));
+		assert.ok(!item.detail?.includes('nonOrthogonal'));
+		assert.ok(item.detail?.includes(friendlyReason(ReasonRejected.nonOrthogonal)));
 	});
 
 	test('fails on an unsupported version', () => {
@@ -194,6 +213,16 @@ suite('environment health: probeEnvironmentReady', () => {
 
 	test('checks ark before libR, because libR resolution needs ark arch', () => {
 		const item = probeEnvironmentReady({ ...READY_OK, arkFound: false, libRExists: false });
+		assert.ok(!item.detail?.includes('--enable-R-shlib'));
+	});
+
+	test('checks arch before libR, because ark arch decides the libR path', () => {
+		// An arm64 ark against x64 R resolves R_HOME\\bin\\R.dll, which x64 R
+		// keeps at bin\\x64. Reporting --enable-R-shlib would name the wrong cause.
+		const item = probeEnvironmentReady({
+			...READY_OK, archMismatch: true, libRExists: false, rArch: 'x86_64', arkArch: 'arm64',
+		});
+		assert.strictEqual(item.status, 'warn');
 		assert.ok(!item.detail?.includes('--enable-R-shlib'));
 	});
 
@@ -262,26 +291,6 @@ suite('environment health: target selection', () => {
 	});
 });
 
-suite('environment health: probeDedicatedEnvironment', () => {
-	test('passes when the open folder has an renv project', () => {
-		const item = probeDedicatedEnvironment({ workspaceFolderPath: '/work/proj', hasRenv: true });
-		assert.strictEqual(item.status, 'pass');
-	});
-
-	test('fails with the renv fix when the open folder has no renv project', () => {
-		const item = probeDedicatedEnvironment({ workspaceFolderPath: '/work/proj', hasRenv: false });
-		assert.strictEqual(item.status, 'fail');
-		assert.strictEqual(item.fix?.commandId, 'r.renvInit');
-		assert.ok(item.detail?.includes('/work/proj'));
-	});
-
-	test('warns with the new-folder fix when no folder is open', () => {
-		const item = probeDedicatedEnvironment({ hasRenv: false });
-		assert.strictEqual(item.status, 'warn');
-		assert.strictEqual(item.fix?.commandId, 'positron.workbench.action.newFolderFromTemplate');
-	});
-});
-
 suite('environment health: assembleItems cascade', () => {
 	const pass = (id: HealthItemId): HealthItem => ({ id, status: 'pass', summary: id });
 	const fail = (id: HealthItemId): HealthItem => ({ id, status: 'fail', summary: id });
@@ -291,42 +300,34 @@ suite('environment health: assembleItems cascade', () => {
 		discovery: () => pass('discovery'),
 		rInstalled: () => pass('rInstalled'),
 		ready: () => pass('environmentReady'),
-		dedicated: () => pass('dedicatedEnvironment'),
 	};
 
-	test('reports ok with four items when everything passes', async () => {
+	test('reports ok with three items when everything passes', async () => {
 		const result = await assembleItems(allPass);
 		assert.strictEqual(result.ok, true);
 		assert.deepStrictEqual(result.items.map((i) => i.id),
-			['discovery', 'rInstalled', 'environmentReady', 'dedicatedEnvironment']);
+			['discovery', 'rInstalled', 'environmentReady']);
 	});
 
-	test('a discovery failure skips the other three', async () => {
+	test('a discovery failure skips the other two', async () => {
 		const result = await assembleItems({ ...allPass, discovery: () => fail('discovery') });
 		assert.strictEqual(result.ok, false);
 		assert.deepStrictEqual(result.items.map((i) => i.status),
-			['fail', 'skipped', 'skipped', 'skipped']);
+			['fail', 'skipped', 'skipped']);
 		// A skipped item is still rendered, so its summary must not be the id.
 		assert.ok(result.items.slice(1).every((i) => !i.summary.includes(i.id)),
 			`skipped summaries leaked an id: ${result.items.slice(1).map((i) => i.summary)}`);
 	});
 
-	test('an rInstalled failure skips the last two', async () => {
+	test('an rInstalled failure skips environmentReady', async () => {
 		const result = await assembleItems({ ...allPass, rInstalled: () => fail('rInstalled') });
 		assert.deepStrictEqual(result.items.map((i) => i.status),
-			['pass', 'fail', 'skipped', 'skipped']);
+			['pass', 'fail', 'skipped']);
 	});
 
-	test('an environmentReady failure skips only dedicatedEnvironment', async () => {
-		const result = await assembleItems({ ...allPass, ready: () => fail('environmentReady') });
-		assert.deepStrictEqual(result.items.map((i) => i.status),
-			['pass', 'pass', 'fail', 'skipped']);
-	});
-
-	test('a warn does not flip ok and does not short-circuit', async () => {
+	test('a warn does not flip ok', async () => {
 		const result = await assembleItems({ ...allPass, ready: () => warn('environmentReady') });
 		assert.strictEqual(result.ok, true);
-		assert.strictEqual(result.items[3].status, 'pass');
 	});
 
 	test('a throwing producer becomes a fail item rather than rejecting', async () => {
@@ -338,6 +339,5 @@ suite('environment health: assembleItems cascade', () => {
 		assert.ok(result.items[2].detail?.includes('kaboom'));
 		// The raw error goes in detail; summary stays user-facing, not the id.
 		assert.ok(!result.items[2].summary.includes('environmentReady'));
-		assert.strictEqual(result.items[3].status, 'skipped');
 	});
 });

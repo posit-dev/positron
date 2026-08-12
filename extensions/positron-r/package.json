@@ -157,6 +157,11 @@
         "title": "%r.command.printEnvironmentHealth.title%"
       },
       {
+        "command": "r.getEnvironmentHealth",
+        "category": "R",
+        "title": "%r.command.getEnvironmentHealth.title%"
+      },
+      {
         "command": "r.loadRDataFile",
         "category": "R",
         "title": "%r.command.loadRDataFile.title%"
@@ -662,6 +667,12 @@
         }
       ],
       "commandPalette": [
+        {
+          "category": "R",
+          "command": "r.getEnvironmentHealth",
+          "title": "%r.command.getEnvironmentHealth.title%",
+          "when": "false"
+        },
         {
           "category": "R",
           "command": "r.sourceCurrentFile",

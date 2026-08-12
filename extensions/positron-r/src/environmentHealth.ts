@@ -12,7 +12,7 @@ import * as vscode from 'vscode';
 import { LOGGER } from './extension';
 import { getArkKernelPath, normalizeWindowsArch, sniffMachOBinaryArchitecture, sniffWindowsBinaryArchitecture } from './kernel';
 import { discoverRInstallations } from './provider';
-import { RInstallation } from './r-installation';
+import { friendlyReason, ReasonRejected, RInstallation } from './r-installation';
 
 /** Architecture vocabulary used by the ark binary sniffers. */
 export type ArkArch = 'arm64' | 'x64';
@@ -58,8 +58,8 @@ export function archesMismatch(rArch: string | undefined, arkArch: ArkArch | und
 
 export type HealthItemStatus = 'pass' | 'warn' | 'fail' | 'skipped';
 
-/** The four checks, in dependency order. */
-export type HealthItemId = 'discovery' | 'rInstalled' | 'environmentReady' | 'dedicatedEnvironment';
+/** The three checks, in dependency order. */
+export type HealthItemId = 'discovery' | 'rInstalled' | 'environmentReady';
 
 export interface HealthItemFix {
 	/** Extension OR core command id. */
@@ -85,9 +85,8 @@ export interface HealthItem {
 export interface RInstallationLike {
 	binpath: string;
 	usable: boolean;
-	supported: boolean;
 	version: string;
-	reasonRejected: string | null;
+	reasonRejected: ReasonRejected | null;
 }
 
 const R_INSTALL_DOCS = 'https://positron.posit.co/r-installations';
@@ -124,13 +123,18 @@ export function probeDiscovery(deps: { binaryCount: number; error?: string }): H
 export function probeRInstalled(deps: { installations: RInstallationLike[] }): HealthItem {
 	const id = 'rInstalled';
 	const summary = vscode.l10n.t('A supported R is installed');
-	if (deps.installations.some((i) => i.usable && i.supported)) {
+	// `usable` implies `supported`: RInstallation only sets it inside the
+	// supported branch (r-installation.ts:323).
+	if (deps.installations.some((i) => i.usable)) {
 		return { id, status: 'pass', summary };
 	}
 
 	// Version first: an old R is always ALSO marked unusable, so the generic
 	// branch would otherwise shadow the more actionable "your R is 4.0.5".
-	const unsupported = deps.installations.find((i) => !i.supported);
+	// Keyed on the reason rather than `supported`, which also reads false for a
+	// broken install that never got far enough to have a version at all.
+	const unsupported = deps.installations.find(
+		(i) => i.reasonRejected === ReasonRejected.unsupported);
 	if (unsupported) {
 		return {
 			id, status: 'fail', summary,
@@ -146,7 +150,7 @@ export function probeRInstalled(deps: { installations: RInstallationLike[] }): H
 			id, status: 'fail', summary,
 			detail: vscode.l10n.t(
 				'The R installation at {0} is unusable: {1}.',
-				rejected.binpath, rejected.reasonRejected ?? 'unknown'),
+				rejected.binpath, friendlyReason(rejected.reasonRejected)),
 			learnMoreUrl: R_INSTALL_DOCS,
 		};
 	}
@@ -221,7 +225,7 @@ export function selectTargetInstallation<T extends RInstallationRankable>(
 
 export function probeEnvironmentReady(deps: {
 	usable: boolean;
-	rejectedReason?: string;
+	rejectedReason: ReasonRejected | null;
 	versionSupported: boolean;
 	version: string;
 	arkFound: boolean;
@@ -238,7 +242,7 @@ export function probeEnvironmentReady(deps: {
 		return {
 			id, status: 'fail', summary,
 			detail: vscode.l10n.t(
-				'This R installation is unusable: {0}.', deps.rejectedReason ?? 'unknown'),
+				'This R installation is unusable: {0}.', friendlyReason(deps.rejectedReason)),
 			learnMoreUrl: R_INSTALL_DOCS,
 		};
 	}
@@ -259,15 +263,9 @@ export function probeEnvironmentReady(deps: {
 			fix: diagnosticsFix(),
 		};
 	}
-	if (!deps.libRExists) {
-		return {
-			id, status: 'fail', summary,
-			detail: vscode.l10n.t(
-				"R's shared library was not found at {0}. If this is a custom build of R, ensure it is compiled with --enable-R-shlib.",
-				deps.libRPath),
-			learnMoreUrl: R_INSTALL_DOCS,
-		};
-	}
+	// Arch precedes libR: resolveLibRPath picks the Windows layout from ark's
+	// architecture, so a mismatched ark resolves a path R never uses. Reporting
+	// --enable-R-shlib there would name the wrong cause.
 	if (deps.archMismatch) {
 		return {
 			id, status: 'warn', summary,
@@ -277,42 +275,22 @@ export function probeEnvironmentReady(deps: {
 			learnMoreUrl: R_INSTALL_DOCS,
 		};
 	}
-	return { id, status: 'pass', summary };
-}
-
-export function probeDedicatedEnvironment(deps: {
-	workspaceFolderPath?: string;
-	hasRenv: boolean;
-}): HealthItem {
-	const id = 'dedicatedEnvironment';
-	const summary = vscode.l10n.t('The workspace uses a dedicated R environment');
-
-	if (!deps.workspaceFolderPath) {
+	if (!deps.libRExists) {
 		return {
-			id, status: 'warn', summary,
-			detail: vscode.l10n.t('No folder is open. Open or create a folder to use a project-local renv library.'),
-			fix: {
-				commandId: 'positron.workbench.action.newFolderFromTemplate',
-				label: vscode.l10n.t('New Folder from Template'),
-			},
+			id, status: 'fail', summary,
+			detail: vscode.l10n.t(
+				"R's shared library was not found at {0}. If this is a custom build of R, ensure it is compiled with --enable-R-shlib.",
+				deps.libRPath),
+			learnMoreUrl: R_INSTALL_DOCS,
 		};
 	}
-	if (deps.hasRenv) {
-		return { id, status: 'pass', summary };
-	}
-	return {
-		id, status: 'fail', summary,
-		detail: vscode.l10n.t(
-			'{0} does not use renv. Initialize renv to isolate this project\'s packages.',
-			deps.workspaceFolderPath),
-		fix: { commandId: 'r.renvInit', label: vscode.l10n.t('Initialize renv') },
-	};
+	return { id, status: 'pass', summary };
 }
 
 export interface REnvironmentHealthResult {
 	/** True when no item has status 'fail'. Warn and skipped do not affect it. */
 	ok: boolean;
-	/** Always all four, in dependency order. */
+	/** Always all three, in dependency order. */
 	items: HealthItem[];
 	rBinPath?: string;
 	rHome?: string;
@@ -345,35 +323,24 @@ export async function assembleItems(producers: {
 	discovery: () => HealthItem | Promise<HealthItem>;
 	rInstalled: () => HealthItem | Promise<HealthItem>;
 	ready: () => HealthItem | Promise<HealthItem>;
-	dedicated: () => HealthItem | Promise<HealthItem>;
 }): Promise<REnvironmentHealthResult> {
 	const items: HealthItem[] = [];
 
 	const discovery = await runItem('discovery', producers.discovery);
 	items.push(discovery);
 	if (discovery.status === 'fail') {
-		items.push(skipped('rInstalled'), skipped('environmentReady'), skipped('dedicatedEnvironment'));
+		items.push(skipped('rInstalled'), skipped('environmentReady'));
 		return finalize(items);
 	}
 
 	const rInstalled = await runItem('rInstalled', producers.rInstalled);
 	items.push(rInstalled);
 	if (rInstalled.status === 'fail') {
-		items.push(skipped('environmentReady'), skipped('dedicatedEnvironment'));
+		items.push(skipped('environmentReady'));
 		return finalize(items);
 	}
 
-	// dedicatedEnvironment follows environmentReady: an unusable R makes the
-	// renv verdict meaningless, and a "use renv" nudge alongside a broken
-	// installation is misleading advice.
-	const ready = await runItem('environmentReady', producers.ready);
-	items.push(ready);
-	if (ready.status === 'fail') {
-		items.push(skipped('dedicatedEnvironment'));
-		return finalize(items);
-	}
-
-	items.push(await runItem('dedicatedEnvironment', producers.dedicated));
+	items.push(await runItem('environmentReady', producers.ready));
 	return finalize(items);
 }
 
@@ -393,24 +360,7 @@ function arkArchitecture(arkPath: string | undefined): ArkArch | undefined {
 	return undefined;
 }
 
-function hasRenvProject(folderPath: string): boolean {
-	return fs.existsSync(path.join(folderPath, 'renv.lock')) ||
-		fs.existsSync(path.join(folderPath, 'renv', 'activate.R'));
-}
-
-function resolveWorkspaceFolderPath(workspaceFolder: string | undefined): string | undefined {
-	if (workspaceFolder) {
-		return vscode.Uri.parse(workspaceFolder).fsPath;
-	}
-	// First folder only; multi-root reporting is a frontend concern.
-	return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-}
-
-export async function getEnvironmentHealth(
-	args?: { workspaceFolder?: string }
-): Promise<REnvironmentHealthResult> {
-	const folderPath = resolveWorkspaceFolderPath(args?.workspaceFolder);
-
+export async function getEnvironmentHealth(): Promise<REnvironmentHealthResult> {
 	// Discovery runs once per invocation and every probe below reads that one
 	// snapshot. Nothing is cached across calls; each call re-runs full discovery.
 	let all: RInstallation[] = [];
@@ -440,7 +390,7 @@ export async function getEnvironmentHealth(
 			const libRPath = resolveLibRPath(target.homepath, os.platform(), arkArch);
 			return probeEnvironmentReady({
 				usable: target.usable,
-				rejectedReason: target.reasonRejected ?? undefined,
+				rejectedReason: target.reasonRejected,
 				versionSupported: target.supported,
 				version: target.version,
 				// getArkKernelPath returns the positron.r.kernel.path setting
@@ -453,10 +403,6 @@ export async function getEnvironmentHealth(
 				arkArch,
 			});
 		},
-		dedicated: () => probeDedicatedEnvironment({
-			workspaceFolderPath: folderPath,
-			hasRenv: folderPath ? hasRenvProject(folderPath) : false,
-		}),
 	});
 
 	result.rBinPath = target?.binpath;

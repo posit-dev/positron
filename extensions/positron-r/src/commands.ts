@@ -233,16 +233,21 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		// Command used to get the minimum version of R supported by the extension
 		vscode.commands.registerCommand('r.getMinimumRVersion', (): string => MINIMUM_R_VERSION),
 
-		// Command used to initialize a new folder with renv.
-		// Callers such as the New Folder flow await this command and clear
-		// startup state afterwards, so it must never reject.
+		// Command used to initialize a new folder with renv
 		vscode.commands.registerCommand('r.renvInit', async () => {
-			try {
-				await renvInit();
-			} catch (err) {
-				const message = err instanceof Error ? err.message : String(err);
-				LOGGER.error(`[r.renvInit] ${message}`);
-				vscode.window.showErrorMessage(message);
+			// ensure renv is installed before calling renv::init()
+			// this prompts the user to install if it's not already
+			// if the user declines, renv::init() will not be called
+			const isInstalled = await checkInstalled('renv', MINIMUM_RENV_VERSION);
+			if (isInstalled) {
+				const session = await positron.runtime.getForegroundSession();
+				if (session) {
+					session.execute(`renv::init()`, generateDirectInjectionId(), positron.RuntimeCodeExecutionMode.Interactive, positron.RuntimeErrorBehavior.Continue);
+				} else {
+					console.debug('[r.renvInit] no session available');
+				}
+			} else {
+				console.debug('[r.renvInit] renv is not installed');
 			}
 		}),
 
@@ -256,7 +261,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		// Returns a JSON report on whether the current R setup can start a
 		// session. Internal: consumed by a frontend, not surfaced in the palette.
 		vscode.commands.registerCommand('r.getEnvironmentHealth',
-			async (args?: { workspaceFolder?: string }) => getEnvironmentHealth(args)),
+			async () => getEnvironmentHealth()),
 
 		// Developer probe: same report, logged to the R output channel.
 		vscode.commands.registerCommand('r.printEnvironmentHealth', async () => {
@@ -801,63 +806,4 @@ async function showRVersion(): Promise<void> {
 		const message = err instanceof Error ? err.message : String(err);
 		vscode.window.showErrorMessage(vscode.l10n.t('Error getting R version: {0}', message));
 	}
-}
-
-/** How long to wait for a freshly started R console session to appear. */
-const RENV_SESSION_TIMEOUT_MS = 30_000;
-const RENV_SESSION_POLL_MS = 250;
-
-/**
- * Initializes renv in the current project, starting an R session first if none
- * is running.
- *
- * Uses `RSessionManager.getConsoleSession()` throughout, the same source
- * `checkInstalled` resolves internally, so readiness, the install check, and the
- * execute target agree on one session. The foreground session is unusable here:
- * it is language-agnostic and can be set while R is still Uninitialized.
- *
- * @param timeoutMs Overridden only by tests; production callers use the default.
- * @param pollMs How often to re-check for the session while waiting.
- */
-export async function renvInit(
-	timeoutMs = RENV_SESSION_TIMEOUT_MS,
-	pollMs = RENV_SESSION_POLL_MS
-): Promise<void> {
-	let session = await RSessionManager.instance.getConsoleSession();
-
-	if (!session) {
-		const preferred = await positron.runtime.getPreferredRuntime('r');
-		if (!preferred) {
-			throw new Error(vscode.l10n.t(
-				'Cannot initialize renv: no R installation is available to start.'));
-		}
-		await positron.runtime.selectLanguageRuntime(preferred.runtimeId);
-
-		// selectLanguageRuntime resolves through a bare proxy call and does not
-		// promise the session is ready, so poll rather than execute into a race.
-		const deadline = Date.now() + timeoutMs;
-		while (!session && Date.now() < deadline) {
-			await new Promise(resolve => setTimeout(resolve, pollMs));
-			session = await RSessionManager.instance.getConsoleSession();
-		}
-		if (!session) {
-			throw new Error(vscode.l10n.t(
-				'Cannot initialize renv: the R session did not start in time.'));
-		}
-	}
-
-	// Ensure renv is installed; this prompts the user to install if it is not
-	// already. If the user declines, renv::init() is not called.
-	const isInstalled = await checkInstalled('renv', MINIMUM_RENV_VERSION, session);
-	if (!isInstalled) {
-		LOGGER.info('[r.renvInit] renv is not installed; skipping renv::init()');
-		return;
-	}
-
-	session.execute(
-		`renv::init()`,
-		generateDirectInjectionId(),
-		positron.RuntimeCodeExecutionMode.Interactive,
-		positron.RuntimeErrorBehavior.Continue
-	);
 }
