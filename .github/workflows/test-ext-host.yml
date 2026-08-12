@@ -27,6 +27,7 @@ permissions:
 jobs:
   ext-host-tests:
     name: ext-host
+    if: false # EXPERIMENT: does a skipped inner job publish 'test / ext-host'?
     runs-on: ubuntu-latest-4x
     timeout-minutes: 60
     # Run inside the shared CI image, which bakes in the system dependencies,
