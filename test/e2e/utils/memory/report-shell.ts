@@ -33,12 +33,20 @@ export function escapeHtml(text: string): string {
 		.replace(/"/g, '&quot;');
 }
 
-/** Up/down triangle plus a signed number, so a delta is never conveyed by color alone. */
-export function deltaHtml(current: number, before: number): string {
-	const diff = current - before;
+/**
+ * Up/down triangle plus a signed number, so a delta is never conveyed by color
+ * alone. Near-zero (under 1 MB) gets neither color nor glyph, just a plain
+ * number, since a swing that small is noise rather than signal.
+ */
+export function deltaHtmlFromDiff(diff: number): string {
 	const cls = Math.abs(diff) < MB ? 'delta-flat' : diff > 0 ? 'delta-up' : 'delta-down';
 	const glyph = Math.abs(diff) < MB ? '' : diff > 0 ? '&#9650; ' : '&#9660; ';
 	return `<span class="${cls}">${glyph}${signed(diff)}</span>`;
+}
+
+/** Same as {@link deltaHtmlFromDiff}, computing the diff from two absolute values. */
+export function deltaHtml(current: number, before: number): string {
+	return deltaHtmlFromDiff(current - before);
 }
 
 /**

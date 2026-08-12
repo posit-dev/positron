@@ -172,6 +172,7 @@ jobs:
         run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Render and publish'
 
       - name: Upload report
+        id: upload-report
         if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -181,3 +182,88 @@ jobs:
           # start of every invocation.
           path: ${{ runner.temp }}/memory-snapshots-${{ matrix.scenario }}/
           if-no-files-found: warn
+
+      # actions/upload-artifact@v7's artifact-url output is the direct link to
+      # this job's own report. Falls back to the run's artifacts anchor when
+      # the output is empty (upload-report skipped, or nothing matched
+      # if-no-files-found: warn), rather than assuming the output is always
+      # populated.
+      - name: Link this scenario's report in the step summary
+        if: always()
+        run: |
+          URL="${{ steps.upload-report.outputs.artifact-url }}"
+          if [ -z "$URL" ]; then
+            URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          fi
+          echo "[memory-report-${{ matrix.scenario }} artifact]($URL)" >> "$GITHUB_STEP_SUMMARY"
+
+  # Combines the three matrix jobs' per-scenario reports into one
+  # cross-scenario view: the per-role numbers are 20-50x quieter than the
+  # tree TOTAL and are the useful signal, but nothing compared them side by
+  # side before this job existed.
+  #
+  # Runs on a plain runner, not the private container image: it only reads
+  # JSON off disk and renders HTML, so it needs none of the memory job's
+  # requirements (container image, Xvfb, a Positron build, an interpreter).
+  # `if: always()` and no `needs` result requirement means it still runs, and
+  # still produces a summary, when one scenario's matrix job failed.
+  summarize:
+    name: summarize-memory
+    needs: memory
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      # Compiles test/e2e, which is where summarize-cli.ts lives. Same action
+      # the memory job uses, so the compiled output this job runs is built the
+      # same way.
+      - name: Setup test dependencies and compile tests
+        uses: ./.github/actions/setup-e2e-test-dependencies
+
+      # Downloads every memory-report-<scenario> artifact that was uploaded,
+      # each into its own subdirectory named after the artifact -- exactly the
+      # memory-report-<scenario>/memory-snapshot-*.json layout summarize-cli.ts
+      # expects. A scenario whose matrix job failed before uploading simply has
+      # no matching artifact, which the CLI treats as a missing scenario rather
+      # than an error.
+      - name: Download memory reports
+        uses: actions/download-artifact@v8
+        with:
+          pattern: memory-report-*
+          path: ${{ runner.temp }}/memory-reports
+
+      - name: Render cross-scenario summary
+        id: summarize
+        run: |
+          node test/e2e/out/utils/memory/summarize-cli.js \
+            "${{ runner.temp }}/memory-reports" \
+            "${{ runner.temp }}/memory-summary.html" \
+            | tee "${{ runner.temp }}/memory-summary.md"
+          {
+            echo "markdown<<MEMORY_SUMMARY_EOF"
+            cat "${{ runner.temp }}/memory-summary.md"
+            echo "MEMORY_SUMMARY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload cross-scenario summary
+        id: upload-summary
+        uses: actions/upload-artifact@v7
+        with:
+          name: memory-summary
+          path: ${{ runner.temp }}/memory-summary.html
+          if-no-files-found: error
+
+      - name: Append summary to the step summary
+        if: always()
+        run: |
+          URL="${{ steps.upload-summary.outputs.artifact-url }}"
+          if [ -z "$URL" ]; then
+            URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          fi
+          {
+            echo "${{ steps.summarize.outputs.markdown }}"
+            echo ""
+            echo "[memory-summary artifact]($URL)"
+          } >> "$GITHUB_STEP_SUMMARY"
