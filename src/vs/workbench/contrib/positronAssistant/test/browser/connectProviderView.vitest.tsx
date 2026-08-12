@@ -41,7 +41,7 @@ const databricks: IPositronLanguageModelSource = {
 	provider: { id: 'databricks', displayName: 'Databricks' },
 	supportedOptions: ['apiKey', 'baseUrl'],
 	signedIn: false,
-	defaults: { baseUrl: 'https://adb-123.7.azuredatabricks.net' },
+	defaults: { baseUrl: 'https://workspace.example.com' },
 };
 
 // Snowflake stores the bare account, not a URL, in baseUrl.
@@ -58,7 +58,7 @@ const databricksOAuth: IPositronLanguageModelSource = {
 	provider: { id: 'databricks', displayName: 'Databricks' },
 	supportedOptions: ['oauth', 'apiKey', 'baseUrl'],
 	signedIn: false,
-	defaults: { baseUrl: 'https://adb-123.7.azuredatabricks.net' },
+	defaults: { baseUrl: 'https://workspace.example.com' },
 };
 
 
@@ -175,7 +175,7 @@ describe('ConnectProviderView', () => {
 
 	it('labels the Databricks base URL input as the workspace URL', () => {
 		rtl.render(<ConnectProviderView source={databricks} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
-		expect(screen.getByLabelText('Workspace URL')).toHaveValue('https://adb-123.7.azuredatabricks.net');
+		expect(screen.getByLabelText('Workspace URL')).toHaveValue('https://workspace.example.com');
 		expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
 	});
 
@@ -341,9 +341,9 @@ describe('ConnectProviderView', () => {
 			const user = userEvent.setup();
 			rtl.render(<ConnectProviderView source={databricksOAuth} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
 			await user.click(screen.getByRole('radio', { name: 'API Key' }));
-			await user.type(screen.getByLabelText(/api key/i, { selector: 'input[type="password"]' }), 'dapi-test');
+			await user.type(screen.getByLabelText(/api key/i, { selector: 'input[type="password"]' }), 'placeholder-key');
 			await user.click(screen.getByRole('button', { name: 'Connect' }));
-			expect(onAction).toHaveBeenCalledWith(databricksOAuth, expect.objectContaining({ apiKey: 'dapi-test' }), 'save');
+			expect(onAction).toHaveBeenCalledWith(databricksOAuth, expect.objectContaining({ apiKey: 'placeholder-key' }), 'save');
 		});
 
 		it('hides the picker while signed in', () => {

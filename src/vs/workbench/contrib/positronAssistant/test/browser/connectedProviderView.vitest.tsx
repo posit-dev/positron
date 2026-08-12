@@ -58,7 +58,7 @@ describe('ConnectedProviderView', () => {
 			provider: { id: 'databricks', displayName: 'Databricks' },
 			supportedOptions: ['apiKey', 'baseUrl'],
 			signedIn: true,
-			defaults: { baseUrl: 'https://adb-123.7.azuredatabricks.net' },
+			defaults: { baseUrl: 'https://workspace.example.com' },
 		};
 		rtl.render(<ConnectedProviderView source={databricks} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
 		expect(screen.getByText('Workspace URL')).toBeInTheDocument();
@@ -178,7 +178,7 @@ describe('ConnectedProviderView', () => {
 			supportedOptions: ['oauth', 'apiKey', 'baseUrl'],
 			signedIn: true,
 			authMethods: ['apiKey'],
-			defaults: { baseUrl: 'https://adb-123.7.azuredatabricks.net' },
+			defaults: { baseUrl: 'https://workspace.example.com' },
 		};
 		const onAction = vi.fn().mockResolvedValue(undefined);
 		const user = userEvent.setup();
@@ -197,7 +197,7 @@ describe('ConnectedProviderView', () => {
 			supportedOptions: ['oauth', 'apiKey', 'baseUrl'],
 			signedIn: true,
 			authMethods: ['oauth'],
-			defaults: { baseUrl: 'https://adb-123.7.azuredatabricks.net' },
+			defaults: { baseUrl: 'https://workspace.example.com' },
 		};
 		rtl.render(<ConnectedProviderView source={databricksOAuth} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
 		expect(screen.getByText(/connected via oauth/i)).toBeInTheDocument();
