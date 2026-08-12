@@ -66,7 +66,7 @@ describe('buildSummaryMatrix', () => {
 		const kernelRow = matrix.rows.find(r => r.role === 'kernel')!;
 
 		expect(kernelRow.values['idle']).toBeUndefined();
-		expect('idle' in kernelRow.values).toBe(false);
+		expect(Object.keys(kernelRow.values)).not.toContain('idle');
 		expect(kernelRow.values['session-python']).toBe(50 * MB);
 	});
 
