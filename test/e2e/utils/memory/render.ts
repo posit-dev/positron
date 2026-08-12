@@ -183,6 +183,19 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 	return lines.join('\n');
 }
 
+/**
+ * Truncates a process name for display in the tree's name column.
+ *
+ * Some process names are a full command line (the supervisor wrapper script
+ * invocation is 465 characters), and `.tree-name`'s `nowrap` pushes every
+ * numeric column off the card for a name that long. The full name still
+ * belongs somewhere -- callers put it in a `title` attribute -- but the cell
+ * itself needs a length a table row can actually hold.
+ */
+function shortName(name: string): string {
+	return name.length > 60 ? `${name.slice(0, 60)}...` : name;
+}
+
 /** Largest single process PSS in the first launch, for scaling the magnitude bars. */
 function maxProcessPss(snapshot: MemorySnapshot): number {
 	return snapshot.processes.reduce((max, p) => Math.max(max, p.pssBytes), 0);
@@ -195,13 +208,68 @@ function magnitudeBar(bytes: number, maxBytes: number): string {
 }
 
 /**
- * Renders the process tree in the array's own order rather than sorted by size.
+ * Orders processes into an actual depth-first traversal, parent immediately
+ * followed by its own children, instead of trusting the snapshot's array
+ * order.
  *
- * The snapshot lists a process after its parent, and carries the parent's depth
- * plus one, so the array order together with `depth` is what makes the
- * parent/child structure visible: sorting by PSS would scatter a child away from
- * the parent that spawned it, which is exactly the relationship this table
- * exists to show.
+ * The snapshot's array order does not reliably keep a child adjacent to its
+ * parent -- e.g. a renderer window can land after an unrelated process that
+ * happens to share its depth -- so this rebuilds the tree from `ppid` and
+ * walks it explicitly. Within one parent's children, the biggest PSS
+ * consumer goes first, since that is the child most worth reading about.
+ *
+ * Two edge cases matter and are handled explicitly rather than left to
+ * whatever the recursion happens to do:
+ * - A process whose `ppid` is not present in the snapshot (the parent was
+ *   not captured, or already exited) is an orphan. It is appended at the end
+ *   rather than silently dropped, so no process disappears from the report.
+ * - A cycle in the data (should not happen, but this is process data read
+ *   from procfs under load) cannot cause infinite recursion: each pid is
+ *   visited at most once, tracked via `visited`.
+ */
+function orderDepthFirst(processes: LabeledProcess[]): LabeledProcess[] {
+	const byPid = new Map(processes.map(p => [p.pid, p]));
+	const childrenByPpid = new Map<number, LabeledProcess[]>();
+	for (const proc of processes) {
+		if (proc.ppid === proc.pid || !byPid.has(proc.ppid)) {
+			continue;
+		}
+		const siblings = childrenByPpid.get(proc.ppid) ?? [];
+		siblings.push(proc);
+		childrenByPpid.set(proc.ppid, siblings);
+	}
+	for (const siblings of childrenByPpid.values()) {
+		siblings.sort((a, b) => b.pssBytes - a.pssBytes);
+	}
+
+	const visited = new Set<number>();
+	const ordered: LabeledProcess[] = [];
+	const visit = (proc: LabeledProcess) => {
+		if (visited.has(proc.pid)) {
+			return;
+		}
+		visited.add(proc.pid);
+		ordered.push(proc);
+		for (const child of childrenByPpid.get(proc.pid) ?? []) {
+			visit(child);
+		}
+	};
+
+	const root = processes.find(p => p.depth === 0);
+	if (root) {
+		visit(root);
+	}
+	// Anything not reached from the root -- an orphan whose parent is absent
+	// from the snapshot, or a process behind a cycle -- still needs to appear.
+	for (const proc of processes) {
+		visit(proc);
+	}
+	return ordered;
+}
+
+/**
+ * Renders the process tree ordered by {@link orderDepthFirst} so a child
+ * renders immediately under the parent that spawned it.
  *
  * Each row also carries a delta against `baselineNames`, matched by process
  * name since pids do not survive across launches. This is what tells the
@@ -210,14 +278,16 @@ function magnitudeBar(bytes: number, maxBytes: number): string {
  * moved, and that is exactly the distinction this column exists to draw.
  */
 function processTreeRows(snapshot: MemorySnapshot, maxBytes: number, baseline: MemorySnapshot | undefined, baselineNames: Map<string, { bytes: number; role: ProcessRole }>): string {
-	return snapshot.processes.map(proc => {
+	return orderDepthFirst(snapshot.processes).map(proc => {
 		let change = '';
 		if (baseline) {
 			const before = baselineNames.get(proc.processName);
 			change = before === undefined ? '<span class="delta-flat">new</span>' : deltaHtml(proc.pssBytes, before.bytes);
 		}
+		const fullName = escapeHtml(proc.processName);
+		const displayName = escapeHtml(shortName(proc.processName));
 		return `<tr>
-			<td class="tree-name" style="padding-left:${8 + proc.depth * 20}px">${escapeHtml(proc.processName)}</td>
+			<td class="tree-name" style="padding-left:${8 + proc.depth * 20}px" title="${fullName}">${displayName}</td>
 			<td><code>${escapeHtml(proc.processRole)}</code></td>
 			<td align="right">${formatBytes(proc.pssBytes)}</td>
 			<td>${magnitudeBar(proc.pssBytes, maxBytes)}</td>
@@ -228,7 +298,20 @@ function processTreeRows(snapshot: MemorySnapshot, maxBytes: number, baseline: M
 	}).join('\n');
 }
 
-/** Extension ids grouped by activation event, most eventful group first, capped per group. */
+/**
+ * Extension ids grouped by activation event for the single "Activated
+ * extensions" card.
+ *
+ * The eager groups (`*`, then `onStartupFinished`) always sort first and
+ * carry a badge, because they are the groups the "N of M activate eagerly"
+ * headline and the "Newly eager" callout are both talking about; a reader
+ * scanning the card needs to be able to find them without reading every
+ * heading. The remaining groups keep the old biggest-group-first order.
+ *
+ * This used to be two cards -- "Eagerly activated extensions" duplicated the
+ * `*`/`onStartupFinished` groups that already appeared in "Activated
+ * extensions (N)" below it. One card, one place to look.
+ */
 function groupedExtensionsHtml(snapshot: MemorySnapshot): string {
 	const groups = new Map<string, ActivatedExtension[]>();
 	for (const extension of snapshot.extensions) {
@@ -238,7 +321,21 @@ function groupedExtensionsHtml(snapshot: MemorySnapshot): string {
 		groups.set(key, group);
 	}
 
-	const ordered = [...groups.entries()].sort((a, b) => b[1].length - a[1].length);
+	const eagerRank = new Map(EAGER_EVENTS.map(({ event }, index) => [event, index]));
+	const ordered = [...groups.entries()].sort((a, b) => {
+		const rankA = eagerRank.get(a[0]);
+		const rankB = eagerRank.get(b[0]);
+		if (rankA !== undefined && rankB !== undefined) {
+			return rankA - rankB;
+		}
+		if (rankA !== undefined) {
+			return -1;
+		}
+		if (rankB !== undefined) {
+			return 1;
+		}
+		return b[1].length - a[1].length;
+	});
 
 	return ordered.map(([event, extensions]) => {
 		const sorted = [...extensions].sort((a, b) => a.extensionId.localeCompare(b.extensionId));
@@ -248,7 +345,11 @@ function groupedExtensionsHtml(snapshot: MemorySnapshot): string {
 		const more = sorted.length > MAX_PER_GROUP
 			? `<li class="muted">...${sorted.length - MAX_PER_GROUP} more</li>`
 			: '';
-		return `<h3><code>${escapeHtml(event)}</code> (${sorted.length})</h3>
+		const eager = EAGER_EVENTS.find(e => e.event === event);
+		const badge = eager
+			? ` <span class="muted" title="activates eagerly">&#9889; eager${eager.note ? ` -- ${escapeHtml(eager.note)}` : ''}</span>`
+			: '';
+		return `<h3><code>${escapeHtml(event)}</code> (${sorted.length})${badge}</h3>
 		<ul>
 ${items}
 ${more}
@@ -257,68 +358,50 @@ ${more}
 }
 
 /**
- * "Eagerly activated extensions" card: the only handle on memory held inside
- * the extension host, which is one process and so cannot be split by any
- * amount of process detail.
- *
- * Keeps the old markdown's rules: `*` is listed ahead of `onStartupFinished`
- * because it delays the window itself rather than merely costing memory once
- * the window is up, and a newly-eager extension (present before but activating
- * on demand) is called out separately from one that is eager in both runs.
+ * "N of M activate eagerly" headline for the merged extensions card, drawn
+ * from the same `first` snapshot the card's groups are built from so the
+ * headline count can never disagree with what the groups below it show.
  */
-function eagerExtensionsHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): string {
+function eagerHeadlineHtml(snapshot: MemorySnapshot): string {
+	const eagerCount = snapshot.extensions.filter(e => isEagerActivation(e.activationEvent)).length;
+	return `<p><strong>${eagerCount} of ${snapshot.extensions.length}</strong> activate eagerly.</p>`;
+}
+
+/**
+ * "Newly eager" callout: an extension that activated eagerly this run but did
+ * not in the baseline. This is a diff, not a listing -- unlike the merged
+ * card above it, it is the actual regression signal, so it stays separate.
+ *
+ * Keeps the old markdown's rule: an extension counts as eager if any launch
+ * saw it activate eagerly, and a newly-eager extension (present before but
+ * activating on demand) is called out even if it was not new to the window.
+ */
+function newlyEagerHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): string {
 	const eager = eagerExtensions(snapshots);
-	if (eager.length === 0) {
-		return '<p class="muted">None.</p>';
-	}
 
 	// A baseline whose rows all carry a null event cannot say how anything
 	// activated, so every extension would read as newly eager. Suppress the
 	// callout rather than publish a fake alarm.
 	const baselineKnowsEvents = baseline?.extensions.some(e => e.activationEvent !== null) ?? false;
-	const baselineEager = baselineKnowsEvents ? eagerExtensions([baseline!]) : [];
-
-	let newlyEagerHtml = '';
-	if (baselineKnowsEvents) {
-		const before = new Set(baselineEager.map(e => e.extensionId));
-		const newlyEager = eager.filter(e => !before.has(e.extensionId));
-		if (newlyEager.length > 0) {
-			const items = newlyEager
-				.map(e => `<li><code>${escapeHtml(e.extensionId)}</code> (<code>${escapeHtml(e.activationEvent ?? '')}</code>)</li>`)
-				.join('\n');
-			newlyEagerHtml = `<h3>Newly eager</h3>
-		<ul>
-${items}
-		</ul>`;
-		}
+	if (!baselineKnowsEvents) {
+		return '';
+	}
+	const baselineEager = eagerExtensions([baseline!]);
+	const before = new Set(baselineEager.map(e => e.extensionId));
+	const newlyEager = eager.filter(e => !before.has(e.extensionId));
+	if (newlyEager.length === 0) {
+		return '';
 	}
 
-	// Grouped rather than one comma-separated run. Fifteen ids on one line wrap
-	// mid-name and are unreadable, and the run hid the distinction that matters
-	// most: which of them use `*`.
-	const groupsHtml = EAGER_EVENTS.map(({ event, note }) => {
-		const inGroup = eager
-			.filter(e => e.activationEvent === event)
-			.map(e => e.extensionId)
-			.sort((a, b) => a.localeCompare(b));
-		if (inGroup.length === 0) {
-			return '';
-		}
-		const items = inGroup.slice(0, MAX_PER_GROUP)
-			.map(id => `<li><code>${escapeHtml(id)}</code></li>`)
-			.join('\n');
-		const more = inGroup.length > MAX_PER_GROUP
-			? `<li class="muted">...${inGroup.length - MAX_PER_GROUP} more</li>`
-			: '';
-		return `<h3><code>${escapeHtml(event)}</code> (${inGroup.length})${note ? ` <span class="muted">-- ${escapeHtml(note)}</span>` : ''}</h3>
+	const items = newlyEager
+		.map(e => `<li><code>${escapeHtml(e.extensionId)}</code> (<code>${escapeHtml(e.activationEvent ?? '')}</code>)</li>`)
+		.join('\n');
+	return `<div class="card">
+		<h2>Newly eager (${newlyEager.length})</h2>
 		<ul>
 ${items}
-${more}
-		</ul>`;
-	}).filter(html => html !== '').join('\n');
-
-	return `${newlyEagerHtml}
-	${groupsHtml}`;
+		</ul>
+	</div>`;
 }
 
 /**
@@ -382,7 +465,8 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 	const baselineNames = baseline ? byProcessName([baseline]) : new Map<string, { bytes: number; role: ProcessRole }>();
 	const treeRows = processTreeRows(first, maxBytes, baseline, baselineNames);
 	const extensionsByEvent = groupedExtensionsHtml(first);
-	const eagerHtml = eagerExtensionsHtml(snapshots, baseline);
+	const eagerHeadline = eagerHeadlineHtml(first);
+	const newlyEagerCard = newlyEagerHtml(snapshots, baseline);
 	const newProcessesCard = newProcessesHtml(snapshots, baseline);
 	const unlabeledNote = unlabeledNoteHtml(snapshots, roleTotals);
 
@@ -422,13 +506,11 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 
 	${newProcessesCard}
 
-	<div class="card">
-		<h2>Eagerly activated extensions</h2>
-		${eagerHtml}
-	</div>
+	${newlyEagerCard}
 
 	<div class="card">
 		<h2>Activated extensions (${first.extensions.length})</h2>
+		${eagerHeadline}
 		${extensionsByEvent}
 	</div>
 </div>

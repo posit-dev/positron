@@ -29,8 +29,12 @@ describe('formatBytes', () => {
 	test('renders megabytes with one decimal', () => {
 		expect(formatBytes(100 * MB)).toBe('100.0 MB');
 	});
-	test('renders gigabytes above 1024 MB', () => {
-		expect(formatBytes(2048 * MB)).toBe('2.0 GB');
+	test('stays in MB above 1024 MB, with a thousands separator', () => {
+		// Regression: a GB branch collapses exactly the resolution the report
+		// exists to show. At gigabyte scale, one displayed digit is worth over
+		// 100 MB -- bigger than the duckdb-worker regression (86 MB) this whole
+		// effort exists to catch.
+		expect(formatBytes(2059 * MB)).toBe('2,059.0 MB');
 	});
 });
 
@@ -138,12 +142,78 @@ describe('renderHtml', () => {
 			proc({ pid: 102, depth: 3, processName: 'kcserver', processRole: 'kernel_supervisor' }),
 		])]);
 		const indent = (name: string) => {
-			const match = output.match(new RegExp(`padding-left:(\\d+)px">${name}`));
+			// The name cell also carries a `title` attribute (the untruncated
+			// process name) between the `style` and the closing `>`, so the match
+			// can't assume `px"` is immediately followed by `>`.
+			const match = output.match(new RegExp(`padding-left:(\\d+)px"[^>]*>${name}`));
 			expect(match).not.toBeNull();
 			return Number(match![1]);
 		};
 		expect(indent('positron')).toBeLessThan(indent('extension-host \\[1\\]'));
 		expect(indent('extension-host \\[1\\]')).toBeLessThan(indent('kcserver'));
+	});
+
+	test('truncates a very long process name but keeps the full name in a title attribute', () => {
+		// Regression: a real process name (the supervisor wrapper script's
+		// command line) is 465 characters long. Combined with `.tree-name`'s
+		// `nowrap`, an untruncated name pushes every numeric column off the
+		// card, so the tree shows no memory values at all.
+		const longName = 'bash /__w/_temp/positron-build/positron-linux/resources/app/extensions/positron-supervisor/resources/supervisor-wrapper.sh /tmp/kallichore-1234567890.log --some-flag --another-flag --and-another-one-for-good-measure --keep-going';
+		const output = renderHtml([snapshot([proc({ processName: longName })])]);
+		const row = output.split('Process tree')[1].split('</table>')[0];
+		expect(row).toContain(`title="${longName}"`);
+		const cellText = row.match(/<td class="tree-name"[^>]*>([^<]*)<\/td>/)![1];
+		expect(cellText.length).toBeLessThan(longName.length);
+		expect(cellText.length).toBeLessThan(80);
+	});
+
+	test('escapes both the truncated name and the full title so a command line cannot inject markup', () => {
+		const longName = `${'a'.repeat(70)} <script>alert(1)</script>`;
+		const output = renderHtml([snapshot([proc({ processName: longName })])]);
+		expect(output).not.toContain('<script>alert(1)</script>');
+		expect(output).toContain('&lt;script&gt;');
+	});
+
+	test('orders the tree depth-first, a parent immediately followed by its own children', () => {
+		// Regression: rows used to follow the snapshot's raw array order, so a
+		// child could land far from the parent that spawned it even though the
+		// indentation depths were correct.
+		const zygote = proc({ pid: 1, ppid: 0, depth: 0, processName: 'zygote', processRole: 'zygote' });
+		const ptyHost = proc({ pid: 2, ppid: 1, depth: 1, processName: 'pty-host', processRole: 'pty_host' });
+		const window1 = proc({ pid: 3, ppid: 1, depth: 1, processName: 'window [1]', processRole: 'renderer' });
+		// Array order deliberately puts pty-host between the zygote and its
+		// other child, which is the exact bug this test guards against.
+		const output = renderHtml([snapshot([zygote, ptyHost, window1])]);
+		const treeSection = output.split('Process tree')[1].split('</table>')[0];
+		expect(treeSection.indexOf('zygote')).toBeLessThan(treeSection.indexOf('pty-host'));
+		expect(treeSection.indexOf('zygote')).toBeLessThan(treeSection.indexOf('window [1]'));
+	});
+
+	test('orders siblings biggest PSS first', () => {
+		const root = proc({ pid: 1, ppid: 0, depth: 0, processName: 'root' });
+		const small = proc({ pid: 2, ppid: 1, depth: 1, processName: 'small-child', pssBytes: 10 * MB });
+		const big = proc({ pid: 3, ppid: 1, depth: 1, processName: 'big-child', pssBytes: 200 * MB });
+		const output = renderHtml([snapshot([root, small, big])]);
+		const treeSection = output.split('Process tree')[1].split('</table>')[0];
+		expect(treeSection.indexOf('big-child')).toBeLessThan(treeSection.indexOf('small-child'));
+	});
+
+	test('still shows a process whose parent is missing from the snapshot, as an orphan', () => {
+		// The parent may not have been captured (e.g. it already exited). The
+		// orphan must not silently disappear from the report.
+		const root = proc({ pid: 1, ppid: 0, depth: 0, processName: 'root' });
+		const orphan = proc({ pid: 99, ppid: 12345, depth: 1, processName: 'orphaned-worker' });
+		const output = renderHtml([snapshot([root, orphan])]);
+		expect(output).toContain('orphaned-worker');
+	});
+
+	test('does not infinite-loop on a cycle in the parent/child data', () => {
+		const a = proc({ pid: 1, ppid: 2, depth: 0, processName: 'proc-a' });
+		const b = proc({ pid: 2, ppid: 1, depth: 1, processName: 'proc-b' });
+		expect(() => renderHtml([snapshot([a, b])])).not.toThrow();
+		const output = renderHtml([snapshot([a, b])]);
+		expect(output).toContain('proc-a');
+		expect(output).toContain('proc-b');
 	});
 
 	test('escapes names so a window title cannot inject markup', () => {
@@ -278,17 +348,39 @@ describe('renderHtml', () => {
 		expect(output).toContain('posit.assistant');
 	});
 
-	test('leaves demand-activated extensions out of the eager card', () => {
-		// The deck asks people to stop adding eager activations. Listing every
-		// activation would bury that signal among the demand-activated ones.
+	test('lists extensions once, in a single merged card', () => {
+		// Regression: there used to be a separate "Eagerly activated extensions"
+		// card whose groups were entirely a subset of the "Activated extensions"
+		// card below it -- the same ids listed twice.
+		const output = renderHtml([snapshot([proc()], 0, [
+			ext('github.copilot', 'onStartupFinished'),
+			ext('ms-python.python', 'onLanguage:python'),
+		])]);
+		expect(output).not.toContain('Eagerly activated extensions');
+		expect(output.match(/github\.copilot/g)).toHaveLength(1);
+	});
+
+	test('badges the eager groups but not demand-activated ones', () => {
 		const output = renderHtml([snapshot([proc()], 0, [
 			ext('github.copilot', 'onStartupFinished'),
 			ext('ms-python.python', 'onLanguage:python'),
 			ext('vscode.git', 'workspaceContains:.git'),
 		])]);
-		const eagerCard = output.split('Eagerly activated extensions')[1].split('<h2>Activated extensions')[0];
-		expect(eagerCard).not.toContain('ms-python.python');
-		expect(eagerCard).not.toContain('vscode.git');
+		const card = output.split('<h2>Activated extensions')[1];
+		const eagerGroup = card.split('onStartupFinished')[1].split('</h3>')[0];
+		const demandGroup = card.split('onLanguage:python')[1].split('</h3>')[0];
+		expect(eagerGroup).toContain('eager');
+		expect(demandGroup).not.toContain('eager');
+	});
+
+	test('reports the headline count of eagerly activated extensions', () => {
+		const output = renderHtml([snapshot([proc()], 0, [
+			ext('github.copilot', 'onStartupFinished'),
+			ext('posit.assistant', '*'),
+			ext('ms-python.python', 'onLanguage:python'),
+			ext('vscode.git', 'workspaceContains:.git'),
+		])]);
+		expect(output).toContain('2 of 4</strong> activate eagerly');
 	});
 
 	test('calls out an extension that is newly eager', () => {

@@ -15,9 +15,16 @@
 
 const MB = 1024 * 1024;
 
+/**
+ * Always MB, never GB. Every scenario in the report sits in the hundreds to
+ * low thousands of MB, and a GB branch collapses exactly the resolution the
+ * report exists to show: at gigabyte scale one displayed digit is worth over
+ * 100 MB, which would hide a regression the size of the effort's own worked
+ * examples (a duckdb worker at 86 MB, a language server at 101 MB).
+ */
 export function formatBytes(bytes: number): string {
 	const mb = bytes / MB;
-	return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(1)} MB`;
+	return `${mb.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MB`;
 }
 
 export function signed(bytes: number): string {
@@ -66,7 +73,7 @@ export const REPORT_CSS = `
 		td, th { padding: 4px 8px; text-align: left; }
 		th { color: #6b7280; font-weight: 500; font-size: 0.85rem; border-bottom: 1px solid #e5e7eb; }
 		tr:not(:last-child) td { border-bottom: 1px solid #f3f4f6; }
-		.tree-name { white-space: nowrap; }
+		.tree-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; display: inline-block; vertical-align: middle; }
 		.bar-track { background: #e5e7eb; border-radius: 4px; height: 8px; width: 100px; }
 		.bar-fill { background: #86b6ef; border-radius: 0 4px 4px 0; height: 8px; }
 		.delta-up { color: #d03b3b; }
