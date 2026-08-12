@@ -67,15 +67,36 @@ memory has already regressed us or plausibly will.
 | Scenario | Baseline | What it makes visible | Issue |
 | --- | --- | --- | --- |
 | `idle` | absolute | shipped | [#15430](https://github.com/posit-dev/positron/pull/15430) |
-| `session` (Python and R started) | idle | Ark, ipykernel, a loaded kcserver, and the session side of positron-python and positron-r | [#15491](https://github.com/posit-dev/positron/issues/15491) |
+| `session-python` | idle | ipykernel, a loaded kcserver, and the session side of positron-python | [#15491](https://github.com/posit-dev/positron/issues/15491) |
+| `session-r` | idle | Ark, a loaded kcserver, and the session side of positron-r | [#15491](https://github.com/posit-dev/positron/issues/15491) |
 | `data-explorer` (CSV opened, no session) | idle | the duckdb worker, roughly 86 MB, the regression that prompted the epic | [#15492](https://github.com/posit-dev/positron/issues/15492) |
-| `notebook` (one cell run) | session | the Positron notebook renderer and webview path | [#15492](https://github.com/posit-dev/positron/issues/15492) |
-| `plots` (one plot rendered) | session | the plots service and webview or plot caching | [#15492](https://github.com/posit-dev/positron/issues/15492) |
+| `notebook` (one cell run) | `session-python` | the Positron notebook renderer and webview path | [#15492](https://github.com/posit-dev/positron/issues/15492) |
+| `plots` (one plot rendered) | `session-python` | the plots service and webview or plot caching | [#15492](https://github.com/posit-dev/positron/issues/15492) |
 | `assistant` | idle | gated on a probe, see below | [#15492](https://github.com/posit-dev/positron/issues/15492) |
 
 Notebook and plots are the speculative two. Nothing has regressed in either, but no other scenario
 touches those code paths, and both are cheap enough that waiting for a regression to justify them
-is a worse trade than measuring them now.
+is a worse trade than measuring them now. The notebook and plot scenarios run against a Python
+session.
+
+### Python and R get separate scenarios
+
+The kernels themselves are distinguishable either way, since the snapshot keeps a row per process
+and Ark and ipykernel can be told apart by command name. What a combined scenario loses is
+attribution of the shared processes. `label.ts` maps both `ipykernel_launcher` and `ark` to one
+`kernel` role, so the per-role rollup #15495 charts would sum them, and more to the point both
+positron-r and positron-python load their session code into the same extension host heap. That
+heap is 429 MB at idle and is where the talk's second culprit lives, so an ext host jump in a
+combined run cannot be pinned on either language. Split, and each language's ext host delta over
+idle is its own number, which is a coarse version of what #15494 eventually does properly.
+
+Most people also run one language, not both, so a combined figure describes nobody's real session.
+The split costs three extra launches, which under the job matrix below is a parallel job and does
+not move wall clock.
+
+There is deliberately no third scenario with both languages running at once. It would catch
+interaction effects such as reticulate and the session list UI, but nothing has regressed there and
+it is another series to maintain and threshold.
 
 ### The data explorer scenario does not start a session
 
@@ -105,7 +126,7 @@ every number after the first would depend on the order, and one flaky step would
 Each scenario asserts the state it claims to measure before snapshotting, then holds for the same
 settle window idle uses (it recorded `settleMs` of 3112):
 
-- `session`: both sessions report Ready
+- `session-python` and `session-r`: the session reports Ready
 - `data-explorer`: the grid has rows
 - `notebook`: the cell has output
 - `plots`: the plot is in the pane
@@ -120,7 +141,7 @@ the labeling rules, and the renderer. `MEMORY_SCENARIO` already exists in the wo
 gates collection in `playwright.config.ts`. Snapshots gain a `scenario` field so
 [#15495](https://github.com/posit-dev/positron/issues/15495) can carry one series per scenario.
 
-All five scenarios in one job comes to roughly 27 to 31 minutes of the 45 minute budget. That fits,
+All six scenarios in one job comes to roughly 31 to 35 minutes of the 45 minute budget. That fits,
 but not with much room. Past three scenarios, split the job into a matrix keyed on
 `MEMORY_SCENARIO`. That re-pays the 6.5 minute setup per job and runs them in parallel, which puts
 wall clock back around 10 minutes and takes the timeout risk off the table.
