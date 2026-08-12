@@ -62,6 +62,15 @@ export function defineMemoryScenario(options: {
 				await prepare({ app, sessions });
 			}
 
+			// Deterministic readiness gate, not a memory heuristic: waits out startup
+			// banners (session or otherwise), focuses the console, and parks the mouse
+			// so a hover tooltip is not holding renderer allocations. Runs for every
+			// scenario, including idle, so idle stays comparable to the states it is
+			// the baseline for. waitForSettle below still guards a tree that is
+			// genuinely mid-allocation.
+			await app.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
+			await sessions.expectNoStartUpMessaging();
+
 			const extensions = await readActivatedExtensions({
 				logsRoot: logsPath,
 				extensionsDir: app.extensionsPath
