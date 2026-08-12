@@ -81,23 +81,15 @@ export interface EnvironmentHealthResult {
  * inside each probe.
  */
 export function itemSummary(id: HealthItemId): string {
-    switch (id) {
-        case 'discovery':
-            return vscode.l10n.t('Positron can discover Python environments');
-        case 'pythonInstalled':
-            return vscode.l10n.t('A supported Python is installed');
-        case 'environmentReady':
-            return vscode.l10n.t('The environment is ready to use with Positron');
-        case 'dedicatedEnvironment':
-            return vscode.l10n.t('A dedicated Python environment is available');
-        default:
-            // `id` narrows to `never`; a new HealthItemId without a summary is a compile error.
-            return assertNever(id);
-    }
-}
-
-function assertNever(value: never): never {
-    throw new Error(`Unhandled health item id: ${value}`);
+    // Record<HealthItemId, string> requires an entry per id, so adding a check without a summary
+    // is a compile error. Built per call because vscode.l10n.t needs the activated l10n bundle.
+    const summaries: Record<HealthItemId, string> = {
+        discovery: vscode.l10n.t('Positron can discover Python environments'),
+        pythonInstalled: vscode.l10n.t('A supported Python is installed'),
+        environmentReady: vscode.l10n.t('The environment is ready to use with Positron'),
+        dedicatedEnvironment: vscode.l10n.t('A dedicated Python environment is available'),
+    };
+    return summaries[id];
 }
 
 export function probeDiscovery(finder: Pick<NativePythonFinder, 'lastDiscoveryError'>): HealthItem {
