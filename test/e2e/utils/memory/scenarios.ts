@@ -21,3 +21,23 @@ export const MEMORY_SCENARIOS: readonly MemoryScenario[] = ['idle', 'session-pyt
 export function isMemoryScenario(value: string | undefined): value is MemoryScenario {
 	return value !== undefined && (MEMORY_SCENARIOS as readonly string[]).includes(value);
 }
+
+/** The spec file that measures each scenario. */
+const SPEC_BY_SCENARIO: Record<MemoryScenario, string> = {
+	'idle': '**/performance/memory-idle.test.ts',
+	'session-python': '**/performance/memory-session-python.test.ts',
+	'session-r': '**/performance/memory-session-r.test.ts'
+};
+
+/**
+ * Which memory specs a run must not collect. Every one of them except the
+ * running scenario's, and all of them when no scenario is set.
+ *
+ * Ignored rather than skipped in-test because merge-to-main runs this lane
+ * ungrepped, so a skip would report a permanently skipped row.
+ */
+export function memorySpecsToIgnore(scenario: string | undefined): string[] {
+	return MEMORY_SCENARIOS
+		.filter(candidate => candidate !== scenario)
+		.map(candidate => SPEC_BY_SCENARIO[candidate]);
+}

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, test } from 'vitest';
-import { isMemoryScenario, MEMORY_SCENARIOS } from './scenarios.js';
+import { isMemoryScenario, memorySpecsToIgnore, MEMORY_SCENARIOS } from './scenarios.js';
 
 describe('isMemoryScenario', () => {
 	test('accepts every scenario in the vocabulary', () => {
@@ -19,5 +19,26 @@ describe('isMemoryScenario', () => {
 
 	test('rejects a typo rather than silently measuring nothing', () => {
 		expect(isMemoryScenario('session_python')).toBe(false);
+	});
+});
+
+describe('memorySpecsToIgnore', () => {
+	test('ignores every memory spec in an ordinary lane', () => {
+		expect(memorySpecsToIgnore(undefined)).toEqual([
+			'**/performance/memory-idle.test.ts',
+			'**/performance/memory-session-python.test.ts',
+			'**/performance/memory-session-r.test.ts'
+		]);
+	});
+
+	test('keeps only the running scenario, so one job measures one state', () => {
+		expect(memorySpecsToIgnore('session-r')).toEqual([
+			'**/performance/memory-idle.test.ts',
+			'**/performance/memory-session-python.test.ts'
+		]);
+	});
+
+	test('ignores everything when the scenario is a typo, rather than running the wrong spec', () => {
+		expect(memorySpecsToIgnore('session_r')).toHaveLength(3);
 	});
 });
