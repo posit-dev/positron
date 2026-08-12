@@ -43,10 +43,23 @@ interface ResolveInterpreterOptions {
     parseVersion: (output: string) => string | undefined;
 }
 
+/**
+ * A single environment variable contributed by loading modules, as an action to
+ * apply to a terminal's environment. Mirrors the type exported by the
+ * positron-environment-modules extension; defined locally to avoid a hard
+ * dependency.
+ */
+export interface CapturedEnvironmentVariable {
+    name: string;
+    value: string;
+    action: 'replace' | 'prepend' | 'append';
+}
+
 export interface EnvironmentModulesApi {
     isAvailable(): Promise<boolean>;
     getEnvironmentsForLanguage(language: string): Promise<Map<string, ModuleEnvironmentConfig>>;
     resolveInterpreter(options: ResolveInterpreterOptions): Promise<ModuleResolvedInterpreter | undefined>;
+    captureEnvironmentVariables(modules: string[]): Promise<CapturedEnvironmentVariable[]>;
     registerDiscoveredRuntime(environmentName: string, language: string, interpreterPath: string): void;
 }
 
