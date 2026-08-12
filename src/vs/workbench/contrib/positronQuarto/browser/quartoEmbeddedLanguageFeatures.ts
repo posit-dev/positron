@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { onUnexpectedExternalError } from '../../../../base/common/errors.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { Position } from '../../../../editor/common/core/position.js';
@@ -18,15 +19,22 @@ import {
 	CompletionList,
 	Definition,
 	DefinitionProvider,
+	DocumentSymbol,
+	DocumentSymbolProvider,
+	HelpTopicProvider,
 	Hover,
 	HoverProvider,
+	IStatementRange,
 	Location,
 	LocationLink,
 	SignatureHelpContext,
 	SignatureHelpProvider,
 	SignatureHelpResult,
+	StatementRangeKind,
+	StatementRangeProvider,
 } from '../../../../editor/common/languages.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
+import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService, LogLevel } from '../../../../platform/log/common/log.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
@@ -35,7 +43,12 @@ import {
 	QUARTO_NATIVE_LANGUAGE_FEATURES_KEY,
 	usingNativeEmbeddedFeatures,
 } from '../common/positronQuartoConfig.js';
-import { cellRangeToSource, ICellLineSpan, sourcePositionToCell } from '../common/quartoCellPositionMapping.js';
+import {
+	cellRangeToSource,
+	cellZeroBasedLineToSource,
+	ICellLineSpan,
+	sourcePositionToCell,
+} from '../common/quartoCellPositionMapping.js';
 import { IQuartoVirtualNotebookService } from './quartoVirtualNotebookService.js';
 
 /**
@@ -142,6 +155,39 @@ function mapDefinitionEntry(
 }
 
 /**
+ * Remap a symbol, and everything nested under it, into source coordinates.
+ *
+ * A child symbol carries ranges of its own rather than offsets within its
+ * parent, so a tree corrected only at the root puts every function body and
+ * every nested binding at the wrong line of the document.
+ */
+function mapDocumentSymbol(cell: ICellLineSpan, symbol: DocumentSymbol): DocumentSymbol {
+	return {
+		...symbol,
+		range: cellRangeToSource(cell, symbol.range),
+		selectionRange: cellRangeToSource(cell, symbol.selectionRange),
+		children: symbol.children?.map(child => mapDocumentSymbol(cell, child)),
+	};
+}
+
+/**
+ * Remap a statement range result into source coordinates.
+ *
+ * The two outcomes carry their coordinates differently. A success carries a
+ * range, which is what gets executed, so leaving it in cell coordinates runs
+ * whatever sits at that line of the Quarto document instead. A rejection
+ * carries the line of the syntax error on its own, zero indexed.
+ */
+function mapStatementRange(cell: ICellLineSpan, result: IStatementRange): IStatementRange {
+	if (result.kind === StatementRangeKind.Success) {
+		return { ...result, range: cellRangeToSource(cell, result.range) };
+	}
+	return result.line === undefined
+		? result
+		: { ...result, line: cellZeroBasedLineToSource(cell, result.line) };
+}
+
+/**
  * Shared behaviour for the providers that serve a Quarto document by asking the
  * providers registered on its hidden notebook cells.
  */
@@ -167,10 +213,15 @@ abstract class QuartoEmbeddedProvider {
 	 * when nothing reads it.
 	 */
 	protected _traceForwarded(feature: string, span: ICellLineSpan, providers: readonly unknown[]): void {
-		if (this._logService.getLevel() <= LogLevel.Trace) {
+		if (this._tracing) {
 			this._logService.trace(`[QuartoEmbedded] ${feature} answered from cell ` +
 				`${span.codeStartLine}-${span.codeEndLine} by ${providers.length} provider(s)`);
 		}
+	}
+
+	/** Whether anybody is reading the trace, so a message is worth building. */
+	protected get _tracing(): boolean {
+		return this._logService.getLevel() <= LogLevel.Trace;
 	}
 
 	/**
@@ -461,6 +512,138 @@ class QuartoEmbeddedDefinitionProvider extends QuartoEmbeddedProvider implements
 }
 
 /**
+ * Serves the Outline for a Quarto document from its code cells. Asked about the
+ * whole document rather than a position, so it walks every cell.
+ *
+ * Replaces the mechanism behind posit-dev/positron#14512, which writes a
+ * temporary file per cell and, on any cell coming back undefined, sleeps half a
+ * second and redoes the whole set. These cells are already open models, so there
+ * is no retry and nothing to wait for.
+ *
+ * Until the Quarto extension defers to us it also nests each cell's symbols
+ * under the heading above them, so expect every code symbol twice.
+ */
+class QuartoEmbeddedDocumentSymbolProvider extends QuartoEmbeddedProvider implements DocumentSymbolProvider {
+	/** Names this group in the Outline. */
+	readonly displayName = localize('positron.quarto.outlineProvider', "Quarto Code Cells");
+
+	async provideDocumentSymbols(model: ITextModel, token: CancellationToken): Promise<DocumentSymbol[] | undefined> {
+		this._virtualNotebooks.ensureSynchronized(model.uri);
+
+		// Snapshot before the first await, since a sync rebuilds the cells and this
+		// request awaits once per cell rather than once in total. The spans are a
+		// copy, not a guarantee: an edit that leaves the chunk structure alone
+		// updates them in place, and the next pass corrects what this one missed.
+		const cells = this._virtualNotebooks.getCells(model.uri).map(cell => ({
+			textModel: cell.textModel,
+			span: { codeStartLine: cell.codeStartLine, codeEndLine: cell.codeEndLine },
+		}));
+
+		const symbols: DocumentSymbol[] = [];
+		let answered = 0;
+
+		for (const { textModel, span } of cells) {
+			// The Outline recomputes on every debounced edit, so without this a
+			// superseded request keeps paying a round trip per remaining cell.
+			if (token.isCancellationRequested) {
+				return undefined;
+			}
+			// A rebuild disposes the models it replaced, so one read before an
+			// earlier await can be gone by the time its turn comes.
+			if (textModel.isDisposed()) {
+				continue;
+			}
+			for (const provider of this._downstream(this._languageFeatures.documentSymbolProvider, textModel)) {
+				let result: DocumentSymbol[] | null | undefined;
+				try {
+					result = await provider.provideDocumentSymbols(textModel, token);
+				} catch (error) {
+					// The walk is one promise, so an unguarded rejection here would
+					// discard every cell's symbols rather than only this cell's.
+					onUnexpectedExternalError(error);
+					continue;
+				}
+				if (!result || result.length === 0) {
+					continue;
+				}
+				symbols.push(...result.map(symbol => mapDocumentSymbol(span, symbol)));
+				answered++;
+				break;
+			}
+		}
+
+		if (this._tracing) {
+			this._logService.trace('[QuartoEmbedded] document symbols answered from ' +
+				`${answered} of ${cells.length} cell(s)`);
+		}
+
+		// An empty list would still build a group in the Outline, which is noise
+		// beside the Quarto server's headings.
+		return symbols.length > 0 ? symbols : undefined;
+	}
+}
+
+/**
+ * Serves statement ranges inside Quarto code cells, which is what Cmd+Enter
+ * runs when the cursor is in a chunk.
+ */
+class QuartoEmbeddedStatementRangeProvider extends QuartoEmbeddedProvider implements StatementRangeProvider {
+	async provideStatementRange(
+		model: ITextModel,
+		position: Position,
+		token: CancellationToken
+	): Promise<IStatementRange | undefined> {
+		const resolved = this._resolve(model, position);
+		if (!resolved) {
+			return undefined;
+		}
+		const { textModel, span, position: cellPosition } = resolved;
+
+		const downstream = this._downstream(this._languageFeatures.statementRangeProvider, textModel);
+		this._traceForwarded('statement range', span, downstream);
+
+		for (const provider of downstream) {
+			const result = await provider.provideStatementRange(textModel, cellPosition, token);
+			if (result) {
+				return mapStatementRange(span, result);
+			}
+		}
+		return undefined;
+	}
+}
+
+/**
+ * Serves help topics inside Quarto code cells, which is what F1 asks for.
+ * A topic is a plain string, so nothing needs remapping.
+ */
+class QuartoEmbeddedHelpTopicProvider extends QuartoEmbeddedProvider implements HelpTopicProvider {
+	async provideHelpTopic(
+		model: ITextModel,
+		position: Position,
+		token: CancellationToken
+	): Promise<string | undefined> {
+		const resolved = this._resolve(model, position);
+		if (!resolved) {
+			return undefined;
+		}
+		const { textModel, span, position: cellPosition } = resolved;
+
+		const downstream = this._downstream(this._languageFeatures.helpTopicProvider, textModel);
+		this._traceForwarded('help topic', span, downstream);
+
+		for (const provider of downstream) {
+			const result = await provider.provideHelpTopic(textModel, cellPosition, token);
+			// An empty topic is not a topic. Returning it opens Help on nothing
+			// rather than letting the next provider answer.
+			if (result) {
+				return result;
+			}
+		}
+		return undefined;
+	}
+}
+
+/**
  * Registers the providers that serve language features for code cells embedded
  * in Quarto documents, so that requests are answered in process instead of
  * through the Quarto extension's temporary virtual documents.
@@ -501,5 +684,11 @@ export class QuartoEmbeddedLanguageFeatures extends Disposable implements IWorkb
 			QUARTO_SELECTOR, new QuartoEmbeddedSignatureHelpProvider(...args)));
 		this._registrations.add(this._languageFeatures.definitionProvider.register(
 			QUARTO_SELECTOR, new QuartoEmbeddedDefinitionProvider(...args)));
+		this._registrations.add(this._languageFeatures.documentSymbolProvider.register(
+			QUARTO_SELECTOR, new QuartoEmbeddedDocumentSymbolProvider(...args)));
+		this._registrations.add(this._languageFeatures.statementRangeProvider.register(
+			QUARTO_SELECTOR, new QuartoEmbeddedStatementRangeProvider(...args)));
+		this._registrations.add(this._languageFeatures.helpTopicProvider.register(
+			QUARTO_SELECTOR, new QuartoEmbeddedHelpTopicProvider(...args)));
 	}
 }

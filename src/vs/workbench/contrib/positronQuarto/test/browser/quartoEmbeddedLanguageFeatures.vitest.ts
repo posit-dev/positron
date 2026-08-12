@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { CancellationToken } from '../../../../../base/common/cancellation.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { Position } from '../../../../../editor/common/core/position.js';
 import { ITextModel } from '../../../../../editor/common/model.js';
@@ -16,12 +16,20 @@ import {
 	CompletionItemProvider,
 	CompletionList,
 	DefinitionProvider,
+	DocumentSymbol,
+	DocumentSymbolProvider,
+	HelpTopicProvider,
 	Hover,
 	HoverProvider,
+	IStatementRange,
 	Location,
 	LocationLink,
 	SignatureHelpProvider,
 	SignatureHelpResult,
+	StatementRangeKind,
+	StatementRangeProvider,
+	StatementRangeRejectionKind,
+	SymbolKind,
 } from '../../../../../editor/common/languages.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
@@ -42,6 +50,9 @@ import { QuartoEmbeddedLanguageFeatures } from '../../browser/quartoEmbeddedLang
 const SOURCE = ['# Intro', '', '```{r}', 'x <- 1', 'y <- 2', '```', ''].join('\n');
 const SOURCE_URI = URI.file('/test/doc.qmd');
 const CELL_URI = URI.parse('vscode-notebook-cell:/test/doc.qmd#ch0');
+// A second chunk, further down the same document, for the tests that need the
+// whole document rather than one position in it.
+const CELL2_URI = URI.parse('vscode-notebook-cell:/test/doc.qmd#ch1');
 
 // Line 4 of the source is line 1 of the cell.
 const IN_CELL = new Position(4, 3);
@@ -605,11 +616,342 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		expect(provider.signatureHelpTriggerCharacters?.slice().sort()).toEqual(['(', ',', '=']);
 	});
 
+	/**
+	 * A second cell, with a text model of its own.
+	 *
+	 * `register` is what decides whether the container disposes the model at the
+	 * end of the test. The cell-disposal test disposes its own, and a text model
+	 * that is disposed twice fires its will-dispose event twice.
+	 */
+	function makeCell(uri: URI, content: string, codeStartLine: number, register = true): IQuartoVirtualCell {
+		const model = createTextModel(content, 'r', undefined, uri);
+		if (register) {
+			ctx.disposables.add(model);
+		}
+		return {
+			cellUri: uri,
+			handle: 1,
+			language: 'r',
+			codeStartLine,
+			codeEndLine: codeStartLine + content.split('\n').length - 1,
+			textModel: model,
+		};
+	}
+
+	function symbol(name: string, line: number, children?: DocumentSymbol[]): DocumentSymbol {
+		return {
+			name,
+			detail: '',
+			kind: SymbolKind.Variable,
+			tags: [],
+			range: { startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 7 },
+			selectionRange: { startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 2 },
+			children,
+		};
+	}
+
+	function registerSymbols(name: string, symbolsFor: (uri: string) => DocumentSymbol[]): void {
+		ctx.disposables.add(languageFeatures.documentSymbolProvider.register({ language: 'r' }, {
+			displayName: name,
+			provideDocumentSymbols: (model) => {
+				calls.push(`${name}:${model.uri.toString()}`);
+				return symbolsFor(model.uri.toString());
+			},
+		} satisfies DocumentSymbolProvider));
+	}
+
+	function symbolProvider(): DocumentSymbolProvider {
+		return languageFeatures.documentSymbolProvider.ordered(sourceModel)[0];
+	}
+
+	/** Names and line numbers only; the rest of a symbol is not what is mapped. */
+	function outline(symbols: DocumentSymbol[] | null | undefined): unknown {
+		return symbols?.map(s => ({
+			name: s.name,
+			range: s.range,
+			selectionRange: s.selectionRange,
+			children: outline(s.children),
+		}));
+	}
+
+	it('collects symbols from every cell and remaps them into source coordinates', async () => {
+		// The Outline is the headline complaint in posit-dev/positron#14512, where
+		// the Quarto extension builds a temporary file per cell and retries the set
+		// after half a second whenever one comes back undefined.
+		const second = makeCell(CELL2_URI, 'f <- function() {\n  1\n}', 20);
+		registerSymbols('downstream', uri => uri === CELL_URI.toString()
+			? [symbol('x', 1)]
+			: [symbol('f', 1, [symbol('inner', 2)])]);
+		createFeatures({ cells: [cell, second] });
+
+		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
+
+		expect(outline(result as DocumentSymbol[])).toEqual([
+			{
+				name: 'x',
+				range: { startLineNumber: 4, startColumn: 1, endLineNumber: 4, endColumn: 7 },
+				selectionRange: { startLineNumber: 4, startColumn: 1, endLineNumber: 4, endColumn: 2 },
+				children: undefined,
+			},
+			{
+				name: 'f',
+				range: { startLineNumber: 20, startColumn: 1, endLineNumber: 20, endColumn: 7 },
+				selectionRange: { startLineNumber: 20, startColumn: 1, endLineNumber: 20, endColumn: 2 },
+				// A nested symbol carries its own range, so correcting only the
+				// root would leave every child pointing at the wrong line.
+				children: [{
+					name: 'inner',
+					range: { startLineNumber: 21, startColumn: 1, endLineNumber: 21, endColumn: 7 },
+					selectionRange: { startLineNumber: 21, startColumn: 1, endLineNumber: 21, endColumn: 2 },
+					children: undefined,
+				}],
+			},
+		]);
+	});
+
+	it('takes the first provider that answers for a cell rather than merging them', async () => {
+		// This is posit-dev/positron#13907. The Outline collects a group from every
+		// provider, and Pyrefly registers alongside the Python server, so merging
+		// here puts every symbol in the tree twice.
+		registerSymbols('alpha', () => [symbol('from-alpha', 1)]);
+		registerSymbols('beta', () => [symbol('from-beta', 1)]);
+		createFeatures();
+
+		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
+
+		// Which provider `ordered()` puts first is not part of the contract, so the
+		// expectation follows whichever was asked. What matters is that one was.
+		const consulted = calls.filter(c => c.startsWith('alpha:') || c.startsWith('beta:'));
+		expect({
+			consulted: consulted.length,
+			names: (result as DocumentSymbol[])?.map(s => s.name),
+		}).toEqual({
+			consulted: 1,
+			names: [consulted[0].startsWith('alpha:') ? 'from-alpha' : 'from-beta'],
+		});
+	});
+
+	it('moves past a cell provider that finds no symbols', async () => {
+		// Registered last, so the registry consults the empty one first.
+		registerSymbols('answers', () => [symbol('from-answers', 1)]);
+		registerSymbols('empty', () => []);
+		createFeatures();
+
+		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
+
+		expect((result as DocumentSymbol[])?.map(s => s.name)).toEqual(['from-answers']);
+	});
+
+	it('skips a cell whose model was disposed while an earlier cell was being asked', async () => {
+		// Syncing rebuilds the cells and disposes the models they held, and this
+		// provider awaits once per cell, so it gives a rebuild many chances to
+		// happen underneath it. A per-position request has one await and cannot.
+		const second = makeCell(CELL2_URI, 'y <- 2', 20, false);
+		registerSymbols('downstream', () => {
+			second.textModel.dispose();
+			return [symbol('x', 1)];
+		});
+		createFeatures({ cells: [cell, second] });
+
+		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
+
+		expect({
+			asked: calls.filter(c => c.startsWith('downstream:')),
+			names: (result as DocumentSymbol[])?.map(s => s.name),
+		}).toEqual({
+			asked: [`downstream:${CELL_URI.toString()}`],
+			names: ['x'],
+		});
+	});
+
+	it('keeps the symbols of other cells when one cell provider throws', async () => {
+		// A rejection anywhere in the walk would reject the whole request, and the
+		// Outline drops the entire group on error, so one language server having a
+		// bad moment would cost every cell's symbols rather than its own.
+		const second = makeCell(CELL2_URI, 'y <- 2', 20);
+		registerSymbols('downstream', uri => {
+			if (uri === CELL_URI.toString()) {
+				throw new Error('server had a bad moment');
+			}
+			return [symbol('y', 1)];
+		});
+		createFeatures({ cells: [cell, second] });
+
+		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
+
+		expect((result as DocumentSymbol[])?.map(s => ({ name: s.name, line: s.range.startLineNumber })))
+			.toEqual([{ name: 'y', line: 20 }]);
+	});
+
+	it('stops walking cells once the request is cancelled', async () => {
+		// The Outline recomputes on every debounced edit. Without this check a
+		// superseded request keeps issuing one language server round trip per
+		// remaining cell, which works against the slowness this provider fixes.
+		const second = makeCell(CELL2_URI, 'y <- 2', 20);
+		const cts = ctx.disposables.add(new CancellationTokenSource());
+		registerSymbols('downstream', () => {
+			cts.cancel();
+			return [symbol('x', 1)];
+		});
+		createFeatures({ cells: [cell, second] });
+
+		const result = await symbolProvider().provideDocumentSymbols(sourceModel, cts.token);
+
+		expect({
+			asked: calls.filter(c => c.startsWith('downstream:')),
+			result,
+		}).toEqual({
+			asked: [`downstream:${CELL_URI.toString()}`],
+			result: undefined,
+		});
+	});
+
+	it('returns nothing when no cell has a symbol to offer', async () => {
+		// Not an empty list: the Outline builds a group per provider, and an empty
+		// group is noise next to the Quarto server's headings.
+		registerSymbols('empty', () => []);
+		createFeatures();
+
+		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
+
+		expect(result).toBeUndefined();
+	});
+
+	it('forwards a statement range and remaps the result into source coordinates', async () => {
+		// This is what Cmd+Enter runs. A range left in cell coordinates executes
+		// whatever sits at the same line of the Quarto document instead.
+		ctx.disposables.add(languageFeatures.statementRangeProvider.register({ language: 'r' }, {
+			provideStatementRange: (model, position): IStatementRange => {
+				calls.push(`statement:${model.uri.toString()}@${position.lineNumber}:${position.column}`);
+				return {
+					kind: StatementRangeKind.Success,
+					range: { startLineNumber: 1, startColumn: 1, endLineNumber: 2, endColumn: 7 },
+					code: 'x <- 1\ny <- 2',
+				};
+			},
+		} satisfies StatementRangeProvider));
+		createFeatures();
+
+		const provider = languageFeatures.statementRangeProvider.ordered(sourceModel)[0];
+		const result = await provider.provideStatementRange(sourceModel, IN_CELL, CancellationToken.None);
+
+		expect({
+			forwardedTo: calls.filter(c => c.startsWith('statement:')),
+			result,
+		}).toEqual({
+			forwardedTo: [`statement:${CELL_URI.toString()}@1:3`],
+			result: {
+				kind: StatementRangeKind.Success,
+				range: { startLineNumber: 4, startColumn: 1, endLineNumber: 5, endColumn: 7 },
+				code: 'x <- 1\ny <- 2',
+			},
+		});
+	});
+
+	it('remaps the line of a rejected statement range, which is zero indexed', async () => {
+		// A rejection reports a line on its own rather than a range, and reports it
+		// zero indexed, so it needs the same shift applied in its own indexing.
+		ctx.disposables.add(languageFeatures.statementRangeProvider.register({ language: 'r' }, {
+			provideStatementRange: (): IStatementRange => ({
+				kind: StatementRangeKind.Rejection,
+				rejectionKind: StatementRangeRejectionKind.Syntax,
+				line: 1,
+			}),
+		} satisfies StatementRangeProvider));
+		createFeatures();
+
+		const provider = languageFeatures.statementRangeProvider.ordered(sourceModel)[0];
+		const result = await provider.provideStatementRange(sourceModel, IN_CELL, CancellationToken.None);
+
+		// Zero indexed line 1 of a chunk whose code starts on source line 4 is
+		// zero indexed line 4, which is 'y <- 2'.
+		expect(result).toEqual({
+			kind: StatementRangeKind.Rejection,
+			rejectionKind: StatementRangeRejectionKind.Syntax,
+			line: 4,
+		});
+	});
+
+	it('declines a statement range in prose', async () => {
+		// Cmd+Enter outside a chunk stays with the Quarto extension, which sends
+		// the whole document rather than a statement.
+		ctx.disposables.add(languageFeatures.statementRangeProvider.register({ language: 'r' }, {
+			provideStatementRange: (): IStatementRange => {
+				calls.push('statement:called');
+				return {
+					kind: StatementRangeKind.Success,
+					range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 7 },
+				};
+			},
+		} satisfies StatementRangeProvider));
+		createFeatures();
+
+		const provider = languageFeatures.statementRangeProvider.ordered(sourceModel)[0];
+		const result = await provider.provideStatementRange(sourceModel, IN_PROSE, CancellationToken.None);
+
+		expect({ result, forwarded: calls.includes('statement:called') })
+			.toEqual({ result: undefined, forwarded: false });
+	});
+
+	it('forwards a help topic and returns it as given', async () => {
+		// A help topic is a plain string, so the only thing to get right is where
+		// the request goes. This is what F1 in a chunk asks for.
+		ctx.disposables.add(languageFeatures.helpTopicProvider.register({ language: 'r' }, {
+			provideHelpTopic: (model, position) => {
+				calls.push(`help:${model.uri.toString()}@${position.lineNumber}:${position.column}`);
+				return 'mean';
+			},
+		} satisfies HelpTopicProvider));
+		createFeatures();
+
+		const provider = languageFeatures.helpTopicProvider.ordered(sourceModel)[0];
+		const result = await provider.provideHelpTopic(sourceModel, IN_CELL, CancellationToken.None);
+
+		expect({
+			forwardedTo: calls.filter(c => c.startsWith('help:')),
+			result,
+		}).toEqual({
+			forwardedTo: [`help:${CELL_URI.toString()}@1:3`],
+			result: 'mean',
+		});
+	});
+
+	it('moves past a help topic provider that has no topic', async () => {
+		// An empty string is not a topic, and returning it would open Help on
+		// nothing rather than letting the next provider answer.
+		ctx.disposables.add(languageFeatures.helpTopicProvider.register({ language: 'r' }, {
+			provideHelpTopic: () => 'mean',
+		} satisfies HelpTopicProvider));
+		ctx.disposables.add(languageFeatures.helpTopicProvider.register({ language: 'r' }, {
+			provideHelpTopic: () => '',
+		} satisfies HelpTopicProvider));
+		createFeatures();
+
+		const provider = languageFeatures.helpTopicProvider.ordered(sourceModel)[0];
+		expect(await provider.provideHelpTopic(sourceModel, IN_CELL, CancellationToken.None)).toBe('mean');
+	});
+
 	it('registers nothing while the setting is off', async () => {
 		await configurationService.setUserConfiguration(QUARTO_NATIVE_LANGUAGE_FEATURES_KEY, false);
 		registerCompletions('downstream', [suggestion('xylophone', 1)]);
 		createFeatures();
 
-		expect(languageFeatures.completionProvider.ordered(sourceModel)).toEqual([]);
+		expect({
+			completion: languageFeatures.completionProvider.ordered(sourceModel).length,
+			hover: languageFeatures.hoverProvider.ordered(sourceModel).length,
+			signatureHelp: languageFeatures.signatureHelpProvider.ordered(sourceModel).length,
+			definition: languageFeatures.definitionProvider.ordered(sourceModel).length,
+			documentSymbol: languageFeatures.documentSymbolProvider.ordered(sourceModel).length,
+			statementRange: languageFeatures.statementRangeProvider.ordered(sourceModel).length,
+			helpTopic: languageFeatures.helpTopicProvider.ordered(sourceModel).length,
+		}).toEqual({
+			completion: 0,
+			hover: 0,
+			signatureHelp: 0,
+			definition: 0,
+			documentSymbol: 0,
+			statementRange: 0,
+			helpTopic: 0,
+		});
 	});
 });
