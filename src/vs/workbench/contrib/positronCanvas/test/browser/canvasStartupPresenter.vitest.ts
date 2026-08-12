@@ -73,8 +73,39 @@ describe('CanvasStartupPresenter', () => {
 		const curtain = within(container).getByRole('status');
 		expect(curtain).toHaveAttribute('aria-busy', 'true');
 		expect(within(curtain).getByRole('progressbar', { name: 'Loading Canvas' })).toBeInTheDocument();
+		expect(within(curtain).getByRole('button', { name: 'Open Positron' })).toBeInTheDocument();
 		expect(within(container).getAllByRole('status')).toHaveLength(1);
 		expect(enter).toHaveBeenCalledTimes(1);
+	});
+
+	// Entry can take a while (extension activation plus the assistant's ensure
+	// deadline); the loading curtain must offer a way out for its whole
+	// duration, not only once it has failed.
+	it('cancels a long entry into Positron from the loading curtain', async () => {
+		const entry = new DeferredPromise<CanvasEntryOutcome>();
+		const recoverMainWindow = vi.fn().mockResolvedValue(undefined);
+		const container = createContainer();
+		const presenter = createPresenter(container, {
+			enter: vi.fn().mockReturnValue(entry.p),
+			recoverMainWindow,
+		});
+
+		presenter.present();
+		const curtain = within(container).getByRole('status');
+
+		const user = userEvent.setup();
+		await user.click(within(curtain).getByRole('button', { name: 'Open Positron' }));
+
+		expect(recoverMainWindow).toHaveBeenCalledTimes(1);
+		await vi.waitFor(() => expect(within(container).queryByRole('status')).not.toBeInTheDocument());
+
+		// The superseded entry resolving later must not resurrect the curtain.
+		await entry.complete({
+			entered: false,
+			reason: 'superseded',
+			message: 'Canvas stopped opening because Positron was asked for the IDE.'
+		} satisfies CanvasEntryOutcome);
+		expect(within(container).queryByRole('dialog')).not.toBeInTheDocument();
 	});
 
 	it('takes the curtain down once Canvas is being presented', async () => {
@@ -172,7 +203,9 @@ describe('CanvasStartupPresenter', () => {
 
 		await vi.waitFor(() => expect(enter).toHaveBeenCalledTimes(2));
 		expect(curtain).toHaveAttribute('aria-busy', 'true');
-		expect(within(curtain).queryAllByRole('button')).toHaveLength(0);
+		// Back to loading: only the cancel affordance remains.
+		expect(within(curtain).queryAllByRole('button')).toHaveLength(1);
+		expect(within(curtain).getByRole('button', { name: 'Open Positron' })).toBeInTheDocument();
 
 		await retryEntry.complete(ENTERED);
 		await vi.waitFor(() => expect(within(container).queryByRole('status')).not.toBeInTheDocument());

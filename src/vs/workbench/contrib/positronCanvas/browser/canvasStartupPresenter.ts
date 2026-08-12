@@ -38,8 +38,8 @@ function createCanvasCurtainElement(container: HTMLElement): { element: HTMLElem
 	};
 }
 
-/** Replaces curtain content with the passive Canvas loading state. */
-function renderCanvasLoading(element: HTMLElement): void {
+/** Replaces curtain content with the Canvas loading state. */
+function renderCanvasLoading(element: HTMLElement, cancelButton: HTMLButtonElement): void {
 	element.setAttribute('aria-busy', 'true');
 	const document = element.ownerDocument;
 	const card = document.createElement('div');
@@ -54,7 +54,10 @@ function renderCanvasLoading(element: HTMLElement): void {
 	const message = document.createElement('p');
 	message.className = 'positron-canvas-startup-message';
 	message.textContent = localize('positron.canvas.loadingMessage', "Loading Canvas...");
-	card.append(brand, spinner, message);
+	const actions = document.createElement('div');
+	actions.className = 'positron-canvas-startup-actions';
+	actions.appendChild(cancelButton);
+	card.append(brand, spinner, message, actions);
 	element.replaceChildren(card);
 }
 
@@ -64,6 +67,7 @@ class CanvasStartupCurtain extends Disposable {
 	private readonly element: HTMLElement;
 	private readonly releaseSiblings: () => void;
 	private running = false;
+	private recovering = false;
 	private disposed = false;
 
 	constructor(
@@ -118,14 +122,18 @@ class CanvasStartupCurtain extends Disposable {
 	}
 
 	private showLoading(): void {
-		// Loading is a passive announcement, not something the user acts on, so
-		// the curtain stays a polite status region.
+		// Loading announces itself politely, but stays cancellable: entry can
+		// take a while (extension activation plus the assistant's own ensure
+		// deadline), and the user must not be trapped behind the curtain for
+		// its whole duration.
 		this.element.setAttribute('role', 'status');
 		this.element.setAttribute('aria-live', 'polite');
 		this.element.removeAttribute('aria-modal');
 		this.element.removeAttribute('aria-labelledby');
-		renderCanvasLoading(this.element);
-		this.actionDisposables.clear();
+		const actions = new DisposableStore();
+		this.actionDisposables.value = actions;
+		const openPositron = this.createButton(localize('positron.canvas.openPositron', "Open Positron"), false, () => void this.openPositron(), actions);
+		renderCanvasLoading(this.element, openPositron);
 	}
 
 	private showFailure(detail: string): void {
@@ -160,18 +168,24 @@ class CanvasStartupCurtain extends Disposable {
 		retry.focus();
 	}
 
+	/**
+	 * Available during loading as well as failure: recovering the main window
+	 * supersedes an in-flight entry (`exit()` bumps the generation the entry
+	 * checks), so cancelling mid-load is the same operation as leaving a
+	 * failure card.
+	 */
 	private async openPositron(): Promise<void> {
-		if (this.running || this.disposed) {
+		if (this.recovering || this.disposed) {
 			return;
 		}
-		this.running = true;
+		this.recovering = true;
 		try {
 			await this.recoverMainWindow();
 			this.dispose();
 		} catch (error) {
 			this.logService.error('[canvas] Failed to recover the Positron window.', error);
 		} finally {
-			this.running = false;
+			this.recovering = false;
 		}
 	}
 
