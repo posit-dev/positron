@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  MEMORY_CONTAINER_IMAGE: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
+  MEMORY_CONTAINER_IMAGE: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
 
 jobs:
   memory:
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest-8x
     timeout-minutes: 45
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
       # The image is private, so the pull needs credentials. Copied from
       # test-e2e-ubuntu-run.yml; without these the job fails before any step.
       # --user 0:0 also matters here beyond convention: reading
