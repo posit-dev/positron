@@ -236,38 +236,46 @@ function getRFilterSettingsDigest(): string {
 }
 
 /**
+ * Discovers R binaries and promotes them to R installations, without filtering
+ * on `usable`. Callers that only want startable runtimes should filter
+ * themselves; the health check needs the rejects in order to explain them.
+ */
+export async function discoverRInstallations(): Promise<RInstallation[]> {
+	const { binaries, currentBinary } = await getBinaries();
+	return binaries.map(rbin => new RInstallation(
+		rbin.path,
+		rbin.path === currentBinary,
+		rbin.reasons,
+		rbin.packagerMetadata
+	));
+}
+
+/**
  * Discovers R language runtimes for Positron; implements positron.LanguageRuntimeDiscoverer.
  *
  * @param context The extension context.
  */
 export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
-	// Discover R binaries on the system
-	const { binaries, currentBinary } = await getBinaries();
+	// Discover R binaries on the system and promote them to R installations
+	const rAll = await discoverRInstallations();
 
 	// If no R binaries are found, log to output and end discovery.
-	if (binaries.length === 0) {
+	if (rAll.length === 0) {
 		LOGGER.warn('Positron could not find any R installations. Please verify that you have R installed and review any custom settings.');
 		printInterpreterSettingsInfo();
 		return;
 	}
 
-	// Promote R binaries to R installations, filtering out any rejected R installations
+	// Filter out rejected R installations
 	const rejectedRInstallations: RInstallation[] = [];
-	const rInstallations: RInstallation[] = binaries
-		.map(rbin => new RInstallation(
-			rbin.path,
-			rbin.path === currentBinary,
-			rbin.reasons,
-			rbin.packagerMetadata
-		))
-		.filter(r => {
-			if (!r.usable) {
-				LOGGER.info(`Filtering out ${r.binpath}, reason: ${friendlyReason(r.reasonRejected)}.`);
-				rejectedRInstallations.push(r);
-				return false;
-			}
-			return true;
-		});
+	const rInstallations: RInstallation[] = rAll.filter(r => {
+		if (!r.usable) {
+			LOGGER.info(`Filtering out ${r.binpath}, reason: ${friendlyReason(r.reasonRejected)}.`);
+			rejectedRInstallations.push(r);
+			return false;
+		}
+		return true;
+	});
 
 	// Log info about rejected R installations or lack of usable R installations
 	if (rejectedRInstallations.length > 0) {
