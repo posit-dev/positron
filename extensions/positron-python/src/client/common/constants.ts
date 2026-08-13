@@ -88,6 +88,7 @@ export namespace Commands {
     export const InstallPackages = 'python.installPackages';
     export const InstallPythonViaUv = 'python.installPythonViaUv';
     export const Get_Environment_Health = 'python.getEnvironmentHealth';
+    export const Print_Environment_Health = 'python.printEnvironmentHealth';
     // --- End Positron ---
     export const InstallJupyter = 'python.installJupyter';
     export const InstallPython = 'python.installPython';

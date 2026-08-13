@@ -545,7 +545,6 @@ export async function getEnvironmentHealth(
     // never rejects" contract.
     result.interpreterPath = snapshot?.interp?.path;
 
-    traceEnvironmentHealth(result);
     return result;
 }
 
@@ -666,7 +665,12 @@ async function interpreterResolvesAndRuns(
     }
 }
 
-function traceEnvironmentHealth(result: EnvironmentHealthResult): void {
+/**
+ * Writes the report to the Python output channel. Kept out of getEnvironmentHealth so a
+ * programmatic caller (the welcome page) can run a check without touching the log; only the
+ * python.printEnvironmentHealth developer probe calls this.
+ */
+export function logEnvironmentHealth(result: EnvironmentHealthResult): void {
     traceInfo('===================== [START] PYTHON ENVIRONMENT HEALTH =====================');
     traceInfo(JSON.stringify(result, null, 2));
     traceInfo('====================== [END] PYTHON ENVIRONMENT HEALTH ======================');

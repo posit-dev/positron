@@ -557,6 +557,11 @@
                 "category": "Python",
                 "command": "python.getEnvironmentHealth",
                 "title": "%python.command.python.getEnvironmentHealth.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.printEnvironmentHealth",
+                "title": "%python.command.python.printEnvironmentHealth.title%"
             }
         ],
         "configuration": {
@@ -1707,6 +1712,12 @@
                     "command": "python.viewOutput",
                     "title": "%python.command.python.viewOutput.title%",
                     "when": "!virtualWorkspace && shellExecutionSupported"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.getEnvironmentHealth",
+                    "title": "%python.command.python.getEnvironmentHealth.title%",
+                    "when": "false"
                 }
             ],
             "editor/content": [
