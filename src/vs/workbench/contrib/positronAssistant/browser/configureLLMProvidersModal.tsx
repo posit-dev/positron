@@ -42,12 +42,18 @@ export const showConfigureLLMProvidersModal = (
 	sources: IPositronLanguageModelSource[],
 	onAction: OnAction,
 	onClose: () => void,
-	_options?: IShowLanguageModelConfigOptions,
+	options?: IShowLanguageModelConfigOptions,
 ) => {
 	const renderer = new PositronModalReactRenderer();
 	renderer.render(
 		<div className='configure-llm-providers-modal' data-testid='configure-llm-providers-modal'>
-			<ConfigureLLMProviders renderer={renderer} sources={sources} onAction={onAction} onClose={onClose} />
+			<ConfigureLLMProviders
+				preselectedProviderId={options?.preselectedProviderId}
+				renderer={renderer}
+				sources={sources}
+				onAction={onAction}
+				onClose={onClose}
+			/>
 		</div>
 	);
 };
@@ -55,14 +61,23 @@ export const showConfigureLLMProvidersModal = (
 export interface ConfigureLLMProvidersProps {
 	renderer: PositronModalReactRenderer;
 	sources: IPositronLanguageModelSource[];
+	/** Provider to open on, skipping the list. Ignored if it is not in `sources`. */
+	preselectedProviderId?: string;
 	onAction: OnAction;
 	onClose: () => void;
 }
 
 export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	const services = usePositronReactServicesContext();
-	const [view, setView] = useState<'list' | 'connect' | 'connected'>('list');
-	const [selectedProviderId, setSelectedProviderId] = useState<string>();
+
+	// The caller can name a provider to open on -- the "Configure" button on a
+	// provider error notification does, so the user lands on the provider that
+	// reported the problem rather than hunting for it in the list.
+	const preselectedSource = props.sources.find(s => s.provider.id === props.preselectedProviderId);
+	const [view, setView] = useState<'list' | 'connect' | 'connected'>(
+		preselectedSource ? selectProviderView(preselectedSource) : 'list'
+	);
+	const [selectedProviderId, setSelectedProviderId] = useState<string | undefined>(preselectedSource?.provider.id);
 
 	// Live copy of the provider sources. The modal outlives every view, so this
 	// single subscription can never miss an update, and the child views can stay
