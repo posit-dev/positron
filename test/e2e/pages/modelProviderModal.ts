@@ -79,19 +79,18 @@ export class ModelProviderModal {
 	}
 
 	/**
-	 * Opens the modal, runs `body`, and makes sure the modal is closed even when
-	 * `body` throws. Leaving it open would break every later test in the file, not
-	 * just this one: the app is shared across a suite, and the Configure Providers
-	 * command renders a fresh dialog every time it runs without checking for one
-	 * that is already open. A second dialog carries the same testid, so MODAL then
-	 * matches two elements and Playwright fails on strict mode instead of on
-	 * whatever the test was actually doing.
+	 * Opens the modal, runs `body`, and closes the modal again on the way out of a
+	 * failure anywhere in either step. Leaving it open would break every later test
+	 * in the file, not just this one: the app is shared across a suite, and the
+	 * Configure Providers command renders a fresh dialog every time it runs without
+	 * checking for one that is already open. A second dialog carries the same
+	 * testid, so MODAL then matches two elements and Playwright fails on strict
+	 * mode instead of on whatever the test was actually doing.
 	 */
 	private async withModal(timeout: number, body: () => Promise<void>) {
-		await this.runConfigureProviders();
-		await expect(this.code.driver.currentPage.locator(MODAL)).toBeVisible({ timeout });
-
 		try {
+			await this.runConfigureProviders();
+			await expect(this.code.driver.currentPage.locator(MODAL)).toBeVisible({ timeout });
 			await body();
 		} catch (e) {
 			await this.closeQuietly();
