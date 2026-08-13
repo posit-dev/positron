@@ -84,9 +84,9 @@
 
 /* Title */
 .chat-input-notification .chat-input-notification-title {
-	font-size: var(--vscode-chat-font-size-body-s);
-	font-weight: 600;
-	line-height: 1.4;
+	font-size: var(--vscode-agents-fontSize-label1);
+	font-weight: var(--vscode-agents-fontWeight-semiBold);
+	line-height: 18px;
 	color: var(--vscode-foreground);
 	flex: 1;
 	min-width: 0;
@@ -106,9 +106,19 @@
 	margin: 0;
 }
 
+.chat-input-notification .chat-input-notification-title-markdown a,
+.chat-input-notification .chat-input-notification-title-markdown a:visited {
+	color: var(--vscode-textLink-foreground);
+}
+
+.chat-input-notification .chat-input-notification-title-markdown a:hover,
+.chat-input-notification .chat-input-notification-title-markdown a:active {
+	color: var(--vscode-textLink-activeForeground);
+}
+
 .chat-input-notification .chat-input-notification-title-markdown code {
 	font-family: var(--monaco-monospace-font);
-	font-size: 11px;
+	font-size: var(--vscode-agents-fontSize-body2);
 	padding: 0 3px;
 	border-radius: 3px;
 	background: var(--vscode-textCodeBlock-background);
@@ -125,8 +135,8 @@
 
 /* Description */
 .chat-input-notification .chat-input-notification-description {
-	font-size: var(--vscode-chat-font-size-body-s);
-	line-height: 1.4;
+	font-size: var(--vscode-agents-fontSize-label1);
+	line-height: 18px;
 	color: var(--vscode-descriptionForeground);
 	flex: 1 1 auto;
 	min-width: 0;
@@ -146,8 +156,8 @@
 
 /* Action buttons */
 .chat-input-notification .chat-input-notification-action-button {
-	font-size: var(--vscode-chat-font-size-body-s);
-	padding: 2px 8px;
+	font-size: var(--vscode-agents-fontSize-label2);
+	padding: 4px 12px;
 	min-width: unset;
 	width: auto;
 	height: 24px;
@@ -167,8 +177,9 @@
 	opacity: 1;
 }
 
-/* Dismiss button */
-.chat-input-notification .chat-input-notification-dismiss {
+/* Dismiss + mute icon buttons (header, right-aligned) */
+.chat-input-notification .chat-input-notification-dismiss,
+.chat-input-notification .chat-input-notification-mute {
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -181,14 +192,19 @@
 	border: none;
 	outline: none;
 	flex-shrink: 0;
+}
+
+.chat-input-notification .chat-input-notification-dismiss {
 	margin-left: auto;
 }
 
-.chat-input-notification .chat-input-notification-dismiss:hover {
+.chat-input-notification .chat-input-notification-dismiss:hover,
+.chat-input-notification .chat-input-notification-mute:hover {
 	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
-.chat-input-notification .chat-input-notification-dismiss:focus-visible {
+.chat-input-notification .chat-input-notification-dismiss:focus-visible,
+.chat-input-notification .chat-input-notification-mute:focus-visible {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
 }

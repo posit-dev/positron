@@ -66,7 +66,9 @@ runs:
         docker cp "$SCRIPTS_DIR/install-workbench.sh" test:/tmp/install-workbench.sh
         docker cp "$SCRIPTS_DIR/ensure-connect-token.sh" test:/tmp/ensure-connect-token.sh
         docker cp "$SCRIPTS_DIR/positronDownload.sh" test:/tmp/positronDownload.sh
-        docker cp "$SCRIPTS_DIR/get-latest-wb-noble-url.sh" test:/tmp/get-latest-wb-noble-url.sh
+        docker cp "$SCRIPTS_DIR/get-latest-wb-url.sh" test:/tmp/get-latest-wb-url.sh
+        # get-latest-wb-url.sh sources the lib for its URL-resolution rules.
+        docker cp "$SCRIPTS_DIR/workbench-local-lib.sh" test:/tmp/workbench-local-lib.sh
         docker cp "$SCRIPTS_DIR/configure-datasources.sh" test:/tmp/configure-datasources.sh
 
         # Copy Workbench license into test container if it exists
@@ -78,7 +80,7 @@ runs:
         docker exec test chmod +x /tmp/install-workbench.sh
         docker exec test chmod +x /tmp/ensure-connect-token.sh
         docker exec test chmod +x /tmp/positronDownload.sh
-        docker exec test chmod +x /tmp/get-latest-wb-noble-url.sh
+        docker exec test chmod +x /tmp/get-latest-wb-url.sh
         docker exec test chmod +x /tmp/configure-datasources.sh
 
     - name: Install Workbench in container

@@ -19,7 +19,7 @@
   },
   "contributes": {},
   "dependencies": {
-    "@duckdb/node-api": "^1.5.3-r.3",
+    "@duckdb/node-api": "^1.5.5-r.3",
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {

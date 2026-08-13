@@ -4,14 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import * as os from 'os';
 import * as fs from 'fs';
-import { provisionTestFiles, prepareTestEnv } from '../infra/test-runner';
+import { provisionTestFiles, prepareTestEnv, defaultWorkspacePath } from '../infra/test-runner';
 
 const ROOT_PATH = process.cwd();
 const LOGS_ROOT_PATH = join(ROOT_PATH, 'test-logs');
-const TEST_DATA_PATH = process.env.POSITRON_TEST_DATA_PATH || join(os.tmpdir(), 'vscsmoke');
-const WORKSPACE_PATH = join(TEST_DATA_PATH, 'test-files');
+const WORKSPACE_PATH = defaultWorkspacePath();
 
 async function globalSetup() {
 	fs.rmSync(LOGS_ROOT_PATH, { recursive: true, force: true });

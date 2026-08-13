@@ -23,14 +23,14 @@
   "contributes": {},
   "positron": {
     "binaryDependencies": {
-      "duckdbExcelExtension": "v1.5.3"
+      "duckdbExcelExtension": "v1.5.5"
     },
     "duckdbExcelExtensionHashes": {
-      "osx_arm64": "84b5297e57d48ff758b1786f7823c8712f831b5a1e60cca529aa492ab4e2d6d1",
-      "osx_amd64": "f6c9913fa5f3d1ad20341cab34dd63857bb4324df9f9dcd8cbb9d4ccdc50bc22",
-      "linux_arm64": "4f01a7cd4647d65f76d71116a2373e9931de5d7a2f651827d2c869e038836637",
-      "linux_amd64": "73176e3d05800715757e1c35c5d75c308c8b3542d41f3c54fb490c45ec832afe",
-      "windows_amd64": "3fdcadf7cc501ab9b6cd3862a1934bc04224c497a9d98a558ee99e942e0a7a7f"
+      "osx_arm64": "9500a2841e8b3dda698e1e541fb58e76920f25ac752931de61d9b0fc7d8e97ec",
+      "osx_amd64": "b0a2a4ac801a8e1dbe9e1121d972a87c0e3ec74a989db3403386a35f24598104",
+      "linux_arm64": "2dafda01ad0caacdba3fa4c52b1b8048d18268c95dfa95c9079943415a57dac0",
+      "linux_amd64": "9063a4f13804d3d1bdc37d37bde735f0779791971d3b909f5cc87ff3f8814483",
+      "windows_amd64": "2d05072ea6de99b27341c59b5352cf242c430440513410a1bce07bf2734b20c9"
     }
   },
   "devDependencies": {
@@ -50,7 +50,7 @@
     "typescript": "^4.5.5"
   },
   "dependencies": {
-    "@duckdb/node-api": "1.5.3-r.3",
+    "@duckdb/node-api": "1.5.5-r.3",
     "yauzl": "^3.4.0"
   },
   "repository": {

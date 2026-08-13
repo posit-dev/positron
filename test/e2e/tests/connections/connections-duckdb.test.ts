@@ -62,9 +62,13 @@ test.describe('DuckDB Connection', {
 	});
 });
 
-const connectionCode = `import duckdb
+// Keep the database out of the workspace: it is the kernel's cwd, and a teardown delete
+// would race the kernel's open file handle (it still holds one, so the delete loses on
+// Windows). gettempdir() resolves in the kernel, which is the process that writes the file.
+// The filename is unchanged -- the connections pane's 'db' node is derived from it.
+const connectionCode = `import duckdb, os, tempfile
 
-con = duckdb.connect(database='db.duckdb.${randomText}')
+con = duckdb.connect(database=os.path.join(tempfile.gettempdir(), 'db.duckdb.${randomText}'))
 
 con.execute("CREATE TABLE items (item_id INTEGER, item_name VARCHAR, price DECIMAL)")
 con.execute("INSERT INTO items VALUES (1, 'item1', 10.5), (2, 'item2', 20.0), (3, 'item3', 15.75)")

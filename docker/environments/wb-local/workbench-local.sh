@@ -8,7 +8,14 @@ WB_TTL_PIDFILE="${SCRIPT_DIR}/.ttl.pid"
 source "${SCRIPT_DIR}/workbench-local-lib.sh"
 
 WB_SCRIPTS_DIR="${SCRIPT_DIR}"
-WB_SCRIPTS=(install-workbench.sh ensure-connect-token.sh positronDownload.sh get-latest-wb-noble-url.sh configure-datasources.sh)
+# workbench-local-lib.sh is copied in too: get-latest-wb-url.sh sources it in the
+# container rather than duplicating the URL-resolution rules.
+WB_SCRIPTS=(install-workbench.sh ensure-connect-token.sh positronDownload.sh get-latest-wb-url.sh workbench-local-lib.sh configure-datasources.sh)
+
+# Host OS of the test container: ubuntu24 or rocky9. Set by --os= (or WB_OS in
+# .env) and threaded into the compose image, the installer, and the service
+# restart below. See wb_os_* in workbench-local-lib.sh.
+WB_OS="${WB_OS:-ubuntu24}"
 
 wb_compose() { docker compose -f "${COMPOSE_FILE}" "$@"; }
 
@@ -122,6 +129,17 @@ wb_installed() {
 	docker exec test bash -c 'test -f /usr/lib/rstudio-server/bin/positron-server/new/product.json || test -f /usr/lib/rstudio-server/bin/positron-server/product.json' 2>/dev/null
 }
 
+# pgrep pattern for the session launcher. The leading [/] is load-bearing: these
+# checks run as `docker exec test bash -c "... pgrep -f <pattern> ..."`, and a
+# plain path would match the wrapper shell's OWN command line, so the launcher
+# would always look alive -- even when it is dead, which is exactly the state
+# this function exists to repair. Verified: the plain form returns a pid for a
+# launcher path that does not exist at all. (Also note pgrep -x cannot be used
+# with the full name: Linux truncates comm to 15 chars, so it reads
+# "rstudio-launche".)
+WB_LAUNCHER_PGREP='[/]usr/lib/rstudio-server/bin/rstudio-launcher'
+WB_LAUNCHER_SOCKET=/var/run/rstudio-server/rserver-launcher.socket
+
 # The container's command is a sleep loop, and the rstudio services are started
 # by the installer -- not the container entrypoint. After a stop/start the
 # container comes back up but none of them do, so :8787 is dead (or, with only
@@ -131,17 +149,53 @@ wb_installed() {
 # re-run of `npm run pwb`).
 wb_ensure_workbench() {
 	local launcher rserver
-	docker exec test bash -c 'pgrep -f /usr/lib/rstudio-server/bin/rstudio-launcher >/dev/null 2>&1' && launcher=1 || launcher=0
+	docker exec test bash -c "pgrep -f '${WB_LAUNCHER_PGREP}' >/dev/null 2>&1" && launcher=1 || launcher=0
 	docker exec test bash -c 'pgrep -x rserver >/dev/null 2>&1' && rserver=1 || rserver=0
 	[ "$launcher" = 1 ] && [ "$rserver" = 1 ] && return 0
 	# Clean ordered (re)start: stop rserver, bring up the launcher, then rserver.
+	#
+	# Stop by signal and verify. `rstudio-server stop` returns 0 without doing
+	# anything on Rocky (its status check uses `pidof -c`, blind inside a
+	# container), so trusting it here used to leave the old rserver running and
+	# the start below would add a SECOND one, which then spun forever failing to
+	# bind :8787.
 	docker exec test bash -c 'sudo rstudio-server stop' >/dev/null 2>&1 || true
-	docker exec test bash -c 'sudo /etc/init.d/rstudio-launcher start' >/dev/null 2>&1 || true
+	docker exec test bash -c '
+		pgrep -x rserver >/dev/null 2>&1 || exit 0
+		sudo pkill -x rserver 2>/dev/null || true
+		for _ in $(seq 1 15); do pgrep -x rserver >/dev/null 2>&1 || exit 0; sleep 1; done
+		sudo pkill -KILL -x rserver 2>/dev/null || true
+	' >/dev/null 2>&1 || true
 	local i
-	for i in $(seq 1 10); do
-		docker exec test bash -c 'pgrep -f /usr/lib/rstudio-server/bin/rstudio-launcher >/dev/null 2>&1' && break
-		sleep 1
-	done
+	if [ "${WB_OS}" = "rocky9" ]; then
+		# The rpm's rstudio-launcher init script is broken on EL9 (see
+		# install-workbench.sh), so start the binary directly and wait for its
+		# socket -- rserver shuts itself down if the socket is missing.
+		# Reuse $launcher from above rather than re-checking here. This command
+		# string necessarily contains the launcher's real path (to start it), and
+		# a pgrep in the SAME string would match this very wrapper shell -- the
+		# bracket trick only hides the pattern's own text, not a second, literal
+		# copy of the path beside it. That mistake silently skipped the start and
+		# left the stale socket in place, which the wait below then accepted.
+		# Removing the socket first is what makes that wait mean something.
+		if [ "$launcher" != 1 ]; then
+			docker exec test bash -c "
+				sudo rm -f ${WB_LAUNCHER_SOCKET}
+				sudo nohup setsid /usr/lib/rstudio-server/bin/rstudio-launcher \
+					>/var/log/rstudio-launcher.stdout.log 2>&1 &
+			" >/dev/null 2>&1 || true
+		fi
+		for i in $(seq 1 30); do
+			docker exec test bash -c "test -S ${WB_LAUNCHER_SOCKET}" >/dev/null 2>&1 && break
+			sleep 1
+		done
+	else
+		docker exec test bash -c 'sudo /etc/init.d/rstudio-launcher start' >/dev/null 2>&1 || true
+		for i in $(seq 1 10); do
+			docker exec test bash -c "pgrep -f '${WB_LAUNCHER_PGREP}' >/dev/null 2>&1" && break
+			sleep 1
+		done
+	fi
 	docker exec test bash -c 'sudo rstudio-server start' >/dev/null 2>&1 || true
 	# Wait until :8787 actually accepts connections, not just until the process
 	# exists -- rserver binds the port a few seconds after it starts.
@@ -230,7 +284,6 @@ wb_pick_positron() {
 	export POSITRON_TAG
 }
 
-# Sets WB_URL.
 # Present a menu and set WB_MENU_INDEX (1-based). Uses fzf for arrow-key
 # selection when available and interactive; otherwise falls back to a numbered
 # prompt (which also keeps --ci/non-tty usage working).
@@ -258,60 +311,46 @@ wb_menu() {
 	[[ "$WB_MENU_INDEX" =~ ^[0-9]+$ ]] && [ "$WB_MENU_INDEX" -ge 1 ] && [ "$WB_MENU_INDEX" -le "$n" ] || { echo "Invalid choice" >&2; return 1; }
 }
 
-# True if the URL responds successfully to a HEAD request (follows redirects).
-wb_url_reachable() { curl -fsIL --max-time 15 "$1" >/dev/null 2>&1; }
-
-# Validate a Workbench .deb URL: format, architecture match, and reachability.
-# Prints the reason on failure.
-wb_validate_wb_url() {
-	local url="${1:-}" a
-	wb_is_deb_url "$url" || { echo "Not a valid .deb URL (expected https://....deb)." >&2; return 1; }
-	a="$(wb_deb_arch "$url")"
-	if [ -n "$a" ] && [ "$a" != "${WB_ARCH}" ]; then
-		echo "That .deb is for ${a}, but this machine is ${WB_ARCH}. Choose a ${WB_ARCH} build." >&2; return 1
-	fi
-	wb_url_reachable "$url" || { echo "URL not reachable (HTTP check failed): $url" >&2; return 1; }
-}
-
 # Workbench has no listable version history (Posit publishes only the current
 # stable and current daily -- same as Positron's workbench-nightly CI), so each
-# channel resolves to a single current build; Custom URL pins a specific .deb.
+# channel resolves to a single current build; Custom URL pins a specific package.
 wb_pick_workbench() {
-	local stable_url daily_url
+	local stable_url daily_url ext
+	ext="$(wb_os_pkg_ext "${WB_OS}")" || return 1
 	# WB_WORKBENCH (--workbench=) skips the menu: release|daily resolves that
-	# channel's current build, anything else is treated as a .deb URL to pin.
+	# channel's current build, anything else is treated as a package URL to pin.
 	case "${WB_WORKBENCH:-}" in
 		'') : ;;
 		release|daily)
 			# WB_ARCH is set by cmd_up (wb_detect_arch) before install runs.
-			WB_URL="$([ "$WB_WORKBENCH" = release ] && wb_resolve_stable_url "${WB_ARCH}" || wb_resolve_daily_url "${WB_ARCH}")" || return 1
+			WB_URL="$([ "$WB_WORKBENCH" = release ] && wb_resolve_stable_url "${WB_OS}" "${WB_ARCH}" || wb_resolve_daily_url "${WB_OS}" "${WB_ARCH}")" || return 1
 			[ -n "$WB_URL" ] || { echo "Workbench ${WB_WORKBENCH} URL could not be resolved (check network)." >&2; return 1; }
-			wb_validate_wb_url "$WB_URL" || return 1
+			wb_validate_wb_url "$WB_URL" "${WB_OS}" "${WB_ARCH}" || return 1
 			export WB_URL; return 0 ;;
 		*)
-			WB_URL="$WB_WORKBENCH"; wb_validate_wb_url "$WB_URL" || return 1
+			WB_URL="$WB_WORKBENCH"; wb_validate_wb_url "$WB_URL" "${WB_OS}" "${WB_ARCH}" || return 1
 			export WB_URL; return 0 ;;
 	esac
 	echo "Resolving Workbench versions..." >&2
-	stable_url="$(wb_resolve_stable_url "${WB_ARCH}" 2>/dev/null || true)"
-	daily_url="$(wb_resolve_daily_url "${WB_ARCH}" 2>/dev/null || true)"
+	stable_url="$(wb_resolve_stable_url "${WB_OS}" "${WB_ARCH}" 2>/dev/null || true)"
+	daily_url="$(wb_resolve_daily_url "${WB_OS}" "${WB_ARCH}" 2>/dev/null || true)"
 	# No second menu (WB has one current build per channel), so show the resolved
 	# version right in the labels.
 	wb_menu "Workbench build" \
-		"Release build ($(wb_deb_version "$stable_url" || echo unavailable))" \
-		"Daily build ($(wb_deb_version "$daily_url" || echo unavailable))" \
-		"Custom .deb URL" || return 1
+		"Release build ($(wb_pkg_version "$stable_url" || echo unavailable))" \
+		"Daily build ($(wb_pkg_version "$daily_url" || echo unavailable))" \
+		"Custom .${ext} URL" || return 1
 	case "$WB_MENU_INDEX" in
-		1) WB_URL="$stable_url"; [ -n "$WB_URL" ] || { echo "Release URL could not be resolved (check network)." >&2; return 1; }; wb_validate_wb_url "$WB_URL" || return 1 ;;
-		2) WB_URL="$daily_url";  [ -n "$WB_URL" ] || { echo "Daily URL could not be resolved (check network)." >&2; return 1; }; wb_validate_wb_url "$WB_URL" || return 1 ;;
+		1) WB_URL="$stable_url"; [ -n "$WB_URL" ] || { echo "Release URL could not be resolved (check network)." >&2; return 1; }; wb_validate_wb_url "$WB_URL" "${WB_OS}" "${WB_ARCH}" || return 1 ;;
+		2) WB_URL="$daily_url";  [ -n "$WB_URL" ] || { echo "Daily URL could not be resolved (check network)." >&2; return 1; }; wb_validate_wb_url "$WB_URL" "${WB_OS}" "${WB_ARCH}" || return 1 ;;
 		3)
-			echo "Pin a specific ${WB_ARCH} Workbench .deb (e.g. an n-1/n-2 release):" >&2
-			echo "  Dailies: https://dailies.rstudio.com/rstudio/  (pick a branch -> workbench -> noble-${WB_ARCH})" >&2
+			echo "Pin a specific ${WB_ARCH} Workbench .${ext} (e.g. an n-1/n-2 release):" >&2
+			echo "  Dailies: https://dailies.rstudio.com/rstudio/  (pick a branch -> workbench -> ${WB_OS}-$(wb_os_key_arch "${WB_OS}" "${WB_ARCH}"))" >&2
 			echo "  Stable:  https://docs.posit.co/ide/server-pro/admin/getting_started/installation/installation.html" >&2
 			while :; do
-				read -r -p "Workbench .deb URL (blank to cancel): " WB_URL </dev/tty || true
+				read -r -p "Workbench .${ext} URL (blank to cancel): " WB_URL </dev/tty || true
 				[ -n "${WB_URL:-}" ] || { echo "Cancelled (no URL entered)." >&2; return 1; }
-				wb_validate_wb_url "$WB_URL" && break
+				wb_validate_wb_url "$WB_URL" "${WB_OS}" "${WB_ARCH}" && break
 				echo "Try again." >&2
 			done ;;
 	esac
@@ -349,6 +388,7 @@ cmd_install() {
 		-e WB_URL="${WB_URL}" \
 		-e POSITRON_TAG="${POSITRON_TAG}" \
 		-e ARCH_SUFFIX="${WB_ARCH}" \
+		-e WB_OS="${WB_OS}" \
 		-e WB_PASSWORD="${WB_PASSWORD:-}" \
 		-e DATABRICKS_URL_ -e DATABRICKS_CLIENT_ID_ \
 		-e SNOWFLAKE_ACCOUNT_ -e SNOWFLAKE_CLIENT_ID_ -e SNOWFLAKE_CLIENT_SECRET_ \
@@ -371,7 +411,7 @@ cmd_install() {
 cmd_up() {
 	# Default to a 60-minute auto-stop (override with --ttl N / WB_TTL_MINUTES,
 	# disable with --no-ttl). Collect everything else for cmd_install.
-	local ttl="${WB_TTL_MINUTES:-60}" reinstall=0
+	local ttl="${WB_TTL_MINUTES:-60}" reinstall=0 os_flag=""
 	local passthru=()
 	while [ $# -gt 0 ]; do
 		case "$1" in
@@ -379,6 +419,8 @@ cmd_up() {
 			--no-ttl)    ttl=0 ;;
 			--ttl)       shift; ttl="${1:-60}" ;;
 			--ttl=*)     ttl="${1#--ttl=}" ;;
+			--os)        shift; os_flag="${1:-}" ;;
+			--os=*)      os_flag="${1#--os=}" ;;
 			*)           passthru+=("$1") ;;
 		esac
 		shift
@@ -388,6 +430,28 @@ cmd_up() {
 	wb_detect_arch
 	export ARCH_SUFFIX="${WB_ARCH}"
 	wb_bootstrap_env
+	# After wb_bootstrap_env, which sources .env under `set -a` and would
+	# otherwise clobber the flag with a WB_OS set there. Precedence: --os beats
+	# .env beats the ubuntu24 default.
+	[ -n "$os_flag" ] && WB_OS="$os_flag"
+	# Sticky OS. With neither --os nor a WB_OS in .env, stay on whatever the
+	# existing test container already is, rather than falling back to the
+	# ubuntu24 default -- otherwise a bare `npm run pwb` after an --os=rocky9
+	# install recreates the container and silently throws the install away.
+	# An explicit signal (flag or .env) still wins, hence the grep rather than a
+	# comparison against the default, which cannot tell "unset" from
+	# "explicitly ubuntu24".
+	if [ -z "$os_flag" ] && ! grep -qE '^[[:space:]]*WB_OS=' "${SCRIPT_DIR}/.env" 2>/dev/null; then
+		local running_os; running_os="$(wb_running_os)"
+		wb_os_valid "$running_os" 2>/dev/null && WB_OS="$running_os"
+	fi
+	# Validate before anything slow happens -- a typo here otherwise surfaces as
+	# a confusing Docker or package-manager error minutes later.
+	wb_os_valid "${WB_OS}" || exit 1
+	# Drives the `image:` in the compose file. Changing it makes Compose recreate
+	# the test container, which wipes the in-container install, so switching OS
+	# always costs a reinstall (reported below rather than left to look spurious).
+	WB_TEST_IMAGE="$(wb_os_image "${WB_OS}")"; export WB_TEST_IMAGE
 	# Sources .env first (may set GITHUB_TOKEN), then fills auth gaps from gh and
 	# logs into ghcr.io -- must run before the image pull below.
 	wb_ensure_auth
@@ -428,6 +492,17 @@ cmd_up() {
 		echo "WARNING: no Connect license at ${SCRIPT_DIR}/connect.lic -- the connect container" >&2
 		echo "         will not become healthy and 'test' won't start (startup will time out)." >&2
 		echo "         Add connect.lic (see docker/environments/wb-local/README.md)." >&2
+	fi
+	# Say so up front when the running stack is on the other OS: the recreate
+	# below wipes the install, so the reinstall that follows is expected rather
+	# than a bug.
+	local running_image
+	running_image="$(docker inspect -f '{{.Config.Image}}' test 2>/dev/null || true)"
+	if [ -n "$running_image" ] && [ "$running_image" != "$WB_TEST_IMAGE" ]; then
+		echo "Switching the test container to --os=${WB_OS}:"
+		echo "  from ${running_image}"
+		echo "  to   ${WB_TEST_IMAGE}"
+		echo "This recreates the container, so Workbench and Positron get reinstalled."
 	fi
 	# --remove-orphans clears a leftover container from a prior run under a
 	# different service name that would otherwise hold the same ports.
@@ -485,6 +560,20 @@ wb_source_build() {
 	docker exec test bash -c 'if [ -f /var/lib/wb-local-source ]; then basename "$(cat /var/lib/wb-local-source)"; fi' 2>/dev/null || true
 }
 
+# Which OS the *running* container actually is, mapped back from its image.
+# Deliberately not just "$WB_OS": `status` and `logs` never parse --os, so the
+# variable there is only ever the default and would misreport a rocky9 stack.
+# Falls back to the raw image ref for anything we don't recognize.
+wb_running_os() {
+	local img os
+	img="$(docker inspect -f '{{.Config.Image}}' test 2>/dev/null || true)"
+	[ -n "$img" ] || { printf 'unknown'; return 0; }
+	for os in $WB_OS_CHOICES; do
+		[ "$img" = "$(wb_os_image "$os")" ] && { printf '%s' "$os"; return 0; }
+	done
+	printf '%s' "$img"
+}
+
 # The configured managed-credential type (databricks/snowflake/azure), recorded
 # at install time. Empty if the stack was installed without --credentials.
 wb_credentials_type() {
@@ -509,6 +598,7 @@ wb_print_ready() {
 	else
 		echo "Workbench installed -- rstudio-server not running (run: docker exec test sudo rstudio-server restart)"
 	fi
+	printf 'OS:                  %s\n' "$(wb_running_os)"
 	printf 'Positron version:    %s\n' "$pos"
 	printf 'Workbench version:   %s\n' "$wb"
 	[ -n "$src" ] && printf 'Workbench build:     %s\n' "$src"
@@ -559,6 +649,10 @@ USAGE
                              Already installed: (re)start the stack and show status.
                              Auto-stops after 60 min; resets each time you run it.
   npm run pwb -- --reinstall  Re-run the version pickers and reinstall (switch versions).
+  npm run pwb -- --os=<os>    Host OS for the test container: ubuntu24 (default) or
+                             rocky9. Switching recreates the container, so it always
+                             reinstalls. WB_OS in .env does the same. Once a stack
+                             exists, a bare 'npm run pwb' stays on its OS.
   npm run pwb -- --credentials=<type>
                              Install with a managed data source: databricks, snowflake,
                              or azure (set the provider's vars in .env first).
@@ -572,15 +666,15 @@ USAGE
 
 VERSION PICKERS
   Positron:  Release / Daily channel, then choose a version.
-  Workbench: Release / Daily (current build each), or Custom .deb URL to pin a
-             specific n-1/n-2 build.
+  Workbench: Release / Daily (current build each), or a Custom URL to pin a
+             specific n-1/n-2 build (.deb on ubuntu24, .rpm on rocky9).
 
 NON-INTERACTIVE (no TTY: agents, CI, piped runs)
   Skip both pickers by naming the builds up front:
     npm run pwb -- --workbench=daily --positron=release
     npm run pwb -- --workbench=https://.../rstudio-workbench-....deb --positron=2026.09.0-11
   release|daily takes that channel's current build; anything else is used verbatim
-  (a .deb URL for --workbench, a build tag for --positron). WB_WORKBENCH / WB_POSITRON
+  (a package URL for --workbench, a build tag for --positron). WB_WORKBENCH / WB_POSITRON
   in .env do the same. Add --reinstall to switch an already-installed stack.
 
 ACCESS
@@ -599,7 +693,7 @@ main() {
 	case "$sub" in
 		up)          cmd_up "$@" ;;
 		# Flag-style invocations (no explicit "up") route to cmd_up with the flag.
-		--reinstall|--ttl|--ttl=*|--no-ttl|--credentials=*|--workbench=*|--positron=*) cmd_up "$sub" "$@" ;;
+		--reinstall|--ttl|--ttl=*|--no-ttl|--os|--os=*|--credentials=*|--workbench=*|--positron=*) cmd_up "$sub" "$@" ;;
 		status)      cmd_status "$@" ;;
 		logs)        cmd_logs "$@" ;;
 		shell)       cmd_shell "$@" ;;

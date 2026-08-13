@@ -601,7 +601,6 @@ type NlsConfiguration = {
 
 class ExtensionsScanner extends Disposable {
 
-	private readonly extensionsEnabledWithApiProposalVersion: string[];
 	private readonly productQuality: string | undefined;
 	private readonly productBuiltInExtensionsEnabledWithAutoUpdates: Set<string>;
 
@@ -610,11 +609,10 @@ class ExtensionsScanner extends Disposable {
 		@IUriIdentityService protected readonly uriIdentityService: IUriIdentityService,
 		@IFileService protected readonly fileService: IFileService,
 		@IProductService productService: IProductService,
-		@IEnvironmentService private readonly environmentService: IEnvironmentService,
+		@IEnvironmentService environmentService: IEnvironmentService,
 		@ILogService protected readonly logService: ILogService
 	) {
 		super();
-		this.extensionsEnabledWithApiProposalVersion = productService.extensionsEnabledWithApiProposalVersion?.map(id => id.toLowerCase()) ?? [];
 		this.productQuality = productService.quality;
 		this.productBuiltInExtensionsEnabledWithAutoUpdates = getProductBuiltInExtensionsEnabledWithAutoUpdates(productService, environmentService);
 	}
@@ -801,7 +799,7 @@ class ExtensionsScanner extends Disposable {
 		if (input.validate) {
 			extension = this.validate(extension, input);
 		}
-		if (manifest.enabledApiProposals && (!this.environmentService.isBuilt || this.extensionsEnabledWithApiProposalVersion.includes(id.toLowerCase()))) {
+		if (manifest.enabledApiProposals) {
 			manifest.originalEnabledApiProposals = manifest.enabledApiProposals;
 			manifest.enabledApiProposals = parseEnabledApiProposalNames([...manifest.enabledApiProposals]);
 		}
@@ -810,8 +808,7 @@ class ExtensionsScanner extends Disposable {
 
 	validate(extension: IRelaxedScannedExtension, input: ExtensionScannerInput): IRelaxedScannedExtension {
 		let isValid = extension.isValid;
-		const validateApiVersion = this.environmentService.isBuilt && this.extensionsEnabledWithApiProposalVersion.includes(extension.identifier.id.toLowerCase());
-		const validations = validateExtensionManifest(input.productVersion, input.productDate, input.location, extension.manifest, extension.isBuiltin, validateApiVersion);
+		const validations = validateExtensionManifest(input.productVersion, input.productDate, input.location, extension.manifest, extension.isBuiltin);
 
 		// --- Start Positron ---
 		// Validate extension manifest for Positron fields (i.e. engine: positron)
