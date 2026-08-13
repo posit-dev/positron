@@ -27,6 +27,11 @@ import { timeout } from '../../../../base/common/async.js';
 import { ExtensionIdentifierSet } from '../../../../platform/extensions/common/extensions.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+// --- End Positron ---
+
 export class ConfigureLanguageBasedSettingsAction extends Action {
 
 	static readonly ID = 'workbench.action.configureLanguageBasedSettings';
@@ -251,9 +256,15 @@ CommandsRegistry.registerCommand('_getAllCommands', function (accessor, filterBy
 	}
 	for (const menuItem of MenuRegistry.getMenuItems(MenuId.CommandPalette)) {
 		if (isIMenuItem(menuItem)) {
-			if (filterByPrecondition && !contextKeyService.contextMatchesRules(menuItem.when)) {
+			// --- Start Positron ---
+			// Was: if (filterByPrecondition && !contextKeyService.contextMatchesRules(menuItem.when)) {
+			// Check the command's own precondition too. Commands the palette picks up on its
+			// own have no `when` at all, so checking `when` by itself lets gated commands through.
+			const precondition = ContextKeyExpr.and(menuItem.when, menuItem.command.precondition);
+			if (filterByPrecondition && !contextKeyService.contextMatchesRules(precondition)) {
 				continue;
 			}
+			// --- End Positron ---
 			const title = typeof menuItem.command.title === 'string' ? menuItem.command.title : menuItem.command.title.value;
 			const category = menuItem.command.category ? typeof menuItem.command.category === 'string' ? menuItem.command.category : menuItem.command.category.value : undefined;
 			const label = category ? `${category}: ${title}` : title;
@@ -263,7 +274,10 @@ CommandsRegistry.registerCommand('_getAllCommands', function (accessor, filterBy
 				command: menuItem.command.id,
 				label,
 				description,
-				precondition: menuItem.when?.serialize(),
+				// --- Start Positron ---
+				// Was: precondition: menuItem.when?.serialize(),
+				precondition: precondition?.serialize(),
+				// --- End Positron ---
 				keybinding: keybinding?.getLabel() ?? 'Not set'
 			});
 		}
