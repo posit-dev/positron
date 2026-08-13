@@ -399,7 +399,12 @@ function groupedExtensionsHtml(snapshot: MemorySnapshot): string {
 		return b[1].length - a[1].length;
 	});
 
-	return ordered.map(([event, extensions]) => {
+	const eagerGroups = ordered.filter(([event]) => eagerRank.has(event));
+	const demandCount = ordered
+		.filter(([event]) => !eagerRank.has(event))
+		.reduce((sum, [, extensions]) => sum + extensions.length, 0);
+
+	const sections = eagerGroups.map(([event, extensions]) => {
 		const sorted = [...extensions].sort((a, b) => a.extensionId.localeCompare(b.extensionId));
 		const items = sorted.slice(0, MAX_PER_GROUP)
 			.map(ext => `<li><code>${escapeHtml(ext.extensionId)}</code>${ext.activationTimeMs === null ? '' : ` (${ext.activationTimeMs} ms)`}</li>`)
@@ -407,16 +412,26 @@ function groupedExtensionsHtml(snapshot: MemorySnapshot): string {
 		const more = sorted.length > MAX_PER_GROUP
 			? `<li class="muted">...${sorted.length - MAX_PER_GROUP} more</li>`
 			: '';
-		const eager = EAGER_EVENTS.find(e => e.event === event);
-		const badge = eager
-			? ` <span class="muted" title="activates eagerly">&#9889; eager${eager.note ? ` -- ${escapeHtml(eager.note)}` : ''}</span>`
-			: '';
+		const eager = EAGER_EVENTS.find(e => e.event === event)!;
+		const badge = ` <span class="muted" title="activates eagerly">&#9889; eager${eager.note ? ` -- ${escapeHtml(eager.note)}` : ''}</span>`;
 		return `<h3><code>${escapeHtml(event)}</code> (${sorted.length})${badge}</h3>
 		<ul>
 ${items}
 ${more}
 		</ul>`;
-	}).join('\n');
+	});
+
+	// Collapsed rather than listed. Demand-activated groups were 25 of 27 headings
+	// and over half the page, sitting below the tables this report exists for, and
+	// nothing acts on them: an extension that activates only when you open a .qmd
+	// costs nothing until you do. The eager groups above are the ones the headline
+	// count and the "Newly eager" callout are both about.
+	if (demandCount > 0) {
+		const noun = demandCount === 1 ? 'extension' : 'extensions';
+		sections.push(`<p class="muted">${demandCount} further ${noun} activated on demand.</p>`);
+	}
+
+	return sections.join('\n');
 }
 
 /**
@@ -550,7 +565,7 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 		<h1>${escapeHtml(first.scenario)}</h1>
 		<div class="meta">${first.positronVersion ? `Build: ${escapeHtml(first.positronVersion)}` : ''}</div>
 		<div class="hero">${formatBytes(total)}</div>
-		<div class="meta">${baseline ? deltaHtml(total, baseline.treeTotalPssBytes) : 'no baseline'} vs previous nightly</div>
+		${baseline ? `<div class="meta">${deltaHtml(total, baseline.treeTotalPssBytes)} vs previous nightly</div>` : ''}
 		<div class="meta">${escapeHtml(samplingSummary(snapshots))}</div>
 	</div>
 

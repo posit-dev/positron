@@ -120,6 +120,17 @@ describe('renderMarkdown', () => {
 		expect(output).toContain('| `kernel` | 0.0 MB |');
 	});
 
+	// "no baseline vs previous nightly" parsed as a value followed by a comparison.
+	// With nothing to compare against there is nothing to say, so the line goes.
+	test('omits the comparison line entirely when there is no baseline', () => {
+		expect(renderHtml([snapshot([proc()])])).not.toContain('vs previous nightly');
+	});
+
+	test('shows the comparison line when a baseline exists', () => {
+		const html = renderHtml([snapshot([proc({ pssBytes: 150 * MB })])], snapshot([proc({ pssBytes: 100 * MB })]));
+		expect(html).toContain('vs previous nightly');
+	});
+
 	test('works with no baseline', () => {
 		expect(() => renderMarkdown([snapshot([proc()])])).not.toThrow();
 	});
@@ -300,15 +311,14 @@ describe('renderHtml', () => {
 		expect(REPORT_CSS).toMatch(/\.num-cell\s*\{[^}]*white-space:\s*nowrap/);
 	});
 
-	test('groups activated extensions by activation event', () => {
+	test('groups eagerly activated extensions by activation event', () => {
 		const output = renderHtml([snapshot([proc()], 0, [
 			ext('github.copilot', 'onStartupFinished'),
-			ext('ms-python.python', 'onLanguage:python'),
+			ext('posit.assistant', '*'),
 		])]);
 		expect(output).toContain('onStartupFinished');
-		expect(output).toContain('onLanguage:python');
 		expect(output).toContain('github.copilot');
-		expect(output).toContain('ms-python.python');
+		expect(output).toContain('posit.assistant');
 	});
 
 	// Isolates the process-tree table from the header and role table, both of
@@ -429,17 +439,45 @@ describe('renderHtml', () => {
 		expect(output.match(/github\.copilot/g)).toHaveLength(1);
 	});
 
-	test('badges the eager groups but not demand-activated ones', () => {
+	test('badges the eager group', () => {
 		const output = renderHtml([snapshot([proc()], 0, [
 			ext('github.copilot', 'onStartupFinished'),
 			ext('ms-python.python', 'onLanguage:python'),
-			ext('vscode.git', 'workspaceContains:.git'),
 		])]);
 		const card = output.split('<h2>Activated extensions')[1];
-		const eagerGroup = card.split('onStartupFinished')[1].split('</h3>')[0];
-		const demandGroup = card.split('onLanguage:python')[1].split('</h3>')[0];
-		expect(eagerGroup).toContain('eager');
-		expect(demandGroup).not.toContain('eager');
+		expect(card.split('onStartupFinished')[1].split('</h3>')[0]).toContain('eager');
+	});
+
+	// The demand-activated groups were 25 of 27 headings and over half the page
+	// height, all of it below the actionable part. The eager groups are what the
+	// headline count and the "Newly eager" callout are both about.
+	test('lists the eager groups in full and collapses the demand-activated tail to a count', () => {
+		const output = renderHtml([snapshot([proc()], 0, [
+			ext('github.copilot', 'onStartupFinished'),
+			ext('posit.assistant', '*'),
+			ext('ms-python.python', 'onLanguage:python'),
+			ext('vscode.git', 'workspaceContains:.git'),
+			ext('quarto.quarto', 'onLanguage:qmd'),
+		])]);
+		expect(output).toContain('github.copilot');
+		expect(output).toContain('posit.assistant');
+		expect(output).toContain('3 further extensions activated on demand');
+		// Neither the ids nor their group headings survive the collapse.
+		expect(output).not.toContain('ms-python.python');
+		expect(output).not.toContain('onLanguage:python');
+	});
+
+	test('says nothing about a tail that does not exist', () => {
+		const output = renderHtml([snapshot([proc()], 0, [ext('posit.assistant', '*')])]);
+		expect(output).not.toContain('activated on demand');
+	});
+
+	test('uses the singular for a tail of one', () => {
+		const output = renderHtml([snapshot([proc()], 0, [
+			ext('posit.assistant', '*'),
+			ext('ms-python.python', 'onLanguage:python'),
+		])]);
+		expect(output).toContain('1 further extension activated on demand');
 	});
 
 	test('reports the headline count of eagerly activated extensions', () => {
