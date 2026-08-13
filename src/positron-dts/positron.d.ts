@@ -3745,8 +3745,9 @@ declare module 'positron' {
 			displayName: string;
 			/**
 			 * Provider id in the resolved provider catalog (`~/.posit/ai/providers.json`), used to
-			 * resolve enablement and connection config. Undefined for providers with no catalog entry
-			 * (e.g. dev-only providers), which are treated as enabled.
+			 * resolve enablement and connection config. When undefined, `id` is used instead, so a
+			 * provider is still subject to the catalog if the catalog knows that id. Providers the
+			 * catalog has never heard of are treated as enabled.
 			 */
 			catalogId?: string;
 			/**

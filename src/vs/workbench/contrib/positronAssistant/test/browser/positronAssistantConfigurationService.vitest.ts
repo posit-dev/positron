@@ -87,8 +87,8 @@ describe('PositronAssistantConfigurationService', () => {
 		});
 
 		it('stays silent for disabled providers', () => {
-			// 'anthropic' has a catalog mapping, so enabled=false is meaningful
-			// (unmapped ids are always treated as enabled).
+			// 'anthropic' is in the catalog with enabled=false, so the provider is
+			// disabled and the error status stays quiet.
 			registerProvider('anthropic', false);
 			service.updateProvider('anthropic', { status: 'error', statusMessage: 'Authentication expired' });
 
