@@ -163,8 +163,13 @@ describe('validateLicenseKey', () => {
 		// rather than fall back to reading a raw .lic from disk.
 		const prevKey = process.env.POSITRON_LICENSE_KEY;
 		const prevFile = process.env.POSITRON_LICENSE_KEY_FILE;
+		// Manager mode is checked before either key source, so it has to be
+		// cleared too or a developer with it exported spawns a license manager
+		// here and waits out the whole startup timeout.
+		const prevManager = process.env.POSITRON_LICENSE_MANAGER_PATH;
 		delete process.env.POSITRON_LICENSE_KEY;
 		delete process.env.POSITRON_LICENSE_KEY_FILE;
+		delete process.env.POSITRON_LICENSE_MANAGER_PATH;
 		try {
 			// validateLicenseKey only reads the license-related args; an empty
 			// object covers the no-token-provided case under test.
@@ -174,6 +179,28 @@ describe('validateLicenseKey', () => {
 		} finally {
 			if (prevKey !== undefined) { process.env.POSITRON_LICENSE_KEY = prevKey; }
 			if (prevFile !== undefined) { process.env.POSITRON_LICENSE_KEY_FILE = prevFile; }
+			if (prevManager !== undefined) { process.env.POSITRON_LICENSE_MANAGER_PATH = prevManager; }
+		}
+	});
+
+	it('takes the license manager path over a license key, and fails fast when the binary is missing', async () => {
+		// Manager mode is checked before every key-based source, so a stale key in
+		// the environment must not win over it. A missing binary is a permanent
+		// deployment error, so it must not sit through the startup timeout.
+		const prevKey = process.env.POSITRON_LICENSE_KEY;
+		const prevManager = process.env.POSITRON_LICENSE_MANAGER_PATH;
+		process.env.POSITRON_LICENSE_KEY = '{"connection_token":"some-token"}';
+		process.env.POSITRON_LICENSE_MANAGER_PATH = '/nonexistent/license-manager-aws-sagemaker';
+		try {
+			const args = {} as ServerParsedArgs;
+			const started = Date.now();
+			const result = await validateLicenseKey('some-token', args);
+
+			expect(result.valid).toBe(false);
+			expect(Date.now() - started).toBeLessThan(1_000);
+		} finally {
+			if (prevKey === undefined) { delete process.env.POSITRON_LICENSE_KEY; } else { process.env.POSITRON_LICENSE_KEY = prevKey; }
+			if (prevManager === undefined) { delete process.env.POSITRON_LICENSE_MANAGER_PATH; } else { process.env.POSITRON_LICENSE_MANAGER_PATH = prevManager; }
 		}
 	});
 });
