@@ -212,7 +212,12 @@ function main(): void {
 	console.log(markdown);
 }
 
-// Compiled output is invoked directly with `node`, not imported, so this
-// module-level call is the entry point rather than an import-time side effect
-// to guard against.
-main();
+// Guarded because this module also exports `collectScenarios` and `summarize`.
+// Compiled to CommonJS, an unguarded call runs on any `require` of those exports:
+// under Vitest, `process.argv.slice(2)` is something like ['run', 'some.vitest.ts'],
+// both truthy, so the argument check passes and `summarize` writes its HTML over
+// whatever the second argument names. Nothing imports it today; the guard is here
+// so that doing so cannot overwrite a source file.
+if (require.main === module) {
+	main();
+}

@@ -124,6 +124,14 @@ export function redactProcessName(name: string): string {
 }
 
 export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): MemoryPayload {
+	// Thrown rather than defaulted. Every other field can degrade to 'unknown' and
+	// still leave a usable row, but a payload whose scenario is undefined cannot be
+	// attributed to anything, and one silently ingested under a missing key is worse
+	// than a run that failed loudly.
+	const [first] = snapshots;
+	if (first === undefined) {
+		throw new Error('cannot build a memory payload from no snapshots');
+	}
 	return {
 		payload_version: 1,
 		timestamp: new Date().toISOString(),
@@ -135,7 +143,7 @@ export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): Memory
 		platform_os: platformOs,
 		platform_version: platformVersion,
 		container_image: meta.containerImage,
-		scenario: snapshots[0].scenario,
+		scenario: first.scenario,
 		launches: snapshots.map(snapshot => ({
 			launch_index: snapshot.launchIndex,
 			settle_ms: snapshot.settleMs,

@@ -68,6 +68,18 @@ describe('renderMarkdown', () => {
 		expect(output).toContain('Median of 1 launches, settled in 12s, sampled for 40s, discarding 5 startup samples.');
 	});
 
+	// The median of an odd spread of counts is fractional: launches discarding 5
+	// and 6 samples average to 5.5, and "discarding 5.5 startup samples" is not a
+	// thing that can have happened.
+	test('rounds a fractional median sample count', () => {
+		const output = renderMarkdown([
+			{ ...snapshot([proc()]), sampledMs: 40_000, discardedSamples: 5 },
+			{ ...snapshot([proc()]), sampledMs: 40_000, discardedSamples: 6 }
+		]);
+		expect(output).toContain('discarding 6 startup samples');
+		expect(output).not.toContain('5.5');
+	});
+
 	test('omits the sampling detail for a baseline snapshot that never recorded it', () => {
 		expect(renderMarkdown([snapshot([proc()])])).toContain('Median of 1 launches, settled in 12s.');
 	});
@@ -395,6 +407,9 @@ describe('renderHtml', () => {
 
 	test('says nothing about new processes when there is no baseline, or nothing appeared', () => {
 		expect(renderHtml([snapshot([proc()])])).not.toContain('New since the previous nightly');
+		// The second arm the name promises: a baseline exists and every current
+		// process matches it, so there is nothing new to report.
+		expect(renderHtml([snapshot([proc()])], snapshot([proc()]))).not.toContain('New since the previous nightly');
 	});
 
 	test('flags unlabeled processes so a new one cannot hide', () => {

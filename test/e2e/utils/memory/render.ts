@@ -181,14 +181,14 @@ function samplingSummary(snapshots: MemorySnapshot[]): string {
 		parts.push(`sampled for ${Math.round(median(sampled) / 1000)}s`);
 	}
 	if (discarded.length > 0) {
-		parts.push(`discarding ${median(discarded)} startup samples`);
+		parts.push(`discarding ${Math.round(median(discarded))} startup samples`);
 	}
 	return `${parts.join(', ')}.`;
 }
 
 export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): string {
 	const total = totalAcrossLaunches(snapshots);
-	const lines: string[] = [`## Memory: ${snapshots[0].scenario}`, ''];
+	const lines: string[] = [`## Memory: ${snapshots[0]?.scenario}`, ''];
 
 	lines.push(baseline
 		? `**Total: ${formatBytes(total)}** (${signed(total - baseline.treeTotalPssBytes)} vs previous nightly)`

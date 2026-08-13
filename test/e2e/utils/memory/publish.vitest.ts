@@ -48,6 +48,12 @@ describe('redactProcessName', () => {
 });
 
 describe('buildPayload', () => {
+	// A payload with no scenario is unattributable: ingestion cannot tell which
+	// scenario the launches belong to, so it is worse than no payload at all.
+	test('refuses to build a payload from no snapshots', () => {
+		expect(() => buildPayload([], meta)).toThrow(/no snapshots/i);
+	});
+
 	test('pins the payload version the dashboard plan is written against', () => {
 		expect(buildPayload([snapshot], meta).payload_version).toBe(1);
 	});

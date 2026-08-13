@@ -124,7 +124,7 @@ jobs:
       - name: Setup Xvfb
         uses: ./.github/actions/setup-xvfb
 
-      # The idle scenario uses its own extensions dir, so the first launch into it
+      # Every memory scenario uses its own extensions dir, so the first launch into it
       # pays to install the build's bootstrap vsixes (ruff, air, jupyter, and the
       # rest). Measured without this, launch 0 read 60 MB high with a settle a
       # second longer than the other two, which is a systematic artifact in the
@@ -271,7 +271,13 @@ jobs:
       # text/html and render in the browser -- which an artifact zip cannot do.
       # continue-on-error so a transient S3 or OIDC failure loses the links, not
       # the night's run. Matches how the other e2e workflows call this action.
+      #
+      # The id is what makes that true. REPORT_URL is set by gen-report-dir above,
+      # before anything is uploaded, so a failed upload leaves it populated and the
+      # link step cannot tell from it alone that the files are not there. Without
+      # steps.upload-reports.outcome the summary printed links to 404s.
       - name: Upload the reports to S3
+        id: upload-reports
         continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
@@ -288,6 +294,12 @@ jobs:
           # render step failed and skipped the step that sets it.
           if [ -z "$REPORT_URL" ]; then
             echo "No memory report: rendering failed before the reports were published." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Say so rather than linking. REPORT_URL is set whether or not the upload
+          # worked, so this is the only signal that the files are not really there.
+          if [ "${{ steps.upload-reports.outcome }}" = "failure" ]; then
+            echo "No memory report: the upload to S3 failed. The reports are in this run's artifacts." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           BASE="${REPORT_URL%/index.html}"
