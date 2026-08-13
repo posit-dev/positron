@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import { LOGGER } from './extension';
 import { RSession } from './session';
-import { discoverPpmApi, fetchPpmVulnerabilities, PUBLIC_P3M, resolveRRepoUrl } from './ppmVulnerabilities';
+import { getPpmVulnerabilities } from './ppmVulnerabilities';
 
 /**
  * R Package Manager
@@ -68,7 +68,7 @@ export class RPackageManager {
 	): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
 		const [outdated, vulnerabilities] = await Promise.all([
 			this._getOutdatedVersions(token),
-			this._getVulnerabilities(packages, token),
+			getPpmVulnerabilities(packages, token),
 		]);
 
 		const metadata = new Map<string, Partial<positron.LanguageRuntimePackage>>();
@@ -87,37 +87,6 @@ export class RPackageManager {
 		}
 
 		return metadata;
-	}
-
-	/**
-	 * Fetch known security advisories for the installed packages, preferring
-	 * the PPM the session's repositories point at and falling back to the
-	 * public instance so the feature works without repo configuration.
-	 * Resolves undefined (no data for any package) when the feature is
-	 * disabled or the lookup fails -- vulnerability data is optional and must
-	 * never break the metadata fetch.
-	 */
-	private async _getVulnerabilities(
-		packages: positron.PackageSpec[],
-		token?: vscode.CancellationToken,
-	): Promise<Map<string, positron.PackageVulnerability[]> | undefined> {
-		const enabled = vscode.workspace.getConfiguration('packages')
-			.get<boolean>('vulnerabilities.enabled');
-		if (enabled === false) {
-			return undefined;
-		}
-
-		try {
-			const repoUrl = resolveRRepoUrl();
-			const configured = repoUrl ? await discoverPpmApi(repoUrl) : undefined;
-			return await fetchPpmVulnerabilities(configured ?? PUBLIC_P3M, packages, token);
-		} catch (err) {
-			if (err instanceof vscode.CancellationError) {
-				throw err;
-			}
-			LOGGER.warn(`[PPM] Failed to fetch package vulnerabilities: ${err}`);
-			return undefined;
-		}
 	}
 
 	/**

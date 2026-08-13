@@ -102,10 +102,16 @@ export function clearPpmDiscoveryCache(): void {
  * tracked as a follow-up; the launch-time sources cover the managed
  * (Workbench/admin) configurations this feature targets.
  *
+ * @param findReposConfImpl repos.conf locator, injectable so tests aren't
+ *   hostage to the machine's real XDG configuration directories.
+ * @param uiKind The UI kind, injectable for tests.
  * @returns The repo URL, or undefined when the session isn't repo-configured
  *   in a way that could point at a PPM instance.
  */
-export function resolveRRepoUrl(): string | undefined {
+export function resolveRRepoUrl(
+	findReposConfImpl: () => string | undefined = findReposConf,
+	uiKind: vscode.UIKind = vscode.env.uiKind,
+): string | undefined {
 	const config = vscode.workspace.getConfiguration('positron.r');
 	const defaultRepos = config.get<string>('defaultRepositories') ?? 'auto';
 
@@ -118,7 +124,7 @@ export function resolveRRepoUrl(): string | undefined {
 	}
 
 	// 'auto': same precedence as getArkKernelSpec.
-	const reposConf = findReposConf();
+	const reposConf = findReposConfImpl();
 	if (reposConf) {
 		return parseReposConf(reposConf);
 	}
@@ -128,7 +134,7 @@ export function resolveRRepoUrl(): string | undefined {
 		return ppmRepo.endsWith('/') ? ppmRepo.slice(0, -1) : ppmRepo;
 	}
 
-	if (vscode.env.uiKind === vscode.UIKind.Web) {
+	if (uiKind === vscode.UIKind.Web) {
 		// Web mode defaults to Posit's Public Package Manager (see kernel-spec).
 		return PUBLIC_PPM_CRAN_REPO;
 	}
@@ -511,4 +517,44 @@ function normalizeGroup(group: OsvVulnerability[]): positron.PackageVulnerabilit
 			? `https://nvd.nist.gov/vuln/detail/${cve}`
 			: `https://osv.dev/vulnerability/${osvId}`,
 	};
+}
+
+/**
+ * Fetch vulnerabilities for the installed packages, gated on the
+ * `packages.vulnerabilities.enabled` setting.
+ *
+ * Prefers the PPM the session's repositories point at, so a managed session
+ * gets advisories from the instance its admin configured, and falls back to
+ * the public instance so the feature works without repo configuration.
+ *
+ * Resolves undefined (no data for any package) when the feature is disabled or
+ * the lookup fails -- vulnerability data is optional and must never break the
+ * metadata fetch.
+ *
+ * @param packages Installed packages, each queried at its installed version.
+ * @param token Optional cancellation token.
+ * @param fetchImpl Fetch implementation, injectable for tests.
+ */
+export async function getPpmVulnerabilities(
+	packages: readonly positron.PackageSpec[],
+	token?: vscode.CancellationToken,
+	fetchImpl: typeof fetch = fetch,
+): Promise<Map<string, positron.PackageVulnerability[]> | undefined> {
+	const enabled = vscode.workspace.getConfiguration('packages')
+		.get<boolean>('vulnerabilities.enabled');
+	if (enabled === false) {
+		return undefined;
+	}
+
+	try {
+		const repoUrl = resolveRRepoUrl();
+		const configured = repoUrl ? await discoverPpmApi(repoUrl, fetchImpl) : undefined;
+		return await fetchPpmVulnerabilities(configured ?? PUBLIC_P3M, packages, token, fetchImpl);
+	} catch (err) {
+		if (err instanceof vscode.CancellationError) {
+			throw err;
+		}
+		LOGGER.warn(`[PPM] Failed to fetch package vulnerabilities: ${err}`);
+		return undefined;
+	}
 }

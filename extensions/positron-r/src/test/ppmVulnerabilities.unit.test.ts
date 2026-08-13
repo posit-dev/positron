@@ -4,13 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import * as vscode from 'vscode';
 import {
 	clearPpmDiscoveryCache,
 	discoverPpmApi,
 	fetchPpmVulnerabilities,
+	getPpmVulnerabilities,
 	normalizeOsvVulnerabilities,
 	OsvVulnerability,
 	ppmSupportsVulnerabilities,
+	resolveRRepoUrl,
 } from '../ppmVulnerabilities';
 
 type FetchFn = typeof globalThis.fetch;
@@ -24,6 +30,17 @@ function makeJsonResponse(body: unknown, init: { ok?: boolean; status?: number }
 		text: () => Promise.resolve(text),
 		json: () => Promise.resolve(JSON.parse(text)),
 	} as Response;
+}
+
+/** Record every request in `calls`; answer by URL, 404 anything unrouted. */
+function makeFakeFetch(calls: FetchCall[], routes: Record<string, Response>): FetchFn {
+	return ((url: string, init?: RequestInit) => {
+		calls.push({ url, init });
+		const response = routes[url];
+		return response
+			? Promise.resolve(response)
+			: Promise.resolve(makeJsonResponse('not found', { ok: false, status: 404 }));
+	}) as FetchFn;
 }
 
 function ndjson(...lines: unknown[]): string {
@@ -145,13 +162,7 @@ suite('discoverPpmApi', () => {
 	});
 
 	function fakeFetch(routes: Record<string, Response>): FetchFn {
-		return ((url: string, init?: RequestInit) => {
-			calls.push({ url, init });
-			const response = routes[url];
-			return response
-				? Promise.resolve(response)
-				: Promise.resolve(makeJsonResponse('not found', { ok: false, status: 404 }));
-		}) as FetchFn;
+		return makeFakeFetch(calls, routes);
 	}
 
 	test('walks the repo URL path down to the API base and extracts the repo name', async () => {
@@ -303,5 +314,170 @@ suite('fetchPpmVulnerabilities', () => {
 			fetchPpmVulnerabilities(PPM, [{ name: 'dplyr', version: '1.1.4' }], undefined, fetchImpl),
 			/503/,
 		);
+	});
+});
+
+suite('resolveRRepoUrl', () => {
+	const PUBLIC_CRAN_REPO = 'https://packagemanager.posit.co/cran/latest';
+	const noReposConf = () => undefined;
+	const desktop = vscode.UIKind.Desktop;
+
+	let tempDir: string;
+	let confCount = 0;
+
+	suiteSetup(() => {
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ppm-repos-conf-'));
+	});
+
+	suiteTeardown(() => {
+		fs.rmSync(tempDir, { recursive: true, force: true });
+	});
+
+	teardown(async () => {
+		const config = vscode.workspace.getConfiguration('positron.r');
+		await config.update('defaultRepositories', undefined, vscode.ConfigurationTarget.Global);
+		await config.update('packageManagerRepository', undefined, vscode.ConfigurationTarget.Global);
+	});
+
+	async function setRSetting(key: string, value: string): Promise<void> {
+		await vscode.workspace.getConfiguration('positron.r').update(key, value, vscode.ConfigurationTarget.Global);
+	}
+
+	function writeReposConf(contents: string): string {
+		const file = path.join(tempDir, `repos-${confCount++}.conf`);
+		fs.writeFileSync(file, contents);
+		return file;
+	}
+
+	test('posit-ppm resolves to the public PPM CRAN repo without consulting repos.conf', async () => {
+		await setRSetting('defaultRepositories', 'posit-ppm');
+
+		const boobyTrap = () => { throw new Error('repos.conf should not be consulted'); };
+		assert.strictEqual(resolveRRepoUrl(boobyTrap, desktop), PUBLIC_CRAN_REPO);
+	});
+
+	test('rstudio and none cannot point at a PPM', async () => {
+		await setRSetting('defaultRepositories', 'rstudio');
+		assert.strictEqual(resolveRRepoUrl(noReposConf, desktop), undefined);
+
+		await setRSetting('defaultRepositories', 'none');
+		assert.strictEqual(resolveRRepoUrl(noReposConf, desktop), undefined);
+	});
+
+	test('auto takes the CRAN entry from repos.conf, skipping comments and non-URL lines', async () => {
+		await setRSetting('defaultRepositories', 'auto');
+		const conf = writeReposConf([
+			'# managed repositories',
+			'not a key-value line',
+			'Internal = file:///opt/local-repo',
+			'Extra = https://other.example.com/cran/latest',
+			'CRAN = https://ppm.internal.example.com/cran/latest',
+		].join('\n'));
+
+		assert.strictEqual(resolveRRepoUrl(() => conf, desktop), 'https://ppm.internal.example.com/cran/latest');
+	});
+
+	test('auto falls back to the first http(s) entry when repos.conf has no CRAN key', async () => {
+		await setRSetting('defaultRepositories', 'auto');
+		const conf = writeReposConf([
+			'bioc = https://bioc.example.com/bioconductor/latest',
+			'other = https://other.example.com/cran/latest',
+		].join('\n'));
+
+		assert.strictEqual(resolveRRepoUrl(() => conf, desktop), 'https://bioc.example.com/bioconductor/latest');
+	});
+
+	test('auto with an unreadable repos.conf resolves to no repo', async () => {
+		await setRSetting('defaultRepositories', 'auto');
+
+		const missing = path.join(tempDir, 'does-not-exist.conf');
+		assert.strictEqual(resolveRRepoUrl(() => missing, desktop), undefined);
+	});
+
+	test('auto uses the packageManagerRepository setting, trimming a trailing slash', async () => {
+		await setRSetting('defaultRepositories', 'auto');
+		await setRSetting('packageManagerRepository', 'https://ppm.example.com/cran/latest/');
+
+		assert.strictEqual(resolveRRepoUrl(noReposConf, desktop), 'https://ppm.example.com/cran/latest');
+	});
+
+	test('auto with no sources defaults to the public PPM on web and no repo on desktop', async () => {
+		await setRSetting('defaultRepositories', 'auto');
+
+		assert.strictEqual(resolveRRepoUrl(noReposConf, vscode.UIKind.Web), PUBLIC_CRAN_REPO);
+		assert.strictEqual(resolveRRepoUrl(noReposConf, desktop), undefined);
+	});
+});
+
+suite('getPpmVulnerabilities', () => {
+	const DPLYR = [{ name: 'dplyr', version: '1.1.4' }];
+	const PUBLIC_FILTER_URL = 'https://packagemanager.posit.co/__api__/filter/packages';
+
+	let calls: FetchCall[];
+
+	setup(() => {
+		clearPpmDiscoveryCache();
+		calls = [];
+	});
+
+	teardown(async () => {
+		await vscode.workspace.getConfiguration('packages')
+			.update('vulnerabilities.enabled', undefined, vscode.ConfigurationTarget.Global);
+		await vscode.workspace.getConfiguration('positron.r')
+			.update('defaultRepositories', undefined, vscode.ConfigurationTarget.Global);
+	});
+
+	test('discovers and queries the PPM the repos configuration points at', async () => {
+		// 'posit-ppm' resolves a repo URL without touching the machine's real
+		// repos.conf, keeping the test hermetic.
+		await vscode.workspace.getConfiguration('positron.r')
+			.update('defaultRepositories', 'posit-ppm', vscode.ConfigurationTarget.Global);
+		const fetchImpl = makeFakeFetch(calls, {
+			'https://packagemanager.posit.co/__api__/status': makeJsonResponse({ version: '2026.06.0' }),
+			[PUBLIC_FILTER_URL]: makeJsonResponse(ndjson(
+				{ name: 'dplyr', version: '1.1.4', vulns: [RSEC_RECORD] },
+			)),
+		});
+
+		const result = await getPpmVulnerabilities(DPLYR, undefined, fetchImpl);
+
+		assert.strictEqual(result?.get('dplyr')?.length, 1);
+		// Probes down to the API base, then queries that instance.
+		assert.strictEqual(calls[calls.length - 1].url, PUBLIC_FILTER_URL);
+		assert.strictEqual(JSON.parse(calls[calls.length - 1].init?.body as string).repo, 'cran');
+	});
+
+	test('queries the public instance directly when the repos configuration cannot name a PPM', async () => {
+		// 'rstudio' resolves to no repo URL, so there is nothing to discover.
+		await vscode.workspace.getConfiguration('positron.r')
+			.update('defaultRepositories', 'rstudio', vscode.ConfigurationTarget.Global);
+		const fetchImpl = makeFakeFetch(calls, {
+			[PUBLIC_FILTER_URL]: makeJsonResponse(ndjson({ name: 'dplyr', version: '1.1.4' })),
+		});
+
+		const result = await getPpmVulnerabilities(DPLYR, undefined, fetchImpl);
+
+		// Straight to the public instance: no repo to discover, so no probe.
+		assert.deepStrictEqual(calls.map((c) => c.url), [PUBLIC_FILTER_URL]);
+		assert.deepStrictEqual(result?.get('dplyr'), []);
+	});
+
+	test('makes no request when the feature is disabled', async () => {
+		await vscode.workspace.getConfiguration('packages')
+			.update('vulnerabilities.enabled', false, vscode.ConfigurationTarget.Global);
+		const fetchImpl = makeFakeFetch(calls, {});
+
+		const result = await getPpmVulnerabilities(DPLYR, undefined, fetchImpl);
+
+		assert.strictEqual(result, undefined);
+		assert.strictEqual(calls.length, 0);
+	});
+
+	test('resolves undefined when the lookup fails', async () => {
+		await vscode.workspace.getConfiguration('positron.r')
+			.update('defaultRepositories', 'rstudio', vscode.ConfigurationTarget.Global);
+		const fetchImpl = (() => Promise.reject(new Error('network down'))) as FetchFn;
+
+		assert.strictEqual(await getPpmVulnerabilities(DPLYR, undefined, fetchImpl), undefined);
 	});
 });
