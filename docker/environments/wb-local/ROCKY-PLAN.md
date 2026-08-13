@@ -19,8 +19,8 @@ misattribution, and one is filed:
 
 | Failure | Outcome |
 | --- | --- |
-| `connect/publisher-quarto-r` | **Fixed** -- PAM sessions had no `/usr/local/bin` on PATH. |
-| `console/files-pane-refresh` | **Fixed** -- Explorer list virtualization plus state left by an earlier test. |
+| `connect/publisher-quarto-r` | **Fixed**, CI-verified -- PAM sessions had no `/usr/local/bin` on PATH. |
+| `console/files-pane-refresh` | **Fixed**, CI-verified -- Explorer list virtualization plus state left by an earlier test. |
 | `connect/publisher-shiny` | **Not Rocky** -- passes on Rocky in CI; the local failure was arm64 or flake. |
 | `environment-modules` (Python) | **Filed as [#15509](https://github.com/posit-dev/positron/issues/15509)** -- positron-python probes a module interpreter by bare name. Root cause understood; do not work around it in the lane. |
 
@@ -878,6 +878,30 @@ the stale `engines: []` config and looked like failures. The fixture re-tars
 deleting it failed in the publisher UI (a `not.toBeVisible` predicate, never
 reaching Connect) and passed on the next run, so the first-time
 config-creation path looks flaky independently of this bug.
+
+#### Second CI run: both fixes confirmed on the lane
+
+Rocky lane went from **42 passed / 3 failed / 1 flaky** to **46 passed / 2 failed**,
+from a fresh install (so the installer's `/etc/environment` write is exercised, not a
+hand-applied file). `publisher-quarto-r`, `files-pane-refresh`, `publisher-shiny` and
+`environment-modules` (R) all pass.
+
+The two remaining failures are both already characterised as not lane work:
+
+- `environment-modules` (Python) -- [#15509](https://github.com/posit-dev/positron/issues/15509).
+- `posit-assistant-signin` `openai-api` -- the pre-existing assistant flake. It flaked
+  on Rocky in run 1, was the only `workbench-stable (default)` failure in run 1, and
+  passed on `workbench (default)` and every stable shard in this run.
+
+Regression check stayed clean: `workbench (default)` 46 passed / 0 failed, every
+`workbench-stable` shard green. (`workbench (databricks)` failed once on
+`managed-credentials-databricks`, an Ubuntu credential shard this work does not touch,
+which passed in run 1 and on `workbench-stable (databricks)` in the same run.)
+
+**Operational note for anyone iterating on this PR:** a push cancels in-progress checks
+on this repo. A docs-only commit cancelled a Rocky lane job seven minutes from
+answering this exact question, costing a full ~60-minute cycle. Batch plan/body edits
+with code, or wait for the run.
 
 #### Also measured: the duplicate-rserver bug is real, and the suite causes it
 
