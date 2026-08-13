@@ -446,6 +446,24 @@ suite('Python Environment Health - orchestration', () => {
         });
         assert.strictEqual(result.items[1].status, 'fail');
         assert.include(result.items[1].detail ?? '', 'boom');
+        assert.strictEqual(result.items[1].summary, 'A supported Python is installed');
+    });
+
+    test('skipped items carry the check summary, not the machine id', async () => {
+        const result = await assembleItems({
+            discovery: () => fail('discovery'),
+            pythonInstalled: async () => pass('pythonInstalled'),
+            ready: async () => pass('environmentReady'),
+            dedicated: async () => pass('dedicatedEnvironment'),
+        });
+        assert.deepStrictEqual(
+            result.items.slice(1).map((i) => [i.id, i.summary]),
+            [
+                ['pythonInstalled', 'A supported Python is installed'],
+                ['environmentReady', 'The environment is ready to use with Positron'],
+                ['dedicatedEnvironment', 'A dedicated Python environment is available'],
+            ],
+        );
     });
 });
 
