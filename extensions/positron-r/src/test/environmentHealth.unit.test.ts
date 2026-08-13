@@ -314,9 +314,16 @@ suite('environment health: assembleItems cascade', () => {
 		assert.strictEqual(result.ok, false);
 		assert.deepStrictEqual(result.items.map((i) => i.status),
 			['fail', 'skipped', 'skipped']);
-		// A skipped item is still rendered, so its summary must not be the id.
-		assert.ok(result.items.slice(1).every((i) => !i.summary.includes(i.id)),
-			`skipped summaries leaked an id: ${result.items.slice(1).map((i) => i.summary)}`);
+	});
+
+	test('skipped items carry the check summary, not a status word', async () => {
+		const result = await assembleItems({ ...allPass, discovery: () => fail('discovery') });
+		assert.deepStrictEqual(
+			result.items.slice(1).map((i) => [i.id, i.summary]),
+			[
+				['rInstalled', 'A supported R is installed'],
+				['environmentReady', 'The R installation is ready to use with Positron'],
+			]);
 	});
 
 	test('an rInstalled failure skips environmentReady', async () => {
@@ -337,7 +344,8 @@ suite('environment health: assembleItems cascade', () => {
 		});
 		assert.strictEqual(result.items[2].status, 'fail');
 		assert.ok(result.items[2].detail?.includes('kaboom'));
-		// The raw error goes in detail; summary stays user-facing, not the id.
-		assert.ok(!result.items[2].summary.includes('environmentReady'));
+		// The raw error goes in detail; the summary stays the check's own claim.
+		assert.strictEqual(result.items[2].summary,
+			'The R installation is ready to use with Positron');
 	});
 });

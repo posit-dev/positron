@@ -91,6 +91,24 @@ export interface RInstallationLike {
 
 const R_INSTALL_DOCS = 'https://positron.posit.co/r-installations';
 
+/**
+ * The claim a check makes, phrased so it reads the same whatever the outcome is:
+ * the UI uses it as the row title and shows `status` separately. Callers that
+ * never ran the probe (a skipped item, a probe that threw) still need the text,
+ * so it lives here rather than inside each probe.
+ */
+export function itemSummary(id: HealthItemId): string {
+	// Record<HealthItemId, string> requires an entry per id, so adding a check
+	// without a summary is a compile error. Built per call because
+	// vscode.l10n.t needs the activated l10n bundle.
+	const summaries: Record<HealthItemId, string> = {
+		discovery: vscode.l10n.t('Positron can discover R installations'),
+		rInstalled: vscode.l10n.t('A supported R is installed'),
+		environmentReady: vscode.l10n.t('The R installation is ready to use with Positron'),
+	};
+	return summaries[id];
+}
+
 function diagnosticsFix(): HealthItemFix {
 	return {
 		commandId: 'positron.startupDiagnostics.show',
@@ -100,7 +118,7 @@ function diagnosticsFix(): HealthItemFix {
 
 export function probeDiscovery(deps: { binaryCount: number; error?: string }): HealthItem {
 	const id = 'discovery';
-	const summary = vscode.l10n.t('Positron can discover R installations');
+	const summary = itemSummary(id);
 	if (deps.error) {
 		return {
 			id, status: 'fail', summary,
@@ -122,7 +140,7 @@ export function probeDiscovery(deps: { binaryCount: number; error?: string }): H
 
 export function probeRInstalled(deps: { installations: RInstallationLike[] }): HealthItem {
 	const id = 'rInstalled';
-	const summary = vscode.l10n.t('A supported R is installed');
+	const summary = itemSummary(id);
 	// `usable` implies `supported`: RInstallation only sets it inside the
 	// supported branch (r-installation.ts:323).
 	if (deps.installations.some((i) => i.usable)) {
@@ -163,10 +181,6 @@ export function probeRInstalled(deps: { installations: RInstallationLike[] }): H
 	};
 }
 
-function environmentReadySummary(): string {
-	return vscode.l10n.t('The R installation is ready to use with Positron');
-}
-
 /**
  * The environmentReady verdict when no usable R installation could be picked at
  * all: neither the registered preferred runtime nor the freshly discovered list
@@ -176,7 +190,7 @@ export function probeNoUsableTarget(): HealthItem {
 	return {
 		id: 'environmentReady',
 		status: 'fail',
-		summary: environmentReadySummary(),
+		summary: itemSummary('environmentReady'),
 		detail: vscode.l10n.t('Positron could not resolve an R installation to use.'),
 		fix: diagnosticsFix(),
 		learnMoreUrl: R_INSTALL_DOCS,
@@ -236,7 +250,7 @@ export function probeEnvironmentReady(deps: {
 	arkArch?: ArkArch;
 }): HealthItem {
 	const id = 'environmentReady';
-	const summary = environmentReadySummary();
+	const summary = itemSummary(id);
 
 	if (!deps.usable) {
 		return {
@@ -297,7 +311,7 @@ export interface REnvironmentHealthResult {
 }
 
 function skipped(id: HealthItemId): HealthItem {
-	return { id, status: 'skipped', summary: vscode.l10n.t('Skipped') };
+	return { id, status: 'skipped', summary: itemSummary(id) };
 }
 
 async function runItem(
@@ -308,7 +322,7 @@ async function runItem(
 		return await produce();
 	} catch (ex) {
 		return {
-			id, status: 'fail', summary: vscode.l10n.t('Health check error'),
+			id, status: 'fail', summary: itemSummary(id),
 			detail: vscode.l10n.t(
 				'Health check failed: {0}', ex instanceof Error ? ex.message : String(ex)),
 		};
