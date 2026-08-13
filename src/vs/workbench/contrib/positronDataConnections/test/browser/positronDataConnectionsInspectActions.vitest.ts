@@ -9,6 +9,7 @@ import { ILogService, NullLogService } from '../../../../../platform/log/common/
 import { IUntitledTextResourceEditorInput } from '../../../../common/editor.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { CommandsRegistry } from '../../../../../platform/commands/common/commands.js';
+import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IQuickInputService } from '../../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -142,6 +143,38 @@ describe('data connections inspect actions', () => {
 		await run(new ShowDataConnectionSchemaAction());
 
 		expect(info).toHaveBeenCalledWith('No active data connections. Connect to one from the Data Connections panel first.');
+		expect(openEditor).not.toHaveBeenCalled();
+	});
+
+	// The property Assistant depends on: executing a payload command hands the JSON back to the
+	// caller and leaves the workbench alone. Opening an editor is what the two actions above are for,
+	// and wiring one into a payload command's handler by mistake would put a file in the user's face
+	// every time Assistant asked what connections exist.
+	it.each([
+		{
+			id: GET_CONNECTIONS_COMMAND_ID,
+			args: undefined,
+			expected: [],
+		},
+		{
+			id: GET_SCHEMA_COMMAND_ID,
+			args: { profileId: 'conn-a' },
+			expected: { instanceId: '1', nodes: [{ name: 'conn-a-table', kind: 'table' }], truncated: false },
+		},
+		{
+			id: GET_SCHEMA_COMMAND_ID,
+			args: { profileId: 'conn-missing' },
+			expected: { connected: false, reason: 'not-connected' },
+		},
+	])('$id returns its payload to a programmatic caller without opening an editor', async ({ id, args, expected }) => {
+		// The registry types every handler as returning void; these two return their payload, which is
+		// what executeCommand passes back to the caller.
+		const handler = CommandsRegistry.getCommand(id)?.handler as
+			((accessor: ServicesAccessor, args?: unknown) => Promise<unknown>) | undefined;
+
+		const result = await ctx.instantiationService.invokeFunction(accessor => handler!(accessor, args));
+
+		expect(result).toEqual(expected);
 		expect(openEditor).not.toHaveBeenCalled();
 	});
 
