@@ -1,0 +1,158 @@
+<svg width="520" height="260" viewBox="0 0 520 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="520" height="260" fill="#FFFFFF"/>
+
+  <!-- ============ Activity bar ============ -->
+  <rect x="0" y="0" width="18" height="260" fill="#F4F4F4"/>
+  <line x1="18" y1="0" x2="18" y2="260" stroke="#E0E0E0" stroke-width="1"/>
+  <rect x="6" y="12" width="7" height="7" rx="1.5" fill="#5A5A5A"/>
+  <circle cx="9.5" cy="34" r="3.5" fill="#8A8A8A"/>
+  <rect x="6" y="52" width="7" height="7" rx="1.5" fill="#8A8A8A"/>
+  <circle cx="9.5" cy="74" r="3.5" fill="#8A8A8A"/>
+  <rect x="6" y="92" width="7" height="7" rx="1.5" fill="#8A8A8A"/>
+  <circle cx="9.5" cy="114" r="3.5" fill="#8A8A8A"/>
+
+  <!-- ============ Editor ============ -->
+  <rect x="18" y="0" width="282" height="24" fill="#F2F2F2"/>
+  <line x1="18" y1="24" x2="300" y2="24" stroke="#E0E0E0" stroke-width="1"/>
+  <rect x="19" y="0" width="106" height="25" fill="#FFFFFF"/>
+  <g transform="translate(26, 7) scale(0.5)">
+    <path d="M2 1h7l4 4v10H2V1z" fill="#8DA5B8"/>
+    <path d="M9 1l4 4H9V1z" fill="#6E8BA3"/>
+  </g>
+  <rect x="38" y="10" width="52" height="4" rx="2" fill="#C8C8C8"/>
+  <line x1="98" y1="9" x2="104" y2="15" stroke="#8A8A8A" stroke-width="1"/>
+  <line x1="104" y1="9" x2="98" y2="15" stroke="#8A8A8A" stroke-width="1"/>
+
+  <!-- Editor toolbar -->
+  <rect x="18" y="25" width="282" height="18" fill="#FAFAFA"/>
+  <line x1="18" y1="43" x2="300" y2="43" stroke="#E0E0E0" stroke-width="1"/>
+  <path d="M27 30l5 3.5-5 3.5z" fill="#5A5A5A"/>
+  <rect x="36" y="32" width="26" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="72" y="30.5" width="7" height="7" rx="1.5" fill="#FFFFFF" stroke="#B4B4B4" stroke-width="1"/>
+  <rect x="84" y="32" width="38" height="4" rx="2" fill="#C8C8C8"/>
+  <circle cx="272" cy="34" r="1.4" fill="#8A8A8A"/>
+  <circle cx="280" cy="34" r="1.4" fill="#8A8A8A"/>
+  <circle cx="288" cy="34" r="1.4" fill="#8A8A8A"/>
+
+  <!-- Code: deliberately sparse, so the plot carries the only color -->
+  <rect x="24" y="57" width="7" height="3" rx="1.5" fill="#B4C4D2"/>
+  <rect x="24" y="71" width="7" height="3" rx="1.5" fill="#B4C4D2"/>
+  <rect x="24" y="85" width="7" height="3" rx="1.5" fill="#B4C4D2"/>
+  <rect x="24" y="99" width="7" height="3" rx="1.5" fill="#B4C4D2"/>
+  <rect x="24" y="113" width="7" height="3" rx="1.5" fill="#B4C4D2"/>
+  <rect x="24" y="127" width="7" height="3" rx="1.5" fill="#B4C4D2"/>
+
+  <rect x="40" y="56" width="118" height="4" rx="2" fill="#D4D4D4"/>
+  <rect x="40" y="70" width="74" height="4" rx="2" fill="#D4D4D4"/>
+  <rect x="52" y="84" width="142" height="4" rx="2" fill="#D4D4D4"/>
+  <rect x="52" y="98" width="92" height="4" rx="2" fill="#D4D4D4"/>
+  <rect x="40" y="112" width="158" height="4" rx="2" fill="#D4D4D4"/>
+  <rect x="40" y="126" width="68" height="4" rx="2" fill="#D4D4D4"/>
+
+  <!-- ============ Console ============ -->
+  <line x1="18" y1="150" x2="300" y2="150" stroke="#E0E0E0" stroke-width="1"/>
+  <rect x="18" y="151" width="282" height="17" fill="#FAFAFA"/>
+  <text x="26" y="163" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="7" font-weight="600" fill="#3E4246" letter-spacing="0.5">CONSOLE</text>
+  <line x1="26" y1="167" x2="63" y2="167" stroke="#3E4246" stroke-width="1.5"/>
+  <rect x="74" y="157" width="30" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="114" y="157" width="30" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="154" y="157" width="26" height="4" rx="2" fill="#C8C8C8"/>
+  <line x1="18" y1="168" x2="300" y2="168" stroke="#E0E0E0" stroke-width="1"/>
+
+  <text x="24" y="186" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="7" fill="#B4B4B4">...</text>
+  <rect x="40" y="182" width="104" height="4" rx="2" fill="#D4D4D4"/>
+  <text x="24" y="204" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="7" fill="#B4B4B4">...</text>
+  <rect x="40" y="200" width="140" height="4" rx="2" fill="#D4D4D4"/>
+  <text x="24" y="222" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="7" fill="#B4B4B4">...</text>
+  <rect x="40" y="218" width="86" height="4" rx="2" fill="#D4D4D4"/>
+  <text x="24" y="244" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="7.5" font-weight="600" fill="#5A5A5A">&gt;&gt;&gt;</text>
+  <rect x="42" y="237.5" width="4.5" height="8" fill="#8A8A8A"/>
+
+  <!-- ============ Right sidebar ============ -->
+  <line x1="300" y1="0" x2="300" y2="260" stroke="#E0E0E0" stroke-width="1"/>
+  <rect x="301" y="0" width="219" height="24" fill="#F2F2F2"/>
+  <text x="308" y="15" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="7" font-weight="600" fill="#3E4246" letter-spacing="0.5">SESSION</text>
+  <line x1="308" y1="19" x2="341" y2="19" stroke="#3E4246" stroke-width="1.5"/>
+  <rect x="352" y="10" width="40" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="402" y="10" width="18" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="430" y="10" width="28" height="4" rx="2" fill="#C8C8C8"/>
+  <line x1="300" y1="24" x2="520" y2="24" stroke="#E0E0E0" stroke-width="1"/>
+
+  <!-- Variables -->
+  <rect x="301" y="25" width="219" height="16" fill="#F4F4F4"/>
+  <text x="308" y="36" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="7.5" font-weight="600" fill="#3E4246" letter-spacing="0.5">VARIABLES</text>
+  <line x1="300" y1="41" x2="520" y2="41" stroke="#E0E0E0" stroke-width="1"/>
+
+  <rect x="301" y="42" width="219" height="15" fill="#EEF3F8"/>
+  <rect x="310" y="47" width="24" height="4" rx="2" fill="#5A5A5A"/>
+  <rect x="368" y="47" width="76" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="470" y="47" width="34" height="4" rx="2" fill="#D0D0D0"/>
+  <line x1="300" y1="57" x2="520" y2="57" stroke="#EEEEEE" stroke-width="1"/>
+  <rect x="310" y="62" width="30" height="4" rx="2" fill="#5A5A5A"/>
+  <rect x="368" y="62" width="66" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="470" y="62" width="28" height="4" rx="2" fill="#D0D0D0"/>
+  <line x1="300" y1="72" x2="520" y2="72" stroke="#EEEEEE" stroke-width="1"/>
+  <rect x="310" y="77" width="20" height="4" rx="2" fill="#5A5A5A"/>
+  <rect x="368" y="77" width="84" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="470" y="77" width="24" height="4" rx="2" fill="#D0D0D0"/>
+  <line x1="300" y1="87" x2="520" y2="87" stroke="#EEEEEE" stroke-width="1"/>
+  <rect x="310" y="92" width="14" height="4" rx="2" fill="#5A5A5A"/>
+  <rect x="368" y="92" width="28" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="470" y="92" width="18" height="4" rx="2" fill="#D0D0D0"/>
+  <line x1="300" y1="102" x2="520" y2="102" stroke="#EEEEEE" stroke-width="1"/>
+  <rect x="310" y="107" width="18" height="4" rx="2" fill="#5A5A5A"/>
+  <rect x="368" y="107" width="72" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="470" y="107" width="30" height="4" rx="2" fill="#D0D0D0"/>
+  <line x1="300" y1="117" x2="520" y2="117" stroke="#EEEEEE" stroke-width="1"/>
+  <rect x="310" y="122" width="22" height="4" rx="2" fill="#5A5A5A"/>
+  <rect x="368" y="122" width="58" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="470" y="122" width="22" height="4" rx="2" fill="#D0D0D0"/>
+
+  <!-- Plots -->
+  <line x1="300" y1="133" x2="520" y2="133" stroke="#E0E0E0" stroke-width="1"/>
+  <rect x="301" y="134" width="219" height="16" fill="#F4F4F4"/>
+  <text x="308" y="145" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="7.5" font-weight="600" fill="#3E4246" letter-spacing="0.5">PLOTS</text>
+  <line x1="300" y1="150" x2="520" y2="150" stroke="#E0E0E0" stroke-width="1"/>
+
+  <rect x="330" y="158" width="170" height="84" fill="#FFFFFF" stroke="#D0D0D0" stroke-width="1"/>
+  <rect x="316" y="164" width="9" height="3" rx="1.5" fill="#D0D0D0"/>
+  <rect x="316" y="184" width="9" height="3" rx="1.5" fill="#D0D0D0"/>
+  <rect x="316" y="204" width="9" height="3" rx="1.5" fill="#D0D0D0"/>
+  <rect x="316" y="224" width="9" height="3" rx="1.5" fill="#D0D0D0"/>
+  <rect x="340" y="248" width="9" height="3" rx="1.5" fill="#D0D0D0"/>
+  <rect x="378" y="248" width="9" height="3" rx="1.5" fill="#D0D0D0"/>
+  <rect x="416" y="248" width="9" height="3" rx="1.5" fill="#D0D0D0"/>
+  <rect x="454" y="248" width="9" height="3" rx="1.5" fill="#D0D0D0"/>
+  <rect x="486" y="248" width="9" height="3" rx="1.5" fill="#D0D0D0"/>
+
+  <circle cx="348" cy="214" r="4" fill="#3DAA6E"/>
+  <circle cx="362" cy="230" r="5" fill="#C4C93F"/>
+  <circle cx="341" cy="196" r="3" fill="#2E6F8E"/>
+  <circle cx="374" cy="206" r="3" fill="#2E6F8E"/>
+  <circle cx="357" cy="181" r="2.5" fill="#2E6F8E"/>
+  <circle cx="386" cy="226" r="4" fill="#3DAA6E"/>
+  <circle cx="399" cy="236" r="3" fill="#3DAA6E"/>
+  <circle cx="345" cy="234" r="3" fill="#2E6F8E"/>
+  <circle cx="371" cy="191" r="2" fill="#2E6F8E"/>
+  <circle cx="392" cy="197" r="2.5" fill="#2E6F8E"/>
+  <circle cx="406" cy="214" r="3" fill="#3DAA6E"/>
+
+  <path d="M470 173l5 10h-10z" fill="#C4C93F"/>
+  <path d="M452 182l4 8h-8z" fill="#3DAA6E"/>
+  <path d="M482 192l5 10h-10z" fill="#C4C93F"/>
+  <path d="M438 170l4 8h-8z" fill="#3DAA6E"/>
+  <path d="M466 202l4 8h-8z" fill="#3DAA6E"/>
+  <path d="M486 210l5 10h-10z" fill="#C4C93F"/>
+  <path d="M420 178l3 6h-6z" fill="#3DAA6E"/>
+  <path d="M448 210l4 8h-8z" fill="#C4C93F"/>
+  <path d="M476 228l4 8h-8z" fill="#3DAA6E"/>
+  <path d="M430 202l3 6h-6z" fill="#3DAA6E"/>
+  <path d="M410 168l3 6h-6z" fill="#2E6F8E"/>
+  <path d="M492 166l3 6h-6z" fill="#C4C93F"/>
+  <path d="M456 164l3 6h-6z" fill="#3DAA6E"/>
+  <path d="M416 220l4 8h-8z" fill="#3DAA6E"/>
+  <path d="M440 232l4 8h-8z" fill="#C4C93F"/>
+  <path d="M462 236l3 6h-6z" fill="#3DAA6E"/>
+
+  <path d="M331 191C381 196 416 210 433 241" stroke="#447099" stroke-width="1.5" fill="none"/>
+</svg>
