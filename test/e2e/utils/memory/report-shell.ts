@@ -117,7 +117,10 @@ export const REPORT_CSS = `
 		.card .meta { color: #6b7280; font-size: 0.9rem; margin-bottom: 12px; }
 		table { border-collapse: collapse; width: 100%; }
 		td, th { padding: 4px 8px; text-align: left; }
-		th { color: #6b7280; font-weight: 500; font-size: 0.85rem; border-bottom: 1px solid #e5e7eb; }
+		/* Bolder and darker than the values are, but smaller: size keeps the header from
+		competing with the data while weight still marks it as the label band. At 500 in
+		light gray it read as just another row. */
+		th { color: #4b5563; font-weight: 600; font-size: 0.85rem; border-bottom: 1px solid #e5e7eb; }
 		tr:not(:last-child) td { border-bottom: 1px solid #f3f4f6; }
 		.tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		.num-cell { white-space: nowrap; }
@@ -142,7 +145,7 @@ export const REPORT_CSS = `
 			.warn-card { border-left-color: #f59e0b; }
 			.warn-card h2 { color: #fbbf24; }
 			.card .meta { color: #9ca3af; }
-			th { color: #9ca3af; border-bottom-color: #3a3a38; }
+			th { color: #d1d5db; border-bottom-color: #3a3a38; }
 			tr:not(:last-child) td { border-bottom-color: #2e2e2c; }
 			.bar-track { background: #3a3a38; }
 			.bar-fill { background: #3987e5; }
