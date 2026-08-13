@@ -145,6 +145,56 @@ describe('buildSummaryMatrix', () => {
 	});
 });
 
+describe('delta emphasis', () => {
+	/** One scenario whose role total differs per launch, so the role has a measurable noise floor. */
+	const noisyEntry = (scenario: MemoryScenario, role: LabeledProcess['processRole'], perLaunchMb: number[]): ScenarioSnapshots => ({
+		scenario,
+		snapshots: perLaunchMb.map((mb, index) => snapshot(scenario, [proc({ processRole: role, pssBytes: mb * MB })], index))
+	});
+
+	test('emphasizes a delta that clears the role noise floor', () => {
+		const html = renderSummaryHtml(buildSummaryMatrix([
+			noisyEntry('idle', 'renderer', [284, 285, 284]),
+			noisyEntry('session-python', 'renderer', [306, 307, 306])
+		]));
+		expect(html).toContain('<span class="delta-up">&#9650; +22.0 MB</span>');
+	});
+
+	// The real case: session-r's extension_host read +8.8 MB against idle while the
+	// same role swung 9.2 MB launch to launch within a single scenario. A flat 5 MB
+	// rule drew a red arrow on that; the role's own spread is what says it is noise.
+	test('says nothing about a delta inside the role own noise', () => {
+		const html = renderSummaryHtml(buildSummaryMatrix([
+			noisyEntry('idle', 'extension_host', [331, 340, 335]),
+			noisyEntry('session-python', 'extension_host', [340, 344, 342])
+		]));
+		// Anchored on the attribute, not the bare class name: REPORT_CSS always
+		// defines .delta-up, so a document-wide search for it can never fail.
+		expect(html).not.toContain('class="delta-up"');
+		expect(html).not.toContain('class="delta-down"');
+	});
+
+	test('still requires 5 MB from a role that never moves at all', () => {
+		// Spread of zero would otherwise emphasize a 0.1 MB delta as though it mattered.
+		const html = renderSummaryHtml(buildSummaryMatrix([
+			noisyEntry('idle', 'shell', [100, 100, 100]),
+			noisyEntry('session-python', 'shell', [102, 102, 102])
+		]));
+		expect(html).not.toContain('class="delta-up"');
+		expect(html).not.toContain('+2.0 MB');
+	});
+
+	test('takes the noise floor from the noisiest scenario, not the one being read', () => {
+		// idle is rock steady and session-python swings 12 MB. A floor read from idle
+		// alone would emphasize a 6 MB delta that session-python cannot resolve.
+		const html = renderSummaryHtml(buildSummaryMatrix([
+			noisyEntry('idle', 'shared', [126, 126, 126]),
+			noisyEntry('session-python', 'shared', [126, 138, 132])
+		]));
+		expect(html).not.toContain('class="delta-up"');
+	});
+});
+
 describe('renderSummaryHtml', () => {
 	// This page is what the workflow links first, so a scenario measured mid-swing
 	// has to say so here. Reading it only in the per-scenario report means the

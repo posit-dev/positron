@@ -15,7 +15,7 @@
  * real memory run.
  */
 
-import { deltaHtmlFromDiff, escapeHtml, formatBytes, notSteadyStateCardHtml, REPORT_CSS } from './report-shell.js';
+import { emphasizedDeltaHtml, escapeHtml, formatBytes, notSteadyStateCardHtml, REPORT_CSS } from './report-shell.js';
 import { byRole } from './render.js';
 import { unstableProcesses } from './snapshot.js';
 import { MemoryScenario } from './scenarios.js';
@@ -42,6 +42,8 @@ export type SummaryRow = {
 	values: Partial<Record<MemoryScenario, number>>;
 	/** current - idle, present only when both the scenario and idle have this role. */
 	deltaVsIdle: Partial<Record<MemoryScenario, number>>;
+	/** How big a delta has to be before this role's row earns emphasis. See {@link emphasisThreshold}. */
+	emphasisThreshold: number;
 };
 
 /** One process that was still moving when it was sampled, named for the warning banner. */
@@ -60,6 +62,8 @@ export type SummaryMatrix = {
 	rows: SummaryRow[];
 	/** Median tree total per scenario, for the TOTAL row. */
 	totals: Partial<Record<MemoryScenario, number>>;
+	/** The TOTAL row's own emphasis bar, calibrated from tree-total spread rather than any one role's. */
+	totalEmphasisThreshold: number;
 	/**
 	 * Carried on the matrix so `renderSummaryHtml` can warn without also taking
 	 * the raw snapshots: every figure in the matrix is derived from processes that
@@ -67,6 +71,58 @@ export type SummaryMatrix = {
 	 */
 	unstable: UnstableEntry[];
 };
+
+/**
+ * Smallest delta that can ever be emphasized, however steady a role looks.
+ *
+ * A role measured at exactly the same bytes in all three launches has an observed
+ * spread of zero, and calibration alone would then emphasize a 0.1 MB delta as
+ * though it were news. Three launches is too few to prove a process never moves.
+ */
+const MIN_EMPHASIS_BYTES = 5 * 1024 * 1024;
+
+/**
+ * How big a delta must be before it is worth a color and an arrow, per role.
+ *
+ * Calibrated from each role's own launch-to-launch spread rather than set as one
+ * number for the whole table, because the noise is not uniform: measured over a
+ * nightly, `renderer` held to 1.5 MB across launches while `shared` swung 10.8 MB
+ * and `extension_host` 9.2 MB. A single 5 MB rule drew a red arrow on
+ * `extension_host` at +8.8 MB -- a figure smaller than the same role's own
+ * scatter, so the arrow claimed a change the data could not resolve.
+ *
+ * The spread is taken from the noisiest scenario in the matrix, not from the one
+ * being read. A delta spans two scenarios, so it can be no more trustworthy than
+ * the shakier of the two.
+ */
+function emphasisThreshold(spreads: number[]): number {
+	return Math.max(MIN_EMPHASIS_BYTES, ...spreads);
+}
+
+/** One role's total in one launch, summing every process that shares the role. */
+function roleTotals(snapshot: MemorySnapshot): Map<ProcessRole, number> {
+	const totals = new Map<ProcessRole, number>();
+	for (const proc of snapshot.processes) {
+		totals.set(proc.processRole, (totals.get(proc.processRole) ?? 0) + proc.pssBytes);
+	}
+	return totals;
+}
+
+/**
+ * How far a role's total moved across the launches of one scenario.
+ *
+ * Zero-filled for a launch the role is missing from, matching `byRole`. A role
+ * that appears in only some launches then reads as very noisy, which is the
+ * honest answer: an intermittent process cannot support a claim about a few MB.
+ */
+function roleSpreads(snapshots: MemorySnapshot[]): Map<ProcessRole, number> {
+	const perLaunch = snapshots.map(roleTotals);
+	const roles = new Set(perLaunch.flatMap(totals => [...totals.keys()]));
+	return new Map([...roles].map(role => {
+		const values = perLaunch.map(totals => totals.get(role) ?? 0);
+		return [role, Math.max(...values) - Math.min(...values)];
+	}));
+}
 
 function median(values: number[]): number {
 	const sorted = [...values].sort((a, b) => a - b);
@@ -92,8 +148,10 @@ export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix 
 	const scenarios = entries.map(e => e.scenario);
 
 	const rolesByScenario = new Map<MemoryScenario, Map<ProcessRole, number>>();
+	const spreadsByScenario = new Map<MemoryScenario, Map<ProcessRole, number>>();
 	for (const { scenario, snapshots } of entries) {
 		rolesByScenario.set(scenario, byRole(snapshots));
+		spreadsByScenario.set(scenario, roleSpreads(snapshots));
 	}
 
 	const idleRoles = rolesByScenario.get('idle');
@@ -122,14 +180,18 @@ export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix 
 			}
 		}
 
-		return { role, values, deltaVsIdle };
+		const spreads = [...spreadsByScenario.values()].map(byRoleSpread => byRoleSpread.get(role) ?? 0);
+		return { role, values, deltaVsIdle, emphasisThreshold: emphasisThreshold(spreads) };
 	});
 
 	rows.sort((a, b) => rowMagnitude(b) - rowMagnitude(a));
 
 	const totals: Partial<Record<MemoryScenario, number>> = {};
+	const totalSpreads: number[] = [];
 	for (const { scenario, snapshots } of entries) {
-		totals[scenario] = median(snapshots.map(s => s.treeTotalPssBytes));
+		const perLaunch = snapshots.map(s => s.treeTotalPssBytes);
+		totals[scenario] = median(perLaunch);
+		totalSpreads.push(Math.max(...perLaunch) - Math.min(...perLaunch));
 	}
 
 	const unstable: UnstableEntry[] = entries.flatMap(({ scenario, snapshots }) =>
@@ -143,7 +205,7 @@ export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix 
 			reported: proc.pssBytes
 		}))));
 
-	return { scenarios, rows, totals, unstable };
+	return { scenarios, rows, totals, totalEmphasisThreshold: emphasisThreshold(totalSpreads), unstable };
 }
 
 /** Muted em-dash: a role that did not exist in this scenario, never a fabricated zero. */
@@ -154,18 +216,17 @@ function scenarioHeaderHtml(scenarios: MemoryScenario[]): string {
 }
 
 /** One scenario's cell: the PSS value, plus (for a non-idle scenario) its delta against idle underneath. */
-function cellHtml(scenario: MemoryScenario, value: number | undefined, delta: number | undefined): string {
+function cellHtml(scenario: MemoryScenario, value: number | undefined, delta: number | undefined, threshold: number): string {
 	if (value === undefined) {
 		return `<td align="right">${ABSENT_MARKER}</td>`;
 	}
-	const deltaLine = scenario === 'idle' || delta === undefined
-		? ''
-		: `<br><span style="font-size:0.85em">${deltaHtmlFromDiff(delta)}</span>`;
+	const emphasized = scenario === 'idle' || delta === undefined ? '' : emphasizedDeltaHtml(delta, threshold);
+	const deltaLine = emphasized === '' ? '' : `<br><span style="font-size:0.85em">${emphasized}</span>`;
 	return `<td align="right">${formatBytes(value)}${deltaLine}</td>`;
 }
 
 function rowHtml(row: SummaryRow, scenarios: MemoryScenario[]): string {
-	const cells = scenarios.map(scenario => cellHtml(scenario, row.values[scenario], row.deltaVsIdle[scenario])).join('');
+	const cells = scenarios.map(scenario => cellHtml(scenario, row.values[scenario], row.deltaVsIdle[scenario], row.emphasisThreshold)).join('');
 	return `<tr>
 		<td><code>${escapeHtml(row.role)}</code></td>
 		${cells}
@@ -179,7 +240,7 @@ function totalRowHtml(matrix: SummaryMatrix): string {
 		const delta = scenario !== 'idle' && value !== undefined && idleValue !== undefined
 			? value - idleValue
 			: undefined;
-		return cellHtml(scenario, value, delta);
+		return cellHtml(scenario, value, delta, matrix.totalEmphasisThreshold);
 	}).join('');
 	return `<tr class="total-row">
 		<td><strong>TOTAL</strong></td>
@@ -224,6 +285,10 @@ export function renderSummaryHtml(matrix: SummaryMatrix): string {
 	<title>Positron memory: cross-scenario summary</title>
 	<style>${REPORT_CSS}
 		.total-row td { border-top: 2px solid #e5e7eb; font-weight: 600; }
+		/* Only some cells carry a delta on a second line. Centering would then drop a bare
+		value half a line below its emphasized neighbour, so the row no longer reads
+		across. Top-aligned, every PSS figure shares a baseline and the deltas hang below. */
+		.matrix td { vertical-align: top; }
 	</style>
 </head>
 <body>
@@ -237,7 +302,7 @@ export function renderSummaryHtml(matrix: SummaryMatrix): string {
 
 	<div class="card">
 		<h2>By role</h2>
-		<table>
+		<table class="matrix">
 			<tr><th>Role</th>${scenarioHeaderHtml(matrix.scenarios)}</tr>
 			${rows}
 			${total}
