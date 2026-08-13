@@ -193,9 +193,10 @@ describe('renderHtml', () => {
 		])]);
 		const indent = (name: string) => {
 			// The name cell also carries a `title` attribute (the untruncated
-			// process name) between the `style` and the closing `>`, so the match
-			// can't assume `px"` is immediately followed by `>`.
-			const match = output.match(new RegExp(`padding-left:(\\d+)px"[^>]*>${name}`));
+			// process name) between the `style` and the closing `>`, and the name
+			// itself sits inside a `<code>`, so the match can't assume `px"` is
+			// immediately followed by the name.
+			const match = output.match(new RegExp(`padding-left:(\\d+)px"[^>]*><code>${name}`));
 			expect(match).not.toBeNull();
 			return Number(match![1]);
 		};
@@ -212,7 +213,7 @@ describe('renderHtml', () => {
 		const output = renderHtml([snapshot([proc({ processName: longName })])]);
 		const row = output.split('Process tree')[1].split('</table>')[0];
 		expect(row).toContain(`title="${longName}"`);
-		const cellText = row.match(/<td class="tree-name"[^>]*>([^<]*)<\/td>/)![1];
+		const cellText = row.match(/<td class="tree-name"[^>]*><code>([^<]*)<\/code>/)![1];
 		expect(cellText.length).toBeLessThan(longName.length);
 		expect(cellText.length).toBeLessThan(80);
 	});
@@ -376,7 +377,7 @@ describe('renderHtml', () => {
 		const output = renderHtml([current], baseline);
 		const card = output.split('New since the previous nightly')[1].split('</table>')[0];
 		expect(card).toContain(`title="${longName}"`);
-		const cellText = card.match(/<td class="tree-name"[^>]*>([^<]*)<\/td>/)![1];
+		const cellText = card.match(/<td class="tree-name"[^>]*><code>([^<]*)<\/code>/)![1];
 		expect(cellText.length).toBeLessThan(longName.length);
 		expect(cellText.length).toBeLessThan(80);
 	});

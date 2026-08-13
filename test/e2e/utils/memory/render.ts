@@ -322,7 +322,7 @@ function processTreeRows(snapshot: MemorySnapshot, maxBytes: number, baseline: M
 		const fullName = escapeHtml(proc.processName);
 		const displayName = escapeHtml(shortName(proc.processName));
 		return `<tr>
-			<td class="tree-name" style="padding-left:${8 + proc.depth * 20}px" title="${fullName}">${displayName}</td>
+			<td class="tree-name" style="padding-left:${8 + proc.depth * 20}px" title="${fullName}"><code>${displayName}</code></td>
 			<td><code>${escapeHtml(proc.processRole)}</code></td>
 			<td class="num-cell" align="right">${formatBytes(proc.pssBytes)}</td>
 			<td>${magnitudeBar(proc.pssBytes, maxBytes)}</td>
@@ -493,7 +493,7 @@ function newProcessesHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapshot
 		return '';
 	}
 	const rows = appeared.map(proc => `<tr>
-			<td class="tree-name" title="${escapeHtml(proc.processName)}">${escapeHtml(shortName(proc.processName))}</td>
+			<td class="tree-name" title="${escapeHtml(proc.processName)}"><code>${escapeHtml(shortName(proc.processName))}</code></td>
 			<td><code>${escapeHtml(proc.processRole)}</code></td>
 			<td class="num-cell" align="right">${formatBytes(proc.pssBytes)}</td>
 		</tr>`).join('\n');
