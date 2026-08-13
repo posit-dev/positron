@@ -18,10 +18,21 @@ export { formatBytes } from './report-shell.js';
  * an activation race during startup, which would put demand-activated
  * extensions in a section whose whole point is what to stop adding.
  */
-const EAGER_EVENTS: { event: string; note?: string }[] = [
+const EAGER_EVENTS: { event: string; title?: string }[] = [
 	// Worst first. `*` does not wait for startup to finish, so it delays the
 	// window itself rather than merely costing memory once it is up.
-	{ event: '*', note: 'activates before startup finishes' },
+	//
+	// Titled because the id says nothing: `*` is a real activationEvents value, but
+	// as a heading followed by a count it reads as a footnote marker rather than an
+	// identifier, and nothing about it hints that it runs during startup. Read next
+	// to `onStartupFinished`, "During startup" makes the one difference between them
+	// the obvious one. `onStartupFinished` needs no title for the same reason.
+	//
+	// A title rather than a rename: the literal is kept alongside it so it stays
+	// greppable in a package.json. Inventing a plausible-looking id like
+	// `onStartup`, which VS Code has no such event for, would read as real in a
+	// monospaced heading and send someone looking for a value that does not exist.
+	{ event: '*', title: 'During startup' },
 	{ event: 'onStartupFinished' }
 ];
 
@@ -412,9 +423,17 @@ function groupedExtensionsHtml(snapshot: MemorySnapshot): string {
 		const more = sorted.length > MAX_PER_GROUP
 			? `<li class="muted">...${sorted.length - MAX_PER_GROUP} more</li>`
 			: '';
-		const eager = EAGER_EVENTS.find(e => e.event === event)!;
-		const badge = ` <span class="muted" title="activates eagerly">&#9889; eager${eager.note ? ` -- ${escapeHtml(eager.note)}` : ''}</span>`;
-		return `<h3><code>${escapeHtml(event)}</code> (${sorted.length})${badge}</h3>
+		// No badge. It used to mark every group as eager, which said nothing once the
+		// demand-activated groups stopped being listed beside them, and next to the
+		// one group that also carried a note it read as a half-finished definition.
+		// The headline above says what eager costs; the headings say when each runs.
+		// The literal trails the count rather than sitting beside the title, which put
+		// two parenthesized groups back to back: "During startup (*) (3)".
+		const { title } = EAGER_EVENTS.find(e => e.event === event)!;
+		const heading = title
+			? `${escapeHtml(title)} (${sorted.length}) <span class="muted">-- event <code>${escapeHtml(event)}</code></span>`
+			: `<code>${escapeHtml(event)}</code> (${sorted.length})`;
+		return `<h3>${heading}</h3>
 		<ul>
 ${items}
 ${more}
@@ -438,10 +457,15 @@ ${more}
  * "N of M activate eagerly" headline for the merged extensions card, drawn
  * from the same `first` snapshot the card's groups are built from so the
  * headline count can never disagree with what the groups below it show.
+ *
+ * States the cost once, here, rather than per group. What "eager" means is one
+ * fact about the whole section, and repeating it on each heading is what made the
+ * badge look like an unfinished sentence on the group that lacked a note.
  */
 function eagerHeadlineHtml(snapshot: MemorySnapshot): string {
 	const eagerCount = snapshot.extensions.filter(e => isEagerActivation(e.activationEvent)).length;
-	return `<p><strong>${eagerCount} of ${snapshot.extensions.length}</strong> activate eagerly.</p>`;
+	return `<p><strong>${eagerCount} of ${snapshot.extensions.length}</strong> activate eagerly: they
+	cost memory in every window, whether or not the feature is used.</p>`;
 }
 
 /**

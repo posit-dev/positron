@@ -440,13 +440,38 @@ describe('renderHtml', () => {
 		expect(output.match(/github\.copilot/g)).toHaveLength(1);
 	});
 
-	test('badges the eager group', () => {
-		const output = renderHtml([snapshot([proc()], 0, [
-			ext('github.copilot', 'onStartupFinished'),
-			ext('ms-python.python', 'onLanguage:python'),
-		])]);
-		const card = output.split('<h2>Activated extensions')[1];
-		expect(card.split('onStartupFinished')[1].split('</h3>')[0]).toContain('eager');
+	// `*` is a real activationEvents value but says nothing about itself, and as a
+	// heading followed by a count it reads as a footnote marker rather than an id.
+	// `onStartupFinished` needs no such help, which is why only one is titled.
+	test('titles the cryptic `*` event and keeps the literal alongside it', () => {
+		const card = renderHtml([snapshot([proc()], 0, [ext('vscode.git', '*')])])
+			.split('<h2>Activated extensions')[1];
+		expect(card).toContain('During startup');
+		expect(card).toContain('<code>*</code>');
+	});
+
+	test('leaves a self-describing event name as it is', () => {
+		const card = renderHtml([snapshot([proc()], 0, [ext('posit.assistant', 'onStartupFinished')])])
+			.split('<h2>Activated extensions')[1];
+		expect(card).toContain('<code>onStartupFinished</code>');
+		expect(card).not.toContain('During startup');
+	});
+
+	// The badge marked every group in the card, since only eager groups are listed.
+	// A label on all of them says nothing, and it read as a half-finished
+	// definition of "eager" next to the one group that carried a note.
+	test('does not badge the groups, having only eager ones to show', () => {
+		const card = renderHtml([snapshot([proc()], 0, [
+			ext('vscode.git', '*'),
+			ext('posit.assistant', 'onStartupFinished'),
+		])]).split('<h2>Activated extensions')[1];
+		expect(card).not.toContain('eager<');
+		expect(card).not.toContain('&#9889;');
+	});
+
+	test('says what eager activation costs, once, above the groups', () => {
+		const output = renderHtml([snapshot([proc()], 0, [ext('vscode.git', '*')])]);
+		expect(output).toContain('cost memory in every window');
 	});
 
 	// The demand-activated groups were 25 of 27 headings and over half the page
