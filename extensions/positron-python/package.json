@@ -552,11 +552,6 @@
                 "category": "Python",
                 "command": "python.interpreters.debugInfo",
                 "title": "%python.command.python.interpreterDebugInfo.title%"
-            },
-            {
-                "category": "Python",
-                "command": "python.getEnvironmentHealth",
-                "title": "%python.command.python.getEnvironmentHealth.title%"
             }
         ],
         "configuration": {
@@ -1707,12 +1702,6 @@
                     "command": "python.viewOutput",
                     "title": "%python.command.python.viewOutput.title%",
                     "when": "!virtualWorkspace && shellExecutionSupported"
-                },
-                {
-                    "category": "Python",
-                    "command": "python.getEnvironmentHealth",
-                    "title": "%python.command.python.getEnvironmentHealth.title%",
-                    "when": "false"
                 }
             ],
             "editor/content": [

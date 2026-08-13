@@ -86,9 +86,10 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                 printInterpreterDebugInfo(interpreters);
             }),
         );
-        // Returns a machine-readable Python environment health report for the welcome page. Hidden
-        // from the Command Palette, since the return value is the whole point: the command writes
-        // nothing to the output channel and reveals no panel.
+        // Returns a machine-readable Python environment health report for the welcome page. Left
+        // out of package.json, like the other commands core calls, so it stays off the Command
+        // Palette: the return value is the whole point, and running it writes nothing to the
+        // output channel and reveals no panel.
         disposables.push(
             vscode.commands.registerCommand(
                 Commands.Get_Environment_Health,
