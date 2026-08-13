@@ -162,6 +162,7 @@
   "src/vs/workbench/contrib/welcomeGettingStarted/browser/media/positronGettingStarted.css": ["@:welcome"],
   "src/vs/workbench/contrib/welcomeGettingStarted/browser/positronWelcome": ["@:welcome"],
   "src/vs/workbench/contrib/welcomeGettingStarted/common/gettingStartedPositronNotebookContent.ts": ["@:welcome"],
+  "src/vs/workbench/services/actions/": ["@:assistant"],
   "src/vs/workbench/services/notification/": [],
   "src/vs/workbench/services/themes/": [],
   "src/vs/workbench/services/themes/browser/positronColorThemeFilter.ts": []
