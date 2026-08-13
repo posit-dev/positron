@@ -36,6 +36,10 @@ describe('PositronAssistantConfigurationService', () => {
 		.stub(INotificationService, { prompt })
 		.stub(ICommandService, { executeCommand })
 		.stub(IAiProviderService, {
+			// The catalog "knows" exactly the ids in catalogEnabled.
+			getProvider: (id: string) => catalogEnabled.has(id)
+				? { id, enabled: catalogEnabled.get(id) === true, connection: {} }
+				: undefined,
 			isEnabled: (id: string) => catalogEnabled.get(id) === true,
 			onDidChangeProviders: onDidChangeProvidersEmitter.event,
 			whenInitialized: Promise.resolve(),
@@ -195,11 +199,26 @@ describe('PositronAssistantConfigurationService', () => {
 			expect(service.isProviderEnabled('openai')).toBe(true);
 		});
 
-		it('unmapped dev providers (echo) are treated as enabled once registered', () => {
+		it('providers with no catalogId whose id the catalog has never heard of stay enabled', () => {
 			service.registerProvider(makeSource('echo'));
 
 			expect(service.isProviderEnabled('echo')).toBe(true);
 			expect(service.getEnabledProviders()).toEqual(['echo']);
+		});
+
+		it('providers with no catalogId fall back to their registration id for enablement', () => {
+			catalogEnabled.set('ollama', false);
+			service.registerProvider(makeSource('ollama'));
+
+			expect(service.isProviderEnabled('ollama')).toBe(false);
+			expect(service.getEnabledProviders()).toEqual([]);
+		});
+
+		it('a declared catalogId the catalog has never heard of is disabled', () => {
+			service.registerProvider(makeSource('ollama', 'ollama'));
+
+			expect(service.isProviderEnabled('ollama')).toBe(false);
+			expect(service.getEnabledProviders()).toEqual([]);
 		});
 
 		it('unregistered ids are not enabled even when the catalog enables them', () => {
