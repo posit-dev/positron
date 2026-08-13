@@ -24,32 +24,32 @@ import { traceWarn } from '../../logging';
  * `vulnerabilities` field stays undefined rather than claiming it's clean.
  */
 export async function fetchMetadataWithOutdated(
-	packages: positron.PackageSpec[],
-	getOutdatedVersions: (token?: vscode.CancellationToken) => Promise<Map<string, string>>,
-	getVulnerabilities?: (
-		token?: vscode.CancellationToken,
-	) => Promise<Map<string, positron.PackageVulnerability[]> | undefined>,
-	token?: vscode.CancellationToken,
+    packages: positron.PackageSpec[],
+    getOutdatedVersions: (token?: vscode.CancellationToken) => Promise<Map<string, string>>,
+    getVulnerabilities?: (
+        token?: vscode.CancellationToken,
+    ) => Promise<Map<string, positron.PackageVulnerability[]> | undefined>,
+    token?: vscode.CancellationToken,
 ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-	const [outdated, vulnerabilities] = await Promise.all([
-		getOutdatedVersions(token).catch((err) => {
-			traceWarn(`Failed to fetch outdated package versions: ${err}`);
-			return new Map<string, string>();
-		}),
-		getVulnerabilities ? getVulnerabilities(token) : Promise.resolve(undefined),
-	]);
+    const [outdated, vulnerabilities] = await Promise.all([
+        getOutdatedVersions(token).catch((err) => {
+            traceWarn(`Failed to fetch outdated package versions: ${err}`);
+            return new Map<string, string>();
+        }),
+        getVulnerabilities ? getVulnerabilities(token) : Promise.resolve(undefined),
+    ]);
 
-	const metadata = new Map<string, Partial<positron.LanguageRuntimePackage>>();
-	for (const pkg of packages) {
-		const key = pkg.name.toLowerCase();
-		const latestFromResolver = outdated.get(key);
-		const packageVulnerabilities = vulnerabilities?.get(key);
-		metadata.set(key, {
-			outdated: outdated.has(key),
-			...(latestFromResolver ? { latestVersion: latestFromResolver } : {}),
-			...(packageVulnerabilities ? { vulnerabilities: packageVulnerabilities } : {}),
-		});
-	}
+    const metadata = new Map<string, Partial<positron.LanguageRuntimePackage>>();
+    for (const pkg of packages) {
+        const key = pkg.name.toLowerCase();
+        const latestFromResolver = outdated.get(key);
+        const packageVulnerabilities = vulnerabilities?.get(key);
+        metadata.set(key, {
+            outdated: outdated.has(key),
+            ...(latestFromResolver ? { latestVersion: latestFromResolver } : {}),
+            ...(packageVulnerabilities ? { vulnerabilities: packageVulnerabilities } : {}),
+        });
+    }
 
-	return metadata;
+    return metadata;
 }

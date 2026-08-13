@@ -39,10 +39,10 @@ const FETCH_TIMEOUT_MS = 30000;
 
 /** A discovered PPM instance: API base URL plus the repository name. */
 export interface PpmRepo {
-	/** Base URL the `/__api__/...` endpoints hang off, without trailing slash. */
-	readonly apiBase: string;
-	/** Repository name within the instance, e.g. 'pypi'. */
-	readonly repoName: string;
+    /** Base URL the `/__api__/...` endpoints hang off, without trailing slash. */
+    readonly apiBase: string;
+    /** Repository name within the instance, e.g. 'pypi'. */
+    readonly repoName: string;
 }
 
 /**
@@ -53,29 +53,29 @@ const PUBLIC_P3M: PpmRepo = { apiBase: 'https://packagemanager.posit.co', repoNa
 
 /** OSV-format severity entry as served by PPM. */
 interface OsvSeverity {
-	readonly type?: string;
-	readonly score?: string;
-	readonly calculated_score?: { readonly base_score?: number };
+    readonly type?: string;
+    readonly score?: string;
+    readonly calculated_score?: { readonly base_score?: number };
 }
 
 /** OSV-format vulnerability record as served by PPM (relevant fields only). */
 export interface OsvVulnerability {
-	readonly id: string;
-	readonly aliases?: readonly string[];
-	readonly summary?: string;
-	readonly published?: string;
-	readonly severity?: readonly OsvSeverity[];
-	readonly ranges?: ReadonlyArray<{
-		readonly type?: string;
-		readonly events?: ReadonlyArray<{ readonly introduced?: string; readonly fixed?: string }>;
-	}>;
+    readonly id: string;
+    readonly aliases?: readonly string[];
+    readonly summary?: string;
+    readonly published?: string;
+    readonly severity?: readonly OsvSeverity[];
+    readonly ranges?: ReadonlyArray<{
+        readonly type?: string;
+        readonly events?: ReadonlyArray<{ readonly introduced?: string; readonly fixed?: string }>;
+    }>;
 }
 
 /** One NDJSON row of the filter/packages response (relevant fields only). */
 interface PpmFilterRow {
-	readonly name?: string;
-	readonly version?: string;
-	readonly vulns?: readonly OsvVulnerability[];
+    readonly name?: string;
+    readonly version?: string;
+    readonly vulns?: readonly OsvVulnerability[];
 }
 
 /**
@@ -86,7 +86,7 @@ const discoveryCache = new Map<string, Promise<PpmRepo | undefined>>();
 
 /** Test hook: clear the per-URL discovery cache. */
 export function clearPpmDiscoveryCache(): void {
-	discoveryCache.clear();
+    discoveryCache.clear();
 }
 
 /**
@@ -103,31 +103,29 @@ export function clearPpmDiscoveryCache(): void {
  *   not a PPM) applies.
  */
 export async function resolvePythonIndexUrl(
-	getPipConfigIndexUrl?: () => Promise<string | undefined>,
+    getPipConfigIndexUrl?: () => Promise<string | undefined>,
 ): Promise<string | undefined> {
-	// pip precedence is command line > environment > config files; the
-	// command line isn't visible here, so the environment comes first.
-	const fromEnv =
-		process.env.PIP_INDEX_URL?.trim() ||
-		process.env.UV_DEFAULT_INDEX?.trim() ||
-		process.env.UV_INDEX_URL?.trim();
-	if (fromEnv) {
-		return fromEnv;
-	}
+    // pip precedence is command line > environment > config files; the
+    // command line isn't visible here, so the environment comes first.
+    const fromEnv =
+        process.env.PIP_INDEX_URL?.trim() || process.env.UV_DEFAULT_INDEX?.trim() || process.env.UV_INDEX_URL?.trim();
+    if (fromEnv) {
+        return fromEnv;
+    }
 
-	if (getPipConfigIndexUrl) {
-		try {
-			const fromConfig = (await getPipConfigIndexUrl())?.trim();
-			if (fromConfig) {
-				return fromConfig;
-			}
-		} catch {
-			// `pip config get` exits non-zero when the key is unset; treat any
-			// failure as "no configured index".
-		}
-	}
+    if (getPipConfigIndexUrl) {
+        try {
+            const fromConfig = (await getPipConfigIndexUrl())?.trim();
+            if (fromConfig) {
+                return fromConfig;
+            }
+        } catch {
+            // `pip config get` exits non-zero when the key is unset; treat any
+            // failure as "no configured index".
+        }
+    }
 
-	return undefined;
+    return undefined;
 }
 
 /**
@@ -137,16 +135,16 @@ export async function resolvePythonIndexUrl(
  * package look clean, so they're treated as not supporting the feature.
  */
 export function ppmSupportsVulnerabilities(version: string | undefined): boolean {
-	if (!version) {
-		return false;
-	}
-	const match = /^(?<year>\d{4})\.(?<month>\d{1,2})/.exec(version);
-	if (!match?.groups) {
-		return false;
-	}
-	const year = Number(match.groups.year);
-	const month = Number(match.groups.month);
-	return year > 2023 || (year === 2023 && month >= 12);
+    if (!version) {
+        return false;
+    }
+    const match = /^(?<year>\d{4})\.(?<month>\d{1,2})/.exec(version);
+    if (!match?.groups) {
+        return false;
+    }
+    const year = Number(match.groups.year);
+    const month = Number(match.groups.month);
+    return year > 2023 || (year === 2023 && month >= 12);
 }
 
 /**
@@ -166,55 +164,55 @@ export function ppmSupportsVulnerabilities(version: string | undefined): boolean
  *   to a PPM instance that reports vulnerability data.
  */
 export function discoverPpmApi(indexUrl: string, fetchImpl: typeof fetch = fetch): Promise<PpmRepo | undefined> {
-	let cached = discoveryCache.get(indexUrl);
-	if (!cached) {
-		cached = doDiscoverPpmApi(indexUrl, fetchImpl);
-		discoveryCache.set(indexUrl, cached);
-	}
-	return cached;
+    let cached = discoveryCache.get(indexUrl);
+    if (!cached) {
+        cached = doDiscoverPpmApi(indexUrl, fetchImpl);
+        discoveryCache.set(indexUrl, cached);
+    }
+    return cached;
 }
 
 async function doDiscoverPpmApi(indexUrl: string, fetchImpl: typeof fetch): Promise<PpmRepo | undefined> {
-	let parsed: URL;
-	try {
-		parsed = new URL(indexUrl);
-	} catch {
-		return undefined;
-	}
-	if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-		return undefined;
-	}
+    let parsed: URL;
+    try {
+        parsed = new URL(indexUrl);
+    } catch {
+        return undefined;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return undefined;
+    }
 
-	const segments = parsed.pathname.split('/').filter((segment) => segment.length > 0);
+    const segments = parsed.pathname.split('/').filter((segment) => segment.length > 0);
 
-	// Longest prefix first, so a PPM hosted behind a path prefix wins over a
-	// same-host service that happens to answer at the origin.
-	for (let i = segments.length - 1; i >= 0; i -= 1) {
-		const base = [parsed.origin, ...segments.slice(0, i)].join('/');
-		const repoName = segments[i];
-		try {
-			// eslint-disable-next-line no-await-in-loop
-			const response = await fetchImpl(`${base}/__api__/status`, {
-				headers: { Accept: 'application/json' },
-				signal: AbortSignal.timeout(STATUS_PROBE_TIMEOUT_MS),
-			});
-			if (!response.ok) {
-				continue;
-			}
-			// eslint-disable-next-line no-await-in-loop
-			const status = (await response.json()) as { version?: string };
-			if (!ppmSupportsVulnerabilities(status.version)) {
-				traceInfo(`[PPM] ${base} is a PPM instance (${status.version}) without vulnerability support`);
-				return undefined;
-			}
-			traceInfo(`[PPM] Using ${base} (version ${status.version}), repo '${repoName}' for vulnerability data`);
-			return { apiBase: base, repoName };
-		} catch {
-			// Not a PPM base (or unreachable); try the next ancestor.
-			continue;
-		}
-	}
-	return undefined;
+    // Longest prefix first, so a PPM hosted behind a path prefix wins over a
+    // same-host service that happens to answer at the origin.
+    for (let i = segments.length - 1; i >= 0; i -= 1) {
+        const base = [parsed.origin, ...segments.slice(0, i)].join('/');
+        const repoName = segments[i];
+        try {
+            // eslint-disable-next-line no-await-in-loop
+            const response = await fetchImpl(`${base}/__api__/status`, {
+                headers: { Accept: 'application/json' },
+                signal: AbortSignal.timeout(STATUS_PROBE_TIMEOUT_MS),
+            });
+            if (!response.ok) {
+                continue;
+            }
+            // eslint-disable-next-line no-await-in-loop
+            const status = (await response.json()) as { version?: string };
+            if (!ppmSupportsVulnerabilities(status.version)) {
+                traceInfo(`[PPM] ${base} is a PPM instance (${status.version}) without vulnerability support`);
+                return undefined;
+            }
+            traceInfo(`[PPM] Using ${base} (version ${status.version}), repo '${repoName}' for vulnerability data`);
+            return { apiBase: base, repoName };
+        } catch {
+            // Not a PPM base (or unreachable); try the next ancestor.
+            continue;
+        }
+    }
+    return undefined;
 }
 
 /**
@@ -233,100 +231,100 @@ async function doDiscoverPpmApi(indexUrl: string, fetchImpl: typeof fetch): Prom
  * @returns Map of lowercase package name to normalized advisories.
  */
 export async function fetchPpmVulnerabilities(
-	ppm: PpmRepo,
-	packages: readonly positron.PackageSpec[],
-	token?: vscode.CancellationToken,
-	fetchImpl: typeof fetch = fetch,
+    ppm: PpmRepo,
+    packages: readonly positron.PackageSpec[],
+    token?: vscode.CancellationToken,
+    fetchImpl: typeof fetch = fetch,
 ): Promise<Map<string, positron.PackageVulnerability[]>> {
-	const result = new Map<string, positron.PackageVulnerability[]>();
+    const result = new Map<string, positron.PackageVulnerability[]>();
 
-	// Only version-pinned names answer for the installed release; an unpinned
-	// name reports the latest version's advisories, which is the wrong
-	// question for an installed-packages pane.
-	const pinned = packages.filter((pkg) => !!pkg.version).map((pkg) => `${pkg.name}==${pkg.version}`);
-	if (pinned.length === 0) {
-		return result;
-	}
+    // Only version-pinned names answer for the installed release; an unpinned
+    // name reports the latest version's advisories, which is the wrong
+    // question for an installed-packages pane.
+    const pinned = packages.filter((pkg) => !!pkg.version).map((pkg) => `${pkg.name}==${pkg.version}`);
+    if (pinned.length === 0) {
+        return result;
+    }
 
-	for (let start = 0; start < pinned.length; start += CHUNK_SIZE) {
-		if (token?.isCancellationRequested) {
-			throw new vscode.CancellationError();
-		}
-		const chunk = pinned.slice(start, start + CHUNK_SIZE);
-		// eslint-disable-next-line no-await-in-loop
-		const rows = await fetchFilterRows(ppm, chunk, token, fetchImpl);
-		for (const row of rows) {
-			if (!row.name) {
-				continue;
-			}
-			const key = row.name.toLowerCase();
-			// `omit_package_details` makes PPM return one row per binary build
-			// of the same version; the rows carry identical vulns, keep the first.
-			if (result.has(key)) {
-				continue;
-			}
-			result.set(key, normalizeOsvVulnerabilities(row.vulns ?? []));
-		}
-	}
+    for (let start = 0; start < pinned.length; start += CHUNK_SIZE) {
+        if (token?.isCancellationRequested) {
+            throw new vscode.CancellationError();
+        }
+        const chunk = pinned.slice(start, start + CHUNK_SIZE);
+        // eslint-disable-next-line no-await-in-loop
+        const rows = await fetchFilterRows(ppm, chunk, token, fetchImpl);
+        for (const row of rows) {
+            if (!row.name) {
+                continue;
+            }
+            const key = row.name.toLowerCase();
+            // `omit_package_details` makes PPM return one row per binary build
+            // of the same version; the rows carry identical vulns, keep the first.
+            if (result.has(key)) {
+                continue;
+            }
+            result.set(key, normalizeOsvVulnerabilities(row.vulns ?? []));
+        }
+    }
 
-	return result;
+    return result;
 }
 
 /** POST one filter/packages request and parse the NDJSON rows. */
 async function fetchFilterRows(
-	ppm: PpmRepo,
-	names: readonly string[],
-	token: vscode.CancellationToken | undefined,
-	fetchImpl: typeof fetch,
+    ppm: PpmRepo,
+    names: readonly string[],
+    token: vscode.CancellationToken | undefined,
+    fetchImpl: typeof fetch,
 ): Promise<PpmFilterRow[]> {
-	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-	const cancelSubscription = token?.onCancellationRequested(() => controller.abort());
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const cancelSubscription = token?.onCancellationRequested(() => controller.abort());
 
-	try {
-		const response = await fetchImpl(`${ppm.apiBase}/__api__/filter/packages`, {
-			method: 'POST',
-			headers: {
-				Accept: 'application/json',
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({
-				names,
-				repo: ppm.repoName,
-				omit_downloads: true,
-				omit_dependencies: true,
-				// Also drops the (large) available-versions lists. Costs
-				// duplicate rows for packages with multiple binary builds,
-				// which the caller deduplicates.
-				omit_package_details: true,
-			}),
-			signal: controller.signal,
-		});
-		if (!response.ok) {
-			throw new Error(`PPM filter/packages returned status ${response.status}`);
-		}
-		const text = await response.text();
-		const rows: PpmFilterRow[] = [];
-		for (const line of text.split('\n')) {
-			if (!line.trim()) {
-				continue;
-			}
-			try {
-				rows.push(JSON.parse(line) as PpmFilterRow);
-			} catch {
-				// Skip malformed lines
-			}
-		}
-		return rows;
-	} catch (err) {
-		if (token?.isCancellationRequested) {
-			throw new vscode.CancellationError();
-		}
-		throw err;
-	} finally {
-		clearTimeout(timeout);
-		cancelSubscription?.dispose();
-	}
+    try {
+        const response = await fetchImpl(`${ppm.apiBase}/__api__/filter/packages`, {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                names,
+                repo: ppm.repoName,
+                omit_downloads: true,
+                omit_dependencies: true,
+                // Also drops the (large) available-versions lists. Costs
+                // duplicate rows for packages with multiple binary builds,
+                // which the caller deduplicates.
+                omit_package_details: true,
+            }),
+            signal: controller.signal,
+        });
+        if (!response.ok) {
+            throw new Error(`PPM filter/packages returned status ${response.status}`);
+        }
+        const text = await response.text();
+        const rows: PpmFilterRow[] = [];
+        for (const line of text.split('\n')) {
+            if (!line.trim()) {
+                continue;
+            }
+            try {
+                rows.push(JSON.parse(line) as PpmFilterRow);
+            } catch {
+                // Skip malformed lines
+            }
+        }
+        return rows;
+    } catch (err) {
+        if (token?.isCancellationRequested) {
+            throw new vscode.CancellationError();
+        }
+        throw err;
+    } finally {
+        clearTimeout(timeout);
+        cancelSubscription?.dispose();
+    }
 }
 
 /**
@@ -341,128 +339,128 @@ async function fetchFilterRows(
  * Exported for unit tests.
  */
 export function normalizeOsvVulnerabilities(raw: readonly OsvVulnerability[]): positron.PackageVulnerability[] {
-	// Group records whose id/alias sets overlap (union-find over the alias
-	// graph, merging groups when a record bridges two of them).
-	const groups: OsvVulnerability[][] = [];
-	const keyToGroup = new Map<string, OsvVulnerability[]>();
-	for (const record of raw) {
-		const ids = [record.id, ...(record.aliases ?? [])];
-		const touched = new Set<OsvVulnerability[]>();
-		for (const id of ids) {
-			const group = keyToGroup.get(id);
-			if (group) {
-				touched.add(group);
-			}
-		}
-		let group: OsvVulnerability[];
-		if (touched.size === 0) {
-			group = [];
-			groups.push(group);
-		} else {
-			const [first, ...rest] = [...touched];
-			group = first;
-			for (const other of rest) {
-				group.push(...other);
-				other.length = 0;
-				for (const [key, mapped] of keyToGroup) {
-					if (mapped === other) {
-						keyToGroup.set(key, group);
-					}
-				}
-			}
-		}
-		group.push(record);
-		for (const id of ids) {
-			keyToGroup.set(id, group);
-		}
-	}
+    // Group records whose id/alias sets overlap (union-find over the alias
+    // graph, merging groups when a record bridges two of them).
+    const groups: OsvVulnerability[][] = [];
+    const keyToGroup = new Map<string, OsvVulnerability[]>();
+    for (const record of raw) {
+        const ids = [record.id, ...(record.aliases ?? [])];
+        const touched = new Set<OsvVulnerability[]>();
+        for (const id of ids) {
+            const group = keyToGroup.get(id);
+            if (group) {
+                touched.add(group);
+            }
+        }
+        let group: OsvVulnerability[];
+        if (touched.size === 0) {
+            group = [];
+            groups.push(group);
+        } else {
+            const [first, ...rest] = [...touched];
+            group = first;
+            for (const other of rest) {
+                group.push(...other);
+                other.length = 0;
+                for (const [key, mapped] of keyToGroup) {
+                    if (mapped === other) {
+                        keyToGroup.set(key, group);
+                    }
+                }
+            }
+        }
+        group.push(record);
+        for (const id of ids) {
+            keyToGroup.set(id, group);
+        }
+    }
 
-	const advisories = groups.filter((group) => group.length > 0).map((group) => normalizeGroup(group));
+    const advisories = groups.filter((group) => group.length > 0).map((group) => normalizeGroup(group));
 
-	// Highest severity first; unscored advisories after scored ones.
-	advisories.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
-	return advisories;
+    // Highest severity first; unscored advisories after scored ones.
+    advisories.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+    return advisories;
 }
 
 /** Collapse one alias group into a single advisory. */
 function normalizeGroup(group: OsvVulnerability[]): positron.PackageVulnerability {
-	// All ids and aliases in the group, for CVE extraction.
-	const allIds = new Set<string>();
-	for (const record of group) {
-		allIds.add(record.id);
-		for (const alias of record.aliases ?? []) {
-			allIds.add(alias);
-		}
-	}
-	const cve = [...allIds].filter((id) => id.startsWith('CVE-')).sort()[0];
+    // All ids and aliases in the group, for CVE extraction.
+    const allIds = new Set<string>();
+    for (const record of group) {
+        allIds.add(record.id);
+        for (const alias of record.aliases ?? []) {
+            allIds.add(alias);
+        }
+    }
+    const cve = [...allIds].filter((id) => id.startsWith('CVE-')).sort()[0];
 
-	// Best score across the group: prefer the newest CVSS revision present.
-	let scoreV3: number | undefined;
-	let scoreV4: number | undefined;
-	let scoredRecord: OsvVulnerability | undefined;
-	for (const record of group) {
-		for (const severity of record.severity ?? []) {
-			const base = severity.calculated_score?.base_score;
-			if (typeof base !== 'number') {
-				continue;
-			}
-			if (severity.type === 'CVSS_V4' && (scoreV4 === undefined || base > scoreV4)) {
-				scoreV4 = base;
-				scoredRecord = scoredRecord ?? record;
-			} else if (severity.type === 'CVSS_V3' && (scoreV3 === undefined || base > scoreV3)) {
-				scoreV3 = base;
-				scoredRecord = scoredRecord ?? record;
-			}
-		}
-	}
-	const score = scoreV4 ?? scoreV3;
-	let scoreVersion: 'v3' | 'v4' | undefined;
-	if (scoreV4 !== undefined) {
-		scoreVersion = 'v4';
-	} else if (scoreV3 !== undefined) {
-		scoreVersion = 'v3';
-	}
+    // Best score across the group: prefer the newest CVSS revision present.
+    let scoreV3: number | undefined;
+    let scoreV4: number | undefined;
+    let scoredRecord: OsvVulnerability | undefined;
+    for (const record of group) {
+        for (const severity of record.severity ?? []) {
+            const base = severity.calculated_score?.base_score;
+            if (typeof base !== 'number') {
+                continue;
+            }
+            if (severity.type === 'CVSS_V4' && (scoreV4 === undefined || base > scoreV4)) {
+                scoreV4 = base;
+                scoredRecord = scoredRecord ?? record;
+            } else if (severity.type === 'CVSS_V3' && (scoreV3 === undefined || base > scoreV3)) {
+                scoreV3 = base;
+                scoredRecord = scoredRecord ?? record;
+            }
+        }
+    }
+    const score = scoreV4 ?? scoreV3;
+    let scoreVersion: 'v3' | 'v4' | undefined;
+    if (scoreV4 !== undefined) {
+        scoreVersion = 'v4';
+    } else if (scoreV3 !== undefined) {
+        scoreVersion = 'v3';
+    }
 
-	// Lead with the record that carried the score (its summary is usually the
-	// cleaner one), then any record that has a summary at all. The OSV id
-	// follows the same preference so the advisory URL points at the record
-	// the user actually sees quoted.
-	const leadRecord = scoredRecord ?? group.find((record) => !!record.summary) ?? group[0];
-	const summary = leadRecord.summary ?? group.find((record) => !!record.summary)?.summary;
-	const osvId = leadRecord.id;
+    // Lead with the record that carried the score (its summary is usually the
+    // cleaner one), then any record that has a summary at all. The OSV id
+    // follows the same preference so the advisory URL points at the record
+    // the user actually sees quoted.
+    const leadRecord = scoredRecord ?? group.find((record) => !!record.summary) ?? group[0];
+    const summary = leadRecord.summary ?? group.find((record) => !!record.summary)?.summary;
+    const osvId = leadRecord.id;
 
-	// Distinct fixed versions across all ranges, in order of appearance --
-	// multiple values mean fixes on multiple release branches. Joined for
-	// display; version comparison stays out of TypeScript.
-	const fixedVersions: string[] = [];
-	for (const record of group) {
-		for (const range of record.ranges ?? []) {
-			for (const event of range.events ?? []) {
-				if (event.fixed && !fixedVersions.includes(event.fixed)) {
-					fixedVersions.push(event.fixed);
-				}
-			}
-		}
-	}
+    // Distinct fixed versions across all ranges, in order of appearance --
+    // multiple values mean fixes on multiple release branches. Joined for
+    // display; version comparison stays out of TypeScript.
+    const fixedVersions: string[] = [];
+    for (const record of group) {
+        for (const range of record.ranges ?? []) {
+            for (const event of range.events ?? []) {
+                if (event.fixed && !fixedVersions.includes(event.fixed)) {
+                    fixedVersions.push(event.fixed);
+                }
+            }
+        }
+    }
 
-	// Earliest publication across the group (ISO 8601 sorts lexicographically).
-	let published: string | undefined;
-	for (const record of group) {
-		if (record.published && (!published || record.published < published)) {
-			published = record.published;
-		}
-	}
+    // Earliest publication across the group (ISO 8601 sorts lexicographically).
+    let published: string | undefined;
+    for (const record of group) {
+        if (record.published && (!published || record.published < published)) {
+            published = record.published;
+        }
+    }
 
-	return {
-		id: cve ?? leadRecord.id,
-		osvId,
-		score,
-		scoreVersion,
-		summary,
-		fixedIn: fixedVersions.length > 0 ? fixedVersions.join(', ') : undefined,
-		published,
-		url: cve ? `https://nvd.nist.gov/vuln/detail/${cve}` : `https://osv.dev/vulnerability/${osvId}`,
-	};
+    return {
+        id: cve ?? leadRecord.id,
+        osvId,
+        score,
+        scoreVersion,
+        summary,
+        fixedIn: fixedVersions.length > 0 ? fixedVersions.join(', ') : undefined,
+        published,
+        url: cve ? `https://nvd.nist.gov/vuln/detail/${cve}` : `https://osv.dev/vulnerability/${osvId}`,
+    };
 }
 
 /**
@@ -483,25 +481,25 @@ function normalizeGroup(group: OsvVulnerability[]): positron.PackageVulnerabilit
  * Shared by the pip and uv managers.
  */
 export async function getPpmVulnerabilities(
-	packages: readonly positron.PackageSpec[],
-	token?: vscode.CancellationToken,
-	getPipConfigIndexUrl?: () => Promise<string | undefined>,
-	fetchImpl: typeof fetch = fetch,
+    packages: readonly positron.PackageSpec[],
+    token?: vscode.CancellationToken,
+    getPipConfigIndexUrl?: () => Promise<string | undefined>,
+    fetchImpl: typeof fetch = fetch,
 ): Promise<Map<string, positron.PackageVulnerability[]> | undefined> {
-	const enabled = vscode.workspace.getConfiguration('packages').get<boolean>('vulnerabilities.enabled');
-	if (enabled === false) {
-		return undefined;
-	}
+    const enabled = vscode.workspace.getConfiguration('packages').get<boolean>('vulnerabilities.enabled');
+    if (enabled === false) {
+        return undefined;
+    }
 
-	try {
-		const indexUrl = await resolvePythonIndexUrl(getPipConfigIndexUrl);
-		const configured = indexUrl ? await discoverPpmApi(indexUrl, fetchImpl) : undefined;
-		return await fetchPpmVulnerabilities(configured ?? PUBLIC_P3M, packages, token, fetchImpl);
-	} catch (err) {
-		if (err instanceof vscode.CancellationError) {
-			throw err;
-		}
-		traceWarn(`[PPM] Failed to fetch package vulnerabilities: ${err}`);
-		return undefined;
-	}
+    try {
+        const indexUrl = await resolvePythonIndexUrl(getPipConfigIndexUrl);
+        const configured = indexUrl ? await discoverPpmApi(indexUrl, fetchImpl) : undefined;
+        return await fetchPpmVulnerabilities(configured ?? PUBLIC_P3M, packages, token, fetchImpl);
+    } catch (err) {
+        if (err instanceof vscode.CancellationError) {
+            throw err;
+        }
+        traceWarn(`[PPM] Failed to fetch package vulnerabilities: ${err}`);
+        return undefined;
+    }
 }
