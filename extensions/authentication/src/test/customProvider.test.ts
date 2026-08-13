@@ -5,7 +5,6 @@
 
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { validateCustomProviderApiKey } from '../validation/customProvider';
 import { log } from '../log';
@@ -13,21 +12,11 @@ import { log } from '../log';
 suite('validateCustomProviderApiKey', () => {
 	let originalFetch: typeof globalThis.fetch;
 	let requestedBodies: string[];
-	let mockGet: sinon.SinonStub;
 	let logWarnStub: sinon.SinonStub;
 
 	setup(() => {
 		originalFetch = globalThis.fetch;
 		requestedBodies = [];
-
-		mockGet = sinon.stub();
-		const mockConfig: vscode.WorkspaceConfiguration = {
-			get: mockGet,
-			has: sinon.stub(),
-			inspect: sinon.stub(),
-			update: sinon.stub(),
-		};
-		sinon.stub(vscode.workspace, 'getConfiguration').returns(mockConfig);
 		logWarnStub = sinon.stub(log, 'warn');
 	});
 
@@ -40,44 +29,50 @@ suite('validateCustomProviderApiKey', () => {
 		return { baseUrl: 'https://example.com/v1' };
 	}
 
-	function stubFetch(status: number): void {
+	function stubFetch(status: number, body = ''): void {
 		globalThis.fetch = async (_url, init) => {
 			requestedBodies.push((init?.body as string) ?? '');
-			return { ok: status >= 200 && status < 300, status } as Response;
+			return {
+				ok: status >= 200 && status < 300,
+				status,
+				text: async () => body,
+			} as Response;
 		};
 	}
 
-	test('sends empty model when no override is configured', async () => {
-		mockGet.returns(undefined);
-		stubFetch(200);
-
-		await validateCustomProviderApiKey('sk-test', makeConfig());
-
-		assert.deepStrictEqual(JSON.parse(requestedBodies[0]), { model: '', messages: [] });
-	});
-
-	test('sends the first override identifier as the model', async () => {
-		mockGet.withArgs('models.overrides.customProvider').returns([
-			{ name: 'Databricks Claude', identifier: 'databricks-claude-sonnet-4-6' },
-		]);
+	test('sends a placeholder model, not a real one', async () => {
 		stubFetch(200);
 
 		await validateCustomProviderApiKey('sk-test', makeConfig());
 
 		assert.deepStrictEqual(JSON.parse(requestedBodies[0]), {
-			model: 'databricks-claude-sonnet-4-6',
+			model: 'positron-connectivity-check',
 			messages: [],
 		});
 	});
 
+	test('rejects a 401 whose body points at the key', async () => {
+		stubFetch(401, '{"error":{"message":"Invalid authentication credentials"}}');
+
+		await assert.rejects(
+			validateCustomProviderApiKey('sk-test', makeConfig()),
+			/Invalid Custom Provider API key/
+		);
+	});
+
+	test('accepts a 401 whose body points at the model, not the key', async () => {
+		stubFetch(401, '{"error":{"type":"ModelError","message":"Model is not supported"}}');
+
+		await validateCustomProviderApiKey('sk-test', makeConfig());
+
+		assert.match(logWarnStub.firstCall.args[0] as string, /model reason/);
+	});
+
 	test('soft-fails HTTP 404 with a warning', async () => {
-		mockGet.returns(undefined);
 		stubFetch(404);
 
 		await validateCustomProviderApiKey('sk-test', makeConfig());
 
-		assert.strictEqual(logWarnStub.callCount, 1);
-		assert.match(logWarnStub.firstCall.args[0] as string, /Custom Provider/);
 		assert.match(logWarnStub.firstCall.args[0] as string, /404/);
 	});
 });

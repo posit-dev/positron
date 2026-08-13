@@ -48,7 +48,7 @@ export function deriveDisconnectAction(source: IPositronLanguageModelSource): st
 }
 
 /** Which modal view a selected provider routes to. */
-export type ProviderView = 'connect' | 'connected' | 'notSupported';
+export type ProviderView = 'connect' | 'connected';
 
 /**
  * Select the appropriate modal view for a given provider source.
