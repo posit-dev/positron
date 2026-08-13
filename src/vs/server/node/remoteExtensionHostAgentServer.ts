@@ -672,9 +672,9 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 		process.exit(1);
 	}
 
+	// --- Start Positron ---
 	const disposables = new DisposableStore();
 
-	// --- Start Positron ---
 	// Ensure that the connection token is mandatory in web (server) mode. Since Positron
 	// license keys sign the connection token, we can't proceed without one.
 	//
