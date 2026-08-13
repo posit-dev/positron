@@ -14,6 +14,7 @@ const HELP_TITLE = '.welcome-help-links';
 const OPEN_SECTION = '.start-container';
 const RECENT_SECTION = '.recently-opened';
 const WALKTHROUGH_SECTION = '.getting-started';
+const WALKTHROUGH_CARD = '.getting-started-category';
 const HEADING_ROLE = 'heading';
 const BUTTON_ROLE = 'button';
 const REDESIGNED_PAGE = '.positron-welcome-page';
@@ -40,7 +41,7 @@ export class Welcome {
 	get newFolderFromTemplateButton(): Locator { return this.startButtons.getByText('New Folder'); }
 	get openFolderButton(): Locator { return this.startButtons.getByText('Open Folder'); }
 	get walkthroughSection(): Locator { return this.code.driver.currentPage.locator(WALKTHROUGH_SECTION); }
-	get walkthroughButtons(): Locator { return this.walkthroughSection.getByRole(BUTTON_ROLE); }
+	get walkthroughButtons(): Locator { return this.walkthroughSection.locator(WALKTHROUGH_CARD); }
 	get redesignedPage(): Locator { return this.code.driver.currentPage.locator(REDESIGNED_PAGE); }
 	get startupCheckbox(): Locator { return this.code.driver.currentPage.locator(STARTUP_CHECKBOX); }
 
@@ -124,8 +125,7 @@ export class Welcome {
 
 	async expectWalkthroughsToHaveCount(count: number) {
 		await test.step(`Verify walkthroughs count is ${count}`, async () => {
-			const walkthroughs = this.walkthroughSection.getByRole(BUTTON_ROLE);
-			await expect(walkthroughs).toHaveCount(count);
+			await expect(this.walkthroughButtons).toHaveCount(count);
 		});
 	}
 
