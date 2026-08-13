@@ -427,11 +427,14 @@ function groupedExtensionsHtml(snapshot: MemorySnapshot): string {
 		// demand-activated groups stopped being listed beside them, and next to the
 		// one group that also carried a note it read as a half-finished definition.
 		// The headline above says what eager costs; the headings say when each runs.
-		// The literal trails the count rather than sitting beside the title, which put
-		// two parenthesized groups back to back: "During startup (*) (3)".
+		// The literal goes in a tooltip, not the heading. Shown inline it needed a
+		// "-- event *" gloss to stop reading as a footnote marker, which made this
+		// heading shaped differently from the other one -- the exact asymmetry
+		// dropping the badge was meant to fix. The heading says when these activate;
+		// the value behind it matters only to someone about to edit a manifest.
 		const { title } = EAGER_EVENTS.find(e => e.event === event)!;
 		const heading = title
-			? `${escapeHtml(title)} (${sorted.length}) <span class="muted">-- event <code>${escapeHtml(event)}</code></span>`
+			? `<span title="activationEvents: ${escapeHtml(event)}">${escapeHtml(title)}</span> (${sorted.length})`
 			: `<code>${escapeHtml(event)}</code> (${sorted.length})`;
 		return `<h3>${heading}</h3>
 		<ul>

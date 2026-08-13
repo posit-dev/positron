@@ -443,11 +443,14 @@ describe('renderHtml', () => {
 	// `*` is a real activationEvents value but says nothing about itself, and as a
 	// heading followed by a count it reads as a footnote marker rather than an id.
 	// `onStartupFinished` needs no such help, which is why only one is titled.
-	test('titles the cryptic `*` event and keeps the literal alongside it', () => {
+	test('titles the cryptic `*` event, keeping the literal only in a tooltip', () => {
 		const card = renderHtml([snapshot([proc()], 0, [ext('vscode.git', '*')])])
 			.split('<h2>Activated extensions')[1];
 		expect(card).toContain('During startup');
-		expect(card).toContain('<code>*</code>');
+		// Inline, the literal needed a gloss to stop reading as a footnote marker,
+		// which left this heading shaped unlike the other one.
+		expect(card.split('</h3>')[0]).not.toContain('<code>*</code>');
+		expect(card).toContain('title="activationEvents: *"');
 	});
 
 	test('leaves a self-describing event name as it is', () => {
