@@ -85,6 +85,13 @@ export type MemorySnapshot = {
 	positronVersion: string;
 	launchIndex: number;
 	settleMs: number;
+	/** How long sampling ran after settling, waiting for every large process to hold steady. */
+	sampledMs?: number;
+	/**
+	 * Samples taken before the tail and thrown away: the startup plateau, before
+	 * Chromium reclaimed its startup memory. Non-zero is normal and healthy.
+	 */
+	discardedSamples?: number;
 	treeTotalPssBytes: number;
 	processes: LabeledProcess[];
 	extensions: ActivatedExtension[];

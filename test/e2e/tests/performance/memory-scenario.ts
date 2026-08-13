@@ -10,7 +10,7 @@ import { Application, Sessions } from '../../infra';
 import { readActivatedExtensions } from '../../utils/memory/extensions.js';
 import { fetchBaseline, publishSnapshots } from '../../utils/memory/publish.js';
 import { renderHtml, renderMarkdown } from '../../utils/memory/render.js';
-import { captureSnapshot, SAMPLING_WINDOW_MS, SETTLE_CAP_MS, unstableProcesses } from '../../utils/memory/snapshot.js';
+import { captureSnapshot, SAMPLING_CAP_MS, SETTLE_CAP_MS, unstableProcesses } from '../../utils/memory/snapshot.js';
 import { MemoryScenario } from '../../utils/memory/scenarios.js';
 import { MemorySnapshot, ProcessRole } from '../../utils/memory/types.js';
 
@@ -58,10 +58,10 @@ export function defineMemoryScenario(options: {
 
 		test(`Memory footprint of the Positron process tree: ${scenario}`, async function ({ app, sessions, logsPath }) {
 			// Derived rather than a round number, because the default 2 minutes is
-			// now too short: a run that waits out the full settle cap and then
-			// samples for 45s would time out before it could report the settle
-			// failure, turning a diagnosable result into a bare timeout.
-			test.setTimeout(SETTLE_CAP_MS + SAMPLING_WINDOW_MS + MEASURE_OVERHEAD_MS);
+			// now too short: a run that waits out both caps would time out before it
+			// could report which one it hit, turning a diagnosable result into a
+			// bare timeout.
+			test.setTimeout(SETTLE_CAP_MS + SAMPLING_CAP_MS + MEASURE_OVERHEAD_MS);
 
 			// Only test-memory-metrics.yml collects these specs, and it always sets
 			// BUILD. A missing one means the workflow is broken, not that the spec
@@ -84,37 +84,6 @@ export function defineMemoryScenario(options: {
 			// genuinely mid-allocation.
 			await app.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
 			await sessions.expectNoStartUpMessaging();
-
-			// --- Start temporary diagnostic ---
-			// Investigating a bimodal renderer PSS split (~430 MB vs ~595 MB) across
-			// otherwise-identical launches. Leading hypothesis is a raster/compositing
-			// buffer size difference driven by window dimensions or devicePixelRatio.
-			// Remove once the split is explained. Must never fail the measurement.
-			const launchIndex = Number(process.env.MEMORY_LAUNCH_INDEX ?? 0);
-			try {
-				const rendererContext = await app.code.driver.currentPage.evaluate(() => ({
-					innerWidth: window.innerWidth,
-					innerHeight: window.innerHeight,
-					outerWidth: window.outerWidth,
-					outerHeight: window.outerHeight,
-					devicePixelRatio: window.devicePixelRatio,
-					screenWidth: window.screen.width,
-					screenHeight: window.screen.height
-				}));
-				mkdirSync(SNAPSHOT_DIR, { recursive: true });
-				writeFileSync(join(SNAPSHOT_DIR, `launch-${launchIndex}-context.json`), JSON.stringify(rendererContext, null, 2));
-				console.log(`[memory] ${scenario} launch ${launchIndex} renderer context: inner=${rendererContext.innerWidth}x${rendererContext.innerHeight} outer=${rendererContext.outerWidth}x${rendererContext.outerHeight} dpr=${rendererContext.devicePixelRatio} screen=${rendererContext.screenWidth}x${rendererContext.screenHeight}`);
-			} catch (error) {
-				console.log(`[memory] ${scenario} launch ${launchIndex}: failed to capture renderer context diagnostic: ${error}`);
-			}
-
-			try {
-				mkdirSync(SNAPSHOT_DIR, { recursive: true });
-				await app.code.driver.currentPage.screenshot({ path: join(SNAPSHOT_DIR, `launch-${launchIndex}.png`), fullPage: true });
-			} catch (error) {
-				console.log(`[memory] ${scenario} launch ${launchIndex}: failed to capture screenshot diagnostic: ${error}`);
-			}
-			// --- End temporary diagnostic ---
 
 			const extensions = await readActivatedExtensions({
 				logsRoot: logsPath,
@@ -155,15 +124,17 @@ export function defineMemoryScenario(options: {
 			expect(impossible.map(p => `${p.processName} (pid ${p.pid})`),
 				'PSS exceeded RSS, which is impossible within one sample').toEqual([]);
 
-			// Logged, not asserted: until the settle gate waits for per-process
-			// quiescence, a moving process is a known limitation rather than a run
-			// to throw away. The report says so on its face; this is the same news
-			// in the job log.
+			// Sampling now waits for per-process quiescence, so a moving process means
+			// it gave up at the cap. Asserted rather than logged: a plausible-looking
+			// number that describes no actual state is worse than a failed job, since
+			// only the failure is visible.
 			const moving = unstableProcesses(snapshot.processes);
 			for (const proc of moving) {
 				console.log(`[memory] ${scenario} launch ${snapshot.launchIndex}: ${proc.processName} (${proc.processRole}) was still moving: ` +
 					`${(proc.pssMin / 1048576).toFixed(1)}-${(proc.pssMax / 1048576).toFixed(1)} MB, reporting ${(proc.pssBytes / 1048576).toFixed(1)} MB`);
 			}
+			expect(moving.map(p => `${p.processName} (${p.processRole})`),
+				`sampling hit its ${SAMPLING_CAP_MS / 1000}s cap with processes still moving, so these figures are mid-swing`).toEqual([]);
 
 			const namedShare = snapshot.processes.filter(p => p.labeled).length / snapshot.processes.length;
 			expect(namedShare, 'Positron named too few processes; --status probably failed, and an unattributable total is worse than no data').toBeGreaterThan(0.5);
@@ -178,7 +149,8 @@ export function defineMemoryScenario(options: {
 			mkdirSync(SNAPSHOT_DIR, { recursive: true });
 			writeFileSync(join(SNAPSHOT_DIR, `memory-snapshot-${snapshot.launchIndex}.json`), JSON.stringify(snapshot, null, 2));
 
-			console.log(`[memory] ${scenario} launch ${snapshot.launchIndex}: ${(snapshot.treeTotalPssBytes / 1048576).toFixed(1)} MB PSS across ${snapshot.processes.length} processes, settled in ${snapshot.settleMs} ms`);
+			console.log(`[memory] ${scenario} launch ${snapshot.launchIndex}: ${(snapshot.treeTotalPssBytes / 1048576).toFixed(1)} MB PSS across ${snapshot.processes.length} processes, ` +
+				`settled in ${snapshot.settleMs} ms, sampled for ${snapshot.sampledMs} ms discarding ${snapshot.discardedSamples} startup samples`);
 		});
 	});
 

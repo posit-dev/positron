@@ -71,8 +71,9 @@ export function notSteadyStateCardHtml(headers: string[], rows: string): string 
 		.join('');
 	return `<div class="card warn-card">
 		<h2>Not a steady state</h2>
-		<div class="meta">These processes were still moving while being sampled, so the figures reported for
-		them are medians of a range rather than settled numbers. Treat this run's totals and deltas as unreliable.</div>
+		<div class="meta">Sampling waits for every large process to hold steady, and for these it gave up first. The
+		figures reported for them are medians of a range rather than settled numbers, so treat this run's totals and
+		deltas as unreliable.</div>
 		<table>
 			<tr>${headerCells}</tr>
 			${rows}

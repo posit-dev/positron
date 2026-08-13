@@ -152,6 +152,29 @@ function newProcesses(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): L
 	return processesAcrossLaunches(snapshots).filter(proc => !known.has(proc.processName));
 }
 
+/**
+ * How the numbers below were arrived at, in one line: launches, how long the tree
+ * took to stop growing, and how much of the sampling window was thrown away.
+ *
+ * The discarded count is the load-bearing part. Every launch spends its first
+ * 10-25s on a startup plateau that is flat enough to look settled but sits
+ * hundreds of MB above the steady state, and a reader comparing two runs needs to
+ * see that the plateau was excluded rather than assume it.
+ */
+function samplingSummary(snapshots: MemorySnapshot[]): string {
+	const settleS = Math.round(median(snapshots.map(s => s.settleMs)) / 1000);
+	const sampled = snapshots.map(s => s.sampledMs).filter((ms): ms is number => ms !== undefined);
+	const discarded = snapshots.map(s => s.discardedSamples).filter((ms): ms is number => ms !== undefined);
+	const parts = [`Median of ${snapshots.length} launches`, `settled in ${settleS}s`];
+	if (sampled.length > 0) {
+		parts.push(`sampled for ${Math.round(median(sampled) / 1000)}s`);
+	}
+	if (discarded.length > 0) {
+		parts.push(`discarding ${median(discarded)} startup samples`);
+	}
+	return `${parts.join(', ')}.`;
+}
+
 export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): string {
 	const total = totalAcrossLaunches(snapshots);
 	const lines: string[] = [`## Memory: ${snapshots[0].scenario}`, ''];
@@ -165,7 +188,7 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 		lines.push(`**Build: ${snapshots[0].positronVersion}**`);
 	}
 	lines.push('');
-	lines.push(`Median of ${snapshots.length} launches. Settle time: ${Math.round(median(snapshots.map(s => s.settleMs)) / 1000)}s.`);
+	lines.push(samplingSummary(snapshots));
 	lines.push('');
 
 	// Ahead of the table for the same reason the HTML card sits above every
@@ -528,6 +551,7 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 		<div class="meta">${first.positronVersion ? `Build: ${escapeHtml(first.positronVersion)}` : ''}</div>
 		<div class="hero">${formatBytes(total)}</div>
 		<div class="meta">${baseline ? deltaHtml(total, baseline.treeTotalPssBytes) : 'no baseline'} vs previous nightly</div>
+		<div class="meta">${escapeHtml(samplingSummary(snapshots))}</div>
 	</div>
 
 	${instabilityCard}

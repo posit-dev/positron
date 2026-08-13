@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, test } from 'vitest';
-import { isSettled, joinProcesses, unstableProcesses } from './snapshot.js';
+import { isSettled, joinProcesses, tailIsFlat, treeHasSettled, unstableProcesses } from './snapshot.js';
 import { LabeledProcess, RawProcess } from './types.js';
 
 const proc = (pid: number, ppid: number, cmd: string, pss: number): RawProcess =>
@@ -126,6 +126,83 @@ describe('unstableProcesses', () => {
 
 	test('a single sample cannot be judged unstable', () => {
 		expect(unstableProcesses([sampled(1, [546 * MB])])).toEqual([]);
+	});
+});
+
+describe('tailIsFlat', () => {
+	const MB = 1048576;
+	const mb = (...values: number[]) => values.map(v => v * MB);
+
+	// The renderer's real curve from every launch of every scenario: one one-way
+	// step down as Chromium reclaims startup memory, then flat. The tail after the
+	// step is the steady state; the plateau before it is not.
+	test('rejects a curve whose step down is inside the tail', () => {
+		expect(tailIsFlat(mb(559, 559, 295, 296))).toBe(false);
+	});
+
+	test('accepts the flat tail that follows the step', () => {
+		expect(tailIsFlat(mb(295, 296, 287, 287))).toBe(true);
+	});
+
+	test('a curve shorter than the tail cannot be judged flat', () => {
+		expect(tailIsFlat(mb(287, 287))).toBe(false);
+	});
+
+	test('reads only the tail, so an early step does not disqualify a settled process', () => {
+		expect(tailIsFlat(mb(565, 559, 559, 295, 296, 287, 287, 286))).toBe(true);
+	});
+
+	test('rejects a process still drifting slowly through the tail', () => {
+		expect(tailIsFlat(mb(400, 380, 360, 340))).toBe(false);
+	});
+});
+
+describe('treeHasSettled', () => {
+	const MB = 1048576;
+
+	/** Builds one sample per column from per-process curves, so a test reads as the shape it describes. */
+	const tree = (...curves: { pid: number; cmd: string; pss: number[] }[]): RawProcess[][] =>
+		curves[0].pss.map((_, index) => curves.map(c => proc(c.pid, c.pid === 100 ? 1 : 100, c.cmd, c.pss[index] * MB)));
+	const renderer = (...pss: number[]) => ({ pid: 100, cmd: 'positron --type=renderer', pss });
+	const extHost = (...pss: number[]) => ({ pid: 101, cmd: 'positron --type=utility', pss });
+	const zygote = (...pss: number[]) => ({ pid: 102, cmd: 'positron --type=zygote', pss });
+
+	// The regression this rule exists for. `idle`'s renderer holds a dead-flat 559
+	// MB for 20s before Chromium reclaims startup memory, so a flatness-only rule
+	// stopped here and published the plateau as the steady state -- worse than the
+	// mid-step median it was meant to replace.
+	test('is false on the flat startup plateau, before memory is reclaimed', () => {
+		expect(treeHasSettled(tree(renderer(565, 559, 559, 559)))).toBe(false);
+	});
+
+	test('is false while a large process is still stepping down', () => {
+		expect(treeHasSettled(tree(renderer(565, 559, 559, 559, 295, 296)))).toBe(false);
+	});
+
+	test('is true once the tree has reclaimed and every large process is flat', () => {
+		expect(treeHasSettled(tree(renderer(565, 559, 559, 559, 559, 295, 296, 287, 287, 286)))).toBe(true);
+	});
+
+	test('waits for a large process that reclaims later than the rest', () => {
+		expect(treeHasSettled(tree(
+			renderer(565, 559, 295, 296, 287, 287),
+			extHost(412, 412, 412, 412, 412, 331)
+		))).toBe(false);
+	});
+
+	test('a small process wobbling does not hold up an otherwise settled tree', () => {
+		expect(treeHasSettled(tree(
+			renderer(565, 559, 559, 559, 559, 295, 296, 287, 287, 286),
+			zygote(4, 11, 3, 12, 4, 11, 3, 12, 4, 11)
+		))).toBe(true);
+	});
+
+	test('too few samples is never settled', () => {
+		expect(treeHasSettled(tree(renderer(559, 287)))).toBe(false);
+	});
+
+	test('an empty tree is settled, because the root is gone and there is nothing to wait for', () => {
+		expect(treeHasSettled([[], [], [], []])).toBe(true);
 	});
 });
 

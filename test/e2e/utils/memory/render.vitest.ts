@@ -60,6 +60,18 @@ describe('renderMarkdown', () => {
 		expect(output).toContain('100.0 MB');
 	});
 
+	// Every launch spends its first 10-25s on a startup plateau that is flat enough
+	// to look settled but sits hundreds of MB high, so a reader has to be able to
+	// see that it was excluded rather than take it on faith.
+	test('says how much of the sampling window was discarded as startup', () => {
+		const output = renderMarkdown([{ ...snapshot([proc()]), sampledMs: 40_000, discardedSamples: 5 }]);
+		expect(output).toContain('Median of 1 launches, settled in 12s, sampled for 40s, discarding 5 startup samples.');
+	});
+
+	test('omits the sampling detail for a baseline snapshot that never recorded it', () => {
+		expect(renderMarkdown([snapshot([proc()])])).toContain('Median of 1 launches, settled in 12s.');
+	});
+
 	test('names the build that produced the numbers', () => {
 		const output = renderMarkdown([snapshot([proc()])]);
 		expect(output).toContain('**Build: 2026.09.0-35**');
