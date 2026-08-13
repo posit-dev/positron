@@ -16,6 +16,9 @@ test.describe('R Markdown', { tag: [tags.WEB, tags.R_MARKDOWN, tags.ARK] }, () =
 	test('Verify can render R Markdown', async function ({ app, r }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
 		await app.workbench.quickaccess.runCommand('r.rmarkdownRender');
+		// Do not pass `collapseFirst` here: render writes basicRmd.html next to its
+		// source, inside workspaces/basic-rmd-file/, and collapsing the Explorer
+		// folds nested rows out of the virtualized list entirely.
 		await app.workbench.explorer.verifyExplorerFilesExist(['basicRmd.html']);
 	});
 

@@ -23,17 +23,23 @@ export class Explorer {
 	/**
 	 * Assert that each named file is present in the Explorer.
 	 *
-	 * Collapses the tree first. The Explorer's list is virtualized, so a row
-	 * outside the rendered window is absent from the DOM entirely rather than
-	 * merely scrolled out of sight -- which makes this assertion fail with
-	 * "element(s) not found" and no possibility of recovery. Whether a given row
-	 * is inside that window depends on how many folders happen to be expanded,
-	 * and the `app` fixture is worker-scoped, so expansion state accumulates
-	 * across every test that ran before this one in the same session. Collapsing
-	 * makes the check depend only on the file actually existing.
+	 * The Explorer's list is virtualized, so a row outside the rendered window is
+	 * absent from the DOM entirely rather than merely scrolled out of sight --
+	 * which makes this assertion fail with "element(s) not found" and no
+	 * possibility of recovery. Whether a given row is inside that window depends
+	 * on how many folders happen to be expanded, and the `app` fixture is
+	 * worker-scoped, so expansion state accumulates across every test that ran
+	 * before this one in the same session.
+	 *
+	 * `collapseFirst` folds the tree so that top-level entries are certain to be
+	 * rendered. Use it only for files at the **workspace root**: collapsing hides
+	 * anything nested, so a caller asserting a file inside a folder (e.g. a
+	 * rendered `.html` sitting next to its source) must leave it off.
 	 */
-	async verifyExplorerFilesExist(files: string[]) {
-		await this.quickaccess.runCommand('workbench.files.action.collapseExplorerFolders');
+	async verifyExplorerFilesExist(files: string[], options: { collapseFirst?: boolean } = {}) {
+		if (options.collapseFirst) {
+			await this.quickaccess.runCommand('workbench.files.action.collapseExplorerFolders');
+		}
 
 		const explorerFiles = this.code.driver.currentPage.locator('.monaco-list > .monaco-scrollable-element');
 
