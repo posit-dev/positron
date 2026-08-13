@@ -5,6 +5,7 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { externalUriToString } from '../../../../base/common/positronUtilities.js';
+import { htmlAttributeEncodeValue } from '../../../../base/common/strings.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IOverlayWebview } from '../../webview/browser/webview.js';
 
@@ -57,7 +58,7 @@ export class PreviewOverlayWebview extends Disposable {
 				</style>
 			</head>
 			<body>
-				<iframe id="preview-iframe" title="Preview Content" src="${externalUriToString(uri)}"></iframe>
+				<iframe id="preview-iframe" title="Preview Content" src="${htmlAttributeEncodeValue(externalUriToString(uri))}"></iframe>
 				<script async type="module">
 					// Get a reference to the VS Code API
 					const vscode = acquireVsCodeApi();

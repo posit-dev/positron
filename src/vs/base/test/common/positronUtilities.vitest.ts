@@ -27,7 +27,7 @@ describe('externalUriToString', () => {
 	test('encodes characters that would break out of an HTML attribute', () => {
 		const uri = URI.parse('http://localhost:2718/?q=a"b');
 
-		expect(externalUriToString(uri)).not.toContain('"');
+		expect(externalUriToString(uri)).toBe('http://localhost:2718/?q=a%22b');
 	});
 
 	test('leaves a file URI intact', () => {
