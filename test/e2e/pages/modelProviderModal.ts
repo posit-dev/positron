@@ -78,68 +78,100 @@ export class ModelProviderModal {
 		return (await row.getAttribute('data-provider-section')) ?? undefined;
 	}
 
+	/**
+	 * Opens the modal, runs `body`, and makes sure the modal is closed even when
+	 * `body` throws. Leaving it open would break every later test in the file, not
+	 * just this one: the app is shared across a suite, and the Configure Providers
+	 * command renders a fresh dialog every time it runs without checking for one
+	 * that is already open. A second dialog carries the same testid, so MODAL then
+	 * matches two elements and Playwright fails on strict mode instead of on
+	 * whatever the test was actually doing.
+	 */
+	private async withModal(timeout: number, body: () => Promise<void>) {
+		await this.runConfigureProviders();
+		await expect(this.code.driver.currentPage.locator(MODAL)).toBeVisible({ timeout });
+
+		try {
+			await body();
+		} catch (e) {
+			await this.closeQuietly();
+			throw e;
+		}
+	}
+
+	/**
+	 * Closes the modal, swallowing any failure to do so. Used while an error is
+	 * already propagating, where the original error is the one worth reporting.
+	 */
+	private async closeQuietly() {
+		try {
+			await this.clickCloseButton();
+		} catch {
+			// Already dismissed, or in a state the Close button can't be reached from.
+		}
+	}
+
 	async loginModelProvider(provider: ModelProvider, options: LoginModelProviderOptions = {}) {
 		const { timeout = 15000 } = options;
 
 		await test.step(`Connect to ${provider} in new provider modal`, async () => {
-			await this.runConfigureProviders();
-			await expect(this.code.driver.currentPage.locator(MODAL)).toBeVisible({ timeout });
+			await this.withModal(timeout, async () => {
+				// Already connected (e.g. a provider autoconfigured from the environment,
+				// such as AWS Bedrock via the credential chain): nothing to do. This is
+				// read from the modal's live state, not a guess from process.env, so it
+				// stays correct whether or not the launched app scrubbed auth env vars.
+				if ((await this.providerSection(provider)) === 'connected') {
+					await this.clickCloseButton();
+					return;
+				}
 
-			// Already connected (e.g. a provider autoconfigured from the environment,
-			// such as AWS Bedrock via the credential chain): nothing to do. This is
-			// read from the modal's live state, not a guess from process.env, so it
-			// stays correct whether or not the launched app scrubbed auth env vars.
-			if ((await this.providerSection(provider)) === 'connected') {
-				await this.clickCloseButton();
-				return;
-			}
+				// Click the row's action to route to the Connect view.
+				await this.action(provider).click();
+				await expect(this.code.driver.currentPage.locator(CONNECT_VIEW)).toBeVisible({ timeout });
 
-			// Click the row's action to route to the Connect view.
-			await this.action(provider).click();
-			await expect(this.code.driver.currentPage.locator(CONNECT_VIEW)).toBeVisible({ timeout });
-
-			const authType = getProviderAuthType(provider);
-			switch (authType) {
-				case 'apiKey': {
-					const apiKey = options.apiKey ?? getProviderEnvKey(provider);
-					if (!apiKey) {
-						throw new Error(
-							`No API key provided for ${provider}. Set the ${getProviderEnvVarName(provider)} environment variable or pass apiKey in options.`
-						);
-					}
-					await fillSecretValue(this.code.driver.currentPage.locator(APIKEY_INPUT), apiKey);
-
-					if (providerRequiresBaseUrl(provider)) {
-						const baseUrlEnvVar = getProviderBaseUrlEnvVarName(provider);
-						const baseUrl = options.baseUrl ?? process.env[baseUrlEnvVar];
-						if (!baseUrl) {
+				const authType = getProviderAuthType(provider);
+				switch (authType) {
+					case 'apiKey': {
+						const apiKey = options.apiKey ?? getProviderEnvKey(provider);
+						if (!apiKey) {
 							throw new Error(
-								`No base URL provided for ${provider}. Set the ${baseUrlEnvVar} environment variable or pass baseUrl in options.`
+								`No API key provided for ${provider}. Set the ${getProviderEnvVarName(provider)} environment variable or pass apiKey in options.`
 							);
 						}
-						await fillSecretValue(this.code.driver.currentPage.locator(BASEURL_INPUT), baseUrl);
-					}
-					await this.clickConnectButton();
-					break;
-				}
-				case 'aws':
-				case 'none':
-					await this.clickConnectButton();
-					break;
-				case 'oauth': {
-					const oauthConfig = getOAuthConfig(provider);
-					// The OAuth "Connect" button carries the same label; click, then drive the device flow.
-					await this.clickConnectButton();
-					await completeOAuthDeviceCodeLogin(this.code, oauthConfig, options);
-					break;
-				}
-				default:
-					throw new Error(`Unknown authentication type for provider: ${provider}`);
-			}
+						await fillSecretValue(this.code.driver.currentPage.locator(APIKEY_INPUT), apiKey);
 
-			// A successful connect auto-transitions to the Connected view.
-			await expect(this.code.driver.currentPage.locator(CONNECTED_VIEW)).toBeVisible({ timeout });
-			await this.clickCloseButton();
+						if (providerRequiresBaseUrl(provider)) {
+							const baseUrlEnvVar = getProviderBaseUrlEnvVarName(provider);
+							const baseUrl = options.baseUrl ?? process.env[baseUrlEnvVar];
+							if (!baseUrl) {
+								throw new Error(
+									`No base URL provided for ${provider}. Set the ${baseUrlEnvVar} environment variable or pass baseUrl in options.`
+								);
+							}
+							await fillSecretValue(this.code.driver.currentPage.locator(BASEURL_INPUT), baseUrl);
+						}
+						await this.clickConnectButton();
+						break;
+					}
+					case 'aws':
+					case 'none':
+						await this.clickConnectButton();
+						break;
+					case 'oauth': {
+						const oauthConfig = getOAuthConfig(provider);
+						// The OAuth "Connect" button carries the same label; click, then drive the device flow.
+						await this.clickConnectButton();
+						await completeOAuthDeviceCodeLogin(this.code, oauthConfig, options);
+						break;
+					}
+					default:
+						throw new Error(`Unknown authentication type for provider: ${provider}`);
+				}
+
+				// A successful connect auto-transitions to the Connected view.
+				await expect(this.code.driver.currentPage.locator(CONNECTED_VIEW)).toBeVisible({ timeout });
+				await this.clickCloseButton();
+			});
 		});
 	}
 
@@ -147,33 +179,32 @@ export class ModelProviderModal {
 		const { timeout = 15000 } = options;
 
 		await test.step(`Disconnect ${provider} in new provider modal`, async () => {
-			await this.runConfigureProviders();
-			await expect(this.code.driver.currentPage.locator(MODAL)).toBeVisible({ timeout });
+			await this.withModal(timeout, async () => {
+				// Not connected (already signed out, or never connected): nothing to do.
+				if ((await this.providerSection(provider)) !== 'connected') {
+					await this.clickCloseButton();
+					return;
+				}
 
-			// Not connected (already signed out, or never connected): nothing to do.
-			if ((await this.providerSection(provider)) !== 'connected') {
+				// Route to the Connected view via the row's Edit action.
+				await this.action(provider).click();
+				await expect(this.code.driver.currentPage.locator(CONNECTED_VIEW)).toBeVisible({ timeout });
+
+				// Env / credential-chain authenticated providers cannot be signed out from
+				// the modal (no Sign out / Remove button); treat that as a no-op close.
+				const signOut = this.code.driver.currentPage.locator(SIGN_OUT_BUTTON);
+				const remove = this.code.driver.currentPage.locator(REMOVE_BUTTON);
+				const disconnect = (await signOut.isVisible()) ? signOut : (await remove.isVisible()) ? remove : undefined;
+				if (!disconnect) {
+					await this.clickCloseButton();
+					return;
+				}
+
+				await disconnect.click();
+				// Disconnecting returns to the list; the row drops back to Model Providers.
+				await expect(this.row(provider)).toHaveAttribute('data-provider-section', 'model-providers', { timeout });
 				await this.clickCloseButton();
-				return;
-			}
-
-			// Route to the Connected view via the row's Edit action.
-			await this.action(provider).click();
-			await expect(this.code.driver.currentPage.locator(CONNECTED_VIEW)).toBeVisible({ timeout });
-
-			// Env / credential-chain authenticated providers cannot be signed out from
-			// the modal (no Sign out / Remove button); treat that as a no-op close.
-			const signOut = this.code.driver.currentPage.locator(SIGN_OUT_BUTTON);
-			const remove = this.code.driver.currentPage.locator(REMOVE_BUTTON);
-			const disconnect = (await signOut.isVisible()) ? signOut : (await remove.isVisible()) ? remove : undefined;
-			if (!disconnect) {
-				await this.clickCloseButton();
-				return;
-			}
-
-			await disconnect.click();
-			// Disconnecting returns to the list; the row drops back to Model Providers.
-			await expect(this.row(provider)).toHaveAttribute('data-provider-section', 'model-providers', { timeout });
-			await this.clickCloseButton();
+			});
 		});
 	}
 
