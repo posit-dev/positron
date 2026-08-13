@@ -12,6 +12,10 @@ describe('getBaseUrlLabel', () => {
 		expect(getBaseUrlLabel('databricks')).toBe('Workspace URL');
 	});
 
+	it('labels the Snowflake base URL as the account identifier', () => {
+		expect(getBaseUrlLabel('snowflake-cortex')).toBe('Account Identifier');
+	});
+
 	it('labels other providers with the generic base URL label', () => {
 		expect(getBaseUrlLabel('anthropic-api')).toBe('Base URL');
 	});

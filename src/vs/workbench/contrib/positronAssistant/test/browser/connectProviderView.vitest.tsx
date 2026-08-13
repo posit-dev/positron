@@ -44,6 +44,15 @@ const databricks: IPositronLanguageModelSource = {
 	defaults: { baseUrl: 'https://adb-123.7.azuredatabricks.net' },
 };
 
+// Snowflake stores the bare account, not a URL, in baseUrl.
+const snowflake: IPositronLanguageModelSource = {
+	type: PositronLanguageModelType.Chat,
+	provider: { id: 'snowflake-cortex', displayName: 'Snowflake' },
+	supportedOptions: ['apiKey', 'baseUrl'],
+	signedIn: false,
+	defaults: { baseUrl: 'myorg-account1' },
+};
+
 const custom: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
 	provider: { id: 'openai-compatible', displayName: 'Custom Provider', settingName: 'openai-compatible' },
@@ -158,6 +167,12 @@ describe('ConnectProviderView', () => {
 	it('labels the Databricks base URL input as the workspace URL', () => {
 		rtl.render(<ConnectProviderView source={databricks} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
 		expect(screen.getByLabelText('Workspace URL')).toHaveValue('https://adb-123.7.azuredatabricks.net');
+		expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
+	});
+
+	it('labels the Snowflake base URL input as the account identifier', () => {
+		rtl.render(<ConnectProviderView source={snowflake} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		expect(screen.getByLabelText('Account Identifier')).toHaveValue('myorg-account1');
 		expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
 	});
 
