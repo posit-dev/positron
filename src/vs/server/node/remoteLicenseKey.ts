@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as path from '../../base/common/path.js';
 import * as crypto from 'crypto';
 import { LicenseManager } from './licenseManager.js';
+import type { DisposableStore } from '../../base/common/lifecycle.js';
 
 /**
  * The result of validating a license.
@@ -95,6 +96,8 @@ J96J0myarwU9s46B9SbyWKzcTpEvHgD47/rRcMx64PlmtS6hxgIdyIKNFjWrGt5g
 jv4RUEuRUo3aePrbcc3Wfl8CAwEAAQ==
 -----END PUBLIC KEY-----`;
 
+type LicenseManagerStore = Pick<DisposableStore, 'add'>;
+
 /**
  * Validates a license key. If any errors are encountered, they are logged to
  * the console.
@@ -109,15 +112,11 @@ jv4RUEuRUo3aePrbcc3Wfl8CAwEAAQ==
  * @param args The parsed command-line arguments.
  * @returns A promise that resolves to the license validation result.
  */
-export async function validateLicenseKey(connectionToken: string, args: ServerParsedArgs): Promise<ILicenseValidationResult> {
+export async function validateLicenseKey(connectionToken: string, args: ServerParsedArgs, licenseManagerStore?: LicenseManagerStore): Promise<ILicenseValidationResult> {
 
-	// Remote license manager mode takes precedence over every key-based source.
-	// In this mode the license is held by a supervised client process rather
-	// than proven by a signed token, so a stale key in the environment must not
-	// win over it.
 	if (isRemoteLicenseManagerMode()) {
 		console.log('Acquiring a Positron license through the license manager named by POSITRON_LICENSE_MANAGER_PATH.');
-		return validateWithLicenseManager(process.env.POSITRON_LICENSE_MANAGER_PATH!);
+		return validateWithLicenseManager(process.env.POSITRON_LICENSE_MANAGER_PATH!, licenseManagerStore);
 	}
 
 	// Check the command-line arguments for a license key.
@@ -274,15 +273,6 @@ export async function validateLicense(connectionToken: string, license: string, 
 }
 
 /**
- * Remote license manager mode.
- *
- * In hosted environments such as SageMaker there is no signed license token to
- * present. Instead the server runs a licensing client that checks a seat out of
- * AWS License Manager and holds it for as long as the server runs, and the
- * server's licensed state follows what that client reports.
- */
-
-/**
  * Whether the server should get its license from a license manager client
  * rather than from a signed license key.
  */
@@ -293,15 +283,10 @@ export function isRemoteLicenseManagerMode(): boolean {
 /**
  * Acquires a license by running the license manager client.
  *
- * The client is left running for the lifetime of the process: it holds the seat
- * and extends the lease, and checks the seat back in when it is signalled. It
- * sets `PR_SET_PDEATHSIG(SIGHUP)` on itself, so the kernel releases the seat
- * even when this process dies without a chance to clean up.
- *
  * @param binaryPath Path to the license manager client binary.
  * @returns The license validation result.
  */
-async function validateWithLicenseManager(binaryPath: string): Promise<ILicenseValidationResult> {
+async function validateWithLicenseManager(binaryPath: string, licenseManagerStore?: LicenseManagerStore): Promise<ILicenseValidationResult> {
 	// A missing binary is a permanent, unambiguous deployment error. Checking up
 	// front avoids sitting through the whole startup timeout respawning it.
 	if (!fs.existsSync(binaryPath)) {
@@ -311,9 +296,6 @@ async function validateWithLicenseManager(binaryPath: string): Promise<ILicenseV
 
 	const manager = new LicenseManager({
 		binaryPath,
-		// Losing the seat mid-session is the same fail-closed outcome as starting
-		// without a license: the server does not keep running unlicensed. The
-		// grace period is what keeps a brief AWS outage from ending a session.
 		onUnlicensed: () => {
 			console.error('Positron is no longer licensed: the license manager could not hold a lease. Shutting down.');
 			manager.dispose();
@@ -327,5 +309,6 @@ async function validateWithLicenseManager(binaryPath: string): Promise<ILicenseV
 		return { valid: false };
 	}
 
+	licenseManagerStore?.add(manager);
 	return { valid: true };
 }

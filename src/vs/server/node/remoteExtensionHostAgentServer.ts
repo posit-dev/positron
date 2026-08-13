@@ -672,6 +672,8 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 		process.exit(1);
 	}
 
+	const disposables = new DisposableStore();
+
 	// --- Start Positron ---
 	// Ensure that the connection token is mandatory in web (server) mode. Since Positron
 	// license keys sign the connection token, we can't proceed without one.
@@ -686,7 +688,7 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 			process.exit(1);
 		}
 		const mandatoryConnectionToken = connectionToken as MandatoryServerConnectionToken;
-		licenseValidationResult = await validateLicenseKey(mandatoryConnectionToken.value, args);
+		licenseValidationResult = await validateLicenseKey(mandatoryConnectionToken.value, args, disposables);
 		if (!licenseValidationResult.valid) {
 			// License warnings are logged in the validateLicenseKey function; at this point we just need to exit
 			process.exit(1);
@@ -726,7 +728,6 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 		}
 	});
 
-	const disposables = new DisposableStore();
 	// --- Start Positron ---
 	// Pass the licensee info (if available) to the server services
 	const positronLicenseeInfo = licenseValidationResult?.valid ? {

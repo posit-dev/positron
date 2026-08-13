@@ -10,10 +10,6 @@ import { PassThrough } from 'stream';
 import { ILicenseManagerOptions, ILicenseManagerProcess, LicenseManager, parseLicenseManagerLine } from '../../node/licenseManager.js';
 import { ensureNoLeakedDisposables } from '../../../test/vitest/vitestUtils.js';
 
-/**
- * Fabricated frames in the real wire format from `types.Message.WriteJson` in
- * rstudio/licensing-clients: a base64 HMAC line, then a single JSON line.
- */
 const FAKE_HMAC_LINE = 'ZmFrZS1zaWduYXR1cmUtbm90LWEtcmVhbC1obWFj';
 
 const ACTIVATED_FRAME =
@@ -30,7 +26,6 @@ const EXPIRED_FRAME =
 	'"allow-apis":"","days-left":0,"has-key":false,"has-trial":false,' +
 	'"license-scope":"","sessions":"0","enable-launcher":"0","max-repo-count":"0"}\n';
 
-/** Splits a two-line wire frame into its HMAC line and its JSON line. */
 function linesOf(frame: string): string[] {
 	return frame.split('\n').filter(line => line !== '');
 }
@@ -62,13 +57,11 @@ describe('parseLicenseManagerLine', () => {
 	});
 });
 
-/** A stand-in for the spawned license manager client. */
 class FakeClient extends EventEmitter implements ILicenseManagerProcess {
 	readonly stdout = new PassThrough();
 	readonly stderr = new PassThrough();
 	readonly kill = vi.fn((_signal: NodeJS.Signals) => true);
 
-	/** Reports the client exiting, as the real process event would. */
 	exit(): void {
 		this.emit('exit');
 	}
@@ -78,8 +71,6 @@ describe('LicenseManager', () => {
 	const disposables = ensureNoLeakedDisposables();
 
 	beforeEach(() => {
-		// Only timers are faked. Stream delivery runs on the microtask and
-		// immediate queues, which `flush` below drains for real.
 		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 	});
 
@@ -87,7 +78,6 @@ describe('LicenseManager', () => {
 		vi.useRealTimers();
 	});
 
-	/** Lets piped stdout data reach the parser. */
 	const flush = () => new Promise<void>(resolve => setImmediate(resolve));
 
 	function createManager(overrides: Partial<ILicenseManagerOptions> = {}) {
@@ -128,14 +118,10 @@ describe('LicenseManager', () => {
 		vi.advanceTimersByTime(60_000);
 
 		await expect(started).resolves.toBe(false);
-		// Enforcement is for losing a seat we held; a startup that never got one
-		// is reported to the caller instead, which fails closed on its own.
 		expect(onUnlicensed).not.toHaveBeenCalled();
 	});
 
 	it('does not read the client stderr diagnostics as lease messages', async () => {
-		// Treating stderr as a frame would let the client's own JSON log output
-		// drive the licensed state.
 		const { manager, clients } = createManager();
 
 		const started = manager.start();
@@ -205,9 +191,6 @@ describe('LicenseManager', () => {
 	});
 
 	it('signals the client and cancels pending enforcement when disposed', async () => {
-		// Shutting the server down kills the client, which looks exactly like a
-		// lost seat. Without teardown cancelling the countdown, a normal shutdown
-		// would trip enforcement.
 		const { manager, onUnlicensed, clients } = createManager();
 
 		const started = manager.start();
@@ -219,7 +202,6 @@ describe('LicenseManager', () => {
 		await flush();
 		manager.dispose();
 
-		// SIGTERM is what tells the client to check the seat back in.
 		expect(clients[0].kill).toHaveBeenCalledWith('SIGTERM');
 		vi.advanceTimersByTime(60_000);
 		expect(onUnlicensed).not.toHaveBeenCalled();
@@ -231,9 +213,6 @@ describe('LicenseManager (real child process)', () => {
 	const disposables = ensureNoLeakedDisposables();
 
 	it('reads frames from a real client on stdout', async () => {
-		// The fake-spawn tests above cover the licensing logic. This one proves
-		// the wiring against a real ChildProcess: stdio piping, the stream split
-		// across the two-line frame, and the process events.
 		const script = `process.stdout.write(${JSON.stringify(ACTIVATED_FRAME)}); setInterval(() => {}, 1000);`;
 		const manager = disposables.add(new LicenseManager({
 			binaryPath: process.execPath,

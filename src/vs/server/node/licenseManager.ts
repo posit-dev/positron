@@ -12,26 +12,13 @@ import { StreamSplitter } from '../../base/node/nodeStreams.js';
 /**
  * Supervises the `license-manager-aws-sagemaker` client.
  *
- * In hosted environments such as SageMaker there is no signed license token to
- * present. Instead the client checks a seat out of AWS License Manager and holds
- * it for as long as it runs, extending the lease before it expires. The server's
- * licensed state follows what the client reports on stdout.
- *
  * Wire contract (rstudio/licensing-clients, `types.Message.WriteJson`): the
  * client writes two LF-terminated lines per refresh, a base64 HMAC-SHA256 line
- * followed by a single-line JSON object. We read the JSON and deliberately
- * ignore the HMAC: the key is injected at the client's build time, so verifying
- * it here would mean embedding a shared symmetric secret in this repository for
- * no in-container gain -- the client is already our own child process.
- *
- * Check-in on shutdown is deliberately not implemented here. The client calls
- * `PR_SET_PDEATHSIG(SIGHUP)` and handles SIGHUP/SIGINT/SIGTERM by checking the
- * lease back in, so the kernel releases the seat even if this process dies
- * abruptly. Duplicating that with a supervised shutdown sequence would add a
- * failure mode without adding a guarantee.
+ * followed by a single-line JSON object. We read the JSON and ignore the HMAC
+ * because verifying it here would require embedding the client's shared secret.
  */
 
-/** The only two statuses the client reports (`types.go`). */
+/** Status value that indicates an active lease. */
 const STATUS_ACTIVATED = 'activated';
 
 /** How long a lost lease is tolerated before the server is unlicensed. */
@@ -159,9 +146,6 @@ export class LicenseManager extends Disposable {
 		super();
 		this._register(toDisposable(() => {
 			this.stopped = true;
-			// Best effort, and deliberately not awaited: the client checks the
-			// lease back in on SIGTERM, and its PR_SET_PDEATHSIG covers the case
-			// where this process dies without getting here.
 			this.child?.kill('SIGTERM');
 			this.child = undefined;
 		}));
@@ -200,9 +184,7 @@ export class LicenseManager extends Disposable {
 			}
 		});
 
-		// The client logs JSON diagnostics to stderr. Surfaced but never parsed:
-		// the message contract lives on stdout, and reading stderr would risk
-		// acting on log text that happens to look like a lease message.
+		// The message contract lives on stdout; stderr is diagnostics only.
 		child.stderr?.on('data', chunk => {
 			console.error('[license-manager] ', String(chunk).trimEnd());
 		});
@@ -223,8 +205,6 @@ export class LicenseManager extends Disposable {
 		}
 		this.child = undefined;
 		if (this.stopped) {
-			// Teardown kills the client itself; respawning here would race the
-			// disposal of the restart timer and leave a stray child behind.
 			return;
 		}
 		this.beginGrace();
