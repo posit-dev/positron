@@ -72,6 +72,18 @@ export function sourceRangeToCell(cell: ICellLineSpan, range: IRange): IRange | 
 }
 
 /**
+ * Map a zero-based line number in a cell back into source document coordinates,
+ * staying zero-based.
+ *
+ * Not every result is a position or a range. A rejected statement range reports
+ * the line of the syntax error on its own, and reports it zero indexed, so it
+ * needs the shift applied in its own indexing rather than through a range.
+ */
+export function cellZeroBasedLineToSource(cell: ICellLineSpan, line: number): number {
+	return line + lineDelta(cell);
+}
+
+/**
  * Map a range in a cell back into source document coordinates.
  */
 export function cellRangeToSource(cell: ICellLineSpan, range: IRange): IRange {
