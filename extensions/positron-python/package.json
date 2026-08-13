@@ -75,6 +75,7 @@
     ],
     "activationEvents": [
         "onCommand:python.createEnvironmentAndRegister",
+        "onCommand:python.getEnvironmentHealth",
         "onStartupFinished",
         "onDebugInitialConfigurations",
         "onLanguage:python",

@@ -86,10 +86,11 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                 printInterpreterDebugInfo(interpreters);
             }),
         );
-        // Returns a machine-readable Python environment health report for the welcome page. Left
-        // out of package.json, like the other commands core calls, so it stays off the Command
-        // Palette: the return value is the whole point, and running it writes nothing to the
-        // output channel and reveals no panel.
+        // Returns a machine-readable Python environment health report for the welcome page. Running
+        // it writes nothing to the output channel and reveals no panel. It has no
+        // contributes.commands entry, which keeps it off the Command Palette but also costs the
+        // implicit onCommand activation event, so package.json lists that event explicitly: the
+        // welcome page can call this before onStartupFinished has woken the extension.
         disposables.push(
             vscode.commands.registerCommand(
                 Commands.Get_Environment_Health,
