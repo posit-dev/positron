@@ -128,7 +128,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			type: 'boolean',
 			default: true,
 			scope: ConfigurationScope.APPLICATION,
-			description: nls.localize('positron.packages.vulnerabilities.enabled', "Show known security vulnerabilities (CVEs) for installed packages. Only available when the environment's package repository is a Posit Package Manager instance; the lookup sends the names and versions of installed packages to that repository."),
+			description: nls.localize('positron.packages.vulnerabilities.enabled', "Show known security vulnerabilities (CVEs) for installed packages. The lookup sends the names and versions of installed packages to a Posit Package Manager instance: the one the environment installs from when that is a Posit Package Manager, and Posit's public instance at packagemanager.posit.co otherwise."),
 			tags: ['preview'],
 		},
 		[PACKAGE_METADATA_CACHE_ENABLED_SETTING]: {

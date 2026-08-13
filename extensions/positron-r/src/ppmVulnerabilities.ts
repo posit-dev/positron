@@ -18,14 +18,23 @@ import { findReposConf } from './kernel-spec';
  * point at (if any), confirms it is a PPM new enough to serve vulnerability
  * data, and fetches per-installed-version advisories for the Packages pane.
  *
- * Only the user's configured repository is ever queried: the lookup sends the
- * installed package inventory (names and versions), which must not leave the
- * environment the admin configured. When the configured repository is not a
- * PPM instance, no request is made and no vulnerability data is shown.
+ * The advisories are the same OSV data wherever they are served from, so the
+ * session's repositories only decide *which* PPM answers, not whether the
+ * lookup happens: a repository pointing at a PPM is used as-is, and anything
+ * else (cran.rstudio.com, a mirror, no repo configuration) falls back to
+ * Posit's public instance. Either way the lookup sends the installed package
+ * inventory (names and versions) to that instance.
  */
 
 /** The public Posit Package Manager CRAN repo, matching ark's default. */
 const PUBLIC_PPM_CRAN_REPO = 'https://packagemanager.posit.co/cran/latest';
+
+/**
+ * The same public instance as an already-resolved repo, queried when the
+ * session's repositories aren't a PPM. Known-good, so it needs no
+ * `/__api__/status` probe.
+ */
+export const PUBLIC_P3M: PpmRepo = { apiBase: 'https://packagemanager.posit.co', repoName: 'cran' };
 
 /** Max package specs per filter/packages request, to bound payload sizes. */
 const CHUNK_SIZE = 100;

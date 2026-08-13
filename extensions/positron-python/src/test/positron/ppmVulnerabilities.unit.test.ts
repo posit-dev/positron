@@ -4,15 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from 'chai';
+import { when } from 'ts-mockito';
+import * as vscode from 'vscode';
 import {
 	clearPpmDiscoveryCache,
 	discoverPpmApi,
 	fetchPpmVulnerabilities,
+	getPpmVulnerabilities,
 	normalizeOsvVulnerabilities,
 	OsvVulnerability,
 	ppmSupportsVulnerabilities,
 	resolvePythonIndexUrl,
 } from '../../client/positron/packages/ppmVulnerabilities';
+import { mockedVSCodeNamespaces } from '../vscode-mock';
 
 type FetchFn = typeof globalThis.fetch;
 type FetchCall = { url: string; init?: RequestInit };
@@ -29,6 +33,34 @@ function makeJsonResponse(body: unknown, init: { ok?: boolean; status?: number }
 
 function ndjson(...lines: unknown[]): string {
 	return lines.map((l) => (typeof l === 'string' ? l : JSON.stringify(l))).join('\n');
+}
+
+/**
+ * Unset the index-URL environment variables around each test in the calling
+ * suite, so a developer's own PIP_INDEX_URL can't decide the outcome.
+ */
+function withCleanIndexEnv(): void {
+	const ENV_KEYS = ['PIP_INDEX_URL', 'UV_DEFAULT_INDEX', 'UV_INDEX_URL'] as const;
+	let savedEnv: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>>;
+
+	setup(() => {
+		savedEnv = {};
+		for (const key of ENV_KEYS) {
+			savedEnv[key] = process.env[key];
+			delete process.env[key];
+		}
+	});
+
+	teardown(() => {
+		for (const key of ENV_KEYS) {
+			const value = savedEnv[key];
+			if (value === undefined) {
+				delete process.env[key];
+			} else {
+				process.env[key] = value;
+			}
+		}
+	});
 }
 
 /**
@@ -108,27 +140,7 @@ suite('ppmVulnerabilities - ppmSupportsVulnerabilities', () => {
 });
 
 suite('ppmVulnerabilities - resolvePythonIndexUrl', () => {
-	const ENV_KEYS = ['PIP_INDEX_URL', 'UV_DEFAULT_INDEX', 'UV_INDEX_URL'] as const;
-	let savedEnv: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>>;
-
-	setup(() => {
-		savedEnv = {};
-		for (const key of ENV_KEYS) {
-			savedEnv[key] = process.env[key];
-			delete process.env[key];
-		}
-	});
-
-	teardown(() => {
-		for (const key of ENV_KEYS) {
-			const value = savedEnv[key];
-			if (value === undefined) {
-				delete process.env[key];
-			} else {
-				process.env[key] = value;
-			}
-		}
-	});
+	withCleanIndexEnv();
 
 	test('prefers the environment over pip config', async () => {
 		process.env.PIP_INDEX_URL = 'https://ppm.example.com/pypi/latest/simple';
@@ -269,5 +281,100 @@ suite('ppmVulnerabilities - fetchPpmVulnerabilities', () => {
 		const result = await fetchPpmVulnerabilities(PPM, [{ name: 'localbuild' }], undefined, fetchImpl);
 
 		expect(result.size).to.equal(0);
+	});
+});
+
+suite('ppmVulnerabilities - getPpmVulnerabilities', () => {
+	const PYCRYPTO = [{ name: 'pycrypto', version: '2.6.1' }];
+	const PUBLIC_FILTER_URL = 'https://packagemanager.posit.co/__api__/filter/packages';
+
+	let calls: FetchCall[];
+
+	withCleanIndexEnv();
+
+	setup(() => {
+		clearPpmDiscoveryCache();
+		calls = [];
+		setFeatureEnabled(true);
+	});
+
+	/** Stub the `packages.vulnerabilities.enabled` setting. */
+	function setFeatureEnabled(enabled: boolean): void {
+		when(mockedVSCodeNamespaces.workspace!.getConfiguration('packages')).thenReturn(({
+			get: () => enabled,
+		} as unknown) as vscode.WorkspaceConfiguration);
+	}
+
+	/** Record every request; answer status probes and filter queries by URL. */
+	function fakeFetch(routes: Record<string, Response>): FetchFn {
+		return ((url: string, init?: RequestInit) => {
+			calls.push({ url, init });
+			const response = routes[url];
+			return response
+				? Promise.resolve(response)
+				: Promise.resolve(makeJsonResponse('not found', { ok: false, status: 404 }));
+		}) as FetchFn;
+	}
+
+	test('queries the public instance when the environment has no PPM index', async () => {
+		const fetchImpl = fakeFetch({
+			[PUBLIC_FILTER_URL]: makeJsonResponse(
+				ndjson({ name: 'pycrypto', version: '2.6.1', vulns: [PYSEC_RECORD, GHSA_RECORD] }),
+			),
+		});
+
+		const result = await getPpmVulnerabilities(PYCRYPTO, undefined, undefined, fetchImpl);
+
+		// Straight to the public instance: no index to resolve, so no probe.
+		expect(calls.map((c) => c.url)).to.deep.equal([PUBLIC_FILTER_URL]);
+		expect(JSON.parse(calls[0].init?.body as string).repo).to.equal('pypi');
+		expect(result?.get('pycrypto')).to.have.lengthOf(1);
+	});
+
+	test('prefers the PPM the configured index points at', async () => {
+		process.env.PIP_INDEX_URL = 'https://ppm.example.com/pypi/latest/simple';
+		const fetchImpl = fakeFetch({
+			'https://ppm.example.com/__api__/status': makeJsonResponse({ version: '2026.06.0' }),
+			'https://ppm.example.com/__api__/filter/packages': makeJsonResponse(
+				ndjson({ name: 'pycrypto', version: '2.6.1', vulns: [PYSEC_RECORD] }),
+			),
+		});
+
+		const result = await getPpmVulnerabilities(PYCRYPTO, undefined, undefined, fetchImpl);
+
+		// Probes the index path down to the API base, then queries that PPM --
+		// the public instance is never contacted.
+		expect(calls[calls.length - 1].url).to.equal('https://ppm.example.com/__api__/filter/packages');
+		expect(calls.some((c) => c.url.startsWith('https://packagemanager.posit.co'))).to.be.false;
+		expect(result?.get('pycrypto')).to.have.lengthOf(1);
+	});
+
+	test('falls back to the public instance when the configured index is not a PPM', async () => {
+		process.env.PIP_INDEX_URL = 'https://pypi.org/simple';
+		const fetchImpl = fakeFetch({
+			[PUBLIC_FILTER_URL]: makeJsonResponse(ndjson({ name: 'pycrypto', version: '2.6.1' })),
+		});
+
+		const result = await getPpmVulnerabilities(PYCRYPTO, undefined, undefined, fetchImpl);
+
+		// Probes pypi.org, finds no PPM, then asks the public instance anyway.
+		expect(calls.map((c) => c.url)).to.deep.equal(['https://pypi.org/__api__/status', PUBLIC_FILTER_URL]);
+		expect(result?.get('pycrypto')).to.deep.equal([]);
+	});
+
+	test('makes no request when the feature is disabled', async () => {
+		setFeatureEnabled(false);
+		const fetchImpl = fakeFetch({});
+
+		const result = await getPpmVulnerabilities(PYCRYPTO, undefined, undefined, fetchImpl);
+
+		expect(result).to.be.undefined;
+		expect(calls).to.be.empty;
+	});
+
+	test('resolves undefined when the lookup fails', async () => {
+		const fetchImpl = (() => Promise.reject(new Error('network down'))) as FetchFn;
+
+		expect(await getPpmVulnerabilities(PYCRYPTO, undefined, undefined, fetchImpl)).to.be.undefined;
 	});
 });

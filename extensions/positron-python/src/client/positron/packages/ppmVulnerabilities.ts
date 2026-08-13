@@ -17,11 +17,12 @@ import { traceInfo, traceWarn } from '../../logging';
  * vulnerability data, and fetches per-installed-version advisories for the
  * Packages pane.
  *
- * Only the environment's configured index is ever queried: the lookup sends
- * the installed package inventory (names and versions), which must not leave
- * the environment the admin configured. When the configured index is not a
- * PPM instance (e.g. pypi.org), no request is made and no vulnerability data
- * is shown.
+ * The advisories are the same OSV data wherever they are served from, so the
+ * environment's own index only decides *which* PPM answers, not whether the
+ * lookup happens: an index pointing at a PPM is used as-is, and anything else
+ * (pypi.org, an index we can't resolve, nothing configured at all) falls back
+ * to Posit's public instance. Either way the lookup sends the installed
+ * package inventory (names and versions) to that instance.
  *
  * Mirrors extensions/positron-r/src/ppmVulnerabilities.ts (the twin-module
  * pattern the p3mSearch clients already follow).
@@ -43,6 +44,12 @@ export interface PpmRepo {
 	/** Repository name within the instance, e.g. 'pypi'. */
 	readonly repoName: string;
 }
+
+/**
+ * Posit's public Package Manager, queried when the environment's index isn't
+ * a PPM. Known-good, so it needs no `/__api__/status` probe.
+ */
+const PUBLIC_P3M: PpmRepo = { apiBase: 'https://packagemanager.posit.co', repoName: 'pypi' };
 
 /** OSV-format severity entry as served by PPM. */
 interface OsvSeverity {
@@ -459,11 +466,19 @@ function normalizeGroup(group: OsvVulnerability[]): positron.PackageVulnerabilit
 }
 
 /**
- * Fetch vulnerabilities for the installed packages when a PPM index is
- * configured, gated on the `packages.vulnerabilities.enabled` setting.
- * Resolves undefined (no data for any package) when the feature is disabled,
- * no PPM index applies, or the lookup fails -- vulnerability data is optional
- * and must never break the metadata fetch.
+ * Fetch vulnerabilities for the installed packages, gated on the
+ * `packages.vulnerabilities.enabled` setting.
+ *
+ * Prefers the PPM the environment's own index points at, so a managed
+ * environment gets advisories from the instance its admin configured, and
+ * falls back to the public instance otherwise. The fallback is what makes the
+ * feature work with no configuration at all, and what covers the environments
+ * whose index we can't see -- notably uv, which takes its index from uv.toml
+ * or pyproject.toml as well as from the environment variables read here.
+ *
+ * Resolves undefined (no data for any package) when the feature is disabled or
+ * the lookup fails -- vulnerability data is optional and must never break the
+ * metadata fetch.
  *
  * Shared by the pip and uv managers.
  */
@@ -471,6 +486,7 @@ export async function getPpmVulnerabilities(
 	packages: readonly positron.PackageSpec[],
 	token?: vscode.CancellationToken,
 	getPipConfigIndexUrl?: () => Promise<string | undefined>,
+	fetchImpl: typeof fetch = fetch,
 ): Promise<Map<string, positron.PackageVulnerability[]> | undefined> {
 	const enabled = vscode.workspace.getConfiguration('packages').get<boolean>('vulnerabilities.enabled');
 	if (enabled === false) {
@@ -479,14 +495,8 @@ export async function getPpmVulnerabilities(
 
 	try {
 		const indexUrl = await resolvePythonIndexUrl(getPipConfigIndexUrl);
-		if (!indexUrl) {
-			return undefined;
-		}
-		const ppm = await discoverPpmApi(indexUrl);
-		if (!ppm) {
-			return undefined;
-		}
-		return await fetchPpmVulnerabilities(ppm, packages, token);
+		const configured = indexUrl ? await discoverPpmApi(indexUrl, fetchImpl) : undefined;
+		return await fetchPpmVulnerabilities(configured ?? PUBLIC_P3M, packages, token, fetchImpl);
 	} catch (err) {
 		if (err instanceof vscode.CancellationError) {
 			throw err;
