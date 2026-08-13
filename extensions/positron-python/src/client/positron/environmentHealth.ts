@@ -27,7 +27,6 @@ import { IPythonExecutionFactory } from '../common/process/types';
 import { IPYKERNEL_VERSION, MINIMUM_PYTHON_VERSION, MAXIMUM_PYTHON_VERSION_EXCLUSIVE } from '../common/constants';
 import { Architecture } from '../common/utils/platform';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
-import { traceInfo } from '../logging';
 import { getIpykernelBundle } from './ipykernel';
 import { isUvInstalled } from '../pythonEnvironments/common/environmentManagers/uv';
 
@@ -663,15 +662,4 @@ async function interpreterResolvesAndRuns(
     } catch {
         return false;
     }
-}
-
-/**
- * Writes the report to the Python output channel. Kept out of getEnvironmentHealth so a
- * programmatic caller (the welcome page) can run a check without touching the log; only the
- * python.printEnvironmentHealth developer probe calls this.
- */
-export function logEnvironmentHealth(result: EnvironmentHealthResult): void {
-    traceInfo('===================== [START] PYTHON ENVIRONMENT HEALTH =====================');
-    traceInfo(JSON.stringify(result, null, 2));
-    traceInfo('====================== [END] PYTHON ENVIRONMENT HEALTH ======================');
 }

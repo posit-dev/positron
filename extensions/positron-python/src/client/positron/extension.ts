@@ -10,7 +10,7 @@ import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
 import { MINIMUM_PYTHON_VERSION, Commands } from '../common/constants';
 import { getIpykernelBundle } from './ipykernel';
-import { getEnvironmentHealth, logEnvironmentHealth } from './environmentHealth';
+import { getEnvironmentHealth } from './environmentHealth';
 import { InstallOptions } from '../common/installer/types';
 import { activateAppDetection as activateWebAppDetection } from './webAppContexts';
 import { activateWebAppCommands } from './webAppCommands';
@@ -86,26 +86,14 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                 printInterpreterDebugInfo(interpreters);
             }),
         );
-        // Returns a machine-readable Python environment health report. Internal: consumed by a
-        // frontend, not surfaced in the Command Palette. Writes nothing to the output channel and
-        // reveals no panel, so a caller can run a check without disturbing the user.
+        // Returns a machine-readable Python environment health report for the welcome page. Hidden
+        // from the Command Palette, since the return value is the whole point: the command writes
+        // nothing to the output channel and reveals no panel.
         disposables.push(
             vscode.commands.registerCommand(
                 Commands.Get_Environment_Health,
                 async (args?: { workspaceFolder?: string }) => getEnvironmentHealth(serviceContainer, args),
             ),
-        );
-        // Developer probe: the same report, logged as JSON to the Python output channel and shown.
-        disposables.push(
-            vscode.commands.registerCommand(Commands.Print_Environment_Health, async () => {
-                logEnvironmentHealth(await getEnvironmentHealth(serviceContainer));
-                // Reveal the channel after writing, so it opens onto the report. Ignore failures:
-                // python.viewOutput is only registered in trusted, non-virtual workspaces.
-                await Promise.resolve(vscode.commands.executeCommand(Commands.ViewOutput)).then(
-                    () => undefined,
-                    () => undefined,
-                );
-            }),
         );
 
         // Activate detection for web applications

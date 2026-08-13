@@ -557,11 +557,6 @@
                 "category": "Python",
                 "command": "python.getEnvironmentHealth",
                 "title": "%python.command.python.getEnvironmentHealth.title%"
-            },
-            {
-                "category": "Python",
-                "command": "python.printEnvironmentHealth",
-                "title": "%python.command.python.printEnvironmentHealth.title%"
             }
         ],
         "configuration": {
