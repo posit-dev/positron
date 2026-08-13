@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { expect, tags, test } from '../_test.setup';
 import { Application, Sessions } from '../../infra';
@@ -181,9 +181,10 @@ export function defineMemoryScenario(options: {
 			const htmlPath = join(SNAPSHOT_DIR, 'memory-report.html');
 			writeFileSync(htmlPath, html);
 			await testInfo.attach('memory-report.html', { path: htmlPath, contentType: 'text/html' });
-			if (process.env.GITHUB_STEP_SUMMARY) {
-				appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${markdown}\n`);
-			}
+
+			// Deliberately only to the job log, not to GITHUB_STEP_SUMMARY: the
+			// workflow links the rendered HTML on the CDN instead, and the same
+			// table in both places is the copy that goes stale.
 			console.log(markdown);
 
 			await publishSnapshots(snapshots, {

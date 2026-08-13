@@ -172,7 +172,6 @@ jobs:
         run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Render and publish'
 
       - name: Upload report
-        id: upload-report
         if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -183,19 +182,12 @@ jobs:
           path: ${{ runner.temp }}/memory-snapshots-${{ matrix.scenario }}/
           if-no-files-found: warn
 
-      # actions/upload-artifact@v7's artifact-url output is the direct link to
-      # this job's own report. Falls back to the run's artifacts anchor when
-      # the output is empty (upload-report skipped, or nothing matched
-      # if-no-files-found: warn), rather than assuming the output is always
-      # populated.
-      - name: Link this scenario's report in the step summary
-        if: always()
-        run: |
-          URL="${{ steps.upload-report.outputs.artifact-url }}"
-          if [ -z "$URL" ]; then
-            URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
-          fi
-          echo "[memory-report-${{ matrix.scenario }} artifact]($URL)" >> "$GITHUB_STEP_SUMMARY"
+      # This job deliberately writes no step summary. It cannot publish the report
+      # itself -- the image ships no AWS CLI, the same reason gh is hand-installed
+      # above -- and a link printed here would point at a file summarize-memory
+      # has not uploaded yet, staying dead if that job fails. GitHub has no way
+      # for a later job to append to this one's summary, so all four links are
+      # printed by summarize-memory instead, and appear on the run's Summary page.
 
   # Combines the three matrix jobs' per-scenario reports into one
   # cross-scenario view: the per-role numbers are 20-50x quieter than the
@@ -213,6 +205,10 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      # For the AWS OIDC role-assumption in upload-report-to-s3.
+      id-token: write
     steps:
       - uses: actions/checkout@v7
 
@@ -234,36 +230,81 @@ jobs:
           pattern: memory-report-*
           path: ${{ runner.temp }}/memory-reports
 
+      # Staged into `playwright-report/` because upload-report-to-s3 hardcodes
+      # that as its source, and 15 other workflows use that action.
+      #
+      # The scenario reports are published alongside the summary, not replaced by
+      # it: only they carry the delta against the previous nightly, the process
+      # tree, and the activated-extension cards.
       - name: Render cross-scenario summary
-        id: summarize
         run: |
+          STAGE="${{ runner.temp }}/playwright-report"
+          mkdir -p "$STAGE"
           node test/e2e/out/utils/memory/summarize-cli.js \
             "${{ runner.temp }}/memory-reports" \
-            "${{ runner.temp }}/memory-summary.html" \
-            | tee "${{ runner.temp }}/memory-summary.md"
-          {
-            echo "markdown<<MEMORY_SUMMARY_EOF"
-            cat "${{ runner.temp }}/memory-summary.md"
-            echo "MEMORY_SUMMARY_EOF"
-          } >> "$GITHUB_OUTPUT"
+            "$STAGE/index.html"
 
-      - name: Upload cross-scenario summary
-        id: upload-summary
-        uses: actions/upload-artifact@v7
+          # Driven by the artifacts that actually arrived rather than a hardcoded
+          # scenario list, so this cannot drift from the matrix. A scenario whose
+          # matrix job failed before uploading simply has no artifact and is
+          # skipped, the same way summarize-cli treats a missing scenario.
+          for SRC in "${{ runner.temp }}"/memory-reports/memory-report-*/memory-report.html; do
+            [ -f "$SRC" ] || continue
+            DIR=$(dirname "$SRC")
+            SCENARIO=${DIR##*/memory-report-}
+            cp "$SRC" "$STAGE/$SCENARIO.html"
+          done
+          ls -la "$STAGE"
+
+      # The only place REPORT_DIR is computed, so there is no second job whose
+      # identifier or distro suffix has to agree with this one.
+      #
+      # skip-summary because gen-report-dir's own line links index.html alone; the
+      # step below links the scenario reports too.
+      - name: Generate the report directory
+        uses: ./.github/actions/gen-report-dir
         with:
-          name: memory-summary
-          path: ${{ runner.temp }}/memory-summary.html
-          if-no-files-found: error
+          identifier: memory
+          skip-summary: 'true'
 
-      - name: Append summary to the step summary
+      # aws s3 cp infers Content-Type from the extension, so these serve as
+      # text/html and render in the browser -- which an artifact zip cannot do.
+      # continue-on-error so a transient S3 or OIDC failure loses the links, not
+      # the night's run. Matches how the other e2e workflows call this action.
+      - name: Upload the reports to S3
+        continue-on-error: true
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+          working-directory: ${{ runner.temp }}
+
+      # Links only what was staged, so a scenario missing from this run is left
+      # out rather than linked to a 404.
+      - name: Link the reports in the step summary
         if: always()
         run: |
-          URL="${{ steps.upload-summary.outputs.artifact-url }}"
-          if [ -z "$URL" ]; then
-            URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          # Reachable with REPORT_URL unset: `always()` still runs this when the
+          # render step failed and skipped the step that sets it.
+          if [ -z "$REPORT_URL" ]; then
+            echo "No memory report: rendering failed before the reports were published." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
+          BASE="${REPORT_URL%/index.html}"
           {
-            echo "${{ steps.summarize.outputs.markdown }}"
+            echo "## Memory"
             echo ""
-            echo "[memory-summary artifact]($URL)"
+            echo "[Cross-scenario summary]($REPORT_URL)"
+            echo ""
+            for FILE in "${{ runner.temp }}"/playwright-report/*.html; do
+              # An unmatched glob expands to the literal pattern, which would
+              # otherwise be linked as a scenario named '*'.
+              if [ ! -f "$FILE" ]; then
+                continue
+              fi
+              NAME=$(basename "$FILE" .html)
+              if [ "$NAME" != "index" ]; then
+                echo "- [$NAME]($BASE/$NAME.html)"
+              fi
+            done
           } >> "$GITHUB_STEP_SUMMARY"
