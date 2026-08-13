@@ -309,19 +309,21 @@ export namespace InterpreterQuickPickList {
             l10n.t('Virtual environment created with Python {0}', version);
         export const installFailed = (version: string) => l10n.t('Failed to install Python {0}', version);
         export const uvInstallFailed = l10n.t('Failed to install uv');
+        export const createVenvTitle = l10n.t('Create a Virtual Environment');
         export const createVenvPrompt = (version: string, workspaceFolder: string) =>
             l10n.t(
-                'Python {0} was installed. Would you like to use this version to create a virtual environment at: `{1}`?',
+                'Python {0} was installed. Would you like to use this version to create a virtual environment at {1}? (Recommended.)',
                 version,
-                `${workspaceFolder}/.venv`,
+                `<code>${workspaceFolder}/.venv</code>`,
             );
         export const createVenvPromptAlreadyInstalled = (version: string, workspaceFolder: string) =>
             l10n.t(
-                'Python {0} is installed. Would you like to use it to create a virtual environment at: `{1}`?',
+                'Python {0} is installed. Would you like to use it to create a virtual environment at {1}? (Recommended.)',
                 version,
-                `${workspaceFolder}/.venv`,
+                `<code>${workspaceFolder}/.venv</code>`,
             );
-        export const yesRecommended = l10n.t('Yes (recommended)');
+        export const createVenvAccept = l10n.t('Create');
+        export const createVenvSkip = l10n.t('Skip');
         export const creatingVenv = l10n.t('Creating virtual environment');
         export const venvCreated = l10n.t('Virtual environment created');
         export const venvCreationFailed = l10n.t(
