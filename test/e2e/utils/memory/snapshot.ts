@@ -40,11 +40,16 @@ export function joinProcesses(
 	const byPid = new Map(raw.map(p => [p.pid, p]));
 
 	const pssByPid = new Map<number, number[]>();
+	const rssByPid = new Map<number, number[]>();
 	for (const sample of samples) {
 		for (const proc of sample) {
-			const seen = pssByPid.get(proc.pid) ?? [];
-			seen.push(proc.pssBytes);
-			pssByPid.set(proc.pid, seen);
+			const seenPss = pssByPid.get(proc.pid) ?? [];
+			seenPss.push(proc.pssBytes);
+			pssByPid.set(proc.pid, seenPss);
+
+			const seenRss = rssByPid.get(proc.pid) ?? [];
+			seenRss.push(proc.rssBytes);
+			rssByPid.set(proc.pid, seenRss);
 		}
 	}
 
@@ -68,6 +73,10 @@ export function joinProcesses(
 			: undefined;
 
 		const observed = pssByPid.get(proc.pid) ?? [proc.pssBytes];
+		// Aggregated the same way as pss on purpose. Taking rss from one sample
+		// while pss was a median let a moving process report pss above its own
+		// rss, which is impossible at any single instant.
+		const observedRss = rssByPid.get(proc.pid) ?? [proc.rssBytes];
 		return {
 			pid: proc.pid,
 			ppid: proc.ppid,
@@ -77,9 +86,11 @@ export function joinProcesses(
 			labeled,
 			cmdBasename: basename(proc.cmd.split(' ')[0] || 'unknown'),
 			pssBytes: median(observed),
-			rssBytes: proc.rssBytes,
+			rssBytes: median(observedRss),
 			pssMin: Math.min(...observed),
-			pssMax: Math.max(...observed)
+			pssMax: Math.max(...observed),
+			pssSamples: observed,
+			rssSamples: observedRss
 		};
 	});
 }
@@ -119,6 +130,9 @@ export function isSettled(readings: number[]): boolean {
 		});
 }
 
+/** How long settle detection waits before giving up and measuring anyway. */
+export const SETTLE_CAP_MS = 90_000;
+
 /**
  * Wait until the process tree stops growing, rather than sleeping a fixed
  * amount. Returns how long that took, which is worth recording on its own.
@@ -128,7 +142,7 @@ export async function waitForSettle(
 	options: { pollMs?: number; capMs?: number } = {}
 ): Promise<number> {
 	const pollMs = options.pollMs ?? 1000;
-	const capMs = options.capMs ?? 90_000;
+	const capMs = options.capMs ?? SETTLE_CAP_MS;
 	const started = Date.now();
 	const readings: number[] = [];
 
@@ -143,6 +157,50 @@ export async function waitForSettle(
 }
 
 /**
+ * How far a process's samples may span, relative to its own median, before that
+ * median stops describing a steady state.
+ *
+ * Per process rather than per tree: `isSettled` compares whole-tree totals, so a
+ * single process moving 130 MB is only 7% of a 1.9 GB tree and can hide inside a
+ * total that looks flat.
+ */
+const UNSTABLE_SPREAD_FRACTION = 0.05;
+
+/**
+ * How many bytes a process's samples must span before the movement matters,
+ * whatever the process's own size.
+ *
+ * Without this, the relative test alone flags the gpu process on every launch of
+ * every scenario: it wobbles ~5 MB on an ~86 MB median, which is 6%. A 5 MB
+ * wobble cannot move a 1.9 GB total, and a warning that fires on every run is
+ * one nobody reads. Set below the 86 MB regression this effort exists to catch,
+ * so movement large enough to be mistaken for one is always reported.
+ *
+ * The cost is that a small process moving a lot in relative terms stays quiet.
+ * That is the intended trade: its effect on the total is under the noise the
+ * report already lives with.
+ */
+const UNSTABLE_SPREAD_BYTES = 50 * 1024 * 1024;
+
+/**
+ * Processes whose samples moved too much for their median to mean anything:
+ * movement has to be both large for the process and large in absolute terms.
+ *
+ * Reported rather than thrown on: a caller decides whether an unstable process
+ * invalidates the run. A process with one sample is never unstable, since one
+ * reading says nothing about movement.
+ */
+export function unstableProcesses(processes: LabeledProcess[]): LabeledProcess[] {
+	return processes.filter(proc => {
+		if (proc.pssSamples.length < 2 || proc.pssBytes <= 0) {
+			return false;
+		}
+		const spread = proc.pssMax - proc.pssMin;
+		return spread / proc.pssBytes > UNSTABLE_SPREAD_FRACTION && spread > UNSTABLE_SPREAD_BYTES;
+	});
+}
+
+/**
  * Which build produced these numbers, as `2026.09.0-35`. Returns '' rather than
  * throwing; the spec asserts on it alongside the rest of the quality gate.
  */
@@ -151,7 +209,21 @@ function readPositronVersion(buildRoot: string): string {
 	return version ? `${version.positronVersion}-${version.buildNumber}` : '';
 }
 
-/** Take three samples five seconds apart once the app has settled. */
+/**
+ * How the sampling window is shaped, named so the report can describe itself.
+ *
+ * Ten samples rather than three: three spanning 10s was short enough that a
+ * renderer releasing ~130 MB partway through was invisible in the aggregate --
+ * the median simply landed mid-drop. 45s spans the movement instead of sitting
+ * inside it, at the cost of ~35s per launch.
+ */
+export const SAMPLE_COUNT = 10;
+export const SAMPLE_INTERVAL_MS = 5000;
+
+/** Wall time the sampling loop spends: the gaps between samples, not the samples themselves. */
+export const SAMPLING_WINDOW_MS = (SAMPLE_COUNT - 1) * SAMPLE_INTERVAL_MS;
+
+/** Sample the tree repeatedly once it has settled, so movement is visible rather than averaged away. */
 export async function captureSnapshot(input: {
 	scenario: MemoryScenario;
 	rootPid: number;
@@ -163,9 +235,9 @@ export async function captureSnapshot(input: {
 	const settleMs = await waitForSettle(input.rootPid);
 
 	const samples: RawProcess[][] = [];
-	for (let i = 0; i < 3; i++) {
+	for (let i = 0; i < SAMPLE_COUNT; i++) {
 		if (i > 0) {
-			await new Promise(resolve => setTimeout(resolve, 5000));
+			await new Promise(resolve => setTimeout(resolve, SAMPLE_INTERVAL_MS));
 		}
 		samples.push(await readProcessTree(input.rootPid));
 	}

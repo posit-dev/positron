@@ -243,7 +243,11 @@ export function baselineToSnapshot(body: BaselineResponse, scenario: MemoryScena
 			// fall through every switch downstream.
 			processRole: isProcessRole(p.process_role) ? p.process_role : 'unlabeled',
 			labeled: true, cmdBasename: '',
-			pssBytes: p.pss_bytes, rssBytes: 0, pssMin: p.pss_bytes, pssMax: p.pss_bytes
+			pssBytes: p.pss_bytes, rssBytes: 0, pssMin: p.pss_bytes, pssMax: p.pss_bytes,
+			// One sample, because the response carries one figure per process. That
+			// also keeps a baseline out of the unstable-process report: a single
+			// sample cannot be judged unstable.
+			pssSamples: [p.pss_bytes], rssSamples: [0]
 		})),
 		extensions: body.snapshot.extensions.map(e => ({
 			extensionId: e.extension_id, isBuiltin: false,

@@ -13,7 +13,17 @@ const MB = 1024 * 1024;
 const proc = (overrides: Partial<LabeledProcess> = {}): LabeledProcess => ({
 	pid: 100, ppid: 1, depth: 0, processName: 'positron', processRole: 'main',
 	labeled: true, cmdBasename: 'positron', pssBytes: 100 * MB, rssBytes: 200 * MB,
-	pssMin: 100 * MB, pssMax: 100 * MB, ...overrides
+	pssMin: 100 * MB, pssMax: 100 * MB,
+	pssSamples: [100 * MB, 100 * MB, 100 * MB], rssSamples: [200 * MB, 200 * MB, 200 * MB],
+	...overrides
+});
+
+/** A process caught mid-swing, as session-python's renderer was: median 433 MB over a 130 MB drop. */
+const movingProc = (overrides: Partial<LabeledProcess> = {}): LabeledProcess => proc({
+	processName: 'window [1]', processRole: 'renderer',
+	pssBytes: 433 * MB, rssBytes: 508 * MB, pssMin: 306 * MB, pssMax: 439 * MB,
+	pssSamples: [439 * MB, 433 * MB, 306 * MB], rssSamples: [514 * MB, 508 * MB, 381 * MB],
+	...overrides
 });
 
 const ext = (extensionId: string, activationEvent: string | null): ActivatedExtension =>
@@ -129,6 +139,22 @@ describe('renderHtml', () => {
 		const output = renderHtml([snapshot([proc()])]);
 		expect(output).toContain('<!DOCTYPE html>');
 		expect(output).toContain('</html>');
+	});
+
+	// The report published a renderer median of 433 MB for a process that was at
+	// 306 MB when sampling ended, and said nothing about it. A number taken from
+	// the middle of a swing has to announce itself, or it reads as steady state.
+	test('warns when a process moved too much for its median to be a steady state', () => {
+		const output = renderHtml([snapshot([proc(), movingProc()])]);
+		expect(output).toContain('Not a steady state');
+		expect(output).toContain('window [1]');
+		expect(output).toContain('306.0 MB');
+		expect(output).toContain('439.0 MB');
+	});
+
+	test('says nothing about stability when every process settled', () => {
+		const output = renderHtml([snapshot([proc()])]);
+		expect(output).not.toContain('Not a steady state');
 	});
 
 	test('indents the tree by depth', () => {

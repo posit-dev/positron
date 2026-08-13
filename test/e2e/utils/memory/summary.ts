@@ -15,8 +15,9 @@
  * real memory run.
  */
 
-import { deltaHtmlFromDiff, escapeHtml, formatBytes, REPORT_CSS } from './report-shell.js';
+import { deltaHtmlFromDiff, escapeHtml, formatBytes, notSteadyStateCardHtml, REPORT_CSS } from './report-shell.js';
 import { byRole } from './render.js';
+import { unstableProcesses } from './snapshot.js';
 import { MemoryScenario } from './scenarios.js';
 import { MemorySnapshot, ProcessRole } from './types.js';
 
@@ -43,11 +44,28 @@ export type SummaryRow = {
 	deltaVsIdle: Partial<Record<MemoryScenario, number>>;
 };
 
+/** One process that was still moving when it was sampled, named for the warning banner. */
+export type UnstableEntry = {
+	scenario: MemoryScenario;
+	launchIndex: number;
+	processName: string;
+	role: ProcessRole;
+	pssMin: number;
+	pssMax: number;
+	reported: number;
+};
+
 export type SummaryMatrix = {
 	scenarios: MemoryScenario[];
 	rows: SummaryRow[];
 	/** Median tree total per scenario, for the TOTAL row. */
 	totals: Partial<Record<MemoryScenario, number>>;
+	/**
+	 * Carried on the matrix so `renderSummaryHtml` can warn without also taking
+	 * the raw snapshots: every figure in the matrix is derived from processes that
+	 * may have been moving, and this is what says which.
+	 */
+	unstable: UnstableEntry[];
 };
 
 function median(values: number[]): number {
@@ -114,7 +132,18 @@ export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix 
 		totals[scenario] = median(snapshots.map(s => s.treeTotalPssBytes));
 	}
 
-	return { scenarios, rows, totals };
+	const unstable: UnstableEntry[] = entries.flatMap(({ scenario, snapshots }) =>
+		snapshots.flatMap(snapshot => unstableProcesses(snapshot.processes).map(proc => ({
+			scenario,
+			launchIndex: snapshot.launchIndex,
+			processName: proc.processName,
+			role: proc.processRole,
+			pssMin: proc.pssMin,
+			pssMax: proc.pssMax,
+			reported: proc.pssBytes
+		}))));
+
+	return { scenarios, rows, totals, unstable };
 }
 
 /** Muted em-dash: a role that did not exist in this scenario, never a fabricated zero. */
@@ -159,6 +188,26 @@ function totalRowHtml(matrix: SummaryMatrix): string {
 }
 
 /**
+ * Warns that some of the matrix below is derived from processes that were still
+ * moving. Empty when everything settled, so a healthy summary is unchanged.
+ */
+function instabilityHtml(unstable: UnstableEntry[]): string {
+	if (unstable.length === 0) {
+		return '';
+	}
+	const rows = unstable.map(entry => `<tr>
+		<td>${escapeHtml(entry.scenario)}</td>
+		<td class="num-cell" align="right">${entry.launchIndex}</td>
+		<td>${escapeHtml(entry.processName)}</td>
+		<td><code>${escapeHtml(entry.role)}</code></td>
+		<td class="num-cell" align="right">${formatBytes(entry.pssMin)} &ndash; ${formatBytes(entry.pssMax)}</td>
+		<td class="num-cell" align="right">${formatBytes(entry.reported)}</td>
+	</tr>`).join('\n');
+
+	return notSteadyStateCardHtml(['Scenario', '#Launch', 'Process', 'Role', '#Range', '#Reported'], rows);
+}
+
+/**
  * Renders the matrix as a standalone HTML document, using the same shell
  * (CSS, escaping, delta glyphs) as the per-scenario report so the two cannot
  * drift apart visually.
@@ -166,6 +215,7 @@ function totalRowHtml(matrix: SummaryMatrix): string {
 export function renderSummaryHtml(matrix: SummaryMatrix): string {
 	const rows = matrix.rows.map(row => rowHtml(row, matrix.scenarios)).join('\n');
 	const total = totalRowHtml(matrix);
+	const instabilityCard = instabilityHtml(matrix.unstable);
 
 	return `<!DOCTYPE html>
 <html>
@@ -182,6 +232,8 @@ export function renderSummaryHtml(matrix: SummaryMatrix): string {
 		<h1>Cross-scenario memory summary</h1>
 		<div class="meta">Median PSS per role across launches. Delta is against idle.</div>
 	</div>
+
+	${instabilityCard}
 
 	<div class="card">
 		<h2>By role</h2>

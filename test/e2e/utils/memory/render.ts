@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { deltaHtml, escapeHtml, formatBytes, REPORT_CSS, signed } from './report-shell.js';
+import { deltaHtml, escapeHtml, formatBytes, notSteadyStateCardHtml, REPORT_CSS, signed } from './report-shell.js';
+import { unstableProcesses } from './snapshot.js';
 import { ActivatedExtension, LabeledProcess, MemorySnapshot, ProcessRole } from './types.js';
 
 export { formatBytes } from './report-shell.js';
@@ -167,6 +168,17 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 	lines.push(`Median of ${snapshots.length} launches. Settle time: ${Math.round(median(snapshots.map(s => s.settleMs)) / 1000)}s.`);
 	lines.push('');
 
+	// Ahead of the table for the same reason the HTML card sits above every
+	// figure: it says the numbers below are medians of a moving process.
+	const moving = snapshots.flatMap(s => unstableProcesses(s.processes).map(p => ({ launchIndex: s.launchIndex, p })));
+	if (moving.length > 0) {
+		lines.push('**Not a steady state.** These processes were still moving while being sampled, so the figures below are medians of a range:');
+		for (const { launchIndex, p } of moving) {
+			lines.push(`- launch ${launchIndex} \`${p.processName}\` (${p.processRole}): ${formatBytes(p.pssMin)} - ${formatBytes(p.pssMax)}, reported ${formatBytes(p.pssBytes)}`);
+		}
+		lines.push('');
+	}
+
 	// Kept small on purpose: this table is the whole step summary now. Per-process
 	// detail and the full extension list moved to the HTML artifact, which is the
 	// point of this change -- the giant per-process table was unreadable here.
@@ -296,6 +308,33 @@ function processTreeRows(snapshot: MemorySnapshot, maxBytes: number, baseline: M
 			<td class="num-cell" align="right">${change}</td>
 		</tr>`;
 	}).join('\n');
+}
+
+/**
+ * Warns when any launch sampled a process that was still moving, naming it and
+ * showing the range its samples spanned.
+ *
+ * Placed above every figure in the report because it invalidates them: the
+ * headline total, that process's row, and its delta are all medians of a moving
+ * number. Returns '' when everything settled, so a healthy report gains nothing.
+ */
+function instabilityHtml(snapshots: MemorySnapshot[]): string {
+	const moving = snapshots.flatMap(snapshot =>
+		unstableProcesses(snapshot.processes).map(proc => ({ launchIndex: snapshot.launchIndex, proc })));
+	if (moving.length === 0) {
+		return '';
+	}
+
+	const rows = moving.map(({ launchIndex, proc }) => `<tr>
+		<td class="num-cell" align="right">${launchIndex}</td>
+		<td>${escapeHtml(shortName(proc.processName))}</td>
+		<td><code>${escapeHtml(proc.processRole)}</code></td>
+		<td class="num-cell" align="right">${formatBytes(proc.pssMin)} &ndash; ${formatBytes(proc.pssMax)}</td>
+		<td class="num-cell" align="right">${formatBytes(proc.pssMax - proc.pssMin)}</td>
+		<td class="num-cell" align="right">${formatBytes(proc.pssBytes)}</td>
+	</tr>`).join('\n');
+
+	return notSteadyStateCardHtml(['#Launch', 'Process', 'Role', '#Range', '#Spread', '#Reported'], rows);
 }
 
 /**
@@ -472,6 +511,7 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 	const newlyEagerCard = newlyEagerHtml(snapshots, baseline);
 	const newProcessesCard = newProcessesHtml(snapshots, baseline);
 	const unlabeledNote = unlabeledNoteHtml(snapshots, roleTotals);
+	const instabilityCard = instabilityHtml(snapshots);
 
 	return `<!DOCTYPE html>
 <html>
@@ -489,6 +529,8 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 		<div class="hero">${formatBytes(total)}</div>
 		<div class="meta">${baseline ? deltaHtml(total, baseline.treeTotalPssBytes) : 'no baseline'} vs previous nightly</div>
 	</div>
+
+	${instabilityCard}
 
 	<div class="card">
 		<h2>By role</h2>

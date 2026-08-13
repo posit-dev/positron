@@ -13,7 +13,9 @@ const MB = 1024 * 1024;
 const proc = (overrides: Partial<LabeledProcess> = {}): LabeledProcess => ({
 	pid: 100, ppid: 1, depth: 0, processName: 'positron', processRole: 'main',
 	labeled: true, cmdBasename: 'positron', pssBytes: 100 * MB, rssBytes: 200 * MB,
-	pssMin: 100 * MB, pssMax: 100 * MB, ...overrides
+	pssMin: 100 * MB, pssMax: 100 * MB,
+	pssSamples: [100 * MB, 100 * MB, 100 * MB], rssSamples: [200 * MB, 200 * MB, 200 * MB],
+	...overrides
 });
 
 const extensions: ActivatedExtension[] = [];
@@ -144,6 +146,30 @@ describe('buildSummaryMatrix', () => {
 });
 
 describe('renderSummaryHtml', () => {
+	// This page is what the workflow links first, so a scenario measured mid-swing
+	// has to say so here. Reading it only in the per-scenario report means the
+	// landing page presents a contaminated delta as fact.
+	test('names the scenario whose process was still moving', () => {
+		const moving = proc({
+			processName: 'window [1]', processRole: 'renderer',
+			pssBytes: 433 * MB, pssMin: 306 * MB, pssMax: 439 * MB,
+			pssSamples: [439 * MB, 433 * MB, 306 * MB], rssSamples: [514 * MB, 508 * MB, 381 * MB]
+		});
+		const entries: ScenarioSnapshots[] = [
+			scenarioEntry('idle', [proc({ processRole: 'renderer', pssBytes: 546 * MB })]),
+			scenarioEntry('session-python', [moving]),
+		];
+		const html = renderSummaryHtml(buildSummaryMatrix(entries));
+		expect(html).toContain('Not a steady state');
+		expect(html).toContain('session-python');
+		expect(html).toContain('window [1]');
+	});
+
+	test('says nothing about stability when every scenario settled', () => {
+		const entries: ScenarioSnapshots[] = [scenarioEntry('idle', [proc()])];
+		expect(renderSummaryHtml(buildSummaryMatrix(entries))).not.toContain('Not a steady state');
+	});
+
 	test('renders an absent role as a clear marker, not zero', () => {
 		const entries: ScenarioSnapshots[] = [
 			scenarioEntry('idle', [proc({ processRole: 'main', pssBytes: 100 * MB })]),

@@ -10,7 +10,7 @@ import { Application, Sessions } from '../../infra';
 import { readActivatedExtensions } from '../../utils/memory/extensions.js';
 import { fetchBaseline, publishSnapshots } from '../../utils/memory/publish.js';
 import { renderHtml, renderMarkdown } from '../../utils/memory/render.js';
-import { captureSnapshot } from '../../utils/memory/snapshot.js';
+import { captureSnapshot, SAMPLING_WINDOW_MS, SETTLE_CAP_MS, unstableProcesses } from '../../utils/memory/snapshot.js';
 import { MemoryScenario } from '../../utils/memory/scenarios.js';
 import { MemorySnapshot, ProcessRole } from '../../utils/memory/types.js';
 
@@ -19,6 +19,14 @@ import { MemorySnapshot, ProcessRole } from '../../utils/memory/types.js';
  * come from the run doing the rendering.
  */
 const MAX_SNAPSHOT_AGE_MS = 60 * 60 * 1000;
+
+/**
+ * Everything in the measure test that is not settling or sampling: starting a
+ * session, the readiness gate, `positron --status`, reading the ext host log,
+ * and the quality gates. Generous because it only matters when something has
+ * already gone wrong, and a timeout hides the reason.
+ */
+const MEASURE_OVERHEAD_MS = 90_000;
 
 /**
  * Snapshots must outlive a single Playwright invocation: three separate
@@ -49,6 +57,12 @@ export function defineMemoryScenario(options: {
 	test.describe(`Memory: ${scenario}`, { tag: [tags.PERFORMANCE] }, () => {
 
 		test(`Memory footprint of the Positron process tree: ${scenario}`, async function ({ app, sessions, logsPath }) {
+			// Derived rather than a round number, because the default 2 minutes is
+			// now too short: a run that waits out the full settle cap and then
+			// samples for 45s would time out before it could report the settle
+			// failure, turning a diagnosable result into a bare timeout.
+			test.setTimeout(SETTLE_CAP_MS + SAMPLING_WINDOW_MS + MEASURE_OVERHEAD_MS);
+
 			// Only test-memory-metrics.yml collects these specs, and it always sets
 			// BUILD. A missing one means the workflow is broken, not that the spec
 			// ran somewhere it should not have.
@@ -131,7 +145,25 @@ export function defineMemoryScenario(options: {
 			// waitForSettle gives up at its cap regardless of whether the tree
 			// actually stopped growing. A settleMs near the cap means this snapshot
 			// is a mid-load number, not the steady state the scenario claims.
-			expect(snapshot.settleMs, 'the tree never settled before the cap, so this is a mid-load number rather than a steady state').toBeLessThan(85_000);
+			expect(snapshot.settleMs, 'the tree never settled before the cap, so this is a mid-load number rather than a steady state').toBeLessThan(SETTLE_CAP_MS - 5_000);
+
+			// PSS can never exceed RSS at one instant, so a violation means procfs
+			// was misparsed or the two figures came from different samples -- the
+			// defect that let a renderer publish 433 MB while sitting at 306 MB.
+			const impossible = snapshot.processes.filter(p =>
+				p.pssSamples.some((pss, index) => pss > p.rssSamples[index]));
+			expect(impossible.map(p => `${p.processName} (pid ${p.pid})`),
+				'PSS exceeded RSS, which is impossible within one sample').toEqual([]);
+
+			// Logged, not asserted: until the settle gate waits for per-process
+			// quiescence, a moving process is a known limitation rather than a run
+			// to throw away. The report says so on its face; this is the same news
+			// in the job log.
+			const moving = unstableProcesses(snapshot.processes);
+			for (const proc of moving) {
+				console.log(`[memory] ${scenario} launch ${snapshot.launchIndex}: ${proc.processName} (${proc.processRole}) was still moving: ` +
+					`${(proc.pssMin / 1048576).toFixed(1)}-${(proc.pssMax / 1048576).toFixed(1)} MB, reporting ${(proc.pssBytes / 1048576).toFixed(1)} MB`);
+			}
 
 			const namedShare = snapshot.processes.filter(p => p.labeled).length / snapshot.processes.length;
 			expect(namedShare, 'Positron named too few processes; --status probably failed, and an unattributable total is worse than no data').toBeGreaterThan(0.5);

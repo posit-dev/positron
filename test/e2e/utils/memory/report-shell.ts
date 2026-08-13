@@ -57,6 +57,30 @@ export function deltaHtml(current: number, before: number): string {
 }
 
 /**
+ * The card both reports use to say their figures are medians of a moving
+ * process, differing only in columns: the summary names the scenario, the
+ * per-scenario report shows the spread.
+ *
+ * Shared so the two cannot describe the same defect differently. A reader who
+ * follows the summary's warning into a scenario report should meet the same
+ * claim, not a second opinion.
+ */
+export function notSteadyStateCardHtml(headers: string[], rows: string): string {
+	const headerCells = headers
+		.map(header => (header.startsWith('#') ? `<th align="right">${header.slice(1)}</th>` : `<th>${header}</th>`))
+		.join('');
+	return `<div class="card warn-card">
+		<h2>Not a steady state</h2>
+		<div class="meta">These processes were still moving while being sampled, so the figures reported for
+		them are medians of a range rather than settled numbers. Treat this run's totals and deltas as unreliable.</div>
+		<table>
+			<tr>${headerCells}</tr>
+			${rows}
+		</table>
+	</div>`;
+}
+
+/**
  * The CSS both reports use. Kept as one string so a color tweak lands in both
  * places at once rather than needing two coordinated edits.
  */
@@ -69,6 +93,11 @@ export const REPORT_CSS = `
 		.header .hero { font-size: 2rem; font-weight: 600; margin: 8px 0; }
 		.card { background: white; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow-x: auto; }
 		.card h2 { margin: 0 0 12px 0; font-size: 1rem; color: #374151; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; }
+		/* Same card tier, only a status accent: this warning ranks with the other sections, it is not a different kind of surface. */
+		.warn-card { border-left: 3px solid #d97706; }
+		.warn-card h2 { color: #b45309; }
+		/* Only .header .meta was styled, so a card's own .meta read as body copy and sat flush against the table below it. */
+		.card .meta { color: #6b7280; font-size: 0.9rem; margin-bottom: 12px; }
 		table { border-collapse: collapse; width: 100%; }
 		td, th { padding: 4px 8px; text-align: left; }
 		th { color: #6b7280; font-weight: 500; font-size: 0.85rem; border-bottom: 1px solid #e5e7eb; }
@@ -93,6 +122,9 @@ export const REPORT_CSS = `
 			body { background: #1a1a19; color: #e5e7eb; }
 			.card { background: #262624; box-shadow: none; }
 			.card h2 { color: #e5e7eb; border-bottom-color: #3a3a38; }
+			.warn-card { border-left-color: #f59e0b; }
+			.warn-card h2 { color: #fbbf24; }
+			.card .meta { color: #9ca3af; }
 			th { color: #9ca3af; border-bottom-color: #3a3a38; }
 			tr:not(:last-child) td { border-bottom-color: #2e2e2c; }
 			.bar-track { background: #3a3a38; }
