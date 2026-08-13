@@ -152,11 +152,6 @@
         "title": "%r.command.interpreters.settingsInfo.title%"
       },
       {
-        "command": "r.printEnvironmentHealth",
-        "category": "R",
-        "title": "%r.command.printEnvironmentHealth.title%"
-      },
-      {
         "command": "r.getEnvironmentHealth",
         "category": "R",
         "title": "%r.command.getEnvironmentHealth.title%"

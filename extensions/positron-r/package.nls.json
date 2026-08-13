@@ -20,7 +20,6 @@
 	"r.command.selectInterpreter.title": "Select Interpreter",
 	"r.command.rmarkdownRender.title": "Render Document With R Markdown",
 	"r.command.interpreters.settingsInfo.title": "Print interpreter settings information to Output",
-	"r.command.printEnvironmentHealth.title": "Print environment health report to Output",
 	"r.command.getEnvironmentHealth.title": "Get environment health report",
 	"r.command.loadRDataFile.title": "Load R Objects",
 	"r.command.loadRdsFile.title": "Load R Object",

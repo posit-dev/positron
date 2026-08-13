@@ -18,7 +18,7 @@ import { MINIMUM_RENV_VERSION, MINIMUM_R_VERSION } from './constants';
 import { RRuntimeManager } from './runtime-manager';
 import { RMetadataExtra } from './r-installation';
 import { onDidDiscoverTestFiles } from './testing/testing';
-import { getEnvironmentHealth, logEnvironmentHealth } from './environmentHealth';
+import { getEnvironmentHealth } from './environmentHealth';
 import { LOGGER } from './extension.js';
 import { printInterpreterSettingsInfo } from './interpreter-settings.js';
 
@@ -262,12 +262,6 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		// session. Internal: consumed by a frontend, not surfaced in the palette.
 		vscode.commands.registerCommand('r.getEnvironmentHealth',
 			async () => getEnvironmentHealth()),
-
-		// Developer probe: same report, logged to the R output channel.
-		vscode.commands.registerCommand('r.printEnvironmentHealth', async () => {
-			LOGGER.show();
-			logEnvironmentHealth(await getEnvironmentHealth());
-		}),
 
 		// Commands used in RStudio migration walkthrough
 		vscode.commands.registerCommand('r.walkthrough.updateRStudioKeybindings', async () => {

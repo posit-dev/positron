@@ -9,7 +9,6 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as semver from 'semver';
 import * as vscode from 'vscode';
-import { LOGGER } from './extension';
 import { getArkKernelPath, normalizeWindowsArch, sniffMachOBinaryArchitecture, sniffWindowsBinaryArchitecture } from './kernel';
 import { discoverRInstallations } from './provider';
 import { friendlyReason, ReasonRejected, RInstallation } from './r-installation';
@@ -422,10 +421,4 @@ export async function getEnvironmentHealth(): Promise<REnvironmentHealthResult> 
 	result.rBinPath = target?.binpath;
 	result.rHome = target?.homepath;
 	return result;
-}
-
-export function logEnvironmentHealth(result: REnvironmentHealthResult): void {
-	LOGGER.info('===================== [START] R ENVIRONMENT HEALTH =====================');
-	LOGGER.info(JSON.stringify(result, null, 2));
-	LOGGER.info('====================== [END] R ENVIRONMENT HEALTH ======================');
 }
