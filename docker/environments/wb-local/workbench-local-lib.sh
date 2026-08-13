@@ -48,9 +48,17 @@ wb_os_feed() {
 
 # Container image the test stack runs for this OS. Both are multi-arch manifest
 # lists, so Docker picks amd64/arm64 itself.
+#
+# Keep the ubuntu24 tag in step with the `image:` default in
+# docker-compose.workbench.yml. They are two independent copies of the same
+# constant (Compose cannot read this lib), and they drifted once already: #15243
+# bumped Compose to 24.18.0 while this function was added pinned to 24.15.0, so
+# `--os=ubuntu24` silently ran an older image than a bare `docker compose up` or
+# CI -- which is exactly the kind of difference that makes a local repro of a CI
+# failure disagree for no visible reason.
 wb_os_image() {
 	case "${1:-}" in
-		ubuntu24) printf 'ghcr.io/posit-dev/positron-ubuntu24:24.15.0' ;;
+		ubuntu24) printf 'ghcr.io/posit-dev/positron-ubuntu24:24.18.0' ;;
 		rocky9)   printf 'ghcr.io/posit-dev/positron-rocky9:24.18.0' ;;
 		*) return 1 ;;
 	esac

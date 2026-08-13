@@ -27,8 +27,7 @@ export function getProviderTermsOfServiceText(provider: IProvider) {
 	if (provider.id === 'openai-compatible') {
 		return localize(
 			'positron.languageModelConfig.openAiCompatible.tos',
-			'A custom provider is considered "Third Party Materials" as defined in the {0} and subject to its {1} and {2}.',
-			eula, tos, privacy,
+			"The custom provider connects to any OpenAI-compatible endpoint you configure, so its data handling and terms depend entirely on the provider you choose. Review that provider's own privacy policy and terms of service directly.",
 		);
 	}
 	if (provider.id === 'posit-ai') {

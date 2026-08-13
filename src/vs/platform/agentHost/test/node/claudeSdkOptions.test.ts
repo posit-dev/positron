@@ -24,6 +24,9 @@ suite('claudeSdkOptions / buildSubprocessEnv', () => {
 		'PATH',
 		'HOME',
 		'USERPROFILE',
+		// --- Start Positron ---
+		'IS_SANDBOX',
+		// --- End Positron ---
 	];
 
 	function clearAndSet(values: Record<string, string>): void {
@@ -74,6 +77,32 @@ suite('claudeSdkOptions / buildSubprocessEnv', () => {
 			userProfile: 'C:\\Users\\test',
 		});
 	});
+
+	// --- Start Positron ---
+	// The CLI refuses `--allow-dangerously-skip-permissions` as root unless
+	// `IS_SANDBOX=1` is set, and proxy mode replaces the subprocess env wholesale,
+	// so the variable has to survive the sparse rebuild. Only the exact value the
+	// root guard accepts is forwarded: other paths in the CLI read the variable
+	// with a plain truthiness test, where the string `'0'` would read as sandboxed.
+	test('forwards IS_SANDBOX in proxy mode only when it is exactly "1"', () => {
+		const forwarded = (value?: string) => {
+			clearAndSet(value === undefined ? {} : { IS_SANDBOX: value });
+			return buildSubprocessEnv().IS_SANDBOX;
+		};
+
+		assert.deepStrictEqual({
+			one: forwarded('1'),
+			zero: forwarded('0'),
+			falseString: forwarded('false'),
+			unset: forwarded(undefined),
+		}, {
+			one: '1',
+			zero: undefined,
+			falseString: undefined,
+			unset: undefined,
+		});
+	});
+	// --- End Positron ---
 
 	test('always sets ELECTRON_RUN_AS_NODE=1 even when not present in process.env', () => {
 		clearAndSet({});

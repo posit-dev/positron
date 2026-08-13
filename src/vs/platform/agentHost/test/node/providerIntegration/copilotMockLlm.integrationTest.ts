@@ -181,7 +181,17 @@ suite('Agent Host Provider Integration — Copilot Idle Release', function () {
 		// Re-subscribe: the server restores the session from disk and the provider
 		// resumes the SDK session on demand. The restored transcript must match
 		// the pre-release view.
-		const after = await fetchSessionWithChat(client, sessionUri);
+		// --- Start Positron ---
+		// (upstream: `const after = await fetchSessionWithChat(client, sessionUri);`)
+		// This is the one subscribe in the test that does real work -- the server
+		// restores the session from disk and the provider resumes the SDK session --
+		// and it was inheriting the client's generic 5s default while the rest of the
+		// test budgets 90-180s. On a loaded CI container that flaked (observed once in
+		// seven full-driver runs; the neighbouring test in the same suite took 7.7s in
+		// the run that failed). 30s matches the other heavyweight subscribes in these
+		// helpers. A genuinely wedged resume still fails -- just 25s later.
+		const after = await fetchSessionWithChat(client, sessionUri, 30_000);
+		// --- End Positron ---
 		assert.deepStrictEqual(transcript(after.turns), transcript(before.turns), 'restored transcript must match the pre-release state');
 
 		// Drive a SECOND turn after the release/resume cycle. This is the key

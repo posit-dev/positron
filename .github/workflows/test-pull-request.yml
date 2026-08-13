@@ -30,6 +30,7 @@ jobs:
       pyrefly_tag_found: ${{ steps.pr-tags.outputs.pyrefly_tag_found }}
       workbench_tag_found: ${{ steps.pr-tags.outputs.workbench_tag_found }}
       workbench_stable_tag_found: ${{ steps.pr-tags.outputs.workbench_stable_tag_found }}
+      workbench_rocky_tag_found: ${{ steps.pr-tags.outputs.workbench_rocky_tag_found }}
       jupyter_tag_found: ${{ steps.pr-tags.outputs.jupyter_tag_found }}
       remote_ssh_tag_found: ${{ steps.pr-tags.outputs.remote_ssh_tag_found }}
       connect_tag_found: ${{ steps.pr-tags.outputs.connect_tag_found }}
@@ -228,7 +229,7 @@ jobs:
 
   build-workbench:
     needs: pr-tags
-    if: ${{ needs.pr-tags.outputs.workbench_tag_found == 'true' || needs.pr-tags.outputs.workbench_stable_tag_found == 'true' }}
+    if: ${{ needs.pr-tags.outputs.workbench_tag_found == 'true' || needs.pr-tags.outputs.workbench_stable_tag_found == 'true' || needs.pr-tags.outputs.workbench_rocky_tag_found == 'true' }}
     name: build
     uses: ./.github/workflows/build-workbench-linux.yml
     secrets: inherit
@@ -237,7 +238,7 @@ jobs:
     needs: [pr-tags, build-workbench]
     if: ${{ needs.pr-tags.outputs.workbench_tag_found == 'true' }}
     name: e2e
-    uses: ./.github/workflows/test-e2e-workbench-ubuntu.yml
+    uses: ./.github/workflows/test-e2e-workbench-linux.yml
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "workbench"
@@ -250,7 +251,7 @@ jobs:
     needs: [pr-tags, build-workbench]
     if: ${{ needs.pr-tags.outputs.workbench_stable_tag_found == 'true' }}
     name: e2e
-    uses: ./.github/workflows/test-e2e-workbench-ubuntu.yml
+    uses: ./.github/workflows/test-e2e-workbench-linux.yml
     with:
       grep: "@:workbench"
       display_name: "workbench-stable"
@@ -258,6 +259,24 @@ jobs:
       upload_logs: false
       allow_soft_fail: false
       install_mode: "ci-stable"
+    secrets: inherit
+
+  # Same test set as the workbench lane, run against a Rocky Linux 9 container.
+  # A separate job so the two OSes run in parallel. `grep` is pinned to
+  # "@:workbench" rather than the PR's derived tags: @:workbench-rocky selects the
+  # lane, never individual tests, so no test carries it.
+  e2e-workbench-rocky:
+    needs: [pr-tags, build-workbench]
+    if: ${{ needs.pr-tags.outputs.workbench_rocky_tag_found == 'true' }}
+    name: e2e
+    uses: ./.github/workflows/test-e2e-workbench-linux.yml
+    with:
+      os: "rocky9"
+      grep: "@:workbench"
+      display_name: "workbench-rocky"
+      install_license: false
+      upload_logs: false
+      allow_soft_fail: false
     secrets: inherit
 
   build-jupyter:

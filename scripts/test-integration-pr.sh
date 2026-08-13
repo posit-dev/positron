@@ -41,40 +41,68 @@ else
 	kill_app() { killall $INTEGRATION_TEST_APP_NAME || true; }
 fi
 
+# --- Start Positron ---
+# Retry wrapper for the suites launched through `vscode-test`. Headless Electron
+# intermittently GP-faults during startup, in libexpat while fontconfig
+# initializes fonts on a worker thread (stack: libexpat <- libfontconfig <-
+# libpangoft2), before any test runs. `npm run test-extension` swallows the
+# child's 139 and exits 1, so the exit code alone cannot identify it -- match on
+# the crash line `vscode-test` prints instead. Anything else is a real test
+# failure and is returned immediately so it is never masked. Mirrors
+# `run_extension_suite` in test-integration.sh.
+run_extension_suite() {
+	local attempt=1 max_attempts=3 status log
+	log=$(mktemp)
+	while true; do
+		set +e
+		"$@" 2>&1 | tee "$log"
+		status=${PIPESTATUS[0]}
+		set -e
+		if [ "$status" -eq 0 ] || [ "$attempt" -ge "$max_attempts" ] || ! grep -qE "Exit code: +(SIGSEGV|139)" "$log"; then
+			rm -f "$log"
+			return "$status"
+		fi
+		echo "Electron exited with a startup segfault (likely the fontconfig race); retrying (attempt $((attempt + 1))/$max_attempts)..."
+		kill_app
+		attempt=$((attempt + 1))
+	done
+}
+# --- End Positron ---
+
 echo
 echo "### Authentication tests"
 echo
-npm run test-extension -- -l authentication
+run_extension_suite npm run test-extension -- -l authentication
 kill_app
 
 echo
 echo "### Positron Catalog Explorer tests"
 echo
-npm run test-extension -- -l positron-catalog-explorer
+run_extension_suite npm run test-extension -- -l positron-catalog-explorer
 kill_app
 
 echo
 echo "### Positron Code Cells tests"
 echo
-npm run test-extension -- -l positron-code-cells
+run_extension_suite npm run test-extension -- -l positron-code-cells
 kill_app
 
 echo
 echo "### Next Edit Suggestions tests"
 echo
-npm run test-extension -- -l next-edit-suggestions
+run_extension_suite npm run test-extension -- -l next-edit-suggestions
 kill_app
 
 echo
 echo "### Positron R tests"
 echo
-npm run test-extension -- -l positron-r
+run_extension_suite npm run test-extension -- -l positron-r
 kill_app
 
 echo
 echo "### Positron R connections tests"
 echo
-npm run test-extension -- -l positron-connections
+run_extension_suite npm run test-extension -- -l positron-connections
 kill_app
 
 # Disabling Positron Run App tests for now as they are flaky
@@ -87,37 +115,37 @@ kill_app
 echo
 echo "### Positron DuckDB tests"
 echo
-npm run test-extension -- -l positron-duckdb
+run_extension_suite npm run test-extension -- -l positron-duckdb
 kill_app
 
 echo
 echo "### Positron DuckDB data connection tests"
 echo
-npm run test-extension -- -l positron-data-driver-duckdb
+run_extension_suite npm run test-extension -- -l positron-data-driver-duckdb
 kill_app
 
 echo
 echo "### Positron SQLite data connection tests"
 echo
-npm run test-extension -- -l positron-data-driver-sqlite
+run_extension_suite npm run test-extension -- -l positron-data-driver-sqlite
 kill_app
 
 echo
 echo "### Positron Databricks data connection tests"
 echo
-npm run test-extension -- -l positron-data-driver-databricks
+run_extension_suite npm run test-extension -- -l positron-data-driver-databricks
 kill_app
 
 echo
 echo "### Positron Connect Pins data connection tests"
 echo
-npm run test-extension -- -l positron-data-driver-pins
+run_extension_suite npm run test-extension -- -l positron-data-driver-pins
 kill_app
 
 echo
 echo "### Positron Zed tests"
 echo
-npm run test-extension -- -l positron-zed
+run_extension_suite npm run test-extension -- -l positron-zed
 kill_app
 
 # Cleanup

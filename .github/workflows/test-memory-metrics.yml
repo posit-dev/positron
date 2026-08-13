@@ -1,0 +1,173 @@
+name: "Test: Memory Metrics"
+
+on:
+  schedule:
+    - cron: '0 7 * * *' # 07:00 UTC, avoiding the 02:00 and 09:00 scheduled jobs
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Positron version: a tag, 'latest-prerelease', or 'latest-release'"
+        required: false
+        default: "latest-prerelease"
+
+concurrency:
+  group: memory-metrics-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MEMORY_CONTAINER_IMAGE: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
+
+jobs:
+  memory:
+    name: measure-idle-memory
+    runs-on: ubuntu-latest-8x
+    timeout-minutes: 45
+    container:
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
+      # The image is private, so the pull needs credentials. Copied from
+      # test-e2e-ubuntu-run.yml; without these the job fails before any step.
+      # --user 0:0 also matters here beyond convention: reading
+      # /proc/<pid>/smaps_rollup for another process requires matching uid or
+      # CAP_SYS_PTRACE.
+      options: --user 0:0 --init
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+    env:
+      HOME: /root
+      PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
+      PW_PROJECT_NAME: e2e-electron
+      # Job-wide, not per-step: playwright.config.ts keys collection of
+      # memory-idle.test.ts off this, so the render step needs it too.
+      MEMORY_SCENARIO: idle
+      # The insights reporter and its sharding hook are off deliberately. This
+      # workflow publishes its own payload to /memory, and letting the reporter
+      # upload would add memory runs to the e2e results dataset as if they were
+      # ordinary test runs. It also keeps the job from needing AWS credentials.
+      ENABLE_CUSTOM_REPORTER: 'false'
+      # Required by the envVars fixture in _test.setup.ts, which validates all
+      # four and fails every test if any is unset. No interpreter is installed
+      # or started here: the idle scenario pins interpreters.startupBehavior to
+      # manual, so these only have to be present.
+      POSITRON_PY_VER_SEL: "3.10.12"
+      POSITRON_R_VER_SEL: 4.5.2
+      POSITRON_PY_ALT_VER_SEL: "3.13.0"
+      POSITRON_R_ALT_VER_SEL: 4.4.2
+    steps:
+      - uses: actions/checkout@v7
+
+      # Captured before the next step replaces the root package.json with a
+      # stub, so the version cannot drift from the root declaration.
+      - name: Resolve the undici range
+        run: |
+          RANGE=$(node -e 'console.log(require("./package.json").dependencies.undici)')
+          echo "UNDICI_RANGE=$RANGE" >> "$GITHUB_ENV"
+          echo "undici range: $RANGE"
+
+      # The positron-ubuntu24 image ships no GitHub CLI, and download-build.sh
+      # needs it to resolve the version and fetch the release asset. No other
+      # lane hits this: they either take the build from actions/download-artifact
+      # or run on a hosted runner, where gh is preinstalled.
+      - name: Install the GitHub CLI
+        env:
+          GH_CLI_VERSION: 2.97.0
+        run: |
+          curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz" | tar -xz -C /tmp
+          install -m 0755 "/tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh
+          gh --version
+
+      # positron-builds is a separate private repo, so the job's default
+      # GITHUB_TOKEN cannot see it and every gh call there 404s. Same app token
+      # release-screenshots.yml mints for the same download.
+      - name: Generate POSITRON_BOT token
+        id: bot-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Download build
+        id: build
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+        run: |
+          OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ inputs.version || 'latest-prerelease' }}")
+          echo "$OUTPUT" >> "$GITHUB_OUTPUT"
+
+      # Installs the Playwright and e2e dependencies and compiles test/e2e,
+      # rather than a full `npm ci`: nothing here builds Positron from source.
+      - name: Setup test dependencies and compile tests
+        uses: ./.github/actions/setup-e2e-test-dependencies
+
+      # publish.ts imports undici, which the action above does not install; it
+      # currently resolves only as a transitive dependency of the reporters.
+      - name: Install the publish client
+        run: npm install "undici@${{ env.UNDICI_RANGE }}"
+
+      - name: Alter AppArmor Restrictions for Playwright
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      # Exports DISPLAY=:10. Needed by the app and, less obviously, by
+      # `positron --status`: that CLI spawns its own child Electron main, which
+      # exits 0 printing nothing if it has no display, leaving every process
+      # unnamed and the run failing its attribution gate.
+      - name: Setup Xvfb
+        uses: ./.github/actions/setup-xvfb
+
+      # The idle scenario uses its own extensions dir, so the first launch into it
+      # pays to install the build's bootstrap vsixes (ruff, air, jupyter, and the
+      # rest). Measured without this, launch 0 read 60 MB high with a settle a
+      # second longer than the other two, which is a systematic artifact in the
+      # variance figure this workflow exists to produce. This spec waits for that
+      # install; release-screenshots.yml uses it the same way. Its own result is
+      # incidental here, but it is left strict: if warming fails, launch 0 is
+      # skewed and we want to know rather than quietly publish it.
+      - name: Warm the extensions dir
+        env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
+        run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
+
+      # Three launches, because launch-to-launch variance dominates. Each is a
+      # separate Playwright invocation so every launch is genuinely cold.
+      - name: Measure (launch 0)
+        env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
+          MEMORY_LAUNCH_INDEX: 0
+        run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
+
+      - name: Measure (launch 1)
+        env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
+          MEMORY_LAUNCH_INDEX: 1
+        run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
+
+      - name: Measure (launch 2)
+        env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
+          MEMORY_LAUNCH_INDEX: 2
+        run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Idle memory footprint'
+
+      # Separate from the launches so a failure to render cannot lose the
+      # measurements, which are the expensive part.
+      #
+      # MEMORY_PUBLISH stays 'false' until the /memory endpoints exist; they are
+      # a follow-up. Set here rather than omitted so the switch is visible at the
+      # point someone will look for it. The step summary and the HTML artifact
+      # are produced either way, so the run is still useful with it off.
+      - name: Render report
+        env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
+          MEMORY_PUBLISH: 'false'
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+        run: npx playwright test test/e2e/tests/performance/memory-idle.test.ts --project e2e-electron --grep 'Render and publish'
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: memory-report
+          # Matches SNAPSHOT_DIR in the spec. Deliberately not test-results/,
+          # which Playwright wipes at the start of every invocation.
+          path: ${{ runner.temp }}/memory-snapshots/
+          if-no-files-found: warn

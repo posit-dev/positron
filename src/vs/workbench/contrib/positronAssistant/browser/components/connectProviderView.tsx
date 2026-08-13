@@ -9,14 +9,56 @@ import { useEffect, useRef, useState } from 'react';
 
 import { localize } from '../../../../../nls.js';
 import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/embeddedLink/EmbeddedLink.js';
-import { IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js';
+import { IPositronCustomModel, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js';
 import { AuthMethod, AuthStatus } from '../types.js';
 import { deriveAuthMethod, deriveAuthStatus, deriveConnectAction } from '../providerConnection.js';
 import { getProviderGettingStartedText, getProviderTermsOfServiceText, getProviderUsageDisclaimerText } from '../providerLegalText.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
+import { DropDownListBox } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
+import { DropDownListBoxItem } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { LanguageModelIcon } from './languageModelButton.js';
 import { getBaseUrlLabel } from '../providerFieldLabels.js';
 import { ProviderModalFooter } from './providerModalFooter.js';
+
+/**
+ * API types (wire protocols) offered for a custom provider. The form fixes auth
+ * to an API key + base URL, so this lists the protocols whose bridge client runs
+ * on an API key: anthropic-messages (anthropic client) and openai-chat /
+ * openai-responses (openai-compatible client). bedrock-converse and
+ * google-generative are omitted for now (Bedrock needs AWS SigV4; Gemini needs
+ * the `gemini` custom client kind added to ai-config first). The companion
+ * extension derives the provider `type` from the chosen protocol on save. Values
+ * match ai-config's `Protocol` vocabulary.
+ */
+const API_TYPE_ANTHROPIC = 'anthropic-messages';
+const API_TYPE_CHAT = 'openai-chat';
+const API_TYPE_RESPONSES = 'openai-responses';
+
+/**
+ * API type (protocol) selection is deferred. For 2026.08 the custom provider is
+ * OpenAI Chat Completions only (#15255); choosing other protocols is revisited
+ * in #13817. The selector and its plumbing stay in place, gated off here, so
+ * re-enabling is a one-line flip.
+ */
+const API_TYPE_SELECTOR_ENABLED = false;
+
+/** The label and example request path shown for each API type in the dropdown. */
+interface ApiTypeOption {
+	title: string;
+	path: string;
+}
+
+/**
+ * Capability defaults applied to a manually listed custom model, so the user
+ * only supplies the id. Mirrors the bridge's OpenAI-compatible defaults.
+ */
+const CUSTOM_MODEL_DEFAULTS = {
+	maxContextLength: 128_000,
+	supportsTools: true,
+	supportsImages: false,
+	supportsToolResultImages: false,
+	supportsWebSearch: false,
+} satisfies Omit<IPositronCustomModel, 'id' | 'name'>;
 
 export interface ConnectProviderViewProps {
 	source: IPositronLanguageModelSource;
@@ -31,6 +73,12 @@ export interface ConnectProviderViewProps {
 	 * orphaning it.
 	 */
 	onPendingSignInChange?: (cancel: (() => void) | undefined) => void;
+	/**
+	 * Open providers.json for advanced editing. Closes the modal (so the editor
+	 * is visible), which discards any unsaved form input, so the affordance says
+	 * as much. Only wired for the custom provider create flow.
+	 */
+	onEditRawConfig?: () => void;
 }
 
 export const ConnectProviderView = (props: ConnectProviderViewProps) => {
@@ -43,7 +91,28 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 	const [errorMessage, setErrorMessage] = useState<string>();
 	const [apiKey, setApiKey] = useState<string>(() => props.source.defaults.apiKey ?? '');
 	const [baseUrl, setBaseUrl] = useState<string>(() => props.source.defaults.baseUrl ?? '');
+	const [protocol, setProtocol] = useState<string>(() => props.source.defaults.protocol ?? API_TYPE_CHAT);
+	const [modelIds, setModelIds] = useState<string[]>(() => props.source.defaults.customModels?.map(m => m.id) ?? ['']);
 	const supportsBaseUrl = props.source.supportedOptions.includes('baseUrl');
+	const supportsProtocol = props.source.supportedOptions.includes('protocol');
+	const supportsCustomModels = props.source.supportedOptions.includes('customModels');
+
+	const setModelIdAt = (index: number, value: string) => setModelIds(ids => ids.map((v, i) => i === index ? value : v));
+	const addModelRow = () => setModelIds(ids => [...ids, '']);
+	const removeModelRow = (index: number) => setModelIds(ids => ids.filter((_, i) => i !== index));
+
+	// Build schema-valid custom model entries from the entered ids, defaulting
+	// the capability fields the user didn't specify.
+	const customModels: IPositronCustomModel[] = modelIds
+		.map(id => id.trim())
+		.filter(id => id.length > 0)
+		.map(id => ({ id, name: id, ...CUSTOM_MODEL_DEFAULTS }));
+
+	const apiTypeEntries = [
+		new DropDownListBoxItem<string, ApiTypeOption>({ identifier: API_TYPE_ANTHROPIC, value: { title: localize('positron.connectProvider.apiType.anthropic', "Anthropic Messages"), path: '/v1/messages' } }),
+		new DropDownListBoxItem<string, ApiTypeOption>({ identifier: API_TYPE_CHAT, value: { title: localize('positron.connectProvider.apiType.chat', "OpenAI Chat Completions"), path: '/v1/chat/completions' } }),
+		new DropDownListBoxItem<string, ApiTypeOption>({ identifier: API_TYPE_RESPONSES, value: { title: localize('positron.connectProvider.apiType.responses', "OpenAI Responses"), path: '/v1/responses' } }),
+	];
 
 	const authMethod = deriveAuthMethod(props.source);
 	const authStatus = deriveAuthStatus(props.source, { showProgress: inFlight, apiKey });
@@ -56,6 +125,8 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 				...configRef.current,
 				...(authMethod === AuthMethod.API_KEY ? { apiKey } : {}),
 				...(supportsBaseUrl ? { baseUrl } : {}),
+				...(supportsProtocol ? { protocol } : {}),
+				...(supportsCustomModels ? { customModels } : {}),
 			};
 			await props.onAction(props.source, dispatchConfig, deriveConnectAction(props.source));
 		} catch (e) {
@@ -147,6 +218,61 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 									/>
 								</>
 							}
+							{supportsProtocol && API_TYPE_SELECTOR_ENABLED &&
+								<>
+									<label className='connect-provider-apikey-label' id='connect-provider-apitype-label'>
+										{localize('positron.connectProvider.apiTypeLabel', "API Type")}
+									</label>
+									<DropDownListBox
+										className='connect-provider-apitype'
+										createItem={item => <ApiTypeEntry option={item.options.value} />}
+										entries={apiTypeEntries}
+										selectedIdentifier={protocol}
+										title={localize('positron.connectProvider.apiTypePlaceholder', "Select API Type")}
+										onSelectionChanged={item => setProtocol(item.options.identifier)}
+									/>
+								</>
+							}
+						</div>
+					}
+					{supportsCustomModels &&
+						<div className='connect-provider-models'>
+							<label className='connect-provider-apikey-label'>
+								{localize('positron.connectProvider.modelsLabel', "Models")}
+							</label>
+							<p className='connect-provider-models-hint'>
+								{localize('positron.connectProvider.modelsHint', "List the model IDs this provider serves. Add these when the provider has no model listing of its own.")}
+							</p>
+							{modelIds.map((id, index) => (
+								<div key={index} className='connect-provider-model-row'>
+									<input
+										autoComplete='off'
+										className='connect-provider-apikey-input'
+										placeholder={localize('positron.connectProvider.modelIdPlaceholder', "Model ID")}
+										spellCheck={false}
+										type='text'
+										value={id}
+										onChange={e => setModelIdAt(index, e.target.value)}
+									/>
+									<button
+										className='connect-provider-model-remove'
+										title={localize('positron.connectProvider.removeModel', "Remove Model")}
+										type='button'
+										onClick={() => removeModelRow(index)}
+									>
+										<span aria-hidden='true' className='codicon codicon-trash' />
+									</button>
+								</div>
+							))}
+							<button className='connect-provider-add-model' type='button' onClick={addModelRow}>
+								<span aria-hidden='true' className='codicon codicon-add' />
+								{localize('positron.connectProvider.addModel', "Add Model")}
+							</button>
+							{props.onEditRawConfig &&
+								<button className='connect-provider-edit-json' type='button' onClick={props.onEditRawConfig}>
+									{localize('positron.connectProvider.editJson', "Edit providers.json for advanced options (closes this dialog)")}
+								</button>
+							}
 						</div>
 					}
 					{errorMessage && <ProviderErrorBanner message={errorMessage} />}
@@ -170,6 +296,14 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 		</>
 	);
 };
+
+/** One API-type row: protocol name with its example request path dimmed alongside. */
+const ApiTypeEntry = (props: { option: ApiTypeOption }) => (
+	<div className='connect-provider-apitype-entry'>
+		<span className='connect-provider-apitype-title'>{props.option.title}</span>
+		<span className='connect-provider-apitype-path'>{props.option.path}</span>
+	</div>
+);
 
 export const ConnectProviderHeader = (props: { source: IPositronLanguageModelSource; subtitle?: string }) => (
 	<div className='connect-provider-header'>
