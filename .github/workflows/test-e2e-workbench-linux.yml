@@ -1,0 +1,276 @@
+name: "Test: E2E Workbench (Linux)"
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: false
+        description: "Host OS for the test container: 'ubuntu24' or 'rocky9'. Both run on the same Ubuntu runner -- the OS under test is the container's, not the runner's."
+        default: "ubuntu24"
+        type: string
+      grep:
+        required: false
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames."
+        default: "@:workbench"
+        type: string
+      display_name:
+        required: false
+        description: "The name of the job as it will appear in the GitHub Actions UI."
+        default: "e2e-workbench"
+        type: string
+      install_license:
+        required: false
+        description: "Whether or not to install positron-license"
+        type: boolean
+        default: false
+      upload_logs:
+        required: false
+        description: "Whether or not to upload e2e test logs."
+        type: boolean
+        default: true
+      allow_soft_fail:
+        required: false
+        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
+        type: boolean
+        default: false
+      install_mode:
+        required: false
+        description: "Workbench install mode: 'ci' for latest daily, 'ci-stable' for the last stable release."
+        type: string
+        default: "ci"
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      enable_diagnostic_logging:
+        required: false
+        description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+jobs:
+  # Emit the shard matrix as JSON, because a matrix cannot be shrunk
+  # conditionally in place. The Rocky lane runs the `default` shard only: the
+  # managed-credential shards exercise OS-independent plumbing, so running them
+  # on a second OS would triple live cloud-auth usage for no new signal. Add them
+  # later only if a Rocky-specific credential bug shows up.
+  shards:
+    name: ${{ inputs.display_name || 'e2e-workbench' }} (shards)
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+      - name: Pick shards for this OS
+        id: pick
+        shell: bash
+        run: |
+          DEFAULT='{"name":"default","credentials":"","grep":"@:workbench","grep_invert":"@:workbench-(snowflake|databricks|azure)"}'
+          CREDS='{"name":"snowflake","credentials":"snowflake","grep":"@:workbench-snowflake","grep_invert":""},{"name":"databricks","credentials":"databricks","grep":"@:workbench-databricks","grep_invert":""},{"name":"azure","credentials":"azure","grep":"@:workbench-azure","grep_invert":""}'
+          if [ "${{ inputs.os }}" = "rocky9" ]; then
+            MATRIX="[${DEFAULT}]"
+          else
+            MATRIX="[${DEFAULT},${CREDS}]"
+          fi
+          # Fail loudly on malformed JSON rather than letting fromJSON blow up in
+          # the consuming job, where the error points at the matrix, not at here.
+          echo "$MATRIX" | jq -e . > /dev/null
+          echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
+
+  e2e-workbench:
+    name: ${{ inputs.display_name || 'e2e-workbench' }} (${{ matrix.shard.name }})
+    needs: shards
+    timeout-minutes: 120
+    runs-on: ubuntu-latest-8x
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.shards.outputs.matrix) }}
+
+    env:
+      POSITRON_BUILD_NUMBER: 0
+      E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
+      E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+      POSIT_WORKBENCH_PASSWORD: ${{ secrets.WB_PASSWORD }}
+      WB_PASSWORD: ${{ secrets.WB_PASSWORD }}
+      CONNECT_BOOTSTRAP_SECRETKEY: ${{ secrets.CONNECT_BOOTSTRAP_SECRETKEY }}
+      HOME: /home/runner
+      AWS_S3_BUCKET: positron-test-reports
+      R_LIBS_SITE: /usr/local/lib/R/site-library
+      R_LIBS_USER: /usr/local/lib/R/site-library
+      GH_SUMMARY_REPORT: true
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
+
+      - name: Generate access token for private repos
+        id: access-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Setup AWS S3 Access
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          # Session must outlast the full build + sharded test run so the Bedrock
+          # sign-in e2e test doesn't hit an expired STS token (must be <= role
+          # MaxSessionDuration).
+          role-duration-seconds: 21600
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v5
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+          OPENAI_KEY: "op://Positron/OpenAI/credential"
+          MS_FOUNDRY_KEY: "op://Positron/MS-Foundry-East2TestAI/credential"
+          MS_FOUNDRY_BASE_URL: "op://Positron/MS-Foundry-East2TestAI/hostname"
+          POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
+          POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
+          POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
+          DATABRICKS_URL: "op://Positron/Databricks-WB-Auto/url"
+          DATABRICKS_CLIENT_ID: "op://Positron/Databricks-WB-Auto/client-id"
+          IDE_SERVICE_ACCOUNT_EMAIL: "op://Positron/RStudioIDE_Service_Account/service-account-email"
+          IDE_SERVICE_ACCOUNT_PASSWORD: "op://Positron/RStudioIDE_Service_Account/service-account-password"
+          IDE_SERVICE_ACCOUNT_OTP_SECRET: "op://Positron/RStudioIDE_Service_Account/service-account-otp-secret"
+          SNOWFLAKE_ACCOUNT: "op://Positron/Snowflake-WB-Auto/account"
+          SNOWFLAKE_CLIENT_ID: "op://Positron/Snowflake-WB-Auto/client-id"
+          SNOWFLAKE_CLIENT_SECRET: "op://Positron/Snowflake-WB-Auto/client-secret"
+          SNOWFLAKE_USERNAME: "op://Positron/Snowflake-WB-Auto/username"
+          SNOWFLAKE_PASSWORD: "op://Positron/Snowflake-WB-Auto/password"
+          AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET: "op://Positron/RStudioIDE_Service_Account/azure-service-principal-client-secret"
+          WORKBENCH_LICENSE: "op://Positron/Workbench-lic-WB-Auto/notesPlain"
+          CONNECT_LICENSE: "op://Positron/Connect-lic-WB-Auto/notesPlain"
+          REDSHIFT_TEST_HOST: "op://Positron/Redshift_Test_Environment/hostname"
+          REDSHIFT_TEST_USERNAME: "op://Positron/Redshift_Test_Environment/username"
+          REDSHIFT_TEST_PASSWORD: "op://Positron/Redshift_Test_Environment/password"
+          TS_OAUTH_CLIENT_ID: "op://Positron/Tailscale_OAuth/client_id"
+          TS_OAUTH_SECRET: "op://Positron/Tailscale_OAuth/client_secret"
+
+      # Bring up Tailscale so tests can reach private test infrastructure (e.g. the serverless
+      # Redshift workgroup used by the data-connections e2e tests). OAuth creds are loaded from
+      # 1Password in the previous step.
+      - name: Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ env.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ env.TS_OAUTH_SECRET }}
+          tags: tag:positron-gha
+
+      - name: Write license files
+        run: |
+          echo "$WORKBENCH_LICENSE" > /tmp/workbench.lic
+          echo "$CONNECT_LICENSE" > /tmp/connect.lic
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+
+      - name: Install jq for JSON parsing
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Download workbench artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: "positron-workbench-linux-x64"
+          path: /tmp/artifacts
+
+      - name: Docker login
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+          password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+
+      - name: Setup Workbench Docker Environment
+        uses: ./.github/actions/setup-workbench-docker
+        with:
+          os: ${{ inputs.os }}
+          install-mode: ${{ inputs.install_mode }}
+          credentials: ${{ matrix.shard.credentials }}
+          wb-password: ${{ secrets.WB_PASSWORD }}
+          github-token: ${{ steps.access-token.outputs.token }}
+          run-id: ${{ github.run_id }}
+          custom-positron-tarball: /tmp/artifacts/positron-workbench-linux-x64-branch.tar.gz
+
+      - name: Setup test dependencies and compile tests
+        uses: ./.github/actions/setup-e2e-test-dependencies
+
+      - name: Alter AppArmor Restrictions for Playwright
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Setup Xvfb
+        uses: ./.github/actions/setup-xvfb
+
+      - name: Generate Report Directory
+        uses: ./.github/actions/gen-report-dir
+        with:
+          identifier: e2e-workbench-${{ inputs.os }}-${{ matrix.shard.name }}
+
+      - name: 🧪 Run Playwright Workbench Tests
+        shell: bash
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
+          POSITRON_PY_VER_SEL: "3.10.12"
+          POSITRON_R_VER_SEL: 4.5.2
+          POSITRON_PY_ALT_VER_SEL: "3.13.0"
+          POSITRON_R_ALT_VER_SEL: 4.4.2
+          POSITRON_HIDDEN_PY: "3.12.10 Module"
+          POSITRON_HIDDEN_R: 4.4.1
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          USE_KEY: true
+          PW_PROJECT_NAME: e2e-workbench
+          REPORTER_REPO_NAME: positron
+          ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
+        run: |
+          export DISPLAY=:10
+          GREP_INVERT_ARG=""
+          if [ -n "${{ matrix.shard.grep_invert }}" ]; then
+            GREP_INVERT_ARG="--grep-invert=${{ matrix.shard.grep_invert }}"
+          fi
+          npx playwright test --project e2e-workbench --retries=1 --workers=1 \
+            --grep="${{ matrix.shard.grep }}" \
+            $GREP_INVERT_ARG
+
+      - name: Upload HTML report to S3
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+
+      - name: Upload Test Logs
+        if: ${{ always() && inputs.upload_logs }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-workbench-${{ inputs.os }}-logs-${{ matrix.shard.name }}
+          path: test-logs
+          retention-days: 3
+          if-no-files-found: ignore
+
+      - name: Stop Docker containers
+        if: always()
+        run: |
+          docker compose -p ${{ github.run_id }} -f docker/environments/wb-local/docker-compose.workbench.yml down || true

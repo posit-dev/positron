@@ -15,6 +15,7 @@ import { ICommandService } from '../../platform/commands/common/commands.js';
 import { ILanguageService } from '../../editor/common/languages/language.js';
 import { IHostService } from '../../workbench/services/host/browser/host.js';
 import { IFileDialogService } from '../../platform/dialogs/common/dialogs.js';
+import { ITelemetryService } from '../../platform/telemetry/common/telemetry.js';
 import { IPathService } from '../../workbench/services/path/common/pathService.js';
 import { ITextModelService } from '../../editor/common/services/resolverService.js';
 import { IContextKeyService } from '../../platform/contextkey/common/contextkey.js';
@@ -138,6 +139,7 @@ export class PositronReactServices {
 		@IRuntimeSessionService public readonly runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService public readonly runtimeStartupService: IRuntimeStartupService,
 		@IStorageService public readonly storageService: IStorageService,
+		@ITelemetryService public readonly telemetryService: ITelemetryService,
 		@ITerminalService public readonly terminalService: ITerminalService,
 		@ITextModelService public readonly textModelService: ITextModelService,
 		@IThemeService public readonly themeService: IThemeService,

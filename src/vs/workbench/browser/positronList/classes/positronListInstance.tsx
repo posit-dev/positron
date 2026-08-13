@@ -288,6 +288,19 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 		return selected;
 	}
 
+	/**
+	 * Returns the item the cursor is on, or undefined when the cursor is out of range or sitting on
+	 * a section row.
+	 *
+	 * This is the item a keyboard-invoked action should act on. Arrow keys move the cursor without
+	 * moving the selection, so the two disagree as soon as the user navigates, and the cursor is
+	 * the row the user sees as current. A mouse click sets both, so the two agree on that path.
+	 */
+	getCursorItem(): TItem | undefined {
+		const entry = this._entries[this.cursorRowIndex];
+		return entry?.kind === 'item' ? entry.item : undefined;
+	}
+
 	//#endregion Public Methods
 
 	//#region DataGridInstance Implementation

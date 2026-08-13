@@ -326,29 +326,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 						StorageScope.APPLICATION, StorageTarget.MACHINE);
 				}
 
-				// Check to see if every single language runtime has been disabled.
-				const languageIds = this._languagePacks.keys();
-				let allDisabled = true;
-				for (const languageId of languageIds) {
-					if (this.getStartupBehavior(languageId) !== LanguageStartupBehavior.Disabled) {
-						allDisabled = false;
-						break;
-					}
-				}
-
-				// If there are no runtimes registered, but it isn't because
-				// everything was disabled, show an error.
-				if (this._languageRuntimeService.registeredRuntimes.length === 0 &&
-					!allDisabled) {
-					this._notificationService.error(nls.localize('positron.runtimeStartupService.noRuntimesMessage',
-						"No interpreters found. Please see the [Get Started](https://positron.posit.co/start) \
-						documentation to learn how to prepare your Python and/or R environments to work with Positron."));
-				}
-
 				// If there are no affiliated runtimes, and no starting or running
 				// runtimes, start the first runtime that has Immediate startup
 				// behavior.
-				else if (!this.hasAffiliatedRuntime() &&
+				if (!this.hasAffiliatedRuntime() &&
 					!this._runtimeSessionService.hasStartingOrRunningConsole()) {
 					const languageRuntimes = this._languageRuntimeService.registeredRuntimes
 						.filter(metadata => {
@@ -1733,45 +1714,30 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/**
 	 * Gets the preferred runtime for a language
 	 *
+	 * A preference source can outlive the runtime it names (e.g. a session
+	 * restored across a window reload), so an unregistered id falls through
+	 * to the next source rather than being returned.
+	 *
 	 * @param languageId The language identifier
 	 * @returns The preferred runtime metadata, or undefined if no preferred
 	 *  runtime is available.
 	 */
 	public getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata | undefined {
-		// If there's an active session for the language, return it.
-		const activeSession =
-			this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
-		if (activeSession) {
-			return activeSession.runtimeMetadata;
-		}
+		const registered = (metadata: ILanguageRuntimeMetadata | undefined) =>
+			metadata
+				? this._languageRuntimeService.getRegisteredRuntime(metadata.runtimeId)
+				: undefined;
 
-		// If there's a runtime affiliated with the workspace for the language,
-		// return it.
-		const affiliatedRuntimeMetadata = this.getAffiliatedRuntimeMetadata(languageId);
-		if (affiliatedRuntimeMetadata) {
-			const affiliatedRuntimeInfo =
-				this._languageRuntimeService.getRegisteredRuntime(affiliatedRuntimeMetadata.runtimeId);
-			if (affiliatedRuntimeInfo) {
-				return affiliatedRuntimeInfo;
-			}
-		}
-
-		// If there is a most recently started runtime for the language, return it.
-		const mostRecentlyStartedRuntime = this._mostRecentlyStartedRuntimesByLanguageId.get(languageId);
-		if (mostRecentlyStartedRuntime) {
-			return mostRecentlyStartedRuntime;
-		}
-
-		// If there are registered runtimes for the language, return the first.
-		const languageRuntimeInfos =
-			this._languageRuntimeService.registeredRuntimes
-				.filter(info => info.languageId === languageId);
-		if (languageRuntimeInfos.length) {
-			return languageRuntimeInfos[0];
-		}
-
-		// Nothing is registered, so we don't have a preferred runtime for this language.
-		return undefined;
+		// Preference order:
+		//   1. The runtime backing the active console session for the language
+		//   2. The runtime affiliated with the workspace
+		//   3. The most recently started runtime for the language
+		//   4. Any registered runtime for the language
+		const consoleSession = this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
+		return registered(consoleSession?.runtimeMetadata)
+			?? registered(this.getAffiliatedRuntimeMetadata(languageId))
+			?? registered(this._mostRecentlyStartedRuntimesByLanguageId.get(languageId))
+			?? this._languageRuntimeService.registeredRuntimes.find(info => info.languageId === languageId);
 	}
 
 	/**

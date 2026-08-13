@@ -28,6 +28,15 @@
 	transform: translateY(-0.5px);
 }
 
+.data-connection-entry-connected {
+	flex: 0 0 auto;
+	width: 6px;
+	height: 6px;
+	margin: 0 5px;
+	border-radius: 50%;
+	background-color: var(--vscode-charts-green);
+}
+
 .data-connection-entry-actions {
 	display: flex;
 	width: 20px;

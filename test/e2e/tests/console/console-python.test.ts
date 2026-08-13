@@ -8,7 +8,15 @@ import { test as base, tags } from '../_test.setup';
 const test = base.extend<{}, {}>({
 	beforeApp: [
 		async ({ settingsFile }, use) => {
-			await settingsFile.append({ 'python.useBundledIpykernel': false });
+			await settingsFile.append({
+				'python.useBundledIpykernel': false,
+				// Trace-level supervisor logs to diagnose https://github.com/posit-dev/positron/issues/15060.
+				// At the default `debug` level the supervisor logs "sending to Jupyter socket Shell"
+				// before queueing to an in-process channel; only `trace` logs the actual ZMQ send, which
+				// is what tells us whether a wedged kernel ever received the message. Must be pre-launch:
+				// the level is read once when the supervisor server starts.
+				'kernelSupervisor.logLevel': 'trace',
+			});
 			await use();
 		},
 		{ scope: 'worker' }
@@ -78,5 +86,23 @@ print("Completed all steps")
 
 		// Verify that not all work was completed (Step 9 should not appear)
 		await console.waitForConsoleContents('Step 9', { expectedCount: 0, timeout: 1000 });
+	});
+
+	test('Python - Incomplete input shows a continuation prompt (Unprocessed path)', async function ({ app, python }) {
+		const { console } = app.workbench;
+
+		// Python has no input boundary provider, so completeness is checked by
+		// the session over the Unprocessed mode. An incomplete statement must
+		// not execute; the console shows the continuation prompt instead.
+		await console.typeToConsole('def f():', true);
+		await console.waitForReady('...', 10000);
+
+		// Clearing the input returns the console to the primary prompt.
+		await console.clearInput();
+		await console.waitForReady('>>>', 10000);
+
+		// A complete statement still executes normally.
+		await console.typeToConsole('40 + 2', true);
+		await console.waitForConsoleContents('42', { timeout: 10000 });
 	});
 });

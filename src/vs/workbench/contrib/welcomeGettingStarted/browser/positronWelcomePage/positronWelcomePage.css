@@ -1,0 +1,44 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * This page renders inside .gettingStartedContainer, so gettingStarted.css
+ * applies to everything here. Its rules use four-class selectors on bare
+ * elements, so the overrides in this folder repeat the container chain to win on
+ * specificity.
+ *
+ * Do not add a page-wide reset. The page also hosts widgets the editor pane
+ * builds -- the recent list, the connect action, the startup checkbox -- and
+ * gettingStarted.css is what styles those correctly. Override on your own
+ * elements only.
+ */
+
+/* No horizontal padding: .gettingStartedSlideCategories already supplies 24px. */
+.positron-welcome-page {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	margin: 0 auto;
+	max-width: 1400px;
+	min-height: 100%;
+}
+
+/*
+ * Pins the footer to the bottom of the page. The min-height above leaves free
+ * space when the content is short, and this margin takes all of it.
+ */
+.positron-welcome-page .positron-welcome-page-footer {
+	margin-top: auto;
+}
+
+/* Opt-in link color, for elements this page owns rather than the editor pane. */
+.monaco-workbench .part.editor > .content .gettingStartedContainer .positron-welcome-page .positron-welcome-page-link {
+	color: var(--vscode-textLink-foreground);
+	text-decoration: var(--text-link-decoration);
+}
+
+.monaco-workbench .part.editor > .content .gettingStartedContainer .positron-welcome-page .positron-welcome-page-link:hover {
+	color: var(--vscode-textLink-activeForeground);
+}

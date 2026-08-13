@@ -5,7 +5,14 @@
 
 /// <reference types="vitest/globals" />
 
-import { buildUpdateUrl, IActiveLanguageRecord, mergeActiveLanguageRecord, parseActiveLanguageRecord, reportableLanguages } from '../../common/positronUpdateUtils.js';
+import { buildReleaseNotesUrl, buildUpdateUrl, IActiveLanguageRecord, mergeActiveLanguageRecord, parseActiveLanguageRecord, reportableLanguages } from '../../common/positronUpdateUtils.js';
+
+describe('buildReleaseNotesUrl', function () {
+	it('builds the markdown URL from the update CDN base, channel, and version', () => {
+		const result = buildReleaseNotesUrl('https://cdn.posit.co/positron', 'releases', '2026.08.0');
+		expect(result).toBe('https://cdn.posit.co/positron/releases/release-notes/release-2026.08.0.md');
+	});
+});
 
 describe('buildUpdateUrl', function () {
 	const baseUrl = 'https://updates.example.com/releases/darwin/arm64/releases.json';

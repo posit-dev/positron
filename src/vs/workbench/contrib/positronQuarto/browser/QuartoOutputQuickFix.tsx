@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { useCallback } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
@@ -17,13 +17,20 @@ import { QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
 const fixPrompt = localize('positronQuartoAssistantFixPrompt', "Fix this Quarto inline output error.");
 const explainPrompt = localize('positronQuartoAssistantExplainPrompt', "Explain this Quarto inline output error.");
 
-const ATTACHMENT_NAME = 'quarto-output-error.txt';
+const ATTACHMENT_NAME = localize('positronQuartoAssistantErrorAttachmentName', "Quarto Output Error");
 
 interface QuartoOutputQuickFixProps {
 	/** The error output content from the Quarto cell execution. */
 	errorContent: string;
 	/** Cell context resolved at render time. */
 	cellContext?: QuartoCellErrorContext;
+	/**
+	 * Called after each render commits to the DOM. The buttons mount
+	 * asynchronously, so the host view zone uses this to re-measure its height
+	 * once they exist rather than relying on a ResizeObserver to notice the
+	 * growth (which it can miss on a re-run; see posit-dev/positron#14844).
+	 */
+	onLayout?: () => void;
 }
 
 /**
@@ -34,7 +41,14 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
 	const hasChatModels = useContextKeyFromString<boolean>(POSIT_HAS_CHAT_MODELS_KEY);
 
-	const { errorContent, cellContext } = props;
+	const { errorContent, cellContext, onLayout } = props;
+
+	// Notify the host after every commit (declared before the early return so it
+	// runs whether or not the buttons render). Layout effects fire once the DOM
+	// is in place, so the host measures the true height of the mounted buttons.
+	useLayoutEffect(() => {
+		onLayout?.();
+	});
 
 	const buildPayload = useCallback((): AssistantErrorPayload => {
 		if (!cellContext) {

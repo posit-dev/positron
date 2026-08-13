@@ -26,9 +26,9 @@ import {
 } from './extensionManagement.js';
 import { areSameExtensions, ExtensionKey, getGalleryExtensionId, getGalleryExtensionTelemetryData, getLocalExtensionTelemetryData, isMalicious } from './extensionManagementUtil.js';
 import { ExtensionType, IExtensionManifest, isApplicationScopedExtension, TargetPlatform } from '../../extensions/common/extensions.js';
-import { areApiProposalsCompatible } from '../../extensions/common/extensionValidator.js';
 // --- Start Positron ---
 import { validatePositronExtensionManifest } from '../../extensions/common/positronExtensionValidator.js';
+import { isBlockedExtension, isUnsatisfiableDependency } from './positronExtensionBlocklist.js';
 // --- End Positron ---
 import { ILogService } from '../../log/common/log.js';
 import { IProductService } from '../../product/common/productService.js';
@@ -38,23 +38,6 @@ import { IUserDataProfilesService } from '../../userDataProfile/common/userDataP
 import { IMarkdownString, MarkdownString } from '../../../base/common/htmlContent.js';
 
 // --- Start Positron ---
-/**
- * List of extension IDs that conflict with Positron built-in features.
- * Please use lower case for everything in here.
- */
-const kPositronDuplicativeExtensions = [
-	'ikuyadeu.r',
-	'reditorsupport.r-lsp',
-	'reditorsupport.r',
-	'rdebugger.r-debugger',
-	'mikhail-arkhipov.r',
-	'vscode.r',
-	'jeanp413.open-remote-ssh',
-	'ms-python.python',
-	'ms-python.vscode-python-envs',
-	'github.copilot-chat'
-];
-
 export interface PositronExtensionCompatibility {
 	compatible: boolean;
 	reason?: string;
@@ -66,8 +49,29 @@ export interface PositronExtensionCompatibility {
  * @returns true if compatible, false if it conflicts with Positron features
  */
 function isPositronExtensionCompatible(extension: { name: string; publisher: string }): boolean {
-	const id = `${extension.publisher}.${extension.name}`.toLowerCase();
-	return !kPositronDuplicativeExtensions.includes(id);
+	return !isBlockedExtension(`${extension.publisher}.${extension.name}`);
+}
+
+/**
+ * Build the error reported when an extension version declares a dependency on an
+ * extension Positron blocks and does not provide as a built-in. Such a version
+ * installs but can never activate, so the install is refused instead (#15124).
+ * @param displayName Display name of the extension being installed
+ * @param version Version of the extension being installed
+ * @param blockedDependencies IDs of the dependencies that can never be satisfied
+ * @returns Error to throw, reported to the user as an install failure
+ */
+function positronBlockedDependencyError(displayName: string, version: string, blockedDependencies: string[]): ExtensionManagementError {
+	return new ExtensionManagementError(
+		nls.localize(
+			'positron.blockedExtensionDependency',
+			"Cannot install version {0} of the '{1}' extension because it depends on '{2}', which conflicts with Positron built-in features.",
+			version,
+			displayName,
+			blockedDependencies.join(', ')
+		),
+		ExtensionManagementErrorCode.Incompatible
+	);
 }
 
 /**
@@ -828,10 +832,16 @@ export abstract class AbstractExtensionManagementService extends CommontExtensio
 
 			compatibleExtension = await this.getCompatibleVersion(extension, sameVersion, installPreRelease, productVersion);
 			if (!compatibleExtension) {
-				const incompatibleApiProposalsMessages: string[] = [];
-				if (!areApiProposalsCompatible(extension.properties.enabledApiProposals ?? [], incompatibleApiProposalsMessages)) {
-					throw new ExtensionManagementError(nls.localize('incompatibleAPI', "Can't install '{0}' extension. {1}", extension.displayName ?? extension.identifier.id, incompatibleApiProposalsMessages[0]), ExtensionManagementErrorCode.IncompatibleApi);
+				// --- Start Positron ---
+				// No version passed selection. When the requested version depends on an extension Positron
+				// blocks and does not provide as a built-in, name that dependency instead of blaming the
+				// engine or a missing release version. This covers an explicitly requested version and an
+				// extension whose every version declares such a dependency (#15124).
+				const blockedDependencies = (extension.properties.dependencies ?? []).filter(isUnsatisfiableDependency);
+				if (blockedDependencies.length > 0) {
+					throw positronBlockedDependencyError(extension.displayName ?? extension.identifier.id, extension.version, blockedDependencies);
 				}
+				// --- End Positron ---
 				/** If no compatible release version is found, check if the extension has a release version or not and throw relevant error */
 				if (!installPreRelease && extension.hasPreReleaseVersion && extension.properties.isPreReleaseVersion && (await this.galleryService.getExtensions([extension.identifier], CancellationToken.None))[0]) {
 					throw new ExtensionManagementError(nls.localize('notFoundReleaseExtension', "Can't install release version of '{0}' extension because it has no release version.", extension.displayName ?? extension.identifier.id), ExtensionManagementErrorCode.ReleaseVersionNotFound);
@@ -849,6 +859,16 @@ export abstract class AbstractExtensionManagementService extends CommontExtensio
 		if (manifest.version !== compatibleExtension.version) {
 			throw new ExtensionManagementError(`Cannot install '${compatibleExtension.identifier.id}' extension because of version mismatch in Marketplace`, ExtensionManagementErrorCode.Invalid);
 		}
+
+		// --- Start Positron ---
+		// The gallery walk (isValidVersion) already steers version selection away from versions that
+		// depend on blocked extensions; this is the authoritative backstop against a gallery that does
+		// not serve dependency metadata, where the manifest is the only source (#15124).
+		const blockedDependencies = (manifest.extensionDependencies ?? []).filter(isUnsatisfiableDependency);
+		if (blockedDependencies.length > 0) {
+			throw positronBlockedDependencyError(compatibleExtension.displayName ?? compatibleExtension.identifier.id, compatibleExtension.version, blockedDependencies);
+		}
+		// --- End Positron ---
 
 		return { extension: compatibleExtension, manifest };
 	}

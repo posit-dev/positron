@@ -79,6 +79,11 @@
           "args": [],
           "returns": "void"
         }
+      },
+      {
+        "command": "zed.getConsoleHistory",
+        "category": "Zed",
+        "title": "Get Console History"
       }
     ],
     "menus": {
@@ -86,6 +91,10 @@
         {
           "category": "Zed",
           "command": "zed.quartoVisualMode"
+        },
+        {
+          "category": "Zed",
+          "command": "zed.getConsoleHistory"
         }
       ]
     }

@@ -642,6 +642,27 @@ suite('AuthProvider - configured provider state', () => {
 		assert.strictEqual(await provider.isConfigured(), false);
 	});
 
+	test('clearConfiguration resets an orphaned API-key provider stuck in "Needs Attention"', async () => {
+		// An API-key provider whose stored account survived but whose secret is
+		// gone reads as configured-but-signed-out (status "error" -> "Needs
+		// Attention"). removeSession(providerId) can't fix it, because the
+		// stored account is keyed by a UUID, not the provider ID. Only
+		// clearConfiguration forgets the account and clears the configured flag.
+		const context = createMockContext();
+		const provider = track(new AuthProvider('test', 'Test', context));
+		await provider.storeKey('acc-uuid', 'Account', 'sk-key');
+		await context.secrets.delete('apiKey-test-acc-uuid'); // orphan the account
+
+		assert.strictEqual((await provider.getSessions()).length, 0);
+		assert.strictEqual(await provider.isConfigured(), true);
+
+		await provider.removeSession('test'); // provider ID, no matching account
+		assert.strictEqual(await provider.isConfigured(), true);
+
+		await provider.clearConfiguration();
+		assert.strictEqual(await provider.isConfigured(), false);
+	});
+
 	test('failed resolution for a configured provider logs at warn', async () => {
 		const warnSpy = sinon.spy(log, 'warn');
 		let count = 0;

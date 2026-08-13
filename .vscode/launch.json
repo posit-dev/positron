@@ -18,6 +18,14 @@
 			"name": "Attach to Extension Host",
 			"timeout": 0,
 			"port": 5870,
+			// --- Start Positron ---
+			// js-debug attaches to grandchild node processes by default, and starts
+			// each one paused at entry inside its bootloader. The extension host
+			// spawns these constantly (language servers, the Quarto CLI), so the
+			// pauses stall those processes and steal focus back to this window.
+			// The compound attaches to every process we care about by port already.
+			"autoAttachChildProcesses": false,
+			// --- End Positron ---
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js",
 				"${workspaceFolder}/extensions/*/out/**/*.js",
@@ -80,6 +88,11 @@
 			"timeout": 30000,
 			"port": 5875,
 			"continueOnAttach": true,
+			// --- Start Positron ---
+			// See the note on "Attach to Extension Host": auto-attaching to
+			// grandchild node processes pauses them at entry and steals focus.
+			"autoAttachChildProcesses": false,
+			// --- End Positron ---
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js"
 			],

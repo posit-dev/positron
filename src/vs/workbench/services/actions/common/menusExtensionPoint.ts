@@ -30,6 +30,10 @@ import { ApiProposalName } from '../../../../platform/extensions/common/extensio
 // eslint-disable-next-line no-duplicate-imports
 import { PositronActionBarOptions, PositronActionBarButtonOptions, PositronActionBarCheckboxOptions, PositronActionBarToggleOptions } from '../../../../platform/action/common/action.js';
 import { ICommandMetadata } from '../../../../platform/commands/common/commands.js';
+// eslint-disable-next-line no-duplicate-imports
+import { ContextKeyExpression } from '../../../../platform/contextkey/common/contextkey.js';
+// eslint-disable-next-line no-duplicate-imports
+import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 // --- End Positron ---
 
 // --- Start Positron ---
@@ -46,6 +50,32 @@ export const IGNORED_JUPYTER_COMMANDS = new Set([
 	// host process. We don't currently support running multiple extension host processes.
 	'jupyter.runInDedicatedExtensionHost',
 ]);
+// --- End Positron ---
+
+// --- Start Positron ---
+// Add Positron's AI switch to every command and menu item the bundled Copilot extension
+// contributes. Doing it here covers whatever upstream adds, and avoids hand-writing a `when`
+// clause per command in a package.json that every bump replaces.
+const COPILOT_EXTENSION_ID = new ExtensionIdentifier('GitHub.copilot-chat');
+
+// Written out here instead of imported from `ChatContextKeys`, because this file sits outside
+// `contrib/` and can't depend on it. A bare key name means "is this key set", so this is the same
+// thing the key in a package.json `when` clause would parse to.
+const COPILOT_AI_FEATURES_ENABLED = ContextKeyExpr.has('chatAiFeaturesEnabled');
+
+/**
+ * Adds Positron's AI switch to a condition coming from the bundled Copilot extension. Conditions
+ * from any other extension are returned unchanged.
+ *
+ * Pass in the extension's own condition so it still applies: a command's `enablement` or a menu
+ * item's `when` has to be true as well, not instead.
+ */
+export function gateCopilotContribution(extensionId: ExtensionIdentifier, expr: ContextKeyExpression | undefined): ContextKeyExpression | undefined {
+	if (!ExtensionIdentifier.equals(extensionId, COPILOT_EXTENSION_ID)) {
+		return expr;
+	}
+	return ContextKeyExpr.and(expr, COPILOT_AI_FEATURES_ENABLED);
+}
 // --- End Positron ---
 
 interface IAPIMenu {
@@ -1234,7 +1264,11 @@ commandsExtensionPoint.setHandler(extensions => {
 			shortTitle,
 			tooltip: title,
 			category,
-			precondition: ContextKeyExpr.deserialize(enablement),
+			// --- Start Positron ---
+			// Was: precondition: ContextKeyExpr.deserialize(enablement),
+			// Add the AI switch to Copilot's commands, on top of their own `enablement`.
+			precondition: gateCopilotContribution(extension.description.identifier, ContextKeyExpr.deserialize(enablement)),
+			// --- End Positron ---
 			icon: absoluteIcon,
 			// --- Start Positron ---
 			positronActionBarOptions,
@@ -1440,7 +1474,12 @@ menusExtensionPoint.setHandler(extensions => {
 					continue;
 				}
 
-				item.when = ContextKeyExpr.deserialize(menuItem.when);
+				// --- Start Positron ---
+				// Was: item.when = ContextKeyExpr.deserialize(menuItem.when);
+				// Add the AI switch to Copilot's menu items, on top of their own `when`. This line
+				// runs after both the menu-item and submenu-item branches, so it covers both.
+				item.when = gateCopilotContribution(extension.description.identifier, ContextKeyExpr.deserialize(menuItem.when));
+				// --- End Positron ---
 				_menuRegistrations.add(MenuRegistry.appendMenuItem(menu.id, item));
 			}
 		}

@@ -1,6 +1,6 @@
 ---
 name: author-e2e-tests
-description: Use when writing, debugging, or maintaining Playwright e2e tests for Positron -- new test files, test cases, flaky-test fixes, test infrastructure, or performance/metric tests.
+description: Use when writing or maintaining Playwright e2e tests for Positron -- new test files, test cases, test infrastructure, or performance/metric tests. For a named test that is already failing or flaking, in CI or on your machine, use debug-e2e-test instead.
 ---
 
 # Positron Playwright E2E Testing
@@ -169,4 +169,4 @@ For detailed information, read the bundled reference docs:
 2. Check page object source in `test/e2e/pages/` for available methods
 3. Read `test/e2e/tests/_test.setup.ts` for fixture definitions
 4. Use `--debug` flag to step through tests interactively
-5. For a flaky/failing test that already has CI history, query `test-health` directly for a quick read on known failure patterns -- see `../e2e-failure-analyzer/scripts/README.md` for the test-key format and how to call `e2e-query-history.js`. For a full guided root-cause dig through the evidence, suggest the user run `/triage-e2e-test` (manual-only, not something to invoke on their behalf).
+5. For a flaky/failing test that already has CI history, query `test-health` directly for a quick read on known failure patterns -- see `../e2e-failure-analyzer/scripts/README.md` for the test-key format and how to call `e2e-query-history.js`. For a full guided root-cause dig through the evidence, hand off to `debug-e2e-test`.

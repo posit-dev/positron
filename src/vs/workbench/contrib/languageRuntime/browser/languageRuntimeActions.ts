@@ -35,6 +35,7 @@ import { IWorkbenchEnvironmentService } from '../../../services/environment/comm
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { getErrorMessage } from '../../../../base/common/errors.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -139,6 +140,59 @@ async function selectLanguage(accessor: ServicesAccessor) {
 }
 
 /**
+ * Whether a session is in a state where it can still be used. Sessions that
+ * have exited (or never finished initializing) are left out: they are not
+ * offered in the session picker, and they cannot be made the foreground
+ * session.
+ *
+ * @param session The session to check.
+ * @returns Whether the session is usable.
+ */
+function isActiveSessionState(session: ILanguageRuntimeSession): boolean {
+	switch (session.getRuntimeState()) {
+		case RuntimeState.Initializing:
+		case RuntimeState.Starting:
+		case RuntimeState.Ready:
+		case RuntimeState.Idle:
+		case RuntimeState.Busy:
+		case RuntimeState.Restarting:
+		case RuntimeState.Exiting:
+		case RuntimeState.Offline:
+		case RuntimeState.Interrupting:
+			return true;
+		default:
+			return false;
+	}
+}
+
+/**
+ * The result of the Start New Console Session command. Reported as data rather
+ * than left implicit so a programmatic caller can tell a started session apart
+ * from a picker the user dismissed.
+ */
+export interface IStartNewConsoleSessionResult {
+	/** Whether a new console session was started. */
+	readonly started: boolean;
+	/** The id of the new session, set when `started` is true. */
+	readonly sessionId?: string;
+	/** Why no session was started, set when `started` is false. */
+	readonly message?: string;
+}
+
+/**
+ * The result of the Select Session command. Reported as data for the same
+ * reason as {@link IStartNewConsoleSessionResult}.
+ */
+export interface ISelectSessionResult {
+	/** Whether the foreground session was changed. */
+	readonly selected: boolean;
+	/** The id of the session that is now in the foreground, set when `selected` is true. */
+	readonly sessionId?: string;
+	/** Why the foreground session was not changed, set when `selected` is false. */
+	readonly message?: string;
+}
+
+/**
  * Helper function that asks the user to select a language runtime session from
  * an array of existing language runtime sessions.
  *
@@ -184,31 +238,13 @@ export const selectLanguageRuntimeSession = async (
 			languageService,
 		);
 
-	// Filter active sessions by runtime state (exclude exited/uninitialized sessions).
-	const isActiveState = (session: ILanguageRuntimeSession) => {
-		switch (session.getRuntimeState()) {
-			case RuntimeState.Initializing:
-			case RuntimeState.Starting:
-			case RuntimeState.Ready:
-			case RuntimeState.Idle:
-			case RuntimeState.Busy:
-			case RuntimeState.Restarting:
-			case RuntimeState.Exiting:
-			case RuntimeState.Offline:
-			case RuntimeState.Interrupting:
-				return true;
-			default:
-				return false;
-		}
-	};
-
 	const currentForegroundSession = runtimeSessionService.foregroundSession;
 	const sessionItems: IQuickPickItem[] = [];
 
 	// Create quick pick items for active console sessions sorted by creation time, oldest to newest.
 	const consoleItems: IQuickPickItem[] = runtimeSessionService.activeSessions
 		.filter(session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Console)
-		.filter(isActiveState)
+		.filter(isActiveSessionState)
 		.sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp)
 		.map(session => ({
 			id: session.sessionId,
@@ -234,7 +270,7 @@ export const selectLanguageRuntimeSession = async (
 		// Active notebook sessions (includes quarto), sorted by creation time.
 		const activeNotebookSessions = runtimeSessionService.activeSessions
 			.filter(session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook)
-			.filter(isActiveState)
+			.filter(isActiveSessionState)
 			.sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp);
 
 		const notebookItems: IQuickPickItem[] = activeNotebookSessions
@@ -318,9 +354,10 @@ export const selectLanguageRuntimeSession = async (
 	// Handle the user's selection.
 	if (result?.id === startNewRuntimeId) {
 		// If the user selected "New Console Session...", execute the command to start a new console session.
-		const sessionId: string | undefined = await commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID);
-		if (sessionId) {
-			return runtimeSessionService.activeSessions.find(session => session.sessionId === sessionId);
+		const started = await commandService.executeCommand<IStartNewConsoleSessionResult>(
+			LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID);
+		if (started?.sessionId) {
+			return runtimeSessionService.activeSessions.find(session => session.sessionId === started.sessionId);
 		}
 	} else if (result?.id === changeNotebookSessionId) {
 		await commandService.executeCommand(SELECT_KERNEL_ID_POSITRON);
@@ -332,6 +369,42 @@ export const selectLanguageRuntimeSession = async (
 	}
 	return undefined;
 };
+
+/**
+ * Helper function that applies a newly selected language runtime session as
+ * the foreground session: for notebook sessions, focuses the associated
+ * editor first; for console sessions, drives focus into the console pane.
+ * Shared by the interactive picker path and the agent-supplied sessionId
+ * path in SelectSessionAction so both flow through the same logic.
+ *
+ * Takes already-resolved services (rather than a ServicesAccessor) because
+ * callers may invoke this after an `await`, at which point a ServicesAccessor
+ * is no longer valid to read from.
+ *
+ * @param commandService The command service.
+ * @param editorService The editor service.
+ * @param runtimeSessionService The runtime session service.
+ * @param session The session to make the foreground session.
+ */
+async function applySelectedSession(
+	commandService: ICommandService,
+	editorService: IEditorService,
+	runtimeSessionService: IRuntimeSessionService,
+	session: ILanguageRuntimeSession
+): Promise<void> {
+	const notebookUri = session.metadata.notebookUri;
+	if (notebookUri) {
+		// For notebook sessions, we want to focus the editor
+		// associated with the session's notebook URI when changing
+		// the foreground session.
+		await editorService.openEditor({ resource: notebookUri });
+		runtimeSessionService.foregroundSession = session;
+	} else {
+		// For console sessions, drive focus into the console pane
+		runtimeSessionService.foregroundSession = session;
+		commandService.executeCommand('workbench.panel.positronConsole.focus');
+	}
+}
 
 /**
  * IInterpreterGroup interface.
@@ -827,6 +900,182 @@ export class DuplicateActiveConsoleSessionAction extends Action2 {
 	}
 }
 
+/**
+ * Action that allows the user to create a new console session from a list of registered runtimes.
+ */
+export class StartNewConsoleSessionAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			icon: Codicon.plus,
+			id: LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID,
+			title: localize2('positron.languageRuntime.startConsoleSession', 'Start New Console Session'),
+			category,
+			f1: true,
+			menu: [{
+				group: 'navigation',
+				id: MenuId.ViewTitle,
+				order: 1,
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
+					PositronConsoleInstancesExistContext.negate()
+				),
+			}],
+			keybinding: {
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Slash,
+				mac: { primary: KeyMod.WinCtrl | KeyMod.Shift | KeyCode.Slash },
+				weight: KeybindingWeight.WorkbenchContrib
+			},
+			metadata: {
+				description: localize('positron.languageRuntime.startNewConsoleSession.description', "Start a new console session for a language runtime."),
+				agentCompatible: true,
+				args: [
+					{
+						name: 'runtimeId',
+						description: 'Runtime id to start a console session for. Always supply this when running the command programmatically: with no id the command opens a runtime picker and waits for the user to choose one.',
+						schema: { type: 'string' },
+					},
+				],
+				returns: 'An object with started, sessionId, and message. started is true when a console session was started, with sessionId identifying it; when started is false, message explains why (the user dismissed the runtime picker).',
+			},
+		});
+	}
+
+	async run(accessor: ServicesAccessor, runtimeId?: string): Promise<IStartNewConsoleSessionResult> {
+		// Access services.
+		const commandService = accessor.get(ICommandService);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+
+		// Only treat a non-empty string as a supplied id: menu callers can
+		// forward a context object as the first argument.
+		const suppliedRuntimeId = typeof runtimeId === 'string' && runtimeId.length > 0 ? runtimeId : undefined;
+		let selectedRuntime: ILanguageRuntimeMetadata | undefined;
+		if (suppliedRuntimeId) {
+			// A runtime id was supplied (e.g. by an agent): resolve it
+			// directly and skip the picker. An id that resolves to nothing is a
+			// caller error, so throw rather than falling back to the picker,
+			// which would leave a programmatic caller waiting on the user.
+			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+			selectedRuntime = languageRuntimeService.getRegisteredRuntime(suppliedRuntimeId);
+			if (!selectedRuntime) {
+				throw new Error(localize('positron.languageRuntime.startConsoleSession.unknownRuntime',
+					"No registered runtime with id '{0}'.", suppliedRuntimeId));
+			}
+		} else {
+			// Prompt the user to select a runtime to start
+			selectedRuntime = await selectNewLanguageRuntime(
+				accessor,
+				{ title: localize('positron.languageRuntime.startConsoleSession', 'Start New Console Session') }
+			);
+		}
+
+		// The user dismissed the picker without choosing a runtime.
+		if (!selectedRuntime?.runtimeId) {
+			return {
+				started: false,
+				message: localize('positron.languageRuntime.startConsoleSession.noRuntimeSelected',
+					"No runtime was selected, so no console session was started."),
+			};
+		}
+
+		// Drive focus into the Positron console.
+		commandService.executeCommand('workbench.panel.positronConsole.focus');
+
+		const sessionId = await runtimeSessionService.startNewRuntimeSession(
+			selectedRuntime.runtimeId,
+			selectedRuntime.runtimeName,
+			LanguageRuntimeSessionMode.Console,
+			undefined,
+			suppliedRuntimeId ? 'Runtime id supplied to startNewConsoleSession command' : 'User selected runtime',
+			RuntimeStartMode.Starting,
+			true
+		);
+		return { started: true, sessionId };
+	}
+}
+
+/**
+ * Action that allows the user to change the foreground session.
+ */
+export class SelectSessionAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: LANGUAGE_RUNTIME_SELECT_SESSION_ID,
+			title: localize2('positron.languageRuntime.selectSession.commandTitle', 'Select Session'),
+			f1: true,
+			category,
+			metadata: {
+				description: localize('positron.languageRuntime.selectSession.description', "Select the session to make active."),
+				agentCompatible: true,
+				args: [
+					{
+						name: 'sessionId',
+						description: 'Id of the session to make active. Always supply this when running the command programmatically: with no id the command opens a session picker and waits for the user to choose one.',
+						schema: { type: 'string' },
+					},
+				],
+				returns: 'An object with selected, sessionId, and message. selected is true when the foreground session changed, with sessionId identifying it; when selected is false, message explains why (the user dismissed the session picker).',
+			},
+		});
+	}
+
+	async run(accessor: ServicesAccessor, sessionId?: string): Promise<ISelectSessionResult> {
+		// Access services up front: the accessor is only valid synchronously,
+		// and selectLanguageRuntimeSession below awaits.
+		const commandService = accessor.get(ICommandService);
+		const editorService = accessor.get(IEditorService);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+
+		// Only treat a non-empty string as a supplied id: menu callers can
+		// forward a context object as the first argument.
+		const suppliedSessionId = typeof sessionId === 'string' && sessionId.length > 0 ? sessionId : undefined;
+		let newActiveSession: ILanguageRuntimeSession | undefined;
+		if (suppliedSessionId) {
+			// A session id was supplied (e.g. by an agent): resolve it directly
+			// and skip the picker. An id that names no session, or one that has
+			// exited, is a caller error, so throw rather than falling back to
+			// the picker, which would leave a programmatic caller waiting on the
+			// user.
+			newActiveSession = runtimeSessionService.getSession(suppliedSessionId);
+			if (!newActiveSession) {
+				throw new Error(localize('positron.languageRuntime.selectSession.unknownSession',
+					"No active session with id '{0}'.", suppliedSessionId));
+			}
+			// The picker leaves exited sessions out, so they can't be selected
+			// by id either.
+			if (!isActiveSessionState(newActiveSession)) {
+				throw new Error(localize('positron.languageRuntime.selectSession.exitedSession',
+					"Session '{0}' has exited and cannot be made the active session.", suppliedSessionId));
+			}
+		} else {
+			// Prompt the user to select a runtime to use.
+			newActiveSession = await selectLanguageRuntimeSession(accessor,
+				{
+					allowStartSession: true,
+					title: localize('positron.languageRuntime.changeForegroundSession.quickPickTitle', 'Running Interpreter Sessions')
+				}
+			);
+		}
+
+		// The user dismissed the picker without choosing a session.
+		if (!newActiveSession) {
+			return {
+				selected: false,
+				message: localize('positron.languageRuntime.selectSession.noSessionSelected',
+					"No session was selected, so the active session is unchanged."),
+			};
+		}
+
+		await applySelectedSession(commandService, editorService, runtimeSessionService, newActiveSession);
+		return { selected: true, sessionId: newActiveSession.sessionId };
+	}
+}
+
 export function registerLanguageRuntimeActions() {
 	/**
 	 * Helper function to register a language runtime action.
@@ -927,105 +1176,9 @@ export function registerLanguageRuntimeActions() {
 			notificationService.info(localize('interpreterCleared', 'The {0} interpreter has been cleared from this workspace.', quickPickItem.runtime.runtimeName));
 		});
 
-	/**
-	 * Action that allows the user to change the foreground session.
-	 */
-	registerLanguageRuntimeAction(
-		LANGUAGE_RUNTIME_SELECT_SESSION_ID,
-		localize2('positron.languageRuntime.selectSession.commandTitle', 'Select Session'),
-		async accessor => {
-			// Access services.
-			const commandService = accessor.get(ICommandService);
-			const editorService = accessor.get(IEditorService);
-			const runtimeSessionService = accessor.get(IRuntimeSessionService);
+	registerAction2(SelectSessionAction);
 
-			// Prompt the user to select a runtime to use.
-			const newActiveSession = await selectLanguageRuntimeSession(accessor,
-				{
-					allowStartSession: true,
-					title: localize('positron.languageRuntime.changeForegroundSession.quickPickTitle', 'Running Interpreter Sessions')
-				}
-			);
-
-			if (!newActiveSession) {
-				return;
-			}
-
-			const notebookUri = newActiveSession.metadata.notebookUri;
-			if (notebookUri) {
-				// For notebook sessions, we want to focus the editor
-				// associated with the session's notebook URI when changing
-				// the foreground session.
-				await editorService.openEditor({ resource: notebookUri });
-				runtimeSessionService.foregroundSession = newActiveSession;
-			} else {
-				// For console sessions, drive focus into the console pane
-				runtimeSessionService.foregroundSession = newActiveSession;
-				commandService.executeCommand('workbench.panel.positronConsole.focus');
-			}
-		}
-	);
-
-	/**
-	 * Action that allows the user to create a new console session from a list of registered runtimes.
-	 */
-	registerAction2(class extends Action2 {
-		/**
-		 * Constructor.
-		 */
-		constructor() {
-			super({
-				icon: Codicon.plus,
-				id: LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID,
-				title: localize2('positron.languageRuntime.startConsoleSession', 'Start New Console Session'),
-				category,
-				f1: true,
-				menu: [{
-					group: 'navigation',
-					id: MenuId.ViewTitle,
-					order: 1,
-					when: ContextKeyExpr.and(
-						ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
-						PositronConsoleInstancesExistContext.negate()
-					),
-				}],
-				keybinding: {
-					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Slash,
-					mac: { primary: KeyMod.WinCtrl | KeyMod.Shift | KeyCode.Slash },
-					weight: KeybindingWeight.WorkbenchContrib
-				}
-			});
-		}
-
-		async run(accessor: ServicesAccessor) {
-			// Access services.
-			const commandService = accessor.get(ICommandService);
-			const runtimeSessionService = accessor.get(IRuntimeSessionService);
-
-			// Prompt the user to select a runtime to start
-			const selectedRuntime = await selectNewLanguageRuntime(
-				accessor,
-				{ title: localize('positron.languageRuntime.startConsoleSession', 'Start New Console Session') }
-			);
-
-			// If the user selected a runtime, set it as the active runtime
-			if (selectedRuntime?.runtimeId) {
-				// Drive focus into the Positron console.
-				commandService.executeCommand('workbench.panel.positronConsole.focus');
-
-				return await runtimeSessionService.startNewRuntimeSession(
-					selectedRuntime.runtimeId,
-					selectedRuntime.runtimeName,
-					LanguageRuntimeSessionMode.Console,
-					undefined,
-					'User selected runtime',
-					RuntimeStartMode.Starting,
-					true
-				);
-			}
-			return undefined;
-		}
-	});
+	registerAction2(StartNewConsoleSessionAction);
 
 	/**
 	 * Action that allows the user to rename an active session.
@@ -1540,9 +1693,10 @@ export function registerLanguageRuntimeActions() {
 			if (session) {
 				// We already have a console session for the language, so
 				// execute the code in it (silently)
-				session.execute(args.code, `silent-command-${ExecuteSilentlyAction._counter++}`,
+				Promise.resolve(session.execute(args.code, `silent-command-${ExecuteSilentlyAction._counter++}`,
 					RuntimeCodeExecutionMode.Silent,
-					RuntimeErrorBehavior.Continue);
+					RuntimeErrorBehavior.Continue)).catch((err) =>
+						accessor.get(ILogService).error(`Failed to execute silent command: ${err}`));
 			} else {
 				// No console session available. Since the intent is usually to
 				// execute the task in the background, notify the user that

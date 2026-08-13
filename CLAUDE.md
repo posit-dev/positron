@@ -96,6 +96,31 @@ Positron has three test categories:
 	- `npm run test:ext-host` (or `./scripts/test-integration.sh`): run the full CI driver
 	- positron-python has its own test setup -- see `extensions/positron-python/CLAUDE.md`
 - **E2E** (Playwright, full app): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
+	- **Run it in the background, not the foreground.** Use Bash `run_in_background: true`
+	  (or `nohup ... &` for runs longer than the tool timeout) and tail the log, rather than
+	  blocking on the call. A single e2e test takes 1-7 minutes and a suite takes tens of
+	  minutes; a foreground call that long means the user's messages are not delivered until
+	  it returns, so "it's stuck, stop" cannot reach you and you cannot `TaskStop` the run.
+	  Background runs also let you watch a log with Monitor and act on failures as they land.
+
+### Triaging an e2e test that is failing or flaking
+
+For a **named e2e test that is failing or flaking**, use the `debug-e2e-test`
+skill rather than a general debugging skill. It is the e2e-specific version of
+one, with two entries:
+
+- **failing in CI** -- it starts from the test's real CI failure history rather
+  than a guess at the mechanism
+- **failed on your machine** -- it starts from that run's own `test-results/`
+  trace, snapshot, and logs (no API key or network needed)
+
+Either way it already requires a falsifiable root cause with the evidence ruled
+in and out. Do not run a general debugging workflow on top of it, and do not
+reach for one first and consult the skill later -- by then the expensive part
+(deciding what to investigate) has been done without the evidence.
+
+General debugging skills still own everything else: a Vitest or extension-host
+failure, and any bug that is not a test failure.
 
 ## Directory Structure
 

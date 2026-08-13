@@ -211,10 +211,12 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	}
 
 	/**
-	 * Previews a node through the main thread handle.
+	 * Previews a node through the main thread handle. Goes through the service rather than calling
+	 * the handle directly so the resulting Data Explorer is recorded against the connection, the
+	 * same as a preview started from the Data Connections panel.
 	 */
-	async $nodePreviewViaService(connectionHandle: number, nodeHandle: number): Promise<void> {
-		return this._getHandle(connectionHandle).nodePreview(nodeHandle);
+	async $nodePreviewViaService(connectionHandle: number, nodeHandle: number): Promise<string | undefined> {
+		return this._dataConnectionsService.previewNode(this._getHandle(connectionHandle), nodeHandle);
 	}
 
 	/**
@@ -348,9 +350,10 @@ class MainThreadDataConnectionHandleAdapter implements IDataConnectionHandle {
 	}
 
 	/**
-	 * Triggers a data preview for the given node (e.g. table contents).
+	 * Triggers a data preview for the given node (e.g. table contents), resolving to the dataset id
+	 * the extension opened it under, if it reported one.
 	 */
-	async nodePreview(nodeHandle: number): Promise<void> {
+	async nodePreview(nodeHandle: number): Promise<string | undefined> {
 		return this._proxy.$nodePreview(this.handle, nodeHandle);
 	}
 

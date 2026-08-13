@@ -12,7 +12,6 @@ test.use({
 
 const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
 	'anthropic-api',
-	'openai-api',
 	'amazon-bedrock',
 	'posit-ai',
 	// Microsoft Foundry (Azure) via API key + Base URL on desktop. The managed

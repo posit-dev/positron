@@ -53,11 +53,16 @@ ensure_connect_token() {
   fi
 
   echo "Bootstrapping token with rsconnect..."
-  umask 077
   mkdir -p "$token_dir"
 
+  # The token is a secret, so it is written with a 077 umask -- but scoped to a
+  # subshell rather than set here. This file is *sourced* by
+  # install-workbench.sh, so a bare `umask 077` leaks into the rest of the
+  # install: it silently created /opt/modules/modulefiles as root-only 0700/0600,
+  # which hid the module environments from the session user and failed the
+  # @:environment-modules tests. `mv` below preserves the 0600 mode.
   # Correct command (no --secret)
-  if ! rsconnect bootstrap --server "${connect_url}" --raw > "$tmp_file"; then
+  if ! ( umask 077; rsconnect bootstrap --server "${connect_url}" --raw > "$tmp_file" ); then
     log_error "rsconnect bootstrap failed"
     # optional: print tool version for debugging
     rsconnect --version || true

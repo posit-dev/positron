@@ -5,6 +5,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
+import { buildDomPresence, findFailureWindow, phaseLabel, traceEpochOrigin } from './lib-failure-window.js';
 
 const args = process.argv.slice(2);
 let tracePath = null;
@@ -80,33 +81,6 @@ function selectorTokens(selectors) {
 	return [...tokens];
 }
 
-/**
- * Report whether each failing-selector token ever entered the DOM across the
- * trace's frame snapshots. "NEVER present" means the element genuinely never
- * rendered (a product open-path bug) -- as opposed to rendering and then being
- * dismissed, which the single moment-of-failure error-context snapshot cannot
- * distinguish. Substring-matches the token in each serialized snapshot.
- */
-function buildDomPresence(evts, tokens) {
-	if (!tokens.length) { return null; }
-	const snaps = evts
-		.filter(e => e.type === 'frame-snapshot' && e.snapshot?.timestamp != null)
-		.map(s => ({ ts: s.snapshot.timestamp, json: JSON.stringify(s) }));
-	if (!snaps.length) { return null; }
-	const span = `t=${Math.round(snaps[0].ts)}..${Math.round(snaps[snaps.length - 1].ts)}`;
-	const out = [`\n=== DOM presence across ${snaps.length} frame snapshots (${span}) ===`];
-	out.push("Whether the failing selector's class/id token ever matched a DOM snapshot. 'present in N/M' => the element WAS in the DOM (rules out never-rendered; a visibility/timeout error is then a timing or dismiss race). 'NEVER present' is AMBIGUOUS on its own: the exact class never matched, which fits BOTH a never-rendered element (product open-path bug -- strongest when the console digest shows its command fired) AND locator drift (the element rendered under different markup). Disambiguate with the error-context snapshot's stable text/label, not this line alone.");
-	for (const tok of tokens) {
-		const hits = snaps.filter(s => s.json.includes(tok));
-		if (!hits.length) {
-			out.push(`- '${tok}': NEVER present in any snapshot`);
-		} else {
-			out.push(`- '${tok}': present in ${hits.length}/${snaps.length} snapshots (t=${Math.round(hits[0].ts)}..${Math.round(hits[hits.length - 1].ts)})`);
-		}
-	}
-	return out.join('\n');
-}
-
 /** Strip the `%c`/`color:#…` console-formatting noise VS Code prepends. */
 function cleanConsole(text) {
 	return String(text)
@@ -144,7 +118,10 @@ function buildConsoleDigest(evts) {
 	if (!consoles.length) { return null; }
 	const errTimes = evts.filter(e => e.type === 'after' && e.error).map(e => e.endTime ?? e.startTime).filter(t => t != null);
 	const focusStart = errTimes.length ? Math.min(...errTimes) - LOOKBACK_MS : -Infinity;
-	const focusEnd = errTimes.length ? Math.max(...errTimes) + 1000 : Infinity;
+	// Trail the last error by 2s so the test's own teardown stays visible. It is
+	// routinely misread as a cause, so showing it LABELLED beats hiding it.
+	const focusEnd = errTimes.length ? Math.max(...errTimes) + 2000 : Infinity;
+	const win = findFailureWindow(evts);
 	const picked = consoles.filter(e =>
 		(e.time == null || (e.time >= focusStart && e.time <= focusEnd)) &&
 		(e.messageType === 'error' || e.messageType === 'warning' || ALLOW.test(e.text)) &&
@@ -161,17 +138,22 @@ function buildConsoleDigest(evts) {
 		// context. Track priority so the cap can never drop a command-fired or
 		// phase line in favor of a warning.
 		const high = ALLOW.test(e.text) || e.messageType === 'error';
-		entries.push({ time: e.time, level: e.messageType || 'log', text, count: 1, high });
+		entries.push({ time: e.time, level: e.messageType || 'log', text, count: 1, high, phase: phaseLabel(e.time, win) });
 	}
 
-	// Over the cap, keep high-signal lines first (stable sort preserves time
-	// order within each tier), then restore chronological order for display.
+	// Rank before capping so a post-deadline teardown line can never displace a
+	// line from inside the wait: only the wait can contain a cause.
+	const rank = (e) => (e.phase === 'after deadline' ? 0 : 2) + (e.high ? 1 : 0);
 	const shown = entries.length <= MAX_LINES
 		? entries
-		: [...entries].sort((a, b) => Number(b.high) - Number(a.high)).slice(0, MAX_LINES).sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
+		: [...entries].sort((a, b) => rank(b) - rank(a)).slice(0, MAX_LINES).sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
 	const out = [`\n=== Console digest near failure (${shown.length}${entries.length > shown.length ? ` of ${entries.length}` : ''} high-signal lines) ===`];
+	if (win?.deadlineT != null) {
+		out.push(`Failing action: ${win.method || 'unknown'}; waited t=${win.actionStartT != null ? Math.round(win.actionStartT) : '?'}..${Math.round(win.deadlineT)}.`);
+		out.push("Lines are tagged by position relative to that wait. [after deadline] means the line was emitted AFTER the assertion had already failed, so it CANNOT be the cause -- these are usually the test's own finally/teardown (a sign-out, a settings reset), whose side effects are routinely misread as root causes.");
+	}
 	for (const e of shown) {
-		out.push(`t=${Math.round(e.time ?? 0)} [${e.level}] ${e.text}${e.count > 1 ? ` (x${e.count})` : ''}`);
+		out.push(`t=${Math.round(e.time ?? 0)}${e.phase ? ` [${e.phase}]` : ''} [${e.level}] ${e.text}${e.count > 1 ? ` (x${e.count})` : ''}`);
 	}
 	return out.join('\n');
 }
@@ -181,6 +163,11 @@ const actions = events.filter(e => e.type === 'before' || e.type === 'after');
 const recent = actions.slice(-lastN);
 
 console.log(`=== Action Timeline (last ${Math.min(lastN, actions.length)} of ${actions.length} events) ===\n`);
+
+const traceT0 = traceEpochOrigin(events);
+if (traceT0 != null) {
+	console.log(`Trace t=0 = ${new Date(traceT0).toISOString()} -- add (t / 1000) seconds to any t= below to get wall clock.\n`);
+}
 
 for (const a of recent) {
 	if (a.type === 'before') {

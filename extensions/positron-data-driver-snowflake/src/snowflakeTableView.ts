@@ -15,6 +15,7 @@
 //     column when no sort is set, because Snowflake requires an ORDER BY inside the window.
 //   - Semi-structured values (VARIANT, OBJECT, ARRAY) are rendered as their JSON text.
 
+import type * as positron from 'positron';
 import {
 	ArraySelection,
 	BackendState,
@@ -73,15 +74,6 @@ import {
 export interface ISnowflakeQueryClient {
 	/** Run a SQL query and return its rows as plain objects keyed by column name. */
 	runQuery(sql: string): Promise<Array<Record<string, unknown>>>;
-}
-
-/**
- * A minimal sink for the table view's diagnostic logging, so the class stays decoupled from vscode.
- * Structurally satisfied by a `vscode.LogOutputChannel`. Optional throughout; when absent, nothing
- * is logged.
- */
-export interface IProfileLogger {
-	info(message: string): void;
 }
 
 /**
@@ -160,6 +152,32 @@ function quoteLiteral(value: string): string {
 	return value.replace(/\\/g, '\\\\').replace(/'/g, '\'\'');
 }
 
+/**
+ * The escape character for the LIKE patterns the text filters build.
+ *
+ * Deliberately not backslash. Snowflake's LIKE takes backslash as its escape character by default, and
+ * backslash is also an escape character inside a single-quoted literal, so a backslash-escaped pattern
+ * has to survive two rounds of unescaping to mean what it says. Naming a character that neither layer
+ * treats specially keeps the pattern legible and makes a literal backslash in the user's search text
+ * match a backslash in the data.
+ */
+const LIKE_ESCAPE_CHAR = '!';
+
+/** Appended to every generated LIKE, so the pattern's escapes are interpreted as intended. */
+const LIKE_ESCAPE_CLAUSE = ` ESCAPE '${LIKE_ESCAPE_CHAR}'`;
+
+/**
+ * Escapes the LIKE wildcards in a search term, so the user's text is matched literally: `%` (any run of
+ * characters), `_` (any single character), and the escape character itself. Without this, searching for
+ * `10%` matches any value starting with `10`, and `a_b` matches `axb`.
+ *
+ * One pass over the string handles all three, so an escape character this function introduces is never
+ * escaped again.
+ */
+function escapeLikeWildcards(value: string): string {
+	return value.replace(/[!%_]/g, character => `${LIKE_ESCAPE_CHAR}${character}`);
+}
+
 const COMPARISON_OPS = new Map<FilterComparisonOp, string>([
 	[FilterComparisonOp.Eq, '='],
 	[FilterComparisonOp.NotEq, '<>'],
@@ -226,18 +244,22 @@ export function makeWhereExpr(rowFilter: RowFilter): string {
 		case RowFilterType.Search: {
 			const params = rowFilter.params as FilterTextSearch;
 			const searchArg = params.case_sensitive ? quotedName : `lower(${quotedName})`;
+			// The wildcards in the user's text are escaped so it matches literally; the ESCAPE clause on
+			// each pattern below is what makes those escapes mean anything. Lower-casing happens in SQL
+			// rather than here so it follows the server's collation, and it leaves the escape character
+			// alone since that character has no case.
 			const term = params.case_sensitive
-				? `'${quoteLiteral(params.term)}'`
-				: `lower('${quoteLiteral(params.term)}')`;
+				? `'${quoteLiteral(escapeLikeWildcards(params.term))}'`
+				: `lower('${quoteLiteral(escapeLikeWildcards(params.term))}')`;
 			switch (params.search_type) {
 				case TextSearchType.Contains:
-					return `${searchArg} LIKE '%' || ${term} || '%'`;
+					return `${searchArg} LIKE '%' || ${term} || '%'${LIKE_ESCAPE_CLAUSE}`;
 				case TextSearchType.NotContains:
-					return `${searchArg} NOT LIKE '%' || ${term} || '%'`;
+					return `${searchArg} NOT LIKE '%' || ${term} || '%'${LIKE_ESCAPE_CLAUSE}`;
 				case TextSearchType.StartsWith:
-					return `${searchArg} LIKE ${term} || '%'`;
+					return `${searchArg} LIKE ${term} || '%'${LIKE_ESCAPE_CLAUSE}`;
 				case TextSearchType.EndsWith:
-					return `${searchArg} LIKE '%' || ${term}`;
+					return `${searchArg} LIKE '%' || ${term}${LIKE_ESCAPE_CLAUSE}`;
 				case TextSearchType.RegexMatch:
 					// Snowflake's REGEXP_LIKE matches the whole subject, so wrap the term in `.*...*` to
 					// mimic Postgres-style partial matching; case-insensitivity is the 'i' parameter.
@@ -329,7 +351,7 @@ export class SnowflakeTableView {
 		private readonly displayName: string,
 		private readonly objectKind: 'table' | 'view',
 		private readonly schema: Array<SnowflakeSchemaEntry>,
-		private readonly _logger?: IProfileLogger,
+		private readonly _logger?: positron.DataConnectionLogger,
 	) {
 		this._unfilteredRows = this._countRows('');
 		this._filteredRows = this._unfilteredRows;
@@ -714,13 +736,16 @@ export class SnowflakeTableView {
 		const passId = ++this._profilePassId;
 		this._profileQueryCount = 0;
 		const startedAt = Date.now();
-		this._logger?.info(`[profiles #${passId}] ${this.displayName}: ${params.profiles.length} column(s) in one request; ${this._summarizeRequestedTypes(params.profiles)}`);
+		// These are performance-tuning detail for column-profile queries, not connection diagnostics, so
+		// they stay at trace to avoid flooding the "Data Connections" channel a user opens to see why a
+		// connection failed.
+		this._logger?.trace(`[profiles #${passId}] ${this.displayName}: ${params.profiles.length} column(s) in one request; ${this._summarizeRequestedTypes(params.profiles)}`);
 
 		// Bail at each statement boundary when a newer pass has superseded this one, so a burst of
 		// requests doesn't queue every pass's statements on the single connection.
 		const superseded = () => {
 			if (token?.isCancellationRequested) {
-				this._logger?.info(`[profiles #${passId}] ${this.displayName}: superseded after ${Date.now() - startedAt}ms, ${this._profileQueryCount} query/queries`);
+				this._logger?.trace(`[profiles #${passId}] ${this.displayName}: superseded after ${Date.now() - startedAt}ms, ${this._profileQueryCount} query/queries`);
 				return true;
 			}
 			return false;
@@ -737,7 +762,7 @@ export class SnowflakeTableView {
 			const emptyPlans = this._planHistograms(params.profiles, emptyScalar, 0);
 			const profiles = params.profiles.map(request =>
 				this._assembleProfile(request, 0, params.format_options, emptyScalar, emptyPlans, new Map(), new Map()));
-			this._logger?.info(`[profiles #${passId}] ${this.displayName}: 0 rows, answered without querying`);
+			this._logger?.trace(`[profiles #${passId}] ${this.displayName}: 0 rows, answered without querying`);
 			return { callback_id: params.callback_id, profiles };
 		}
 
@@ -754,7 +779,7 @@ export class SnowflakeTableView {
 		const profiles = params.profiles.map(request =>
 			this._assembleProfile(request, filteredRows, params.format_options, scalar, histogramPlans, histogramBins, frequencyData));
 
-		this._logger?.info(`[profiles #${passId}] ${this.displayName}: done in ${Date.now() - startedAt}ms across ${this._profileQueryCount} query/queries`);
+		this._logger?.trace(`[profiles #${passId}] ${this.displayName}: done in ${Date.now() - startedAt}ms across ${this._profileQueryCount} query/queries`);
 		return { callback_id: params.callback_id, profiles };
 	}
 
@@ -776,16 +801,15 @@ export class SnowflakeTableView {
 	private async _profileQuery(label: string, sql: string): Promise<Array<Record<string, unknown>>> {
 		const startedAt = Date.now();
 		// Log before issuing so a query that hangs (never returns) is still visible in the timeline.
-		this._logger?.info(`[profiles #${this._profilePassId}]   issuing ${label}...`);
+		this._logger?.trace(`[profiles #${this._profilePassId}]   issuing ${label}...`);
 		try {
 			const rows = await this.client.runQuery(sql);
 			this._profileQueryCount++;
-			this._logger?.info(`[profiles #${this._profilePassId}]   ${label}: ${Date.now() - startedAt}ms, ${rows.length} row(s)`);
+			this._logger?.trace(`[profiles #${this._profilePassId}]   ${label}: ${Date.now() - startedAt}ms, ${rows.length} row(s)`);
 			return rows;
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			this._logger?.info(`[profiles #${this._profilePassId}]   ${label}: FAILED after ${Date.now() - startedAt}ms: ${message}`);
-			this._logger?.info(`[profiles #${this._profilePassId}]   failing SQL: ${sql}`);
 			throw err;
 		}
 	}

@@ -28,7 +28,7 @@ import { HEADLESS_LM_ENGINE_CHANNEL } from '../../../platform/positronHeadlessLa
 import { HeadlessLanguageModelEngine } from '../../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngine.js';
 import { HeadlessLanguageModelEngineChannel } from '../../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngineChannel.js';
 import { POSITRON_AI_PROVIDER_CHANNEL } from '../../../platform/positronAiProvider/common/aiProviderCatalog.js';
-import { AiProviderCatalog, createConfigurationLegacySettingsReader } from '../../../platform/positronAiProvider/node/aiProviderCatalog.js';
+import { AiProviderCatalog } from '../../../platform/positronAiProvider/node/aiProviderCatalog.js';
 import { AiProviderCatalogChannel } from '../../../platform/positronAiProvider/node/aiProviderCatalogChannel.js';
 // --- End Positron ---
 import { DiagnosticsService } from '../../../platform/diagnostics/node/diagnosticsService.js';
@@ -397,7 +397,7 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		services.set(IMcpManagementService, new SyncDescriptor(McpManagementService, undefined, true));
 
 		// Extension Gallery
-		services.set(IExtensionGalleryManifestService, new ExtensionGalleryManifestIPCService(this.server, productService));
+		services.set(IExtensionGalleryManifestService, new ExtensionGalleryManifestIPCService(this.server, logService, productService));
 		services.set(IExtensionGalleryService, new SyncDescriptor(ExtensionGalleryService, undefined, true));
 
 		// Extension Tips
@@ -511,12 +511,7 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		// AI provider catalog: resolves providers.json + enforced/default env
 		// fragments where they live (this process's HOME/env); the workbench
 		// reads it over this channel.
-		const aiProviderCatalog = this._store.add(new AiProviderCatalog(accessor.get(ILogService), {
-			// PROVIDER-SETTINGS-MIGRATION(legacy-positron): fold this process's view
-			// of the legacy settings (the default profile's user settings.json)
-			// into the catalog until the migration window closes.
-			legacyPositronSettings: createConfigurationLegacySettingsReader(accessor.get(IConfigurationService)),
-		}));
+		const aiProviderCatalog = this._store.add(new AiProviderCatalog(accessor.get(ILogService)));
 		this.server.registerChannel(POSITRON_AI_PROVIDER_CHANNEL, new AiProviderCatalogChannel(aiProviderCatalog));
 		// --- End Positron ---
 

@@ -100,6 +100,7 @@ const desktopEntryPoints = [
 	'vs/sessions/sessions.desktop.main',
 	'vs/workbench/contrib/debug/node/telemetryApp',
 	'vs/platform/files/node/watcher/watcherMain',
+	'vs/platform/localTranscription/node/localTranscriptionMain',
 	'vs/platform/terminal/node/ptyHostMain',
 	'vs/platform/agentHost/node/agentHostMain',
 	'vs/platform/agentHost/node/diffWorkerMain',
@@ -496,6 +497,24 @@ function needsBomAdded(filePath: string): boolean {
 	return /([\/\\])test\1.*utf8/.test(filePath);
 }
 
+// --- Start Positron ---
+/**
+ * Runs an async mapper over items with bounded concurrency. An unbounded
+ * Promise.all over every source file exhausts the per-process file handle
+ * limit on Windows (EMFILE) now that the source tree exceeds ~8k files.
+ */
+async function mapWithConcurrency<T>(items: readonly T[], mapper: (item: T) => Promise<void>, concurrency = 256): Promise<void> {
+	let next = 0;
+	const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+		while (next < items.length) {
+			const index = next++;
+			await mapper(items[index]);
+		}
+	});
+	await Promise.all(workers);
+}
+// --- End Positron ---
+
 async function copyFile(srcPath: string, destPath: string): Promise<void> {
 	await fs.promises.mkdir(path.dirname(destPath), { recursive: true });
 
@@ -586,11 +605,18 @@ async function copyAllNonTsFiles(outDir: string, excludeTests: boolean): Promise
 
 	const allFiles = [...new Set([...files, ...dtsFiles])];
 
-	await Promise.all(allFiles.map(file => {
+	// --- Start Positron ---
+	// Bounded concurrency to avoid EMFILE on Windows.
+	// await Promise.all(allFiles.map(file => {
+	await mapWithConcurrency(allFiles, file => {
+	// --- End Positron ---
 		const srcPath = path.join(REPO_ROOT, SRC_DIR, file);
 		const destPath = path.join(REPO_ROOT, outDir, file);
 		return copyFile(srcPath, destPath);
-	}));
+	// --- Start Positron ---
+	// }));
+	});
+	// --- End Positron ---
 
 	console.log(`[resources] Copied ${allFiles.length} files`);
 }
@@ -611,11 +637,12 @@ async function copyESMPackageDependencies(outDir: string): Promise<void> {
 	}
 	const destRoot = path.join(REPO_ROOT, outDir, 'esm-package-dependencies');
 	const files = await globAsync('**/*', { cwd: srcRoot, nodir: true });
-	await Promise.all(files.map(file => {
+	// Bounded concurrency to avoid EMFILE on Windows.
+	await mapWithConcurrency(files, file => {
 		const srcPath = path.join(srcRoot, file);
 		const destPath = path.join(destRoot, file);
 		return copyFile(srcPath, destPath);
-	}));
+	});
 	console.log(`[resources] Copied ${files.length} ESM package dependency files to ${outDir}/esm-package-dependencies/`);
 }
 // --- End Positron ---
@@ -824,14 +851,21 @@ async function transpile(outDir: string, excludeTests: boolean): Promise<void> {
 	console.log(`[transpile] Found ${files.length} files`);
 
 	// Transpile all files in parallel using esbuild.transform (fastest approach)
-	await Promise.all(files.map(file => {
+	// --- Start Positron ---
+	// Bounded concurrency to avoid EMFILE on Windows.
+	// await Promise.all(files.map(file => {
+	await mapWithConcurrency(files, file => {
+	// --- End Positron ---
 		const srcPath = path.join(REPO_ROOT, SRC_DIR, file);
 		// --- Start Positron ---
 		// Support .tsx files
 		const destPath = path.join(REPO_ROOT, outDir, file.replace(/\.tsx?$/, '.js'));
 		// --- End Positron ---
 		return transpileFile(srcPath, destPath);
-	}));
+	// --- Start Positron ---
+	// }));
+	});
+	// --- End Positron ---
 }
 
 // ============================================================================

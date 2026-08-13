@@ -24,6 +24,10 @@ type EditorActionBarButton =
 
 export class EditorActionBar {
 	get actionBar(): Locator { return this.page.locator('.editor-action-bar > .positron-action-bar > .action-bar-region'); }
+	// Tab lookups are scoped here: a console session tab is also role="tab" and
+	// carries the session's display name, which for a notebook session is the
+	// notebook's filename.
+	get editorPane(): Locator { return this.page.locator('[id="workbench.parts.editor"]'); }
 
 	constructor(private page: Page, private viewer: Viewer, private quickaccess: QuickAccess) { }
 
@@ -99,8 +103,8 @@ export class EditorActionBar {
 	async verifySplitEditor(direction: 'down' | 'right', tabName: string,) {
 		await test.step(`Verify split editor: ${direction}`, async () => {
 			// Verify 2 tabs
-			await expect(this.page.getByRole('tab', { name: tabName })).toHaveCount(2, { timeout: 10000 });
-			const splitTabs = this.page.getByRole('tab', { name: tabName });
+			const splitTabs = this.editorPane.getByRole('tab', { name: tabName });
+			await expect(splitTabs).toHaveCount(2, { timeout: 10000 });
 			const firstTabBox = await splitTabs.nth(0).boundingBox();
 			const secondTabBox = await splitTabs.nth(1).boundingBox();
 

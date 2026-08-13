@@ -99,6 +99,11 @@ const extensions = [
 		mocha: { timeout: 60_000 }
 	},
 	{
+		label: 'positron-data-driver-databricks',
+		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-databricks-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
 		label: 'positron-data-driver-duckdb',
 		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-duckdb-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
@@ -111,6 +116,11 @@ const extensions = [
 	{
 		label: 'positron-data-driver-postgresql',
 		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-postgresql-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
+		label: 'positron-data-driver-redshift',
+		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-redshift-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
 	},
 	{
@@ -183,6 +193,31 @@ const defaultLaunchArgs = process.env.API_TESTS_EXTRA_ARGS?.split(' ') || [
 	'--disable-telemetry', '--disable-experiments', '--skip-welcome', '--skip-release-notes', `--crash-reporter-directory=${__dirname}/.build/crashes`, `--logsPath=${__dirname}/.build/logs/integration-tests`, '--no-cached-data', '--disable-updates', '--use-inmemory-secretstorage', '--disable-extensions', '--disable-workspace-trust'
 ];
 
+// --- Start Positron ---
+// Headless Electron on the CI image intermittently GP-faults during startup,
+// inside libexpat while fontconfig initializes fonts on a worker thread (stack:
+// libexpat <- libfontconfig <- libpangoft2). It happens before any test runs and
+// takes the whole suite down. `scripts/test-remote-integration.sh` forces
+// software GL for the launches it drives directly and does not hit this; the
+// suites launched through vscode-test never saw those flags, because
+// `API_TESTS_EXTRA_ARGS` is not exported by the shell drivers, so they fall back
+// to the list above. Add the flags here so every desktop extension suite starts
+// up the same way the Remote ones (and the e2e harness) do.
+//
+// Linux-only: the race is in the Linux system font stack, and forcing software
+// GL for a headless test run is harmless there.
+//
+// `unshift`, not `push`: vscode-test appends `workspaceFolder` as a positional
+// argument after these, and VS Code's CLI parser treats an unrecognized
+// `--flag` as taking the next positional as its value. A Chromium switch left
+// last therefore swallows the workspace path, and the suite launches with no
+// folder open (`workspace.workspaceFolders` undefined). Keep a flag VS Code
+// knows -- `--disable-workspace-trust` above -- at the end of this list.
+if (process.platform === 'linux') {
+	defaultLaunchArgs.unshift('--no-sandbox', '--disable-dev-shm-usage', '--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-compositing');
+}
+// --- End Positron ---
+
 const config = defineConfig(extensions.map(extension => {
 	/** @type {import('@vscode/test-cli').TestConfiguration} */
 	const config = {
@@ -218,6 +253,32 @@ const config = defineConfig(extensions.map(extension => {
 
 	if (!config.platform || config.platform === 'desktop') {
 		config.launchArgs = defaultLaunchArgs;
+
+		// --- Start Positron ---
+		// Completions in `settings.json` pull in the JSON schema the Copilot
+		// extension contributes at `ccsettings://root/schema.json` (see
+		// `jsonValidation` in extensions/copilot/package.json, `fileMatch:
+		// settings.json`). Fetching it activates that extension via
+		// `onFileSystem:ccsettings`, and in the CI container that activation does not
+		// complete, so every settings.json completion request hangs until mocha's 60s
+		// timeout -- six deterministic failures per run. Only `settings.json` matches
+		// that `fileMatch`, which is why the suite's other files are unaffected.
+		// Disable the extension here so the suite tests its own providers.
+		//
+		// `--disable-extensions` in the list above cannot do this: it exempts
+		// built-ins (`_isDisabledInEnv` in extensionEnablementService.ts) and every
+		// extension is a built-in when running from source, and its presence also
+		// short-circuits the per-extension list (`disableExtensions` in
+		// environmentService.ts). Hence the filter. The `=` form keeps the trailing
+		// token a value rather than a dangling flag, which would otherwise swallow
+		// the `workspaceFolder` positional vscode-test appends after these.
+		if (extension.label === 'configuration-editing') {
+			config.launchArgs = [
+				...defaultLaunchArgs.filter(a => a !== '--disable-extensions'),
+				'--disable-extension=GitHub.copilot-chat',
+			];
+		}
+		// --- End Positron ---
 		config.useInstallation = {
 			fromPath: process.env.INTEGRATION_TEST_ELECTRON_PATH || `${__dirname}/scripts/code.${process.platform === 'win32' ? 'bat' : 'sh'}`,
 		};

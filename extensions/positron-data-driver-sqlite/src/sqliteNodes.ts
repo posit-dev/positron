@@ -11,10 +11,10 @@ import { ISqliteQueryClient } from './sqliteWorkerClient.js';
  * SQLiteConnection, which owns the worker client and the dataset registration.
  */
 export interface ISqlitePreviewHost {
-	/** Opens the given table or view in the Data Explorer. */
-	previewObject(name: string, kind: 'table' | 'view'): Promise<void>;
-	/** Opens a single column of the given table or view in the Data Explorer. */
-	previewColumn(tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
+	/** Opens the given table or view in the Data Explorer, returning its dataset id. */
+	previewObject(name: string, kind: 'table' | 'view'): Promise<string>;
+	/** Opens a single column of the given table or view in the Data Explorer, returning its dataset id. */
+	previewColumn(tableName: string, kind: 'table' | 'view', columnName: string): Promise<string>;
 }
 
 /**

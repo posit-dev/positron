@@ -9,7 +9,13 @@ export const IS_RUNNING_ON_PWB =
 	!!process.env.RS_SERVER_URL && vscode.env.uiKind === vscode.UIKind.Web;
 
 export const ANTHROPIC_API_VERSION = '2023-06-01';
-export const KEY_VALIDATION_TIMEOUT_MS = 5000;
+
+// Budget for a validator's single round trip to the provider (validation/*.ts).
+// 5 seconds turned out to be too tight: the OpenAI `/models` call intermittently
+// takes longer than that, which aborted a valid key and surfaced as a sign-in
+// failure. Kept comfortably under the 15 second window the sign-in e2e tests
+// allow for the "Sign out" button to appear.
+export const KEY_VALIDATION_TIMEOUT_MS = 10000;
 export const CREDENTIAL_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 export const EXPIRY_REFRESH_BUFFER_MS = 60 * 1000;
 
@@ -34,3 +40,9 @@ export const CUSTOM_PROVIDER_AUTH_PROVIDER_ID = 'openai-compatible';
 export const GEMINI_AUTH_PROVIDER_ID = 'google';
 export const GOOGLE_CLOUD_AUTH_PROVIDER_ID = 'google-cloud';
 export const DEEPSEEK_AUTH_PROVIDER_ID = 'deepseek-api';
+export const DATABRICKS_AUTH_PROVIDER_ID = 'databricks';
+
+export const DATABRICKS_OAUTH_CLIENT_ID = 'databricks-cli';
+export const DATABRICKS_OAUTH_REDIRECT_PORT = 8020;
+export const DATABRICKS_OAUTH_REDIRECT_URI = 'http://localhost:8020';
+export const DATABRICKS_OAUTH_SCOPES = 'all-apis offline_access';

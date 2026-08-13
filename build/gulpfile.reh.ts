@@ -26,16 +26,20 @@ import { compileBuildWithManglingTask } from './gulpfile.compile.ts';
 import { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask, compileCopilotExtensionBuildTask } from './gulpfile.extensions.ts';
 import { vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } from './gulpfile.vscode.web.ts';
 import * as cp from 'child_process';
+import crypto from 'crypto';
 import log from 'fancy-log';
 import buildfile from './buildfile.ts';
-import { fetchUrls, fetchGithub } from './lib/fetch.ts';
-import { getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getRipgrepExcludeFilter, prepareBuiltInCopilotRipgrepShim } from './lib/copilot.ts';
+import { fetchUrls } from './lib/fetch.ts';
+import { downloadFeedPackage } from './lib/azureFeed.ts';
+import { ensureCopilotPlatformPackage, getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getCopilotTgrepExcludeFilter, getMxcExcludeFilter, getRipgrepExcludeFilter, prepareBuiltInCopilotRipgrepShim } from './lib/copilot.ts';
+import { readAgentSdkResults } from './agent-sdk/common.ts';
 
 
 // --- Start Positron ---
 import { positronBuildNumber, releaseChannel } from './utils.ts';
 // eslint-disable-next-line no-duplicate-imports
 import { copyExtensionBinariesTask } from './gulpfile.extensions.ts';
+import { getAiLibServerDependencies } from './lib/ai-lib-dependencies.ts';
 import { getQuartoBinaries } from './lib/quarto.ts';
 // --- End Positron ---
 // --- Start PWB: build-time gzip compression ---
@@ -262,6 +266,44 @@ function patchElfLoadAlign(): NodeJS.ReadWriteStream {
 
 const { nodeVersion, internalNodeVersion } = getNodeVersion();
 
+// In product builds, the server (reh) Node.js binaries are fetched on demand
+// from our Azure Artifacts feed named by `product.nodejsArtifactFeed` using the
+// `az` CLI, instead of from nodejs.org (which is used by OSS builds when no feed
+// is configured). Each universal package contains exactly one file, named after
+// the asset minus its last extension, lowercased and sanitized (e.g.
+// `node-v24.15.0-linux-x64.tar`, `win-x64-node`).
+const nodejsArtifactFeed = product.nodejsArtifactFeed;
+
+function internalNodeFeedPackageName(assetName: string): string {
+	return assetName
+		.replace(/\.[^.]+$/, '')
+		.toLowerCase()
+		.replace(/[^a-z0-9._-]+/g, '-')
+		.replace(/^[._-]+/, '')
+		.replace(/[._-]+$/, '');
+}
+
+function fetchNodejsFromInternalFeed(feed: string, assetName: string, version: string, checksumSha256: string | undefined): NodeJS.ReadWriteStream {
+	const result = es.through();
+	(async () => {
+		try {
+			const filePath = await downloadFeedPackage(REPO_ROOT, 'nodejs-feed', { feed, name: internalNodeFeedPackageName(assetName), version });
+			const contents = await fs.promises.readFile(filePath);
+			if (checksumSha256) {
+				const actual = crypto.createHash('sha256').update(contents).digest('hex');
+				if (actual !== checksumSha256) {
+					throw new Error(`Checksum mismatch for ${assetName} (expected ${checksumSha256}, actual ${actual})`);
+				}
+			}
+			result.emit('data', new File({ path: path.basename(filePath), contents }));
+			result.emit('end');
+		} catch (err) {
+			result.emit('error', err);
+		}
+	})();
+	return result;
+}
+
 BUILD_TARGETS.forEach(({ platform, arch }) => {
 	task.task(task.define(`node-${platform}-${arch}`, () => {
 		const nodePath = path.join('.build', 'node', `v${nodeVersion}`, `${platform}-${arch}`);
@@ -291,13 +333,13 @@ function nodejs(platform: string, arch: string): NodeJS.ReadWriteStream | undefi
 		arch = 'x64';
 	}
 
-	log(`Downloading node.js ${nodeVersion} ${platform} ${arch} from ${product.nodejsRepository}...`);
+	log(`Downloading node.js ${nodeVersion} ${platform} ${arch} from ${nodejsArtifactFeed || 'https://nodejs.org'}...`);
 
 	const glibcPrefix = process.env['VSCODE_NODE_GLIBC'] ?? '';
 	let expectedName: string | undefined;
 	switch (platform) {
 		case 'win32':
-			expectedName = product.nodejsRepository !== 'https://nodejs.org' ?
+			expectedName = nodejsArtifactFeed ?
 				`win-${arch}-node.exe` : `win-${arch}/node.exe`;
 			break;
 
@@ -321,14 +363,14 @@ function nodejs(platform: string, arch: string): NodeJS.ReadWriteStream | undefi
 
 	switch (platform) {
 		case 'win32':
-			return (product.nodejsRepository !== 'https://nodejs.org' ?
-				fetchGithub(product.nodejsRepository, { version: `${nodeVersion}-${internalNodeVersion}`, name: expectedName!, checksumSha256 }) :
+			return (nodejsArtifactFeed ?
+				fetchNodejs(expectedName!, checksumSha256) :
 				fetchUrls(`/dist/v${nodeVersion}/win-${arch}/node.exe`, { base: 'https://nodejs.org', checksumSha256 }))
 				.pipe(rename('node.exe'));
 		case 'darwin':
 		case 'linux': {
-			const downloaded = (product.nodejsRepository !== 'https://nodejs.org' ?
-				fetchGithub(product.nodejsRepository, { version: `${nodeVersion}-${internalNodeVersion}`, name: expectedName!, checksumSha256 }) :
+			const downloaded = (nodejsArtifactFeed ?
+				fetchNodejs(expectedName!, checksumSha256) :
 				fetchUrls(`/dist/v${nodeVersion}/node-v${nodeVersion}-${platform}-${arch}.tar.gz`, { base: 'https://nodejs.org', checksumSha256 })
 			).pipe(flatmap(stream => stream.pipe(gunzip()).pipe(untar())))
 				.pipe(filter('**/node'))
@@ -337,8 +379,8 @@ function nodejs(platform: string, arch: string): NodeJS.ReadWriteStream | undefi
 			return platform === 'linux' && arch === 'x64' ? downloaded.pipe(patchElfLoadAlign()) : downloaded;
 		}
 		case 'alpine':
-			return product.nodejsRepository !== 'https://nodejs.org' ?
-				fetchGithub(product.nodejsRepository, { version: `${nodeVersion}-${internalNodeVersion}`, name: expectedName!, checksumSha256 })
+			return nodejsArtifactFeed ?
+				fetchNodejs(expectedName!, checksumSha256)
 					.pipe(flatmap(stream => stream.pipe(gunzip()).pipe(untar())))
 					.pipe(filter('**/node'))
 					.pipe(util.setExecutableBit('**'))
@@ -393,6 +435,13 @@ function addCompressedSiblings(): NodeJS.ReadWriteStream {
 	);
 }
 // --- End PWB ---
+
+// Fetches a server (reh) Node.js asset from the Azure Artifacts feed named by
+// `product.nodejsArtifactFeed`. Only called when that feed is configured.
+function fetchNodejs(assetName: string, checksumSha256: string | undefined): NodeJS.ReadWriteStream {
+	const version = `${nodeVersion}-${internalNodeVersion}`;
+	return fetchNodejsFromInternalFeed(nodejsArtifactFeed, assetName, version, checksumSha256);
+}
 
 function packageTask(type: string, platform: string, arch: string, sourceFolderName: string, destinationFolderName: string) {
 	const destination = path.join(BUILD_ROOT, destinationFolderName);
@@ -511,9 +560,28 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 
 		let productJsonContents = '';
 		const productJsonStream = gulp.src(['product.json'], { base: '.' })
-			// --- Start Positron ---
-			.pipe(jsonEditor({ commit, date: readISODate(sourceFolderName), version, positronVersion, positronBuildNumber, quality: releaseChannel }))
-			// --- End Positron ---
+			.pipe(jsonEditor((json: Record<string, unknown>) => {
+				json.commit = commit;
+				json.date = readISODate(sourceFolderName);
+				json.version = version;
+				// --- Start Positron ---
+				// Stamp Positron-specific version metadata onto the product json.
+				json.positronVersion = positronVersion;
+				json.positronBuildNumber = positronBuildNumber;
+				json.quality = releaseChannel;
+				// --- End Positron ---
+				// Stamp agentSdks from the per-platform results file produced
+				// by `build/agent-sdk/produce.ts`. REH-only: REH-web is
+				// browser-served and the agent host is node-only, so the
+				// SDK config has no consumer there.
+				if (type === 'reh') {
+					const agentSdks = readAgentSdkResults();
+					if (Object.keys(agentSdks).length > 0) {
+						json.agentSdks = agentSdks;
+					}
+				}
+				return json;
+			}))
 			.pipe(es.through(function (file) {
 				productJsonContents = file.contents.toString();
 				this.emit('data', file);
@@ -529,16 +597,29 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		// --- Start Positron ---
 		const productionDependencies = getProductionDependencies(isWebType(type) ? REMOTE_REH_WEB_FOLDER : REMOTE_FOLDER);
 		const dependenciesSrc = productionDependencies.map(d => path.relative(REPO_ROOT, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!${d}/.bin/**`]).flat();
-		const cleanedDeps = gulp.src(dependenciesSrc, { base: packageJsonBase, dot: true })
+		// The ai-lib packages the server loads at runtime are `file:` dependencies
+		// of the root package.json, so the walk above (rooted at remote/) misses
+		// them. Ship them alongside, skipping whatever the remote dependencies
+		// already provide at the same path. See ai-lib-dependencies.ts.
+		const shippedModulePaths = productionDependencies
+			.map(d => path.relative(path.join(REPO_ROOT, packageJsonBase), d).split(path.sep).join('/'))
+			.filter(d => d.startsWith('node_modules/'));
+		const cleanedDeps = es.merge(
+			gulp.src(dependenciesSrc, { base: packageJsonBase, dot: true }),
+			getAiLibServerDependencies(shippedModulePaths)
+		)
 			// --- End Positron ---
 			// filter out unnecessary files, no source maps in server build
 			.pipe(filter(['**', '!**/package-lock.json', '!**/*.{js,css}.map']))
 			.pipe(util.cleanNodeModules(path.join(import.meta.dirname, '.moduleignore')))
 			.pipe(util.cleanNodeModules(path.join(import.meta.dirname, `.moduleignore.${process.platform}`)));
+		ensureCopilotPlatformPackage(platform, arch, 'remote/node_modules');
 		const copilotRuntimePrebuilds = gulp.src(getCopilotRuntimePrebuildFiles(platform, arch, 'remote/node_modules'), { base: 'remote', dot: true, allowEmpty: true });
 		const deps = es.merge(cleanedDeps, copilotRuntimePrebuilds)
 			.pipe(filter(getCopilotExcludeFilter(platform, arch)))
+			.pipe(filter(getCopilotTgrepExcludeFilter(platform, arch)))
 			.pipe(filter(getRipgrepExcludeFilter(platform, arch)))
+			.pipe(filter(getMxcExcludeFilter(arch)))
 			.pipe(jsFilter)
 			.pipe(util.stripSourceMappingURL())
 			.pipe(jsFilter.restore);
@@ -696,6 +777,7 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 		const deps = (await Promise.all([
 			promisify(glob)('**/*.node', { cwd }),
 			promisify(glob)('**/rg.exe', { cwd }),
+			promisify(glob)('**/tgrep.exe', { cwd }),
 		])).flatMap(o => o);
 		const packageJsonContents = JSON.parse(await fs.promises.readFile(path.join(cwd, 'package.json'), 'utf8'));
 		const productContents = JSON.parse(await fs.promises.readFile(path.join(cwd, 'product.json'), 'utf8'));

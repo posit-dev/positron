@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import type * as positron from 'positron';
 import { generateKeyPair, generateTokenId, TokenAuthenticator, TokenCredential } from './connectAuth.js';
 import { ConnectClient, normalizeServerUrl } from './connectClient.js';
-import { Logger, NULL_LOGGER } from './logging.js';
 
 /** The message the flow rejects with when the user cancels, at any stage. */
 const CANCELLED_MESSAGE = 'Sign-in was cancelled.';
@@ -41,8 +41,8 @@ export interface TokenClaimDeps {
 	 * so cancelling works while registration is still in flight, not only once polling has begun.
 	 */
 	signal?: AbortSignal;
-	/** Logs progress; defaults to a no-op logger. */
-	logger?: Logger;
+	/** Logs progress; optional; nothing is logged when omitted. */
+	logger?: positron.DataConnectionLogger;
 }
 
 /** Whether an error is a fetch abort (from cancellation or a timeout) rather than a real failure. */
@@ -59,7 +59,7 @@ export interface TokenClaimResult {
 /** The options {@link registerToken} needs beyond the token itself. */
 interface RegisterTokenOptions {
 	fetch: typeof fetch;
-	logger: Logger;
+	logger?: positron.DataConnectionLogger;
 	/** Aborts the request when the user cancels. */
 	signal?: AbortSignal;
 	/** The abort timeout for the request, in milliseconds. */
@@ -111,7 +111,7 @@ async function registerToken(serverUrl: string, tokenId: string, publicKey: stri
 	// with a clear message instead of the JSON-parse error the identity provider's HTML would cause.
 	// Host (not origin) comparison avoids a false positive on a plain http->https upgrade.
 	if (response.url && new URL(response.url).host !== host) {
-		logger.error(`The sign-in request was redirected off the Connect server from ${url} to ${response.url}.`);
+		logger?.error(`The sign-in request was redirected off the Connect server from ${url} to ${response.url}.`);
 		throw new Error(`The server at ${host} redirected the sign-in to a different site (${new URL(response.url).host}), which usually means it is behind single sign-on. Browser sign-in is not supported there; connect with an API key instead.`);
 	}
 	if (!response.ok) {
@@ -131,7 +131,7 @@ async function registerToken(serverUrl: string, tokenId: string, publicKey: stri
  */
 export async function claimToken(serverUrl: string, deps: TokenClaimDeps): Promise<TokenClaimResult> {
 	const fetchFn = deps.fetch ?? fetch;
-	const logger = deps.logger ?? NULL_LOGGER;
+	const logger = deps.logger;
 	const delayMs = deps.delayMs ?? DEFAULT_POLL_DELAY_MS;
 	const maxAttempts = deps.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
 	const signal = deps.signal;
@@ -143,7 +143,7 @@ export async function claimToken(serverUrl: string, deps: TokenClaimDeps): Promi
 	const tokenId = generateTokenId();
 	const { privateKey, publicKey } = generateKeyPair();
 
-	logger.info(`Registering a sign-in token with ${normalizeServerUrl(serverUrl)}`);
+	logger?.info(`Registering a sign-in token with ${normalizeServerUrl(serverUrl)}`);
 	let claimUrl: string;
 	try {
 		claimUrl = await registerToken(serverUrl, tokenId, publicKey, {
@@ -156,13 +156,13 @@ export async function claimToken(serverUrl: string, deps: TokenClaimDeps): Promi
 		// An abort during registration is the user cancelling, not a server problem; report it as such
 		// rather than as a registration failure.
 		if (signal?.aborted) {
-			logger.info('Sign-in was cancelled before the token was registered.');
+			logger?.info('Sign-in was cancelled before the token was registered.');
 			throw new Error(CANCELLED_MESSAGE);
 		}
-		logger.error(`Failed to register a sign-in token: ${err instanceof Error ? err.message : String(err)}`);
+		logger?.error(`Failed to register a sign-in token: ${err instanceof Error ? err.message : String(err)}`);
 		throw err;
 	}
-	logger.info(`Opening the sign-in page in your browser: ${claimUrl}`);
+	logger?.info(`Opening the sign-in page in your browser: ${claimUrl}`);
 	await deps.openExternal(claimUrl);
 
 	const credential: TokenCredential = { token: tokenId, privateKey };
@@ -174,16 +174,16 @@ export async function claimToken(serverUrl: string, deps: TokenClaimDeps): Promi
 	let lastError: unknown;
 	for (let attempt = 0; attempt < maxAttempts; attempt++) {
 		if (signal?.aborted) {
-			logger.info('Sign-in was cancelled before the token was claimed.');
+			logger?.info('Sign-in was cancelled before the token was claimed.');
 			throw new Error(CANCELLED_MESSAGE);
 		}
 		try {
 			const user = await client.getCurrentUser();
-			logger.info(`Signed in as ${user.username || '(unknown user)'}`);
+			logger?.info(`Signed in as ${user.username || '(unknown user)'}`);
 			return { credential, username: user.username };
 		} catch (err) {
 			lastError = err;
-			logger.trace(`Sign-in not claimed yet (attempt ${attempt + 1}/${maxAttempts}): ${err instanceof Error ? err.message : String(err)}`);
+			logger?.trace(`Sign-in not claimed yet (attempt ${attempt + 1}/${maxAttempts}): ${err instanceof Error ? err.message : String(err)}`);
 		}
 		// No wait after the final attempt: there is nothing left to poll, so sleeping only delays the
 		// timeout error.
@@ -191,6 +191,6 @@ export async function claimToken(serverUrl: string, deps: TokenClaimDeps): Promi
 			await new Promise(resolve => setTimeout(resolve, delayMs));
 		}
 	}
-	logger.error(`Sign-in timed out after ${maxAttempts} attempts. Last response: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+	logger?.error(`Sign-in timed out after ${maxAttempts} attempts. Last response: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
 	throw new Error('Sign-in timed out before the token was claimed in the browser.');
 }

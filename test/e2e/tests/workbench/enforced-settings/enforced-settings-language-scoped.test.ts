@@ -179,9 +179,8 @@ test.describe('Workbench: Language-scoped enforced settings', {
 		// Wait for the server to accept connections again. The worker-scoped teardown
 		// (WorkbenchApp.stop) will then navigate to the dashboard and attempt to quit the
 		// session itself. Its goTo + quitSession are already wrapped in try/catch and just
-		// warn on failure, so we don't need to reopen a session here - doing so would
-		// introduce a UI state (project shown as button after a server restart killed the
-		// session) that openSession's locator chain doesn't handle.
+		// warn on failure, so we don't need to reopen a session here - the next spec's
+		// fixture opens its own.
 		await waitForRStudioServerReady();
 	});
 
@@ -298,7 +297,7 @@ async function writeOpenAndSave(
 
 	await test.step(`Open ${fileName} in Positron`, async () => {
 		await app.workbench.quickaccess.openFile(filePath);
-		await expect(page.getByRole('tab', { name: fileName })).toBeVisible();
+		await expect(app.workbench.editors.editorTab(fileName)).toBeVisible();
 	});
 
 	await test.step('Save to trigger formatOnSave (if applicable)', async () => {

@@ -22,7 +22,8 @@ test.afterEach(async ({ page, hotKeys, cleanup }) => {
 	await page.keyboard.press('Escape');
 	await clearAnnotations(page);
 	await hotKeys.closeAllEditors();
-	await cleanup.discardAllChanges();
+	// These tests only create new notebooks, so the sole leftover is the Save-As target.
+	await cleanup.removeTestFiles(['explore-energy-data.ipynb']);
 });
 
 test.describe('Release Screenshots - Positron Notebook', () => {

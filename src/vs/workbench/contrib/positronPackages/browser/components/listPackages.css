@@ -141,13 +141,15 @@
 	font-weight: bold;
 }
 
+/*
+ * The version never shrinks: a truncated version number ("1.0...") is misinformation, while a
+ * truncated name is still identifiable, so the name absorbs all of the ellipsis. Without this the
+ * two shrink at equal priority and a long package name truncates the version even in a wide pane.
+ */
 .packages-list-item-version {
-	flex: 0 1 auto;
-	min-width: 0;
+	flex: 0 0 auto;
 	opacity: 0.7;
 	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
 	font-size: 0.9em;
 	margin-left: 0.5em;
 }

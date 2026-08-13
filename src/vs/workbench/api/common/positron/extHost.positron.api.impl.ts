@@ -29,11 +29,13 @@ import { ExtHostLanguageFeatures } from '../extHostLanguageFeatures.js';
 import { createExtHostQuickOpen } from '../extHostQuickOpen.js';
 import { ExtHostOutputService } from '../extHostOutput.js';
 import { ExtHostConsoleService } from './extHostConsoleService.js';
+import { ExtHostDocumentsAndEditors } from '../extHostDocumentsAndEditors.js';
 import { ExtHostMethods } from './extHostMethods.js';
 import { ExtHostEditors } from '../extHostTextEditors.js';
 import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ExtHostConnections } from './extHostConnections.js';
 import { ExtHostDataConnections } from './extHostDataConnections.js';
+import { createLazyDriverLogger } from './extHostDataConnectionsLogging.js';
 import { ExtHostDataExplorer } from './extHostDataExplorer.js';
 import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 import { IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
@@ -46,6 +48,7 @@ import { ExtHostPositronEphemeralStorage } from './extHostPositronEphemeralStora
 import { IExtHostStorage } from '../extHostStorage.js';
 import { ExtHostLifecycle } from './extHostLifecycle.js';
 import { ExtHostFileTransfer } from './extHostFileTransfer.js';
+import { IExtHostDocs } from './extHostDocs.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -65,6 +68,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostCommands = accessor.get(IExtHostCommands);
 	const extHostLogService = accessor.get(ILogService);
 	const extHostConfiguration = accessor.get(IExtHostConfiguration);
+	const extHostDocs = accessor.get(IExtHostDocs);
 
 	// Retrieve the raw `ExtHostWebViews` object from the rpcProtocol; this
 	// object is needed to create webviews, and was previously created in
@@ -81,13 +85,14 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		rpcProtocol.getRaw(ExtHostContext.ExtHostLanguageFeatures);
 	const extHostEditors: ExtHostEditors = rpcProtocol.getRaw(ExtHostContext.ExtHostEditors);
 	const extHostDocuments: ExtHostDocuments = rpcProtocol.getRaw(ExtHostContext.ExtHostDocuments);
+	const extHostDocumentsAndEditors: ExtHostDocumentsAndEditors = rpcProtocol.getRaw(ExtHostContext.ExtHostDocumentsAndEditors);
 	const extHostQuickOpen = rpcProtocol.set(ExtHostPositronContext.ExtHostQuickOpen, createExtHostQuickOpen(rpcProtocol, extHostWorkspace, extHostCommands));
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol, extHostLogService));
 	const extHostAiFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostAiFeatures, new ExtHostAiFeatures(rpcProtocol, extHostCommands, extHostWorkspace));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 	const extHostContextKeyService = rpcProtocol.set(ExtHostPositronContext.ExtHostContextKeyService, new ExtHostContextKeyService(rpcProtocol));
-	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol, extHostLogService));
+	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol, extHostLogService, extHostDocumentsAndEditors));
 	const extHostPlotsService = rpcProtocol.set(ExtHostPositronContext.ExtHostPlotsService, new ExtHostPlotsService(rpcProtocol));
 	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods,
 		new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs,
@@ -179,6 +184,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				Thenable<Array<positron.QueryTableSummaryResult>> {
 				return extHostLanguageRuntime.querySessionTables(sessionId, accessKeys, queryTypes);
 			},
+			getConsoleHistory(sessionId: string, numberOfEntries?: number): Thenable<positron.runtime.ConsoleHistoryEntry[]> {
+				return extHostLanguageRuntime.getConsoleHistory(sessionId, numberOfEntries);
+			},
 			registerClientHandler(handler: positron.RuntimeClientHandler): vscode.Disposable {
 				return extHostLanguageRuntime.registerClientHandler(handler);
 			},
@@ -235,6 +243,12 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			getConsoleForLanguage(languageId: string) {
 				return extHostConsoleService.getConsoleForLanguage(languageId);
+			},
+			get activeConsoleEditor() {
+				return extHostConsoleService.activeConsoleEditor;
+			},
+			get onDidChangeActiveConsoleEditor() {
+				return extHostConsoleService.onDidChangeActiveConsoleEditor;
 			},
 			get onDidChangeConsoleWidth() {
 				return extHostConsoleService.onDidChangeConsoleWidth;
@@ -312,6 +326,15 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		};
 
 		const dataConnections: typeof positron.dataConnections = {
+			/**
+			 * Creates a lazily built log output channel for a data connection driver.
+			 * @param driverName The driver's display name; core adds the shared prefix.
+			 */
+			createDriverLogger(driverName: string): positron.DataConnectionLogger & vscode.Disposable {
+				return createLazyDriverLogger(driverName, name =>
+					extHostOutputService.createOutputChannel(name, { log: true }, extension) as vscode.LogOutputChannel);
+			},
+
 			/**
 			 * Registers a data connection driver, allowing extensions to contribute to the
 			 * 'New Data Connection' dialog.
@@ -640,6 +663,16 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			}
 		};
 
+		const docs: typeof positron.docs = {
+			/**
+			 * Get the locally cached Positron documentation, or undefined when
+			 * the caller should fall back to the web.
+			 */
+			async getLocalDocs(): Promise<positron.docs.LocalDocs | undefined> {
+				return await extHostDocs.getLocalDocs();
+			},
+		};
+
 		const workspace: typeof positron.workspace = {
 			registerConfigurationMigrations(migrations: ReadonlyArray<positron.ConfigurationMigrationSpec>): vscode.Disposable {
 				extHostConfiguration.registerConfigurationMigrations(extension, migrations);
@@ -659,6 +692,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			methods,
 			environment,
 			paths,
+			docs,
 			connections,
 			dataConnections,
 			dataExplorer,

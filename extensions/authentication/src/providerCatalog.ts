@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import type { BuiltinProviderBlock, LegacySettingsReader, ProvidersConfig, ResolvedConnection, ResolvedProvider } from 'ai-config';
+import type { BuiltinProviderBlock, LegacySettingsReader, Protocol, ProvidersConfig, ResolvedConnection, ResolvedProvider } from 'ai-config';
 import type { ProviderCatalogChange } from 'ai-config/node';
 import { ANTHROPIC_DEFAULT_BASE_URL, GEMINI_DEFAULT_BASE_URL, OPENAI_DEFAULT_BASE_URL } from './constants';
 import { log } from './log';
@@ -31,34 +31,12 @@ export interface ProviderCatalogChangeEvent {
 }
 
 /**
- * Test seam: `configPath`/`envVars` overrides. Production passes only
- * `legacyPositronSettings` (see {@link createConfigurationLegacySettingsReader});
- * tests leave it unset so real user settings never leak into a `configPath`-based
- * fixture.
+ * Test seam: `configPath`/`envVars` overrides. Production passes neither, so
+ * real user settings never leak into a `configPath`-based fixture.
  */
 export interface ProviderCatalogOptions {
 	configPath?: string;
 	envVars?: Record<string, string | undefined>;
-	// PROVIDER-SETTINGS-MIGRATION(legacy-positron)
-	legacyPositronSettings?: LegacySettingsReader;
-}
-
-/**
- * PROVIDER-SETTINGS-MIGRATION(legacy-positron): a LegacySettingsReader over the
- * extension-host configuration, handed to the catalog loader's
- * `legacyPositronSettings` option so this cache folds in the same legacy layer
- * the core catalog does (see `platform/positronAiProvider`). Without it the two
- * caches diverge whenever a legacy setting isn't represented in providers.json.
- * `get` reads `inspect(key).globalValue` -- the user-set value only, never
- * policy/default values, so enforced settings cannot leak into the non-enforced
- * legacy layer (the loader reads POSITRON_ENFORCED_SETTINGS itself). The watch
- * is coarse (any config change fires); the catalog watch debounces and diffs.
- */
-export function createConfigurationLegacySettingsReader(): LegacySettingsReader {
-	return {
-		get: key => vscode.workspace.getConfiguration().inspect(key)?.globalValue,
-		watch: onChange => vscode.workspace.onDidChangeConfiguration(() => onChange()),
-	};
 }
 
 let cache = new Map<string, ResolvedProviderLike>();
@@ -115,7 +93,13 @@ async function loadCatalog(options: ProviderCatalogOptions): Promise<readonly Re
 		baseline: { defaultEnabled: true },
 		configPath: options.configPath,
 		envVars: options.envVars,
-		legacyPositronSettings: options.legacyPositronSettings,
+		// PROVIDER-SETTINGS-MIGRATION(legacy-positron): keep the legacy
+		// POSITRON_ENFORCED_SETTINGS admin channel applying above the user file.
+		// The user-set legacy settings reader is deliberately NOT passed: this
+		// Positron migrates those settings into providers.json, and a reader
+		// layer would make a cleared providers.json value fall back to its
+		// stale legacy source.
+		legacyPositronEnforcedSettings: true,
 		logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
 	});
 }
@@ -143,7 +127,9 @@ export async function initProviderCatalog(
 			baseline: { defaultEnabled: true },
 			configPath: options.configPath,
 			envVars: options.envVars,
-			legacyPositronSettings: options.legacyPositronSettings,
+			// PROVIDER-SETTINGS-MIGRATION(legacy-positron): same opt-in as
+			// loadCatalog — enforced channel only, no user-set reader.
+			legacyPositronEnforcedSettings: true,
 			logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
 		}
 	);
@@ -234,6 +220,52 @@ export async function saveProviderBaseUrl(
 	}, opts);
 }
 
+/**
+ * Removes the providers.<catalogId> block entirely, then refreshes the cache.
+ * Used when a provider is removed so its saved connection settings (base URL,
+ * protocol, custom models) don't linger and pre-fill a later reconnect. A no-op
+ * if the block is already absent.
+ */
+export async function removeProviderBlock(
+	catalogId: string,
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	const opts = effectiveOptions(options);
+	await mutate(providers => {
+		delete providers[catalogId];
+	}, opts);
+}
+
+/** Element type of a provider block's explicit custom-model list. */
+type CustomModelEntry = NonNullable<NonNullable<BuiltinProviderBlock['models']>['custom']>[number];
+
+/**
+ * Writes a custom provider's `protocol` and explicit model list to providers.json.
+ * A non-empty model list is stored as `models.custom` with discovery off; an
+ * empty list leaves the models block untouched so discovery (the provider's
+ * /models endpoint) still applies. An unrecognized protocol is ignored.
+ */
+export async function saveCustomProviderModels(
+	catalogId: string,
+	protocol: string | undefined,
+	customModels: readonly CustomModelEntry[] | undefined,
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	const { PROTOCOL_VALUES } = await import('ai-config/node');
+	const isProtocol = (value: string): value is Protocol => (PROTOCOL_VALUES as readonly string[]).includes(value);
+	const opts = effectiveOptions(options);
+	await mutate(providers => {
+		const block: BuiltinProviderBlock = { ...providers[catalogId] };
+		if (protocol && isProtocol(protocol)) {
+			block.protocol = protocol;
+		}
+		if (customModels && customModels.length > 0) {
+			block.models = { discovery: 'off', custom: [...customModels] };
+		}
+		providers[catalogId] = block;
+	}, opts);
+}
+
 /** Writes providers.snowflake-cortex.snowflake.account only when it changed. */
 export async function saveSnowflakeAccount(
 	account: string,
@@ -246,6 +278,26 @@ export async function saveSnowflakeAccount(
 	await mutate(providers => {
 		const block = providers['snowflake-cortex'] ?? {};
 		providers['snowflake-cortex'] = { ...block, snowflake: { ...block.snowflake, account } };
+	}, opts);
+}
+
+/**
+ * Writes providers.databricks.databricks.host only when it changed. The
+ * workspace host lives in its own connection section, not `baseUrl`: per-model
+ * endpoint resolution falls back to `baseUrl`, so a host there would route chat
+ * at the bare workspace and bypass the serving-endpoints path.
+ */
+export async function saveDatabricksHost(
+	host: string,
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	if (getCachedProvider('databricks')?.connection.databricks?.host === host) {
+		return;
+	}
+	const opts = effectiveOptions(options);
+	await mutate(providers => {
+		const block = providers['databricks'] ?? {};
+		providers['databricks'] = { ...block, databricks: { ...block.databricks, host } };
 	}, opts);
 }
 

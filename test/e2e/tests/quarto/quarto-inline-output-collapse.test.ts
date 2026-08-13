@@ -28,7 +28,7 @@ test.describe('Quarto - Inline Output: Collapse', {
 		await inlineQuarto.expectKernelStatusVisible();
 
 		await editors.clickTab('simple_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 20 });
 		await inlineQuarto.expectOutputExpanded();
 
 		await inlineQuarto.clickCollapseChevron();
@@ -48,7 +48,7 @@ test.describe('Quarto - Inline Output: Collapse', {
 		await editors.clickTab('simple_plot.qmd');
 		await hotKeys.closeSecondarySidebar();
 		await hotKeys.toggleBottomPanel();
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 20 });
 		await inlineQuarto.expectOutputExpanded();
 
 		// Place the cursor inside the code cell so the toggle command finds it.

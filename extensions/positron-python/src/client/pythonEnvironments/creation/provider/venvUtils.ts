@@ -57,10 +57,6 @@ function tomlParse(content: string): tomljs.JsonMap {
     return {};
 }
 
-function tomlHasBuildSystem(toml: tomljs.JsonMap): boolean {
-    return toml['build-system'] !== undefined;
-}
-
 function tomlHasProject(toml: tomljs.JsonMap): boolean {
     return toml.project !== undefined;
 }
@@ -143,7 +139,7 @@ async function pickRequirementsFiles(
 
 export function isPipInstallableToml(tomlContent: string): boolean {
     const toml = tomlParse(tomlContent);
-    return tomlHasBuildSystem(toml) && tomlHasProject(toml);
+    return tomlHasProject(toml);
 }
 
 export interface IPackageInstallSelection {
@@ -165,20 +161,15 @@ export async function pickPackagesToInstall(
             traceVerbose(`Looking for toml pyproject.toml with optional dependencies at: ${tomlPath}`);
 
             let extras: string[] = [];
-            let hasBuildSystem = false;
             let hasProject = false;
 
             if (await fs.pathExists(tomlPath)) {
                 const toml = tomlParse(await fs.readFile(tomlPath, 'utf-8'));
                 extras = getTomlOptionalDeps(toml);
-                hasBuildSystem = tomlHasBuildSystem(toml);
                 hasProject = tomlHasProject(toml);
 
                 if (!hasProject) {
                     traceVerbose('Create env: Found toml without project. So we will not use editable install.');
-                }
-                if (!hasBuildSystem) {
-                    traceVerbose('Create env: Found toml without build system. So we will not use editable install.');
                 }
                 if (extras.length === 0) {
                     traceVerbose('Create env: Found toml without optional dependencies.');
@@ -188,7 +179,7 @@ export async function pickPackagesToInstall(
                 return MultiStepAction.Back;
             }
 
-            if (hasBuildSystem && hasProject) {
+            if (hasProject) {
                 if (extras.length > 0) {
                     traceVerbose('Create Env: Found toml with optional dependencies.');
 
@@ -218,7 +209,7 @@ export async function pickPackagesToInstall(
                     packages.push({ installType: 'toml', source: tomlPath });
                 }
             } else if (context === MultiStepAction.Back) {
-                // This step is not really used because there is no build system in toml, so just go back
+                // This step is not really used because there is no project in toml, so just go back
                 return MultiStepAction.Back;
             }
 

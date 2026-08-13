@@ -122,19 +122,20 @@ export class Workbench {
 		this.dataExplorer = new DataExplorer(code, this);
 		this.sideBar = new SideBar(code);
 		this.plots = new Plots(code, this.contextMenu);
-		this.explorer = new Explorer(code);
 		this.help = new Help(code);
 		this.topActionBar = new TopActionBar(code);
 		this.layouts = new Layouts(code, this);
 		this.quickInput = new QuickInput(code);
 		this.editors = new Editors(code);
 		this.quickaccess = new QuickAccess(code, this.editors, this.quickInput);
+		// After quickaccess: the Explorer collapses the tree via a command.
+		this.explorer = new Explorer(code, this.quickaccess);
 		this.connections = new Connections(code, this.quickaccess);
 		this.dataConnections = new DataConnections(code, this.quickaccess);
 		this.newFolderFlow = new NewFolderFlow(code, this.quickaccess);
 		this.output = new Output(code, this.quickaccess, this.quickInput);
 		this.console = new Console(code, this.quickInput, this.hotKeys, this.contextMenu);
-		this.modals = new Modals(code, this.toasts, this.console);
+		this.modals = new Modals(code, this.toasts);
 		this.clipboard = new Clipboard(code, this.hotKeys);
 		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.console, this.contextMenu, this.modals);
 		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess, this.hotKeys);

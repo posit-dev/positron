@@ -9,8 +9,8 @@ import { mkdir, rename, unlink } from 'fs/promises';
 import { dirname } from 'path';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
+import type * as positron from 'positron';
 import { md5Checksum, RequestAuthenticator } from './connectAuth.js';
-import { Logger, NULL_LOGGER } from './logging.js';
 import { parsePinMeta, PinMeta } from './meta.js';
 
 /** The default per-request timeout, in milliseconds. */
@@ -153,13 +153,13 @@ export class ConnectClient {
 	 * @param serverUrl The Connect server URL (normalized on construction).
 	 * @param _auth The request authenticator (API key or browser sign-in token).
 	 * @param _fetch The fetch implementation, injectable for testing; defaults to global fetch.
-	 * @param _logger Logs requests and failures; defaults to a no-op logger.
+	 * @param _logger Logs requests and failures; optional; nothing is logged when omitted.
 	 */
 	constructor(
 		serverUrl: string,
 		private readonly _auth: RequestAuthenticator,
 		private readonly _fetch: typeof fetch = fetch,
-		private readonly _logger: Logger = NULL_LOGGER
+		private readonly _logger?: positron.DataConnectionLogger
 	) {
 		this._serverUrl = normalizeServerUrl(serverUrl);
 	}
@@ -202,7 +202,7 @@ export class ConnectClient {
 		}
 		const json = await this._getJson<RawApplicationsResponse>(`${this._apiUrl('applications')}?${query}`);
 		const applications = Array.isArray(json.applications) ? json.applications : [];
-		this._logger.info(`Found ${applications.length} pin(s) on ${this._serverUrl}`);
+		this._logger?.info(`Found ${applications.length} pin(s) on ${this._serverUrl}`);
 		return applications
 			.filter((app): app is RawApplication & { guid: string; name: string } =>
 				typeof app.guid === 'string' && typeof app.name === 'string')
@@ -225,7 +225,7 @@ export class ConnectClient {
 	async listBundles(guid: string): Promise<BundleInfo[]> {
 		const json = await this._getJson<RawBundle[]>(this._apiUrl(`v1/content/${encodeURIComponent(guid)}/bundles`));
 		const bundles = Array.isArray(json) ? json : [];
-		this._logger.info(`Found ${bundles.length} version(s) for pin ${guid}`);
+		this._logger?.info(`Found ${bundles.length} version(s) for pin ${guid}`);
 		return bundles
 			.filter((bundle): bundle is RawBundle & { id: string | number } => bundle.id !== undefined && bundle.id !== null)
 			.map(bundle => ({
@@ -274,7 +274,7 @@ export class ConnectClient {
 	 */
 	async downloadPinFile(guid: string, bundleId: string, filename: string, destPath: string): Promise<void> {
 		const url = `${this._serverUrl}/content/${encodeURIComponent(guid)}/_rev${encodeURIComponent(bundleId)}/${encodeURIComponent(filename)}`;
-		this._logger.info(`Downloading ${filename} (${destPath}) for pin ${guid} version ${bundleId}`);
+		this._logger?.info(`Downloading ${filename} (${destPath}) for pin ${guid} version ${bundleId}`);
 		// GET with no abort timeout; the body may be large.
 		const response = await this._get(url, '*/*', 0);
 		if (!response.body) {
@@ -323,7 +323,7 @@ export class ConnectClient {
 	 * whose transfer can legitimately exceed the API timeout).
 	 */
 	private async _get(url: string, accept: string, timeoutMs: number = DEFAULT_TIMEOUT_MS): Promise<Response> {
-		this._logger.trace(`GET ${url}`);
+		this._logger?.trace(`GET ${url}`);
 		const controller = new AbortController();
 		const timeout = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
 		let response: Response;
@@ -345,12 +345,12 @@ export class ConnectClient {
 		} catch (err) {
 			if (err instanceof Error && err.name === 'AbortError') {
 				const message = `Timed out connecting to the Connect server at ${this._serverUrl}.`;
-				this._logger.error(message);
+				this._logger?.error(message);
 				throw new Error(message);
 			}
 			const detail = err instanceof Error ? err.message : String(err);
 			const message = `Could not reach the Connect server at ${this._serverUrl}: ${detail}`;
-			this._logger.error(message);
+			this._logger?.error(message);
 			throw new Error(message);
 		} finally {
 			clearTimeout(timeout);
@@ -358,7 +358,7 @@ export class ConnectClient {
 
 		if (!response.ok) {
 			const error = await this._responseError(response);
-			this._logger.error(`${response.status} for ${url}: ${error.message}`);
+			this._logger?.error(`${response.status} for ${url}: ${error.message}`);
 			throw error;
 		}
 		return response;

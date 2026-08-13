@@ -36,10 +36,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		]);
 
 		// ensure once started and ready, shutdown is enabled
-		await notebooksPositron.kernel.expectKernelToBe({
-			kernelGroup: 'Python',
-			status: 'idle'
-		});
+		await notebooksPositron.kernel.expectKernelToBeReady({ kernelGroup: 'Python' });
 		await notebooksPositron.kernel.expectMenuToContain([
 			{ label: 'Shutdown Kernel', enabled: true },
 		]);
@@ -50,10 +47,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			kernelGroup: 'Python',
 			status: 'active'
 		});
-		await notebooksPositron.kernel.expectKernelToBe({
-			kernelGroup: 'Python',
-			status: 'idle'
-		});
+		await notebooksPositron.kernel.expectKernelToBeReady({ kernelGroup: 'Python' });
 
 		// shut down kernel and ensure restart toolbar button stays enabled, shutdown menu item is disabled
 		await notebooksPositron.kernel.shutdown();
@@ -69,10 +63,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 		// re-start kernel from shutdown state and ensure state changes
 		await notebooksPositron.kernel.restart();
-		await notebooksPositron.kernel.expectKernelToBe({
-			kernelGroup: 'Python',
-			status: 'idle'
-		});
+		await notebooksPositron.kernel.expectKernelToBeReady({ kernelGroup: 'Python' });
 	});
 
 	test('ensure variable and output persistence after kernel restart', async function ({ app }) {
@@ -139,10 +130,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 		// create new notebook and ensure R kernel is auto-selected (from foreground) and started
 		await notebooksPositron.newNotebook();
-		await notebooksPositron.kernel.expectKernelToBe({
-			kernelGroup: 'R',
-			status: 'idle'
-		});
+		await notebooksPositron.kernel.expectKernelToBeReady({ kernelGroup: 'R' });
 	});
 
 	test('ensure existing notebooks use their correct interpreter kernel',
@@ -157,17 +145,11 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 			// open existing python notebook and ensure python kernel is auto-selected (from background) and started
 			await notebooksPositron.openNotebook(pythonNotebook);
-			await notebooksPositron.kernel.expectKernelToBe({
-				kernelGroup: 'Python',
-				status: 'idle'
-			});
+			await notebooksPositron.kernel.expectKernelToBeReady({ kernelGroup: 'Python' });
 
 			// open exiting R notebook and ensure R kernel is auto-selected (from foreground) and started
 			await notebooksPositron.openNotebook(rRnotebook);
-			await notebooksPositron.kernel.expectKernelToBe({
-				kernelGroup: 'R',
-				status: 'idle'
-			});
+			await notebooksPositron.kernel.expectKernelToBeReady({ kernelGroup: 'R' });
 		});
 
 	test('ensure notebook console attaches and terminates with active kernel', async function ({ app, sessions }) {
@@ -179,10 +161,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 		// create new notebook
 		await notebooksPositron.newNotebook();
-		await notebooksPositron.kernel.expectKernelToBe({
-			kernelGroup: 'R',
-			status: 'idle'
-		});
+		await notebooksPositron.kernel.expectKernelToBeReady({ kernelGroup: 'R' });
 
 		// open notebook console and ensure appears in session list
 		await notebooksPositron.kernel.openNotebookConsole();
@@ -201,7 +180,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		});
 	});
 
-	test('ensure closing a notebook removes its console session', { tag: [tags.CONSOLE, tags.EDITOR] }, async function ({ app, page, sessions, runCommand }) {
+	test('ensure closing a notebook removes its console session', { tag: [tags.CONSOLE, tags.EDITOR] }, async function ({ app, sessions, runCommand }) {
 		const { notebooksPositron } = app.workbench;
 
 		// clear any sessions left by prior tests (e.g. a terminated notebook
@@ -215,16 +194,13 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 		// create a notebook and open its console (adds a notebook session)
 		await notebooksPositron.newNotebook();
-		await notebooksPositron.kernel.expectKernelToBe({
-			kernelGroup: 'R',
-			status: 'idle'
-		});
+		await notebooksPositron.kernel.expectKernelToBeReady({ kernelGroup: 'R' });
 		await notebooksPositron.kernel.openNotebookConsole();
 		await sessions.expectSessionCountToBe(sessionCountBefore + 1, 'all');
 		await sessions.expectStatusToBe('Untitled-1.ipynb', 'idle');
 
 		// closing the notebook removes its console session while the standalone sessions remain (#12940)
-		await page.getByRole('tab', { name: 'Untitled-1.ipynb' }).click();
+		await app.workbench.editors.clickTab('Untitled-1.ipynb');
 		await runCommand('workbench.action.revertAndCloseActiveEditor');
 		await sessions.expectSessionCountToBe(sessionCountBefore);
 	});

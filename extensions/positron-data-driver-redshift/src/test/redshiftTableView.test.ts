@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileType, FormatOptions } from 'positron-data-explorer-protocol';
-import { IRedshiftQueryClient, RedshiftSchemaEntry, RedshiftTableView } from '../redshiftTableView.js';
+import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileType, FormatOptions, RowFilter, RowFilterCondition, RowFilterType, TextSearchType } from 'positron-data-explorer-protocol';
+import { IRedshiftQueryClient, makeWhereExpr, RedshiftSchemaEntry, RedshiftTableView } from '../redshiftTableView.js';
 
 // Minimal format options; only the numeric-summary path reads them.
 const FORMAT_OPTIONS: FormatOptions = {
@@ -216,5 +216,84 @@ suite('Redshift Column Profiles', () => {
 		// table for the offending column is simply absent.
 		assert.strictEqual(profiles[0].null_count, 5);  // total 100 - non-null 95
 		assert.deepStrictEqual(profiles[0][ColumnProfileType.SmallFrequencyTable], { values: [], counts: [], other_count: 95 });
+	});
+});
+
+suite('Redshift Row Filter SQL', () => {
+
+	function searchFilter(search_type: TextSearchType, term: string, case_sensitive: boolean): RowFilter {
+		return {
+			filter_id: 'f',
+			filter_type: RowFilterType.Search,
+			column_schema: { column_name: 'name', column_index: 0, type_name: 'varchar', type_display: ColumnDisplayType.String },
+			condition: RowFilterCondition.And,
+			params: { search_type, term, case_sensitive },
+		};
+	}
+
+	test('LIKE wildcards in the search term are escaped so they match literally', () => {
+		// Unescaped, '10%' would match anything starting with 10, and 'a_b' would match 'axb'.
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.Contains, '10%', true)), `"name" LIKE '%' || '10!%' || '%' ESCAPE '!'`);
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.StartsWith, 'a_b', true)), `"name" LIKE 'a!_b' || '%' ESCAPE '!'`);
+		// The escape character itself is escaped, in one pass, so it is never double-escaped.
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.EndsWith, 'wow!', true)), `"name" LIKE '%' || 'wow!!' ESCAPE '!'`);
+	});
+
+	test('every LIKE variant carries the ESCAPE clause that gives those escapes meaning', () => {
+		const variants = [TextSearchType.Contains, TextSearchType.NotContains, TextSearchType.StartsWith, TextSearchType.EndsWith]
+			.map(type => makeWhereExpr(searchFilter(type, '50%_off', false)));
+
+		assert.deepStrictEqual(variants, [
+			`lower("name") LIKE '%' || lower('50!%!_off') || '%' ESCAPE '!'`,
+			`lower("name") NOT LIKE '%' || lower('50!%!_off') || '%' ESCAPE '!'`,
+			`lower("name") LIKE lower('50!%!_off') || '%' ESCAPE '!'`,
+			`lower("name") LIKE '%' || lower('50!%!_off') ESCAPE '!'`,
+		]);
+	});
+
+	test('regex search is left alone, since the regex operators have no LIKE wildcards', () => {
+		// '%' and '_' carry no special meaning in a regex, so escaping them would corrupt the pattern.
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.RegexMatch, '^10%_$', true)), `"name" ~ '^10%_$'`);
+		assert.strictEqual(makeWhereExpr(searchFilter(TextSearchType.RegexMatch, '^10%_$', false)), `"name" ~* '^10%_$'`);
+	});
+});
+
+suite('Redshift Cell Formatting', () => {
+
+	test('a wide int8 keeps every digit rather than being rounded through a JS number', async () => {
+		// `pg` returns int8 as an exact string precisely because a JS number cannot hold it; coercing
+		// that string back with Number() would round 9007199254740993 to ...992.
+		const schema: RedshiftSchemaEntry[] = [
+			{ column_name: 'id', column_type: 'int8', type_display: ColumnDisplayType.Integer },
+		];
+		const { client } = recordingClient(sql => /count\(\*\)/.test(sql)
+			? [{ n: 2 }]
+			: [{ c0: '9007199254740993' }, { c0: '-9223372036854775808' }]);
+		const view = new RedshiftTableView(client, '"public"."t"', 't', 'table', schema);
+
+		const data = await view.getDataValues({
+			columns: [{ column_index: 0, spec: { first_index: 0, last_index: 1 } }],
+			format_options: FORMAT_OPTIONS,
+		});
+
+		assert.deepStrictEqual(data.columns[0], ['9007199254740993', '-9223372036854775808']);
+	});
+
+	test('an integer value that is not a clean digit string is still normalized', async () => {
+		// Only a plain digit string is passed through untouched; anything else goes through Number().
+		const schema: RedshiftSchemaEntry[] = [
+			{ column_name: 'n', column_type: 'int4', type_display: ColumnDisplayType.Integer },
+		];
+		const { client } = recordingClient(sql => /count\(\*\)/.test(sql)
+			? [{ n: 2 }]
+			: [{ c0: ' 42 ' }, { c0: 7 }]);
+		const view = new RedshiftTableView(client, '"public"."t"', 't', 'table', schema);
+
+		const data = await view.getDataValues({
+			columns: [{ column_index: 0, spec: { first_index: 0, last_index: 1 } }],
+			format_options: FORMAT_OPTIONS,
+		});
+
+		assert.deepStrictEqual(data.columns[0], ['42', '7']);
 	});
 });

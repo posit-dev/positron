@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
+import { join } from 'path';
 import { execSync } from 'child_process';
 
 export class TestTeardown {
@@ -24,6 +25,27 @@ export class TestTeardown {
 		}
 	}
 
+	/**
+	 * Deletes the untracked files whose workspace-relative path starts with `pathPrefix`,
+	 * for byproducts a spec cannot name: rendering report.qmd leaves latex intermediates
+	 * and a numbered report.quarto_ipynb. Keep the prefix tight (include the output stem,
+	 * not just its folder) -- all workers share the workspace, so a bare folder prefix
+	 * would also delete files another spec put there.
+	 */
+	async removeGeneratedFiles(pathPrefix: string): Promise<void> {
+		// Callers build the prefix with path.join, but git status reports forward slashes.
+		const prefix = pathPrefix.replace(/\\/g, '/');
+		try {
+			const generated = [...this._dirtyFiles()]
+				.filter(([file, status]) => status === '??' && file.startsWith(prefix))
+				.map(([file]) => file);
+			await this.removeTestFiles(generated);
+		} catch (error) {
+			// Don't let cleanup errors fail the test run
+			console.warn(`Failed to list generated files for "${pathPrefix}":`, error);
+		}
+	}
+
 	async removeTestFolder(folder: string): Promise<void> {
 		const folderPath = this._workspacePathOrFolder + '/' + folder;
 		if (fs.existsSync(folderPath)) {
@@ -31,15 +53,99 @@ export class TestTeardown {
 		}
 	}
 
-	async discardAllChanges(): Promise<void> {
-		try {
-			// Get the root commit hash
-			const rootCommitHash = execSync('git rev-list --max-parents=0 HEAD', { cwd: this._workspacePathOrFolder }).toString().trim();
-			// Reset to the root commit
-			execSync(`git reset --hard ${rootCommitHash}`, { cwd: this._workspacePathOrFolder });
-			execSync('git clean -fd', { cwd: this._workspacePathOrFolder });
-		} catch (error) {
-			console.error('Failed to discard changes:', error);
+	/**
+	 * Restores the given tracked files to the provisioned baseline commit.
+	 *
+	 * All workers share one workspace, so teardown runs while other specs are
+	 * mid-test. Pass only the files this spec edited: a repo-wide reset would
+	 * revert files another spec is actively using.
+	 */
+	async restoreFiles(files: string[]): Promise<void> {
+		if (files.length === 0 || !this._hasGitWorkspace()) {
+			return;
 		}
+		try {
+			const baseline = this._git('rev-list --max-parents=0 HEAD').trim();
+			// Callers build paths with path.join, but git pathspecs want forward slashes.
+			const pathspec = files.map(file => `"${file.replace(/\\/g, '/')}"`).join(' ');
+			// --staged as well as --worktree, so a spec that staged a change (scm) leaves nothing behind.
+			this._git(`restore --source=${baseline} --staged --worktree -- ${pathspec}`);
+			// A spec that commits (scm) leaves the branch ahead of the baseline; rewind it
+			// without touching any file, so the restore above is what git status reports.
+			this._git(`reset --soft ${baseline}`);
+		} catch (error) {
+			// Don't let cleanup errors fail the test run
+			console.warn('Failed to restore test files:', error);
+		}
+	}
+
+	/**
+	 * Workspace-relative paths that differ from the baseline commit. Pair it with
+	 * `revertChangesSince` when a spec cannot name the files it produces (an LLM
+	 * chose them); otherwise prefer `restoreFiles` / `removeTestFiles`.
+	 */
+	dirtyFiles(): Set<string> {
+		return new Set(this.dirtyFilesByStatus().keys());
+	}
+
+	/**
+	 * The same paths keyed to their two-letter git status code, for callers that
+	 * need to tell a modified tracked file (a fixture the next spec will read)
+	 * from an untracked byproduct (`??`).
+	 */
+	dirtyFilesByStatus(): Map<string, string> {
+		return this._dirtyFiles();
+	}
+
+	/**
+	 * Reverts only what became dirty after the snapshot: new untracked files are
+	 * deleted, modified tracked files restored. Files another worker was already
+	 * changing are in the snapshot, so they are left alone.
+	 */
+	async revertChangesSince(snapshot: Set<string>): Promise<void> {
+		const toRemove: string[] = [];
+		const toRestore: string[] = [];
+
+		try {
+			for (const [file, status] of this._dirtyFiles()) {
+				if (snapshot.has(file)) {
+					continue;
+				}
+				(status === '??' ? toRemove : toRestore).push(file);
+			}
+		} catch (error) {
+			console.warn('Failed to list workspace changes:', error);
+			return;
+		}
+
+		await this.removeTestFiles(toRemove);
+		await this.restoreFiles(toRestore);
+	}
+
+	/**
+	 * The workbench and jupyter projects run Positron in a container: the workspace path
+	 * is a container path with no counterpart on the host, and the copy into the container
+	 * excludes .git. Every git-backed cleanup is a no-op there, so skip it rather than
+	 * spawning git against a cwd that does not exist (spawnSync reports that as ENOENT
+	 * on /bin/sh, which reads like a broken runner).
+	 */
+	private _hasGitWorkspace(): boolean {
+		return fs.existsSync(join(this._workspacePathOrFolder, '.git'));
+	}
+
+	/** Workspace-relative path -> two-letter git status code. */
+	private _dirtyFiles(): Map<string, string> {
+		if (!this._hasGitWorkspace()) {
+			return new Map();
+		}
+		// -z avoids git's path quoting; --no-renames keeps every record a plain "XY path".
+		const status = this._git('status --porcelain -z --untracked-files=all --no-renames');
+		return new Map(
+			status.split('\0').filter(Boolean).map(record => [record.slice(3), record.slice(0, 2)])
+		);
+	}
+
+	private _git(args: string): string {
+		return execSync(`git ${args}`, { cwd: this._workspacePathOrFolder }).toString();
 	}
 }

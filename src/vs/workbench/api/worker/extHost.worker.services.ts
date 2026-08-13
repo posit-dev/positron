@@ -12,6 +12,9 @@ import { ExtHostLogService } from '../common/extHostLogService.js';
 import { ExtensionStoragePaths, IExtensionStoragePaths } from '../common/extHostStoragePaths.js';
 import { ExtHostTelemetry, IExtHostTelemetry } from '../common/extHostTelemetry.js';
 import { ExtHostExtensionService } from './extHostExtensionService.js';
+// --- Start Positron ---
+import { IExtHostDocs, WorkerExtHostDocs } from '../common/positron/extHostDocs.js';
+// --- End Positron ---
 
 // #########################################################################
 // ###                                                                   ###
@@ -24,3 +27,10 @@ registerSingleton(IExtHostAuthentication, ExtHostAuthentication, InstantiationTy
 registerSingleton(IExtHostExtensionService, ExtHostExtensionService, InstantiationType.Eager);
 registerSingleton(IExtensionStoragePaths, ExtensionStoragePaths, InstantiationType.Eager);
 registerSingleton(IExtHostTelemetry, new SyncDescriptor(ExtHostTelemetry, [true], true));
+
+// --- Start Positron ---
+// The Positron API factory runs in this host too, so positron.docs needs a
+// registration here. The worker host has no filesystem, so it gets the
+// always-undefined variant.
+registerSingleton(IExtHostDocs, WorkerExtHostDocs, InstantiationType.Eager);
+// --- End Positron ---

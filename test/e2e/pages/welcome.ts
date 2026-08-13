@@ -16,6 +16,10 @@ const RECENT_SECTION = '.recently-opened';
 const WALKTHROUGH_SECTION = '.getting-started';
 const HEADING_ROLE = 'heading';
 const BUTTON_ROLE = 'button';
+const REDESIGNED_PAGE = '.positron-welcome-page';
+const CATEGORIES_SLIDE = '.gettingStartedSlideCategories';
+const DETAILS_SLIDE = '.gettingStartedSlideDetails';
+const STARTUP_CHECKBOX = '#showOnStartup';
 
 export class Welcome {
 
@@ -37,6 +41,8 @@ export class Welcome {
 	get openFolderButton(): Locator { return this.startButtons.getByText('Open Folder'); }
 	get walkthroughSection(): Locator { return this.code.driver.currentPage.locator(WALKTHROUGH_SECTION); }
 	get walkthroughButtons(): Locator { return this.walkthroughSection.getByRole(BUTTON_ROLE); }
+	get redesignedPage(): Locator { return this.code.driver.currentPage.locator(REDESIGNED_PAGE); }
+	get startupCheckbox(): Locator { return this.code.driver.currentPage.locator(STARTUP_CHECKBOX); }
 
 	constructor(private code: Code) { }
 
@@ -55,7 +61,7 @@ export class Welcome {
 
 	async expectTabTitleToBe(title: string) {
 		await test.step(`Verify tab title: ${title}`, async () => {
-			await expect(this.code.driver.currentPage.getByRole('tab', { name: title })).toBeVisible();
+			await expect(this.code.driver.currentPage.locator('[id="workbench.parts.editor"]').getByRole('tab', { name: title })).toBeVisible();
 		});
 	}
 
@@ -122,4 +128,42 @@ export class Welcome {
 			await expect(walkthroughs).toHaveCount(count);
 		});
 	}
+
+	/**
+	 * Verify the redesigned welcome page renders. Only shows when the
+	 * `welcomePage.experimental` setting is on.
+	 */
+	async expectRedesignedPageToBeVisible() {
+		await test.step('Verify redesigned welcome page is visible', async () => {
+			await expect(this.redesignedPage).toBeVisible();
+		});
+	}
+
+	async expectStartupCheckboxToBeVisible() {
+		await test.step('Verify "Show welcome page on startup" checkbox is visible', async () => {
+			await expect(this.startupCheckbox).toBeVisible();
+		});
+	}
+
+	/**
+	 * Verifies the off-screen slide is inert, which is what keeps its focusable
+	 * content out of the tab order, and that the visible slide is not.
+	 *
+	 * Asserts the mechanism rather than walking the page with Tab. A counted walk
+	 * has to know how many tab stops the page has, and that number changes with
+	 * the recent list and between web and desktop; too low a count stops short of
+	 * the boundary and passes without testing anything.
+	 * @param hidden Which slide is currently parked off-screen.
+	 */
+	async expectHiddenSlideToBeInert(hidden: 'welcome' | 'walkthrough') {
+		await test.step(`Verify the off-screen ${hidden} slide is inert`, async () => {
+			const page = this.code.driver.currentPage;
+			const hiddenSlide = hidden === 'welcome' ? CATEGORIES_SLIDE : DETAILS_SLIDE;
+			const visibleSlide = hidden === 'welcome' ? DETAILS_SLIDE : CATEGORIES_SLIDE;
+
+			await expect(page.locator(hiddenSlide)).toHaveAttribute('inert');
+			await expect(page.locator(visibleSlide)).not.toHaveAttribute('inert');
+		});
+	}
+
 }

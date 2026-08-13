@@ -18,14 +18,20 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bump_ark import (  # noqa: E402
     ARK_REPO,
     BumpError,
+    GroupEntry,
+    PrAssociations,
+    UnmergedPr,
     blocked_by_pr_owner,
     build_body,
     classify_ancestry,
     commit_line,
     commit_summary,
     first_parent_commits,
+    group_walk,
     parse_args,
+    pr_line,
     pr_resolution,
+    stack_chain,
     tag_line,
     walk_first_parents,
 )
@@ -34,6 +40,10 @@ from bump_ark import (  # noqa: E402
 class DecidePrResolutionTest(unittest.TestCase):
     def open_pr(self, **overrides):
         pr = {
+            "number": 42,
+            "title": "Some PR title",
+            "body": "some body",
+            "base": {"ref": "main"},
             "head": {"sha": "headsha", "repo": {"full_name": ARK_REPO}},
             "state": "open",
             "merged_at": None,
@@ -42,16 +52,19 @@ class DecidePrResolutionTest(unittest.TestCase):
         pr.update(overrides)
         return pr
 
-    def test_open_pr_targets_head_and_sets_open_pr_number(self):
+    def test_open_pr_targets_head_and_sets_target_pr(self):
         resolution, messages = pr_resolution("42", self.open_pr())
         self.assertEqual(resolution.sha, "headsha")
         self.assertEqual(resolution.title, "Bump Ark to posit-dev/ark#42")
         self.assertEqual(resolution.branch, "bump-ark/pr-42")
-        self.assertEqual(resolution.open_pr_number, "42")
+        self.assertEqual(
+            resolution.target_pr,
+            UnmergedPr(42, "Some PR title", "some body", "main", ""),
+        )
         self.assertTrue(resolution.is_pr_bump)
         self.assertEqual(messages, [])
 
-    def test_merged_pr_targets_merge_commit_and_clears_open_pr_number(self):
+    def test_merged_pr_targets_merge_commit_and_clears_target_pr(self):
         pr = self.open_pr(
             merged_at="2026-01-01T00:00:00Z",
             merge_commit_sha="mergesha",
@@ -59,7 +72,7 @@ class DecidePrResolutionTest(unittest.TestCase):
         )
         resolution, messages = pr_resolution("42", pr)
         self.assertEqual(resolution.sha, "mergesha")
-        self.assertIsNone(resolution.open_pr_number)
+        self.assertIsNone(resolution.target_pr)
         self.assertTrue(resolution.is_pr_bump)
         self.assertEqual(
             messages,
@@ -89,7 +102,7 @@ class DecidePrResolutionTest(unittest.TestCase):
     def test_closed_unmerged_pr_warns_but_targets_head(self):
         resolution, messages = pr_resolution("42", self.open_pr(state="closed"))
         self.assertEqual(resolution.sha, "headsha")
-        self.assertEqual(resolution.open_pr_number, "42")
+        self.assertEqual(resolution.target_pr.number, 42)
         self.assertEqual(len(messages), 1)
         self.assertIn("is closed (not merged)", messages[0])
 
@@ -277,7 +290,138 @@ class CommitLineTest(unittest.TestCase):
     def test_escapes_brackets_in_subject(self):
         line = commit_line("abc123", "Tweak CI [skip ci]")
         self.assertEqual(
-            line, r"- [Tweak CI \[skip ci\]](https://github.com/" + ARK_REPO + "/commit/abc123)"
+            line,
+            r"- [Tweak CI \[skip ci\]](https://github.com/"
+            + ARK_REPO
+            + "/commit/abc123)",
+        )
+
+
+class PrLineTest(unittest.TestCase):
+    def test_links_to_the_pr(self):
+        line = pr_line(1388, "Add support for Shiny app auto-loading", 12)
+        self.assertEqual(
+            line,
+            "- [Add support for Shiny app auto-loading (#1388)]"
+            f"(https://github.com/{ARK_REPO}/pull/1388) (12 unmerged commits)",
+        )
+
+    def test_pr_reference_stays_inside_the_link_text(self):
+        line = pr_line(42, "Fix the thing", 3)
+        self.assertIn("[Fix the thing (#42)]", line)
+
+    def test_singular_commit(self):
+        line = pr_line(42, "Fix the thing", 1)
+        self.assertIn("(1 unmerged commit)", line)
+        self.assertNotIn("commits)", line)
+
+    def test_escapes_brackets_in_title(self):
+        line = pr_line(42, "Tweak CI [skip ci]", 2)
+        self.assertIn(r"Tweak CI \[skip ci\] (#42)", line)
+
+
+class StackChainTest(unittest.TestCase):
+    def pr(self, number, base_ref, head_ref):
+        return UnmergedPr(number, f"PR {number}", "", base_ref, head_ref)
+
+    def test_none_target_yields_empty(self):
+        self.assertEqual(stack_chain(None, {}), ([], []))
+
+    def test_four_pr_stack_resolves_top_first(self):
+        target = self.pr(1388, "branch-1384", "branch-1388")
+        unmerged = {
+            1388: target,
+            1384: self.pr(1384, "branch-1383", "branch-1384"),
+            1383: self.pr(1383, "branch-1382", "branch-1383"),
+            1382: self.pr(1382, "main", "branch-1382"),
+        }
+        chain, messages = stack_chain(target, unmerged)
+        self.assertEqual(chain, [1388, 1384, 1383, 1382])
+        self.assertEqual(len(messages), 1)
+        self.assertIn("#1388 is stacked on #1384, #1383, #1382", messages[0])
+
+    def test_lone_pr_based_on_main_yields_itself(self):
+        target = self.pr(42, "main", "branch-42")
+        chain, messages = stack_chain(target, {42: target})
+        self.assertEqual(chain, [42])
+        self.assertEqual(messages, [])
+
+    def test_missing_link_stops_chain_silently(self):
+        # A base branch with no unmerged PR of its own is also what an ordinary
+        # branch pushed without a PR looks like, so it is not worth a warning.
+        target = self.pr(1388, "branch-missing", "branch-1388")
+        chain, messages = stack_chain(target, {1388: target})
+        self.assertEqual(chain, [1388])
+        self.assertEqual(messages, [])
+
+    def test_ref_cycle_terminates(self):
+        # A's base is B's head and B's base is A's head, the chain must not loop.
+        a = self.pr(1, "branch-b", "branch-a")
+        b = self.pr(2, "branch-a", "branch-b")
+        chain, _ = stack_chain(a, {1: a, 2: b})
+        self.assertEqual(chain, [1, 2])
+
+
+class GroupWalkTest(unittest.TestCase):
+    def test_collapses_pr_commits_into_one_entry(self):
+        walk = [("c2", "subject c2"), ("c1", "subject c1")]
+        associations = PrAssociations(
+            merged_bodies={},
+            unmerged={1: UnmergedPr(1, "PR title", "", "main", "branch-1")},
+            commit_prs={"c2": [1], "c1": [1]},
+        )
+        entries = group_walk(walk, associations, [1])
+        self.assertEqual(entries, [GroupEntry(1, "c2", "subject c2", 2, "PR title")])
+
+    def test_interleaves_plain_commits(self):
+        walk = [("c3", "s3"), ("c2", "s2"), ("c1", "s1")]
+        associations = PrAssociations(
+            merged_bodies={},
+            unmerged={1: UnmergedPr(1, "PR title", "", "main", "branch-1")},
+            commit_prs={"c2": [1]},
+        )
+        entries = group_walk(walk, associations, [1])
+        self.assertEqual(
+            entries,
+            [
+                GroupEntry(None, "c3", "s3", 1),
+                GroupEntry(1, "c2", "s2", 1, "PR title"),
+                GroupEntry(None, "c1", "s1", 1),
+            ],
+        )
+
+    def test_attributes_shared_commit_to_lowest_chain_pr(self):
+        # A commit at the bottom of a stack lists every PR above it too; only the
+        # PR closest to Ark main (the last entry in `chain`) is the real owner.
+        walk = [("c1", "s1")]
+        associations = PrAssociations(
+            merged_bodies={},
+            unmerged={
+                1388: UnmergedPr(1388, "Top", "", "b1384", "b1388"),
+                1382: UnmergedPr(1382, "Bottom", "", "main", "b1382"),
+            },
+            commit_prs={"c1": [1388, 1382]},
+        )
+        entries = group_walk(walk, associations, [1388, 1382])
+        self.assertEqual(entries, [GroupEntry(1382, "c1", "s1", 1, "Bottom")])
+
+    def test_ignores_unmerged_pr_outside_chain(self):
+        walk = [("c1", "s1")]
+        associations = PrAssociations(
+            merged_bodies={},
+            unmerged={99: UnmergedPr(99, "Outside", "", "main", "b99")},
+            commit_prs={"c1": [99]},
+        )
+        entries = group_walk(walk, associations, [])
+        self.assertEqual(entries, [GroupEntry(None, "c1", "s1", 1)])
+
+    def test_empty_chain_leaves_every_commit_individual(self):
+        walk = [("c2", "s2"), ("c1", "s1")]
+        associations = PrAssociations({}, {}, {})
+        entries = group_walk(walk, associations, [])
+        self.assertEqual(
+            entries,
+            [GroupEntry(None, "c2", "s2", 1), GroupEntry(None, "c1", "s1", 1)],
         )
 
 

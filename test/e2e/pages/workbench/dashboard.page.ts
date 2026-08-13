@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, BrowserContext } from '@playwright/test';
+import { expect, BrowserContext, Locator } from '@playwright/test';
 import { Code } from '../../infra/code.js';
 import { QuickInput } from '../quickInput.js';
 import { generateTOTP } from '../../utils/totp.js';
@@ -16,9 +16,15 @@ export class DashboardPage {
 	get newSessionButton() { return this.code.driver.currentPage.getByRole('button', { name: 'New Session', exact: true }).first(); }
 	get positronProButton() { return this.code.driver.currentPage.getByRole('tab', { name: 'Positron Pro' }); }
 	get sessionNameInput() { return this.code.driver.currentPage.getByRole('textbox', { name: 'Session Name' }); }
-	project = (projectName: string) => this.code.driver.currentPage.getByRole('link', { name: projectName });
-	projectNewSessionButton = (projectName: string) => this.project(projectName).locator('..').locator('..').locator('..').getByRole('button', { name: 'Create new session' });
-	projectCheckbox = (projectName: string) => this.code.driver.currentPage.getByRole('checkbox', { name: `select ${projectName}` });
+	// Anchor on the table row: the project name renders as a link while a session runs but as a
+	// button once it is gone, so neither a link role nor a fixed `.locator('..')` climb out of it
+	// survives both states. A leaked session can leave two rows for one project, hence `.first()`.
+	projectRow = (projectName: string) => this.code.driver.currentPage.getByRole('table', { name: 'Projects table' }).getByRole('row', { name: projectName });
+	projectNewSessionButton = (projectName: string) => this.projectRow(projectName).getByRole('button', { name: 'Create new session' }).first();
+	// The row checkbox is named for the *session* ("select Positron Pro Session"), not the project,
+	// so a `select <project>` name matches nothing and quitSession silently quits nothing. Take
+	// whatever checkbox the project's row holds instead.
+	projectCheckbox = (projectName: string) => this.projectRow(projectName).getByRole('checkbox');
 
 	constructor(private code: Code, private quickInput: QuickInput) { }
 
@@ -37,7 +43,7 @@ export class DashboardPage {
 	 * @returns true if a new session was created, false if project already existed
 	 */
 	async ensureProjectExists(folderToOpen = 'test-files', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<boolean> {
-		const existingProject = this.project(folderToOpen);
+		const existingProject = this.projectRow(folderToOpen).first();
 
 		try {
 			await expect(existingProject).toBeVisible({ timeout: 3000 });
@@ -134,17 +140,13 @@ export class DashboardPage {
 		const newProjectCreated = await this.ensureProjectExists(projectName, context, managedCredentials);
 
 		if (!newProjectCreated) {
-			// Project already existed, so we need to launch it
+			// Project already existed, so we need to launch it. Sweep up any session left behind
+			// by a failed teardown first, so they can't accumulate to the point where new sessions
+			// no longer launch; quitSession no-ops when nothing is running.
+			await this.quitSession(projectName);
+
 			const startNewSessionButton = this.projectNewSessionButton(projectName);
-
-			try {
-				await expect(startNewSessionButton).toBeVisible({ timeout: 3000 });
-			} catch {
-				// Clean up existing sessions if new session button is not available
-				await this.quitSession(projectName);
-				await expect(startNewSessionButton).toBeVisible();
-			}
-
+			await expect(startNewSessionButton).toBeVisible();
 			await startNewSessionButton.click();
 			await this.launchButton.click();
 		}
@@ -252,7 +254,24 @@ export class DashboardPage {
 			await verifyOtpButton.click();
 
 			try {
-				await oauthPage.waitForURL(/oauth_redirect_callback|localhost:8787/, { timeout: 15000 });
+				// After Okta accepts the OTP it redirects back to Databricks, which walks
+				// through up to two OAuth consent screens before completing the redirect to
+				// our callback:
+				//   1. "Authorize as" -- account picker with a Continue control
+				//      (<a data-component-id="oauth.select-group.continue">).
+				//   2. "Permission Requested" -- consent screen with an Authorize control.
+				// Both render as du-bois links (role "link"), not buttons, and either may be
+				// skipped when the account has already granted consent. Click each if shown.
+				await this.clickDatabricksConsentControl(
+					oauthPage.locator('[data-component-id="oauth.select-group.continue"]'),
+					'Authorize as / Continue',
+				);
+				await this.clickDatabricksConsentControl(
+					oauthPage.getByText('Authorize', { exact: true }),
+					'Permission Requested / Authorize',
+				);
+
+				await oauthPage.waitForURL(/oauth_redirect_callback|localhost:8787/, { timeout: 20000 });
 				otpAccepted = true;
 				break;
 			} catch {
@@ -288,6 +307,24 @@ export class DashboardPage {
 		// Verify credentials are enabled
 		await expect(enabledWidget).toBeVisible({ timeout: 30000 });
 		this.code.logger.log('Databricks OAuth setup complete');
+	}
+
+	/**
+	 * Clicks a Databricks OAuth consent control if it appears within a short window.
+	 * These screens ("Authorize as", "Permission Requested") are optional -- Databricks
+	 * skips them once the account has granted consent -- so a control that never shows
+	 * is treated as "already past this step" rather than a failure.
+	 * @param control Locator for the Continue/Authorize control on the consent screen
+	 * @param label Human-readable label for logging which screen was handled
+	 */
+	private async clickDatabricksConsentControl(control: Locator, label: string): Promise<void> {
+		try {
+			await expect(control).toBeVisible({ timeout: 8000 });
+			await control.click();
+			this.code.logger.log(`Clicked Databricks consent control: ${label}`);
+		} catch {
+			this.code.logger.log(`Databricks consent control not shown, skipping: ${label}`);
+		}
 	}
 
 	/**
