@@ -236,7 +236,7 @@ describe('PackageDetail with resolved detail fields', () => {
 	});
 });
 
-describe('PackageDetail security section', () => {
+describe('PackageDetail Security tab', () => {
 	function renderWithVulnerabilities(vulnerabilities: ILanguageRuntimePackage['vulnerabilities']) {
 		const instance = makeInstance([dplyr({ vulnerabilities })]);
 		const packagesService = stubInterface<IPositronPackagesService>({
@@ -253,7 +253,7 @@ describe('PackageDetail security section', () => {
 	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand: vi.fn() }).build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	it('lists advisories with severity, linked id, summary, and fix version', async () => {
+	it('lists advisories with severity, linked id, summary, and fix version once Security is selected', async () => {
 		renderWithVulnerabilities([{
 			id: 'CVE-2018-6594',
 			osvId: 'GHSA-6528-wvf6-f6qg',
@@ -264,8 +264,14 @@ describe('PackageDetail security section', () => {
 			published: '2018-02-03T15:29:00Z',
 			url: 'https://nvd.nist.gov/vuln/detail/CVE-2018-6594',
 		}]);
+		const user = userEvent.setup();
 
-		expect(await screen.findByText('Security')).toBeInTheDocument();
+		// The tab carries the advisory count so the signal survives being moved
+		// off the Overview; the advisories themselves are a click away.
+		const securityTab = screen.getByRole('tab', { name: 'Security, 1 known vulnerability' });
+		expect(screen.queryByText('Pycrypto generates weak key parameters')).not.toBeInTheDocument();
+		await user.click(securityTab);
+
 		// Severity chip: band label + score, tagged with the CVSS revision.
 		expect(screen.getByText('High 8.7')).toBeInTheDocument();
 		expect(screen.getByText('CVSS v4')).toBeInTheDocument();
@@ -274,6 +280,8 @@ describe('PackageDetail security section', () => {
 		expect(screen.getByText('Pycrypto generates weak key parameters')).toBeInTheDocument();
 		expect(screen.getByText('Fixed in 2.7.0')).toBeInTheDocument();
 		expect(screen.getByText('Published 2018-02-03')).toBeInTheDocument();
+		// Selecting Security swaps the panel; the Overview's Metadata is gone.
+		expect(screen.queryByText('Metadata')).not.toBeInTheDocument();
 	});
 
 	it('shows an unscored advisory without a score or CVSS tag', async () => {
@@ -283,8 +291,10 @@ describe('PackageDetail security section', () => {
 			summary: 'Denial of Service (DoS) vulnerabilities',
 			fixedIn: '1.8',
 		}]);
+		const user = userEvent.setup();
 
-		expect(await screen.findByText('Security')).toBeInTheDocument();
+		await user.click(screen.getByRole('tab', { name: 'Security, 1 known vulnerability' }));
+
 		// No score: the chip reads as severity-unknown, and no CVSS tag renders.
 		expect(screen.getByText('Severity unknown')).toBeInTheDocument();
 		expect(screen.queryByText(/CVSS/)).not.toBeInTheDocument();
@@ -292,19 +302,42 @@ describe('PackageDetail security section', () => {
 
 	it('affirms "no known vulnerabilities" for an empty advisory list', async () => {
 		renderWithVulnerabilities([]);
+		const user = userEvent.setup();
 
-		expect(await screen.findByText('Security')).toBeInTheDocument();
+		// Nothing to count, so the tab is offered without a badge.
+		await user.click(screen.getByRole('tab', { name: 'Security' }));
+
 		expect(screen.getByText('No known vulnerabilities have been reported for this version.')).toBeInTheDocument();
 	});
 
-	it('renders no Security section when no vulnerability data is available', async () => {
+	it('offers no Security tab when no vulnerability data is available', async () => {
 		// undefined = unknown (no PPM, or package/version not in the repo):
 		// neither a warning nor an unearned all-clear.
 		renderWithVulnerabilities(undefined);
 
 		// Wait for the Overview (Metadata section) to render, then check.
 		expect(await screen.findByText('Metadata')).toBeInTheDocument();
-		expect(screen.queryByText('Security')).not.toBeInTheDocument();
+		expect(screen.queryByRole('tab', { name: /security/i })).not.toBeInTheDocument();
+	});
+
+	it('moves between tabs with the arrow keys', async () => {
+		renderWithVulnerabilities([{ id: 'RSEC-2023-7', osvId: 'RSEC-2023-7', summary: 'DoS' }]);
+		const user = userEvent.setup();
+
+		const overviewTab = screen.getByRole('tab', { name: 'Overview' });
+		const securityTab = screen.getByRole('tab', { name: 'Security, 1 known vulnerability' });
+		overviewTab.focus();
+
+		// Selection follows focus, so the right arrow both moves and selects.
+		await user.keyboard('{ArrowRight}');
+		expect(securityTab).toHaveFocus();
+		expect(securityTab).toHaveAttribute('aria-selected', 'true');
+		expect(screen.getByText('DoS')).toBeInTheDocument();
+
+		// And wraps back around to the Overview.
+		await user.keyboard('{ArrowRight}');
+		expect(overviewTab).toHaveFocus();
+		expect(overviewTab).toHaveAttribute('aria-selected', 'true');
 	});
 });
 

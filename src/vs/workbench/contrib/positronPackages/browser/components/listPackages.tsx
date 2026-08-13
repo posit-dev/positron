@@ -5,6 +5,7 @@
 
 // CSS.
 import './listPackages.css';
+import '../packageVulnerabilities.css';
 
 // React.
 import React, {

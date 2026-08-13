@@ -178,21 +178,22 @@
 	font-variant-numeric: tabular-nums;
 }
 
-/* NVD severity bands. Critical and High share the error color; the shield
- * icon plus the numeric score carries the distinction. Unscored advisories
- * (common for CRAN) still warrant attention, so they use the warning color. */
+/* NVD severity bands, on the shared palette in packageVulnerabilities.css.
+ * Critical and High share the error color; the shield icon plus the numeric
+ * score carries the distinction. Unscored advisories (common for CRAN) still
+ * warrant attention, so they use the warning color. */
 .packages-list-item-vulnerable.severity-critical,
 .packages-list-item-vulnerable.severity-high {
-	color: var(--vscode-charts-red);
+	color: var(--_positron-package-severity-error);
 }
 
 .packages-list-item-vulnerable.severity-medium,
 .packages-list-item-vulnerable.severity-unscored {
-	color: var(--vscode-charts-orange);
+	color: var(--_positron-package-severity-warning);
 }
 
 .packages-list-item-vulnerable.severity-low {
-	color: var(--vscode-descriptionForeground);
+	color: var(--_positron-package-severity-muted);
 }
 
 .packages-list-item-description-row {
