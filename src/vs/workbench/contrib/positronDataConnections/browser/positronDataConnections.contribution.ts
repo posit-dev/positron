@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import './positronDataConnectionsExecuteCommand.js';
+import './positronDataConnectionsCommands.js';
+import './positronDataConnectionsInspectActions.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataViewPane } from './positronDataConnectionsView.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';

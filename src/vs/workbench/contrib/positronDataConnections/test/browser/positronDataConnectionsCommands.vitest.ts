@@ -91,10 +91,9 @@ function createDataConnectionsService(options: CreateServiceOptions = {}): IPosi
 describe('getDataConnections', () => {
 	const ctx = createTestContainer().build();
 
-	function run(dataConnectionsService: IPositronDataConnectionsService, enabled: boolean = true, aiEnabled: boolean = true) {
+	function run(dataConnectionsService: IPositronDataConnectionsService, enabled: boolean = true) {
 		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
 			'dataConnections.enabled': enabled,
-			'ai.enabled': aiEnabled,
 		}));
 		ctx.instantiationService.stub(IPositronDataConnectionsService, dataConnectionsService);
 		return getDataConnections(ctx.instantiationService);
@@ -110,14 +109,20 @@ describe('getDataConnections', () => {
 		expect(getProfiles).not.toHaveBeenCalled();
 	});
 
-	it('returns an empty list when ai.enabled is false, without touching the service', async () => {
-		const getProfiles = vi.fn(() => [createProfile()]);
-		const dataConnectionsService = stubInterface<IPositronDataConnectionsService>({ getProfiles });
+	// ai.enabled is deliberately not a gate: these payloads are the user's own configuration, not an
+	// AI feature, and no other agentCompatible command gates on it. A stray check here would take the
+	// inspect actions away from a user who turned AI off.
+	it('reports connections even when ai.enabled is off', async () => {
+		const dataConnectionsService = createDataConnectionsService();
+		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
+			'dataConnections.enabled': true,
+			'ai.enabled': false,
+		}));
+		ctx.instantiationService.stub(IPositronDataConnectionsService, dataConnectionsService);
 
-		const result = await run(dataConnectionsService, true, false);
+		const result = await getDataConnections(ctx.instantiationService);
 
-		expect(result).toEqual([]);
-		expect(getProfiles).not.toHaveBeenCalled();
+		expect(result).toHaveLength(1);
 	});
 
 	it('never exposes secret parameter values, and never reads secret storage', async () => {
@@ -240,24 +245,23 @@ describe('getDataConnectionSchema', () => {
 	function run(dataConnectionsService: IPositronDataConnectionsService, args?: IDataConnectionSchemaCommandArgs, enabled: boolean = true) {
 		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
 			'dataConnections.enabled': enabled,
-			'ai.enabled': true,
 		}));
-		// getSchema logs why it declined to summarize anything; the tests assert the undefined result
-		// rather than the wording.
+		// getSchema logs why it declined to summarize anything; the tests assert the reason it reports
+		// to the caller rather than the log wording.
 		ctx.instantiationService.stub(ILogService, new NullLogService());
 		ctx.instantiationService.stub(IPositronDataConnectionsService, dataConnectionsService);
 		return getDataConnectionSchema(ctx.instantiationService, args);
 	}
 
-	// Both flags are covered by the getDataConnections suite above; the shared gate means this only
-	// has to prove that getSchema consults it at all.
-	it('returns undefined when the feature flag is off, without touching the service', async () => {
+	// The feature flag is also the inspect actions' precondition, so a caller only reaches this by
+	// calling the command directly. It still gets a reason rather than an empty summary.
+	it('reports the feature flag being off, without touching the service', async () => {
 		const getInstances = vi.fn(() => []);
 		const dataConnectionsService = stubInterface<IPositronDataConnectionsService>({ getInstances });
 
 		const result = await run(dataConnectionsService, undefined, false);
 
-		expect(result).toBeUndefined();
+		expect(result).toEqual({ connected: false, reason: 'disabled' });
 		expect(getInstances).not.toHaveBeenCalled();
 	});
 
@@ -280,21 +284,32 @@ describe('getDataConnectionSchema', () => {
 		expect(result).toEqual({ instanceId: '1', nodes: [{ name: 'employees', kind: 'table' }], truncated: false });
 	});
 
-	it('returns undefined when the named profile has no live connection', async () => {
+	it('reports the named profile having no live connection', async () => {
 		const dataConnectionsService = createInstancesService([createInstance('conn-a', 1, ['employees'])]);
 
-		expect(await run(dataConnectionsService, { profileId: 'conn-missing' })).toBeUndefined();
+		expect(await run(dataConnectionsService, { profileId: 'conn-missing' }))
+			.toEqual({ connected: false, reason: 'not-connected' });
+	});
+
+	it('reports nothing being connected', async () => {
+		expect(await run(createInstancesService([])))
+			.toEqual({ connected: false, reason: 'no-live-connections' });
 	});
 
 	// Summarizing an arbitrary one of them would be worse than reporting nothing: the caller would
-	// have no way to tell it got the schema of a connection it didn't ask about.
-	it('returns undefined when several connections are live and none is named', async () => {
+	// have no way to tell it got the schema of a connection it didn't ask about. Listing the live
+	// profiles turns the dead end into a retry.
+	it('reports an ambiguous target, naming the profiles to choose from', async () => {
 		const dataConnectionsService = createInstancesService([
 			createInstance('conn-a', 1, ['employees']),
 			createInstance('conn-b', 2, ['orders']),
 		]);
 
-		expect(await run(dataConnectionsService)).toBeUndefined();
+		expect(await run(dataConnectionsService)).toEqual({
+			connected: false,
+			reason: 'ambiguous',
+			liveProfileIds: ['conn-a', 'conn-b'],
+		});
 	});
 
 	it('passes the summary bounds through to the summarizer', async () => {
