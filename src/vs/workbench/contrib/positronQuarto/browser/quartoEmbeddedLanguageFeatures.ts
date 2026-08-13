@@ -581,16 +581,15 @@ class QuartoEmbeddedDocumentSymbolProvider extends QuartoEmbeddedProvider implem
 			return undefined;
 		}
 		for (const provider of this._downstream(this._languageFeatures.documentSymbolProvider, textModel)) {
-			let result: DocumentSymbol[] | null | undefined;
 			try {
-				result = await provider.provideDocumentSymbols(textModel, token);
+				const result = await provider.provideDocumentSymbols(textModel, token);
+				if (result && result.length > 0) {
+					return result.map(symbol => mapDocumentSymbol(span, symbol));
+				}
 			} catch (error) {
-				// One provider failing must not discard the other cells' symbols.
+				// One provider failing must not discard the other cells' symbols, so
+				// report it and move on to the next provider for this cell.
 				onUnexpectedExternalError(error);
-				continue;
-			}
-			if (result && result.length > 0) {
-				return result.map(symbol => mapDocumentSymbol(span, symbol));
 			}
 		}
 		return undefined;

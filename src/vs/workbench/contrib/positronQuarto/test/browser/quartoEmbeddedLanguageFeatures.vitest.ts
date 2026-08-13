@@ -9,6 +9,7 @@ import { CancellationToken, CancellationTokenSource } from '../../../../../base/
 import { errorHandler } from '../../../../../base/common/errors.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { Position } from '../../../../../editor/common/core/position.js';
+import { IRange } from '../../../../../editor/common/core/range.js';
 import { ITextModel } from '../../../../../editor/common/model.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { LanguageFeaturesService } from '../../../../../editor/common/services/languageFeaturesService.js';
@@ -812,6 +813,43 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		}).toEqual({
 			symbols: [{ name: 'y', line: 20 }],
 			reported: ['server had a bad moment'],
+		});
+	});
+
+	it('keeps the symbols of other cells when one cell answers unreadably', async () => {
+		// A provider can answer and still hand back a symbol the remap cannot read.
+		// That throws where the ranges are rewritten rather than at the request, so
+		// it needs the same treatment: this cell loses its symbols, no other cell
+		// does. A throwing getter is how the test reaches that line, since a symbol
+		// with a range missing outright would not typecheck.
+		const second = makeCell(CELL2_URI, 'y <- 2', 20);
+		registerSymbols('downstream', uri => {
+			if (uri === CELL_URI.toString()) {
+				return [{
+					...symbol('x', 1),
+					get selectionRange(): IRange { throw new Error('symbol had no range'); },
+				}];
+			}
+			return [symbol('y', 1)];
+		});
+		createFeatures({ cells: [cell, second] });
+
+		const reported: Error[] = [];
+		const previousHandler = errorHandler.getUnexpectedErrorHandler();
+		errorHandler.setUnexpectedErrorHandler(error => reported.push(error));
+		let result: DocumentSymbol[] | undefined;
+		try {
+			result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None) as DocumentSymbol[];
+		} finally {
+			errorHandler.setUnexpectedErrorHandler(previousHandler);
+		}
+
+		expect({
+			symbols: result?.map(s => ({ name: s.name, line: s.range.startLineNumber })),
+			reported: reported.map(error => error.message),
+		}).toEqual({
+			symbols: [{ name: 'y', line: 20 }],
+			reported: ['symbol had no range'],
 		});
 	});
 
