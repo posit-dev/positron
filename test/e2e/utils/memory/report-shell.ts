@@ -57,22 +57,6 @@ export function deltaHtml(current: number, before: number): string {
 }
 
 /**
- * A delta the reader should act on, or nothing at all.
- *
- * For a table of many deltas, where printing every one costs more than it says:
- * a column of muted `-0.0 MB` and `+0.3 MB` spends a line per row to report that
- * nothing happened, and the two figures that did move have to compete with it.
- * Below the threshold this renders empty, so the emphasized rows are the only
- * ones with ink.
- *
- * Rendering above the threshold defers to {@link deltaHtmlFromDiff}, so a
- * suppressed delta and a shown one can never disagree about color or glyph.
- */
-export function emphasizedDeltaHtml(diff: number, threshold: number): string {
-	return Math.abs(diff) < threshold ? '' : deltaHtmlFromDiff(diff);
-}
-
-/**
  * The card both reports use to say their figures are medians of a moving
  * process, differing only in columns: the summary names the scenario, the
  * per-scenario report shows the spread.

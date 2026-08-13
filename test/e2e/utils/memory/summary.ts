@@ -15,7 +15,7 @@
  * real memory run.
  */
 
-import { emphasizedDeltaHtml, escapeHtml, formatBytes, notSteadyStateCardHtml, REPORT_CSS } from './report-shell.js';
+import { deltaHtmlFromDiff, escapeHtml, formatBytes, notSteadyStateCardHtml, REPORT_CSS } from './report-shell.js';
 import { byRole } from './render.js';
 import { unstableProcesses } from './snapshot.js';
 import { MemoryScenario } from './scenarios.js';
@@ -82,18 +82,10 @@ export type SummaryMatrix = {
 const MIN_EMPHASIS_BYTES = 5 * 1024 * 1024;
 
 /**
- * How big a delta must be before it is worth a color and an arrow, per role.
- *
- * Calibrated from each role's own launch-to-launch spread rather than set as one
- * number for the whole table, because the noise is not uniform: measured over a
- * nightly, `renderer` held to 1.5 MB across launches while `shared` swung 10.8 MB
- * and `extension_host` 9.2 MB. A single 5 MB rule drew a red arrow on
- * `extension_host` at +8.8 MB -- a figure smaller than the same role's own
- * scatter, so the arrow claimed a change the data could not resolve.
- *
- * The spread is taken from the noisiest scenario in the matrix, not from the one
- * being read. A delta spans two scenarios, so it can be no more trustworthy than
- * the shakier of the two.
+ * Per role, because the noise is not uniform: `renderer` holds to 1.5 MB across
+ * launches while `shared` swings 10.8 MB. A flat 5 MB rule drew a red arrow on
+ * `extension_host` at +8.8 MB, inside that role's own scatter. Taken from the
+ * noisiest scenario, since a delta is only as good as the shakier of its two.
  */
 function emphasisThreshold(spreads: number[]): number {
 	return Math.max(MIN_EMPHASIS_BYTES, ...spreads);
@@ -109,11 +101,9 @@ function roleTotals(snapshot: MemorySnapshot): Map<ProcessRole, number> {
 }
 
 /**
- * How far a role's total moved across the launches of one scenario.
- *
- * Zero-filled for a launch the role is missing from, matching `byRole`. A role
- * that appears in only some launches then reads as very noisy, which is the
- * honest answer: an intermittent process cannot support a claim about a few MB.
+ * How far a role's total moved across one scenario's launches. Zero-filled for a
+ * missing launch, matching `byRole`, so an intermittent role reads as very noisy --
+ * which is honest: it cannot support a claim about a few MB.
  */
 function roleSpreads(snapshots: MemorySnapshot[]): Map<ProcessRole, number> {
 	const perLaunch = snapshots.map(roleTotals);
@@ -220,7 +210,11 @@ function cellHtml(scenario: MemoryScenario, value: number | undefined, delta: nu
 	if (value === undefined) {
 		return `<td align="right">${ABSENT_MARKER}</td>`;
 	}
-	const emphasized = scenario === 'idle' || delta === undefined ? '' : emphasizedDeltaHtml(delta, threshold);
+	// Below the threshold nothing renders: a column of muted `-0.0 MB` spends a line
+	// per row saying nothing happened, crowding the figures that did move.
+	const emphasized = scenario === 'idle' || delta === undefined || Math.abs(delta) < threshold
+		? ''
+		: deltaHtmlFromDiff(delta);
 	const deltaLine = emphasized === '' ? '' : `<br><span style="font-size:0.85em">${emphasized}</span>`;
 	return `<td align="right">${formatBytes(value)}${deltaLine}</td>`;
 }

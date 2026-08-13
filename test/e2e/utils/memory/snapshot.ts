@@ -167,30 +167,16 @@ export async function waitForSettle(
 const UNSTABLE_SPREAD_FRACTION = 0.05;
 
 /**
- * How many bytes a process's samples must span before the movement matters,
- * whatever the process's own size.
- *
- * Without this, the relative test alone flags the gpu process on every launch of
- * every scenario: it wobbles ~5 MB on an ~86 MB median, which is 6%. A 5 MB
- * wobble cannot move a 1.9 GB total, and a warning that fires on every run is
- * one nobody reads. Set below the 86 MB regression this effort exists to catch,
- * so movement large enough to be mistaken for one is always reported.
- *
- * The cost is that a small process moving a lot in relative terms stays quiet.
- * That is the intended trade: its effect on the total is under the noise the
- * report already lives with.
+ * Absolute floor under the relative one. Without it the gpu process trips on every
+ * run (~5 MB on an ~86 MB median is 6%), and a warning that always fires is one
+ * nobody reads. Set below the 86 MB regression this effort exists to catch.
  */
 const UNSTABLE_SPREAD_BYTES = 50 * 1024 * 1024;
 
 /**
- * Whether a series of readings is close enough together that its median
- * describes a real state: movement has to be both large for the process and
- * large in absolute terms to count.
- *
- * One definition, used twice on purpose. It is what the sampling loop waits for
- * and what the report warns about, so a run can never both stop sampling and
- * then complain that it should not have. Fewer than two readings is steady by
- * default: one reading says nothing about movement.
+ * Whether a series's median describes a real state. One definition for both the
+ * sampling loop's exit and the report's warning, so a run cannot stop sampling and
+ * then complain that it should not have.
  */
 function isSteady(samples: number[]): boolean {
 	if (samples.length < 2) {
@@ -223,44 +209,28 @@ const TAIL_LENGTH = 4;
 const SETTLE_MIN_PROCESS_BYTES = 50 * 1024 * 1024;
 
 /**
- * Whether a process's last {@link TAIL_LENGTH} readings are flat.
- *
- * Only the tail is read, on purpose: every process steps down once during
- * startup as Chromium reclaims memory, and a rule that looked at the whole curve
- * would call that process unsettled forever. What matters is whether it is
- * steady *now*.
+ * Whether a process's last {@link TAIL_LENGTH} readings are flat. Only the tail,
+ * because every process steps down once during startup and a whole-curve rule
+ * would call it unsettled forever.
  */
 export function tailIsFlat(samples: number[]): boolean {
 	return samples.length >= TAIL_LENGTH && isSteady(samples.slice(-TAIL_LENGTH));
 }
 
 /**
- * How far the tree total must fall below its own peak before a flat tail is
- * believed.
- *
- * Flatness alone is not enough, and this is the trap worth spelling out: the
- * startup plateau is *also* flat. `idle` sits at a steady 559 MB renderer for
- * 20s, and a rule that only looked for flatness stopped there and reported that
- * plateau as the steady state -- a worse number than the mid-step median it
- * replaced. Waiting for the drop distinguishes "not moving yet" from "done
- * moving".
- *
- * 5% against a measured 12-20% drop in every launch, where sample-to-sample
- * jitter is about 1%.
+ * The startup plateau is flat too: idle holds a steady 559 MB renderer for 20s, and
+ * a flatness-only rule stopped there and published it. Requiring a drop from the
+ * peak separates "not moving yet" from "done moving". 5% against a measured
+ * 12-20% drop, where jitter is ~1%.
  */
 const RECLAIM_DROP_FRACTION = 0.05;
 
 /**
  * Whether the tree has reclaimed its startup memory and then stopped moving.
  *
- * Two conditions, because either alone is wrong. The drop is checked on the tree
- * total, where the reclaim is unmissable (245 MB at the smallest). Flatness is
- * checked per process, because summing hides the movement worth waiting for: the
- * renderer's step is 45% of the renderer but 13% of the tree, and it overlaps
- * other processes still growing, so a total can cross it looking calm.
- *
- * An empty tree counts as settled: the root is gone, there is nothing to wait
- * for, and the caller's quality gate rejects it.
+ * The drop is measured on the tree total, where the reclaim is unmissable;
+ * flatness per process, because summing hides it (the renderer's step is 45% of
+ * the renderer but 13% of the tree). An empty tree is settled: the root is gone.
  */
 export function treeHasSettled(samples: RawProcess[][]): boolean {
 	if (samples.length < TAIL_LENGTH) {

@@ -19,19 +19,9 @@ export { formatBytes } from './report-shell.js';
  * extensions in a section whose whole point is what to stop adding.
  */
 const EAGER_EVENTS: { event: string; title?: string }[] = [
-	// Worst first. `*` does not wait for startup to finish, so it delays the
-	// window itself rather than merely costing memory once it is up.
-	//
-	// Titled because the id says nothing: `*` is a real activationEvents value, but
-	// as a heading followed by a count it reads as a footnote marker rather than an
-	// identifier, and nothing about it hints that it runs during startup. Read next
-	// to `onStartupFinished`, "During startup" makes the one difference between them
-	// the obvious one. `onStartupFinished` needs no title for the same reason.
-	//
-	// A title rather than a rename: the literal is kept alongside it so it stays
-	// greppable in a package.json. Inventing a plausible-looking id like
-	// `onStartup`, which VS Code has no such event for, would read as real in a
-	// monospaced heading and send someone looking for a value that does not exist.
+	// Worst first: `*` runs during startup, so it delays the window rather than only
+	// costing memory. Titled because the id says nothing and reads as a footnote
+	// marker; `onStartupFinished` describes itself and needs no title.
 	{ event: '*', title: 'During startup' },
 	{ event: 'onStartupFinished' }
 ];
@@ -164,13 +154,9 @@ function newProcesses(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): L
 }
 
 /**
- * How the numbers below were arrived at, in one line: launches, how long the tree
- * took to stop growing, and how much of the sampling window was thrown away.
- *
- * The discarded count is the load-bearing part. Every launch spends its first
- * 10-25s on a startup plateau that is flat enough to look settled but sits
- * hundreds of MB above the steady state, and a reader comparing two runs needs to
- * see that the plateau was excluded rather than assume it.
+ * How the numbers below were arrived at. The discarded count is the load-bearing
+ * part: every launch opens on a startup plateau that looks settled but sits
+ * hundreds of MB high, and a reader has to see it was excluded.
  */
 function samplingSummary(snapshots: MemorySnapshot[]): string {
 	const settleS = Math.round(median(snapshots.map(s => s.settleMs)) / 1000);
@@ -423,15 +409,10 @@ function groupedExtensionsHtml(snapshot: MemorySnapshot): string {
 		const more = sorted.length > MAX_PER_GROUP
 			? `<li class="muted">...${sorted.length - MAX_PER_GROUP} more</li>`
 			: '';
-		// No badge. It used to mark every group as eager, which said nothing once the
-		// demand-activated groups stopped being listed beside them, and next to the
-		// one group that also carried a note it read as a half-finished definition.
-		// The headline above says what eager costs; the headings say when each runs.
-		// The literal goes in a tooltip, not the heading. Shown inline it needed a
-		// "-- event *" gloss to stop reading as a footnote marker, which made this
-		// heading shaped differently from the other one -- the exact asymmetry
-		// dropping the badge was meant to fix. The heading says when these activate;
-		// the value behind it matters only to someone about to edit a manifest.
+		// No badge: it marked every group once the demand-activated ones stopped being
+		// listed beside them. The headline says what eager costs, the headings say when.
+		// The literal goes in a tooltip: shown inline it needed a gloss to stop reading
+		// as a footnote marker, which shaped this heading unlike the other one.
 		const { title } = EAGER_EVENTS.find(e => e.event === event)!;
 		const heading = title
 			? `<span title="activationEvents: ${escapeHtml(event)}">${escapeHtml(title)}</span> (${sorted.length})`

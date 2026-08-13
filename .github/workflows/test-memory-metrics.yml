@@ -298,7 +298,7 @@ jobs:
           fi
           # Say so rather than linking. REPORT_URL is set whether or not the upload
           # worked, so this is the only signal that the files are not really there.
-          if [ "${{ steps.upload-reports.outcome }}" = "failure" ]; then
+          if [ "${{ steps.upload-reports.outcome }}" != "success" ]; then
             echo "No memory report: the upload to S3 failed. The reports are in this run's artifacts." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
