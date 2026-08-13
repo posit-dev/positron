@@ -12,6 +12,7 @@ import {
 	platformVersion,
 	positronVersion
 } from '../metrics/metric-base.js';
+import { MemoryScenario } from './scenarios.js';
 import { MemorySnapshot, ProcessRole } from './types.js';
 
 /**
@@ -79,7 +80,7 @@ export type MemoryPayload = {
 	platform_os: string;
 	platform_version: string;
 	container_image: string;
-	scenario: 'idle';
+	scenario: MemoryScenario;
 	launches: {
 		launch_index: number;
 		settle_ms: number;
@@ -123,6 +124,14 @@ export function redactProcessName(name: string): string {
 }
 
 export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): MemoryPayload {
+	// Thrown rather than defaulted. Every other field can degrade to 'unknown' and
+	// still leave a usable row, but a payload whose scenario is undefined cannot be
+	// attributed to anything, and one silently ingested under a missing key is worse
+	// than a run that failed loudly.
+	const [first] = snapshots;
+	if (first === undefined) {
+		throw new Error('cannot build a memory payload from no snapshots');
+	}
 	return {
 		payload_version: 1,
 		timestamp: new Date().toISOString(),
@@ -134,7 +143,7 @@ export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): Memory
 		platform_os: platformOs,
 		platform_version: platformVersion,
 		container_image: meta.containerImage,
-		scenario: 'idle',
+		scenario: first.scenario,
 		launches: snapshots.map(snapshot => ({
 			launch_index: snapshot.launchIndex,
 			settle_ms: snapshot.settleMs,
@@ -220,12 +229,12 @@ export type BaselineResponse =
  * faked, so anything reading further gets an obvious zero instead of a plausible
  * number.
  */
-export function baselineToSnapshot(body: BaselineResponse): MemorySnapshot | undefined {
+export function baselineToSnapshot(body: BaselineResponse, scenario: MemoryScenario): MemorySnapshot | undefined {
 	if (!body.found) {
 		return undefined;
 	}
 	return {
-		scenario: 'idle',
+		scenario,
 		// Neutral rather than faked, per the note above: the baseline predates this run
 		// and the response carries neither field. The report reads neither for the
 		// baseline, and '' fails the freshness check loudly if anything ever starts to.
@@ -242,7 +251,11 @@ export function baselineToSnapshot(body: BaselineResponse): MemorySnapshot | und
 			// fall through every switch downstream.
 			processRole: isProcessRole(p.process_role) ? p.process_role : 'unlabeled',
 			labeled: true, cmdBasename: '',
-			pssBytes: p.pss_bytes, rssBytes: 0, pssMin: p.pss_bytes, pssMax: p.pss_bytes
+			pssBytes: p.pss_bytes, rssBytes: 0, pssMin: p.pss_bytes, pssMax: p.pss_bytes,
+			// One sample, because the response carries one figure per process. That
+			// also keeps a baseline out of the unstable-process report: a single
+			// sample cannot be judged unstable.
+			pssSamples: [p.pss_bytes], rssSamples: [0]
 		})),
 		extensions: body.snapshot.extensions.map(e => ({
 			extensionId: e.extension_id, isBuiltin: false,
@@ -256,19 +269,19 @@ export function baselineToSnapshot(body: BaselineResponse): MemorySnapshot | und
  * Undefined when there is no baseline yet or the endpoint is unavailable, in
  * which case the report shows absolute numbers only.
  */
-export async function fetchBaseline(): Promise<MemorySnapshot | undefined> {
+export async function fetchBaseline(scenario: MemoryScenario): Promise<MemorySnapshot | undefined> {
 	if (!publishingEnabled() || !CONNECT_API_KEY) {
 		return undefined;
 	}
 	try {
-		const response = await request(`${memoryUrl(PROD_API_URL)}/baseline?scenario=idle&branch=main`, {
+		const response = await request(`${memoryUrl(PROD_API_URL)}/baseline?scenario=${scenario}&branch=main`, {
 			method: 'GET',
 			headers: { Authorization: `Key ${CONNECT_API_KEY}` }
 		});
 		if (response.statusCode >= 400) {
 			return undefined;
 		}
-		return baselineToSnapshot(await response.body.json() as BaselineResponse);
+		return baselineToSnapshot(await response.body.json() as BaselineResponse, scenario);
 	} catch (error) {
 		console.error(`[memory] could not fetch baseline: ${error}`);
 		return undefined;

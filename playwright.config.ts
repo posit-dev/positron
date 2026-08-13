@@ -5,6 +5,7 @@
 
 import { defineConfig, ReporterDescription } from '@playwright/test';
 import { CustomTestOptions } from './test/e2e/tests/_test.setup';
+import { memorySpecsToIgnore } from './test/e2e/utils/memory/scenarios';
 import * as fs from 'fs';
 
 process.env.PW_TEST = '1';
@@ -105,10 +106,10 @@ export default defineConfig<CustomTestOptions>({
 				'**/remote-wsl/**',
 				// Note: assistant-eval NOT ignored here - runs on e2e-electron only
 				...(process.env.ALLOW_PYREFLY === 'true' ? [] : ['**/lsp/**']),
-				// Set only by test-memory-metrics.yml, which selects the spec by path.
+				// Set only by test-memory-metrics.yml, one scenario per matrix job.
 				// Ignored rather than skipped in-test because merge-to-main runs this
 				// lane ungrepped, so a skip would report a permanently skipped row.
-				...(process.env.MEMORY_SCENARIO === 'idle' ? [] : ['**/performance/memory-idle.test.ts']),
+				...memorySpecsToIgnore(process.env.MEMORY_SCENARIO),
 			],
 			use: {
 				artifactDir: 'e2e-electron'
