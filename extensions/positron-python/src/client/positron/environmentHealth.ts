@@ -27,7 +27,6 @@ import { IPythonExecutionFactory } from '../common/process/types';
 import { IPYKERNEL_VERSION, MINIMUM_PYTHON_VERSION, MAXIMUM_PYTHON_VERSION_EXCLUSIVE } from '../common/constants';
 import { Architecture } from '../common/utils/platform';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
-import { traceInfo } from '../logging';
 import { getIpykernelBundle } from './ipykernel';
 import { isUvInstalled } from '../pythonEnvironments/common/environmentManagers/uv';
 
@@ -545,7 +544,6 @@ export async function getEnvironmentHealth(
     // never rejects" contract.
     result.interpreterPath = snapshot?.interp?.path;
 
-    traceEnvironmentHealth(result);
     return result;
 }
 
@@ -664,10 +662,4 @@ async function interpreterResolvesAndRuns(
     } catch {
         return false;
     }
-}
-
-function traceEnvironmentHealth(result: EnvironmentHealthResult): void {
-    traceInfo('===================== [START] PYTHON ENVIRONMENT HEALTH =====================');
-    traceInfo(JSON.stringify(result, null, 2));
-    traceInfo('====================== [END] PYTHON ENVIRONMENT HEALTH ======================');
 }

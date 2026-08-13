@@ -86,24 +86,15 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                 printInterpreterDebugInfo(interpreters);
             }),
         );
-        // Register a command that returns a machine-readable Python environment health report and
-        // logs it (as JSON) to the Python output channel. A frontend for surfacing this will come
-        // later; for now the command doubles as a developer probe run from the Command Palette.
+        // Returns a machine-readable Python environment health report for the welcome page. Running
+        // it writes nothing to the output channel and reveals no panel. It has no
+        // contributes.commands entry, which keeps it off the Command Palette but also costs the
+        // implicit onCommand activation event, so package.json lists that event explicitly: the
+        // welcome page can call this before onStartupFinished has woken the extension.
         disposables.push(
             vscode.commands.registerCommand(
                 Commands.Get_Environment_Health,
-                async (args?: { workspaceFolder?: string }) => {
-                    const result = await getEnvironmentHealth(serviceContainer, args);
-                    // Reveal the Python output channel so a manual palette run shows the report that
-                    // getEnvironmentHealth just logged there. Ignore failures: python.viewOutput is only
-                    // registered in trusted, non-virtual workspaces, and programmatic callers rely on the
-                    // return value regardless.
-                    await Promise.resolve(vscode.commands.executeCommand(Commands.ViewOutput)).then(
-                        () => undefined,
-                        () => undefined,
-                    );
-                    return result;
-                },
+                async (args?: { workspaceFolder?: string }) => getEnvironmentHealth(serviceContainer, args),
             ),
         );
 
