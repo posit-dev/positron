@@ -386,6 +386,7 @@ CommandsRegistry.registerCommand({
 			isOptional: true,
 			schema: {
 				type: 'object',
+				required: [],
 				properties: {
 					profileId: {
 						type: 'string',
