@@ -18,6 +18,12 @@ export interface ILicenseValidationResult {
 	licensee?: string;
 	/** The issuer name, if validation was successful. */
 	issuer?: string;
+	/**
+	 * Whether this license grants Positron's Education License Rider terms (drives the
+	 * academic license banner and P3M telemetry). Left undefined (falsy) for validation
+	 * paths that have no way to determine this, such as the external license manager.
+	 */
+	academic?: boolean;
 }
 
 /**
@@ -93,6 +99,21 @@ J96J0myarwU9s46B9SbyWKzcTpEvHgD47/rRcMx64PlmtS6hxgIdyIKNFjWrGt5g
 5AzUF63cLtv+he4d4CtfPo9TCbqLbaUop0g/3aqPAOAz/7wPLPnzURJGfiUYB/gx
 jv4RUEuRUo3aePrbcc3Wfl8CAwEAAQ==
 -----END PUBLIC KEY-----`;
+
+/**
+ * Test-only override for which PEM is treated as the orchestrator key, so tests can verify
+ * `academic` derivation without the real orchestrator private key (which is held by the
+ * minting service, not this repo). Not set in production.
+ */
+let orchestratorPublicKeyForTesting: string | undefined;
+
+/**
+ * Test-only seam: overrides which PEM is treated as the orchestrator key for the purposes of
+ * `academic` derivation in `validateLicense`. Not called in production.
+ */
+export function setOrchestratorPublicKeyForTesting(keyPem: string | undefined): void {
+	orchestratorPublicKeyForTesting = keyPem;
+}
 
 /**
  * Validates a license key. If any errors are encountered, they are logged to
@@ -221,7 +242,7 @@ export async function validateLicense(connectionToken: string, license: string, 
 	// Try each supplied public key; accept the license if any key verifies.
 	const keysToTry = publicKeys ?? [PublicKey, OrchestratorPublicKey];
 	const signature = Buffer.from(licenseKey.signature, 'base64');
-	let signatureValid = false;
+	let matchedKey: string | undefined;
 	for (const keyPem of keysToTry) {
 		if (!keyPem.trim()) {
 			continue;
@@ -242,7 +263,7 @@ export async function validateLicense(connectionToken: string, license: string, 
 			verifier.update(licenseKey.licensee);
 			verifier.update(licenseKey.timestamp);
 			if (verifier.verify(key, signature)) {
-				signatureValid = true;
+				matchedKey = keyPem;
 				break;
 			}
 		} catch {
@@ -250,7 +271,7 @@ export async function validateLicense(connectionToken: string, license: string, 
 		}
 	}
 
-	if (!signatureValid) {
+	if (!matchedKey) {
 		console.error('Invalid license key; signature is invalid: ', licenseKey.signature);
 		return { valid: false };
 	}
@@ -259,6 +280,10 @@ export async function validateLicense(connectionToken: string, license: string, 
 	return {
 		valid: true,
 		licensee: licenseKey.licensee,
-		issuer: licenseKey.issuer
+		issuer: licenseKey.issuer,
+		// The orchestrator key is used exclusively by the JupyterHub/TLJH academic minting
+		// flow (jupyter-positron-verifier); Server Pro and other primary-key deployments are
+		// not academic.
+		academic: matchedKey === (orchestratorPublicKeyForTesting ?? OrchestratorPublicKey),
 	};
 }

@@ -9,7 +9,7 @@ import * as semver from '../../../base/common/semver/semver.js';
 import { IStringDictionary } from '../../../base/common/collections.js';
 import { CancellationError, getErrorMessage, isCancellationError } from '../../../base/common/errors.js';
 import { IPager } from '../../../base/common/paging.js';
-import { isAcademic, isWeb, platform } from '../../../base/common/platform.js';
+import { isWeb, platform } from '../../../base/common/platform.js';
 import { arch } from '../../../base/common/process.js';
 import { isBoolean, isNumber, isString } from '../../../base/common/types.js';
 import { URI } from '../../../base/common/uri.js';
@@ -36,6 +36,7 @@ import { sameGalleryHost } from './extensionGalleryManifestService.js';
 import { TelemetryTrustedValue } from '../../telemetry/common/telemetryUtils.js';
 // --- Start Positron ---
 import { appendPositronGalleryParams, formatPositronVersion, GalleryUsageDataConfigKey, getPositronSessionType, PositronCheckTrigger } from './positronGalleryTelemetry.js';
+import { IPositronAcademicLicenseService } from '../../positronLicense/common/positronAcademicLicenseService.js';
 // --- End Positron ---
 
 const CURRENT_TARGET_PLATFORM = isWeb ? TargetPlatform.WEB : getTargetPlatform(platform, arch);
@@ -640,6 +641,9 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IAllowedExtensionsService private readonly allowedExtensionsService: IAllowedExtensionsService,
 		@IExtensionGalleryManifestService private readonly extensionGalleryManifestService: IExtensionGalleryManifestService,
+		// --- Start Positron ---
+		@IPositronAcademicLicenseService private readonly academicLicenseService: IPositronAcademicLicenseService,
+		// --- End Positron ---
 	) {
 		this.extensionsControlUrl = productService.extensionsGallery?.controlUrl;
 		this.unpkgResourceApi = productService.extensionsGallery?.extensionUrlTemplate;
@@ -796,7 +800,7 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 			options.checkTrigger,
 			getPositronSessionType(),
 			formatPositronVersion(this.productService.positronVersion, this.productService.positronBuildNumber),
-			isAcademic,
+			this.academicLicenseService.isAcademic,
 			sendUsageData,
 		);
 		resourceApi = {
@@ -1444,7 +1448,7 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 			query.checkTrigger,
 			getPositronSessionType(),
 			formatPositronVersion(this.productService.positronVersion, this.productService.positronBuildNumber),
-			isAcademic,
+			this.academicLicenseService.isAcademic,
 			sendUsageData,
 		);
 		// --- End Positron ---
@@ -2098,8 +2102,11 @@ export class ExtensionGalleryService extends AbstractExtensionGalleryService {
 		@IConfigurationService configurationService: IConfigurationService,
 		@IAllowedExtensionsService allowedExtensionsService: IAllowedExtensionsService,
 		@IExtensionGalleryManifestService extensionGalleryManifestService: IExtensionGalleryManifestService,
+		// --- Start Positron ---
+		@IPositronAcademicLicenseService academicLicenseService: IPositronAcademicLicenseService,
+		// --- End Positron ---
 	) {
-		super(storageService, requestService, logService, environmentService, telemetryService, fileService, productService, configurationService, allowedExtensionsService, extensionGalleryManifestService);
+		super(storageService, requestService, logService, environmentService, telemetryService, fileService, productService, configurationService, allowedExtensionsService, extensionGalleryManifestService, academicLicenseService);
 	}
 }
 
@@ -2115,7 +2122,10 @@ export class ExtensionGalleryServiceWithNoStorageService extends AbstractExtensi
 		@IConfigurationService configurationService: IConfigurationService,
 		@IAllowedExtensionsService allowedExtensionsService: IAllowedExtensionsService,
 		@IExtensionGalleryManifestService extensionGalleryManifestService: IExtensionGalleryManifestService,
+		// --- Start Positron ---
+		@IPositronAcademicLicenseService academicLicenseService: IPositronAcademicLicenseService,
 	) {
-		super(undefined, requestService, logService, environmentService, telemetryService, fileService, productService, configurationService, allowedExtensionsService, extensionGalleryManifestService);
+		super(undefined, requestService, logService, environmentService, telemetryService, fileService, productService, configurationService, allowedExtensionsService, extensionGalleryManifestService, academicLicenseService);
+		// --- End Positron ---
 	}
 }

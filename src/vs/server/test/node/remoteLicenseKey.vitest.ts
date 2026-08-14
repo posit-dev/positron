@@ -7,7 +7,7 @@
 
 import * as crypto from 'crypto';
 import { describe, expect, it } from 'vitest';
-import { validateLicense, validateLicenseKey } from '../../node/remoteLicenseKey.js';
+import { setOrchestratorPublicKeyForTesting, validateLicense, validateLicenseKey } from '../../node/remoteLicenseKey.js';
 import { ServerParsedArgs } from '../../node/serverEnvironmentService.js';
 
 describe('validateLicense', () => {
@@ -116,6 +116,42 @@ describe('validateLicense', () => {
 		expect(result.valid).toBe(true);
 		expect(result.issuer).toBe('JupyterHub');
 		expect(result.licensee).toBe('Acme Corp');
+	});
+
+	it('marks the license academic when it validates against the orchestrator key', async () => {
+		// The real OrchestratorPublicKey's private key is held by the minting service, not
+		// this repo, so we swap in a throwaway key pair via the test-only seam.
+		const { privateKey: orchestratorPrivKey, publicKey: orchestratorPubKeyPem } =
+			crypto.generateKeyPairSync('rsa', {
+				modulusLength: 2048,
+				publicKeyEncoding: { type: 'spki', format: 'pem' },
+				privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+			});
+
+		const token = 'test-token-academic';
+		const timestamp = new Date().toISOString();
+		const license = mintLicense(token, 'JupyterHub', 'Acme University', timestamp, orchestratorPrivKey);
+
+		setOrchestratorPublicKeyForTesting(orchestratorPubKeyPem);
+		try {
+			const result = await validateLicense(token, license, [testPubKeyPem, orchestratorPubKeyPem]);
+
+			expect(result.valid).toBe(true);
+			expect(result.academic).toBe(true);
+		} finally {
+			setOrchestratorPublicKeyForTesting(undefined);
+		}
+	});
+
+	it('does not mark the license academic when it validates against the primary key', async () => {
+		const token = 'test-token-not-academic';
+		const timestamp = new Date().toISOString();
+		const license = mintLicense(token, 'Test Hub', 'Test Corp', timestamp);
+
+		const result = await validateLicense(token, license, [testPubKeyPem]);
+
+		expect(result.valid).toBe(true);
+		expect(result.academic).toBe(false);
 	});
 
 	it('rejects malformed JSON', async () => {

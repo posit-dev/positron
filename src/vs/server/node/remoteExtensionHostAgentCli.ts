@@ -57,6 +57,8 @@ import { ExtensionGalleryManifestService } from '../../platform/extensionManagem
 // --- Start Postiron ---
 // eslint-disable-next-line no-duplicate-imports
 import { buildPositronVersionMessage } from '../../platform/environment/node/argv.js';
+import { IPositronAcademicLicenseService } from '../../platform/positronLicense/common/positronAcademicLicenseService.js';
+import { PositronAcademicLicenseService } from '../../platform/positronLicense/node/positronAcademicLicenseService.js';
 // --- End Positron ---
 
 class CliMain extends Disposable {
@@ -140,6 +142,10 @@ class CliMain extends Disposable {
 		services.set(IDownloadService, new SyncDescriptor(DownloadService));
 		services.set(ITelemetryService, NullTelemetryService);
 		services.set(IExtensionGalleryManifestService, new SyncDescriptor(ExtensionGalleryManifestService));
+		// --- Start Positron ---
+		// This CLI path runs ahead of the full server startup license check; not academic.
+		services.set(IPositronAcademicLicenseService, new PositronAcademicLicenseService(false));
+		// --- End Positron ---
 		services.set(IExtensionGalleryService, new SyncDescriptor(ExtensionGalleryServiceWithNoStorageService));
 		services.set(IExtensionsProfileScannerService, new SyncDescriptor(ExtensionsProfileScannerService));
 		services.set(IExtensionsScannerService, new SyncDescriptor(ExtensionsScannerService));

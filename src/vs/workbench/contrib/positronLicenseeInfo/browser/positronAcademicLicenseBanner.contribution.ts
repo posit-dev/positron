@@ -5,7 +5,7 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
-import { isAcademic, isWeb, isWorkbench } from '../../../../base/common/platform.js';
+import { isWeb, isWorkbench } from '../../../../base/common/platform.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
@@ -13,6 +13,7 @@ import { IBannerService } from '../../../services/banner/browser/bannerService.j
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IPositronAcademicLicenseService } from '../../../../platform/positronLicense/common/positronAcademicLicenseService.js';
 
 const BANNER_ID = 'positron.academicLicense';
 const DISMISSED_KEY = 'workbench.banner.academicLicense.dismissed';
@@ -27,6 +28,7 @@ class PositronAcademicLicenseBannerContribution extends Disposable implements IW
 	constructor(
 		@IBannerService private readonly _bannerService: IBannerService,
 		@IStorageService private readonly _storageService: IStorageService,
+		@IPositronAcademicLicenseService private readonly _academicLicenseService: IPositronAcademicLicenseService,
 	) {
 		super();
 
@@ -36,9 +38,10 @@ class PositronAcademicLicenseBannerContribution extends Disposable implements IW
 			return;
 		}
 
-		// Server deployments (e.g. Positron Server Pro on SageMaker) can suppress this banner
-		// by setting SHOW_ACADEMIC_BANNER=0, since it does not apply to them.
-		if (!isAcademic) {
+		// Only academically-licensed deployments (e.g. JupyterHub/TLJH orchestrator-minted
+		// licenses) show this banner; Server Pro (SageMaker, JupyterHub-Pro) and other
+		// non-academic deployments do not.
+		if (!this._academicLicenseService.isAcademic) {
 			return;
 		}
 
@@ -75,9 +78,10 @@ Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench)
 	.registerWorkbenchContribution(PositronAcademicLicenseBannerContribution, LifecyclePhase.Restored);
 
 CommandsRegistry.registerCommand(SHOW_ACADEMIC_LICENSE_BANNER_COMMAND_ID, (accessor: ServicesAccessor) => {
-	// Server deployments (e.g. Positron Server Pro on SageMaker) can suppress this banner
-	// by setting SHOW_ACADEMIC_BANNER=0, since it does not apply to them.
-	if (!isAcademic) {
+	// Only academically-licensed deployments (e.g. JupyterHub/TLJH orchestrator-minted
+	// licenses) show this banner; Server Pro (SageMaker, JupyterHub-Pro) and other
+	// non-academic deployments do not.
+	if (!accessor.get(IPositronAcademicLicenseService).isAcademic) {
 		return;
 	}
 

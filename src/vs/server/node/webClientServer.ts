@@ -10,7 +10,7 @@ import * as cookie from 'cookie';
 import * as crypto from 'crypto';
 import { isEqualOrParent } from '../../base/common/extpath.js';
 import { getMediaMime } from '../../base/common/mime.js';
-import { isAcademic, isLinux, isWorkbench } from '../../base/common/platform.js';
+import { isLinux, isWorkbench } from '../../base/common/platform.js';
 import { ILogService, LogLevel } from '../../platform/log/common/log.js';
 import { IServerEnvironmentService } from './serverEnvironmentService.js';
 import { extname, dirname, join, normalize, posix, resolve } from '../../base/common/path.js';
@@ -41,6 +41,7 @@ import type * as net from 'net';
 // --- Start Positron ---
 import { HAS_STATIC_ROUTE } from './pwbConstants.js';
 import { shouldUseSessionLessStaticRoute } from './positronStaticRoute.js';
+import { IPositronAcademicLicenseService } from '../../platform/positronLicense/common/positronAcademicLicenseService.js';
 // --- End Positron ---
 
 const textMimeType: { [ext: string]: string | undefined } = {
@@ -182,7 +183,10 @@ export class WebClientServer {
 		@ILogService private readonly _logService: ILogService,
 		@IRequestService private readonly _requestService: IRequestService,
 		@IProductService private readonly _productService: IProductService,
-		@ICSSDevelopmentService private readonly _cssDevService: ICSSDevelopmentService
+		@ICSSDevelopmentService private readonly _cssDevService: ICSSDevelopmentService,
+		// --- Start Positron ---
+		@IPositronAcademicLicenseService private readonly _academicLicenseService: IPositronAcademicLicenseService
+		// --- End Positron ---
 	) {
 		this._webExtensionResourceUrlTemplate = this._productService.extensionsGallery?.resourceUrlTemplate ? URI.parse(this._productService.extensionsGallery.resourceUrlTemplate) : undefined;
 
@@ -685,9 +689,9 @@ export class WebClientServer {
 
 		// --- Start Positron: browser-side academic marker ---
 		// Same early-injection trick as the Workbench marker above, reusing the PWB_WORKBENCH_MARKER
-		// slot so no template changes are needed. `platform.isAcademic` defaults to true, so we only
-		// need to inject the global when the server-side value is false (SHOW_ACADEMIC_BANNER=0).
-		const academicMarker = isAcademic ? '' : '<script>globalThis._POSITRON_IS_ACADEMIC = false;</script>';
+		// slot so no template changes are needed. The default (no injected global) is "not academic",
+		// so we only need to inject the global when the validated license says otherwise.
+		const academicMarker = this._academicLicenseService.isAcademic ? '<script>globalThis._POSITRON_IS_ACADEMIC = true;</script>' : '';
 		// --- End Positron ---
 
 		const values: { [key: string]: string } = {

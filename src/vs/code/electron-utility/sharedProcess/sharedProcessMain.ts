@@ -30,6 +30,8 @@ import { HeadlessLanguageModelEngineChannel } from '../../../platform/positronHe
 import { POSITRON_AI_PROVIDER_CHANNEL } from '../../../platform/positronAiProvider/common/aiProviderCatalog.js';
 import { AiProviderCatalog } from '../../../platform/positronAiProvider/node/aiProviderCatalog.js';
 import { AiProviderCatalogChannel } from '../../../platform/positronAiProvider/node/aiProviderCatalogChannel.js';
+import { IPositronAcademicLicenseService } from '../../../platform/positronLicense/common/positronAcademicLicenseService.js';
+import { PositronAcademicLicenseService } from '../../../platform/positronLicense/node/positronAcademicLicenseService.js';
 // --- End Positron ---
 import { DiagnosticsService } from '../../../platform/diagnostics/node/diagnosticsService.js';
 import { IDownloadService } from '../../../platform/download/common/download.js';
@@ -398,6 +400,10 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 
 		// Extension Gallery
 		services.set(IExtensionGalleryManifestService, new ExtensionGalleryManifestIPCService(this.server, logService, productService));
+		// --- Start Positron ---
+		// Desktop never goes through a license check, so this is always false.
+		services.set(IPositronAcademicLicenseService, new PositronAcademicLicenseService(false));
+		// --- End Positron ---
 		services.set(IExtensionGalleryService, new SyncDescriptor(ExtensionGalleryService, undefined, true));
 
 		// Extension Tips
