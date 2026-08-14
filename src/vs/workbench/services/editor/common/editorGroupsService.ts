@@ -667,7 +667,14 @@ export interface IEditorGroupsService extends IEditorGroupsContainer {
 	 * Opens a new window with a full editor part instantiated
 	 * in there at the optional position and size on screen.
 	 */
-	createAuxiliaryEditorPart(options?: { bounds?: Partial<IRectangle>; compact?: boolean; alwaysOnTop?: boolean }): Promise<IAuxiliaryEditorPart>;
+	// --- Start Positron ---
+	// createAuxiliaryEditorPart(options?: { bounds?: Partial<IRectangle>; compact?: boolean; alwaysOnTop?: boolean }): Promise<IAuxiliaryEditorPart>;
+	// `nativeTitlebar` and `lockCompact` are declared here so Positron's
+	// chromeless dedicated windows can ask for them through this interface. The
+	// shape stays inlined rather than importing `IAuxiliaryWindowOpenOptions`
+	// because that type lives in a `browser` layer this `common` file cannot see.
+	createAuxiliaryEditorPart(options?: { bounds?: Partial<IRectangle>; compact?: boolean; alwaysOnTop?: boolean; nativeTitlebar?: boolean; lockCompact?: boolean }): Promise<IAuxiliaryEditorPart>;
+	// --- End Positron ---
 
 	/**
 	 * Creates a modal editor part that shows in a modal overlay

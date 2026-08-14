@@ -133,7 +133,7 @@ const CMD_RULES: [RegExp, ProcessRole][] = [
 	[/--utility-sub-type=network\.mojom\.NetworkService/, 'network'],
 	[/\/kcserver\b/, 'kernel_supervisor'],
 	[/supervisor-wrapper\.sh/, 'kernel_supervisor'],
-	[/\bipykernel_launcher\b|\/ark\b/, 'kernel'],
+	[/positron_language_server\.py\b|\/ark\b/, 'kernel'],
 	// Quarto ships its server under `out/lsp/`, which neither spells
 	// `language-server` nor ends in `ServerMain`, so the name rules miss it and it
 	// would otherwise fall through to the extension fallback below.

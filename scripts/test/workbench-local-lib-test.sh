@@ -92,7 +92,7 @@ assert_fails "os_valid rejects an empty OS"         wb_os_valid ""
 assert_eq "feed name ubuntu24 -> noble" "noble" "$(wb_os_feed ubuntu24)"
 assert_eq "feed name rocky9 -> rhel9"   "rhel9" "$(wb_os_feed rocky9)"
 assert_fails "feed name rejects a feed name fed back in" wb_os_feed noble
-assert_eq "image ubuntu24" "ghcr.io/posit-dev/positron-ubuntu24:24.15.0" "$(wb_os_image ubuntu24)"
+assert_eq "image ubuntu24" "ghcr.io/posit-dev/positron-ubuntu24:24.18.0" "$(wb_os_image ubuntu24)"
 assert_eq "image rocky9"   "ghcr.io/posit-dev/positron-rocky9:24.18.0"   "$(wb_os_image rocky9)"
 assert_fails "image rejects an unknown OS" wb_os_image plan9
 

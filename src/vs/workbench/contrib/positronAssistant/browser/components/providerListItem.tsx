@@ -55,7 +55,7 @@ export const ProviderListItem = (props: ProviderListItemProps) => {
 	const authLabel = section === 'connected' ? authBadgeLabel(source) : undefined;
 
 	return (
-		<div className='provider-list-item'>
+		<div className='provider-list-item' data-provider-section={section} data-testid={`provider-row-${source.provider.id}`}>
 			<div className='provider-list-item-icon'>
 				<LanguageModelIcon logoUrl={source.provider.logoUrl} provider={source.provider.id} />
 			</div>
@@ -78,7 +78,7 @@ export const ProviderListItem = (props: ProviderListItemProps) => {
 				}
 			</div>
 			<div className='provider-list-item-actions'>
-				<button className='provider-list-item-action' type='button' onClick={onAction}>
+				<button className='provider-list-item-action' data-testid={`provider-action-${source.provider.id}`} type='button' onClick={onAction}>
 					{section === 'model-providers' && <span aria-hidden='true' className='codicon codicon-add' />}
 					{actionLabel(section)}
 				</button>

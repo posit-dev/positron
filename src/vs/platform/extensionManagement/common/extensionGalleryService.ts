@@ -37,6 +37,7 @@ import { TelemetryTrustedValue } from '../../telemetry/common/telemetryUtils.js'
 // --- Start Positron ---
 import { appendPositronGalleryParams, formatPositronVersion, GalleryUsageDataConfigKey, getPositronSessionType, PositronCheckTrigger } from './positronGalleryTelemetry.js';
 import { IPositronAcademicLicenseService } from '../../positronLicense/common/positronAcademicLicenseService.js';
+import { isUnsatisfiableDependency } from './positronExtensionBlocklist.js';
 // --- End Positron ---
 
 const CURRENT_TARGET_PLATFORM = isWeb ? TargetPlatform.WEB : getTargetPlatform(platform, arch);
@@ -1033,7 +1034,14 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 				targetPlatform: extension.properties.targetPlatform,
 				manifestAsset: extension.assets.manifest,
 				engine: extension.properties.engine,
-				enabledApiProposals: extension.properties.enabledApiProposals
+				// --- Start Positron ---
+				// enabledApiProposals: extension.properties.enabledApiProposals
+
+				// `dependencies` is passed so version validation can reject versions that depend on an
+				// extension Positron blocks and does not provide as a built-in (#15124).
+				enabledApiProposals: extension.properties.enabledApiProposals,
+				dependencies: extension.properties.dependencies
+				// --- End Positron ---
 			},
 			{
 				targetPlatform,
@@ -1047,7 +1055,13 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 	}
 
 	private async isValidVersion(
-		extension: { id: string; version: string; isPreReleaseVersion: boolean; targetPlatform: TargetPlatform; manifestAsset: IGalleryExtensionAsset | null; engine: string | undefined; enabledApiProposals: string[] | undefined },
+		// --- Start Positron ---
+		// extension: { id: string; version: string; isPreReleaseVersion: boolean; targetPlatform: TargetPlatform; manifestAsset: IGalleryExtensionAsset | null; engine: string | undefined; enabledApiProposals: string[] | undefined },
+		//
+		// `dependencies` added so version validation can reject versions that depend on an extension
+		// Positron blocks and does not provide as a built-in (#15124).
+		extension: { id: string; version: string; isPreReleaseVersion: boolean; targetPlatform: TargetPlatform; manifestAsset: IGalleryExtensionAsset | null; engine: string | undefined; enabledApiProposals: string[] | undefined; dependencies: string[] | undefined },
+		// --- End Positron ---
 		{ targetPlatform, compatible, productVersion, version }: Omit<ExtensionVersionCriteria, 'targetPlatform'> & { targetPlatform: TargetPlatform | undefined },
 		publisherDisplayName: string,
 		allTargetPlatforms: TargetPlatform[]
@@ -1083,6 +1097,14 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 		}
 
 		if (compatible) {
+			// --- Start Positron ---
+			// Reject versions that declare a dependency on an extension Positron blocks and does not
+			// provide as a built-in. The compatible-version walk in getValidRawGalleryExtensionVersion
+			// then falls back to the newest older version without such a dependency (#15124).
+			if (extension.dependencies?.some(isUnsatisfiableDependency)) {
+				return false;
+			}
+			// --- End Positron ---
 			if (this.allowedExtensionsService.isAllowed({ id: extension.id, publisherDisplayName, version: extension.version, prerelease: extension.isPreReleaseVersion, targetPlatform: extension.targetPlatform }) !== true) {
 				return false;
 			}
@@ -1393,7 +1415,14 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 					targetPlatform: getTargetPlatformForExtensionVersion(rawGalleryExtensionVersion),
 					engine: getEngine(rawGalleryExtensionVersion),
 					manifestAsset: getVersionAsset(rawGalleryExtensionVersion, AssetType.Manifest),
-					enabledApiProposals: getEnabledApiProposals(rawGalleryExtensionVersion)
+					// --- Start Positron ---
+					// enabledApiProposals: getEnabledApiProposals(rawGalleryExtensionVersion)
+					//
+					// `dependencies` is passed so version validation can reject versions that depend on an
+					// extension Positron blocks and does not provide as a built-in (#15124).
+					enabledApiProposals: getEnabledApiProposals(rawGalleryExtensionVersion),
+					dependencies: getExtensions(rawGalleryExtensionVersion, PropertyType.Dependency)
+					// --- End Positron ---
 				},
 				criteria,
 				rawGalleryExtension.publisher.displayName,
@@ -1913,7 +1942,14 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 							targetPlatform: getTargetPlatformForExtensionVersion(version),
 							engine: getEngine(version),
 							manifestAsset: getVersionAsset(version, AssetType.Manifest),
-							enabledApiProposals: getEnabledApiProposals(version)
+							// --- Start Positron ---
+							// enabledApiProposals: getEnabledApiProposals(version)
+							//
+							// `dependencies` is passed so version validation can reject versions that depend on
+							// an extension Positron blocks and does not provide as a built-in (#15124).
+							enabledApiProposals: getEnabledApiProposals(version),
+							dependencies: getExtensions(version, PropertyType.Dependency)
+							// --- End Positron ---
 						},
 						{
 							compatible: !!onlyCompatible,

@@ -326,29 +326,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 						StorageScope.APPLICATION, StorageTarget.MACHINE);
 				}
 
-				// Check to see if every single language runtime has been disabled.
-				const languageIds = this._languagePacks.keys();
-				let allDisabled = true;
-				for (const languageId of languageIds) {
-					if (this.getStartupBehavior(languageId) !== LanguageStartupBehavior.Disabled) {
-						allDisabled = false;
-						break;
-					}
-				}
-
-				// If there are no runtimes registered, but it isn't because
-				// everything was disabled, show an error.
-				if (this._languageRuntimeService.registeredRuntimes.length === 0 &&
-					!allDisabled) {
-					this._notificationService.error(nls.localize('positron.runtimeStartupService.noRuntimesMessage',
-						"No interpreters found. Please see the [Get Started](https://positron.posit.co/start) \
-						documentation to learn how to prepare your Python and/or R environments to work with Positron."));
-				}
-
 				// If there are no affiliated runtimes, and no starting or running
 				// runtimes, start the first runtime that has Immediate startup
 				// behavior.
-				else if (!this.hasAffiliatedRuntime() &&
+				if (!this.hasAffiliatedRuntime() &&
 					!this._runtimeSessionService.hasStartingOrRunningConsole()) {
 					const languageRuntimes = this._languageRuntimeService.registeredRuntimes
 						.filter(metadata => {

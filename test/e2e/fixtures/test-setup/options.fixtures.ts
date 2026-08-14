@@ -11,6 +11,7 @@ import { ApplicationOptions, copyFixtureFile, Quality, getRandomUserDataDir, Bro
 import { ROOT_PATH, TEMP_DIR } from './constants';
 import { copyUserSettings } from './shared-utils.js';
 import { shouldUseCustomTracing } from './reporting.fixtures.js';
+import { isMemoryScenario } from '../../utils/memory/scenarios.js';
 
 export interface CustomTestOptions {
 	artifactDir: string;
@@ -31,12 +32,12 @@ export interface CustomTestOptions {
 export function OptionsFixture() {
 	return async (logsPath: string, logger: any, snapshots: boolean, project: CustomTestOptions, workerInfo: playwright.WorkerInfo) => {
 		const TEST_DATA_PATH = process.env.POSITRON_TEST_DATA_PATH || join(os.tmpdir(), 'vscsmoke');
-		// The idle memory scenario measures Positron and its bundled extensions, so
-		// it gets an extensions dir of its own. The shared one accumulates whatever
-		// the suite installs, and that lands in the memory baseline as if it were
-		// product memory: one CI run had two versions of ruff in it, 60 MB, with the
-		// version changing between launches of the same run.
-		const EXTENSIONS_PATH = process.env.MEMORY_SCENARIO === 'idle'
+		// Every memory scenario measures Positron and its bundled extensions, so
+		// they get an extensions dir of their own. The shared one accumulates
+		// whatever the suite installs, and that lands in the memory baseline as if
+		// it were product memory: one CI run had two versions of ruff in it, 60 MB,
+		// with the version changing between launches of the same run.
+		const EXTENSIONS_PATH = isMemoryScenario(process.env.MEMORY_SCENARIO)
 			? join(TEST_DATA_PATH, 'extensions-dir-memory')
 			: join(TEST_DATA_PATH, 'extensions-dir');
 		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'test-files');

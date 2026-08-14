@@ -11,6 +11,7 @@ import {
     hasRequirementFiles,
     // --- Start Positron ---
     hasPyprojectToml,
+    hasShownCreateEnvModal,
     // --- End Positron ---
     isGlobalPythonSelected,
     shouldPromptToCreateEnv,
@@ -91,6 +92,12 @@ async function createEnvironmentCheckForWorkspace(uri: Uri): Promise<void> {
     const ctx = await detectAutoCreateContext(workspace);
     const depFilesLabel = describeDepFiles(ctx);
     const toolLabel = describeTool(ctx);
+
+    // Yield to the interpreter-select modal if it already asked the same question.
+    if (hasShownCreateEnvModal()) {
+        traceInfo('CreateEnv Trigger - The interpreter-select modal already prompted in this window');
+        return;
+    }
 
     sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_RESULT, undefined, { result: 'criteria-met' });
     const selection = await showInformationMessage(

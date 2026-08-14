@@ -75,6 +75,7 @@
     ],
     "activationEvents": [
         "onCommand:python.createEnvironmentAndRegister",
+        "onCommand:python.getEnvironmentHealth",
         "onStartupFinished",
         "onDebugInitialConfigurations",
         "onLanguage:python",
@@ -552,11 +553,6 @@
                 "category": "Python",
                 "command": "python.interpreters.debugInfo",
                 "title": "%python.command.python.interpreterDebugInfo.title%"
-            },
-            {
-                "category": "Python",
-                "command": "python.getEnvironmentHealth",
-                "title": "%python.command.python.getEnvironmentHealth.title%"
             }
         ],
         "configuration": {
@@ -583,6 +579,12 @@
                         "show",
                         "hide"
                     ]
+                },
+                "python.createEnvironment.promptOnInterpreterSelect": {
+                    "default": true,
+                    "markdownDescription": "%python.createEnvironment.promptOnInterpreterSelect.description%",
+                    "scope": "machine-overridable",
+                    "type": "boolean"
                 },
                 "python.createEnvironment.trigger": {
                     "default": "prompt",

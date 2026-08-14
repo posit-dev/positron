@@ -5,15 +5,16 @@
 
 /// <reference types="vitest/globals" />
 
+import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
-import { IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionsDriverManager.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { getDataConnections } from '../../browser/positronDataConnectionsCommands.js';
+import { IDataConnectionSchemaCommandArgs, getDataConnectionSchema, getDataConnections } from '../../browser/positronDataConnectionsCommands.js';
 
 function createProfile(overrides: Partial<IDataConnectionProfile> = {}): IDataConnectionProfile {
 	return {
@@ -90,10 +91,9 @@ function createDataConnectionsService(options: CreateServiceOptions = {}): IPosi
 describe('getDataConnections', () => {
 	const ctx = createTestContainer().build();
 
-	function run(dataConnectionsService: IPositronDataConnectionsService, enabled: boolean = true, aiEnabled: boolean = true) {
+	function run(dataConnectionsService: IPositronDataConnectionsService, enabled: boolean = true) {
 		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
 			'dataConnections.enabled': enabled,
-			'ai.enabled': aiEnabled,
 		}));
 		ctx.instantiationService.stub(IPositronDataConnectionsService, dataConnectionsService);
 		return getDataConnections(ctx.instantiationService);
@@ -109,14 +109,20 @@ describe('getDataConnections', () => {
 		expect(getProfiles).not.toHaveBeenCalled();
 	});
 
-	it('returns an empty list when ai.enabled is false, without touching the service', async () => {
-		const getProfiles = vi.fn(() => [createProfile()]);
-		const dataConnectionsService = stubInterface<IPositronDataConnectionsService>({ getProfiles });
+	// ai.enabled is deliberately not a gate: these payloads are the user's own configuration, not an
+	// AI feature, and no other agentCompatible command gates on it. A stray check here would take the
+	// inspect actions away from a user who turned AI off.
+	it('reports connections even when ai.enabled is off', async () => {
+		const dataConnectionsService = createDataConnectionsService();
+		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
+			'dataConnections.enabled': true,
+			'ai.enabled': false,
+		}));
+		ctx.instantiationService.stub(IPositronDataConnectionsService, dataConnectionsService);
 
-		const result = await run(dataConnectionsService, true, false);
+		const result = await getDataConnections(ctx.instantiationService);
 
-		expect(result).toEqual([]);
-		expect(getProfiles).not.toHaveBeenCalled();
+		expect(result).toHaveLength(1);
 	});
 
 	it('never exposes secret parameter values, and never reads secret storage', async () => {
@@ -205,3 +211,113 @@ describe('getDataConnections', () => {
 		expect(JSON.parse(JSON.stringify(result))).toEqual(result);
 	});
 });
+
+// A live connection whose schema is a flat list of tables. Only the handle members
+// summarizeDataConnectionSchema actually reads are set, so an unexpected call (e.g. expanding a
+// leaf node) throws rather than quietly returning undefined.
+function createInstance(profileId: string, handle: number, tableNames: string[]): IDataConnectionInstance {
+	return stubInterface<IDataConnectionInstance>({
+		profileId,
+		connectionHandle: stubInterface<IDataConnectionHandle>({
+			handle,
+			getChildren: vi.fn(async () => tableNames.map((name, index) => ({
+				nodeHandle: index + 1,
+				name,
+				kind: 'table',
+				hasGetChildren: false,
+				hasPreview: false,
+			}))),
+		}),
+	});
+}
+
+function createInstancesService(instances: IDataConnectionInstance[]): IPositronDataConnectionsService {
+	return stubInterface<IPositronDataConnectionsService>({
+		getInstances: vi.fn(() => instances),
+		getInstanceForProfile: vi.fn((profileId: string) =>
+			instances.find(instance => instance.profileId === profileId)),
+	});
+}
+
+describe('getDataConnectionSchema', () => {
+	const ctx = createTestContainer().build();
+
+	function run(dataConnectionsService: IPositronDataConnectionsService, args?: IDataConnectionSchemaCommandArgs, enabled: boolean = true) {
+		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
+			'dataConnections.enabled': enabled,
+		}));
+		// getSchema logs why it declined to summarize anything; the tests assert the reason it reports
+		// to the caller rather than the log wording.
+		ctx.instantiationService.stub(ILogService, new NullLogService());
+		ctx.instantiationService.stub(IPositronDataConnectionsService, dataConnectionsService);
+		return getDataConnectionSchema(ctx.instantiationService, args);
+	}
+
+	// The feature flag is also the inspect actions' precondition, so a caller only reaches this by
+	// calling the command directly. It still gets a reason rather than an empty summary.
+	it('reports the feature flag being off, without touching the service', async () => {
+		const getInstances = vi.fn(() => []);
+		const dataConnectionsService = stubInterface<IPositronDataConnectionsService>({ getInstances });
+
+		const result = await run(dataConnectionsService, undefined, false);
+
+		expect(result).toEqual({ connected: false, reason: 'disabled' });
+		expect(getInstances).not.toHaveBeenCalled();
+	});
+
+	it('summarizes the live connection named by profileId', async () => {
+		const dataConnectionsService = createInstancesService([
+			createInstance('conn-a', 1, ['employees']),
+			createInstance('conn-b', 2, ['orders']),
+		]);
+
+		const result = await run(dataConnectionsService, { profileId: 'conn-b' });
+
+		expect(result).toEqual({ instanceId: '2', nodes: [{ name: 'orders', kind: 'table' }], truncated: false });
+	});
+
+	it('defaults to the only live connection when no profileId is given', async () => {
+		const dataConnectionsService = createInstancesService([createInstance('conn-a', 1, ['employees'])]);
+
+		const result = await run(dataConnectionsService);
+
+		expect(result).toEqual({ instanceId: '1', nodes: [{ name: 'employees', kind: 'table' }], truncated: false });
+	});
+
+	it('reports the named profile having no live connection', async () => {
+		const dataConnectionsService = createInstancesService([createInstance('conn-a', 1, ['employees'])]);
+
+		expect(await run(dataConnectionsService, { profileId: 'conn-missing' }))
+			.toEqual({ connected: false, reason: 'not-connected' });
+	});
+
+	it('reports nothing being connected', async () => {
+		expect(await run(createInstancesService([])))
+			.toEqual({ connected: false, reason: 'no-live-connections' });
+	});
+
+	// Summarizing an arbitrary one of them would be worse than reporting nothing: the caller would
+	// have no way to tell it got the schema of a connection it didn't ask about. Listing the live
+	// profiles turns the dead end into a retry.
+	it('reports an ambiguous target, naming the profiles to choose from', async () => {
+		const dataConnectionsService = createInstancesService([
+			createInstance('conn-a', 1, ['employees']),
+			createInstance('conn-b', 2, ['orders']),
+		]);
+
+		expect(await run(dataConnectionsService)).toEqual({
+			connected: false,
+			reason: 'ambiguous',
+			liveProfileIds: ['conn-a', 'conn-b'],
+		});
+	});
+
+	it('passes the summary bounds through to the summarizer', async () => {
+		const dataConnectionsService = createInstancesService([createInstance('conn-a', 1, ['t1', 't2', 't3'])]);
+
+		const result = await run(dataConnectionsService, { maxNodesPerLevel: 1 });
+
+		expect(result).toEqual({ instanceId: '1', nodes: [{ name: 't1', kind: 'table' }], truncated: true });
+	});
+});
+

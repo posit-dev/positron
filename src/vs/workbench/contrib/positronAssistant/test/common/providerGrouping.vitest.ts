@@ -63,13 +63,16 @@ describe('groupProviders', () => {
 		expect(sections[0].items.map(i => i.provider.id)).toEqual(['copilot-auth']);
 	});
 
-	it('excludes the custom-provider template (openai-compatible) from the built-in sections', () => {
-		const sections = groupProviders([
-			source({ id: 'openai-compatible', signedIn: false }),
-			source({ id: 'openai-api', signedIn: false }),
-		]);
-		expect(sections).toHaveLength(1);
-		expect(sections[0].items.map(i => i.provider.id)).toEqual(['openai-api']);
+	it('groups the custom provider (openai-compatible) like any other: model-providers, connected, or needs-attention', () => {
+		const unconnected = groupProviders([source({ id: 'openai-compatible', signedIn: false })]);
+		expect(unconnected[0].id).toBe('model-providers');
+		expect(unconnected[0].items.map(i => i.provider.id)).toEqual(['openai-compatible']);
+
+		const connected = groupProviders([source({ id: 'openai-compatible', signedIn: true, status: 'ok' })]);
+		expect(connected[0].id).toBe('connected');
+
+		const errored = groupProviders([source({ id: 'openai-compatible', signedIn: false, status: 'error' })]);
+		expect(errored[0].id).toBe('needs-attention');
 	});
 
 	it('sorts alphabetically by display name within a section', () => {

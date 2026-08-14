@@ -96,6 +96,19 @@ accept the upstream change and then reapply the Positron change by adding the
 missing fields, matching the new formatting and adding appropriate change
 markers..
 
+### Copilot AI commands and menus
+
+Don't add `chatAiFeaturesEnabled` to Copilot's AI commands or menu items by hand.
+Positron already gates every command and menu item from `GitHub.copilot-chat`
+where the extension points read them, via `gateCopilotContribution` in
+`src/vs/workbench/services/actions/common/menusExtensionPoint.ts`, so anything
+upstream adds is covered.
+
+- Check that the two Positron-marked call sites in `menusExtensionPoint.ts`
+  survived the merge, one on `precondition:` and one on `item.when =`. Nothing
+  else does the gating, so if they're gone the gate is gone.
+- `test/e2e/tests/assistant/chat-command-palette-gating.test.ts` checks this end
+  to end.
 
 ## Upstream Divergence
 

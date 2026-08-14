@@ -1,6 +1,7 @@
 ---
 name: drive-positron
-description: "Launch Positron dev server in an isolated, disposable profile and control the Electron workbench. Use to reproduce UI bugs, verify UI changes, inspect the DOM, take screenshots, interact with the workbench, or attach a debugger without first writing an end-to-end test. Do not use to provide a persistent app instance for a person; use the launch-positron command for that."
+description: "Launch Positron dev server in an isolated, disposable profile and control the Electron workbench. Use to reproduce UI bugs, verify UI changes, inspect the DOM, take screenshots, interact with the workbench, or attach a debugger without first writing an end-to-end test. Do not use to provide a persistent app instance for a person; use the launch-positron command for that. Only runs when a person invokes it explicitly."
+disable-model-invocation: true
 ---
 
 # Drive Positron through CDP
@@ -16,6 +17,25 @@ Do not use this workflow to hand a persistent Positron instance to a person:
 - no watch process recompiles subsequent source edits.
 
 Use the `launch-positron` command for that case.
+
+## Know what this changes in your checkout
+
+The disposable profile is isolated. The build state is not.
+
+Before it starts the application, `scripts/launch.sh` runs `build/lib/preLaunch.ts` against your real checkout. Pre-launch writes to directories that your normal development build also uses:
+
+- `.build/builtInExtensions/<name>`: pre-launch deletes and re-downloads this directory for every built-in extension whose version on disk does not match `product.json`. A rebase that bumps a built-in extension version is enough to trigger it.
+- `.build/electron`: pre-launch deletes and re-downloads the whole directory when the installed Electron version does not match the expected one.
+- `out/`: pre-launch runs `npm run compile` when this directory is absent. That competes with the build daemons, which own compilation.
+
+An interrupted or failed pre-launch can leave a built-in extension deleted or partially written. Your normal development build then fails to start until you repair it. To repair:
+
+```bash
+npm run download-builtin-extensions
+npm run electron
+```
+
+Do not interrupt the script while it reports that it is running pre-launch.
 
 ## Launch Positron
 

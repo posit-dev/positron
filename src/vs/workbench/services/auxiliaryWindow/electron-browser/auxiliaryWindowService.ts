@@ -42,6 +42,9 @@ export class NativeAuxiliaryWindow extends AuxiliaryWindow {
 		window: CodeWindow,
 		container: HTMLElement,
 		stylesHaveLoaded: Barrier,
+		// --- Start Positron ---
+		openOptions: IAuxiliaryWindowOpenOptions | undefined,
+		// --- End Positron ---
 		@IConfigurationService configurationService: IConfigurationService,
 		@INativeHostService private readonly nativeHostService: INativeHostService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
@@ -51,7 +54,10 @@ export class NativeAuxiliaryWindow extends AuxiliaryWindow {
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService
 	) {
-		super(window, container, stylesHaveLoaded, configurationService, hostService, environmentService, contextMenuService, layoutService);
+		// --- Start Positron ---
+		// super(window, container, stylesHaveLoaded, configurationService, hostService, environmentService, contextMenuService, layoutService);
+		super(window, container, stylesHaveLoaded, openOptions, configurationService, hostService, environmentService, contextMenuService, layoutService);
+		// --- End Positron ---
 
 		if (!isMacintosh) {
 			// For now, limit this to platforms that have clear maximised
@@ -177,9 +183,13 @@ export class NativeAuxiliaryWindowService extends BrowserAuxiliaryWindowService 
 		return super.createContainer(auxiliaryWindow, disposables);
 	}
 
-	protected override createAuxiliaryWindow(targetWindow: CodeWindow, container: HTMLElement, stylesHaveLoaded: Barrier): AuxiliaryWindow {
-		return new NativeAuxiliaryWindow(targetWindow, container, stylesHaveLoaded, this.configurationService, this.nativeHostService, this.instantiationService, this.hostService, this.environmentService, this.dialogService, this.contextMenuService, this.layoutService);
+	// --- Start Positron ---
+	// protected override createAuxiliaryWindow(targetWindow: CodeWindow, container: HTMLElement, stylesHaveLoaded: Barrier): AuxiliaryWindow {
+	// 	return new NativeAuxiliaryWindow(targetWindow, container, stylesHaveLoaded, this.configurationService, this.nativeHostService, this.instantiationService, this.hostService, this.environmentService, this.dialogService, this.contextMenuService, this.layoutService);
+	protected override createAuxiliaryWindow(targetWindow: CodeWindow, container: HTMLElement, stylesHaveLoaded: Barrier, options?: IAuxiliaryWindowOpenOptions): AuxiliaryWindow {
+		return new NativeAuxiliaryWindow(targetWindow, container, stylesHaveLoaded, options, this.configurationService, this.nativeHostService, this.instantiationService, this.hostService, this.environmentService, this.dialogService, this.contextMenuService, this.layoutService);
 	}
+	// --- End Positron ---
 }
 
 registerSingleton(IAuxiliaryWindowService, NativeAuxiliaryWindowService, InstantiationType.Delayed);

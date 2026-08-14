@@ -8,6 +8,7 @@
 import {
 	cellPositionToSource,
 	cellRangeToSource,
+	cellZeroBasedLineToSource,
 	sourcePositionToCell,
 	sourceRangeToCell,
 } from '../../common/quartoCellPositionMapping.js';
@@ -76,6 +77,20 @@ describe('quartoCellPositionMapping', () => {
 			wholeCell: { startLineNumber: 1, startColumn: 1, endLineNumber: 3, endColumn: 10 },
 			startsOnFence: undefined,
 			endsOnFence: undefined,
+		});
+	});
+
+	it('shifts a zero-based line without changing its indexing', () => {
+		// A rejected statement range reports the line of the syntax error on its
+		// own, zero indexed. The shift is the same one a range gets, but applying
+		// it through a range would be off by one in each direction.
+		expect({
+			firstLine: cellZeroBasedLineToSource(cell, 0),
+			lastLine: cellZeroBasedLineToSource(cell, 2),
+		}).toEqual({
+			// Zero indexed line 3 is source line 4, the cell's first line of code.
+			firstLine: 3,
+			lastLine: 5,
 		});
 	});
 

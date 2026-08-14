@@ -30,8 +30,6 @@ test.use({
  * @see https://github.com/posit-dev/positron/pull/14054 (single-command gating this extends)
  */
 test.describe('Chat Command Palette Gating', { tag: [tags.ASSISTANT] }, () => {
-	// Command palette rows in the "Chat" category render as "Chat: <title>".
-	// Anchor at the start so other categories (e.g. "GitHub Copilot Chat: ...") are excluded.
 	const CHAT_CATEGORY_ROW = /^Chat: /;
 
 	test.afterEach('Reset AI switch settings', async function ({ settings }) {

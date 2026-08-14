@@ -13,6 +13,7 @@ import { traceError, traceLog } from '../../../logging';
 import { CreateEnvironmentProgress } from '../types';
 import { isUvInstalled } from '../../common/environmentManagers/uv';
 import { executeCommand } from '../../../common/vscodeApis/commandApis';
+import { getConfiguration } from '../../../common/vscodeApis/workspaceApis';
 import { showQuickPickWithBack } from '../../../common/vscodeApis/windowApis';
 import { Commands } from '../../../common/constants';
 import { getPipRequirementsFiles } from './venvUtils';
@@ -26,16 +27,21 @@ export interface AutoCreateVenvContext {
 }
 
 export async function detectAutoCreateContext(workspace: WorkspaceFolder): Promise<AutoCreateVenvContext> {
-    const [reqFiles, uvAvailable, tomlExists] = await Promise.all([
+    const [reqFiles, uvInstalled, tomlExists] = await Promise.all([
         getPipRequirementsFiles(workspace),
         isUvInstalled(),
         hasPyprojectToml(workspace),
     ]);
 
+    // uv creates the environment around a Python it may download, so the setting that
+    // gates downloading a Python also gates offering uv at all. Read live so that
+    // turning it off takes effect without a reload.
+    const allowUvPythonInstall = getConfiguration('python').get<boolean>('allowUvPythonInstall') ?? true;
+
     return {
         hasRequirements: (reqFiles?.length ?? 0) > 0,
         hasPyprojectToml: tomlExists,
-        uvAvailable,
+        uvAvailable: uvInstalled && allowUvPythonInstall,
     };
 }
 
@@ -191,14 +197,21 @@ export async function uvInstallDeps(
  * events fire (suppressing the "new venv" notification), the runtime is
  * auto-selected, and dependencies are installed.
  *
+ * When the caller already knows which provider to use, it passes
+ * `providerOptions` and those are used as-is. Otherwise:
+ *
  * - uv available: uses the uv provider with auto-selected Python version
  *   and dep installation.
  * - uv not available: opens the standard Create Environment wizard so the
  *   user can pick an interpreter.
+ *
+ * @param providerOptions Provider selection to use instead of choosing one here,
+ * for example `{ providerId, interpreterPath }` from a prompt that already asked.
  */
 export async function autoCreateVenvWithDeps(
     workspace: WorkspaceFolder,
     ctx: AutoCreateVenvContext,
+    providerOptions?: Record<string, unknown>,
 ): Promise<string | undefined> {
     // Resolve which deps to install BEFORE creating the venv,
     // so the user can cancel without a venv being created.
@@ -216,7 +229,9 @@ export async function autoCreateVenvWithDeps(
         options.depInstallArgs = depArgs;
     }
 
-    if (ctx.uvAvailable) {
+    if (providerOptions) {
+        Object.assign(options, providerOptions);
+    } else if (ctx.uvAvailable) {
         options.providerId = UV_PROVIDER_ID;
         options.uvPythonVersion = 'auto';
     }

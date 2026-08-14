@@ -200,6 +200,24 @@ describe('roles for the eagerly started servers', () => {
 	});
 });
 
+describe('kernel roles', () => {
+	const roleOf = (cmd: string): string => resolveRole({ cmd, isRoot: false }).role;
+
+	test('the Python kernel is labeled kernel', () => {
+		// Positron never launches ipykernel as a module; it runs its own
+		// positron_language_server.py. A rule that only matched
+		// `ipykernel_launcher` would never fire, which is exactly the CI failure
+		// this test reproduces: "expected a kernel process".
+		expect(roleOf('/usr/bin/python3 /opt/positron/resources/app/extensions/positron-python/python_files/posit/positron_language_server.py -f /tmp/kernel-abc.json --logfile /tmp/kernel-abc.log --loglevel=debug --session-mode=console'))
+			.toBe('kernel');
+	});
+
+	test('the R kernel is still labeled kernel', () => {
+		expect(roleOf('/opt/positron/resources/app/extensions/positron-r/resources/ark/ark --connection_file /tmp/kernel-abc.json --log /tmp/kernel-abc.log'))
+			.toBe('kernel');
+	});
+});
+
 describe('names that CI proved wrong', () => {
 	// The idle memory scenario runs with its own extensions dir, so the segment
 	// is `extensions-dir-memory`. Enumerating dir names missed it and left ruff

@@ -44,6 +44,7 @@ suite('Python Runtime Session', () => {
     let applicationShell: IApplicationShell;
     let installerSpy: sinon.SinonSpiedInstance<IInstaller>;
     let interpreterPathService: IInterpreterPathService;
+    let interpreterService: IInterpreterService;
     let envVarsServiceSpy: sinon.SinonSpiedInstance<IEnvironmentVariablesService>;
     let interpreter: PythonEnvironment;
     let serviceContainer: IServiceContainer;
@@ -70,8 +71,9 @@ suite('Python Runtime Session', () => {
             implementation: 'cpython',
         });
 
-        const interpreterService = mock<IInterpreterService>({
+        interpreterService = mock<IInterpreterService>({
             getInterpreterDetails: (_pythonPath, _resource) => Promise.resolve(interpreter),
+            triggerRefresh: () => Promise.resolve(),
         });
 
         const installer = mock<IInstaller>({
@@ -261,6 +263,27 @@ suite('Python Runtime Session', () => {
 
         // Should try to use ipykernel from the environment.
         sinon.assert.called(installerSpy.isProductVersionCompatible);
+    });
+
+    test('Start: retries interpreter resolution after a refresh when the first resolve fails', async () => {
+        const getDetails = sinon.stub(interpreterService, 'getInterpreterDetails');
+        getDetails.onFirstCall().resolves(undefined);
+        getDetails.onSecondCall().resolves(interpreter);
+        const triggerRefresh = sinon.spy(interpreterService, 'triggerRefresh');
+
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console);
+        await session.start();
+
+        sinon.assert.calledOnce(triggerRefresh);
+        sinon.assert.calledTwice(getDetails);
+    });
+
+    test('Start: throws when the interpreter cannot be resolved after a refresh', async () => {
+        sinon.stub(interpreterService, 'getInterpreterDetails').resolves(undefined);
+        sinon.stub(interpreterService, 'triggerRefresh').resolves();
+
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console);
+        await assert.rejects(() => session.start(), /failed to resolve interpreter/);
     });
 
     test('Execute: dont uninstall bundled packages', async () => {

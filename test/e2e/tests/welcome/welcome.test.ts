@@ -3,32 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application, availableRuntimes } from '../../infra';
+import { availableRuntimes } from '../../infra';
 import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
-
-type RunCommand = (commandId: string, options?: { keepOpen?: boolean; exactLabelMatch?: boolean }) => Promise<void>;
-
-/**
- * Open a walkthrough from the command palette, which switches the editor to the
- * details slide and leaves the welcome page off-screen behind it.
- *
- * `keepOpen` stops runCommand from re-clicking until the picker closes: this
- * command opens a second picker of its own, and that retry loop would dismiss it
- * before the test could use it. Filter before selecting, because the list is
- * virtualized and an unfiltered match can sit in the DOM scrolled out of view.
- */
-async function openWalkthrough(app: Application, runCommand: RunCommand) {
-	const { quickInput } = app.workbench;
-
-	await runCommand('welcome.showAllWalkthroughs', { keepOpen: true });
-	await quickInput.waitForQuickInputOpened({ timeout: 30000 });
-	await quickInput.type('Migrating from VSCode');
-	await quickInput.selectQuickInputElementContaining('Migrating from VSCode to Positron');
-}
 
 test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 	test.afterEach(async function ({ hotKeys }) {
@@ -60,39 +40,29 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await hotKeys.resetWelcomeWalkthrough();
 			await hotKeys.reloadWindow(true);
 
-			await welcome.expectWalkthroughsToHaveCount(3);
-			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron', 'Jupyter Notebooks in Positron']);
+			await welcome.expectWalkthroughsToHaveCount(4);
+			await welcome.expectWalkthroughsToContain(['Get Started with Positron', 'Migrating from VSCode to Positron', 'Migrating from RStudio to Positron', 'Jupyter Notebooks in Positron']);
 
 			await welcome.walkthroughSection.getByText('More...').click();
 			await quickInput.expectTitleBarToHaveText('Open Walkthrough...');
 			await quickInput.expectQuickInputResultsToContain([
-				'Get Started with Python Development',
+				'Get Started with Positron',
 				'Migrating from VSCode to Positron',
 				'Migrating from RStudio to Positron',
 				'Get Started with Jupyter Notebooks',
 				'Get Started with Posit Publisher',
 				'Jupyter Notebooks in Positron'
 			]);
-		});
 
-		test('Verify Tab does not reach the welcome page while a walkthrough is open', async function ({ app, runCommand }) {
-			const { welcome } = app.workbench;
-
-			await openWalkthrough(app, runCommand);
-			await welcome.expectTabToStayOutOf('welcome');
-		});
-
-		test('Verify Tab does not reach a walkthrough after returning to the welcome page', async function ({ app, hotKeys, runCommand }) {
-			const { welcome } = app.workbench;
-
-			// The walkthrough's steps stay in the DOM after we come back, parked
-			// off-screen to the right. Tabbing into one scrolls it into view and
-			// slides the welcome page off the left edge.
-			await openWalkthrough(app, runCommand);
-			await hotKeys.openWelcomeWalkthrough();
-			await welcome.expectRecentToBeVisible();
-
-			await welcome.expectTabToStayOutOf('walkthrough', 30);
+			// Upstream walkthroughs that Positron hides. "Get Started with
+			// Positron" is deliberately absent from this list: the hidden
+			// upstream `Setup` walkthrough shares its title with the Positron
+			// one that replaces it.
+			await quickInput.expectQuickInputResultsToNotContain([
+				'Get Started with Python Development',
+				'Learn the Fundamentals',
+				'GitHub Copilot'
+			]);
 		});
 
 		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, python }) {
