@@ -30,7 +30,6 @@ describe('PositronDataExplorerExtensionBackend', () => {
 		const calls: Array<{ providerId: string; rpc: IDataExplorerRpcDto }> = [];
 		const disposed: Array<{ providerId: string; datasetId: string }> = [];
 		const transport: IDataExplorerRpcTransport = {
-			activateProvider: () => Promise.resolve(),
 			handleRpc: (providerId, rpc) => {
 				calls.push({ providerId, rpc });
 				return Promise.resolve(respond(rpc));

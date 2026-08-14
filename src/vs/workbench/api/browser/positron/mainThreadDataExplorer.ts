@@ -7,7 +7,7 @@ import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
-import { IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerRpcTransport, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
+import { IDataExplorerHostTransport, IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
 import { ExtHostDataExplorerShape, ExtHostPositronContext, MainPositronContext, MainThreadDataExplorerShape } from '../../common/positron/extHost.positron.protocol.js';
 
 /**
@@ -20,13 +20,13 @@ function dataExplorerBackendActivationEvent(providerId: string): string {
 }
 
 /**
- * Main thread counterpart to ExtHostDataExplorer. Acts as the {@link IDataExplorerRpcTransport} for
+ * Main thread counterpart to ExtHostDataExplorer. Acts as the {@link IDataExplorerHostTransport} for
  * core Data Explorer backends -- forwarding each RPC over the typed ext-host channel to the
  * providing extension -- and routes the extension's frontend UI events and open requests into the
  * IPositronDataExplorerService. Registers itself as the service's transport for its lifetime.
  */
 @extHostNamedCustomer(MainPositronContext.MainThreadDataExplorer)
-export class MainThreadDataExplorer implements MainThreadDataExplorerShape, IDataExplorerRpcTransport {
+export class MainThreadDataExplorer implements MainThreadDataExplorerShape, IDataExplorerHostTransport {
 
 	private readonly _proxy: ExtHostDataExplorerShape;
 	private readonly _disposables = new DisposableStore();
@@ -41,7 +41,7 @@ export class MainThreadDataExplorer implements MainThreadDataExplorerShape, IDat
 		this._disposables.add(this._dataExplorerService.registerRpcTransport(this));
 	}
 
-	// --- IDataExplorerRpcTransport ---
+	// --- IDataExplorerHostTransport ---
 
 	async activateProvider(providerId: string): Promise<void> {
 		// Backends declare `onPositronDataExplorerBackend:<providerId>` so they stay dormant until a
