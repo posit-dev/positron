@@ -174,6 +174,45 @@ describe('Notebook Output Utils', () => {
 		expect(preferred?.mime).toBe('text/latex');
 	});
 
+	describe('pickPreferredOutputItem: inline data explorer disabled', () => {
+		it('falls back to text/plain when that is all the kernel sent (R)', () => {
+			// Ark emits the autoprint output alongside the data explorer payload and no
+			// text/html, so disabling the feature has to land on the printed data frame.
+			const items = [
+				makeOutputItem('text/plain', '  x y\n1 1 4'),
+				makeOutputItem(DATA_EXPLORER_MIME_TYPE, '{}'),
+			];
+
+			expect(pickPreferredOutputItem(items, false)?.mime).toBe('text/plain');
+		});
+
+		it('falls back to text/html when the kernel sent one (Python)', () => {
+			const items = [
+				makeOutputItem('text/plain', '   a\n0  1'),
+				makeOutputItem('text/html', '<table></table>'),
+				makeOutputItem(DATA_EXPLORER_MIME_TYPE, '{}'),
+			];
+
+			expect(pickPreferredOutputItem(items, false)?.mime).toBe('text/html');
+		});
+
+		it('keeps the data explorer payload when it is the only output item', () => {
+			const items = [makeOutputItem(DATA_EXPLORER_MIME_TYPE, '{}')];
+
+			expect(pickPreferredOutputItem(items, false)?.mime).toBe(DATA_EXPLORER_MIME_TYPE);
+		});
+
+		it('prefers the data explorer payload while enabled', () => {
+			const items = [
+				makeOutputItem('text/plain', '  x y\n1 1 4'),
+				makeOutputItem('text/html', '<table></table>'),
+				makeOutputItem(DATA_EXPLORER_MIME_TYPE, '{}'),
+			];
+
+			expect(pickPreferredOutputItem(items, true)?.mime).toBe(DATA_EXPLORER_MIME_TYPE);
+		});
+	});
+
 	describe('parseOutputData: data explorer MIME type', () => {
 		const validPayload = JSON.stringify({
 			comm_id: 'test-comm-id',

@@ -42,22 +42,26 @@ export const DataExplorerCellOutput = React.memo(function DataExplorerCellOutput
 		);
 	}, [services.commandService]);
 
-	if (!enabled || useFallback) {
+	// When the inline data explorer is off, `pickPreferredOutputItem` already falls back to
+	// whatever else the kernel sent (`text/html` for Python, `text/plain` for R), so we only
+	// reach this branch when the data explorer payload is the cell's only output item.
+	if (!enabled) {
+		return <div className='data-explorer-disabled'>
+			{localize('dataExplorerDisabled', 'Inline data explorer is disabled. ')}
+			<a href='#' onClick={(e) => { e.preventDefault(); handleOpenSettings(); }}>
+				{localize('enableInSettings', 'Enable in settings')}
+			</a>
+			{localize('toViewDataGrids', ' to view data grids.')}
+		</div>;
+	}
+
+	if (useFallback) {
 		const htmlOutput = outputs.find(o => o.mime === 'text/html');
 		if (htmlOutput) {
 			const htmlParsed = parseOutputData(htmlOutput);
 			if (htmlParsed.type === 'html') {
 				return renderHtml(htmlParsed.content);
 			}
-		}
-		if (!enabled) {
-			return <div className='data-explorer-disabled'>
-				{localize('dataExplorerDisabled', 'Inline data explorer is disabled. ')}
-				<a href='#' onClick={(e) => { e.preventDefault(); handleOpenSettings(); }}>
-					{localize('enableInSettings', 'Enable in settings')}
-				</a>
-				{localize('toViewDataGrids', ' to view data grids.')}
-			</div>;
 		}
 		// Fallback was triggered but no HTML output is available.
 		// Show an explicit message instead of re-rendering InlineDataExplorer

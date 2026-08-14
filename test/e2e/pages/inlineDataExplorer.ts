@@ -79,6 +79,12 @@ export class InlineDataExplorer {
 		});
 	}
 
+	async expectNotToBeVisible(timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step('Verify inline data explorer is not visible', async () => {
+			await expect(this.container).not.toBeVisible({ timeout });
+		});
+	}
+
 	async expectGridToBeReady(timeout = DEFAULT_TIMEOUT): Promise<void> {
 		await test.step('Verify data grid is ready with content', async () => {
 			await expect(this.dataGrid).toBeVisible({ timeout });

@@ -10,6 +10,11 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { CellEditType, CellKind, NotebookCellsChangeType } from '../../../notebook/common/notebookCommon.js';
 import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { PositronNotebookCodeCell } from '../../browser/PositronNotebookCells/PositronNotebookCodeCell.js';
+import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { DATA_EXPLORER_MIME_TYPE } from '../../browser/getOutputContents.js';
+import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
 
 describe('PositronNotebookCell', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
@@ -360,5 +365,69 @@ describe('PositronNotebookCell Test Harness', () => {
 
 		expect(cellContentFired, 'NotebookCellTextModel.onDidChangeContent should fire when textModel.setValue() is called').toBe(true);
 		expect(notebookModelFired, 'NotebookTextModel.onDidChangeContent should fire when textModel.setValue() is called').toBe(true);
+	});
+});
+
+describe('PositronNotebookCell inline data explorer fallback', () => {
+	const ctx = createTestContainer().withNotebookEditorServices().build();
+
+	/**
+	 * Create a single-code-cell notebook whose cell holds one output with the
+	 * given mime types. Mirrors what a kernel emits for a data frame: ark sends
+	 * the data explorer payload alongside the autoprint text and no `text/html`,
+	 * while the Python kernel also sends an HTML table.
+	 */
+	function createCellWithOutputItems(mimes: string[]): PositronNotebookCodeCell {
+		const notebook = createTestPositronNotebookInstance([{
+			source: 'df',
+			mime: undefined,
+			language: 'r',
+			cellKind: CellKind.Code,
+			outputs: [{
+				outputId: 'output-1',
+				outputs: mimes.map(mime => ({ mime, data: VSBuffer.fromString(mime === DATA_EXPLORER_MIME_TYPE ? '{}' : '  x y\n1 1 4') })),
+			}],
+			metadata: {},
+			internalMetadata: {},
+		}], ctx);
+		return notebook.cells.get()[0] as PositronNotebookCodeCell;
+	}
+
+	function setInlineDataExplorerEnabled(enabled: boolean): void {
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		configurationService.setUserConfiguration(POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY, enabled);
+		configurationService.onDidChangeConfigurationEmitter.fire(
+			stubInterface<IConfigurationChangeEvent>({
+				affectsConfiguration: (key: string) => key === POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY,
+			})
+		);
+	}
+
+	it('renders the printed output instead of the grid when the setting is off', () => {
+		setInlineDataExplorerEnabled(false);
+		const cell = createCellWithOutputItems(['text/plain', DATA_EXPLORER_MIME_TYPE]);
+
+		expect(cell.outputs.get()[0].parsed).toEqual({ type: 'text', content: '  x y\n1 1 4' });
+	});
+
+	it('renders the grid when the setting is on', () => {
+		setInlineDataExplorerEnabled(true);
+		const cell = createCellWithOutputItems(['text/plain', DATA_EXPLORER_MIME_TYPE]);
+
+		expect(cell.outputs.get()[0].parsed.type).toBe('dataExplorer');
+	});
+
+	it('re-parses existing outputs when the setting is toggled', () => {
+		// The setting is WINDOW-scoped and takes effect without a reload, so already
+		// rendered outputs have to swap representation rather than wait for a re-run.
+		setInlineDataExplorerEnabled(true);
+		const cell = createCellWithOutputItems(['text/plain', DATA_EXPLORER_MIME_TYPE]);
+		expect(cell.outputs.get()[0].parsed.type).toBe('dataExplorer');
+
+		setInlineDataExplorerEnabled(false);
+		expect(cell.outputs.get()[0].parsed.type).toBe('text');
+
+		setInlineDataExplorerEnabled(true);
+		expect(cell.outputs.get()[0].parsed.type).toBe('dataExplorer');
 	});
 });
