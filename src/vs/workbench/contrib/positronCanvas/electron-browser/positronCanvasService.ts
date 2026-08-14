@@ -680,6 +680,13 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		// a window that hide then re-hides, leaving it lost.
 		const results = await Promise.allSettled(hides);
 
+		// The main window staying visible here is why the IDE can end up
+		// beside a live Canvas window; the main process abandons a hide it
+		// raced, and that is invisible from this side otherwise.
+		if (results[0].status === 'fulfilled' && results[0].value === false) {
+			this.logService.warn('[canvas] The IDE window did not hide: it was already away, or the hide was abandoned');
+		}
+
 		// A hide that resolved false found its window already hidden or
 		// minimized by the user; we did not put it away, so exit must not
 		// bring it back.
