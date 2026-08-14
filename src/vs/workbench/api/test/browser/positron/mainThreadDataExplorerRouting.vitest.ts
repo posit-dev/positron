@@ -7,6 +7,7 @@
 
 import { Event } from '../../../../../base/common/event.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { timeout } from '../../../../../base/common/async.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -24,12 +25,6 @@ import { IDataExplorerRpcDto } from '../../../../services/positronDataExplorer/c
 import { DUCKDB_DATA_EXPLORER_PROVIDER_ID } from '../../../../services/positronDataExplorer/common/positronDataExplorerDuckDBBackend.js';
 import { PositronDataExplorerService } from '../../../../services/positronDataExplorer/browser/positronDataExplorerService.js';
 
-/**
- * In the web workbench there are two extension hosts -- the browser web-worker host and the remote
- * server host -- so `MainThreadDataExplorer` (an `@extHostNamedCustomer`) is instantiated twice.
- * Native backends like positron-duckdb can only run in the remote host, so RPCs must reach the host
- * that registered the provider rather than whichever host connected most recently.
- */
 /** Everything unsupported; this test exercises routing, not grid features. */
 const NO_FEATURES: SupportedFeatures = {
 	search_schema: { support_status: SupportStatus.Unsupported, supported_types: [] },
@@ -41,6 +36,12 @@ const NO_FEATURES: SupportedFeatures = {
 	convert_to_code: { support_status: SupportStatus.Unsupported },
 };
 
+/**
+ * In the web workbench there are two extension hosts -- the browser web-worker host and the remote
+ * server host -- so `MainThreadDataExplorer` (an `@extHostNamedCustomer`) is instantiated twice.
+ * Native backends like positron-duckdb can only run in the remote host, so RPCs must reach the host
+ * that registered the provider rather than whichever host connected most recently.
+ */
 describe('Data Explorer RPC transport routing', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -85,8 +86,10 @@ describe('Data Explorer RPC transport routing', () => {
 	 * Stands up one extension host's MainThreadDataExplorer over the service, recording its RPCs.
 	 * @param providers Provider ids whose extensions are installed in this host; each registers its
 	 * RPC handler when activated, as the real backends do.
+	 * @param deferRegistration Register the handler after activation resolves rather than during it,
+	 * as an extension that awaits work inside `activate()` does.
 	 */
-	function createExtensionHost(providers: readonly string[] = []) {
+	function createExtensionHost(providers: readonly string[] = [], deferRegistration = false) {
 		const calls: Array<{ providerId: string; rpc: IDataExplorerRpcDto }> = [];
 		const proxy = stubInterface<ExtHostDataExplorerShape>({
 			$handleRpc: (providerId: string, rpc: IDataExplorerRpcDto) => {
@@ -102,15 +105,23 @@ describe('Data Explorer RPC transport routing', () => {
 		});
 		// The activation stub reaches back into the customer it belongs to, which doesn't exist yet.
 		const host: { mainThread?: MainThreadDataExplorer } = {};
+		const registerAfterActivation = async (providerId: string) => {
+			await timeout(0);
+			host.mainThread?.$registerRpcHandler(providerId);
+		};
 		const extensionService = stubInterface<IExtensionService>({
-			activateByEvent: (event: string) => {
+			activateByEvent: async (event: string) => {
 				// Activating a backend extension registers its RPC handler; a host that doesn't have the
 				// extension installed just resolves.
 				const providerId = providers.find(p => event === `onPositronDataExplorerBackend:${p}`);
-				if (providerId) {
+				if (!providerId) {
+					return;
+				}
+				if (deferRegistration) {
+					registerAfterActivation(providerId);
+				} else {
 					host.mainThread?.$registerRpcHandler(providerId);
 				}
-				return Promise.resolve();
 			},
 		});
 		host.mainThread = store.add(new MainThreadDataExplorer(extHostContext, service, extensionService));
@@ -145,6 +156,24 @@ describe('Data Explorer RPC transport routing', () => {
 		// The lazy path: nothing has registered when the file is opened, so the owning host is only
 		// identified by activating the provider in every connected host.
 		const remoteHost = createExtensionHost([DUCKDB_DATA_EXPLORER_PROVIDER_ID]);
+		const webWorkerHost = createExtensionHost();
+
+		await service.openWithDuckDB(URI.file('/tmp/small_file.csv'));
+		await vi.waitFor(() => expect(remoteHost.calls.length + webWorkerHost.calls.length).toBeGreaterThan(0));
+
+		expect({
+			remoteFirstCall: remoteHost.calls[0]?.rpc.method,
+			webWorkerCallCount: webWorkerHost.calls.length,
+		}).toEqual({
+			remoteFirstCall: DataExplorerBackendRequest.OpenDataset,
+			webWorkerCallCount: 0,
+		});
+	});
+
+	it('waits for a registration that lands after activation resolves', async () => {
+		// activateByEvent can resolve before the host's $registerRpcHandler is processed, so a claim
+		// arriving late must still be routed rather than treated as "no host has this provider".
+		const remoteHost = createExtensionHost([DUCKDB_DATA_EXPLORER_PROVIDER_ID], true);
 		const webWorkerHost = createExtensionHost();
 
 		await service.openWithDuckDB(URI.file('/tmp/small_file.csv'));

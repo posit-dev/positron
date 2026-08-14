@@ -128,6 +128,15 @@ class DataExplorerRuntime extends Disposable {
 }
 
 /**
+ * How long to wait for an extension host to claim a provider after activating it. Activation can
+ * resolve before the host's `$registerRpcHandler` message is processed here -- an extension that
+ * awaits work inside `activate()` before registering does exactly that. Mirrors the ext host's own
+ * wait for a handler to register (`extHostDataExplorer`), so a provider that never registers fails
+ * on the same budget it always has.
+ */
+const PROVIDER_REGISTRATION_TIMEOUT_MS = 30_000;
+
+/**
  * PositronDataExplorerService class.
  */
 export class PositronDataExplorerService extends Disposable implements IPositronDataExplorerService {
@@ -173,6 +182,12 @@ export class PositronDataExplorerService extends Disposable implements IPositron
 	 * ever exists in one host (positron-duckdb is native, so it is always the remote one in web).
 	 */
 	private readonly _providerTransports = new Map<string, IDataExplorerRpcTransport>();
+
+	/**
+	 * Fires the provider id whenever a host claims one, so a resolution in flight can pick up a
+	 * registration that lands after activation resolved.
+	 */
+	private readonly _onDidRegisterRpcProviderEmitter = this._register(new Emitter<string>());
 
 	/**
 	 * The transport handed to backends: it resolves the owning host per RPC rather than binding a
@@ -266,6 +281,7 @@ export class PositronDataExplorerService extends Disposable implements IPositron
 	 */
 	registerRpcProvider(providerId: string, transport: IDataExplorerRpcTransport): void {
 		this._providerTransports.set(providerId, transport);
+		this._onDidRegisterRpcProviderEmitter.fire(providerId);
 	}
 
 	/**
@@ -491,20 +507,40 @@ export class PositronDataExplorerService extends Disposable implements IPositron
 			throw new Error('The Data Explorer RPC transport is not available.');
 		}
 
-		await this._rpcRouter.activateProvider(providerId);
+		// Listen before activating: the registration can land while activation is still settling.
+		// Event.toPromise returns a CancelablePromise, so every path below either awaits or cancels it
+		// to clean up the filtered listener.
+		const registration = Event.toPromise(
+			Event.filter(this._onDidRegisterRpcProviderEmitter.event, id => id === providerId)
+		);
 
-		const activated = this._providerTransports.get(providerId);
-		if (activated) {
-			return activated;
+		try {
+			await this._rpcRouter.activateProvider(providerId);
+
+			const activated = this._providerTransports.get(providerId);
+			if (activated) {
+				return activated;
+			}
+
+			// With a single host there is nowhere else the provider could be, so send the RPC and let
+			// the ext host's own wait for the handler cover a registration that lands late.
+			if (this._rpcTransports.size === 1) {
+				return [...this._rpcTransports][0];
+			}
+
+			// Activation resolved without a claim: wait for the registration to arrive rather than
+			// guessing a host, which is the bug this routing exists to prevent.
+			await raceTimeout(registration, PROVIDER_REGISTRATION_TIMEOUT_MS);
+
+			const late = this._providerTransports.get(providerId);
+			if (late) {
+				return late;
+			}
+
+			throw new Error(`No extension host registered the Data Explorer provider '${providerId}'.`);
+		} finally {
+			registration.cancel();
 		}
-
-		// With a single host there is nowhere else the provider could be, so send the RPC and let the
-		// ext host's own wait for the handler cover a registration that lands late.
-		if (this._rpcTransports.size === 1) {
-			return [...this._rpcTransports][0];
-		}
-
-		throw new Error(`No extension host registered the Data Explorer provider '${providerId}'.`);
 	}
 
 	//#endregion IPositronDataExplorerService Implementation
