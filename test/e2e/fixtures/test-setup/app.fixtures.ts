@@ -38,6 +38,7 @@ export interface AppFixtureOptions {
 	 * settings into the container settings.
 	 */
 	enableFoundryAssistant?: boolean;
+	extraSettings?: Record<string, unknown>;
 }
 
 /**

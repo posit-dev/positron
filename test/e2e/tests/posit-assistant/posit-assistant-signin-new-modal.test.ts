@@ -14,9 +14,19 @@ test.use({
 	// AWS Bedrock keeps its environment credential chain (it has no key to type and
 	// authenticates from the environment by design).
 	extraEnv: { ANTHROPIC_API_KEY: undefined, OPENAI_API_KEY: undefined },
+	// Written into user settings before the app starts. Setting this from a
+	// beforeAll instead leaves the first test racing the config reload, which it
+	// loses often enough to fail under CI load.
+	//
+	// Whatever goes wrong with settings here, do not reach for a window reload. A
+	// restarted extension host re-probes the cloud credential-chain metadata
+	// endpoints (AWS/Azure IMDS, metadata.google.internal). Those are unreachable
+	// from the test container and hang, starving DNS for api.anthropic.com and
+	// api.openai.com. Provider key validation then aborts on its own budget
+	// (KEY_VALIDATION_TIMEOUT_MS in extensions/authentication/src/constants.ts) and
+	// the modal never reaches the Connected view.
+	extraSettings: { 'assistant.newProviderModal': true },
 });
-
-const NEW_PROVIDER_MODAL_KEY = 'assistant.newProviderModal';
 
 const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
 	'anthropic-api',
@@ -31,22 +41,6 @@ const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
 test.describe('Posit Assistant Sign-in (new provider modal)', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
 }, () => {
-
-	test.beforeAll('Enable the new provider modal', async function ({ settings }) {
-		// Deliberately no reload: the switch is read live every time the Configure
-		// Providers command runs, so the setting takes effect without one. Reloading
-		// also broke this suite in CI -- the restarted extension host re-probes the
-		// cloud credential-chain metadata endpoints (AWS/Azure IMDS,
-		// metadata.google.internal), which are unreachable in the test container and
-		// hang. Those pending lookups starve DNS for api.anthropic.com /
-		// api.openai.com, so the provider key validation aborted on its fixed 5s
-		// budget and the modal never reached the Connected view.
-		await settings.set({ [NEW_PROVIDER_MODAL_KEY]: true });
-	});
-
-	test.afterAll('Disable the new provider modal', async function ({ settings }) {
-		await settings.remove([NEW_PROVIDER_MODAL_KEY]);
-	});
 
 	for (const provider of POSIT_ASSISTANT_SIGNIN_PROVIDERS) {
 		test(`${provider} - Sign in, send hello, sign out`, async function ({ app }) {

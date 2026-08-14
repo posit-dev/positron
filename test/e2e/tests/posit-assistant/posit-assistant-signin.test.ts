@@ -4,10 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import { ModelProvider } from '../../pages/modelProviderAuth';
+import { ModelProvider } from '../../pages/modelProviderShared';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	// This suite covers the legacy provider dialog. Its new-modal counterpart is
+	// posit-assistant-signin-new-modal. Delete this file, and the pin, when the
+	// legacy dialog is removed.
+	extraSettings: { 'assistant.newProviderModal': false },
 });
 
 const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
