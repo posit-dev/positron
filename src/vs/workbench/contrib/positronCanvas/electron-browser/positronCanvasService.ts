@@ -411,6 +411,8 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	}
 
 	private async doExit(): Promise<boolean> {
+		this.logService.info(`[canvas] Exiting Canvas mode (${this.canvasWindow.value !== undefined ? 'presenting' : 'not presenting'})`);
+
 		// Retires any entry still in flight, before anything it could race with.
 		this.exitGeneration++;
 
@@ -586,6 +588,8 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		// The window can also go away without anyone asking us (OS close
 		// button, renderer crash); the IDE window has to come back.
 		disposables.add(Event.once(part.onWillDispose)(() => {
+			this.logService.info(`[canvas] The Canvas window (${part.windowId}) went away while presenting${this.lifecycleService.willShutdown ? ' during shutdown' : '; returning to the IDE'}`);
+
 			// Losing the window supersedes an in-flight entry the same way an
 			// exit does; without this it would resume and report success for
 			// a window that no longer exists.
@@ -609,6 +613,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		this.canvasGroup = group;
 		this.modeActiveContext.set(true);
 		this.setCanvasModeIntent(true);
+		this.logService.info(`[canvas] Presenting Canvas in window ${part.windowId}`);
 
 		group.focus();
 	}
@@ -639,6 +644,8 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	}
 
 	private async hideIdeWindow(canvasWindowId: number): Promise<void> {
+		this.logService.info('[canvas] Hiding the IDE window behind Canvas');
+
 		// Unguarded, unlike `revealIdeWindow()`: a forwarded `--canvas`
 		// re-entry can focus (reveal) the IDE window on its way in, so
 		// skipping "already hidden" work would leave it behind Canvas.
@@ -698,6 +705,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		if (!this.ideWindowHidden && this.hiddenAuxWindowIds.size === 0 && !force) {
 			return;
 		}
+		this.logService.info('[canvas] Revealing the IDE window');
 
 		// A hidden window is not brought back by focus alone; show it first.
 		// The flag flips only after the show lands: clearing it up front
