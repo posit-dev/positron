@@ -6,6 +6,7 @@
 import { app, BrowserWindow } from 'electron';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { Disposable } from '../../../base/common/lifecycle.js';
+import { ILifecycleMainService } from '../../lifecycle/electron-main/lifecycleMainService.js';
 import { ILogService } from '../../log/common/log.js';
 import { EXTERNAL_OPEN_EXIT_WAIT, IPositronStandaloneModeMainService } from '../common/positronStandaloneMode.js';
 
@@ -27,16 +28,18 @@ export class PositronStandaloneModeMainService extends Disposable implements IPo
 	}
 
 	constructor(
-		@ILogService private readonly logService: ILogService
+		@ILogService private readonly logService: ILogService,
+		@ILifecycleMainService private readonly lifecycleMainService: ILifecycleMainService
 	) {
 		super();
 
 		// A window that goes away without releasing its claim must not leave
-		// the mode engaged forever. Reload and a dead renderer keep the
-		// BrowserWindow while discarding the renderer that held the claim, so
-		// all three paths release; a reloaded window re-enters through its
-		// restored intent. Watched per window because the bundled electron
-		// typings expose no application-level closed event.
+		// the mode engaged forever. Reload, a dead renderer, and a failed
+		// main-frame load keep the BrowserWindow while discarding the renderer
+		// that held the claim, so all four paths release; a reloaded window
+		// re-enters through its restored intent. Watched per window because
+		// the bundled electron typings expose no application-level closed
+		// event.
 		const onWindowCreated = (_event: Electron.Event, window: BrowserWindow) => {
 			const windowId = window.id;
 			const releaseIfHeld = () => {
@@ -47,6 +50,13 @@ export class PositronStandaloneModeMainService extends Disposable implements IPo
 			window.on('closed', releaseIfHeld);
 			window.webContents.on('did-navigate', releaseIfHeld);
 			window.webContents.on('render-process-gone', releaseIfHeld);
+			window.webContents.on('did-fail-load', (_e, errorCode, _description, _url, isMainFrame) => {
+				// ERR_ABORTED (-3) accompanies deliberately cancelled loads,
+				// not renderers that failed to come up.
+				if (isMainFrame && errorCode !== -3) {
+					releaseIfHeld();
+				}
+			});
 		};
 		app.on('browser-window-created', onWindowCreated);
 		this._register({ dispose: () => app.removeListener('browser-window-created', onWindowCreated) });
@@ -85,8 +95,27 @@ export class PositronStandaloneModeMainService extends Disposable implements IPo
 			return;
 		}
 		this.engagement = undefined;
+		this.revealIfHidden(windowId);
 		this.logService.trace('[standalone mode] Released');
 		this._onDidChange.fire();
+	}
+
+	/**
+	 * The mode OS-hides the IDE window; a claim that drops before the renderer
+	 * reveals it (reload, dead renderer, failed load) would otherwise leave the
+	 * product with no visible window at all. A clean exit reveals first, so the
+	 * show is a no-op there. Skipped while quitting so the release fired by
+	 * shutdown teardown does not flash the window on the way out.
+	 */
+	private revealIfHidden(windowId: number): void {
+		if (this.lifecycleMainService.quitRequested) {
+			return;
+		}
+		const window = BrowserWindow.fromId(windowId);
+		if (window && !window.isDestroyed() && !window.isVisible()) {
+			this.logService.info(`[standalone mode] Showing window ${windowId} left hidden by the released engagement`);
+			window.show();
+		}
 	}
 
 	async handleExternalOpen(open: () => void, exitMode: (engagedWindowId: number, exitCommandId: string) => void): Promise<void> {
