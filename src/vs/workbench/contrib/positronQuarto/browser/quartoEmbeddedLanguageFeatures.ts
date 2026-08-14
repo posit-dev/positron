@@ -6,6 +6,8 @@
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { onUnexpectedExternalError } from '../../../../base/common/errors.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { assertType } from '../../../../base/common/types.js';
+import { Constants } from '../../../../base/common/uint.js';
 import { URI } from '../../../../base/common/uri.js';
 import { Position } from '../../../../editor/common/core/position.js';
 import { IRange } from '../../../../editor/common/core/range.js';
@@ -35,6 +37,7 @@ import {
 } from '../../../../editor/common/languages.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { localize } from '../../../../nls.js';
+import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService, LogLevel } from '../../../../platform/log/common/log.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
@@ -171,6 +174,27 @@ function mapDocumentSymbol(cell: ICellLineSpan, symbol: DocumentSymbol): Documen
 }
 
 /**
+ * The source range of a cell's code, fences excluded.
+ *
+ * Built from the line span rather than from the cell's text model, because a
+ * sync can dispose that model while a request is out and the only consumer
+ * matches on lines. `MAX_SAFE_SMALL_INTEGER` is the codebase's way of saying
+ * "to the end of the line".
+ *
+ * An empty chunk produces `codeStartLine > codeEndLine`, which would build an
+ * inverted range here, but that case cannot arrive: an empty cell has no
+ * symbols, and a cell with no symbols is omitted before its range is ever built.
+ */
+function cellSourceRange(span: ICellLineSpan): IRange {
+	return {
+		startLineNumber: span.codeStartLine,
+		startColumn: 1,
+		endLineNumber: span.codeEndLine,
+		endColumn: Constants.MAX_SAFE_SMALL_INTEGER,
+	};
+}
+
+/**
  * Remap a statement range result into source coordinates.
  *
  * The two outcomes carry their coordinates differently. A success carries a
@@ -185,6 +209,17 @@ function mapStatementRange(cell: ICellLineSpan, result: IStatementRange): IState
 	return result.line === undefined
 		? result
 		: { ...result, line: cellZeroBasedLineToSource(cell, result.line) };
+}
+
+/**
+ * The providers to ask about a cell, in order, with our own filtered out.
+ *
+ * See `QuartoEmbeddedProvider._downstream` for why callers take the first
+ * usable answer rather than merging every provider's.
+ */
+function downstreamProviders<T>(registry: LanguageFeatureRegistry<T>, textModel: ITextModel): T[] {
+	return registry.ordered(textModel)
+		.filter(provider => !(provider instanceof QuartoEmbeddedProvider));
 }
 
 /**
@@ -221,7 +256,7 @@ abstract class QuartoEmbeddedProvider {
 
 	/** Whether anybody is reading the trace, so a message is worth building. */
 	protected get _tracing(): boolean {
-		return this._logService.getLevel() <= LogLevel.Trace;
+		return this._logService.getLevel() === LogLevel.Trace;
 	}
 
 	/**
@@ -279,8 +314,7 @@ abstract class QuartoEmbeddedProvider {
 	 * runs against the slowness this routing exists to fix.
 	 */
 	protected _downstream<T>(registry: LanguageFeatureRegistry<T>, textModel: ITextModel): T[] {
-		return registry.ordered(textModel)
-			.filter(provider => !(provider instanceof QuartoEmbeddedProvider));
+		return downstreamProviders(registry, textModel);
 	}
 
 	/**
@@ -511,6 +545,108 @@ class QuartoEmbeddedDefinitionProvider extends QuartoEmbeddedProvider implements
 	}
 }
 
+/** The first usable answer for one cell, already in source coordinates. */
+async function symbolsForCell(
+	languageFeatures: ILanguageFeaturesService,
+	textModel: ITextModel,
+	span: ICellLineSpan,
+	token: CancellationToken
+): Promise<DocumentSymbol[] | undefined> {
+	// A rebuild disposes the models it replaced, so a model read before the
+	// requests went out can be gone by the time this runs.
+	if (textModel.isDisposed()) {
+		return undefined;
+	}
+	for (const provider of downstreamProviders(languageFeatures.documentSymbolProvider, textModel)) {
+		try {
+			const result = await provider.provideDocumentSymbols(textModel, token);
+			if (result && result.length > 0) {
+				return result.map(symbol => mapDocumentSymbol(span, symbol));
+			}
+		} catch (error) {
+			// One provider failing must not discard the other cells' symbols, so
+			// report it and move on to the next provider for this cell.
+			onUnexpectedExternalError(error);
+		}
+	}
+	return undefined;
+}
+
+/** One cell's symbols, and where that cell's code sits in the source document. */
+export interface IQuartoCellSymbols {
+	readonly range: IRange;
+	readonly symbols: DocumentSymbol[];
+}
+
+/**
+ * The symbols of every code cell in a Quarto document, grouped by the cell they
+ * came from and already in source coordinates.
+ *
+ * Two consumers: the Outline provider below, which flattens this, and the
+ * `_executeQuartoCellSymbolProvider` command, which hands the grouping to the
+ * Quarto extension so it can nest each cell's symbols under that chunk in the
+ * tree it already builds. Grouped rather than flat because only the extension
+ * knows which heading a chunk sits under.
+ *
+ * A cell with nothing to report is omitted rather than returned empty, and an
+ * unknown document answers with an empty array rather than undefined, so a
+ * caller has one shape to handle.
+ */
+export async function provideQuartoCellSymbols(
+	virtualNotebooks: IQuartoVirtualNotebookService,
+	languageFeatures: ILanguageFeaturesService,
+	logService: ILogService,
+	uri: URI,
+	token: CancellationToken
+): Promise<IQuartoCellSymbols[]> {
+	// Notebook creation is asynchronous so a request that arrives during
+	// creation would see no cells at all.
+	await virtualNotebooks.whenReady(uri);
+
+	virtualNotebooks.ensureSynchronized(uri);
+
+	// Snapshot before the requests go out, since a sync rebuilds the cells. The
+	// spans are a copy, not a guarantee: an edit that leaves the chunk structure
+	// alone updates them in place, and the next pass corrects what this missed.
+	const cells = virtualNotebooks.getCells(uri).map(cell => ({
+		textModel: cell.textModel,
+		span: { codeStartLine: cell.codeStartLine, codeEndLine: cell.codeEndLine },
+	}));
+
+	if (token.isCancellationRequested) {
+		return [];
+	}
+
+	// Ask every cell at once. Cells are independent and each request is a round
+	// trip to a language server, so asking them one at a time makes the walk
+	// cost the sum of those trips instead of the longest one. On the 45 chunks
+	// of posit-dev/positron#14512 that was the difference between 5049 ms and
+	// 63 ms.
+	const perCell = await Promise.all(cells.map(
+		({ textModel, span }) => symbolsForCell(languageFeatures, textModel, span, token)));
+
+	// Cancelling cannot un-ask a request that already went out. What it must do
+	// is keep a superseded pass from reaching the Outline.
+	if (token.isCancellationRequested) {
+		return [];
+	}
+
+	const grouped: IQuartoCellSymbols[] = [];
+	for (let index = 0; index < cells.length; index++) {
+		const symbols = perCell[index];
+		if (symbols) {
+			grouped.push({ range: cellSourceRange(cells[index].span), symbols });
+		}
+	}
+
+	if (logService.getLevel() === LogLevel.Trace) {
+		logService.trace('[QuartoEmbedded] document symbols answered from ' +
+			`${grouped.length} of ${cells.length} cell(s)`);
+	}
+
+	return grouped;
+}
+
 /**
  * Serves the Outline for a Quarto document from its code cells. Asked about the
  * whole document rather than a position, so it walks every cell.
@@ -520,79 +656,25 @@ class QuartoEmbeddedDefinitionProvider extends QuartoEmbeddedProvider implements
  * second and redoes the whole set. These cells are already open models, so there
  * is no retry and nothing to wait for.
  *
- * Until the Quarto extension defers to us it also nests each cell's symbols
- * under the heading above them, so expect every code symbol twice.
+ * This produces a second, flat Outline group alongside the Quarto extension's
+ * own nested one, so expect every code symbol twice until this provider's
+ * registration is removed. The extension gets the nested contents it builds its
+ * own tree from through `_executeQuartoCellSymbolProvider` instead, not from
+ * this provider.
  */
 class QuartoEmbeddedDocumentSymbolProvider extends QuartoEmbeddedProvider implements DocumentSymbolProvider {
 	/** Names this group in the Outline. */
 	readonly displayName = localize('positron.quarto.outlineProvider', "Quarto Code Cells");
 
 	async provideDocumentSymbols(model: ITextModel, token: CancellationToken): Promise<DocumentSymbol[] | undefined> {
-		this._virtualNotebooks.ensureSynchronized(model.uri);
-
-		// Snapshot before the requests go out, since a sync rebuilds the cells. The
-		// spans are a copy, not a guarantee: an edit that leaves the chunk structure
-		// alone updates them in place, and the next pass corrects what this missed.
-		const cells = this._virtualNotebooks.getCells(model.uri).map(cell => ({
-			textModel: cell.textModel,
-			span: { codeStartLine: cell.codeStartLine, codeEndLine: cell.codeEndLine },
-		}));
-
-		if (token.isCancellationRequested) {
-			return undefined;
-		}
-
-		// Ask every cell at once. Cells are independent and each request is a round
-		// trip to a language server, so asking them one at a time makes the walk
-		// cost the sum of those trips instead of the longest one. On the 45 chunks
-		// of posit-dev/positron#14512 that was the difference between 5049 ms and
-		// 63 ms.
-		const perCell = await Promise.all(cells.map(
-			({ textModel, span }) => this._symbolsForCell(textModel, span, token)));
-
-		// Cancelling cannot un-ask a request that already went out. What it must do
-		// is keep a superseded pass from contributing to the Outline.
-		if (token.isCancellationRequested) {
-			return undefined;
-		}
-
-		const symbols = perCell.flatMap(cellSymbols => cellSymbols ?? []);
-		const answered = perCell.filter(cellSymbols => cellSymbols !== undefined).length;
-
-		if (this._tracing) {
-			this._logService.trace('[QuartoEmbedded] document symbols answered from ' +
-				`${answered} of ${cells.length} cell(s)`);
-		}
+		const grouped = await provideQuartoCellSymbols(
+			this._virtualNotebooks, this._languageFeatures, this._logService, model.uri, token);
+		const symbols = grouped.flatMap(entry => entry.symbols);
 
 		// An empty list would still build a group in the Outline, which is noise
-		// beside the Quarto server's headings.
+		// beside the Quarto server's headings. It is also what a cancelled
+		// request produces, which must not replace the results it superseded.
 		return symbols.length > 0 ? symbols : undefined;
-	}
-
-	/** The first usable answer for one cell, already in source coordinates. */
-	private async _symbolsForCell(
-		textModel: ITextModel,
-		span: ICellLineSpan,
-		token: CancellationToken
-	): Promise<DocumentSymbol[] | undefined> {
-		// A rebuild disposes the models it replaced, so a model read before the
-		// requests went out can be gone by the time this runs.
-		if (textModel.isDisposed()) {
-			return undefined;
-		}
-		for (const provider of this._downstream(this._languageFeatures.documentSymbolProvider, textModel)) {
-			try {
-				const result = await provider.provideDocumentSymbols(textModel, token);
-				if (result && result.length > 0) {
-					return result.map(symbol => mapDocumentSymbol(span, symbol));
-				}
-			} catch (error) {
-				// One provider failing must not discard the other cells' symbols, so
-				// report it and move on to the next provider for this cell.
-				onUnexpectedExternalError(error);
-			}
-		}
-		return undefined;
 	}
 }
 
@@ -705,3 +787,28 @@ export class QuartoEmbeddedLanguageFeatures extends Disposable implements IWorkb
 			QUARTO_SELECTOR, new QuartoEmbeddedHelpTopicProvider(...args)));
 	}
 }
+
+/**
+ * Answers the symbols of a Quarto document's code cells, grouped by cell.
+ *
+ * Exposed to extensions as `positron.executeQuartoCellSymbolProvider`, which is
+ * how the Quarto extension gets code symbols without building a temporary file
+ * per cell. It nests them into the Outline tree itself, under the chunk each one
+ * came from, which is why the answer is grouped rather than flat.
+ *
+ * Registered unconditionally, unlike the providers above. It needs no setting
+ * gate: virtual notebooks only exist while `quarto.embeddedLanguageFeatures.native`
+ * is on, so with the setting off there are no cells and the answer is empty.
+ */
+CommandsRegistry.registerCommand('_executeQuartoCellSymbolProvider', async (accessor, ...args: [URI]) => {
+	const [uri] = args;
+	assertType(URI.isUri(uri));
+
+	return await provideQuartoCellSymbols(
+		accessor.get(IQuartoVirtualNotebookService),
+		accessor.get(ILanguageFeaturesService),
+		accessor.get(ILogService),
+		uri,
+		CancellationToken.None
+	);
+});
