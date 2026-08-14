@@ -8,7 +8,7 @@ import { join } from 'path';
 import { expect, tags, test } from '../_test.setup';
 import { Application, Sessions } from '../../infra';
 import { readActivatedExtensions } from '../../utils/memory/extensions.js';
-import { collectAllGarbage } from '../../utils/memory/gc.js';
+import { collectAllGarbage, GC_TARGETS } from '../../utils/memory/gc.js';
 import { fetchBaseline, publishSnapshots } from '../../utils/memory/publish.js';
 import { renderHtml, renderMarkdown } from '../../utils/memory/render.js';
 import { captureSnapshot, SAMPLING_CAP_MS, SETTLE_CAP_MS, unstableProcesses } from '../../utils/memory/snapshot.js';
@@ -117,6 +117,16 @@ export function defineMemoryScenario(options: {
 				extensions,
 				forceGc: () => collectAllGarbage()
 			});
+
+			// --- TEMP DIAGNOSTIC: revert before merge ---
+			// The notebook scenario's ext host is bimodal (+~40 MB on half of
+			// launches, surviving the forced GC). Dump the loaded-module list and a
+			// heap snapshot per launch into the artifact dir so a fat and a thin
+			// launch can be diffed offline.
+			if (scenario === 'notebook') {
+				await dumpExtHostDiagnostics(SNAPSHOT_DIR, Number(process.env.MEMORY_LAUNCH_INDEX ?? 0));
+			}
+			// --- END TEMP DIAGNOSTIC ---
 
 			expect(snapshot.processes.length, 'no processes found in the tree').toBeGreaterThan(3);
 			expect(snapshot.treeTotalPssBytes, 'total PSS was zero; smaps_rollup is probably unreadable').toBeGreaterThan(0);
@@ -241,3 +251,44 @@ export function defineMemoryScenario(options: {
 		});
 	});
 }
+
+// --- TEMP DIAGNOSTIC: revert before merge ---
+// Dumps the ext host's loaded-module list and a V8 heap snapshot into the
+// artifact dir. process.getBuiltinModule is used because the ext host's
+// evaluated context has no global require.
+async function dumpExtHostDiagnostics(dir: string, launchIndex: number): Promise<void> {
+	const port = GC_TARGETS.find(t => t.role === 'extension_host')!.port;
+	const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json() as { webSocketDebuggerUrl?: string }[];
+	const ws = new WebSocket(targets[0].webSocketDebuggerUrl!);
+	await new Promise<void>((resolve, reject) => {
+		ws.onopen = () => resolve();
+		ws.onerror = () => reject(new Error('diagnostic ws connection failed'));
+	});
+	let nextId = 1;
+	const pending = new Map<number, (msg: any) => void>();
+	ws.onmessage = (ev: any) => {
+		const msg = JSON.parse(String(ev.data));
+		pending.get(msg.id)?.(msg);
+		pending.delete(msg.id);
+	};
+	const evaluate = (expression: string, timeoutMs: number): Promise<string> => new Promise((resolve, reject) => {
+		const id = nextId++;
+		const timer = setTimeout(() => reject(new Error(`diagnostic evaluate timed out after ${timeoutMs}ms`)), timeoutMs);
+		pending.set(id, msg => {
+			clearTimeout(timer);
+			msg.error ? reject(new Error(JSON.stringify(msg.error))) : resolve(msg.result?.result?.value);
+		});
+		ws.send(JSON.stringify({ id, method: 'Runtime.evaluate', params: { expression, returnByValue: true } }));
+	});
+	try {
+		mkdirSync(dir, { recursive: true });
+		const modules = await evaluate(
+			`JSON.stringify(Object.keys(process.getBuiltinModule('module')._cache ?? {}))`, 15_000);
+		writeFileSync(join(dir, `exthost-modules-${launchIndex}.json`), String(modules));
+		const snapPath = join(dir, `exthost-${launchIndex}.heapsnapshot`);
+		await evaluate(`process.getBuiltinModule('v8').writeHeapSnapshot(${JSON.stringify(snapPath)})`, 240_000);
+	} finally {
+		ws.close();
+	}
+}
+// --- END TEMP DIAGNOSTIC ---
