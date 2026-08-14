@@ -194,10 +194,20 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		return this._vulnerabilitySource;
 	}
 
-	/** Whether the cache holds outdated state for the package's current version. */
-	private _hasFreshMetadata(pkg: ILanguageRuntimePackage): boolean {
+	/**
+	 * Whether the cache holds usable metadata for the package's current version.
+	 *
+	 * When the runtime reports outdated state, an entry carrying none is not
+	 * fresh: it was written by a round where only the advisory lookup answered,
+	 * and letting it stand in for outdated state would hide the update indicator
+	 * until the freshness window ages out.
+	 */
+	private _hasFreshMetadata(pkg: ILanguageRuntimePackage, expectsOutdated: boolean): boolean {
 		const metadata = this._metadataCache.get(pkg.name.toLowerCase());
-		return metadata !== undefined && metadata.version === pkg.version;
+		if (metadata === undefined || metadata.version !== pkg.version) {
+			return false;
+		}
+		return !expectsOutdated || metadata.outdated !== undefined;
 	}
 
 	/**
@@ -299,9 +309,10 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// Cancel any prior in-flight fetch so re-entrance supersedes rather than no-ops
 		this._metadataFetch?.cancel();
 
+		const expectsOutdated = !!packageManager.getPackageMetadata;
 		const packagesToFetch = fetchAll
 			? this._packages
-			: this._packages.filter((pkg) => !this._hasFreshMetadata(pkg));
+			: this._packages.filter((pkg) => !this._hasFreshMetadata(pkg, expectsOutdated));
 
 		if (packagesToFetch.length === 0) {
 			// Every package already has fresh cached metadata, just fire the event
@@ -392,11 +403,13 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 					entry.outdated = metadata.outdated;
 					entry.latestVersion = metadata.latestVersion;
 				}
-				if (vulnerabilities) {
+				if (vulnerabilities?.queried.has(key)) {
 					// Unlike the metadata map, an absent key here is an answer:
-					// a successful lookup that doesn't mention the package means
-					// the repository doesn't have it at this version, so any
-					// advisories cached earlier can no longer be claimed.
+					// a lookup that asked about the package and didn't mention it
+					// means the repository doesn't have it at this version, so any
+					// advisories cached earlier can no longer be claimed. Packages
+					// the lookup never reached (a failed chunk, a spent budget)
+					// keep what they had -- silence there is not an all-clear.
 					entry.vulnerabilities = vulnerabilities.vulnerabilities.get(key);
 				}
 				this._metadataCache.set(key, entry);

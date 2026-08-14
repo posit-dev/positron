@@ -105,9 +105,16 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		cache.upsert(RUNTIME_ID, packages, { vulnerabilitySource: source, now: Date.now() - ageMs });
 	}
 
-	/** A lookup result carrying `advisories` for the named packages. */
-	function lookupResult(advisories: Array<[string, typeof ADVISORY[] | []]>): IPackageVulnerabilityResult {
-		return { source: SOURCE, vulnerabilities: new Map(advisories) };
+	/**
+	 * A lookup result carrying `advisories` for the named packages. `queried`
+	 * defaults to those same names; pass it explicitly to model a partial
+	 * lookup that never reached some of the packages it was given.
+	 */
+	function lookupResult(
+		advisories: Array<[string, typeof ADVISORY[] | []]>,
+		queried: string[] = advisories.map(([name]) => name),
+	): IPackageVulnerabilityResult {
+		return { source: SOURCE, vulnerabilities: new Map(advisories), queried: new Set(queried) };
 	}
 
 	/** Waits for `onDidRefreshPackagesInstance` to fire `count` times. */
@@ -347,6 +354,44 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		const [, stage2] = await fires;
 
 		expect(stage2.find(p => p.name === 'numpy')?.vulnerabilities).toEqual([]);
+	});
+
+	it('keeps cached advisories for packages a partial lookup never reached', async () => {
+		// A failed chunk (or a spent budget) leaves its packages unqueried.
+		// Silence about a package nobody asked about is not an all-clear.
+		seed({
+			numpy: { version: '1.26.0', outdated: true, vulnerabilities: [ADVISORY] },
+			pandas: { version: '2.0.0', outdated: true, vulnerabilities: [ADVISORY] },
+		}, 25 * HOUR_MS, SOURCE);
+		getVulnerabilities.mockResolvedValue(lookupResult([['pandas', []]], ['pandas']));
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await fires;
+
+		expect(stage2.find(p => p.name === 'numpy')?.vulnerabilities).toEqual([ADVISORY]);
+		expect(stage2.find(p => p.name === 'pandas')?.vulnerabilities).toEqual([]);
+	});
+
+	it('retries outdated state after a round where only the advisory lookup answered', async () => {
+		// The advisory entries written by that round must not make the packages
+		// look fresh, or the update indicator stays missing until the freshness
+		// window ages out.
+		getPackageMetadata.mockRejectedValueOnce(new Error('pip list --outdated failed'));
+		getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]], ['pandas', []]]));
+
+		const instance = makeInstance();
+		const first = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		await first;
+
+		const second = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await second;
+
+		expect(getPackageMetadata).toHaveBeenCalledTimes(2);
+		expect(stage2.find(p => p.name === 'numpy')).toMatchObject({ outdated: true, latestVersion: '2.1.0' });
 	});
 
 	it('runs Stage 2 for advisories even when the runtime reports no metadata', async () => {
