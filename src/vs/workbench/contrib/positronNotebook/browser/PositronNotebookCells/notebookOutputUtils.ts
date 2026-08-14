@@ -8,21 +8,14 @@ import { isDataExplorerMimeType } from '../getOutputContents.js';
 import { isComplexHtml } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 
 /**
- * Priority given to the data explorer payload when the inline data explorer is disabled.
- * Ranks below every mime type we know how to render so the cell falls back to whatever the
- * kernel sent alongside it, and is only picked when the payload is the sole output item.
- */
-const DISABLED_DATA_EXPLORER_PRIORITY = 5;
-
-/**
  * Get the priority of a mime type for sorting purposes
  * @param mime The mime type to get the priority of
  * @returns A number representing the priority of the mime type. Lower numbers are higher priority.
  */
-function getMimeTypePriority(mime: string, inlineDataExplorerEnabled: boolean): number | null {
-	// Positron inline data explorer has highest priority when it is enabled.
+function getMimeTypePriority(mime: string): number | null {
+	// Positron inline data explorer has highest priority
 	if (isDataExplorerMimeType(mime)) {
-		return inlineDataExplorerEnabled ? 0 : DISABLED_DATA_EXPLORER_PRIORITY;
+		return 0;
 	}
 
 	if (mime.includes('application')) {
@@ -51,14 +44,10 @@ function getMimeTypePriority(mime: string, inlineDataExplorerEnabled: boolean): 
 /**
  * Pick the output item with the highest priority mime type from a cell output object
  * @param outputItems Array of outputs items data from a cell output object
- * @param inlineDataExplorerEnabled Whether the inline data explorer is enabled. When it is off,
- * the data explorer payload is skipped in favor of the richer representation the kernel sent
- * alongside it (`text/html` for Python, `text/plain` for R), so the cell renders the same way it
- * would if the feature did not exist.
  * @returns The output item with the highest priority mime type. If there's a tie, the first one is
  * returned. If there's an unknown mime type we defer to ones we do know about.
  */
-export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[], inlineDataExplorerEnabled: boolean = true): NotebookCellOutputItem | undefined {
+export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[]): NotebookCellOutputItem | undefined {
 
 	if (outputItems.length === 0) {
 		return undefined;
@@ -68,7 +57,7 @@ export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[], i
 	let preferredOutput = outputItems[0];
 
 	for (const item of outputItems) {
-		const priority = getMimeTypePriority(item.mime, inlineDataExplorerEnabled);
+		const priority = getMimeTypePriority(item.mime);
 
 		// If we don't know how to render any of the mime types, we'll return the first one and hope
 		// for the best!

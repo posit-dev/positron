@@ -377,6 +377,12 @@ describe('PositronNotebookCell inline data explorer fallback', () => {
 	 * the data explorer payload alongside the autoprint text and no `text/html`,
 	 * while the Python kernel also sends an HTML table.
 	 */
+	const contentByMime: Record<string, string> = {
+		[DATA_EXPLORER_MIME_TYPE]: '{}',
+		'text/html': '<table></table>',
+		'text/plain': '  x y\n1 1 4',
+	};
+
 	function createCellWithOutputItems(mimes: string[]): PositronNotebookCodeCell {
 		const notebook = createTestPositronNotebookInstance([{
 			source: 'df',
@@ -385,7 +391,7 @@ describe('PositronNotebookCell inline data explorer fallback', () => {
 			cellKind: CellKind.Code,
 			outputs: [{
 				outputId: 'output-1',
-				outputs: mimes.map(mime => ({ mime, data: VSBuffer.fromString(mime === DATA_EXPLORER_MIME_TYPE ? '{}' : '  x y\n1 1 4') })),
+				outputs: mimes.map(mime => ({ mime, data: VSBuffer.fromString(contentByMime[mime]) })),
 			}],
 			metadata: {},
 			internalMetadata: {},
@@ -403,11 +409,29 @@ describe('PositronNotebookCell inline data explorer fallback', () => {
 		);
 	}
 
-	it('renders the printed output instead of the grid when the setting is off', () => {
+	it('renders the printed output instead of the grid when the setting is off (R)', () => {
+		// Ark sends the autoprint text alongside the data explorer payload and no
+		// text/html, so turning the feature off has to land on the printed data frame.
 		setInlineDataExplorerEnabled(false);
 		const cell = createCellWithOutputItems(['text/plain', DATA_EXPLORER_MIME_TYPE]);
 
 		expect(cell.outputs.get()[0].parsed).toEqual({ type: 'text', content: '  x y\n1 1 4' });
+	});
+
+	it('renders the HTML table when the setting is off and the kernel sent one (Python)', () => {
+		setInlineDataExplorerEnabled(false);
+		const cell = createCellWithOutputItems(['text/plain', 'text/html', DATA_EXPLORER_MIME_TYPE]);
+
+		expect(cell.outputs.get()[0].parsed).toEqual({ type: 'html', content: '<table></table>' });
+	});
+
+	it('keeps the data explorer output when the payload is the only output item', () => {
+		// Nothing else to render, so the output stays a data explorer and the renderer
+		// shows its "enable in settings" placeholder rather than an empty cell.
+		setInlineDataExplorerEnabled(false);
+		const cell = createCellWithOutputItems([DATA_EXPLORER_MIME_TYPE]);
+
+		expect(cell.outputs.get()[0].parsed.type).toBe('dataExplorer');
 	});
 
 	it('renders the grid when the setting is on', () => {
