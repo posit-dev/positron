@@ -121,7 +121,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.70.0",
+			"version": "2026.72.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -309,8 +309,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.10.0",
-			"sha256": "7289eac43dd684f8f4e6cfc9e05a94268c7f796beeb0dfc2231c083608152b9c",
+			"version": "1.0.1",
+			"sha256": "53d2abf5f45fc271c47f91f97520d97a5e03363cbcb335228259117e67e5ac60",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
