@@ -178,6 +178,26 @@ describe('PositronStandaloneModeMainService', () => {
 		expect(window.show).not.toHaveBeenCalled();
 	});
 
+	it('fires onDidChange when the claim drops with the window still visible; the native host abandons in-flight hides on it', async () => {
+		for (const dropClaim of ['release', 'reload', 'crash'] as const) {
+			const service = build();
+			const window = createWindow(7, { visible: true });
+			await service.acquire(7, 'test.exit');
+			const changes = vi.fn();
+			disposables.add(service.onDidChange(changes));
+
+			if (dropClaim === 'release') {
+				await service.release(7);
+			} else {
+				window[dropClaim]();
+			}
+
+			expect(changes, `via ${dropClaim}`).toHaveBeenCalledTimes(1);
+			expect(window.show, `via ${dropClaim}`).not.toHaveBeenCalled();
+			browserWindows.clear();
+		}
+	});
+
 	it('does not show the hidden window when the app is quitting', async () => {
 		const lifecycle = { quitRequested: false };
 		const service = build(lifecycle);

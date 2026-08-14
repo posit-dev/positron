@@ -114,7 +114,7 @@ export class TestNativeHostService implements INativeHostService {
 	async unmaximizeWindow(): Promise<void> { }
 	async minimizeWindow(): Promise<void> { }
 	// --- Start Positron ---
-	async hideWindow(): Promise<void> { }
+	async hideWindow(): Promise<boolean> { return false; }
 	async showWindow(): Promise<void> { }
 	// --- End Positron ---
 	async moveWindowTop(options?: INativeHostOptions): Promise<void> { }

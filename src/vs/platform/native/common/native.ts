@@ -247,7 +247,12 @@ export interface ICommonNativeHostService {
 	// Hide/show a window without the minimize animation or a presence in the
 	// OS window list; Canvas mode uses this to put the IDE window away while
 	// Canvas presents as the whole product.
-	hideWindow(options?: INativeHostOptions): Promise<void>;
+	//
+	// hideWindow resolves true only when the window was visible and not
+	// minimized and this call hid it. It resolves false, leaving the window
+	// untouched, when the window is missing, already hidden, or minimized,
+	// and when the hide was abandoned because a show raced it.
+	hideWindow(options?: INativeHostOptions): Promise<boolean>;
 	showWindow(options?: INativeHostOptions): Promise<void>;
 	// --- End Positron ---
 	moveWindowTop(options?: INativeHostOptions): Promise<void>;

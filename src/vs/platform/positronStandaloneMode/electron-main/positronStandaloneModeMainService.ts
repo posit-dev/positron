@@ -106,6 +106,13 @@ export class PositronStandaloneModeMainService extends Disposable implements IPo
 	 * product with no visible window at all. A clean exit reveals first, so the
 	 * show is a no-op there. Skipped while quitting so the release fired by
 	 * shutdown teardown does not flash the window on the way out.
+	 *
+	 * A hide still in flight when the claim drops (paused on the fullscreen
+	 * transition, window still visible, so the show below is skipped) is not
+	 * handled here: the native host listens to onDidChange and abandons such
+	 * hides. It cannot be injected here without a DI cycle through
+	 * IWindowsMainService, so onDidChange firing on every release, even with
+	 * the window visible, is part of this service's contract.
 	 */
 	private revealIfHidden(windowId: number): void {
 		if (this.lifecycleMainService.quitRequested) {
