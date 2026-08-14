@@ -281,7 +281,12 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 	}
 
 	openEmptyWindow(openConfig: IOpenEmptyConfiguration, options?: IOpenEmptyWindowOptions): Promise<ICodeWindow[]> {
-		const cli = this.environmentMainService.args;
+		// --- Start Positron ---
+		// Clone without `--canvas`: an internal open (dock/tray) interleaving
+		// with startup must not consume or re-prime the initial launch's flag.
+		// const cli = this.environmentMainService.args;
+		const cli = { ...this.environmentMainService.args, canvas: undefined };
+		// --- End Positron ---
 		const remoteAuthority = options?.remoteAuthority || undefined;
 		const forceEmpty = true;
 		const forceReuseWindow = options?.forceReuseWindow;

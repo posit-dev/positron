@@ -1101,6 +1101,11 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 					userEnv: this._config.userEnv,
 					cli: {
 						...this.environmentMainService.args,
+						// --- Start Positron ---
+						// A clone made while `--canvas` is still unconsumed is
+						// unprimed and would match any window configuration.
+						canvas: undefined,
+						// --- End Positron ---
 						_: [] // we pass in the workspace to open explicitly via `urisToOpen`
 					},
 					urisToOpen: uriToOpen ? [uriToOpen] : undefined,

@@ -805,7 +805,13 @@ export class CodeApplication extends Disposable {
 		this.lifecycleMainService.phase = LifecycleMainPhase.Ready;
 
 		// Open Windows
-		await appInstantiationService.invokeFunction(accessor => this.openFirstWindow(accessor, initialProtocolUrls));
+		// --- Start Positron ---
+		// Capture the windows this startup opened so the `--canvas` forward
+		// below cannot target an unrelated window opened concurrently by the
+		// protocol or Finder handlers installed above.
+		// await appInstantiationService.invokeFunction(accessor => this.openFirstWindow(accessor, initialProtocolUrls));
+		const firstWindows = await appInstantiationService.invokeFunction(accessor => this.openFirstWindow(accessor, initialProtocolUrls));
+		// --- End Positron ---
 
 		// --- Start Positron ---
 		// `--canvas` applies to the launch, not the process: every later window
@@ -816,12 +822,10 @@ export class CodeApplication extends Disposable {
 		// the target never got a fresh window (e.g. file-only paths absorbed
 		// into a restored window under `window.restoreWindows`), and unlike a
 		// second instance there is no launch service to forward the flag, so
-		// forward it here the same way. `openFirstWindow`'s used windows are
-		// not in scope, but every window open at this point came from this
-		// startup, so the full window list stands in for them. The delete
-		// stays as the backstop either way.
+		// forward it here the same way, targeting only the windows this
+		// startup opened. The delete stays as the backstop either way.
 		if (this.environmentMainService.args.canvas && this.windowsMainService) {
-			const canvasWindow = selectCanvasLaunchWindow(this.windowsMainService.getWindows(), this.windowsMainService.getLastActiveWindow());
+			const canvasWindow = selectCanvasLaunchWindow(firstWindows, this.windowsMainService.getLastActiveWindow());
 			if (canvasWindow) {
 				canvasWindow.sendWhenReady('vscode:runAction', CancellationToken.None, {
 					// The Canvas action that owns its failure notification;

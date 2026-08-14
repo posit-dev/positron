@@ -689,8 +689,11 @@ export class LifecycleMainService extends Disposable implements ILifecycleMainSe
 		// quit-in-Canvas re-entry rides the stored intent instead. Scrub every
 		// form the parser accepts: `--canvas`, `--canvas=<value>`, and the
 		// bare `true`/`false` value minimist consumes after a bare `--canvas`
-		// (left in place it would become a positional path arg).
-		for (let i = args.length - 1; i >= 0; i--) {
+		// (left in place it would become a positional path arg). Tokens at or
+		// after the first `--` are positional paths, not options: leave them.
+		const endOfOptions = args.indexOf('--');
+		const scrubEnd = endOfOptions === -1 ? args.length : endOfOptions;
+		for (let i = scrubEnd - 1; i >= 0; i--) {
 			if (args[i] === '--canvas') {
 				const next = args[i + 1];
 				args.splice(i, next === 'true' || next === 'false' ? 2 : 1);
