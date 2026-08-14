@@ -87,16 +87,15 @@ export type SummaryMatrix = {
 const MIN_EMPHASIS_BYTES = 5 * 1024 * 1024;
 
 /**
- * Per role, because the noise is not uniform: `renderer` holds to 1.5 MB across
- * launches while `shared` swings 10.8 MB. A flat 5 MB rule drew a red arrow on
- * `extension_host` at +8.8 MB, inside that role's own scatter.
+ * Per role, because the noise is not uniform: `kernel` holds to 0.6 MB across
+ * launches while `extension_host` swings 37.7 MB, so one flat rule either marks
+ * noise on the shaky roles or misses real moves on the steady ones.
  *
  * Scoped to the two scenarios the delta is actually between, since a delta is only
  * as good as the shakier of its two. Reading the bar from every scenario instead
- * let one scenario's bad launch silence a real change everywhere else: a single
- * `data-explorer` launch 72 MB above its neighbours put the `extension_host` bar at
- * 73.9 MB, which hid `notebook` at +67.9 MB even though `notebook` itself only
- * swung 30 MB.
+ * let one scenario's bad launch silence a real change everywhere else: one noisy
+ * `data-explorer` launch once set an `extension_host` bar of 73.9 MB, hiding a
+ * steady +67.9 MB on `notebook`.
  */
 function emphasisThreshold(spreads: number[]): number {
 	return Math.max(MIN_EMPHASIS_BYTES, ...spreads);
