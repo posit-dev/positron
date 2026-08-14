@@ -294,16 +294,13 @@ function instabilityHtml(unstable: UnstableEntry[]): string {
  * Says why some cells carry a delta and others do not, which is otherwise the
  * table's most obvious unexplained rule.
  *
- * Leads with why the rule exists, because "bigger than the noise" means nothing to
- * a reader who has not been told the same scenario measures differently each launch.
- *
  * Built from {@link MIN_EMPHASIS_BYTES} rather than repeating the number, so the
- * floor named here cannot drift from the one applied. Deliberately not phrased as
- * a flat "5 MB or more": the real bar is per role and usually higher, and a legend
- * that understated it would invite reading an unmarked 8 MB move as a bug.
+ * floor named here cannot drift from the one applied. Deliberately a minimum rather
+ * than a flat "5 MB or more": the real bar is per role and usually higher, and a
+ * legend that understated it would invite reading an unmarked 8 MB move as a bug.
  */
-const DELTA_LEGEND = `Each launch measures a little differently, so a delta shows only when the change
-	beats that noise, never under ${formatBytes(MIN_EMPHASIS_BYTES)}. Blank cells moved less.`;
+const DELTA_LEGEND = `Deltas appear only when changes exceed launch-to-launch noise, with a
+	${formatBytes(MIN_EMPHASIS_BYTES)} minimum. Blank cells are within noise.`;
 
 /**
  * Renders the matrix as a standalone HTML document, using the same shell
