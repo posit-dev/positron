@@ -21,7 +21,8 @@ import {
 	completeOAuthDeviceCodeLogin,
 } from './modelProviderShared.js';
 
-// New "Configure LLM Providers" modal (behind assistant.newProviderModal).
+// The "Configure LLM Providers" modal, which the Configure Providers command
+// opens by default (`assistant.newProviderModal`).
 // Same public surface as ModelProviderAuth so the sign-in test body is drop-in.
 // The testid sits on a zero-size layout wrapper (its child dialog container is
 // position:absolute, so the wrapper collapses and Playwright reports it hidden).
@@ -45,10 +46,11 @@ const REMOVE_BUTTON = `${MODAL} button.positron-button:has-text("Remove")`;
 const CLOSE_BUTTON = `${MODAL} button.positron-button:has-text("Close")`;
 
 /**
- * Page object for the new "Configure LLM Providers" modal. Exposes the same
+ * Page object for the "Configure LLM Providers" modal. Exposes the same
  * loginModelProvider / logoutModelProvider surface as ModelProviderAuth, so the
- * legacy sign-in test body can be reused unchanged. The caller is responsible
- * for enabling `assistant.newProviderModal` before use.
+ * legacy sign-in test body can be reused unchanged. This modal is what the
+ * Configure Providers command opens unless a suite pins
+ * `assistant.newProviderModal` to false.
  */
 export class ModelProviderModal {
 	private hotKeys: HotKeys;

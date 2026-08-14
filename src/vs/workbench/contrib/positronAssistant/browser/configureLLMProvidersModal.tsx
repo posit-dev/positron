@@ -28,16 +28,6 @@ const OPEN_PROVIDERS_JSON_COMMAND = 'workbench.action.positronAssistant.openAiPr
 
 type OnAction = (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>;
 
-/**
- * Hidden feature switch that selects the new "Configure LLM Providers" modal
- * over the legacy language model provider dialog.
- *
- * This key is intentionally NOT contributed to the configuration registry, so
- * it does not appear in the Settings editor. Set it manually in `settings.json`
- * to opt in to the in-progress modal. It defaults to `false` (legacy dialog).
- */
-export const NEW_PROVIDER_MODAL_KEY = 'assistant.newProviderModal';
-
 export const showConfigureLLMProvidersModal = (
 	sources: IPositronLanguageModelSource[],
 	onAction: OnAction,
