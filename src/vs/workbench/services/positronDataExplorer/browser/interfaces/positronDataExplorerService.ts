@@ -97,11 +97,26 @@ export interface IPositronDataExplorerService {
 
 	/**
 	 * Registers the transport core backends use to reach backend-providing extensions. Called by
-	 * the main-thread Data Explorer channel actor.
+	 * the main-thread Data Explorer channel actor, once per extension host.
 	 * @param transport The transport.
-	 * @returns A disposable that clears the transport.
+	 * @returns A disposable that unregisters the transport and any providers it owns.
 	 */
 	registerRpcTransport(transport: IDataExplorerRpcTransport): IDisposable;
+
+	/**
+	 * Records that a provider's RPC handler registered in `transport`'s extension host, so RPCs for
+	 * that provider are routed there.
+	 * @param providerId The provider id (e.g. 'positron-duckdb').
+	 * @param transport The transport for the host the handler registered in.
+	 */
+	registerRpcProvider(providerId: string, transport: IDataExplorerRpcTransport): void;
+
+	/**
+	 * Undoes {@link registerRpcProvider}. Ignored if another host now owns the provider.
+	 * @param providerId The provider id.
+	 * @param transport The transport that previously registered it.
+	 */
+	unregisterRpcProvider(providerId: string, transport: IDataExplorerRpcTransport): void;
 
 	/**
 	 * Routes a frontend UI event from a backend-providing extension to the matching backend.

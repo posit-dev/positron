@@ -31,9 +31,6 @@ export class MainThreadDataExplorer implements MainThreadDataExplorerShape, IDat
 	private readonly _proxy: ExtHostDataExplorerShape;
 	private readonly _disposables = new DisposableStore();
 
-	/** Provider ids that have registered an RPC handler in the ext host (informational). */
-	private readonly _providers = new Set<string>();
-
 	constructor(
 		extHostContext: IExtHostContext,
 		@IPositronDataExplorerService private readonly _dataExplorerService: IPositronDataExplorerService,
@@ -46,12 +43,17 @@ export class MainThreadDataExplorer implements MainThreadDataExplorerShape, IDat
 
 	// --- IDataExplorerRpcTransport ---
 
-	async handleRpc(providerId: string, rpc: IDataExplorerRpcDto): Promise<IDataExplorerResponseDto> {
-		// Activate the providing extension if it hasn't been already: backends declare
-		// `onPositronDataExplorerBackend:<providerId>` so they stay dormant until a dataset they own
-		// is accessed. Idempotent and resolves immediately once activated. `$handleRpc` additionally
-		// waits for the provider to register, covering the activation window.
+	async activateProvider(providerId: string): Promise<void> {
+		// Backends declare `onPositronDataExplorerBackend:<providerId>` so they stay dormant until a
+		// dataset they own is accessed. Idempotent, resolves immediately once activated, and a no-op
+		// in hosts the extension isn't installed in.
 		await this._extensionService.activateByEvent(dataExplorerBackendActivationEvent(providerId));
+	}
+
+	handleRpc(providerId: string, rpc: IDataExplorerRpcDto): Promise<IDataExplorerResponseDto> {
+		// The service activates the provider before resolving this transport, so the extension is
+		// already active here; `$handleRpc` additionally waits for the provider to register, covering
+		// the window between activation returning and the handler landing.
 		return this._proxy.$handleRpc(providerId, rpc);
 	}
 
@@ -62,11 +64,13 @@ export class MainThreadDataExplorer implements MainThreadDataExplorerShape, IDat
 	// --- MainThreadDataExplorerShape (called by the ext host) ---
 
 	$registerRpcHandler(providerId: string): void {
-		this._providers.add(providerId);
+		// Tells the service this host is the one that can service the provider's RPCs. In web there
+		// are two hosts and only one of them has the extension, so this is what routes correctly.
+		this._dataExplorerService.registerRpcProvider(providerId, this);
 	}
 
 	$unregisterRpcHandler(providerId: string): void {
-		this._providers.delete(providerId);
+		this._dataExplorerService.unregisterRpcProvider(providerId, this);
 	}
 
 	$sendUiEvent(event: IDataExplorerUiEventDto): void {
