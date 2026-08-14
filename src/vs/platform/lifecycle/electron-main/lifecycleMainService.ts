@@ -686,10 +686,17 @@ export class LifecycleMainService extends Disposable implements ILifecycleMainSe
 		// `--canvas` applies to the launch that carried it, and that launch
 		// consumed it. A relaunch (update restart, argv.json change) replaying
 		// it would boot back into Canvas against an explicit Canvas exit;
-		// quit-in-Canvas re-entry rides the stored intent instead.
-		const canvasArgIndex = args.indexOf('--canvas');
-		if (canvasArgIndex >= 0) {
-			args.splice(canvasArgIndex, 1);
+		// quit-in-Canvas re-entry rides the stored intent instead. Scrub every
+		// form the parser accepts: `--canvas`, `--canvas=<value>`, and the
+		// bare `true`/`false` value minimist consumes after a bare `--canvas`
+		// (left in place it would become a positional path arg).
+		for (let i = args.length - 1; i >= 0; i--) {
+			if (args[i] === '--canvas') {
+				const next = args[i + 1];
+				args.splice(i, next === 'true' || next === 'false' ? 2 : 1);
+			} else if (args[i].startsWith('--canvas=')) {
+				args.splice(i, 1);
+			}
 		}
 		// --- End Positron ---
 		if (options?.addArgs) {
