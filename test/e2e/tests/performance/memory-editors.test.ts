@@ -50,14 +50,17 @@ defineMemoryScenario({
 		}
 
 		// Every tab asserted individually, not just a count: if one file failed to
-		// open, the failure should name it. This is also the scenario's ONLY state
-		// gate -- unlike data-explorer, opening editors starts no new process, so
-		// neither expectRoles nor expectProcesses can prove the state was reached.
-		// The gap that leaves is narrow: a tab closing between here and sampling
-		// would go unnoticed.
+		// open, the failure should name it. expectProcesses below covers the window
+		// between here and sampling, but only for the markdown files, so these
+		// assertions are still what proves the other eight opened.
 		for (const file of FILES) {
 			await expect(editors.editorTab(basename(file)),
 				`${file} did not open; the scenario is measuring fewer editors than it claims`).toBeVisible();
 		}
-	}
+	},
+	// Opening the two .md files starts the markdown language server, which is 41 MB
+	// of this scenario's cost and is absent at idle -- so unlike a bare tab count,
+	// it is checkable at snapshot time. A partial gate rather than a complete one:
+	// it proves markdown opened, not that all ten files did.
+	expectProcesses: [/markdown-language-features/]
 });
