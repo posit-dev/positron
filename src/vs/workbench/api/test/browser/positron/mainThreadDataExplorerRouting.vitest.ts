@@ -182,7 +182,7 @@ describe('Data Explorer RPC transport routing', () => {
 	it('re-routes to a new host after the host that owned the provider disconnects', async () => {
 		// A remote host that goes away must take its provider claim with it, or RPCs keep going to a
 		// disposed transport once the host reconnects.
-		const staleHost = createExtensionHost([DUCKDB_DATA_EXPLORER_PROVIDER_ID]);
+		const staleHost = createExtensionHost();
 		staleHost.mainThread.$registerRpcHandler(DUCKDB_DATA_EXPLORER_PROVIDER_ID);
 		staleHost.mainThread.dispose();
 		const reconnectedHost = createExtensionHost([DUCKDB_DATA_EXPLORER_PROVIDER_ID]);
