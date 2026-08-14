@@ -174,10 +174,12 @@ function generateConnectionCodeForFields(languageId: string, fields: RedshiftCon
  * Creates the Amazon Redshift DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
  * @param dataExplorerHandler Hosts table views previewed from Redshift connections.
+ * @param logger Optional diagnostic log sink, threaded to each connection.
  */
 export function createRedshiftDriver(
 	context: vscode.ExtensionContext,
-	dataExplorerHandler: RedshiftDataExplorerRpcHandler
+	dataExplorerHandler: RedshiftDataExplorerRpcHandler,
+	logger?: positron.DataConnectionLogger
 ): positron.DataConnectionDriver {
 	// Load the SVG icon once at registration time.
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'redshift.svg');
@@ -273,7 +275,7 @@ export function createRedshiftDriver(
 						user,
 						password: isNonEmptyString(params.password) ? params.password : undefined,
 						ssl: params.ssl !== false,
-					}, dataExplorerHandler);
+					}, dataExplorerHandler, logger);
 
 					// Connect the connection.
 					await connection.connect();

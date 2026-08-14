@@ -18,6 +18,7 @@ import { MINIMUM_RENV_VERSION, MINIMUM_R_VERSION } from './constants';
 import { RRuntimeManager } from './runtime-manager';
 import { RMetadataExtra } from './r-installation';
 import { onDidDiscoverTestFiles } from './testing/testing';
+import { getEnvironmentHealth } from './environmentHealth';
 import { LOGGER } from './extension.js';
 import { printInterpreterSettingsInfo } from './interpreter-settings.js';
 
@@ -256,6 +257,11 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			LOGGER.show();
 			printInterpreterSettingsInfo();
 		}),
+
+		// Returns a JSON report on whether the current R setup can start a
+		// session. Internal: consumed by a frontend, not surfaced in the palette.
+		vscode.commands.registerCommand('r.getEnvironmentHealth',
+			async () => getEnvironmentHealth()),
 
 		// Commands used in RStudio migration walkthrough
 		vscode.commands.registerCommand('r.walkthrough.updateRStudioKeybindings', async () => {

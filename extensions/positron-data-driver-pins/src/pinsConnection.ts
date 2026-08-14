@@ -7,7 +7,6 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DuckDBWorkerClient, IDuckDBDataExplorerHost } from 'positron-data-explorer-duckdb';
 import { BundleInfo, ConnectClient, PinInfo } from './connectClient.js';
-import { Logger, NULL_LOGGER } from './logging.js';
 import { PinsCache } from './pinsCache.js';
 import { createPinReadCodeGenerator } from './pinsCode.js';
 import { duckdbReaderForPinType } from './pinTypes.js';
@@ -75,13 +74,13 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 	 * @param _client The Connect client, already validated by the driver's connect().
 	 * @param _dataExplorerHandler Hosts the table views previewed pins are shown in.
 	 * @param _cache The on-disk cache downloaded pin data files are stored in.
-	 * @param _logger Logs browse activity; defaults to a no-op logger.
+	 * @param _logger Logs browse activity; optional; nothing is logged when omitted.
 	 */
 	constructor(
 		private readonly _client: ConnectClient,
 		private readonly _dataExplorerHandler: IDuckDBDataExplorerHost,
 		private readonly _cache: PinsCache,
-		private readonly _logger: Logger = NULL_LOGGER
+		private readonly _logger?: positron.DataConnectionLogger
 	) { }
 
 	/** Pins are browsed read-only; writing pins is out of scope for this driver. */
@@ -107,7 +106,7 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 			}
 		}
 
-		this._logger.info(`Browsing ${pins.length} pin(s) across ${pinsByOwner.size} owner(s)`);
+		this._logger?.info(`Browsing ${pins.length} pin(s) across ${pinsByOwner.size} owner(s)`);
 		return [...pinsByOwner.keys()]
 			.sort((a, b) => a.localeCompare(b))
 			.map(owner => createOwnerNode(this, owner, pinsByOwner.get(owner)!));
@@ -228,7 +227,7 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 			return;
 		}
 
-		this._logger.info(`Opening ${displayName} in the Data Explorer`);
+		this._logger?.info(`Opening ${displayName} in the Data Explorer`);
 		await positron.dataExplorer.open({ providerId: PINS_DATA_EXPLORER_PROVIDER_ID, datasetId, displayName });
 		return datasetId;
 	}

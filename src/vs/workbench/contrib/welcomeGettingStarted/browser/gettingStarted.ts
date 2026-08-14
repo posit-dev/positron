@@ -58,6 +58,11 @@ import { WorkbenchStateContext } from '../../../common/contextkeys.js';
 import { IEditorOpenContext, IEditorSerializer } from '../../../common/editor.js';
 import { IWebviewElement, IWebviewService } from '../../webview/browser/webview.js';
 import './gettingStartedColors.js';
+// --- Start Positron ---
+// Colors for the redesigned welcome page. Registered here for the same reason as
+// the line above: a color has to be registered before any CSS may use it.
+import './positronWelcomePageColors.js';
+// --- End Positron ---
 import { GettingStartedDetailsRenderer } from './gettingStartedDetailsRenderer.js';
 import { gettingStartedCheckedCodicon, gettingStartedUncheckedCodicon } from './gettingStartedIcons.js';
 import { GettingStartedEditorOptions, GettingStartedInput } from './gettingStartedInput.js';
@@ -90,6 +95,9 @@ import { isDark } from '../../../../platform/theme/common/theme.js';
 // eslint-disable-next-line no-duplicate-imports
 import { isWeb } from '../../../../base/common/platform.js';
 import { gettingStartedPositronNotebookCategoryId } from '../common/gettingStartedPositronNotebookContent.js';
+import { gettingStartedPositronWelcomeCategoryId } from '../common/gettingStartedPositronWelcomeContent.js';
+import { createPositronWelcomePage } from './positronWelcomePage/positronWelcomePage.js';
+import { WELCOME_PAGE_EXPERIMENTAL_KEY } from '../common/positronWelcomePageConfiguration.js';
 // --- End Positron ---
 
 const SLIDE_TRANSITION_TIME_MS = 250;
@@ -133,7 +141,12 @@ const parsedStartEntries: IWelcomePageStartEntry[] = startEntries.map((e, i) => 
 */
 // --- End Positron ---
 
-type GettingStartedActionClassification = {
+// --- Start Positron ---
+// Exported so the redesigned welcome page's walkthrough banner logs this event
+// with the same shape, instead of declaring the event twice.
+// type GettingStartedActionClassification = {
+export type GettingStartedActionClassification = {
+	// --- End Positron ---
 	command: { classification: 'PublicNonPersonalData'; purpose: 'FeatureInsight'; comment: 'The command being executed on the getting started page.' };
 	walkthroughId: { classification: 'PublicNonPersonalData'; purpose: 'FeatureInsight'; comment: 'The walkthrough which the command is in' };
 	argument: { classification: 'PublicNonPersonalData'; purpose: 'FeatureInsight'; comment: 'The arguments being passed to the command' };
@@ -141,7 +154,10 @@ type GettingStartedActionClassification = {
 	comment: 'Help understand what actions are most commonly taken on the getting started page';
 };
 
-type GettingStartedActionEvent = {
+// --- Start Positron ---
+// type GettingStartedActionEvent = {
+export type GettingStartedActionEvent = {
+	// --- End Positron ---
 	command: string;
 	walkthroughId: string | undefined;
 	argument: string | undefined;
@@ -201,7 +217,10 @@ export class GettingStartedPage extends EditorPane {
 	private showFeaturedWalkthrough = true;
 
 	// --- Start Positron ---
-	private positronReactRenderer!: PositronReactRenderer;
+	// Holds the React root for whichever welcome page is built. Assigning a new
+	// one unmounts the previous one, and clearInput clears it so the tree does
+	// not stay mounted while the editor is closed.
+	private readonly positronReactRenderer = this._register(new MutableDisposable<PositronReactRenderer>());
 	// --- End Positron ---
 
 	get editorInput(): GettingStartedInput | undefined {
@@ -286,6 +305,16 @@ export class GettingStartedPage extends EditorPane {
 
 		this._register(this.gettingStartedService.onDidAddWalkthrough(rerender));
 		this._register(this.gettingStartedService.onDidRemoveWalkthrough(rerender));
+
+		// --- Start Positron ---
+		// Rebuild the page when the experimental welcome page setting is toggled,
+		// so switching it does not need a window reload.
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(WELCOME_PAGE_EXPERIMENTAL_KEY)) {
+				this.buildSlideThrottle.queue(() => this.buildCategoriesSlide());
+			}
+		}));
+		// --- End Positron ---
 
 		this.recentlyOpened = this.workspacesService.getRecentlyOpened();
 		this._register(workspacesService.onDidChangeRecentlyOpened(() => {
@@ -379,11 +408,13 @@ export class GettingStartedPage extends EditorPane {
 				StorageScope.PROFILE, StorageTarget.MACHINE);
 		}));
 
+		// --- Start Positron ---
 		// Re-layout when the welcome content has fully loaded
 		// Ensures the scroll height is correct since the initial layout is done before the content is loaded
 		this.lifecycleService.when(LifecyclePhase.Eventually).then(() => {
 			this.layout(new Dimension(this.layoutService.mainContainerDimension.width, this.layoutService.mainContainerDimension.height));
 		});
+		// --- End Positron ---
 	}
 
 	// remove when 'workbench.welcomePage.preferReducedMotion' deprecated
@@ -976,33 +1007,33 @@ export class GettingStartedPage extends EditorPane {
 			onShowOnStartupChanged();
 		}));
 		// --- Start Positron ---
-		// Diverged from upstream by changing the contents of the welcome page
-
-		// Create a function to get the header logo based on theme type
-		const getHeaderLogoClass = () => {
-			return isDark(this.themeService.getColorTheme().type)
-				? 'product-logo welcome-positron-logo-dark'
-				: 'product-logo welcome-positron-logo';
-		};
-		// Create element for the theme-aware logo
-		const logoElement = $('div', { class: getHeaderLogoClass() });
-		// Add a listener to update the logo when the theme changes
-		this.categoriesSlideDisposables.add(
-			this.themeService.onDidColorThemeChange(() => {
-				logoElement.className = getHeaderLogoClass();
-			})
-		);
-
-		// Display the theme-aware logo in the header
-		const header = $('.header', {}, logoElement);
+		// Positron replaces the upstream header with a theme-aware logo. The
+		// logo is only shown on the original welcome page, so it is built with
+		// the rest of that page at the bottom of this method.
+		//
+		// const header = $('.header', {},
+		// 	$('h1.product-name.caption', {}, this.productService.nameLong),
+		// 	$('p.subtitle.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "Editing evolved"))
+		// );
+		// --- End Positron ---
 
 		const leftColumn = $('.categories-column.categories-column-left', {},);
 		const rightColumn = $('.categories-column.categories-column-right', {},);
 
-		const helpList = this.buildHelpList();
-		//const startList = this.buildStartList();
+		// --- Start Positron ---
+		// Positron shows a Help list where upstream shows its start list. The
+		// help list is only shown on the original welcome page, so it is built
+		// in layoutRecentList below.
+		//
+		// const startList = this.buildStartList();
+		// --- End Positron ---
 		const recentList = this.buildRecentlyOpenedList();
-		const gettingStartedList = this.buildGettingStartedWalkthroughsList();
+		// --- Start Positron ---
+		// The walkthroughs list is only shown on the original welcome page, so
+		// it is built in layoutRecentList below.
+		//
+		// const gettingStartedList = this.buildGettingStartedWalkthroughsList();
+		// --- End Positron ---
 
 		// --- Start Positron ---
 		// The "Connect to..." button is normally a part of the start list
@@ -1054,9 +1085,45 @@ export class GettingStartedPage extends EditorPane {
 			));
 		// --- End Positron ---
 
+		// --- Start Positron ---
+		// Upstream lays out one or two columns depending on whether there are
+		// walkthroughs to show, putting its start list and the recent list in
+		// the left column and moving the recent list to the right one when
+		// there are no walkthroughs. Positron always uses both columns: React
+		// start buttons, the recent list and "Connect to..." on the left,
+		// walkthroughs and help on the right.
+		//
+		// const layoutLists = () => {
+		// 	if (gettingStartedList.itemCount) {
+		// 		this.container.classList.remove('noWalkthroughs');
+		// 		reset(rightColumn, gettingStartedList.getDomElement());
+		// 	}
+		// 	else {
+		// 		this.container.classList.add('noWalkthroughs');
+		// 		reset(rightColumn);
+		// 	}
+		// 	setTimeout(() => this.categoriesPageScrollbar?.scanDomNode(), 50);
+		// 	layoutRecentList();
+		// };
+		//
+		// const layoutRecentList = () => {
+		// 	if (this.container.classList.contains('noWalkthroughs')) {
+		// 		recentList.setLimit(10);
+		// 		reset(leftColumn, startList.getDomElement());
+		// 		reset(rightColumn, recentList.getDomElement());
+		// 	} else {
+		// 		recentList.setLimit(5);
+		// 		reset(leftColumn, startList.getDomElement(), recentList.getDomElement());
+		// 	}
+		// };
 		const layoutRecentList = () => {
+			// These lists are only shown on the original welcome page, so they
+			// are built here rather than with the shared lists above.
+			const helpList = this.buildHelpList();
+			const gettingStartedList = this.buildGettingStartedWalkthroughsList();
+
 			const leftContent = $('div.positron-welcome-left-column');
-			this.positronReactRenderer = createWelcomePageLeft(leftContent);
+			this.positronReactRenderer.value = createWelcomePageLeft(leftContent);
 
 			// Hide the "Connect to..." button if we are on a web platform
 			if (!isWeb) {
@@ -1066,11 +1133,48 @@ export class GettingStartedPage extends EditorPane {
 			}
 			reset(rightColumn, gettingStartedList.getDomElement(), helpList.getDomElement());
 		};
-		layoutRecentList();
 
+		// The redesigned welcome page, gated on `welcomePage.experimental`.
+		// Returns undefined when the flag is off, in which case the original
+		// welcome page below is built unchanged.
+		const positronWelcomePageContainer = this.buildPositronWelcomePage(recentList, otherList, footer);
+
+		// When the redesigned page is on, it replaces the whole slide.
+		//
+		// gettingStartedList.onDidChange(layoutLists);
+		// layoutLists();
+		//
+		// reset(this.categoriesSlide, $('.gettingStartedCategoriesContainer', {}, header, leftColumn, rightColumn, footer,));
+		if (positronWelcomePageContainer) {
+			reset(this.categoriesSlide, positronWelcomePageContainer);
+		} else {
+			// Everything in this branch is the original welcome page. It goes when
+			// the flag does, along with the files named on
+			// WELCOME_PAGE_EXPERIMENTAL_KEY, leaving the commented-out upstream
+			// code above to be restored or dropped as that change decides.
+
+			// Create a function to get the header logo based on theme type
+			const getHeaderLogoClass = () => {
+				return isDark(this.themeService.getColorTheme().type)
+					? 'product-logo welcome-positron-logo-dark'
+					: 'product-logo welcome-positron-logo';
+			};
+			// Create element for the theme-aware logo
+			const logoElement = $('div', { class: getHeaderLogoClass() });
+			// Add a listener to update the logo when the theme changes
+			this.categoriesSlideDisposables.add(
+				this.themeService.onDidColorThemeChange(() => {
+					logoElement.className = getHeaderLogoClass();
+				})
+			);
+			// Display the theme-aware logo in the header
+			const header = $('.header', {}, logoElement);
+
+			layoutRecentList();
+			reset(this.categoriesSlide, $('.gettingStartedCategoriesContainer', {}, header, leftColumn, rightColumn, footer,));
+		}
 		// --- End Positron ---
 
-		reset(this.categoriesSlide, $('.gettingStartedCategoriesContainer', {}, header, leftColumn, rightColumn, footer,));
 		this.categoriesPageScrollbar?.scanDomNode();
 
 		this.updateCategoryProgress();
@@ -1096,14 +1200,22 @@ export class GettingStartedPage extends EditorPane {
 			}
 		}
 
+		// --- Start Positron ---
+		// Positron always shows the index page instead of automatically opening
+		// the first walkthrough category on a fresh install. This disables
+		// upstream's first-session branch below, whose code is kept live so it
+		// still compiles.
+		const autoOpenFirstWalkthrough = false;
+		// --- End Positron ---
 		if (this.editorInput?.showTelemetryNotice && this.productService.openToWelcomeMainPage) {
 			const telemetryNotice = $('p.telemetry-notice');
 			this.buildTelemetryFooter(telemetryNotice);
 			footer.appendChild(telemetryNotice);
 			// --- Start Positron ---
-			// Always show index page instead of automatically opening the first walkthrough category.
-			// Adds `!logoElement` to skip this branch in Positron (logoElement is always present here).
-		} else if (!this.productService.openToWelcomeMainPage && this.showFeaturedWalkthrough && this.storageService.isNew(StorageScope.APPLICATION) && !logoElement && !this.configurationService.getValue<boolean>('workbench.welcomePage.experimentalOnboarding')) {
+			// Adds `autoOpenFirstWalkthrough` (always false) to skip this branch.
+			//
+			// } else if (!this.productService.openToWelcomeMainPage && this.showFeaturedWalkthrough && this.storageService.isNew(StorageScope.APPLICATION) && !this.configurationService.getValue<boolean>('workbench.welcomePage.experimentalOnboarding')) {
+		} else if (autoOpenFirstWalkthrough && !this.productService.openToWelcomeMainPage && this.showFeaturedWalkthrough && this.storageService.isNew(StorageScope.APPLICATION) && !this.configurationService.getValue<boolean>('workbench.welcomePage.experimentalOnboarding')) {
 			// --- End Positron ---
 			const firstSessionDateString = this.storageService.get(firstSessionDateStorageKey, StorageScope.APPLICATION) || new Date().toUTCString();
 			const daysSinceFirstSession = ((+new Date()) - (+new Date(firstSessionDateString))) / 1000 / 60 / 60 / 24;
@@ -1124,6 +1236,57 @@ export class GettingStartedPage extends EditorPane {
 
 		this.setSlide('categories');
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Builds the redesigned welcome page, which is gated on the
+	 * `welcomePage.experimental` setting. Returns undefined when the setting is
+	 * off, in which case the caller builds the original welcome page instead.
+	 *
+	 * The recent list, the "Connect to..." action and the show on startup
+	 * checkbox are passed in as already-built DOM so that they keep the
+	 * behaviour they have on the original page.
+	 * @param recentList The "Recent" list.
+	 * @param otherList The "Connect to..." action.
+	 * @param footer The "Show welcome page on startup" checkbox row.
+	 * @returns The container to show, or undefined when the setting is off.
+	 */
+	private buildPositronWelcomePage(
+		recentList: GettingStartedIndexList<RecentEntry>,
+		otherList: HTMLElement,
+		footer: HTMLElement
+	): HTMLElement | undefined {
+		// Compare against true rather than checking for false. The setting is
+		// registered with `included: false`, which drops it from the
+		// configuration properties, so its declared default is never applied and
+		// getValue returns undefined when the user has not set it.
+		if (this.configurationService.getValue<boolean>(WELCOME_PAGE_EXPERIMENTAL_KEY) !== true) {
+			return undefined;
+		}
+
+		const reactHost = $('div');
+		this.positronReactRenderer.value = createPositronWelcomePage(reactHost, {
+			recentList: recentList.getDomElement(),
+			// Hide the "Connect to..." button if we are on a web platform
+			connectAction: isWeb ? undefined : otherList,
+			footer,
+			// React mounts asynchronously, so the elements above are not in the
+			// DOM yet when the caller runs registerDispatchListeners, nor when it
+			// measures the slide for scrolling. Redo both once they are.
+			//
+			// registerDispatchListeners clears its listeners and re-walks the
+			// container, so calling it twice is safe. Without the rescan the
+			// scrollable still believes the slide is empty and the page cannot be
+			// scrolled at all once its content is taller than the editor.
+			onDidMount: () => {
+				this.registerDispatchListeners();
+				this.categoriesPageScrollbar?.scanDomNode();
+			},
+		});
+
+		return reactHost;
+	}
+	// --- End Positron ---
 
 	// --- Start Positron ---
 	private buildHelpList(): GettingStartedIndexList<IWelcomePageHelpEntry> {
@@ -1405,6 +1568,7 @@ export class GettingStartedPage extends EditorPane {
 			 * of the walkthroughs in the Positron extensions.
 			 */
 			const allowedWalkthroughIds = [
+				gettingStartedPositronWelcomeCategoryId,
 				'ms-python.python#positron.migrateFromVSCode',
 				'positron.positron-r#positron.r.migrateFromRStudio',
 				gettingStartedPositronNotebookCategoryId,
@@ -1690,9 +1854,11 @@ export class GettingStartedPage extends EditorPane {
 
 	override clearInput() {
 		this.stepDisposables.clear();
-		/*-- Start Positron ---*/
-		this.positronReactRenderer?.dispose();
-		/*-- End Positron ---*/
+		// --- Start Positron ---
+		// Closing the editor does not dispose the pane, so unmount the welcome
+		// page here rather than waiting for the next build or for teardown.
+		this.positronReactRenderer.clear();
+		// --- End Positron ---
 		super.clearInput();
 	}
 
@@ -1896,11 +2062,19 @@ export class GettingStartedPage extends EditorPane {
 					this.editorInput.walkthroughPageTitle = undefined;
 				}
 
-				if (this.gettingStartedCategories.length !== this.gettingStartedList.value?.itemCount) {
+				// --- Start Positron ---
+				// Requires the list to exist before treating it as stale. The
+				// redesigned welcome page does not build a walkthrough list, so
+				// without this the comparison against undefined is always true and
+				// every trip back here rebuilds the whole slide.
+				//
+				// if (this.gettingStartedCategories.length !== this.gettingStartedList.value?.itemCount) {
+				if (this.gettingStartedList.value && this.gettingStartedCategories.length !== this.gettingStartedList.value.itemCount) {
 					// extensions may have changed in the time since we last displayed the walkthrough list
 					// rebuild the list
 					this.buildCategoriesSlide();
 				}
+				// --- End Positron ---
 
 				this.selectStep(undefined);
 				this.setSlide('categories');
@@ -1935,6 +2109,9 @@ export class GettingStartedPage extends EditorPane {
 			this.container.querySelector('.gettingStartedSlideCategories')!.querySelectorAll('button').forEach(button => button.disabled = false);
 			// eslint-disable-next-line no-restricted-syntax
 			this.container.querySelector('.gettingStartedSlideCategories')!.querySelectorAll('input').forEach(button => button.disabled = false);
+			// --- Start Positron ---
+			this.setSlideInert(false, true);
+			// --- End Positron ---
 		} else {
 			slideManager.classList.add('showDetails');
 			slideManager.classList.remove('showCategories');
@@ -1951,8 +2128,38 @@ export class GettingStartedPage extends EditorPane {
 			this.container.querySelector('.gettingStartedSlideCategories')!.querySelectorAll('button').forEach(button => button.disabled = true);
 			// eslint-disable-next-line no-restricted-syntax
 			this.container.querySelector('.gettingStartedSlideCategories')!.querySelectorAll('input').forEach(button => button.disabled = true);
+			// --- Start Positron ---
+			this.setSlideInert(true, false);
+			// --- End Positron ---
 		}
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Takes the off-screen slide out of the tab order.
+	 *
+	 * The two slides sit side by side and the hidden one is moved off-screen
+	 * rather than hidden with `display: none` which means elements stay focusable.
+	 * The disable pass above only checks buttons and inputs, which leaves the
+	 * "Recent" list delete anchors, the show on startup checkbox and the
+	 * walkthrough's step rows and links enabled. Tabbing into one of those either
+	 * moves focus somewhere invisible or scrolls the off-screen slide into view,
+	 * which drags the visible slide partially out of view.
+	 *
+	 * `inert` is inherited by descendants, so it also covers anything added to a
+	 * slide after this runs.
+	 * @param categories Whether the categories slide should be inert.
+	 * @param details Whether the details slide should be inert.
+	 */
+	private setSlideInert(categories: boolean, details: boolean) {
+		// eslint-disable-next-line no-restricted-syntax
+		const categoriesSlide = this.container.querySelector<HTMLElement>('.gettingStartedSlideCategories');
+		// eslint-disable-next-line no-restricted-syntax
+		const detailsSlide = this.container.querySelector<HTMLElement>('.gettingStartedSlideDetails');
+		if (categoriesSlide) { categoriesSlide.inert = categories; }
+		if (detailsSlide) { detailsSlide.inert = details; }
+	}
+	// --- End Positron ---
 
 	override focus() {
 		super.focus();

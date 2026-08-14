@@ -13,9 +13,10 @@ import { SnowflakeDataExplorerRpcHandler } from './snowflakeDataExplorerRpcHandl
  * @param context The extension context.
  */
 export function activate(context: vscode.ExtensionContext) {
-	// Diagnostic log channel, surfaced in the Output panel as "Snowflake Data Explorer". Used to trace
-	// the column-profile query timeline while tuning summary performance.
-	const logger = vscode.window.createOutputChannel('Snowflake Data Explorer', { log: true });
+	// Log to a per-driver output channel, created by core on first use. Nothing may log during
+	// activation: the Data Connections pane activates every driver at once, so an activation-time
+	// log would add this channel for users who never opened a connection.
+	const logger = positron.dataConnections.createDriverLogger('Snowflake');
 	context.subscriptions.push(logger);
 
 	// Services Data Explorer RPCs for tables/views previewed from a Snowflake connection.
@@ -23,7 +24,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(dataExplorerHandler);
 
 	// Create and register the driver and its cleanup.
-	const driver = createSnowflakeDriver(context, dataExplorerHandler);
+	const driver = createSnowflakeDriver(context, dataExplorerHandler, logger);
 	context.subscriptions.push(positron.dataConnections.registerDriver(driver));
 }
 

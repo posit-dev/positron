@@ -413,7 +413,7 @@ for t in @:console @:variables @:plots @:performance; do
 		echo "FAIL: real FeatureTags should include $t"; fail=1
 	fi
 done
-for t in @:win @:web @:cross-browser @:soft-fail @:workbench @:remote-ssh; do
+for t in @:win @:web @:cross-browser @:soft-fail @:workbench @:workbench-rocky @:remote-ssh; do
 	if printf '%s\n' "$REAL_FEATURE" | grep -qxF "$t"; then
 		echo "FAIL: real FeatureTags should NOT include platform/special tag $t"; fail=1
 	else

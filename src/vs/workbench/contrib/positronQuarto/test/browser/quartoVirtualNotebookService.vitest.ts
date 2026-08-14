@@ -258,6 +258,30 @@ describe('QuartoVirtualNotebookService', () => {
 		return model;
 	}
 
+	/**
+	 * An untitled Quarto document, which is what _Quarto: New Document_ produces:
+	 * a bare name with no `.qmd` on it, recognized by its language instead.
+	 */
+	function createUntitledSourceModel(content: string, path = 'Untitled-1'): ITextModel {
+		const modelService = ctx.instantiationService.get(IModelService);
+		const languageService = ctx.instantiationService.get(ILanguageService);
+		// The Quarto extension contributes the `quarto` language, so nothing has
+		// registered it here, and `createById` falls back to plaintext for an
+		// unknown id. Without the language the document is unrecognizable: its
+		// path is the other half of the check, and an untitled path has no
+		// extension to go on.
+		if (!languageService.isRegisteredLanguageId('quarto')) {
+			ctx.disposables.add(languageService.registerLanguage({ id: 'quarto', extensions: ['.qmd'] }));
+		}
+		const model = modelService.createModel(
+			content,
+			languageService.createById('quarto'),
+			URI.from({ scheme: Schemas.untitled, path })
+		);
+		ctx.disposables.add(model);
+		return model;
+	}
+
 	it('creates a hidden notebook whose URI keeps the source path', async () => {
 		const service = createService();
 		const source = createSourceModel(R_AND_PYTHON);
@@ -278,6 +302,34 @@ describe('QuartoVirtualNotebookService', () => {
 			viewType: QUARTO_CELLS_VIEW_TYPE,
 			cellCount: 2,
 		});
+	});
+
+	it('gives an untitled document a Quarto path, so the LSP clients match its cells', async () => {
+		const service = createService();
+		const source = createUntitledSourceModel(R_AND_PYTHON);
+		await service.whenReady(source.uri);
+
+		// A cell URI carries the path of the notebook it belongs to, and both LSP
+		// clients gate on that path ending in `.qmd` or `.rmd`, which is what
+		// keeps the cells of real notebooks out. A bare untitled path would match
+		// nothing, so the cells would reach no language server.
+		expect({
+			sourcePath: source.uri.path,
+			notebookPath: service.getNotebookUri(source.uri)?.path,
+			cellPaths: service.getCells(source.uri).map(cell => cell.cellUri.path),
+		}).toEqual({
+			sourcePath: 'Untitled-1',
+			notebookPath: 'Untitled-1.qmd',
+			cellPaths: ['Untitled-1.qmd', 'Untitled-1.qmd'],
+		});
+	});
+
+	it('leaves an untitled document that already has a Quarto path alone', async () => {
+		const service = createService();
+		const source = createUntitledSourceModel(R_AND_PYTHON, 'Untitled-1.qmd');
+		await service.whenReady(source.uri);
+
+		expect(service.getNotebookUri(source.uri)?.path).toBe('Untitled-1.qmd');
 	});
 
 	it('creates one bound cell text model per code cell, holding only the code', async () => {

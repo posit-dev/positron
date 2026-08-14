@@ -29,6 +29,52 @@ import { DiskFileSystemProvider } from '../../../files/node/diskFileSystemProvid
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { AgentHostGitService } from '../../node/agentHostGitService.js';
 
+// --- Start Positron ---
+// Absolute path of the real `git`, captured before any `PATH` shimming so
+// `withFailingGitAdd` can delegate to it. `undefined` when `git` is not on PATH.
+const realGitPath = (() => {
+	try {
+		return cp.execFileSync('which', ['git'], { encoding: 'utf8' }).split('\n')[0].trim() || undefined;
+	} catch {
+		return undefined;
+	}
+})();
+
+/**
+ * Runs `body` with a `git` on `PATH` that fails `git add` and delegates every
+ * other subcommand to the real binary, so the service's temp-index staging step
+ * fails without depending on file permissions.
+ *
+ * The permission-based alternative (`chmod 0` on a staged file) is a no-op when
+ * the tests run as root, which bypasses the permission check -- and Positron's
+ * extension-host CI job runs in a container as root (`--user 0:0`). This seam
+ * behaves the same for every uid.
+ */
+async function withFailingGitAdd<T>(body: () => Promise<T>): Promise<T> {
+	const fs = await import('fs/promises');
+	const binDir = mkdtempSync(join(tmpdir(), 'agent-host-git-shim-'));
+	const shim = join(binDir, 'git');
+	await fs.writeFile(shim, [
+		'#!/bin/sh',
+		'if [ "$1" = "add" ]; then',
+		'  echo "fatal: simulated staging failure" >&2',
+		'  exit 128',
+		'fi',
+		`exec ${realGitPath} "$@"`,
+		'',
+	].join('\n'));
+	await fs.chmod(shim, 0o755);
+	const savedPath = process.env['PATH'];
+	process.env['PATH'] = `${binDir}:${savedPath ?? ''}`;
+	try {
+		return await body();
+	} finally {
+		process.env['PATH'] = savedPath;
+		rmDirWithRetry(binDir);
+	}
+}
+// --- End Positron ---
+
 function createGitService(disposables: Pick<DisposableStore, 'add'>): AgentHostGitService {
 	const logService = new NullLogService();
 	const fileService = disposables.add(new FileService(logService));
@@ -174,6 +220,13 @@ suite('AgentHostGitService - computeSessionFileDiffs (real git)', () => {
 		try { cp.execFileSync('git', ['--version'], { stdio: 'ignore' }); return true; } catch { return false; }
 	})();
 
+	// --- Start Positron ---
+	// Gate for the two tests that force a staging failure. Upstream gates them on
+	// `hasGit && !isWindows`; the `withFailingGitAdd` shim also needs to know where
+	// the real `git` lives.
+	const stagingFailureTest = hasGit && !isWindows && realGitPath ? test : test.skip;
+	// --- End Positron ---
+
 	let tmpRoot: string | undefined;
 	let svc: AgentHostGitService | undefined;
 
@@ -261,19 +314,23 @@ suite('AgentHostGitService - computeSessionFileDiffs (real git)', () => {
 		});
 	});
 
-	(hasGit && !isWindows ? test : test.skip)('returns undefined when temp-index staging fails', async () => {
+	// --- Start Positron ---
+	// Upstream forces the staging failure by making the file unreadable:
+	//   (hasGit && !isWindows ? test : test.skip)('returns undefined when temp-index staging fails', async () => {
+	//     const blockedPath = join(dir, 'blocked.txt');
+	//     await fs.writeFile(blockedPath, 'blocked\n');
+	//     await fs.chmod(blockedPath, 0);
+	// Root bypasses the permission check, so `git add` succeeds and the assertion
+	// cannot hold; fail `git add` itself instead. Same branch, uid-independent.
+	stagingFailureTest('returns undefined when temp-index staging fails', async () => {
 		const fs = await import('fs/promises');
 		const { dir } = initRepo();
-		const blockedPath = join(dir, 'blocked.txt');
-		await fs.writeFile(blockedPath, 'blocked\n');
-		await fs.chmod(blockedPath, 0);
-		try {
-			const result = await svc!.computeSessionFileDiffs(URI.file(dir), { sessionUri: 'copilot:/s' });
-			assert.strictEqual(result, undefined);
-		} finally {
-			await fs.chmod(blockedPath, 0o600);
-		}
+		await fs.writeFile(join(dir, 'blocked.txt'), 'blocked\n');
+
+		const result = await withFailingGitAdd(() => svc!.computeSessionFileDiffs(URI.file(dir), { sessionUri: 'copilot:/s' }));
+		assert.strictEqual(result, undefined);
 	});
+	// --- End Positron ---
 
 	(hasGit ? test : test.skip)('anchors against the merge-base of the requested base branch', async () => {
 		const fs = await import('fs/promises');
@@ -372,19 +429,19 @@ suite('AgentHostGitService - computeSessionFileDiffs (real git)', () => {
 		assert.deepStrictEqual(treePaths, ['fresh.txt', 'new.txt']);
 	});
 
-	(hasGit && !isWindows ? test : test.skip)('captureWorkingTreeAsTree returns undefined when staging fails', async () => {
+	// --- Start Positron ---
+	// Same substitution as the `computeSessionFileDiffs` staging test above:
+	//   (hasGit && !isWindows ? test : test.skip)('captureWorkingTreeAsTree returns undefined when staging fails', async () => {
+	//     await fs.chmod(blockedPath, 0);
+	stagingFailureTest('captureWorkingTreeAsTree returns undefined when staging fails', async () => {
 		const fs = await import('fs/promises');
 		const { dir } = initRepo();
-		const blockedPath = join(dir, 'blocked.txt');
-		await fs.writeFile(blockedPath, 'blocked\n');
-		await fs.chmod(blockedPath, 0);
-		try {
-			const result = await svc!.captureWorkingTreeAsTree(URI.file(dir));
-			assert.strictEqual(result, undefined);
-		} finally {
-			await fs.chmod(blockedPath, 0o600);
-		}
+		await fs.writeFile(join(dir, 'blocked.txt'), 'blocked\n');
+
+		const result = await withFailingGitAdd(() => svc!.captureWorkingTreeAsTree(URI.file(dir)));
+		assert.strictEqual(result, undefined);
 	});
+	// --- End Positron ---
 
 	(hasGit ? test : test.skip)('showBlob retrieves committed content', async () => {
 		const fs = await import('fs/promises');

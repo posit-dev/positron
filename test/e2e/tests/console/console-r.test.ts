@@ -32,8 +32,15 @@ test.describe('Console Pane: R', {
 
 	test('R - Verify password prompt', async function ({ app, r }) {
 
+		// The interrupt test above can leave `Sys.sleep(10)` in the input; pasting
+		// appends at the cursor, so R would get a syntax error instead of a prompt.
+		await app.workbench.console.clearInput();
+
 		await app.workbench.console.pasteCodeToConsole('out <- rstudioapi::askForPassword("enter password")', true);
 
+		// quickInput.type() calls selectText(), which blocks on the always-attached
+		// widget for 30s with a bare locator timeout if the prompt never opens.
+		await app.workbench.quickInput.waitForQuickInputOpened({ timeout: 15000 });
 		await app.workbench.quickInput.type('password');
 		await app.code.driver.currentPage.keyboard.press('Enter');
 

@@ -384,10 +384,12 @@ export function validateRequired(mechanismId: string, params: positron.DataConne
  * Creates the Databricks DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
  * @param dataExplorerHandler Hosts table views previewed from Databricks connections.
+ * @param logger Optional diagnostic log sink, threaded to each connection.
  */
 export function createDatabricksDriver(
 	context: vscode.ExtensionContext,
-	dataExplorerHandler: DatabricksDataExplorerRpcHandler
+	dataExplorerHandler: DatabricksDataExplorerRpcHandler,
+	logger?: positron.DataConnectionLogger
 ): positron.DataConnectionDriver {
 	// Load the SVG icon once at registration time.
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'databricks.svg');
@@ -465,7 +467,7 @@ export function createDatabricksDriver(
 		mechanisms,
 		async connect(mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
 			validateRequired(mechanismId, params);
-			const connection = new DatabricksConnection(connectionConfig(mechanismId, params), dataExplorerHandler);
+			const connection = new DatabricksConnection(connectionConfig(mechanismId, params), dataExplorerHandler, logger);
 			await connection.connect();
 			return connection;
 		},

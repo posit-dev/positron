@@ -11,7 +11,6 @@ import { IDuckDBDataExplorerHost } from 'positron-data-explorer-duckdb';
 import { KeyAuthenticator, TokenAuthenticator } from './connectAuth.js';
 import { ConnectClient, isAuthFailure } from './connectClient.js';
 import { escapeDoubleQuoted } from './pinsCode.js';
-import { Logger, NULL_LOGGER } from './logging.js';
 import { PinsCache } from './pinsCache.js';
 import { PinsConnection } from './pinsConnection.js';
 import { claimToken as defaultClaimToken, TokenClaimDeps, TokenClaimResult } from './tokenAuth.js';
@@ -123,14 +122,14 @@ export interface PinsDriverDeps {
  * @param context The extension context, used to locate the icon asset and back credential storage.
  * @param dataExplorerHandler Hosts the table views previewed pins are shown in.
  * @param cache The on-disk cache downloaded pin data files are stored in.
- * @param logger Logs connect and browse activity; defaults to a no-op logger.
+ * @param logger Logs connect and browse activity; optional; nothing is logged when omitted.
  * @param deps Injectable dependencies; all default to the real implementations.
  */
 export function createPinsDriver(
 	context: vscode.ExtensionContext,
 	dataExplorerHandler: IDuckDBDataExplorerHost,
 	cache: PinsCache,
-	logger: Logger = NULL_LOGGER,
+	logger?: positron.DataConnectionLogger,
 	deps: PinsDriverDeps = {}
 ): positron.DataConnectionDriver {
 	// Load the SVG icon once at registration time.
@@ -145,10 +144,10 @@ export function createPinsDriver(
 	// Validates a client (server URL and credentials) and wraps it in a connection. A non-Connect URL
 	// fails getServerSettings; a bad credential returns 401/403 from getCurrentUser.
 	async function connectWithClient(client: ConnectClient): Promise<positron.DataConnection> {
-		logger.info(`Connecting to ${client.serverUrl}`);
+		logger?.info(`Connecting to ${client.serverUrl}`);
 		const settings = await client.getServerSettings();
 		const user = await client.getCurrentUser();
-		logger.info(`Connected as ${user.username || '(unknown user)'}${settings.version ? ` (Connect ${settings.version})` : ''}`);
+		logger?.info(`Connected as ${user.username || '(unknown user)'}${settings.version ? ` (Connect ${settings.version})` : ''}`);
 		return new PinsConnection(client, dataExplorerHandler, cache, logger);
 	}
 
@@ -252,7 +251,7 @@ export function createPinsDriver(
 								throw err;
 							}
 							rejected = true;
-							logger.info('Stored sign-in was rejected; starting a new browser sign-in.');
+							logger?.info('Stored sign-in was rejected; starting a new browser sign-in.');
 						}
 						if (!rejected) {
 							return connectWithClient(client);

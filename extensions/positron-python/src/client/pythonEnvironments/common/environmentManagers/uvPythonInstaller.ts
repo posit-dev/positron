@@ -6,6 +6,7 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { traceError, traceInfo } from '../../../logging';
 import { exec } from '../externalDependencies';
 import { isUvInstalled, getAvailablePythonVersions, resetUvCache, isWindowsArm64, execUv } from './uv';
@@ -361,13 +362,14 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                               workspaces[0].name,
                           )
                         : InterpreterQuickPickList.UvInstall.createVenvPrompt(selected.version, workspaces[0].name);
-                    const createVenv = await vscode.window.showInformationMessage(
+                    const createVenv = await positron.window.showSimpleModalDialogPrompt(
+                        InterpreterQuickPickList.UvInstall.createVenvTitle,
                         venvPrompt,
-                        InterpreterQuickPickList.UvInstall.yesRecommended,
-                        Common.bannerLabelNo,
+                        InterpreterQuickPickList.UvInstall.createVenvAccept,
+                        InterpreterQuickPickList.UvInstall.createVenvSkip,
                     );
 
-                    if (createVenv === InterpreterQuickPickList.UvInstall.yesRecommended) {
+                    if (createVenv) {
                         progress.report({ message: InterpreterQuickPickList.UvInstall.creatingVenv });
                         const workspace = workspaces[0];
                         const venvResult = await createVenvHandlingExisting(workspace, () =>

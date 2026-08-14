@@ -47,10 +47,12 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 	 * Constructor. Call connect() after constructing to establish the connection.
 	 * @param _config The connection configuration.
 	 * @param _dataExplorerHandler Hosts table views previewed in the Data Explorer.
+	 * @param _logger Optional diagnostic log sink for connection lifecycle and query events.
 	 */
 	constructor(
 		private readonly _config: RedshiftConnectionConfig,
-		private readonly _dataExplorerHandler: IRedshiftDataExplorerHost
+		private readonly _dataExplorerHandler: IRedshiftDataExplorerHost,
+		private readonly _logger?: positron.DataConnectionLogger
 	) {
 		this._client = new RedshiftClient(this._config);
 	}
@@ -60,15 +62,19 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 		if (!this._client) {
 			throw new Error('Redshift connection has been disconnected');
 		}
+		this._logger?.info(`Connecting to ${this._config.host}:${this._config.port}/${this._config.database} as ${this._config.user}`);
 		try {
 			await this._client.connect();
 		} catch (err: any) {
 			this._client = null;
-			throw new Error(`Failed to connect to Redshift at ${this._config.host}:${this._config.port}: ${err.message}`);
+			const error = new Error(`Failed to connect to Redshift at ${this._config.host}:${this._config.port}: ${err.message}`);
+			this._logger?.error(error.message);
+			throw error;
 		}
 		// Detect cross-database support once the connection is up. A failure here is non-fatal: the
 		// connection still works, it just browses the single connected database.
 		this._crossDatabase = await this._detectCrossDatabase();
+		this._logger?.info(`Connected to ${this._config.host}:${this._config.port} (cross-database ${this._crossDatabase ? 'available' : 'unavailable'})`);
 	}
 
 	/**

@@ -58,6 +58,11 @@ These hold on both entries unless a line names one.
 - Investigate **one** selected pattern at a time (CI); ask which when there's
   more than one. Never fetch evidence for a pattern the engineer didn't select --
   ask first, even to check a side theory about how patterns relate.
+- **Never run a test in the foreground.** Use Bash `run_in_background: true` and
+  tail the log. A foreground call lasting minutes blocks delivery of the
+  engineer's messages until it returns, so "it's hung, stop it" cannot reach you
+  mid-run and you cannot `TaskStop` the run. This matters most here: debugging
+  means watching a run you may well want to abandon.
 - Fetch **one** representative occurrence first; a second only for a listed
   reason in `references/evidence-escalation.md` -- name which.
 - Agree the **fix approach** before the first edit, the same way you agree the

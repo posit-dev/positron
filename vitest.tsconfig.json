@@ -23,6 +23,10 @@
 		"src/vs/**/*.vitest.tsx",
 		"src/*.vitest.ts",
 		"src/vs/test/vitest/**/*",
+		// Vitest tests for e2e helper modules (test/e2e/utils/**), which are
+		// plain TypeScript with no workbench dependencies. Without these the
+		// type check silently skips them.
+		"test/e2e/**/*.vitest.ts",
 		// Add files from the base tsconfig that we need for Vitest tests
 		"src/typings",
 		"src/positron-dts/positron.d.ts",

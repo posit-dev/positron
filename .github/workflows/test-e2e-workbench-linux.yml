@@ -1,8 +1,13 @@
-name: "Test: E2E Workbench (Ubuntu)"
+name: "Test: E2E Workbench (Linux)"
 
 on:
   workflow_call:
     inputs:
+      os:
+        required: false
+        description: "Host OS for the test container: 'ubuntu24' or 'rocky9'. Both run on the same Ubuntu runner -- the OS under test is the container's, not the runner's."
+        default: "ubuntu24"
+        type: string
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames."
@@ -50,30 +55,42 @@ permissions:
   packages: read
 
 jobs:
+  # Emit the shard matrix as JSON, because a matrix cannot be shrunk
+  # conditionally in place. The Rocky lane runs the `default` shard only: the
+  # managed-credential shards exercise OS-independent plumbing, so running them
+  # on a second OS would triple live cloud-auth usage for no new signal. Add them
+  # later only if a Rocky-specific credential bug shows up.
+  shards:
+    name: ${{ inputs.display_name || 'e2e-workbench' }} (shards)
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+      - name: Pick shards for this OS
+        id: pick
+        shell: bash
+        run: |
+          DEFAULT='{"name":"default","credentials":"","grep":"@:workbench","grep_invert":"@:workbench-(snowflake|databricks|azure)"}'
+          CREDS='{"name":"snowflake","credentials":"snowflake","grep":"@:workbench-snowflake","grep_invert":""},{"name":"databricks","credentials":"databricks","grep":"@:workbench-databricks","grep_invert":""},{"name":"azure","credentials":"azure","grep":"@:workbench-azure","grep_invert":""}'
+          if [ "${{ inputs.os }}" = "rocky9" ]; then
+            MATRIX="[${DEFAULT}]"
+          else
+            MATRIX="[${DEFAULT},${CREDS}]"
+          fi
+          # Fail loudly on malformed JSON rather than letting fromJSON blow up in
+          # the consuming job, where the error points at the matrix, not at here.
+          echo "$MATRIX" | jq -e . > /dev/null
+          echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
+
   e2e-workbench:
     name: ${{ inputs.display_name || 'e2e-workbench' }} (${{ matrix.shard.name }})
+    needs: shards
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
     strategy:
       fail-fast: false
       matrix:
-        shard:
-          - name: default
-            credentials: ''
-            grep: '@:workbench'
-            grep_invert: '@:workbench-(snowflake|databricks|azure)'
-          - name: snowflake
-            credentials: 'snowflake'
-            grep: '@:workbench-snowflake'
-            grep_invert: ''
-          - name: databricks
-            credentials: 'databricks'
-            grep: '@:workbench-databricks'
-            grep_invert: ''
-          - name: azure
-            credentials: 'azure'
-            grep: '@:workbench-azure'
-            grep_invert: ''
+        shard: ${{ fromJSON(needs.shards.outputs.matrix) }}
 
     env:
       POSITRON_BUILD_NUMBER: 0
@@ -188,6 +205,7 @@ jobs:
       - name: Setup Workbench Docker Environment
         uses: ./.github/actions/setup-workbench-docker
         with:
+          os: ${{ inputs.os }}
           install-mode: ${{ inputs.install_mode }}
           credentials: ${{ matrix.shard.credentials }}
           wb-password: ${{ secrets.WB_PASSWORD }}
@@ -207,7 +225,7 @@ jobs:
       - name: Generate Report Directory
         uses: ./.github/actions/gen-report-dir
         with:
-          identifier: e2e-workbench-${{ matrix.shard.name }}
+          identifier: e2e-workbench-${{ inputs.os }}-${{ matrix.shard.name }}
 
       - name: 🧪 Run Playwright Workbench Tests
         shell: bash
@@ -247,7 +265,7 @@ jobs:
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-workbench-ubuntu-logs-${{ matrix.shard.name }}
+          name: e2e-workbench-${{ inputs.os }}-logs-${{ matrix.shard.name }}
           path: test-logs
           retention-days: 3
           if-no-files-found: ignore

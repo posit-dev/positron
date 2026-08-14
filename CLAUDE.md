@@ -96,6 +96,12 @@ Positron has three test categories:
 	- `npm run test:ext-host` (or `./scripts/test-integration.sh`): run the full CI driver
 	- positron-python has its own test setup -- see `extensions/positron-python/CLAUDE.md`
 - **E2E** (Playwright, full app): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
+	- **Run it in the background, not the foreground.** Use Bash `run_in_background: true`
+	  (or `nohup ... &` for runs longer than the tool timeout) and tail the log, rather than
+	  blocking on the call. A single e2e test takes 1-7 minutes and a suite takes tens of
+	  minutes; a foreground call that long means the user's messages are not delivered until
+	  it returns, so "it's stuck, stop" cannot reach you and you cannot `TaskStop` the run.
+	  Background runs also let you watch a log with Monitor and act on failures as they land.
 
 ### Triaging an e2e test that is failing or flaking
 

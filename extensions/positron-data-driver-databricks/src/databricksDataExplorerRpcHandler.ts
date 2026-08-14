@@ -9,7 +9,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { IProfileLogger, IDatabricksQueryClient, DatabricksSchemaEntry, DatabricksTableView } from './databricksTableView.js';
+import { IDatabricksQueryClient, DatabricksSchemaEntry, DatabricksTableView } from './databricksTableView.js';
 import { databricksDisplayType, describeTableSql, parseDescribeRows, tableRef } from './databricksSql.js';
 import {
 	ConvertToCodeParams,
@@ -63,7 +63,7 @@ export class DatabricksDataExplorerRpcHandler implements vscode.Disposable, IDat
 	private readonly _profileDraining = new Set<string>();
 
 	/** @param _logger Optional diagnostic log sink, threaded to each table view for profile timing. */
-	constructor(private readonly _logger?: IProfileLogger) {
+	constructor(private readonly _logger?: positron.DataConnectionLogger) {
 		this._session = positron.dataExplorer.registerRpcHandler(DATABRICKS_DATA_EXPLORER_PROVIDER_ID, {
 			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc)
 		});
@@ -211,8 +211,7 @@ export class DatabricksDataExplorerRpcHandler implements vscode.Disposable, IDat
 				} catch (error) {
 					if (!token.isCancellationRequested) {
 						const message = error instanceof Error ? error.message : 'unknown error';
-						this._logger?.info(`Failed to compute column profiles for ${datasetId}: ${message}`);
-						console.error(`Failed to compute Databricks column profiles: ${message}`);
+						this._logger?.error(`Failed to compute column profiles for ${datasetId}: ${message}`);
 					}
 				}
 			}

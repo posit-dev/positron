@@ -27,7 +27,6 @@ import { IPythonExecutionFactory } from '../common/process/types';
 import { IPYKERNEL_VERSION, MINIMUM_PYTHON_VERSION, MAXIMUM_PYTHON_VERSION_EXCLUSIVE } from '../common/constants';
 import { Architecture } from '../common/utils/platform';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
-import { traceInfo } from '../logging';
 import { getIpykernelBundle } from './ipykernel';
 import { isUvInstalled } from '../pythonEnvironments/common/environmentManagers/uv';
 
@@ -74,8 +73,26 @@ export interface EnvironmentHealthResult {
     interpreterPath?: string;
 }
 
+/**
+ * The claim a check makes, phrased so it reads the same whatever the outcome is: 'pass' means it
+ * holds, 'fail' means it does not, 'skipped' means it was never evaluated. Callers that never run
+ * the probe (a skipped item, a probe that threw) still need the text, so it lives here rather than
+ * inside each probe.
+ */
+export function itemSummary(id: HealthItemId): string {
+    // Record<HealthItemId, string> requires an entry per id, so adding a check without a summary
+    // is a compile error. Built per call because vscode.l10n.t needs the activated l10n bundle.
+    const summaries: Record<HealthItemId, string> = {
+        discovery: vscode.l10n.t('Positron can discover Python environments'),
+        pythonInstalled: vscode.l10n.t('A supported Python is installed'),
+        environmentReady: vscode.l10n.t('The environment is ready to use with Positron'),
+        dedicatedEnvironment: vscode.l10n.t('A dedicated Python environment is available'),
+    };
+    return summaries[id];
+}
+
 export function probeDiscovery(finder: Pick<NativePythonFinder, 'lastDiscoveryError'>): HealthItem {
-    const summary = vscode.l10n.t('Positron can discover Python environments');
+    const summary = itemSummary('discovery');
     if (finder.lastDiscoveryError) {
         return {
             id: 'discovery',
@@ -123,7 +140,7 @@ export async function probePythonInstalled(deps: {
     allowUvPythonInstall: boolean;
     waitMs: number;
 }): Promise<HealthItem> {
-    const summary = vscode.l10n.t('A supported Python is installed');
+    const summary = itemSummary('pythonInstalled');
     const hasSupported = () => deps.getInterpreters().some((i) => isVersionSupported(i.version));
 
     if (hasSupported()) {
@@ -302,7 +319,7 @@ export function probeDedicatedEnvironment(deps: {
     newFolderFix: HealthItemFix;
 }): HealthItem {
     const id = 'dedicatedEnvironment';
-    const summary = vscode.l10n.t('A dedicated Python environment is available');
+    const summary = itemSummary(id);
 
     if (deps.workspaceOpen) {
         if (deps.interpreterDedicated) {
@@ -353,7 +370,7 @@ export function probeEnvironmentReady(deps: {
     installNativePythonFix?: HealthItemFix;
 }): HealthItem {
     const id = 'environmentReady';
-    const summary = vscode.l10n.t('The environment is ready to use with Positron');
+    const summary = itemSummary(id);
 
     if (!deps.resolvesAndRuns) {
         return {
@@ -409,7 +426,7 @@ interface ItemProducers {
 }
 
 function skipped(id: HealthItemId): HealthItem {
-    return { id, status: 'skipped', summary: id };
+    return { id, status: 'skipped', summary: itemSummary(id) };
 }
 
 async function runItem(id: HealthItemId, produce: () => HealthItem | Promise<HealthItem>): Promise<HealthItem> {
@@ -419,7 +436,7 @@ async function runItem(id: HealthItemId, produce: () => HealthItem | Promise<Hea
         return {
             id,
             status: 'fail',
-            summary: id,
+            summary: itemSummary(id),
             detail: vscode.l10n.t('Health check failed: {0}', ex instanceof Error ? ex.message : String(ex)),
         };
     }
@@ -527,7 +544,6 @@ export async function getEnvironmentHealth(
     // never rejects" contract.
     result.interpreterPath = snapshot?.interp?.path;
 
-    traceEnvironmentHealth(result);
     return result;
 }
 
@@ -646,10 +662,4 @@ async function interpreterResolvesAndRuns(
     } catch {
         return false;
     }
-}
-
-function traceEnvironmentHealth(result: EnvironmentHealthResult): void {
-    traceInfo('===================== [START] PYTHON ENVIRONMENT HEALTH =====================');
-    traceInfo(JSON.stringify(result, null, 2));
-    traceInfo('====================== [END] PYTHON ENVIRONMENT HEALTH ======================');
 }

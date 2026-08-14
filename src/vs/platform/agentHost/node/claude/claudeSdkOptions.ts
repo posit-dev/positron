@@ -219,6 +219,19 @@ export function buildModelEnumerationOptions(): Options {
  * at copilotAgent.ts:434-450.
  *
  * Exported for unit testing as a pure function over `process.env`.
+ *
+ * --- Start Positron ---
+ * Proxy mode additionally forwards `IS_SANDBOX` when it is exactly `'1'`. The
+ * agent host always passes `allowDangerouslySkipPermissions`, which the SDK
+ * turns into `--allow-dangerously-skip-permissions`, and the CLI refuses that
+ * flag as root ("--dangerously-skip-permissions cannot be used with root/sudo
+ * privileges for security reasons"), exiting before the first model call.
+ * `IS_SANDBOX=1` is the CLI's escape hatch for sandboxed environments. This
+ * only propagates a value the surrounding environment has already opted into
+ * -- it does not set one -- so it changes nothing for a Positron whose
+ * environment does not define it. Positron's extension-host CI job is the
+ * caller that does: it runs the agent host e2e tests as root in a container.
+ * --- End Positron ---
  */
 export function buildSubprocessEnv(proxied: boolean = true): Record<string, string | undefined> {
 	// Proxy mode: a sparse env (creds arrive via settings.env), and the user's
@@ -232,6 +245,13 @@ export function buildSubprocessEnv(proxied: boolean = true): Record<string, stri
 			ANTHROPIC_API_KEY: undefined,
 			HOME: process.env['HOME'],
 			USERPROFILE: process.env['USERPROFILE'],
+			// --- Start Positron ---
+			// Let an explicit `IS_SANDBOX=1` reach the CLI; see the note in this
+			// function's doc comment. Only the exact value the CLI's root guard
+			// accepts is forwarded, so an ambient `IS_SANDBOX=0` cannot reach the
+			// paths that read the variable with a plain truthiness test.
+			IS_SANDBOX: process.env['IS_SANDBOX'] === '1' ? '1' : undefined,
+			// --- End Positron ---
 		}
 		: { ...process.env, ELECTRON_RUN_AS_NODE: '1', NODE_OPTIONS: undefined };
 	for (const key of Object.keys(process.env)) {
