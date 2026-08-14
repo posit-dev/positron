@@ -6,7 +6,6 @@
 /// <reference types="vitest/globals" />
 
 import { Event } from '../../../../../base/common/event.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { timeout } from '../../../../../base/common/async.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
@@ -18,7 +17,6 @@ import { MainThreadDataExplorer } from '../../../browser/positron/mainThreadData
 import { ExtHostDataExplorerShape } from '../../../common/positron/extHost.positron.protocol.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
-import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { BackendState, DataExplorerBackendRequest, SupportedFeatures, SupportStatus } from '../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { IDataExplorerRpcDto } from '../../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
@@ -46,7 +44,6 @@ describe('Data Explorer RPC transport routing', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IConfigurationService, new TestConfigurationService())
-		.stub(IEditorService, { openEditor: vi.fn().mockResolvedValue(undefined) })
 		.stub(IRuntimeSessionService, {
 			activeSessions: [],
 			onWillStartSession: Event.None,
@@ -56,18 +53,12 @@ describe('Data Explorer RPC transport routing', () => {
 		})
 		.build();
 
-	let store: DisposableStore;
 	let service: PositronDataExplorerService;
 
 	beforeEach(() => {
 		// PositronDataExplorerInstance reads the singleton in its constructor.
 		PositronReactServices.services = ctx.reactServices;
-		store = new DisposableStore();
-		service = store.add(ctx.instantiationService.createInstance(PositronDataExplorerService));
-	});
-
-	afterEach(() => {
-		store.dispose();
+		service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronDataExplorerService));
 	});
 
 	/** A minimal backend state, enough for the grid instances the open path spins up. */
@@ -124,7 +115,7 @@ describe('Data Explorer RPC transport routing', () => {
 				}
 			},
 		});
-		host.mainThread = store.add(new MainThreadDataExplorer(extHostContext, service, extensionService));
+		host.mainThread = ctx.disposables.add(new MainThreadDataExplorer(extHostContext, service, extensionService));
 		return { mainThread: host.mainThread, calls };
 	}
 
@@ -185,6 +176,26 @@ describe('Data Explorer RPC transport routing', () => {
 		}).toEqual({
 			remoteFirstCall: DataExplorerBackendRequest.OpenDataset,
 			webWorkerCallCount: 0,
+		});
+	});
+
+	it('re-routes to a new host after the host that owned the provider disconnects', async () => {
+		// A remote host that goes away must take its provider claim with it, or RPCs keep going to a
+		// disposed transport once the host reconnects.
+		const staleHost = createExtensionHost([DUCKDB_DATA_EXPLORER_PROVIDER_ID]);
+		staleHost.mainThread.$registerRpcHandler(DUCKDB_DATA_EXPLORER_PROVIDER_ID);
+		staleHost.mainThread.dispose();
+		const reconnectedHost = createExtensionHost([DUCKDB_DATA_EXPLORER_PROVIDER_ID]);
+
+		await service.openWithDuckDB(URI.file('/tmp/small_file.csv'));
+		await vi.waitFor(() => expect(reconnectedHost.calls.length + staleHost.calls.length).toBeGreaterThan(0));
+
+		expect({
+			reconnectedFirstCall: reconnectedHost.calls[0]?.rpc.method,
+			staleCallCount: staleHost.calls.length,
+		}).toEqual({
+			reconnectedFirstCall: DataExplorerBackendRequest.OpenDataset,
+			staleCallCount: 0,
 		});
 	});
 
