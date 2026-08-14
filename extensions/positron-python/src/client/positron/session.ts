@@ -38,7 +38,7 @@ import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
 import { Architecture } from '../common/utils/platform';
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
-import { getActiveInterpreterConfigTarget, whenTimeout } from './util';
+import { getActiveInterpreterConfigTarget, resolveInterpreterWithRetry, whenTimeout } from './util';
 import { PackageManagerFactory } from './packages/packageManagerFactory';
 import { IPackageManager } from './packages/types';
 import { listMissingPythonPackages, pythonMissingPackageProbe } from './missingPackages';
@@ -529,7 +529,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     async start(): Promise<positron.LanguageRuntimeInfo> {
-        const interpreter = await this._interpreterService.getInterpreterDetails(this._pythonPath);
+        const interpreter = await resolveInterpreterWithRetry(this._interpreterService, this._pythonPath);
         if (!interpreter) {
             throw new Error(`Could not start runtime: failed to resolve interpreter ${this._pythonPath}`);
         }

@@ -26,7 +26,7 @@ import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { shouldIncludeInterpreter, getUserDefaultInterpreter } from './interpreterSettings';
-import { hasFiles } from './util';
+import { hasFiles, resolveInterpreterWithRetry } from './util';
 import { isCondaEnvironment } from '../pythonEnvironments/common/environmentManagers/conda';
 import { untildify } from '../common/helpers';
 import {
@@ -320,18 +320,16 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
 
         if (interpreterPath) {
             interpreterPath = untildify(interpreterPath);
-            let interpreter = await this.interpreterService.getInterpreterDetails(interpreterPath, workspaceUri);
-
             // This runs during startup, before interpreter discovery has necessarily
             // resolved this path. A cold resolve returns undefined, which would drop the
             // workspace default entirely, since it is never re-queried after discovery.
-            // Trigger a refresh and retry once so the default is recommended reliably.
-            // Mirrors the retry in selectLanguageRuntimeFromPath.
-            if (!interpreter) {
-                traceInfo(`Recommended interpreter ${interpreterPath} not resolved yet, triggering refresh...`);
-                await this.interpreterService.triggerRefresh().ignoreErrors();
-                interpreter = await this.interpreterService.getInterpreterDetails(interpreterPath, workspaceUri);
-            }
+            // The helper triggers a refresh and retries once so the default is
+            // recommended reliably.
+            const interpreter = await resolveInterpreterWithRetry(
+                this.interpreterService,
+                interpreterPath,
+                workspaceUri,
+            );
 
             if (interpreter) {
                 const metadata = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, isImmediate);
@@ -577,6 +575,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
 
         // Replace the metadata if we can find the runtime in the registered runtimes
         let registeredMetadata = this.registeredPythonRuntimes.get(extraData.pythonPath);
+        let resolvePath = extraData.pythonPath;
 
         if (!registeredMetadata) {
             // It's possible that the interpreter is located at pythonPath/bin/python.
@@ -586,11 +585,20 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             const binPythonExists = await fs.pathExists(binPythonPath);
             if (binPythonExists) {
                 registeredMetadata = this.registeredPythonRuntimes.get(binPythonPath);
+                resolvePath = binPythonPath;
             }
         }
 
-        // Metadata is valid
-        return registeredMetadata ?? metadata;
+        if (registeredMetadata) {
+            // Discovery already resolved this interpreter; its metadata is fresh.
+            return registeredMetadata;
+        }
+
+        const interpreter = await resolveInterpreterWithRetry(this.interpreterService, resolvePath);
+        if (!interpreter) {
+            throw new Error(`Failed to resolve interpreter ${resolvePath}; the environment may no longer be usable`);
+        }
+        return createPythonRuntimeMetadata(interpreter, this.serviceContainer, false);
     }
 
     /**
