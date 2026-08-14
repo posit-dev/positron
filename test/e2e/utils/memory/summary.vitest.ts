@@ -193,6 +193,27 @@ describe('delta emphasis', () => {
 		]));
 		expect(html).not.toContain('class="delta-up"');
 	});
+
+	// A third scenario's bad launch used to set the bar for every scenario: one
+	// data-explorer launch 72 MB above its neighbours put the extension_host bar at
+	// 73.9 MB and hid notebook at +67.9 MB, which is the size of change this report
+	// exists to catch.
+	test('does not let an unrelated scenario noise floor hide a steady scenario delta', () => {
+		const matrix = buildSummaryMatrix([
+			noisyEntry('idle', 'extension_host', [332, 332, 335]),
+			noisyEntry('notebook', 'extension_host', [400, 400, 400]),
+			noisyEntry('data-explorer', 'extension_host', [336, 408, 334])
+		]);
+
+		// The bar notebook is judged against comes from notebook and idle only, so the
+		// jumpy data-explorer launches cannot raise it.
+		const row = matrix.rows.find(r => r.role === 'extension_host')!;
+		expect(row.emphasisThreshold['notebook']).toBe(5 * MB);
+		expect(row.emphasisThreshold['data-explorer']).toBe(74 * MB);
+
+		const html = renderSummaryHtml(matrix);
+		expect(html).toContain('<span class="delta-up">&#9650; 68.0 MB</span>');
+	});
 });
 
 describe('renderSummaryHtml', () => {

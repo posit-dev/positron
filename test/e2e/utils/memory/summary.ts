@@ -42,8 +42,11 @@ export type SummaryRow = {
 	values: Partial<Record<MemoryScenario, number>>;
 	/** current - idle, present only when both the scenario and idle have this role. */
 	deltaVsIdle: Partial<Record<MemoryScenario, number>>;
-	/** How big a delta has to be before this role's row earns emphasis. See {@link emphasisThreshold}. */
-	emphasisThreshold: number;
+	/**
+	 * Per scenario, how big that scenario's delta against idle has to be to earn
+	 * emphasis. See {@link emphasisThreshold}.
+	 */
+	emphasisThreshold: Partial<Record<MemoryScenario, number>>;
 };
 
 /** One process that was still moving when it was sampled, named for the warning banner. */
@@ -62,8 +65,8 @@ export type SummaryMatrix = {
 	rows: SummaryRow[];
 	/** Median tree total per scenario, for the TOTAL row. */
 	totals: Partial<Record<MemoryScenario, number>>;
-	/** The TOTAL row's own emphasis bar, calibrated from tree-total spread rather than any one role's. */
-	totalEmphasisThreshold: number;
+	/** The TOTAL row's own emphasis bar per scenario, from tree-total spread rather than any one role's. */
+	totalEmphasisThreshold: Partial<Record<MemoryScenario, number>>;
 	/**
 	 * Carried on the matrix so `renderSummaryHtml` can warn without also taking
 	 * the raw snapshots: every figure in the matrix is derived from processes that
@@ -84,8 +87,14 @@ const MIN_EMPHASIS_BYTES = 5 * 1024 * 1024;
 /**
  * Per role, because the noise is not uniform: `renderer` holds to 1.5 MB across
  * launches while `shared` swings 10.8 MB. A flat 5 MB rule drew a red arrow on
- * `extension_host` at +8.8 MB, inside that role's own scatter. Taken from the
- * noisiest scenario, since a delta is only as good as the shakier of its two.
+ * `extension_host` at +8.8 MB, inside that role's own scatter.
+ *
+ * Scoped to the two scenarios the delta is actually between, since a delta is only
+ * as good as the shakier of its two. Reading the bar from every scenario instead
+ * let one scenario's bad launch silence a real change everywhere else: a single
+ * `data-explorer` launch 72 MB above its neighbours put the `extension_host` bar at
+ * 73.9 MB, which hid `notebook` at +67.9 MB even though `notebook` itself only
+ * swung 30 MB.
  */
 function emphasisThreshold(spreads: number[]): number {
 	return Math.max(MIN_EMPHASIS_BYTES, ...spreads);
@@ -156,12 +165,15 @@ export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix 
 	const rows: SummaryRow[] = [...allRoles].map(role => {
 		const values: Partial<Record<MemoryScenario, number>> = {};
 		const deltaVsIdle: Partial<Record<MemoryScenario, number>> = {};
+		const threshold: Partial<Record<MemoryScenario, number>> = {};
+		const idleSpread = spreadsByScenario.get('idle')?.get(role) ?? 0;
 
 		for (const scenario of scenarios) {
 			const value = rolesByScenario.get(scenario)!.get(role);
 			if (value !== undefined) {
 				values[scenario] = value;
 			}
+			threshold[scenario] = emphasisThreshold([idleSpread, spreadsByScenario.get(scenario)!.get(role) ?? 0]);
 			if (idleRoles && scenario !== 'idle') {
 				const idleValue = idleRoles.get(role);
 				if (value !== undefined && idleValue !== undefined) {
@@ -170,18 +182,25 @@ export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix 
 			}
 		}
 
-		const spreads = [...spreadsByScenario.values()].map(byRoleSpread => byRoleSpread.get(role) ?? 0);
-		return { role, values, deltaVsIdle, emphasisThreshold: emphasisThreshold(spreads) };
+		return { role, values, deltaVsIdle, emphasisThreshold: threshold };
 	});
 
 	rows.sort((a, b) => rowMagnitude(b) - rowMagnitude(a));
 
 	const totals: Partial<Record<MemoryScenario, number>> = {};
-	const totalSpreads: number[] = [];
+	const totalSpreadByScenario = new Map<MemoryScenario, number>();
 	for (const { scenario, snapshots } of entries) {
 		const perLaunch = snapshots.map(s => s.treeTotalPssBytes);
 		totals[scenario] = median(perLaunch);
-		totalSpreads.push(Math.max(...perLaunch) - Math.min(...perLaunch));
+		totalSpreadByScenario.set(scenario, Math.max(...perLaunch) - Math.min(...perLaunch));
+	}
+
+	// Same two-scenario scoping as the role rows above: the TOTAL bar for a scenario
+	// is set by that scenario and idle, not by whichever scenario shook the most.
+	const idleTotalSpread = totalSpreadByScenario.get('idle') ?? 0;
+	const totalEmphasisThreshold: Partial<Record<MemoryScenario, number>> = {};
+	for (const scenario of scenarios) {
+		totalEmphasisThreshold[scenario] = emphasisThreshold([idleTotalSpread, totalSpreadByScenario.get(scenario) ?? 0]);
 	}
 
 	const unstable: UnstableEntry[] = entries.flatMap(({ scenario, snapshots }) =>
@@ -195,7 +214,7 @@ export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix 
 			reported: proc.pssBytes
 		}))));
 
-	return { scenarios, rows, totals, totalEmphasisThreshold: emphasisThreshold(totalSpreads), unstable };
+	return { scenarios, rows, totals, totalEmphasisThreshold, unstable };
 }
 
 /** Muted em-dash: a role that did not exist in this scenario, never a fabricated zero. */
@@ -211,13 +230,15 @@ function scenarioHeaderHtml(scenarios: MemoryScenario[]): string {
 }
 
 /** One scenario's cell: the PSS value, plus (for a non-idle scenario) its delta against idle underneath. */
-function cellHtml(scenario: MemoryScenario, value: number | undefined, delta: number | undefined, threshold: number): string {
+function cellHtml(scenario: MemoryScenario, value: number | undefined, delta: number | undefined, threshold: number | undefined): string {
 	if (value === undefined) {
 		return `<td align="right"${baselineClass(scenario)}>${ABSENT_MARKER}</td>`;
 	}
 	// Below the threshold nothing renders: a column of muted `-0.0 MB` spends a line
 	// per row saying nothing happened, crowding the figures that did move.
-	const emphasized = scenario === 'idle' || delta === undefined || Math.abs(delta) < threshold
+	// An absent threshold cannot mean "emphasize everything": a scenario with no bar
+	// computed for it has nothing to say a delta cleared anything.
+	const emphasized = scenario === 'idle' || delta === undefined || threshold === undefined || Math.abs(delta) < threshold
 		? ''
 		: deltaHtmlFromDiff(delta);
 	// The delta is the point of the table, so the value it is measured from steps back
@@ -227,7 +248,7 @@ function cellHtml(scenario: MemoryScenario, value: number | undefined, delta: nu
 }
 
 function rowHtml(row: SummaryRow, scenarios: MemoryScenario[]): string {
-	const cells = scenarios.map(scenario => cellHtml(scenario, row.values[scenario], row.deltaVsIdle[scenario], row.emphasisThreshold)).join('');
+	const cells = scenarios.map(scenario => cellHtml(scenario, row.values[scenario], row.deltaVsIdle[scenario], row.emphasisThreshold[scenario])).join('');
 	return `<tr>
 		<td><code>${escapeHtml(row.role)}</code></td>
 		${cells}
@@ -241,7 +262,7 @@ function totalRowHtml(matrix: SummaryMatrix): string {
 		const delta = scenario !== 'idle' && value !== undefined && idleValue !== undefined
 			? value - idleValue
 			: undefined;
-		return cellHtml(scenario, value, delta, matrix.totalEmphasisThreshold);
+		return cellHtml(scenario, value, delta, matrix.totalEmphasisThreshold[scenario]);
 	}).join('');
 	return `<tr class="total-row">
 		<td><strong>TOTAL</strong></td>
