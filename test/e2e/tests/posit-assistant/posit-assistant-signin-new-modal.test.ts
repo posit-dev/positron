@@ -17,6 +17,14 @@ test.use({
 	// Written into user settings before the app starts. Setting this from a
 	// beforeAll instead leaves the first test racing the config reload, which it
 	// loses often enough to fail under CI load.
+	//
+	// Whatever goes wrong with settings here, do not reach for a window reload. A
+	// restarted extension host re-probes the cloud credential-chain metadata
+	// endpoints (AWS/Azure IMDS, metadata.google.internal). Those are unreachable
+	// from the test container and hang, starving DNS for api.anthropic.com and
+	// api.openai.com. Provider key validation then aborts on its own budget
+	// (KEY_VALIDATION_TIMEOUT_MS in extensions/authentication/src/constants.ts) and
+	// the modal never reaches the Connected view.
 	extraSettings: { 'assistant.newProviderModal': true },
 });
 
