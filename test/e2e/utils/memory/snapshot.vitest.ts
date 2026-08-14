@@ -197,6 +197,24 @@ describe('treeHasSettled', () => {
 		))).toBe(true);
 	});
 
+	// The measured failure this argument exists for: an `editors` launch took 11.4s
+	// to stop growing where its siblings took 4.2s, reclaimed inside that window,
+	// and then held dead flat. With the peak taken from sampling alone there is no
+	// drop left to see, so it burned the 90s cap with every process motionless.
+	test('is false when the reclaim happened before sampling and is invisible here', () => {
+		expect(treeHasSettled(tree(renderer(413, 413, 413, 413)))).toBe(false);
+	});
+
+	test('is true when the drop is only visible against the peak seen while settling', () => {
+		expect(treeHasSettled(tree(renderer(413, 413, 413, 413)), 600 * MB)).toBe(true);
+	});
+
+	test('ignores a settle-phase peak lower than what sampling saw, so the old behaviour stands', () => {
+		// A reclaim landing during sampling is the ordinary case, and a smaller
+		// earlier peak must not make the startup plateau look reclaimed.
+		expect(treeHasSettled(tree(renderer(565, 559, 559, 559)), 100 * MB)).toBe(false);
+	});
+
 	test('too few samples is never settled', () => {
 		expect(treeHasSettled(tree(renderer(559, 287)))).toBe(false);
 	});
@@ -238,5 +256,22 @@ describe('isSettled', () => {
 
 	test('growth resuming after a plateau is not settled', () => {
 		expect(isSettled([500 * MB, 501 * MB, 502 * MB, 700 * MB])).toBe(false);
+	});
+});
+
+describe('the 50 MB floor on flatness', () => {
+	const MB = 1048576;
+
+	// Counterintuitive and worth pinning: isSteady needs the spread to clear
+	// UNSTABLE_SPREAD_BYTES as well as 5%, so a double-digit percentage drop on a
+	// mid-sized process still counts as flat. A Quarto language server releasing
+	// 8.5 MB (11% of itself) at the sampling cap therefore looked like the reason a
+	// launch never settled while being entirely innocent of it.
+	test('counts an 11% drop as flat when it is only 8 MB', () => {
+		expect(tailIsFlat([74 * MB, 74 * MB, 74 * MB, 66 * MB])).toBe(true);
+	});
+
+	test('counts the same fractional drop as moving once it clears 50 MB', () => {
+		expect(tailIsFlat([740 * MB, 740 * MB, 740 * MB, 660 * MB])).toBe(false);
 	});
 });

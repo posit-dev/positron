@@ -11,7 +11,7 @@ import { deriveExtensionName, normalizeProcessName, resolveRole } from './label.
  * Real shapes, with the paths shortened to the parts the rules actually read.
  */
 const QUARTO_LSP = '/build/bundled/node /home/u/.positron-server/extensions/quarto.quarto-1.135.0-universal/out/lsp/lsp.js --stdio';
-const DUCKDB_WORKER = '/build/bundled/node /build/bundled/extensions/positron-duckdb/dist/duckdb-worker.js';
+const DUCKDB_WORKER = '/build/bundled/node /build/bundled/extensions/positron-duckdb/out/duckdbWorker.js';
 const PET_SERVER = '/build/bundled/extensions/positron-python/python-env-tools/pet server';
 const AIR_LSP = '/home/u/.positron-server/extensions/posit.air-vscode-0.28.0-linux-x64/bundled/bin/air language-server';
 const RUFF_SERVER = '/tmp/extensions-dir/charliermarsh.ruff-2026.70.0-linux-x64/bundled/libs/bin/ruff server';
@@ -152,7 +152,7 @@ describe('deriveExtensionName', () => {
 	// the report as an anonymous share of `language_server` or `extension_child`.
 	test.each([
 		[QUARTO_LSP, 'quarto.quarto (lsp)'],
-		[DUCKDB_WORKER, 'positron-duckdb (duckdb-worker)'],
+		[DUCKDB_WORKER, 'positron-duckdb (duckdbWorker)'],
 		[PET_SERVER, 'positron-python (pet)'],
 	])('names the extension that spawned the process', (cmd, expected) => {
 		expect(deriveExtensionName(cmd)).toBe(expected);

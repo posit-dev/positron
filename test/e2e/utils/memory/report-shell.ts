@@ -15,6 +15,9 @@
 
 const MB = 1024 * 1024;
 
+/** Shown by both reports whenever a snapshot carries a forced-GC reading, so live usage is not mistaken for it. */
+export const GC_NOTE = 'Shared process and extension host are measured after a forced garbage collection; live usage can sit higher.';
+
 /**
  * Always MB, never GB. Every scenario in the report sits in the hundreds to
  * low thousands of MB, and a GB branch collapses exactly the resolution the
@@ -41,14 +44,18 @@ export function escapeHtml(text: string): string {
 }
 
 /**
- * Up/down triangle plus a signed number, so a delta is never conveyed by color
- * alone. Near-zero (under 1 MB) gets neither color nor glyph, just a plain
- * number, since a swing that small is noise rather than signal.
+ * Up/down triangle plus a number, so a delta is never conveyed by color alone.
+ *
+ * The glyph carries the direction, so the sign would only repeat it. Near-zero
+ * (under 1 MB) gets neither color nor glyph, just a plain number, since a swing
+ * that small is noise rather than signal -- and there the sign is the only thing
+ * saying which way it went, so it stays.
  */
 export function deltaHtmlFromDiff(diff: number): string {
-	const cls = Math.abs(diff) < MB ? 'delta-flat' : diff > 0 ? 'delta-up' : 'delta-down';
-	const glyph = Math.abs(diff) < MB ? '' : diff > 0 ? '&#9650; ' : '&#9660; ';
-	return `<span class="${cls}">${glyph}${signed(diff)}</span>`;
+	const flat = Math.abs(diff) < MB;
+	const cls = flat ? 'delta-flat' : diff > 0 ? 'delta-up' : 'delta-down';
+	const glyph = flat ? '' : diff > 0 ? '&#9650; ' : '&#9660; ';
+	return `<span class="${cls}">${glyph}${flat ? signed(diff) : formatBytes(Math.abs(diff))}</span>`;
 }
 
 /** Same as {@link deltaHtmlFromDiff}, computing the diff from two absolute values. */
@@ -101,6 +108,13 @@ export const REPORT_CSS = `
 		.card .meta { color: #6b7280; font-size: 0.9rem; margin-bottom: 12px; }
 		table { border-collapse: collapse; width: 100%; }
 		td, th { padding: 4px 8px; text-align: left; }
+		/* Both reports mark numeric cells with align="right", which the rule above was
+		silently overriding -- CSS beats a presentational attribute -- so every figure
+		rendered left-aligned and the decimal points did not line up to compare. */
+		td[align="right"], th[align="right"] { text-align: right; }
+		/* Proportional digits are not the same width, so even right-aligned figures put
+		their decimal points in slightly different places down a column. */
+		td[align="right"] { font-variant-numeric: tabular-nums; }
 		/* Bolder and darker than the values are, but smaller: size keeps the header from
 		competing with the data while weight still marks it as the label band. At 500 in
 		light gray it read as just another row. */

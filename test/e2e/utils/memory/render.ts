@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { deltaHtml, escapeHtml, formatBytes, notSteadyStateCardHtml, REPORT_CSS, signed } from './report-shell.js';
+import { deltaHtml, escapeHtml, formatBytes, GC_NOTE, notSteadyStateCardHtml, REPORT_CSS, signed } from './report-shell.js';
 import { unstableProcesses } from './snapshot.js';
 import { ActivatedExtension, LabeledProcess, MemorySnapshot, ProcessRole } from './types.js';
 
@@ -575,12 +575,13 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 		<div class="hero">${formatBytes(total)}</div>
 		${baseline ? `<div class="meta">${deltaHtml(total, baseline.treeTotalPssBytes)} vs previous nightly</div>` : ''}
 		<div class="meta">${escapeHtml(samplingSummary(snapshots))}</div>
+		${snapshots.some(s => (s.forcedGc?.length ?? 0) > 0) ? `<div class="meta">${GC_NOTE}</div>` : ''}
 	</div>
 
 	${instabilityCard}
 
 	<div class="card">
-		<h2>By role</h2>
+		<h2>Memory by role</h2>
 		<table>
 			<tr><th>Role</th><th align="right">PSS</th><th></th><th align="right">Change</th></tr>
 			${roleRows}

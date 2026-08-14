@@ -143,6 +143,13 @@ describe('renderMarkdown', () => {
 		expect(html).toContain('vs previous nightly');
 	});
 
+	test('shows the GC note only when a snapshot carries a forced-GC reading', () => {
+		expect(renderHtml([snapshot([proc()])])).not.toContain('forced garbage collection');
+
+		const gcSnapshot = { ...snapshot([proc()]), forcedGc: [{ role: 'extension_host' as const, pid: 1, preRssBytes: 1, postRssBytes: 1, preHeapTotalBytes: 1, postHeapTotalBytes: 1 }] };
+		expect(renderHtml([gcSnapshot])).toContain('forced garbage collection');
+	});
+
 	test('works with no baseline', () => {
 		expect(() => renderMarkdown([snapshot([proc()])])).not.toThrow();
 	});
@@ -285,18 +292,19 @@ describe('renderHtml', () => {
 		expect(output).toContain('&lt;script&gt;');
 	});
 
-	test('renders a delta with both a glyph and a signed number, not color alone', () => {
+	test('renders a delta with a glyph, not color alone', () => {
 		const current = snapshot([proc({ pssBytes: 150 * MB })]);
 		const baseline = snapshot([proc({ pssBytes: 100 * MB })]);
 		const output = renderHtml([current], baseline);
-		expect(output).toMatch(/&#9650;[^<]*\+50\.0 MB/);
+		expect(output).toMatch(/&#9650;[^<]*50\.0 MB/);
 	});
 
-	test('renders a decrease with the down glyph and a negative number', () => {
+	test('renders a decrease with the down glyph, the only thing marking direction', () => {
 		const current = snapshot([proc({ pssBytes: 80 * MB })]);
 		const baseline = snapshot([proc({ pssBytes: 100 * MB })]);
 		const output = renderHtml([current], baseline);
-		expect(output).toMatch(/&#9660;[^<]*-20\.0 MB/);
+		expect(output).toMatch(/&#9660;[^<]*20\.0 MB/);
+		expect(output).not.toMatch(/&#9660;[^<]*-20\.0 MB/);
 	});
 
 	test('sizes the magnitude bar proportionally to PSS', () => {
@@ -353,7 +361,7 @@ describe('renderHtml', () => {
 		const output = renderHtml([snapshot(tree)], baseline);
 		// Both processes share the `language_server` role, so a role-level delta
 		// could not say which one moved. The per-process row must.
-		expect(treeSection(output)).toMatch(/quarto\.quarto \(lsp\)[\s\S]*&#9650;[^<]*\+20\.0 MB/);
+		expect(treeSection(output)).toMatch(/quarto\.quarto \(lsp\)[\s\S]*&#9650;[^<]*20\.0 MB/);
 	});
 
 	test('marks a process absent from the baseline as new in the tree, not a fabricated delta', () => {

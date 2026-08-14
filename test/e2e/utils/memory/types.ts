@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ForcedGcStats } from './gc.js';
 import { MemoryScenario } from './scenarios.js';
 
 /**
@@ -87,6 +88,19 @@ export type MemorySnapshot = {
 	settleMs: number;
 	/** How long sampling ran after settling, waiting for every large process to hold steady. */
 	sampledMs?: number;
+	/**
+	 * Whether sampling stopped because the tree settled rather than because it hit
+	 * its cap. Recorded rather than inferred from `sampledMs`, which cannot tell the
+	 * two apart: an iteration starting just under the cap sleeps past it before
+	 * settling. Undefined on a baseline, which carries neither field.
+	 */
+	treeSettled?: boolean;
+	/**
+	 * Forced-GC readings for the Node-side processes (shared process, extension
+	 * host), taken after settle and before sampling. Pre/post pairs preserve the
+	 * un-collected state.
+	 */
+	forcedGc?: ForcedGcStats[];
 	/**
 	 * Samples taken before the tail and thrown away: the startup plateau, before
 	 * Chromium reclaimed its startup memory. Non-zero is normal and healthy.

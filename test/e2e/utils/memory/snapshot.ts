@@ -5,6 +5,7 @@
 
 import { basename } from 'path';
 import { getPositronVersion } from '../../infra/test-runner/positron-version.js';
+import { ForcedGcStats } from './gc.js';
 import { deriveExtensionName, isGenericName, normalizeProcessName, resolveRole } from './label.js';
 import { readProcessNames } from './positron-status.js';
 import { readProcessTree } from './process-tree.js';
@@ -135,12 +136,17 @@ export const SETTLE_CAP_MS = 90_000;
 
 /**
  * Wait until the process tree stops growing, rather than sleeping a fixed
- * amount. Returns how long that took, which is worth recording on its own.
+ * amount.
+ *
+ * Returns how long that took, which is worth recording on its own, and the
+ * highest total it saw. The peak matters because the startup reclaim can land
+ * inside this window rather than after it: see {@link treeHasSettled}, which
+ * cannot detect a drop it never observed.
  */
 export async function waitForSettle(
 	rootPid: number,
 	options: { pollMs?: number; capMs?: number } = {}
-): Promise<number> {
+): Promise<{ settleMs: number; peakTotalPss: number }> {
 	const pollMs = options.pollMs ?? 1000;
 	const capMs = options.capMs ?? SETTLE_CAP_MS;
 	const started = Date.now();
@@ -153,7 +159,10 @@ export async function waitForSettle(
 		}
 		await new Promise(resolve => setTimeout(resolve, pollMs));
 	}
-	return Date.now() - started;
+	return {
+		settleMs: Date.now() - started,
+		peakTotalPss: readings.length > 0 ? Math.max(...readings) : 0
+	};
 }
 
 /**
@@ -232,12 +241,18 @@ const RECLAIM_DROP_FRACTION = 0.05;
  * flatness per process, because summing hides it (the renderer's step is 45% of
  * the renderer but 13% of the tree). An empty tree is settled: the root is gone.
  */
-export function treeHasSettled(samples: RawProcess[][]): boolean {
+export function treeHasSettled(samples: RawProcess[][], peakBeforeSampling = 0): boolean {
 	if (samples.length < TAIL_LENGTH) {
 		return false;
 	}
 	const totals = samples.map(totalPss);
-	const peak = Math.max(...totals);
+	// Includes the peak waitForSettle saw, because the reclaim does not reliably
+	// wait for sampling to start. An `editors` launch took 11.4s to stop growing
+	// (siblings took 4.2s), reclaimed inside that window, and then presented a
+	// dead-flat tree for 90s: with the peak taken from sampling alone, latest was
+	// the peak, no drop was visible, and the launch burned the cap with every
+	// process motionless. Measuring against the earlier peak sees the drop.
+	const peak = Math.max(peakBeforeSampling, ...totals);
 	const latest = totals[totals.length - 1];
 	if (latest > peak * (1 - RECLAIM_DROP_FRACTION)) {
 		return false;
@@ -260,8 +275,13 @@ export function treeHasSettled(samples: RawProcess[][]): boolean {
  * Processes whose samples moved too much for their median to mean anything.
  *
  * Reported rather than thrown on: a caller decides whether an unstable process
- * invalidates the run. With the sampling loop waiting on {@link isSteady}, this
- * should now be empty unless a launch hit {@link SAMPLING_CAP_MS}.
+ * invalidates the run.
+ *
+ * Do NOT read this as a proxy for "the launch hit {@link SAMPLING_CAP_MS}", which
+ * an earlier version of this comment claimed. Only the last {@link TAIL_LENGTH}
+ * samples are retained, so a launch that sampled to the cap without ever settling
+ * still presents a flat tail here and comes back empty. Assert on
+ * `snapshot.treeSettled` for that, as memory-scenario.ts does.
  */
 export function unstableProcesses(processes: LabeledProcess[]): LabeledProcess[] {
 	return processes.filter(proc => proc.pssBytes > 0 && !isSteady(proc.pssSamples));
@@ -306,17 +326,24 @@ export async function captureSnapshot(input: {
 	userDataDir: string;
 	launchIndex: number;
 	extensions: ActivatedExtension[];
+	forceGc?: () => Promise<ForcedGcStats[]>;
 }): Promise<MemorySnapshot> {
-	const settleMs = await waitForSettle(input.rootPid);
+	const { settleMs, peakTotalPss } = await waitForSettle(input.rootPid);
+
+	// Must land after settle, so startup allocation is already done, and before
+	// sampling starts, so the reported tail reflects the collected state.
+	const forcedGc = input.forceGc ? await input.forceGc() : undefined;
 
 	const samples: RawProcess[][] = [];
 	const startedSampling = Date.now();
+	let treeSettled = false;
 	while (Date.now() - startedSampling < SAMPLING_CAP_MS) {
 		if (samples.length > 0) {
 			await new Promise(resolve => setTimeout(resolve, SAMPLE_INTERVAL_MS));
 		}
 		samples.push(await readProcessTree(input.rootPid));
-		if (treeHasSettled(samples)) {
+		if (treeHasSettled(samples, peakTotalPss)) {
+			treeSettled = true;
 			break;
 		}
 	}
@@ -335,6 +362,8 @@ export async function captureSnapshot(input: {
 		launchIndex: input.launchIndex,
 		settleMs,
 		sampledMs,
+		treeSettled,
+		forcedGc,
 		discardedSamples: samples.length - reported.length,
 		treeTotalPssBytes: processes.reduce((sum, p) => sum + p.pssBytes, 0),
 		processes,

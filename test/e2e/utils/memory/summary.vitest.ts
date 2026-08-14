@@ -130,6 +130,19 @@ describe('buildSummaryMatrix', () => {
 		expect(matrix.rows.map(r => r.role)).toEqual(['shared', 'main', 'gpu']);
 	});
 
+	test('orders columns idle first, then ascending by TOTAL delta vs idle', () => {
+		const entries: ScenarioSnapshots[] = [
+			scenarioEntry('idle', [proc({ pssBytes: 100 * MB })]),
+			// Input order is the opposite of the expected sort, so the test only
+			// passes if buildSummaryMatrix actually sorts rather than echoing input order.
+			scenarioEntry('data-explorer', [proc({ pssBytes: 160 * MB })]), // +60 MB
+			scenarioEntry('notebook', [proc({ pssBytes: 120 * MB })]), // +20 MB
+		];
+
+		const matrix = buildSummaryMatrix(entries);
+		expect(matrix.scenarios).toEqual(['idle', 'notebook', 'data-explorer']);
+	});
+
 	test('records a median TOTAL per scenario', () => {
 		const entries: ScenarioSnapshots[] = [
 			{
@@ -157,7 +170,7 @@ describe('delta emphasis', () => {
 			noisyEntry('idle', 'renderer', [284, 285, 284]),
 			noisyEntry('session-python', 'renderer', [306, 307, 306])
 		]));
-		expect(html).toContain('<span class="delta-up">&#9650; +22.0 MB</span>');
+		expect(html).toContain('<span class="delta-up">&#9650; 22.0 MB</span>');
 	});
 
 	// The real case: session-r's extension_host read +8.8 MB against idle while the
@@ -192,6 +205,27 @@ describe('delta emphasis', () => {
 			noisyEntry('session-python', 'shared', [126, 138, 132])
 		]));
 		expect(html).not.toContain('class="delta-up"');
+	});
+
+	// A third scenario's bad launch used to set the bar for every scenario: one
+	// data-explorer launch 72 MB above its neighbours put the extension_host bar at
+	// 73.9 MB and hid notebook at +67.9 MB, which is the size of change this report
+	// exists to catch.
+	test('does not let an unrelated scenario noise floor hide a steady scenario delta', () => {
+		const matrix = buildSummaryMatrix([
+			noisyEntry('idle', 'extension_host', [332, 332, 335]),
+			noisyEntry('notebook', 'extension_host', [400, 400, 400]),
+			noisyEntry('data-explorer', 'extension_host', [336, 408, 334])
+		]);
+
+		// The bar notebook is judged against comes from notebook and idle only, so the
+		// jumpy data-explorer launches cannot raise it.
+		const row = matrix.rows.find(r => r.role === 'extension_host')!;
+		expect(row.emphasisThreshold['notebook']).toBe(5 * MB);
+		expect(row.emphasisThreshold['data-explorer']).toBe(74 * MB);
+
+		const html = renderSummaryHtml(matrix);
+		expect(html).toContain('<span class="delta-up">&#9650; 68.0 MB</span>');
 	});
 });
 
@@ -234,13 +268,13 @@ describe('renderSummaryHtml', () => {
 		expect(kernelRowHtml).toContain('&mdash;');
 	});
 
-	test('renders a delta with a glyph and a signed number, not color alone', () => {
+	test('renders a delta with a glyph, not color alone', () => {
 		const entries: ScenarioSnapshots[] = [
 			scenarioEntry('idle', [proc({ processRole: 'extension_child', pssBytes: 30 * MB })]),
 			scenarioEntry('session-python', [proc({ processRole: 'extension_child', pssBytes: 45 * MB })]),
 		];
 		const html = renderSummaryHtml(buildSummaryMatrix(entries));
-		expect(html).toMatch(/&#9650;[^<]*\+15\.0 MB/);
+		expect(html).toMatch(/&#9650;[^<]*15\.0 MB/);
 	});
 
 	test('is a self-contained document', () => {
@@ -265,5 +299,18 @@ describe('renderSummaryHtml', () => {
 		const entries: ScenarioSnapshots[] = [scenarioEntry('idle', [proc({ pssBytes: 100 * MB })])];
 		const html = renderSummaryHtml(buildSummaryMatrix(entries));
 		expect(html).toContain('TOTAL');
+	});
+
+	test('shows the GC note when a snapshot carries a forced-GC reading, not otherwise', () => {
+		const withoutGc = renderSummaryHtml(buildSummaryMatrix([scenarioEntry('idle', [proc()])]));
+		expect(withoutGc).not.toContain('forced garbage collection');
+
+		const emptyGcSnapshot = { ...snapshot('idle', [proc()], 0), forcedGc: [] };
+		const withEmptyGc = renderSummaryHtml(buildSummaryMatrix([{ scenario: 'idle', snapshots: [emptyGcSnapshot] }]));
+		expect(withEmptyGc).not.toContain('forced garbage collection');
+
+		const gcSnapshot = { ...snapshot('idle', [proc()], 0), forcedGc: [{ role: 'shared' as const, pid: 1, preRssBytes: 1, postRssBytes: 1, preHeapTotalBytes: 1, postHeapTotalBytes: 1 }] };
+		const withGc = renderSummaryHtml(buildSummaryMatrix([{ scenario: 'idle', snapshots: [gcSnapshot] }]));
+		expect(withGc).toContain('forced garbage collection');
 	});
 });
