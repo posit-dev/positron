@@ -83,6 +83,23 @@ export class QuickInput {
 		});
 	}
 
+	/**
+	 * Verify the quick pick offers no entry matching each of the given titles.
+	 *
+	 * Filters the list by each title before asserting. The results list is
+	 * virtualized, so an entry that exists but sits below the fold would read as
+	 * absent and the assertion would pass for the wrong reason.
+	 */
+	async expectQuickInputResultsToNotContain(titles: string[]): Promise<void> {
+		await test.step(`Verify Quick Input results do not contain: ${titles}`, async () => {
+			for (const title of titles) {
+				await this.type(title);
+				await expect(this.quickInputResult.filter({ hasText: title })).toHaveCount(0);
+			}
+			await this.type('');
+		});
+	}
+
 	async waitForQuickInputOpened({
 		timeout = 3000,
 	}: { timeout?: number } = {}): Promise<void> {

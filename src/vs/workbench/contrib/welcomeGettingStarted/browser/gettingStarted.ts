@@ -95,6 +95,7 @@ import { isDark } from '../../../../platform/theme/common/theme.js';
 // eslint-disable-next-line no-duplicate-imports
 import { isWeb } from '../../../../base/common/platform.js';
 import { gettingStartedPositronNotebookCategoryId } from '../common/gettingStartedPositronNotebookContent.js';
+import { gettingStartedPositronWelcomeCategoryId } from '../common/gettingStartedPositronWelcomeContent.js';
 import { createPositronWelcomePage } from './positronWelcomePage/positronWelcomePage.js';
 import { WELCOME_PAGE_EXPERIMENTAL_KEY } from '../common/positronWelcomePageConfiguration.js';
 // --- End Positron ---
@@ -1567,6 +1568,7 @@ export class GettingStartedPage extends EditorPane {
 			 * of the walkthroughs in the Positron extensions.
 			 */
 			const allowedWalkthroughIds = [
+				gettingStartedPositronWelcomeCategoryId,
 				'ms-python.python#positron.migrateFromVSCode',
 				'positron.positron-r#positron.r.migrateFromRStudio',
 				gettingStartedPositronNotebookCategoryId,

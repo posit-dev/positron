@@ -40,18 +40,28 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await hotKeys.resetWelcomeWalkthrough();
 			await hotKeys.reloadWindow(true);
 
-			await welcome.expectWalkthroughsToHaveCount(3);
-			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron', 'Jupyter Notebooks in Positron']);
+			await welcome.expectWalkthroughsToHaveCount(4);
+			await welcome.expectWalkthroughsToContain(['Get Started with Positron', 'Migrating from VSCode to Positron', 'Migrating from RStudio to Positron', 'Jupyter Notebooks in Positron']);
 
 			await welcome.walkthroughSection.getByText('More...').click();
 			await quickInput.expectTitleBarToHaveText('Open Walkthrough...');
 			await quickInput.expectQuickInputResultsToContain([
-				'Get Started with Python Development',
+				'Get Started with Positron',
 				'Migrating from VSCode to Positron',
 				'Migrating from RStudio to Positron',
 				'Get Started with Jupyter Notebooks',
 				'Get Started with Posit Publisher',
 				'Jupyter Notebooks in Positron'
+			]);
+
+			// Upstream walkthroughs that Positron hides. "Get Started with
+			// Positron" is deliberately absent from this list: the hidden
+			// upstream `Setup` walkthrough shares its title with the Positron
+			// one that replaces it.
+			await quickInput.expectQuickInputResultsToNotContain([
+				'Get Started with Python Development',
+				'Learn the Fundamentals',
+				'GitHub Copilot'
 			]);
 		});
 

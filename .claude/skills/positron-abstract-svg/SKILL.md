@@ -50,7 +50,8 @@ The palette below is a tested starting point. `#447099` is the Positron brand bl
 
 | Color | Hex | Use |
 |-------|-----|-----|
-| Positron blue | `#447099` | Active tab underline, active cell border, Python dropdown border, focal-point highlights only -- use sparingly |
+| Positron accent | `#3A78B1` | The theme's real accent, from `positron_light.json`: activity bar background, active tab underline (`tab.activeBorderTop`, `panelTitle.activeBorder`), buttons, badges, links, progress. Use it whenever you are depicting actual Positron chrome |
+| Illustration blue | `#447099` | Focal-point highlights inside these images: active cell border, Python dropdown border, plot lines. Not present in any theme file -- don't reach for it to color chrome |
 | Running kernel green | `#3DAA6E` | Session status dot in kernel/Python dropdown |
 | Icon gray | `#5A5A5A` | All toolbar and action bar icons |
 | Line number blue | `#8DA5B8` | Code cell line numbers |
@@ -78,7 +79,7 @@ The more context you have about the actual UI, the better the abstract image wil
 
 - **A screenshot of the actual Positron UI** being depicted -- this shows exact proportions, which elements are present, and what the focal point should be. If no screenshot is available, describe what you plan to show and confirm with the user.
 - **Codicon names for any toolbar or action bar icons** -- e.g., `notebook-execute`, `debug-alt-small`, `run-above`. Use the ready-made paths in `references/codicons.md`; these are the curated, consistent set the existing walkthrough images already use. For an icon not listed there, copy the `d=` from `node_modules/@vscode/codicons/src/icons/<name>.svg`, then simplify it to match the flat style of the existing set (upstream codicons have evolved, so a fresh pull may not match visually).
-- **File type icons** -- Positron uses the [Seti UI](https://github.com/jesseweed/seti-ui) file icon theme. Locally it ships only as a font (`extensions/theme-seti/icons/seti.woff`), so there is no per-file SVG to extract from the repo. To show a tab file icon (`.ipynb`, `.R`, `.py`, `.csv`, etc.), fetch the source SVG from the `icons/` folder of that repo (an external network call) and inline it, or hand-draw a simple file glyph. NOTE: this seti-icon approach is currently untested in practice -- verify the result in a preview and keep the glyph simple.
+- **File type icons** -- Positron uses the [Seti UI](https://github.com/jesseweed/seti-ui) file icon theme. It ships only as a font (`extensions/theme-seti/icons/seti.woff`), so there is no per-file SVG in the repo. Don't hand-draw one and don't fetch from the seti-ui repo over the network -- pull the exact glyph out of the font we ship. See "Extracting a Seti file icon" below.
 
 ## Workflow
 
@@ -139,16 +140,105 @@ For smaller contexts (cell action bar at ~11px), scale down:
 </g>
 ```
 
+### The activity bar always gets real icons
+
+The activity bar is the strip down the left edge of Positron (VS Code calls it
+the activity bar; it is the thing that switches which primary side bar view you
+see). **Draw its icons as the actual codicons Positron shows there -- Explorer,
+Search, Source Control, Run and Debug, Extensions -- in that order.** Never fill
+it with abstract squares, circles, or alternating shapes.
+
+A row of nameless blobs is the one place in these images where abstraction costs
+more than it saves. Everywhere else a gray rect clearly stands in for text the
+reader is meant to skip. In the activity bar it just reads as noise, and it
+throws away the fastest cue that says "this is an IDE." Real glyphs also anchor
+the reader: they can find the same icons in their own window.
+
+The rule holds even at small sizes. Explorer, Search, Source Control, and
+Extensions all stay readable down to about 9px; `debug-alt` is the first to turn
+to mush, so drop it before the others if you are showing fewer icons. Showing
+four of the five is fine -- a partial, honest activity bar beats a full row of
+shapes.
+
+**The bar is blue.** In the default light theme it is `#3A78B1` with white icons
+and no border, not a gray strip. Take the values from
+`extensions/theme-defaults/themes/positron_light.json` rather than guessing; the
+full table is in `references/patterns.md`, "Activity Bar". This is the one place
+a large block of saturated color is right even though blue is otherwise a
+focal-point-only color -- it is what the user sees down the left edge of their
+own window, so it is the fastest thing to recognize.
+
+Ready-to-use paths: `references/codicons.md`, "Activity Bar Icons". Full
+snippet with sizing: `references/patterns.md`, "Activity Bar".
+
+### Extracting a Seti file icon
+
+Seti ships as a font, but you can read a glyph's outline straight out of it and
+emit an SVG path. This gets you the real icon Positron renders, with no network
+call and no guessing.
+
+Two lookups first, both in `extensions/theme-seti/icons/vs-seti-icon-theme.json`:
+
+- `fileExtensions` / `fileNames` maps an extension to an icon definition name.
+  For an untitled or unknown-type document, the top-level `file` key points at
+  `_default`.
+- `iconDefinitions[<name>]` gives you `fontCharacter` (the code point, e.g.
+  `\E023`) and `fontColor`. Definitions ending in `_light` are the light-theme
+  variants -- these images are light by default, so use those.
+
+Then run this against the code point (`fontTools` is already available; run it
+from the repo root):
+
+```python
+from fontTools.ttLib import TTFont
+from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.pens.transformPen import TransformPen
+from fontTools.pens.boundsPen import BoundsPen
+from fontTools.misc.transform import Transform
+
+CODEPOINT = 0xE023  # from fontCharacter
+
+f = TTFont('extensions/theme-seti/icons/seti.woff')
+gs = f.getGlyphSet()
+g = gs[f.getBestCmap()[CODEPOINT]]
+bp = BoundsPen(gs); g.draw(bp)
+xmin, ymin, xmax, ymax = bp.bounds
+w, h = xmax - xmin, ymax - ymin
+s = 16.0 / max(w, h)                      # fit the long side to a 16x16 box
+tx = (16 - w * s) / 2 - xmin * s
+ty = (16 - h * s) / 2 + ymax * s          # +ymax because the Y axis flips
+pen = SVGPathPen(gs, ntos=lambda v: f"{v:.2f}")
+g.draw(TransformPen(pen, Transform(s, 0, 0, -s, tx, ty)))
+print(pen.getCommands())
+```
+
+Fonts draw Y upward and SVG draws it downward, which is what the negative `s` in
+the transform is for. Scaling by the long side keeps the glyph's real proportions
+instead of squashing it into a square. The result drops into the usual 16x16
+wrapper, so `scale(0.5)` gives an 8px tab icon.
+
+Check the shape before you trust your mental image of it: Seti's `_default` is
+four stacked horizontal bars, not the folded-corner page most people picture.
+
+**Watch the color.** Seti's light `_default` is `#bfc2c1`, near-identical in value
+to the `#C8C8C8` placeholder rects. A bar-shaped glyph in that gray stops reading
+as an icon and starts reading as more placeholder text. Darken to `#8A8A8A`, which
+separates it from the placeholders without letting it compete with the tab's
+close (x). Fidelity to the theme color loses to legibility here.
+
 ## Component Patterns
 
 See `references/patterns.md` for copy-pasteable SVG snippets. The current set is notebook-focused (it covers what has been built so far). For other Positron surfaces, reuse the general primitives below -- tab bars, panels, toolbars, icons, placeholder text, separators -- and compose new components in the same style. Available snippets:
 
+- Activity bar (primary side bar icon strip)
 - Tab bar with active file tab
 - Notebook toolbar (Run All, Clear All, + Code, + Markdown, Refresh, Python dropdown)
 - Code cell (inactive / active / combined code+output)
 - Cell action bar (floating toolbar above cell)
 - Execution count `[n]`
 - Vertical panel separator
+- Secondary side bar title bar (auxiliary bar tabs + right-pinned actions)
+- View section header with collapse chevron
 - Variables pane header + rows
 - Posit Assistant chat panel
 - Context chip (file attachment pill)
@@ -159,9 +249,17 @@ See `references/patterns.md` for copy-pasteable SVG snippets. The current set is
 General (apply to any surface):
 
 - **Blue is a focal-point color** -- don't use `#447099` everywhere. Reserve it for the one element that should draw the eye (the active/selected item, a key highlight).
+- **An active tab is marked by its underline, not its label color.** Positron overrides `tab.activeBorderTop` and `panelTitle.activeBorder` to `#3A78B1`, but leaves the foreground at the `#3B3B3B` it inherits from `light_modern.json`. So the underline goes blue and the label stays the same color as every other header. Colouring the label too looks plausible and is wrong.
+- **Check the theme before you invent a chrome color.** `extensions/theme-defaults/themes/positron_light.json` is short, and it is the answer for activity bar, tab borders, buttons, and badges. It `include`s `light_modern.json`, so a key absent from the Positron file is inherited, not unset -- look there before concluding Positron has no opinion.
 - **Anchor distinct regions with a gray header** (`#F4F4F4`) -- it keeps panels (Variables, Posit Assistant, any sidebar) visually separate.
 - **Build glyphs from primitives, not font symbols** -- e.g. a close (x) is two crossing `<line>` elements, not an SVG symbol.
+- **Real icons in the activity bar, always** -- Explorer, Search, Source Control, and so on, never abstract squares or circles. See "The activity bar always gets real icons" above.
+- **Prefer one strong icon over a crowded toolbar** -- a toolbar abstracted down to its single most recognizable control (the Run button in an editor action bar) reads better than a row of half-legible glyphs and placeholder pills. Small round dots (an ellipsis drawn as three `<circle>`s) are the usual offender: they do not survive scaling, so use the `ellipsis` codicon path or drop the control.
+- **In a title or tab bar, nothing floats in the middle** -- tabs group tight against the left edge, title actions pin to the right edge (~8px inset), and whatever gap is left sits between the two groups. A placeholder stranded mid-bar belongs to neither group and reads as a mistake, because in the real UI that space is flex. This is the single most common way these bars go wrong.
+- **Give stacked view sections a collapse chevron** -- a `chevron-down` to the left of a section header (Variables, Plots) is what makes a side bar read as collapsible panes rather than flat colored strips. Costs ~7px and one path.
 - **Output/content areas are white** (`fill="#FFFFFF"`), reserved for rendered results; gray backgrounds read as editors/inputs.
+- **Use the palette's grays; don't invent one.** Placeholders are `#C8C8C8`, output and axis ticks `#D0D0D0`. Reaching for a lighter custom gray to calm a busy image is the wrong lever -- it makes that image the odd one out across the set, and it barely helps. If an image feels noisy, delete elements and collapse the grays you already have down to these two. An image that has drifted to four or five near-identical grays reads as if the differences mean something, which is itself most of the noise.
+- **Nothing placeholder should be as dark as an icon.** `#5A5A5A` is for icons. A column of placeholder rects at icon darkness (a variables pane's name column, say) becomes the heaviest thing in the image while carrying no information.
 
 Notebook-specific (examples of applying the above):
 
