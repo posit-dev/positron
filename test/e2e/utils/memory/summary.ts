@@ -137,11 +137,12 @@ function rowMagnitude(row: SummaryRow): number {
 /**
  * Builds the per-role x per-scenario matrix.
  *
- * Order of `entries` becomes the column order. Rows are sorted biggest first
- * (summed across the scenarios that have them) so the roles worth reading
- * about come before the ones that do not matter. `deltaVsIdle` degrades to
- * an empty object per row when `idle` is not among `entries` -- there is
- * nothing to diff against, not a NaN.
+ * Columns are `idle` first (the baseline), then the rest ascending by TOTAL
+ * delta vs idle, so the biggest total increase lands at the far right. Rows
+ * are sorted biggest first (summed across the scenarios that have them) so
+ * the roles worth reading about come before the ones that do not matter.
+ * `deltaVsIdle` degrades to an empty object per row when `idle` is not among
+ * `entries` -- there is nothing to diff against, not a NaN.
  */
 export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix {
 	const scenarios = entries.map(e => e.scenario);
@@ -214,7 +215,16 @@ export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix 
 			reported: proc.pssBytes
 		}))));
 
-	return { scenarios, rows, totals, totalEmphasisThreshold, unstable };
+	const idleTotal = totals['idle'];
+	const totalDeltaVsIdle = new Map<MemoryScenario, number>();
+	for (const scenario of scenarios) {
+		const value = totals[scenario];
+		totalDeltaVsIdle.set(scenario, idleTotal !== undefined && value !== undefined ? value - idleTotal : 0);
+	}
+	const others = scenarios.filter(s => s !== 'idle').sort((a, b) => totalDeltaVsIdle.get(a)! - totalDeltaVsIdle.get(b)!);
+	const sortedScenarios = scenarios.includes('idle') ? ['idle' as MemoryScenario, ...others] : others;
+
+	return { scenarios: sortedScenarios, rows, totals, totalEmphasisThreshold, unstable };
 }
 
 /** Muted em-dash: a role that did not exist in this scenario, never a fabricated zero. */

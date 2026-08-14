@@ -130,6 +130,19 @@ describe('buildSummaryMatrix', () => {
 		expect(matrix.rows.map(r => r.role)).toEqual(['shared', 'main', 'gpu']);
 	});
 
+	test('orders columns idle first, then ascending by TOTAL delta vs idle', () => {
+		const entries: ScenarioSnapshots[] = [
+			scenarioEntry('idle', [proc({ pssBytes: 100 * MB })]),
+			// Input order is the opposite of the expected sort, so the test only
+			// passes if buildSummaryMatrix actually sorts rather than echoing input order.
+			scenarioEntry('data-explorer', [proc({ pssBytes: 160 * MB })]), // +60 MB
+			scenarioEntry('notebook', [proc({ pssBytes: 120 * MB })]), // +20 MB
+		];
+
+		const matrix = buildSummaryMatrix(entries);
+		expect(matrix.scenarios).toEqual(['idle', 'notebook', 'data-explorer']);
+	});
+
 	test('records a median TOTAL per scenario', () => {
 		const entries: ScenarioSnapshots[] = [
 			{
