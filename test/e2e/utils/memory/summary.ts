@@ -369,7 +369,7 @@ export function renderSummaryHtml(matrix: SummaryMatrix): string {
 	${instabilityCard}
 
 	<div class="card">
-		<h2>By role</h2>
+		<h2>Memory by role</h2>
 		<div class="meta">${DELTA_LEGEND}${matrix.hasForcedGc ? ` ${GC_NOTE}` : ''}</div>
 		<table class="matrix">
 			<tr><th>Role</th>${scenarioHeaderHtml(matrix.scenarios)}</tr>

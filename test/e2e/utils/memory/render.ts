@@ -581,7 +581,7 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 	${instabilityCard}
 
 	<div class="card">
-		<h2>By role</h2>
+		<h2>Memory by role</h2>
 		<table>
 			<tr><th>Role</th><th align="right">PSS</th><th></th><th align="right">Change</th></tr>
 			${roleRows}
