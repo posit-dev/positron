@@ -135,12 +135,17 @@ export const SETTLE_CAP_MS = 90_000;
 
 /**
  * Wait until the process tree stops growing, rather than sleeping a fixed
- * amount. Returns how long that took, which is worth recording on its own.
+ * amount.
+ *
+ * Returns how long that took, which is worth recording on its own, and the
+ * highest total it saw. The peak matters because the startup reclaim can land
+ * inside this window rather than after it: see {@link treeHasSettled}, which
+ * cannot detect a drop it never observed.
  */
 export async function waitForSettle(
 	rootPid: number,
 	options: { pollMs?: number; capMs?: number } = {}
-): Promise<number> {
+): Promise<{ settleMs: number; peakTotalPss: number }> {
 	const pollMs = options.pollMs ?? 1000;
 	const capMs = options.capMs ?? SETTLE_CAP_MS;
 	const started = Date.now();
@@ -153,7 +158,10 @@ export async function waitForSettle(
 		}
 		await new Promise(resolve => setTimeout(resolve, pollMs));
 	}
-	return Date.now() - started;
+	return {
+		settleMs: Date.now() - started,
+		peakTotalPss: readings.length > 0 ? Math.max(...readings) : 0
+	};
 }
 
 /**
@@ -232,12 +240,18 @@ const RECLAIM_DROP_FRACTION = 0.05;
  * flatness per process, because summing hides it (the renderer's step is 45% of
  * the renderer but 13% of the tree). An empty tree is settled: the root is gone.
  */
-export function treeHasSettled(samples: RawProcess[][]): boolean {
+export function treeHasSettled(samples: RawProcess[][], peakBeforeSampling = 0): boolean {
 	if (samples.length < TAIL_LENGTH) {
 		return false;
 	}
 	const totals = samples.map(totalPss);
-	const peak = Math.max(...totals);
+	// Includes the peak waitForSettle saw, because the reclaim does not reliably
+	// wait for sampling to start. An `editors` launch took 11.4s to stop growing
+	// (siblings took 4.2s), reclaimed inside that window, and then presented a
+	// dead-flat tree for 90s: with the peak taken from sampling alone, latest was
+	// the peak, no drop was visible, and the launch burned the cap with every
+	// process motionless. Measuring against the earlier peak sees the drop.
+	const peak = Math.max(peakBeforeSampling, ...totals);
 	const latest = totals[totals.length - 1];
 	if (latest > peak * (1 - RECLAIM_DROP_FRACTION)) {
 		return false;
@@ -312,7 +326,7 @@ export async function captureSnapshot(input: {
 	launchIndex: number;
 	extensions: ActivatedExtension[];
 }): Promise<MemorySnapshot> {
-	const settleMs = await waitForSettle(input.rootPid);
+	const { settleMs, peakTotalPss } = await waitForSettle(input.rootPid);
 
 	const samples: RawProcess[][] = [];
 	const startedSampling = Date.now();
@@ -321,7 +335,7 @@ export async function captureSnapshot(input: {
 			await new Promise(resolve => setTimeout(resolve, SAMPLE_INTERVAL_MS));
 		}
 		samples.push(await readProcessTree(input.rootPid));
-		if (treeHasSettled(samples)) {
+		if (treeHasSettled(samples, peakTotalPss)) {
 			break;
 		}
 	}
