@@ -5,6 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
+import { mainWindow } from '../../../../../base/browser/window.js';
 import { DeferredPromise } from '../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
@@ -20,6 +21,7 @@ import { IThemeService } from '../../../../../platform/theme/common/themeService
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { EditorsOrder } from '../../../../common/editor.js';
+import { IAuxiliaryWindow, IAuxiliaryWindowService } from '../../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
 import { IAuxiliaryEditorPart, IEditorGroup, IEditorGroupsService, IEditorPart } from '../../../../services/editor/common/editorGroupsService.js';
 import { IHostService } from '../../../../services/host/browser/host.js';
 import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
@@ -31,6 +33,11 @@ import { PositronCanvasService } from '../../electron-browser/positronCanvasServ
 
 /** The command the assistant contributes to produce a Canvas panel. */
 const CANVAS_ENSURE_COMMAND = 'posit-assistant.ensureCanvas';
+
+/** Native window ids for the stubbed parts. */
+const MAIN_WINDOW_ID = 1;
+const AUX_WINDOW_ID = 1000;
+const DETACHED_WINDOW_ID = 2000;
 
 describe('PositronCanvasService', () => {
 	const ctx = createTestContainer().build();
@@ -56,8 +63,8 @@ describe('PositronCanvasService', () => {
 		return group;
 	}
 
-	function createPart(activeGroup: IEditorGroup, onWillDispose: Event<void> = Event.None): IAuxiliaryEditorPart {
-		return stubInterface<IAuxiliaryEditorPart>({ activeGroup, onWillDispose, close: vi.fn() });
+	function createPart(activeGroup: IEditorGroup, onWillDispose: Event<void> = Event.None, windowId = AUX_WINDOW_ID): IAuxiliaryEditorPart {
+		return stubInterface<IAuxiliaryEditorPart>({ activeGroup, onWillDispose, close: vi.fn(), windowId });
 	}
 
 	/** A Canvas panel, recognized by its contributed view type. */
@@ -81,6 +88,10 @@ describe('PositronCanvasService', () => {
 	function build(options: {
 		auxiliaryGroups?: IEditorGroup[];
 		mainGroup?: IEditorGroup;
+		/** Parts beyond the main and Canvas ones, e.g. detached editor windows. */
+		extraParts?: IEditorPart[];
+		/** Report every auxiliary window as plain, without the locked-compact trait. */
+		plainAuxWindows?: boolean;
 		willShutdown?: boolean;
 		onWillDispose?: Event<void>;
 		executeCommand?: () => Promise<undefined>;
@@ -91,7 +102,7 @@ describe('PositronCanvasService', () => {
 	} = {}) {
 		const auxiliaryGroups = options.auxiliaryGroups ?? [];
 		const mainGroup = options.mainGroup ?? createGroup();
-		const mainPart = createPart(mainGroup);
+		const mainPart = createPart(mainGroup, Event.None, MAIN_WINDOW_ID);
 		const auxiliaryGroup = auxiliaryGroups.at(0);
 		const auxiliaryPart = createPart(auxiliaryGroup ?? createGroup(), options.onWillDispose ?? Event.None);
 
@@ -108,10 +119,18 @@ describe('PositronCanvasService', () => {
 
 		ctx.instantiationService.stub(IEditorGroupsService, stubInterface<IEditorGroupsService>({
 			mainPart,
+			parts: [auxiliaryPart, ...(options.extraParts ?? []), mainPart],
 			getGroups: () => [...auxiliaryGroups, mainGroup],
 			getPart: (group: IEditorGroup) => parts.get(group) ?? mainPart,
 			mergeGroup,
 			createAuxiliaryEditorPart,
+		}));
+		// Every auxiliary window carries the dedicated locked-compact trait
+		// unless the test says otherwise.
+		ctx.instantiationService.stub(IAuxiliaryWindowService, stubInterface<IAuxiliaryWindowService>({
+			getWindow: () => stubInterface<IAuxiliaryWindow>({
+				createState: () => options.plainAuxWindows === true ? {} : { lockCompact: true }
+			})
 		}));
 		ctx.instantiationService.stub(ICommandService, stubInterface<ICommandService>({ executeCommand }));
 		ctx.instantiationService.stub(IConfigurationService, stubInterface<IConfigurationService>({ getValue: () => true }));
@@ -134,7 +153,7 @@ describe('PositronCanvasService', () => {
 
 		const service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronCanvasService));
 
-		return { service, mainGroup, auxiliaryPart, executeCommand, storageService, mergeGroup, setPartHidden, hideWindow, showWindow, channelCall, focus };
+		return { service, mainGroup, auxiliaryPart, executeCommand, storageService, mergeGroup, setPartHidden, hideWindow, showWindow, channelCall, focus, createAuxiliaryEditorPart };
 	}
 
 	it('coalesces concurrent entries so the assistant is asked for one Canvas', async () => {
@@ -493,5 +512,118 @@ describe('PositronCanvasService', () => {
 		await expect(service.exit()).rejects.toThrow('ipc dropped');
 		expect(await service.exit()).toBe(false);
 		expect(showWindow).toHaveBeenCalledTimes(2);
+	});
+
+	it('releases the claim only after the exit revealed the IDE and merged Canvas back', async () => {
+		const show = new DeferredPromise<void>();
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service, channelCall, mergeGroup, showWindow } = build({
+			auxiliaryGroups: [auxiliaryGroup],
+			showWindow: () => show.p,
+		});
+		await service.enter();
+
+		const exiting = service.exit();
+		await vi.waitFor(() => expect(showWindow).toHaveBeenCalled());
+
+		// The main process reads the release as "exit complete" and lets a
+		// waiting external open reuse this window; a release before the
+		// reveal lands would let that open reload a still-hidden window.
+		expect(channelCall).not.toHaveBeenCalledWith('release', expect.anything());
+		expect(mergeGroup).not.toHaveBeenCalled();
+
+		await show.complete();
+		expect(await exiting).toBe(true);
+		expect(mergeGroup).toHaveBeenCalled();
+		expect(channelCall).toHaveBeenCalledWith('release', expect.anything());
+	});
+
+	it('lets a superseded entry settle without dropping the claim a newer entry re-acquired', async () => {
+		const staleEnsure = new DeferredPromise<undefined>();
+		const freshEnsure = new DeferredPromise<undefined>();
+		let ensureCalls = 0;
+		const canvasEditors: WebviewInput[] = [];
+		const auxiliaryGroup = createGroup(canvasEditors);
+		const { service, executeCommand, channelCall } = build({
+			auxiliaryGroups: [auxiliaryGroup],
+			executeCommand: () => ++ensureCalls === 1 ? staleEnsure.p : freshEnsure.p,
+		});
+
+		const doomed = service.enter();
+		await vi.waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
+		await service.exit();
+		const fresh = service.enter();
+		await vi.waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(2));
+
+		// The doomed attempt settles first, while the fresh entry holds the
+		// claim but is still waiting on the assistant.
+		await staleEnsure.complete(undefined);
+		expect(await doomed).toMatchObject({ entered: false, reason: 'superseded' });
+
+		canvasEditors.push(createCanvasEditor());
+		await freshEnsure.complete(undefined);
+		expect(await fresh).toEqual({ entered: true });
+
+		// One release, from the exit: the doomed attempt settling must not
+		// give back the claim the fresh entry presents Canvas under.
+		expect(channelCall.mock.calls.filter(([command]) => command === 'release')).toHaveLength(1);
+	});
+
+	it('does not force the IDE back over a newer entry when a superseded hide settles', async () => {
+		const staleHide = new DeferredPromise<void>();
+		let hideCalls = 0;
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service, hideWindow, showWindow } = build({
+			auxiliaryGroups: [auxiliaryGroup],
+			hideWindow: () => ++hideCalls === 1 ? staleHide.p : Promise.resolve(),
+		});
+
+		const doomed = service.enter();
+		await vi.waitFor(() => expect(hideWindow).toHaveBeenCalledTimes(1));
+		// The user exits (revealing the IDE) and immediately re-enters.
+		await service.exit();
+		expect(await service.enter()).toEqual({ entered: true });
+
+		// The doomed attempt's hide settles only now; a forced reveal here
+		// would put the IDE on top of the Canvas the new entry presents.
+		await staleHide.complete();
+		expect(await doomed).toMatchObject({ entered: false, reason: 'superseded' });
+		expect(showWindow).toHaveBeenCalledTimes(1);
+		expect(service.isActive).toBe(true);
+	});
+
+	it('hides detached editor windows with the IDE and re-shows them on exit', async () => {
+		const detachedPart = createPart(createGroup(), Event.None, DETACHED_WINDOW_ID);
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service, hideWindow, showWindow } = build({
+			auxiliaryGroups: [auxiliaryGroup],
+			extraParts: [detachedPart],
+		});
+
+		expect(await service.enter()).toEqual({ entered: true });
+		// Canvas is the sole surface: the detached window goes away with the
+		// IDE; the Canvas window itself is never hidden.
+		expect(hideWindow).toHaveBeenCalledWith({ targetWindowId: DETACHED_WINDOW_ID });
+		expect(hideWindow).not.toHaveBeenCalledWith({ targetWindowId: AUX_WINDOW_ID });
+
+		expect(await service.exit()).toBe(true);
+		expect(showWindow).toHaveBeenCalledWith({ targetWindowId: mainWindow.vscodeWindowId });
+		expect(showWindow).toHaveBeenCalledWith({ targetWindowId: DETACHED_WINDOW_ID });
+	});
+
+	it('moves a Canvas the user detached into a plain window into a dedicated one', async () => {
+		const plainGroup = createGroup([createCanvasEditor()]);
+		const { service, createAuxiliaryEditorPart } = build({
+			auxiliaryGroups: [plainGroup],
+			plainAuxWindows: true,
+		});
+
+		expect(await service.enter()).toEqual({ entered: true });
+
+		// A window without the locked-compact trait is not a dedicated Canvas
+		// window -- the user detached the panel with an ordinary move -- so
+		// the panel gets a fresh dedicated window instead of being adopted.
+		expect(createAuxiliaryEditorPart).toHaveBeenCalledWith(expect.objectContaining({ lockCompact: true }));
+		expect(plainGroup.moveEditors).toHaveBeenCalled();
 	});
 });

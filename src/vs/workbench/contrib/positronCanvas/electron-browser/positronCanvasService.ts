@@ -21,6 +21,7 @@ import { PositronStandaloneModeChannelClient } from '../../../../platform/positr
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
 import { EditorsOrder } from '../../../common/editor.js';
+import { IAuxiliaryWindowService } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
 import { IAuxiliaryEditorPart, IEditorGroup, IEditorGroupsService, IEditorPart, GroupsOrder } from '../../../services/editor/common/editorGroupsService.js';
 import { IHostService } from '../../../services/host/browser/host.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
@@ -107,8 +108,23 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	/** Set while the IDE window has been put away on Canvas's behalf. */
 	private ideWindowHidden = false;
 
+	/**
+	 * Native ids of the auxiliary editor windows put away on Canvas's behalf,
+	 * so exit re-shows exactly these and never a window the user put away
+	 * some other way.
+	 */
+	private readonly hiddenAuxWindowIds = new Set<number>();
+
 	/** In-flight `enter()`; concurrent callers coalesce onto it. */
 	private entering: Promise<CanvasEntryOutcome> | undefined;
+
+	/**
+	 * Identity of the newest entry attempt. An exit detaches an in-flight
+	 * entry rather than waiting for it, so a newer entry can be underway
+	 * while a superseded one is still settling; only the newest attempt may
+	 * release the engagement or move windows around on its way out.
+	 */
+	private currentEntryAttempt: object | undefined;
 
 	/**
 	 * Bumped by every `exit()`. Entry is a sequence of awaits; one that
@@ -119,6 +135,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 
 	constructor(
 		@IEditorGroupsService private readonly editorGroupsService: IEditorGroupsService,
+		@IAuxiliaryWindowService private readonly auxiliaryWindowService: IAuxiliaryWindowService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@INativeHostService private readonly nativeHostService: INativeHostService,
@@ -222,6 +239,8 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		// Captured before the claim's await so an exit arriving mid-claim
 		// supersedes this entry like any other.
 		const generation = this.exitGeneration;
+		const attempt = {};
+		this.currentEntryAttempt = attempt;
 
 		// Claimed before any other await, so no second window can start an
 		// entry between here and the Canvas window appearing.
@@ -234,13 +253,17 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		}
 
 		try {
-			return await this.doEnterEngaged(generation);
+			return await this.doEnterEngaged(generation, attempt);
 		} finally {
-			this.releaseEngagementUnlessPresenting();
+			// Token-guarded: a superseded attempt settling here would
+			// otherwise give back the claim a newer entry has re-acquired.
+			if (this.currentEntryAttempt === attempt) {
+				this.releaseEngagementUnlessPresenting();
+			}
 		}
 	}
 
-	private async doEnterEngaged(generation: number): Promise<CanvasEntryOutcome> {
+	private async doEnterEngaged(generation: number, attempt: object): Promise<CanvasEntryOutcome> {
 		const superseded = () => this.exitGeneration !== generation;
 		const supersededOutcome: CanvasEntryOutcome = {
 			entered: false,
@@ -265,13 +288,14 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 			};
 		}
 
-		// A panel already outside the IDE window is one we (or a restore) put
-		// there; adopt it as is. Restored windows come back with locked
-		// compact mode intact, so there is nothing to repair.
+		// Only a window carrying the locked-compact trait is a dedicated
+		// Canvas window (ours, or a restore's, which comes back with the
+		// trait intact). A panel in the IDE window, or one the user dragged
+		// into a plain auxiliary window, moves into a fresh dedicated window.
 		const part = this.editorGroupsService.getPart(canvas.group);
-		const canvasWindow = part === this.editorGroupsService.mainPart
-			? await this.promoteToCanvasWindow(canvas, superseded)
-			: { part, group: canvas.group };
+		const canvasWindow = this.isDedicatedCanvasWindow(part)
+			? { part, group: canvas.group }
+			: await this.promoteToCanvasWindow(canvas, superseded);
 
 		if (superseded()) {
 			this.logService.info('[canvas] Abandoning entry: the user left Canvas while its window was being created');
@@ -291,11 +315,16 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		// Only now, with a live Canvas window on screen, is it safe to put
 		// the IDE window away.
 		try {
-			await this.hideIdeWindow();
+			await this.hideIdeWindow(canvasWindow.part.windowId);
 		} catch (error) {
+			this.logService.error('[canvas] Could not put the IDE window away; leaving Canvas mode', error);
+			if (this.currentEntryAttempt !== attempt) {
+				// A newer entry owns the windows now; its own hide or unwind
+				// decides what shows.
+				return supersededOutcome;
+			}
 			// A visible IDE next to Canvas is recoverable; a committed entry
 			// over a failed hide is not, so run the normal merge-back transaction.
-			this.logService.error('[canvas] Could not put the IDE window away; leaving Canvas mode', error);
 			await this.exit();
 			return {
 				entered: false,
@@ -305,10 +334,13 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		}
 
 		if (superseded()) {
-			// The exit already unwound everything, but its reveal may have
-			// raced the hide in flight here; reveal unconditionally.
 			this.logService.info('[canvas] Abandoning entry: Canvas went away while the IDE window was being put away');
-			await this.revealIdeWindow(true);
+			// The exit already unwound everything, but its reveal may have
+			// raced the hide in flight here; reveal unconditionally -- unless
+			// a newer entry started since and may have hidden the IDE again.
+			if (this.currentEntryAttempt === attempt) {
+				await this.revealIdeWindow(true);
+			}
 			return supersededOutcome;
 		}
 
@@ -338,26 +370,33 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		this.setCanvasModeIntent(false);
 
 		// Stop presenting first: it drops the listener that treats the Canvas
-		// window going away as something to recover from. The claim goes back
-		// even when no Canvas window was up yet -- an exit landing inside an
-		// in-flight entry must not leave the early claim behind.
+		// window going away as something to recover from.
 		this.stopPresenting();
-		this.releaseEngagement();
 
-		// Show the IDE before moving anything into it: the move focuses its
-		// target, and focusing a group in an off-screen window leaves the
-		// user with no visible focused window.
-		await this.revealIdeWindow();
+		try {
+			// Show the IDE before moving anything into it: the move focuses its
+			// target, and focusing a group in an off-screen window leaves the
+			// user with no visible focused window.
+			await this.revealIdeWindow();
 
-		if (canvasGroup) {
-			mergeCanvasGroupIntoIde(canvasGroup, this.editorGroupsService.mainPart.activeGroup, this.editorGroupsService, this.logService);
+			if (canvasGroup) {
+				mergeCanvasGroupIntoIde(canvasGroup, this.editorGroupsService.mainPart.activeGroup, this.editorGroupsService, this.logService);
 
-			// The editor area auto-hides when its last editor leaves, so an
-			// IDE window that had only Canvas open comes back without one.
-			// Only when the merge happened: an exit with nothing to merge
-			// must not override an editor area the user hid deliberately.
-			this.layoutService.setPartHidden(false, Parts.EDITOR_PART);
-			this.editorGroupsService.mainPart.activeGroup.focus();
+				// The editor area auto-hides when its last editor leaves, so an
+				// IDE window that had only Canvas open comes back without one.
+				// Only when the merge happened: an exit with nothing to merge
+				// must not override an editor area the user hid deliberately.
+				this.layoutService.setPartHidden(false, Parts.EDITOR_PART);
+				this.editorGroupsService.mainPart.activeGroup.focus();
+			}
+		} finally {
+			// Released only after the reveal and merge: the main process
+			// treats the release as "exit complete" and lets a waiting
+			// external open reuse this window, which must not reload a window
+			// that is still hidden. Still on every path -- an exit landing
+			// inside an in-flight entry with no Canvas window up must not
+			// leave the early claim behind.
+			this.releaseEngagement();
 		}
 
 		return wasActive;
@@ -422,7 +461,21 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	}
 
 	/**
-	 * Moves a Canvas panel out of the IDE window into a window of its own.
+	 * Whether this part's window was opened with the locked-compact trait
+	 * that makes a dedicated Canvas window chromeless. Only entry and restore
+	 * create such windows; a Canvas the user detached into a plain auxiliary
+	 * window (tab drag-out, "Move Editor into New Window") lacks it.
+	 */
+	private isDedicatedCanvasWindow(part: IEditorPart): boolean {
+		if (part === this.editorGroupsService.mainPart) {
+			return false;
+		}
+		return this.auxiliaryWindowService.getWindow(part.windowId)?.createState().lockCompact === true;
+	}
+
+	/**
+	 * Moves a Canvas panel out of whatever group holds it into a dedicated
+	 * window of its own.
 	 * Returns nothing if the move did not happen, so the caller does not hide
 	 * the IDE behind a window that never got its editor. `superseded` is
 	 * checked before the panel is moved: a panel pulled out of an IDE window
@@ -526,7 +579,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		}
 	}
 
-	private async hideIdeWindow(): Promise<void> {
+	private async hideIdeWindow(canvasWindowId: number): Promise<void> {
 		// Unguarded, unlike `revealIdeWindow()`: a forwarded `--canvas`
 		// re-entry can focus (reveal) the IDE window on its way in, so
 		// skipping "already hidden" work would leave it behind Canvas.
@@ -538,7 +591,21 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		// IDE from the OS window list, but the app never has zero visible
 		// windows: the IDE is only hidden while a live Canvas window is up,
 		// and every way of losing that window runs `revealIdeWindow()`.
-		await this.nativeHostService.hideWindow({ targetWindowId: mainWindow.vscodeWindowId });
+		const hides = [this.nativeHostService.hideWindow({ targetWindowId: mainWindow.vscodeWindowId })];
+
+		// Canvas is the sole surface: detached editor windows go away with
+		// the IDE window. Recorded before the hide lands, so a rejected hide
+		// leaves a window the next reveal harmlessly re-shows rather than one
+		// that stays lost.
+		for (const part of this.editorGroupsService.parts) {
+			if (part === this.editorGroupsService.mainPart || part.windowId === canvasWindowId) {
+				continue;
+			}
+			this.hiddenAuxWindowIds.add(part.windowId);
+			hides.push(this.nativeHostService.hideWindow({ targetWindowId: part.windowId }));
+		}
+
+		await Promise.all(hides);
 	}
 
 	/**
@@ -546,7 +613,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	 * for the one caller with a hide of its own in flight.
 	 */
 	private async revealIdeWindow(force = false): Promise<void> {
-		if (!this.ideWindowHidden && !force) {
+		if (!this.ideWindowHidden && this.hiddenAuxWindowIds.size === 0 && !force) {
 			return;
 		}
 
@@ -556,6 +623,14 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		// later reveal early-returning above on a window that is still away.
 		await this.nativeHostService.showWindow({ targetWindowId: mainWindow.vscodeWindowId });
 		this.ideWindowHidden = false;
+
+		// Exactly the windows entry hid, forgotten one by one as each show
+		// lands so a rejected show is retried by the next reveal.
+		for (const windowId of [...this.hiddenAuxWindowIds]) {
+			await this.nativeHostService.showWindow({ targetWindowId: windowId });
+			this.hiddenAuxWindowIds.delete(windowId);
+		}
+
 		await this.hostService.focus(mainWindow);
 	}
 }
