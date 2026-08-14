@@ -43,41 +43,38 @@
 
   <!-- Changed file rows -->
   <rect x="0" y="148" width="250" height="22" fill="#EEF3F8"/>
-  <g transform="translate(12, 153) scale(0.6)">
-    <path d="M2 1h7l4 4v10H2V1z" fill="#8DA5B8"/>
-    <path d="M9 1l4 4H9V1z" fill="#6E8BA3"/>
+  <!-- Seti _default file icon (untitled / unknown file type), extracted from theme-seti's seti.woff -->
+  <g transform="translate(13, 155) scale(0.5)" fill="#8A8A8A">
+    <path d="M0.61 9.36H15.39V11.30H0.61ZM0.61 4.66H8.86V6.64H0.61ZM0.61 0.00H15.39V1.97H0.61ZM0.61 14.03H11.59V16.00H0.61Z"/>
   </g>
   <rect x="30" y="157" width="98" height="4" rx="2" fill="#B4B4B4"/>
-  <g transform="translate(176, 152) scale(0.62)" fill="#5A5A5A">
+  <g transform="translate(176, 154.1) scale(0.62)" fill="#5A5A5A">
     <path d="M3.00098 2.5C3.00098 2.22386 3.22483 2 3.50098 2C3.77712 2 4.00098 2.22386 4.00098 2.5V6.34262L7.17202 3.17157C8.73412 1.60948 11.2668 1.60948 12.8289 3.17157C14.391 4.73367 14.391 7.26633 12.8289 8.82843L7.80375 13.8536C7.60849 14.0488 7.2919 14.0488 7.09664 13.8536C6.90138 13.6583 6.90138 13.3417 7.09664 13.1464L12.1218 8.12132C13.2933 6.94975 13.2933 5.05025 12.1218 3.87868C10.9502 2.70711 9.0507 2.70711 7.87913 3.87868L4.75781 7H8.50098C8.77712 7 9.00098 7.22386 9.00098 7.5C9.00098 7.77614 8.77712 8 8.50098 8H3.60098C3.26961 8 3.00098 7.73137 3.00098 7.4V2.5Z"/>
   </g>
-  <g transform="translate(195, 152) scale(0.62)" fill="#5A5A5A">
+  <g transform="translate(195, 154.4) scale(0.62)" fill="#5A5A5A">
     <path d="M8 1.5C8 1.22386 7.77614 1 7.5 1C7.22386 1 7 1.22386 7 1.5V7H1.5C1.22386 7 1 7.22386 1 7.5C1 7.77614 1.22386 8 1.5 8H7V13.5C7 13.7761 7.22386 14 7.5 14C7.77614 14 8 13.7761 8 13.5V8H13.5C13.7761 8 14 7.77614 14 7.5C14 7.22386 13.7761 7 13.5 7H8V1.5Z"/>
   </g>
-  <text x="230" y="163" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#B07020">M</text>
+  <text x="230" y="162.4" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#B07020">M</text>
 
-  <g transform="translate(12, 175) scale(0.6)">
-    <path d="M2 1h7l4 4v10H2V1z" fill="#8DA5B8"/>
-    <path d="M9 1l4 4H9V1z" fill="#6E8BA3"/>
+  <g transform="translate(13, 177) scale(0.5)" fill="#8A8A8A">
+    <path d="M0.61 9.36H15.39V11.30H0.61ZM0.61 4.66H8.86V6.64H0.61ZM0.61 0.00H15.39V1.97H0.61ZM0.61 14.03H11.59V16.00H0.61Z"/>
   </g>
   <rect x="30" y="179" width="84" height="4" rx="2" fill="#C8C8C8"/>
-  <text x="230" y="185" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#B07020">M</text>
+  <text x="230" y="184.4" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#B07020">M</text>
 
-  <g transform="translate(12, 197) scale(0.6)">
-    <path d="M2 1h7l4 4v10H2V1z" fill="#8DA5B8"/>
-    <path d="M9 1l4 4H9V1z" fill="#6E8BA3"/>
+  <g transform="translate(13, 199) scale(0.5)" fill="#8A8A8A">
+    <path d="M0.61 9.36H15.39V11.30H0.61ZM0.61 4.66H8.86V6.64H0.61ZM0.61 0.00H15.39V1.97H0.61ZM0.61 14.03H11.59V16.00H0.61Z"/>
   </g>
   <rect x="30" y="201" width="92" height="4" rx="2" fill="#C8C8C8"/>
-  <text x="230" y="207" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#B07020">M</text>
+  <text x="230" y="206.4" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#B07020">M</text>
 
   <!-- ============ Editor ============ -->
   <line x1="250" y1="0" x2="250" y2="260" stroke="#E0E0E0" stroke-width="1"/>
   <rect x="250" y="0" width="270" height="36" fill="#F2F2F2"/>
   <line x1="250" y1="36" x2="520" y2="36" stroke="#E0E0E0" stroke-width="1"/>
-  <rect x="251" y="0" width="128" height="37" fill="#FFFFFF"/>
-  <g transform="translate(263, 12) scale(0.55)">
-    <path d="M2 1h7l4 4v10H2V1z" fill="#8DA5B8"/>
-    <path d="M9 1l4 4H9V1z" fill="#6E8BA3"/>
+  <rect x="250.5" y="0" width="128.5" height="37" fill="#FFFFFF"/>
+  <g transform="translate(263, 14) scale(0.5)" fill="#8A8A8A">
+    <path d="M0.61 9.36H15.39V11.30H0.61ZM0.61 4.66H8.86V6.64H0.61ZM0.61 0.00H15.39V1.97H0.61ZM0.61 14.03H11.59V16.00H0.61Z"/>
   </g>
   <rect x="278" y="17" width="66" height="4" rx="2" fill="#C8C8C8"/>
   <line x1="356" y1="14" x2="364" y2="22" stroke="#8A8A8A" stroke-width="1.2"/>

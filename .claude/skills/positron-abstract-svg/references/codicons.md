@@ -161,8 +161,9 @@ squares or circles (see the activity bar rule in `SKILL.md`).
 
 Two of these ship on a **24x24** viewBox upstream rather than 16x16, so their
 scale factors differ. To render an icon `N` pixels wide, use `scale(N/16)` for a
-16-viewBox icon and `scale(N/24)` for a 24-viewBox one. At the sizes these
-images use they end up looking the same weight.
+16-viewBox icon and `scale(N/24)` for a 24-viewBox one. Mixed like this they read
+as one set at 9px, which is where they have been checked; if you go much smaller,
+render and compare the two groups before trusting it.
 
 | Icon | Codicon | viewBox |
 |---|---|---|

@@ -2,29 +2,29 @@
   <rect width="520" height="260" fill="#FFFFFF"/>
 
   <!-- ============ Activity bar ============ -->
-  <rect x="0" y="0" width="18" height="260" fill="#F4F4F4"/>
-  <line x1="18" y1="0" x2="18" y2="260" stroke="#E0E0E0" stroke-width="1"/>
+  <!-- Positron Light: activityBar.background #3A78B1, white icons, no border -->
+  <rect x="0" y="0" width="18" height="260" fill="#3A78B1"/>
   <!-- Explorer (active) -->
-  <g transform="translate(4.5, 11.5) scale(0.375)" fill="#5A5A5A">
+  <g transform="translate(4.5, 11.5) scale(0.375)" fill="#FFFFFF">
     <path d="M7.5 22.5H17.595C17.07 23.4 16.11 24 15 24H7.5C4.185 24 1.5 21.315 1.5 18V6C1.5 4.89 2.1 3.93 3 3.405V18C3 20.475 5.025 22.5 7.5 22.5ZM21 8.121V18C21 19.6545 19.6545 21 18 21H7.5C5.8455 21 4.5 19.6545 4.5 18V3C4.5 1.3455 5.8455 0 7.5 0H12.879C13.4715 0 14.0505 0.24 14.4705 0.6585L20.3415 6.5295C20.766 6.954 21 7.5195 21 8.121ZM13.5 6.75C13.5 7.164 13.8375 7.5 14.25 7.5H19.1895L13.5 1.8105V6.75ZM19.5 18V9H14.25C13.0095 9 12 7.9905 12 6.75V1.5H7.5C6.672 1.5 6 2.1735 6 3V18C6 18.8265 6.672 19.5 7.5 19.5H18C18.828 19.5 19.5 18.8265 19.5 18Z"/>
   </g>
   <!-- Search -->
-  <g transform="translate(4.5, 33.5) scale(0.5625)" fill="#8A8A8A">
+  <g transform="translate(4.5, 33.5) scale(0.5625)" fill="#FFFFFF" fill-opacity="0.67">
     <path d="M10.0195 10.7266C9.06578 11.5217 7.83875 12 6.5 12C3.46243 12 1 9.53757 1 6.5C1 3.46243 3.46243 1 6.5 1C9.53757 1 12 3.46243 12 6.5C12 7.83875 11.5217 9.06578 10.7266 10.0195L13.8535 13.1464C14.0488 13.3417 14.0488 13.6583 13.8535 13.8536C13.6583 14.0488 13.3417 14.0488 13.1464 13.8536L10.0195 10.7266ZM11 6.5C11 4.01472 8.98528 2 6.5 2C4.01472 2 2 4.01472 2 6.5C2 8.98528 4.01472 11 6.5 11C8.98528 11 11 8.98528 11 6.5Z"/>
   </g>
   <!-- Source control -->
-  <g transform="translate(4.5, 55.5) scale(0.375)" fill="#8A8A8A">
+  <g transform="translate(4.5, 55.5) scale(0.375)" fill="#FFFFFF" fill-opacity="0.67">
     <path d="M21 8.25C21 6.1815 19.3185 4.5 17.25 4.5C15.1815 4.5 13.5 6.1815 13.5 8.25C13.5 10.023 14.739 11.5035 16.395 11.892C16.116 12.819 15.2655 13.5 14.25 13.5H9.75C8.9025 13.5 8.1285 13.7925 7.5 14.268V7.4235C9.21 7.0755 10.5 5.5605 10.5 3.75C10.5 1.6815 8.8185 0 6.75 0C4.6815 0 3 1.6815 3 3.75C3 5.562 4.29 7.0755 6 7.4235V16.575C4.29 16.923 3 18.438 3 20.2485C3 22.317 4.6815 23.9985 6.75 23.9985C8.8185 23.9985 10.5 22.317 10.5 20.2485C10.5 18.4755 9.261 16.995 7.605 16.6065C7.884 15.6795 8.7345 14.9985 9.75 14.9985H14.25C16.0845 14.9985 17.61 13.6725 17.931 11.9295C19.674 11.607 21 10.0845 21 8.25ZM4.5 3.75C4.5 2.5095 5.5095 1.5 6.75 1.5C7.9905 1.5 9 2.5095 9 3.75C9 4.9905 7.9905 6 6.75 6C5.5095 6 4.5 4.9905 4.5 3.75ZM9 20.25C9 21.4905 7.9905 22.5 6.75 22.5C5.5095 22.5 4.5 21.4905 4.5 20.25C4.5 19.0095 5.5095 18 6.75 18C7.9905 18 9 19.0095 9 20.25ZM17.25 10.5C16.0095 10.5 15 9.4905 15 8.25C15 7.0095 16.0095 6 17.25 6C18.4905 6 19.5 7.0095 19.5 8.25C19.5 9.4905 18.4905 10.5 17.25 10.5Z"/>
   </g>
   <!-- Extensions -->
-  <g transform="translate(4.5, 77.5) scale(0.5625)" fill="#8A8A8A">
+  <g transform="translate(4.5, 77.5) scale(0.5625)" fill="#FFFFFF" fill-opacity="0.67">
     <path d="M15 4.95703C15 4.58711 14.8563 4.24054 14.5949 3.97992L12.0096 1.39234C11.4879 0.86922 10.5788 0.86922 10.0571 1.39234L8 3.45119V3.32321C8 2.55068 7.37187 1.922 6.6 1.922H2.4C1.62813 1.922 1 2.55068 1 3.32321V13.5988C1 14.3713 1.62813 15 2.4 15H12.6667C13.4385 15 14.0667 14.3713 14.0667 13.5988V9.39514C14.0667 8.62261 13.4385 7.99393 12.6667 7.99393H12.5379L14.5949 5.93508C14.8553 5.67445 15 5.32602 15 4.95703ZM2.4 2.85521H6.6C6.85667 2.85521 7.06667 3.06446 7.06667 3.32228V7.99299H1.93333V3.32228C1.93333 3.06446 2.14333 2.85521 2.4 2.85521ZM1.93333 13.5979V8.92714H7.06667V14.0649H2.4C2.14333 14.0649 1.93333 13.8547 1.93333 13.5979ZM13.1333 9.39421V13.5979C13.1333 13.8547 12.9233 14.0649 12.6667 14.0649H8V8.92714H12.6667C12.9233 8.92714 13.1333 9.13638 13.1333 9.39421ZM8 7.99299V6.46287L9.5288 7.99299H8ZM13.9351 5.2737L11.3488 7.86221C11.1789 8.03223 10.8859 8.03223 10.716 7.86221L8.12973 5.2737C8.0448 5.18963 7.99813 5.07753 7.99813 4.95796C7.99813 4.83839 8.0448 4.7263 8.12973 4.64129L10.716 2.05278C10.8009 1.96777 10.9129 1.92106 11.0324 1.92106C11.1519 1.92106 11.2639 1.96777 11.3488 2.05278L13.9351 4.64129C14.02 4.72536 14.0667 4.83746 14.0667 4.95703C14.0667 5.0766 14.02 5.1887 13.9351 5.2737Z"/>
   </g>
 
   <!-- ============ Editor ============ -->
   <rect x="18" y="0" width="282" height="24" fill="#F2F2F2"/>
   <line x1="18" y1="24" x2="300" y2="24" stroke="#E0E0E0" stroke-width="1"/>
-  <rect x="19" y="0" width="106" height="25" fill="#FFFFFF"/>
+  <rect x="18" y="0" width="107" height="25" fill="#FFFFFF"/>
   <!-- Seti _default file icon (untitled / unknown file type), extracted from theme-seti's seti.woff -->
   <g transform="translate(26, 8.5) scale(0.5)" fill="#8A8A8A">
     <path d="M0.61 9.36H15.39V11.30H0.61ZM0.61 4.66H8.86V6.64H0.61ZM0.61 0.00H15.39V1.97H0.61ZM0.61 14.03H11.59V16.00H0.61Z"/>
@@ -39,51 +39,36 @@
   <g transform="translate(26, 28.4) scale(0.7)" fill="#5A5A5A">
     <path d="M3.78 2L3 2.41v12l.78.42 9-6V8l-9-6zM4 13.48V3.35l7.6 5.07L4 13.48z"/>
   </g>
-  <rect x="41" y="32" width="22" height="4" rx="2" fill="#C8C8C8"/>
 
-  <!-- Code: deliberately sparse, so the plot carries the only color -->
-  <rect x="24" y="57" width="7" height="3" rx="1.5" fill="#B4C4D2"/>
-  <rect x="24" y="71" width="7" height="3" rx="1.5" fill="#B4C4D2"/>
-  <rect x="24" y="85" width="7" height="3" rx="1.5" fill="#B4C4D2"/>
-  <rect x="24" y="99" width="7" height="3" rx="1.5" fill="#B4C4D2"/>
-  <rect x="24" y="113" width="7" height="3" rx="1.5" fill="#B4C4D2"/>
-  <rect x="24" y="127" width="7" height="3" rx="1.5" fill="#B4C4D2"/>
-
-  <rect x="40" y="56" width="118" height="4" rx="2" fill="#D4D4D4"/>
-  <rect x="40" y="70" width="74" height="4" rx="2" fill="#D4D4D4"/>
-  <rect x="52" y="84" width="142" height="4" rx="2" fill="#D4D4D4"/>
-  <rect x="52" y="98" width="92" height="4" rx="2" fill="#D4D4D4"/>
-  <rect x="40" y="112" width="158" height="4" rx="2" fill="#D4D4D4"/>
-  <rect x="40" y="126" width="68" height="4" rx="2" fill="#D4D4D4"/>
+  <!-- Code: four lines, no line numbers, so the plot carries the only color -->
+  <rect x="28" y="60" width="112" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="28" y="74" width="72" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="40" y="88" width="134" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="28" y="102" width="90" height="4" rx="2" fill="#C8C8C8"/>
 
   <!-- ============ Console ============ -->
   <line x1="18" y1="150" x2="300" y2="150" stroke="#E0E0E0" stroke-width="1"/>
   <rect x="18" y="151" width="282" height="17" fill="#FAFAFA"/>
   <text x="26" y="163" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="7" font-weight="600" fill="#3E4246" letter-spacing="0.5">CONSOLE</text>
-  <line x1="26" y1="167" x2="63" y2="167" stroke="#3E4246" stroke-width="1.5"/>
-  <rect x="74" y="157" width="30" height="4" rx="2" fill="#C8C8C8"/>
-  <rect x="114" y="157" width="30" height="4" rx="2" fill="#C8C8C8"/>
-  <rect x="154" y="157" width="26" height="4" rx="2" fill="#C8C8C8"/>
+  <line x1="22" y1="167" x2="67.5" y2="167" stroke="#3A78B1" stroke-width="1.5"/>
+  <!-- Console and Terminal are the panel's two tabs in Positron's default layout -->
+  <text x="74" y="163" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="7" font-weight="600" fill="#8A8A8A" letter-spacing="0.5">TERMINAL</text>
   <line x1="18" y1="168" x2="300" y2="168" stroke="#E0E0E0" stroke-width="1"/>
 
-  <text x="24" y="186" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="7" fill="#B4B4B4">...</text>
-  <rect x="40" y="182" width="104" height="4" rx="2" fill="#D4D4D4"/>
-  <text x="24" y="204" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="7" fill="#B4B4B4">...</text>
-  <rect x="40" y="200" width="140" height="4" rx="2" fill="#D4D4D4"/>
-  <text x="24" y="222" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="7" fill="#B4B4B4">...</text>
-  <rect x="40" y="218" width="86" height="4" rx="2" fill="#D4D4D4"/>
-  <text x="24" y="244" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="7.5" font-weight="600" fill="#5A5A5A">&gt;&gt;&gt;</text>
-  <rect x="42" y="237.5" width="4.5" height="8" fill="#8A8A8A"/>
+  <rect x="26" y="184" width="104" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="26" y="200" width="138" height="4" rx="2" fill="#C8C8C8"/>
+  <text x="24" y="226" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="7.5" font-weight="600" fill="#5A5A5A">&gt;&gt;&gt;</text>
+  <rect x="42" y="219.5" width="4.5" height="8" fill="#8A8A8A"/>
 
   <!-- ============ Right sidebar ============ -->
   <line x1="300" y1="0" x2="300" y2="260" stroke="#E0E0E0" stroke-width="1"/>
-  <rect x="301" y="0" width="219" height="24" fill="#F2F2F2"/>
+  <rect x="300.5" y="0" width="219.5" height="24" fill="#F2F2F2"/>
   <!-- Tabs group left: Session is active, then Help / Connections / Viewer -->
   <text x="308" y="15" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="7" font-weight="600" fill="#3E4246" letter-spacing="0.5">SESSION</text>
-  <line x1="308" y1="19" x2="341" y2="19" stroke="#3E4246" stroke-width="1.5"/>
-  <rect x="352" y="10" width="20" height="4" rx="2" fill="#C8C8C8"/>
-  <rect x="382" y="10" width="30" height="4" rx="2" fill="#C8C8C8"/>
-  <rect x="422" y="10" width="24" height="4" rx="2" fill="#C8C8C8"/>
+  <line x1="304" y1="19" x2="346" y2="19" stroke="#3A78B1" stroke-width="1.5"/>
+  <g transform="translate(350, 7.5) scale(0.5625)" fill="#8A8A8A">
+    <path d="M4 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm5 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm5 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+  </g>
   <!-- Title actions pin right: maximize, hide secondary side bar -->
   <g transform="translate(488, 7.5) scale(0.5625)" fill="#5A5A5A">
     <path d="M3.75 3C3.33579 3 3 3.33579 3 3.75V5.5C3 5.77614 2.77614 6 2.5 6C2.22386 6 2 5.77614 2 5.5V3.75C2 2.7835 2.7835 2 3.75 2H5.5C5.77614 2 6 2.22386 6 2.5C6 2.77614 5.77614 3 5.5 3H3.75ZM10 2.5C10 2.22386 10.2239 2 10.5 2H12.25C13.2165 2 14 2.7835 14 3.75V5.5C14 5.77614 13.7761 6 13.5 6C13.2239 6 13 5.77614 13 5.5V3.75C13 3.33579 12.6642 3 12.25 3H10.5C10.2239 3 10 2.77614 10 2.5ZM2.5 10C2.77614 10 3 10.2239 3 10.5V12.25C3 12.6642 3.33579 13 3.75 13H5.5C5.77614 13 6 13.2239 6 13.5C6 13.7761 5.77614 14 5.5 14H3.75C2.7835 14 2 13.2165 2 12.25V10.5C2 10.2239 2.22386 10 2.5 10ZM13.5 10C13.7761 10 14 10.2239 14 10.5V12.25C14 13.2165 13.2165 14 12.25 14H10.5C10.2239 14 10 13.7761 10 13.5C10 13.2239 10.2239 13 10.5 13H12.25C12.6642 13 13 12.6642 13 12.25V10.5C13 10.2239 13.2239 10 13.5 10Z"/>
@@ -94,41 +79,31 @@
   <line x1="300" y1="24" x2="520" y2="24" stroke="#E0E0E0" stroke-width="1"/>
 
   <!-- Variables -->
-  <rect x="301" y="25" width="219" height="16" fill="#F4F4F4"/>
+  <rect x="300.5" y="24.5" width="219.5" height="16.5" fill="#F4F4F4"/>
   <g transform="translate(306, 29.5) scale(0.4375)" fill="#3E4246">
     <path fill-rule="evenodd" clip-rule="evenodd" d="M7.976 10.072l4.357-4.357.62.618L8.284 11h-.618L3 6.333l.619-.618 4.357 4.357z"/>
   </g>
   <text x="316" y="36" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="7.5" font-weight="600" fill="#3E4246" letter-spacing="0.5">VARIABLES</text>
   <line x1="300" y1="41" x2="520" y2="41" stroke="#E0E0E0" stroke-width="1"/>
 
-  <rect x="301" y="42" width="219" height="15" fill="#EEF3F8"/>
-  <rect x="310" y="47" width="24" height="4" rx="2" fill="#5A5A5A"/>
-  <rect x="368" y="47" width="76" height="4" rx="2" fill="#C8C8C8"/>
-  <rect x="470" y="47" width="34" height="4" rx="2" fill="#D0D0D0"/>
+  <!-- Four rows, name + value. First row is selected. -->
+  <rect x="300.5" y="41.5" width="219.5" height="15.5" fill="#EEF3F8"/>
+  <rect x="310" y="47" width="24" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="380" y="47" width="88" height="4" rx="2" fill="#C8C8C8"/>
   <line x1="300" y1="57" x2="520" y2="57" stroke="#EEEEEE" stroke-width="1"/>
-  <rect x="310" y="62" width="30" height="4" rx="2" fill="#5A5A5A"/>
-  <rect x="368" y="62" width="66" height="4" rx="2" fill="#C8C8C8"/>
-  <rect x="470" y="62" width="28" height="4" rx="2" fill="#D0D0D0"/>
+  <rect x="310" y="62" width="30" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="380" y="62" width="70" height="4" rx="2" fill="#C8C8C8"/>
   <line x1="300" y1="72" x2="520" y2="72" stroke="#EEEEEE" stroke-width="1"/>
-  <rect x="310" y="77" width="20" height="4" rx="2" fill="#5A5A5A"/>
-  <rect x="368" y="77" width="84" height="4" rx="2" fill="#C8C8C8"/>
-  <rect x="470" y="77" width="24" height="4" rx="2" fill="#D0D0D0"/>
+  <rect x="310" y="77" width="20" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="380" y="77" width="96" height="4" rx="2" fill="#C8C8C8"/>
   <line x1="300" y1="87" x2="520" y2="87" stroke="#EEEEEE" stroke-width="1"/>
-  <rect x="310" y="92" width="14" height="4" rx="2" fill="#5A5A5A"/>
-  <rect x="368" y="92" width="28" height="4" rx="2" fill="#C8C8C8"/>
-  <rect x="470" y="92" width="18" height="4" rx="2" fill="#D0D0D0"/>
+  <rect x="310" y="92" width="26" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="380" y="92" width="62" height="4" rx="2" fill="#C8C8C8"/>
   <line x1="300" y1="102" x2="520" y2="102" stroke="#EEEEEE" stroke-width="1"/>
-  <rect x="310" y="107" width="18" height="4" rx="2" fill="#5A5A5A"/>
-  <rect x="368" y="107" width="72" height="4" rx="2" fill="#C8C8C8"/>
-  <rect x="470" y="107" width="30" height="4" rx="2" fill="#D0D0D0"/>
-  <line x1="300" y1="117" x2="520" y2="117" stroke="#EEEEEE" stroke-width="1"/>
-  <rect x="310" y="122" width="22" height="4" rx="2" fill="#5A5A5A"/>
-  <rect x="368" y="122" width="58" height="4" rx="2" fill="#C8C8C8"/>
-  <rect x="470" y="122" width="22" height="4" rx="2" fill="#D0D0D0"/>
 
   <!-- Plots -->
   <line x1="300" y1="133" x2="520" y2="133" stroke="#E0E0E0" stroke-width="1"/>
-  <rect x="301" y="134" width="219" height="16" fill="#F4F4F4"/>
+  <rect x="300.5" y="133.5" width="219.5" height="16.5" fill="#F4F4F4"/>
   <g transform="translate(306, 138.5) scale(0.4375)" fill="#3E4246">
     <path fill-rule="evenodd" clip-rule="evenodd" d="M7.976 10.072l4.357-4.357.62.618L8.284 11h-.618L3 6.333l.619-.618 4.357 4.357z"/>
   </g>
