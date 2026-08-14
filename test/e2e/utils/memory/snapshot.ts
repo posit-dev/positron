@@ -260,8 +260,13 @@ export function treeHasSettled(samples: RawProcess[][]): boolean {
  * Processes whose samples moved too much for their median to mean anything.
  *
  * Reported rather than thrown on: a caller decides whether an unstable process
- * invalidates the run. With the sampling loop waiting on {@link isSteady}, this
- * should now be empty unless a launch hit {@link SAMPLING_CAP_MS}.
+ * invalidates the run.
+ *
+ * Do NOT read this as a proxy for "the launch hit {@link SAMPLING_CAP_MS}", which
+ * an earlier version of this comment claimed. Only the last {@link TAIL_LENGTH}
+ * samples are retained, so a launch that sampled to the cap without ever settling
+ * still presents a flat tail here and comes back empty. Assert on
+ * `snapshot.sampledMs` for that, as memory-scenario.ts does.
  */
 export function unstableProcesses(processes: LabeledProcess[]): LabeledProcess[] {
 	return processes.filter(proc => proc.pssBytes > 0 && !isSteady(proc.pssSamples));
