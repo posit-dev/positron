@@ -359,7 +359,8 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 					undefined,
 					'User selected runtime',
 					RuntimeStartMode.Starting,
-					true
+					true,
+					{ userSelected: true }
 				);
 			})
 		);

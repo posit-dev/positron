@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -36,6 +36,22 @@ export interface ShowConfirmationModalDialogOptions {
 	okButtonTitle?: string;
 	cancelButtonTitle?: string;
 	action: () => Promise<void>;
+}
+
+/**
+ * Options for a three-button modal dialog prompt.
+ */
+export interface IThreeButtonModalDialogPromptOptions {
+	/** The title shown in the dialog's title bar. */
+	title: string;
+	/** The message shown in the dialog's body. Rendered as HTML, so links are supported. */
+	message: string;
+	/** The default action. Focused on open, and invoked by Enter. */
+	primaryButtonTitle: string;
+	/** The alternative action, shown next to the primary button. */
+	secondaryButtonTitle: string;
+	/** The odd-one-out action, shown on the left edge of the footer. */
+	tertiaryButtonTitle: string;
 }
 
 /**
@@ -92,6 +108,22 @@ export interface IPositronModalDialogsService {
 		cancelButtonTitle?: string,
 		height?: number,
 	): Promise<boolean>;
+
+	/**
+	 * Shows a modal dialog prompt with three buttons.
+	 *
+	 * There is no Cancel button. The title bar close button and Escape both dismiss the
+	 * dialog, and both resolve to undefined; a caller that needs a labelled dismiss action
+	 * should spend one of the three buttons on it.
+	 *
+	 * @param options The dialog's title, message, and button titles.
+	 *
+	 * @returns A promise that resolves to the title of the button the user clicked, or to
+	 *   undefined if the user dismissed the dialog.
+	 */
+	showThreeButtonModalDialogPrompt(
+		options: IThreeButtonModalDialogPromptOptions
+	): Promise<string | undefined>;
 
 	/**
 	 * Shows a different simple modal dialog prompt.

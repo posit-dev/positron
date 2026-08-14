@@ -29,6 +29,7 @@ import { EvalResult } from '../../../services/languageRuntime/common/positronUiC
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { Event } from '../../../../base/common/event.js';
+import { IThreeButtonModalDialogPromptOptions } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -180,6 +181,7 @@ export interface ExtHostLanguageRuntimeShape {
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadModalDialogsShape extends IDisposable {
 	$showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Promise<boolean>;
+	$showThreeButtonModalDialogPrompt(options: IThreeButtonModalDialogPromptOptions): Promise<string | undefined>;
 	$showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Promise<null>;
 	$showSimpleModalDialogInput(title: string, message: string, defaultValue?: string, placeholder?: string, timeout?: number): Promise<string | null>;
 }

@@ -12,12 +12,16 @@ import * as commandApis from '../../../../client/common/vscodeApis/commandApis';
 import * as rawProcessApis from '../../../../client/common/process/rawProcessApis';
 import * as venvUtils from '../../../../client/pythonEnvironments/creation/provider/venvUtils';
 import * as triggerUtils from '../../../../client/pythonEnvironments/creation/common/createEnvTriggerUtils';
+import * as workspaceApis from '../../../../client/common/vscodeApis/workspaceApis';
+import * as uvApis from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
 import {
     AutoCreateVenvContext,
     autoCreateVenvWithDeps,
+    detectAutoCreateContext,
     uvInstallDeps,
 } from '../../../../client/pythonEnvironments/creation/provider/autoCreateVenv';
 import { UV_PROVIDER_ID } from '../../../../client/pythonEnvironments/creation/provider/uvCreationProvider';
+import { VenvCreationProviderId } from '../../../../client/pythonEnvironments/creation/provider/venvCreationProvider';
 import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../../../constants';
 import { CreateEnvironmentProgress } from '../../../../client/pythonEnvironments/creation/types';
 import { Observable } from 'rxjs';
@@ -124,6 +128,75 @@ suite('Auto Create Venv', () => {
             const options = executeCommandStub.firstCall.args[1];
             assert.isUndefined(options.providerId);
             assert.isUndefined(options.uvPythonVersion);
+        });
+
+        test('Caller passes provider options: uses them instead of uv', async () => {
+            getPipRequirementsFilesStub.resolves([path.join(workspace.uri.fsPath, 'requirements.txt')]);
+            hasPyprojectTomlStub.resolves(false);
+            executeCommandStub.resolves(undefined);
+
+            const ctx: AutoCreateVenvContext = { hasRequirements: true, hasPyprojectToml: false, uvAvailable: true };
+            await autoCreateVenvWithDeps(workspace, ctx, {
+                providerId: VenvCreationProviderId,
+                interpreterPath: '/usr/bin/python3',
+            });
+
+            const options = executeCommandStub.firstCall.args[1];
+            assert.deepStrictEqual(
+                {
+                    providerId: options.providerId,
+                    interpreterPath: options.interpreterPath,
+                    uvPythonVersion: options.uvPythonVersion,
+                    installPackages: options.installPackages,
+                },
+                {
+                    providerId: VenvCreationProviderId,
+                    interpreterPath: '/usr/bin/python3',
+                    uvPythonVersion: undefined,
+                    installPackages: true,
+                },
+            );
+        });
+    });
+
+    suite('detectAutoCreateContext', () => {
+        let isUvInstalledStub: sinon.SinonStub;
+        let getConfigurationStub: sinon.SinonStub;
+
+        setup(() => {
+            isUvInstalledStub = sinon.stub(uvApis, 'isUvInstalled').resolves(true);
+            getConfigurationStub = sinon.stub(workspaceApis, 'getConfiguration');
+            getPipRequirementsFilesStub.resolves([]);
+            hasPyprojectTomlStub.resolves(true);
+        });
+
+        function stubAllowUvPythonInstall(value: boolean | undefined): void {
+            getConfigurationStub.returns({ get: () => value });
+        }
+
+        test('uv installed and install allowed: uv is available', async () => {
+            stubAllowUvPythonInstall(true);
+
+            assert.isTrue((await detectAutoCreateContext(workspace)).uvAvailable);
+        });
+
+        test('Setting unset: defaults to uv being available', async () => {
+            stubAllowUvPythonInstall(undefined);
+
+            assert.isTrue((await detectAutoCreateContext(workspace)).uvAvailable);
+        });
+
+        test('allowUvPythonInstall off: uv is not available even when installed', async () => {
+            stubAllowUvPythonInstall(false);
+
+            assert.isFalse((await detectAutoCreateContext(workspace)).uvAvailable);
+        });
+
+        test('uv not installed: uv is not available', async () => {
+            stubAllowUvPythonInstall(true);
+            isUvInstalledStub.resolves(false);
+
+            assert.isFalse((await detectAutoCreateContext(workspace)).uvAvailable);
         });
     });
 

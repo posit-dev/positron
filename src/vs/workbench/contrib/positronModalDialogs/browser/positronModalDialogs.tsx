@@ -19,9 +19,18 @@ import { PositronModalDialog } from '../../../browser/positronComponents/positro
 import { OKCancelActionBar } from '../../../browser/positronComponents/positronModalDialog/components/okCancelActionBar.js';
 import { OKCancelModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { LabeledTextInput } from '../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
-import { IModalDialogPromptInstance, IPositronModalDialogsService, ShowConfirmationModalDialogOptions } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
+import { IModalDialogPromptInstance, IPositronModalDialogsService, IThreeButtonModalDialogPromptOptions, ShowConfirmationModalDialogOptions } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { ExternalLink } from '../../../../base/browser/ui/ExternalLink/ExternalLink.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronDynamicModalDialog } from '../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { ThreeButtonFooter } from '../../../browser/positronComponents/positronDynamicModalDialog/components/threeButtonFooter.js';
+
+/**
+ * The width of a three-button modal dialog prompt. Wider than the 400 the older prompts in
+ * this file use because three buttons plus an explanatory message need the room.
+ */
+const THREE_BUTTON_MODAL_DIALOG_PROMPT_WIDTH = 500;
 
 /**
  * PositronModalDialogs class.
@@ -229,6 +238,73 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	}
 
 	/**
+	 * Shows a modal dialog prompt with three buttons.
+	 *
+	 * @param options The dialog's title, message, and button titles.
+	 *
+	 * @returns A promise that resolves to the title of the button the user clicked, or to
+	 *   undefined if the user dismissed the dialog.
+	 */
+	showThreeButtonModalDialogPrompt(
+		options: IThreeButtonModalDialogPromptOptions
+	): Promise<string | undefined> {
+		return new Promise<string | undefined>(resolve => {
+			// Settle once. Every exit runs through here: the three buttons, Enter, the title bar
+			// close button, and Escape. Escape closes the native <dialog> and disposes the renderer
+			// without calling onCancel, so onDisposed is what settles that path, and the guard is
+			// what keeps the dispose() below from settling a second time.
+			let settled = false;
+			const settle = (choice: string | undefined) => {
+				if (settled) {
+					return;
+				}
+				settled = true;
+				renderer.dispose();
+				resolve(choice);
+			};
+
+			const renderer = new PositronModalDialogReactRenderer({
+				onDisposed: () => settle(undefined)
+			});
+
+			renderer.render(
+				<PositronDynamicModalDialog
+					content={
+						<div>
+							{renderHtml(
+								options.message,
+								{
+									componentOverrides: {
+										a: (props) => <ExternalLink {...props} />
+									}
+								}
+							)}
+						</div>
+					}
+					footer={
+						<ThreeButtonFooter
+							leftButtonTitle={options.tertiaryButtonTitle}
+							primaryButtonTitle={options.primaryButtonTitle}
+							secondaryButtonTitle={options.secondaryButtonTitle}
+							topBorder={true}
+							onLeftButton={() => settle(options.tertiaryButtonTitle)}
+							onPrimaryButton={() => settle(options.primaryButtonTitle)}
+							onSecondaryButton={() => settle(options.secondaryButtonTitle)}
+						/>
+					}
+					renderer={renderer}
+					title={options.title}
+					width={THREE_BUTTON_MODAL_DIALOG_PROMPT_WIDTH}
+					onCancel={() => settle(undefined)}
+					// ThreeButtonFooter's primary button is the form's submit target, so Enter and a
+					// click on it have to do the same thing.
+					onSubmit={() => settle(options.primaryButtonTitle)}
+				/>
+			);
+		});
+	}
+
+	/**
 	 * Shows a simple modal dialog prompt for the user to accept.
 	 *
 	 * @param title The title of the dialog
@@ -331,9 +407,9 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 								</div>
 							)}
 							<LabeledTextInput
+								autoFocus={true}
 								label=""
 								value={inputValue}
-								autoFocus={true}
 								onChange={(e) => setInputValue(e.target.value)}
 								{...placeholder && { placeholder }}
 							/>
