@@ -666,6 +666,30 @@ describe('PositronCanvasService', () => {
 		expect(channelCall.mock.calls.filter(([command]) => command === 'release')).toHaveLength(1);
 	});
 
+	it('a repeated exit retires an enter queued behind the one in flight', async () => {
+		const show = new DeferredPromise<void>();
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service, executeCommand, showWindow } = build({
+			auxiliaryGroups: [auxiliaryGroup],
+			showWindow: () => show.p,
+		});
+		await service.enter();
+
+		const exiting = service.exit();
+		await vi.waitFor(() => expect(showWindow).toHaveBeenCalled());
+		const entering = service.enter();
+		const repeated = service.exit();
+
+		await show.complete();
+		expect(await exiting).toBe(true);
+		expect(await repeated).toBe(true);
+		// The latest request was the exit: the queued entry must not bring
+		// Canvas back, nor start Canvas work of its own.
+		expect(await entering).toMatchObject({ entered: false, reason: 'superseded' });
+		expect(executeCommand).toHaveBeenCalledTimes(1);
+		expect(service.isActive).toBe(false);
+	});
+
 	it('coalesces a second exit onto the one in flight instead of replacing it', async () => {
 		const show = new DeferredPromise<void>();
 		const auxiliaryGroup = createGroup([createCanvasEditor()]);

@@ -46,6 +46,13 @@ const CANVAS_ENSURE_COMMAND = 'posit-assistant.ensureCanvas';
  */
 const CANVAS_ENSURE_TIMEOUT = 20_000;
 
+/** The outcome of an entry retired because a newer exit request won. */
+const supersededOutcome: CanvasEntryOutcome = {
+	entered: false,
+	reason: 'superseded',
+	message: localize('positron.canvas.superseded', "Canvas stopped opening because Positron was asked for the IDE.")
+};
+
 export const IPositronCanvasService = createDecorator<IPositronCanvasService>('positronCanvasService');
 
 export interface IPositronCanvasService {
@@ -244,13 +251,22 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	}
 
 	private async doEnter(): Promise<CanvasEntryOutcome> {
-		// Waited out before the generation capture, so the awaited exit's
-		// bump does not supersede this entry. Only settlement matters here;
-		// the exit's own caller handles its rejection. No deadlock: exit
-		// never awaits an entry, and the hide-failure exit inside
+		// Captured synchronously, after the in-flight exit's bump but before
+		// any exit that arrives while this entry waits below: those newer
+		// requests must retire this entry, the awaited one must not.
+		const generationAtRequest = this.exitGeneration;
+
+		// Waited out before the main generation capture, so the awaited
+		// exit's bump does not supersede this entry. Only settlement matters
+		// here; the exit's own caller handles its rejection. No deadlock:
+		// exit never awaits an entry, and the hide-failure exit inside
 		// `doEnterEngaged` starts while this entry is already past this point.
 		while (this.exiting) {
 			await this.exiting.catch(() => { });
+		}
+		if (this.exitGeneration !== generationAtRequest) {
+			this.logService.info('[canvas] Abandoning entry: the user asked for the IDE again while the entry was queued behind an exit');
+			return supersededOutcome;
 		}
 
 		// Read live: `ai.enabled` toggles without a reload, and it must hold
@@ -293,11 +309,6 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 
 	private async doEnterEngaged(generation: number, attempt: object): Promise<CanvasEntryOutcome> {
 		const superseded = () => this.exitGeneration !== generation;
-		const supersededOutcome: CanvasEntryOutcome = {
-			entered: false,
-			reason: 'superseded',
-			message: localize('positron.canvas.superseded', "Canvas stopped opening because Positron was asked for the IDE.")
-		};
 		if (superseded()) {
 			this.logService.info('[canvas] Abandoning entry: the user left Canvas while the application-wide claim was pending');
 			return supersededOutcome;
@@ -382,10 +393,13 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	exit(): Promise<boolean> {
 		// Coalesce onto the exit in flight: a second transaction could settle
 		// first and clear `this.exiting`, freeing `enter()` to start while
-		// the first exit still owns a captured Canvas group. The first exit's
-		// generation bump already retired every entry a new exit could want
-		// retired, since no entry starts while `this.exiting` is set.
+		// the first exit still owns a captured Canvas group. Still an
+		// operative "I want the IDE", so like `doExit()` it retires an entry
+		// queued behind the in-flight exit (the bump) and detaches it so a
+		// later `enter()` starts fresh instead of coalescing onto it.
 		if (this.exiting) {
+			this.exitGeneration++;
+			this.entering = undefined;
 			return this.exiting;
 		}
 		// `doExit()` runs synchronously up to its first await, so the
