@@ -304,10 +304,16 @@ export function buildCreateEnvFix(deps: {
     };
 }
 
-export function buildNewFolderFix(): HealthItemFix {
+/**
+ * The CTA for every no-folder-open outcome. Opening a folder is the one step that unblocks the
+ * rest of the check: once a folder is open, the check re-runs against it and surfaces the real
+ * next step (create an environment, install ipykernel, and so on). Only offer it when no folder
+ * is open - with a folder already open it addresses nothing.
+ */
+export function buildOpenFolderFix(): HealthItemFix {
     return {
-        commandId: 'positron.workbench.action.newFolderFromTemplate',
-        label: vscode.l10n.t('New Folder from Template'),
+        commandId: 'workbench.action.files.openFolder',
+        label: vscode.l10n.t('Open Folder'),
     };
 }
 
@@ -315,8 +321,8 @@ export function probeDedicatedEnvironment(deps: {
     workspaceOpen: boolean;
     interpreterDedicated: boolean;
     anyDedicatedDiscovered: boolean;
-    createEnvFix: HealthItemFix;
-    newFolderFix: HealthItemFix;
+    createEnvFix?: HealthItemFix;
+    openFolderFix: HealthItemFix;
 }): HealthItem {
     const id = 'dedicatedEnvironment';
     const summary = itemSummary(id);
@@ -342,9 +348,9 @@ export function probeDedicatedEnvironment(deps: {
             status: 'warn',
             summary,
             detail: vscode.l10n.t(
-                'A dedicated environment exists but no folder is open. Open a folder (or create one) to use it; full green means an open folder using a dedicated environment.',
+                'A dedicated environment exists but no folder is open. Open a folder to use it; full green means an open folder using a dedicated environment.',
             ),
-            fix: deps.newFolderFix,
+            fix: deps.openFolderFix,
         };
     }
 
@@ -353,9 +359,9 @@ export function probeDedicatedEnvironment(deps: {
         status: 'fail',
         summary,
         detail: vscode.l10n.t(
-            'No dedicated Python environment was found and no folder is open. Create a folder with a dedicated environment to get started.',
+            'No dedicated Python environment was found and no folder is open. Open a folder to get started; you can create a dedicated environment in it.',
         ),
-        fix: deps.newFolderFix,
+        fix: deps.openFolderFix,
     };
 }
 
@@ -364,7 +370,7 @@ export function probeEnvironmentReady(deps: {
     versionSupported: boolean;
     kernelReady: boolean;
     isRosetta: boolean;
-    recreateFix: HealthItemFix;
+    recreateFix?: HealthItemFix;
     installIpykernelFix: HealthItemFix;
     // Omitted when python.allowUvPythonInstall is off; the Rosetta warn then has no fix button.
     installNativePythonFix?: HealthItemFix;
@@ -561,21 +567,20 @@ async function evaluateDedicated(ctx: {
     uvInstalled: boolean;
     allowUvPythonInstall: boolean;
 }): Promise<HealthItem> {
-    const createEnvFix =
-        (ctx.workspaceUri &&
-            buildCreateEnvFix({
-                workspaceUri: ctx.workspaceUri,
-                uvInstalled: ctx.uvInstalled,
-                allowUvPythonInstall: ctx.allowUvPythonInstall,
-                baseInterpreterPath: bestSupportedGlobalPython(ctx.interpreters)?.path,
-            })) ||
-        buildNewFolderFix();
+    const createEnvFix = ctx.workspaceUri
+        ? buildCreateEnvFix({
+              workspaceUri: ctx.workspaceUri,
+              uvInstalled: ctx.uvInstalled,
+              allowUvPythonInstall: ctx.allowUvPythonInstall,
+              baseInterpreterPath: bestSupportedGlobalPython(ctx.interpreters)?.path,
+          })
+        : undefined;
     return probeDedicatedEnvironment({
         workspaceOpen: ctx.workspaceUri !== undefined,
         interpreterDedicated: ctx.interp !== undefined && isDedicatedEnvironment(ctx.interp),
         anyDedicatedDiscovered: ctx.interpreters.some((i) => isDedicatedEnvironment(i)),
         createEnvFix,
-        newFolderFix: buildNewFolderFix(),
+        openFolderFix: buildOpenFolderFix(),
     });
 }
 
@@ -616,15 +621,15 @@ async function evaluateReady(
         isRosetta = os.arch() === 'arm64' && bundle.architecture === Architecture.x64;
     }
 
-    const recreateFix =
-        (ctx.workspaceUri &&
-            buildCreateEnvFix({
-                workspaceUri: ctx.workspaceUri,
-                uvInstalled: ctx.uvInstalled,
-                allowUvPythonInstall: ctx.allowUvPythonInstall,
-                baseInterpreterPath: bestSupportedGlobalPython(ctx.interpreters)?.path,
-            })) ||
-        buildNewFolderFix();
+    // With no folder open there is nothing to create an environment in, so the CTA is to open one.
+    const recreateFix = ctx.workspaceUri
+        ? buildCreateEnvFix({
+              workspaceUri: ctx.workspaceUri,
+              uvInstalled: ctx.uvInstalled,
+              allowUvPythonInstall: ctx.allowUvPythonInstall,
+              baseInterpreterPath: bestSupportedGlobalPython(ctx.interpreters)?.path,
+          })
+        : buildOpenFolderFix();
 
     return probeEnvironmentReady({
         resolvesAndRuns,
