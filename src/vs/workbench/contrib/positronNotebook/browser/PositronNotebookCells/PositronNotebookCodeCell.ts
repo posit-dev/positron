@@ -8,7 +8,7 @@ import { ISettableObservable, observableFromEvent, observableValue } from '../..
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { isDataExplorerMimeType, parseOutputData } from '../getOutputContents.js';
+import { parseOutputData } from '../getOutputContents.js';
 import { PositronNotebookCellGeneral } from './PositronNotebookCell.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { IPositronNotebookCodeCell, NotebookCellOutputs } from './IPositronNotebookCell.js';
@@ -151,16 +151,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 		this.model.outputs.forEach((output) => {
 			const outputItems = output.outputs || [];
-
-			// With the inline data explorer off, its payload isn't renderable, so drop it and
-			// let the usual mime priority land on whatever else the kernel sent (`text/html`
-			// for Python, `text/plain` for R). Falling back to the unfiltered list keeps the
-			// "enable in settings" placeholder for outputs that carry nothing else.
-			const renderableItems = inlineDataExplorerEnabled
-				? outputItems
-				: outputItems.filter(item => !isDataExplorerMimeType(item.mime));
-			const preferredOutputItem = pickPreferredOutputItem(renderableItems)
-				?? pickPreferredOutputItem(outputItems);
+			const preferredOutputItem = pickPreferredOutputItem(outputItems, { inlineDataExplorerEnabled });
 			if (!preferredOutputItem) {
 				return;
 			}

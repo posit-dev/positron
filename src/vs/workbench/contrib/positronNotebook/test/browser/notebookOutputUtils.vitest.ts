@@ -185,6 +185,49 @@ describe('Notebook Output Utils', () => {
 		expect(preferred?.mime).toBe(DATA_EXPLORER_MIME_TYPE);
 	});
 
+	describe('pickPreferredOutputItem: inline data explorer disabled', () => {
+		const disabled = { inlineDataExplorerEnabled: false };
+
+		it('falls back to text/plain when that is all the kernel sent (R)', () => {
+			// Ark sends the autoprint text alongside the data explorer payload and no
+			// text/html, so turning the feature off has to land on the printed data frame.
+			const items = [
+				makeOutputItem('text/plain', '  x y\n1 1 4'),
+				makeOutputItem(DATA_EXPLORER_MIME_TYPE, '{}'),
+			];
+
+			expect(pickPreferredOutputItem(items, disabled)?.mime).toBe('text/plain');
+		});
+
+		it('falls back to text/html when the kernel sent one (Python)', () => {
+			const items = [
+				makeOutputItem('text/plain', '   a\n0  1'),
+				makeOutputItem('text/html', '<table></table>'),
+				makeOutputItem(DATA_EXPLORER_MIME_TYPE, '{}'),
+			];
+
+			expect(pickPreferredOutputItem(items, disabled)?.mime).toBe('text/html');
+		});
+
+		it('returns undefined when the payload is the only item', () => {
+			// A disabled mime type is never rendered, so the output has nothing to show
+			// and the caller skips it entirely.
+			const items = [makeOutputItem(DATA_EXPLORER_MIME_TYPE, '{}')];
+
+			expect(pickPreferredOutputItem(items, disabled)).toBeUndefined();
+		});
+
+		it('ignores the payload even when the only other item is an unknown mime', () => {
+			// Filtering happens before ranking, so the result doesn't depend on item order
+			// the way the "no known mime type" fallback otherwise would.
+			const unknown = makeOutputItem('application/x-made-up', 'payload');
+			const de = makeOutputItem(DATA_EXPLORER_MIME_TYPE, '{}');
+
+			expect(pickPreferredOutputItem([unknown, de], disabled)?.mime).toBe('application/x-made-up');
+			expect(pickPreferredOutputItem([de, unknown], disabled)?.mime).toBe('application/x-made-up');
+		});
+	});
+
 	describe('parseOutputData: data explorer MIME type', () => {
 		const validPayload = JSON.stringify({
 			comm_id: 'test-comm-id',

@@ -12,48 +12,24 @@ import { ParsedDataExplorerOutput } from '../PositronNotebookCells/IPositronNote
 import { parseOutputData } from '../getOutputContents.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { InlineDataExplorer } from './InlineDataExplorer.js';
-import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { localize } from '../../../../../nls.js';
-import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
 
 /**
  * Wrapper component for data explorer outputs that handles fallback to HTML
  * when the data explorer comm is unavailable (e.g. after notebook reload).
+ *
+ * Only rendered while the inline data explorer is enabled: when it is off the cell drops
+ * the payload before parsing, so no output ever resolves to a data explorer.
  */
 export const DataExplorerCellOutput = React.memo(function DataExplorerCellOutput({ parsed, outputs }: {
 	parsed: ParsedDataExplorerOutput;
 	outputs: IOutputItemDto[];
 }) {
-	const services = PositronReactServices.services;
-	const enabled = services.configurationService.getValue<boolean>(
-		POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY
-	) ?? true;
-
 	const [useFallback, setUseFallback] = useState(false);
 
 	const handleFallback = useCallback(() => {
 		setUseFallback(true);
 	}, []);
-
-	const handleOpenSettings = useCallback(() => {
-		services.commandService.executeCommand(
-			'workbench.action.openSettings',
-			'@id:positron.notebook.inlineDataExplorer.enabled'
-		);
-	}, [services.commandService]);
-
-	// When the inline data explorer is off, `pickPreferredOutputItem` already falls back to
-	// whatever else the kernel sent (`text/html` for Python, `text/plain` for R), so we only
-	// reach this branch when the data explorer payload is the cell's only output item.
-	if (!enabled) {
-		return <div className='data-explorer-disabled'>
-			{localize('dataExplorerDisabled', 'Inline data explorer is disabled. ')}
-			<a href='#' onClick={(e) => { e.preventDefault(); handleOpenSettings(); }}>
-				{localize('enableInSettings', 'Enable in settings')}
-			</a>
-			{localize('toViewDataGrids', ' to view data grids.')}
-		</div>;
-	}
 
 	if (useFallback) {
 		const htmlOutput = outputs.find(o => o.mime === 'text/html');

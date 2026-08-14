@@ -425,13 +425,13 @@ describe('PositronNotebookCell inline data explorer fallback', () => {
 		expect(cell.outputs.get()[0].parsed).toEqual({ type: 'html', content: '<table></table>' });
 	});
 
-	it('keeps the data explorer output when the payload is the only output item', () => {
-		// Nothing else to render, so the output stays a data explorer and the renderer
-		// shows its "enable in settings" placeholder rather than an empty cell.
+	it('drops the output entirely when the payload is its only item', () => {
+		// A disabled mime type is never rendered, and there's nothing else in the bundle,
+		// so the output contributes nothing rather than a placeholder nagging to re-enable.
 		setInlineDataExplorerEnabled(false);
 		const cell = createCellWithOutputItems([DATA_EXPLORER_MIME_TYPE]);
 
-		expect(cell.outputs.get()[0].parsed.type).toBe('dataExplorer');
+		expect(cell.outputs.get()).toHaveLength(0);
 	});
 
 	it('renders the grid when the setting is on', () => {
