@@ -36,8 +36,11 @@ test.describe('Viewer', { tag: [tags.VIEWER, tags.CONSOLE] }, () => {
 			// string is corrupted before the iframe ever sees it.
 			await console.executeCode('Python', pythonQueryParamScript);
 			await viewer.expectViewerPanelVisible();
+			// The origin is environment-dependent: the web server rewrites localhost URLs
+			// to its port-forwarding proxy (e.g. http://localhost:9000/proxy/8000/), so
+			// only assert on the query string.
 			await expect(viewer.getViewerLocator('#preview-iframe')).toHaveAttribute(
-				'src', /^http:\/\/127\.0\.0\.1:8000\/\?a=1&not;b=2&_positronRender=[0-9a-f]+$/
+				'src', /\/\?a=1&not;b=2&_positronRender=[0-9a-f]+$/
 			);
 		});
 
