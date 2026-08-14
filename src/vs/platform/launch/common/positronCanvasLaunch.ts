@@ -3,45 +3,103 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/** What this decision reads: whether the window was opened with `--canvas`. */
-export interface ICanvasLaunchCandidate {
-	readonly config: { readonly canvas?: boolean } | undefined;
-}
+import { basename } from '../../../base/common/path.js';
 
+/**
+ * The parsed arguments a `--canvas` launch travels in. `canvas` is mutable on
+ * purpose: `CanvasLaunchWindowAssigner.assign()` consumes the flag by deleting
+ * it, so clones and later reads of the same launch cannot re-grant Canvas.
+ */
 export interface ICanvasLaunchArgs {
-	readonly canvas?: boolean;
+	canvas?: boolean;
 }
 
-/** Assigns a `--canvas` launch to exactly one window configuration. */
+/**
+ * What identifies the window a configuration is being built for: a workspace
+ * or single-folder workspace id, a restored empty window's backup folder, or
+ * neither for a brand new empty window.
+ */
+export interface ICanvasWindowIdentity {
+	readonly workspaceId: string | undefined;
+	readonly backupFolder: string | undefined;
+}
+
+/** A path a launch is about to open, reduced to what identifies its window. */
+export interface ICanvasLaunchPath {
+	readonly workspace?: { readonly id: string };
+	readonly backupPath?: string;
+}
+
+function toIdentity(path: ICanvasLaunchPath | undefined): ICanvasWindowIdentity {
+	return {
+		workspaceId: path?.workspace?.id,
+		backupFolder: path?.backupPath ? basename(path.backupPath) : undefined
+	};
+}
+
+/**
+ * Assigns a `--canvas` launch to exactly one window configuration.
+ *
+ * `prime()` picks the launch's target window up front, because window
+ * configurations are built in workspaces -> folders -> empty order, not
+ * request order: first-come-first-served would hand Canvas to an arbitrary
+ * restored background window. `assign()` then grants Canvas only to the
+ * matching configuration and consumes the flag off the args object itself, so
+ * a stale flag cannot leak into windows opened later in the process lifetime.
+ */
 export class CanvasLaunchWindowAssigner {
 
-	private readonly assignedLaunches = new WeakSet<ICanvasLaunchArgs>();
+	private target: ICanvasWindowIdentity | undefined;
 
-	assign(args: ICanvasLaunchArgs | undefined): boolean {
-		if (args?.canvas !== true || this.assignedLaunches.has(args)) {
+	/**
+	 * Chooses which of the windows about to open carries the launch's
+	 * `--canvas`. For a requested open (CLI paths, API, forced empty window)
+	 * that is the first requested window; for a session restore it is the
+	 * last-active window, which the restore list keeps last.
+	 */
+	prime(args: ICanvasLaunchArgs | undefined, paths: readonly ICanvasLaunchPath[], restoring: boolean): void {
+		if (args?.canvas !== true) {
+			this.target = undefined;
+			return;
+		}
+
+		// File-only paths open in whatever window takes the files; the ones
+		// with a window identity of their own decide the target. None at all
+		// means a fresh empty window (identity-less on both sides).
+		const windowPaths = paths.filter(path => path.workspace || path.backupPath);
+		this.target = toIdentity(restoring ? windowPaths.at(-1) : windowPaths.at(0));
+	}
+
+	assign(args: ICanvasLaunchArgs | undefined, identity: ICanvasWindowIdentity): boolean {
+		if (args?.canvas !== true) {
 			return false;
 		}
 
-		this.assignedLaunches.add(args);
+		if (this.target && (this.target.workspaceId !== identity.workspaceId || this.target.backupFolder !== identity.backupFolder)) {
+			return false;
+		}
+
+		// Consume the flag on success: every later window built from these
+		// args (restores, New Window, protocol opens) must not see it, and
+		// deleting it here also tells the launch service the flag reached a
+		// fresh window, so no forwarded action is needed.
+		delete args.canvas;
+		this.target = undefined;
 		return true;
 	}
 }
 
 /**
  * Which window, if any, should be told to open Canvas after a forwarded
- * `--canvas` launch. Last active wins. If any used window carries the flag,
- * no action is sent: it enters through the startup contribution, which waits
- * for editor groups to restore; the action path would scan pre-restore groups
- * and ask for a second panel.
+ * `--canvas` launch. Only consulted while the launch still carries its flag:
+ * a freshly opened window consumes it (see `CanvasLaunchWindowAssigner`) and
+ * enters through the startup contribution instead, so reaching this decision
+ * means the launch reused windows only. Last active wins.
  */
-export function selectCanvasLaunchWindow<T extends ICanvasLaunchCandidate>(
+export function selectCanvasLaunchWindow<T>(
 	usedWindows: readonly T[],
 	lastActiveWindow: T | undefined
 ): T | undefined {
-	if (usedWindows.some(window => window.config?.canvas)) {
-		return undefined;
-	}
-
 	const candidate = lastActiveWindow && usedWindows.includes(lastActiveWindow)
 		? lastActiveWindow
 		: usedWindows.at(0);

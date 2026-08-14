@@ -894,6 +894,18 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			}
 		}
 
+		// --- Start Positron ---
+		// Decide up front which of these windows a `--canvas` launch lands
+		// on: the requested window for a CLI/API open, or the last-active
+		// window for a session restore (kept last by
+		// `doGetPathsFromLastSession`). Window configurations are built in
+		// workspaces -> folders -> empty order below, so deciding at
+		// configuration-build time would hand Canvas to an arbitrary window.
+		// Primed before the `restoreWindows: 'preserve'` block prepends
+		// restored paths, so a requested open keeps its target.
+		this.canvasLaunchWindowAssigner.prime(openConfig.cli, pathsToOpen, isRestoringPaths);
+		// --- End Positron ---
+
 		// Check for `window.restoreWindows` setting to include all windows
 		// from the previous session if this is the initial startup and we have
 		// not restored windows already otherwise.
@@ -1551,9 +1563,13 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			windowId: -1,	// Will be filled in by the window once loaded later
 
 			// --- Start Positron ---
-			// Restoring several windows reuses one CLI argument object. Only one
-			// may consume `--canvas`; standalone mode rejects all later entries.
-			canvas: this.canvasLaunchWindowAssigner.assign(options.cli ?? this.environmentMainService.args),
+			// Granted only to the window `prime()` targeted; a successful
+			// grant consumes the flag off the launch's argument object so no
+			// later window (restore, New Window, protocol open) can see it.
+			canvas: this.canvasLaunchWindowAssigner.assign(options.cli ?? this.environmentMainService.args, {
+				workspaceId: options.workspace?.id,
+				backupFolder: options.emptyWindowBackupInfo?.backupFolder
+			}),
 
 			// For a reused window, "elsewhere" is relative to that window, so
 			// the holder is not locked out of its own re-entry. Refreshed on

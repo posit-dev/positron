@@ -809,8 +809,10 @@ export class CodeApplication extends Disposable {
 		// --- Start Positron ---
 		// `--canvas` applies to the launch, not the process: every later window
 		// is built from these same args, so a flag left set would outrank an
-		// explicit Canvas exit for the rest of the run. The startup windows
-		// have consumed it, so drop it here.
+		// explicit Canvas exit for the rest of the run. The targeted startup
+		// window consumed it when its configuration was built
+		// (`CanvasLaunchWindowAssigner.assign`); this is the backstop for a
+		// launch whose target never got a window.
 		delete this.environmentMainService.args.canvas;
 		// --- End Positron ---
 
@@ -1141,7 +1143,12 @@ export class CodeApplication extends Disposable {
 
 				const window = (await windowsMainService.open({
 					context: OpenContext.LINK,
-					cli: { ...this.environmentMainService.args },
+					// --- Start Positron ---
+					// A protocol open must not inherit a not-yet-consumed
+					// `--canvas`: cloning defeats consume-on-assign, and a URL
+					// arriving during startup would grant Canvas a second time.
+					cli: { ...this.environmentMainService.args, canvas: undefined },
+					// --- End Positron ---
 					urisToOpen: [windowOpenableFromProtocolUrl],
 					forceNewWindow: shouldOpenInNewWindow,
 					gotoLineMode: true
@@ -1165,7 +1172,10 @@ export class CodeApplication extends Disposable {
 
 			const window = (await windowsMainService.open({
 				context: OpenContext.LINK,
-				cli: { ...this.environmentMainService.args },
+				// --- Start Positron ---
+				// See above: protocol opens never inherit `--canvas`.
+				cli: { ...this.environmentMainService.args, canvas: undefined },
+				// --- End Positron ---
 				forceNewWindow: true,
 				forceEmpty: true,
 				gotoLineMode: true,
