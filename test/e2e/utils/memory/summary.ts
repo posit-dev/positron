@@ -74,7 +74,7 @@ export type SummaryMatrix = {
 	 */
 	unstable: UnstableEntry[];
 	/** Whether any snapshot behind this matrix carries a forced-GC reading, so the legend can gate on it. */
-	hasSharedProcessGc: boolean;
+	hasForcedGc: boolean;
 };
 
 /**
@@ -226,9 +226,9 @@ export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix 
 	const others = scenarios.filter(s => s !== 'idle').sort((a, b) => totalDeltaVsIdle.get(a)! - totalDeltaVsIdle.get(b)!);
 	const sortedScenarios = scenarios.includes('idle') ? ['idle' as MemoryScenario, ...others] : others;
 
-	const hasSharedProcessGc = entries.some(({ snapshots }) => snapshots.some(s => s.sharedProcessGc !== undefined));
+	const hasForcedGc = entries.some(({ snapshots }) => snapshots.some(s => (s.forcedGc?.length ?? 0) > 0));
 
-	return { scenarios: sortedScenarios, rows, totals, totalEmphasisThreshold, unstable, hasSharedProcessGc };
+	return { scenarios: sortedScenarios, rows, totals, totalEmphasisThreshold, unstable, hasForcedGc };
 }
 
 /** Muted em-dash: a role that did not exist in this scenario, never a fabricated zero. */
@@ -313,8 +313,8 @@ function instabilityHtml(unstable: UnstableEntry[]): string {
  * than a flat "5 MB or more": the real bar is per role and usually higher, and a
  * legend that understated it would invite reading an unmarked 8 MB move as a bug.
  */
-const DELTA_LEGEND = `Deltas appear only when changes exceed launch-to-launch noise, with a
-	${formatBytes(MIN_EMPHASIS_BYTES)} minimum. Blank cells are within noise.`;
+const DELTA_LEGEND = `Deltas appear only when a change beats launch-to-launch noise
+	(${formatBytes(MIN_EMPHASIS_BYTES)} minimum); cells without one are within noise.`;
 
 /**
  * Renders the matrix as a standalone HTML document, using the same shell
@@ -370,7 +370,7 @@ export function renderSummaryHtml(matrix: SummaryMatrix): string {
 
 	<div class="card">
 		<h2>By role</h2>
-		<div class="meta">${DELTA_LEGEND}${matrix.hasSharedProcessGc ? ` ${GC_NOTE}` : ''}</div>
+		<div class="meta">${DELTA_LEGEND}${matrix.hasForcedGc ? ` ${GC_NOTE}` : ''}</div>
 		<table class="matrix">
 			<tr><th>Role</th>${scenarioHeaderHtml(matrix.scenarios)}</tr>
 			${rows}

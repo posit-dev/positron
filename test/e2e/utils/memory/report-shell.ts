@@ -16,7 +16,7 @@
 const MB = 1024 * 1024;
 
 /** Shown by both reports whenever a snapshot carries a forced-GC reading, so live usage is not mistaken for it. */
-export const GC_NOTE = 'Shared process figures are taken after a forced garbage collection so launches compare cleanly; live usage can sit higher.';
+export const GC_NOTE = 'Shared process and extension host are measured after a forced garbage collection; live usage can sit higher.';
 
 /**
  * Always MB, never GB. Every scenario in the report sits in the hundreds to

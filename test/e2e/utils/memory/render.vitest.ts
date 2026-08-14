@@ -146,7 +146,7 @@ describe('renderMarkdown', () => {
 	test('shows the GC note only when a snapshot carries a forced-GC reading', () => {
 		expect(renderHtml([snapshot([proc()])])).not.toContain('forced garbage collection');
 
-		const gcSnapshot = { ...snapshot([proc()]), sharedProcessGc: { pid: 1, preRssBytes: 1, postRssBytes: 1, preHeapTotalBytes: 1, postHeapTotalBytes: 1 } };
+		const gcSnapshot = { ...snapshot([proc()]), forcedGc: [{ role: 'extension_host' as const, pid: 1, preRssBytes: 1, postRssBytes: 1, preHeapTotalBytes: 1, postHeapTotalBytes: 1 }] };
 		expect(renderHtml([gcSnapshot])).toContain('forced garbage collection');
 	});
 

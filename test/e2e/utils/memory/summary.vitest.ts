@@ -305,7 +305,11 @@ describe('renderSummaryHtml', () => {
 		const withoutGc = renderSummaryHtml(buildSummaryMatrix([scenarioEntry('idle', [proc()])]));
 		expect(withoutGc).not.toContain('forced garbage collection');
 
-		const gcSnapshot = { ...snapshot('idle', [proc()], 0), sharedProcessGc: { pid: 1, preRssBytes: 1, postRssBytes: 1, preHeapTotalBytes: 1, postHeapTotalBytes: 1 } };
+		const emptyGcSnapshot = { ...snapshot('idle', [proc()], 0), forcedGc: [] };
+		const withEmptyGc = renderSummaryHtml(buildSummaryMatrix([{ scenario: 'idle', snapshots: [emptyGcSnapshot] }]));
+		expect(withEmptyGc).not.toContain('forced garbage collection');
+
+		const gcSnapshot = { ...snapshot('idle', [proc()], 0), forcedGc: [{ role: 'shared' as const, pid: 1, preRssBytes: 1, postRssBytes: 1, preHeapTotalBytes: 1, postHeapTotalBytes: 1 }] };
 		const withGc = renderSummaryHtml(buildSummaryMatrix([{ scenario: 'idle', snapshots: [gcSnapshot] }]));
 		expect(withGc).toContain('forced garbage collection');
 	});

@@ -575,7 +575,7 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 		<div class="hero">${formatBytes(total)}</div>
 		${baseline ? `<div class="meta">${deltaHtml(total, baseline.treeTotalPssBytes)} vs previous nightly</div>` : ''}
 		<div class="meta">${escapeHtml(samplingSummary(snapshots))}</div>
-		${snapshots.some(s => s.sharedProcessGc !== undefined) ? `<div class="meta">${GC_NOTE}</div>` : ''}
+		${snapshots.some(s => (s.forcedGc?.length ?? 0) > 0) ? `<div class="meta">${GC_NOTE}</div>` : ''}
 	</div>
 
 	${instabilityCard}

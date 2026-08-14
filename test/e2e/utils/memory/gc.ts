@@ -4,19 +4,31 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Forces a garbage collection in Positron's shared process over the Chrome
- * DevTools Protocol, before a memory snapshot samples it.
+ * Forces a garbage collection in Positron's Node/V8 processes over the Chrome
+ * DevTools Protocol, before a memory snapshot samples them.
  *
- * The shared process swings 114-144 MB launch to launch depending on whether V8
- * happened to have collected its startup garbage by the time sampling ran.
- * Forcing a GC before sampling converges every launch to within ~3 MB, which is
- * the only way to make the figure comparable across launches at all.
+ * Both the shared process and the extension host idle after startup with no
+ * further allocation, so whether V8 happened to have collected their startup
+ * garbage by sampling time is down to GC timing, not the launch itself. That
+ * swings the shared process 114-144 MB and the extension host ~40 MB launch to
+ * launch. Forcing a GC before sampling converges every launch to within a few
+ * MB, which is the only way to make either figure comparable across launches.
  */
 
-/** `--inspect-sharedprocess` port opened on memory-scenario launches so this module can reach it. */
-export const SHARED_PROCESS_INSPECT_PORT = 5879;
+export interface GcTarget {
+	role: 'shared' | 'extension_host';
+	label: string;
+	port: number;
+	flag: string;
+}
 
-export interface SharedProcessGcStats {
+export const GC_TARGETS: GcTarget[] = [
+	{ role: 'shared', label: 'shared process', port: 5879, flag: '--inspect-sharedprocess' },
+	{ role: 'extension_host', label: 'extension host', port: 5870, flag: '--inspect-extensions' }
+];
+
+export interface ForcedGcStats {
+	role: GcTarget['role'];
 	pid: number;
 	preRssBytes: number;
 	postRssBytes: number;
@@ -54,10 +66,10 @@ class CdpClient {
 	private nextId = 1;
 	private readonly pending = new Map<number, { resolve: (value: any) => void; reject: (error: Error) => void }>();
 
-	constructor(private readonly ws: WebSocketLike, private readonly port: number) {
+	constructor(private readonly ws: WebSocketLike, private readonly target: GcTarget) {
 		this.ws.onmessage = (event) => this.handleMessage(event.data);
 		this.ws.onerror = (event) => this.rejectAllPending(new Error(
-			`Shared process inspector on port ${this.port} errored while forcing a GC: ${String(event)}`));
+			`${this.target.label} inspector on port ${this.target.port} errored while forcing a GC: ${String(event)}`));
 	}
 
 	private handleMessage(raw: string): void {
@@ -74,7 +86,7 @@ class CdpClient {
 		this.pending.delete(message.id);
 		if (message.error) {
 			pending.reject(new Error(
-				`Shared process inspector on port ${this.port} rejected a GC request: ${message.error.message ?? JSON.stringify(message.error)}`));
+				`${this.target.label} inspector on port ${this.target.port} rejected a GC request: ${message.error.message ?? JSON.stringify(message.error)}`));
 		} else {
 			pending.resolve(message.result);
 		}
@@ -93,7 +105,7 @@ class CdpClient {
 			const timeout = setTimeout(() => {
 				this.pending.delete(id);
 				reject(new Error(
-					`Shared process inspector on port ${this.port} did not reply to ${method} within ${MESSAGE_TIMEOUT_MS}ms`));
+					`${this.target.label} inspector on port ${this.target.port} did not reply to ${method} within ${MESSAGE_TIMEOUT_MS}ms`));
 			}, MESSAGE_TIMEOUT_MS);
 			this.pending.set(id, {
 				resolve: (value) => { clearTimeout(timeout); resolve(value); },
@@ -108,7 +120,7 @@ class CdpClient {
 	}
 }
 
-async function readMemoryUsage(client: CdpClient, port: number): Promise<MemoryUsagePayload> {
+async function readMemoryUsage(client: CdpClient, target: GcTarget): Promise<MemoryUsagePayload> {
 	const result = await client.send<{ result: { value: string } }>('Runtime.evaluate', {
 		expression: 'JSON.stringify({ pid: process.pid, mem: process.memoryUsage() })',
 		returnByValue: true
@@ -116,7 +128,7 @@ async function readMemoryUsage(client: CdpClient, port: number): Promise<MemoryU
 	try {
 		return JSON.parse(result.result.value);
 	} catch (error) {
-		throw new Error(`Shared process inspector on port ${port} returned an unparseable memoryUsage payload: ${error}`);
+		throw new Error(`${target.label} inspector on port ${target.port} returned an unparseable memoryUsage payload: ${error}`);
 	}
 }
 
@@ -125,31 +137,32 @@ function wait(ms: number): Promise<void> {
 }
 
 /**
- * Forces two garbage collection passes in the shared process reachable at
- * `port`'s CDP endpoint and returns its RSS/heap before and after.
+ * Forces two garbage collection passes in the process reachable at `target`'s
+ * CDP endpoint and returns its RSS/heap before and after.
  *
  * Never returns without a real GC having run: any failure along the way
  * (unreachable inspector, a websocket error, a 10s message timeout) throws
  * rather than skipping, because a launch this couldn't reach is not a launch
- * whose shared process figure can be trusted.
+ * whose figure can be trusted.
  */
-export async function collectSharedProcessGarbage(
-	port = SHARED_PROCESS_INSPECT_PORT,
+export async function collectGarbageIn(
+	target: GcTarget,
 	connect: WsConnect = defaultConnect,
 	fetchImpl: typeof fetch = fetch
-): Promise<SharedProcessGcStats> {
+): Promise<ForcedGcStats> {
+	const { port } = target;
 	try {
 		const targetsResponse = await fetchImpl(`http://127.0.0.1:${port}/json`);
 		const targets = await targetsResponse.json() as { webSocketDebuggerUrl?: string }[];
-		const target = targets[0];
-		if (!target?.webSocketDebuggerUrl) {
-			throw new Error(`Shared process inspector on port ${port} listed no debuggable target`);
+		const debugTarget = targets[0];
+		if (!debugTarget?.webSocketDebuggerUrl) {
+			throw new Error(`${target.label} inspector on port ${port} listed no debuggable target`);
 		}
 
-		const ws = await connect(target.webSocketDebuggerUrl);
-		const client = new CdpClient(ws, port);
+		const ws = await connect(debugTarget.webSocketDebuggerUrl);
+		const client = new CdpClient(ws, target);
 		try {
-			const pre = await readMemoryUsage(client, port);
+			const pre = await readMemoryUsage(client, target);
 
 			await client.send('HeapProfiler.enable');
 			await client.send('HeapProfiler.collectGarbage');
@@ -158,9 +171,10 @@ export async function collectSharedProcessGarbage(
 			await client.send('HeapProfiler.collectGarbage');
 			await wait(SECOND_PASS_SETTLE_MS);
 
-			const post = await readMemoryUsage(client, port);
+			const post = await readMemoryUsage(client, target);
 
 			return {
+				role: target.role,
 				pid: pre.pid,
 				preRssBytes: pre.mem.rss,
 				postRssBytes: post.mem.rss,
@@ -175,6 +189,18 @@ export async function collectSharedProcessGarbage(
 			throw error;
 		}
 		throw new Error(
-			`Shared process inspector on port ${port} was unreachable, or forcing a GC through it failed: ${error}`);
+			`${target.label} inspector on port ${port} was unreachable, or forcing a GC through it failed: ${error}`);
 	}
+}
+
+/**
+ * Runs {@link collectGarbageIn} against every target in parallel, so the
+ * 3s/2s GC-settle waits are paid once per launch rather than once per target.
+ *
+ * A failure in any one target rejects the whole call: the hard gate stays,
+ * because a launch this couldn't reach for one process is not a launch either
+ * process's figure can be trusted from.
+ */
+export async function collectAllGarbage(targets: GcTarget[] = GC_TARGETS): Promise<ForcedGcStats[]> {
+	return Promise.all(targets.map(target => collectGarbageIn(target)));
 }

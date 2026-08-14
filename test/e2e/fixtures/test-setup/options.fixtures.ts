@@ -12,7 +12,7 @@ import { ROOT_PATH, TEMP_DIR } from './constants';
 import { copyUserSettings } from './shared-utils.js';
 import { shouldUseCustomTracing } from './reporting.fixtures.js';
 import { isMemoryScenario } from '../../utils/memory/scenarios.js';
-import { SHARED_PROCESS_INSPECT_PORT } from '../../utils/memory/gc.js';
+import { GC_TARGETS } from '../../utils/memory/gc.js';
 
 export interface CustomTestOptions {
 	artifactDir: string;
@@ -89,10 +89,10 @@ export function OptionsFixture() {
 			useExternalServer: project.useExternalServer,
 			externalServerUrl: project.externalServerUrl,
 			// --- Start Positron ---
-			// Memory runs force a GC in the shared process through this inspector port
-			// before sampling; see utils/memory/gc.ts.
+			// Memory runs force a GC in the shared process and extension host through
+			// these inspector ports before sampling; see utils/memory/gc.ts.
 			...(isMemoryScenario(process.env.MEMORY_SCENARIO) && !browser
-				? { extraArgs: [`--inspect-sharedprocess=${SHARED_PROCESS_INSPECT_PORT}`] }
+				? { extraArgs: GC_TARGETS.map(t => `${t.flag}=${t.port}`) }
 				: {})
 			// --- End Positron ---
 		};
