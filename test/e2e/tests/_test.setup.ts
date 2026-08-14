@@ -60,6 +60,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	// `test.use({ extraEnv: { ANTHROPIC_API_KEY: undefined } })`.
 	extraEnv: [{}, { scope: 'worker', option: true }],
 
+	// Extra user settings written before the app starts, so no window reload is
+	// needed for them to take effect. Opt in with
+	// `test.use({ extraSettings: { 'assistant.newProviderModal': false } })`.
+	// Applies to the Docker apps too: they read settings from inside the container,
+	// so a suite cannot set these at runtime (see dockerSettingsOverrides).
+	extraSettings: [{}, { scope: 'worker', option: true }],
+
 	envVars: [async ({ }, use, workerInfo) => {
 		const projectName = workerInfo.project.name;
 
@@ -126,7 +133,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	// placeholder for area-specific fixtures that need to run before app starts
 	// e.g. changing settings that require an app reload
 	beforeApp: [
-		async ({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, settingsFile }, use) => {
+		async ({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraSettings, settingsFile }, use) => {
 			if (useLegacyNotebookEditor) {
 				// These tests exercise the legacy (VS Code) notebook editor. The
 				// Positron notebook editor is now the default, so disable it before
@@ -151,17 +158,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 				await settingsFile.append({ ...FOUNDRY_ASSISTANT_SETTINGS });
 			}
 
+			// Merged last so a suite's own settings win over the options above.
+			if (Object.keys(extraSettings).length > 0) {
+				await settingsFile.append({ ...extraSettings });
+			}
+
 			await use();
 		},
 		{ scope: 'worker' }],
 
-	app: [async ({ options, logsPath, logger, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraEnv, beforeApp: _beforeApp }, use, workerInfo) => {
+	app: [async ({ options, logsPath, logger, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraEnv, extraSettings, beforeApp: _beforeApp }, use, workerInfo) => {
 		// Merge any suite-provided extraEnv onto the launch options (undefined values
 		// unset a variable for the launched app; see the `extraEnv` option above).
 		const appOptions = Object.keys(extraEnv).length > 0
 			? { ...options, extraEnv: { ...options.extraEnv, ...extraEnv } }
 			: options;
-		const { app, start, stop } = await AppFixture({ options: appOptions, logsPath, logger, workerInfo, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant });
+		const { app, start, stop } = await AppFixture({ options: appOptions, logsPath, logger, workerInfo, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraSettings });
 
 		// Track the app so afterAll can export the startup trace if setup hangs (times
 		// out) -- in that case this fixture's catch/finally never run. Cleared below.
@@ -651,6 +663,7 @@ export interface WorkerFixtures {
 	enableDataConnections: boolean;
 	enableFoundryAssistant: boolean;
 	extraEnv: Record<string, string | undefined>;
+	extraSettings: Record<string, unknown>;
 	envVars: string;
 	snapshots: boolean;
 	artifactDir: string;

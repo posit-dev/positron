@@ -10,13 +10,13 @@ interface NotebooksPositronTestFixtures extends TestFixtures {
 
 interface NotebooksPositronWorkerFixtures extends WorkerFixtures {
 	enablePositronNotebooks: boolean;
-	extraSettings: Record<string, unknown> | undefined;
 }
 
 export const test = base.extend<NotebooksPositronTestFixtures, NotebooksPositronWorkerFixtures>({
 	enablePositronNotebooks: [true, { scope: 'worker', option: true }],
-	extraSettings: [undefined, { scope: 'worker', option: true }],
 
+	// This overrides the shared beforeApp rather than running after it, so the
+	// `extraSettings` handling has to be repeated here.
 	beforeApp: [
 		async ({ enablePositronNotebooks, extraSettings, settingsFile }, use) => {
 			if (enablePositronNotebooks) {
@@ -24,10 +24,9 @@ export const test = base.extend<NotebooksPositronTestFixtures, NotebooksPositron
 				// to avoid waiting for a window reload
 				await settingsFile.append({ 'positron.notebook.enabled': true });
 			}
-			if (extraSettings) {
-				// Suite-specific settings applied before launch (opt in with
-				// `test.use({ extraSettings: { ... } })`) to avoid a window reload.
-				await settingsFile.append(extraSettings);
+			// Merged last so a suite's own settings win.
+			if (Object.keys(extraSettings).length > 0) {
+				await settingsFile.append({ ...extraSettings });
 			}
 
 			await use();
