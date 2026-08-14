@@ -51,6 +51,7 @@ export function defineMemoryScenario(options: {
 		app: Application;
 		sessions: Sessions;
 		openDataFile: (filePath: string) => Promise<void>;
+		openFile: (filePath: string, waitForFocus?: boolean) => Promise<void>;
 	}) => Promise<void>;
 	/** Roles that must be present, proving the scenario reached its state. */
 	expectRoles?: ProcessRole[];
@@ -72,7 +73,7 @@ export function defineMemoryScenario(options: {
 
 	test.describe(`Memory: ${scenario}`, { tag: [tags.PERFORMANCE] }, () => {
 
-		test(`Memory footprint of the Positron process tree: ${scenario}`, async function ({ app, sessions, logsPath, openDataFile }) {
+		test(`Memory footprint of the Positron process tree: ${scenario}`, async function ({ app, sessions, logsPath, openDataFile, openFile }) {
 			// Derived rather than a round number, because the default 2 minutes is
 			// now too short: a run that waits out both caps would time out before it
 			// could report which one it hit, turning a diagnosable result into a
@@ -89,7 +90,7 @@ export function defineMemoryScenario(options: {
 			expect(mainPid, 'no Electron main pid; this spec only runs against Electron').toBeTruthy();
 
 			if (prepare) {
-				await prepare({ app, sessions, openDataFile });
+				await prepare({ app, sessions, openDataFile, openFile });
 			}
 
 			// Deterministic readiness gate, not a memory heuristic: waits out startup

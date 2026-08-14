@@ -12,7 +12,7 @@
  * that adding a scenario here and forgetting it everywhere else is a compile
  * error, not a silent gap.
  */
-export const MEMORY_SCENARIOS = ['idle', 'session-python', 'session-r', 'data-explorer', 'notebook'] as const;
+export const MEMORY_SCENARIOS = ['idle', 'session-python', 'session-r', 'data-explorer', 'notebook', 'editors'] as const;
 
 export type MemoryScenario = typeof MEMORY_SCENARIOS[number];
 
@@ -32,7 +32,8 @@ const SPEC_BY_SCENARIO: Record<MemoryScenario, string> = {
 	'session-python': '**/performance/memory-session-python.test.ts',
 	'session-r': '**/performance/memory-session-r.test.ts',
 	'data-explorer': '**/performance/memory-data-explorer.test.ts',
-	'notebook': '**/performance/memory-notebook.test.ts'
+	'notebook': '**/performance/memory-notebook.test.ts',
+	'editors': '**/performance/memory-editors.test.ts'
 };
 
 /**

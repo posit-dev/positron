@@ -27,7 +27,7 @@ jobs:
       # scenario must not cost us that night's idle datapoint.
       fail-fast: false
       matrix:
-        scenario: [idle, session-python, session-r, data-explorer, notebook]
+        scenario: [idle, session-python, session-r, data-explorer, notebook, editors]
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
       # The image is private, so the pull needs credentials. Copied from
@@ -54,9 +54,9 @@ jobs:
       # ordinary test runs. It also keeps the job from needing AWS credentials.
       ENABLE_CUSTOM_REPORTER: 'false'
       # Required by the envVars fixture in _test.setup.ts, which validates all
-      # four and fails every test if any is unset. idle and data-explorer never
-      # start a kernel, so these only have to be present there; the session and
-      # notebook scenarios start one explicitly and need real values. Every
+      # four and fails every test if any is unset. idle, data-explorer and editors
+      # never start a kernel, so these only have to be present there; the session
+      # and notebook scenarios start one explicitly and need real values. Every
       # matrix job sets them.
       POSITRON_PY_VER_SEL: "3.10.12"
       POSITRON_R_VER_SEL: 4.5.2

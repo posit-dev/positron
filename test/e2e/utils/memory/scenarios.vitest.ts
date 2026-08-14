@@ -29,7 +29,8 @@ describe('memorySpecsToIgnore', () => {
 			'**/performance/memory-session-python.test.ts',
 			'**/performance/memory-session-r.test.ts',
 			'**/performance/memory-data-explorer.test.ts',
-			'**/performance/memory-notebook.test.ts'
+			'**/performance/memory-notebook.test.ts',
+			'**/performance/memory-editors.test.ts'
 		]);
 	});
 
@@ -38,7 +39,8 @@ describe('memorySpecsToIgnore', () => {
 			'**/performance/memory-idle.test.ts',
 			'**/performance/memory-session-python.test.ts',
 			'**/performance/memory-data-explorer.test.ts',
-			'**/performance/memory-notebook.test.ts'
+			'**/performance/memory-notebook.test.ts',
+			'**/performance/memory-editors.test.ts'
 		]);
 	});
 
