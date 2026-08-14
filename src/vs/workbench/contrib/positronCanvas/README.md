@@ -42,6 +42,11 @@ Registered by the assistant, called by Positron:
   or failed. Positron invokes it before trusting even a restored panel.
 - View type `posit-assistant.canvas` - the whole of Canvas-panel identity;
   `PositronCanvasService` recognizes a Canvas by `providerId` alone.
+- Output channel label `Posit Assistant` - the startup curtain's "Show Logs"
+  resolves the assistant's output channel by this display label
+  (`ASSISTANT_OUTPUT_CHANNEL_LABEL` in `positronCanvas.contribution.ts`).
+  Renaming the channel on the assistant side silently reroutes Show Logs to
+  the window log until the constant catches up.
 
 ## Loading surfaces
 

@@ -3,17 +3,30 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { isHTMLElement } from '../../../../base/browser/dom.js';
+import { Button } from '../../../../base/browser/ui/button/button.js';
 import { Disposable, DisposableStore, IDisposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { defaultButtonStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { CanvasEntryOutcome } from '../common/positronCanvasMode.js';
+
+/**
+ * Workbench children that can be appended after the curtain goes up yet
+ * render beneath it: they must go inert on arrival or Tab and screen readers
+ * land on invisible controls. Deliberately narrow - dialogs and context views
+ * render above the curtain (the workspace trust prompt must stay answerable)
+ * and must not be matched.
+ */
+const LATE_COVERED_SELECTOR = '.notifications-toasts, .quick-input-widget';
 
 /**
  * Appends one accessible Canvas curtain to a workbench container.
  *
- * The curtain covers the workbench visually, but the workbench's existing
- * children stay in the accessibility tree and the tab order unless marked
- * inert here. Call the returned `release` when the curtain comes down to
+ * The curtain covers the workbench visually, but the workbench's children
+ * stay in the accessibility tree and the tab order unless marked inert here;
+ * covered containers appended later (see `LATE_COVERED_SELECTOR`) are marked
+ * as they arrive. Call the returned `release` when the curtain comes down to
  * restore them.
  */
 function createCanvasCurtainElement(container: HTMLElement): { element: HTMLElement; release: () => void } {
@@ -22,15 +35,28 @@ function createCanvasCurtainElement(container: HTMLElement): { element: HTMLElem
 	element.setAttribute('role', 'status');
 	element.setAttribute('aria-live', 'polite');
 
-	const covered = Array.from(container.children) as HTMLElement[];
+	const covered = new Set(Array.from(container.children).filter(isHTMLElement));
 	for (const sibling of covered) {
 		sibling.inert = true;
 	}
+
+	const observer = new MutationObserver(mutations => {
+		for (const mutation of mutations) {
+			for (const node of mutation.addedNodes) {
+				if (isHTMLElement(node) && node !== element && node.matches(LATE_COVERED_SELECTOR) && !covered.has(node)) {
+					covered.add(node);
+					node.inert = true;
+				}
+			}
+		}
+	});
+	observer.observe(container, { childList: true });
 
 	container.appendChild(element);
 	return {
 		element,
 		release: () => {
+			observer.disconnect();
 			for (const sibling of covered) {
 				sibling.inert = false;
 			}
@@ -38,27 +64,57 @@ function createCanvasCurtainElement(container: HTMLElement): { element: HTMLElem
 	};
 }
 
-/** Replaces curtain content with the Canvas loading state. */
-function renderCanvasLoading(element: HTMLElement, cancelButton: HTMLButtonElement): void {
-	element.setAttribute('aria-busy', 'true');
+/** One button on the curtain card. */
+interface ICurtainAction {
+	readonly label: string;
+	readonly primary?: boolean;
+	readonly run: () => void;
+}
+
+/** Renders the card shared by the curtain's loading and failure states. */
+function renderCurtainCard(
+	element: HTMLElement,
+	spec: { brandText: string; brandId?: string; messageText: string; spinner: boolean; actions: readonly ICurtainAction[] },
+	disposables: DisposableStore,
+): { firstButton: Button | undefined } {
 	const document = element.ownerDocument;
 	const card = document.createElement('div');
 	card.className = 'positron-canvas-startup-card';
+
 	const brand = document.createElement('div');
 	brand.className = 'positron-canvas-startup-brand';
-	brand.textContent = localize('positron.canvas.loadingBrand', "Canvas");
-	const spinner = document.createElement('div');
-	spinner.className = 'positron-canvas-startup-spinner';
-	spinner.setAttribute('role', 'progressbar');
-	spinner.setAttribute('aria-label', localize('positron.canvas.loadingLabel', "Loading Canvas"));
+	brand.textContent = spec.brandText;
+	if (spec.brandId) {
+		brand.id = spec.brandId;
+	}
+	card.appendChild(brand);
+
+	if (spec.spinner) {
+		const spinner = document.createElement('div');
+		spinner.className = 'positron-canvas-startup-spinner';
+		spinner.setAttribute('role', 'progressbar');
+		spinner.setAttribute('aria-label', localize('positron.canvas.loadingLabel', "Loading Canvas"));
+		card.appendChild(spinner);
+	}
+
 	const message = document.createElement('p');
 	message.className = 'positron-canvas-startup-message';
-	message.textContent = localize('positron.canvas.loadingMessage', "Loading Canvas...");
+	message.textContent = spec.messageText;
+	card.appendChild(message);
+
 	const actions = document.createElement('div');
 	actions.className = 'positron-canvas-startup-actions';
-	actions.appendChild(cancelButton);
-	card.append(brand, spinner, message, actions);
+	let firstButton: Button | undefined;
+	for (const action of spec.actions) {
+		const button = disposables.add(new Button(actions, { ...defaultButtonStyles, secondary: !action.primary }));
+		button.label = action.label;
+		disposables.add(button.onDidClick(action.run));
+		firstButton ??= button;
+	}
+	card.appendChild(actions);
+
 	element.replaceChildren(card);
+	return { firstButton };
 }
 
 /** One interactive Canvas loading and failure curtain. */
@@ -68,7 +124,6 @@ class CanvasStartupCurtain extends Disposable {
 	private readonly releaseSiblings: () => void;
 	private running = false;
 	private recovering = false;
-	private disposed = false;
 
 	constructor(
 		container: HTMLElement,
@@ -86,8 +141,15 @@ class CanvasStartupCurtain extends Disposable {
 		void this.start();
 	}
 
+	private get disposed(): boolean {
+		return this._store.isDisposed;
+	}
+
 	private async start(): Promise<void> {
-		if (this.running || this.disposed) {
+		// `recovering` blocks a Retry clicked while "Open Positron" or "Show
+		// Logs" is mid-recovery: the recovery is about to dispose the curtain,
+		// and the retried entry would then re-hide the IDE with no curtain up.
+		if (this.running || this.recovering || this.disposed) {
 			return;
 		}
 		this.running = true;
@@ -109,6 +171,17 @@ class CanvasStartupCurtain extends Disposable {
 				this.dispose();
 				return;
 			}
+			if (outcome.reason === 'engaged-elsewhere') {
+				// Another window won the engagement (restored windows can
+				// share one stored intent, and each window's opening
+				// configuration snapshots the engagement before any renderer
+				// can claim it). Canvas IS being presented, so this window
+				// stands down to a plain IDE rather than raising a failure
+				// card on every such relaunch.
+				this.logService.info('[canvas] Standalone startup stood down: Canvas is already presented by another window');
+				this.dispose();
+				return;
+			}
 			this.logService.info(`[canvas] Standalone startup did not enter Canvas: ${outcome.reason}`);
 			this.showFailure(outcome.message);
 		} catch (error) {
@@ -127,14 +200,21 @@ class CanvasStartupCurtain extends Disposable {
 		// take a while (extension activation plus the assistant's own ensure
 		// deadline), and the user must not be trapped behind the curtain for
 		// its whole duration.
+		this.element.setAttribute('aria-busy', 'true');
 		this.element.setAttribute('role', 'status');
 		this.element.setAttribute('aria-live', 'polite');
 		this.element.removeAttribute('aria-modal');
 		this.element.removeAttribute('aria-labelledby');
 		const actions = new DisposableStore();
 		this.actionDisposables.value = actions;
-		const openPositron = this.createButton(localize('positron.canvas.openPositron', "Open Positron"), false, () => void this.openPositron(), actions);
-		renderCanvasLoading(this.element, openPositron);
+		renderCurtainCard(this.element, {
+			brandText: localize('positron.canvas.loadingBrand', "Canvas"),
+			messageText: localize('positron.canvas.loadingMessage', "Loading Canvas..."),
+			spinner: true,
+			actions: [
+				{ label: localize('positron.canvas.openPositron', "Open Positron"), run: () => void this.openPositron() },
+			],
+		}, actions);
 	}
 
 	private showFailure(detail: string): void {
@@ -145,31 +225,25 @@ class CanvasStartupCurtain extends Disposable {
 		this.element.setAttribute('role', 'dialog');
 		this.element.setAttribute('aria-modal', 'true');
 		this.element.removeAttribute('aria-live');
-		const document = this.element.ownerDocument;
+		const brandId = 'positron-canvas-startup-failure-brand';
+		this.element.setAttribute('aria-labelledby', brandId);
 		const actions = new DisposableStore();
 		this.actionDisposables.value = actions;
-		const card = document.createElement('div');
-		card.className = 'positron-canvas-startup-card';
-		const brand = document.createElement('div');
-		brand.className = 'positron-canvas-startup-brand';
-		brand.id = 'positron-canvas-startup-failure-brand';
-		brand.textContent = localize('positron.canvas.failureBrand', "Canvas could not start");
-		this.element.setAttribute('aria-labelledby', brand.id);
-		const message = document.createElement('p');
-		message.className = 'positron-canvas-startup-message';
-		message.textContent = detail;
-		const buttons = document.createElement('div');
-		buttons.className = 'positron-canvas-startup-actions';
-		const retry = this.createButton(localize('positron.canvas.retry', "Retry"), true, () => void this.start(), actions);
-		const openPositron = this.createButton(localize('positron.canvas.openPositron', "Open Positron"), false, () => void this.openPositron(), actions);
-		// The curtain covers the notifications and output that explain the
-		// failure; this is the road to them.
-		const showLogs = this.createButton(localize('positron.canvas.showLogs', "Show Logs"), false, () => void this.openPositron(true), actions);
-		const quit = this.createButton(localize('positron.canvas.quit', "Quit"), false, () => void this.quit(), actions);
-		buttons.append(retry, openPositron, showLogs, quit);
-		card.append(brand, message, buttons);
-		this.element.replaceChildren(card);
-		retry.focus();
+		const { firstButton } = renderCurtainCard(this.element, {
+			brandText: localize('positron.canvas.failureBrand', "Canvas could not start"),
+			brandId,
+			messageText: detail,
+			spinner: false,
+			actions: [
+				{ label: localize('positron.canvas.retry', "Retry"), primary: true, run: () => void this.start() },
+				{ label: localize('positron.canvas.openPositron', "Open Positron"), run: () => void this.openPositron() },
+				// The curtain covers the notifications and output that explain
+				// the failure; this is the road to them.
+				{ label: localize('positron.canvas.showLogs', "Show Logs"), run: () => void this.openPositron(true) },
+				{ label: localize('positron.canvas.quit', "Quit"), run: () => void this.quitApplication() },
+			],
+		}, actions);
+		firstButton?.focus();
 	}
 
 	/**
@@ -185,37 +259,40 @@ class CanvasStartupCurtain extends Disposable {
 		this.recovering = true;
 		try {
 			await this.recoverMainWindow();
-			if (withLogs) {
-				await this.showLogs();
-			}
-			this.dispose();
 		} catch (error) {
+			// The curtain stays up: recovery failing means the IDE is not
+			// usable behind it, and the card's actions remain the way out.
 			this.logService.error('[canvas] Failed to recover the Positron window.', error);
+			return;
 		} finally {
 			this.recovering = false;
 		}
+
+		// The IDE is back; the curtain must not outlive it, showing the logs
+		// included - a failure there must not strand the curtain (and its
+		// inert marks) over a recovered IDE.
+		this.dispose();
+		if (withLogs) {
+			try {
+				await this.showLogs();
+			} catch (error) {
+				this.logService.error('[canvas] Failed to show the logs after recovering the Positron window.', error);
+			}
+		}
 	}
 
-	private createButton(
-		label: string,
-		primary: boolean,
-		onClick: () => void,
-		disposables: DisposableStore,
-	): HTMLButtonElement {
-		const button = this.element.ownerDocument.createElement('button');
-		button.className = `positron-canvas-startup-button${primary ? ' primary' : ''}`;
-		button.textContent = label;
-		button.type = 'button';
-		button.addEventListener('click', onClick);
-		disposables.add({ dispose: () => button.removeEventListener('click', onClick) });
-		return button;
+	private async quitApplication(): Promise<void> {
+		try {
+			await this.quit();
+		} catch (error) {
+			this.logService.error('[canvas] Failed to quit from the Canvas startup curtain.', error);
+		}
 	}
 
 	override dispose(): void {
 		if (this.disposed) {
 			return;
 		}
-		this.disposed = true;
 		this.releaseSiblings();
 		this.element.remove();
 		super.dispose();

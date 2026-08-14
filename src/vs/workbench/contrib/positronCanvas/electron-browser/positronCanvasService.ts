@@ -28,6 +28,7 @@ import { ILifecycleService } from '../../../services/lifecycle/common/lifecycle.
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { dedicatedWindowOptions } from '../../positronEditorActions/browser/positronDedicatedWindow.js';
 import { WebviewInput } from '../../webviewPanel/browser/webviewEditorInput.js';
+import { mergeCanvasGroupIntoIde } from '../browser/positronCanvasRestore.js';
 import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_WEBVIEW_VIEW_TYPE, CanvasEntryOutcome, PositronCanvasModeActiveContext } from '../common/positronCanvasMode.js';
 
 /**
@@ -180,7 +181,29 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	}
 
 	enter(): Promise<CanvasEntryOutcome> {
-		this.entering ??= this.doEnter().finally(() => this.entering = undefined);
+		if (!this.entering) {
+			const entering = this.doEnter().then(outcome => {
+				// A failed entry means Canvas is not on screen, which is what
+				// the stored intent records; leaving it set would boot every
+				// later launch into the failure card. 'superseded' keeps it:
+				// during shutdown the intent is the "quit in Canvas" record
+				// itself, and an explicit exit already cleared it.
+				// 'engaged-elsewhere' keeps it too: it belongs to the window
+				// that is presenting this workspace's Canvas.
+				if (!outcome.entered && outcome.reason !== 'superseded' && outcome.reason !== 'engaged-elsewhere') {
+					this.setCanvasModeIntent(false);
+				}
+				return outcome;
+			}).finally(() => {
+				// Guarded: `exit()` detaches a doomed in-flight entry by
+				// clearing `entering`, and this must not wipe out a fresh
+				// entry that started while the doomed one was still settling.
+				if (this.entering === entering) {
+					this.entering = undefined;
+				}
+			});
+			this.entering = entering;
+		}
 		return this.entering;
 	}
 
@@ -300,6 +323,11 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		// Retires any entry still in flight, before anything it could race with.
 		this.exitGeneration++;
 
+		// Detach the doomed entry so an `enter()` issued after this exit
+		// starts fresh instead of coalescing onto a promise that can only
+		// resolve 'superseded' (it can dangle up to the ensure timeout).
+		this.entering = undefined;
+
 		const canvasGroup = this.canvasGroup;
 
 		// Read before `stopPresenting()`, which is what makes it false.
@@ -322,16 +350,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		await this.revealIdeWindow();
 
 		if (canvasGroup) {
-			// Unlock so the group is an ordinary group for as long as it
-			// survives the merge.
-			canvasGroup.lock(false);
-
-			// Merge, never `close()`: close treats a webview panel as
-			// non-confirming and destroys it, dropping the live conversation.
-			if (!this.editorGroupsService.mergeGroup(canvasGroup, this.editorGroupsService.mainPart.activeGroup)) {
-				this.logService.error('[canvas] Could not merge the Canvas group into the IDE; moving its editors individually');
-				canvasGroup.moveEditors(prepareMoveCopyEditors(canvasGroup, canvasGroup.editors.slice()), this.editorGroupsService.mainPart.activeGroup);
-			}
+			mergeCanvasGroupIntoIde(canvasGroup, this.editorGroupsService.mainPart.activeGroup, this.editorGroupsService, this.logService);
 
 			// The editor area auto-hides when its last editor leaves, so an
 			// IDE window that had only Canvas open comes back without one.
@@ -463,14 +482,15 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 			this.stopPresenting();
 			this.releaseEngagement();
 
-			// The aux part is disposed during an ordinary quit too, and
-			// clearing there would erase the very intent that "quit in
-			// Canvas, relaunch into Canvas" is made of.
+			// The aux part is disposed during an ordinary quit too: clearing
+			// the intent there would erase the very record that "quit in
+			// Canvas, relaunch into Canvas" is made of, and revealing the IDE
+			// would flash it for a frame on its way out (or reject mid-
+			// teardown as an unhandled rejection).
 			if (!this.lifecycleService.willShutdown) {
 				this.setCanvasModeIntent(false);
+				this.revealIdeWindow().catch(error => this.logService.error('[canvas] Could not bring the Positron window back after the Canvas window went away', error));
 			}
-
-			void this.revealIdeWindow();
 		}));
 
 		this.canvasWindow.value = disposables;
@@ -529,10 +549,13 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		if (!this.ideWindowHidden && !force) {
 			return;
 		}
-		this.ideWindowHidden = false;
 
 		// A hidden window is not brought back by focus alone; show it first.
+		// The flag flips only after the show lands: clearing it up front
+		// would make one rejected show permanently unrecoverable, with every
+		// later reveal early-returning above on a window that is still away.
 		await this.nativeHostService.showWindow({ targetWindowId: mainWindow.vscodeWindowId });
+		this.ideWindowHidden = false;
 		await this.hostService.focus(mainWindow);
 	}
 }

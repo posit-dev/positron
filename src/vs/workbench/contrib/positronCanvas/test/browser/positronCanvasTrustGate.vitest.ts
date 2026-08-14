@@ -136,22 +136,57 @@ describe('awaitWorkspaceTrustDecisionForCanvas', () => {
 		expect(services.requestSpy).not.toHaveBeenCalled();
 	});
 
-	it('waits for window focus before treating the initiation as joinable', async () => {
+	it('waits for window focus without a deadline, then joins once the prompt initiates', async () => {
+		vi.useFakeTimers();
+		try {
+			const focusEmitter = disposables.add(new Emitter<boolean>());
+			const services = createServices({ hasFocus: false, onDidChangeFocus: focusEmitter });
+
+			let settled = false;
+			const gate = awaitWorkspaceTrustDecisionForCanvas(services).then(() => { settled = true; });
+
+			// The focus wait is deliberately unbounded: the grace period must
+			// not start ticking while the prompt cannot come. Advancing past
+			// it while unfocused settles nothing.
+			await vi.advanceTimersByTimeAsync(STARTUP_PROMPT_INITIATION_GRACE_MS + 1);
+			expect(settled).toBe(false);
+			expect(services.requestSpy).not.toHaveBeenCalled();
+
+			focusEmitter.fire(true);
+			await vi.advanceTimersByTimeAsync(1);
+			services.startupInitiation.fire();
+			await vi.waitFor(() => expect(services.requestSpy).toHaveBeenCalledTimes(1));
+			await gate;
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('joins an initiation that arrives while the window is unfocused', async () => {
 		const focusEmitter = disposables.add(new Emitter<boolean>());
 		const services = createServices({ hasFocus: false, onDidChangeFocus: focusEmitter });
 
 		const gate = awaitWorkspaceTrustDecisionForCanvas(services);
 		await flush();
+
+		// The upstream handler initiates only once focused, so an unfocused
+		// initiation means its conditions drifted; a pending request exists
+		// either way, and joining it is the whole point of the gate.
 		services.startupInitiation.fire();
-
-		// The gate is parked on the focus event, not a timer, so a couple of
-		// macrotask flushes deterministically shows it has not joined yet.
-		await flush();
-		expect(services.requestSpy).not.toHaveBeenCalled();
-
-		focusEmitter.fire(true);
 		await gate;
 		expect(services.requestSpy).toHaveBeenCalledTimes(1);
+	});
+
+	it('resolves when trust is granted while the window is unfocused', async () => {
+		const focusEmitter = disposables.add(new Emitter<boolean>());
+		const services = createServices({ hasFocus: false, onDidChangeFocus: focusEmitter });
+
+		const gate = awaitWorkspaceTrustDecisionForCanvas(services);
+		await flush();
+
+		services.trustChange.fire(true);
+		await gate;
+		expect(services.requestSpy).not.toHaveBeenCalled();
 	});
 
 	it('enters untrusted after the grace period when no initiation ever comes', async () => {

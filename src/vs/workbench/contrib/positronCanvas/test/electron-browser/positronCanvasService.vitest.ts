@@ -87,6 +87,7 @@ describe('PositronCanvasService', () => {
 		createAuxiliaryEditorPart?: IEditorGroupsService['createAuxiliaryEditorPart'];
 		acquireGranted?: boolean | Promise<boolean>;
 		hideWindow?: () => Promise<void>;
+		showWindow?: () => Promise<void>;
 	} = {}) {
 		const auxiliaryGroups = options.auxiliaryGroups ?? [];
 		const mainGroup = options.mainGroup ?? createGroup();
@@ -102,7 +103,7 @@ describe('PositronCanvasService', () => {
 		const mergeGroup = vi.fn().mockReturnValue(true);
 		const setPartHidden = vi.fn();
 		const hideWindow = vi.fn(options.hideWindow ?? (() => Promise.resolve()));
-		const showWindow = vi.fn().mockResolvedValue(undefined);
+		const showWindow = vi.fn(options.showWindow ?? (() => Promise.resolve()));
 		const createAuxiliaryEditorPart = vi.fn(options.createAuxiliaryEditorPart ?? (() => Promise.resolve(auxiliaryPart)));
 
 		ctx.instantiationService.stub(IEditorGroupsService, stubInterface<IEditorGroupsService>({
@@ -441,5 +442,56 @@ describe('PositronCanvasService', () => {
 
 		expect(await service.exit()).toBe(true);
 		expect(auxiliaryGroup.moveEditors).toHaveBeenCalled();
+	});
+
+	it('starts a fresh entry for an enter() issued after an exit doomed the in-flight one', async () => {
+		const mainGroup = createGroup([createCanvasEditor()]);
+		const { service } = build({ mainGroup });
+
+		const doomed = service.enter();
+		await service.exit();
+
+		// Coalescing onto the doomed promise would answer a request FOR
+		// Canvas with "Positron was asked for the IDE".
+		const outcome = await service.enter();
+
+		expect(await doomed).toMatchObject({ entered: false, reason: 'superseded' });
+		expect(outcome).toMatchObject({ entered: true });
+	});
+
+	it('forgets the durable intent when an entry fails to produce a Canvas', async () => {
+		const { service, storageService } = build();
+
+		expect(await service.enter()).toMatchObject({ entered: false, reason: 'no-panel' });
+
+		// A stored intent that keeps failing would boot every later launch
+		// into the failure card.
+		expect(storageService.remove).toHaveBeenCalledWith(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE);
+	});
+
+	it('keeps the durable intent when another window already presents Canvas', async () => {
+		const { service, storageService } = build({ acquireGranted: false });
+
+		expect(await service.enter()).toMatchObject({ entered: false, reason: 'engaged-elsewhere' });
+
+		// The intent is shared per workspace; it belongs to the window that
+		// won the engagement and is presenting Canvas.
+		expect(storageService.remove).not.toHaveBeenCalled();
+	});
+
+	it('retries the reveal after a failed show left the IDE hidden', async () => {
+		let showAttempts = 0;
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service, showWindow } = build({
+			auxiliaryGroups: [auxiliaryGroup],
+			showWindow: () => ++showAttempts === 1 ? Promise.reject(new Error('ipc dropped')) : Promise.resolve(),
+		});
+		await service.enter();
+
+		// One rejected show must not convince the service the IDE is back: a
+		// later exit has to try again, or no window is ever visible again.
+		await expect(service.exit()).rejects.toThrow('ipc dropped');
+		expect(await service.exit()).toBe(false);
+		expect(showWindow).toHaveBeenCalledTimes(2);
 	});
 });

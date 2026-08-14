@@ -5,15 +5,17 @@
 
 /// <reference types="vitest/globals" />
 
+import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
 import { TestEditorInput } from '../../../../test/browser/workbenchTestServices.js';
-import { mergeRestoredCanvasGroup } from '../../electron-browser/positronCanvas.contribution.js';
+import { mergeCanvasGroupIntoIde } from '../../browser/positronCanvasRestore.js';
 
-describe('mergeRestoredCanvasGroup', () => {
+describe('mergeCanvasGroupIntoIde', () => {
 	const disposables = ensureNoLeakedDisposables();
+	const logService = new NullLogService();
 
 	function createGroup() {
 		const editor = disposables.add(new TestEditorInput(URI.file('/canvas'), 'canvas'));
@@ -32,7 +34,7 @@ describe('mergeRestoredCanvasGroup', () => {
 		const target = stubInterface<IEditorGroup>();
 		const editorGroupsService = stubInterface<IEditorGroupsService>({ mergeGroup: vi.fn().mockReturnValue(true) });
 
-		mergeRestoredCanvasGroup(group, target, editorGroupsService);
+		mergeCanvasGroupIntoIde(group, target, editorGroupsService, logService);
 
 		expect(group.lock).toHaveBeenCalledWith(false);
 		expect(editorGroupsService.mergeGroup).toHaveBeenCalledWith(group, target);
@@ -44,7 +46,7 @@ describe('mergeRestoredCanvasGroup', () => {
 		const target = stubInterface<IEditorGroup>();
 		const editorGroupsService = stubInterface<IEditorGroupsService>({ mergeGroup: vi.fn().mockReturnValue(false) });
 
-		mergeRestoredCanvasGroup(group, target, editorGroupsService);
+		mergeCanvasGroupIntoIde(group, target, editorGroupsService, logService);
 
 		expect(group.moveEditors).toHaveBeenCalledWith([
 			{

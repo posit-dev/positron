@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { timeout } from '../../../../base/common/async.js';
+import { raceTimeout } from '../../../../base/common/async.js';
 import { Event } from '../../../../base/common/event.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -13,16 +13,7 @@ import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/w
 import { IWorkspaceTrustEnablementService, IWorkspaceTrustManagementService, IWorkspaceTrustRequestService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IHostService } from '../../../services/host/browser/host.js';
 import { ILifecycleService, LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
-import { WORKSPACE_TRUST_STARTUP_PROMPT } from '../../../services/workspaces/common/workspaceTrust.js';
-
-/**
- * Mirrors the file-local STARTUP_PROMPT_SHOWN_KEY in
- * `workbench/contrib/workspace/browser/workspace.contribution.ts`. If the key
- * drifts, the gate mispredicts "prompt is coming" and waits out the grace
- * period below before entering untrusted - a delay, never a hang and never
- * an extra dialog.
- */
-const STARTUP_PROMPT_SHOWN_KEY = 'workspace.trust.startupPrompt.shown';
+import { WORKSPACE_TRUST_STARTUP_PROMPT, WORKSPACE_TRUST_STARTUP_PROMPT_SHOWN_KEY } from '../../../services/workspaces/common/workspaceTrust.js';
 
 /**
  * How long after the startup prompt's preconditions are met (workbench
@@ -91,7 +82,7 @@ export async function awaitWorkspaceTrustDecisionForCanvas(services: CanvasTrust
 	if (startupPrompt === 'never') {
 		return;
 	}
-	if (startupPrompt === 'once' && storageService.getBoolean(STARTUP_PROMPT_SHOWN_KEY, StorageScope.WORKSPACE, false)) {
+	if (startupPrompt === 'once' && storageService.getBoolean(WORKSPACE_TRUST_STARTUP_PROMPT_SHOWN_KEY, StorageScope.WORKSPACE, false)) {
 		return;
 	}
 
@@ -109,21 +100,34 @@ export async function awaitWorkspaceTrustDecisionForCanvas(services: CanvasTrust
 		const trustGranted = Event.toPromise(Event.filter(trustManagementService.onDidChangeTrust, trusted => trusted, disposables), disposables);
 
 		await lifecycleService.when(LifecyclePhase.Restored);
+
+		// The handler shows the prompt only once the window has focus, which
+		// for a background launch can be forever away; the focus wait is
+		// unbounded on purpose, because giving up would let Canvas cover the
+		// main window and the prompt would later render into a hidden one.
+		// The curtain's "Open Positron" bounds it for the user, and an
+		// initiation or a trust grant arriving while unfocused ends it here.
+		let outcome: 'join' | 'decided' | 'no-prompt' | undefined;
 		if (!hostService.hasFocus) {
-			await Event.toPromise(Event.filter(hostService.onDidChangeFocus, focused => focused, disposables), disposables);
+			const focused = Event.toPromise(Event.filter(hostService.onDidChangeFocus, isFocused => isFocused, disposables), disposables);
+			outcome = await Promise.race([
+				focused.then(() => undefined),
+				initiated.then(() => 'join' as const),
+				trustGranted.then(() => 'decided' as const),
+			]);
 		}
 
 		// Trust granted through another path means the handler stays quiet
 		// and the initiation never comes; the grace period covers mirrored
-		// conditions drifting out of sync (see STARTUP_PROMPT_SHOWN_KEY).
-		const grace = timeout(STARTUP_PROMPT_INITIATION_GRACE_MS);
-		disposables.add({ dispose: () => grace.cancel() });
-		grace.catch(() => { /* cancellation of a lost race */ });
-		const outcome = await Promise.race([
-			initiated.then(() => 'join' as const),
-			trustGranted.then(() => 'decided' as const),
-			grace.then(() => 'no-prompt' as const),
-		]);
+		// conditions drifting out of sync (see
+		// WORKSPACE_TRUST_STARTUP_PROMPT_SHOWN_KEY).
+		outcome ??= await raceTimeout(
+			Promise.race([
+				initiated.then(() => 'join' as const),
+				trustGranted.then(() => 'decided' as const),
+			]),
+			STARTUP_PROMPT_INITIATION_GRACE_MS
+		) ?? 'no-prompt';
 		if (outcome !== 'join') {
 			return;
 		}

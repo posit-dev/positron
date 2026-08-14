@@ -54,29 +54,11 @@
 	gap: 8px;
 }
 
-.positron-canvas-startup-button {
+/* The Button widget fills its container by default; these sit in a row. */
+.positron-canvas-startup-actions .monaco-button {
+	width: auto;
 	min-width: 88px;
 	padding: 7px 14px;
-	border: 1px solid var(--vscode-button-secondaryBorder, var(--vscode-contrastBorder, transparent));
-	border-radius: 5px;
-	background: var(--vscode-button-secondaryBackground);
-	color: var(--vscode-button-secondaryForeground);
-	cursor: pointer;
-	font: inherit;
-}
-
-.positron-canvas-startup-button:hover {
-	background: var(--vscode-button-secondaryHoverBackground);
-}
-
-.positron-canvas-startup-button.primary {
-	border-color: var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
-	background: var(--vscode-button-background);
-	color: var(--vscode-button-foreground);
-}
-
-.positron-canvas-startup-button.primary:hover {
-	background: var(--vscode-button-hoverBackground);
 }
 
 @keyframes positron-canvas-spin {

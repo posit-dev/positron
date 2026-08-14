@@ -134,6 +134,76 @@ describe('CanvasStartupPresenter', () => {
 		expect(sibling.inert).toBe(false);
 	});
 
+	// Toasts and the quick input are appended lazily, after the curtain's
+	// construction snapshot, and render beneath it; they must not stay
+	// reachable by Tab or screen readers while covered.
+	it('marks late-appended covered containers inert and releases them', async () => {
+		const entry = new DeferredPromise<CanvasEntryOutcome>();
+		const container = createContainer();
+		const presenter = createPresenter(container, { enter: vi.fn().mockReturnValue(entry.p) });
+
+		presenter.present();
+
+		const toasts = document.createElement('div');
+		toasts.className = 'notifications-toasts';
+		container.appendChild(toasts);
+		await vi.waitFor(() => expect(toasts.inert).toBe(true));
+
+		// Dialogs render above the curtain and must stay interactive.
+		const dialog = document.createElement('div');
+		dialog.className = 'monaco-dialog-modal-block';
+		container.appendChild(dialog);
+		await vi.waitFor(() => expect(toasts.inert).toBe(true));
+		expect(dialog.inert).toBe(false);
+
+		await entry.complete(ENTERED);
+		await vi.waitFor(() => expect(within(container).queryByRole('status')).not.toBeInTheDocument());
+		expect(toasts.inert).toBe(false);
+	});
+
+	it('stands down without a dialog when Canvas is already presented elsewhere', async () => {
+		const container = createContainer();
+		const presenter = createPresenter(container, {
+			enter: vi.fn().mockResolvedValue({
+				entered: false,
+				reason: 'engaged-elsewhere',
+				message: 'Canvas is already open in another Positron window.'
+			} satisfies CanvasEntryOutcome)
+		});
+
+		presenter.present();
+
+		// The winner of the engagement race is presenting Canvas; a failure
+		// card in the losing window would demand attention on every relaunch.
+		await vi.waitFor(() => expect(within(container).queryByRole('status')).not.toBeInTheDocument());
+		expect(within(container).queryByRole('dialog')).not.toBeInTheDocument();
+	});
+
+	// A Retry accepted mid-recovery would start an entry that re-hides the
+	// IDE, curtainless, the moment the recovery disposes the curtain.
+	it('ignores Retry while a recovery is in flight', async () => {
+		const recovery = new DeferredPromise<void>();
+		const enter = vi.fn().mockResolvedValue(AI_DISABLED);
+		const container = createContainer();
+		const presenter = createPresenter(container, {
+			enter,
+			recoverMainWindow: vi.fn().mockReturnValue(recovery.p),
+		});
+
+		presenter.present();
+		const curtain = within(container).getByRole('status');
+		await vi.waitFor(() => expect(within(curtain).getAllByRole('button')).toHaveLength(4));
+
+		const user = userEvent.setup();
+		await user.click(within(curtain).getByRole('button', { name: 'Open Positron' }));
+		await user.click(within(curtain).getByRole('button', { name: 'Retry' }));
+
+		expect(enter).toHaveBeenCalledTimes(1);
+
+		await recovery.complete();
+		await vi.waitFor(() => expect(within(container).queryByRole('status')).not.toBeInTheDocument());
+	});
+
 	it('stands down without a dialog when the entry was superseded', async () => {
 		const container = createContainer();
 		const presenter = createPresenter(container, {

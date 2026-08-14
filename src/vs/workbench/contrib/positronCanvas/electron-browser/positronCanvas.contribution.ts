@@ -6,45 +6,45 @@
 import '../browser/positronCanvas.contribution.css';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { localize2 } from '../../../../nls.js';
+import { localize, localize2 } from '../../../../nls.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceTrustEnablementService, IWorkspaceTrustManagementService, IWorkspaceTrustRequestService } from '../../../../platform/workspace/common/workspaceTrust.js';
-import { prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IAuxiliaryWindowService } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
-import { GroupsOrder, IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { INativeWorkbenchEnvironmentService } from '../../../services/environment/electron-browser/environmentService.js';
 import { IHostService } from '../../../services/host/browser/host.js';
 import { ILifecycleService } from '../../../services/lifecycle/common/lifecycle.js';
-import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
+import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { windowLogId } from '../../../services/log/common/logConstants.js';
 import { IOutputService } from '../../../services/output/common/output.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
-import { WebviewInput } from '../../webviewPanel/browser/webviewEditorInput.js';
 import { CanvasStartupPresenter } from '../browser/canvasStartupPresenter.js';
 import { registerCanvasCommandLockdown } from '../browser/positronCanvasCommandLockdown.js';
+import { sweepRestoredCanvasWindows } from '../browser/positronCanvasRestore.js';
 import { awaitWorkspaceTrustDecisionForCanvas } from '../browser/positronCanvasTrustGate.js';
-import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_OPEN_ON_STARTUP_KEY, CANVAS_WEBVIEW_VIEW_TYPE, PositronCanvasModeActiveContext, shouldStartInCanvasMode } from '../common/positronCanvasMode.js';
+import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_OPEN_ON_STARTUP_KEY, CANVAS_WEBVIEW_VIEW_TYPE, CanvasEntryOutcome, ICanvasStartSignals, PositronCanvasModeActiveContext, shouldStartInCanvasMode } from '../common/positronCanvasMode.js';
 import { IPositronCanvasService, PositronCanvasService } from './positronCanvasService.js';
 
 registerSingleton(IPositronCanvasService, PositronCanvasService, InstantiationType.Delayed);
 
-export function mergeRestoredCanvasGroup(group: IEditorGroup, target: IEditorGroup, editorGroupsService: IEditorGroupsService): void {
-	group.lock(false);
-	if (!editorGroupsService.mergeGroup(group, target)) {
-		group.moveEditors(prepareMoveCopyEditors(group, group.editors.slice()), target);
-	}
-}
+/**
+ * Display label of Posit Assistant's output channel, matched at click time to
+ * route "Show Logs" to the channel that explains a Canvas startup failure.
+ * Part of the cross-repo seam (../README.md): an assistant-side rename of the
+ * channel silently reroutes Show Logs to the window log until this catches up.
+ */
+const ASSISTANT_OUTPUT_CHANNEL_LABEL = 'Posit Assistant';
 
 /**
  * Enters Canvas mode from a forwarded `--canvas` launch and the Canvas editor's
@@ -137,18 +137,32 @@ CommandsRegistry.registerCommand('positron.canvas.isActive', (accessor: Services
 /**
  * Boots the window straight into Canvas mode, behind a curtain: without one
  * the user watches the IDE paint and restore for seconds first, and a startup
- * failure would have no usable IDE to notify into.
+ * failure would have no usable IDE to notify into. Instantiated only for
+ * windows actually booting into Canvas, so the services the boot path leans
+ * on (output, workspace trust, the Canvas service itself) are not constructed
+ * in every window of every launch.
  */
-class PositronCanvasStartupContribution extends Disposable implements IWorkbenchContribution {
+class CanvasStartupBoot extends Disposable {
 
-	static readonly ID = 'positron.canvas.startup';
+	/**
+	 * Set when the user cancels into the IDE while the entry callback is
+	 * parked at one of its gates; see `enterFromStartup`.
+	 */
+	private cancelled = false;
+
+	/**
+	 * Latched once the trust gate has resolved: the decision (a declined
+	 * prompt included) holds for the session, and re-running the gate on a
+	 * curtain Retry would wait out the full initiation grace again, reading
+	 * as a hang.
+	 */
+	private trustDecisionSettled = false;
 
 	constructor(
 		@IPositronCanvasService private readonly canvasService: IPositronCanvasService,
 		@IAuxiliaryWindowService private readonly auxiliaryWindowService: IAuxiliaryWindowService,
 		@IEditorGroupsService private readonly editorGroupsService: IEditorGroupsService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
-		@INativeWorkbenchEnvironmentService private readonly environmentService: INativeWorkbenchEnvironmentService,
 		@IStorageService private readonly storageService: IStorageService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
 		@IOutputService private readonly outputService: IOutputService,
@@ -162,120 +176,163 @@ class PositronCanvasStartupContribution extends Disposable implements IWorkbench
 	) {
 		super();
 
-		// Runs at BlockRestore to get in front of the workbench; a single
-		// await before the curtain element is in the DOM reintroduces the IDE
-		// flash it exists to prevent.
-		if (this.shouldBootIntoCanvasMode()) {
-			this.startInCanvasMode();
-		} else {
-			this.dropRestoredCanvasWindows();
-		}
-	}
-
-	/**
-	 * A window booting into the IDE must not come up with a live Canvas window
-	 * beside it, yet layout restore brings one back whenever the session quit
-	 * in Canvas mode. Merge such a window's Canvas back into the IDE as an
-	 * inline tab (the conversation survives; the emptied window closes
-	 * itself). Recognized by the `lockCompact` trait, which only Canvas mode
-	 * sets and which survives restore -- a Canvas panel the user popped out by
-	 * hand lacks the trait and is left where they put it.
-	 */
-	private dropRestoredCanvasWindows(): void {
-		(async () => {
-			await this.editorGroupsService.whenRestored;
-
-			let merged = false;
-			for (const part of this.editorGroupsService.parts) {
-				if (part === this.editorGroupsService.mainPart) {
-					continue;
-				}
-				if (this.auxiliaryWindowService.getWindow(part.windowId)?.createState().lockCompact !== true) {
-					continue;
-				}
-				const groups = part.getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE);
-				const editors = groups.flatMap(group => group.editors);
-				if (editors.length === 0 || !editors.every(editor => editor instanceof WebviewInput && editor.providerId === CANVAS_WEBVIEW_VIEW_TYPE)) {
-					continue;
-				}
-				this.logService.info('[canvas] Merging a restored Canvas window back into the IDE: Canvas mode is not engaged');
-				for (const group of groups) {
-					mergeRestoredCanvasGroup(group, this.editorGroupsService.mainPart.activeGroup, this.editorGroupsService);
-				}
-				merged = true;
-			}
-
-			if (merged) {
-				// A merge into an auto-hidden editor area would leave the
-				// Canvas tab invisible.
-				this.layoutService.setPartHidden(false, Parts.EDITOR_PART);
-			}
-		})().catch(error => this.logService.error('[canvas] Could not check for restored Canvas windows', error));
-	}
-
-	/**
-	 * Flag: launch into Canvas once. Setting: a Canvas workspace. Stored
-	 * intent: the workspace was in Canvas mode when it last stopped.
-	 * `shouldStartInCanvasMode` owns their precedence; exit clears only the
-	 * stored intent, never the configuration.
-	 */
-	private shouldBootIntoCanvasMode(): boolean {
-		const setting = this.configurationService.inspect<boolean>(CANVAS_OPEN_ON_STARTUP_KEY);
-		return shouldStartInCanvasMode({
-			// Read live: `ai.enabled` toggles without a window reload.
-			aiEnabled: this.configurationService.getValue<boolean>(AI_ENABLED_KEY) !== false,
-			engagedElsewhere: this.environmentService.standaloneModeEngagedElsewhere,
-			canvasFlag: this.environmentService.args.canvas === true,
-			configuredOpenOnStartup: setting.policyValue ?? setting.workspaceFolderValue ?? setting.workspaceValue ?? setting.userValue ?? setting.applicationValue,
-			storedIntent: this.storageService.getBoolean(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE, false)
-		});
-	}
-
-	private startInCanvasMode(): void {
 		const presenter = this._register(new CanvasStartupPresenter(
 			this.layoutService.mainContainer,
-			async () => {
-				// The workspace trust decision must land before Canvas covers
-				// the IDE: the trust startup prompt renders in this main
-				// window, which Canvas mode hides, and an undecided
-				// workspace holds back trust-gated extensions - including the
-				// auth providers behind the Canvas model picker. The prompt
-				// shows over the curtain (dialogs render above it) and the
-				// gate resolves on either answer.
-				await awaitWorkspaceTrustDecisionForCanvas({
-					configurationService: this.configurationService,
-					contextService: this.contextService,
-					hostService: this.hostService,
-					lifecycleService: this.lifecycleService,
-					storageService: this.storageService,
-					trustEnablementService: this.trustEnablementService,
-					trustManagementService: this.trustManagementService,
-					trustRequestService: this.trustRequestService
-				});
-				// Wait for editors, not merely the restored phase (which races
-				// a short timeout): entering early would find no restored
-				// Canvas panel and create a second one.
-				await this.editorGroupsService.whenRestored;
-				return this.canvasService.enter();
-			},
-			// Exit is the whole of "Open Positron": it clears the durable
-			// intent, and its IDE-restoring steps are safe no-ops when Canvas
-			// never came up.
-			() => this.canvasService.exit().then(() => undefined),
-			// "Show Logs" lands the user on the output that explains the
-			// failure: the assistant's channel when it registered one, the
-			// window log (where [canvas] entries go) otherwise. Resolved at
-			// click time because the assistant's channel appears only once the
-			// extension has run.
-			async () => {
-				const assistantChannel = this.outputService.getChannelDescriptors().find(descriptor => descriptor.label === 'Posit Assistant');
-				await this.outputService.showChannel(assistantChannel?.id ?? windowLogId);
-			},
+			() => this.enterFromStartup(),
+			// Cancelling is the whole of "Open Positron": it clears the
+			// durable intent, and its IDE-restoring steps are safe no-ops
+			// when Canvas never came up.
+			() => this.recoverMainWindow(),
+			() => this.showLogs(),
 			() => this.hostService.shutdown(),
 			this.logService
 		));
 
 		presenter.present();
+	}
+
+	private async enterFromStartup(): Promise<CanvasEntryOutcome> {
+		// A Retry after a failed recovery must be able to enter again.
+		this.cancelled = false;
+
+		if (!this.trustDecisionSettled) {
+			// The workspace trust decision must land before Canvas covers
+			// the IDE: the trust startup prompt renders in this main
+			// window, which Canvas mode hides, and an undecided
+			// workspace holds back trust-gated extensions - including the
+			// auth providers behind the Canvas model picker. The prompt
+			// shows over the curtain (dialogs render above it) and the
+			// gate resolves on either answer.
+			await awaitWorkspaceTrustDecisionForCanvas({
+				configurationService: this.configurationService,
+				contextService: this.contextService,
+				hostService: this.hostService,
+				lifecycleService: this.lifecycleService,
+				storageService: this.storageService,
+				trustEnablementService: this.trustEnablementService,
+				trustManagementService: this.trustManagementService,
+				trustRequestService: this.trustRequestService
+			});
+			this.trustDecisionSettled = true;
+		}
+
+		// Wait for editors, not merely the restored phase (which races
+		// a short timeout): entering early would find no restored
+		// Canvas panel and create a second one.
+		await this.editorGroupsService.whenRestored;
+
+		// The gates above park this callback while the user can cancel into
+		// the IDE, and `enter()` captures its exit generation only once
+		// called: entering now would re-acquire the freed engagement and
+		// hide the IDE seconds after the user asked for it.
+		if (this.cancelled) {
+			return {
+				entered: false,
+				reason: 'superseded',
+				message: localize('positron.canvas.startupSuperseded', "Canvas stopped opening because Positron was asked for the IDE.")
+			};
+		}
+
+		const outcome = await this.canvasService.enter();
+		if (!outcome.entered) {
+			// A restored Canvas window this entry never adopted (entry failed
+			// or was cancelled before the adoption step) must not stay
+			// floating, chromeless, beside the IDE the user lands in.
+			void this.sweepRestoredWindows();
+		}
+		return outcome;
+	}
+
+	private async recoverMainWindow(): Promise<void> {
+		this.cancelled = true;
+		await this.canvasService.exit();
+		await this.sweepRestoredWindows();
+	}
+
+	private async sweepRestoredWindows(): Promise<void> {
+		try {
+			await sweepRestoredCanvasWindows({
+				auxiliaryWindowService: this.auxiliaryWindowService,
+				editorGroupsService: this.editorGroupsService,
+				layoutService: this.layoutService,
+				logService: this.logService
+			});
+		} catch (error) {
+			this.logService.error('[canvas] Could not check for restored Canvas windows', error);
+		}
+	}
+
+	/**
+	 * Lands the user on the output that explains the failure: the assistant's
+	 * channel when it registered one, the window log (where [canvas] entries
+	 * go) otherwise. Resolved at click time because the assistant's channel
+	 * appears only once the extension has run.
+	 */
+	private async showLogs(): Promise<void> {
+		const assistantChannel = this.outputService.getChannelDescriptors().find(descriptor => descriptor.label === ASSISTANT_OUTPUT_CHANNEL_LABEL);
+		await this.outputService.showChannel(assistantChannel?.id ?? windowLogId);
+	}
+}
+
+/**
+ * Decides what a starting window does about Canvas: boot straight into it, or
+ * make sure no restored Canvas window is left floating next to a plain IDE.
+ * Kept light on purpose - it runs at BlockRestore in every window, so the
+ * Canvas boot machinery hangs off `CanvasStartupBoot`, built only when the
+ * decision says to boot into Canvas.
+ */
+class PositronCanvasStartupContribution extends Disposable implements IWorkbenchContribution {
+
+	static readonly ID = 'positron.canvas.startup';
+
+	constructor(
+		@IAuxiliaryWindowService auxiliaryWindowService: IAuxiliaryWindowService,
+		@IEditorGroupsService editorGroupsService: IEditorGroupsService,
+		@IConfigurationService configurationService: IConfigurationService,
+		@INativeWorkbenchEnvironmentService environmentService: INativeWorkbenchEnvironmentService,
+		@IInstantiationService instantiationService: IInstantiationService,
+		@INotificationService notificationService: INotificationService,
+		@IStorageService storageService: IStorageService,
+		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService,
+		@ILogService logService: ILogService
+	) {
+		super();
+
+		// Flag: launch into Canvas once. Setting: a Canvas workspace. Stored
+		// intent: the workspace was in Canvas mode when it last stopped.
+		// `shouldStartInCanvasMode` owns their precedence; exit clears only
+		// the stored intent, never the configuration. The setting comes from
+		// `inspect()` because an explicit `false` must override the intent.
+		const setting = configurationService.inspect<boolean>(CANVAS_OPEN_ON_STARTUP_KEY);
+		const signals: ICanvasStartSignals = {
+			// Read live: `ai.enabled` toggles without a window reload.
+			aiEnabled: configurationService.getValue<boolean>(AI_ENABLED_KEY) !== false,
+			engagedElsewhere: environmentService.standaloneModeEngagedElsewhere,
+			canvasFlag: environmentService.args.canvas === true,
+			configuredOpenOnStartup: setting.policyValue ?? setting.workspaceFolderValue ?? setting.workspaceValue ?? setting.userValue ?? setting.applicationValue,
+			storedIntent: storageService.getBoolean(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE, false)
+		};
+
+		// Runs at BlockRestore to get in front of the workbench; a single
+		// await before the curtain element is in the DOM reintroduces the IDE
+		// flash it exists to prevent.
+		if (shouldStartInCanvasMode(signals)) {
+			this._register(instantiationService.createInstance(CanvasStartupBoot));
+			return;
+		}
+
+		if (signals.canvasFlag) {
+			// The flag was an explicit ask; a window-level veto must not
+			// answer it with a silent plain IDE window when the
+			// reused-window path (OpenCanvasAction) notifies for the same
+			// outcome.
+			notificationService.error(!signals.aiEnabled
+				? localize('positron.canvas.flagAiDisabled', "Canvas is unavailable because AI features are disabled.")
+				: localize('positron.canvas.flagEngagedElsewhere', "Canvas is already open in another Positron window."));
+		}
+
+		sweepRestoredCanvasWindows({ auxiliaryWindowService, editorGroupsService, layoutService, logService })
+			.catch(error => logService.error('[canvas] Could not check for restored Canvas windows', error));
 	}
 }
 
