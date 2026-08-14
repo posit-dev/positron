@@ -5,6 +5,7 @@
 
 import { basename } from 'path';
 import { getPositronVersion } from '../../infra/test-runner/positron-version.js';
+import { SharedProcessGcStats } from './gc.js';
 import { deriveExtensionName, isGenericName, normalizeProcessName, resolveRole } from './label.js';
 import { readProcessNames } from './positron-status.js';
 import { readProcessTree } from './process-tree.js';
@@ -325,8 +326,13 @@ export async function captureSnapshot(input: {
 	userDataDir: string;
 	launchIndex: number;
 	extensions: ActivatedExtension[];
+	forceGc?: () => Promise<SharedProcessGcStats>;
 }): Promise<MemorySnapshot> {
 	const { settleMs, peakTotalPss } = await waitForSettle(input.rootPid);
+
+	// Must land after settle, so startup allocation is already done, and before
+	// sampling starts, so the reported tail reflects the collected state.
+	const sharedProcessGc = input.forceGc ? await input.forceGc() : undefined;
 
 	const samples: RawProcess[][] = [];
 	const startedSampling = Date.now();
@@ -357,6 +363,7 @@ export async function captureSnapshot(input: {
 		settleMs,
 		sampledMs,
 		treeSettled,
+		sharedProcessGc,
 		discardedSamples: samples.length - reported.length,
 		treeTotalPssBytes: processes.reduce((sum, p) => sum + p.pssBytes, 0),
 		processes,

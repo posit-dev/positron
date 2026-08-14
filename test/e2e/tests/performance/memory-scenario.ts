@@ -8,6 +8,7 @@ import { join } from 'path';
 import { expect, tags, test } from '../_test.setup';
 import { Application, Sessions } from '../../infra';
 import { readActivatedExtensions } from '../../utils/memory/extensions.js';
+import { collectSharedProcessGarbage } from '../../utils/memory/gc.js';
 import { fetchBaseline, publishSnapshots } from '../../utils/memory/publish.js';
 import { renderHtml, renderMarkdown } from '../../utils/memory/render.js';
 import { captureSnapshot, SAMPLING_CAP_MS, SETTLE_CAP_MS, unstableProcesses } from '../../utils/memory/snapshot.js';
@@ -113,7 +114,8 @@ export function defineMemoryScenario(options: {
 				buildRoot: buildRoot!,
 				userDataDir: app.userDataPath,
 				launchIndex: Number(process.env.MEMORY_LAUNCH_INDEX ?? 0),
-				extensions
+				extensions,
+				forceGc: () => collectSharedProcessGarbage()
 			});
 
 			expect(snapshot.processes.length, 'no processes found in the tree').toBeGreaterThan(3);

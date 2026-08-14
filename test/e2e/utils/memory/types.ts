@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { SharedProcessGcStats } from './gc.js';
 import { MemoryScenario } from './scenarios.js';
 
 /**
@@ -94,6 +95,11 @@ export type MemorySnapshot = {
 	 * settling. Undefined on a baseline, which carries neither field.
 	 */
 	treeSettled?: boolean;
+	/**
+	 * Figures from a forced GC in the shared process, taken after settle and before
+	 * sampling. Pre/post pairs preserve what the un-collected process looked like.
+	 */
+	sharedProcessGc?: SharedProcessGcStats;
 	/**
 	 * Samples taken before the tail and thrown away: the startup plateau, before
 	 * Chromium reclaimed its startup memory. Non-zero is normal and healthy.

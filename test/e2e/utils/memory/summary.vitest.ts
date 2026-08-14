@@ -300,4 +300,13 @@ describe('renderSummaryHtml', () => {
 		const html = renderSummaryHtml(buildSummaryMatrix(entries));
 		expect(html).toContain('TOTAL');
 	});
+
+	test('shows the GC note when a snapshot carries a forced-GC reading, not otherwise', () => {
+		const withoutGc = renderSummaryHtml(buildSummaryMatrix([scenarioEntry('idle', [proc()])]));
+		expect(withoutGc).not.toContain('forced garbage collection');
+
+		const gcSnapshot = { ...snapshot('idle', [proc()], 0), sharedProcessGc: { pid: 1, preRssBytes: 1, postRssBytes: 1, preHeapTotalBytes: 1, postHeapTotalBytes: 1 } };
+		const withGc = renderSummaryHtml(buildSummaryMatrix([{ scenario: 'idle', snapshots: [gcSnapshot] }]));
+		expect(withGc).toContain('forced garbage collection');
+	});
 });

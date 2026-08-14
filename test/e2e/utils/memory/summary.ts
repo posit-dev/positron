@@ -15,7 +15,7 @@
  * real memory run.
  */
 
-import { deltaHtmlFromDiff, escapeHtml, formatBytes, notSteadyStateCardHtml, REPORT_CSS } from './report-shell.js';
+import { deltaHtmlFromDiff, escapeHtml, formatBytes, GC_NOTE, notSteadyStateCardHtml, REPORT_CSS } from './report-shell.js';
 import { byRole } from './render.js';
 import { unstableProcesses } from './snapshot.js';
 import { MemoryScenario } from './scenarios.js';
@@ -73,6 +73,8 @@ export type SummaryMatrix = {
 	 * may have been moving, and this is what says which.
 	 */
 	unstable: UnstableEntry[];
+	/** Whether any snapshot behind this matrix carries a forced-GC reading, so the legend can gate on it. */
+	hasSharedProcessGc: boolean;
 };
 
 /**
@@ -224,7 +226,9 @@ export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix 
 	const others = scenarios.filter(s => s !== 'idle').sort((a, b) => totalDeltaVsIdle.get(a)! - totalDeltaVsIdle.get(b)!);
 	const sortedScenarios = scenarios.includes('idle') ? ['idle' as MemoryScenario, ...others] : others;
 
-	return { scenarios: sortedScenarios, rows, totals, totalEmphasisThreshold, unstable };
+	const hasSharedProcessGc = entries.some(({ snapshots }) => snapshots.some(s => s.sharedProcessGc !== undefined));
+
+	return { scenarios: sortedScenarios, rows, totals, totalEmphasisThreshold, unstable, hasSharedProcessGc };
 }
 
 /** Muted em-dash: a role that did not exist in this scenario, never a fabricated zero. */
@@ -366,7 +370,7 @@ export function renderSummaryHtml(matrix: SummaryMatrix): string {
 
 	<div class="card">
 		<h2>By role</h2>
-		<div class="meta">${DELTA_LEGEND}</div>
+		<div class="meta">${DELTA_LEGEND}${matrix.hasSharedProcessGc ? ` ${GC_NOTE}` : ''}</div>
 		<table class="matrix">
 			<tr><th>Role</th>${scenarioHeaderHtml(matrix.scenarios)}</tr>
 			${rows}
