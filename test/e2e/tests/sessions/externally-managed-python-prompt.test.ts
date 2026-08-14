@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { execSync } from 'child_process';
-import { test as base, expect, tags } from '../_test.setup';
+import { test as base, tags } from '../_test.setup';
 import { Application } from '../../infra';
 
 const test = base.extend<{}, {}>({
@@ -68,12 +68,9 @@ test.describe('Sessions: Externally managed Python prompt', {
 
 		await pickSystemPython(app);
 
-		await dynamicModals.expectToBeVisible();
-		await expect(dynamicModals.title).toHaveText('Create a virtual environment for this workspace?');
-		await expect(dynamicModals.message).toContainText(`Python ${systemPythonVersion()} is managed by`);
-		await expect(dynamicModals.getButton('Create Environment')).toBeVisible();
-		await expect(dynamicModals.getButton('Not Now')).toBeVisible();
-		await expect(dynamicModals.getButton('Never for This Interpreter')).toBeVisible();
+		await dynamicModals.expectToBeVisible('Create a virtual environment for this workspace?');
+		await dynamicModals.expectMessageToContain(`Python ${systemPythonVersion()} is managed by`);
+		await dynamicModals.expectButtonsToBeVisible(['Create Environment', 'Not Now', 'Never for This Interpreter']);
 
 		await dynamicModals.clickButton('Not Now');
 	});
@@ -105,7 +102,7 @@ test.describe('Sessions: Externally managed Python prompt', {
 
 		await pickSystemPython(app);
 		await dynamicModals.expectToBeVisible();
-		await dynamicModals.closeButton.click();
+		await dynamicModals.clickCloseButton();
 		await dynamicModals.expectNotToBeVisible();
 
 		await sessions.expectSessionCountToBe(0);
