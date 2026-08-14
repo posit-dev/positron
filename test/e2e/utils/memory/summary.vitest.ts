@@ -157,7 +157,7 @@ describe('delta emphasis', () => {
 			noisyEntry('idle', 'renderer', [284, 285, 284]),
 			noisyEntry('session-python', 'renderer', [306, 307, 306])
 		]));
-		expect(html).toContain('<span class="delta-up">&#9650; +22.0 MB</span>');
+		expect(html).toContain('<span class="delta-up">&#9650; 22.0 MB</span>');
 	});
 
 	// The real case: session-r's extension_host read +8.8 MB against idle while the
@@ -234,13 +234,13 @@ describe('renderSummaryHtml', () => {
 		expect(kernelRowHtml).toContain('&mdash;');
 	});
 
-	test('renders a delta with a glyph and a signed number, not color alone', () => {
+	test('renders a delta with a glyph, not color alone', () => {
 		const entries: ScenarioSnapshots[] = [
 			scenarioEntry('idle', [proc({ processRole: 'extension_child', pssBytes: 30 * MB })]),
 			scenarioEntry('session-python', [proc({ processRole: 'extension_child', pssBytes: 45 * MB })]),
 		];
 		const html = renderSummaryHtml(buildSummaryMatrix(entries));
-		expect(html).toMatch(/&#9650;[^<]*\+15\.0 MB/);
+		expect(html).toMatch(/&#9650;[^<]*15\.0 MB/);
 	});
 
 	test('is a self-contained document', () => {

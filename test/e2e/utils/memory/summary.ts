@@ -201,22 +201,29 @@ export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix 
 /** Muted em-dash: a role that did not exist in this scenario, never a fabricated zero. */
 const ABSENT_MARKER = '<span class="muted">&mdash;</span>';
 
+/** Marks the column every delta is measured from, so the table reads baseline -> comparisons. */
+function baselineClass(scenario: MemoryScenario): string {
+	return scenario === 'idle' ? ' class="baseline"' : '';
+}
+
 function scenarioHeaderHtml(scenarios: MemoryScenario[]): string {
-	return scenarios.map(s => `<th align="right">${escapeHtml(s)}</th>`).join('');
+	return scenarios.map(s => `<th align="right"${baselineClass(s)}>${escapeHtml(s)}</th>`).join('');
 }
 
 /** One scenario's cell: the PSS value, plus (for a non-idle scenario) its delta against idle underneath. */
 function cellHtml(scenario: MemoryScenario, value: number | undefined, delta: number | undefined, threshold: number): string {
 	if (value === undefined) {
-		return `<td align="right">${ABSENT_MARKER}</td>`;
+		return `<td align="right"${baselineClass(scenario)}>${ABSENT_MARKER}</td>`;
 	}
 	// Below the threshold nothing renders: a column of muted `-0.0 MB` spends a line
 	// per row saying nothing happened, crowding the figures that did move.
 	const emphasized = scenario === 'idle' || delta === undefined || Math.abs(delta) < threshold
 		? ''
 		: deltaHtmlFromDiff(delta);
-	const deltaLine = emphasized === '' ? '' : `<br><span style="font-size:0.85em">${emphasized}</span>`;
-	return `<td align="right">${formatBytes(value)}${deltaLine}</td>`;
+	// The delta is the point of the table, so the value it is measured from steps back
+	// a little rather than competing with it at equal weight.
+	const deltaLine = emphasized === '' ? '' : `<span class="delta-line">${emphasized}</span>`;
+	return `<td align="right"${baselineClass(scenario)}><span class="value">${formatBytes(value)}</span>${deltaLine}</td>`;
 }
 
 function rowHtml(row: SummaryRow, scenarios: MemoryScenario[]): string {
@@ -263,6 +270,21 @@ function instabilityHtml(unstable: UnstableEntry[]): string {
 }
 
 /**
+ * Says why some cells carry a delta and others do not, which is otherwise the
+ * table's most obvious unexplained rule.
+ *
+ * Leads with why the rule exists, because "bigger than the noise" means nothing to
+ * a reader who has not been told the same scenario measures differently each launch.
+ *
+ * Built from {@link MIN_EMPHASIS_BYTES} rather than repeating the number, so the
+ * floor named here cannot drift from the one applied. Deliberately not phrased as
+ * a flat "5 MB or more": the real bar is per role and usually higher, and a legend
+ * that understated it would invite reading an unmarked 8 MB move as a bug.
+ */
+const DELTA_LEGEND = `Each launch measures a little differently, so a delta shows only when the change
+	beats that noise, never under ${formatBytes(MIN_EMPHASIS_BYTES)}. Blank cells moved less.`;
+
+/**
  * Renders the matrix as a standalone HTML document, using the same shell
  * (CSS, escaping, delta glyphs) as the per-scenario report so the two cannot
  * drift apart visually.
@@ -278,11 +300,31 @@ export function renderSummaryHtml(matrix: SummaryMatrix): string {
 	<meta charset="utf-8">
 	<title>Positron memory: cross-scenario summary</title>
 	<style>${REPORT_CSS}
-		.total-row td { border-top: 2px solid #e5e7eb; font-weight: 600; }
+		/* Reads as a summary rather than one more row: a darker rule than the hairlines
+		between roles, and air above it that the hairlines do not get. */
+		.total-row td { border-top: 2px solid #d1d5db; font-weight: 600; padding-top: 10px; }
 		/* Only some cells carry a delta on a second line. Centering would then drop a bare
 		value half a line below its emphasized neighbour, so the row no longer reads
 		across. Top-aligned, every PSS figure shares a baseline and the deltas hang below. */
 		.matrix td { vertical-align: top; }
+		/* The delta is what the table is for, so the figure it is measured from gives up a
+		little size and contrast instead of competing with it. */
+		.matrix .value { font-size: 0.95em; color: #6b7280; }
+		.matrix .total-row .value { font-size: 1em; color: inherit; }
+		.matrix .delta-line { display: block; font-size: 0.82em; line-height: 1.2; margin-top: 1px; }
+		/* idle is where every delta is measured from, not a seventh scenario. */
+		.matrix .baseline { background: #f6f7f9; border-right: 2px solid #e5e7eb; }
+		/* Follows one role across every scenario. Scoped to td so the header row, which
+		holds th, does not light up as though it were data, and past .baseline so the idle
+		cell keeps its own tint: the two values are close enough that the hovered row still
+		reads as one band. */
+		.matrix tr:hover td:not(.baseline) { background: #f8f9fa; }
+		@media (prefers-color-scheme: dark) {
+			.total-row td { border-top-color: #4b5563; }
+			.matrix .value { color: #9ca3af; }
+			.matrix .baseline { background: #201f1e; border-right-color: #3a3a38; }
+			.matrix tr:hover td:not(.baseline) { background: rgba(255, 255, 255, 0.04); }
+		}
 	</style>
 </head>
 <body>
@@ -296,6 +338,7 @@ export function renderSummaryHtml(matrix: SummaryMatrix): string {
 
 	<div class="card">
 		<h2>By role</h2>
+		<div class="meta">${DELTA_LEGEND}</div>
 		<table class="matrix">
 			<tr><th>Role</th>${scenarioHeaderHtml(matrix.scenarios)}</tr>
 			${rows}

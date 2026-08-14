@@ -143,7 +143,9 @@ function renderMarkdownTable(matrix: SummaryMatrix): string {
 	const lines: string[] = [];
 	lines.push('## Memory: cross-scenario summary', '');
 	lines.push(`| Role | ${matrix.scenarios.join(' | ')} |`);
-	lines.push(`| --- | ${matrix.scenarios.map(() => '---').join(' | ')} |`);
+	// Right-aligned figures, matching the HTML report: the decimal points line up, so a
+	// column can be compared down its length without reading each number.
+	lines.push(`| --- | ${matrix.scenarios.map(() => '---:').join(' | ')} |`);
 
 	for (const row of matrix.rows) {
 		const cells = matrix.scenarios.map(scenario => {
