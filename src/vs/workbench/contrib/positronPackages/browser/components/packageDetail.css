@@ -290,6 +290,13 @@
 	color: var(--vscode-descriptionForeground);
 }
 
+/* Attribution under the advisory list: which instance reported, and when. */
+.package-detail-security-source {
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	margin-top: 14px;
+}
+
 .package-detail-vulnerabilities {
 	display: flex;
 	flex-direction: column;

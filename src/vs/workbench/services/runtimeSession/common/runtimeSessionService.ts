@@ -432,20 +432,42 @@ export interface ILanguageRuntimePackage {
 
 	/**
 	 * Known security advisories affecting the *installed* version, from the
-	 * environment's configured Posit Package Manager repository. Three states:
-	 * `undefined` means no vulnerability data is available (no PPM configured,
-	 * or the package/version isn't in the repository); an empty array means the
-	 * repository knows the version and reports no advisories; a non-empty array
-	 * lists the advisories, already deduplicated across aliased records
-	 * (PYSEC/GHSA/CVE) by the language runtime.
+	 * Posit Package Manager instance the environment installs from. Three
+	 * states: `undefined` means no vulnerability data is available (no PPM
+	 * resolved, or the package/version isn't in the repository); an empty array
+	 * means the repository knows the version and reports no advisories; a
+	 * non-empty array lists the advisories, already deduplicated across aliased
+	 * records (PYSEC/GHSA/CVE).
+	 *
+	 * Populated by Positron's own vulnerability lookup, not by the language
+	 * runtime -- runtimes only report which repository they install from.
 	 */
 	vulnerabilities?: IPackageVulnerability[];
 }
 
 /**
+ * A Package Manager API request, performed on the host the runtime runs on.
+ * Deliberately minimal: the workbench composes the URL and body, the runtime's
+ * host only carries it.
+ */
+export interface IPackageRepositoryRequest {
+	readonly url: string;
+	readonly method?: 'GET' | 'POST';
+	readonly headers?: Record<string, string>;
+	readonly body?: string;
+	/** Abort the request after this many milliseconds. */
+	readonly timeoutMs?: number;
+}
+
+/** The response to an {@link IPackageRepositoryRequest}. */
+export interface IPackageRepositoryResponse {
+	readonly status: number;
+	readonly body: string;
+}
+
+/**
  * A single security advisory affecting an installed package version.
- * Normalized by the language runtime from OSV-format records served by
- * Posit Package Manager.
+ * Normalized from the OSV-format records served by Posit Package Manager.
  */
 export interface IPackageVulnerability {
 	/** Preferred display id: the CVE when one exists, otherwise the OSV id. */
@@ -584,19 +606,48 @@ export interface ILanguageRuntimePackageManager {
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 
 	/**
-	 * Fetch additional metadata for packages from external sources (e.g., PPM).
+	 * Fetch additional metadata for packages from external sources (e.g., P3M).
 	 * This is called separately from getPackages() to allow the UI to display
 	 * the basic package list quickly while metadata loads in the background.
-	 * Specs carry the installed version so version-specific lookups (security
-	 * advisories) query the right release, not the latest one.
-	 * @param packages Installed packages (name and installed version) to fetch metadata for
+	 * @param packageNames Array of package names to fetch metadata for
 	 * @param token Optional cancellation token
 	 * @returns Map of package name (lowercase) to partial package metadata, or undefined if not supported
 	 */
 	getPackageMetadata?(
-		packages: IPackageSpec[],
+		packageNames: string[],
 		token?: CancellationToken,
 	): Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined>;
+
+	/**
+	 * The repository (R) or package index (Python) URL this environment installs
+	 * from, when the runtime can determine it. Used to decide which Posit
+	 * Package Manager instance, if any, to ask for security advisories.
+	 *
+	 * Only the runtime knows the precedence its installer follows (r-versions
+	 * `Repo:`, `repos.conf`, `pip config`, environment variables), so resolution
+	 * stays on that side. Resolves undefined when nothing is configured beyond
+	 * the language's public default.
+	 *
+	 * @param token Optional cancellation token
+	 */
+	packageRepositoryUrl?(token?: CancellationToken): Promise<string | undefined>;
+
+	/**
+	 * Perform a Package Manager API request against the repository this
+	 * environment installs from, from the host the runtime runs on.
+	 *
+	 * The workbench can't make this request itself. In the desktop app the
+	 * renderer's `fetch` is subject to CORS and the Package Manager `__api__`
+	 * endpoints send no `Access-Control-Allow-Origin`; in a server deployment the
+	 * browser is on a different machine from the repository. The runtime's host
+	 * is the right place in both cases: it has the route, the proxy
+	 * configuration, and the certificate trust that the environment installs
+	 * with.
+	 *
+	 * @param request The request to perform.
+	 * @param token Optional cancellation token
+	 */
+	repositoryRequest?(request: IPackageRepositoryRequest, token?: CancellationToken): Promise<IPackageRepositoryResponse>;
 
 	/**
 	 * Fetch detailed metadata for a single package, called when the package

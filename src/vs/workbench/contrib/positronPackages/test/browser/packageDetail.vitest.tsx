@@ -14,6 +14,7 @@ import { ILanguageRuntimePackage, IRuntimeSessionMetadata, ILanguageRuntimeSessi
 import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronPackagesService } from '../../browser/interfaces/positronPackagesService.js';
 import { IPositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
+import { IPackageVulnerabilitySource } from '../../browser/packageVulnerabilityLookup.js';
 import { PackageDetail } from '../../browser/components/packageDetail.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -31,12 +32,17 @@ function makeSession(sessionId: string): ILanguageRuntimeSession {
 	return stubInterface<ILanguageRuntimeSession>({ metadata, runtimeMetadata });
 }
 
-function makeInstance(pkgs: ILanguageRuntimePackage[], sessionId = SESSION_ID): IPositronPackagesInstance {
+function makeInstance(
+	pkgs: ILanguageRuntimePackage[],
+	sessionId = SESSION_ID,
+	vulnerabilitySource: IPackageVulnerabilitySource | undefined = undefined,
+): IPositronPackagesInstance {
 	return stubInterface<IPositronPackagesInstance>({
 		packages: pkgs,
 		session: makeSession(sessionId),
 		onDidRefreshPackagesInstance: new Emitter<ILanguageRuntimePackage[]>().event,
 		getPackageDetail: vi.fn().mockResolvedValue(undefined),
+		vulnerabilitySource,
 	});
 }
 
@@ -137,6 +143,7 @@ describe('PackageDetail after uninstall', () => {
 		session: makeSession(SESSION_ID),
 		onDidRefreshPackagesInstance: refresh.event,
 		getPackageDetail: vi.fn().mockResolvedValue(undefined),
+		vulnerabilitySource: undefined,
 	});
 	const packagesService = stubInterface<IPositronPackagesService>({
 		getInstances: () => [instance],
@@ -237,8 +244,16 @@ describe('PackageDetail with resolved detail fields', () => {
 });
 
 describe('PackageDetail Security tab', () => {
-	function renderWithVulnerabilities(vulnerabilities: ILanguageRuntimePackage['vulnerabilities']) {
-		const instance = makeInstance([dplyr({ vulnerabilities })]);
+	const SOURCE: IPackageVulnerabilitySource = {
+		host: 'ppm.example.com',
+		fetchedAt: Date.UTC(2026, 7, 13),
+	};
+
+	function renderWithVulnerabilities(
+		vulnerabilities: ILanguageRuntimePackage['vulnerabilities'],
+		source?: IPackageVulnerabilitySource,
+	) {
+		const instance = makeInstance([dplyr({ vulnerabilities })], SESSION_ID, source);
 		const packagesService = stubInterface<IPositronPackagesService>({
 			getInstances: () => [instance],
 			activePackagesInstance: instance,
@@ -300,14 +315,36 @@ describe('PackageDetail Security tab', () => {
 		expect(screen.queryByText(/CVSS/)).not.toBeInTheDocument();
 	});
 
-	it('affirms "no known vulnerabilities" for an empty advisory list', async () => {
-		renderWithVulnerabilities([]);
+	it('attributes an empty advisory list to the instance and date that reported it', async () => {
+		// An instance whose advisory data is stale or absent reports every
+		// package as clean, and nothing in its response says so. Naming the
+		// source and date is what makes the all-clear checkable rather than an
+		// unearned claim.
+		renderWithVulnerabilities([], SOURCE);
 		const user = userEvent.setup();
 
 		// Nothing to count, so the tab is offered without a badge.
 		await user.click(screen.getByRole('tab', { name: 'Security' }));
 
-		expect(screen.getByText('No known vulnerabilities have been reported for this version.')).toBeInTheDocument();
+		expect(screen.getByText('No advisories reported by ppm.example.com as of 2026-08-13.')).toBeInTheDocument();
+	});
+
+	it('attributes a non-empty advisory list to the instance and date that reported it', async () => {
+		renderWithVulnerabilities([{ id: 'RSEC-2023-7', osvId: 'RSEC-2023-7', summary: 'DoS' }], SOURCE);
+		const user = userEvent.setup();
+
+		await user.click(screen.getByRole('tab', { name: 'Security, 1 known vulnerability' }));
+
+		expect(screen.getByText('Reported by ppm.example.com as of 2026-08-13.')).toBeInTheDocument();
+	});
+
+	it('makes no claim about which instance reported when the source is unknown', async () => {
+		renderWithVulnerabilities([]);
+		const user = userEvent.setup();
+
+		await user.click(screen.getByRole('tab', { name: 'Security' }));
+
+		expect(screen.getByText('No advisories were reported for this version.')).toBeInTheDocument();
 	});
 
 	it('offers no Security tab when no vulnerability data is available', async () => {

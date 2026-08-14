@@ -1343,55 +1343,6 @@ declare module 'positron' {
 
 		/** Source repository label or URL (e.g. "CRAN", or a Project-URL). */
 		sourceRepository?: string;
-
-		/**
-		 * Known security advisories affecting the *installed* version, from the
-		 * environment's configured Posit Package Manager repository. Three
-		 * states: `undefined` means no vulnerability data is available (no PPM
-		 * configured, or the package/version isn't in the repository); an empty
-		 * array means the repository knows the version and reports no
-		 * advisories; a non-empty array lists the advisories, already
-		 * deduplicated across aliased records (PYSEC/GHSA/CVE) by the runtime.
-		 */
-		vulnerabilities?: PackageVulnerability[];
-	}
-
-	/**
-	 * A single security advisory affecting an installed package version.
-	 * Normalized by the language runtime from OSV-format records served by
-	 * Posit Package Manager.
-	 */
-	export interface PackageVulnerability {
-		/** Preferred display id: the CVE when one exists, otherwise the OSV id. */
-		readonly id: string;
-
-		/** OSV record id (PYSEC-*, GHSA-*, RSEC-*) the advisory came from. */
-		readonly osvId: string;
-
-		/**
-		 * CVSS base score (0-10). Absent when no aliased record carries a
-		 * score, which is the common case for CRAN's RSEC advisories.
-		 */
-		readonly score?: number;
-
-		/** Which CVSS revision `score` came from, so the UI can label it. */
-		readonly scoreVersion?: 'v3' | 'v4';
-
-		/** One-line advisory summary. */
-		readonly summary?: string;
-
-		/**
-		 * Display-ready fixed version(s), e.g. "1.26.5" or "1.26.5, 2.0.2" when
-		 * the advisory has fixes on multiple release branches. Not
-		 * machine-comparable; version semantics stay with the runtimes.
-		 */
-		readonly fixedIn?: string;
-
-		/** ISO 8601 publication date of the advisory. */
-		readonly published?: string;
-
-		/** Advisory URL (NVD page for CVEs, osv.dev page otherwise). */
-		readonly url?: string;
 	}
 
 	/**
@@ -1460,19 +1411,39 @@ declare module 'positron' {
 		searchPackageVersions(name: string, token?: vscode.CancellationToken): Thenable<string[]>;
 
 		/**
-		 * Fetch additional metadata for packages from external sources (e.g., PPM).
+		 * Fetch additional metadata for packages from external sources (e.g., P3M).
 		 * This is called separately from getPackages() to allow the UI to display
 		 * the basic package list quickly while metadata loads in the background.
-		 * Specs carry the installed version so version-specific lookups (security
-		 * advisories) query the right release, not the latest one.
-		 * @param packages Installed packages (name and installed version) to fetch metadata for
+		 * @param packageNames Array of package names to fetch metadata for
 		 * @param token Optional cancellation token
 		 * @returns Map of package name (lowercase) to partial package metadata
 		 */
 		getPackageMetadata?(
-			packages: PackageSpec[],
+			packageNames: string[],
 			token?: vscode.CancellationToken,
 		): Thenable<Map<string, Partial<LanguageRuntimePackage>>>;
+
+		/**
+		 * The repository (R) or package index (Python) URL this environment
+		 * installs from, when the runtime can determine it.
+		 *
+		 * Positron uses this to decide which Posit Package Manager instance, if
+		 * any, to ask for security advisories about the installed packages. Only
+		 * the runtime knows the full precedence its installer follows -- an
+		 * r-versions `Repo:` field, `repos.conf`, `pip config`, environment
+		 * variables -- so the resolution stays here rather than being guessed
+		 * from settings.
+		 *
+		 * Return the repository URL as configured (e.g.
+		 * `https://ppm.example.com/cran/latest`). Positron probes it to see
+		 * whether it is a Package Manager instance and never contacts a
+		 * different host than the one returned. Resolve `undefined` when nothing
+		 * is configured beyond the language's public default; Positron then
+		 * decides for itself whether a public lookup is appropriate.
+		 *
+		 * @param token Optional cancellation token
+		 */
+		packageRepositoryUrl?(token?: vscode.CancellationToken): Thenable<string | undefined>;
 
 		/**
 		 * Fetch detailed metadata for a single package, called when the package

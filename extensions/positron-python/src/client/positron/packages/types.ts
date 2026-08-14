@@ -80,19 +80,25 @@ export interface IPackageManager {
     searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]>;
 
     /**
-     * Fetch additional metadata for packages from external sources (e.g., PPM).
+     * Fetch additional metadata for packages from external sources (e.g., P3M).
      * This is called separately from getPackages() to allow the UI to display
      * the basic package list quickly while metadata loads in the background.
-     * Specs carry the installed version so version-specific lookups (security
-     * advisories) query the right release, not the latest one.
-     * @param packages Installed packages (name and installed version) to fetch metadata for
+     * @param packageNames Array of package names to fetch metadata for
      * @param token Optional cancellation token
      * @returns Map of package name (lowercase) to partial package metadata
      */
     getPackageMetadata?(
-        packages: positron.PackageSpec[],
+        packageNames: string[],
         token?: vscode.CancellationToken,
     ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>>;
+
+    /**
+     * The package index this environment installs from, when it resolves to one
+     * Positron can ask about security advisories. Undefined when only the
+     * default (pypi.org) applies.
+     * @param token Optional cancellation token
+     */
+    packageRepositoryUrl?(token?: vscode.CancellationToken): Promise<string | undefined>;
 
     /**
      * Fetch detailed metadata for a single package (title, author, dependency

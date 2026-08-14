@@ -12,8 +12,8 @@ import { IWorkspaceService } from '../../common/application/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { traceVerbose } from '../../logging';
+import { resolvePythonIndexUrl } from './packageIndex';
 import { fetchMetadataWithOutdated } from './packageMetadata';
-import { getPpmVulnerabilities } from './ppmVulnerabilities';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { buildRequirementsFile } from './requirementsFile';
 import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
@@ -40,15 +40,18 @@ export class PipPackageManager implements IPackageManager {
     }
 
     async getPackageMetadata(
-        packages: positron.PackageSpec[],
+        packageNames: string[],
         token?: vscode.CancellationToken,
     ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-        return fetchMetadataWithOutdated(
-            packages,
-            (t) => this._getOutdatedVersions(t),
-            (t) => getPpmVulnerabilities(packages, t, () => this._getPipConfigIndexUrl()),
-            token,
-        );
+        return fetchMetadataWithOutdated(packageNames, (t) => this._getOutdatedVersions(t), token);
+    }
+
+    /**
+     * The index this environment installs from, when it resolves to one Positron
+     * can ask about security advisories.
+     */
+    async packageRepositoryUrl(_token?: vscode.CancellationToken): Promise<string | undefined> {
+        return resolvePythonIndexUrl(() => this._getPipConfigIndexUrl());
     }
 
     /**

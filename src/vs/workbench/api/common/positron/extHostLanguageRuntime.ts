@@ -15,7 +15,7 @@ import { ExtHostRuntimeClientInstance } from './extHostClientInstance.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { isUriComponents, URI } from '../../../../base/common/uri.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
-import { IRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IPackageRepositoryRequest, IPackageRepositoryResponse, IRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
@@ -893,7 +893,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	async $getPackageMetadata(
 		handle: number,
-		packages: positron.PackageSpec[],
+		packageNames: string[],
 		token: CancellationToken,
 	): Promise<Record<string, Partial<positron.LanguageRuntimePackage>> | undefined> {
 		const packageManager = this.getPackageManagerOrThrow(handle, 'get package metadata');
@@ -901,12 +901,62 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		if (!packageManager.getPackageMetadata) {
 			return undefined;
 		}
-		const result = await packageManager.getPackageMetadata(packages, token);
+		const result = await packageManager.getPackageMetadata(packageNames, token);
 		if (!result) {
 			return undefined;
 		}
 		// Convert Map to plain object for IPC serialization
 		return Object.fromEntries(result);
+	}
+
+	async $packageRepositoryUrl(handle: number, token: CancellationToken): Promise<string | undefined> {
+		const packageManager = this.getPackageManagerOrThrow(handle, 'get package repository URL');
+		// Return undefined if the package manager doesn't implement this optional method
+		return packageManager.packageRepositoryUrl?.(token);
+	}
+
+	/**
+	 * Perform a Package Manager API request for the workbench.
+	 *
+	 * The request runs here rather than in the workbench because this is the
+	 * host the runtime runs on: it has the route to the environment's
+	 * repository, and the extension host's `fetch` is already patched with the
+	 * user's proxy configuration and system certificates. The renderer has
+	 * neither, and its `fetch` would be blocked by CORS besides -- the Package
+	 * Manager `__api__` endpoints send no `Access-Control-Allow-Origin`.
+	 *
+	 * Routing through a session handle is what picks the right host: in a server
+	 * deployment the session's extension host is on the server, which is where
+	 * an internal repository is reachable.
+	 */
+	async $packageRepositoryRequest(
+		handle: number,
+		request: IPackageRepositoryRequest,
+		token: CancellationToken,
+	): Promise<IPackageRepositoryResponse> {
+		// Resolve the session so a stale handle fails loudly rather than
+		// performing a request on behalf of a session that no longer exists.
+		this.getPackageManagerOrThrow(handle, 'perform a package repository request');
+
+		const signals: AbortSignal[] = [];
+		const controller = new AbortController();
+		signals.push(controller.signal);
+		const subscription = token.onCancellationRequested(() => controller.abort());
+		if (request.timeoutMs !== undefined) {
+			signals.push(AbortSignal.timeout(request.timeoutMs));
+		}
+
+		try {
+			const response = await fetch(request.url, {
+				method: request.method ?? 'GET',
+				headers: request.headers,
+				body: request.body,
+				signal: signals.length > 1 ? AbortSignal.any(signals) : controller.signal,
+			});
+			return { status: response.status, body: await response.text() };
+		} finally {
+			subscription.dispose();
+		}
 	}
 
 	async $listMissingPackages(

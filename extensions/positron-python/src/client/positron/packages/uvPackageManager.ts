@@ -14,8 +14,8 @@ import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
 import { traceVerbose } from '../../logging';
+import { resolvePythonIndexUrl } from './packageIndex';
 import { fetchMetadataWithOutdated } from './packageMetadata';
-import { getPpmVulnerabilities } from './ppmVulnerabilities';
 import { buildRequirementsFile } from './requirementsFile';
 import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
@@ -42,17 +42,20 @@ export class UvPackageManager implements IPackageManager {
     }
 
     async getPackageMetadata(
-        packages: positron.PackageSpec[],
+        packageNames: string[],
         token?: vscode.CancellationToken,
     ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-        // No pip-config lookup: uv reads its index from environment variables
-        // (UV_DEFAULT_INDEX / UV_INDEX_URL / PIP_INDEX_URL), not pip config.
-        return fetchMetadataWithOutdated(
-            packages,
-            (t) => this._getOutdatedVersions(t),
-            (t) => getPpmVulnerabilities(packages, t),
-            token,
-        );
+        return fetchMetadataWithOutdated(packageNames, (t) => this._getOutdatedVersions(t), token);
+    }
+
+    /**
+     * The index this environment installs from, when it resolves to one Positron
+     * can ask about security advisories. No pip-config lookup: uv reads its index
+     * from environment variables (UV_DEFAULT_INDEX / UV_INDEX_URL /
+     * PIP_INDEX_URL), not pip config.
+     */
+    async packageRepositoryUrl(_token?: vscode.CancellationToken): Promise<string | undefined> {
+        return resolvePythonIndexUrl();
     }
 
     async getPackageDetail(

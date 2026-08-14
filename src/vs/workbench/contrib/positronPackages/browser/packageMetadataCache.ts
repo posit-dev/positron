@@ -7,6 +7,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IPackageVulnerability } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IPackageVulnerabilitySource } from './packageVulnerabilityLookup.js';
 
 /**
  * Setting key: when `false`, all reads return empty and all writes no-op,
@@ -30,8 +31,9 @@ export const PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT = 24;
  * surrounding shape changes; a mismatch on load discards the persisted blob
  * and re-seeds it fresh.
  * v2: added `vulnerabilities` (security advisories from PPM).
+ * v3: added `vulnerabilitySource` (which instance served the advisories).
  */
-export const PACKAGE_METADATA_CACHE_SCHEMA_VERSION = 2;
+export const PACKAGE_METADATA_CACHE_SCHEMA_VERSION = 3;
 
 /** Storage key for the persisted cache blob. */
 export const PACKAGE_METADATA_CACHE_STORAGE_KEY = 'positron.packages.metadataCache';
@@ -74,6 +76,14 @@ export interface ICachedPackageMetadata {
 export interface ICachedEnvironment {
 	lastFetched: number;
 	packages: Record<string, ICachedPackageMetadata>;
+
+	/**
+	 * Which Package Manager instance served the cached advisories, and when.
+	 * Persisted alongside them so a warm start can still name the source it is
+	 * showing -- an all-clear is only meaningful with the instance and date
+	 * attached. Absent when the entry holds no advisory data.
+	 */
+	vulnerabilitySource?: IPackageVulnerabilitySource;
 }
 
 /** On-disk JSON shape. Keyed by `runtimeId` (stable per interpreter). */
@@ -138,13 +148,24 @@ export class PackageMetadataCache {
 	 * Replace the cached entry for `runtimeId` with a fresh snapshot, stamping
 	 * `lastFetched` with the current time. Call this only after a *successful*
 	 * fetch so a failed or cancelled fetch leaves the previous entry intact.
+	 *
+	 * @param options `vulnerabilitySource` records which instance served the
+	 *   advisories; `now` overrides the timestamp (tests).
 	 */
-	upsert(runtimeId: string, packages: Record<string, ICachedPackageMetadata>, now: number = Date.now()): void {
+	upsert(
+		runtimeId: string,
+		packages: Record<string, ICachedPackageMetadata>,
+		options?: { vulnerabilitySource?: IPackageVulnerabilitySource; now?: number },
+	): void {
 		if (!this._enabled) {
 			return;
 		}
 		const cache = this._read();
-		cache.environments[runtimeId] = { lastFetched: now, packages };
+		cache.environments[runtimeId] = {
+			lastFetched: options?.now ?? Date.now(),
+			packages,
+			vulnerabilitySource: options?.vulnerabilitySource,
+		};
 		this._write(cache);
 	}
 

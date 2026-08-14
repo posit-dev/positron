@@ -10,8 +10,9 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ICachedPackageMetadata, PackageMetadataCache } from './packageMetadataCache.js';
+import { IPackageRepositoryAccess, IPackageVulnerabilitySource, PackageVulnerabilityLookup } from './packageVulnerabilityLookup.js';
 
 export interface IPositronPackagesInstance {
 	packages: ILanguageRuntimePackage[];
@@ -37,6 +38,22 @@ export interface IPositronPackagesInstance {
 	 * manager. Resolves undefined when the manager doesn't support it.
 	 */
 	getPackageDetail(name: string, token?: CancellationToken): Promise<Partial<ILanguageRuntimePackage> | undefined>;
+
+	/**
+	 * Which Package Manager instance served the advisories currently shown, and
+	 * when. Undefined when the pane holds no advisory data.
+	 */
+	readonly vulnerabilitySource: IPackageVulnerabilitySource | undefined;
+
+	/**
+	 * Refetch package metadata (outdated state and advisories) for every
+	 * installed package, without redoing the kernel-side package list.
+	 *
+	 * Used when a setting changes what a fetch would return: cached entries are
+	 * still inside their freshness window, so without this nothing new would
+	 * appear until the window ages out.
+	 */
+	refreshPackageMetadata(): void;
 
 	/**
 	 * The newest version of an installed package available to this session.
@@ -87,6 +104,12 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	/** Handle to the in-flight metadata fetch so re-entrance can supersede it */
 	private _metadataFetch?: CancelablePromise<void>;
 
+	/**
+	 * The instance that served the cached advisories, seeded from disk so a warm
+	 * start can name the source of what it renders.
+	 */
+	private _vulnerabilitySource: IPackageVulnerabilitySource | undefined;
+
 	/** Stable per-interpreter key for the persisted cache. */
 	private readonly _runtimeId: string;
 
@@ -112,6 +135,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		session: ILanguageRuntimeSession,
 		logService: ILogService,
 		private readonly _cache: PackageMetadataCache,
+		private readonly _vulnerabilityLookup: PackageVulnerabilityLookup,
 	) {
 		super();
 
@@ -126,6 +150,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			for (const [name, metadata] of Object.entries(persisted.packages)) {
 				this._metadataCache.set(name, metadata);
 			}
+			this._vulnerabilitySource = persisted.vulnerabilitySource;
 		}
 	}
 
@@ -163,6 +188,10 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			}
 			return pkg;
 		});
+	}
+
+	get vulnerabilitySource(): IPackageVulnerabilitySource | undefined {
+		return this._vulnerabilitySource;
 	}
 
 	/** Whether the cache holds outdated state for the package's current version. */
@@ -233,20 +262,37 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// (and a fully-fresh warm start makes no network call at all). Use
 		// CancellationToken.None since this runs after the main operation
 		// completes.
-		if (packageManager.getPackageMetadata && this._packages.length > 0) {
+		//
+		// Stage 2 runs whenever there are packages: the vulnerability lookup is
+		// Positron's own and doesn't need `getPackageMetadata`, so a runtime
+		// that reports no outdated state still gets advisories.
+		if (this._packages.length > 0) {
 			const fetchAll = forceMetadata || !this._cache.isFresh(this._runtimeId);
 			this._fetchAndMergeMetadata(packageManager, CancellationToken.None, fetchAll);
 		}
 	}
 
+	refreshPackageMetadata(): void {
+		const packageManager = this._session.getPackageManager?.();
+		if (!packageManager || this._packages.length === 0) {
+			return;
+		}
+		this._fetchAndMergeMetadata(packageManager, CancellationToken.None, true);
+	}
+
 	/**
-	 * Fetch package outdated metadata and store it in the cache, persisting the
-	 * result to disk on success. When `fetchAll` is false, only packages
-	 * lacking a fresh (version-matching) cache hit are fetched.
+	 * Fetch package metadata -- outdated state from the runtime, security
+	 * advisories from Positron's own lookup -- and store it in the cache,
+	 * persisting the result to disk on success. When `fetchAll` is false, only
+	 * packages lacking a fresh (version-matching) cache hit are fetched.
 	 * This runs asynchronously after the initial package list is returned.
 	 */
 	private async _fetchAndMergeMetadata(
-		packageManager: { getPackageMetadata?: (packages: IPackageSpec[], token?: CancellationToken) => Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined> },
+		packageManager: {
+			getPackageMetadata?: (packageNames: string[], token?: CancellationToken) => Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined>;
+			packageRepositoryUrl?: (token?: CancellationToken) => Promise<string | undefined>;
+			repositoryRequest?: (request: IPackageRepositoryRequest, token?: CancellationToken) => Promise<IPackageRepositoryResponse>;
+		},
 		externalToken: CancellationToken,
 		fetchAll: boolean,
 	): Promise<void> {
@@ -268,35 +314,101 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		const versionByName = new Map(this._packages.map((pkg) => [pkg.name.toLowerCase(), pkg.version]));
 
 		const fetch = createCancelablePromise<void>(async (token) => {
-			// Send the installed version with each name so version-specific
-			// lookups (security advisories) answer for what's installed.
+			// Advisories are version-specific, so the lookup gets installed
+			// versions; the runtime's own metadata call only needs names.
 			const packageSpecs = packagesToFetch.map((pkg): IPackageSpec => ({ name: pkg.name, version: pkg.version }));
-			const metadataMap = await packageManager.getPackageMetadata!(packageSpecs, token);
+
+			// The advisory lookup needs the runtime's host to make its requests
+			// (the renderer can't reach a Package Manager API), so a runtime
+			// that can't carry one gets no advisories.
+			//
+			// Both hooks are invoked as methods on the package manager rather
+			// than pulled out into locals first: the main-thread adapter reads
+			// `this._proxy`, so an unbound call throws.
+			const access: IPackageRepositoryAccess | undefined = packageManager.repositoryRequest
+				? {
+					resolveUrl: (lookupToken) => packageManager.packageRepositoryUrl?.(lookupToken) ?? Promise.resolve(undefined),
+					request: (request, requestToken) => packageManager.repositoryRequest!(request, requestToken),
+				}
+				: undefined;
+
+			// Two independent sources: settle both so a slow or failing
+			// vulnerability lookup can't hold up (or discard) the outdated
+			// state, which is what the pane mostly renders.
+			const [metadataResult, vulnerabilityResult] = await Promise.allSettled([
+				packageManager.getPackageMetadata
+					? packageManager.getPackageMetadata(packagesToFetch.map((pkg) => pkg.name), token)
+					: Promise.resolve(undefined),
+				access
+					? this._vulnerabilityLookup.getVulnerabilities(
+						this._session.runtimeMetadata.languageId,
+						access,
+						packageSpecs,
+						token,
+					)
+					: Promise.resolve(undefined),
+			]);
 
 			// Re-check cancellation before writing so a cancelled fetch
 			// can't pollute the cache after a caller has cleared it.
-			if (token.isCancellationRequested || !metadataMap || metadataMap.size === 0) {
+			if (token.isCancellationRequested) {
 				return;
 			}
 
-			for (const [name, metadata] of metadataMap) {
-				const key = name.toLowerCase();
+			if (metadataResult.status === 'rejected' && !isCancellationError(metadataResult.reason)) {
+				this._logService.warn(`[Packages] Failed to fetch package metadata: ${metadataResult.reason}`);
+			}
+			const metadataMap = metadataResult.status === 'fulfilled' ? metadataResult.value : undefined;
+			const vulnerabilities = vulnerabilityResult.status === 'fulfilled' ? vulnerabilityResult.value : undefined;
+
+			// Only the packages some source answered for get an entry, so a
+			// package nobody reported on stays uncached and is retried.
+			const keys = new Set<string>();
+			for (const name of metadataMap?.keys() ?? []) {
+				keys.add(name.toLowerCase());
+			}
+			for (const name of vulnerabilities?.vulnerabilities.keys() ?? []) {
+				keys.add(name.toLowerCase());
+			}
+			if (keys.size === 0) {
+				return;
+			}
+
+			for (const key of keys) {
 				const version = versionByName.get(key);
 				if (version === undefined) {
 					// Not currently installed; nothing to anchor the entry to.
 					continue;
 				}
-				this._metadataCache.set(key, {
-					version,
-					outdated: metadata.outdated,
-					latestVersion: metadata.latestVersion,
-					vulnerabilities: metadata.vulnerabilities,
-				});
+				const existing = this._metadataCache.get(key);
+				// Start from the cached entry when it describes the version
+				// that's installed now, so a source that failed this round
+				// keeps whatever it last reported instead of being cleared.
+				const entry: ICachedPackageMetadata = existing?.version === version
+					? { ...existing }
+					: { version };
+				const metadata = metadataMap?.get(key);
+				if (metadata) {
+					entry.outdated = metadata.outdated;
+					entry.latestVersion = metadata.latestVersion;
+				}
+				if (vulnerabilities) {
+					// Unlike the metadata map, an absent key here is an answer:
+					// a successful lookup that doesn't mention the package means
+					// the repository doesn't have it at this version, so any
+					// advisories cached earlier can no longer be claimed.
+					entry.vulnerabilities = vulnerabilities.vulnerabilities.get(key);
+				}
+				this._metadataCache.set(key, entry);
+			}
+
+			if (vulnerabilities) {
+				this._vulnerabilitySource = vulnerabilities.source;
 			}
 
 			// Persist only after a successful fetch so a failed or cancelled
 			// fetch leaves the previous on-disk entry intact.
-			this._cache.upsert(this._runtimeId, this._snapshotForPersist());
+			this._cache.upsert(this._runtimeId, this._snapshotForPersist(), { vulnerabilitySource: this._vulnerabilitySource });
 
 			this._onDidRefreshPackagesInstance.fire(this.packages);
 		});

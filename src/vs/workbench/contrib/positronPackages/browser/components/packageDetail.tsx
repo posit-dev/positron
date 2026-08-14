@@ -56,6 +56,11 @@ function formatPublishedDate(raw: string): string {
 	return raw;
 }
 
+/** Format a lookup timestamp (epoch ms) as YYYY-MM-DD for display. */
+function formatFetchedDate(fetchedAt: number): string {
+	return new Date(fetchedAt).toISOString().slice(0, 10);
+}
+
 /**
  * A single stat in the Overview's top stat strip: an uppercase label above a
  * prominent value. Renders nothing if there is no value. The Overview is hidden
@@ -332,11 +337,16 @@ export const PackageDetail = (props: PackageDetailProps) => {
 
 	// Advisories ride in with the list metadata (Stage 2), not the detail
 	// fetch, so they read off the merged entry and may appear after the
-	// Overview first renders. `undefined` means no data (no PPM configured, or
+	// Overview first renders. `undefined` means no data (no PPM resolved, or
 	// this package/version is unknown to it): render no Security section at
 	// all rather than an affirmative "no vulnerabilities" that isn't earned.
 	const vulnerabilitiesEnabled = usePositronConfiguration<boolean>(PACKAGES_VULNERABILITIES_ENABLED_SETTING) !== false;
 	const vulnerabilities = vulnerabilitiesEnabled ? merged.vulnerabilities : undefined;
+
+	// Which instance reported them, and when. An instance whose advisory data is
+	// stale or absent reports every package as clean and nothing in its response
+	// says so, so "no advisories" is only meaningful with the source attached.
+	const vulnerabilitySource = vulnerabilitiesEnabled ? instance?.vulnerabilitySource : undefined;
 
 	// Highest-severity first; unscored advisories sort after scored ones.
 	const sortedVulnerabilities = vulnerabilities === undefined ? undefined : [...vulnerabilities].sort(
@@ -523,11 +533,18 @@ export const PackageDetail = (props: PackageDetailProps) => {
 					<div className='package-detail-security'>
 						{sortedVulnerabilities.length === 0
 							? <div className='package-detail-security-clean'>
-								{localize('positron.packages.detail.noVulnerabilities', "No known vulnerabilities have been reported for this version.")}
+								{vulnerabilitySource
+									? localize('positron.packages.detail.noVulnerabilitiesFrom', "No advisories reported by {0} as of {1}.", vulnerabilitySource.host, formatFetchedDate(vulnerabilitySource.fetchedAt))
+									: localize('positron.packages.detail.noVulnerabilities', "No advisories were reported for this version.")}
 							</div>
 							: <div className='package-detail-vulnerabilities'>
 								{sortedVulnerabilities.map(vulnerability =>
 									<VulnerabilityRow key={vulnerability.osvId} vulnerability={vulnerability} />)}
+							</div>
+						}
+						{sortedVulnerabilities.length > 0 && vulnerabilitySource &&
+							<div className='package-detail-security-source'>
+								{localize('positron.packages.detail.advisorySource', "Reported by {0} as of {1}.", vulnerabilitySource.host, formatFetchedDate(vulnerabilitySource.fetchedAt))}
 							</div>
 						}
 					</div>
