@@ -41,7 +41,7 @@ import type * as net from 'net';
 // --- Start Positron ---
 import { HAS_STATIC_ROUTE } from './pwbConstants.js';
 import { shouldUseSessionLessStaticRoute } from './positronStaticRoute.js';
-import { IPositronAcademicLicenseService } from '../../platform/positronLicense/common/positronAcademicLicenseService.js';
+import { academicMarkerScript, IPositronAcademicLicenseService } from '../../platform/positronLicense/common/positronAcademicLicenseService.js';
 // --- End Positron ---
 
 const textMimeType: { [ext: string]: string | undefined } = {
@@ -689,9 +689,8 @@ export class WebClientServer {
 
 		// --- Start Positron: browser-side academic marker ---
 		// Same early-injection trick as the Workbench marker above, reusing the PWB_WORKBENCH_MARKER
-		// slot so no template changes are needed. The default (no injected global) is "not academic",
-		// so we only need to inject the global when the validated license says otherwise.
-		const academicMarker = this._academicLicenseService.isAcademic ? '<script>globalThis._POSITRON_IS_ACADEMIC = true;</script>' : '';
+		// slot so no template changes are needed.
+		const academicMarker = academicMarkerScript(this._academicLicenseService.isAcademic);
 		// --- End Positron ---
 
 		const values: { [key: string]: string } = {

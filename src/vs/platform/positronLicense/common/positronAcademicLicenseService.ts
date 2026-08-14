@@ -23,3 +23,16 @@ export interface IPositronAcademicLicenseService {
 	/** Whether this session is running under an academic license. */
 	readonly isAcademic: boolean;
 }
+
+/**
+ * Builds the inline `<script>` that tells the browser this session is academic, for injection
+ * into the served workbench HTML by `webClientServer.ts`. Empty when the session is not
+ * academic: the absence of the global means false, which is the common case.
+ *
+ * The global name here must stay in sync with the one `isAcademic` reads in
+ * `base/common/platform.ts`. It cannot be shared as a constant -- `base` may not import from
+ * `platform` -- so the string is duplicated there and pinned by this function's test.
+ */
+export function academicMarkerScript(isAcademic: boolean): string {
+	return isAcademic ? '<script>globalThis._POSITRON_IS_ACADEMIC = true;</script>' : '';
+}
