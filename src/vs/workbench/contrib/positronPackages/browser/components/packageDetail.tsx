@@ -56,9 +56,17 @@ function formatPublishedDate(raw: string): string {
 	return raw;
 }
 
-/** Format a lookup timestamp (epoch ms) as YYYY-MM-DD for display. */
+/**
+ * Format a lookup timestamp (epoch ms) as YYYY-MM-DD for display. Read in the
+ * reader's own time zone, unlike the advisory dates above: this one is a local
+ * event ("when Positron asked"), so a UTC rendering would show tomorrow's date
+ * to anyone who refreshed in the evening west of UTC.
+ */
 function formatFetchedDate(fetchedAt: number): string {
-	return new Date(fetchedAt).toISOString().slice(0, 10);
+	const fetched = new Date(fetchedAt);
+	const month = `${fetched.getMonth() + 1}`.padStart(2, '0');
+	const day = `${fetched.getDate()}`.padStart(2, '0');
+	return `${fetched.getFullYear()}-${month}-${day}`;
 }
 
 /**
@@ -497,59 +505,69 @@ export const PackageDetail = (props: PackageDetailProps) => {
 				{tabs.map(renderTab)}
 			</div>
 
-			<div
-				aria-labelledby={tabId(activeTab)}
-				className='package-detail-panel'
-				id={panelId(activeTab)}
-				role='tabpanel'
-				tabIndex={0}
-			>
-				{/*
-				 * Hold the Overview back until the detail fetch resolves, then render
-				 * it all at once. Half-rendering it with the list entry and filling in
-				 * detail-only fields afterwards made the panel jump. The advisories
-				 * ride in with the list metadata instead, so the Security tab has
-				 * nothing to wait for.
-				 */}
-				{activeTab === 'overview' && !detailLoading &&
-					<div className='package-detail-overview'>
-						<div className='package-detail-stats'>
-							<Stat label={localize('positron.packages.detail.version', "Version")} value={installedVersionText} />
-							<Stat label={localize('positron.packages.detail.license', "License")} value={merged.license} />
-						</div>
+			{/*
+			 * Every tab gets its panel, with the inactive ones hidden, so each
+			 * tab's `aria-controls` resolves to an element that is really there.
+			 * Both are cheap to render, which is also why selection follows
+			 * focus in the tablist above.
+			 */}
+			{tabs.map(tab =>
+				<div
+					key={tab}
+					aria-labelledby={tabId(tab)}
+					className='package-detail-panel'
+					hidden={tab !== activeTab}
+					id={panelId(tab)}
+					role='tabpanel'
+					tabIndex={0}
+				>
+					{/*
+					 * Hold the Overview back until the detail fetch resolves, then render
+					 * it all at once. Half-rendering it with the list entry and filling in
+					 * detail-only fields afterwards made the panel jump. The advisories
+					 * ride in with the list metadata instead, so the Security tab has
+					 * nothing to wait for.
+					 */}
+					{tab === 'overview' && !detailLoading &&
+						<div className='package-detail-overview'>
+							<div className='package-detail-stats'>
+								<Stat label={localize('positron.packages.detail.version', "Version")} value={installedVersionText} />
+								<Stat label={localize('positron.packages.detail.license', "License")} value={merged.license} />
+							</div>
 
-						<div className='package-detail-section'>
-							<div className='package-detail-section-title'>{localize('positron.packages.detail.metadata', "Metadata")}</div>
-							<div className='package-detail-meta-grid'>
-								<MetaRow label={localize('positron.packages.detail.repository', "Source repository")} value={merged.sourceRepository} />
-								<MetaRow label={localize('positron.packages.detail.published', "Date published")} value={merged.publishedDate ? formatPublishedDate(merged.publishedDate) : undefined} />
-								<MetaRow label={localize('positron.packages.detail.interpreter', "Interpreter")} value={interpreter} />
+							<div className='package-detail-section'>
+								<div className='package-detail-section-title'>{localize('positron.packages.detail.metadata', "Metadata")}</div>
+								<div className='package-detail-meta-grid'>
+									<MetaRow label={localize('positron.packages.detail.repository', "Source repository")} value={merged.sourceRepository} />
+									<MetaRow label={localize('positron.packages.detail.published', "Date published")} value={merged.publishedDate ? formatPublishedDate(merged.publishedDate) : undefined} />
+									<MetaRow label={localize('positron.packages.detail.interpreter', "Interpreter")} value={interpreter} />
+								</div>
 							</div>
 						</div>
-					</div>
-				}
+					}
 
-				{activeTab === 'security' && sortedVulnerabilities !== undefined &&
-					<div className='package-detail-security'>
-						{sortedVulnerabilities.length === 0
-							? <div className='package-detail-security-clean'>
-								{vulnerabilitySource
-									? localize('positron.packages.detail.noVulnerabilitiesFrom', "No advisories reported by {0} as of {1}.", vulnerabilitySource.host, formatFetchedDate(vulnerabilitySource.fetchedAt))
-									: localize('positron.packages.detail.noVulnerabilities', "No advisories were reported for this version.")}
-							</div>
-							: <div className='package-detail-vulnerabilities'>
-								{sortedVulnerabilities.map(vulnerability =>
-									<VulnerabilityRow key={vulnerability.osvId} vulnerability={vulnerability} />)}
-							</div>
-						}
-						{sortedVulnerabilities.length > 0 && vulnerabilitySource &&
-							<div className='package-detail-security-source'>
-								{localize('positron.packages.detail.advisorySource', "Reported by {0} as of {1}.", vulnerabilitySource.host, formatFetchedDate(vulnerabilitySource.fetchedAt))}
-							</div>
-						}
-					</div>
-				}
-			</div>
+					{tab === 'security' && sortedVulnerabilities !== undefined &&
+						<div className='package-detail-security'>
+							{sortedVulnerabilities.length === 0
+								? <div className='package-detail-security-clean'>
+									{vulnerabilitySource
+										? localize('positron.packages.detail.noVulnerabilitiesFrom', "No advisories reported by {0} as of {1}.", vulnerabilitySource.host, formatFetchedDate(vulnerabilitySource.fetchedAt))
+										: localize('positron.packages.detail.noVulnerabilities', "No advisories were reported for this version.")}
+								</div>
+								: <div className='package-detail-vulnerabilities'>
+									{sortedVulnerabilities.map(vulnerability =>
+										<VulnerabilityRow key={vulnerability.osvId} vulnerability={vulnerability} />)}
+								</div>
+							}
+							{sortedVulnerabilities.length > 0 && vulnerabilitySource &&
+								<div className='package-detail-security-source'>
+									{localize('positron.packages.detail.advisorySource', "Reported by {0} as of {1}.", vulnerabilitySource.host, formatFetchedDate(vulnerabilitySource.fetchedAt))}
+								</div>
+							}
+						</div>
+					}
+				</div>
+			)}
 		</div>
 	);
 };

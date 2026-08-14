@@ -246,7 +246,9 @@ describe('PackageDetail with resolved detail fields', () => {
 describe('PackageDetail Security tab', () => {
 	const SOURCE: IPackageVulnerabilitySource = {
 		host: 'ppm.example.com',
-		fetchedAt: Date.UTC(2026, 7, 13),
+		// Local midday, so the rendered date is 2026-08-13 in every time zone.
+		// The lookup timestamp is a local event and is displayed as one.
+		fetchedAt: new Date(2026, 7, 13, 12).getTime(),
 	};
 
 	function renderWithVulnerabilities(
@@ -282,9 +284,11 @@ describe('PackageDetail Security tab', () => {
 		const user = userEvent.setup();
 
 		// The tab carries the advisory count so the signal survives being moved
-		// off the Overview; the advisories themselves are a click away.
+		// off the Overview; the advisories themselves are a click away. Both
+		// panels stay mounted so each tab's aria-controls resolves, so the
+		// inactive one is hidden rather than absent.
 		const securityTab = screen.getByRole('tab', { name: 'Security, 1 known vulnerability' });
-		expect(screen.queryByText('Pycrypto generates weak key parameters')).not.toBeInTheDocument();
+		expect(screen.getByText('Pycrypto generates weak key parameters')).not.toBeVisible();
 		await user.click(securityTab);
 
 		// Severity chip: band label + score, tagged with the CVSS revision.
@@ -295,8 +299,8 @@ describe('PackageDetail Security tab', () => {
 		expect(screen.getByText('Pycrypto generates weak key parameters')).toBeInTheDocument();
 		expect(screen.getByText('Fixed in 2.7.0')).toBeInTheDocument();
 		expect(screen.getByText('Published 2018-02-03')).toBeInTheDocument();
-		// Selecting Security swaps the panel; the Overview's Metadata is gone.
-		expect(screen.queryByText('Metadata')).not.toBeInTheDocument();
+		// Selecting Security swaps the panel; the Overview's Metadata is hidden.
+		expect(screen.getByText('Metadata')).not.toBeVisible();
 	});
 
 	it('shows an unscored advisory without a score or CVSS tag', async () => {
