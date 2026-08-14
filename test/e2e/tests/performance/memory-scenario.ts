@@ -47,16 +47,32 @@ function snapshotDir(scenario: MemoryScenario): string {
 export function defineMemoryScenario(options: {
 	scenario: MemoryScenario;
 	/** Drives the app into the state being measured. Omitted for idle. */
-	prepare?: (fixtures: { app: Application; sessions: Sessions }) => Promise<void>;
+	prepare?: (fixtures: {
+		app: Application;
+		sessions: Sessions;
+		openDataFile: (filePath: string) => Promise<void>;
+	}) => Promise<void>;
 	/** Roles that must be present, proving the scenario reached its state. */
 	expectRoles?: ProcessRole[];
+	/**
+	 * Process names that must be present, for scenarios whose process is not
+	 * distinguishable by role alone.
+	 *
+	 * `expectRoles` is enough when the scenario adds a role that idle lacks, as
+	 * the session scenarios do with `kernel`. It is useless when the role is
+	 * already occupied: the duckdb worker is an `extension_child`, but so is pet,
+	 * which runs at idle, so requiring that role would pass on a run where the
+	 * CSV never opened. Matched against the process name and the command
+	 * basename, either of which identifies the worker.
+	 */
+	expectProcesses?: RegExp[];
 }): void {
-	const { scenario, prepare, expectRoles = [] } = options;
+	const { scenario, prepare, expectRoles = [], expectProcesses = [] } = options;
 	const SNAPSHOT_DIR = snapshotDir(scenario);
 
 	test.describe(`Memory: ${scenario}`, { tag: [tags.PERFORMANCE] }, () => {
 
-		test(`Memory footprint of the Positron process tree: ${scenario}`, async function ({ app, sessions, logsPath }) {
+		test(`Memory footprint of the Positron process tree: ${scenario}`, async function ({ app, sessions, logsPath, openDataFile }) {
 			// Derived rather than a round number, because the default 2 minutes is
 			// now too short: a run that waits out both caps would time out before it
 			// could report which one it hit, turning a diagnosable result into a
@@ -73,7 +89,7 @@ export function defineMemoryScenario(options: {
 			expect(mainPid, 'no Electron main pid; this spec only runs against Electron').toBeTruthy();
 
 			if (prepare) {
-				await prepare({ app, sessions });
+				await prepare({ app, sessions, openDataFile });
 			}
 
 			// Deterministic readiness gate, not a memory heuristic: waits out startup
@@ -109,6 +125,18 @@ export function defineMemoryScenario(options: {
 			const roles = new Set(snapshot.processes.map(p => p.processRole));
 			for (const role of expectRoles) {
 				expect(roles, `scenario ${scenario} expected a ${role} process; the app never reached the state being measured`).toContain(role);
+			}
+
+			// Same argument as expectRoles, for the processes a role cannot single
+			// out. Reported with the names that were present, because "no duckdb
+			// worker" and "the worker is there under a name this regex misses" need
+			// different fixes and the failure text is the only place to tell them apart.
+			for (const pattern of expectProcesses) {
+				const matched = snapshot.processes.some(p =>
+					pattern.test(p.processName) || pattern.test(p.cmdBasename));
+				expect(matched,
+					`scenario ${scenario} expected a process matching ${pattern}; the app never reached the state being measured. ` +
+					`Present: ${snapshot.processes.map(p => p.processName).join(', ')}`).toBe(true);
 			}
 
 			// waitForSettle gives up at its cap regardless of whether the tree

@@ -27,18 +27,22 @@ describe('memorySpecsToIgnore', () => {
 		expect(memorySpecsToIgnore(undefined)).toEqual([
 			'**/performance/memory-idle.test.ts',
 			'**/performance/memory-session-python.test.ts',
-			'**/performance/memory-session-r.test.ts'
+			'**/performance/memory-session-r.test.ts',
+			'**/performance/memory-data-explorer.test.ts',
+			'**/performance/memory-notebook.test.ts'
 		]);
 	});
 
 	test('keeps only the running scenario, so one job measures one state', () => {
 		expect(memorySpecsToIgnore('session-r')).toEqual([
 			'**/performance/memory-idle.test.ts',
-			'**/performance/memory-session-python.test.ts'
+			'**/performance/memory-session-python.test.ts',
+			'**/performance/memory-data-explorer.test.ts',
+			'**/performance/memory-notebook.test.ts'
 		]);
 	});
 
 	test('ignores everything when the scenario is a typo, rather than running the wrong spec', () => {
-		expect(memorySpecsToIgnore('session_r')).toHaveLength(3);
+		expect(memorySpecsToIgnore('session_r')).toHaveLength(MEMORY_SCENARIOS.length);
 	});
 });
