@@ -928,6 +928,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * Routing through a session handle is what picks the right host: in a server
 	 * deployment the session's extension host is on the server, which is where
 	 * an internal repository is reachable.
+	 *
+	 * The request is held to the host the workbench named. Positron promises an
+	 * environment that installs from an internal repository that its package
+	 * inventory goes to that repository and nowhere else, and a redirect would
+	 * otherwise carry the inventory off-host without anyone deciding to.
 	 */
 	async $packageRepositoryRequest(
 		handle: number,
@@ -937,6 +942,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// Resolve the session so a stale handle fails loudly rather than
 		// performing a request on behalf of a session that no longer exists.
 		this.getPackageManagerOrThrow(handle, 'perform a package repository request');
+
+		const target = new URL(request.url);
+		if (target.protocol !== 'http:' && target.protocol !== 'https:') {
+			throw new Error(`Unsupported package repository scheme: ${target.protocol}`);
+		}
 
 		const signals: AbortSignal[] = [];
 		const controller = new AbortController();
@@ -953,6 +963,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				body: request.body,
 				signal: signals.length > 1 ? AbortSignal.any(signals) : controller.signal,
 			});
+			if (response.redirected && new URL(response.url).host !== target.host) {
+				throw new Error(`Package repository request to ${target.host} redirected to ${new URL(response.url).host}`);
+			}
 			return { status: response.status, body: await response.text() };
 		} finally {
 			subscription.dispose();
