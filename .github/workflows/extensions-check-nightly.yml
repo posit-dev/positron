@@ -75,10 +75,64 @@ jobs:
           retention-days: 3
           if-no-files-found: ignore
 
+  dependency-check:
+    name: 'check-bootstrap-extension-deps'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: ${{ github.workflow }}-dependency-check
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+    outputs:
+      flagged: ${{ steps.depcheck.outputs.flagged }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check bootstrap extension dependencies
+        id: depcheck
+        run: |
+          node scripts/check-bootstrap-extension-deps.ts --json > depcheck.json
+          echo "hits=$(jq '.hits | length' depcheck.json)" >> "$GITHUB_OUTPUT"
+          echo "flagged=$(jq -r '[.hits[].id] | join(" ")' depcheck.json)" >> "$GITHUB_OUTPUT"
+          {
+            jq -r '.summary' depcheck.json
+            jq -r '.warnings[]? | "- " + .' depcheck.json
+            jq -r '.hits[]? | "- HIT: " + .issueTitle' depcheck.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open an issue for each hit
+        if: steps.depcheck.outputs.hits != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRYRUN: ${{ inputs.dryrun }}
+        run: |
+          KNOWN_TITLES=$(gh issue list --repo "$GITHUB_REPOSITORY" --state all \
+            --label "area: extensions" --limit 1000 --json title)
+          jq -c '.hits[]' depcheck.json | while read -r hit; do
+            title=$(jq -r '.issueTitle' <<<"$hit")
+            existing=$(jq --arg t "$title" '[.[] | select(.title == $t)] | length' <<<"$KNOWN_TITLES")
+            if [ "$existing" != "0" ]; then
+              echo "Issue already filed, skipping: $title" >> "$GITHUB_STEP_SUMMARY"
+            elif [ "$DRYRUN" = "true" ]; then
+              echo "[dryrun] Would open issue: $title"
+              jq -r '.issueBody' <<<"$hit" | sed 's/^/[dryrun]   /'
+            else
+              jq -r '.issueBody' <<<"$hit" | gh issue create --repo "$GITHUB_REPOSITORY" \
+                --title "$title" --label "area: extensions" --label "bug" --body-file -
+              echo "Opened issue: $title" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
   auto-update:
     name: 'auto-update-extensions'
-    if: always() && needs.extensions-linux.result != 'cancelled'
-    needs: [extensions-linux]
+    if: always() && needs.extensions-linux.result != 'cancelled' && needs.dependency-check.result == 'success'
+    needs: [extensions-linux, dependency-check]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -131,19 +185,46 @@ jobs:
       - name: Update extensions
         env:
           TEST_RESULT: ${{ needs.extensions-linux.result }}
+          FLAGGED: ${{ needs.dependency-check.outputs.flagged }}
         run: |
           MISMATCHED=()
           if [ "$TEST_RESULT" = "failure" ] && [ -s mismatched-extensions.txt ]; then
             read -ra MISMATCHED <<< "$(cat mismatched-extensions.txt)"
           fi
           # meta.pyrefly is optional in the test, so bump it every run to catch silent drift.
-          EXTENSIONS_TO_BUMP=(meta.pyrefly "${MISMATCHED[@]}")
-          echo "Bumping extensions: ${EXTENSIONS_TO_BUMP[*]}"
+          CANDIDATES=(meta.pyrefly "${MISMATCHED[@]}")
+          EXTENSIONS_TO_BUMP=()
+          HELD_BACK=()
+          for ext in "${CANDIDATES[@]}"; do
+            if [[ " $FLAGGED " == *" $ext "* ]]; then
+              HELD_BACK+=("$ext")
+            else
+              EXTENSIONS_TO_BUMP+=("$ext")
+            fi
+          done
           {
             echo "### Bootstrap extensions to bump"
             echo ""
-            printf -- '- %s\n' "${EXTENSIONS_TO_BUMP[@]}"
+            if [ ${#EXTENSIONS_TO_BUMP[@]} -eq 0 ]; then
+              echo "- (none)"
+            else
+              printf -- '- %s\n' "${EXTENSIONS_TO_BUMP[@]}"
+            fi
+            if [ ${#HELD_BACK[@]} -gt 0 ]; then
+              echo ""
+              echo "Held back, latest version depends on a blocked extension:"
+              echo ""
+              printf -- '- %s\n' "${HELD_BACK[@]}"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
+          if [ ${#HELD_BACK[@]} -gt 0 ]; then
+            echo "Holding back: ${HELD_BACK[*]}"
+          fi
+          if [ ${#EXTENSIONS_TO_BUMP[@]} -eq 0 ]; then
+            echo "Nothing to bump."
+            exit 0
+          fi
+          echo "Bumping extensions: ${EXTENSIONS_TO_BUMP[*]}"
           ./scripts/update-extensions.sh "${EXTENSIONS_TO_BUMP[@]}"
           git add product.json
 
@@ -317,8 +398,8 @@ jobs:
             -d "$PAYLOAD"
 
   slack-notify:
-    if: always() && needs.extensions-linux.result == 'failure' && needs.auto-update.outputs.pr_url == '' && inputs.dryrun != true
-    needs: [extensions-linux, auto-update]
+    if: always() && inputs.dryrun != true && ((needs.extensions-linux.result == 'failure' && needs.auto-update.outputs.pr_url == '') || needs.dependency-check.result == 'failure')
+    needs: [extensions-linux, auto-update, dependency-check]
     runs-on: ubuntu-latest
     steps:
       - name: Notify Slack

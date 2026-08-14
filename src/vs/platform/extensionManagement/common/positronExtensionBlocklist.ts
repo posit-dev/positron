@@ -25,7 +25,7 @@ export const POSITRON_BLOCKED_EXTENSIONS: readonly string[] = [
  * built-in extension under the same ID. A third-party extension may declare a
  * dependency on one of these and still work, because the built-in satisfies the
  * dependency. Keep in sync with extensions/<dir>/package.json publisher and
- * name; scripts/check-bootstrap-extension-deps.mjs verifies this nightly.
+ * name; scripts/check-bootstrap-extension-deps.ts verifies this nightly.
  */
 export const POSITRON_BLOCKED_EXTENSIONS_WITH_BUILTIN: readonly string[] = [
 	'github.copilot-chat',		// extensions/copilot
