@@ -46,10 +46,17 @@ function toIdentity(path: ICanvasLaunchPath | undefined): ICanvasWindowIdentity 
  * restored background window. `assign()` then grants Canvas only to the
  * matching configuration and consumes the flag off the args object itself, so
  * a stale flag cannot leak into windows opened later in the process lifetime.
+ *
+ * Targets are keyed by the launch's args object, which is the one reference a
+ * launch travels in from `prime()` to `assign()`, so an interleaved second
+ * open (canvas-flagged or not) cannot clobber another launch's target. Args
+ * never primed carry no target and match any configuration; that is distinct
+ * from a primed identity-less fresh empty window target, which matches only
+ * an identity-less configuration.
  */
 export class CanvasLaunchWindowAssigner {
 
-	private target: ICanvasWindowIdentity | undefined;
+	private readonly targets = new WeakMap<ICanvasLaunchArgs, ICanvasWindowIdentity>();
 
 	/**
 	 * Chooses which of the windows about to open carries the launch's
@@ -59,7 +66,9 @@ export class CanvasLaunchWindowAssigner {
 	 */
 	prime(args: ICanvasLaunchArgs | undefined, paths: readonly ICanvasLaunchPath[], restoring: boolean): void {
 		if (args?.canvas !== true) {
-			this.target = undefined;
+			if (args) {
+				this.targets.delete(args);
+			}
 			return;
 		}
 
@@ -67,7 +76,7 @@ export class CanvasLaunchWindowAssigner {
 		// with a window identity of their own decide the target. None at all
 		// means a fresh empty window (identity-less on both sides).
 		const windowPaths = paths.filter(path => path.workspace || path.backupPath);
-		this.target = toIdentity(restoring ? windowPaths.at(-1) : windowPaths.at(0));
+		this.targets.set(args, toIdentity(restoring ? windowPaths.at(-1) : windowPaths.at(0)));
 	}
 
 	assign(args: ICanvasLaunchArgs | undefined, identity: ICanvasWindowIdentity): boolean {
@@ -75,7 +84,8 @@ export class CanvasLaunchWindowAssigner {
 			return false;
 		}
 
-		if (this.target && (this.target.workspaceId !== identity.workspaceId || this.target.backupFolder !== identity.backupFolder)) {
+		const target = this.targets.get(args);
+		if (target && (target.workspaceId !== identity.workspaceId || target.backupFolder !== identity.backupFolder)) {
 			return false;
 		}
 
@@ -84,7 +94,7 @@ export class CanvasLaunchWindowAssigner {
 		// deleting it here also tells the launch service the flag reached a
 		// fresh window, so no forwarded action is needed.
 		delete args.canvas;
-		this.target = undefined;
+		this.targets.delete(args);
 		return true;
 	}
 }

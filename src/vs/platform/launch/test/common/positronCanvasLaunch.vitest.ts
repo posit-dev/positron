@@ -75,11 +75,50 @@ describe('CanvasLaunchWindowAssigner', () => {
 		expect(assigner.assign(launch, freshEmpty)).toBe(true);
 	});
 
-	it('priming a launch without the flag clears an earlier target', () => {
+	it('keeps a primed target across an interleaved non-canvas open', () => {
 		const assigner = new CanvasLaunchWindowAssigner();
-		assigner.prime({ canvas: true }, [{ workspace: { id: 'stale-target' } }], false);
-		assigner.prime({}, [], false);
-		const launch = { canvas: true };
+		const canvasLaunch = { canvas: true };
+		assigner.prime(canvasLaunch, [{ workspace: { id: 'requested' } }], false);
+		assigner.prime({}, [{ workspace: { id: 'interleaved' } }], false);
+
+		expect(assigner.assign(canvasLaunch, workspaceIdentity('interleaved'))).toBe(false);
+		expect(assigner.assign(canvasLaunch, workspaceIdentity('requested'))).toBe(true);
+	});
+
+	it('keeps interleaved canvas launches on their own targets', () => {
+		const assigner = new CanvasLaunchWindowAssigner();
+		const firstLaunch = { canvas: true };
+		const secondLaunch = { canvas: true };
+		assigner.prime(firstLaunch, [{ workspace: { id: 'first' } }], false);
+		assigner.prime(secondLaunch, [{ workspace: { id: 'second' } }], false);
+
+		expect([
+			assigner.assign(firstLaunch, workspaceIdentity('second')),
+			assigner.assign(secondLaunch, workspaceIdentity('first')),
+			assigner.assign(firstLaunch, workspaceIdentity('first')),
+			assigner.assign(secondLaunch, workspaceIdentity('second')),
+		]).toEqual([false, false, true, true]);
+	});
+
+	it('interleaved priming cannot revive a fresh-empty target into any-window', () => {
+		const assigner = new CanvasLaunchWindowAssigner();
+		const canvasLaunch = { canvas: true };
+		assigner.prime(canvasLaunch, [], false);
+		assigner.prime({}, [{ workspace: { id: 'interleaved' } }], false);
+
+		expect(assigner.assign(canvasLaunch, workspaceIdentity('interleaved'))).toBe(false);
+		expect(assigner.assign(canvasLaunch, freshEmpty)).toBe(true);
+		expect(assigner.assign(canvasLaunch, freshEmpty)).toBe(false);
+		expect(canvasLaunch.canvas).toBeUndefined();
+	});
+
+	it('re-priming the same args without the flag clears their target', () => {
+		const assigner = new CanvasLaunchWindowAssigner();
+		const launch: { canvas?: boolean } = { canvas: true };
+		assigner.prime(launch, [{ workspace: { id: 'stale-target' } }], false);
+		delete launch.canvas;
+		assigner.prime(launch, [], false);
+		launch.canvas = true;
 
 		expect(assigner.assign(launch, workspaceIdentity('anything'))).toBe(true);
 	});

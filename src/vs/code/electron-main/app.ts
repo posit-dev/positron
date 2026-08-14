@@ -149,6 +149,7 @@ import ErrorTelemetry from '../../platform/telemetry/electron-main/errorTelemetr
 
 // --- Start Positron ---
 import { IEphemeralStateService } from '../../platform/ephemeralState/common/ephemeralState.js';
+import { selectCanvasLaunchWindow } from '../../platform/launch/common/positronCanvasLaunch.js';
 import { EphemeralStateService } from '../../platform/ephemeralState/common/ephemeralStateService.js';
 import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from '../../platform/ephemeralState/common/ephemeralStateIpc.js';
 import { PositronMemoryUsageMainService } from '../../platform/positronMemoryUsage/electron-main/positronMemoryUsageMainService.js';
@@ -811,8 +812,26 @@ export class CodeApplication extends Disposable {
 		// is built from these same args, so a flag left set would outrank an
 		// explicit Canvas exit for the rest of the run. The targeted startup
 		// window consumed it when its configuration was built
-		// (`CanvasLaunchWindowAssigner.assign`); this is the backstop for a
-		// launch whose target never got a window.
+		// (`CanvasLaunchWindowAssigner.assign`). The flag still set here means
+		// the target never got a fresh window (e.g. file-only paths absorbed
+		// into a restored window under `window.restoreWindows`), and unlike a
+		// second instance there is no launch service to forward the flag, so
+		// forward it here the same way. `openFirstWindow`'s used windows are
+		// not in scope, but every window open at this point came from this
+		// startup, so the full window list stands in for them. The delete
+		// stays as the backstop either way.
+		if (this.environmentMainService.args.canvas && this.windowsMainService) {
+			const canvasWindow = selectCanvasLaunchWindow(this.windowsMainService.getWindows(), this.windowsMainService.getLastActiveWindow());
+			if (canvasWindow) {
+				canvasWindow.sendWhenReady('vscode:runAction', CancellationToken.None, {
+					// The Canvas action that owns its failure notification;
+					// `runAction` ignores return values.
+					id: 'positron.canvas.open',
+					from: 'menu',
+				});
+				canvasWindow.focus();
+			}
+		}
 		delete this.environmentMainService.args.canvas;
 		// --- End Positron ---
 
