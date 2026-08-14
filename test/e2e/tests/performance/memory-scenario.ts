@@ -153,18 +153,14 @@ export function defineMemoryScenario(options: {
 			expect(impossible.map(p => `${p.processName} (pid ${p.pid})`),
 				'PSS exceeded RSS, which is impossible within one sample').toEqual([]);
 
-			// The sampling loop breaks only when treeHasSettled, so reaching the cap
-			// means it never settled and this is a mid-load number.
-			//
-			// Asserted on sampledMs directly because the `moving` check below cannot
-			// stand in for it, though it was written as if it could. Only the last
-			// TAIL_LENGTH samples are retained, so a launch that spent the full 90s
-			// unsettled still hands unstableProcesses a flat tail and passes: an
-			// `editors` launch did exactly that, discarding 15 samples and publishing a
-			// total 100 MB below its two siblings, with every gate green.
-			expect(snapshot.sampledMs,
+			// False means sampling gave up at the cap, so the figures are mid-load. The
+			// `moving` check below cannot stand in for this, though it was written as if
+			// it could: only the tail is retained, so an `editors` launch that spent the
+			// full 90s unsettled passed every gate while publishing a tree total 100 MB
+			// below its two siblings.
+			expect(snapshot.treeSettled,
 				`sampling ran to its ${SAMPLING_CAP_MS / 1000}s cap without the tree settling, so this is a mid-load number`)
-				.toBeLessThan(SAMPLING_CAP_MS);
+				.toBe(true);
 
 			// Per-process quiescence, which is a weaker condition than the tree
 			// settling: this catches a process still visibly moving within the

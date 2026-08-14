@@ -280,7 +280,7 @@ export function treeHasSettled(samples: RawProcess[][], peakBeforeSampling = 0):
  * an earlier version of this comment claimed. Only the last {@link TAIL_LENGTH}
  * samples are retained, so a launch that sampled to the cap without ever settling
  * still presents a flat tail here and comes back empty. Assert on
- * `snapshot.sampledMs` for that, as memory-scenario.ts does.
+ * `snapshot.treeSettled` for that, as memory-scenario.ts does.
  */
 export function unstableProcesses(processes: LabeledProcess[]): LabeledProcess[] {
 	return processes.filter(proc => proc.pssBytes > 0 && !isSteady(proc.pssSamples));
@@ -330,12 +330,14 @@ export async function captureSnapshot(input: {
 
 	const samples: RawProcess[][] = [];
 	const startedSampling = Date.now();
+	let treeSettled = false;
 	while (Date.now() - startedSampling < SAMPLING_CAP_MS) {
 		if (samples.length > 0) {
 			await new Promise(resolve => setTimeout(resolve, SAMPLE_INTERVAL_MS));
 		}
 		samples.push(await readProcessTree(input.rootPid));
 		if (treeHasSettled(samples, peakTotalPss)) {
+			treeSettled = true;
 			break;
 		}
 	}
@@ -354,6 +356,7 @@ export async function captureSnapshot(input: {
 		launchIndex: input.launchIndex,
 		settleMs,
 		sampledMs,
+		treeSettled,
 		discardedSamples: samples.length - reported.length,
 		treeTotalPssBytes: processes.reduce((sum, p) => sum + p.pssBytes, 0),
 		processes,

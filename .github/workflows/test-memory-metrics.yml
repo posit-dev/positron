@@ -189,7 +189,7 @@ jobs:
       # for a later job to append to this one's summary, so all four links are
       # printed by summarize-memory instead, and appear on the run's Summary page.
 
-  # Combines the three matrix jobs' per-scenario reports into one
+  # Combines the matrix jobs' per-scenario reports into one
   # cross-scenario view: the per-role numbers are 20-50x quieter than the
   # tree TOTAL and are the useful signal, but nothing compared them side by
   # side before this job existed.
