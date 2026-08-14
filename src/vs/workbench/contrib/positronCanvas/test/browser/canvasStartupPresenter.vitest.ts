@@ -134,6 +134,22 @@ describe('CanvasStartupPresenter', () => {
 		expect(sibling.inert).toBe(false);
 	});
 
+	// An element some other component made inert before the curtain went up is
+	// that component's to re-enable; release must restore the prior state, not
+	// clobber it to false.
+	it('restores a pre-existing inert state on release instead of clearing it', async () => {
+		const container = createContainer();
+		const sibling = addWorkbenchSibling(container);
+		sibling.inert = true;
+		const presenter = createPresenter(container, { enter: vi.fn().mockResolvedValue(ENTERED) });
+
+		presenter.present();
+		expect(sibling.inert).toBe(true);
+
+		await vi.waitFor(() => expect(within(container).queryByRole('status')).not.toBeInTheDocument());
+		expect(sibling.inert).toBe(true);
+	});
+
 	// Toasts and the quick input are appended lazily, after the curtain's
 	// construction snapshot, and render beneath it; they must not stay
 	// reachable by Tab or screen readers while covered.

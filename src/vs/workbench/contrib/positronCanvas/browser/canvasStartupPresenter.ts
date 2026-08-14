@@ -35,8 +35,12 @@ function createCanvasCurtainElement(container: HTMLElement): { element: HTMLElem
 	element.setAttribute('role', 'status');
 	element.setAttribute('aria-live', 'polite');
 
-	const covered = new Set(Array.from(container.children).filter(isHTMLElement));
-	for (const sibling of covered) {
+	// Each covered element's prior inert value, restored on release: another
+	// component may own an element's inert state, and release clobbering it
+	// to false would re-enable what that component disabled.
+	const covered = new Map<HTMLElement, boolean>();
+	for (const sibling of Array.from(container.children).filter(isHTMLElement)) {
+		covered.set(sibling, sibling.inert);
 		sibling.inert = true;
 	}
 
@@ -44,7 +48,7 @@ function createCanvasCurtainElement(container: HTMLElement): { element: HTMLElem
 		for (const mutation of mutations) {
 			for (const node of mutation.addedNodes) {
 				if (isHTMLElement(node) && node !== element && node.matches(LATE_COVERED_SELECTOR) && !covered.has(node)) {
-					covered.add(node);
+					covered.set(node, node.inert);
 					node.inert = true;
 				}
 			}
@@ -57,8 +61,8 @@ function createCanvasCurtainElement(container: HTMLElement): { element: HTMLElem
 		element,
 		release: () => {
 			observer.disconnect();
-			for (const sibling of covered) {
-				sibling.inert = false;
+			for (const [sibling, priorInert] of covered) {
+				sibling.inert = priorInert;
 			}
 		},
 	};

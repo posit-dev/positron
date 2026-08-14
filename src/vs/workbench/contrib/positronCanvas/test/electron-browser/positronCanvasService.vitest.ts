@@ -97,8 +97,9 @@ describe('PositronCanvasService', () => {
 		executeCommand?: () => Promise<undefined>;
 		createAuxiliaryEditorPart?: IEditorGroupsService['createAuxiliaryEditorPart'];
 		acquireGranted?: boolean | Promise<boolean>;
-		hideWindow?: () => Promise<void>;
-		showWindow?: () => Promise<void>;
+		/** Resolves whether the call hid a visible window; see INativeHostService. */
+		hideWindow?: (options?: { targetWindowId?: number }) => Promise<boolean>;
+		showWindow?: (options?: { targetWindowId?: number }) => Promise<void>;
 	} = {}) {
 		const auxiliaryGroups = options.auxiliaryGroups ?? [];
 		const mainGroup = options.mainGroup ?? createGroup();
@@ -113,7 +114,7 @@ describe('PositronCanvasService', () => {
 		const storageService = stubInterface<IStorageService>({ store: vi.fn(), remove: vi.fn() });
 		const mergeGroup = vi.fn().mockReturnValue(true);
 		const setPartHidden = vi.fn();
-		const hideWindow = vi.fn(options.hideWindow ?? (() => Promise.resolve()));
+		const hideWindow = vi.fn(options.hideWindow ?? (() => Promise.resolve(true)));
 		const showWindow = vi.fn(options.showWindow ?? (() => Promise.resolve()));
 		const createAuxiliaryEditorPart = vi.fn(options.createAuxiliaryEditorPart ?? (() => Promise.resolve(auxiliaryPart)));
 
@@ -429,7 +430,7 @@ describe('PositronCanvasService', () => {
 	it('does not report entry when the Canvas window dies while the IDE is being put away', async () => {
 		const willDispose = new Emitter<void>();
 		ctx.disposables.add(willDispose);
-		const hide = new DeferredPromise<void>();
+		const hide = new DeferredPromise<boolean>();
 		const auxiliaryGroup = createGroup([createCanvasEditor()]);
 		const { service, hideWindow, showWindow, focus } = build({
 			auxiliaryGroups: [auxiliaryGroup],
@@ -442,7 +443,7 @@ describe('PositronCanvasService', () => {
 
 		// The OS close button lands while the IDE hide is still in flight.
 		willDispose.fire();
-		await hide.complete();
+		await hide.complete(true);
 
 		expect(await entering).toMatchObject({ entered: false, reason: 'superseded' });
 		expect(service.isActive).toBe(false);
@@ -570,12 +571,12 @@ describe('PositronCanvasService', () => {
 	});
 
 	it('does not force the IDE back over a newer entry when a superseded hide settles', async () => {
-		const staleHide = new DeferredPromise<void>();
+		const staleHide = new DeferredPromise<boolean>();
 		let hideCalls = 0;
 		const auxiliaryGroup = createGroup([createCanvasEditor()]);
 		const { service, hideWindow, showWindow } = build({
 			auxiliaryGroups: [auxiliaryGroup],
-			hideWindow: () => ++hideCalls === 1 ? staleHide.p : Promise.resolve(),
+			hideWindow: () => ++hideCalls === 1 ? staleHide.p : Promise.resolve(true),
 		});
 
 		const doomed = service.enter();
@@ -586,7 +587,7 @@ describe('PositronCanvasService', () => {
 
 		// The doomed attempt's hide settles only now; a forced reveal here
 		// would put the IDE on top of the Canvas the new entry presents.
-		await staleHide.complete();
+		await staleHide.complete(true);
 		expect(await doomed).toMatchObject({ entered: false, reason: 'superseded' });
 		expect(showWindow).toHaveBeenCalledTimes(1);
 		expect(service.isActive).toBe(true);
@@ -609,6 +610,124 @@ describe('PositronCanvasService', () => {
 		expect(await service.exit()).toBe(true);
 		expect(showWindow).toHaveBeenCalledWith({ targetWindowId: mainWindow.vscodeWindowId });
 		expect(showWindow).toHaveBeenCalledWith({ targetWindowId: DETACHED_WINDOW_ID });
+	});
+
+	it('finishes every hide before a failed hide starts the unwind', async () => {
+		const detachedHide = new DeferredPromise<boolean>();
+		let hideCalls = 0;
+		const detachedPart = createPart(createGroup(), Event.None, DETACHED_WINDOW_ID);
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service, hideWindow, showWindow } = build({
+			auxiliaryGroups: [auxiliaryGroup],
+			extraParts: [detachedPart],
+			hideWindow: () => ++hideCalls === 1 ? Promise.reject(new Error('hide failed')) : detachedHide.p,
+		});
+
+		const entering = service.enter();
+		await vi.waitFor(() => expect(hideWindow).toHaveBeenCalledTimes(2));
+		await new Promise(resolve => setTimeout(resolve, 0));
+
+		// The IDE hide already failed, but an unwind revealing windows while
+		// the detached window's hide is still in flight would let that hide
+		// land after its re-show, leaving the window hidden for good.
+		expect(showWindow).not.toHaveBeenCalled();
+
+		await detachedHide.complete(true);
+		expect(await entering).toMatchObject({ entered: false, reason: 'no-window' });
+		expect(showWindow).toHaveBeenCalledWith({ targetWindowId: DETACHED_WINDOW_ID });
+	});
+
+	it('queues an enter issued during an exit until the exit has finished', async () => {
+		const show = new DeferredPromise<void>();
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service, executeCommand, mergeGroup, showWindow, channelCall } = build({
+			auxiliaryGroups: [auxiliaryGroup],
+			showWindow: () => show.p,
+		});
+		await service.enter();
+
+		const exiting = service.exit();
+		await vi.waitFor(() => expect(showWindow).toHaveBeenCalled());
+
+		const entering = service.enter();
+		await new Promise(resolve => setTimeout(resolve, 0));
+
+		// The queued entry must not have started Canvas work the exit's merge
+		// would yank apart, nor hold an engagement the exit's finally releases.
+		expect(executeCommand).toHaveBeenCalledTimes(1);
+		expect(mergeGroup).not.toHaveBeenCalled();
+
+		await show.complete();
+		expect(await exiting).toBe(true);
+		expect(await entering).toEqual({ entered: true });
+		expect(service.isActive).toBe(true);
+		// One release, from the exit: the entry it queued presents Canvas
+		// under a claim of its own.
+		expect(channelCall.mock.calls.filter(([command]) => command === 'release')).toHaveLength(1);
+	});
+
+	it('still merges Canvas back when re-showing a detached window fails', async () => {
+		let showCalls = 0;
+		const detachedPart = createPart(createGroup(), Event.None, DETACHED_WINDOW_ID);
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service, mergeGroup, showWindow } = build({
+			auxiliaryGroups: [auxiliaryGroup],
+			extraParts: [detachedPart],
+			showWindow: () => ++showCalls === 2 ? Promise.reject(new Error('ipc dropped')) : Promise.resolve(),
+		});
+		await service.enter();
+
+		// The detached window's show (the second) rejects; an exit aborting
+		// there would strand the live Canvas in its chromeless window with
+		// the mode already off.
+		expect(await service.exit()).toBe(true);
+		expect(mergeGroup).toHaveBeenCalled();
+
+		// Still recorded, so the next reveal retries the failed show.
+		expect(await service.exit()).toBe(false);
+		expect(showWindow.mock.calls.filter(([options]) => options?.targetWindowId === DETACHED_WINDOW_ID)).toHaveLength(2);
+	});
+
+	it('does not re-show a detached window it did not hide', async () => {
+		const detachedPart = createPart(createGroup(), Event.None, DETACHED_WINDOW_ID);
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service, showWindow } = build({
+			auxiliaryGroups: [auxiliaryGroup],
+			extraParts: [detachedPart],
+			// The user had already hidden or minimized the detached window;
+			// the main process reports it left it untouched.
+			hideWindow: options => Promise.resolve(options?.targetWindowId !== DETACHED_WINDOW_ID),
+		});
+
+		expect(await service.enter()).toEqual({ entered: true });
+		expect(await service.exit()).toBe(true);
+
+		expect(showWindow).toHaveBeenCalledWith({ targetWindowId: mainWindow.vscodeWindowId });
+		expect(showWindow).not.toHaveBeenCalledWith({ targetWindowId: DETACHED_WINDOW_ID });
+	});
+
+	it('forgets the durable intent when an entry rejects outright', async () => {
+		const mainGroup = createGroup([createCanvasEditor()]);
+		vi.mocked(mainGroup.moveEditors).mockImplementation(() => { throw new Error('move failed'); });
+		const { service, storageService } = build({ mainGroup });
+
+		await expect(service.enter()).rejects.toThrow('move failed');
+
+		// Quitting from the generic failure card must not preserve an intent
+		// that boots the next launch straight back into the failing curtain.
+		expect(storageService.remove).toHaveBeenCalledWith(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE);
+	});
+
+	it('keeps the durable intent when an entry rejects while the app is quitting', async () => {
+		const mainGroup = createGroup([createCanvasEditor()]);
+		vi.mocked(mainGroup.moveEditors).mockImplementation(() => { throw new Error('move failed'); });
+		const { service, storageService } = build({ mainGroup, willShutdown: true });
+
+		await expect(service.enter()).rejects.toThrow('move failed');
+
+		// A teardown rejection during a quit in Canvas must not erase the
+		// "quit in Canvas, relaunch into Canvas" record.
+		expect(storageService.remove).not.toHaveBeenCalled();
 	});
 
 	it('moves a Canvas the user detached into a plain window into a dedicated one', async () => {

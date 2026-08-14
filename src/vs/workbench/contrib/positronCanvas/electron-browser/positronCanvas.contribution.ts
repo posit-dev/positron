@@ -321,6 +321,15 @@ class PositronCanvasStartupContribution extends Disposable implements IWorkbench
 			return;
 		}
 
+		// A stored intent this window declined to honor (setting or ai.enabled
+		// veto) would boot a later launch into Canvas after the veto lifts;
+		// clear it now. Not when engaged elsewhere: the intent belongs to the
+		// window presenting this workspace's Canvas, as in enter()'s outcome
+		// handling.
+		if (signals.storedIntent && !signals.engagedElsewhere) {
+			storageService.remove(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE);
+		}
+
 		if (signals.canvasFlag) {
 			// The flag was an explicit ask; a window-level veto must not
 			// answer it with a silent plain IDE window when the
