@@ -666,6 +666,27 @@ describe('PositronCanvasService', () => {
 		expect(channelCall.mock.calls.filter(([command]) => command === 'release')).toHaveLength(1);
 	});
 
+	it('coalesces a second exit onto the one in flight instead of replacing it', async () => {
+		const show = new DeferredPromise<void>();
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service, showWindow } = build({
+			auxiliaryGroups: [auxiliaryGroup],
+			showWindow: () => show.p,
+		});
+		await service.enter();
+
+		const first = service.exit();
+		await vi.waitFor(() => expect(showWindow).toHaveBeenCalled());
+		const second = service.exit();
+
+		// The same transaction: a second exit of its own could settle first
+		// and free `enter()` while this one still owns the captured group.
+		expect(second).toBe(first);
+
+		await show.complete();
+		expect(await first).toBe(true);
+	});
+
 	it('still merges Canvas back when re-showing a detached window fails', async () => {
 		let showCalls = 0;
 		const detachedPart = createPart(createGroup(), Event.None, DETACHED_WINDOW_ID);

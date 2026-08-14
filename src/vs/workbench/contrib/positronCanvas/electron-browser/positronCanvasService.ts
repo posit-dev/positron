@@ -119,10 +119,11 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	private entering: Promise<CanvasEntryOutcome> | undefined;
 
 	/**
-	 * In-flight `exit()`. An exit is a window transaction (reveal, merge,
-	 * release); an entry starting inside one would adopt the group the exit's
-	 * merge is about to yank back and hold an engagement the exit's finally
-	 * then releases, so `doEnter()` waits this out first.
+	 * In-flight `exit()`; concurrent callers coalesce onto it. An exit is a
+	 * window transaction (reveal, merge, release); an entry starting inside
+	 * one would adopt the group the exit's merge is about to yank back and
+	 * hold an engagement the exit's finally then releases, so `doEnter()`
+	 * waits this out first.
 	 */
 	private exiting: Promise<boolean> | undefined;
 
@@ -379,16 +380,20 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	}
 
 	exit(): Promise<boolean> {
+		// Coalesce onto the exit in flight: a second transaction could settle
+		// first and clear `this.exiting`, freeing `enter()` to start while
+		// the first exit still owns a captured Canvas group. The first exit's
+		// generation bump already retired every entry a new exit could want
+		// retired, since no entry starts while `this.exiting` is set.
+		if (this.exiting) {
+			return this.exiting;
+		}
 		// `doExit()` runs synchronously up to its first await, so the
 		// generation bump and entry detach land before any caller resumes.
-		const exiting = this.doExit().finally(() => {
-			// Guarded: a newer exit may have replaced this one.
-			if (this.exiting === exiting) {
-				this.exiting = undefined;
-			}
+		this.exiting = this.doExit().finally(() => {
+			this.exiting = undefined;
 		});
-		this.exiting = exiting;
-		return exiting;
+		return this.exiting;
 	}
 
 	private async doExit(): Promise<boolean> {

@@ -640,7 +640,14 @@ export class CodeApplication extends Disposable {
 					void this.windowsMainService?.open({
 						// --- End Positron ---
 						context: OpenContext.DOCK /* can also be opening from finder while app is running */,
-						cli: this.environmentMainService.args,
+						// --- Start Positron ---
+						// A Finder or Dock open must not inherit a
+						// not-yet-consumed `--canvas`: this open can race
+						// startup, and the live args would let it re-prime or
+						// consume the initial launch's flag.
+						// cli: this.environmentMainService.args,
+						cli: { ...this.environmentMainService.args, canvas: undefined },
+						// --- End Positron ---
 						// --- Start Positron ---
 						// urisToOpen: macOpenFileURIs,
 						urisToOpen,
