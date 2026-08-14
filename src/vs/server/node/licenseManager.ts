@@ -5,7 +5,7 @@
 
 import { spawn } from 'child_process';
 import { Readable } from 'stream';
-import { DeferredPromise, TimeoutTimer } from '../../base/common/async.js';
+import { DeferredPromise, TimeoutTimer, timeout } from '../../base/common/async.js';
 import { Disposable, toDisposable } from '../../base/common/lifecycle.js';
 import { StreamSplitter } from '../../base/node/nodeStreams.js';
 
@@ -29,6 +29,9 @@ const DEFAULT_STARTUP_TIMEOUT_MS = 60_000;
 
 /** How long to wait before respawning a client that exited. */
 const DEFAULT_RESTART_DELAY_MS = 10_000;
+
+/** How long to wait for the client to check the seat back in on shutdown. */
+const DEFAULT_STOP_TIMEOUT_MS = 5_000;
 
 /** A message decoded from the client's stdout. */
 export interface ILicenseManagerMessage {
@@ -77,6 +80,8 @@ export interface ILicenseManagerOptions {
 	startupTimeoutMs?: number;
 	/** Delay before respawning a client that exited. */
 	restartDelayMs?: number;
+	/** How long {@link LicenseManager.stop} waits for the client to exit. */
+	stopTimeoutMs?: number;
 	/** Spawns the client; defaults to the real one. Tests pass a fake. */
 	spawn?: (binaryPath: string, args: string[], env: NodeJS.ProcessEnv) => ILicenseManagerProcess;
 }
@@ -135,6 +140,7 @@ function optionalNumber(value: unknown): number | undefined {
  */
 export class LicenseManager extends Disposable {
 	private child: ILicenseManagerProcess | undefined;
+	private childExited: DeferredPromise<void> | undefined;
 	private licensed = false;
 	private stopped = false;
 	private readonly graceTimer = this._register(new TimeoutTimer());
@@ -144,6 +150,9 @@ export class LicenseManager extends Disposable {
 
 	constructor(private readonly options: ILicenseManagerOptions) {
 		super();
+		// The synchronous last-ditch path, for exits that cannot await anything
+		// (a process `exit` handler). Prefer `stop()`, which also waits for the
+		// client to finish returning the lease.
 		this._register(toDisposable(() => {
 			this.stopped = true;
 			this.child?.kill('SIGTERM');
@@ -165,6 +174,30 @@ export class LicenseManager extends Disposable {
 		return this.startup.p;
 	}
 
+	/**
+	 * Terminates the client and waits for it to check the seat back in.
+	 *
+	 * SIGTERM is what makes the client return the lease, so shutdown cannot just
+	 * fire the signal and exit: when the server is PID 1 in a container, exiting
+	 * tears the container down and the client is killed part-way through the
+	 * check-in, leaving the seat held until its lease expires. Bounded by
+	 * {@link ILicenseManagerOptions.stopTimeoutMs} so a wedged client cannot keep
+	 * the server from exiting.
+	 */
+	async stop(): Promise<void> {
+		const exited = this.childExited;
+		this.dispose();
+		if (!exited || exited.isSettled) {
+			return;
+		}
+		const expiry = timeout(this.options.stopTimeoutMs ?? DEFAULT_STOP_TIMEOUT_MS);
+		try {
+			await Promise.race([exited.p, expiry]);
+		} finally {
+			expiry.cancel();
+		}
+	}
+
 	private spawnChild(): void {
 		if (this.stopped) {
 			return;
@@ -176,6 +209,8 @@ export class LicenseManager extends Disposable {
 			this.options.env ?? process.env
 		);
 		this.child = child;
+		const exited = new DeferredPromise<void>();
+		this.childExited = exited;
 
 		child.stdout?.pipe(new StreamSplitter('\n')).on('data', (line: Buffer) => {
 			const message = parseLicenseManagerLine(line.toString('utf8'));
@@ -191,11 +226,18 @@ export class LicenseManager extends Disposable {
 
 		// A binary that is missing or not executable raises 'error' and never
 		// raises 'exit', so both paths have to be treated as the client dying.
+		// `exited` is completed before `onChildDown` because that method drops its
+		// reference to the child, which a concurrent `stop()` would otherwise be
+		// left waiting on forever.
 		child.once('error', err => {
 			console.error('[license-manager] failed to run: ', err);
+			exited.complete();
 			this.onChildDown(child);
 		});
-		child.once('exit', () => this.onChildDown(child));
+		child.once('exit', () => {
+			exited.complete();
+			this.onChildDown(child);
+		});
 	}
 
 	/** Handles the client dying, ignoring a child we have already replaced. */

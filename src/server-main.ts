@@ -194,7 +194,11 @@ if (shouldSpawnCli) {
 		// SSH) and we'll let it manage its own kernels.
 		const hasWebUi =
 			fs.existsSync(FileAccess.asFileUri('vs/code/browser/workbench/workbench.html').fsPath);
-		if (hasWebUi) {
+		if (_remoteExtensionHostAgentServer?.unlicensed) {
+			// The license check failed and the server is only serving the license
+			// page. Starting the supervisor would leave kernels running behind it.
+			console.error('Not starting the Positron Kernel Supervisor: no valid Positron license.');
+		} else if (hasWebUi) {
 			await startKernelSupervisor();
 		} else {
 			console.info('Skipping Kernel Supervisor startup for headless REH server.');

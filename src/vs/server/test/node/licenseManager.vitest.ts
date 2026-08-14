@@ -190,6 +190,44 @@ describe('LicenseManager', () => {
 		expect(onUnlicensed).not.toHaveBeenCalled();
 	});
 
+	it('waits for the client to check the seat back in when stopped', async () => {
+		const { manager, clients } = createManager({ stopTimeoutMs: 5_000 });
+
+		const started = manager.start();
+		clients[0].stdout.write(ACTIVATED_FRAME);
+		await flush();
+		await expect(started).resolves.toBe(true);
+
+		let returned = false;
+		const stopping = manager.stop().then(() => { returned = true; });
+		await flush();
+
+		// The signal has gone out, but the client has not finished the check-in
+		// until it exits -- exiting the server here would kill it part-way.
+		expect(clients[0].kill).toHaveBeenCalledWith('SIGTERM');
+		expect(returned).toBe(false);
+
+		clients[0].exit();
+		await stopping;
+		expect(returned).toBe(true);
+	});
+
+	it('gives up on a client that does not exit, rather than blocking shutdown', async () => {
+		const { manager, clients } = createManager({ stopTimeoutMs: 5_000 });
+
+		const started = manager.start();
+		clients[0].stdout.write(ACTIVATED_FRAME);
+		await flush();
+		await expect(started).resolves.toBe(true);
+
+		const stopping = manager.stop();
+		vi.advanceTimersByTime(5_000);
+
+		await expect(stopping).resolves.toBeUndefined();
+		// A wedged client must not be respawned on the way out either.
+		expect(clients).toHaveLength(1);
+	});
+
 	it('signals the client and cancels pending enforcement when disposed', async () => {
 		const { manager, onUnlicensed, clients } = createManager();
 

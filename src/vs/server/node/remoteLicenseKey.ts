@@ -5,10 +5,10 @@
 
 import { ServerParsedArgs } from './serverEnvironmentService.js';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from '../../base/common/path.js';
 import * as crypto from 'crypto';
 import { LicenseManager } from './licenseManager.js';
-import type { DisposableStore } from '../../base/common/lifecycle.js';
 
 /**
  * The result of validating a license.
@@ -96,8 +96,6 @@ J96J0myarwU9s46B9SbyWKzcTpEvHgD47/rRcMx64PlmtS6hxgIdyIKNFjWrGt5g
 jv4RUEuRUo3aePrbcc3Wfl8CAwEAAQ==
 -----END PUBLIC KEY-----`;
 
-type LicenseManagerStore = Pick<DisposableStore, 'add'>;
-
 /**
  * Validates a license key. If any errors are encountered, they are logged to
  * the console.
@@ -112,11 +110,11 @@ type LicenseManagerStore = Pick<DisposableStore, 'add'>;
  * @param args The parsed command-line arguments.
  * @returns A promise that resolves to the license validation result.
  */
-export async function validateLicenseKey(connectionToken: string, args: ServerParsedArgs, licenseManagerStore?: LicenseManagerStore): Promise<ILicenseValidationResult> {
+export async function validateLicenseKey(connectionToken: string, args: ServerParsedArgs): Promise<ILicenseValidationResult> {
 
 	if (isRemoteLicenseManagerMode()) {
 		console.log('Acquiring a Positron license through the license manager named by POSITRON_LICENSE_MANAGER_PATH.');
-		return validateWithLicenseManager(process.env.POSITRON_LICENSE_MANAGER_PATH!, licenseManagerStore);
+		return validateWithLicenseManager(process.env.POSITRON_LICENSE_MANAGER_PATH!);
 	}
 
 	// Check the command-line arguments for a license key.
@@ -286,7 +284,7 @@ export function isRemoteLicenseManagerMode(): boolean {
  * @param binaryPath Path to the license manager client binary.
  * @returns The license validation result.
  */
-async function validateWithLicenseManager(binaryPath: string, licenseManagerStore?: LicenseManagerStore): Promise<ILicenseValidationResult> {
+async function validateWithLicenseManager(binaryPath: string): Promise<ILicenseValidationResult> {
 	// A missing binary is a permanent, unambiguous deployment error. Checking up
 	// front avoids sitting through the whole startup timeout respawning it.
 	if (!fs.existsSync(binaryPath)) {
@@ -298,17 +296,43 @@ async function validateWithLicenseManager(binaryPath: string, licenseManagerStor
 		binaryPath,
 		onUnlicensed: () => {
 			console.error('Positron is no longer licensed: the license manager could not hold a lease. Shutting down.');
-			manager.dispose();
-			process.exit(1);
+			shutdown(1);
 		},
 	});
 
+	// Terminating the client is what checks the seat back in, and nothing else in
+	// the server does it for us: the `DisposableStore` in `createServer` is never
+	// disposed, and Node's default signal disposition kills the process without
+	// running `exit` listeners. So own the signals here.
+	let shuttingDown = false;
+	const shutdown = (code: number): void => {
+		if (shuttingDown) {
+			// The client retries while failing, and an orchestrator may follow
+			// SIGTERM with more signals; only the first one gets to shut us down.
+			return;
+		}
+		shuttingDown = true;
+		manager.stop().finally(() => process.exit(code));
+	};
+
 	if (!await manager.start()) {
-		manager.dispose();
+		await manager.stop();
 		console.error('The license manager did not report an activated license. Positron requires a license to run in a hosted environment.');
 		return { valid: false };
 	}
 
-	licenseManagerStore?.add(manager);
+	for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
+		process.on(signal, () => {
+			console.log(`Received ${signal}; returning the Positron license before exiting.`);
+			const signalNumber = os.constants.signals[signal];
+			shutdown(typeof signalNumber === 'number' ? 128 + signalNumber : 1);
+		});
+	}
+
+	// Last-ditch, for exits that do not come from a signal (an unhandled error,
+	// or `process.exit` called elsewhere). A process `exit` handler cannot await,
+	// so all this can do is signal the client and hope it outlives us.
+	process.on('exit', () => manager.dispose());
+
 	return { valid: true };
 }
