@@ -977,6 +977,16 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 					return;
 				}
 
+				// --- Start Positron ---
+				// Canvas mode hides this window. The dialogs below are parented
+				// to it, and a dialog on a hidden window is invisible (on macOS
+				// a sheet on a hidden NSWindow) yet blocks recovery awaiting an
+				// answer that can never come. Show the window first.
+				if (this._win && !this._win.isDestroyed() && !this._win.isVisible()) {
+					this._win.show();
+				}
+				// --- End Positron ---
+
 				// Unresponsive
 				if (type === WindowError.UNRESPONSIVE) {
 					if (this.isExtensionDevelopmentHost || this.isExtensionTestHost || this._win?.webContents?.isDevToolsOpened()) {

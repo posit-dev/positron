@@ -378,7 +378,20 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 	// --- Start Positron ---
 	async hideWindow(windowId: number | undefined, options?: INativeHostOptions): Promise<void> {
 		const window = this.windowById(options?.targetWindowId, windowId);
-		window?.win?.hide();
+		const win = window?.win;
+		if (!win) {
+			return;
+		}
+
+		// Electron cannot cleanly hide a macOS native-fullscreen window (its
+		// Space is left behind); leave fullscreen first, like `positionWindow`.
+		if (win.isFullScreen()) {
+			const fullscreenLeftFuture = Event.toPromise(Event.once(Event.fromNodeEventEmitter(win, 'leave-full-screen')));
+			win.setFullScreen(false);
+			await fullscreenLeftFuture;
+		}
+
+		win.hide();
 	}
 
 	async showWindow(windowId: number | undefined, options?: INativeHostOptions): Promise<void> {
