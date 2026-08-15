@@ -71,7 +71,6 @@ export interface IEnvironmentHealthService {
 export class EnvironmentHealthService extends Disposable implements IEnvironmentHealthService {
 	declare readonly _serviceBrand: undefined;
 
-
 	private readonly _onDidChange = this._register(new Emitter<EnvironmentHealthSnapshot>());
 	readonly onDidChange: Event<EnvironmentHealthSnapshot> = this._onDidChange.event;
 
@@ -81,6 +80,16 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	private readonly _pendingRefresh = new Set<HealthLanguage>();
 	/** The welcome page the checks last ran for. See refreshForPage. */
 	private _lastPage: WeakRef<object> | undefined;
+	/**
+	 * Whether a welcome page has asked for a check yet.
+	 *
+	 * The editor pane takes this service as a constructor dependency, and it is
+	 * the pane for the classic welcome page as well as the redesigned one. Merely
+	 * injecting a delayed service builds it at the next idle callback, so if the
+	 * constructor started runs, every user would activate the Python and R
+	 * extensions on startup for a card that the feature flag keeps hidden.
+	 */
+	private _started = false;
 	private _disposed = false;
 
 	constructor(
@@ -124,8 +133,9 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	/**
 	 * A run cannot be cancelled: executeCommand takes no cancellation token, so a
 	 * "cancel and restart" rule would leave the abandoned run going and start a
-	 * second one beside it. So this does nothing while one is in flight, and the
-	 * recheck control is disabled meanwhile.
+	 * second one beside it. So this does nothing while one is in flight. The card
+	 * leaves its recheck control enabled and makes the same check itself, so that
+	 * the control stays in the tab order.
 	 */
 	refresh(language: HealthLanguage): void {
 		this._requestRefresh(language, false);
@@ -140,6 +150,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 		// undefined and so counts as a different page, which is the right answer:
 		// if it is gone, whatever asks next is a new page.
 		this._lastPage = new WeakRef(page);
+		this._started = true;
 		this._logService.trace(`${LOG} a welcome page opened, rechecking every visible language`);
 		for (const source of this._sources) {
 			this._requestRefresh(source.language, false);
@@ -223,7 +234,9 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 				this._set(source.language, { kind: 'hidden' });
 			} else if (this._states.get(source.language)?.kind === 'hidden' || !this._states.has(source.language)) {
 				this._set(source.language, { kind: 'loading' });
-				this.refresh(source.language);
+				if (this._started) {
+					this.refresh(source.language);
+				}
 			}
 		}
 	}
@@ -272,10 +285,16 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 			this._fire();
 			return;
 		}
-		this._set(language, state);
 		if (this._pendingRefresh.delete(language)) {
+			// Deliberately not published. This result was computed before the fix
+			// ran, which is the answer the queued recheck exists to replace --
+			// showing it would put the pre-fix failure back on screen for the
+			// seconds the recheck takes. The previous result stays up instead.
+			this._logService.trace(`${LOG} ${language}: superseded by a recheck, result not shown`);
 			this._requestRefresh(language, true);
+			return;
 		}
+		this._set(language, state);
 	}
 
 	private _set(language: HealthLanguage, state: LanguageHealthState): void {

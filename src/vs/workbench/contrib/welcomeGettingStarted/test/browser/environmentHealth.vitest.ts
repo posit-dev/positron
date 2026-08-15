@@ -14,6 +14,14 @@ describe('isEnvironmentHealthResult', () => {
 		expect(isEnvironmentHealthResult({ ok: true, items: [item] })).toBe(true);
 	});
 
+	it('accepts a well formed fix, and a null one as no fix at all', () => {
+		// This crossed the extension host as JSON, where an explicit null survives
+		// and an undefined does not, so null has to read as "no fix".
+		const fix = { commandId: 'python.installPythonViaUv', label: 'Install Python' };
+		expect(isEnvironmentHealthResult({ ok: true, items: [{ ...item, fix }] })).toBe(true);
+		expect(isEnvironmentHealthResult({ ok: true, items: [{ ...item, fix: null }] })).toBe(true);
+	});
+
 	it('ignores per-language extras it does not read', () => {
 		// Python adds interpreterPath, R adds rBinPath and rHome. Rejecting a
 		// payload for carrying them would break on every real result.
@@ -34,6 +42,12 @@ describe('isEnvironmentHealthResult', () => {
 		['ok not a boolean', { ok: 'yes', items: [item] }],
 		['an item missing summary', { ok: true, items: [{ id: 'discovery', status: 'pass' }] }],
 		['an item with an unknown status', { ok: true, items: [{ ...item, status: 'exploded' }] }],
+		// A fix drives a command, so a broken one is not a display problem. An
+		// unregistered id costs a 30-second wait; a missing label renders a button
+		// reading "undefined" that runs a real command.
+		['a fix with no commandId', { ok: true, items: [{ ...item, fix: { label: 'Install Python' } }] }],
+		['a fix with no label', { ok: true, items: [{ ...item, fix: { commandId: 'python.installPythonViaUv' } }] }],
+		['a fix whose commandId is not a string', { ok: true, items: [{ ...item, fix: { commandId: 42, label: 'Go' } }] }],
 	])('rejects %s', (_label, value) => {
 		expect(isEnvironmentHealthResult(value)).toBe(false);
 	});

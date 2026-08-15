@@ -57,8 +57,30 @@ describe('EnvironmentHealthService', () => {
 
 	const build = () => ctx.instantiationService.createInstance(EnvironmentHealthService, SOURCES);
 
-	it('checks every visible language once on construction', async () => {
+	/**
+	 * Builds the service and opens a welcome page on it, which is what the editor
+	 * pane does. Construction alone starts nothing -- see the first test.
+	 */
+	const open = (page: object = pageA) => {
+		const service = build();
+		service.refreshForPage(page);
+		return service;
+	};
+
+	it('checks nothing until a welcome page opens', async () => {
+		// The editor pane takes this as a constructor dependency, and it is the
+		// pane for the classic welcome page too. If construction started runs,
+		// every user would activate the Python and R extensions on startup for a
+		// card the feature flag keeps hidden.
 		const tracker = build();
+		await settle();
+		expect(executeCommand).not.toHaveBeenCalled();
+		expect(tracker.state.map(l => l.state.kind)).toEqual(['loading', 'loading']);
+		tracker.dispose();
+	});
+
+	it('checks every visible language once a welcome page opens', async () => {
+		const tracker = open();
 		await settle();
 		expect(executeCommand.mock.calls.map(c => c[0])).toEqual([
 			'python.getEnvironmentHealth',
@@ -86,9 +108,9 @@ describe('EnvironmentHealthService', () => {
 	});
 
 	it('rechecks every visible language for a new page', async () => {
-		const tracker = build();
+		const tracker = open();
 		await settle();
-		tracker.refreshForPage(pageA);
+		tracker.refreshForPage(pageB);
 		await settle();
 		expect(executeCommand.mock.calls.map(c => c[0])).toEqual([
 			'python.getEnvironmentHealth',
@@ -101,9 +123,9 @@ describe('EnvironmentHealthService', () => {
 
 	it('leaves a hidden language alone when a page opens', async () => {
 		getValue.mockReturnValue(['r']);
-		const tracker = build();
+		const tracker = open();
 		await settle();
-		tracker.refreshForPage(pageA);
+		tracker.refreshForPage(pageB);
 		await settle();
 		expect(executeCommand.mock.calls.map(c => c[0])).toEqual([
 			'r.getEnvironmentHealth',
@@ -117,31 +139,28 @@ describe('EnvironmentHealthService', () => {
 		// cannot tell that on its own -- a new pane remembers nothing -- so the
 		// service holds the memory. Without it, splitting pays for a full R
 		// discovery, conda call included.
-		const tracker = build();
+		const tracker = open();
 		await settle();
+		// The second editor group, same page.
 		tracker.refreshForPage(pageA);
 		await settle();
-		tracker.refreshForPage(pageA);
-		await settle();
-		expect(executeCommand.mock.calls.filter(c => c[0] === 'r.getEnvironmentHealth')).toHaveLength(2);
+		expect(executeCommand.mock.calls.filter(c => c[0] === 'r.getEnvironmentHealth')).toHaveLength(1);
 		tracker.dispose();
 	});
 
 	it('rechecks when a different page opens', async () => {
 		// Closing the welcome page and opening it again makes a new editor input,
 		// which is what tells this apart from a split.
-		const tracker = build();
-		await settle();
-		tracker.refreshForPage(pageA);
+		const tracker = open();
 		await settle();
 		tracker.refreshForPage(pageB);
 		await settle();
-		expect(executeCommand.mock.calls.filter(c => c[0] === 'r.getEnvironmentHealth')).toHaveLength(3);
+		expect(executeCommand.mock.calls.filter(c => c[0] === 'r.getEnvironmentHealth')).toHaveLength(2);
 		tracker.dispose();
 	});
 
 	it('does not start a second run while one is in flight', async () => {
-		const tracker = build();
+		const tracker = open();
 		tracker.refresh('python');
 		tracker.refresh('python');
 		await settle();
@@ -150,7 +169,7 @@ describe('EnvironmentHealthService', () => {
 	});
 
 	it('keeps the previous result on screen while refreshing, then replaces it', async () => {
-		const tracker = build();
+		const tracker = open();
 		await settle();
 		let resolveSecond: (value: unknown) => void = () => { };
 		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveSecond = resolve; }));
@@ -174,7 +193,7 @@ describe('EnvironmentHealthService', () => {
 		// A fix rechecks the language it fixed. A fix that resolves while an
 		// earlier check is still out used to have its recheck dropped, leaving the
 		// card showing the result from before the fix ran.
-		const tracker = build();
+		const tracker = open();
 		await settle();
 		let resolveFirst: (value: unknown) => void = () => { };
 		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve; }));
@@ -193,11 +212,41 @@ describe('EnvironmentHealthService', () => {
 		tracker.dispose();
 	});
 
+	it('does not show a result the queued recheck exists to replace', async () => {
+		// The check was already running when the fix ran, so its answer predates
+		// the fix. Publishing it put the pre-fix failure back on screen for the
+		// seconds the recheck took.
+		const tracker = open();
+		await settle();
+		let resolveStale: (value: unknown) => void = () => { };
+		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveStale = resolve; }));
+		tracker.refresh('python');
+		await settle();
+
+		executeCommand.mockResolvedValue(passing);
+		void tracker.runFix('python', { commandId: 'python.installPythonViaUv', label: 'Install Python' });
+		await settle();
+
+		// Every state the card would render, not just the last one: the stale
+		// result is replaced within seconds, so asserting the final state alone
+		// passes whether or not it was ever shown.
+		const seen: (string | undefined)[] = [];
+		const subscription = tracker.onDidChange(snapshot => seen.push(summaryOf(snapshot[0].state)));
+
+		// The in-flight check, started before the fix, comes back failing.
+		resolveStale(failing);
+		await settle();
+		expect(seen).not.toContain('No supported Python was found');
+		expect(summaryOf(tracker.state[0].state)).toBe('Positron can discover Python environments');
+		subscription.dispose();
+		tracker.dispose();
+	});
+
 	it('reports a language as no longer running once its hidden run ends', async () => {
 		// isRunning is not observable on its own, so a consumer mirrors it off
 		// onDidChange. Ending a hidden run without firing left the card busy
 		// forever, and its Recheck control dead for the other language too.
-		const tracker = build();
+		const tracker = open();
 		await settle();
 		let resolveRun: (value: unknown) => void = () => { };
 		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveRun = resolve; }));
@@ -221,14 +270,14 @@ describe('EnvironmentHealthService', () => {
 		// settings.json is hand-edited. A non-array value used to throw out of the
 		// constructor, which took the whole welcome page down with it.
 		getValue.mockReturnValue(true);
-		const tracker = build();
+		const tracker = open();
 		await settle();
 		expect(tracker.state.map(l => l.state.kind)).toEqual(['result', 'result']);
 		tracker.dispose();
 	});
 
 	it('drops a result that arrives after its language was hidden mid-run', async () => {
-		const tracker = build();
+		const tracker = open();
 		await settle();
 		let resolveRun: (value: unknown) => void = () => { };
 		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveRun = resolve; }));
@@ -252,7 +301,7 @@ describe('EnvironmentHealthService', () => {
 	});
 
 	it('clears isRunning before firing the change event, so the two never disagree', async () => {
-		const tracker = build();
+		const tracker = open();
 		await settle();
 		let resolveRun: (value: unknown) => void = () => { };
 		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveRun = resolve; }));
@@ -275,7 +324,7 @@ describe('EnvironmentHealthService', () => {
 
 	it('reports a missing extension without calling its command', async () => {
 		getExtension.mockImplementation(async (id: string) => id === 'positron.positron-r' ? undefined : {});
-		const tracker = build();
+		const tracker = open();
 		await settle();
 		expect(tracker.state.find(l => l.language === 'r')!.state.kind).toBe('unavailable');
 		expect(executeCommand.mock.calls.map(c => c[0])).not.toContain('r.getEnvironmentHealth');
@@ -284,7 +333,7 @@ describe('EnvironmentHealthService', () => {
 
 	it('reports a rejected command as an error and logs the message', async () => {
 		executeCommand.mockRejectedValue(new Error('ENOENT'));
-		const tracker = build();
+		const tracker = open();
 		await settle();
 		expect(tracker.state[0].state).toEqual({ kind: 'error' });
 		expect(warn).toHaveBeenCalledWith(expect.stringContaining('Environment setup check failed for python: '));
@@ -293,7 +342,7 @@ describe('EnvironmentHealthService', () => {
 
 	it('reports a malformed payload as an error', async () => {
 		executeCommand.mockResolvedValue({ ok: true, items: [] });
-		const tracker = build();
+		const tracker = open();
 		await settle();
 		expect(tracker.state[0].state).toEqual({ kind: 'error' });
 		tracker.dispose();
@@ -301,7 +350,7 @@ describe('EnvironmentHealthService', () => {
 
 	it('marks a language hidden from the setting and never checks it', async () => {
 		getValue.mockReturnValue(['python']);
-		const tracker = build();
+		const tracker = open();
 		await settle();
 		expect(tracker.state.map(l => l.state.kind)).toEqual(['result', 'hidden']);
 		expect(executeCommand.mock.calls.map(c => c[0])).not.toContain('r.getEnvironmentHealth');
@@ -310,7 +359,7 @@ describe('EnvironmentHealthService', () => {
 
 	it('checks a language that the setting starts including', async () => {
 		getValue.mockReturnValue(['python']);
-		const tracker = build();
+		const tracker = open();
 		await settle();
 		getValue.mockReturnValue(['python', 'r']);
 		onDidChangeConfiguration.fire({ affectsConfiguration: () => true });
@@ -320,7 +369,7 @@ describe('EnvironmentHealthService', () => {
 	});
 
 	it('runs a fix, then rechecks that language only', async () => {
-		const tracker = build();
+		const tracker = open();
 		await settle();
 		executeCommand.mockClear();
 		await tracker.runFix('python', { commandId: 'python.installPythonViaUv', label: 'Install Python' });
@@ -335,7 +384,7 @@ describe('EnvironmentHealthService', () => {
 	it('drops a result that arrives after disposal', async () => {
 		let resolveRun: (value: unknown) => void = () => { };
 		executeCommand.mockImplementation(() => new Promise(resolve => { resolveRun = resolve; }));
-		const tracker = build();
+		const tracker = open();
 		// Same reason as above: without this the run has not reached
 		// executeCommand, so resolveRun is a no-op and nothing is being tested.
 		await settle();

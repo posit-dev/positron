@@ -75,12 +75,20 @@ function isHealthItem(value: unknown): value is IHealthItem {
 		return false;
 	}
 	const item = value as Partial<IHealthItem>;
-	// `fix` gets checked where the others do not, because it is the only field
-	// that drives an action rather than a display. An unregistered command id
-	// sends CommandService down its activate-everything path, which waits 30
-	// seconds before rejecting -- the same wait the extension check in the
-	// tracker exists to avoid.
-	if (item.fix !== undefined && typeof item.fix?.commandId !== 'string') {
+	// `fix` is checked where the other optional fields are not, because it is the
+	// only one that drives an action rather than a display. An unregistered
+	// command id sends CommandService down its activate-everything path, which
+	// waits 30 seconds before rejecting -- the same wait the extension check in
+	// the service exists to avoid. The label matters for the same reason: it is
+	// the only thing telling the user what the button will do, and a missing one
+	// renders a button reading "undefined" that runs a real command.
+	//
+	// Null is checked alongside undefined because this crossed the extension host
+	// as JSON, where an explicit null survives and an undefined does not. Both
+	// mean the item has no fix.
+	const fix = item.fix;
+	if (fix !== undefined && fix !== null
+		&& (typeof fix.commandId !== 'string' || typeof fix.label !== 'string')) {
 		return false;
 	}
 	return typeof item.id === 'string'
