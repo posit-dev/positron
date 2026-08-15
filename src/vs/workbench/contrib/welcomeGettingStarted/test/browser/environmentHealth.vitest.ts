@@ -42,9 +42,9 @@ describe('isEnvironmentHealthResult', () => {
 		['ok not a boolean', { ok: 'yes', items: [item] }],
 		['an item missing summary', { ok: true, items: [{ id: 'discovery', status: 'pass' }] }],
 		['an item with an unknown status', { ok: true, items: [{ ...item, status: 'exploded' }] }],
-		// A fix drives a command, so a broken one is not a display problem. An
-		// unregistered id costs a 30-second wait; a missing label renders a button
-		// reading "undefined" that runs a real command.
+		// A broken fix is handed straight to executeCommand: a missing id gets
+		// called anyway, and a missing label renders a button reading "undefined"
+		// that runs a real command.
 		['a fix with no commandId', { ok: true, items: [{ ...item, fix: { label: 'Install Python' } }] }],
 		['a fix with no label', { ok: true, items: [{ ...item, fix: { commandId: 'python.installPythonViaUv' } }] }],
 		['a fix whose commandId is not a string', { ok: true, items: [{ ...item, fix: { commandId: 42, label: 'Go' } }] }],

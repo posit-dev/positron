@@ -5,11 +5,9 @@
 
 import { localize } from '../../../../../nls.js';
 
-/**
- * Core's copy of what `python.getEnvironmentHealth` and `r.getEnvironmentHealth`
- * return. Core cannot import from an extension, so this mirrors their shape by
- * hand and `isEnvironmentHealthResult` guards the boundary.
- */
+// Core's copy of what `python.getEnvironmentHealth` and `r.getEnvironmentHealth`
+// return. Core cannot import from an extension, so this mirrors their shape by
+// hand and `isEnvironmentHealthResult` guards the boundary.
 
 export type HealthItemStatus = 'pass' | 'warn' | 'fail' | 'skipped';
 
@@ -44,8 +42,12 @@ export interface IHealthItem {
 
 export interface IEnvironmentHealthResult {
 	/**
-	 * True when nothing failed, so a warning still reports true. Nothing reads it:
-	 * every question the UI asks is answered by the item statuses.
+	 * True when nothing failed, so a warning still reports true.
+	 *
+	 * Nothing reads the value -- every question the UI asks is answered by the item
+	 * statuses -- but `isEnvironmentHealthResult` still requires it to be present
+	 * and a boolean, as a cheap signal that the payload came from a command that
+	 * knows this contract. Do not delete that check as dead weight.
 	 */
 	readonly ok: boolean;
 	/** The full set, in dependency order, with skipped items after the first failure. */
@@ -90,13 +92,14 @@ function isHealthItem(value: unknown): value is IHealthItem {
 		return false;
 	}
 	const item = value as Partial<IHealthItem>;
-	// `fix` is checked where the other optional fields are not, because it is the
-	// only one that drives an action rather than a display. An unregistered
-	// command id sends CommandService down its activate-everything path, which
-	// waits 30 seconds before rejecting -- the same wait the extension check in
-	// the service exists to avoid. The label matters for the same reason: it is
-	// the only thing telling the user what the button will do, and a missing one
-	// renders a button reading "undefined" that runs a real command.
+	// `fix` is checked because a broken one is handed straight to executeCommand.
+	// A missing or non-string command id gets called anyway, and an id that is not
+	// a registered command sends CommandService down its activate-everything path,
+	// which waits 30 seconds before rejecting. This cannot tell whether an id is
+	// registered -- any string passes -- only that there is one to call. The label
+	// is checked for the same reason: it is the only thing telling the user what
+	// the button will do, and a missing one renders a button reading "undefined"
+	// that runs a real command.
 	//
 	// Null is checked alongside undefined because this crossed the extension host
 	// as JSON, where an explicit null survives and an undefined does not. Both

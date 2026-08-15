@@ -43,8 +43,12 @@ export const IEnvironmentHealthService = createDecorator<IEnvironmentHealthServi
 export interface IEnvironmentHealthService {
 	readonly _serviceBrand: undefined;
 	/**
-	 * Fires whenever the snapshot changes: a check starting, a check ending, a fix
-	 * starting, a fix ending. The card subscribes and re-reads `state`.
+	 * Fires when a result lands, and on every start and end of a check or a fix.
+	 *
+	 * Only the first of those changes the snapshot. The others move `isBusy`,
+	 * which the snapshot does not carry, so this event is the only way to observe
+	 * it -- a consumer showing a progress indicator has to mirror `isBusy` from
+	 * here rather than poll it.
 	 */
 	readonly onDidChange: Event<EnvironmentHealthSnapshot>;
 	readonly state: EnvironmentHealthSnapshot;
@@ -135,9 +139,9 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	) {
 		super();
 
-		// The setting can also change from the Settings editor, so the control in
-		// the page only writes it and this listener does the rest. Both routes end
-		// in the same place.
+		// The card only opens the Settings editor at this key; the user changes the
+		// value there. This listener is what makes that take effect without a
+		// reload.
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY)) {
 				this._applyEnabledLanguagesSetting();
@@ -243,8 +247,11 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 * the card looks idle throughout, and pressing recheck would run a check
 	 * against a half-installed environment.
 	 *
-	 * It rechecks after every fix rather than keeping a list of which commands are
-	 * worth rechecking after, because the check is cheap and idempotent.
+	 * A fix that succeeds is followed by a recheck; one that fails is not. It
+	 * rechecks after any successful fix rather than keeping a list of which
+	 * commands are worth rechecking after, because such a list would go stale
+	 * against the extensions. The check is not free -- R rediscovers every
+	 * installation -- but paying for it once after a fix is the point.
 	 */
 	async runFix(language: HealthLanguage, fix: IHealthItemFix): Promise<void> {
 		if (this._disposed) {
@@ -272,15 +279,24 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 			this._fireOnDidChange();
 			return;
 		}
-		// Fires for itself when it starts a run. When a check is already out it
+		if (this._getDisabledLanguages().has(language)) {
+			// The user turned this language off while the fix ran, so there is
+			// nothing to recheck. Fire anyway: isBusy just went false and the call
+			// below would return at its own disabled-language guard without saying
+			// so, leaving the card showing a progress line that never stops.
+			this._fireOnDidChange();
+			return;
+		}
+		// Fires for itself when it starts a check. When a check is already out it
 		// queues instead and stays busy on that check's flag, so there is nothing
 		// to announce.
 		this._requestLanguageHealthCheck(language, true);
 	}
 
 	override dispose(): void {
-		// A run in flight cannot be stopped, so mark the tracker dead and let
-		// _set drop whatever comes back rather than firing on a disposed emitter.
+		// A check in flight cannot be stopped, so mark the service dead and let
+		// _setLanguageHealthState drop whatever comes back rather than firing on a
+		// disposed emitter.
 		this._disposed = true;
 		super.dispose();
 	}
@@ -344,12 +360,18 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	}
 
 	/**
-	 * Ends a run: clears the in-flight flag, then writes the result unless the
-	 * language was hidden while the run was out (the user can hide it mid-check,
-	 * since the Python check takes seconds). Clearing the flag first, rather than
-	 * in a `finally`, keeps `isBusy` and the change event this fires in sync --
-	 * a listener reacting to the event never sees `isBusy` still true for a
-	 * run that has already finished.
+	 * Takes the outcome of a finished check and decides what to do with it. The
+	 * language stops counting as busy either way; the result is published unless
+	 * one of two things is true:
+	 *
+	 * - the user turned the language off while the check was out, so the result is
+	 *   about something no longer on screen
+	 * - a fix queued a recheck while this check was out, so this result predates
+	 *   the fix and the recheck is about to replace it
+	 *
+	 * The busy flag is cleared before firing rather than in a `finally`, so a
+	 * listener reacting to the event never sees `isBusy` still true for a check
+	 * that has already finished.
 	 */
 	private _handleHealthCheckResult(language: HealthLanguage, state: LanguageHealthState): void {
 		this._runningChecks.delete(language);

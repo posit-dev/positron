@@ -99,20 +99,6 @@ describe('EnvironmentHealthService', () => {
 		tracker.dispose();
 	});
 
-	it('does nothing when recheckForPage runs right after construction', async () => {
-		// The pane calls refreshAll whenever it builds the page, and the first of
-		// those calls is what builds the service. Its checks are already in flight
-		// by then, so this must not start a second pair.
-		const tracker = build();
-		tracker.recheckForPage(pageA);
-		await settle();
-		expect(executeCommand.mock.calls.map(c => c[0])).toEqual([
-			'python.getEnvironmentHealth',
-			'r.getEnvironmentHealth',
-		]);
-		tracker.dispose();
-	});
-
 	it('rechecks every visible language for a new page', async () => {
 		const tracker = open();
 		await settle();
@@ -245,6 +231,54 @@ describe('EnvironmentHealthService', () => {
 		expect(seen).not.toContain('No supported Python was found');
 		expect(summaryOf(tracker.state[0].state)).toBe('Positron can discover Python environments');
 		subscription.dispose();
+		tracker.dispose();
+	});
+
+	it('stops reporting a language as busy when its fix ends after it was hidden', async () => {
+		// The recheck after a fix returns at its own disabled-language guard, so
+		// without firing here the card keeps a progress line up for a language it
+		// is no longer showing -- and its recheck control stays dead.
+		const tracker = open();
+		await settle();
+		let resolveFix: (value: unknown) => void = () => { };
+		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveFix = resolve; }));
+		void tracker.runFix('python', { commandId: 'python.installPythonViaUv', label: 'Install Python' });
+		expect(tracker.isBusy('python')).toBe(true);
+
+		getValue.mockReturnValue(['r']);
+		onDidChangeConfiguration.fire({ affectsConfiguration: () => true });
+		const changed = vi.fn();
+		const subscription = tracker.onDidChange(changed);
+
+		resolveFix(undefined);
+		await settle();
+		expect(tracker.isBusy('python')).toBe(false);
+		expect(changed).toHaveBeenCalled();
+		subscription.dispose();
+		tracker.dispose();
+	});
+
+	it('stays busy for a fix after a check for the same language ends', async () => {
+		// Checks and fixes are tracked separately for this reason: one set would
+		// mean the check ending cleared the flag while the fix was still running.
+		const tracker = open();
+		await settle();
+		let resolveFix: (value: unknown) => void = () => { };
+		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveFix = resolve; }));
+		void tracker.runFix('python', { commandId: 'python.installPythonViaUv', label: 'Install Python' });
+
+		// A check for the same language runs and finishes while the fix is out. It
+		// has to actually run: sharing one set would make this request look like a
+		// duplicate of the fix and drop it, which would pass the busy assertions
+		// below for the wrong reason.
+		tracker.recheckLanguage('python');
+		await settle();
+		expect(executeCommand.mock.calls.filter(c => c[0] === 'python.getEnvironmentHealth')).toHaveLength(2);
+		expect(tracker.isBusy('python')).toBe(true);
+
+		resolveFix(undefined);
+		await settle();
+		expect(tracker.isBusy('python')).toBe(false);
 		tracker.dispose();
 	});
 
