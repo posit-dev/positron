@@ -222,9 +222,6 @@ export class GettingStartedPage extends EditorPane {
 	// one unmounts the previous one, and clearInput clears it so the tree does
 	// not stay mounted while the editor is closed.
 	private readonly positronReactRenderer = this._register(new MutableDisposable<PositronReactRenderer>());
-	// The input the environment checks last ran for. The service is shared by
-	// every welcome page in the window, so this only decides when to recheck.
-	private environmentHealthInput: GettingStartedInput | undefined;
 	// --- End Positron ---
 
 	get editorInput(): GettingStartedInput | undefined {
@@ -1273,17 +1270,19 @@ export class GettingStartedPage extends EditorPane {
 			return undefined;
 		}
 
-		// clearInput sets editorInput to undefined on every tab switch, and the
-		// rerender and configuration listeners keep firing while the tab is hidden.
-		// Treating that undefined as a new input would recheck on every visit to
-		// the tab, so only a real change of input counts as a new welcome page.
+		// The service decides whether this is a page it has already checked, because
+		// a split editor builds a second pane for the same page and a new pane
+		// remembers nothing. All the pane owes it is the input, which identifies
+		// the page: the same one in two groups, a new one after a close and reopen.
 		//
-		// On the very first build this asks the service for the first time, which
-		// builds it and starts both checks; refreshAll then finds them already
-		// running and does nothing. Later opens get the recheck.
-		if (this.editorInput && this.environmentHealthInput !== this.editorInput) {
-			this.environmentHealthInput = this.editorInput;
-			this.environmentHealthService.refreshAll();
+		// The guard is for clearInput, which sets editorInput to undefined on every
+		// tab switch while the rerender and configuration listeners keep firing.
+		//
+		// On the very first build this asks for the service for the first time,
+		// which builds it and starts both checks; the call below then finds them
+		// already running and does nothing.
+		if (this.editorInput) {
+			this.environmentHealthService.refreshForPage(this.editorInput);
 		}
 
 		const reactHost = $('div');

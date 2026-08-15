@@ -39,7 +39,7 @@ const environmentHealth: IEnvironmentHealthService = {
 	state: [],
 	isRunning: () => false,
 	refresh: vi.fn(),
-	refreshAll: vi.fn(),
+	refreshForPage: vi.fn(),
 	runFix: vi.fn(),
 };
 

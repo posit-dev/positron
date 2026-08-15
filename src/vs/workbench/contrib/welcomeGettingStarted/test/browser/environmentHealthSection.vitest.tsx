@@ -30,7 +30,7 @@ describe('EnvironmentHealthSection', () => {
 		get state() { return snapshot; },
 		isRunning: () => false,
 		refresh: vi.fn(),
-		refreshAll: vi.fn(),
+		refreshForPage: vi.fn(),
 		runFix: vi.fn(),
 		...overrides,
 	});
