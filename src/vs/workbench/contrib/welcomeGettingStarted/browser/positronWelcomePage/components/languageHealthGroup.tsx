@@ -25,8 +25,6 @@ import { HealthItemRow } from './healthItemRow.js';
  */
 function summaryText(health: ILanguageHealth): string | undefined {
 	switch (health.state.kind) {
-		case 'loading':
-			return localize('positron.welcome.health.checkingLanguage', "Checking...");
 		case 'unavailable':
 			return localize('positron.welcome.health.unavailable', "The {0} extension is not available.", health.label);
 		case 'error':
@@ -72,6 +70,8 @@ export interface LanguageHealthGroupProps {
 	 * independently, the way two views of one file do.
 	 */
 	readonly expandedOverrides: Map<HealthLanguage, boolean>;
+	/** Whether this language has a check or a fix running. */
+	readonly busy: boolean;
 	readonly onRunFix: (fix: IHealthItemFix) => void;
 }
 
@@ -81,7 +81,7 @@ export interface LanguageHealthGroupProps {
  * @param props A LanguageHealthGroupProps that contains the component properties.
  * @returns The rendered component.
  */
-export const LanguageHealthGroup = ({ health, expandedOverrides, onRunFix }: LanguageHealthGroupProps) => {
+export const LanguageHealthGroup = ({ health, expandedOverrides, busy, onRunFix }: LanguageHealthGroupProps) => {
 	const headerId = useId();
 	// Undefined until the user decides for themselves, so a group opens itself
 	// when its results land with something to act on, and stays where the user
@@ -115,9 +115,7 @@ export const LanguageHealthGroup = ({ health, expandedOverrides, onRunFix }: Lan
 			return;
 		}
 		announced.current = health.state;
-		// Not the loading line: the card already announces that a check started,
-		// and saying it again once per language is the same news twice.
-		if (summary && health.state.kind !== 'loading') {
+		if (summary) {
 			status(`${health.label}, ${summary}`);
 		}
 	}, [health.label, health.state, summary]);
@@ -129,7 +127,7 @@ export const LanguageHealthGroup = ({ health, expandedOverrides, onRunFix }: Lan
 		return (
 			<ul className='health-item-list'>
 				{health.state.result.items.map(i =>
-					<HealthItemRow key={i.id} item={i} onRunFix={onRunFix} />)}
+					<HealthItemRow key={i.id} busy={busy} item={i} onRunFix={onRunFix} />)}
 			</ul>
 		);
 	};

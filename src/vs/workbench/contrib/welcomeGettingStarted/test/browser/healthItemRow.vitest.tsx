@@ -36,20 +36,20 @@ describe('HealthItemRow', () => {
 		['fail', 'Failed'],
 		['skipped', 'Not checked'],
 	] as const)('states %s as text, not only as an icon', (status, expected) => {
-		rtl.render(<HealthItemRow item={item({ status })} onRunFix={vi.fn()} />);
+		rtl.render(<HealthItemRow busy={false} item={item({ status })} onRunFix={vi.fn()} />);
 		// The icon is aria-hidden, so this text is the only thing a screen reader
 		// gets. Querying by it fails if the row ever relies on colour alone.
 		expect(screen.getByText(expected)).toBeInTheDocument();
 	});
 
 	it('renders the summary and the detail', () => {
-		rtl.render(<HealthItemRow item={item({ detail: 'No supported Python was found.' })} onRunFix={vi.fn()} />);
+		rtl.render(<HealthItemRow busy={false} item={item({ detail: 'No supported Python was found.' })} onRunFix={vi.fn()} />);
 		expect(screen.getByText('The environment is ready to use with Positron')).toBeInTheDocument();
 		expect(screen.getByText('No supported Python was found.')).toBeInTheDocument();
 	});
 
 	it('omits the fix button and the learn more link when the item has neither', () => {
-		rtl.render(<HealthItemRow item={item()} onRunFix={vi.fn()} />);
+		rtl.render(<HealthItemRow busy={false} item={item()} onRunFix={vi.fn()} />);
 		expect(screen.queryByRole('button')).not.toBeInTheDocument();
 		expect(screen.queryByRole('link')).not.toBeInTheDocument();
 	});
@@ -57,18 +57,18 @@ describe('HealthItemRow', () => {
 	it('runs the fix when its button is pressed', async () => {
 		const onRunFix = vi.fn();
 		const fix = { commandId: 'python.installPythonViaUv', label: 'Install Python' };
-		rtl.render(<HealthItemRow item={item({ status: 'fail', fix })} onRunFix={onRunFix} />);
+		rtl.render(<HealthItemRow busy={false} item={item({ status: 'fail', fix })} onRunFix={onRunFix} />);
 		await userEvent.setup().click(screen.getByRole('button', { name: 'Install Python' }));
 		expect(onRunFix).toHaveBeenCalledWith(fix);
 	});
 
 	it('renders a learn more link when the item carries a url', () => {
-		rtl.render(<HealthItemRow item={item({ learnMoreUrl: 'https://positron.posit.co/r-installations' })} onRunFix={vi.fn()} />);
+		rtl.render(<HealthItemRow busy={false} item={item({ learnMoreUrl: 'https://positron.posit.co/r-installations' })} onRunFix={vi.fn()} />);
 		expect(screen.getByRole('link')).toHaveAttribute('href', 'https://positron.posit.co/r-installations');
 	});
 
 	it('opens the learn more link through the opener service instead of navigating', async () => {
-		rtl.render(<HealthItemRow item={item({ learnMoreUrl: 'https://positron.posit.co/r-installations' })} onRunFix={vi.fn()} />);
+		rtl.render(<HealthItemRow busy={false} item={item({ learnMoreUrl: 'https://positron.posit.co/r-installations' })} onRunFix={vi.fn()} />);
 		const link = screen.getByRole('link');
 		// Capture the native event so we can check afterwards whether the
 		// browser's own navigation (the event's default action) was prevented.
@@ -77,5 +77,20 @@ describe('HealthItemRow', () => {
 		await userEvent.setup().click(link);
 		expect(open).toHaveBeenCalledWith(URI.parse('https://positron.posit.co/r-installations'));
 		expect(clickEvent?.defaultPrevented).toBe(true);
+	});
+
+	it('does not run a fix twice while the first one is still going', async () => {
+		// A fix command can run for minutes. Pressing it again would start a
+		// second install, or create a second environment.
+		const onRunFix = vi.fn();
+		const fix = { commandId: 'python.createEnvironmentAndRegister', label: 'Create Python Environment' };
+		rtl.render(<HealthItemRow
+			busy={true}
+			item={{ id: 'dedicated', status: 'fail', summary: 'No dedicated environment', fix }}
+			onRunFix={onRunFix} />);
+		const button = screen.getByRole('button', { name: 'Create Python Environment' });
+		expect(button).toBeDisabled();
+		await userEvent.setup().click(button);
+		expect(onRunFix).not.toHaveBeenCalled();
 	});
 });

@@ -26,6 +26,12 @@ const STATUS_PRESENTATION: Record<HealthItemStatus, { codicon: string; label: st
 
 export interface HealthItemRowProps {
 	readonly item: IHealthItem;
+	/**
+	 * Whether this language has a check or a fix running. A fix command can run
+	 * for minutes, and pressing it again runs it again -- a second install, or a
+	 * second environment.
+	 */
+	readonly busy: boolean;
 	readonly onRunFix: (fix: IHealthItemFix) => void;
 }
 
@@ -34,7 +40,7 @@ export interface HealthItemRowProps {
  * @param props A HealthItemRowProps that contains the component properties.
  * @returns The rendered component.
  */
-export const HealthItemRow = ({ item, onRunFix }: HealthItemRowProps) => {
+export const HealthItemRow = ({ item, busy, onRunFix }: HealthItemRowProps) => {
 	const services = usePositronReactServicesContext();
 	const status = STATUS_PRESENTATION[item.status];
 
@@ -55,7 +61,7 @@ export const HealthItemRow = ({ item, onRunFix }: HealthItemRowProps) => {
 				<span className='health-visually-hidden'>{status.label}</span>
 				<span className='health-item-summary'>{item.summary}</span>
 				{item.fix &&
-					<Button className='health-item-fix' onPressed={() => onRunFix(item.fix!)}>
+					<Button className='health-item-fix' disabled={busy} onPressed={() => onRunFix(item.fix!)}>
 						{item.fix.label}
 					</Button>}
 			</div>

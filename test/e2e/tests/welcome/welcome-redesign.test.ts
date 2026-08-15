@@ -119,14 +119,12 @@ test.describe('Redesigned Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () =
 		const { welcome } = app.workbench;
 
 		await expect(welcome.environmentSetup).toBeVisible();
-		// Settled means neither language still says "Checking...". Counting summary
-		// elements is not enough -- the loading state renders one too, so the count
-		// is satisfied the moment the card paints. Everything past that is the
-		// real wording, which depends on how the machine is set up, so nothing
-		// here asserts a particular sentence.
+		// Settled means both languages have a summary line, which only the settled
+		// states render -- a language still checking has none. Waiting on one of
+		// them is not enough: R often finishes while Python is still running. The
+		// wording depends on how the machine is set up, so nothing here asserts a
+		// particular sentence.
 		await expect(welcome.environmentSetupSummary).toHaveCount(2, { timeout: 30000 });
-		await expect(welcome.environmentSetupSummary.first()).not.toHaveText('Checking...', { timeout: 30000 });
-		await expect(welcome.environmentSetupSummary.last()).not.toHaveText('Checking...', { timeout: 30000 });
 		const settled = await welcome.environmentSetupSummary.allTextContents();
 
 		// A different editor needs a different pane, which is the path that calls

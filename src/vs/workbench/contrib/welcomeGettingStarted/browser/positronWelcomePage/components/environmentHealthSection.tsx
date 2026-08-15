@@ -145,6 +145,7 @@ export const EnvironmentHealthSection = ({ tracker, expandedOverrides }: Environ
 				: visible.map(language =>
 					<LanguageHealthGroup
 						key={language.language}
+						busy={tracker.isRunning(language.language)}
 						expandedOverrides={expandedOverrides}
 						health={language}
 						onRunFix={fix => tracker.runFix(language.language, fix)}
