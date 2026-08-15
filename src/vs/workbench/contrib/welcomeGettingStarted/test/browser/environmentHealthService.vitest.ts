@@ -66,6 +66,47 @@ describe('EnvironmentHealthService', () => {
 		tracker.dispose();
 	});
 
+	it('does nothing when refreshAll runs right after construction', async () => {
+		// The pane calls refreshAll whenever it builds the page, and the first of
+		// those calls is what builds the service. Its checks are already in flight
+		// by then, so this must not start a second pair.
+		const tracker = build();
+		tracker.refreshAll();
+		await settle();
+		expect(executeCommand.mock.calls.map(c => c[0])).toEqual([
+			'python.getEnvironmentHealth',
+			'r.getEnvironmentHealth',
+		]);
+		tracker.dispose();
+	});
+
+	it('rechecks every visible language on refreshAll', async () => {
+		const tracker = build();
+		await settle();
+		tracker.refreshAll();
+		await settle();
+		expect(executeCommand.mock.calls.map(c => c[0])).toEqual([
+			'python.getEnvironmentHealth',
+			'r.getEnvironmentHealth',
+			'python.getEnvironmentHealth',
+			'r.getEnvironmentHealth',
+		]);
+		tracker.dispose();
+	});
+
+	it('leaves a hidden language alone on refreshAll', async () => {
+		getValue.mockReturnValue(['r']);
+		const tracker = build();
+		await settle();
+		tracker.refreshAll();
+		await settle();
+		expect(executeCommand.mock.calls.map(c => c[0])).toEqual([
+			'r.getEnvironmentHealth',
+			'r.getEnvironmentHealth',
+		]);
+		tracker.dispose();
+	});
+
 	it('does not start a second run while one is in flight', async () => {
 		const tracker = build();
 		tracker.refresh('python');
