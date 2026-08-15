@@ -13,7 +13,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { IHealthItem } from '../../browser/positronWelcomePage/environmentHealth.js';
 import { LanguageHealthState } from '../../browser/positronWelcomePage/environmentHealthTracker.js';
-import { LanguageHealthGroup } from '../../browser/positronWelcomePage/components/languageHealthGroup.js';
+import { LanguageHealthGroup, userOverrides } from '../../browser/positronWelcomePage/components/languageHealthGroup.js';
 
 const item = (status: IHealthItem['status'], summary: string): IHealthItem => ({ id: summary, status, summary });
 
@@ -69,13 +69,30 @@ describe('LanguageHealthGroup', () => {
 		expect(screen.queryByRole('list')).not.toBeInTheDocument();
 	});
 
+	beforeEach(() => userOverrides.clear());
+
+	it('remembers a group the user closed across a remount', async () => {
+		// The pane throws its React tree away whenever a walkthrough registers or
+		// the tab is revisited. Held only in the component, the user's choice
+		// would be lost and a failing group would spring back open.
+		const health = { language: 'r', label: 'R', state: failing } as const;
+		const { unmount } = rtl.render(<LanguageHealthGroup health={health} onRunFix={vi.fn()} />);
+		// A failing group opens itself, so there is something to close.
+		expect(screen.getByRole('list')).toBeInTheDocument();
+		await userEvent.setup().click(screen.getByRole('button', { name: /R/ }));
+		expect(screen.queryByRole('list')).not.toBeInTheDocument();
+
+		unmount();
+		rtl.render(<LanguageHealthGroup health={health} onRunFix={vi.fn()} />);
+		expect(screen.queryByRole('list')).not.toBeInTheDocument();
+	});
+
 	it('says nothing in the body while a first check runs', async () => {
 		// The progress line in the card header is the only busy signal. A recheck
 		// never reaches this state: the tracker keeps the previous result.
 		render({ kind: 'loading' });
 		expect(screen.queryByRole('button', { name: /^R/ })).not.toBeInTheDocument();
 		expect(screen.queryByRole('list')).not.toBeInTheDocument();
-		expect(screen.queryByText('Checking...')).not.toBeInTheDocument();
 	});
 
 	it.each([
@@ -110,10 +127,14 @@ describe('LanguageHealthGroup', () => {
 		const announce = vi.spyOn(aria, 'status').mockImplementation(() => { });
 		const { rerender } = rtl.render(
 			<LanguageHealthGroup health={{ language: 'r', label: 'R', state: passing }} onRunFix={vi.fn()} />);
+		// Silent at mount: a result already on screen was announced when it
+		// landed, and this tree is remounted whenever a walkthrough registers.
+		expect(announce).not.toHaveBeenCalled();
+
 		rerender(<LanguageHealthGroup
 			health={{ language: 'r', label: 'R', state: { kind: 'result', result: { ok: true, items: [item('pass', 'A'), item('pass', 'B')] } } }}
 			onRunFix={vi.fn()} />);
-		expect(announce).toHaveBeenCalledTimes(2);
+		expect(announce).toHaveBeenCalledTimes(1);
 		announce.mockRestore();
 	});
 });

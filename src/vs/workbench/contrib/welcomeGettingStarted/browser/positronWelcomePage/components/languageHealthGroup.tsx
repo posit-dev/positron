@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
 import { status } from '../../../../../../base/browser/ui/aria/aria.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { getIconClassesForLanguageId } from '../../../../../../editor/common/services/getIconClasses.js';
-import { IHealthItemFix } from '../environmentHealth.js';
+import { HealthLanguage, IHealthItemFix } from '../environmentHealth.js';
 import { ILanguageHealth } from '../environmentHealthTracker.js';
 import { HealthItemRow } from './healthItemRow.js';
 
@@ -60,6 +60,21 @@ function needsAttention(health: ILanguageHealth): boolean {
 		&& !health.state.result.items.every(i => i.status === 'pass');
 }
 
+/**
+ * Which groups the user has opened or closed by hand.
+ *
+ * Kept outside React because the welcome pane throws its React tree away and
+ * rebuilds it whenever a walkthrough registers or the tab is revisited, which
+ * would otherwise spring a group the user closed back open. The tracker is
+ * hoisted out of React for the same reason. Module scope means one window, which
+ * is the right lifetime: a choice made in one window should not follow the user
+ * into another.
+ *
+ * Exported only so tests can clear it: it outlives any single component, so
+ * without a reset one test's collapsed group would leak into the next.
+ */
+export const userOverrides = new Map<HealthLanguage, boolean>();
+
 export interface LanguageHealthGroupProps {
 	readonly health: ILanguageHealth;
 	readonly onRunFix: (fix: IHealthItemFix) => void;
@@ -76,8 +91,12 @@ export const LanguageHealthGroup = ({ health, onRunFix }: LanguageHealthGroupPro
 	// Undefined until the user decides for themselves, so a group opens itself
 	// when its results land with something to act on, and stays where the user
 	// put it afterwards.
-	const [override, setOverride] = useState<boolean | undefined>(undefined);
+	const [override, setOverride] = useState<boolean | undefined>(() => userOverrides.get(health.language));
 	const expanded = override ?? needsAttention(health);
+	const toggle = () => {
+		userOverrides.set(health.language, !expanded);
+		setOverride(!expanded);
+	};
 
 	const summary = summaryText(health);
 
@@ -91,7 +110,16 @@ export const LanguageHealthGroup = ({ health, onRunFix }: LanguageHealthGroupPro
 	// user. The tracker stores one state object per language and replaces it on
 	// every run, so this speaks once per run and a run for one language does not
 	// re-announce the other.
+	//
+	// Whatever is already on screen at mount was announced when it landed, and
+	// the live region is workbench-wide rather than per pane. Without this, a
+	// rebuild while the user works in another tab reads the whole card at them.
+	const announced = useRef(health.state);
 	useEffect(() => {
+		if (announced.current === health.state) {
+			return;
+		}
+		announced.current = health.state;
 		if (summary) {
 			status(`${health.label}, ${summary}`);
 		}
@@ -133,7 +161,7 @@ export const LanguageHealthGroup = ({ health, onRunFix }: LanguageHealthGroupPro
 						ariaExpanded={expanded}
 						className='health-group-header'
 						id={headerId}
-						onPressed={() => setOverride(!expanded)}
+						onPressed={toggle}
 					>
 						{headerContent}
 						<span aria-hidden='true' className={`health-group-chevron codicon codicon-chevron-${expanded ? 'down' : 'right'}`} />

@@ -7,7 +7,7 @@
 import './environmentHealthSection.css';
 
 // React.
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
@@ -61,10 +61,17 @@ export const EnvironmentHealthSection = ({ tracker }: EnvironmentHealthSectionPr
 	// announcement in LanguageHealthGroup cannot cover the gap -- it speaks when a
 	// language's state changes, which tells the user how a run ended but never
 	// that one began.
+	//
+	// Only on the transition into running, and never on the first mount. The pane
+	// rebuilds its React tree whenever a walkthrough registers, so announcing on
+	// mount would speak at someone working in a different tab. That leaves this
+	// saying what it is for: the user pressed Recheck and something happened.
+	const wasRunning = useRef(running);
 	useEffect(() => {
-		if (running) {
+		if (running && !wasRunning.current) {
 			status(localize('positron.welcome.health.checkingStatus', "Checking your environment setup"));
 		}
+		wasRunning.current = running;
 	}, [running]);
 
 	const openSetting = () =>

@@ -1274,10 +1274,22 @@ export class GettingStartedPage extends EditorPane {
 		// rerender and configuration listeners keep firing while the tab is hidden.
 		// Treating that undefined as an input change would rebuild the tracker and
 		// re-run both checks on every visit, so only a real change of input rebuilds.
-		if (!this.environmentHealth.value || (this.editorInput && this.environmentHealthInput !== this.editorInput)) {
-			this.environmentHealthInput = this.editorInput;
+		const healthInput = this.editorInput;
+		if (!this.environmentHealth.value) {
+			this.environmentHealthInput = healthInput;
 			this.environmentHealth.value = this.instantiationService.createInstance(
 				EnvironmentHealthTracker, HEALTH_SOURCES);
+		} else if (healthInput && this.environmentHealthInput !== healthInput) {
+			// A tracker built while the pane had no input belongs to whichever
+			// input arrives first, so that one adopts it. Rebuilding instead would
+			// re-run both checks -- the very thing this keying prevents -- on the
+			// path a user takes to turn the feature on, since enabling the setting
+			// rebuilds the pane while its tab sits inactive and input-less.
+			if (this.environmentHealthInput !== undefined) {
+				this.environmentHealth.value = this.instantiationService.createInstance(
+					EnvironmentHealthTracker, HEALTH_SOURCES);
+			}
+			this.environmentHealthInput = healthInput;
 		}
 
 		const reactHost = $('div');

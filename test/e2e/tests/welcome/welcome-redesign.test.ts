@@ -119,24 +119,34 @@ test.describe('Redesigned Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () =
 		const { welcome } = app.workbench;
 
 		await expect(welcome.environmentSetup).toBeVisible();
-		// Wait for both languages to settle first, so "still checking" cannot be
-		// mistaken for "checked again". The progress line is the signal: the
-		// Recheck control is an icon whose label does not change while a check
-		// runs, so asserting on its text would be true the whole time.
-		await expect(welcome.environmentSetupProgress).toHaveCount(0, { timeout: 30000 });
-		// And the card holds a real result, not just an absence of loading.
-		await expect(welcome.environmentSetup).toContainText('checks passed');
+		// Settled means a language summary has text, whatever that text is. The
+		// wording depends on how the machine is set up -- "n of m checks passed",
+		// "You have successfully set up R", "The R extension is not available" --
+		// so asserting on any particular sentence would tie this to the runner.
+		// Settled means both languages have a summary line, which only the settled
+		// states render. Waiting on one of them is not enough: R often finishes
+		// while Python is still running. The wording depends on how the machine is
+		// set up, so nothing here asserts a particular sentence.
+		await expect(welcome.environmentSetupSummary).toHaveCount(2, { timeout: 30000 });
+		const settled = await welcome.environmentSetupSummary.allTextContents();
 
 		// A different editor needs a different pane, which is the path that calls
 		// clearInput on the welcome pane.
 		await runCommand('workbench.action.files.newUntitledFile');
 		await runCommand('workbench.action.previousEditor');
-
-		// The tracker is keyed to the editor input, so this must not re-run the
-		// checks. Anything back in a loading state means the pane is rebuilding
-		// the tracker on clearInput, which is the bug this guards.
 		await expect(welcome.environmentSetup).toBeVisible();
-		await expect(welcome.environmentSetupProgress).toHaveCount(0);
-		await expect(welcome.environmentSetup).toContainText('checks passed');
+
+		// What this does and does not prove. It catches the card coming back blank,
+		// stuck loading, or re-running its checks slowly enough to be seen. It
+		// cannot prove the checks were not silently re-run: a re-check lands on
+		// the same answer, so a fast one is invisible from the DOM. Reverting the
+		// input-keying in gettingStarted.ts leaves this test passing.
+		//
+		// Read the count once rather than asserting it retryably -- a retrying
+		// toHaveCount(0) would wait for any re-check to finish and then pass.
+		expect(await welcome.environmentSetupProgress.count()).toBe(0);
+		// Same reason for the short timeout: the summary has to be there *now*,
+		// not after a re-check has had time to refill it.
+		await expect(welcome.environmentSetupSummary).toHaveText(settled, { timeout: 2000 });
 	});
 });

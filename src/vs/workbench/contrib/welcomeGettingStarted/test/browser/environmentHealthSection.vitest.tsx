@@ -76,12 +76,31 @@ describe('EnvironmentHealthSection', () => {
 		expect(refresh).not.toHaveBeenCalled();
 	});
 
-	it('announces that a check has started', () => {
+	it('announces a check the user starts, and says nothing about one already running', async () => {
 		// The progress line is the only visual signal and a progressbar is not a
-		// live region, so without this the run is silent to a screen reader.
+		// live region, so a run the user starts is otherwise silent. A run already
+		// under way at mount is a different matter: the pane rebuilds this tree
+		// whenever a walkthrough registers, and the live region is workbench-wide,
+		// so announcing on mount speaks at someone working in another tab.
 		const announce = vi.spyOn(aria, 'status').mockImplementation(() => { });
-		rtl.render(<EnvironmentHealthSection tracker={tracker(loading, { isRunning: () => true })} />);
+		let busy = false;
+		// A fresh array each read, as the real tracker returns, or React sees the
+		// same value and never re-renders.
+		let snapshot = loading;
+		rtl.render(<EnvironmentHealthSection
+			tracker={tracker(loading, { get state() { return snapshot; }, isRunning: () => busy })} />);
+		expect(announce).not.toHaveBeenCalled();
+
+		busy = true;
+		snapshot = [...loading];
+		await act(async () => { onDidChange.fire(snapshot); });
 		expect(announce).toHaveBeenCalledWith('Checking your environment setup');
+
+		// The remount case, which is the one that matters: a rebuild while a check
+		// happens to be running must not speak.
+		announce.mockClear();
+		rtl.render(<EnvironmentHealthSection tracker={tracker(loading, { isRunning: () => true })} />);
+		expect(announce).not.toHaveBeenCalled();
 		announce.mockRestore();
 	});
 

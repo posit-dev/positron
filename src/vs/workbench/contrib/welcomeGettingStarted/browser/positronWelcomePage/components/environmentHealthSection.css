@@ -42,6 +42,8 @@
  */
 .positron-welcome-page-environment-setup .health-header {
 	align-items: center;
+	background-color: var(--vscode-positronWelcome-environmentSetupTitleBackground);
+	color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
 	display: flex;
 	gap: 8px;
 	padding: 8px 16px;
@@ -50,15 +52,6 @@
 /* The heading exists for structure; the button inside it carries the layout. */
 .positron-welcome-page-environment-setup .health-group-heading {
 	margin: 0;
-}
-
-.positron-welcome-page-environment-setup .health-header {
-	background-color: var(--vscode-positronWelcome-environmentSetupTitleBackground);
-	color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
-}
-
-.positron-welcome-page-environment-setup .health-group-header {
-	background-color: var(--vscode-positronWelcome-environmentSetupHeaderBackground);
 }
 
 /*
@@ -120,7 +113,6 @@
 }
 
 .positron-welcome-page-environment-setup .health-group-chevron {
-	color: var(--vscode-icon-foreground);
 	flex: 0 0 auto;
 }
 
@@ -160,6 +152,11 @@
  * line up under the summary, past the status icon.
  */
 .positron-welcome-page-environment-setup .health-item-secondary {
+	/*
+	 * A detail often carries a file path, which has nothing to break on. Without
+	 * this it runs past the edge of the card instead of wrapping.
+	 */
+	overflow-wrap: anywhere;
 	padding-left: 24px;
 }
 
@@ -176,19 +173,6 @@
 	flex: 1 1 auto;
 	line-height: 24px;
 	min-width: 0;
-}
-
-.positron-welcome-page-environment-setup .health-item-text {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	/*
-	 * A flex child will not shrink narrower than its longest word unless
-	 * min-width is 0, and then overflow-wrap breaks the word itself.
-	 */
-	flex: 1 1 auto;
-	min-width: 0;
-	overflow-wrap: anywhere;
 }
 
 .positron-welcome-page-environment-setup .health-item-detail {
