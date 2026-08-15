@@ -98,6 +98,7 @@ import { gettingStartedPositronNotebookCategoryId } from '../common/gettingStart
 import { gettingStartedPositronWelcomeCategoryId } from '../common/gettingStartedPositronWelcomeContent.js';
 import { createPositronWelcomePage } from './positronWelcomePage/positronWelcomePage.js';
 import { WELCOME_PAGE_EXPERIMENTAL_KEY } from '../common/positronWelcomePageConfiguration.js';
+import { HealthLanguage } from './positronWelcomePage/environmentHealth.js';
 import { IEnvironmentHealthService } from './positronWelcomePage/environmentHealthService.js';
 // --- End Positron ---
 
@@ -222,6 +223,12 @@ export class GettingStartedPage extends EditorPane {
 	// one unmounts the previous one, and clearInput clears it so the tree does
 	// not stay mounted while the editor is closed.
 	private readonly positronReactRenderer = this._register(new MutableDisposable<PositronReactRenderer>());
+	// Which environment groups this pane has open, for the ones the user opened or
+	// closed themselves. Held here rather than in the React tree, which is thrown
+	// away and rebuilt whenever a walkthrough registers. One per pane, so a split
+	// editor gives two welcome pages that fold independently, the way two views of
+	// one file do -- unlike the check results, which they share.
+	private readonly environmentHealthOverrides = new Map<HealthLanguage, boolean>();
 	// --- End Positron ---
 
 	get editorInput(): GettingStartedInput | undefined {
@@ -1292,6 +1299,7 @@ export class GettingStartedPage extends EditorPane {
 			connectAction: isWeb ? undefined : otherList,
 			footer,
 			environmentHealth: this.environmentHealthService,
+			environmentHealthOverrides: this.environmentHealthOverrides,
 			// React mounts asynchronously, so the elements above are not in the
 			// DOM yet when the caller runs registerDispatchListeners, nor when it
 			// measures the slide for scrolling. Redo both once they are.

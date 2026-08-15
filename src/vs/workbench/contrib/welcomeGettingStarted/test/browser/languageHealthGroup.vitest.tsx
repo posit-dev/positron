@@ -5,15 +5,15 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen, within } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import * as aria from '../../../../../base/browser/ui/aria/aria.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
-import { IHealthItem } from '../../browser/positronWelcomePage/environmentHealth.js';
+import { HealthLanguage, IHealthItem } from '../../browser/positronWelcomePage/environmentHealth.js';
 import { LanguageHealthState } from '../../browser/positronWelcomePage/environmentHealthService.js';
-import { LanguageHealthGroup, userOverrides } from '../../browser/positronWelcomePage/components/languageHealthGroup.js';
+import { LanguageHealthGroup } from '../../browser/positronWelcomePage/components/languageHealthGroup.js';
 
 const item = (status: IHealthItem['status'], summary: string): IHealthItem => ({ id: summary, status, summary });
 
@@ -34,7 +34,7 @@ describe('LanguageHealthGroup', () => {
 	beforeEach(() => vi.clearAllMocks());
 
 	const render = (state: LanguageHealthState) =>
-		rtl.render(<LanguageHealthGroup health={{ language: 'r', label: 'R', state }} onRunFix={vi.fn()} />);
+		rtl.render(<LanguageHealthGroup expandedOverrides={overrides} health={{ language: 'r', label: 'R', state }} onRunFix={vi.fn()} />);
 
 	const header = () => screen.getByRole('button', { name: /^R/ });
 
@@ -69,45 +69,49 @@ describe('LanguageHealthGroup', () => {
 		expect(screen.queryByRole('list')).not.toBeInTheDocument();
 	});
 
-	beforeEach(() => userOverrides.clear());
+	// One per pane in production; a fresh one per test here.
+	let overrides: Map<HealthLanguage, boolean>;
+	beforeEach(() => { overrides = new Map(); });
 
 	it('remembers a group the user closed across a remount', async () => {
 		// The pane throws its React tree away whenever a walkthrough registers or
 		// the tab is revisited. Held only in the component, the user's choice
 		// would be lost and a failing group would spring back open.
 		const health = { language: 'r', label: 'R', state: failing } as const;
-		const { unmount } = rtl.render(<LanguageHealthGroup health={health} onRunFix={vi.fn()} />);
+		const { unmount } = rtl.render(<LanguageHealthGroup expandedOverrides={overrides} health={health} onRunFix={vi.fn()} />);
 		// A failing group opens itself, so there is something to close.
 		expect(screen.getByRole('list')).toBeInTheDocument();
 		await userEvent.setup().click(screen.getByRole('button', { name: /R/ }));
 		expect(screen.queryByRole('list')).not.toBeInTheDocument();
 
 		unmount();
-		rtl.render(<LanguageHealthGroup health={health} onRunFix={vi.fn()} />);
+		rtl.render(<LanguageHealthGroup expandedOverrides={overrides} health={health} onRunFix={vi.fn()} />);
 		expect(screen.queryByRole('list')).not.toBeInTheDocument();
 	});
 
-	it('follows a collapse made in another card', async () => {
-		// Splitting the editor gives two welcome pages sharing one set of results.
-		// Without the event they share the choice but not the moment of making it,
-		// so the other pane keeps its old state and later snaps to this one.
-		const health = { language: 'r', label: 'R', state: failing } as const;
-		// Scoped to each container, since both cards are in the document at once.
-		const a = within(rtl.render(<LanguageHealthGroup health={health} onRunFix={vi.fn()} />).container);
-		const b = within(rtl.render(<LanguageHealthGroup health={health} onRunFix={vi.fn()} />).container);
-		expect(a.getByRole('list')).toBeInTheDocument();
-		expect(b.getByRole('list')).toBeInTheDocument();
+	it('records the choice in the map it was handed', async () => {
+		// This is what makes folding per pane: each welcome page owns a map and
+		// passes it in. A component keeping the state anywhere shared would leave
+		// this one untouched, and both pages would fold together.
+		const mine = new Map<HealthLanguage, boolean>();
+		const theirs = new Map<HealthLanguage, boolean>();
+		rtl.render(<LanguageHealthGroup
+			expandedOverrides={mine}
+			health={{ language: 'r', label: 'R', state: failing }}
+			onRunFix={vi.fn()} />);
 
-		// Collapse the one on the left only.
-		await userEvent.setup().click(a.getByRole('button', { name: /R/ }));
-		expect(a.queryByRole('list')).not.toBeInTheDocument();
-		expect(b.queryByRole('list')).not.toBeInTheDocument();
+		// `failing` opens itself, so this closes it.
+		await userEvent.setup().click(screen.getByRole('button', { name: /R/ }));
+		expect(mine.get('r')).toBe(false);
+		expect(theirs.size).toBe(0);
 	});
 
-	it('says nothing in the body while a first check runs', async () => {
-		// The progress line in the card header is the only busy signal. A recheck
-		// never reaches this state: the tracker keeps the previous result.
+	it('says it is checking in the header, and nothing in the body, on a first check', async () => {
+		// A cold machine sits here for 15-20 seconds, so the row says why it is
+		// blank rather than showing a bare language name. A recheck never reaches
+		// this state: the service keeps the previous result on screen.
 		render({ kind: 'loading' });
+		expect(screen.getByText('Checking...')).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: /^R/ })).not.toBeInTheDocument();
 		expect(screen.queryByRole('list')).not.toBeInTheDocument();
 	});
@@ -131,8 +135,8 @@ describe('LanguageHealthGroup', () => {
 	it('announces the result when it arrives', async () => {
 		const announce = vi.spyOn(aria, 'status').mockImplementation(() => { });
 		const { rerender } = rtl.render(
-			<LanguageHealthGroup health={{ language: 'r', label: 'R', state: { kind: 'loading' } }} onRunFix={vi.fn()} />);
-		rerender(<LanguageHealthGroup health={{ language: 'r', label: 'R', state: passing }} onRunFix={vi.fn()} />);
+			<LanguageHealthGroup expandedOverrides={overrides} health={{ language: 'r', label: 'R', state: { kind: 'loading' } }} onRunFix={vi.fn()} />);
+		rerender(<LanguageHealthGroup expandedOverrides={overrides} health={{ language: 'r', label: 'R', state: passing }} onRunFix={vi.fn()} />);
 		expect(announce).toHaveBeenCalledWith('R, You have successfully set up R');
 		announce.mockRestore();
 	});
@@ -143,12 +147,13 @@ describe('LanguageHealthGroup', () => {
 		// environment most likely to be rechecked: a healthy one.
 		const announce = vi.spyOn(aria, 'status').mockImplementation(() => { });
 		const { rerender } = rtl.render(
-			<LanguageHealthGroup health={{ language: 'r', label: 'R', state: passing }} onRunFix={vi.fn()} />);
+			<LanguageHealthGroup expandedOverrides={overrides} health={{ language: 'r', label: 'R', state: passing }} onRunFix={vi.fn()} />);
 		// Silent at mount: a result already on screen was announced when it
 		// landed, and this tree is remounted whenever a walkthrough registers.
 		expect(announce).not.toHaveBeenCalled();
 
 		rerender(<LanguageHealthGroup
+			expandedOverrides={overrides}
 			health={{ language: 'r', label: 'R', state: { kind: 'result', result: { ok: true, items: [item('pass', 'A'), item('pass', 'B')] } } }}
 			onRunFix={vi.fn()} />);
 		expect(announce).toHaveBeenCalledTimes(1);

@@ -14,6 +14,7 @@ import { PositronReactRenderer } from '../../../../../base/browser/positronReact
 import { DomSlot } from './components/domSlot.js';
 import { EnvironmentHealthSection } from './components/environmentHealthSection.js';
 import { WalkthroughBanner } from './components/walkthroughBanner.js';
+import { HealthLanguage } from './environmentHealth.js';
 import { IEnvironmentHealthService } from './environmentHealthService.js';
 
 /**
@@ -46,6 +47,13 @@ export interface PositronWelcomePageProps {
 	readonly environmentHealth: IEnvironmentHealthService;
 
 	/**
+	 * Which environment groups this page has open, for the ones the user opened
+	 * or closed themselves. Owned by the pane for the same reason as above, and
+	 * one per pane, so two welcome pages side by side fold independently.
+	 */
+	readonly environmentHealthOverrides: Map<HealthLanguage, boolean>;
+
+	/**
 	 * Called once the page is in the DOM. The editor pane uses this to attach
 	 * click handlers to the elements above, which it can only do after React
 	 * has mounted them.
@@ -73,7 +81,7 @@ export const PositronWelcomePage = (props: PositronWelcomePageProps) => {
 	// layout lives on one element instead of two nested ones.
 	return (
 		<>
-			<EnvironmentHealthSection tracker={props.environmentHealth} />
+			<EnvironmentHealthSection expandedOverrides={props.environmentHealthOverrides} tracker={props.environmentHealth} />
 			<WalkthroughBanner />
 			<DomSlot element={props.recentList} />
 			{props.connectAction && <DomSlot element={props.connectAction} />}

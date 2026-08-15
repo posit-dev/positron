@@ -19,11 +19,14 @@ import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
 import { PositronActionBarHoverManager } from '../../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY } from '../../../common/positronWelcomePageConfiguration.js';
+import { HealthLanguage } from '../environmentHealth.js';
 import { IEnvironmentHealthService } from '../environmentHealthService.js';
 import { LanguageHealthGroup } from './languageHealthGroup.js';
 
 export interface EnvironmentHealthSectionProps {
 	readonly tracker: IEnvironmentHealthService;
+	/** See LanguageHealthGroup: one map per welcome page, owned by the pane. */
+	readonly expandedOverrides: Map<HealthLanguage, boolean>;
 }
 
 /**
@@ -31,7 +34,7 @@ export interface EnvironmentHealthSectionProps {
  * @param props An EnvironmentHealthSectionProps that contains the component properties.
  * @returns The rendered component.
  */
-export const EnvironmentHealthSection = ({ tracker }: EnvironmentHealthSectionProps) => {
+export const EnvironmentHealthSection = ({ tracker, expandedOverrides }: EnvironmentHealthSectionProps) => {
 	const services = usePositronReactServicesContext();
 	const titleId = useId();
 	// One subscription for the whole card, which is why onDidChange carries the
@@ -142,6 +145,7 @@ export const EnvironmentHealthSection = ({ tracker }: EnvironmentHealthSectionPr
 				: visible.map(language =>
 					<LanguageHealthGroup
 						key={language.language}
+						expandedOverrides={expandedOverrides}
 						health={language}
 						onRunFix={fix => tracker.runFix(language.language, fix)}
 					/>)}

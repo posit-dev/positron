@@ -9,7 +9,6 @@ import { useEffect, useId, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
 import { status } from '../../../../../../base/browser/ui/aria/aria.js';
-import { Emitter } from '../../../../../../base/common/event.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { getIconClassesForLanguageId } from '../../../../../../editor/common/services/getIconClasses.js';
 import { HealthLanguage, IHealthItemFix } from '../environmentHealth.js';
@@ -26,6 +25,8 @@ import { HealthItemRow } from './healthItemRow.js';
  */
 function summaryText(health: ILanguageHealth): string | undefined {
 	switch (health.state.kind) {
+		case 'loading':
+			return localize('positron.welcome.health.checkingLanguage', "Checking...");
 		case 'unavailable':
 			return localize('positron.welcome.health.unavailable', "The {0} extension is not available.", health.label);
 		case 'error':
@@ -61,32 +62,16 @@ function needsAttention(health: ILanguageHealth): boolean {
 		&& !health.state.result.items.every(i => i.status === 'pass');
 }
 
-/**
- * Which groups the user has opened or closed by hand.
- *
- * Kept outside React because the welcome pane throws its React tree away and
- * rebuilds it whenever a walkthrough registers or the tab is revisited, which
- * would otherwise spring a group the user closed back open. The tracker is
- * hoisted out of React for the same reason. Module scope means one window, which
- * is the right lifetime: a choice made in one window should not follow the user
- * into another.
- *
- * Exported only so tests can clear it: it outlives any single component, so
- * without a reset one test's collapsed group would leak into the next.
- */
-export const userOverrides = new Map<HealthLanguage, boolean>();
-
-/**
- * Fires when a group is opened or closed, so every card in the window follows.
- * Splitting the editor gives two welcome pages that share one set of results, so
- * without this they share the choice but not the moment of making it: the pane
- * that was not clicked keeps its old state until something remounts it and then
- * snaps to the other one's.
- */
-const onDidChangeOverride = new Emitter<HealthLanguage>();
-
 export interface LanguageHealthGroupProps {
 	readonly health: ILanguageHealth;
+	/**
+	 * Which groups this welcome page has open, for the ones the user decided
+	 * themselves. Owned by the editor pane because it has to outlive the React
+	 * tree, which the pane rebuilds whenever a walkthrough registers -- and one
+	 * map per pane, so splitting the editor gives two pages that fold
+	 * independently, the way two views of one file do.
+	 */
+	readonly expandedOverrides: Map<HealthLanguage, boolean>;
 	readonly onRunFix: (fix: IHealthItemFix) => void;
 }
 
@@ -96,27 +81,17 @@ export interface LanguageHealthGroupProps {
  * @param props A LanguageHealthGroupProps that contains the component properties.
  * @returns The rendered component.
  */
-export const LanguageHealthGroup = ({ health, onRunFix }: LanguageHealthGroupProps) => {
+export const LanguageHealthGroup = ({ health, expandedOverrides, onRunFix }: LanguageHealthGroupProps) => {
 	const headerId = useId();
 	// Undefined until the user decides for themselves, so a group opens itself
 	// when its results land with something to act on, and stays where the user
 	// put it afterwards.
-	const [override, setOverride] = useState<boolean | undefined>(() => userOverrides.get(health.language));
+	const [override, setOverride] = useState<boolean | undefined>(() => expandedOverrides.get(health.language));
 	const expanded = override ?? needsAttention(health);
 	const toggle = () => {
-		userOverrides.set(health.language, !expanded);
-		// The event updates this component too, so there is no setOverride here.
-		onDidChangeOverride.fire(health.language);
+		expandedOverrides.set(health.language, !expanded);
+		setOverride(!expanded);
 	};
-
-	useEffect(() => {
-		const subscription = onDidChangeOverride.event(language => {
-			if (language === health.language) {
-				setOverride(userOverrides.get(language));
-			}
-		});
-		return () => subscription.dispose();
-	}, [health.language]);
 
 	const summary = summaryText(health);
 
@@ -140,7 +115,9 @@ export const LanguageHealthGroup = ({ health, onRunFix }: LanguageHealthGroupPro
 			return;
 		}
 		announced.current = health.state;
-		if (summary) {
+		// Not the loading line: the card already announces that a check started,
+		// and saying it again once per language is the same news twice.
+		if (summary && health.state.kind !== 'loading') {
 			status(`${health.label}, ${summary}`);
 		}
 	}, [health.label, health.state, summary]);

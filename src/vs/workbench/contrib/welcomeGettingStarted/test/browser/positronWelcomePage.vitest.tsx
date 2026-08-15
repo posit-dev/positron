@@ -74,7 +74,7 @@ describe('PositronWelcomePage', () => {
 		const { container } = rtl.render(
 			<PositronWelcomePage
 				connectAction={connectAction}
-				environmentHealth={environmentHealth}
+				environmentHealth={environmentHealth} environmentHealthOverrides={new Map()}
 				footer={footer}
 				recentList={recentList}
 				onDidMount={vi.fn()}
@@ -87,7 +87,7 @@ describe('PositronWelcomePage', () => {
 	it('omits the connect action when there is none, as on web', () => {
 		const { recentList, footer } = slottedDom();
 		rtl.render(
-			<PositronWelcomePage environmentHealth={environmentHealth} footer={footer} recentList={recentList} onDidMount={vi.fn()} />
+			<PositronWelcomePage environmentHealth={environmentHealth} environmentHealthOverrides={new Map()} footer={footer} recentList={recentList} onDidMount={vi.fn()} />
 		);
 
 		expect(screen.queryByText('Connect to...')).not.toBeInTheDocument();
@@ -107,7 +107,7 @@ describe('PositronWelcomePage', () => {
 		rtl.render(
 			<PositronWelcomePage
 				connectAction={connectAction}
-				environmentHealth={environmentHealth}
+				environmentHealth={environmentHealth} environmentHealthOverrides={new Map()}
 				footer={footer}
 				recentList={recentList}
 				onDidMount={onDidMount}
@@ -143,7 +143,7 @@ describe('createPositronWelcomePage', () => {
 		recentList.textContent = 'Recent';
 		const footer = document.createElement('div');
 
-		return createPositronWelcomePage(container, { environmentHealth, recentList, footer, onDidMount: vi.fn() });
+		return createPositronWelcomePage(container, { environmentHealth, environmentHealthOverrides: new Map(), recentList, footer, onDidMount: vi.fn() });
 	};
 
 	it('makes the container the page layout element', () => {
