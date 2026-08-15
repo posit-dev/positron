@@ -46,8 +46,15 @@ export interface IEnvironmentHealthService {
 	readonly state: EnvironmentHealthSnapshot;
 	isRunning(language: HealthLanguage): boolean;
 	refresh(language: HealthLanguage): void;
-	/** Rechecks every visible language. Used when a welcome page opens. */
-	refreshAll(): void;
+	/**
+	 * Rechecks every visible language for a welcome page that has just opened.
+	 *
+	 * `page` says which page is asking, and is compared by identity. Splitting the
+	 * editor shows the same page in a second group and passes the same value, so
+	 * it does not recheck. Closing the page and opening it again makes a new one,
+	 * so that does.
+	 */
+	refreshForPage(page: object): void;
 	runFix(language: HealthLanguage, fix: IHealthItemFix): Promise<void>;
 }
 
@@ -72,6 +79,8 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	private readonly _running = new Set<HealthLanguage>();
 	/** Languages asked to recheck while a run was already out. */
 	private readonly _pendingRefresh = new Set<HealthLanguage>();
+	/** The welcome page the checks last ran for. See refreshForPage. */
+	private _lastPage: WeakRef<object> | undefined;
 	private _disposed = false;
 
 	constructor(
@@ -122,9 +131,15 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 		this._requestRefresh(language, false);
 	}
 
-	refreshAll(): void {
-		// Only the welcome page's editor pane calls this, and only when a new page
-		// opens, so this line means "a new welcome page asked for a recheck".
+	refreshForPage(page: object): void {
+		if (this._lastPage?.deref() === page) {
+			this._logService.trace(`${LOG} same welcome page as last checked, not rechecking`);
+			return;
+		}
+		// Weak so a closed page can still be collected. A collected one derefs to
+		// undefined and so counts as a different page, which is the right answer:
+		// if it is gone, whatever asks next is a new page.
+		this._lastPage = new WeakRef(page);
 		this._logService.trace(`${LOG} a welcome page opened, rechecking every visible language`);
 		for (const source of this._sources) {
 			this._requestRefresh(source.language, false);

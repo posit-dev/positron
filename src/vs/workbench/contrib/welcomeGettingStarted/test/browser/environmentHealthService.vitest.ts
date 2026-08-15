@@ -26,6 +26,10 @@ const failing = { ok: false, items: [{ id: 'discovery', status: 'fail', summary:
 const summaryOf = (state: LanguageHealthState) =>
 	state.kind === 'result' ? state.result.items[0].summary : undefined;
 
+/** Stand-ins for the editor inputs the pane passes; compared by identity. */
+const pageA = {};
+const pageB = {};
+
 /** Resolves once every pending promise callback has run. */
 const settle = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -67,12 +71,12 @@ describe('EnvironmentHealthService', () => {
 		tracker.dispose();
 	});
 
-	it('does nothing when refreshAll runs right after construction', async () => {
+	it('does nothing when refreshForPage runs right after construction', async () => {
 		// The pane calls refreshAll whenever it builds the page, and the first of
 		// those calls is what builds the service. Its checks are already in flight
 		// by then, so this must not start a second pair.
 		const tracker = build();
-		tracker.refreshAll();
+		tracker.refreshForPage(pageA);
 		await settle();
 		expect(executeCommand.mock.calls.map(c => c[0])).toEqual([
 			'python.getEnvironmentHealth',
@@ -81,10 +85,10 @@ describe('EnvironmentHealthService', () => {
 		tracker.dispose();
 	});
 
-	it('rechecks every visible language on refreshAll', async () => {
+	it('rechecks every visible language for a new page', async () => {
 		const tracker = build();
 		await settle();
-		tracker.refreshAll();
+		tracker.refreshForPage(pageA);
 		await settle();
 		expect(executeCommand.mock.calls.map(c => c[0])).toEqual([
 			'python.getEnvironmentHealth',
@@ -95,16 +99,44 @@ describe('EnvironmentHealthService', () => {
 		tracker.dispose();
 	});
 
-	it('leaves a hidden language alone on refreshAll', async () => {
+	it('leaves a hidden language alone when a page opens', async () => {
 		getValue.mockReturnValue(['r']);
 		const tracker = build();
 		await settle();
-		tracker.refreshAll();
+		tracker.refreshForPage(pageA);
 		await settle();
 		expect(executeCommand.mock.calls.map(c => c[0])).toEqual([
 			'r.getEnvironmentHealth',
 			'r.getEnvironmentHealth',
 		]);
+		tracker.dispose();
+	});
+
+	it('does not recheck when the same page opens in a second editor group', async () => {
+		// Splitting the editor builds a second pane for the same page. The pane
+		// cannot tell that on its own -- a new pane remembers nothing -- so the
+		// service holds the memory. Without it, splitting pays for a full R
+		// discovery, conda call included.
+		const tracker = build();
+		await settle();
+		tracker.refreshForPage(pageA);
+		await settle();
+		tracker.refreshForPage(pageA);
+		await settle();
+		expect(executeCommand.mock.calls.filter(c => c[0] === 'r.getEnvironmentHealth')).toHaveLength(2);
+		tracker.dispose();
+	});
+
+	it('rechecks when a different page opens', async () => {
+		// Closing the welcome page and opening it again makes a new editor input,
+		// which is what tells this apart from a split.
+		const tracker = build();
+		await settle();
+		tracker.refreshForPage(pageA);
+		await settle();
+		tracker.refreshForPage(pageB);
+		await settle();
+		expect(executeCommand.mock.calls.filter(c => c[0] === 'r.getEnvironmentHealth')).toHaveLength(3);
 		tracker.dispose();
 	});
 
