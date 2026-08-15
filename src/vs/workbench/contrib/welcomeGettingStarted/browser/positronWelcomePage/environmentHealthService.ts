@@ -76,13 +76,14 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	readonly onDidChange: Event<EnvironmentHealthSnapshot> = this._onDidChange.event;
 
 	private readonly _states = new Map<HealthLanguage, LanguageHealthState>();
-	private readonly _running = new Set<HealthLanguage>();
+	/** Languages whose environment health command is running. */
+	private readonly _runningChecks = new Set<HealthLanguage>();
 	/**
-	 * Languages whose fix command is running. Kept apart from `_running` so that
-	 * a check finishing cannot clear the flag for a fix that is still going.
+	 * Languages whose fix command is running. Kept apart from the checks, so a
+	 * check finishing cannot clear the flag for a fix that is still going.
 	 */
 	private readonly _runningFixes = new Set<HealthLanguage>();
-	/** Languages asked to recheck while a run was already out. */
+	/** Languages asked to recheck while their check was already running. */
 	private readonly _pendingRefresh = new Set<HealthLanguage>();
 	/** The welcome page the checks last ran for. See refreshForPage. */
 	private _lastPage: WeakRef<object> | undefined;
@@ -133,7 +134,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	}
 
 	isRunning(language: HealthLanguage): boolean {
-		return this._running.has(language) || this._runningFixes.has(language);
+		return this._runningChecks.has(language) || this._runningFixes.has(language);
 	}
 
 	/**
@@ -177,7 +178,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 			this._logService.trace(`${LOG} ${language}: turned off in the setting, not checked`);
 			return;
 		}
-		if (this._running.has(language)) {
+		if (this._runningChecks.has(language)) {
 			if (queueIfBusy) {
 				this._pendingRefresh.add(language);
 				this._logService.trace(`${LOG} ${language}: already running, queued a recheck for when it ends`);
@@ -190,7 +191,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 		if (!source) {
 			return;
 		}
-		this._running.add(language);
+		this._runningChecks.add(language);
 		this._logService.trace(`${LOG} ${language}: check started`);
 		// The current state stays until the run returns. Dropping to `loading`
 		// would blank a group the user is reading.
@@ -306,7 +307,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 * run that has already finished.
 	 */
 	private _finish(language: HealthLanguage, state: LanguageHealthState): void {
-		this._running.delete(language);
+		this._runningChecks.delete(language);
 		this._logService.trace(`${LOG} ${language}: check finished as ${state.kind}`);
 		if (this._hiddenLanguages().has(language)) {
 			// The result is dropped, but isRunning just changed. isRunning is not
