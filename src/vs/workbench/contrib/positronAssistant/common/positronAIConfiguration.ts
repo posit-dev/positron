@@ -36,9 +36,9 @@ configurationRegistry.registerConfiguration({
 		[NEW_PROVIDER_MODAL_KEY]: {
 			type: 'boolean',
 			default: true,
-			description: localize(
+			markdownDescription: localize(
 				'positron.assistant.newProviderModal',
-				"Use the Configure LLM Providers modal to connect to language model providers. It groups providers by connection state, so you can see which are connected and which need attention without selecting each one. When disabled, the Configure Providers command opens the previous dialog."
+				"Use the Configure LLM Providers modal to connect to language model providers. It groups providers by connection state, so you can see which are connected and which need attention without selecting each one. When disabled, the _Configure Language Model Providers_ command opens the previous dialog."
 			),
 			scope: ConfigurationScope.WINDOW,
 		}
