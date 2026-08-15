@@ -12,7 +12,7 @@ import { ICommandService } from '../../../../../platform/commands/common/command
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { IHealthItem } from '../../browser/positronWelcomePage/environmentHealth.js';
-import { LanguageHealthState } from '../../browser/positronWelcomePage/environmentHealthTracker.js';
+import { LanguageHealthState } from '../../browser/positronWelcomePage/environmentHealthService.js';
 import { LanguageHealthGroup, userOverrides } from '../../browser/positronWelcomePage/components/languageHealthGroup.js';
 
 const item = (status: IHealthItem['status'], summary: string): IHealthItem => ({ id: summary, status, summary });

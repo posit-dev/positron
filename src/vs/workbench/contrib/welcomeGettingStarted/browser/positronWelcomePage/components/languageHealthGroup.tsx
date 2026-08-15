@@ -12,7 +12,7 @@ import { status } from '../../../../../../base/browser/ui/aria/aria.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { getIconClassesForLanguageId } from '../../../../../../editor/common/services/getIconClasses.js';
 import { HealthLanguage, IHealthItemFix } from '../environmentHealth.js';
-import { ILanguageHealth } from '../environmentHealthTracker.js';
+import { ILanguageHealth } from '../environmentHealthService.js';
 import { HealthItemRow } from './healthItemRow.js';
 
 /**

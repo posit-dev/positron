@@ -19,11 +19,11 @@ import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
 import { PositronActionBarHoverManager } from '../../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY } from '../../../common/positronWelcomePageConfiguration.js';
-import { IEnvironmentHealthTracker } from '../environmentHealthTracker.js';
+import { IEnvironmentHealthService } from '../environmentHealthService.js';
 import { LanguageHealthGroup } from './languageHealthGroup.js';
 
 export interface EnvironmentHealthSectionProps {
-	readonly tracker: IEnvironmentHealthTracker;
+	readonly tracker: IEnvironmentHealthService;
 }
 
 /**

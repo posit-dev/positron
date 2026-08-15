@@ -13,7 +13,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IResolvedWalkthrough, IWalkthroughsService } from '../../browser/gettingStartedService.js';
-import { IEnvironmentHealthTracker } from '../../browser/positronWelcomePage/environmentHealthTracker.js';
+import { IEnvironmentHealthService } from '../../browser/positronWelcomePage/environmentHealthService.js';
 import { createPositronWelcomePage, PositronWelcomePage } from '../../browser/positronWelcomePage/positronWelcomePage.js';
 
 /**
@@ -33,11 +33,13 @@ const oneWalkthrough = {
  * card itself has its own tests, so this stands in wherever the page just
  * needs something to pass through.
  */
-const environmentHealth: IEnvironmentHealthTracker = {
+const environmentHealth: IEnvironmentHealthService = {
+	_serviceBrand: undefined,
 	onDidChange: Event.None,
 	state: [],
 	isRunning: () => false,
 	refresh: vi.fn(),
+	refreshAll: vi.fn(),
 	runFix: vi.fn(),
 };
 

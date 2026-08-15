@@ -98,8 +98,7 @@ import { gettingStartedPositronNotebookCategoryId } from '../common/gettingStart
 import { gettingStartedPositronWelcomeCategoryId } from '../common/gettingStartedPositronWelcomeContent.js';
 import { createPositronWelcomePage } from './positronWelcomePage/positronWelcomePage.js';
 import { WELCOME_PAGE_EXPERIMENTAL_KEY } from '../common/positronWelcomePageConfiguration.js';
-import { EnvironmentHealthTracker } from './positronWelcomePage/environmentHealthTracker.js';
-import { HEALTH_SOURCES } from './positronWelcomePage/environmentHealth.js';
+import { IEnvironmentHealthService } from './positronWelcomePage/environmentHealthService.js';
 // --- End Positron ---
 
 const SLIDE_TRANSITION_TIME_MS = 250;
@@ -223,9 +222,8 @@ export class GettingStartedPage extends EditorPane {
 	// one unmounts the previous one, and clearInput clears it so the tree does
 	// not stay mounted while the editor is closed.
 	private readonly positronReactRenderer = this._register(new MutableDisposable<PositronReactRenderer>());
-	// Keyed to the editor input rather than to the React tree, which is rebuilt
-	// on every tab switch and whenever a walkthrough registers.
-	private readonly environmentHealth = this._register(new MutableDisposable<EnvironmentHealthTracker>());
+	// The input the environment checks last ran for. The service is shared by
+	// every welcome page in the window, so this only decides when to recheck.
 	private environmentHealthInput: GettingStartedInput | undefined;
 	// --- End Positron ---
 
@@ -262,6 +260,11 @@ export class GettingStartedPage extends EditorPane {
 		@ILayoutService private readonly layoutService: ILayoutService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
 		@IPositronDocsService private readonly docsService: IPositronDocsService,
+		// Asking for this here is what decides when the environment checks first
+		// run: nothing else in the window requests the service, so a user who
+		// never opens the welcome page never activates the Python and R
+		// extensions for it.
+		@IEnvironmentHealthService private readonly environmentHealthService: IEnvironmentHealthService,
 		// --- End Positron ---
 		@IMarkdownRendererService private readonly markdownRendererService: IMarkdownRendererService,
 		// --- Start Positron ---
@@ -1272,24 +1275,15 @@ export class GettingStartedPage extends EditorPane {
 
 		// clearInput sets editorInput to undefined on every tab switch, and the
 		// rerender and configuration listeners keep firing while the tab is hidden.
-		// Treating that undefined as an input change would rebuild the tracker and
-		// re-run both checks on every visit, so only a real change of input rebuilds.
-		const healthInput = this.editorInput;
-		if (!this.environmentHealth.value) {
-			this.environmentHealthInput = healthInput;
-			this.environmentHealth.value = this.instantiationService.createInstance(
-				EnvironmentHealthTracker, HEALTH_SOURCES);
-		} else if (healthInput && this.environmentHealthInput !== healthInput) {
-			// A tracker built while the pane had no input belongs to whichever
-			// input arrives first, so that one adopts it. Rebuilding instead would
-			// re-run both checks -- the very thing this keying prevents -- on the
-			// path a user takes to turn the feature on, since enabling the setting
-			// rebuilds the pane while its tab sits inactive and input-less.
-			if (this.environmentHealthInput !== undefined) {
-				this.environmentHealth.value = this.instantiationService.createInstance(
-					EnvironmentHealthTracker, HEALTH_SOURCES);
-			}
-			this.environmentHealthInput = healthInput;
+		// Treating that undefined as a new input would recheck on every visit to
+		// the tab, so only a real change of input counts as a new welcome page.
+		//
+		// On the very first build this asks the service for the first time, which
+		// builds it and starts both checks; refreshAll then finds them already
+		// running and does nothing. Later opens get the recheck.
+		if (this.editorInput && this.environmentHealthInput !== this.editorInput) {
+			this.environmentHealthInput = this.editorInput;
+			this.environmentHealthService.refreshAll();
 		}
 
 		const reactHost = $('div');
@@ -1298,7 +1292,7 @@ export class GettingStartedPage extends EditorPane {
 			// Hide the "Connect to..." button if we are on a web platform
 			connectAction: isWeb ? undefined : otherList,
 			footer,
-			environmentHealth: this.environmentHealth.value!,
+			environmentHealth: this.environmentHealthService,
 			// React mounts asynchronously, so the elements above are not in the
 			// DOM yet when the caller runs registerDispatchListeners, nor when it
 			// measures the slide for scrolling. Redo both once they are.

@@ -14,7 +14,7 @@ import { PositronReactRenderer } from '../../../../../base/browser/positronReact
 import { DomSlot } from './components/domSlot.js';
 import { EnvironmentHealthSection } from './components/environmentHealthSection.js';
 import { WalkthroughBanner } from './components/walkthroughBanner.js';
-import { IEnvironmentHealthTracker } from './environmentHealthTracker.js';
+import { IEnvironmentHealthService } from './environmentHealthService.js';
 
 /**
  * PositronWelcomePageProps interface.
@@ -43,7 +43,7 @@ export interface PositronWelcomePageProps {
 	 * editor pane, because it has to outlive this component: the pane rebuilds
 	 * the React tree whenever a walkthrough registers.
 	 */
-	readonly environmentHealth: IEnvironmentHealthTracker;
+	readonly environmentHealth: IEnvironmentHealthService;
 
 	/**
 	 * Called once the page is in the DOM. The editor pane uses this to attach

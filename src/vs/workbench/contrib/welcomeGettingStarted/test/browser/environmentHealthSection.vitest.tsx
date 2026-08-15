@@ -12,7 +12,7 @@ import { Emitter } from '../../../../../base/common/event.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
-import { EnvironmentHealthSnapshot, IEnvironmentHealthTracker } from '../../browser/positronWelcomePage/environmentHealthTracker.js';
+import { EnvironmentHealthSnapshot, IEnvironmentHealthService } from '../../browser/positronWelcomePage/environmentHealthService.js';
 import { EnvironmentHealthSection } from '../../browser/positronWelcomePage/components/environmentHealthSection.js';
 
 describe('EnvironmentHealthSection', () => {
@@ -24,11 +24,13 @@ describe('EnvironmentHealthSection', () => {
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 	const onDidChange = new Emitter<EnvironmentHealthSnapshot>();
 
-	const tracker = (snapshot: EnvironmentHealthSnapshot, overrides: Partial<IEnvironmentHealthTracker> = {}): IEnvironmentHealthTracker => ({
+	const tracker = (snapshot: EnvironmentHealthSnapshot, overrides: Partial<IEnvironmentHealthService> = {}): IEnvironmentHealthService => ({
+		_serviceBrand: undefined,
 		onDidChange: onDidChange.event,
 		get state() { return snapshot; },
 		isRunning: () => false,
 		refresh: vi.fn(),
+		refreshAll: vi.fn(),
 		runFix: vi.fn(),
 		...overrides,
 	});
