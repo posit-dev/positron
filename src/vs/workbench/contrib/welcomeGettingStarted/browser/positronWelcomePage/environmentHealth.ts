@@ -13,7 +13,17 @@ import { localize } from '../../../../../nls.js';
 
 export type HealthItemStatus = 'pass' | 'warn' | 'fail' | 'skipped';
 
-const HEALTH_ITEM_STATUSES: readonly string[] = ['pass', 'warn', 'fail', 'skipped'];
+/**
+ * The same statuses again, as values this time, so a payload that crossed the
+ * extension host as JSON can be checked against them. Typed as the union above,
+ * so a status that is not one of them does not compile.
+ */
+const HEALTH_ITEM_STATUSES: readonly HealthItemStatus[] = ['pass', 'warn', 'fail', 'skipped'];
+
+function isHealthItemStatus(value: unknown): value is HealthItemStatus {
+	return typeof value === 'string'
+		&& HEALTH_ITEM_STATUSES.some(status => status === value);
+}
 
 export interface IHealthItemFix {
 	readonly commandId: string;
@@ -22,13 +32,10 @@ export interface IHealthItemFix {
 }
 
 export interface IHealthItem {
-	/**
-	 * Machine id. A plain string because the two languages use different sets and
-	 * nothing here looks an item up by id.
-	 */
+	/** Machine id, not shown to the user. */
 	readonly id: string;
 	readonly status: HealthItemStatus;
-	/** The check's label. Does not vary with the outcome; the icon carries that. */
+	/** The title of the step, shown to the user. */
 	readonly summary: string;
 	readonly detail?: string;
 	readonly fix?: IHealthItemFix;
@@ -51,22 +58,30 @@ export interface ILanguageHealthSource {
 	readonly language: HealthLanguage;
 	readonly label: string;
 	readonly extensionId: string;
-	readonly commandId: string;
+	/** The command that runs this language's environment health check. */
+	readonly healthCheckCommandId: string;
 }
+
+// Owned by the extensions, not by this file. If either renames one, this is the
+// single place that has to follow.
+const PYTHON_EXTENSION_ID = 'ms-python.python';
+const PYTHON_HEALTH_CHECK_COMMAND_ID = 'python.getEnvironmentHealth';
+const R_EXTENSION_ID = 'positron.positron-r';
+const R_HEALTH_CHECK_COMMAND_ID = 'r.getEnvironmentHealth';
 
 /** The only place that names specific extensions. Rendered in this order. */
 export const HEALTH_SOURCES: readonly ILanguageHealthSource[] = [
 	{
 		language: 'python',
 		label: localize('positron.welcome.health.python', "Python"),
-		extensionId: 'ms-python.python',
-		commandId: 'python.getEnvironmentHealth',
+		extensionId: PYTHON_EXTENSION_ID,
+		healthCheckCommandId: PYTHON_HEALTH_CHECK_COMMAND_ID,
 	},
 	{
 		language: 'r',
 		label: localize('positron.welcome.health.r', "R"),
-		extensionId: 'positron.positron-r',
-		commandId: 'r.getEnvironmentHealth',
+		extensionId: R_EXTENSION_ID,
+		healthCheckCommandId: R_HEALTH_CHECK_COMMAND_ID,
 	},
 ];
 
@@ -93,8 +108,7 @@ function isHealthItem(value: unknown): value is IHealthItem {
 	}
 	return typeof item.id === 'string'
 		&& typeof item.summary === 'string'
-		&& typeof item.status === 'string'
-		&& HEALTH_ITEM_STATUSES.includes(item.status);
+		&& isHealthItemStatus(item.status);
 }
 
 /**

@@ -11,12 +11,14 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { GettingStartedInput } from '../../browser/gettingStartedInput.js';
 import { ILanguageHealthSource } from '../../browser/positronWelcomePage/environmentHealth.js';
 import { EnvironmentHealthService, LanguageHealthState } from '../../browser/positronWelcomePage/environmentHealthService.js';
 
 const SOURCES: readonly ILanguageHealthSource[] = [
-	{ language: 'python', label: 'Python', extensionId: 'ms-python.python', commandId: 'python.getEnvironmentHealth' },
-	{ language: 'r', label: 'R', extensionId: 'positron.positron-r', commandId: 'r.getEnvironmentHealth' },
+	{ language: 'python', label: 'Python', extensionId: 'ms-python.python', healthCheckCommandId: 'python.getEnvironmentHealth' },
+	{ language: 'r', label: 'R', extensionId: 'positron.positron-r', healthCheckCommandId: 'r.getEnvironmentHealth' },
 ];
 
 const passing = { ok: true, items: [{ id: 'discovery', status: 'pass', summary: 'Positron can discover Python environments' }] };
@@ -26,9 +28,13 @@ const failing = { ok: false, items: [{ id: 'discovery', status: 'fail', summary:
 const summaryOf = (state: LanguageHealthState) =>
 	state.kind === 'result' ? state.result.items[0].summary : undefined;
 
-/** Stand-ins for the editor inputs the pane passes; compared by identity. */
-const pageA = {};
-const pageB = {};
+/**
+ * Stand-ins for the editor inputs the pane passes. The service only compares
+ * them by identity, so these need no behaviour -- and stubInterface throws if it
+ * ever starts reading one, which is worth knowing.
+ */
+const pageA = stubInterface<GettingStartedInput>();
+const pageB = stubInterface<GettingStartedInput>();
 
 /** Resolves once every pending promise callback has run. */
 const settle = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -61,9 +67,9 @@ describe('EnvironmentHealthService', () => {
 	 * Builds the service and opens a welcome page on it, which is what the editor
 	 * pane does. Construction alone starts nothing -- see the first test.
 	 */
-	const open = (page: object = pageA) => {
+	const open = (page: GettingStartedInput = pageA) => {
 		const service = build();
-		service.refreshForPage(page);
+		service.recheckForPage(page);
 		return service;
 	};
 
@@ -93,12 +99,12 @@ describe('EnvironmentHealthService', () => {
 		tracker.dispose();
 	});
 
-	it('does nothing when refreshForPage runs right after construction', async () => {
+	it('does nothing when recheckForPage runs right after construction', async () => {
 		// The pane calls refreshAll whenever it builds the page, and the first of
 		// those calls is what builds the service. Its checks are already in flight
 		// by then, so this must not start a second pair.
 		const tracker = build();
-		tracker.refreshForPage(pageA);
+		tracker.recheckForPage(pageA);
 		await settle();
 		expect(executeCommand.mock.calls.map(c => c[0])).toEqual([
 			'python.getEnvironmentHealth',
@@ -110,7 +116,7 @@ describe('EnvironmentHealthService', () => {
 	it('rechecks every visible language for a new page', async () => {
 		const tracker = open();
 		await settle();
-		tracker.refreshForPage(pageB);
+		tracker.recheckForPage(pageB);
 		await settle();
 		expect(executeCommand.mock.calls.map(c => c[0])).toEqual([
 			'python.getEnvironmentHealth',
@@ -125,7 +131,7 @@ describe('EnvironmentHealthService', () => {
 		getValue.mockReturnValue(['r']);
 		const tracker = open();
 		await settle();
-		tracker.refreshForPage(pageB);
+		tracker.recheckForPage(pageB);
 		await settle();
 		expect(executeCommand.mock.calls.map(c => c[0])).toEqual([
 			'r.getEnvironmentHealth',
@@ -142,7 +148,7 @@ describe('EnvironmentHealthService', () => {
 		const tracker = open();
 		await settle();
 		// The second editor group, same page.
-		tracker.refreshForPage(pageA);
+		tracker.recheckForPage(pageA);
 		await settle();
 		expect(executeCommand.mock.calls.filter(c => c[0] === 'r.getEnvironmentHealth')).toHaveLength(1);
 		tracker.dispose();
@@ -153,7 +159,7 @@ describe('EnvironmentHealthService', () => {
 		// which is what tells this apart from a split.
 		const tracker = open();
 		await settle();
-		tracker.refreshForPage(pageB);
+		tracker.recheckForPage(pageB);
 		await settle();
 		expect(executeCommand.mock.calls.filter(c => c[0] === 'r.getEnvironmentHealth')).toHaveLength(2);
 		tracker.dispose();
@@ -161,8 +167,8 @@ describe('EnvironmentHealthService', () => {
 
 	it('does not start a second run while one is in flight', async () => {
 		const tracker = open();
-		tracker.refresh('python');
-		tracker.refresh('python');
+		tracker.recheckLanguage('python');
+		tracker.recheckLanguage('python');
 		await settle();
 		expect(executeCommand.mock.calls.filter(c => c[0] === 'python.getEnvironmentHealth')).toHaveLength(1);
 		tracker.dispose();
@@ -173,7 +179,7 @@ describe('EnvironmentHealthService', () => {
 		await settle();
 		let resolveSecond: (value: unknown) => void = () => { };
 		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveSecond = resolve; }));
-		tracker.refresh('python');
+		tracker.recheckLanguage('python');
 		// The run suspends on the extension-presence check first, so without this
 		// executeCommand has not been called and resolveSecond is still the
 		// placeholder -- resolving it would do nothing and the test would pass
@@ -197,7 +203,7 @@ describe('EnvironmentHealthService', () => {
 		await settle();
 		let resolveFirst: (value: unknown) => void = () => { };
 		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve; }));
-		tracker.refresh('python');
+		tracker.recheckLanguage('python');
 		await settle();
 
 		void tracker.runFix('python', { commandId: 'python.installPythonViaUv', label: 'Install Python' });
@@ -220,7 +226,7 @@ describe('EnvironmentHealthService', () => {
 		await settle();
 		let resolveStale: (value: unknown) => void = () => { };
 		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveStale = resolve; }));
-		tracker.refresh('python');
+		tracker.recheckLanguage('python');
 		await settle();
 
 		executeCommand.mockResolvedValue(passing);
@@ -250,7 +256,7 @@ describe('EnvironmentHealthService', () => {
 		await settle();
 		let resolveRun: (value: unknown) => void = () => { };
 		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveRun = resolve; }));
-		tracker.refresh('python');
+		tracker.recheckLanguage('python');
 		await settle();
 
 		getValue.mockReturnValue(['r']);
@@ -281,7 +287,7 @@ describe('EnvironmentHealthService', () => {
 		await settle();
 		let resolveRun: (value: unknown) => void = () => { };
 		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveRun = resolve; }));
-		tracker.refresh('python');
+		tracker.recheckLanguage('python');
 		// Let the extension-presence check resolve, so executeCommand (and
 		// resolveRun) is actually captured before it is used below.
 		await settle();
@@ -305,7 +311,7 @@ describe('EnvironmentHealthService', () => {
 		await settle();
 		let resolveRun: (value: unknown) => void = () => { };
 		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveRun = resolve; }));
-		tracker.refresh('python');
+		tracker.recheckLanguage('python');
 		// Let the extension-presence check resolve, so executeCommand (and
 		// resolveRun) is actually captured before it is used below.
 		await settle();
@@ -336,7 +342,7 @@ describe('EnvironmentHealthService', () => {
 		const tracker = open();
 		await settle();
 		expect(tracker.state[0].state).toEqual({ kind: 'error' });
-		expect(warn).toHaveBeenCalledWith(expect.stringContaining('Environment setup check failed for python: '));
+		expect(warn).toHaveBeenCalledWith(expect.stringContaining('python: check failed: '));
 		tracker.dispose();
 	});
 

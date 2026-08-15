@@ -55,7 +55,7 @@ describe('isEnvironmentHealthResult', () => {
 
 describe('HEALTH_SOURCES', () => {
 	it('lists python then r, with the ids the tracker calls', () => {
-		expect(HEALTH_SOURCES.map(s => [s.language, s.extensionId, s.commandId])).toEqual([
+		expect(HEALTH_SOURCES.map(s => [s.language, s.extensionId, s.healthCheckCommandId])).toEqual([
 			['python', 'ms-python.python', 'python.getEnvironmentHealth'],
 			['r', 'positron.positron-r', 'r.getEnvironmentHealth'],
 		]);

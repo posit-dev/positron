@@ -30,8 +30,9 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 export const WELCOME_PAGE_EXPERIMENTAL_KEY = 'welcomePage.experimental';
 
 /**
- * Languages the welcome page checks. Hiding a language in the page writes this,
- * which also stops that language being checked. Modelled on the "Show welcome
+ * The languages the welcome page checks for environment setup problems.
+ * Removing a language from the setting stops the environment health check
+ * command from running for that language. Modelled on the "Show welcome
  * page on startup" checkbox, which writes `workbench.startupEditor`: a control
  * in the page that sets a real setting, so the choice syncs and an administrator
  * can set it.
