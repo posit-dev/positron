@@ -37,7 +37,7 @@ const environmentHealth: IEnvironmentHealthService = {
 	_serviceBrand: undefined,
 	onDidChange: Event.None,
 	state: [],
-	isRunning: () => false,
+	isBusy: () => false,
 	refresh: vi.fn(),
 	refreshForPage: vi.fn(),
 	runFix: vi.fn(),

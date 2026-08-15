@@ -28,7 +28,7 @@ describe('EnvironmentHealthSection', () => {
 		_serviceBrand: undefined,
 		onDidChange: onDidChange.event,
 		get state() { return snapshot; },
-		isRunning: () => false,
+		isBusy: () => false,
 		refresh: vi.fn(),
 		refreshForPage: vi.fn(),
 		runFix: vi.fn(),
@@ -57,7 +57,7 @@ describe('EnvironmentHealthSection', () => {
 		// A spinner inside the button grew the header and shifted the card below
 		// it, and the label swap put "Checking..." on screen twice. The bar sits
 		// on the header's bottom edge, outside the text flow.
-		const running = tracker(loading, { isRunning: () => true });
+		const running = tracker(loading, { isBusy: () => true });
 		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={running} />);
 		expect(screen.getByRole('progressbar', { name: 'Checking...' })).toBeInTheDocument();
 		// The label never changes, so the control cannot move or resize, and it
@@ -72,7 +72,7 @@ describe('EnvironmentHealthSection', () => {
 
 	it('does not recheck while a run is in flight', async () => {
 		const refresh = vi.fn();
-		const running = tracker(loading, { isRunning: () => true, refresh });
+		const running = tracker(loading, { isBusy: () => true, refresh });
 		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={running} />);
 		await userEvent.setup().click(screen.getByRole('button', { name: 'Run the environment setup checks again' }));
 		expect(refresh).not.toHaveBeenCalled();
@@ -91,7 +91,7 @@ describe('EnvironmentHealthSection', () => {
 		// override cannot make `state` change per read. Firing a new array is what
 		// makes the component re-render.
 		let snapshot = loading;
-		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading, { get state() { return snapshot; }, isRunning: () => busy })} />);
+		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading, { get state() { return snapshot; }, isBusy: () => busy })} />);
 		expect(announce).not.toHaveBeenCalled();
 
 		busy = true;
@@ -102,7 +102,7 @@ describe('EnvironmentHealthSection', () => {
 		// The remount case, which is the one that matters: a rebuild while a check
 		// happens to be running must not speak.
 		announce.mockClear();
-		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading, { isRunning: () => true })} />);
+		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading, { isBusy: () => true })} />);
 		expect(announce).not.toHaveBeenCalled();
 		announce.mockRestore();
 	});

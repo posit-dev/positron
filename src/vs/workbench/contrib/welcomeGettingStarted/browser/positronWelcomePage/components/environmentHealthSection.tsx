@@ -40,7 +40,7 @@ export const EnvironmentHealthSection = ({ tracker, expandedOverrides }: Environ
 	// One subscription for the whole card, which is why onDidChange carries the
 	// whole snapshot rather than the language that moved.
 	const health = useEventState(tracker.onDidChange, () => tracker.state);
-	const running = health.some(language => tracker.isRunning(language.language));
+	const busy = health.some(language => tracker.isBusy(language.language));
 	// A language removed from the setting renders nothing at all, so the only
 	// trace of it is the setting itself.
 	const visible = health.filter(language => language.state.kind !== 'hidden');
@@ -65,17 +65,17 @@ export const EnvironmentHealthSection = ({ tracker, expandedOverrides }: Environ
 	// language's state changes, which tells the user how a run ended but never
 	// that one began.
 	//
-	// Only on the transition into running, and never on the first mount. The pane
+	// Only on the transition into busy, and never on the first mount. The pane
 	// rebuilds its React tree whenever a walkthrough registers, so announcing on
 	// mount would speak at someone working in a different tab. That leaves this
 	// saying what it is for: the user pressed Recheck and something happened.
-	const wasRunning = useRef(running);
+	const wasBusy = useRef(busy);
 	useEffect(() => {
-		if (running && !wasRunning.current) {
+		if (busy && !wasBusy.current) {
 			status(localize('positron.welcome.health.checkingStatus', "Checking your environment setup"));
 		}
-		wasRunning.current = running;
-	}, [running]);
+		wasBusy.current = busy;
+	}, [busy]);
 
 	const openSetting = () =>
 		services.commandService.executeCommand('workbench.action.openSettings', WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY);
@@ -94,11 +94,11 @@ export const EnvironmentHealthSection = ({ tracker, expandedOverrides }: Environ
 						hoverManager={hoverManager}
 						tooltip={localize('positron.welcome.health.recheckTooltip', "Run the environment setup checks again")}
 						onPressed={() => {
-							// `running` mirrors the spinner below, and both come from
-							// `tracker.isRunning`. Guarding here keeps the two in lockstep
+							// `busy` mirrors the progress line below, and both come from
+							// `tracker.isBusy`. Guarding here keeps the two in lockstep
 							// instead of leaning on `refresh`'s own early return, which a
 							// test double need not implement.
-							if (running) {
+							if (busy) {
 								return;
 							}
 							health.forEach(language => tracker.refresh(language.language));
@@ -126,7 +126,7 @@ export const EnvironmentHealthSection = ({ tracker, expandedOverrides }: Environ
 					a check cannot shift anything below it. A spinner inside the button
 					grew the header and moved the whole card.
 				*/}
-				{running &&
+				{busy &&
 					<div
 						aria-label={localize('positron.welcome.health.checking', "Checking...")}
 						className='health-progress'
@@ -145,7 +145,7 @@ export const EnvironmentHealthSection = ({ tracker, expandedOverrides }: Environ
 				: visible.map(language =>
 					<LanguageHealthGroup
 						key={language.language}
-						busy={tracker.isRunning(language.language)}
+						busy={tracker.isBusy(language.language)}
 						expandedOverrides={expandedOverrides}
 						health={language}
 						onRunFix={fix => tracker.runFix(language.language, fix)}
