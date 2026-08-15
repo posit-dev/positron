@@ -38,8 +38,8 @@ const environmentHealth: IEnvironmentHealthService = {
 	onDidChange: Event.None,
 	state: [],
 	isBusy: () => false,
-	refresh: vi.fn(),
-	refreshForPage: vi.fn(),
+	recheckLanguage: vi.fn(),
+	recheckForPage: vi.fn(),
 	runFix: vi.fn(),
 };
 

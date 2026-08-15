@@ -29,8 +29,8 @@ describe('EnvironmentHealthSection', () => {
 		onDidChange: onDidChange.event,
 		get state() { return snapshot; },
 		isBusy: () => false,
-		refresh: vi.fn(),
-		refreshForPage: vi.fn(),
+		recheckLanguage: vi.fn(),
+		recheckForPage: vi.fn(),
 		runFix: vi.fn(),
 		...overrides,
 	});
@@ -47,10 +47,10 @@ describe('EnvironmentHealthSection', () => {
 	});
 
 	it('rechecks every language when the control is pressed', async () => {
-		const refresh = vi.fn();
-		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading, { refresh })} />);
+		const recheckLanguage = vi.fn();
+		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading, { recheckLanguage })} />);
 		await userEvent.setup().click(screen.getByRole('button', { name: 'Run the environment setup checks again' }));
-		expect(refresh.mock.calls.map(c => c[0])).toEqual(['python', 'r']);
+		expect(recheckLanguage.mock.calls.map(c => c[0])).toEqual(['python', 'r']);
 	});
 
 	it('says it is busy with a progress bar, not by changing the button', async () => {
@@ -71,11 +71,11 @@ describe('EnvironmentHealthSection', () => {
 	});
 
 	it('does not recheck while a run is in flight', async () => {
-		const refresh = vi.fn();
-		const running = tracker(loading, { isBusy: () => true, refresh });
+		const recheckLanguage = vi.fn();
+		const running = tracker(loading, { isBusy: () => true, recheckLanguage });
 		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={running} />);
 		await userEvent.setup().click(screen.getByRole('button', { name: 'Run the environment setup checks again' }));
-		expect(refresh).not.toHaveBeenCalled();
+		expect(recheckLanguage).not.toHaveBeenCalled();
 	});
 
 	it('announces a check the user starts, and says nothing about one already running', async () => {

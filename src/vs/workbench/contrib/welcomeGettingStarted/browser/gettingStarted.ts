@@ -1289,7 +1289,7 @@ export class GettingStartedPage extends EditorPane {
 		// which builds it and starts both checks; the call below then finds them
 		// already running and does nothing.
 		if (this.editorInput) {
-			this.environmentHealthService.refreshForPage(this.editorInput);
+			this.environmentHealthService.recheckForPage(this.editorInput);
 		}
 
 		const reactHost = $('div');

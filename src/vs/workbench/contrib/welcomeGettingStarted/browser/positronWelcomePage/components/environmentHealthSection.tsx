@@ -101,7 +101,7 @@ export const EnvironmentHealthSection = ({ tracker, expandedOverrides }: Environ
 							if (busy) {
 								return;
 							}
-							health.forEach(language => tracker.refresh(language.language));
+							health.forEach(language => tracker.recheckLanguage(language.language));
 						}}
 					>
 						<span aria-hidden='true' className='codicon codicon-refresh' />
