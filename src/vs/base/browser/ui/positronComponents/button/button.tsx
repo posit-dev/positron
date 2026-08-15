@@ -37,6 +37,7 @@ export interface KeyboardModifiers {
 export interface ButtonProps {
 	readonly id?: string;
 	readonly ariaControls?: string;
+	readonly ariaExpanded?: boolean;
 	readonly ariaHaspopup?: React.AriaAttributes['aria-haspopup'];
 	readonly ariaLabel?: string;
 	readonly ariaSelected?: boolean;
@@ -185,6 +186,7 @@ export const Button = (props: PropsWithChildren<ButtonProps>) => {
 			ref={buttonRef}
 			aria-controls={props.ariaControls}
 			aria-disabled={props.disabled ? 'true' : undefined}
+			aria-expanded={props.ariaExpanded}
 			aria-haspopup={props.ariaHaspopup}
 			aria-label={props.ariaLabel}
 			aria-selected={props.ariaSelected}
