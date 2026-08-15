@@ -12,7 +12,9 @@ import { useEffect } from 'react';
 // Other dependencies.
 import { PositronReactRenderer } from '../../../../../base/browser/positronReactRenderer.js';
 import { DomSlot } from './components/domSlot.js';
+import { EnvironmentHealthSection } from './components/environmentHealthSection.js';
 import { WalkthroughBanner } from './components/walkthroughBanner.js';
+import { IEnvironmentHealthTracker } from './environmentHealthTracker.js';
 
 /**
  * PositronWelcomePageProps interface.
@@ -35,6 +37,13 @@ export interface PositronWelcomePageProps {
 	 * because it reuses the existing Toggle widget and its telemetry.
 	 */
 	readonly footer: HTMLElement;
+
+	/**
+	 * Runs the environment health checks and holds their results. Built by the
+	 * editor pane, because it has to outlive this component: the pane rebuilds
+	 * the React tree whenever a walkthrough registers.
+	 */
+	readonly environmentHealth: IEnvironmentHealthTracker;
 
 	/**
 	 * Called once the page is in the DOM. The editor pane uses this to attach
@@ -64,6 +73,7 @@ export const PositronWelcomePage = (props: PositronWelcomePageProps) => {
 	// layout lives on one element instead of two nested ones.
 	return (
 		<>
+			<EnvironmentHealthSection tracker={props.environmentHealth} />
 			<WalkthroughBanner />
 			<DomSlot element={props.recentList} />
 			{props.connectAction && <DomSlot element={props.connectAction} />}

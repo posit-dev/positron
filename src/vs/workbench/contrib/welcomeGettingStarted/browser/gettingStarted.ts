@@ -98,6 +98,8 @@ import { gettingStartedPositronNotebookCategoryId } from '../common/gettingStart
 import { gettingStartedPositronWelcomeCategoryId } from '../common/gettingStartedPositronWelcomeContent.js';
 import { createPositronWelcomePage } from './positronWelcomePage/positronWelcomePage.js';
 import { WELCOME_PAGE_EXPERIMENTAL_KEY } from '../common/positronWelcomePageConfiguration.js';
+import { EnvironmentHealthTracker } from './positronWelcomePage/environmentHealthTracker.js';
+import { HEALTH_SOURCES } from './positronWelcomePage/environmentHealth.js';
 // --- End Positron ---
 
 const SLIDE_TRANSITION_TIME_MS = 250;
@@ -221,6 +223,10 @@ export class GettingStartedPage extends EditorPane {
 	// one unmounts the previous one, and clearInput clears it so the tree does
 	// not stay mounted while the editor is closed.
 	private readonly positronReactRenderer = this._register(new MutableDisposable<PositronReactRenderer>());
+	// Keyed to the editor input rather than to the React tree, which is rebuilt
+	// on every tab switch and whenever a walkthrough registers.
+	private readonly environmentHealth = this._register(new MutableDisposable<EnvironmentHealthTracker>());
+	private environmentHealthInput: GettingStartedInput | undefined;
 	// --- End Positron ---
 
 	get editorInput(): GettingStartedInput | undefined {
@@ -1264,12 +1270,23 @@ export class GettingStartedPage extends EditorPane {
 			return undefined;
 		}
 
+		// clearInput sets editorInput to undefined on every tab switch, and the
+		// rerender and configuration listeners keep firing while the tab is hidden.
+		// Treating that undefined as an input change would rebuild the tracker and
+		// re-run both checks on every visit, so only a real change of input rebuilds.
+		if (!this.environmentHealth.value || (this.editorInput && this.environmentHealthInput !== this.editorInput)) {
+			this.environmentHealthInput = this.editorInput;
+			this.environmentHealth.value = this.instantiationService.createInstance(
+				EnvironmentHealthTracker, HEALTH_SOURCES);
+		}
+
 		const reactHost = $('div');
 		this.positronReactRenderer.value = createPositronWelcomePage(reactHost, {
 			recentList: recentList.getDomElement(),
 			// Hide the "Connect to..." button if we are on a web platform
 			connectAction: isWeb ? undefined : otherList,
 			footer,
+			environmentHealth: this.environmentHealth.value!,
 			// React mounts asynchronously, so the elements above are not in the
 			// DOM yet when the caller runs registerDispatchListeners, nor when it
 			// measures the slide for scrolling. Redo both once they are.

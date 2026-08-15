@@ -13,6 +13,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IResolvedWalkthrough, IWalkthroughsService } from '../../browser/gettingStartedService.js';
+import { IEnvironmentHealthTracker } from '../../browser/positronWelcomePage/environmentHealthTracker.js';
 import { createPositronWelcomePage, PositronWelcomePage } from '../../browser/positronWelcomePage/positronWelcomePage.js';
 
 /**
@@ -25,6 +26,19 @@ const oneWalkthrough = {
 	onDidAddWalkthrough: Event.None,
 	onDidRemoveWalkthrough: Event.None,
 	onDidChangeWalkthrough: Event.None,
+};
+
+/**
+ * A stub tracker for tests that only care about the rest of the page. The
+ * card itself has its own tests, so this stands in wherever the page just
+ * needs something to pass through.
+ */
+const environmentHealth: IEnvironmentHealthTracker = {
+	onDidChange: Event.None,
+	state: [],
+	isRunning: () => false,
+	refresh: vi.fn(),
+	runFix: vi.fn(),
 };
 
 /**
@@ -58,6 +72,7 @@ describe('PositronWelcomePage', () => {
 		const { container } = rtl.render(
 			<PositronWelcomePage
 				connectAction={connectAction}
+				environmentHealth={environmentHealth}
 				footer={footer}
 				recentList={recentList}
 				onDidMount={vi.fn()}
@@ -70,7 +85,7 @@ describe('PositronWelcomePage', () => {
 	it('omits the connect action when there is none, as on web', () => {
 		const { recentList, footer } = slottedDom();
 		rtl.render(
-			<PositronWelcomePage footer={footer} recentList={recentList} onDidMount={vi.fn()} />
+			<PositronWelcomePage environmentHealth={environmentHealth} footer={footer} recentList={recentList} onDidMount={vi.fn()} />
 		);
 
 		expect(screen.queryByText('Connect to...')).not.toBeInTheDocument();
@@ -90,6 +105,7 @@ describe('PositronWelcomePage', () => {
 		rtl.render(
 			<PositronWelcomePage
 				connectAction={connectAction}
+				environmentHealth={environmentHealth}
 				footer={footer}
 				recentList={recentList}
 				onDidMount={onDidMount}
@@ -125,7 +141,7 @@ describe('createPositronWelcomePage', () => {
 		recentList.textContent = 'Recent';
 		const footer = document.createElement('div');
 
-		return createPositronWelcomePage(container, { recentList, footer, onDidMount: vi.fn() });
+		return createPositronWelcomePage(container, { environmentHealth, recentList, footer, onDidMount: vi.fn() });
 	};
 
 	it('makes the container the page layout element', () => {
