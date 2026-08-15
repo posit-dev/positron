@@ -19,6 +19,9 @@ import {
 	isEnvironmentHealthResult,
 } from './environmentHealth.js';
 
+/** One prefix for every line, so the whole feature is a single filter in the log. */
+const LOG = '[welcome env health]';
+
 export type LanguageHealthState =
 	| { readonly kind: 'hidden' }
 	| { readonly kind: 'loading' }
@@ -89,6 +92,9 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 			}
 		}));
 
+		// There is one of these per window. Two of these lines means two services,
+		// which is the thing being avoided by not building this per editor pane.
+		this._logService.trace(`${LOG} service created`);
 		this._syncVisibility();
 	}
 
@@ -117,6 +123,9 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	}
 
 	refreshAll(): void {
+		// Only the welcome page's editor pane calls this, and only when a new page
+		// opens, so this line means "a new welcome page asked for a recheck".
+		this._logService.trace(`${LOG} a welcome page opened, rechecking every visible language`);
 		for (const source of this._sources) {
 			this._requestRefresh(source.language, false);
 		}
@@ -129,12 +138,19 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 * answer. A user pressing the recheck control twice wants one run, not two.
 	 */
 	private _requestRefresh(language: HealthLanguage, queueIfBusy: boolean): void {
-		if (this._disposed || this._hiddenLanguages().has(language)) {
+		if (this._disposed) {
+			return;
+		}
+		if (this._hiddenLanguages().has(language)) {
+			this._logService.trace(`${LOG} ${language}: turned off in the setting, not checked`);
 			return;
 		}
 		if (this._running.has(language)) {
 			if (queueIfBusy) {
 				this._pendingRefresh.add(language);
+				this._logService.trace(`${LOG} ${language}: already running, queued a recheck for when it ends`);
+			} else {
+				this._logService.trace(`${LOG} ${language}: already running, request ignored`);
 			}
 			return;
 		}
@@ -143,6 +159,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 			return;
 		}
 		this._running.add(language);
+		this._logService.trace(`${LOG} ${language}: check started`);
 		// The current state stays until the run returns. Dropping to `loading`
 		// would blank a group the user is reading.
 		this._fire();
@@ -231,6 +248,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 */
 	private _finish(language: HealthLanguage, state: LanguageHealthState): void {
 		this._running.delete(language);
+		this._logService.trace(`${LOG} ${language}: check finished as ${state.kind}`);
 		if (this._hiddenLanguages().has(language)) {
 			// The result is dropped, but isRunning just changed. isRunning is not
 			// observable on its own, so without this a consumer that mirrors it

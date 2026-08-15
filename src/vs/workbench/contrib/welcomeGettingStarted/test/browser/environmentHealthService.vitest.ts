@@ -35,12 +35,13 @@ describe('EnvironmentHealthService', () => {
 	const getExtension = vi.fn();
 	const getValue = vi.fn();
 	const warn = vi.fn();
+	const trace = vi.fn();
 
 	const ctx = createTestContainer()
 		.stub(ICommandService, { executeCommand })
 		.stub(IExtensionService, { getExtension })
 		.stub(IConfigurationService, { getValue, onDidChangeConfiguration: onDidChangeConfiguration.event })
-		.stub(ILogService, { warn })
+		.stub(ILogService, { trace, warn })
 		.build();
 
 	beforeEach(() => {
