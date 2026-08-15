@@ -1,0 +1,454 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-welcome-page-environment-setup {
+	/*
+	 * Shared by the text and by every icon that has to sit on its baseline. A
+	 * custom property would read better, but the stylelint known-variables check
+	 * validates every var() against a theme-token allowlist and does not
+	 * recognise locally declared ones.
+	 */
+	line-height: 20px;
+	background-color: var(--vscode-positronWelcome-environmentSetupBackground);
+	border: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+/* There is no visually-hidden helper in base/, so define one here. */
+.positron-welcome-page-environment-setup .health-visually-hidden {
+	border: 0;
+	clip: rect(0 0 0 0);
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	padding: 0;
+	position: absolute;
+	white-space: nowrap;
+	width: 1px;
+}
+
+.positron-welcome-page-environment-setup .health-group {
+	display: block;
+}
+
+/*
+ * Three surfaces, lightest to heaviest: the check rows take the card's own
+ * background, each language header a wash on top of it, and the card's title bar
+ * the strongest of the three. Without that separation everything reads as one
+ * flat grey and nothing tells you where a language begins.
+ */
+.positron-welcome-page-environment-setup .health-header {
+	align-items: center;
+	display: flex;
+	gap: 8px;
+	padding: 8px 16px;
+}
+
+/* The heading exists for structure; the button inside it carries the layout. */
+.positron-welcome-page-environment-setup .health-group-heading {
+	margin: 0;
+}
+
+.positron-welcome-page-environment-setup .health-header {
+	background-color: var(--vscode-positronWelcome-environmentSetupTitleBackground);
+	color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
+}
+
+.positron-welcome-page-environment-setup .health-group-header {
+	background-color: var(--vscode-positronWelcome-environmentSetupHeaderBackground);
+}
+
+/*
+ * File icon themes scope all their CSS to `.show-file-icons` (see
+ * fileIconThemeData.ts); without it, nothing paints. `LanguageHealthGroup` adds
+ * that class to its container.
+ *
+ * The declarations mirror iconLabel.css's `.monaco-icon-label::before`, which is
+ * what the file explorer, breadcrumbs and editor tabs use, so a language icon
+ * lands identically here to everywhere else in the workbench. `RuntimeIcon` in
+ * positronConsole copies the same rule for the same reason rather than reusing
+ * the IconLabel widget, which is imperative DOM and heavier than one span needs.
+ *
+ * One deviation from that rule: it uses `line-height: inherit`, which quietly
+ * assumes the parent's line-height equals the icon's height. That holds in the
+ * explorer, whose rows are 22px, but not here, where the card's text is 20px. A
+ * font glyph then lays out in a 20px line box at the top of a 22px box and sits
+ * high. Pinning the line box to the icon's own height centres the glyph in it,
+ * and keeps doing so if the card's text metrics ever change.
+ *
+ * The same rule governs the status icons: their box is 24px because the summary
+ * text's line box is 24px. An icon's box and its line box have to agree.
+ */
+.positron-welcome-page-environment-setup .health-group.show-file-icons .health-group-icon::before {
+	background-position: left center;
+	background-repeat: no-repeat;
+	background-size: 16px;
+	display: inline-block;
+	height: 22px;
+	line-height: 22px !important;
+	vertical-align: top;
+	width: 16px;
+	-webkit-font-smoothing: antialiased;
+}
+
+.positron-welcome-page-environment-setup .health-header-title,
+.positron-welcome-page-environment-setup .health-group-name {
+	font-size: 13px;
+	font-weight: 600;
+	margin: 0;
+}
+
+.positron-welcome-page-environment-setup .health-header-title {
+	flex: 1 1 auto;
+}
+
+/*
+ * The count sits where the old Hide control did, pushed right by the space the
+ * name does not need.
+ */
+.positron-welcome-page-environment-setup .health-group-summary {
+	color: var(--vscode-descriptionForeground);
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-align: right;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.positron-welcome-page-environment-setup .health-group-chevron {
+	color: var(--vscode-icon-foreground);
+	flex: 0 0 auto;
+}
+
+.positron-welcome-page-environment-setup .health-group-footer {
+	align-items: baseline;
+	border-top: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	padding: 8px 16px;
+}
+
+.positron-welcome-page-environment-setup .health-group-footer-text {
+	color: var(--vscode-descriptionForeground);
+	margin: 0;
+}
+
+.positron-welcome-page-environment-setup .health-item-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.positron-welcome-page-environment-setup .health-item {
+	padding: 8px 16px;
+}
+
+.positron-welcome-page-environment-setup .health-item-main {
+	align-items: flex-start;
+	display: flex;
+	gap: 8px;
+}
+
+/*
+ * Nothing sits beside the detail, so it takes the full width rather than
+ * inheriting the column the summary shares with the fix button. Indented to
+ * line up under the summary, past the status icon.
+ */
+.positron-welcome-page-environment-setup .health-item-secondary {
+	padding-left: 24px;
+}
+
+/* Divides the checks from each other and from the summary line above them. */
+.positron-welcome-page-environment-setup .health-item + .health-item {
+	border-top: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
+}
+
+.positron-welcome-page-environment-setup .health-item-summary {
+	/*
+	 * Pinned, because the status icon's box is sized to match it. min-width lets
+	 * it wrap rather than force the row wider than the card.
+	 */
+	flex: 1 1 auto;
+	line-height: 24px;
+	min-width: 0;
+}
+
+.positron-welcome-page-environment-setup .health-item-text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	/*
+	 * A flex child will not shrink narrower than its longest word unless
+	 * min-width is 0, and then overflow-wrap breaks the word itself.
+	 */
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.positron-welcome-page-environment-setup .health-item-detail {
+	color: var(--vscode-descriptionForeground);
+	margin: 0;
+}
+
+/*
+ * Overrides the slide-wide codicon margin from gettingStarted.css:295-297, which
+ * targets .gettingStartedSlideCategories .codicon. This selector includes that
+ * class so it outranks the upstream rule on specificity (9 classes vs 8), regardless
+ * of stylesheet load order.
+ */
+.monaco-workbench .part.editor > .content .gettingStartedContainer
+.gettingStartedSlideCategories
+.positron-welcome-page-environment-setup .health-item-icon.codicon {
+	flex: 0 0 auto;
+	/*
+	 * The row is `align-items: flex-start`, so the icon pins to the top of the
+	 * row rather than to the first line of text. Giving it the text's own
+	 * line-height and centring the glyph inside that box lands it on the
+	 * baseline, and keeps it there when the detail text wraps.
+	 */
+	display: flex;
+	align-items: center;
+	/*
+	 * Matches .health-item-summary's line box. The row is top-aligned, so boxes
+	 * of different heights put the icon's glyph centre above the text's even
+	 * though their tops agree.
+	 */
+	height: 24px;
+	margin: 0;
+}
+
+/*
+ * `.codicon` is in each selector to outrank `.monaco-workbench .codicon`, which
+ * paints every codicon in the workbench `--vscode-icon-foreground`. Without it
+ * these tie at two classes each and the later stylesheet wins, so the status
+ * colours silently do not apply.
+ */
+.positron-welcome-page-environment-setup .health-item-icon-pass.codicon {
+	color: var(--vscode-positronWelcome-environmentSetupPassIcon);
+}
+
+.positron-welcome-page-environment-setup .health-item-icon-warn.codicon {
+	color: var(--vscode-positronWelcome-environmentSetupWarningIcon);
+}
+
+.positron-welcome-page-environment-setup .health-item-icon-fail.codicon {
+	color: var(--vscode-positronWelcome-environmentSetupErrorIcon);
+}
+
+.positron-welcome-page-environment-setup .health-item-icon-skipped.codicon {
+	color: var(--vscode-positronWelcome-environmentSetupSkippedIcon);
+}
+
+/*
+ * Restores button styling. gettingStarted.css strips the border, forces
+ * color: inherit and sets 16px padding on every button in the container, so
+ * these rules need that same container chain to win on specificity rather than
+ * reaching for !important. Nesting states it once instead of per rule.
+ *
+ * Sizing mirrors .monaco-text-button (base/browser/ui/button/button.css) so
+ * these read as workbench buttons rather than something invented here. The
+ * min-width stops a short label like "Hide" from rendering as a sliver.
+ */
+.monaco-workbench .part.editor > .content .gettingStartedContainer
+.gettingStartedSlideCategories
+.positron-welcome-page-environment-setup {
+	/*
+	 * gettingStarted.css:233 sets white-space: nowrap on every li in this slide,
+	 * and the check rows are li. Without this the summary and detail cannot wrap
+	 * and run underneath the fix button instead of yielding to it.
+	 */
+	& .health-item {
+		white-space: normal;
+	}
+
+	& .health-item-fix {
+		border-radius: 5px;
+		/*
+		 * inline-block, not flex: text-overflow has no effect on a flex
+		 * container, because the label becomes an anonymous flex item and there
+		 * is no box for the ellipsis to apply to. The padding and line-height
+		 * give the height, so the single line a nowrap label always is sits
+		 * centred without one being declared.
+		 */
+		display: inline-block;
+		/*
+		 * Never shrink: the text beside it wraps, so the button can take the
+		 * width its label needs and let the text reflow around it. No min-width
+		 * either, or a short label like Hide is padded out to a size it does not
+		 * want. The cap and the ellipsis are only for a label long enough to
+		 * crowd out the text it sits next to.
+		 */
+		flex: 0 0 auto;
+		font-size: 12px;
+		line-height: 16px;
+		margin: 0;
+		max-width: 50%;
+		overflow: hidden;
+		padding: 4px 8px;
+		text-align: center;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/*
+	 * The title bar's own controls: recheck, and the shortcut to the setting.
+	 * Icons rather than labelled buttons because a label here outweighed the fix
+	 * buttons, which are the only thing in the card worth pressing.
+	 */
+	& .health-header-button {
+		/*
+		 * Flex centres the icon in the button. As a block the icon sits at the
+		 * top of its line box with the spare height below it, which reads as
+		 * a couple of pixels high against the title. Safe to use flex here
+		 * because there is no label to ellipsize, unlike the fix buttons.
+		 */
+		align-items: center;
+		background-color: transparent;
+		border: none;
+		color: inherit;
+		display: flex;
+		justify-content: center;
+		min-width: 0;
+		padding: 4px;
+	}
+
+	& .health-header-button:hover {
+		background-color: var(--vscode-positronWelcome-environmentSetupTitleHoverBackground);
+	}
+
+	/*
+	 * The icon needs the colour named on it, not inherited from the button.
+	 * `.monaco-workbench .codicon` paints every codicon in the workbench
+	 * --vscode-icon-foreground, and a rule that targets the element beats a value
+	 * it would otherwise inherit, whatever the specificity. Same reason the
+	 * status icons name their colour rather than taking the row's.
+	 */
+	& .health-header-button .codicon {
+		color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
+	}
+
+	/*
+	 * The one action worth taking on a row that failed, so it carries the
+	 * primary colour and nothing else in the card competes with it.
+	 */
+	& .health-item-fix {
+		background-color: var(--vscode-button-background);
+		border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
+		color: var(--vscode-button-foreground);
+	}
+
+	& .health-item-fix:hover {
+		background-color: var(--vscode-button-hoverBackground);
+	}
+
+	/*
+	 * The language header is the disclosure for its checks, so it is a
+	 * full-width button that has to look like the header row it replaced.
+	 */
+	& .health-group-header {
+		align-items: center;
+		background-color: var(--vscode-positronWelcome-environmentSetupHeaderBackground);
+		/*
+		 * Strips the button's own border, then puts back the divider that
+		 * separates this language from the checks of the one above it. That
+		 * divider is the only separation in a high contrast theme, where the
+		 * header fill is deliberately null.
+		 */
+		border: none;
+		border-top: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
+		color: inherit;
+		display: flex;
+		font-size: inherit;
+		gap: 8px;
+		margin: 0;
+		padding: 8px 16px;
+		width: 100%;
+	}
+
+	& .health-group-header:hover {
+		background-color: var(--vscode-list-hoverBackground);
+	}
+
+	/*
+	 * A link in a row of its own, not a button: it goes to the setting rather
+	 * than changing anything here, which is the whole point of removing the old
+	 * Hide control.
+	 */
+	& .health-group-footer-link {
+		background: none;
+		border: none;
+		color: var(--vscode-textLink-foreground);
+		font-size: inherit;
+		margin: 0;
+		padding: 0;
+		text-align: left;
+	}
+
+	& .health-group-footer-link:hover {
+		color: var(--vscode-textLink-activeForeground);
+		text-decoration: underline;
+	}
+
+}
+
+
+/*
+ * Sits on the header's bottom edge rather than inside it, so starting a check
+ * cannot change the header's height and shift the card. The bar travels rather
+ * than filling, because the checks report no progress to show.
+ */
+.positron-welcome-page-environment-setup .health-header {
+	position: relative;
+}
+
+.positron-welcome-page-environment-setup .health-progress {
+	bottom: 0;
+	height: 2px;
+	left: 0;
+	overflow: hidden;
+	position: absolute;
+	right: 0;
+}
+
+.positron-welcome-page-environment-setup .health-progress::before {
+	animation: positron-health-progress 2s linear infinite;
+	/*
+	 * The title bar's own foreground, not --vscode-progressBar-background. That
+	 * token is #0E70C0 and the title bar defaults to button.background, so the
+	 * generic progress colour was a blue line on a blue bar. Foreground and
+	 * background are a designed pair, so this contrasts by construction.
+	 */
+	background-color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
+	content: '';
+	display: block;
+	height: 100%;
+	width: 40%;
+}
+
+@keyframes positron-health-progress {
+	from {
+		transform: translateX(-100%);
+	}
+
+	to {
+		transform: translateX(350%);
+	}
+}
+
+/*
+ * A travelling bar is decoration; someone who asked for less motion gets a
+ * static one that still says a check is running.
+ */
+@media (prefers-reduced-motion: reduce) {
+	.positron-welcome-page-environment-setup .health-progress::before {
+		animation: none;
+		width: 100%;
+	}
+}
+
