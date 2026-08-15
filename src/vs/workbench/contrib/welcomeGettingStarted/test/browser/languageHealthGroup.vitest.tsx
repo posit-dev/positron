@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import * as aria from '../../../../../base/browser/ui/aria/aria.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
@@ -85,6 +85,23 @@ describe('LanguageHealthGroup', () => {
 		unmount();
 		rtl.render(<LanguageHealthGroup health={health} onRunFix={vi.fn()} />);
 		expect(screen.queryByRole('list')).not.toBeInTheDocument();
+	});
+
+	it('follows a collapse made in another card', async () => {
+		// Splitting the editor gives two welcome pages sharing one set of results.
+		// Without the event they share the choice but not the moment of making it,
+		// so the other pane keeps its old state and later snaps to this one.
+		const health = { language: 'r', label: 'R', state: failing } as const;
+		// Scoped to each container, since both cards are in the document at once.
+		const a = within(rtl.render(<LanguageHealthGroup health={health} onRunFix={vi.fn()} />).container);
+		const b = within(rtl.render(<LanguageHealthGroup health={health} onRunFix={vi.fn()} />).container);
+		expect(a.getByRole('list')).toBeInTheDocument();
+		expect(b.getByRole('list')).toBeInTheDocument();
+
+		// Collapse the one on the left only.
+		await userEvent.setup().click(a.getByRole('button', { name: /R/ }));
+		expect(a.queryByRole('list')).not.toBeInTheDocument();
+		expect(b.queryByRole('list')).not.toBeInTheDocument();
 	});
 
 	it('says nothing in the body while a first check runs', async () => {

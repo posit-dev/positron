@@ -9,6 +9,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
 import { status } from '../../../../../../base/browser/ui/aria/aria.js';
+import { Emitter } from '../../../../../../base/common/event.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { getIconClassesForLanguageId } from '../../../../../../editor/common/services/getIconClasses.js';
 import { HealthLanguage, IHealthItemFix } from '../environmentHealth.js';
@@ -75,6 +76,15 @@ function needsAttention(health: ILanguageHealth): boolean {
  */
 export const userOverrides = new Map<HealthLanguage, boolean>();
 
+/**
+ * Fires when a group is opened or closed, so every card in the window follows.
+ * Splitting the editor gives two welcome pages that share one set of results, so
+ * without this they share the choice but not the moment of making it: the pane
+ * that was not clicked keeps its old state until something remounts it and then
+ * snaps to the other one's.
+ */
+const onDidChangeOverride = new Emitter<HealthLanguage>();
+
 export interface LanguageHealthGroupProps {
 	readonly health: ILanguageHealth;
 	readonly onRunFix: (fix: IHealthItemFix) => void;
@@ -95,8 +105,18 @@ export const LanguageHealthGroup = ({ health, onRunFix }: LanguageHealthGroupPro
 	const expanded = override ?? needsAttention(health);
 	const toggle = () => {
 		userOverrides.set(health.language, !expanded);
-		setOverride(!expanded);
+		// The event updates this component too, so there is no setOverride here.
+		onDidChangeOverride.fire(health.language);
 	};
+
+	useEffect(() => {
+		const subscription = onDidChangeOverride.event(language => {
+			if (language === health.language) {
+				setOverride(userOverrides.get(language));
+			}
+		});
+		return () => subscription.dispose();
+	}, [health.language]);
 
 	const summary = summaryText(health);
 
