@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application } from '../../infra';
-import { test as base, tags } from '../_test.setup';
+import { test as base, expect, tags } from '../_test.setup';
 
 /**
  * Turn the setting on before the app launches, rather than through the settings
@@ -113,5 +113,30 @@ test.describe('Redesigned Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () =
 		// Tabbing into it would scroll it into view and slide the welcome page
 		// off the left edge.
 		await welcome.expectHiddenSlideToBeInert('walkthrough');
+	});
+
+	test('Verify the environment setup card survives a tab switch', async function ({ app, runCommand }) {
+		const { welcome } = app.workbench;
+
+		await expect(welcome.environmentSetup).toBeVisible();
+		// Wait for both languages to settle first, so "still checking" cannot be
+		// mistaken for "checked again". The progress line is the signal: the
+		// Recheck control is an icon whose label does not change while a check
+		// runs, so asserting on its text would be true the whole time.
+		await expect(welcome.environmentSetupProgress).toHaveCount(0, { timeout: 30000 });
+		// And the card holds a real result, not just an absence of loading.
+		await expect(welcome.environmentSetup).toContainText('checks passed');
+
+		// A different editor needs a different pane, which is the path that calls
+		// clearInput on the welcome pane.
+		await runCommand('workbench.action.files.newUntitledFile');
+		await runCommand('workbench.action.previousEditor');
+
+		// The tracker is keyed to the editor input, so this must not re-run the
+		// checks. Anything back in a loading state means the pane is rebuilding
+		// the tracker on clearInput, which is the bug this guards.
+		await expect(welcome.environmentSetup).toBeVisible();
+		await expect(welcome.environmentSetupProgress).toHaveCount(0);
+		await expect(welcome.environmentSetup).toContainText('checks passed');
 	});
 });
