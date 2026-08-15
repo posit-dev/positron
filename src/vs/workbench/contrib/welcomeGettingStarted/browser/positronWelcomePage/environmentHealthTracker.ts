@@ -56,6 +56,8 @@ export class EnvironmentHealthTracker extends Disposable implements IEnvironment
 
 	private readonly _states = new Map<HealthLanguage, LanguageHealthState>();
 	private readonly _running = new Set<HealthLanguage>();
+	/** Languages asked to recheck while a run was already out. */
+	private readonly _pendingRefresh = new Set<HealthLanguage>();
 	private _disposed = false;
 
 	constructor(
@@ -100,7 +102,23 @@ export class EnvironmentHealthTracker extends Disposable implements IEnvironment
 	 * recheck control is disabled meanwhile.
 	 */
 	refresh(language: HealthLanguage): void {
-		if (this._disposed || this._running.has(language) || this._hiddenLanguages().has(language)) {
+		this._requestRefresh(language, false);
+	}
+
+	/**
+	 * @param queueIfBusy Whether to run again once the current run ends, rather
+	 * than dropping the request. Only a fix needs this: its recheck exists to show
+	 * what the fix changed, so a result computed before the fix ran is the wrong
+	 * answer. A user pressing the recheck control twice wants one run, not two.
+	 */
+	private _requestRefresh(language: HealthLanguage, queueIfBusy: boolean): void {
+		if (this._disposed || this._hiddenLanguages().has(language)) {
+			return;
+		}
+		if (this._running.has(language)) {
+			if (queueIfBusy) {
+				this._pendingRefresh.add(language);
+			}
 			return;
 		}
 		const source = this._sources.find(s => s.language === language);
@@ -127,7 +145,7 @@ export class EnvironmentHealthTracker extends Disposable implements IEnvironment
 			this._logService.warn(`Environment setup fix ${fix.commandId} failed: ${error}`);
 			return;
 		}
-		this.refresh(language);
+		this._requestRefresh(language, true);
 	}
 
 	override dispose(): void {
@@ -138,8 +156,15 @@ export class EnvironmentHealthTracker extends Disposable implements IEnvironment
 	}
 
 	private _hiddenLanguages(): Set<HealthLanguage> {
-		const visible = this._configurationService.getValue<HealthLanguage[]>(WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY) ?? [];
-		return new Set(this._sources.map(s => s.language).filter(l => !visible.includes(l)));
+		const configured = this._configurationService.getValue(WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY);
+		if (!Array.isArray(configured)) {
+			// settings.json is hand-edited, so this can be any shape at all.
+			// Falling back to the default (nothing hidden) keeps a typo from
+			// turning the section off silently -- and, before this check, from
+			// throwing out of the constructor and taking the welcome page with it.
+			return new Set();
+		}
+		return new Set(this._sources.map(s => s.language).filter(l => !configured.includes(l)));
 	}
 
 	private _syncVisibility(): void {
@@ -190,9 +215,17 @@ export class EnvironmentHealthTracker extends Disposable implements IEnvironment
 	private _finish(language: HealthLanguage, state: LanguageHealthState): void {
 		this._running.delete(language);
 		if (this._hiddenLanguages().has(language)) {
+			// The result is dropped, but isRunning just changed. isRunning is not
+			// observable on its own, so without this a consumer that mirrors it
+			// off onDidChange stays busy forever for a language hidden mid-run.
+			this._pendingRefresh.delete(language);
+			this._fire();
 			return;
 		}
 		this._set(language, state);
+		if (this._pendingRefresh.delete(language)) {
+			this._requestRefresh(language, true);
+		}
 	}
 
 	private _set(language: HealthLanguage, state: LanguageHealthState): void {

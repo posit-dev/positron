@@ -12,7 +12,7 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { ILanguageHealthSource } from '../../browser/positronWelcomePage/environmentHealth.js';
-import { EnvironmentHealthTracker } from '../../browser/positronWelcomePage/environmentHealthTracker.js';
+import { EnvironmentHealthTracker, LanguageHealthState } from '../../browser/positronWelcomePage/environmentHealthTracker.js';
 
 const SOURCES: readonly ILanguageHealthSource[] = [
 	{ language: 'python', label: 'Python', extensionId: 'ms-python.python', commandId: 'python.getEnvironmentHealth' },
@@ -20,6 +20,11 @@ const SOURCES: readonly ILanguageHealthSource[] = [
 ];
 
 const passing = { ok: true, items: [{ id: 'discovery', status: 'pass', summary: 'Positron can discover Python environments' }] };
+const failing = { ok: false, items: [{ id: 'discovery', status: 'fail', summary: 'No supported Python was found' }] };
+
+/** The first item's summary, so a test can tell one result from another. */
+const summaryOf = (state: LanguageHealthState) =>
+	state.kind === 'result' ? state.result.items[0].summary : undefined;
 
 /** Resolves once every pending promise callback has run. */
 const settle = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -29,13 +34,12 @@ describe('EnvironmentHealthTracker', () => {
 	const executeCommand = vi.fn();
 	const getExtension = vi.fn();
 	const getValue = vi.fn();
-	const updateValue = vi.fn();
 	const warn = vi.fn();
 
 	const ctx = createTestContainer()
 		.stub(ICommandService, { executeCommand })
 		.stub(IExtensionService, { getExtension })
-		.stub(IConfigurationService, { getValue, updateValue, onDidChangeConfiguration: onDidChangeConfiguration.event })
+		.stub(IConfigurationService, { getValue, onDidChangeConfiguration: onDidChangeConfiguration.event })
 		.stub(ILogService, { warn })
 		.build();
 
@@ -71,16 +75,81 @@ describe('EnvironmentHealthTracker', () => {
 		tracker.dispose();
 	});
 
-	it('keeps the previous result on screen while refreshing', async () => {
+	it('keeps the previous result on screen while refreshing, then replaces it', async () => {
 		const tracker = build();
 		await settle();
 		let resolveSecond: (value: unknown) => void = () => { };
 		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveSecond = resolve; }));
 		tracker.refresh('python');
+		// The run suspends on the extension-presence check first, so without this
+		// executeCommand has not been called and resolveSecond is still the
+		// placeholder -- resolving it would do nothing and the test would pass
+		// whatever the refresh did.
+		await settle();
 		expect(tracker.state[0].state.kind).toBe('result');
 		expect(tracker.isRunning('python')).toBe(true);
-		resolveSecond(passing);
+
+		resolveSecond(failing);
 		await settle();
+		expect(summaryOf(tracker.state[0].state)).toBe('No supported Python was found');
+		expect(tracker.isRunning('python')).toBe(false);
+		tracker.dispose();
+	});
+
+	it('runs a recheck asked for while a run was already in flight', async () => {
+		// A fix rechecks the language it fixed. A fix that resolves while an
+		// earlier check is still out used to have its recheck dropped, leaving the
+		// card showing the result from before the fix ran.
+		const tracker = build();
+		await settle();
+		let resolveFirst: (value: unknown) => void = () => { };
+		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve; }));
+		tracker.refresh('python');
+		await settle();
+
+		void tracker.runFix('python', { commandId: 'python.installPythonViaUv', label: 'Install Python' });
+		await settle();
+		expect(executeCommand.mock.calls.filter(c => c[0] === 'python.getEnvironmentHealth')).toHaveLength(2);
+
+		executeCommand.mockResolvedValue(failing);
+		resolveFirst(passing);
+		await settle();
+		expect(executeCommand.mock.calls.filter(c => c[0] === 'python.getEnvironmentHealth')).toHaveLength(3);
+		expect(summaryOf(tracker.state[0].state)).toBe('No supported Python was found');
+		tracker.dispose();
+	});
+
+	it('reports a language as no longer running once its hidden run ends', async () => {
+		// isRunning is not observable on its own, so a consumer mirrors it off
+		// onDidChange. Ending a hidden run without firing left the card busy
+		// forever, and its Recheck control dead for the other language too.
+		const tracker = build();
+		await settle();
+		let resolveRun: (value: unknown) => void = () => { };
+		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveRun = resolve; }));
+		tracker.refresh('python');
+		await settle();
+
+		getValue.mockReturnValue(['r']);
+		onDidChangeConfiguration.fire({ affectsConfiguration: () => true });
+		const changed = vi.fn();
+		const subscription = tracker.onDidChange(changed);
+
+		resolveRun(passing);
+		await settle();
+		expect(tracker.isRunning('python')).toBe(false);
+		expect(changed).toHaveBeenCalled();
+		subscription.dispose();
+		tracker.dispose();
+	});
+
+	it('falls back to the default when the setting is not an array', async () => {
+		// settings.json is hand-edited. A non-array value used to throw out of the
+		// constructor, which took the whole welcome page down with it.
+		getValue.mockReturnValue(true);
+		const tracker = build();
+		await settle();
+		expect(tracker.state.map(l => l.state.kind)).toEqual(['result', 'result']);
 		tracker.dispose();
 	});
 
@@ -193,14 +262,17 @@ describe('EnvironmentHealthTracker', () => {
 		let resolveRun: (value: unknown) => void = () => { };
 		executeCommand.mockImplementation(() => new Promise(resolve => { resolveRun = resolve; }));
 		const tracker = build();
-		const changed = vi.fn();
-		const subscription = tracker.onDidChange(changed);
+		// Same reason as above: without this the run has not reached
+		// executeCommand, so resolveRun is a no-op and nothing is being tested.
+		await settle();
 		tracker.dispose();
-		subscription.dispose();
-		changed.mockClear();
+
 		resolveRun(passing);
 		await settle();
-		expect(changed).not.toHaveBeenCalled();
+		// Asserting on the state, not on a listener: the emitter is already dead
+		// once disposed, so a silent listener proves nothing about the guard in
+		// _set that this test exists to cover.
+		expect(tracker.state.map(l => l.state.kind)).toEqual(['loading', 'loading']);
 	});
 
 	it('returns a fresh array from state so React sees the change', async () => {

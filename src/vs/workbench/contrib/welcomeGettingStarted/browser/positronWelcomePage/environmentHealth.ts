@@ -75,6 +75,14 @@ function isHealthItem(value: unknown): value is IHealthItem {
 		return false;
 	}
 	const item = value as Partial<IHealthItem>;
+	// `fix` gets checked where the others do not, because it is the only field
+	// that drives an action rather than a display. An unregistered command id
+	// sends CommandService down its activate-everything path, which waits 30
+	// seconds before rejecting -- the same wait the extension check in the
+	// tracker exists to avoid.
+	if (item.fix !== undefined && typeof item.fix?.commandId !== 'string') {
+		return false;
+	}
 	return typeof item.id === 'string'
 		&& typeof item.summary === 'string'
 		&& typeof item.status === 'string'
