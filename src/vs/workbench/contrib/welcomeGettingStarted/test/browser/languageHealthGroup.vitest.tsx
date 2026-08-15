@@ -94,7 +94,6 @@ describe('LanguageHealthGroup', () => {
 		// passes it in. A component keeping the state anywhere shared would leave
 		// this one untouched, and both pages would fold together.
 		const mine = new Map<HealthLanguage, boolean>();
-		const theirs = new Map<HealthLanguage, boolean>();
 		rtl.render(<LanguageHealthGroup
 			expandedOverrides={mine}
 			health={{ language: 'r', label: 'R', state: failing }}
@@ -103,7 +102,6 @@ describe('LanguageHealthGroup', () => {
 		// `failing` opens itself, so this closes it.
 		await userEvent.setup().click(screen.getByRole('button', { name: /R/ }));
 		expect(mine.get('r')).toBe(false);
-		expect(theirs.size).toBe(0);
 	});
 
 	it('says it is checking in the header, and nothing in the body, on a first check', async () => {
@@ -130,6 +128,23 @@ describe('LanguageHealthGroup', () => {
 	it('puts show-file-icons on the group container so the language icon can paint', () => {
 		render(passing);
 		expect(screen.getByRole('group')).toHaveClass('show-file-icons');
+	});
+
+	it('does not announce the checking line', async () => {
+		// The card announces that a run started. Repeating it once per language is
+		// the same news twice.
+		const announce = vi.spyOn(aria, 'status').mockImplementation(() => { });
+		const { rerender } = rtl.render(<LanguageHealthGroup
+			expandedOverrides={overrides}
+			health={{ language: 'r', label: 'R', state: { kind: 'hidden' } }}
+			onRunFix={vi.fn()} />);
+		rerender(<LanguageHealthGroup
+			expandedOverrides={overrides}
+			health={{ language: 'r', label: 'R', state: { kind: 'loading' } }}
+			onRunFix={vi.fn()} />);
+		expect(screen.getByText('Checking...')).toBeInTheDocument();
+		expect(announce).not.toHaveBeenCalled();
+		announce.mockRestore();
 	});
 
 	it('announces the result when it arrives', async () => {

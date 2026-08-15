@@ -30,10 +30,6 @@
 	width: 1px;
 }
 
-.positron-welcome-page-environment-setup .health-group {
-	display: block;
-}
-
 /*
  * Three surfaces, lightest to heaviest: the check rows take the card's own
  * background, each language header a wash on top of it, and the card's title bar
@@ -243,7 +239,7 @@
 .gettingStartedSlideCategories
 .positron-welcome-page-environment-setup {
 	/*
-	 * gettingStarted.css:233 sets white-space: nowrap on every li in this slide,
+	 * gettingStarted.css:232 sets white-space: nowrap on every li in this slide,
 	 * and the check rows are li. Without this the summary and detail cannot wrap
 	 * and run underneath the fix button instead of yielding to it.
 	 */
@@ -251,8 +247,15 @@
 		white-space: normal;
 	}
 
+	/*
+	 * The one action worth taking on a row that failed, so it carries the
+	 * primary colour and nothing else in the card competes with it.
+	 */
 	& .health-item-fix {
+		background-color: var(--vscode-button-background);
+		border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
 		border-radius: 5px;
+		color: var(--vscode-button-foreground);
 		/*
 		 * inline-block, not flex: text-overflow has no effect on a flex
 		 * container, because the label becomes an anonymous flex item and there
@@ -315,16 +318,6 @@
 	 */
 	& .health-header-button .codicon {
 		color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
-	}
-
-	/*
-	 * The one action worth taking on a row that failed, so it carries the
-	 * primary colour and nothing else in the card competes with it.
-	 */
-	& .health-item-fix {
-		background-color: var(--vscode-button-background);
-		border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
-		color: var(--vscode-button-foreground);
 	}
 
 	& .health-item-fix:hover {

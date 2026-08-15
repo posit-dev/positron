@@ -86,8 +86,10 @@ describe('EnvironmentHealthSection', () => {
 		// so announcing on mount speaks at someone working in another tab.
 		const announce = vi.spyOn(aria, 'status').mockImplementation(() => { });
 		let busy = false;
-		// A fresh array each read, as the real tracker returns, or React sees the
-		// same value and never re-renders.
+		// The snapshot React renders comes from the fired event, not from reading
+		// `state` -- spreading the overrides copies that getter's value once, so an
+		// override cannot make `state` change per read. Firing a new array is what
+		// makes the component re-render.
 		let snapshot = loading;
 		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading, { get state() { return snapshot; }, isRunning: () => busy })} />);
 		expect(announce).not.toHaveBeenCalled();
