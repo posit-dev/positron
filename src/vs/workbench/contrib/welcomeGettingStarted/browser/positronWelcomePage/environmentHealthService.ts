@@ -44,6 +44,7 @@ export interface IEnvironmentHealthService {
 	readonly _serviceBrand: undefined;
 	readonly onDidChange: Event<EnvironmentHealthSnapshot>;
 	readonly state: EnvironmentHealthSnapshot;
+	/** Whether a check or a fix is running for this language. */
 	isRunning(language: HealthLanguage): boolean;
 	refresh(language: HealthLanguage): void;
 	/**
@@ -76,6 +77,11 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 
 	private readonly _states = new Map<HealthLanguage, LanguageHealthState>();
 	private readonly _running = new Set<HealthLanguage>();
+	/**
+	 * Languages whose fix command is running. Kept apart from `_running` so that
+	 * a check finishing cannot clear the flag for a fix that is still going.
+	 */
+	private readonly _runningFixes = new Set<HealthLanguage>();
 	/** Languages asked to recheck while a run was already out. */
 	private readonly _pendingRefresh = new Set<HealthLanguage>();
 	/** The welcome page the checks last ran for. See refreshForPage. */
@@ -127,7 +133,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	}
 
 	isRunning(language: HealthLanguage): boolean {
-		return this._running.has(language);
+		return this._running.has(language) || this._runningFixes.has(language);
 	}
 
 	/**
@@ -197,14 +203,39 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 * than keeping a list of which commands are worth rechecking after.
 	 */
 	async runFix(language: HealthLanguage, fix: IHealthItemFix): Promise<void> {
+		if (this._disposed) {
+			return;
+		}
+		// A fix command can run for minutes -- installing Python, say. The card
+		// shows its progress line for whatever isRunning reports, so without this
+		// it looks idle for all of it, and its recheck control stays live: press
+		// it and a check runs against the half-installed environment and publishes
+		// what it finds.
+		this._runningFixes.add(language);
+		this._logService.trace(`${LOG} ${language}: fix ${fix.commandId} started`);
+		this._fire();
+
+		let ran = true;
 		try {
 			await this._commandService.executeCommand(fix.commandId, ...(fix.args ?? []));
 		} catch (error) {
 			// The fix commands surface their own errors, so a notification here
 			// would double up.
 			this._logService.warn(`Environment setup fix ${fix.commandId} failed: ${error}`);
+			ran = false;
+		} finally {
+			this._runningFixes.delete(language);
+		}
+		this._logService.trace(`${LOG} ${language}: fix ${fix.commandId} ${ran ? 'finished' : 'failed'}`);
+
+		if (!ran) {
+			// Nothing else will fire, so say the card is idle again.
+			this._fire();
 			return;
 		}
+		// Fires for itself when it starts a run. When a check is already out it
+		// queues instead and stays busy on that check's flag, so there is nothing
+		// to announce.
 		this._requestRefresh(language, true);
 	}
 

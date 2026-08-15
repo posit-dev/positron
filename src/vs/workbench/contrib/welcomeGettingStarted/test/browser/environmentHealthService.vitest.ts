@@ -368,6 +368,48 @@ describe('EnvironmentHealthService', () => {
 		tracker.dispose();
 	});
 
+	it('reports the language as running while its fix command is out', async () => {
+		// A fix can run for minutes. The card takes its progress line from
+		// isRunning, so a fix that does not report leaves the card looking idle
+		// and its recheck control live.
+		const tracker = open();
+		await settle();
+		let resolveFix: (value: unknown) => void = () => { };
+		executeCommand.mockImplementationOnce(() => new Promise(resolve => { resolveFix = resolve; }));
+		const changed = vi.fn();
+		const subscription = tracker.onDidChange(changed);
+
+		void tracker.runFix('python', { commandId: 'python.installPythonViaUv', label: 'Install Python' });
+		expect(tracker.isRunning('python')).toBe(true);
+		expect(changed).toHaveBeenCalled();
+
+		resolveFix(undefined);
+		await settle();
+		expect(tracker.isRunning('python')).toBe(false);
+		subscription.dispose();
+		tracker.dispose();
+	});
+
+	it('stops reporting the language as running when its fix command fails', async () => {
+		const tracker = open();
+		await settle();
+		executeCommand.mockRejectedValueOnce(new Error('nope'));
+		const changed = vi.fn();
+		const subscription = tracker.onDidChange(changed);
+
+		const running = tracker.runFix('python', { commandId: 'python.installPythonViaUv', label: 'Install Python' });
+		// Drop the event that said the fix started, so what is asserted below is
+		// the one that says it ended.
+		changed.mockClear();
+
+		await running;
+		expect(tracker.isRunning('python')).toBe(false);
+		// The card has to be told, or it keeps showing the progress line forever.
+		expect(changed).toHaveBeenCalled();
+		subscription.dispose();
+		tracker.dispose();
+	});
+
 	it('runs a fix, then rechecks that language only', async () => {
 		const tracker = open();
 		await settle();
