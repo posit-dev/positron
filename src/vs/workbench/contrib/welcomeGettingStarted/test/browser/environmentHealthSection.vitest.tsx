@@ -91,7 +91,7 @@ describe('EnvironmentHealthSection', () => {
 		// override cannot make `state` change per read. Firing a new array is what
 		// makes the component re-render.
 		let snapshot = loading;
-		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading, { get state() { return snapshot; }, isBusy: () => busy })} />);
+		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading, { isBusy: () => busy })} />);
 		expect(announce).not.toHaveBeenCalled();
 
 		busy = true;
@@ -104,7 +104,6 @@ describe('EnvironmentHealthSection', () => {
 		announce.mockClear();
 		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading, { isBusy: () => true })} />);
 		expect(announce).not.toHaveBeenCalled();
-		announce.mockRestore();
 	});
 
 	it('offers the setting once, from the header', async () => {
@@ -116,6 +115,33 @@ describe('EnvironmentHealthSection', () => {
 		expect(gear.closest('.health-header')).toBeInTheDocument();
 		await userEvent.setup().click(gear);
 		expect(executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', 'welcomePage.environmentChecks');
+	});
+
+	it('takes each fix button from its own language, not from the card', async () => {
+		// Nothing else covers this: every other test here uses loading or hidden
+		// states, so no fix button is rendered at all, and swapping the per-language
+		// read for the card-wide `busy` three lines above it would pass.
+		const failing = {
+			kind: 'result', result: {
+				ok: false,
+				items: [{ id: 'env', status: 'fail', summary: 'No environment', fix: { commandId: 'x', label: 'Fix Python' } }],
+			},
+		} as const;
+		const runFix = vi.fn();
+		rtl.render(<EnvironmentHealthSection
+			expandedOverrides={new Map()}
+			tracker={tracker([
+				{ language: 'python', label: 'Python', state: failing },
+				{ language: 'r', label: 'R', state: failing },
+			], { isBusy: language => language === 'python', runFix })} />);
+
+		const [python, r] = screen.getAllByRole('button', { name: 'Fix Python' });
+		expect(python).toHaveAttribute('aria-disabled', 'true');
+		// R is idle, so its fix stays live while Python installs.
+		expect(r).not.toHaveAttribute('aria-disabled');
+
+		await userEvent.setup().click(r);
+		expect(runFix.mock.calls[0][0]).toBe('r');
 	});
 
 	it('renders nothing for a language turned off in the setting', () => {

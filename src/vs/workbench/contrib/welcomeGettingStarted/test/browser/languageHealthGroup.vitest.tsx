@@ -135,7 +135,6 @@ describe('LanguageHealthGroup', () => {
 			<LanguageHealthGroup busy={false} expandedOverrides={overrides} health={{ language: 'r', label: 'R', state: { kind: 'loading' } }} onRunFix={vi.fn()} />);
 		rerender(<LanguageHealthGroup busy={false} expandedOverrides={overrides} health={{ language: 'r', label: 'R', state: passing }} onRunFix={vi.fn()} />);
 		expect(announce).toHaveBeenCalledWith('R, You have successfully set up R');
-		announce.mockRestore();
 	});
 
 	it('announces a recheck that finds nothing new', async () => {
@@ -155,6 +154,5 @@ describe('LanguageHealthGroup', () => {
 			health={{ language: 'r', label: 'R', state: { kind: 'result', result: { ok: true, items: [item('pass', 'A'), item('pass', 'B')] } } }}
 			onRunFix={vi.fn()} />);
 		expect(announce).toHaveBeenCalledTimes(1);
-		announce.mockRestore();
 	});
 });

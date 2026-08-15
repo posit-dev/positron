@@ -36,7 +36,10 @@ const oneWalkthrough = {
 const environmentHealth: IEnvironmentHealthService = {
 	_serviceBrand: undefined,
 	onDidChange: Event.None,
-	state: [],
+	// One language, so the card renders as it does in use. An empty snapshot puts
+	// it in its "every language is turned off" state, which is the one state that
+	// says nothing about where the card sits.
+	state: [{ language: 'python', label: 'Python', state: { kind: 'loading' } }],
 	isBusy: () => false,
 	recheckLanguage: vi.fn(),
 	recheckForPage: vi.fn(),
@@ -81,7 +84,7 @@ describe('PositronWelcomePage', () => {
 			/>
 		);
 
-		expect(container).toHaveTextContent(/Learn.*Recent.*Connect to\.\.\..*Show welcome page on startup/);
+		expect(container).toHaveTextContent(/Environment setup.*Learn.*Recent.*Connect to\.\.\..*Show welcome page on startup/);
 	});
 
 	it('omits the connect action when there is none, as on web', () => {

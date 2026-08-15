@@ -61,7 +61,7 @@ export const HealthItemRow = ({ item, busy, onRunFix }: HealthItemRowProps) => {
 				<span className='health-visually-hidden'>{status.label}</span>
 				<span className='health-item-summary'>{item.summary}</span>
 				{item.fix &&
-					<Button className='health-item-fix' disabled={busy} onPressed={() => onRunFix(item.fix!)}>
+					<Button ariaDisabled={busy} className='health-item-fix' onPressed={() => onRunFix(item.fix!)}>
 						{item.fix.label}
 					</Button>}
 			</div>
@@ -70,7 +70,6 @@ export const HealthItemRow = ({ item, busy, onRunFix }: HealthItemRowProps) => {
 					{item.detail && <p className='health-item-detail'>{item.detail}</p>}
 					{item.learnMoreUrl &&
 						<a
-							className='health-item-learn-more'
 							href={item.learnMoreUrl}
 							onClick={openLearnMore}
 						>

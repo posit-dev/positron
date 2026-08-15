@@ -43,6 +43,8 @@
 	display: flex;
 	gap: 8px;
 	padding: 8px 16px;
+	/* The progress line is positioned against this. */
+	position: relative;
 }
 
 /* The heading exists for structure; the button inside it carries the layout. */
@@ -232,8 +234,7 @@
  * reaching for !important. Nesting states it once instead of per rule.
  *
  * Sizing mirrors .monaco-text-button (base/browser/ui/button/button.css) so
- * these read as workbench buttons rather than something invented here. The
- * min-width stops a short label like "Hide" from rendering as a sliver.
+ * these read as workbench buttons rather than something invented here.
  */
 .monaco-workbench .part.editor > .content .gettingStartedContainer
 .gettingStartedSlideCategories
@@ -305,8 +306,13 @@
 		padding: 4px;
 	}
 
-	& .health-header-button:hover {
+	& .health-header-button:hover:not(.disabled) {
 		background-color: var(--vscode-positronWelcome-environmentSetupTitleHoverBackground);
+	}
+
+	/* Recheck, while a check or a fix is running. Its tooltip says why. */
+	& .health-header-button.disabled {
+		opacity: 0.5;
 	}
 
 	/*
@@ -320,8 +326,17 @@
 		color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
 	}
 
-	& .health-item-fix:hover {
+	& .health-item-fix:hover:not(.disabled) {
 		background-color: var(--vscode-button-hoverBackground);
+	}
+
+	/*
+	 * Unavailable while its language is busy. The shared button styles only set a
+	 * cursor for this, so without the fade the button looks live, and without the
+	 * :not above it still lit up under the pointer while swallowing every click.
+	 */
+	& .health-item-fix.disabled {
+		opacity: 0.5;
 	}
 
 	/*
@@ -353,9 +368,8 @@
 	}
 
 	/*
-	 * A link in a row of its own, not a button: it goes to the setting rather
-	 * than changing anything here, which is the whole point of removing the old
-	 * Hide control.
+	 * Styled as a link although it is a button, because it navigates to the
+	 * Settings editor rather than changing anything on the page.
 	 */
 	& .health-group-footer-link {
 		background: none;
@@ -380,10 +394,6 @@
  * cannot change the header's height and shift the card. The bar travels rather
  * than filling, because the checks report no progress to show.
  */
-.positron-welcome-page-environment-setup .health-header {
-	position: relative;
-}
-
 .positron-welcome-page-environment-setup .health-progress {
 	bottom: 0;
 	height: 2px;

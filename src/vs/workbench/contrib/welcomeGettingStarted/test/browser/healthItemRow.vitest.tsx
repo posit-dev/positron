@@ -27,7 +27,6 @@ describe('HealthItemRow', () => {
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	beforeEach(() => {
-		open.mockReset();
 	});
 
 	it.each([
@@ -89,7 +88,11 @@ describe('HealthItemRow', () => {
 			item={{ id: 'dedicated', status: 'fail', summary: 'No dedicated environment', fix }}
 			onRunFix={onRunFix} />);
 		const button = screen.getByRole('button', { name: 'Create Python Environment' });
-		expect(button).toBeDisabled();
+		expect(button).toHaveAttribute('aria-disabled', 'true');
+		// Marked unavailable rather than natively disabled, so it keeps its place
+		// in the tab order: disabling a focused button drops the keyboard user to
+		// the top of the page for the minutes an install takes.
+		expect(button).toBeEnabled();
 		await userEvent.setup().click(button);
 		expect(onRunFix).not.toHaveBeenCalled();
 	});

@@ -89,20 +89,17 @@ export const EnvironmentHealthSection = ({ tracker, expandedOverrides }: Environ
 				</h3>
 				{visible.length > 0 &&
 					<Button
+						ariaDisabled={busy}
 						ariaLabel={localize('positron.welcome.health.recheckTooltip', "Run the environment setup checks again")}
-						className='health-header-button health-recheck'
+						className='health-header-button'
 						hoverManager={hoverManager}
-						tooltip={localize('positron.welcome.health.recheckTooltip', "Run the environment setup checks again")}
-						onPressed={() => {
-							// `busy` mirrors the progress line below, and both come from
-							// `tracker.isBusy`. Guarding here keeps the two in lockstep
-							// instead of leaning on `refresh`'s own early return, which a
-							// test double need not implement.
-							if (busy) {
-								return;
-							}
-							health.forEach(language => tracker.recheckLanguage(language.language));
-						}}
+						// While anything is running this says why it cannot be pressed.
+						// A control that looks pressable and silently does nothing is
+						// worse than one that explains itself.
+						tooltip={busy
+							? localize('positron.welcome.health.recheckBusyTooltip', "Waiting for the current check to finish")
+							: localize('positron.welcome.health.recheckTooltip', "Run the environment setup checks again")}
+						onPressed={() => health.forEach(language => tracker.recheckLanguage(language.language))}
 					>
 						<span aria-hidden='true' className='codicon codicon-refresh' />
 					</Button>}
@@ -114,7 +111,7 @@ export const EnvironmentHealthSection = ({ tracker, expandedOverrides }: Environ
 				{visible.length > 0 &&
 					<Button
 						ariaLabel={localize('positron.welcome.health.settingsTooltip', "Choose which languages are checked")}
-						className='health-header-button health-settings'
+						className='health-header-button'
 						hoverManager={hoverManager}
 						tooltip={localize('positron.welcome.health.settingsTooltip', "Choose which languages are checked")}
 						onPressed={openSetting}
