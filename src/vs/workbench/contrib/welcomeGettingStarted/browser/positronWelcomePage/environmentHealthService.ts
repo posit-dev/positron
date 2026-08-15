@@ -44,8 +44,12 @@ export interface IEnvironmentHealthService {
 	readonly _serviceBrand: undefined;
 	readonly onDidChange: Event<EnvironmentHealthSnapshot>;
 	readonly state: EnvironmentHealthSnapshot;
-	/** Whether a check or a fix is running for this language. */
-	isRunning(language: HealthLanguage): boolean;
+	/**
+	 * Whether anything is running for this language -- a check, or a fix command,
+	 * which can take minutes. The card shows its progress line for this and
+	 * disables the controls that would start more work.
+	 */
+	isBusy(language: HealthLanguage): boolean;
 	refresh(language: HealthLanguage): void;
 	/**
 	 * Rechecks every visible language for a welcome page that has just opened.
@@ -133,7 +137,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 		}));
 	}
 
-	isRunning(language: HealthLanguage): boolean {
+	isBusy(language: HealthLanguage): boolean {
 		return this._runningChecks.has(language) || this._runningFixes.has(language);
 	}
 
@@ -208,7 +212,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 			return;
 		}
 		// A fix command can run for minutes -- installing Python, say. The card
-		// shows its progress line for whatever isRunning reports, so without this
+		// shows its progress line for whatever isBusy reports, so without this
 		// it looks idle for all of it, and its recheck control stays live: press
 		// it and a check runs against the half-installed environment and publishes
 		// what it finds.
@@ -302,15 +306,15 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 * Ends a run: clears the in-flight flag, then writes the result unless the
 	 * language was hidden while the run was out (the user can hide it mid-check,
 	 * since the Python check takes seconds). Clearing the flag first, rather than
-	 * in a `finally`, keeps `isRunning` and the change event this fires in sync --
-	 * a listener reacting to the event never sees `isRunning` still true for a
+	 * in a `finally`, keeps `isBusy` and the change event this fires in sync --
+	 * a listener reacting to the event never sees `isBusy` still true for a
 	 * run that has already finished.
 	 */
 	private _finish(language: HealthLanguage, state: LanguageHealthState): void {
 		this._runningChecks.delete(language);
 		this._logService.trace(`${LOG} ${language}: check finished as ${state.kind}`);
 		if (this._hiddenLanguages().has(language)) {
-			// The result is dropped, but isRunning just changed. isRunning is not
+			// The result is dropped, but isBusy just changed. isBusy is not
 			// observable on its own, so without this a consumer that mirrors it
 			// off onDidChange stays busy forever for a language hidden mid-run.
 			this._pendingRefresh.delete(language);

@@ -180,12 +180,12 @@ describe('EnvironmentHealthService', () => {
 		// whatever the refresh did.
 		await settle();
 		expect(tracker.state[0].state.kind).toBe('result');
-		expect(tracker.isRunning('python')).toBe(true);
+		expect(tracker.isBusy('python')).toBe(true);
 
 		resolveSecond(failing);
 		await settle();
 		expect(summaryOf(tracker.state[0].state)).toBe('No supported Python was found');
-		expect(tracker.isRunning('python')).toBe(false);
+		expect(tracker.isBusy('python')).toBe(false);
 		tracker.dispose();
 	});
 
@@ -243,7 +243,7 @@ describe('EnvironmentHealthService', () => {
 	});
 
 	it('reports a language as no longer running once its hidden run ends', async () => {
-		// isRunning is not observable on its own, so a consumer mirrors it off
+		// isBusy is not observable on its own, so a consumer mirrors it off
 		// onDidChange. Ending a hidden run without firing left the card busy
 		// forever, and its Recheck control dead for the other language too.
 		const tracker = open();
@@ -260,7 +260,7 @@ describe('EnvironmentHealthService', () => {
 
 		resolveRun(passing);
 		await settle();
-		expect(tracker.isRunning('python')).toBe(false);
+		expect(tracker.isBusy('python')).toBe(false);
 		expect(changed).toHaveBeenCalled();
 		subscription.dispose();
 		tracker.dispose();
@@ -285,7 +285,7 @@ describe('EnvironmentHealthService', () => {
 		// Let the extension-presence check resolve, so executeCommand (and
 		// resolveRun) is actually captured before it is used below.
 		await settle();
-		expect(tracker.isRunning('python')).toBe(true);
+		expect(tracker.isBusy('python')).toBe(true);
 
 		// The user hides python while its check is still running.
 		getValue.mockReturnValue(['r']);
@@ -296,11 +296,11 @@ describe('EnvironmentHealthService', () => {
 		await settle();
 
 		expect(tracker.state[0].state.kind).toBe('hidden');
-		expect(tracker.isRunning('python')).toBe(false);
+		expect(tracker.isBusy('python')).toBe(false);
 		tracker.dispose();
 	});
 
-	it('clears isRunning before firing the change event, so the two never disagree', async () => {
+	it('clears isBusy before firing the change event, so the two never disagree', async () => {
 		const tracker = open();
 		await settle();
 		let resolveRun: (value: unknown) => void = () => { };
@@ -312,7 +312,7 @@ describe('EnvironmentHealthService', () => {
 
 		let runningWhenFired: boolean | undefined;
 		const subscription = tracker.onDidChange(() => {
-			runningWhenFired = tracker.isRunning('python');
+			runningWhenFired = tracker.isBusy('python');
 		});
 		resolveRun(passing);
 		await settle();
@@ -370,7 +370,7 @@ describe('EnvironmentHealthService', () => {
 
 	it('reports the language as running while its fix command is out', async () => {
 		// A fix can run for minutes. The card takes its progress line from
-		// isRunning, so a fix that does not report leaves the card looking idle
+		// isBusy, so a fix that does not report leaves the card looking idle
 		// and its recheck control live.
 		const tracker = open();
 		await settle();
@@ -380,12 +380,12 @@ describe('EnvironmentHealthService', () => {
 		const subscription = tracker.onDidChange(changed);
 
 		void tracker.runFix('python', { commandId: 'python.installPythonViaUv', label: 'Install Python' });
-		expect(tracker.isRunning('python')).toBe(true);
+		expect(tracker.isBusy('python')).toBe(true);
 		expect(changed).toHaveBeenCalled();
 
 		resolveFix(undefined);
 		await settle();
-		expect(tracker.isRunning('python')).toBe(false);
+		expect(tracker.isBusy('python')).toBe(false);
 		subscription.dispose();
 		tracker.dispose();
 	});
@@ -403,7 +403,7 @@ describe('EnvironmentHealthService', () => {
 		changed.mockClear();
 
 		await running;
-		expect(tracker.isRunning('python')).toBe(false);
+		expect(tracker.isBusy('python')).toBe(false);
 		// The card has to be told, or it keeps showing the progress line forever.
 		expect(changed).toHaveBeenCalled();
 		subscription.dispose();
