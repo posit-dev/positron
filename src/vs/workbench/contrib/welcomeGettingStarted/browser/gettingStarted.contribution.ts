@@ -34,6 +34,11 @@ import { AccessibleViewRegistry } from '../../../../platform/accessibility/brows
 import { GettingStartedAccessibleView } from './gettingStartedAccessibleView.js';
 import { AgentSessionsWelcomePage } from '../../welcomeAgentSessions/browser/agentSessionsWelcome.js';
 import { IChatEntitlementService } from '../../../services/chat/common/chatEntitlementService.js';
+// --- Start Positron ---
+import { registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { HEALTH_SOURCES } from './positronWelcomePage/environmentHealth.js';
+import { EnvironmentHealthService, IEnvironmentHealthService } from './positronWelcomePage/environmentHealthService.js';
+// --- End Positron ---
 
 export * as icons from './gettingStartedIcons.js';
 
@@ -360,4 +365,20 @@ registerWorkbenchContribution2(StartupPageEditorResolverContribution.ID, Startup
 registerWorkbenchContribution2(StartupPageRunnerContribution.ID, StartupPageRunnerContribution, WorkbenchPhase.AfterRestored);
 
 AccessibleViewRegistry.register(new GettingStartedAccessibleView());
+
+// --- Start Positron ---
+// One environment health service per window, so two welcome pages in a split
+// editor share one set of checks. `Delayed` is not lazy -- once anything asks
+// for a service it is built at the next idle callback, used or not -- so what
+// keeps this from running the Python and R checks at startup is that only the
+// welcome page's editor pane asks for it. Registering it costs nothing until
+// then.
+// The descriptor overload takes no InstantiationType; the delayed flag is the
+// descriptor's own third argument. HEALTH_SOURCES has to travel this way because
+// the plain-constructor overload accepts only injected services.
+registerSingleton(
+	IEnvironmentHealthService,
+	new SyncDescriptor(EnvironmentHealthService, [HEALTH_SOURCES], true)
+);
+// --- End Positron ---
 

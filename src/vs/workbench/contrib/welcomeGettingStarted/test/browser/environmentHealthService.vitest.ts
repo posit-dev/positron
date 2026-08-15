@@ -12,7 +12,7 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { ILanguageHealthSource } from '../../browser/positronWelcomePage/environmentHealth.js';
-import { EnvironmentHealthTracker, LanguageHealthState } from '../../browser/positronWelcomePage/environmentHealthTracker.js';
+import { EnvironmentHealthService, LanguageHealthState } from '../../browser/positronWelcomePage/environmentHealthService.js';
 
 const SOURCES: readonly ILanguageHealthSource[] = [
 	{ language: 'python', label: 'Python', extensionId: 'ms-python.python', commandId: 'python.getEnvironmentHealth' },
@@ -29,7 +29,7 @@ const summaryOf = (state: LanguageHealthState) =>
 /** Resolves once every pending promise callback has run. */
 const settle = () => new Promise(resolve => setTimeout(resolve, 0));
 
-describe('EnvironmentHealthTracker', () => {
+describe('EnvironmentHealthService', () => {
 	const onDidChangeConfiguration = new Emitter<{ affectsConfiguration: (key: string) => boolean }>();
 	const executeCommand = vi.fn();
 	const getExtension = vi.fn();
@@ -50,7 +50,7 @@ describe('EnvironmentHealthTracker', () => {
 		executeCommand.mockResolvedValue(passing);
 	});
 
-	const build = () => ctx.instantiationService.createInstance(EnvironmentHealthTracker, SOURCES);
+	const build = () => ctx.instantiationService.createInstance(EnvironmentHealthService, SOURCES);
 
 	it('checks every visible language once on construction', async () => {
 		const tracker = build();

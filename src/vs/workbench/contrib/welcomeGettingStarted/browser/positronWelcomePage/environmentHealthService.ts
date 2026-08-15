@@ -9,6 +9,7 @@ import { ICommandService } from '../../../../../platform/commands/common/command
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
+import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY } from '../../common/positronWelcomePageConfiguration.js';
 import {
 	HealthLanguage,
@@ -34,22 +35,32 @@ export interface ILanguageHealth {
 /** Ordered, so the section renders groups by mapping over it. */
 export type EnvironmentHealthSnapshot = readonly ILanguageHealth[];
 
-export interface IEnvironmentHealthTracker {
+export const IEnvironmentHealthService = createDecorator<IEnvironmentHealthService>('environmentHealthService');
+
+export interface IEnvironmentHealthService {
+	readonly _serviceBrand: undefined;
 	readonly onDidChange: Event<EnvironmentHealthSnapshot>;
 	readonly state: EnvironmentHealthSnapshot;
 	isRunning(language: HealthLanguage): boolean;
 	refresh(language: HealthLanguage): void;
+	/** Rechecks every visible language. Used when a welcome page opens. */
+	refreshAll(): void;
 	runFix(language: HealthLanguage, fix: IHealthItemFix): Promise<void>;
 }
 
 /**
  * Runs the two environment health commands and holds their results.
  *
- * Owned by the welcome page's editor pane and keyed to the editor input, so it
- * outlives the React tree, which the pane rebuilds whenever a walkthrough
- * registers.
+ * One per window, so two welcome pages in a split editor share one set of
+ * checks rather than each running the commands. Nothing requests this until a
+ * welcome page opens, which is what keeps it from activating the Python and R
+ * extensions at startup for users who never open one. Do not add it to
+ * PositronReactServices: that is built during workbench startup, and requesting
+ * it there would undo that.
  */
-export class EnvironmentHealthTracker extends Disposable implements IEnvironmentHealthTracker {
+export class EnvironmentHealthService extends Disposable implements IEnvironmentHealthService {
+	declare readonly _serviceBrand: undefined;
+
 
 	private readonly _onDidChange = this._register(new Emitter<EnvironmentHealthSnapshot>());
 	readonly onDidChange: Event<EnvironmentHealthSnapshot> = this._onDidChange.event;
@@ -103,6 +114,12 @@ export class EnvironmentHealthTracker extends Disposable implements IEnvironment
 	 */
 	refresh(language: HealthLanguage): void {
 		this._requestRefresh(language, false);
+	}
+
+	refreshAll(): void {
+		for (const source of this._sources) {
+			this._requestRefresh(source.language, false);
+		}
 	}
 
 	/**
