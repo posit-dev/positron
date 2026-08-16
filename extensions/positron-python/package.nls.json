@@ -87,7 +87,6 @@
     "python.logging.level.description": "The logging level the extension logs at, defaults to 'error'",
     "python.logging.level.deprecation": "This setting is deprecated. Please use command `Developer: Set Log Level...` to set logging level.",
     "python.missingPackage.severity.description": "Set severity of missing packages in requirements.txt or pyproject.toml",
-    "python.packageManager.useRequirementsFile.description": "Use the workspace root requirements.txt file (when present) as the source of truth for package install and update operations from the Packages pane. When enabled, changes are resolved against requirements.txt; when disabled, they resolve against the currently installed packages instead.",
     "python.locator.description": "Choose how to discover Python interpreters. Native uses [Python Environment Tools](https://github.com/microsoft/python-environment-tools) a faster, Rust-based locator, while JS uses a JavaScript implementation.",
     "python.locatorIdleTimeout.description": "Time in seconds the native locator server ([Python Environment Tools](https://github.com/microsoft/python-environment-tools)) may sit idle before it is shut down. It restarts automatically on the next discovery request. Set to 0 to keep it running until the window closes. Only applies when `#python.locator#` is `native`.",
     "python.pipenvPath.description": "Path to the pipenv executable to use for activation.",
