@@ -137,7 +137,7 @@ export const ActionBar = (props: ActionBarProps) => {
 	// the showResourceMonitor setting.
 	const resourceUsageHistory = useResourceUsageHistory(activePositronConsoleInstance);
 	const [consoleState, setConsoleState] = useState(activePositronConsoleInstance?.state);
-	const [showResourceMonitor, setShowResourceMonitor] = useState(
+	const [showResourceMonitor, setShowResourceMonitor] = useState(() =>
 		services.configurationService.getValue<boolean>('console.showResourceMonitor') ?? true
 	);
 
