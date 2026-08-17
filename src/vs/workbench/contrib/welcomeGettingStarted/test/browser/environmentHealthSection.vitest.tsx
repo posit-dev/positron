@@ -24,13 +24,13 @@ describe('EnvironmentHealthSection', () => {
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 	const onDidChange = new Emitter<EnvironmentHealthSnapshot>();
 
-	const tracker = (snapshot: EnvironmentHealthSnapshot, overrides: Partial<IEnvironmentHealthService> = {}): IEnvironmentHealthService => ({
+	const environmentHealthService = (snapshot: EnvironmentHealthSnapshot, overrides: Partial<IEnvironmentHealthService> = {}): IEnvironmentHealthService => ({
 		_serviceBrand: undefined,
 		onDidChange: onDidChange.event,
 		get state() { return snapshot; },
 		isBusy: () => false,
-		recheckLanguage: vi.fn(),
-		recheckForPage: vi.fn(),
+		rerunCheckForLanguage: vi.fn(),
+		rerunChecksForPage: vi.fn(),
 		runFix: vi.fn(),
 		...overrides,
 	});
@@ -41,24 +41,24 @@ describe('EnvironmentHealthSection', () => {
 	];
 
 	it('names itself and renders a group per language', () => {
-		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading)} />);
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(loading)} expandedByLanguage={new Map()} />);
 		expect(screen.getByRole('region', { name: 'Environment setup' })).toBeInTheDocument();
 		expect(screen.getAllByRole('group')).toHaveLength(2);
 	});
 
 	it('rechecks every language when the control is pressed', async () => {
-		const recheckLanguage = vi.fn();
-		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading, { recheckLanguage })} />);
+		const rerunCheckForLanguage = vi.fn();
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(loading, { rerunCheckForLanguage })} expandedByLanguage={new Map()} />);
 		await userEvent.setup().click(screen.getByRole('button', { name: 'Run the environment setup checks again' }));
-		expect(recheckLanguage.mock.calls.map(c => c[0])).toEqual(['python', 'r']);
+		expect(rerunCheckForLanguage.mock.calls.map(c => c[0])).toEqual(['python', 'r']);
 	});
 
 	it('says it is busy with a progress bar, not by changing the button', async () => {
 		// A spinner inside the button grew the header and shifted the card below
 		// it, and the label swap put "Checking..." on screen twice. The bar sits
 		// on the header's bottom edge, outside the text flow.
-		const running = tracker(loading, { isBusy: () => true });
-		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={running} />);
+		const running = environmentHealthService(loading, { isBusy: () => true });
+		rtl.render(<EnvironmentHealthSection environmentHealthService={running} expandedByLanguage={new Map()} />);
 		expect(screen.getByRole('progressbar', { name: 'Checking...' })).toBeInTheDocument();
 		// The label never changes, so the control cannot move or resize, and it
 		// stays reachable by keyboard rather than dropping out of the tab order.
@@ -66,16 +66,16 @@ describe('EnvironmentHealthSection', () => {
 	});
 
 	it('shows no progress bar once nothing is running', () => {
-		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading)} />);
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(loading)} expandedByLanguage={new Map()} />);
 		expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 	});
 
 	it('does not recheck while a run is in flight', async () => {
-		const recheckLanguage = vi.fn();
-		const running = tracker(loading, { isBusy: () => true, recheckLanguage });
-		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={running} />);
+		const rerunCheckForLanguage = vi.fn();
+		const running = environmentHealthService(loading, { isBusy: () => true, rerunCheckForLanguage });
+		rtl.render(<EnvironmentHealthSection environmentHealthService={running} expandedByLanguage={new Map()} />);
 		await userEvent.setup().click(screen.getByRole('button', { name: 'Run the environment setup checks again' }));
-		expect(recheckLanguage).not.toHaveBeenCalled();
+		expect(rerunCheckForLanguage).not.toHaveBeenCalled();
 	});
 
 	it('announces a check the user starts, and says nothing about one already running', async () => {
@@ -91,7 +91,7 @@ describe('EnvironmentHealthSection', () => {
 		// override cannot make `state` change per read. Firing a new array is what
 		// makes the component re-render.
 		let snapshot = loading;
-		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading, { isBusy: () => busy })} />);
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(loading, { isBusy: () => busy })} expandedByLanguage={new Map()} />);
 		expect(announce).not.toHaveBeenCalled();
 
 		busy = true;
@@ -102,7 +102,7 @@ describe('EnvironmentHealthSection', () => {
 		// The remount case, which is the one that matters: a rebuild while a check
 		// happens to be running must not speak.
 		announce.mockClear();
-		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading, { isBusy: () => true })} />);
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(loading, { isBusy: () => true })} expandedByLanguage={new Map()} />);
 		expect(announce).not.toHaveBeenCalled();
 	});
 
@@ -110,7 +110,7 @@ describe('EnvironmentHealthSection', () => {
 		// getByRole throws on a second match, which is the point: a row per
 		// language repeated itself, and a row under the card read as a call to
 		// action for turning the feature off, competing with the fix buttons.
-		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker(loading)} />);
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(loading)} expandedByLanguage={new Map()} />);
 		const gear = screen.getByRole('button', { name: 'Choose which languages are checked' });
 		expect(gear.closest('.health-header')).toBeInTheDocument();
 		await userEvent.setup().click(gear);
@@ -129,11 +129,11 @@ describe('EnvironmentHealthSection', () => {
 		} as const;
 		const runFix = vi.fn();
 		rtl.render(<EnvironmentHealthSection
-			expandedOverrides={new Map()}
-			tracker={tracker([
+			environmentHealthService={environmentHealthService([
 				{ language: 'python', label: 'Python', state: failing },
 				{ language: 'r', label: 'R', state: failing },
-			], { isBusy: language => language === 'python', runFix })} />);
+			], { isBusy: language => language === 'python', runFix })}
+			expandedByLanguage={new Map()} />);
 
 		const [python, r] = screen.getAllByRole('button', { name: 'Fix Python' });
 		expect(python).toHaveAttribute('aria-disabled', 'true');
@@ -145,10 +145,10 @@ describe('EnvironmentHealthSection', () => {
 	});
 
 	it('renders nothing for a language turned off in the setting', () => {
-		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker([
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService([
 			{ language: 'python', label: 'Python', state: { kind: 'loading' } },
 			{ language: 'r', label: 'R', state: { kind: 'hidden' } },
-		])} />);
+		])} expandedByLanguage={new Map()} />);
 		expect(screen.getByText('Python')).toBeInTheDocument();
 		expect(screen.queryByText('R')).not.toBeInTheDocument();
 	});
@@ -157,10 +157,10 @@ describe('EnvironmentHealthSection', () => {
 		// With no groups there is nothing to recheck either, so both header
 		// controls go. Turning the checks back on is the only thing left to do
 		// here, so it gets the wording and the prominence the gear cannot carry.
-		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={tracker([
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService([
 			{ language: 'python', label: 'Python', state: { kind: 'hidden' } },
 			{ language: 'r', label: 'R', state: { kind: 'hidden' } },
-		])} />);
+		])} expandedByLanguage={new Map()} />);
 		expect(screen.getByText('Environment setup checks are turned off for every language.')).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Run the environment setup checks again' })).not.toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Choose which languages are checked' })).not.toBeInTheDocument();
@@ -168,10 +168,10 @@ describe('EnvironmentHealthSection', () => {
 		expect(executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', 'welcomePage.environmentChecks');
 	});
 
-	it('re-renders when the tracker fires', async () => {
+	it('re-renders when the environmentHealthService fires', async () => {
 		let snapshot = loading;
-		const live = tracker(loading, { get state() { return snapshot; } });
-		rtl.render(<EnvironmentHealthSection expandedOverrides={new Map()} tracker={live} />);
+		const live = environmentHealthService(loading, { get state() { return snapshot; } });
+		rtl.render(<EnvironmentHealthSection environmentHealthService={live} expandedByLanguage={new Map()} />);
 		snapshot = [
 			{ language: 'python', label: 'Python', state: { kind: 'unavailable' } },
 			{ language: 'r', label: 'R', state: { kind: 'loading' } },

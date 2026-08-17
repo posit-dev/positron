@@ -24,9 +24,9 @@ import { IEnvironmentHealthService } from '../environmentHealthService.js';
 import { LanguageHealthGroup } from './languageHealthGroup.js';
 
 export interface EnvironmentHealthSectionProps {
-	readonly tracker: IEnvironmentHealthService;
+	readonly environmentHealthService: IEnvironmentHealthService;
 	/** See LanguageHealthGroup: one map per welcome page, owned by the pane. */
-	readonly expandedOverrides: Map<HealthLanguage, boolean>;
+	readonly expandedByLanguage: Map<HealthLanguage, boolean>;
 }
 
 /**
@@ -34,20 +34,27 @@ export interface EnvironmentHealthSectionProps {
  * @param props An EnvironmentHealthSectionProps that contains the component properties.
  * @returns The rendered component.
  */
-export const EnvironmentHealthSection = ({ tracker, expandedOverrides }: EnvironmentHealthSectionProps) => {
+export const EnvironmentHealthSection = ({ environmentHealthService, expandedByLanguage }: EnvironmentHealthSectionProps) => {
 	const services = usePositronReactServicesContext();
+	// Ties the card's heading to the section, so a screen reader announces the
+	// region as "Environment setup" rather than an unnamed region.
 	const titleId = useId();
 	// One subscription for the whole card, which is why onDidChange carries the
 	// whole snapshot rather than the language that moved.
-	const health = useEventState(tracker.onDidChange, () => tracker.state);
-	const busy = health.some(language => tracker.isBusy(language.language));
+	// useEventState reads the value once, then re-reads it and re-renders whenever
+	// the event fires. The service's state is not a React value, so this is how the
+	// card follows it.
+	const languages = useEventState(environmentHealthService.onDidChange, () => environmentHealthService.state);
+	const busy = languages.some(language => environmentHealthService.isBusy(language.language));
 	// A language removed from the setting renders nothing at all, so the only
 	// trace of it is the setting itself.
-	const visible = health.filter(language => language.state.kind !== 'hidden');
+	const checkedLanguages = languages.filter(language => language.state.kind !== 'hidden');
+	// Every language turned off in the setting. The card has nothing to check, so
+	// it drops its controls and explains itself instead.
+	const allChecksDisabled = checkedLanguages.length === 0;
 
-	// The refresh control is an icon, so its label lives in a tooltip. Built the
-	// way the console tab strip builds its own rather than a title attribute,
-	// which does not follow the workbench's hover delay or styling.
+	// Built the way the console tab list builds its hovers, so this one follows the
+	// workbench's hover delay and styling rather than being a title attribute.
 	const [hoverManager, setHoverManager] = useState<IHoverManager>();
 	useEffect(() => {
 		const disposables = new DisposableStore();
@@ -72,7 +79,7 @@ export const EnvironmentHealthSection = ({ tracker, expandedOverrides }: Environ
 	const wasBusy = useRef(busy);
 	useEffect(() => {
 		if (busy && !wasBusy.current) {
-			status(localize('positron.welcome.health.checkingStatus', "Checking your environment setup"));
+			status(localize('positron.welcome.environmentSetupCheckingStatus', "Checking your environment setup"));
 		}
 		wasBusy.current = busy;
 	}, [busy]);
@@ -85,21 +92,21 @@ export const EnvironmentHealthSection = ({ tracker, expandedOverrides }: Environ
 		<section aria-labelledby={titleId} className='positron-welcome-page-environment-setup'>
 			<div className='health-header'>
 				<h3 className='health-header-title' id={titleId}>
-					{localize('positron.welcome.health.title', "Environment setup")}
+					{localize('positron.welcome.environmentSetupTitle', "Environment setup")}
 				</h3>
-				{visible.length > 0 &&
+				{!allChecksDisabled &&
 					<Button
 						ariaDisabled={busy}
-						ariaLabel={localize('positron.welcome.health.recheckTooltip', "Run the environment setup checks again")}
+						ariaLabel={localize('positron.welcome.environmentSetupCheckRerunTooltip', "Run the environment setup checks again")}
 						className='health-header-button'
 						hoverManager={hoverManager}
 						// While anything is running this says why it cannot be pressed.
 						// A control that looks pressable and silently does nothing is
 						// worse than one that explains itself.
 						tooltip={busy
-							? localize('positron.welcome.health.recheckBusyTooltip', "Waiting for the current check to finish")
-							: localize('positron.welcome.health.recheckTooltip', "Run the environment setup checks again")}
-						onPressed={() => health.forEach(language => tracker.recheckLanguage(language.language))}
+							? localize('positron.welcome.environmentSetupCheckRerunBusyTooltip', "Waiting for the current check to finish")
+							: localize('positron.welcome.environmentSetupCheckRerunTooltip', "Run the environment setup checks again")}
+						onPressed={() => languages.forEach(language => environmentHealthService.rerunCheckForLanguage(language.language))}
 					>
 						<span aria-hidden='true' className='codicon codicon-refresh' />
 					</Button>}
@@ -108,12 +115,12 @@ export const EnvironmentHealthSection = ({ tracker, expandedOverrides }: Environ
 					The link read as a call to action for turning the feature off, which
 					put it in competition with the fix buttons.
 				*/}
-				{visible.length > 0 &&
+				{!allChecksDisabled &&
 					<Button
-						ariaLabel={localize('positron.welcome.health.settingsTooltip', "Choose which languages are checked")}
+						ariaLabel={localize('positron.welcome.environmentSetupSettingsTooltip', "Choose which languages are checked")}
 						className='health-header-button'
 						hoverManager={hoverManager}
-						tooltip={localize('positron.welcome.health.settingsTooltip', "Choose which languages are checked")}
+						tooltip={localize('positron.welcome.environmentSetupSettingsTooltip', "Choose which languages are checked")}
 						onPressed={openSetting}
 					>
 						<span aria-hidden='true' className='codicon codicon-gear' />
@@ -125,27 +132,27 @@ export const EnvironmentHealthSection = ({ tracker, expandedOverrides }: Environ
 				*/}
 				{busy &&
 					<div
-						aria-label={localize('positron.welcome.health.checking', "Checking...")}
+						aria-label={localize('positron.welcome.environmentSetupChecking', "Checking...")}
 						className='health-progress'
 						role='progressbar'
 					/>}
 			</div>
-			{visible.length === 0
+			{allChecksDisabled
 				? <div className='health-group-footer'>
 					<p className='health-group-footer-text'>
-						{localize('positron.welcome.health.allDisabled', "Environment setup checks are turned off for every language.")}
+						{localize('positron.welcome.environmentSetupAllDisabled', "Environment setup checks are turned off for every language.")}
 					</p>
 					<Button className='health-group-footer-link' onPressed={openSetting}>
-						{localize('positron.welcome.health.turnOnChecks', "You can turn them back on in Settings")}
+						{localize('positron.welcome.environmentSetupTurnOnChecks', "You can turn them back on in Settings")}
 					</Button>
 				</div>
-				: visible.map(language =>
+				: checkedLanguages.map(language =>
 					<LanguageHealthGroup
 						key={language.language}
-						busy={tracker.isBusy(language.language)}
-						expandedOverrides={expandedOverrides}
+						busy={environmentHealthService.isBusy(language.language)}
+						expandedByLanguage={expandedByLanguage}
 						health={language}
-						onRunFix={fix => tracker.runFix(language.language, fix)}
+						onRunFix={fix => environmentHealthService.runFix(language.language, fix)}
 					/>)}
 		</section>
 	);

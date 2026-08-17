@@ -34,7 +34,7 @@ describe('LanguageHealthGroup', () => {
 	beforeEach(() => vi.clearAllMocks());
 
 	const render = (state: LanguageHealthState) =>
-		rtl.render(<LanguageHealthGroup busy={false} expandedOverrides={overrides} health={{ language: 'r', label: 'R', state }} onRunFix={vi.fn()} />);
+		rtl.render(<LanguageHealthGroup busy={false} expandedByLanguage={overrides} health={{ language: 'r', label: 'R', state }} onRunFix={vi.fn()} />);
 
 	const header = () => screen.getByRole('button', { name: /^R/ });
 
@@ -78,14 +78,14 @@ describe('LanguageHealthGroup', () => {
 		// the tab is revisited. Held only in the component, the user's choice
 		// would be lost and a failing group would spring back open.
 		const health = { language: 'r', label: 'R', state: failing } as const;
-		const { unmount } = rtl.render(<LanguageHealthGroup busy={false} expandedOverrides={overrides} health={health} onRunFix={vi.fn()} />);
+		const { unmount } = rtl.render(<LanguageHealthGroup busy={false} expandedByLanguage={overrides} health={health} onRunFix={vi.fn()} />);
 		// A failing group opens itself, so there is something to close.
 		expect(screen.getByRole('list')).toBeInTheDocument();
 		await userEvent.setup().click(screen.getByRole('button', { name: /R/ }));
 		expect(screen.queryByRole('list')).not.toBeInTheDocument();
 
 		unmount();
-		rtl.render(<LanguageHealthGroup busy={false} expandedOverrides={overrides} health={health} onRunFix={vi.fn()} />);
+		rtl.render(<LanguageHealthGroup busy={false} expandedByLanguage={overrides} health={health} onRunFix={vi.fn()} />);
 		expect(screen.queryByRole('list')).not.toBeInTheDocument();
 	});
 
@@ -96,7 +96,7 @@ describe('LanguageHealthGroup', () => {
 		const mine = new Map<HealthLanguage, boolean>();
 		rtl.render(<LanguageHealthGroup
 			busy={false}
-			expandedOverrides={mine}
+			expandedByLanguage={mine}
 			health={{ language: 'r', label: 'R', state: failing }}
 			onRunFix={vi.fn()} />);
 
@@ -132,8 +132,8 @@ describe('LanguageHealthGroup', () => {
 	it('announces the result when it arrives', async () => {
 		const announce = vi.spyOn(aria, 'status').mockImplementation(() => { });
 		const { rerender } = rtl.render(
-			<LanguageHealthGroup busy={false} expandedOverrides={overrides} health={{ language: 'r', label: 'R', state: { kind: 'loading' } }} onRunFix={vi.fn()} />);
-		rerender(<LanguageHealthGroup busy={false} expandedOverrides={overrides} health={{ language: 'r', label: 'R', state: passing }} onRunFix={vi.fn()} />);
+			<LanguageHealthGroup busy={false} expandedByLanguage={overrides} health={{ language: 'r', label: 'R', state: { kind: 'loading' } }} onRunFix={vi.fn()} />);
+		rerender(<LanguageHealthGroup busy={false} expandedByLanguage={overrides} health={{ language: 'r', label: 'R', state: passing }} onRunFix={vi.fn()} />);
 		expect(announce).toHaveBeenCalledWith('R, You have successfully set up R');
 	});
 
@@ -143,14 +143,14 @@ describe('LanguageHealthGroup', () => {
 		// environment most likely to be rechecked: a healthy one.
 		const announce = vi.spyOn(aria, 'status').mockImplementation(() => { });
 		const { rerender } = rtl.render(
-			<LanguageHealthGroup busy={false} expandedOverrides={overrides} health={{ language: 'r', label: 'R', state: passing }} onRunFix={vi.fn()} />);
+			<LanguageHealthGroup busy={false} expandedByLanguage={overrides} health={{ language: 'r', label: 'R', state: passing }} onRunFix={vi.fn()} />);
 		// Silent at mount: a result already on screen was announced when it
 		// landed, and this tree is remounted whenever a walkthrough registers.
 		expect(announce).not.toHaveBeenCalled();
 
 		rerender(<LanguageHealthGroup
 			busy={false}
-			expandedOverrides={overrides}
+			expandedByLanguage={overrides}
 			health={{ language: 'r', label: 'R', state: { kind: 'result', result: { ok: true, items: [item('pass', 'A'), item('pass', 'B')] } } }}
 			onRunFix={vi.fn()} />);
 		expect(announce).toHaveBeenCalledTimes(1);

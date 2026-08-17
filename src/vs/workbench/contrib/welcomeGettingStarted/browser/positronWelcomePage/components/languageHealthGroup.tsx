@@ -20,22 +20,22 @@ import { HealthItemRow } from './healthItemRow.js';
  *
  * A language that is checking has none: the progress line in the card header is
  * the only busy signal, so nothing here competes with it. A recheck does not pass
- * through that state at all, because the tracker leaves the previous result in
+ * through that state at all, because the environmentHealthService leaves the previous result in
  * place until the new one lands.
  */
 function summaryText(health: ILanguageHealth): string | undefined {
 	switch (health.state.kind) {
 		case 'unavailable':
-			return localize('positron.welcome.health.unavailable', "The {0} extension is not available.", health.label);
+			return localize('positron.welcome.environmentSetupUnavailable', "The {0} extension is not available.", health.label);
 		case 'error':
-			return localize('positron.welcome.health.error', "The {0} check could not be completed.", health.label);
+			return localize('positron.welcome.environmentSetupError', "The {0} check could not be completed.", health.label);
 		case 'result': {
 			const items = health.state.result.items;
 			if (items.every(i => i.status === 'pass')) {
-				return localize('positron.welcome.health.allPassed', "You have successfully set up {0}", health.label);
+				return localize('positron.welcome.environmentSetupAllPassed', "You have successfully set up {0}", health.label);
 			}
 			const passed = items.filter(i => i.status === 'pass').length;
-			return localize('positron.welcome.health.somePassed', "{0} of {1} checks passed", passed, items.length);
+			return localize('positron.welcome.environmentSetupSomePassed', "{0} of {1} checks passed", passed, items.length);
 		}
 		default:
 			return undefined;
@@ -63,13 +63,11 @@ function needsAttention(health: ILanguageHealth): boolean {
 export interface LanguageHealthGroupProps {
 	readonly health: ILanguageHealth;
 	/**
-	 * Which groups this welcome page has open, for the ones the user decided
-	 * themselves. Owned by the editor pane because it has to outlive the React
-	 * tree, which the pane rebuilds whenever a walkthrough registers -- and one
-	 * map per pane, so splitting the editor gives two pages that fold
-	 * independently, the way two views of one file do.
+	 * Whether each language group is expanded, for the groups the user opened or
+	 * closed themselves. A language with no entry has not been touched, so the
+	 * auto-expand rule decides for it.
 	 */
-	readonly expandedOverrides: Map<HealthLanguage, boolean>;
+	readonly expandedByLanguage: Map<HealthLanguage, boolean>;
 	/** Whether this language has a check or a fix running. */
 	readonly busy: boolean;
 	readonly onRunFix: (fix: IHealthItemFix) => void;
@@ -81,28 +79,31 @@ export interface LanguageHealthGroupProps {
  * @param props A LanguageHealthGroupProps that contains the component properties.
  * @returns The rendered component.
  */
-export const LanguageHealthGroup = ({ health, expandedOverrides, busy, onRunFix }: LanguageHealthGroupProps) => {
+export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, onRunFix }: LanguageHealthGroupProps) => {
 	const headerId = useId();
 	// Undefined until the user decides for themselves, so a group opens itself
 	// when its results land with something to act on, and stays where the user
 	// put it afterwards.
-	const [override, setOverride] = useState<boolean | undefined>(() => expandedOverrides.get(health.language));
+	const [override, setOverride] = useState<boolean | undefined>(() => expandedByLanguage.get(health.language));
 	const expanded = override ?? needsAttention(health);
 	const toggle = () => {
-		expandedOverrides.set(health.language, !expanded);
+		expandedByLanguage.set(health.language, !expanded);
 		setOverride(!expanded);
 	};
 
 	const summary = summaryText(health);
 
-	// Results land seconds after the page paints, so a screen reader user would
-	// otherwise never hear them. This announces the line already on screen rather
-	// than a string written only for screen readers.
+	// `status` speaks a message through the workbench's polite live region, the
+	// same one used to announce background changes elsewhere.
+	//
+	// It runs in an effect because results land seconds after the page paints, so
+	// there is nothing to announce at render time. What it speaks is the line
+	// already on screen, not a string written only for screen readers.
 	//
 	// Keyed on the state object, not on the wording it produces. A recheck that
 	// finds nothing new produces the same sentence, so keying on the text alone
 	// skipped the announcement and left Recheck looking dead to a screen reader
-	// user. The tracker stores one state object per language and replaces it on
+	// user. The environmentHealthService stores one state object per language and replaces it on
 	// every run, so this speaks once per run and a run for one language does not
 	// re-announce the other.
 	//

@@ -29,11 +29,11 @@ const oneWalkthrough = {
 };
 
 /**
- * A stub tracker for tests that only care about the rest of the page. The
+ * A stub environmentHealthService for tests that only care about the rest of the page. The
  * card itself has its own tests, so this stands in wherever the page just
  * needs something to pass through.
  */
-const environmentHealth: IEnvironmentHealthService = {
+const environmentHealthService: IEnvironmentHealthService = {
 	_serviceBrand: undefined,
 	onDidChange: Event.None,
 	// One language, so the card renders as it does in use. An empty snapshot puts
@@ -41,8 +41,8 @@ const environmentHealth: IEnvironmentHealthService = {
 	// says nothing about where the card sits.
 	state: [{ language: 'python', label: 'Python', state: { kind: 'loading' } }],
 	isBusy: () => false,
-	recheckLanguage: vi.fn(),
-	recheckForPage: vi.fn(),
+	rerunCheckForLanguage: vi.fn(),
+	rerunChecksForPage: vi.fn(),
 	runFix: vi.fn(),
 };
 
@@ -77,7 +77,7 @@ describe('PositronWelcomePage', () => {
 		const { container } = rtl.render(
 			<PositronWelcomePage
 				connectAction={connectAction}
-				environmentHealth={environmentHealth} environmentHealthOverrides={new Map()}
+				environmentHealthService={environmentHealthService} expandedByLanguage={new Map()}
 				footer={footer}
 				recentList={recentList}
 				onDidMount={vi.fn()}
@@ -90,7 +90,7 @@ describe('PositronWelcomePage', () => {
 	it('omits the connect action when there is none, as on web', () => {
 		const { recentList, footer } = slottedDom();
 		rtl.render(
-			<PositronWelcomePage environmentHealth={environmentHealth} environmentHealthOverrides={new Map()} footer={footer} recentList={recentList} onDidMount={vi.fn()} />
+			<PositronWelcomePage environmentHealthService={environmentHealthService} expandedByLanguage={new Map()} footer={footer} recentList={recentList} onDidMount={vi.fn()} />
 		);
 
 		expect(screen.queryByText('Connect to...')).not.toBeInTheDocument();
@@ -110,7 +110,7 @@ describe('PositronWelcomePage', () => {
 		rtl.render(
 			<PositronWelcomePage
 				connectAction={connectAction}
-				environmentHealth={environmentHealth} environmentHealthOverrides={new Map()}
+				environmentHealthService={environmentHealthService} expandedByLanguage={new Map()}
 				footer={footer}
 				recentList={recentList}
 				onDidMount={onDidMount}
@@ -146,7 +146,7 @@ describe('createPositronWelcomePage', () => {
 		recentList.textContent = 'Recent';
 		const footer = document.createElement('div');
 
-		return createPositronWelcomePage(container, { environmentHealth, environmentHealthOverrides: new Map(), recentList, footer, onDidMount: vi.fn() });
+		return createPositronWelcomePage(container, { environmentHealthService, expandedByLanguage: new Map(), recentList, footer, onDidMount: vi.fn() });
 	};
 
 	it('makes the container the page layout element', () => {

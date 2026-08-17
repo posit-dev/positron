@@ -34,9 +34,6 @@ export const POSITRON_WELCOME_BANNER_BORDER = registerColor('positronWelcome.ban
 	welcomePageTileBorder,
 	localize('positronWelcome.bannerBorder', "Border color of the walkthrough banner on the Positron welcome page."));
 
-// The environment setup card on the redesigned welcome page. Named for the
-// label the user sees rather than for the "health" vocabulary the extension
-// commands use, because color ids show up in theme files.
 
 export const POSITRON_WELCOME_ENVIRONMENT_SETUP_BACKGROUND = registerColor('positronWelcome.environmentSetupBackground',
 	editorBackground,
@@ -46,13 +43,11 @@ export const POSITRON_WELCOME_ENVIRONMENT_SETUP_BORDER = registerColor('positron
 	welcomePageTileBorder,
 	localize('positronWelcome.environmentSetupBorder', "Border color of the environment setup card on the Positron welcome page, and of the dividers between its rows."));
 
-// A wash off the theme's own foreground rather than a chosen grey, so it adapts
-// to any theme. Null in high contrast, following welcomePageTileHoverBackground:
-// those themes want borders rather than fills, so the dividers carry the
-// structure instead.
-export const POSITRON_WELCOME_ENVIRONMENT_SETUP_HEADER_BACKGROUND = registerColor('positronWelcome.environmentSetupHeaderBackground',
+// Null in high contrast, where a tinted panel reads as a border that is not
+// there. The row dividers carry the separation instead.
+export const POSITRON_WELCOME_ENVIRONMENT_SETUP_LANGUAGE_HEADER_BACKGROUND = registerColor('positronWelcome.environmentSetupLanguageHeaderBackground',
 	{ dark: transparent(foreground, 0.04), light: transparent(foreground, 0.04), hcDark: null, hcLight: null },
-	localize('positronWelcome.environmentSetupHeaderBackground', "Background color of the header rows in the environment setup card on the Positron welcome page."));
+	localize('positronWelcome.environmentSetupLanguageHeaderBackground', "Background color of the language header rows in the environment setup card on the Positron welcome page."));
 
 export const POSITRON_WELCOME_ENVIRONMENT_SETUP_TITLE_BACKGROUND = registerColor('positronWelcome.environmentSetupTitleBackground',
 	buttonBackground,

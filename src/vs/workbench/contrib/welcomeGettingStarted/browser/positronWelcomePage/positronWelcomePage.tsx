@@ -44,14 +44,14 @@ export interface PositronWelcomePageProps {
 	 * editor pane, because it has to outlive this component: the pane rebuilds
 	 * the React tree whenever a walkthrough registers.
 	 */
-	readonly environmentHealth: IEnvironmentHealthService;
+	readonly environmentHealthService: IEnvironmentHealthService;
 
 	/**
-	 * Which environment groups this page has open, for the ones the user opened
-	 * or closed themselves. Owned by the pane for the same reason as above, and
-	 * one per pane, so two welcome pages side by side fold independently.
+	 * Whether each language group is expanded, for the groups the user opened or
+	 * closed themselves. A language with no entry has not been touched, so the
+	 * auto-expand rule decides for it.
 	 */
-	readonly environmentHealthOverrides: Map<HealthLanguage, boolean>;
+	readonly expandedByLanguage: Map<HealthLanguage, boolean>;
 
 	/**
 	 * Called once the page is in the DOM. The editor pane uses this to attach
@@ -81,7 +81,7 @@ export const PositronWelcomePage = (props: PositronWelcomePageProps) => {
 	// layout lives on one element instead of two nested ones.
 	return (
 		<>
-			<EnvironmentHealthSection expandedOverrides={props.environmentHealthOverrides} tracker={props.environmentHealth} />
+			<EnvironmentHealthSection environmentHealthService={props.environmentHealthService} expandedByLanguage={props.expandedByLanguage} />
 			<WalkthroughBanner />
 			<DomSlot element={props.recentList} />
 			{props.connectAction && <DomSlot element={props.connectAction} />}

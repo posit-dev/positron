@@ -18,10 +18,10 @@ import { HealthItemStatus, IHealthItem, IHealthItemFix } from '../environmentHea
 
 /** Icon and screen reader text for each outcome. */
 const STATUS_PRESENTATION: Record<HealthItemStatus, { codicon: string; label: string }> = {
-	pass: { codicon: 'codicon-pass-filled', label: localize('positron.welcome.health.statusPass', "Passed") },
-	warn: { codicon: 'codicon-warning', label: localize('positron.welcome.health.statusWarn', "Needs attention") },
-	fail: { codicon: 'codicon-error', label: localize('positron.welcome.health.statusFail', "Failed") },
-	skipped: { codicon: 'codicon-circle-outline', label: localize('positron.welcome.health.statusSkipped', "Not checked") },
+	pass: { codicon: 'codicon-pass-filled', label: localize('positron.welcome.environmentSetupStatusPass', "Passed") },
+	warn: { codicon: 'codicon-warning', label: localize('positron.welcome.environmentSetupStatusWarn', "Needs attention") },
+	fail: { codicon: 'codicon-error', label: localize('positron.welcome.environmentSetupStatusFail', "Failed") },
+	skipped: { codicon: 'codicon-circle-outline', label: localize('positron.welcome.environmentSetupStatusSkipped', "Not checked") },
 };
 
 export interface HealthItemRowProps {
@@ -58,7 +58,7 @@ export const HealthItemRow = ({ item, busy, onRunFix }: HealthItemRowProps) => {
 		<li className='health-item'>
 			<div className='health-item-main'>
 				<span aria-hidden='true' className={`health-item-icon health-item-icon-${item.status} codicon ${status.codicon}`} />
-				<span className='health-visually-hidden'>{status.label}</span>
+				<span className='visually-hidden'>{status.label}</span>
 				<span className='health-item-summary'>{item.summary}</span>
 				{item.fix &&
 					<Button ariaDisabled={busy} className='health-item-fix' onPressed={() => onRunFix(item.fix!)}>
@@ -73,7 +73,7 @@ export const HealthItemRow = ({ item, busy, onRunFix }: HealthItemRowProps) => {
 							href={item.learnMoreUrl}
 							onClick={openLearnMore}
 						>
-							{localize('positron.welcome.health.learnMore', "Learn more")}
+							{localize('positron.welcome.environmentSetupLearnMore', "Learn more")}
 						</a>}
 				</div>}
 		</li>

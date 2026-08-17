@@ -786,7 +786,7 @@
 		"--vscode-positronWelcome-environmentSetupBackground",
 		"--vscode-positronWelcome-environmentSetupBorder",
 		"--vscode-positronWelcome-environmentSetupErrorIcon",
-		"--vscode-positronWelcome-environmentSetupHeaderBackground",
+		"--vscode-positronWelcome-environmentSetupLanguageHeaderBackground",
 		"--vscode-positronWelcome-environmentSetupPassIcon",
 		"--vscode-positronWelcome-environmentSetupSkippedIcon",
 		"--vscode-positronWelcome-environmentSetupTitleBackground",

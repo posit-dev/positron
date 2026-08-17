@@ -223,12 +223,12 @@ export class GettingStartedPage extends EditorPane {
 	// one unmounts the previous one, and clearInput clears it so the tree does
 	// not stay mounted while the editor is closed.
 	private readonly positronReactRenderer = this._register(new MutableDisposable<PositronReactRenderer>());
-	// Which environment groups this pane has open, for the ones the user opened or
-	// closed themselves. Held here rather than in the React tree, which is thrown
-	// away and rebuilt whenever a walkthrough registers. One per pane, so a split
-	// editor gives two welcome pages that fold independently, the way two views of
-	// one file do -- unlike the check results, which they share.
-	private readonly environmentHealthOverrides = new Map<HealthLanguage, boolean>();
+	// Which environment groups this pane has open, where the user chose.
+	//
+	// On the pane rather than in the React tree, which is rebuilt whenever a
+	// walkthrough registers. One map per pane, so two welcome pages side by side
+	// fold independently while sharing their check results.
+	private readonly expandedByLanguage = new Map<HealthLanguage, boolean>();
 	// --- End Positron ---
 
 	get editorInput(): GettingStartedInput | undefined {
@@ -1289,7 +1289,7 @@ export class GettingStartedPage extends EditorPane {
 		// which builds it and starts both checks; the call below then finds them
 		// already running and does nothing.
 		if (this.editorInput) {
-			this.environmentHealthService.recheckForPage(this.editorInput);
+			this.environmentHealthService.rerunChecksForPage(this.editorInput);
 		}
 
 		const reactHost = $('div');
@@ -1298,8 +1298,8 @@ export class GettingStartedPage extends EditorPane {
 			// Hide the "Connect to..." button if we are on a web platform
 			connectAction: isWeb ? undefined : otherList,
 			footer,
-			environmentHealth: this.environmentHealthService,
-			environmentHealthOverrides: this.environmentHealthOverrides,
+			environmentHealthService: this.environmentHealthService,
+			expandedByLanguage: this.expandedByLanguage,
 			// React mounts asynchronously, so the elements above are not in the
 			// DOM yet when the caller runs registerDispatchListeners, nor when it
 			// measures the slide for scrolling. Redo both once they are.

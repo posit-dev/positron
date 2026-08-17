@@ -3,22 +3,31 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/*
+ * Three surfaces, lightest to heaviest: the check rows take the card's own
+ * background, each language header a wash on top of it, and the card's title bar
+ * the strongest. Without that separation everything reads as one flat grey and
+ * nothing tells you where a language begins.
+ */
 .positron-welcome-page-environment-setup {
-	/*
-	 * Shared by the text and by every icon that has to sit on its baseline. A
-	 * custom property would read better, but the stylelint known-variables check
-	 * validates every var() against a theme-token allowlist and does not
-	 * recognise locally declared ones.
-	 */
-	line-height: 20px;
+	/* The card's text line box. */
+	--_line-height: 20px;
+	/* A check row's line box. Its status icon is sized to match. */
+	--_item-line-height: 24px;
+
+	line-height: var(--_line-height);
 	background-color: var(--vscode-positronWelcome-environmentSetupBackground);
 	border: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
 	border-radius: 6px;
 	overflow: hidden;
 }
 
-/* There is no visually-hidden helper in base/, so define one here. */
-.positron-welcome-page-environment-setup .health-visually-hidden {
+/*
+ * Off screen but still read aloud. Each check's status is shown as an icon, so
+ * the icon is aria-hidden and this carries the word -- Passed, Failed -- for a
+ * screen reader. There is no such helper in base/, hence the local copy.
+ */
+.positron-welcome-page-environment-setup .visually-hidden {
 	border: 0;
 	clip: rect(0 0 0 0);
 	height: 1px;
@@ -30,12 +39,6 @@
 	width: 1px;
 }
 
-/*
- * Three surfaces, lightest to heaviest: the check rows take the card's own
- * background, each language header a wash on top of it, and the card's title bar
- * the strongest of the three. Without that separation everything reads as one
- * flat grey and nothing tells you where a language begins.
- */
 .positron-welcome-page-environment-setup .health-header {
 	align-items: center;
 	background-color: var(--vscode-positronWelcome-environmentSetupTitleBackground);
@@ -47,31 +50,18 @@
 	position: relative;
 }
 
-/* The heading exists for structure; the button inside it carries the layout. */
+/* An h4 for structure only; the button inside it is what you see. */
 .positron-welcome-page-environment-setup .health-group-heading {
 	margin: 0;
 }
 
 /*
- * File icon themes scope all their CSS to `.show-file-icons` (see
- * fileIconThemeData.ts); without it, nothing paints. `LanguageHealthGroup` adds
- * that class to its container.
+ * Mirrors iconLabel.css's `.monaco-icon-label::before`, so a language icon looks
+ * the same here as in the file explorer. File icon themes scope everything to
+ * `.show-file-icons`, which the group's container adds; without it nothing paints.
  *
- * The declarations mirror iconLabel.css's `.monaco-icon-label::before`, which is
- * what the file explorer, breadcrumbs and editor tabs use, so a language icon
- * lands identically here to everywhere else in the workbench. `RuntimeIcon` in
- * positronConsole copies the same rule for the same reason rather than reusing
- * the IconLabel widget, which is imperative DOM and heavier than one span needs.
- *
- * One deviation from that rule: it uses `line-height: inherit`, which quietly
- * assumes the parent's line-height equals the icon's height. That holds in the
- * explorer, whose rows are 22px, but not here, where the card's text is 20px. A
- * font glyph then lays out in a 20px line box at the top of a 22px box and sits
- * high. Pinning the line box to the icon's own height centres the glyph in it,
- * and keeps doing so if the card's text metrics ever change.
- *
- * The same rule governs the status icons: their box is 24px because the summary
- * text's line box is 24px. An icon's box and its line box have to agree.
+ * The line box is set to the icon's own height rather than inherited, or the
+ * glyph lays out in the card's shorter line box and sits high.
  */
 .positron-welcome-page-environment-setup .health-group.show-file-icons .health-group-icon::before {
 	background-position: left center;
@@ -79,7 +69,7 @@
 	background-size: 16px;
 	display: inline-block;
 	height: 22px;
-	line-height: 22px !important;
+	line-height: 22px;
 	vertical-align: top;
 	width: 16px;
 	-webkit-font-smoothing: antialiased;
@@ -96,10 +86,7 @@
 	flex: 1 1 auto;
 }
 
-/*
- * The count sits where the old Hide control did, pushed right by the space the
- * name does not need.
- */
+/* Right-aligned, taking whatever width the language name does not need. */
 .positron-welcome-page-environment-setup .health-group-summary {
 	color: var(--vscode-descriptionForeground);
 	flex: 1 1 auto;
@@ -164,12 +151,9 @@
 }
 
 .positron-welcome-page-environment-setup .health-item-summary {
-	/*
-	 * Pinned, because the status icon's box is sized to match it. min-width lets
-	 * it wrap rather than force the row wider than the card.
-	 */
 	flex: 1 1 auto;
-	line-height: 24px;
+	line-height: var(--_item-line-height);
+	/* Lets the text wrap rather than force the row wider than the card. */
 	min-width: 0;
 }
 
@@ -197,11 +181,10 @@
 	display: flex;
 	align-items: center;
 	/*
-	 * Matches .health-item-summary's line box. The row is top-aligned, so boxes
-	 * of different heights put the icon's glyph centre above the text's even
-	 * though their tops agree.
+	 * The same height as the row's line box, or the icon's glyph centre sits above
+	 * the text's -- the row is top-aligned, so only equal boxes line up.
 	 */
-	height: 24px;
+	height: var(--_item-line-height);
 	margin: 0;
 }
 
@@ -233,8 +216,7 @@
  * these rules need that same container chain to win on specificity rather than
  * reaching for !important. Nesting states it once instead of per rule.
  *
- * Sizing mirrors .monaco-text-button (base/browser/ui/button/button.css) so
- * these read as workbench buttons rather than something invented here.
+ * Sizing mirrors .monaco-text-button so these read as workbench buttons.
  */
 .monaco-workbench .part.editor > .content .gettingStartedContainer
 .gettingStartedSlideCategories
@@ -248,30 +230,19 @@
 		white-space: normal;
 	}
 
-	/*
-	 * The one action worth taking on a row that failed, so it carries the
-	 * primary colour and nothing else in the card competes with it.
-	 */
+	/* Runs the fix command. The only primary-coloured control in the card. */
 	& .health-item-fix {
 		background-color: var(--vscode-button-background);
 		border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
 		border-radius: 5px;
 		color: var(--vscode-button-foreground);
 		/*
-		 * inline-block, not flex: text-overflow has no effect on a flex
-		 * container, because the label becomes an anonymous flex item and there
-		 * is no box for the ellipsis to apply to. The padding and line-height
-		 * give the height, so the single line a nowrap label always is sits
-		 * centred without one being declared.
+		 * inline-block, not flex: text-overflow does nothing on a flex container,
+		 * because the label becomes an anonymous flex item with no box for the
+		 * ellipsis to apply to.
 		 */
 		display: inline-block;
-		/*
-		 * Never shrink: the text beside it wraps, so the button can take the
-		 * width its label needs and let the text reflow around it. No min-width
-		 * either, or a short label like Hide is padded out to a size it does not
-		 * want. The cap and the ellipsis are only for a label long enough to
-		 * crowd out the text it sits next to.
-		 */
+		/* Takes the width its label needs; the text beside it reflows. */
 		flex: 0 0 auto;
 		font-size: 12px;
 		line-height: 16px;
@@ -345,7 +316,7 @@
 	 */
 	& .health-group-header {
 		align-items: center;
-		background-color: var(--vscode-positronWelcome-environmentSetupHeaderBackground);
+		background-color: var(--vscode-positronWelcome-environmentSetupLanguageHeaderBackground);
 		/*
 		 * Strips the button's own border, then puts back the divider that
 		 * separates this language from the checks of the one above it. That
@@ -406,9 +377,8 @@
 .positron-welcome-page-environment-setup .health-progress::before {
 	animation: positron-health-progress 2s linear infinite;
 	/*
-	 * The title bar's own foreground, not --vscode-progressBar-background. That
-	 * token is #0E70C0 and the title bar defaults to button.background, so the
-	 * generic progress colour was a blue line on a blue bar. Foreground and
+	 * The line sits on the title bar, and --vscode-progressBar-background is too
+	 * close to the bar's own colour to see against it. A bar's foreground and
 	 * background are a designed pair, so this contrasts by construction.
 	 */
 	background-color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
