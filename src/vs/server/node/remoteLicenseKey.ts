@@ -101,21 +101,6 @@ jv4RUEuRUo3aePrbcc3Wfl8CAwEAAQ==
 -----END PUBLIC KEY-----`;
 
 /**
- * Test-only override for which PEM is treated as the orchestrator key, so tests can verify
- * `academic` derivation without the real orchestrator private key (which is held by the
- * minting service, not this repo). Not set in production.
- */
-let orchestratorPublicKeyForTesting: string | undefined;
-
-/**
- * Test-only seam: overrides which PEM is treated as the orchestrator key for the purposes of
- * `academic` derivation in `validateLicense`. Not called in production.
- */
-export function setOrchestratorPublicKeyForTesting(keyPem: string | undefined): void {
-	orchestratorPublicKeyForTesting = keyPem;
-}
-
-/**
  * Validates a license key. If any errors are encountered, they are logged to
  * the console.
  *
@@ -206,9 +191,13 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
  *
  * @param connectionToken The connection token.
  * @param license The license key.
+ * @param publicKeys Keys to verify against. Test-only; production uses the built-in keys.
+ * @param orchestratorKey The key whose match marks the license `academic`. Test-only, like
+ * `publicKeys`: the real orchestrator private key is held by the minting service, not this
+ * repo, so tests substitute their own pair.
  * @returns A promise that resolves to the license validation result.
  */
-export async function validateLicense(connectionToken: string, license: string, publicKeys?: readonly string[]): Promise<ILicenseValidationResult> {
+export async function validateLicense(connectionToken: string, license: string, publicKeys?: readonly string[], orchestratorKey: string = OrchestratorPublicKey): Promise<ILicenseValidationResult> {
 	// Parse the license key JSON.
 	let licenseKey: LicenseKey;
 	try {
@@ -284,6 +273,6 @@ export async function validateLicense(connectionToken: string, license: string, 
 		// The orchestrator key is used exclusively by the JupyterHub/TLJH academic minting
 		// flow (jupyter-positron-verifier); Server Pro and other primary-key deployments are
 		// not academic.
-		academic: matchedKey === (orchestratorPublicKeyForTesting ?? OrchestratorPublicKey),
+		academic: matchedKey === orchestratorKey,
 	};
 }

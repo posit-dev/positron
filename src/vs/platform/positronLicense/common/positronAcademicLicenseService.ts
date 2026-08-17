@@ -9,13 +9,12 @@ export const IPositronAcademicLicenseService = createDecorator<IPositronAcademic
 
 /**
  * Reports whether this Positron session is running under a license that grants the
- * Education License Rider terms. Drives the academic license banner and the
- * `positron-is-academic` P3M telemetry param.
+ * Education License Rider terms.
  *
  * Node/server: derived from the validated license (see `remoteLicenseKey.ts`'s
  * `ILicenseValidationResult.academic`) at server startup. Browser: derived from the
- * `_POSITRON_IS_ACADEMIC` global injected by `webClientServer.ts`. Desktop: always false,
- * since desktop installs never go through a license check.
+ * global injected by `webClientServer.ts` (see {@link academicMarkerScript}). Desktop:
+ * always false, since desktop installs never go through a license check.
  */
 export interface IPositronAcademicLicenseService {
 	readonly _serviceBrand: undefined;
@@ -24,15 +23,14 @@ export interface IPositronAcademicLicenseService {
 	readonly isAcademic: boolean;
 }
 
+/** Name of the injected global that marks a browser session academic; see {@link academicMarkerScript}. */
+export const POSITRON_IS_ACADEMIC_GLOBAL = '_POSITRON_IS_ACADEMIC';
+
 /**
  * Builds the inline `<script>` that tells the browser this session is academic, for injection
  * into the served workbench HTML by `webClientServer.ts`. Empty when the session is not
  * academic: the absence of the global means false, which is the common case.
- *
- * The global name here must stay in sync with the one `isAcademic` reads in
- * `base/common/platform.ts`. It cannot be shared as a constant -- `base` may not import from
- * `platform` -- so the string is duplicated there and pinned by this function's test.
  */
 export function academicMarkerScript(isAcademic: boolean): string {
-	return isAcademic ? '<script>globalThis._POSITRON_IS_ACADEMIC = true;</script>' : '';
+	return isAcademic ? `<script>globalThis.${POSITRON_IS_ACADEMIC_GLOBAL} = true;</script>` : '';
 }

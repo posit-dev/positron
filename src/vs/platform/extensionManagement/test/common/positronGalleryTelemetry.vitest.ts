@@ -48,7 +48,7 @@ describe('positronGalleryTelemetry', function () {
 			}
 		});
 
-		it('reflects isAcademic=false for Positron Server Pro deployments', () => {
+		it('appends positron-is-academic=false when the session is not academic', () => {
 			const result = appendPositronGalleryParams(baseUrl, undefined, 'positron-server', '2026.06.0', false, true);
 			expect(result).toContain('positron-is-academic=false');
 		});

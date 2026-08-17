@@ -6,10 +6,9 @@
 import { IPositronAcademicLicenseService } from '../common/positronAcademicLicenseService.js';
 
 /**
- * Server-side implementation. Constructed once at startup with the academic status
- * already derived from the validated license (see `createServer()` in
- * `remoteExtensionHostAgentServer.ts`), since that derivation depends on an async
- * license check that happens before this service is registered.
+ * Takes the academic status as a plain constructor value: on the server it comes from an
+ * async license check that completes before services are registered (see `createServer()`
+ * in `remoteExtensionHostAgentServer.ts`); processes with no license check pass `false`.
  */
 export class PositronAcademicLicenseService implements IPositronAcademicLicenseService {
 	declare readonly _serviceBrand: undefined;

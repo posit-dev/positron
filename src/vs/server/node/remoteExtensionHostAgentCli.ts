@@ -54,7 +54,7 @@ import { AllowedExtensionsService } from '../../platform/extensionManagement/com
 import { IExtensionGalleryManifestService } from '../../platform/extensionManagement/common/extensionGalleryManifest.js';
 import { ExtensionGalleryManifestService } from '../../platform/extensionManagement/common/extensionGalleryManifestService.js';
 
-// --- Start Postiron ---
+// --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { buildPositronVersionMessage } from '../../platform/environment/node/argv.js';
 import { IPositronAcademicLicenseService } from '../../platform/positronLicense/common/positronAcademicLicenseService.js';

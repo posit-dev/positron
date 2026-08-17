@@ -2140,9 +2140,9 @@ export class ExtensionGalleryService extends AbstractExtensionGalleryService {
 		@IExtensionGalleryManifestService extensionGalleryManifestService: IExtensionGalleryManifestService,
 		// --- Start Positron ---
 		@IPositronAcademicLicenseService academicLicenseService: IPositronAcademicLicenseService,
-		// --- End Positron ---
 	) {
 		super(storageService, requestService, logService, environmentService, telemetryService, fileService, productService, configurationService, allowedExtensionsService, extensionGalleryManifestService, academicLicenseService);
+		// --- End Positron ---
 	}
 }
 

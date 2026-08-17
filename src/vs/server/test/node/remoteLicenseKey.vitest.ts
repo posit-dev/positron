@@ -7,7 +7,7 @@
 
 import * as crypto from 'crypto';
 import { describe, expect, it } from 'vitest';
-import { setOrchestratorPublicKeyForTesting, validateLicense, validateLicenseKey } from '../../node/remoteLicenseKey.js';
+import { validateLicense, validateLicenseKey } from '../../node/remoteLicenseKey.js';
 import { ServerParsedArgs } from '../../node/serverEnvironmentService.js';
 
 describe('validateLicense', () => {
@@ -120,7 +120,7 @@ describe('validateLicense', () => {
 
 	it('marks the license academic when it validates against the orchestrator key', async () => {
 		// The real OrchestratorPublicKey's private key is held by the minting service, not
-		// this repo, so we swap in a throwaway key pair via the test-only seam.
+		// this repo, so a throwaway pair stands in as the orchestrator key.
 		const { privateKey: orchestratorPrivKey, publicKey: orchestratorPubKeyPem } =
 			crypto.generateKeyPairSync('rsa', {
 				modulusLength: 2048,
@@ -132,15 +132,10 @@ describe('validateLicense', () => {
 		const timestamp = new Date().toISOString();
 		const license = mintLicense(token, 'JupyterHub', 'Acme University', timestamp, orchestratorPrivKey);
 
-		setOrchestratorPublicKeyForTesting(orchestratorPubKeyPem);
-		try {
-			const result = await validateLicense(token, license, [testPubKeyPem, orchestratorPubKeyPem]);
+		const result = await validateLicense(token, license, [testPubKeyPem, orchestratorPubKeyPem], orchestratorPubKeyPem);
 
-			expect(result.valid).toBe(true);
-			expect(result.academic).toBe(true);
-		} finally {
-			setOrchestratorPublicKeyForTesting(undefined);
-		}
+		expect(result.valid).toBe(true);
+		expect(result.academic).toBe(true);
 	});
 
 	it('does not mark the license academic when it validates against the primary key', async () => {

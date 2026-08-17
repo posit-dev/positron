@@ -38,9 +38,6 @@ class PositronAcademicLicenseBannerContribution extends Disposable implements IW
 			return;
 		}
 
-		// Only academically-licensed deployments (e.g. JupyterHub/TLJH orchestrator-minted
-		// licenses) show this banner; Server Pro (SageMaker, JupyterHub-Pro) and other
-		// non-academic deployments do not.
 		if (!this._academicLicenseService.isAcademic) {
 			return;
 		}
@@ -78,9 +75,6 @@ Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench)
 	.registerWorkbenchContribution(PositronAcademicLicenseBannerContribution, LifecyclePhase.Restored);
 
 CommandsRegistry.registerCommand(SHOW_ACADEMIC_LICENSE_BANNER_COMMAND_ID, (accessor: ServicesAccessor) => {
-	// Only academically-licensed deployments (e.g. JupyterHub/TLJH orchestrator-minted
-	// licenses) show this banner; Server Pro (SageMaker, JupyterHub-Pro) and other
-	// non-academic deployments do not.
 	if (!accessor.get(IPositronAcademicLicenseService).isAcademic) {
 		return;
 	}

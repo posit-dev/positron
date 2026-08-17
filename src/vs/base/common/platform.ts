@@ -168,21 +168,6 @@ export const isWorkbench = _isWeb
 	? !!$globalThis._PWB_IS_WORKBENCH
 	: !!nodeProcess?.env['RS_SERVER_URL'];
 // --- End PWB ---
-// --- Start Positron: academic license detection ---
-// Whether this session is running under a license that grants Positron's Education
-// License Rider terms. Drives the academic license banner and P3M telemetry.
-//
-// Only meaningful in the browser here: webClientServer.ts injects an inline
-// `<script>globalThis._POSITRON_IS_ACADEMIC = true;</script>` when the server-side license
-// validation (see IPositronAcademicLicenseService) determined the session is academic, so
-// its absence means false (the default -- most deployments are not academic).
-//
-// Node/Electron code should inject IPositronAcademicLicenseService instead of reading this
-// constant: the value there depends on an async license check that happens well after this
-// module loads, so it cannot be represented as a synchronous constant the way isWorkbench's
-// env-var read can. This constant is always false outside the browser.
-export const isAcademic = _isWeb && $globalThis._POSITRON_IS_ACADEMIC === true;
-// --- End Positron ---
 export const platform = _platform;
 export const userAgent = _userAgent;
 
