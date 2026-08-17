@@ -42,7 +42,8 @@ then newest) and writes `summary.md` in the same shape the CI entry produces.
 
 It runs anywhere a Positron checkout does, Windows included: the trace is read
 with `yauzl` (a direct Positron dependency) rather than the `unzip` binary the
-CI-entry scripts shell out to, and nothing here needs `gh`, a key, or a network.
+`e2e-failure-analyzer` scripts shell out to, and nothing here needs `gh`, a key,
+or a network.
 
 Act on `verdict`:
 
