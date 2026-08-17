@@ -66,7 +66,7 @@ jobs:
       # Providers modal. Read by the test runner on this host, not in the
       # container: the modal writes it to the remote credential store itself.
       - name: Load secret
-        uses: 1password/load-secrets-action@v4
+        uses: 1password/load-secrets-action@v5
         with:
           # Export loaded secrets as environment variables
           export-env: true
