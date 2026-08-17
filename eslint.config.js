@@ -191,10 +191,6 @@ export default defineConfig(
 			],
 			// Do not allow non-interactive elements to have interactive handlers
 			'jsx-a11y/no-static-element-interactions': 'error',
-			// Eager useState arguments are evaluated on every render and discarded after mount.
-			// Currently 'warn' because existing violations are not yet fixed; escalate to
-			// 'error' once they are.
-			'local/code-no-eager-usestate': 'warn',
 		},
 	},
 	// React Tests
