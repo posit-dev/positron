@@ -7,9 +7,9 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { AuthProvider } from './authProvider';
-import { DATABRICKS_AUTH_PROVIDER_ID, DATABRICKS_OAUTH_SESSION_ID, FOUNDRY_AUTH_PROVIDER_ID } from './constants';
+import { DATABRICKS_AUTH_PROVIDER_ID, DATABRICKS_OAUTH_SESSION_ID } from './constants';
 import { log } from './log';
-import { DATABRICKS_MANAGED_CREDENTIALS, FOUNDRY_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
+import { hasManagedCredentials } from './managedCredentials';
 import { getProviderSources } from './providerSources';
 
 export type ApiKeyValidator = (apiKey: string, config: positron.ai.LanguageModelConfig) => Promise<void>;
@@ -105,33 +105,11 @@ export async function updateProviderFromSessions(
 			status = null;
 		}
 
-		if (isAutoSession && providerId === FOUNDRY_AUTH_PROVIDER_ID && hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
-			positron.ai.updateProvider(providerId, {
-				signedIn,
-				status,
-				defaults: {
-					autoconfigure: {
-						type: positron.ai.LanguageModelAutoconfigureType.Custom,
-						message: FOUNDRY_MANAGED_CREDENTIALS.displayName,
-						signedIn: true,
-						isPositWorkbench: true,
-					},
-				},
-			});
-		} else if (isAutoSession && providerId === 'snowflake-cortex' && hasManagedCredentials(SNOWFLAKE_MANAGED_CREDENTIALS)) {
-			positron.ai.updateProvider(providerId, {
-				signedIn,
-				status,
-				defaults: {
-					autoconfigure: {
-						type: positron.ai.LanguageModelAutoconfigureType.Custom,
-						message: SNOWFLAKE_MANAGED_CREDENTIALS.displayName,
-						signedIn: true,
-						isPositWorkbench: true,
-					},
-				},
-			});
-		} else if (isAutoSession && providerId === DATABRICKS_AUTH_PROVIDER_ID && hasManagedCredentials(DATABRICKS_MANAGED_CREDENTIALS)) {
+		const managedCredentials = isAutoSession
+			? hasManagedCredentials(providerId)
+			: undefined;
+
+		if (managedCredentials) {
 			positron.ai.updateProvider(providerId, {
 				signedIn,
 				status,
@@ -139,7 +117,7 @@ export async function updateProviderFromSessions(
 				defaults: {
 					autoconfigure: {
 						type: positron.ai.LanguageModelAutoconfigureType.Custom,
-						message: DATABRICKS_MANAGED_CREDENTIALS.displayName,
+						message: managedCredentials.displayName,
 						signedIn: true,
 						isPositWorkbench: true,
 					},

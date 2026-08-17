@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import { AuthProviderLogger } from './authProviderLogger';
 import { EXPIRY_REFRESH_BUFFER_MS } from './constants';
+import { hasManagedCredentials } from './managedCredentials';
 
 interface StoredAccount {
 	readonly id: string;
@@ -45,15 +46,6 @@ export interface CredentialChainConfig {
 	 * just reappear immediately after removal.
 	 */
 	readonly preventSignOut?: boolean;
-	/**
-	 * Like `preventSignOut`, but evaluated at removal time rather than
-	 * fixed at registration. Use when only some of the chain's credential
-	 * sources should block sign-out (e.g. Workbench-managed credentials,
-	 * but not a user-supplied env var on the same chain).
-	 */
-	readonly preventSignOutNow?: () => boolean;
-	/** Names what manages the credential, for the sign-out-blocked message. */
-	readonly sourceDescription?: string;
 }
 
 /**
@@ -96,13 +88,14 @@ export class AuthProvider
 	/** Whether this provider blocks sign-out for chain sessions right now. */
 	get chainPreventsSignOut(): boolean {
 		return !!this.credentialChain?.preventSignOut ||
-			!!this.credentialChain?.preventSignOutNow?.();
+			!!hasManagedCredentials(this.providerId);
 	}
 
 	/** What manages the chain credential, for sign-out-blocked messages. */
 	get chainSourceDescription(): string {
-		return this.credentialChain?.sourceDescription ??
-			vscode.l10n.t('An environment variable');
+		return hasManagedCredentials(this.providerId)
+			? 'Posit Workbench'
+			: vscode.l10n.t('An environment variable');
 	}
 
 	/**
@@ -277,7 +270,7 @@ export class AuthProvider
 
 	async removeSession(sessionId: string): Promise<void> {
 		if (this.credentialChain && sessionId === this.providerId) {
-			if (this.credentialChain.preventSignOut || this.credentialChain.preventSignOutNow?.()) {
+			if (this.chainPreventsSignOut) {
 				try {
 					const result = await this.credentialChain.resolve();
 					const token = typeof result === 'string' ? result : result.token;

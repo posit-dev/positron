@@ -33,7 +33,7 @@ import {
 	validateOpenaiApiKey,
 	validateSnowflakeApiKey
 } from './validation';
-import { DATABRICKS_MANAGED_CREDENTIALS, FOUNDRY_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
+import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { resolveAwsChainInit } from './credentials/aws';
 import { resolveGeapCredential } from './credentials/geap';
 import {
@@ -377,7 +377,7 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 		{
 			authProviderId: FOUNDRY_MANAGED_CREDENTIALS.authProvider.id,
 			scopes: FOUNDRY_MANAGED_CREDENTIALS.authProvider.scopes,
-			isAvailable: () => hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS),
+			isAvailable: () => !!hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS),
 		}
 	);
 	context.subscriptions.push(
@@ -475,8 +475,6 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 					return false;
 				}
 			},
-			preventSignOutNow: () => hasManagedCredentials(SNOWFLAKE_MANAGED_CREDENTIALS),
-			sourceDescription: 'Posit Workbench',
 		}
 	);
 	context.subscriptions.push(
@@ -727,12 +725,6 @@ async function registerDatabricksProvider(
 				return false;
 			}
 		},
-		// DATABRICKS_TOKEN stays removable (it's a static env var the user
-		// set); Workbench-managed credentials are not user-initiated, so
-		// sign-out is blocked while Workbench is managing them.
-		preventSignOutNow: () => !process.env.DATABRICKS_TOKEN &&
-			hasManagedCredentials(DATABRICKS_MANAGED_CREDENTIALS),
-		sourceDescription: 'Posit Workbench',
 	});
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
