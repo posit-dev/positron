@@ -64,6 +64,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_e2e_workbench_rocky:
+        description: "E2E Tests / Workbench (Rocky Linux 9)"
+        required: false
+        default: false
+        type: boolean
       run_e2e_pyrefly:
         description: "E2E Tests / Pyrefly (Ubuntu)"
         required: false
@@ -336,7 +341,7 @@ jobs:
   build-workbench:
     name: build
     needs: [validate-commit]
-    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench || inputs.run_e2e_workbench_stable) }}
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench || inputs.run_e2e_workbench_stable || inputs.run_e2e_workbench_rocky) }}
     uses: ./.github/workflows/build-workbench-linux.yml
     secrets: inherit
     with:
@@ -371,6 +376,26 @@ jobs:
       upload_logs: false
       allow_soft_fail: false
       install_mode: "ci-stable"
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
+
+  # Same test set as the workbench lane, run against a Rocky Linux 9 container.
+  # A separate job so the two OSes run in parallel. `grep` is pinned to
+  # "@:workbench" rather than the run's grep input: @:workbench-rocky selects the
+  # lane, never individual tests, so no test carries it.
+  e2e-workbench-rocky:
+    name: e2e
+    needs: [build-workbench]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench_rocky) }}
+    uses: ./.github/workflows/test-e2e-workbench-linux.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      os: "rocky9"
+      grep: "@:workbench"
+      display_name: "workbench-rocky"
+      install_license: false
+      upload_logs: false
+      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-pyrefly:
@@ -475,7 +500,7 @@ jobs:
   slack-notify:
     if: always()
     needs:
-      [validate-commit, e2e-electron, e2e-windows, e2e-macos-arm64, e2e-macos-x64, e2e-chromium, e2e-chromium-rhel, e2e-chromium-suse, e2e-chromium-sles, e2e-chromium-debian, e2e-workbench, e2e-workbench-stable, e2e-pyrefly, e2e-connect, e2e-jupyter, e2e-remote-ssh, unit-tests, ext-host-tests]
+      [validate-commit, e2e-electron, e2e-windows, e2e-macos-arm64, e2e-macos-x64, e2e-chromium, e2e-chromium-rhel, e2e-chromium-suse, e2e-chromium-sles, e2e-chromium-debian, e2e-workbench, e2e-workbench-stable, e2e-workbench-rocky, e2e-pyrefly, e2e-connect, e2e-jupyter, e2e-remote-ssh, unit-tests, ext-host-tests]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
