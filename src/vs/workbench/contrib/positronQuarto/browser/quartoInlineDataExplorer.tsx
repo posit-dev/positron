@@ -62,7 +62,7 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 	const dataExplorerService = services.positronDataExplorerService;
 	const defaultMaxHeight = 300;
 
-	const [maxHeight, setMaxHeight] = useState<number>(
+	const [maxHeight, setMaxHeight] = useState<number>(() =>
 		services.configurationService.getValue<number>(
 			POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
 		) ?? defaultMaxHeight
