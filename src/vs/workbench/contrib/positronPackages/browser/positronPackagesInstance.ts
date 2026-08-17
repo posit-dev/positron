@@ -309,20 +309,36 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// Cancel any prior in-flight fetch so re-entrance supersedes rather than no-ops
 		this._metadataFetch?.cancel();
 
+		// The same package can be installed in several library paths (a project
+		// library plus the system one), and the cache holds one entry per name.
+		// The pane shows the first occurrence, following R's library search
+		// order, so the first occurrence is the one the entry has to describe:
+		// ask about it, and anchor the entry to its version. Taking the version
+		// from the last occurrence instead left the entry describing a copy the
+		// pane never shows, and the version-match guard in `packages` then threw
+		// the metadata away -- no update indicator and no advisories on exactly
+		// the packages that live in two libraries.
+		const visiblePackages: ILanguageRuntimePackage[] = [];
+		const versionByName = new Map<string, string>();
+		for (const pkg of this._packages) {
+			const key = pkg.name.toLowerCase();
+			if (versionByName.has(key)) {
+				continue;
+			}
+			versionByName.set(key, pkg.version);
+			visiblePackages.push(pkg);
+		}
+
 		const expectsOutdated = !!packageManager.getPackageMetadata;
 		const packagesToFetch = fetchAll
-			? this._packages
-			: this._packages.filter((pkg) => !this._hasFreshMetadata(pkg, expectsOutdated));
+			? visiblePackages
+			: visiblePackages.filter((pkg) => !this._hasFreshMetadata(pkg, expectsOutdated));
 
 		if (packagesToFetch.length === 0) {
 			// Every package already has fresh cached metadata, just fire the event
 			this._onDidRefreshPackagesInstance.fire(this.packages);
 			return;
 		}
-
-		// Look up installed versions so each cached entry records the version
-		// its outdated state was computed against.
-		const versionByName = new Map(this._packages.map((pkg) => [pkg.name.toLowerCase(), pkg.version]));
 
 		const fetch = createCancelablePromise<void>(async (token) => {
 			// Advisories are version-specific, so the lookup gets installed

@@ -394,6 +394,41 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		expect(stage2.find(p => p.name === 'numpy')).toMatchObject({ outdated: true, latestVersion: '2.1.0' });
 	});
 
+	it('describes the library copy the pane shows when a package is installed twice', async () => {
+		// R installs the same package into several library paths, and the pane
+		// shows the first (library search order). The single cache entry has to
+		// describe that copy: anchored to the last copy's version instead, the
+		// version-match guard threw the metadata away, leaving no update
+		// indicator and no advisories on exactly the packages that live in two
+		// libraries -- which for CRAN is the base and recommended ones.
+		getPackages.mockResolvedValue([
+			{ ...pkg('Matrix', '1.6-1'), id: 'Matrix-project' },
+			{ ...pkg('Matrix', '1.6-0'), id: 'Matrix-system' },
+			pkg('jsonlite', '1.8.0'),
+		]);
+		getPackageMetadata.mockResolvedValue(new Map<string, Partial<ILanguageRuntimePackage>>([
+			['matrix', { outdated: true, latestVersion: '1.7-0' }],
+		]));
+		getVulnerabilities.mockResolvedValue(lookupResult([['matrix', [ADVISORY]]]));
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await fires;
+
+		expect(stage2.find(p => p.id === 'Matrix-project')).toMatchObject({
+			outdated: true,
+			latestVersion: '1.7-0',
+			vulnerabilities: [ADVISORY],
+		});
+		// The shadowed copy isn't asked about at all: two answers keyed to one
+		// cache slot would let the version the pane doesn't show win.
+		expect(getVulnerabilities.mock.calls[0][2]).toEqual([
+			{ name: 'Matrix', version: '1.6-1' },
+			{ name: 'jsonlite', version: '1.8.0' },
+		]);
+	});
+
 	it('runs Stage 2 for advisories even when the runtime reports no metadata', async () => {
 		const packageManager = stubInterface<ILanguageRuntimePackageManager>({
 			getPackages,
