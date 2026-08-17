@@ -82,6 +82,17 @@ suite('Terminal Environment Variable Collection Service', () => {
         when(terminalDeactivateService.initializeScriptParams(anything())).thenResolve();
         when(workspaceService.getWorkspaceFolder(anything())).thenReturn(undefined);
         when(workspaceService.workspaceFolders).thenReturn(undefined);
+        // --- Start Positron ---
+        // Module terminal environment reads positron.environmentModules config; stub it
+        // so the code path is exercised and no-ops (no module-based interpreter present).
+        const environmentModulesConfig = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
+        environmentModulesConfig
+            .setup((c) => c.get<boolean>('applyToTerminals', TypeMoq.It.isAny()))
+            .returns(() => true);
+        when(workspaceService.getConfiguration('positron.environmentModules', anything())).thenReturn(
+            environmentModulesConfig.object,
+        );
+        // --- End Positron ---
         platform = mock<IPlatformService>();
         when(platform.osType).thenReturn(getOSType());
         interpreterService = mock<IInterpreterService>();

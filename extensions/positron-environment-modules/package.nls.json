@@ -3,6 +3,7 @@
 	"description": "Support for environment modules (Lmod, Environment Modules) in Positron",
 	"configuration.title": "Environment Modules",
 	"configuration.enabled.description": "Enable environment modules support for runtime discovery on Unix-like systems",
+	"configuration.applyToTerminals.description": "When the active interpreter comes from an environment module, capture the environment variables the module sets and apply them to integrated terminals, so tools launched in the terminal use the same interpreter as the console.",
 	"configuration.moduleCommand.description": "The command used to interact with the module system (default: 'module')",
 	"configuration.moduleLoadTimeout.description": "Timeout in milliseconds for loading modules",
 	"configuration.initScript.description": "Path to module system initialization script (e.g., '/etc/profile.d/modules.sh'). Leave empty to use default detection.",

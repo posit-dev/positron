@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import {
+	CapturedEnvironmentVariable,
 	DiscoveredRuntimeInfo,
 	ModuleEnvironmentConfig,
 	ModuleResolvedInterpreter,
@@ -78,6 +79,19 @@ export interface EnvironmentModulesApi {
 	 * @returns Shell command string (e.g., "source /etc/profile.d/modules.sh && module load R/4.3.0")
 	 */
 	buildStartupCommand(modules: string[]): string;
+
+	/**
+	 * Capture the environment variables contributed by loading a set of modules,
+	 * as a set of actions that can be applied to a terminal's environment.
+	 *
+	 * This loads the modules in a login shell and diffs the resulting environment
+	 * against a baseline without them. Used to propagate a module-based
+	 * interpreter's environment to integrated terminals.
+	 *
+	 * @param modules Array of module names to load
+	 * @returns The captured environment variable actions
+	 */
+	captureEnvironmentVariables(modules: string[]): Promise<CapturedEnvironmentVariable[]>;
 
 	/**
 	 * Event fired when the module environments configuration changes.

@@ -7,7 +7,8 @@ import { execSync, exec } from 'child_process';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { ModuleSystemInfo } from './types.js';
+import { CapturedEnvironmentVariable, ModuleSystemInfo } from './types.js';
+import { diffCapturedEnvironment, parseNullDelimitedEnv } from './env-capture.js';
 import { log } from './logger.js';
 
 /**
@@ -456,4 +457,35 @@ export async function executeWithModules(
 			}
 		});
 	});
+}
+
+/**
+ * Capture the environment variables contributed by loading a set of modules.
+ *
+ * The module system contributes its environment by running shell commands
+ * (`module load ...`), so there is no static list of variables to read. To
+ * recover the contribution we snapshot the login-shell environment twice - once
+ * without any modules loaded (the baseline) and once with them loaded - and diff
+ * the two (see {@link diffCapturedEnvironment}).
+ *
+ * @param modules The modules to load.
+ * @param initScript Optional path to the module init script to source first.
+ * @returns The captured environment variable actions.
+ */
+export async function captureModuleEnvironment(
+	modules: string[],
+	initScript?: string
+): Promise<CapturedEnvironmentVariable[]> {
+	// Snapshot the environment without modules (but with the init script sourced,
+	// so the module system's own baseline is not counted as a contribution) and
+	// with the modules loaded.
+	const [baselineRaw, loadedRaw] = await Promise.all([
+		executeWithModules([], 'env -0', initScript),
+		executeWithModules(modules, 'env -0', initScript),
+	]);
+
+	return diffCapturedEnvironment(
+		parseNullDelimitedEnv(baselineRaw),
+		parseNullDelimitedEnv(loadedRaw)
+	);
 }

@@ -71,7 +71,17 @@ function describeEnvironmentChanges(collection: IMergedEnvironmentVariableCollec
 			if (filterScope(mutator, scope) === false) {
 				continue;
 			}
-			content += `\n- \`${mutatorTypeLabel(mutator.type, mutator.value, mutator.variable)}\``;
+			// --- Start Positron ---
+			// Annotate mutators that only apply via shell integration and not at
+			// process creation. In Positron these are inherited by interactive
+			// terminals but deliberately not by spawned runtime processes such as
+			// language kernels (which are configured separately), so callers can
+			// tell from this report which contributions reach kernels.
+			const processScopeSuffix = mutator.options?.applyAtProcessCreation === false
+				? ` ${localize('positron.terminalOnlyContribution', '(terminals only; not applied to kernels)')}`
+				: '';
+			content += `\n- \`${mutatorTypeLabel(mutator.type, mutator.value, mutator.variable)}\`${processScopeSuffix}`;
+			// --- End Positron ---
 		}
 	}
 	return content;
