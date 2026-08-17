@@ -722,7 +722,10 @@ async function registerDatabricksProvider(
 				}
 				return false;
 			} catch {
-				return false;
+				// The config file is gone or unreadable; re-resolve so the cached
+				// session is dropped rather than served indefinitely.
+				pendingMtime = undefined;
+				return true;
 			}
 		},
 	});
