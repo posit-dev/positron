@@ -90,15 +90,25 @@ describe('VerticalSplitter', () => {
 		// Guards the #15427 amplifier: eager useState initializers re-read
 		// configuration on every render of every splitter. Call count is the
 		// only observable for the regression.
+		// The collapsible variant is the one whose three initializers all read
+		// configuration (the non-collapsible splitterWidth short-circuits to 1).
 		const getValueSpy = vi.spyOn(configurationService, 'getValue');
-		const { rerender } = renderSplitter(false);
+		const { rerender } = renderCollapsibleSplitter();
 		const readsAfterMount = getValueSpy.mock.calls.length;
 
 		// The mount reads (3 initializers + hover delay) prove the spy is
 		// observing the service the component actually uses.
 		expect(readsAfterMount).toBeGreaterThan(0);
 
-		rerender(<VerticalSplitter showSash={true} {...baseProps} />);
+		rerender(
+			<VerticalSplitter
+				collapsible={true}
+				isCollapsed={false}
+				showSash={true}
+				onCollapsedChanged={() => { }}
+				{...baseProps}
+			/>
+		);
 
 		expect(getValueSpy.mock.calls.length).toBe(readsAfterMount);
 	});
