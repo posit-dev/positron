@@ -514,8 +514,7 @@ describe('QuartoVirtualNotebookService', () => {
 
 		expect({
 			text: after.map(cell => cell.textModel.getValue()),
-			// Surprise F from the spike: cell models were disposed while `_cells`
-			// still referenced them.
+			// Cell models can be disposed while `_cells` still reference them.
 			allAlive: after.every(cell => !cell.textModel.isDisposed()),
 			// The point of the splice: the two cells that did not change are the
 			// same cells afterwards, so no language server sees a close and reopen.
