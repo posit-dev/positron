@@ -723,7 +723,9 @@ async function registerDatabricksProvider(
 				return false;
 			} catch {
 				// The config file is gone or unreadable; re-resolve so the cached
-				// session is dropped rather than served indefinitely.
+				// session is dropped, and forget the watermark so a file restored
+				// with an older mtime still re-resolves.
+				lastCfgCheck = undefined;
 				pendingMtime = undefined;
 				return true;
 			}
