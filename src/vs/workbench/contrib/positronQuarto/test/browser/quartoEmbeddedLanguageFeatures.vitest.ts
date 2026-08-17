@@ -12,6 +12,7 @@ import { Position } from '../../../../../editor/common/core/position.js';
 import { IRange } from '../../../../../editor/common/core/range.js';
 import { ITextModel } from '../../../../../editor/common/model.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
+import { TestCommandService } from '../../../../../editor/test/browser/editorTestServices.js';
 import { LanguageFeaturesService } from '../../../../../editor/common/services/languageFeaturesService.js';
 import {
 	CompletionItemKind,
@@ -33,13 +34,16 @@ import {
 	StatementRangeRejectionKind,
 	SymbolKind,
 } from '../../../../../editor/common/languages.js';
-import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
+import { ILanguageFeaturesService } from '../../../../../editor/common/services/languageFeatures.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { Constants } from '../../../../../base/common/uint.js';
 import { QUARTO_NATIVE_LANGUAGE_FEATURES_KEY } from '../../common/positronQuartoConfig.js';
 import { IQuartoVirtualCell, IQuartoVirtualNotebookService } from '../../browser/quartoVirtualNotebookService.js';
-import { QuartoEmbeddedLanguageFeatures } from '../../browser/quartoEmbeddedLanguageFeatures.js';
+import { QuartoEmbeddedLanguageFeatures, provideQuartoCellSymbols } from '../../browser/quartoEmbeddedLanguageFeatures.js';
+import { IQuartoCellSymbols } from '../../common/quartoCellSymbols.js';
 
 // The source document, with the R chunk's code on lines 4 and 5:
 //
@@ -69,6 +73,7 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 	let cellModel: ITextModel;
 	let cell: IQuartoVirtualCell;
 	let calls: string[];
+	let virtualNotebooksStub: IQuartoVirtualNotebookService;
 
 	beforeEach(async () => {
 		calls = [];
@@ -100,7 +105,8 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 	 */
 	function createFeatures(options: { alwaysFindCell?: IQuartoVirtualCell; cells?: IQuartoVirtualCell[] } = {}): void {
 		const cells = options.cells ?? [cell];
-		const virtualNotebooks = stubInterface<IQuartoVirtualNotebookService>({
+		virtualNotebooksStub = stubInterface<IQuartoVirtualNotebookService>({
+			whenReady: () => Promise.resolve(),
 			ensureSynchronized: () => { calls.push('ensureSynchronized'); },
 			getCellAtLine: (_uri, lineNumber) => {
 				calls.push(`getCellAtLine:${lineNumber}`);
@@ -110,12 +116,12 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 				return lineNumber >= cell.codeStartLine && lineNumber <= cell.codeEndLine ? cell : undefined;
 			},
 			getAllCells: () => cells,
-			getCells: () => cells,
+			getCells: (u) => u.toString() === SOURCE_URI.toString() ? cells : [],
 			getSourceUriForCell: (uri) =>
 				cells.some(c => c.cellUri.toString() === uri.toString()) ? SOURCE_URI : undefined,
 		});
 		ctx.disposables.add(new QuartoEmbeddedLanguageFeatures(
-			virtualNotebooks, languageFeatures, configurationService, new NullLogService()));
+			virtualNotebooksStub, languageFeatures, configurationService, new NullLogService()));
 	}
 
 	function completionProvider(): CompletionItemProvider {
@@ -908,6 +914,118 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
 
 		expect(result).toBeUndefined();
+	});
+
+	it('groups symbols by cell and reports each cell span in source coordinates', async () => {
+		// The Outline flattens this, but the Quarto extension needs to know which
+		// chunk each symbol came from so it can nest it under that chunk's heading.
+		const second = makeCell(CELL2_URI, 'f <- function() {\n  1\n}', 20);
+		registerSymbols('downstream', uri => uri === CELL_URI.toString()
+			? [symbol('x', 1)]
+			: [symbol('f', 1)]);
+		createFeatures({ cells: [cell, second] });
+
+		const grouped = await provideQuartoCellSymbols(
+			virtualNotebooksStub, languageFeatures, new NullLogService(),
+			SOURCE_URI, CancellationToken.None);
+
+		expect(grouped.map(entry => ({
+			range: entry.range,
+			names: entry.symbols.map(s => s.name),
+			lines: entry.symbols.map(s => s.range.startLineNumber),
+		}))).toEqual([
+			{
+				// Lines 4 to 5 of the source, which is the code inside the fences.
+				range: { startLineNumber: 4, startColumn: 1, endLineNumber: 5, endColumn: Constants.MAX_SAFE_SMALL_INTEGER },
+				names: ['x'],
+				lines: [4],
+			},
+			{
+				range: { startLineNumber: 20, startColumn: 1, endLineNumber: 22, endColumn: Constants.MAX_SAFE_SMALL_INTEGER },
+				names: ['f'],
+				lines: [20],
+			},
+		]);
+	});
+
+	it('omits a cell that has no symbols rather than returning it empty', async () => {
+		const second = makeCell(CELL2_URI, 'y <- 2', 20);
+		registerSymbols('downstream', uri => uri === CELL_URI.toString() ? [symbol('x', 1)] : []);
+		createFeatures({ cells: [cell, second] });
+
+		const grouped = await provideQuartoCellSymbols(
+			virtualNotebooksStub, languageFeatures, new NullLogService(),
+			SOURCE_URI, CancellationToken.None);
+
+		expect(grouped.map(entry => entry.range.startLineNumber)).toEqual([4]);
+	});
+
+	it('answers with an empty array for a document that has no cells', async () => {
+		registerSymbols('downstream', () => [symbol('x', 1)]);
+		createFeatures({ cells: [] });
+
+		const grouped = await provideQuartoCellSymbols(
+			virtualNotebooksStub, languageFeatures, new NullLogService(),
+			SOURCE_URI, CancellationToken.None);
+
+		expect(grouped).toEqual([]);
+	});
+
+	it('waits for the virtual notebook to finish initializing before reading its cells', async () => {
+		registerSymbols('downstream', () => [symbol('x', 1)]);
+		let notebookReady = false;
+		let resolveWhenReady!: () => void;
+		const whenReady = new Promise<void>(resolve => { resolveWhenReady = resolve; });
+		const stub = stubInterface<IQuartoVirtualNotebookService>({
+			whenReady: () => whenReady,
+			ensureSynchronized: () => { calls.push('ensureSynchronized'); },
+			getCells: (u) => {
+				calls.push('getCells');
+				return u.toString() === SOURCE_URI.toString() && notebookReady ? [cell] : [];
+			},
+		});
+
+		const resultPromise = provideQuartoCellSymbols(
+			stub, languageFeatures, new NullLogService(), SOURCE_URI, CancellationToken.None);
+
+		// The notebook finishes initializing only after the call has already gone
+		// out. If `provideQuartoCellSymbols` read the cells before awaiting
+		// `whenReady`, `getCells` above would already have run and returned `[]`.
+		notebookReady = true;
+		resolveWhenReady();
+		const grouped = await resultPromise;
+
+		expect(grouped.map(entry => entry.symbols.map(s => s.name))).toEqual([['x']]);
+	});
+
+	it('answers the cell symbol command from the registry', async () => {
+		// The Quarto extension reaches this through positron.executeQuartoCellSymbolProvider,
+		// so the registration and the service lookups are the part worth covering here.
+		registerSymbols('downstream', () => [symbol('x', 1)]);
+		createFeatures();
+
+		// These stubs persist on ctx.instantiationService for the rest of this file.
+		// That is safe here because every other test in this file constructs
+		// QuartoEmbeddedLanguageFeatures with explicit constructor arguments rather
+		// than resolving it from the container, so nothing downstream reads them.
+		ctx.instantiationService.stub(IQuartoVirtualNotebookService, virtualNotebooksStub);
+		ctx.instantiationService.stub(ILanguageFeaturesService, languageFeatures);
+		ctx.instantiationService.stub(ILogService, new NullLogService());
+
+		// TestCommandService resolves through CommandsRegistry and invokeFunction
+		// exactly as production does, but executeCommand is generic, so this needs
+		// no cast the way going through CommandsRegistry.getCommand directly would.
+		const commands = new TestCommandService(ctx.instantiationService);
+		const result = await commands.executeCommand<IQuartoCellSymbols[]>(
+			'_executeQuartoCellSymbolProvider', SOURCE_URI);
+
+		expect(result.map(entry => ({
+			range: entry.range,
+			names: entry.symbols.map(s => s.name),
+		}))).toEqual([{
+			range: { startLineNumber: 4, startColumn: 1, endLineNumber: 5, endColumn: Constants.MAX_SAFE_SMALL_INTEGER },
+			names: ['x'],
+		}]);
 	});
 
 	it('forwards a statement range and remaps the result into source coordinates', async () => {
