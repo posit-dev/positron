@@ -75,13 +75,13 @@ const R_HEALTH_CHECK_COMMAND_ID = 'r.getEnvironmentHealth';
 export const HEALTH_SOURCES: readonly ILanguageHealthSource[] = [
 	{
 		language: 'python',
-		label: localize('positron.welcome.health.python', "Python"),
+		label: localize('positron.welcome.environmentSetupPython', "Python"),
 		extensionId: PYTHON_EXTENSION_ID,
 		healthCheckCommandId: PYTHON_HEALTH_CHECK_COMMAND_ID,
 	},
 	{
 		language: 'r',
-		label: localize('positron.welcome.health.r', "R"),
+		label: localize('positron.welcome.environmentSetupR', "R"),
 		extensionId: R_EXTENSION_ID,
 		healthCheckCommandId: R_HEALTH_CHECK_COMMAND_ID,
 	},

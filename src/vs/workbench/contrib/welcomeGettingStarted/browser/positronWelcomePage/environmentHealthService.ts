@@ -62,7 +62,7 @@ export interface IEnvironmentHealthService {
 	 * Runs this language's health check again. Does nothing while a check for it is
 	 * already running.
 	 */
-	recheckLanguage(language: HealthLanguage): void;
+	rerunCheckForLanguage(language: HealthLanguage): void;
 	/**
 	 * Runs the health check for every language that is turned on. Called when a
 	 * welcome page opens.
@@ -76,7 +76,7 @@ export interface IEnvironmentHealthService {
 	 * - Closing the welcome page and opening it again builds a new input, so the
 	 *   checks run again.
 	 */
-	recheckForPage(page: GettingStartedInput): void;
+	rerunChecksForPage(page: GettingStartedInput): void;
 	runFix(language: HealthLanguage, fix: IHealthItemFix): Promise<void>;
 }
 
@@ -108,14 +108,14 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 * `isBusy` would report idle while the fix was still going.
 	 */
 	private readonly _runningFixes = new Set<HealthLanguage>();
-	/** Languages asked to recheck while their check was already running. */
-	private readonly _queuedRechecks = new Set<HealthLanguage>();
+	/** Languages whose check must run again once the one in flight ends. */
+	private readonly _queuedReruns = new Set<HealthLanguage>();
 	/**
 	 * The welcome page the checks last ran for.
 	 *
 	 * Splitting the editor builds a second pane for the same page, and a new pane
 	 * remembers nothing, so a pane cannot tell a split from a reopen on its own.
-	 * Keeping it here is what lets `recheckForPage` tell them apart.
+	 * Keeping it here is what lets `rerunChecksForPage` tell them apart.
 	 */
 	private _lastPage: WeakRef<GettingStartedInput> | undefined;
 	/**
@@ -150,7 +150,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 
 		this._logService.trace(`${LOG} service created`);
 		// Sets each language to hidden or loading from the setting. It starts no
-		// checks: nothing runs until a welcome page calls recheckForPage.
+		// checks: nothing runs until a welcome page calls rerunChecksForPage.
 		this._applyEnabledLanguagesSetting();
 	}
 
@@ -176,13 +176,13 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 * check cannot be cancelled -- executeCommand takes no cancellation token --
 	 * so starting a second would leave two running at once.
 	 */
-	recheckLanguage(language: HealthLanguage): void {
+	rerunCheckForLanguage(language: HealthLanguage): void {
 		this._requestLanguageHealthCheck(language, false);
 	}
 
-	recheckForPage(page: GettingStartedInput): void {
+	rerunChecksForPage(page: GettingStartedInput): void {
 		if (this._lastPage?.deref() === page) {
-			this._logService.trace(`${LOG} same welcome page as last checked, not rechecking`);
+			this._logService.trace(`${LOG} same welcome page as last checked, not rerunning`);
 			return;
 		}
 		// Held weakly so closing the welcome page can still free its editor input.
@@ -191,7 +191,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 		// next is a new one.
 		this._lastPage = new WeakRef(page);
 		this._started = true;
-		this._logService.trace(`${LOG} a welcome page opened, rechecking every visible language`);
+		this._logService.trace(`${LOG} a welcome page opened, rerunning the check for every visible language`);
 		for (const source of this._languageExtensionSources) {
 			this._requestLanguageHealthCheck(source.language, false);
 		}
@@ -201,7 +201,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 * Starts this language's health check, unless one is already running.
 	 *
 	 * @param queueIfBusy What to do when a check for this language is already
-	 * running. `false` drops the request: pressing the recheck control twice should
+	 * running. `false` drops the request: pressing the rerun control twice should
 	 * run one check, not two. `true` runs another check as soon as the current one
 	 * ends, which is what a fix needs -- a check that started before the fix ran
 	 * cannot show what the fix changed.
@@ -216,8 +216,8 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 		}
 		if (this._runningChecks.has(language)) {
 			if (queueIfBusy) {
-				this._queuedRechecks.add(language);
-				this._logService.trace(`${LOG} ${language}: already running, queued a recheck for when it ends`);
+				this._queuedReruns.add(language);
+				this._logService.trace(`${LOG} ${language}: already running, queued a rerun for when it ends`);
 			} else {
 				this._logService.trace(`${LOG} ${language}: already running, request ignored`);
 			}
@@ -239,17 +239,17 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	}
 
 	/**
-	 * Runs a fix command, then rechecks that language.
+	 * Runs a fix command, then reruns that language.
 	 *
-	 * The language counts as busy for the whole of it, not just the recheck at the
+	 * The language counts as busy for the whole of it, not just the rerun at the
 	 * end. A fix can run for minutes -- installing Python, say -- and the card
 	 * takes its progress line and its disabled buttons from `isBusy`. Without that
-	 * the card looks idle throughout, and pressing recheck would run a check
+	 * the card looks idle throughout, and pressing rerun would run a check
 	 * against a half-installed environment.
 	 *
-	 * A fix that succeeds is followed by a recheck; one that fails is not. It
-	 * rechecks after any successful fix rather than keeping a list of which
-	 * commands are worth rechecking after, because such a list would go stale
+	 * A fix that succeeds is followed by a rerun; one that fails is not. It
+	 * reruns after any successful fix rather than keeping a list of which
+	 * commands are worth rerunning the check after, because such a list would go stale
 	 * against the extensions. The check is not free -- R rediscovers every
 	 * installation -- but paying for it once after a fix is the point.
 	 */
@@ -281,7 +281,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 		}
 		if (this._getDisabledLanguages().has(language)) {
 			// The user turned this language off while the fix ran, so there is
-			// nothing to recheck. Fire anyway: isBusy just went false and the call
+			// nothing to rerun. Fire anyway: isBusy just went false and the call
 			// below would return at its own disabled-language guard without saying
 			// so, leaving the card showing a progress line that never stops.
 			this._fireOnDidChange();
@@ -321,7 +321,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 			} else if (this._states.get(source.language)?.kind === 'hidden' || !this._states.has(source.language)) {
 				this._setLanguageHealthState(source.language, { kind: 'loading' });
 				if (this._started) {
-					this.recheckLanguage(source.language);
+					this.rerunCheckForLanguage(source.language);
 				}
 			}
 		}
@@ -366,8 +366,8 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 *
 	 * - the user turned the language off while the check was out, so the result is
 	 *   about something no longer on screen
-	 * - a fix queued a recheck while this check was out, so this result predates
-	 *   the fix and the recheck is about to replace it
+	 * - a fix queued a rerun while this check was out, so this result predates
+	 *   the fix and the rerun is about to replace it
 	 *
 	 * The busy flag is cleared before firing rather than in a `finally`, so a
 	 * listener reacting to the event never sees `isBusy` still true for a check
@@ -377,20 +377,20 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 		this._runningChecks.delete(language);
 		this._logService.trace(`${LOG} ${language}: check finished as ${state.kind}`);
 		if (this._getDisabledLanguages().has(language)) {
-			// Throw away the result and any queued recheck: the user turned this
+			// Throw away the result and any queued rerun: the user turned this
 			// language off while the check was out. Still fire, because isBusy just
 			// changed and nothing else would say so.
-			this._queuedRechecks.delete(language);
+			this._queuedReruns.delete(language);
 			this._fireOnDidChange();
 			return;
 		}
 
-		const hadQueuedRecheck = this._queuedRechecks.delete(language);
-		if (hadQueuedRecheck) {
-			// This result predates the fix that queued the recheck, so showing it
+		const hadQueuedRerun = this._queuedReruns.delete(language);
+		if (hadQueuedRerun) {
+			// This result predates the fix that queued the rerun, so showing it
 			// would put the pre-fix failure back on screen for the seconds the
-			// recheck takes. Leave the previous result up and run the recheck.
-			this._logService.trace(`${LOG} ${language}: superseded by a recheck, result not shown`);
+			// rerun takes. Leave the previous result up and start the rerun.
+			this._logService.trace(`${LOG} ${language}: superseded by a rerun, result not shown`);
 			this._requestLanguageHealthCheck(language, true);
 			return;
 		}
