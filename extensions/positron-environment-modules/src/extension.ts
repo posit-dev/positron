@@ -6,13 +6,14 @@
 import * as vscode from 'vscode';
 import { EnvironmentModulesApi } from './api.js';
 import {
+	CapturedEnvironmentVariable,
 	DiscoveredRuntimeInfo,
 	ModuleEnvironmentConfig,
 	ModuleResolvedInterpreter,
 	ModuleSystemInfo,
 	ResolveInterpreterOptions
 } from './types.js';
-import { detectModuleSystem, buildModuleLoadCommand, getModuleSystemVersion } from './module-system.js';
+import { detectModuleSystem, buildModuleLoadCommand, captureModuleEnvironment, getModuleSystemVersion } from './module-system.js';
 import { resolveModuleInterpreter } from './environment-resolver.js';
 import { manageEnvironmentsCommand } from './manage-environments-command.js';
 import { listAvailableModules } from './module-listing.js';
@@ -170,6 +171,23 @@ class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 	}
 
 	/**
+	 * Capture the environment variables contributed by loading a set of modules.
+	 *
+	 * @param modules Array of module names to load
+	 * @returns The captured environment variable actions
+	 */
+	async captureEnvironmentVariables(modules: string[]): Promise<CapturedEnvironmentVariable[]> {
+		// Ensure the module system (and its init script path) has been detected.
+		const systemInfo = await this.getModuleSystemInfo();
+		const captured = await captureModuleEnvironment(modules, systemInfo.initPath);
+		log.info(
+			`Captured ${captured.length} environment variable(s) from modules [${modules.join(', ')}]: ` +
+			captured.map(v => `${v.name} (${v.action})`).join(', ')
+		);
+		return captured;
+	}
+
+	/**
 	 * Register a runtime that was discovered in a module environment.
 	 */
 	registerDiscoveredRuntime(
@@ -236,6 +254,9 @@ export async function activate(
 			},
 			buildStartupCommand() {
 				return '';
+			},
+			async captureEnvironmentVariables(): Promise<CapturedEnvironmentVariable[]> {
+				return [];
 			},
 			registerDiscoveredRuntime() {
 				// No-op on Windows
@@ -342,7 +363,9 @@ async function generateDiagnosticsReport(api: EnvironmentModulesApiImpl): Promis
 	lines.push('## Configuration');
 	lines.push('');
 	const config = vscode.workspace.getConfiguration('positron.environmentModules');
+	const applyToTerminals = config.get<boolean>('applyToTerminals', true);
 	lines.push(`**Enabled:** ${config.get<boolean>('enabled', true)}`);
+	lines.push(`**Apply to Terminals:** ${applyToTerminals}`);
 	const customInitScript = config.get<string>('initScript');
 	if (customInitScript) {
 		lines.push(`**Custom Init Script:** ${customInitScript}`);
@@ -381,6 +404,35 @@ async function generateDiagnosticsReport(api: EnvironmentModulesApiImpl): Promis
 				lines.push('');
 			} else {
 				lines.push('**Discovered Interpreters:** None discovered yet');
+				lines.push('');
+			}
+
+			// When terminal application is enabled, show the environment
+			// variables that would be captured from this environment's modules
+			// and applied to terminals.
+			if (applyToTerminals && systemInfo.available && envConfig.modules.length > 0) {
+				lines.push('**Captured Terminal Environment Variables:**');
+				lines.push('');
+				lines.push('These are applied to integrated terminals only. Kernels for this ' +
+					'environment load their modules directly via the startup command, so ' +
+					'these variables are not applied to kernel processes.');
+				lines.push('');
+				try {
+					const captured = await api.captureEnvironmentVariables(envConfig.modules);
+					if (captured.length === 0) {
+						lines.push('No environment variables captured.');
+					} else {
+						lines.push('| Variable | Action | Value |');
+						lines.push('| --- | --- | --- |');
+						for (const v of captured) {
+							// Escape pipe characters so table rows render correctly.
+							const value = v.value.replace(/\|/g, '\\|');
+							lines.push(`| \`${v.name}\` | ${v.action} | \`${value}\` |`);
+						}
+					}
+				} catch (error) {
+					lines.push(`Error capturing environment variables: ${error}`);
+				}
 				lines.push('');
 			}
 		}

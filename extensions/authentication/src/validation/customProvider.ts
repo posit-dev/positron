@@ -8,30 +8,32 @@ import * as positron from 'positron';
 import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 import { log } from '../log';
 
-interface ModelOverrideEntry {
-	identifier?: string;
-}
+/**
+ * Placeholder model sent with the validation request. We only want to probe
+ * whether the base URL and key reach the provider, not run a real completion,
+ * so the model name is deliberately not a real one. A server that validates the
+ * model rejects this with a model error (which we treat as "key is fine, model
+ * is not real"); a server that ignores it falls through to the empty-messages
+ * 400. Either way the key itself gets evaluated. See #13789.
+ */
+const VALIDATION_MODEL = 'positron-connectivity-check';
 
 /**
- * Resolve a model identifier to send in the Custom Provider validation
- * request. Reads the first entry's `identifier` from
- * `positron.assistant.models.overrides.customProvider`. Returns `''` when
- * no usable override is configured.
+ * A 401/403 can mean the key was rejected (auth) or that the model was rejected
+ * (the key is fine). OpenAI-compatible servers word model rejections around the
+ * "model" field, so a body mentioning it points at the model, not the key.
  */
-function getCustomProviderModel(): string {
+function looksLikeModelError(body: string): boolean {
+	return /model/i.test(body);
+}
+
+/** Read the response body without letting a read failure mask the real status. */
+async function readBody(response: Response): Promise<string> {
 	try {
-		const overrides = vscode.workspace
-			.getConfiguration('positron.assistant')
-			.get<ModelOverrideEntry[]>('models.overrides.customProvider');
-		if (Array.isArray(overrides) && overrides.length > 0) {
-			const first = overrides[0]?.identifier?.trim();
-			if (first) {
-				return first;
-			}
-		}
+		return await response.text();
 	} catch {
+		return '';
 	}
-	return '';
 }
 
 class CustomProviderValidationError extends Error {
@@ -66,11 +68,10 @@ export async function validateCustomProviderApiKey(
 		() => controller.abort(), KEY_VALIDATION_TIMEOUT_MS
 	);
 	try {
-		const model = getCustomProviderModel();
 		const response = await fetch(endpoint, {
 			method: 'POST',
 			headers,
-			body: JSON.stringify({ model, messages: [] }),
+			body: JSON.stringify({ model: VALIDATION_MODEL, messages: [] }),
 			signal: controller.signal,
 		});
 
@@ -80,6 +81,15 @@ export async function validateCustomProviderApiKey(
 		}
 
 		if (response.status === 401 || response.status === 403) {
+			// The key reached the provider and got a rejection. If the body
+			// points at the model rather than the key, the key is fine, so let
+			// configuration proceed and let the real chat surface any model
+			// problem later.
+			const body = await readBody(response);
+			if (looksLikeModelError(body)) {
+				log.warn(`[Custom Provider] Validation endpoint returned ${response.status} for a model reason, not auth; saving credentials anyway.`);
+				return;
+			}
 			throw new CustomProviderValidationError(
 				vscode.l10n.t('Invalid Custom Provider API key')
 			);

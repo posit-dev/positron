@@ -1,5 +1,6 @@
 {
 	"python.locator": "native",
+	"python.createEnvironment.promptOnInterpreterSelect": false,
 	"interpreters.startupBehavior": "manual",
 	"positron.r.kernel.logLevel": "trace",
 	"python.languageServerLogLevel": "debug",

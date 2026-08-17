@@ -37,6 +37,7 @@ suite('Create Environment Trigger', () => {
     let disableCreateEnvironmentTriggerStub: sinon.SinonStub;
     // --- Start Positron ---
     let autoCreateVenvWithDepsStub: sinon.SinonStub;
+    let hasShownCreateEnvModalStub: sinon.SinonStub;
     // --- End Positron ---
 
     const workspace1 = {
@@ -75,6 +76,8 @@ suite('Create Environment Trigger', () => {
         sinon.stub(autoCreateVenv, 'describeTool').returns('uv');
         autoCreateVenvWithDepsStub = sinon.stub(autoCreateVenv, 'autoCreateVenvWithDeps');
         autoCreateVenvWithDepsStub.resolves(undefined);
+        hasShownCreateEnvModalStub = sinon.stub(triggerUtils, 'hasShownCreateEnvModal');
+        hasShownCreateEnvModalStub.returns(false);
         // --- End Positron ---
     });
 
@@ -281,4 +284,20 @@ suite('Create Environment Trigger', () => {
         // --- End Positron ---
         sinon.assert.calledOnce(disableCreateEnvironmentTriggerStub);
     });
+
+    // --- Start Positron ---
+    test('Does not show the notification when the interpreter-select modal already prompted', async () => {
+        shouldPromptToCreateEnvStub.returns(true);
+        hasVenvStub.resolves(false);
+        hasPrefixCondaEnvStub.resolves(false);
+        hasRequirementFilesStub.resolves(true);
+        hasKnownFilesStub.resolves(false);
+        isGlobalPythonSelectedStub.resolves(true);
+        hasShownCreateEnvModalStub.returns(true);
+
+        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
+
+        sinon.assert.notCalled(showInformationMessageStub);
+    });
+    // --- End Positron ---
 });

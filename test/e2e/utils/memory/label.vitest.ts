@@ -11,7 +11,7 @@ import { deriveExtensionName, normalizeProcessName, resolveRole } from './label.
  * Real shapes, with the paths shortened to the parts the rules actually read.
  */
 const QUARTO_LSP = '/build/bundled/node /home/u/.positron-server/extensions/quarto.quarto-1.135.0-universal/out/lsp/lsp.js --stdio';
-const DUCKDB_WORKER = '/build/bundled/node /build/bundled/extensions/positron-duckdb/dist/duckdb-worker.js';
+const DUCKDB_WORKER = '/build/bundled/node /build/bundled/extensions/positron-duckdb/out/duckdbWorker.js';
 const PET_SERVER = '/build/bundled/extensions/positron-python/python-env-tools/pet server';
 const AIR_LSP = '/home/u/.positron-server/extensions/posit.air-vscode-0.28.0-linux-x64/bundled/bin/air language-server';
 const RUFF_SERVER = '/tmp/extensions-dir/charliermarsh.ruff-2026.70.0-linux-x64/bundled/libs/bin/ruff server';
@@ -152,7 +152,7 @@ describe('deriveExtensionName', () => {
 	// the report as an anonymous share of `language_server` or `extension_child`.
 	test.each([
 		[QUARTO_LSP, 'quarto.quarto (lsp)'],
-		[DUCKDB_WORKER, 'positron-duckdb (duckdb-worker)'],
+		[DUCKDB_WORKER, 'positron-duckdb (duckdbWorker)'],
 		[PET_SERVER, 'positron-python (pet)'],
 	])('names the extension that spawned the process', (cmd, expected) => {
 		expect(deriveExtensionName(cmd)).toBe(expected);
@@ -197,6 +197,24 @@ describe('roles for the eagerly started servers', () => {
 
 	test('a process outside any extension dir is still unlabeled', () => {
 		expect(roleOf('/opt/positron/positron --type=utility --utility-sub-type=node.mojom.NodeService')).toBe('unlabeled');
+	});
+});
+
+describe('kernel roles', () => {
+	const roleOf = (cmd: string): string => resolveRole({ cmd, isRoot: false }).role;
+
+	test('the Python kernel is labeled kernel', () => {
+		// Positron never launches ipykernel as a module; it runs its own
+		// positron_language_server.py. A rule that only matched
+		// `ipykernel_launcher` would never fire, which is exactly the CI failure
+		// this test reproduces: "expected a kernel process".
+		expect(roleOf('/usr/bin/python3 /opt/positron/resources/app/extensions/positron-python/python_files/posit/positron_language_server.py -f /tmp/kernel-abc.json --logfile /tmp/kernel-abc.log --loglevel=debug --session-mode=console'))
+			.toBe('kernel');
+	});
+
+	test('the R kernel is still labeled kernel', () => {
+		expect(roleOf('/opt/positron/resources/app/extensions/positron-r/resources/ark/ark --connection_file /tmp/kernel-abc.json --log /tmp/kernel-abc.log'))
+			.toBe('kernel');
 	});
 });
 

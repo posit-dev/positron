@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Configuration key that gates the Positron Data Connections feature. Shared by
-// positronDataConnections.contribution.ts (registers the setting and the view) and
-// positronDataConnectionsCommands.ts (the getConnections command returns an empty list when this
-// is off, so it stays registered and Assistant-side feature-detection is a simple getCommands()
-// check).
+// positronDataConnections.contribution.ts (registers the setting and the view),
+// positronDataConnectionsCommands.ts (the command payloads report nothing when this is off, so the
+// commands stay registered and Assistant-side feature-detection is a simple getCommands() check),
+// and positronDataConnectionsInspectActions.ts (the Command Palette entries' precondition).
 export const POSITRON_DATA_CONNECTIONS_ENABLED_KEY = 'dataConnections.enabled';

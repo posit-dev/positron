@@ -5,6 +5,7 @@
 
 import test, { expect } from '@playwright/test';
 import { Code } from '../infra/code.js';
+import { STARTUP_MESSAGING_SELECTOR, STARTUP_MESSAGING_TIMEOUT } from './utils/startupMessaging.js';
 
 /**
  * Provides hotkey shortcuts for common operations. References the keybindings defined in `test/e2e/fixtures/keybindings.json`.
@@ -261,7 +262,7 @@ export class HotKeys {
 		await this.code.driver.currentPage.waitForTimeout(3000);
 		await this.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
 		if (waitForReady) {
-			await expect(this.code.driver.currentPage.locator('text=/^Setting up|^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+			await expect(this.code.driver.currentPage.locator(STARTUP_MESSAGING_SELECTOR)).toHaveCount(0, { timeout: STARTUP_MESSAGING_TIMEOUT });
 		}
 	}
 

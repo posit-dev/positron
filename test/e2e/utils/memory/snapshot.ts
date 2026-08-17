@@ -5,9 +5,11 @@
 
 import { basename } from 'path';
 import { getPositronVersion } from '../../infra/test-runner/positron-version.js';
+import { ForcedGcStats } from './gc.js';
 import { deriveExtensionName, isGenericName, normalizeProcessName, resolveRole } from './label.js';
 import { readProcessNames } from './positron-status.js';
 import { readProcessTree } from './process-tree.js';
+import { MemoryScenario } from './scenarios.js';
 import { ActivatedExtension, LabeledProcess, MemorySnapshot, RawProcess } from './types.js';
 
 function median(values: number[]): number {
@@ -39,11 +41,16 @@ export function joinProcesses(
 	const byPid = new Map(raw.map(p => [p.pid, p]));
 
 	const pssByPid = new Map<number, number[]>();
+	const rssByPid = new Map<number, number[]>();
 	for (const sample of samples) {
 		for (const proc of sample) {
-			const seen = pssByPid.get(proc.pid) ?? [];
-			seen.push(proc.pssBytes);
-			pssByPid.set(proc.pid, seen);
+			const seenPss = pssByPid.get(proc.pid) ?? [];
+			seenPss.push(proc.pssBytes);
+			pssByPid.set(proc.pid, seenPss);
+
+			const seenRss = rssByPid.get(proc.pid) ?? [];
+			seenRss.push(proc.rssBytes);
+			rssByPid.set(proc.pid, seenRss);
 		}
 	}
 
@@ -67,6 +74,10 @@ export function joinProcesses(
 			: undefined;
 
 		const observed = pssByPid.get(proc.pid) ?? [proc.pssBytes];
+		// Aggregated the same way as pss on purpose. Taking rss from one sample
+		// while pss was a median let a moving process report pss above its own
+		// rss, which is impossible at any single instant.
+		const observedRss = rssByPid.get(proc.pid) ?? [proc.rssBytes];
 		return {
 			pid: proc.pid,
 			ppid: proc.ppid,
@@ -76,9 +87,11 @@ export function joinProcesses(
 			labeled,
 			cmdBasename: basename(proc.cmd.split(' ')[0] || 'unknown'),
 			pssBytes: median(observed),
-			rssBytes: proc.rssBytes,
+			rssBytes: median(observedRss),
 			pssMin: Math.min(...observed),
-			pssMax: Math.max(...observed)
+			pssMax: Math.max(...observed),
+			pssSamples: observed,
+			rssSamples: observedRss
 		};
 	});
 }
@@ -118,16 +131,24 @@ export function isSettled(readings: number[]): boolean {
 		});
 }
 
+/** How long settle detection waits before giving up and measuring anyway. */
+export const SETTLE_CAP_MS = 90_000;
+
 /**
  * Wait until the process tree stops growing, rather than sleeping a fixed
- * amount. Returns how long that took, which is worth recording on its own.
+ * amount.
+ *
+ * Returns how long that took, which is worth recording on its own, and the
+ * highest total it saw. The peak matters because the startup reclaim can land
+ * inside this window rather than after it: see {@link treeHasSettled}, which
+ * cannot detect a drop it never observed.
  */
 export async function waitForSettle(
 	rootPid: number,
 	options: { pollMs?: number; capMs?: number } = {}
-): Promise<number> {
+): Promise<{ settleMs: number; peakTotalPss: number }> {
 	const pollMs = options.pollMs ?? 1000;
-	const capMs = options.capMs ?? 90_000;
+	const capMs = options.capMs ?? SETTLE_CAP_MS;
 	const started = Date.now();
 	const readings: number[] = [];
 
@@ -138,7 +159,132 @@ export async function waitForSettle(
 		}
 		await new Promise(resolve => setTimeout(resolve, pollMs));
 	}
-	return Date.now() - started;
+	return {
+		settleMs: Date.now() - started,
+		peakTotalPss: readings.length > 0 ? Math.max(...readings) : 0
+	};
+}
+
+/**
+ * How far a process's samples may span, relative to its own median, before that
+ * median stops describing a steady state.
+ *
+ * Per process rather than per tree: `isSettled` compares whole-tree totals, so a
+ * single process moving 130 MB is only 7% of a 1.9 GB tree and can hide inside a
+ * total that looks flat.
+ */
+const UNSTABLE_SPREAD_FRACTION = 0.05;
+
+/**
+ * Absolute floor under the relative one. Without it the gpu process trips on every
+ * run (~5 MB on an ~86 MB median is 6%), and a warning that always fires is one
+ * nobody reads. Set below the 86 MB regression this effort exists to catch.
+ */
+const UNSTABLE_SPREAD_BYTES = 50 * 1024 * 1024;
+
+/**
+ * Whether a series's median describes a real state. One definition for both the
+ * sampling loop's exit and the report's warning, so a run cannot stop sampling and
+ * then complain that it should not have.
+ */
+function isSteady(samples: number[]): boolean {
+	if (samples.length < 2) {
+		return true;
+	}
+	const mid = median(samples);
+	if (mid <= 0) {
+		return true;
+	}
+	const spread = Math.max(...samples) - Math.min(...samples);
+	return !(spread / mid > UNSTABLE_SPREAD_FRACTION && spread > UNSTABLE_SPREAD_BYTES);
+}
+
+/**
+ * How many trailing samples must agree for a process to count as holding steady.
+ *
+ * Four at 5s apart means the tail spans 15s. Three would be satisfied by the two
+ * samples either side of the startup reclaim step plus one more; four cannot
+ * straddle it.
+ */
+const TAIL_LENGTH = 4;
+
+/**
+ * Below this, a process is not consulted about whether the tree has settled.
+ *
+ * Small processes wobble by a few MB constantly (the zygote, the shell) and
+ * would hold sampling open to the cap forever without being able to shift a
+ * total measured in gigabytes.
+ */
+const SETTLE_MIN_PROCESS_BYTES = 50 * 1024 * 1024;
+
+/**
+ * Whether a process's last {@link TAIL_LENGTH} readings are flat. Only the tail,
+ * because every process steps down once during startup and a whole-curve rule
+ * would call it unsettled forever.
+ */
+export function tailIsFlat(samples: number[]): boolean {
+	return samples.length >= TAIL_LENGTH && isSteady(samples.slice(-TAIL_LENGTH));
+}
+
+/**
+ * The startup plateau is flat too: idle holds a steady 559 MB renderer for 20s, and
+ * a flatness-only rule stopped there and published it. Requiring a drop from the
+ * peak separates "not moving yet" from "done moving". 5% against a measured
+ * 12-20% drop, where jitter is ~1%.
+ */
+const RECLAIM_DROP_FRACTION = 0.05;
+
+/**
+ * Whether the tree has reclaimed its startup memory and then stopped moving.
+ *
+ * The drop is measured on the tree total, where the reclaim is unmissable;
+ * flatness per process, because summing hides it (the renderer's step is 45% of
+ * the renderer but 13% of the tree). An empty tree is settled: the root is gone.
+ */
+export function treeHasSettled(samples: RawProcess[][], peakBeforeSampling = 0): boolean {
+	if (samples.length < TAIL_LENGTH) {
+		return false;
+	}
+	const totals = samples.map(totalPss);
+	// Includes the peak waitForSettle saw, because the reclaim does not reliably
+	// wait for sampling to start. An `editors` launch took 11.4s to stop growing
+	// (siblings took 4.2s), reclaimed inside that window, and then presented a
+	// dead-flat tree for 90s: with the peak taken from sampling alone, latest was
+	// the peak, no drop was visible, and the launch burned the cap with every
+	// process motionless. Measuring against the earlier peak sees the drop.
+	const peak = Math.max(peakBeforeSampling, ...totals);
+	const latest = totals[totals.length - 1];
+	if (latest > peak * (1 - RECLAIM_DROP_FRACTION)) {
+		return false;
+	}
+
+	const seriesByPid = new Map<number, number[]>();
+	for (const sample of samples) {
+		for (const proc of sample) {
+			const series = seriesByPid.get(proc.pid) ?? [];
+			series.push(proc.pssBytes);
+			seriesByPid.set(proc.pid, series);
+		}
+	}
+	return [...seriesByPid.values()]
+		.filter(series => series[series.length - 1] >= SETTLE_MIN_PROCESS_BYTES)
+		.every(tailIsFlat);
+}
+
+/**
+ * Processes whose samples moved too much for their median to mean anything.
+ *
+ * Reported rather than thrown on: a caller decides whether an unstable process
+ * invalidates the run.
+ *
+ * Do NOT read this as a proxy for "the launch hit {@link SAMPLING_CAP_MS}", which
+ * an earlier version of this comment claimed. Only the last {@link TAIL_LENGTH}
+ * samples are retained, so a launch that sampled to the cap without ever settling
+ * still presents a flat tail here and comes back empty. Assert on
+ * `snapshot.treeSettled` for that, as memory-scenario.ts does.
+ */
+export function unstableProcesses(processes: LabeledProcess[]): LabeledProcess[] {
+	return processes.filter(proc => proc.pssBytes > 0 && !isSteady(proc.pssSamples));
 }
 
 /**
@@ -150,33 +296,75 @@ function readPositronVersion(buildRoot: string): string {
 	return version ? `${version.positronVersion}-${version.buildNumber}` : '';
 }
 
-/** Take three samples five seconds apart once the app has settled. */
+/**
+ * How the sampling window is shaped, named so the report can describe itself.
+ *
+ * Sampling runs until {@link treeHasSettled} rather than for a fixed count.
+ * A fixed window cannot work: every process releases its startup memory once, at
+ * an age that depends on how long the scenario's own setup took, so any window
+ * long enough to be past the step for `idle` is wasted on the session scenarios
+ * and any window short enough to be cheap lands mid-step for one of them.
+ */
+const SAMPLE_INTERVAL_MS = 5000;
+
+/** How long sampling waits for a flat tail before reporting a moving process anyway. */
+export const SAMPLING_CAP_MS = 90_000;
+
+/**
+ * Sample the tree until every large process holds steady, then report only the
+ * readings taken after it did.
+ *
+ * The startup plateau is discarded rather than averaged in. Including it made the
+ * report claim a renderer used 422 MB when it had already settled at 285 MB, and
+ * made `idle` look 113 MB heavier than a session -- an inversion that was purely
+ * an artifact of `idle` reaching the sampler younger.
+ */
 export async function captureSnapshot(input: {
+	scenario: MemoryScenario;
 	rootPid: number;
 	buildRoot: string;
 	userDataDir: string;
 	launchIndex: number;
 	extensions: ActivatedExtension[];
+	forceGc?: () => Promise<ForcedGcStats[]>;
 }): Promise<MemorySnapshot> {
-	const settleMs = await waitForSettle(input.rootPid);
+	const { settleMs, peakTotalPss } = await waitForSettle(input.rootPid);
+
+	// Must land after settle, so startup allocation is already done, and before
+	// sampling starts, so the reported tail reflects the collected state.
+	const forcedGc = input.forceGc ? await input.forceGc() : undefined;
 
 	const samples: RawProcess[][] = [];
-	for (let i = 0; i < 3; i++) {
-		if (i > 0) {
-			await new Promise(resolve => setTimeout(resolve, 5000));
+	const startedSampling = Date.now();
+	let treeSettled = false;
+	while (Date.now() - startedSampling < SAMPLING_CAP_MS) {
+		if (samples.length > 0) {
+			await new Promise(resolve => setTimeout(resolve, SAMPLE_INTERVAL_MS));
 		}
 		samples.push(await readProcessTree(input.rootPid));
+		if (treeHasSettled(samples, peakTotalPss)) {
+			treeSettled = true;
+			break;
+		}
 	}
+	const sampledMs = Date.now() - startedSampling;
 
+	// Only the flat tail is reported. The head is the startup plateau, and a
+	// median taken across the step between them describes neither state.
+	const reported = samples.slice(-TAIL_LENGTH);
 	const names = await readProcessNames(input.buildRoot, input.userDataDir);
-	const processes = joinProcesses(samples[samples.length - 1], names, input.rootPid, samples);
+	const processes = joinProcesses(samples[samples.length - 1], names, input.rootPid, reported);
 
 	return {
-		scenario: 'idle',
+		scenario: input.scenario,
 		capturedAt: new Date().toISOString(),
 		positronVersion: readPositronVersion(input.buildRoot),
 		launchIndex: input.launchIndex,
 		settleMs,
+		sampledMs,
+		treeSettled,
+		forcedGc,
+		discardedSamples: samples.length - reported.length,
 		treeTotalPssBytes: processes.reduce((sum, p) => sum + p.pssBytes, 0),
 		processes,
 		extensions: input.extensions

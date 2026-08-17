@@ -13,6 +13,9 @@ import {
     // --- End Positron ---
     EnvironmentVariableMutatorOptions,
     ProgressLocation,
+    // --- Start Positron ---
+    l10n,
+    // --- End Positron ---
 } from 'vscode';
 import { pathExists, normCase } from '../../common/platform/fs-paths';
 import { IExtensionActivationService } from '../../activation/types';
@@ -48,6 +51,12 @@ import {
 import { ProgressService } from '../../common/application/progressService';
 import { useEnvExtension } from '../../envExt/api.internal';
 import { registerPythonStartup } from '../pythonStartup';
+// --- Start Positron ---
+import {
+    getEnvironmentModulesApi,
+    moduleMetadataMap,
+} from '../../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
+// --- End Positron ---
 
 @injectable()
 export class TerminalEnvVarCollectionService implements IExtensionActivationService, ITerminalEnvVarCollectionService {
@@ -188,6 +197,14 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
             traceError(`Failed to apply terminal env vars`, shell, ex);
             return Promise.reject(ex); // Ensures progress indicator does not disappear in case of errors, so we can catch issues faster.
         });
+        // --- Start Positron ---
+        // _applyCollectionImpl clears and rebuilds the whole collection on every
+        // path, so module environment variables are layered on here afterwards,
+        // once, covering every early-return path at a single point. The clear
+        // removes any variables applied for a previously-active interpreter, so no
+        // separate key tracking is needed to purge stale module vars.
+        await this.applyModuleTerminalEnvironment(resource);
+        // --- End Positron ---
         this.progressService.hideProgress();
     }
 
@@ -323,6 +340,77 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
         await this.terminalDeactivateService.initializeScriptParams(shell).catch((ex) => {
             traceError(`Failed to initialize deactivate script`, shell, ex);
         });
+    }
+
+    // --- Start Positron ---
+    /**
+     * If the active interpreter comes from an environment module, capture the
+     * variables that module contributes and apply them to terminals so tools
+     * launched there (Shiny, scripts, `python`) use the same interpreter as the
+     * console. Called after the collection is rebuilt; a no-op when the feature is
+     * disabled, off Linux, or the interpreter is not module-based.
+     */
+    private async applyModuleTerminalEnvironment(resource: Resource): Promise<void> {
+        // Environment modules are only supported on Linux.
+        if (this.platform.osType !== OSType.Linux) {
+            return;
+        }
+
+        // Respect the setting that guards this behavior.
+        const applyToTerminals = this.workspaceService
+            .getConfiguration('positron.environmentModules', resource)
+            .get<boolean>('applyToTerminals', true);
+        if (!applyToTerminals) {
+            return;
+        }
+
+        const interpreter = await this.interpreterService.getActiveInterpreter(resource);
+        const modules = interpreter ? moduleMetadataMap.get(interpreter.path)?.modules : undefined;
+        if (!modules || modules.length === 0) {
+            return;
+        }
+
+        const api = await getEnvironmentModulesApi();
+        if (!api) {
+            return;
+        }
+
+        let captured;
+        try {
+            captured = await api.captureEnvironmentVariables(modules);
+        } catch (error) {
+            traceWarn(`Failed to capture module environment for terminals: ${error}`);
+            return;
+        }
+        if (captured.length === 0) {
+            return;
+        }
+
+        // Apply only via shell integration, not at process creation. The supervisor
+        // reads terminal environment contributions and applies them to kernel
+        // processes; kernels already get their module environment from their
+        // startup command, so applying these at process creation would double-apply
+        // it. These contributions are for interactive terminals only.
+        const collection = this.getEnvironmentVariableCollection();
+        const options = { applyAtProcessCreation: false, applyAtShellIntegration: true };
+        for (const v of captured) {
+            switch (v.action) {
+                case 'prepend':
+                    collection.prepend(v.name, v.value, options);
+                    break;
+                case 'append':
+                    collection.append(v.name, v.value, options);
+                    break;
+                default:
+                    collection.replace(v.name, v.value, options);
+                    break;
+            }
+        }
+        collection.description = l10n.t('Environment from modules: {0}', modules.join(', '));
+        traceInfo(
+            `Applied ${captured.length} module environment variable(s) to terminals ` +
+                `for modules [${modules.join(', ')}]: ${captured.map((v) => v.name).join(', ')}`,
+        );
     }
 
     private isPromptSet = new Map<number | undefined, boolean>();

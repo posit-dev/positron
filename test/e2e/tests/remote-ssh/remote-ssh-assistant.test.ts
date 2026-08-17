@@ -7,7 +7,11 @@ import { test, expect, tags } from '../_test.setup';
 import { connectToRemoteHost, sshKeyscan } from './connect';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	// This suite drives the legacy provider dialog, which is no longer the
+	// default, so pin it. Remove the pin when this suite is ported to the new
+	// modal (posit-dev/positron#15537).
+	extraSettings: { 'assistant.newProviderModal': false },
 });
 
 // Only the remote-ssh tag: the lane that runs this suite is the one that

@@ -12,7 +12,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, RuntimeStartupPhase } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata, IRuntimeSessionDisplayInfo } from './runtimeSessionService.js';
+import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata, IRuntimeSessionDisplayInfo, IStartNewRuntimeSessionOptions } from './runtimeSessionService.js';
 import { RuntimeSessionDisplayInfo } from './runtimeSessionDisplayInfo.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -651,6 +651,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param source The source of the request to start the runtime.
 	 * @param startMode The mode in which to start the runtime.
 	 * @param activate Whether to activate/focus the session after it is started.
+	 * @param options Additional properties for the new session, e.g. whether the user explicitly selected the runtime.
 	 */
 	async startNewRuntimeSession(
 		runtimeId: string,
@@ -659,7 +660,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		notebookUri: URI | undefined,
 		source: string,
 		startMode = RuntimeStartMode.Starting,
-		activate: boolean): Promise<string> {
+		activate: boolean,
+		options?: IStartNewRuntimeSessionOptions): Promise<string> {
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
 		// use. This makes it possible for multiple requests to start the same
@@ -709,7 +711,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			startMode,
 			createConsole,
 			activate,
-			notebookUri);
+			notebookUri,
+			options);
 	}
 
 	/**
@@ -1761,6 +1764,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param createConsole Whether to create a console for the runtime.
 	 * @param activate Whether to activate/focus the session after it is started.
 	 * @param notebookDocument The notebook document to attach to the session, if any.
+	 * @param options Additional properties for the new session, e.g. whether the user explicitly selected the runtime.
 	 *
 	 * Returns a promise that resolves with the session ID when the runtime is
 	 * ready to use.
@@ -1772,7 +1776,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		startMode: RuntimeStartMode,
 		createConsole: boolean,
 		activate: boolean,
-		notebookUri?: URI): Promise<string> {
+		notebookUri?: URI,
+		options?: IStartNewRuntimeSessionOptions): Promise<string> {
 		this.setStartingSessionMaps(sessionMode, runtimeMetadata, notebookUri);
 
 		// Create a promise that resolves when the runtime is ready to use, if there isn't already one.
@@ -1819,7 +1824,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			notebookUri,
 			workingDirectory,
 			createdTimestamp: Date.now(),
-			startReason: source
+			startReason: source,
+			userSelected: options?.userSelected
 		};
 
 		// Provision the new session.

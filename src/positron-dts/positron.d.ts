@@ -794,6 +794,13 @@ declare module 'positron' {
 
 		/** The starting working directory of the session, if any */
 		readonly workingDirectory?: string;
+
+		/**
+		 * True when the session is being created because the user explicitly
+		 * selected this runtime, e.g. from a session picker. Absent or false for
+		 * automatic, restored, duplicated, and programmatic starts.
+		 */
+		readonly userSelected?: boolean;
 	}
 
 	/**
@@ -2753,6 +2760,36 @@ declare module 'positron' {
 			okButtonTitle?: string): Thenable<null>;
 
 		/**
+		 * Options for `showThreeButtonModalDialogPrompt`.
+		 */
+		export interface ThreeButtonModalDialogPromptOptions {
+			/** The title shown in the dialog's title bar. */
+			title: string;
+			/** The message shown in the dialog's body. */
+			message: string;
+			/** The default action. Focused when the dialog opens, and invoked by Enter. */
+			primaryButtonTitle: string;
+			/** The alternative action, shown next to the primary button. */
+			secondaryButtonTitle: string;
+			/** The odd-one-out action, shown on the left edge of the footer. */
+			tertiaryButtonTitle: string;
+		}
+
+		/**
+		 * Create and show a modal dialog prompt with three buttons.
+		 *
+		 * The dialog has no Cancel button; the title bar close button and Escape dismiss it.
+		 * Spend one of the three buttons on a labelled dismiss action if the prompt needs one.
+		 *
+		 * @param options The dialog's title, message, and button titles.
+		 *
+		 * @returns A Thenable that resolves to the title of the button the user clicked, or
+		 *   to undefined if the user dismissed the dialog.
+		 */
+		export function showThreeButtonModalDialogPrompt(
+			options: ThreeButtonModalDialogPromptOptions): Thenable<string | undefined>;
+
+		/**
 		 * Get the `Console` for a runtime `languageId`
 		 *
 		 * @param languageId The runtime language id to retrieve a `Console` for, i.e. 'r' or 'python'.
@@ -3804,7 +3841,34 @@ declare module 'positron' {
 			maxInputTokens?: number;
 			maxOutputTokens?: number;
 			completions?: boolean;
+			/**
+			 * Wire protocol (API type) the provider speaks, e.g. 'openai-chat'
+			 * (Chat Completions) or 'openai-responses' (Responses). Routes custom
+			 * / OpenAI-compatible providers to the right API. Omit to let the
+			 * provider decide.
+			 */
+			protocol?: string;
+			/**
+			 * Explicit model list for a custom provider whose endpoint has no
+			 * `/models` listing. Persisted as the provider's custom model
+			 * definitions.
+			 */
+			customModels?: LanguageModelCustomModel[];
 			autoconfigure?: LanguageModelAutoconfigure;
+		}
+
+		/**
+		 * A user-declared model for a custom provider, for providers whose
+		 * endpoint does not list its own models.
+		 */
+		export interface LanguageModelCustomModel {
+			id: string;
+			name: string;
+			maxContextLength: number;
+			supportsTools: boolean;
+			supportsImages: boolean;
+			supportsToolResultImages: boolean;
+			supportsWebSearch: boolean;
 		}
 
 		/**

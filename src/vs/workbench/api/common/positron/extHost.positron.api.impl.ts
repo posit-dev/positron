@@ -235,6 +235,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Thenable<boolean> {
 				return extHostModalDialogs.showSimpleModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle);
 			},
+			showThreeButtonModalDialogPrompt(options: positron.window.ThreeButtonModalDialogPromptOptions): Thenable<string | undefined> {
+				return extHostModalDialogs.showThreeButtonModalDialogPrompt(options);
+			},
 			showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Thenable<null> {
 				return extHostModalDialogs.showSimpleModalDialogMessage(title, message, okButtonTitle);
 			},

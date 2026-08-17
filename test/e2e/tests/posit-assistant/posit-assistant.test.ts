@@ -7,7 +7,11 @@ import { test, expect, tags } from '../_test.setup';
 import { ModelProvider } from '../../pages/positronAssistant';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	// Signs in through the legacy provider dialog (pages/positronAssistant.ts),
+	// which is no longer the default. Remove the pin when that page object is
+	// ported to the new modal.
+	extraSettings: { 'assistant.newProviderModal': false },
 });
 
 const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];

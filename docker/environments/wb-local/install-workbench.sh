@@ -329,6 +329,27 @@ if [ "${WB_OS}" = "rocky9" ]; then
     # inherit an incorrect one.
     sudo mkdir -p /home/rstudio-server
     sudo chown rstudio-server:rstudio-server /home/rstudio-server
+
+    # Give PAM sessions a PATH that includes /usr/local/bin.
+    #
+    # rserver launches sessions through PAM, which builds a fresh environment
+    # rather than inheriting the container's -- so the image's `ENV PATH` never
+    # reaches a session, and putting a directory on PATH in the Dockerfile does
+    # not help. `pam_env` (in /etc/pam.d/system-auth on EL9) reads
+    # /etc/environment for that PATH; Debian/Ubuntu ship a populated one, EL9
+    # ships it empty. The result on Rocky was a session PATH without
+    # /usr/local/bin, which is where the image installs quarto -- so Posit
+    # Publisher's `quarto inspect` (spawned by name) failed, it fell back to a
+    # hardcoded version with no engines, and Connect then declined to provision R
+    # for the render and died with "Failed to spawn 'Rscript'".
+    #
+    # Only written when PATH is absent, so a future image that sets its own is
+    # left alone.
+    if ! sudo grep -q '^PATH=' /etc/environment 2>/dev/null; then
+        printf 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"\n' \
+            | sudo tee -a /etc/environment > /dev/null
+        sudo chmod 644 /etc/environment
+    fi
 else
     if ! sudo apt install -y "./workbench.${WB_PKG_EXT}"; then
         log_error "Failed to install Workbench package"
@@ -451,16 +472,41 @@ else
         log_error "Failed to install environment-modules"
     fi
 fi
-if ! sudo mkdir -p /opt/modules/modulefiles/R; then
+# The session user (not root) resolves these modulefiles, so the tree has to be
+# world-readable. State the modes rather than inheriting the ambient umask: a
+# sourced helper leaking `umask 077` once made these 0700/0600, which hid both
+# module environments from the session and failed the @:environment-modules
+# tests while the install still reported success.
+if ! sudo install -d -m 755 /opt/modules/modulefiles/R; then
     log_error "Failed to create /opt/modules/modulefiles/R directory"
 fi
 printf '#%%Module1.0\nset root /root/scratch/R-4.4.1\nprepend-path PATH $root/bin\nprepend-path MANPATH $root/share/man\nsetenv R_HOME $root/lib/R\n' | sudo tee /opt/modules/modulefiles/R/4.4.1 > /dev/null
-if ! sudo mkdir -p /opt/modules/modulefiles/python; then
+sudo chmod 644 /opt/modules/modulefiles/R/4.4.1
+if ! sudo install -d -m 755 /opt/modules/modulefiles/python; then
     log_error "Failed to create /opt/modules/modulefiles/python directory"
 fi
 printf '#%%Module1.0\nset root /root/scratch/python-env\nprepend-path PATH $root/bin\n' | sudo tee /opt/modules/modulefiles/python/3.12.10 > /dev/null
-echo 'source /etc/profile.d/modules.sh' >> /home/${Q_USER}/.profile
-echo 'module use /opt/modules/modulefiles' >> /home/${Q_USER}/.profile
+sudo chmod 644 /opt/modules/modulefiles/python/3.12.10
+# Put the module setup on /etc/profile.d rather than in a user dotfile. This
+# used to append to ~/.profile, which is a Debian-ism: bash reads ~/.profile only
+# when ~/.bash_profile and ~/.bash_login are both absent, and EL9's /etc/skel
+# ships a ~/.bash_profile. So on Rocky the appends were never read, MODULEPATH
+# never gained /opt/modules/modulefiles, and both @:environment-modules tests
+# failed with an empty module picker. A profile.d drop-in is read by login shells
+# on both OSes and needs no per-user ownership fixing.
+printf 'source /etc/profile.d/modules.sh\nmodule use /opt/modules/modulefiles\n' \
+    | sudo tee /etc/profile.d/positron-modules.sh > /dev/null
+sudo chmod 644 /etc/profile.d/positron-modules.sh
+
+# Also cover interactive non-login shells, which read ~/.bashrc and not
+# profile.d. Idempotent: --reinstall re-runs this, and the @:environment-modules
+# test appends the same two lines itself if they are missing.
+if ! sudo grep -q 'module use /opt/modules/modulefiles' /home/${Q_USER}/.bashrc 2>/dev/null; then
+    printf 'source /etc/profile.d/modules.sh\nmodule use /opt/modules/modulefiles\n' \
+        | sudo tee -a /home/${Q_USER}/.bashrc > /dev/null
+fi
+sudo chown ${Q_USER}:${Q_GROUP} /home/${Q_USER}/.bashrc
+sudo chmod 644 /home/${Q_USER}/.bashrc
 
 # Log completion and versions
 echo ""

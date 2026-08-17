@@ -6,6 +6,7 @@
 import test, { expect, Locator, Page } from '@playwright/test';
 import { Code, QuickAccess, Console, ContextMenu, Modals } from '../infra';
 import { QuickInput } from './quickInput';
+import { STARTUP_MESSAGING_SELECTOR, STARTUP_MESSAGING_TIMEOUT } from './utils/startupMessaging.js';
 
 // Lazy getters for environment variables - these will be evaluated when accessed, not at module load time
 const getDesiredPython = () => process.env.POSITRON_PY_VER_SEL;
@@ -661,7 +662,7 @@ export class Sessions {
 			await expect(this.code.driver.currentPage.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
 			await this.console.focus();
 			await this.code.driver.currentPage.mouse.move(0, 0);
-			await expect(this.page.locator('text=/^Setting up|^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+			await expect(this.page.locator(STARTUP_MESSAGING_SELECTOR)).toHaveCount(0, { timeout: STARTUP_MESSAGING_TIMEOUT });
 		});
 	}
 

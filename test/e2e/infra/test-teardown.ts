@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
+import { join } from 'path';
 import { execSync } from 'child_process';
 
 export class TestTeardown {
@@ -60,7 +61,7 @@ export class TestTeardown {
 	 * revert files another spec is actively using.
 	 */
 	async restoreFiles(files: string[]): Promise<void> {
-		if (files.length === 0) {
+		if (files.length === 0 || !this._hasGitWorkspace()) {
 			return;
 		}
 		try {
@@ -121,8 +122,22 @@ export class TestTeardown {
 		await this.restoreFiles(toRestore);
 	}
 
+	/**
+	 * The workbench and jupyter projects run Positron in a container: the workspace path
+	 * is a container path with no counterpart on the host, and the copy into the container
+	 * excludes .git. Every git-backed cleanup is a no-op there, so skip it rather than
+	 * spawning git against a cwd that does not exist (spawnSync reports that as ENOENT
+	 * on /bin/sh, which reads like a broken runner).
+	 */
+	private _hasGitWorkspace(): boolean {
+		return fs.existsSync(join(this._workspacePathOrFolder, '.git'));
+	}
+
 	/** Workspace-relative path -> two-letter git status code. */
 	private _dirtyFiles(): Map<string, string> {
+		if (!this._hasGitWorkspace()) {
+			return new Map();
+		}
 		// -z avoids git's path quoting; --no-renames keeps every record a plain "XY path".
 		const status = this._git('status --porcelain -z --untracked-files=all --no-renames');
 		return new Map(

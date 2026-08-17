@@ -250,7 +250,7 @@ import { probeDedicatedEnvironment } from '../../client/positron/environmentHeal
 
 suite('Python Environment Health - dedicatedEnvironment (item 4)', () => {
     const createEnvFix = { commandId: 'python.createEnvironmentAndRegister', label: 'c', args: [{}] };
-    const newFolderFix = { commandId: 'positron.workbench.action.newFolderFromTemplate', label: 'n' };
+    const openFolderFix = { commandId: 'workbench.action.files.openFolder', label: 'o' };
 
     test('workspace open + dedicated interpreter => pass', () => {
         const item = probeDedicatedEnvironment({
@@ -258,7 +258,7 @@ suite('Python Environment Health - dedicatedEnvironment (item 4)', () => {
             interpreterDedicated: true,
             anyDedicatedDiscovered: true,
             createEnvFix,
-            newFolderFix,
+            openFolderFix,
         });
         assert.strictEqual(item.status, 'pass');
         assert.isUndefined(item.fix);
@@ -270,34 +270,46 @@ suite('Python Environment Health - dedicatedEnvironment (item 4)', () => {
             interpreterDedicated: false,
             anyDedicatedDiscovered: true,
             createEnvFix,
-            newFolderFix,
+            openFolderFix,
         });
         assert.strictEqual(item.status, 'fail');
         assert.strictEqual(item.fix, createEnvFix);
     });
 
-    test('no workspace + a dedicated env exists => warn + New Folder fix', () => {
+    test('workspace open + no creatable environment => fail without a fix', () => {
+        const item = probeDedicatedEnvironment({
+            workspaceOpen: true,
+            interpreterDedicated: false,
+            anyDedicatedDiscovered: true,
+            createEnvFix: undefined,
+            openFolderFix,
+        });
+        assert.strictEqual(item.status, 'fail');
+        assert.isUndefined(item.fix);
+    });
+
+    test('no workspace + a dedicated env exists => warn + Open Folder fix', () => {
         const item = probeDedicatedEnvironment({
             workspaceOpen: false,
             interpreterDedicated: false,
             anyDedicatedDiscovered: true,
             createEnvFix,
-            newFolderFix,
+            openFolderFix,
         });
         assert.strictEqual(item.status, 'warn');
-        assert.strictEqual(item.fix, newFolderFix);
+        assert.strictEqual(item.fix, openFolderFix);
     });
 
-    test('no workspace + no dedicated env => fail + New Folder fix', () => {
+    test('no workspace + no dedicated env => fail + Open Folder fix', () => {
         const item = probeDedicatedEnvironment({
             workspaceOpen: false,
             interpreterDedicated: false,
             anyDedicatedDiscovered: false,
             createEnvFix,
-            newFolderFix,
+            openFolderFix,
         });
         assert.strictEqual(item.status, 'fail');
-        assert.strictEqual(item.fix, newFolderFix);
+        assert.strictEqual(item.fix, openFolderFix);
     });
 });
 
@@ -345,6 +357,12 @@ suite('Python Environment Health - environmentReady (item 3)', () => {
     test('Rosetta warns without a fix when native-Python install is disabled', () => {
         const item = probeEnvironmentReady({ ...green, isRosetta: true, installNativePythonFix: undefined });
         assert.strictEqual(item.status, 'warn');
+        assert.isUndefined(item.fix);
+    });
+
+    test('broken env fails without a fix when no environment can be created', () => {
+        const item = probeEnvironmentReady({ ...green, resolvesAndRuns: false, recreateFix: undefined });
+        assert.strictEqual(item.status, 'fail');
         assert.isUndefined(item.fix);
     });
 
@@ -446,6 +464,24 @@ suite('Python Environment Health - orchestration', () => {
         });
         assert.strictEqual(result.items[1].status, 'fail');
         assert.include(result.items[1].detail ?? '', 'boom');
+        assert.strictEqual(result.items[1].summary, 'A supported Python is installed');
+    });
+
+    test('skipped items carry the check summary, not the machine id', async () => {
+        const result = await assembleItems({
+            discovery: () => fail('discovery'),
+            pythonInstalled: async () => pass('pythonInstalled'),
+            ready: async () => pass('environmentReady'),
+            dedicated: async () => pass('dedicatedEnvironment'),
+        });
+        assert.deepStrictEqual(
+            result.items.slice(1).map((i) => [i.id, i.summary]),
+            [
+                ['pythonInstalled', 'A supported Python is installed'],
+                ['environmentReady', 'The environment is ready to use with Positron'],
+                ['dedicatedEnvironment', 'A dedicated Python environment is available'],
+            ],
+        );
     });
 });
 

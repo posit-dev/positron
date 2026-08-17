@@ -40,6 +40,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { GettingStartedInput } from './gettingStartedInput.js';
 // --- Start Positron ---
 import { JUPYTER_EXTENSION_ID } from '../../notebook/browser/notebookBrowser.js';
+import { isHiddenWalkthrough } from '../common/positronHiddenWalkthroughs.js';
 // --- End Positron ---
 
 export const HasMultipleNewFileEntries = new RawContextKey<boolean>('hasMultipleNewFileEntries', false);
@@ -589,6 +590,16 @@ export class WalkthroughsService extends Disposable implements IWalkthroughsServ
 	}
 
 	_registerWalkthrough(walkthroughDescriptor: IWalkthrough): void {
+		// --- Start Positron ---
+		// Positron hides several upstream walkthroughs whose content describes
+		// VS Code rather than Positron. Every walkthrough registers through this
+		// method, whether it comes from the built-in list, an extension
+		// contribution, or the public API, so skipping here hides them from the
+		// quick pick and the welcome page at once.
+		if (isHiddenWalkthrough(walkthroughDescriptor.id)) {
+			return;
+		}
+		// --- End Positron ---
 		const oldCategory = this.gettingStartedContributions.get(walkthroughDescriptor.id);
 		if (oldCategory) {
 			console.error(`Skipping attempt to overwrite walkthrough. (${walkthroughDescriptor.id})`);

@@ -96,6 +96,10 @@ if echo "$PR_BODY" | grep -q "@:workbench-stable"; then
 	echo "Found workbench-stable tag in PR body. Setting to run workbench tests against the last stable Workbench."
 	echo "workbench_stable_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
+if echo "$PR_BODY" | grep -q "@:workbench-rocky"; then
+	echo "Found workbench-rocky tag in PR body. Setting to run workbench tests on Rocky Linux."
+	echo "workbench_rocky_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
 if echo "$PR_BODY" | grep -q "@:jupyter"; then
 	echo "Found jupyter tag in PR body. Setting to run jupyter tests."
 	echo "jupyter_tag_found=true" >> "$GITHUB_OUTPUT"
