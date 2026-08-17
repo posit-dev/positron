@@ -93,23 +93,16 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, onRunFix
 
 	const summary = summaryText(health);
 
-	// `status` speaks a message through the workbench's polite live region, the
-	// same one used to announce background changes elsewhere.
+	// `status` speaks through the workbench's polite live region. In an effect
+	// because results land seconds after the page paints, and it speaks the line
+	// already on screen rather than one written only for screen readers.
 	//
-	// It runs in an effect because results land seconds after the page paints, so
-	// there is nothing to announce at render time. What it speaks is the line
-	// already on screen, not a string written only for screen readers.
-	//
-	// Keyed on the state object, not on the wording it produces. A recheck that
-	// finds nothing new produces the same sentence, so keying on the text alone
-	// skipped the announcement and left Recheck looking dead to a screen reader
-	// user. The environmentHealthService stores one state object per language and replaces it on
-	// every run, so this speaks once per run and a run for one language does not
-	// re-announce the other.
-	//
-	// Whatever is already on screen at mount was announced when it landed, and
-	// the live region is workbench-wide rather than per pane. Without this, a
-	// rebuild while the user works in another tab reads the whole card at them.
+	// Keyed on the state object rather than the sentence it produces: a rerun that
+	// finds nothing new produces the same sentence, and keying on the text left
+	// the control looking dead. The service replaces that object on every run, so
+	// this speaks once per run, and skips whatever was already on screen at mount
+	// -- the live region is workbench-wide, so a rebuild while the user works in
+	// another tab would otherwise read the whole card at them.
 	const announced = useRef(health.state);
 	useEffect(() => {
 		if (announced.current === health.state) {

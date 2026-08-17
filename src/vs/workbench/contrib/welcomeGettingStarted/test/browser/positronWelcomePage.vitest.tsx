@@ -29,7 +29,7 @@ const oneWalkthrough = {
 };
 
 /**
- * A stub environmentHealthService for tests that only care about the rest of the page. The
+ * A stub service for tests that only care about the rest of the page. The
  * card itself has its own tests, so this stands in wherever the page just
  * needs something to pass through.
  */

@@ -39,8 +39,6 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 	// Ties the card's heading to the section, so a screen reader announces the
 	// region as "Environment setup" rather than an unnamed region.
 	const titleId = useId();
-	// One subscription for the whole card, which is why onDidChange carries the
-	// whole snapshot rather than the language that moved.
 	// useEventState reads the value once, then re-reads it and re-renders whenever
 	// the event fires. The service's state is not a React value, so this is how the
 	// card follows it.
@@ -66,16 +64,11 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 		return () => disposables.dispose();
 	}, [services.configurationService, services.hoverService]);
 
-	// A progressbar is not a live region: it is read only if the user navigates
-	// onto it. Without this, pressing Recheck is silent, and the result
-	// announcement in LanguageHealthGroup cannot cover the gap -- it speaks when a
-	// language's state changes, which tells the user how a run ended but never
-	// that one began.
-	//
-	// Only on the transition into busy, and never on the first mount. The pane
-	// rebuilds its React tree whenever a walkthrough registers, so announcing on
-	// mount would speak at someone working in a different tab. That leaves this
-	// saying what it is for: the user pressed Recheck and something happened.
+	// A progressbar is not a live region -- it is read only if the user navigates
+	// onto it -- so starting a run would otherwise be silent. Only on the
+	// transition into busy, and never on the first mount: the pane rebuilds its
+	// React tree whenever a walkthrough registers, and announcing then would speak
+	// at someone working in a different tab.
 	const wasBusy = useRef(busy);
 	useEffect(() => {
 		if (busy && !wasBusy.current) {
