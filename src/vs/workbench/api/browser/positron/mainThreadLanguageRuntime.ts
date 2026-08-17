@@ -1754,8 +1754,8 @@ export class MainThreadLanguageRuntime
 				this._proxy.$onDidRegisterLanguageRuntime(metadata);
 			}));
 
-		// Track code execution events in the Console and Notebooks and forward
-		// them to the event host
+		// Track code execution events in the Console, Notebooks, and Quarto
+		// documents and forward them to the event host
 		this._disposables.add(
 			this._positronConsoleService.onDidExecuteCode(
 				(event) => {
@@ -1764,6 +1764,12 @@ export class MainThreadLanguageRuntime
 			));
 		this._disposables.add(
 			this._runtimeNotebookKernelService.onDidExecuteCode(
+				(event) => {
+					this._proxy.$notifyCodeExecuted(event);
+				}
+			));
+		this._disposables.add(
+			this._quartoExecutionManager.onDidExecuteCode(
 				(event) => {
 					this._proxy.$notifyCodeExecuted(event);
 				}
