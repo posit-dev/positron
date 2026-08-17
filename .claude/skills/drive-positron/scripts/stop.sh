@@ -55,16 +55,38 @@ listener_pids() {
 	fi
 }
 
-# Kill a process and its children. Electron spawns a tree, and orphaned renderer
-# or utility processes keep holding memory.
-kill_tree() {
+# Ask the instance to stop. Electron spawns a process tree, but the children are
+# the main process's responsibility: they exit with it.
+#
+# Do not signal the children first on macOS or Linux. The main process reads a
+# terminated renderer as a window crash, respawns the helpers, shows the "window
+# terminated unexpectedly" dialog, and then does not act on the signal that
+# follows -- the instance survives the timeout and keeps holding memory.
+stop_tree() {
 	local pid="$1"
 	if [[ "$IS_WINDOWS" == "1" ]]; then
 		# Double slashes keep MSYS from rewriting the flags as paths.
 		taskkill //F //T //PID "$pid" >/dev/null 2>&1 || true
 	else
-		pkill -TERM -P "$pid" 2>/dev/null || true
 		kill -TERM "$pid" 2>/dev/null || true
+	fi
+}
+
+# Last resort for a main process that ignored SIGTERM. Collect the children
+# first: once the parent is gone they are reparented and no longer findable
+# through it.
+force_stop_tree() {
+	local pid="$1"
+	if [[ "$IS_WINDOWS" == "1" ]]; then
+		taskkill //F //T //PID "$pid" >/dev/null 2>&1 || true
+	else
+		local children
+		children=$(pgrep -P "$pid" 2>/dev/null || true)
+		kill -KILL "$pid" 2>/dev/null || true
+		if [[ -n "$children" ]]; then
+			# shellcheck disable=SC2086 # deliberate word splitting: one PID per line
+			kill -KILL $children 2>/dev/null || true
+		fi
 	fi
 }
 
@@ -79,7 +101,7 @@ else
 	fi
 	echo "[stop.sh] stopping PID(s) on CDP port $CDP_PORT: $(echo "$PIDS" | tr '\n' ' ')" >&2
 	for pid in $PIDS; do
-		kill_tree "$pid"
+		stop_tree "$pid"
 	done
 
 	for _ in $(seq 1 "$TIMEOUT"); do
@@ -89,8 +111,23 @@ else
 		sleep 1
 	done
 
+	# Escalate rather than report failure while the app still holds memory. A
+	# modal dialog can keep a graceful shutdown from completing.
 	if cdp_alive; then
-		echo "[stop.sh] CDP port $CDP_PORT is still answering after ${TIMEOUT}s." >&2
+		echo "[stop.sh] still answering after ${TIMEOUT}s; forcing" >&2
+		for pid in $PIDS; do
+			force_stop_tree "$pid"
+		done
+		for _ in $(seq 1 5); do
+			if ! cdp_alive; then
+				break
+			fi
+			sleep 1
+		done
+	fi
+
+	if cdp_alive; then
+		echo "[stop.sh] CDP port $CDP_PORT is still answering after a forced stop." >&2
 		exit 1
 	fi
 	echo "[stop.sh] instance stopped" >&2
