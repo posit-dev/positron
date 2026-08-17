@@ -27,6 +27,7 @@ import type { IExtensionPromptFileResult } from '../../contrib/chat/common/promp
 
 // --- Start Positron ---
 import { onUnexpectedExternalError } from '../../../base/common/errors.js';
+import { IQuartoCellSymbols } from '../../contrib/positronQuarto/common/quartoCellSymbols.js';
 import type * as positron from 'positron';
 import * as extHostTypes from './positron/extHostTypes.positron.js';
 // --- End Positron ---
@@ -588,19 +589,19 @@ const newCommands: ApiCommand[] = [
 		ApiCommandResult.Void
 	),
 	// -- quarto cell symbols
-	// The result type below is written out structurally rather than imported from
-	// `IQuartoCellSymbols`, because `api/common/` cannot import from
-	// `positronQuarto/browser/` under the layering rules. Keeping this shape in
-	// step with `IQuartoCellSymbols` is a manual obligation, not one the compiler
-	// enforces: `ApiCommand` takes `result: ApiCommandResult<any, any>` and the
-	// internal command is looked up by string id, so nothing here would fail to
-	// compile if the two shapes drifted apart.
+	// The answer shape is imported from `positronQuarto/common` rather than
+	// written out here, so a change to it is a compile error in this converter
+	// instead of a silent drift. What the compiler still cannot check is the
+	// pairing itself: `ApiCommand` takes `result: ApiCommandResult<any, any>` and
+	// the internal command is looked up by a string id, so nothing here would
+	// fail to compile if `_executeQuartoCellSymbolProvider` began answering with
+	// a different shape altogether.
 	new ApiCommand(
 		'positron.executeQuartoCellSymbolProvider', '_executeQuartoCellSymbolProvider',
 		'Execute the document symbol providers of a Quarto document\'s code cells, grouped by cell.',
 		[ApiCommandArgument.Uri],
 		new ApiCommandResult<
-			{ range: IRange; symbols: languages.DocumentSymbol[] }[],
+			IQuartoCellSymbols[],
 			{ range: types.Range; symbols: vscode.DocumentSymbol[] }[]
 		>('A promise that resolves to one entry per code cell that has symbols, in document order.', value => {
 			const toVscodeSymbols = (symbols: languages.DocumentSymbol[]): vscode.DocumentSymbol[] => {

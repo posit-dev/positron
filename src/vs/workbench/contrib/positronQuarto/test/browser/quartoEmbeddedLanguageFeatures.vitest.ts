@@ -42,7 +42,8 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { Constants } from '../../../../../base/common/uint.js';
 import { QUARTO_NATIVE_LANGUAGE_FEATURES_KEY } from '../../common/positronQuartoConfig.js';
 import { IQuartoVirtualCell, IQuartoVirtualNotebookService } from '../../browser/quartoVirtualNotebookService.js';
-import { QuartoEmbeddedLanguageFeatures, provideQuartoCellSymbols, IQuartoCellSymbols } from '../../browser/quartoEmbeddedLanguageFeatures.js';
+import { QuartoEmbeddedLanguageFeatures, provideQuartoCellSymbols } from '../../browser/quartoEmbeddedLanguageFeatures.js';
+import { IQuartoCellSymbols } from '../../common/quartoCellSymbols.js';
 
 // The source document, with the R chunk's code on lines 4 and 5:
 //

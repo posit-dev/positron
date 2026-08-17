@@ -52,6 +52,7 @@ import {
 	ICellLineSpan,
 	sourcePositionToCell,
 } from '../common/quartoCellPositionMapping.js';
+import { IQuartoCellSymbols } from '../common/quartoCellSymbols.js';
 import { IQuartoVirtualNotebookService } from './quartoVirtualNotebookService.js';
 
 /**
@@ -570,12 +571,6 @@ async function symbolsForCell(
 		}
 	}
 	return undefined;
-}
-
-/** One cell's symbols, and where that cell's code sits in the source document. */
-export interface IQuartoCellSymbols {
-	readonly range: IRange;
-	readonly symbols: DocumentSymbol[];
 }
 
 /**
