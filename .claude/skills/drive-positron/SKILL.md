@@ -37,6 +37,21 @@ npm run electron
 
 Do not interrupt the script while it reports that it is running pre-launch.
 
+## Platform support
+
+These scripts run on macOS, Linux, and Windows. On Windows, run them from Git
+Bash; they are bash scripts and will not work from PowerShell or `cmd`.
+
+Tools they expect on `PATH`:
+
+| Tool | Used by | Notes |
+|---|---|---|
+| `node`, `npx` | all | `@playwright/cli` resolves from the repo's `node_modules` |
+| `curl` | `launch.sh`, `stop.sh` | CDP readiness and liveness probes |
+| `rsync` or `tar` | `launch.sh` | `rsync` preferred; `tar` is the fallback, and is what Git Bash has |
+| `jq` | `monaco-paste.sh` | not present in a bare Git Bash; install it separately |
+| `cygpath` | `launch.sh` on Windows | ships with Git Bash |
+
 ## Launch Positron
 
 Run:
@@ -58,18 +73,19 @@ Wait for the script to print one JSON object. Record at least:
 
 The launcher:
 
-- copies the source profile from `$POSITRON_DEV_USER_DATA_DIR` or `~/.positron-dev`;
+- copies the source profile from `$POSITRON_DEV_USER_DATA_DIR` or `~/.positron-dev`, using `rsync` when present and `tar` otherwise;
 - writes only to the disposable copy;
 - creates an isolated shared-data directory;
 - uses a short run directory under `/tmp` by default;
 - assigns unique ports for CDP and the debug endpoints;
+- converts the profile paths for the native binary on Windows;
 - waits for CDP and verifies that the app remains alive before returning.
 
 ### Required launch arguments
 
 | Argument | Purpose |
 |---|---|
-| `--folder-uri file:///private/tmp/myworkspace` | Open a workspace reliably. Do not pass a bare positional folder: Positron may discard it. On macOS, use the canonical `/private/tmp` path rather than `/tmp`. |
+| `--folder-uri file:///private/tmp/myworkspace` | Open a workspace reliably. Do not pass a bare positional folder: Positron may discard it. On macOS, use the canonical `/private/tmp` path rather than `/tmp`. On Windows the URI needs a drive letter, so build it with `cygpath -m`: `--folder-uri "file:///$(cygpath -m /tmp/myworkspace)"`. |
 | `--disable-workspace-trust` | Prevent a modal trust dialog from blocking automation when the seed profile has no trust state. |
 | `--use-mock-keychain` | Avoid using the per-user OS keychain from the disposable instance. A `GitHubLoginFailed` message in the log is expected. |
 | `--skip-welcome` | Keep the Welcome editor from receiving the initial focus. |
@@ -185,37 +201,32 @@ Always stop the disposable instance; Positron can retain several gigabytes of me
 
 ```bash
 npx @playwright/cli -s=positron close
-kill "$PID"
+.claude/skills/drive-positron/scripts/stop.sh \
+	--cdp-port "$CDP_PORT" --run-dir "$RUN_DIR"
 ```
 
-Before deleting anything, verify that `RUN_DIR` is the exact `runDir` reported by the launcher and points to a generated `positron-dev-launch` directory:
+`stop.sh` kills the process tree that owns the CDP port, waits for the port to stop answering, and then removes the run directory. It exits non-zero if the instance is still reachable, so a silent failure to clean up is not possible.
 
-```bash
-case "${RUN_DIR:-}" in
-	*/positron-dev-launch/*)
-		rm -rf -- "${RUN_DIR:?}"
-		;;
-	*)
-		echo "Refusing to remove unexpected run directory: ${RUN_DIR:-<empty>}" >&2
-		exit 1
-		;;
-esac
-```
+Pass `--run-dir` only when it is the exact `runDir` the launcher reported. The script refuses any path that does not contain a generated `positron-dev-launch` component, and stops the instance without deleting anything when `--run-dir` is omitted.
+
+Do not use `kill "$PID"` on its own. On Windows the reported `pid` belongs to the MSYS shell that exec'd the native Electron binary, so killing it can leave the application running. `stop.sh` locates the real process through the CDP port on every platform.
 
 Remove `.playwright-cli` only if it is the session directory created in the intended workspace.
 
-Confirm that no process remains:
+To confirm independently that no process remains, check that the CDP port no longer answers:
 
 ```bash
-pgrep -f "remote-debugging-port=$CDP_PORT"
+curl -sf -o /dev/null "http://127.0.0.1:$CDP_PORT/json/version" \
+	&& echo "still running" || echo "stopped"
 ```
 
-An empty result means cleanup succeeded.
+This works on every platform. `pgrep -f "remote-debugging-port=$CDP_PORT"` is equivalent on macOS and Linux, but `pgrep` is absent from Git Bash on Windows.
 
 ## Troubleshoot failures
 
 - **Attach reports `connect ECONNREFUSED`:** The application exited after opening CDP. Inspect the path reported as `logFile`.
-- **The log reports `listen EINVAL` or an IPC path longer than 103 characters:** The run-directory base is too long. Unset `$POSITRON_LAUNCH_TMP` or point it at a shorter directory.
+- **The log reports `listen EINVAL` or an IPC path longer than 103 characters:** The run-directory base is too long. Unset `$POSITRON_LAUNCH_TMP` or point it at a shorter directory. This affects macOS and Linux only; Windows uses named pipes and has no such limit.
+- **`rsync: command not found` (Windows):** You are on an older copy of `launch.sh`. The current script falls back to `tar` when `rsync` is absent.
 - **Snapshot references disappear:** Look for a modal dialog with a screenshot, then take a new snapshot.
 - **A built-in extension does not load:** Compile extensions with:
 
