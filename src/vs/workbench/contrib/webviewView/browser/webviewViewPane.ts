@@ -253,8 +253,10 @@ export class WebviewViewPane extends ViewPane {
 				priority: 150
 			};
 			this.activity.value = this.activityService.showViewActivity(this.id, activity);
+		// --- Start Positron ---
 		} else {
 			this.activity.clear();
+		// --- End Positron ---
 		}
 	}
 
