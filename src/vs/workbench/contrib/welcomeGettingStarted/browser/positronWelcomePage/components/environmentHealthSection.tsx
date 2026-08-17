@@ -48,10 +48,10 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 	const busy = languages.some(language => environmentHealthService.isBusy(language.language));
 	// A language removed from the setting renders nothing at all, so the only
 	// trace of it is the setting itself.
-	const checkedLanguages = languages.filter(language => language.state.kind !== 'hidden');
+	const enabledLanguages = languages.filter(language => language.state.kind !== 'hidden');
 	// Every language turned off in the setting. The card has nothing to check, so
 	// it drops its controls and explains itself instead.
-	const allChecksDisabled = checkedLanguages.length === 0;
+	const allChecksDisabled = enabledLanguages.length === 0;
 
 	// Built the way the console tab list builds its hovers, so this one follows the
 	// workbench's hover delay and styling rather than being a title attribute.
@@ -146,7 +146,7 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 						{localize('positron.welcome.environmentSetupTurnOnChecks', "You can turn them back on in Settings")}
 					</Button>
 				</div>
-				: checkedLanguages.map(language =>
+				: enabledLanguages.map(language =>
 					<LanguageHealthGroup
 						key={language.language}
 						busy={environmentHealthService.isBusy(language.language)}
