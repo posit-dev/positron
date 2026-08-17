@@ -26,8 +26,11 @@ import { ICachedPackageMetadata, PackageMetadataCache } from './packageMetadataC
  *   so no package carries outdated state.
  * - `timed-out`: the fetch outran its budget. The package list is complete;
  *   outdated state is whatever the cache could supply, which may be nothing.
+ * - `fetch-failed`: the fetch errored -- repository unreachable, kernel
+ *   error. The package list is complete; outdated state is whatever the
+ *   cache could supply, which may be nothing.
  */
-export type PackagesMetadataStatus = 'fresh' | 'cached' | 'unsupported' | 'timed-out';
+export type PackagesMetadataStatus = 'fresh' | 'cached' | 'unsupported' | 'timed-out' | 'fetch-failed';
 
 /**
  * A point-in-time read of a session's installed packages, with how far its
@@ -46,7 +49,10 @@ export interface IPackagesSnapshot {
 export interface IPackagesSnapshotOptions {
 	/** How long to wait for the installed package list. */
 	listTimeoutMs?: number;
-	/** How long to wait for the outdated/latestVersion fetch. */
+	/**
+	 * Budget for the outdated/latestVersion stage. Joining a fetch already in
+	 * flight and issuing our own share it.
+	 */
 	metadataTimeoutMs?: number;
 }
 
@@ -94,11 +100,13 @@ export interface IPositronPackagesInstance {
 	 * positronPackages.getPackages command.
 	 *
 	 * Differs from {@link refreshPackages} in the two ways that matter to such
-	 * a caller: it populates the list when nothing has yet (an agent can arrive
-	 * before the pane was ever opened, which is what attaches the runtime), and
-	 * it *awaits* the outdated/latestVersion fetch that a refresh deliberately
-	 * leaves running in the background. Both stages are bounded, and the result
-	 * says which of them produced the metadata.
+	 * a caller: it reads the installed list live on every call (an agent can
+	 * arrive before the pane was ever opened, or be verifying an install it
+	 * just ran in the console), and it *awaits* the outdated/latestVersion
+	 * fetch that a refresh deliberately leaves running in the background.
+	 * Both stages are bounded, the result says which of them produced the
+	 * metadata, and it is read-only toward other callers: a metadata fetch
+	 * already in flight (a user's refresh) is joined, never cancelled.
 	 */
 	getPackagesSnapshot(token?: CancellationToken, options?: IPackagesSnapshotOptions): Promise<IPackagesSnapshot>;
 
@@ -336,25 +344,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 				return;
 			}
 
-			for (const [name, metadata] of metadataMap) {
-				const key = name.toLowerCase();
-				const version = versionByName.get(key);
-				if (version === undefined) {
-					// Not currently installed; nothing to anchor the entry to.
-					continue;
-				}
-				this._metadataCache.set(key, {
-					version,
-					outdated: metadata.outdated,
-					latestVersion: metadata.latestVersion,
-				});
-			}
-
-			// Persist only after a successful fetch so a failed or cancelled
-			// fetch leaves the previous on-disk entry intact.
-			this._cache.upsert(this._runtimeId, this._snapshotForPersist());
-
-			this._onDidRefreshPackagesInstance.fire(this.packages);
+			this._mergeAndPersistMetadata(metadataMap, versionByName);
 		});
 
 		this._metadataFetch = fetch;
@@ -373,6 +363,38 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 				this._metadataFetch = undefined;
 			}
 		}
+	}
+
+	/**
+	 * Write fetched metadata into the in-memory cache, persist it to disk, and
+	 * notify listeners. `versionByName` is the installed versions as of when
+	 * the fetch was issued, so each entry stays anchored to the version its
+	 * outdated state was computed against even if an install lands mid-fetch
+	 * (the `packages` getter drops mismatched entries).
+	 */
+	private _mergeAndPersistMetadata(
+		metadataMap: Map<string, Partial<ILanguageRuntimePackage>>,
+		versionByName: Map<string, string>,
+	): void {
+		for (const [name, metadata] of metadataMap) {
+			const key = name.toLowerCase();
+			const version = versionByName.get(key);
+			if (version === undefined) {
+				// Not currently installed; nothing to anchor the entry to.
+				continue;
+			}
+			this._metadataCache.set(key, {
+				version,
+				outdated: metadata.outdated,
+				latestVersion: metadata.latestVersion,
+			});
+		}
+
+		// Persist only after a successful fetch so a failed or cancelled
+		// fetch leaves the previous on-disk entry intact.
+		this._cache.upsert(this._runtimeId, this._snapshotForPersist());
+
+		this._onDidRefreshPackagesInstance.fire(this.packages);
 	}
 
 	async installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
@@ -606,21 +628,23 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 		const cts = new CancellationTokenSource(token);
 		try {
-			// A caller that never opened the Packages pane gets here before
-			// anything populated the list (attachRuntime, which kicks off the
-			// first refresh, runs when the view mounts), so fetch it rather
-			// than reporting an empty environment.
-			if (this._packages.length === 0) {
-				const packages = await raceTimeout(
-					packageManager.getPackages(cts.token),
-					options.listTimeoutMs ?? PACKAGES_SNAPSHOT_LIST_TIMEOUT_MS,
-					() => cts.cancel(),
-				);
-				if (packages === undefined) {
-					throw new Error('Timed out reading the installed packages.');
-				}
-				this._packages = packages;
+			// Read the list live on every call rather than trusting
+			// this._packages: the command's contract is "what is installed
+			// now", and a package installed outside Positron (pip install in
+			// the console) would otherwise never appear. Kernel-local and
+			// bounded, so a dead kernel can't hang the caller.
+			const packages = await raceTimeout(
+				packageManager.getPackages(cts.token),
+				options.listTimeoutMs ?? PACKAGES_SNAPSHOT_LIST_TIMEOUT_MS,
+				() => cts.cancel(),
+			);
+			if (packages === undefined) {
+				throw new Error('Timed out reading the installed packages.');
 			}
+			this._packages = packages;
+			// Mirror refreshPackages' stage 1: the pane should show the list
+			// this caller was just told about.
+			this._onDidRefreshPackagesInstance.fire(this.packages);
 
 			if (!packageManager.getPackageMetadata) {
 				return { packages: this.packages, metadataStatus: 'unsupported' };
@@ -631,23 +655,83 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 				return { packages: [], metadataStatus: 'fresh' };
 			}
 
+			// The two waits below share one budget: joining someone else's
+			// fetch must not buy the fetch after it a second full timeout.
+			const metadataDeadline = Date.now() +
+				(options.metadataTimeoutMs ?? PACKAGES_SNAPSHOT_METADATA_TIMEOUT_MS);
+
+			// A metadata fetch already in flight belongs to the pane --
+			// possibly a user-forced refresh, whose recompute must not be
+			// dropped. Join it instead of preempting it (or duplicating its
+			// repository query); whatever it caches serves this caller too.
+			const inflight = this._metadataFetch;
+			if (inflight) {
+				const joined = await raceTimeout(
+					// Failure is fine here: the fetch below is the fallback.
+					inflight.then(() => true, () => true),
+					metadataDeadline - Date.now(),
+				);
+				if (joined === undefined) {
+					// Not ours to cancel; report what the cache has.
+					return { packages: this.packages, metadataStatus: 'timed-out' };
+				}
+			}
+
 			// A cache still inside its freshness window is exactly what the
 			// pane shows, so only refetch every package once it has aged out.
 			// Gap-filling for packages with no entry happens either way.
 			const fetchAll = !this._cache.isFresh(this._runtimeId);
+			const packagesToFetch = fetchAll
+				? this._packages
+				: this._packages.filter((pkg) => !this._hasFreshMetadata(pkg));
+			if (packagesToFetch.length === 0) {
+				return { packages: this.packages, metadataStatus: 'cached' };
+			}
 
-			// Bounded because this stage leaves the machine. On expiry the
-			// packages getter still merges whatever cached metadata is valid,
-			// which is a better answer than none -- the status says so.
-			const completed = await raceTimeout(
-				this._fetchAndMergeMetadata(packageManager, cts.token, fetchAll).then(() => true),
-				options.metadataTimeoutMs ?? PACKAGES_SNAPSHOT_METADATA_TIMEOUT_MS,
-				() => cts.cancel(),
-			);
+			// Anchor entries to the versions installed when the fetch was
+			// issued, as _fetchAndMergeMetadata does, so an install landing
+			// mid-fetch can't mis-anchor them.
+			const versionByName = new Map(this._packages.map((pkg) => [pkg.name.toLowerCase(), pkg.version]));
 
+			// Fetched directly rather than through _fetchAndMergeMetadata:
+			// that helper preempts whatever fetch is in flight and swallows
+			// failures -- both wrong for a read-only foreground caller that
+			// has to label its answer. Bounded because this stage leaves the
+			// machine (CRAN/P3M/PyPI). The .then wrapper keeps a timeout
+			// (raceTimeout's undefined) distinguishable from the manager
+			// itself answering undefined (no metadata support at runtime).
+			let outcome: { map: Map<string, Partial<ILanguageRuntimePackage>> | undefined } | undefined;
+			try {
+				outcome = await raceTimeout(
+					packageManager.getPackageMetadata(packagesToFetch.map((pkg) => pkg.name), cts.token)
+						.then((map) => ({ map })),
+					metadataDeadline - Date.now(),
+					() => cts.cancel(),
+				);
+			} catch (err) {
+				// Our own timeout resolves the race with undefined before it
+				// cancels, so a cancellation landing here is the caller's.
+				if (isCancellationError(err) && token.isCancellationRequested) {
+					throw err;
+				}
+				this._logService.warn(`[Packages] Snapshot metadata fetch failed: ${err}`);
+				return { packages: this.packages, metadataStatus: 'fetch-failed' };
+			}
+			if (outcome === undefined) {
+				// On expiry the packages getter still merges whatever cached
+				// metadata is valid, which is a better answer than none --
+				// the status says so.
+				return { packages: this.packages, metadataStatus: 'timed-out' };
+			}
+			if (outcome.map === undefined) {
+				return { packages: this.packages, metadataStatus: 'unsupported' };
+			}
+			if (outcome.map.size > 0) {
+				this._mergeAndPersistMetadata(outcome.map, versionByName);
+			}
 			return {
 				packages: this.packages,
-				metadataStatus: completed ? (fetchAll ? 'fresh' : 'cached') : 'timed-out',
+				metadataStatus: fetchAll ? 'fresh' : 'cached',
 			};
 		} finally {
 			cts.dispose();
